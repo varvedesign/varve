@@ -329,8 +329,7 @@ export function GradientEditor({
           />
         </div>
         <span className="insp-field__hint" role="note">
-          Stop colours interpolate separately from the document working profile. Alpha uses
-          premultiplied colour to avoid transparent-stop halos.
+          Stop colours interpolate independently from the working profile. Premultiplied alpha avoids transparent-stop halos.
         </span>
       </div>
 
@@ -373,20 +372,21 @@ export function GradientEditor({
         </div>
       </div>
 
-      <div
-        ref={barRef}
-        role="slider"
-        aria-label="Gradient stop bar — click to add, drag stops to reposition"
-        aria-valuenow={Math.round((currentStop?.position ?? 0) * 100)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuetext={`${Math.round((currentStop?.position ?? 0) * 100)}%`}
-        tabIndex={0}
-        onPointerDown={handleBarPointerDown}
-        onKeyDown={handleBarKeyDown}
-        className="gradient-editor__bar"
-        style={{ background: gradientCss(gradient, documentGradientInterpolation) }}
-      >
+      <div className="gradient-editor__bar-wrap">
+        <div
+          ref={barRef}
+          role="slider"
+          aria-label="Gradient stop bar — click to add, drag stops to reposition"
+          aria-valuenow={Math.round((currentStop?.position ?? 0) * 100)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuetext={`${Math.round((currentStop?.position ?? 0) * 100)}%`}
+          tabIndex={0}
+          onPointerDown={handleBarPointerDown}
+          onKeyDown={handleBarKeyDown}
+          className="gradient-editor__bar"
+          style={{ background: gradientCss(gradient, documentGradientInterpolation) }}
+        >
         {gradient.stops.map((stop, i) => (
           <button
             // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
@@ -433,6 +433,7 @@ export function GradientEditor({
             }}
           />
         ))}
+        </div>
       </div>
 
       {currentStop && (
