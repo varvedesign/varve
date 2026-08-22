@@ -189,7 +189,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'scunet',
     name: 'SCUNet Denoise',
     description:
-      'Real-world blind image denoising (SCUNet PSNR variant). Removes sensor noise, JPEG artifacts, and grain while preserving detail. Fully convolutional (H,W divisible by 8), identity normalization (pixel/255). Verified end-to-end.',
+      'Real-world blind image denoising (SCUNet PSNR variant). Removes sensor noise and grain while preserving detail. Fully convolutional (H,W divisible by 64), identity normalization (pixel/255). Verified end-to-end; not a dedicated JPEG-artifact remover.',
     sizeBytes: 76_936_854,
     remoteUrl:
       'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx',

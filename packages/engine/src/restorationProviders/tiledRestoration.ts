@@ -108,8 +108,12 @@ export async function runTiledRestoration(
       extracted.tensor,
       extracted.alignedWidth,
       extracted.alignedHeight,
-      extracted.alignedWidth,
-      extracted.alignedHeight,
+      // The provider receives the padded tensor dimensions, but its output
+      // must be reconstructed at the tile's actual dimensions. Passing the
+      // aligned size here makes native ImageData construction disagree with
+      // the original tile buffer whenever a tile is edge-padded.
+      tile.width,
+      tile.height,
       extracted.alphaData,
       tileOriginalData,
       strength,

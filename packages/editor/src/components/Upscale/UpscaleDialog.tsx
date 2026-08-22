@@ -61,7 +61,6 @@ interface UpscaleDialogProps {
     output: OutputBehavior;
     qualityPolicy: 'faithful' | 'balanced';
     denoiseStrength: DenoiseStrength;
-    deblurStrength?: number;
     pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
   }) => Promise<void>;
@@ -135,7 +134,6 @@ export function UpscaleDialog({
   const [output, setOutput] = useState<OutputBehavior>('new-layer');
   const [qualityPolicy, setQualityPolicy] = useState<'faithful' | 'balanced'>('faithful');
   const [denoiseStrength, setDenoiseStrength] = useState<DenoiseStrength>('none');
-  const [deblurStrength, setDeblurStrength] = useState(0.7);
   const [pixelArtAlgorithm, setPixelArtAlgorithm] = useState<PixelArtAlgorithm>('epx');
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -185,10 +183,6 @@ export function UpscaleDialog({
       denoise: usesDenoise
         ? { strength: denoiseStrength === 'none' ? 'medium' : denoiseStrength }
         : undefined,
-      deblur:
-        operation === 'deblur' || operation === 'deblur-upscale'
-          ? { strength: deblurStrength }
-          : undefined,
       upscale: usesUpscale
         ? {
             method,
@@ -206,7 +200,7 @@ export function UpscaleDialog({
       preview: true,
       previewMaxDimension: 512,
     };
-  }, [denoiseStrength, deblurStrength, mode, operation, pixelArtAlgorithm, qualityPolicy, scale, usesDenoise, usesUpscale]);
+  }, [denoiseStrength, mode, operation, pixelArtAlgorithm, qualityPolicy, scale, usesDenoise, usesUpscale]);
 
   /**
    * Resolve the Auto recommendation into a concrete operation. Suggestions
@@ -387,7 +381,6 @@ export function UpscaleDialog({
     sourceImageData,
     mode,
     processing,
-    previewFocus,
   ]);
 
   // Clear preview when the operation changes or becomes unavailable.
@@ -567,10 +560,6 @@ export function UpscaleDialog({
             : usesDenoise
               ? denoiseStrength
               : 'none',
-        deblurStrength:
-          concreteOp === 'deblur' || concreteOp === 'deblur-upscale'
-            ? deblurStrength
-            : undefined,
         pixelArtAlgorithm: modeId === 'pixel-art' ? pixelArtAlgorithm : undefined,
         onProgress,
       });
@@ -611,7 +600,6 @@ export function UpscaleDialog({
     scale,
     output,
     denoiseStrength,
-    deblurStrength,
     pixelArtAlgorithm,
     memoryExceeded,
     processing,
@@ -766,23 +754,22 @@ export function UpscaleDialog({
                     role="group"
                     aria-label="Preview zoom"
                   >
-                    <button
-                      type="button"
-                      className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
-                      aria-pressed={previewZoom === 'fit'}
-                      onClick={() => setPreviewZoom('fit')}
-                    >
-                      Fit
-                    </button>
-                    <button
-                      type="button"
-                      className={`upscale-preview__zoom-btn ${previewZoom === '100%' ? 'upscale-preview__zoom-btn--active' : ''}`}
-                      aria-pressed={previewZoom === '100%'}
-                      onClick={() => setPreviewZoom('100%')}
-                    >
-                      100%
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                    aria-pressed={previewZoom === 'fit'}
+                    onClick={() => setPreviewZoom('fit')}
+                  >
+                    Fit
+                  </button>
+                  <button
+                    type="button"
+                    className={`upscale-preview__zoom-btn ${previewZoom === '100%' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                    aria-pressed={previewZoom === '100%'}
+                    onClick={() => setPreviewZoom('100%')}
+                  >
+                    100%
+                  </button>
                 </div>
               </div>
               <div
@@ -889,6 +876,7 @@ export function UpscaleDialog({
                     Generating preview…
                   </div>
                 )}
+              </div>
               <p className="upscale-preview__hint">
                 {previewBaselineUrl
                   ? `Honest comparison — same ${previewDataUrl ? '512 px' : 'center'} crop at same output size (${usesUpscale ? (mode?.isAi ? 'AI' : 'bicubic') : 'source'} baseline vs ${mode?.isAi ? 'AI' : mode?.label ?? 'enhanced'}). Drag or use \u2190 \u2192 to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}\u00d7${outH}px`
@@ -968,6 +956,7 @@ export function UpscaleDialog({
                     No task-specific model is installed and validated for this operation yet.
                   </p>
                 )}
+              </div>
 
               <div className="upscale-settings__group">
                 <span className="upscale-settings__label">Quality</span>
@@ -986,6 +975,7 @@ export function UpscaleDialog({
                     ? 'Preserve original detail. Lighter restoration, fewer artifacts.'
                     : 'Allow stronger reconstruction for better perceptual results.'}
                 </p>
+              </div>
 
               {usesUpscale && (
                 <div className="upscale-settings__group">
@@ -1016,9 +1006,10 @@ export function UpscaleDialog({
                       </Button>
                     </div>
                   )}
+                </div>
               )}
 
-              {(usesDenoise || operation === 'upscale') && operation !== 'deblur-upscale' && (
+              {(usesDenoise || operation === 'upscale') && (
                 <div className="upscale-settings__group">
                   <span className="upscale-settings__label">Denoise</span>
                   <SegmentedControl
@@ -1037,35 +1028,12 @@ export function UpscaleDialog({
                     <p className="insp-hint">
                       {denoiseStrength === 'none'
                         ? 'No denoising'
-                        : `${denoiseStrength} denoise before upscale`}
+                        : operation === 'deblur-upscale'
+                          ? `${denoiseStrength} deblur before upscale`
+                          : `${denoiseStrength} denoise before upscale`}
                     </p>
                   )}
-              )}
-
-              {(operation === 'deblur' || operation === 'deblur-upscale') && (
-                <div className="upscale-settings__group">
-                  <span className="upscale-settings__label">Deblur</span>
-                  <SegmentedControl
-                    label="Deblur strength"
-                    value={String(deblurStrength)}
-                    disabled={processing}
-                    options={[
-                      { value: '0.3', label: 'Light' },
-                      { value: '0.5', label: 'Medium' },
-                      { value: '0.7', label: 'Strong' },
-                      { value: '0.9', label: 'Maximum' },
-                    ]}
-                    onChange={(v) => setDeblurStrength(Number(v))}
-                  />
-                  <p className="insp-hint">
-                    {operation === 'deblur-upscale'
-                      ? `Deblur strength ${deblurStrength} before upscale`
-                      : deblurStrength <= 0.3
-                        ? 'Conservative — preserves original detail'
-                        : deblurStrength >= 0.9
-                          ? 'Maximum — may create ringing on already-sharp images'
-                          : `Deblur strength ${deblurStrength}`}
-                  </p>
+                </div>
               )}
 
               {usesUpscale && modeId === 'pixel-art' && (
@@ -1097,6 +1065,7 @@ export function UpscaleDialog({
                             ? 'Pattern-aware scaling for complex pixel art'
                             : 'Pure integer nearest-neighbour scaling'}
                   </p>
+                </div>
               )}
 
               {usesUpscale && (
@@ -1109,6 +1078,7 @@ export function UpscaleDialog({
                     options={scaleOptions}
                     onChange={(v) => setScale(Number(v))}
                   />
+                </div>
               )}
 
               <div className="upscale-settings__group">
@@ -1124,6 +1094,7 @@ export function UpscaleDialog({
                   ]}
                   onChange={(v) => setOutput(v as OutputBehavior)}
                 />
+              </div>
 
               {/* Output info */}
               <div className="upscale-output-info">
@@ -1144,6 +1115,7 @@ export function UpscaleDialog({
                     AI is fixed 4× — your {scale}× is served as 4× AI then high-quality lanczos3 downsample to {outW}×{outH}px.
                   </span>
                 )}
+              </div>
 
               {modelMissing && requiredModelId && (
                 <div className="upscale-model-missing" role="status">
@@ -1163,6 +1135,7 @@ export function UpscaleDialog({
                   >
                     Download model
                   </Button>
+                </div>
               )}
 
               {memoryWarning && (
@@ -1200,15 +1173,14 @@ export function UpscaleDialog({
                     >
                       <div className="insp-progress__bar" style={{ width: `${progressPct}%` }} />
                       <span className="insp-progress__label">
-                        {(() => {
-                          const active = stages.find((s) => s.status === 'running');
-                          if (active) return `${active.id} · ${progress.done}/${progress.total}`;
-                          return `${progress.done}/${progress.total}`;
-                        })()}
+                        {stages.length > 1
+                          ? `Stage ${Math.min(stages.length, Math.max(1, Math.ceil((progress.done / progress.total) * stages.length)))}/${stages.length} · ${progress.done}/${progress.total} tiles`
+                          : `Step ${progress.done}/${progress.total}`}
                       </span>
                     </div>
                   )}
                   {!progress && <p className="insp-hint">Enhancing image…</p>}
+                </div>
               )}
 
               {error && (
@@ -1230,6 +1202,7 @@ export function UpscaleDialog({
                   {(errorCode === 'dimension-limit' || errorCode === 'tensor-allocation') && (
                     <p className="insp-hint">Try a smaller output scale or a smaller source crop.</p>
                   )}
+                </div>
               )}
             </div>
           </div>

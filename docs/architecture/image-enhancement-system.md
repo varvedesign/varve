@@ -34,11 +34,11 @@ The shipped AI capabilities are:
   on the `varve-models-v1` GitHub release with a pinned SHA-256.
 - `upscale-realesr-general`: Real-ESRGAN general x4 super-resolution, ONNX,
   using the existing tiled provider (`TILE 64/OVERLAP 16`).
-- `upscale-realesrgan-anime`: Real-ESRGAN anime/illustration x4 (6B) — **not
-  validated**. Present in the registry as `not-validated` with a blocking
-  `statusReason`; the UI (Enhance → Illustration & anime) honestly falls
-  back to the general model until a reproducible ONNX export with pinned
-  hash and corpus evidence is published. No hash is advertised.
+- `upscale-realesrgan-anime`: Real-ESRGAN anime/illustration x4 (6B), with a
+  pinned ONNX artifact, checksum, source license, and contract/inference
+  validation in the model manifest. It is optional and downloaded on demand;
+  the UI never silently substitutes the general checkpoint when it is absent.
+  The task-quality corpus benchmark remains a separate measured gate.
 
 JPEG artifact removal is represented as a user operation but is rejected by
 both planner (`planRestoration` throws `unsupported-operation`) and dispatch
@@ -78,6 +78,11 @@ own channel order (NAFNet is BGR-trained; SCUNet RGB) and padding. The
 legacy `dispatchDenoise` API remains as a compatibility wrapper, and
 `upscaleSelectedImage` callers keep working; `operation` is optional and
 activates the unified planner when present.
+
+Native and worker SCUNet preprocessing are intentionally equivalent: both
+repeat edge pixels to the next graph-safe multiple of 64, then crop the
+top-left output back to the source dimensions. Native inference must not use
+resampling for this padding because it changes thin lines and alpha edges.
 
 Deblur tiling is adaptive (single-shot up to 1280 px, then 1280/256):
 NAFNet's global receptive field makes small tiles visibly seamed

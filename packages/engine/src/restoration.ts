@@ -221,6 +221,7 @@ export class RestorationPlanningError extends Error {
 /** Execution-side restoration failure taxonomy (see the enhance error policy). */
 export type RestorationErrorCode =
   | 'model-not-installed'
+  | 'model-unavailable'
   | 'model-download-failed'
   | 'hash-mismatch'
   | 'unsupported-operation'
@@ -228,6 +229,7 @@ export type RestorationErrorCode =
   | 'runtime-unavailable'
   | 'tensor-allocation'
   | 'invalid-image'
+  | 'invalid-request'
   | 'dimension-limit'
   | 'provider-failed'
   | 'cancelled'
@@ -235,6 +237,7 @@ export type RestorationErrorCode =
 
 export const RESTORATION_ERROR_CODES: readonly RestorationErrorCode[] = [
   'model-not-installed',
+  'model-unavailable',
   'model-download-failed',
   'hash-mismatch',
   'unsupported-operation',
@@ -242,6 +245,7 @@ export const RESTORATION_ERROR_CODES: readonly RestorationErrorCode[] = [
   'runtime-unavailable',
   'tensor-allocation',
   'invalid-image',
+  'invalid-request',
   'dimension-limit',
   'provider-failed',
   'cancelled',
@@ -269,6 +273,16 @@ export class RestorationError extends Error {
  * else is `provider-failed`.
  */
 export function toRestorationError(caught: unknown): RestorationError {
+  if (caught instanceof RestorationError) return caught;
+  if (caught instanceof RestorationPlanningError) {
+    const code: RestorationErrorCode =
+      caught.code === 'unsupported-operation'
+        ? 'unsupported-operation'
+        : caught.code === 'model-unavailable'
+          ? 'model-unavailable'
+          : 'invalid-request';
+    return new RestorationError(code, caught.message);
+  }
   const message = caught instanceof Error ? caught.message : String(caught);
   if (message === 'cancelled') return new RestorationError('cancelled', message);
   if (/not downloaded|model.*not found|not installed/i.test(message)) {
@@ -352,6 +366,13 @@ function validateScale(scale: number): void {
   }
 }
 
+function validateStrength(strength: number | undefined): void {
+  if (strength == null) return;
+  if (!Number.isFinite(strength) || strength < 0 || strength > 1) {
+    throw new RestorationPlanningError('invalid-request', 'Deblur strength must be between 0 and 1');
+  }
+}
+
 /** Build a lazy, truthful execution plan without loading any model. */
 export function planRestoration(request: RestorationRequest): RestorationPlan {
   const warnings: string[] = [];
@@ -394,7 +415,8 @@ export function planRestoration(request: RestorationRequest): RestorationPlan {
       );
       break;
     case 'deblur-upscale':
-      addStage('deblur');
+      validateStrength(request.deblur?.strength);
+      addStage('deblur', request.deblur?.modelId);
       if (!request.upscale) {
         throw new RestorationPlanningError('invalid-request', 'Upscale settings are required');
       }
@@ -406,7 +428,8 @@ export function planRestoration(request: RestorationRequest): RestorationPlan {
       );
       break;
     case 'deblur':
-      addStage('deblur');
+      validateStrength(request.deblur?.strength);
+      addStage('deblur', request.deblur?.modelId);
       break;
     case 'compression-restoration':
       addStage('compression-restoration');

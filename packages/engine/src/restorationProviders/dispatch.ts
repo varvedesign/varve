@@ -18,6 +18,7 @@ export const NAFNET_DENOISE_SIDD_ID = 'nafnet-denoise-sidd';
 export const SCUNET_ID = 'scunet';
 
 export interface RestorationTaskOptions {
+  modelId?: string;
   signal?: AbortSignal;
   onProgress?: (completed: number, total: number) => void;
   /** Overrides for tests/benchmarks (tile policy, providers). */
@@ -125,7 +126,7 @@ export async function dispatchRestorationTask(
   const spec = TASK_SPECS[task];
   const policy = spec.tilePolicy?.(source.width, source.height);
   return runTiledRestoration(source, {
-    modelId: spec.modelId,
+    modelId: options.modelId ?? spec.modelId,
     strength,
     tileSize: options.tileSize ?? policy?.tileSize ?? spec.tileSize,
     overlap: options.overlap ?? policy?.overlap ?? spec.overlap,
