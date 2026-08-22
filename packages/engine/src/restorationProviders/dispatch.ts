@@ -20,6 +20,8 @@ export const SCUNET_ID = 'scunet';
 export interface RestorationTaskOptions {
   signal?: AbortSignal;
   onProgress?: (completed: number, total: number) => void;
+  /** The capability selected by the planner; defaults to the task's primary model. */
+  modelId?: string;
   /** Overrides for tests/benchmarks (tile policy, providers). */
   tileSize?: number;
   overlap?: number;
@@ -76,12 +78,12 @@ const TASK_SPECS: Record<RestorationTask, TaskSpec> = {
     tilePolicy: deblurTilePolicy,
   },
   'compression-restoration': {
-    // No validated checkpoint — SCUNet harms text/thin-lines on the
-    // design corpus (-17 dB, docs/quality/image-enhancement-benchmark.md)
-    // and the only NAFNet JPEG checkpoint was rejected on provenance.
-    // The planner rejects this task before dispatch is reached, but an
-    // empty modelId ensures dispatch cannot silently route through an
-    // unrelated model if the guard is ever bypassed.
+    // No validated checkpoint. SCUNet harms text/thin-lines on the design
+    // corpus (-17 dB, docs/quality/image-enhancement-benchmark.md) and the
+    // only NAFNet JPEG checkpoint was rejected on provenance. FBCNN (ICCV
+    // 2021, Apache-2.0) is the recommended candidate but has no public
+    // dynamic-shape ONNX export; conversion requires torch. The planner
+    // rejects this task before dispatch is reached.
     modelId: '',
     adapter: scunetAdapter,
     tileSize: 512,
@@ -123,9 +125,10 @@ export async function dispatchRestorationTask(
     );
   }
   const spec = TASK_SPECS[task];
+  const modelId = options.modelId ?? spec.modelId;
   const policy = spec.tilePolicy?.(source.width, source.height);
   return runTiledRestoration(source, {
-    modelId: spec.modelId,
+    modelId,
     strength,
     tileSize: options.tileSize ?? policy?.tileSize ?? spec.tileSize,
     overlap: options.overlap ?? policy?.overlap ?? spec.overlap,

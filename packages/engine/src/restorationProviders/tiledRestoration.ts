@@ -108,8 +108,11 @@ export async function runTiledRestoration(
       extracted.tensor,
       extracted.alignedWidth,
       extracted.alignedHeight,
-      extracted.alignedWidth,
-      extracted.alignedHeight,
+      // The graph-safe padded tensor dimensions are not the dimensions of
+      // the RGBA tile buffer. Native providers encode `originalData` through
+      // ImageData, so edge tiles must advertise their actual pixel extent.
+      tile.width,
+      tile.height,
       extracted.alphaData,
       tileOriginalData,
       strength,

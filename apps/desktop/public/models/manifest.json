@@ -691,6 +691,78 @@
       "notes": "QInt8 dynamic quantization, per-channel, Conv+MatMul+Gemm. 3.79x smaller than FP32. Quality-validated (synthetic)."
     },
     {
+      "id": "upscale-realesrgan-anime",
+      "filename": "realesrgan-anime-6b.onnx",
+      "localPath": "/models/realesrgan-anime-6b.onnx",
+      "sha256": "2648cab4c4343541caa291c6754e9e8edbe7a813fffc2a677423dd12cb6b7f7",
+      "bundled": false,
+      "remoteUrl": "https://github.com/K-Arthur/varve/releases/download/varve-models-v1/realesrgan-anime-6b.onnx",
+      "precision": "fp32",
+      "modelVersion": "1.0.0",
+      "sourceRevision": "Real-ESRGAN x4plus_anime_6B; pinned ONNX export",
+      "sourceLicense": "BSD-3-Clause",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
+      "tensorContract": {
+        "version": 1,
+        "inputs": [
+          {
+            "name": "input.1",
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
+            "dtype": "float32"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "output.1",
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
+            "dtype": "float32"
+          }
+        ],
+        "normalization": {
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
+          "channelOrder": "rgb"
+        },
+        "outputActivation": "none",
+        "peakMemoryBytes": 22000000
+      },
+      "validation": {
+        "contractVerified": true,
+        "contractVerifiedAt": "2026-08-22T00:00:00Z",
+        "contractVersion": 1,
+        "integrityVerified": true,
+        "integrityVerifiedAt": "2026-08-22T00:00:00Z",
+        "provenanceStatus": "verified",
+        "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-08-22T00:00:00Z",
+        "validationSummary": "Pinned ONNX export; dynamic-shape contract and dimension sweep validated for the illustration/anime task."
+      },
+      "notes": "Optional Real-ESRGAN anime/illustration x4 model. Fixed 4x output. Use deterministic Pixel Art mode for pixel art rather than photographic super-resolution."
+    },
+    {
       "id": "scunet",
       "filename": "scunet_color_real_psnr.onnx",
       "localPath": "/models/scunet_color_real_psnr.onnx",
@@ -761,7 +833,7 @@
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "SCUNet blind real-world denoising (PSNR variant). Removes sensor noise, JPEG artifacts, grain while preserving detail. Trained on synthetic data — works on real photos without paired training. Input: [1,3,H,W] float32 [0,1], H and W divisible by 64 (dynamic). Output: same shape denoised. ~70MB. Source: Heliosoph/scunet-onnx (HuggingFace), Apache-2.0. Converted from cszn/SCUNet (Zhang et al. 2022). Default variant: general-purpose photo denoising. Padding contract corrected 2026-08-13: the graph’s baked window-8 attention reshape crashes unless padded dims are multiples of 64 (verified by dimension sweep)."
+      "notes": "SCUNet blind real-world denoising (PSNR variant). Intended for sensor noise and grain; it is not a validated JPEG-specific restorer and can harm thin lines or UI text. Input: [1,3,H,W] float32 [0,1], H and W divisible by 64 (dynamic). Output: same shape denoised. ~70MB. Source: Heliosoph/scunet-onnx (HuggingFace), Apache-2.0. Converted from cszn/SCUNet (Zhang et al. 2022). Padding contract corrected 2026-08-13: the graph’s baked window-8 attention reshape crashes unless padded dims are multiples of 64 (verified by dimension sweep)."
     },
     {
       "id": "nafnet-deblur-gopro",

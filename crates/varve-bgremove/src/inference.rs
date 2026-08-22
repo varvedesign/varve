@@ -368,6 +368,29 @@ fn align_to(n: u32, to: u32) -> u32 {
     }
 }
 
+/// Pad dynamic image-model input by replicating the last source row/column.
+///
+/// The browser adapters use the same edge-extension contract. Resizing an
+/// unaligned source to satisfy the graph stride changes the image before the
+/// model sees it and makes native output diverge from the worker path.
+fn pad_rgba_edges(
+    image: &DynamicImage,
+    target_width: u32,
+    target_height: u32,
+) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+    let source = image.to_rgba8();
+    let (source_width, source_height) = source.dimensions();
+    let mut padded = ImageBuffer::new(target_width, target_height);
+    for y in 0..target_height {
+        for x in 0..target_width {
+            let source_x = x.min(source_width.saturating_sub(1));
+            let source_y = y.min(source_height.saturating_sub(1));
+            padded.put_pixel(x, y, *source.get_pixel(source_x, source_y));
+        }
+    }
+    padded
+}
+
 /// Normalization spec for a dynamic-shape image model.
 struct ImageModelSpec {
     pub mean: [f32; 3],
@@ -506,7 +529,7 @@ pub fn denoise_image_cancellable(
     };
 
     let source = if proc_w != orig_w || proc_h != orig_h {
-        img.resize_exact(proc_w, proc_h, image::imageops::FilterType::Triangle)
+        DynamicImage::ImageRgba8(pad_rgba_edges(img, proc_w, proc_h))
     } else {
         img.clone()
     };
@@ -566,9 +589,14 @@ pub fn denoise_image_cancellable(
     let final_rgba = if out_w != orig_w || out_h != orig_h {
         let tmp = ImageBuffer::<image::Rgba<u8>, _>::from_raw(out_w, out_h, out_rgba)
             .ok_or("Failed to build output image buffer")?;
-        let resized =
-            image::imageops::resize(&tmp, orig_w, orig_h, image::imageops::FilterType::Triangle);
-        resized.into_raw()
+        if out_w < orig_w || out_h < orig_h {
+            return Err(format!(
+                "Denoise: model output {out_w}×{out_h} is smaller than source {orig_w}×{orig_h}"
+            ));
+        }
+        image::imageops::crop_imm(&tmp, 0, 0, orig_w, orig_h)
+            .to_image()
+            .into_raw()
     } else {
         out_rgba
     };
@@ -1205,9 +1233,25 @@ fn resize_mask(mask: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> V
 #[cfg(test)]
 mod tests {
     use super::{
-        model_spec, normalize_segmentation_output, reconstruct_letterbox_mask, resize_mask,
-        InferenceRuntime, InferenceSession, LetterboxTransform, OrtInferenceRuntime,
+        model_spec, normalize_segmentation_output, pad_rgba_edges, reconstruct_letterbox_mask,
+        resize_mask, InferenceRuntime, InferenceSession, LetterboxTransform, OrtInferenceRuntime,
     };
+
+    use image::{DynamicImage, Rgba, RgbaImage};
+
+    #[test]
+    fn pads_image_model_inputs_by_repeating_edges() {
+        let mut source = RgbaImage::new(2, 2);
+        source.put_pixel(0, 0, Rgba([10, 20, 30, 40]));
+        source.put_pixel(1, 0, Rgba([50, 60, 70, 80]));
+        source.put_pixel(0, 1, Rgba([90, 100, 110, 120]));
+        source.put_pixel(1, 1, Rgba([130, 140, 150, 160]));
+
+        let padded = pad_rgba_edges(&DynamicImage::ImageRgba8(source), 4, 3);
+        assert_eq!(padded.get_pixel(3, 0).0, [50, 60, 70, 80]);
+        assert_eq!(padded.get_pixel(0, 2).0, [90, 100, 110, 120]);
+        assert_eq!(padded.get_pixel(3, 2).0, [130, 140, 150, 160]);
+    }
 
     fn decode_gray_png(png: &[u8]) -> Vec<u8> {
         let image = image::load_from_memory(png).expect("png should decode");

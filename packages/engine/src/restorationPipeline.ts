@@ -76,6 +76,9 @@ export async function runRestoration(
   request: RestorationRequest,
   options: RestorationExecutionOptions = {},
 ): Promise<RestorationResult> {
+  // Cancellation is a user decision and must win over planning/model
+  // validation, especially when a dialog closes during model resolution.
+  assertNotCancelled(options.signal);
   const plan = planRestoration(request);
   const stages = plan.stages.map(initialStage);
   const start = performance.now();
@@ -131,6 +134,7 @@ export async function runRestoration(
                   : 0.7;
         const { dispatchRestorationTask } = await import('./restorationProviders/dispatch');
         const result = await dispatchRestorationTask(currentImage, stage.task, deblurStrength, {
+          modelId: stage.modelId,
           signal: options.signal,
           onProgress: (done, total) => {
             stage.progress = total > 0 ? done / total : 0;

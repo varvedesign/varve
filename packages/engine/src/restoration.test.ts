@@ -62,6 +62,15 @@ describe('restoration capability planning', () => {
     ).toThrow(/scale must be positive/i);
   });
 
+  it('validates deblur strength before a model can be dispatched', () => {
+    expect(() =>
+      planRestoration({ operation: 'deblur', deblur: { strength: 1.1 } }),
+    ).toThrow(/strength must be a number between 0 and 1/i);
+    expect(() =>
+      planRestoration({ operation: 'deblur', deblur: { strength: 0.4 } }),
+    ).not.toThrow();
+  });
+
   it('derives operation availability from the capability registry', () => {
     expect(isRestorationOperationAvailable('denoise')).toBe(true);
     expect(isRestorationOperationAvailable('upscale')).toBe(true);
@@ -113,6 +122,15 @@ describe('restoration capability planning', () => {
     });
     expect(toRestorationError('Unknown backend failure')).toMatchObject({
       code: 'provider-failed',
+    });
+    expect(toRestorationError(new RestorationPlanningError('invalid-request', 'bad settings'))).toMatchObject({
+      code: 'invalid-request',
+    });
+    expect(toRestorationError(new RestorationPlanningError('model-unavailable', 'not validated'))).toMatchObject({
+      code: 'model-unavailable',
+    });
+    expect(toRestorationError(new RestorationError('cancelled', 'cancelled'))).toMatchObject({
+      code: 'cancelled',
     });
     expect(toRestorationError('a string')).toBeInstanceOf(RestorationError);
     expect(isRestorationErrorCode('cancelled')).toBe(true);

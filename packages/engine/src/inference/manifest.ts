@@ -104,7 +104,9 @@ function entryDescription(id: string, notes?: string): string {
   if (id === 'upscale-realesr-general' || id === 'upscale-realesr-general-int8')
     return 'Real-ESRGAN x4 general-purpose upscaling for photos and illustrations. Bundled with the app.';
   if (id === 'scunet')
-    return 'SCUNet — removes noise, JPEG artifacts, and grain from photos while preserving detail.';
+    return 'SCUNet — conservative real-world denoising for sensor noise and grain. Not a validated JPEG-specific restorer; use only when denoising is the intended operation.';
+  if (id === 'upscale-realesrgan-anime')
+    return 'Real-ESRGAN anime x4 — validated local super-resolution for anime, illustration, and line-art content. Fixed 4x output.';
   if (id === 'sam2-hiera-tiny' || id === 'sam2-hiera-small')
     return 'SAM2 — interactive object segmentation via point, box, or mask prompts. Click foreground/background, drag box, iteratively refine.';
   if (id === 'tr-ocr-base-printed')

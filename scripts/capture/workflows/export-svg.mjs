@@ -104,7 +104,7 @@ await capture({
     );
 
     begin();
-    await beat(page, 2200);
+    await beat(page, 2800);
 
     // ── Export ─────────────────────────────────────────────────────
     await selectLayer(page, artwork[0].trim().split('\n')[0]);
@@ -194,7 +194,7 @@ await capture({
 
     await parkPointer(page);
     await settle(page);
-    await beat(page, 1600);
+    await beat(page, 2200);
 
     return assertions;
   },

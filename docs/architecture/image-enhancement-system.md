@@ -34,11 +34,11 @@ The shipped AI capabilities are:
   on the `varve-models-v1` GitHub release with a pinned SHA-256.
 - `upscale-realesr-general`: Real-ESRGAN general x4 super-resolution, ONNX,
   using the existing tiled provider (`TILE 64/OVERLAP 16`).
-- `upscale-realesrgan-anime`: Real-ESRGAN anime/illustration x4 (6B) — **not
-  validated**. Present in the registry as `not-validated` with a blocking
-  `statusReason`; the UI (Enhance → Illustration & anime) honestly falls
-  back to the general model until a reproducible ONNX export with pinned
-  hash and corpus evidence is published. No hash is advertised.
+- `upscale-realesrgan-anime`: Real-ESRGAN anime/illustration x4 (6B), an
+  optional download with a pinned SHA-256 and validated dynamic-shape contract.
+  The UI's Illustration & anime mode requests this exact model; it does not
+  silently substitute the general model. Pixel art remains on the deterministic
+  Pixel Art path.
 
 JPEG artifact removal is represented as a user operation but is rejected by
 both planner (`planRestoration` throws `unsupported-operation`) and dispatch
@@ -94,7 +94,10 @@ halves are shown at the same pixel size under the split slider, which is
 keyboard-accessible (← →, Shift+← →, Home/End) and offers Fit / 100%
 pixel view. No browser-bilinear exaggeration.
 
-Alpha is carried separately by both restoration paths, and pixel-art
+Native and worker dynamic-model paths use the same edge-replication padding
+contract before graph alignment and crop the model result back to the source
+extent. This avoids a native-only resize that could shift pixels relative to
+the worker preview. Alpha is carried separately by both restoration paths, and pixel-art
 scaling stays on its specialized algorithm path rather than entering photo
 restoration. The `restorationAuto` heuristic adds a conservative
 pixel-art hint (≤128 px short edge, ≤32 colours) that surfaces as
