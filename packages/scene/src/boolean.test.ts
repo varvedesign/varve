@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { booleanOp, cleanPolygon, hasSelfIntersections, resolveSelfIntersections } from './boolean';
 import type { ShapeNode } from './types';
 
+// Tolerance for tests — using a small absolute value since test shapes are near origin
+const TOL = 1e-6;
+
 function makeRect(id: string, x: number, y: number, w: number, h: number): ShapeNode {
   return {
     id,
@@ -363,7 +366,7 @@ describe('Boolean op hardening — hasSelfIntersections', () => {
       { x: 100, y: 100 },
       { x: 0, y: 100 },
     ];
-    expect(hasSelfIntersections(poly)).toBe(false);
+    expect(hasSelfIntersections(poly, TOL)).toBe(false);
   });
 
   it('returns true for figure-8 path', () => {
@@ -374,7 +377,7 @@ describe('Boolean op hardening — hasSelfIntersections', () => {
       { x: 100, y: 0 },
       { x: 0, y: 100 },
     ];
-    expect(hasSelfIntersections(poly)).toBe(true);
+    expect(hasSelfIntersections(poly, TOL)).toBe(true);
   });
 
   it('returns false for degenerate polygon (< 3 points)', () => {
@@ -382,7 +385,7 @@ describe('Boolean op hardening — hasSelfIntersections', () => {
       { x: 0, y: 0 },
       { x: 100, y: 0 },
     ];
-    expect(hasSelfIntersections(poly)).toBe(false);
+    expect(hasSelfIntersections(poly, TOL)).toBe(false);
   });
 
   it('returns true for bow-tie configuration', () => {
@@ -393,7 +396,7 @@ describe('Boolean op hardening — hasSelfIntersections', () => {
       { x: 50, y: 0 },
       { x: 0, y: 100 },
     ];
-    expect(hasSelfIntersections(poly)).toBe(true);
+    expect(hasSelfIntersections(poly, TOL)).toBe(true);
   });
 });
 
@@ -406,11 +409,11 @@ describe('Boolean op hardening — resolveSelfIntersections', () => {
       { x: 100, y: 0 },
       { x: 0, y: 100 },
     ];
-    const result = resolveSelfIntersections(poly);
+    const result = resolveSelfIntersections(poly, TOL);
     // Should split into 2 non-self-intersecting polygons
     expect(result.length).toBeGreaterThanOrEqual(2);
     for (const sub of result) {
-      expect(hasSelfIntersections(sub)).toBe(false);
+      expect(hasSelfIntersections(sub, TOL)).toBe(false);
       expect(sub.length).toBeGreaterThanOrEqual(3);
     }
   });
@@ -422,10 +425,10 @@ describe('Boolean op hardening — resolveSelfIntersections', () => {
       { x: 50, y: 0 },
       { x: 0, y: 100 },
     ];
-    const result = resolveSelfIntersections(poly);
+    const result = resolveSelfIntersections(poly, TOL);
     expect(result.length).toBeGreaterThanOrEqual(2);
     for (const sub of result) {
-      expect(hasSelfIntersections(sub)).toBe(false);
+      expect(hasSelfIntersections(sub, TOL)).toBe(false);
     }
   });
 
@@ -436,7 +439,7 @@ describe('Boolean op hardening — resolveSelfIntersections', () => {
       { x: 100, y: 100 },
       { x: 0, y: 100 },
     ];
-    const result = resolveSelfIntersections(poly);
+    const result = resolveSelfIntersections(poly, TOL);
     expect(result.length).toBe(1);
     expect(result[0]!.length).toBe(poly.length);
   });

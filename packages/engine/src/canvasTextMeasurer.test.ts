@@ -38,7 +38,7 @@ function installFakeCanvas(options: { shaping: boolean; onMeasure?: () => void }
     },
   };
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
-    ctx as unknown as CanvasRenderingContext2D,
+    ctx as unknown as ReturnType<HTMLCanvasElement['getContext']>,
   );
   // Keep the document path in play; OffscreenCanvas would be preferred.
   vi.stubGlobal('OffscreenCanvas', undefined);

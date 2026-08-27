@@ -515,7 +515,7 @@ export function CanvasOverlays({
           }}
         />
       )}
-      {editor.state.warpEdit && (
+      {tool === 'warp' && editor.state.warpEdit && (
         <WarpOverlay zoom={zoom} pan={pan} cameraRotation={cameraRotation} />
       )}
       {tool === 'perspective' && perspectiveTool && (

@@ -306,6 +306,8 @@ export interface EditorState {
   areaSelection?: AreaSelection | null;
   /** Ephemeral controls shared by the rectangular and elliptical marquee tools. */
   areaSelectionSettings: AreaSelectionSettings;
+  /** Ephemeral floating raster selection for pixel transforms. Runtime only. */
+  floatingRaster?: import('@varve/engine').FloatingRasterSelection | null;
   document: Document;
   sessions: SessionMeta[];
   activeId: string;
@@ -675,6 +677,11 @@ export interface EditorContextValue {
     pathPoints?: PathPoint[],
     pathClosed?: boolean,
   ) => void;
+  /** Split selected or intersected editable vectors with one atomic Knife cut. */
+  sliceWithKnife?: (line: {
+    start: readonly [number, number];
+    end: readonly [number, number];
+  }) => void;
   createTextNodeAt: (
     world: { x: number; y: number },
     size?: { w: number; h: number },

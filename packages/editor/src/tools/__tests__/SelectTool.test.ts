@@ -128,6 +128,7 @@ describe('SelectTool', () => {
       hitTest: vi.fn().mockReturnValue({ nodeId: 'n1', node: hitNode }),
     });
     tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0 } as any, ctx);
+    tool.onPointerUp({ clientX: 50, clientY: 50, pointerId: 1 } as any, ctx);
     expect(ctx.setSelection).toHaveBeenCalledWith('n1');
     expect(ctx.announceSelection).toHaveBeenCalled();
   });
@@ -348,6 +349,7 @@ describe('SelectTool — depth-based click cycling', () => {
       id,
       name,
       kind: 'shape' as const,
+      shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
       fill,
       index: 0,
       order: 'a0',
@@ -387,9 +389,32 @@ describe('SelectTool — depth-based click cycling', () => {
     });
 
     tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0 } as any, ctx);
+    expect(ctx.setSelection).not.toHaveBeenCalledWith('n1');
+    tool.onPointerUp({ clientX: 50, clientY: 50, pointerId: 1 } as any, ctx);
 
     // n0 is middle node, n1 (bottom) is below it — should cycle to n1
     expect(ctx.setSelection).toHaveBeenCalledWith('n1');
+  });
+
+  it('does not depth-cycle when the selected node press becomes a drag', () => {
+    const tool = new SelectTool();
+    const selected = { id: 'child', kind: 'shape' as const, fill: [255, 0, 0, 255] } as any;
+    const parent = { id: 'card', kind: 'frame' as const } as any;
+    const ctx = makeCtx({
+      selection: ['child'],
+      isSelected: vi.fn((id: string) => id === 'child'),
+      hitTest: vi.fn(() => ({ nodeId: 'child', node: selected })),
+      getNode: vi.fn((id: string) => (id === 'child' ? selected : parent)),
+      nodeWorldBounds: vi.fn(() => ({ x: 0, y: 0, w: 100, h: 100 })),
+      rootNodes: vi.fn(() => [parent, selected]),
+    });
+
+    tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 1, button: 0 } as any, ctx);
+    tool.onPointerMove({ clientX: 100, clientY: 50, pointerId: 1 } as any, ctx);
+    tool.onPointerUp({ clientX: 100, clientY: 50, pointerId: 1 } as any, ctx);
+
+    expect(ctx.setSelection).not.toHaveBeenCalledWith('card');
+    expect(ctx.setNodePositions).toHaveBeenCalled();
   });
 });
 

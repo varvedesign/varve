@@ -406,7 +406,12 @@ import {
   ViewportProvider,
 } from './context/providerComposition';
 import { isReducedMotion } from './context/reducedMotionManager';
-import { resizeSceneNode, shapeForTool } from './context/sceneNodeGeometry';
+import {
+  knifeSkipMessage,
+  resizeSceneNode,
+  shapeForTool,
+  sliceDocumentWithKnife,
+} from './context/sceneNodeGeometry';
 import type {
   EditorContextValue as CanonicalEditorContextValue,
   CanvasMode,
@@ -503,6 +508,7 @@ import {
   type TransformCache,
 } from './scene/transformCache';
 import {
+  isNodeEffectivelyLocked,
   nodeLocalBounds,
   nodeWorldBounds,
   nodeWorldTransform,
@@ -2969,7 +2975,7 @@ export function EditorProvider({
     (id: NodeId, updater: (n: SceneNode) => SceneNode) => {
       updateDoc((doc) => {
         const node = doc.nodes[id];
-        if (!node) return doc;
+        if (!node || isNodeEffectivelyLocked(doc, id)) return doc;
         return {
           ...doc,
           nodes: { ...doc.nodes, [id]: updater(node) },
@@ -3814,15 +3820,43 @@ export function EditorProvider({
               columnSizing: { kind: 'fraction', value: 1 },
             });
           } else if (activeTool === 'frame' || activeTool === 'slice') {
+            const exportRegion = activeTool === 'slice';
             node = makeFrameNode(id, {
-              name: 'Node',
+              name: exportRegion ? 'Export Region' : 'Node',
+              frameRole: exportRegion ? 'exportRegion' : 'frame',
               transform,
-              fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
+              // An Export Region paints nothing (sceneToEngine skips its fill
+              // and ExportRegionOverlay draws the dashed boundary), so it
+              // carries a transparent fill rather than the frame grey. The
+              // node data has to be honest too: a document opened by an older
+              // build must not suddenly show an opaque grey rectangle.
+              fill: exportRegion
+                ? { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 }
+                : { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
               children: [],
               w: size?.w ?? 375,
               h: size?.h ?? 812,
+              clipContent: exportRegion ? false : undefined,
             });
-            isFrame = true;
+            if (exportRegion) {
+              // A region with no export configuration would never reach the
+              // export dialog, which is the whole point of drawing one. Seed
+              // the canonical preset shape the inspector and batch dialog
+              // already consume, rather than a parallel export model.
+              node = {
+                ...node,
+                presets: [
+                  {
+                    id: `${id}-export-1x`,
+                    format: 'png' as const,
+                    scale: { type: 'factor' as const, value: 1 },
+                    suffix: '',
+                    enabled: true,
+                  },
+                ],
+              };
+            }
+            isFrame = !exportRegion;
           } else if (pathPoints && pathPoints.length > 0) {
             // Path tools pass world-space anchors; store node-local relative to origin.
             const localPoints = pathPoints.map((p) => ({
@@ -4018,6 +4052,44 @@ export function EditorProvider({
             ),
           };
         });
+      },
+
+      sliceWithKnife: (line) => {
+        const current = stateRef.current;
+        const result = sliceDocumentWithKnife(current.document, line, current.selection);
+
+        if (result.slicedNodeIds.length === 0) {
+          // Nothing was cut. Say why, using the first object the cut actually
+          // reached — "the knife did nothing" is not an actionable message,
+          // and this is the only place that knows the reason.
+          announcerRef.current?.announce(knifeSkipMessage(result.skipped));
+          return;
+        }
+
+        // One transaction for the whole cut: the preview never touched the
+        // document, so a single undo restores every source object at once.
+        beginTransaction();
+        updateDoc(() => result.document);
+        commitTransaction();
+
+        const firstResultId = result.resultNodeIds[0] ?? null;
+        patch({
+          selection: result.resultNodeIds,
+          primaryId: firstResultId,
+          focusedNodeId: firstResultId,
+          selectionRevision: current.selectionRevision + 1,
+          undoLabel: 'Knife Slice',
+          redoLabel: 'Redo',
+        });
+
+        const objects = result.slicedNodeIds.length;
+        const pieces = result.resultNodeIds.length;
+        const skippedNote = result.skipped.length > 0 ? ` ${knifeSkipMessage(result.skipped)}` : '';
+        announcerRef.current?.announce(
+          objects === 1
+            ? `Split into ${pieces} objects.${skippedNote}`
+            : `Split ${objects} objects into ${pieces} pieces.${skippedNote}`,
+        );
       },
 
       createTextNodeAt: (world, size, parentId, text = '') => {
@@ -4294,9 +4366,11 @@ export function EditorProvider({
       removeSelected: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
+        const editableSel = sel.filter((id) => !isNodeEffectivelyLocked(state.document, id));
+        if (editableSel.length === 0) return;
         const doRemove = () => {
           const parentIds = new Set(
-            sel
+            editableSel
               .map((id) => getParentFast(state.document, id, parentCacheRef.current))
               .filter((pid): pid is string => Boolean(pid)),
           );
@@ -4305,7 +4379,7 @@ export function EditorProvider({
             // Before removing paths, detach any texts that reference them
             // so those texts don't silently become invisible. This is done
             // in the same transaction so undo restores everything together.
-            const removing = new Set(sel);
+            const removing = new Set(editableSel);
             for (const node of Object.values(d.nodes)) {
               if (
                 node.kind === 'text' &&
@@ -4316,18 +4390,18 @@ export function EditorProvider({
                 d = { ...d, nodes: { ...d.nodes, [node.id]: { ...rest, textMode: 'point' } } };
               }
             }
-            for (const id of sel) d = removeNode(d, id);
+            for (const id of editableSel) d = removeNode(d, id);
             for (const pid of parentIds) d = applyFrameLayout(d, pid);
             return d;
           });
-          patch({ selection: [] });
+          patch({ selection: state.selection.filter((id) => !editableSel.includes(id)) });
         };
-        if (sel.length > 5) {
+        if (editableSel.length > 5) {
           import('./components/PromptDialog')
             .then(({ confirmDialog }) =>
               confirmDialog(
                 'Delete objects',
-                `Are you sure you want to delete ${sel.length} objects?`,
+                `Are you sure you want to delete ${editableSel.length} objects?`,
                 { confirmLabel: 'Delete', variant: 'danger' },
               ),
             )
@@ -4342,20 +4416,23 @@ export function EditorProvider({
       renameSelected: (name) => {
         const sel = state.selection[0];
         if (!sel) return;
-        updateDoc((doc) => renameNode(doc, sel, name));
+        updateDoc((doc) => (isNodeEffectivelyLocked(doc, sel) ? doc : renameNode(doc, sel, name)));
       },
 
       renameNodeById: (id, name) => {
-        updateDoc((doc) => (doc.nodes[id] ? renameNode(doc, id, name) : doc));
+        updateDoc((doc) =>
+          doc.nodes[id] && !isNodeEffectivelyLocked(doc, id) ? renameNode(doc, id, name) : doc,
+        );
       },
 
       moveNode: (id, toIndex) => {
-        updateDoc((doc) => moveNode(doc, id, toIndex));
+        updateDoc((doc) => (isNodeEffectivelyLocked(doc, id) ? doc : moveNode(doc, id, toIndex)));
       },
 
       duplicateSelected: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
+        if (sel.some((id) => isNodeEffectivelyLocked(state.document, id))) return;
 
         const offsetX = 20;
         const offsetY = 20;
@@ -4925,7 +5002,7 @@ export function EditorProvider({
           const updated: Record<string, SceneNode> = {};
           for (const { id, x, y } of positions) {
             const node = doc.nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             updated[id] = {
               ...node,
               transform: [
@@ -4958,7 +5035,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             nodes[id] = {
               ...node,
               transform: [
@@ -4982,7 +5059,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             nodes[id] = {
               ...node,
               transform: [
@@ -5006,7 +5083,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             const bounds = nodeLocalBounds(node, doc);
             if (!bounds) continue;
             const oldW = node.kind === 'frame' ? (node.w ?? bounds.w) : bounds.w;
@@ -5047,7 +5124,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             const bounds = nodeLocalBounds(node, doc);
             if (!bounds) continue;
             const oldH = node.kind === 'frame' ? (node.h ?? bounds.h) : bounds.h;
@@ -5091,7 +5168,7 @@ export function EditorProvider({
           const updated: Record<string, SceneNode> = {};
           for (const { id, update } of updaters) {
             const node = doc.nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             updated[id] = update(node);
             if (updated[id] !== node) changed = true;
           }
@@ -5109,7 +5186,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             nodes[id] = { ...node, opacity: value };
           }
           let d = { ...doc, nodes };
@@ -5141,7 +5218,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             nodes[id] = { ...node, blendMode: mode };
           }
           return { ...doc, nodes };
@@ -5156,7 +5233,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             nodes[id] = { ...node, rotation: value };
           }
           return { ...doc, nodes };
@@ -5174,7 +5251,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             const [a, b, c, d, e, f] = node.transform as Affine;
             const lb = nodeLocalBounds(node, doc);
             const lcx = lb ? lb.x + lb.w / 2 : 0;
@@ -5199,7 +5276,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             const [a, b, c, d, e, f] = node.transform as Affine;
             const lb = nodeLocalBounds(node, doc);
             const lcy = lb ? lb.y + lb.h / 2 : 0;
@@ -5226,7 +5303,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             const nodeWorld = nodeWorldTransform(doc, id);
             const newWorld = multiplyAffine(repeat.delta, nodeWorld);
             const parent = getParent(doc, id);
@@ -5254,7 +5331,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (!node) continue;
+            if (!node || isNodeEffectivelyLocked(doc, id)) continue;
             const [a, b, c, d, e, f] = node.transform as Affine;
             nodes[id] = {
               ...node,
@@ -5280,7 +5357,12 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (node?.kind !== 'shape' && node?.kind !== 'frame') continue;
+            if (
+              !node ||
+              isNodeEffectivelyLocked(doc, id) ||
+              (node.kind !== 'shape' && node.kind !== 'frame')
+            )
+              continue;
             nodes[id] = { ...node, cornerRadius: value } as SceneNode;
           }
           return { ...doc, nodes };
@@ -6507,11 +6589,23 @@ export function EditorProvider({
       },
 
       setNodeLocked: (id, locked) => {
-        updateNodeProp(id, (n) => ({ ...n, locked }));
+        // Lock state is the management affordance that must remain available
+        // even when the node or one of its ancestors is locked.
+        updateDoc((doc) => {
+          const node = doc.nodes[id];
+          if (!node || node.locked === locked) return doc;
+          return { ...doc, nodes: { ...doc.nodes, [id]: { ...node, locked } } };
+        });
       },
 
       setNodeVisible: (id, visible) => {
-        updateNodeProp(id, (n) => ({ ...n, visible }));
+        // Visibility is a layer-management operation and remains available
+        // for locked nodes so Layers can still manage their presentation.
+        updateDoc((doc) => {
+          const node = doc.nodes[id];
+          if (!node || node.visible === visible) return doc;
+          return { ...doc, nodes: { ...doc.nodes, [id]: { ...node, visible } } };
+        });
       },
 
       captureLayerState: (name, categories) => {
@@ -6590,7 +6684,13 @@ export function EditorProvider({
       },
 
       bulkSetNodeVisible: (ids, visible) => {
-        updateDoc((doc) => bulkSetNodeVisibleDoc(doc, ids, visible));
+        updateDoc((doc) =>
+          bulkSetNodeVisibleDoc(
+            doc,
+            ids.filter((id) => !isNodeEffectivelyLocked(doc, id)),
+            visible,
+          ),
+        );
       },
 
       bulkSetLayerColor: (ids, color) => {
@@ -6706,7 +6806,7 @@ export function EditorProvider({
       reparentNode: (id, newParentId, toIndex) => {
         updateDoc((doc) => {
           const node = doc.nodes[id];
-          if (!node) return doc;
+          if (!node || isNodeEffectivelyLocked(doc, id)) return doc;
           const oldParentId = getParentFast(doc, id, parentCacheRef.current);
           // A null newParentId means "move to the active page's top level."
           // doc.rootChildren holds each page's contentRoot group id, not page
@@ -6742,7 +6842,9 @@ export function EditorProvider({
         if (sel.length === 0) return;
         updateDoc((doc) => {
           let d = doc;
-          for (const id of sel) d = arrangeNodeDoc(d, id, op);
+          for (const id of sel) {
+            if (!isNodeEffectivelyLocked(d, id)) d = arrangeNodeDoc(d, id, op);
+          }
           return d;
         });
         announcerRef.current?.announce(

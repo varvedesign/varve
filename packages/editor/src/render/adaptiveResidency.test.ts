@@ -35,6 +35,37 @@ describe('adaptive render residency policy', () => {
     expect(shouldChangeRasterBucket(4096, 2048, 2500)).toBe(true);
   });
 
+  it('uses each raster footprint in device pixels and only promotes within the decode budget', () => {
+    const smallOnScreen = selectRasterRepresentation({
+      viewportWidth: 2560,
+      viewportHeight: 1440,
+      devicePixelRatio: 2,
+      zoom: 64,
+      projectedLongEdge: 180,
+      sourceWidth: 16_384,
+      sourceHeight: 16_384,
+      maxDecodedBytes: 256 * 1024 * 1024,
+      cameraMoving: true,
+    });
+    // A tiny projected image does not inherit the entire viewport × zoom.
+    expect(smallOnScreen.maxSourceDim).toBe(512);
+
+    const settledHighZoom = selectRasterRepresentation({
+      viewportWidth: 2560,
+      viewportHeight: 1440,
+      devicePixelRatio: 2,
+      zoom: 64,
+      projectedLongEdge: 20_000,
+      sourceWidth: 16_384,
+      sourceHeight: 16_384,
+      maxDecodedBytes: 256 * 1024 * 1024,
+      intent: 'settled-preview',
+    });
+    // 16k RGBA is 1 GiB. The policy requests the sharpest stable level that
+    // can actually remain resident instead of triggering an unbounded decode.
+    expect(settledHighZoom.maxSourceDim).toBe(8192);
+  });
+
   it('evicts large, old, non-pinned resources before expensive reusable ones', () => {
     const manager = new AdaptiveResidencyManager({
       cpuBytes: 100,

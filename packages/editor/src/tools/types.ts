@@ -176,6 +176,11 @@ export interface ToolContext {
     pathPoints?: PathPoint[],
     pathClosed?: boolean,
   ) => void;
+  /** Apply one atomic Knife cut to selected or intersected vector objects. */
+  sliceWithKnife?: (line: {
+    start: readonly [number, number];
+    end: readonly [number, number];
+  }) => void;
   createTextNodeAt: (
     world: { x: number; y: number },
     size?: { w: number; h: number },
@@ -342,6 +347,13 @@ export interface ToolContext {
     operation: 'preview' | 'mask' | 'selection' | 'layer';
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation?: () => void;
+
+  /** Floating raster selection for pixel transforms. */
+  getFloatingRaster?: () => import('@varve/engine').FloatingRasterSelection | null;
+  setFloatingRaster?: (floating: import('@varve/engine').FloatingRasterSelection | null) => void;
+  updateFloatingTransform?: (matrix: import('@varve/shared').Affine) => void;
+  commitFloatingRaster?: () => void;
+  cancelFloatingRaster?: () => void;
 }
 
 export interface Tool {

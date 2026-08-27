@@ -4,7 +4,7 @@
  * Creates frame nodes that define export regions for the Export panel.
  * Visually identical to frames but tagged as export slices.
  *
- * Research basis: Figma Slice (S), Sketch slicing.
+ * Research basis: Figma Slice, Sketch slicing.
  */
 
 import { BaseTool } from './BaseTool';

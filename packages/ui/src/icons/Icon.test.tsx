@@ -33,6 +33,8 @@ describe('<Icon>', () => {
   });
 
   it('keeps specialist tools visually distinguishable', () => {
+    expect(TOOL_ICONS.slice).toBe('Crop');
+    expect(TOOL_ICONS.knife).toBe('Scissors');
     expect(TOOL_ICONS.nodeEdit).toBe('SplinePointer');
     expect(TOOL_ICONS.booleanIntersect).toBe('Blend');
     expect(TOOL_ICONS.booleanExclude).toBe('CircleX');

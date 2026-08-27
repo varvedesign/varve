@@ -30,7 +30,12 @@ import {
   pointToSegmentDistSq,
 } from '@varve/shared';
 import { executeNudge, type NudgeDirection } from '../commands/nudge';
-import { nodeWorldBounds, nodeWorldTransform, worldToParent } from '../scene/world';
+import {
+  isNodeEffectivelyLocked,
+  nodeWorldBounds,
+  nodeWorldTransform,
+  worldToParent,
+} from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
 import { interactionSession } from './InteractionContext';
@@ -102,6 +107,11 @@ export class SelectTool extends BaseTool {
   private longPressStart: { x: number; y: number } | null = null;
   /** Whether this pointer down already fired a long-press action. */
   private longPressFired = false;
+  /** A possible depth-cycle, committed only if the press remains a click. */
+  private pendingDepthCycle: {
+    currentId: string;
+    candidates: Array<{ nodeId: string; node: import('@varve/scene').SceneNode }>;
+  } | null = null;
 
   private visibilityHandler: (() => void) | null = null;
 
@@ -120,6 +130,7 @@ export class SelectTool extends BaseTool {
   }
 
   override onDeactivate(ctx: ToolContext): void {
+    this.pendingDepthCycle = null;
     if (this.visibilityHandler) {
       document.removeEventListener('visibilitychange', this.visibilityHandler);
       this.visibilityHandler = null;
@@ -151,6 +162,7 @@ export class SelectTool extends BaseTool {
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
+    this.pendingDepthCycle = null;
     // Capture the semantic modes at pointer-down. Modifier changes during a
     // drag may affect other interactions, but must not make one marquee switch
     // between replace/add/subtract or containment halfway through the gesture.
@@ -192,11 +204,23 @@ export class SelectTool extends BaseTool {
       }, LONG_PRESS_MS);
     }
 
-    const hit = this.resolveHit(world, ctx);
+    let hit = this.resolveHit(world, ctx);
+
+    // Normal clicks intentionally allow containers to win. A drag that starts
+    // on a selected descendant has a different ownership rule: retain the
+    // existing selection instead of promoting it to the containing frame.
+    if (hit && (hit.node.kind === 'frame' || hit.node.kind === 'group')) {
+      const selectedDescendant = this.findNodesAtPoint(world, ctx).find(
+        (candidate) =>
+          ctx.isSelected(candidate.nodeId) &&
+          isDescendantOf(ctx.document, candidate.nodeId, hit!.nodeId),
+      );
+      if (selectedDescendant) hit = selectedDescendant;
+    }
 
     if (hit) {
       const docNode = ctx.document.nodes[hit.nodeId];
-      if (docNode?.locked) {
+      if (docNode && isNodeEffectivelyLocked(ctx.document, hit.nodeId)) {
         // Clicking a locked node: don't start a move gesture or transaction
         this.marqueeActive = false;
         this.isMoveGesture = false;
@@ -205,8 +229,9 @@ export class SelectTool extends BaseTool {
         return { consumed: true };
       }
 
-      // B1: Depth-based cycling — if clicking an already-selected single node,
-      // cycle to the next overlapping node below
+      // B1: A selected node may depth-cycle on a click, but pointerdown is not
+      // enough to know whether this gesture will become a drag. Keep the
+      // candidates and let onPointerUp commit the cycle only below threshold.
       if (
         !e.shiftKey &&
         !e.ctrlKey &&
@@ -217,17 +242,7 @@ export class SelectTool extends BaseTool {
         const allAtPoint = this.findNodesAtPoint(world, ctx);
         const currentIdx = allAtPoint.findIndex((n) => n.nodeId === hit.nodeId);
         if (currentIdx >= 0 && currentIdx < allAtPoint.length - 1) {
-          const nextNode = allAtPoint[currentIdx + 1]!;
-          ctx.setSelection(nextNode.nodeId);
-          ctx.announceSelection([nextNode.node]);
-          this.marqueeActive = false;
-          this.isMoveGesture = true;
-          ctx.beginTransaction();
-          this.initialPositions.clear();
-          // ctx.selection is a stale snapshot; use the newly-selected id directly.
-          const worldMat = nodeWorldTransform(ctx.document, nextNode.nodeId);
-          this.initialPositions.set(nextNode.nodeId, { x: worldMat[4], y: worldMat[5] });
-          return { consumed: true, captured: true };
+          this.pendingDepthCycle = { currentId: hit.nodeId, candidates: allAtPoint };
         }
       }
 
@@ -312,6 +327,29 @@ export class SelectTool extends BaseTool {
     }
 
     return { consumed: true, captured: true };
+  }
+
+  override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
+    const pending = this.pendingDepthCycle;
+    if (
+      this.drag.kind === 'dragging' &&
+      this.drag.pointerId === e.pointerId &&
+      Number.isFinite(e.clientX) &&
+      Number.isFinite(e.clientY)
+    ) {
+      this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
+      this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
+    }
+    const shouldCycle = pending !== null && this.isBelowThreshold(ctx);
+    super.onPointerUp(e, ctx);
+    this.pendingDepthCycle = null;
+
+    if (!shouldCycle || !pending) return;
+    const currentIndex = pending.candidates.findIndex((n) => n.nodeId === pending.currentId);
+    const nextNode = currentIndex >= 0 ? pending.candidates[currentIndex + 1] : undefined;
+    if (!nextNode) return;
+    ctx.setSelection(nextNode.nodeId);
+    ctx.announceSelection([nextNode.node]);
   }
 
   private cancelLongPress(): void {
@@ -611,6 +649,7 @@ export class SelectTool extends BaseTool {
   }
 
   override onDragCancel(ctx: ToolContext): void {
+    this.pendingDepthCycle = null;
     ctx.setDraft(null);
     // Abort transaction to revert move
     if (this.isMoveGesture) {
@@ -1031,4 +1070,17 @@ function childrenCount(
   const node = doc.nodes[id];
   if (!node?.children) return 0;
   return node.children.length;
+}
+
+function isDescendantOf(
+  doc: import('@varve/scene').Document,
+  nodeId: string,
+  ancestorId: string,
+): boolean {
+  let current = getParent(doc, nodeId);
+  while (current) {
+    if (current === ancestorId) return true;
+    current = getParent(doc, current);
+  }
+  return false;
 }

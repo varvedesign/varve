@@ -1,17 +1,21 @@
-// COMPLEXITY: 10 — thin re-exports from boolean-geometry and boolean-ops.
+// COMPLEXITY: 10 — thin re-exports from boolean/ module.
+// This file preserves backward compatibility for all existing callers.
 
 export {
-  cleanPolygon,
+  cleanupPolygon as cleanPolygon,
   hasSelfIntersections,
-  pointInPolygon,
   resolveSelfIntersections,
-  segmentIntersection,
-  shapeToPolygon,
-} from './boolean-geometry';
-export type { BooleanOpKind, Point2D } from './boolean-ops';
+} from './boolean/polygon-clipper';
+
+export { pointInRegion as pointInPolygon } from './boolean/region';
+export type { Point2D } from './boolean/region';
+export { segmentIntersectionRobust as segmentIntersection } from './boolean/precision';
+export { shapeToPolygon } from './boolean/integration';
+
+export type { BooleanOpType as BooleanOpKind } from './boolean/engine';
 export {
-  booleanAnchorForNode,
   booleanOp,
-  placeBooleanResult,
   shapeNodesInWorldSpace,
-} from './boolean-ops';
+  booleanAnchorForNode,
+  placeBooleanResult,
+} from './boolean/integration';

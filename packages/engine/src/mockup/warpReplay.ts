@@ -25,6 +25,7 @@ export type WarpImageResolver = (src: string) => CanvasImageSource | undefined;
 export interface WarpImageCacheLike {
   get(src: string): { state: string; image: CanvasImageSource | null } | undefined;
   getImageAtSize?(src: string, maxDim: number): CanvasImageSource | null;
+  getClosestImageAtSize?(src: string, maxDim: number): CanvasImageSource | null;
   isRepresentationCapable?(src: string): boolean;
   loadAtSize?(
     src: string,
@@ -40,6 +41,42 @@ export interface ReplayImagePolicy {
   sourceWidth?: number;
   sourceHeight?: number;
   intent?: 'interactive' | 'settled-preview' | 'thumbnail' | 'export' | 'print';
+  /**
+   * Called at replay time with an individual fill's projected device-space
+   * footprint. This keeps image representation selection proportional to the
+   * image actually on screen rather than the document or viewport as a whole.
+   */
+  resolveMaxSourceDim?: (request: ReplayImageRepresentationRequest) => number;
+}
+
+export interface ReplayImageRepresentationRequest {
+  projectedLongEdge: number;
+  sourceWidth?: number;
+  sourceHeight?: number;
+}
+
+/**
+ * Conservative device-space long edge of a local image rectangle. The largest
+ * singular value covers rotation, skew, and non-uniform transforms without
+ * under-requesting source detail. A missing/non-finite transform falls back
+ * to local units so non-canvas test targets retain deterministic behaviour.
+ */
+export function projectedLongEdgeForTransform(
+  width: number,
+  height: number,
+  transform?: { a: number; b: number; c: number; d: number } | null,
+): number {
+  const localLongEdge = Math.max(1, Math.abs(width), Math.abs(height));
+  if (!transform) return localLongEdge;
+  const { a, b, c, d } = transform;
+  if (![a, b, c, d].every(Number.isFinite)) return localLongEdge;
+  // Largest eigenvalue of MᵀM. This is the maximum magnification of any
+  // local direction and is stable for rotations, skew, and reflections.
+  const trace = a * a + b * b + c * c + d * d;
+  const determinant = a * d - b * c;
+  const discriminant = Math.max(0, trace * trace - 4 * determinant * determinant);
+  const scale = Math.sqrt(Math.max(0, (trace + Math.sqrt(discriminant)) / 2));
+  return Number.isFinite(scale) && scale > 0 ? localLongEdge * scale : localLongEdge;
 }
 
 /**
@@ -92,6 +129,11 @@ export function resolveReplayImage(
         height: policy?.sourceHeight ?? maxSourceDim,
       })
       .catch(() => undefined);
+    // The exact bucket is being decoded asynchronously. A previously
+    // resident proxy is still correct content, just lower fidelity, so retain
+    // it until the exact result arrives instead of painting a placeholder.
+    const fallback = cache.getClosestImageAtSize?.(loadableSource, maxSourceDim);
+    if (fallback) return fallback;
   }
   const imgEntry = cache.get(loadableSource);
   if (imgEntry?.state === 'loaded' && imgEntry.image) {

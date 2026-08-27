@@ -121,6 +121,22 @@ describe('workspaceTypes', () => {
     expect(config.defaultTool).toBe('paint');
   });
 
+  it('scopes Export Region and Knife to the appropriate workspaces', () => {
+    const tools = (mode: WorkspaceMode) =>
+      getWorkspaceConfig(mode).toolbar.tools.map(({ toolId }) => toolId);
+
+    expect(tools('design')).toEqual(expect.arrayContaining(['slice', 'knife']));
+    expect(tools('print')).toEqual(expect.arrayContaining(['slice', 'knife']));
+    expect(tools('drawing')).toContain('knife');
+    expect(tools('drawing')).not.toContain('slice');
+    expect(tools('logo')).toContain('knife');
+    expect(tools('logo')).not.toContain('slice');
+    for (const mode of ['image', 'motion', 'codegen', 'email'] as const) {
+      expect(tools(mode)).not.toContain('slice');
+      expect(tools(mode)).not.toContain('knife');
+    }
+  });
+
   it('image mode has pixel grid overlay', () => {
     const config = getWorkspaceConfig('image');
     expect(config.canvasOverlays.pixelGrid).toBe(true);

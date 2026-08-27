@@ -99,12 +99,21 @@ const LOCAL_HELP_CONTENT: Record<string, HelpArticle> = {
   },
   'tool:slice': {
     id: 'tool:slice',
-    title: 'Slice Tool (K)',
+    title: 'Export Region Tool (K)',
     summary: 'Define export regions on the canvas.',
-    body: 'Click and drag to create a slice region. Slices define areas for selective export. Use slices to export specific portions of your design without cropping the original.',
+    body: 'Click and drag to create an export region. Export regions define areas for selective export without changing the editable artwork.',
     keywords: ['slice', 'export', 'region', 'crop', 'k'],
     category: 'Tools',
     related: ['tool:select', 'export'],
+  },
+  'tool:knife': {
+    id: 'tool:knife',
+    title: 'Knife Tool (N)',
+    summary: 'Split editable vector objects with a cut line.',
+    body: 'Drag a cut line through selected vector objects, or through visible vector objects when nothing is selected. The cut is committed on release and can be undone as one operation.',
+    keywords: ['knife', 'slice', 'split', 'cut', 'vector', 'n'],
+    category: 'Tools',
+    related: ['tool:select', 'tool:pen'],
   },
   'tool:eyedropper': {
     id: 'tool:eyedropper',

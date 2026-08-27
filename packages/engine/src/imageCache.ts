@@ -528,6 +528,58 @@ export class ImageCache {
   }
 
   /**
+   * Return the best already-resident at-size representation when the exact
+   * requested bucket is still decoding. Prefer the smallest image at least as
+   * detailed as requested; otherwise use the sharpest coarser representation.
+   *
+   * This is a fallback only — callers still request the exact bucket. It
+   * prevents a camera zoom or settled-quality promotion from blanking a
+   * raster while the next representation is decoded asynchronously.
+   */
+  getClosestImageAtSize(
+    url: string,
+    maxDim: number,
+    variant?: ImageCacheColorVariant,
+  ): CachedImage | null {
+    const exact = this.getImageAtSize(url, maxDim, variant);
+    if (exact) return exact;
+
+    const prefix = `${url}@`;
+    const variantSuffix = variant?.colorKey
+      ? `\u0000varve-color=${encodeURIComponent(variant.colorKey)}`
+      : '';
+    let smallestDetailed: { dim: number; key: string; image: CachedImage } | null = null;
+    let sharpestCoarse: { dim: number; key: string; image: CachedImage } | null = null;
+
+    for (const [key, entry] of this.cache) {
+      if (!key.startsWith(prefix) || entry.state !== 'loaded' || !entry.image) continue;
+      const suffix = key.slice(prefix.length);
+      if (variantSuffix) {
+        if (!suffix.endsWith(variantSuffix)) continue;
+      } else if (suffix.includes('\u0000varve-color=')) {
+        continue;
+      }
+      const dimText = variantSuffix ? suffix.slice(0, -variantSuffix.length) : suffix;
+      const dim = Number(dimText);
+      if (!Number.isFinite(dim) || dim <= 0) continue;
+      if (this.isBitmap(entry.image) && (entry.image as { closed?: boolean }).closed === true) {
+        continue;
+      }
+      const candidate = { dim, key, image: entry.image };
+      if (dim >= maxDim) {
+        if (!smallestDetailed || dim < smallestDetailed.dim) smallestDetailed = candidate;
+      } else if (!sharpestCoarse || dim > sharpestCoarse.dim) {
+        sharpestCoarse = candidate;
+      }
+    }
+
+    const selected = smallestDetailed ?? sharpestCoarse;
+    if (!selected) return null;
+    this.touch(selected.key);
+    return selected.image;
+  }
+
+  /**
    * Decode (or await the decode of) the at-size representation of an inline
    * source: the encoded bytes are decoded directly to an ImageBitmap capped
    * at `maxDim` px on the long edge, so a multi-hundred-megapixel photo

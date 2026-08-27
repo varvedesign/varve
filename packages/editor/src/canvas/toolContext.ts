@@ -141,6 +141,7 @@ export function buildToolContext(
 
     createShapeAt: (world, size, parentId, pathPoints, pathClosed) =>
       e.createShapeAt(world, size, parentId, pathPoints, pathClosed),
+    sliceWithKnife: (line) => e.sliceWithKnife?.(line),
     createTextNodeAt: (world, size, parentId, text) => {
       deps.pendingAutoTextEditRef.current = true;
       e.createTextNodeAt(world, size, parentId, text);

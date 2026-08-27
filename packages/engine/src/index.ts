@@ -104,6 +104,18 @@ export {
   areaSelectionFromImageLuminance,
 } from './areaSelectionImage';
 export type {
+  CommitResult,
+  FloatingInterpolation,
+  FloatingRasterSelection,
+  LiftPixelsOptions,
+} from './floatingRasterSelection';
+export {
+  commitFloatingSelection,
+  floatingTransformBounds,
+  liftSelectedPixels,
+  sampleFloatingAt,
+} from './floatingRasterSelection';
+export type {
   BackgroundRemovalOptions,
   BackgroundRemovalResult,
   EnvironmentCapabilities,

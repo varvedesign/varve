@@ -357,6 +357,20 @@ describe('ImageCache at-size representations', () => {
     expect(cache.stats.bytes).toBe(2048 * 1536 * 4);
   });
 
+  it('keeps a resident proxy visible while the exact requested bucket is pending', () => {
+    const src = 'data:image/jpeg;base64,PROGRESSIVE';
+    const coarse = mockBitmap(vi.fn(), 512, 384);
+    const detailed = mockBitmap(vi.fn(), 4096, 3072);
+    const cache = new ImageCache();
+    cache.setLoaded(cache.atSizeKey(src, 512), coarse);
+    cache.setLoaded(cache.atSizeKey(src, 4096), detailed);
+
+    // A 2k request reuses the already-resident 4k image; a 8k request falls
+    // back to it until the 8k decode arrives. Neither transition blanks.
+    expect(cache.getClosestImageAtSize(src, 2048)).toBe(detailed);
+    expect(cache.getClosestImageAtSize(src, 8192)).toBe(detailed);
+  });
+
   it('preserves aspect ratio and orientation-normalized dims from the source', async () => {
     const src = 'data:image/jpeg;base64,PORTRAIT';
     globalThis.createImageBitmap = vi.fn().mockResolvedValue(mockBitmap(vi.fn(), 1365, 2048));

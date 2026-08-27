@@ -172,6 +172,11 @@ describe('formatShortcut', () => {
 });
 
 describe('SHORTCUT_DEFS', () => {
+  it('gives Export Region and Knife distinct single-key shortcuts', () => {
+    expect(SHORTCUT_DEFS.toolSlice.binding).toEqual({ key: 'k' });
+    expect(SHORTCUT_DEFS.toolKnife.binding).toEqual({ key: 'n' });
+  });
+
   it('has all expected shortcuts', () => {
     const ids = Object.keys(SHORTCUT_DEFS);
     expect(ids).toContain('undo');

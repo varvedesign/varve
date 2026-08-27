@@ -40,6 +40,7 @@ import {
 import { applyDepthBlur } from './lensBlur';
 import {
   paintWarpedImage,
+  projectedLongEdgeForTransform,
   quadBoundsOf,
   type ReplayImagePolicy,
   resolveReplayImage,
@@ -1163,6 +1164,16 @@ function paintImageFill(
   const bounds = primitiveBounds(item.primitive);
   const bw = bounds.w || 1;
   const bh = bounds.h || 1;
+  const baseImagePolicy = imagePolicyForCurrentReplay;
+  const resolvedMaxSourceDim = baseImagePolicy?.resolveMaxSourceDim?.({
+    projectedLongEdge: projectedLongEdgeForTransform(bw, bh, target.getTransform?.()),
+    sourceWidth: fill.imageWidth,
+    sourceHeight: fill.imageHeight,
+  });
+  const imagePolicy =
+    resolvedMaxSourceDim === undefined
+      ? baseImagePolicy
+      : { ...baseImagePolicy, maxSourceDim: resolvedMaxSourceDim };
 
   const image = resolveReplayImage(
     fill.src,
@@ -1170,7 +1181,7 @@ function paintImageFill(
     getImageCache(),
     fill.frame,
     {
-      ...imagePolicyForCurrentReplay,
+      ...imagePolicy,
       sourceWidth: fill.imageWidth,
       sourceHeight: fill.imageHeight,
     },

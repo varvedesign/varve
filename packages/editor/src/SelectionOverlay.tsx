@@ -27,7 +27,12 @@ import {
 import { Fragment, useCallback, useMemo, useRef } from 'react';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './canvas/overlayZIndex';
 import { useEditor } from './context';
-import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import {
+  isNodeEffectivelyLocked,
+  nodeLocalBounds,
+  nodeWorldBounds,
+  nodeWorldTransform,
+} from './scene/world';
 import { type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
 import { storeRepeatTransform } from './transform/repeatTransform';
 import { type SkewAxis, TransformEngine } from './transform/TransformEngine';
@@ -108,6 +113,8 @@ interface DragState {
   center: Point;
   initialPointer: Point;
   initialAngle: number;
+  lastPointerAngle: number;
+  accumulatedAngle: number;
   canvasOffsetX: number;
   canvasOffsetY: number;
 }
@@ -407,7 +414,8 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const isShape = node?.kind === 'shape';
   const isFrame = node?.kind === 'frame';
   const isText = node?.kind === 'text';
-  const hasInteractiveHandles = isSingle && (isShape || isFrame || isText);
+  const isEffectivelyLocked = node ? isNodeEffectivelyLocked(state.document, node.id) : false;
+  const hasInteractiveHandles = isSingle && !isEffectivelyLocked && (isShape || isFrame || isText);
 
   const isLineOrArrow =
     isSingle &&
@@ -512,6 +520,8 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         center,
         initialPointer: pointerWorld,
         initialAngle,
+        lastPointerAngle: initialAngle,
+        accumulatedAngle: 0,
         canvasOffsetX,
         canvasOffsetY,
       };
@@ -558,7 +568,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
   const handleEndpointPointerDown = useCallback(
     (e: React.PointerEvent, endpointIndex: 0 | 1) => {
-      if (!isLineOrArrow || !node) return;
+      if (!isLineOrArrow || !node || isEffectivelyLocked) return;
       e.stopPropagation();
       (e.target as Element).setPointerCapture?.(e.pointerId);
       const canvasEl = canvasRef?.current;
@@ -587,12 +597,21 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         invWorldTransform: invMat,
       };
     },
-    [isLineOrArrow, node, canvasRef, state.zoom, state.pan, state.document, beginTransaction],
+    [
+      isLineOrArrow,
+      node,
+      isEffectivelyLocked,
+      canvasRef,
+      state.zoom,
+      state.pan,
+      state.document,
+      beginTransaction,
+    ],
   );
 
   const handleCornerRadiusPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (!isSingle || !node) return;
+      if (!isSingle || !node || isEffectivelyLocked) return;
       let localRect: { x: number; y: number; w: number; h: number } | null = null;
       if (node.kind === 'frame') {
         localRect = nodeLocalBounds(node);
@@ -629,11 +648,23 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         canvasOffsetY,
       };
     },
-    [isSingle, node, canvasRef, state.zoom, state.pan, state.document, beginTransaction],
+    [
+      isSingle,
+      node,
+      isEffectivelyLocked,
+      canvasRef,
+      state.zoom,
+      state.pan,
+      state.document,
+      beginTransaction,
+    ],
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
+      // A lock can arrive while a handle gesture is active (another panel or
+      // a synchronized edit). Stop producing direct mutations immediately.
+      if (state.selection.some((id) => isNodeEffectivelyLocked(state.document, id))) return;
       // Handle endpoint drag
       const epDrag = endpointDragRef.current;
       if (epDrag) {
@@ -699,7 +730,14 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       if (g.isRotation) {
         const angle = Math.atan2(pointerWorld[1] - g.center[1], pointerWorld[0] - g.center[0]);
-        let angleDelta = angle - g.initialAngle;
+        // Unwrap atan2 at +/-PI so a continuous rotation cannot jump almost a
+        // full turn when the pointer crosses the branch cut.
+        let step = angle - g.lastPointerAngle;
+        if (step > Math.PI) step -= Math.PI * 2;
+        if (step < -Math.PI) step += Math.PI * 2;
+        g.lastPointerAngle = angle;
+        g.accumulatedAngle += step;
+        let angleDelta = g.accumulatedAngle;
         if (e.shiftKey) {
           angleDelta = Math.round(angleDelta / ROT_SNAP) * ROT_SNAP;
         }
@@ -764,7 +802,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         return;
       }
     },
-    [updateDoc, state.pan, state.zoom],
+    [updateDoc, state.pan, state.zoom, state.selection, state.document],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -810,6 +848,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const rotationDeg = (box.rotation * 180) / Math.PI;
 
   const resizeHandleTargets = (() => {
+    if (isEffectivelyLocked) return [];
     const { indices } = visibleHandles(box.w, box.h, state.zoom, isSingle);
     return HANDLE_KEYS.slice(0, 8).map((key, i) => {
       if (!indices.has(i)) return null;
@@ -1038,6 +1077,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       {resizeHandleTargets}
 
       {cornerHandlePos &&
+        hasInteractiveHandles &&
         (() => {
           const [sx, sy] = overlayWorldToScreen(cornerHandlePos[0], cornerHandlePos[1]);
           return (
@@ -1067,7 +1107,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           );
         })()}
 
-      {isLineOrArrow && fromWorld && toWorld && (
+      {!isEffectivelyLocked && isLineOrArrow && fromWorld && toWorld && (
         <>
           {/* Endpoint handle: from (start) */}
           {(() => {

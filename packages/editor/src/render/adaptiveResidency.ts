@@ -71,6 +71,17 @@ export interface RasterRepresentationRequest {
   viewportHeight: number;
   devicePixelRatio: number;
   zoom: number;
+  /**
+   * Long edge of this raster's actual projected footprint in device pixels.
+   * When absent, the legacy viewport-derived estimate is retained for callers
+   * that do not have per-item geometry.
+   */
+  projectedLongEdge?: number;
+  /** Source dimensions allow the policy to respect the decode byte budget. */
+  sourceWidth?: number;
+  sourceHeight?: number;
+  /** Maximum bytes this one decoded representation may retain. */
+  maxDecodedBytes?: number;
   /** True while a camera gesture is actively producing frames. */
   cameraMoving?: boolean;
   intent?: RenderIntent;
@@ -85,12 +96,48 @@ export interface RasterRepresentationDecision {
 
 const MIN_INTERACTIVE_BUCKET = 512;
 const MAX_INTERACTIVE_BUCKET = 8192;
+const MAX_SETTLED_BUCKET = 16384;
 const INTERACTIVE_MARGIN = 1.25;
 const SETTLED_MARGIN = 1.5;
 
 function nextPowerOfTwo(value: number): number {
   if (value <= 1) return 1;
   return 2 ** Math.ceil(Math.log2(value));
+}
+
+function previousPowerOfTwo(value: number): number {
+  if (value <= 1) return 1;
+  return 2 ** Math.floor(Math.log2(value));
+}
+
+/**
+ * Largest long edge whose RGBA decode fits the caller's retention budget.
+ * The image cache performs the actual admission check; this conservative
+ * policy keeps an interaction or settled preview from asking the browser to
+ * decode a representation that can never be retained. Unknown dimensions or
+ * budgets retain the requested cap so legacy callers preserve their behaviour.
+ */
+function maxLongEdgeForDecodedBudget(request: RasterRepresentationRequest): number | null {
+  const width = request.sourceWidth;
+  const height = request.sourceHeight;
+  const maxBytes = request.maxDecodedBytes;
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    !Number.isFinite(maxBytes) ||
+    !width ||
+    !height ||
+    !maxBytes ||
+    width <= 0 ||
+    height <= 0 ||
+    maxBytes <= 0
+  ) {
+    return null;
+  }
+  const sourceLongEdge = Math.max(width, height);
+  const sourceBytes = width * height * 4;
+  if (sourceBytes <= maxBytes) return sourceLongEdge;
+  return Math.max(1, previousPowerOfTwo(sourceLongEdge * Math.sqrt(maxBytes / sourceBytes)));
 }
 
 /**
@@ -116,11 +163,16 @@ export function selectRasterRepresentation(
   const dpr = Math.max(1, Number.isFinite(request.devicePixelRatio) ? request.devicePixelRatio : 1);
   const zoom = Math.max(0.05, Number.isFinite(request.zoom) ? request.zoom : 1);
   const margin = request.cameraMoving ? INTERACTIVE_MARGIN : SETTLED_MARGIN;
-  const requiredSourceDim = viewportMax * dpr * zoom * margin;
-  const bucket = Math.min(
-    MAX_INTERACTIVE_BUCKET,
-    Math.max(MIN_INTERACTIVE_BUCKET, nextPowerOfTwo(requiredSourceDim)),
-  );
+  const projectedLongEdge = request.projectedLongEdge;
+  const displayLongEdge =
+    Number.isFinite(projectedLongEdge) && projectedLongEdge !== undefined && projectedLongEdge > 0
+      ? projectedLongEdge
+      : viewportMax * dpr * zoom;
+  const requiredSourceDim = displayLongEdge * margin;
+  const intentCap = intent === 'settled-preview' ? MAX_SETTLED_BUCKET : MAX_INTERACTIVE_BUCKET;
+  const requestedBucket = Math.min(intentCap, Math.max(MIN_INTERACTIVE_BUCKET, nextPowerOfTwo(requiredSourceDim)));
+  const decodedBudgetCap = maxLongEdgeForDecodedBudget(request);
+  const bucket = decodedBudgetCap === null ? requestedBucket : Math.min(requestedBucket, decodedBudgetCap);
 
   return {
     maxSourceDim: bucket,

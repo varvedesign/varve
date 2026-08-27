@@ -469,21 +469,6 @@ export function flattenSceneToEngine(
     let effective = getEffectiveNode(document, id, variantCaches) ?? raw;
     effective = applyBindingsToNode(effective, variableStore);
 
-    // TEMP DIAGNOSTIC (remove)
-    const effFills = (effective as { fills?: unknown }).fills as
-      | Array<{
-          type?: string;
-          pattern?: { tileSrc?: string };
-        }>
-      | undefined;
-    if (effFills?.some((f) => f.type === 'pattern')) {
-      console.debug(
-        `[flatten-diag] node=${String(raw.id).slice(0, 8)} name=${raw.name} fills=${effFills
-          .map((f) => `${f.type}${(f.pattern?.tileSrc?.length ?? 0) > 0 ? '+tile' : ''}`)
-          .join(',')}`,
-      );
-    }
-
     if (effective.kind === 'table') {
       // Native tables compile with document context so rich scene-content
       // cells (images, components) resolve and render inside their cells.

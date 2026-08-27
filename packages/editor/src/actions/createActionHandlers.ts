@@ -13,7 +13,13 @@ import {
   transformAreaSelection,
 } from '@varve/engine';
 import { toDelimitedText } from '@varve/import';
-import { getImageFill, getOwnRasterMaskAsset, isImageShape, type TextNode } from '@varve/scene';
+import {
+  arrangeNode as arrangeNodeDoc,
+  getImageFill,
+  getOwnRasterMaskAsset,
+  isImageShape,
+  type TextNode,
+} from '@varve/scene';
 import { type Affine, multiplyAffine, rotateRad, scaleXY, translate } from '@varve/shared';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import { executeNudge, getNudgeStep } from '../commands/nudge';
@@ -553,6 +559,18 @@ export function createActionHandlers(
       applyAreaTransform(areaSelectionTransformMatrix('rotate', { radians: Math.PI / 12 })),
     areaSelectionRotateCCW: () =>
       applyAreaTransform(areaSelectionTransformMatrix('rotate', { radians: -Math.PI / 12 })),
+    transformSelectedPixels: () => {
+      if (!e.state.areaSelection) {
+        e.announce('Create a pixel selection first, then use Transform Pixels');
+        return;
+      }
+      if (e.state.floatingRaster) {
+        e.announce('A pixel transform is already in progress');
+        return;
+      }
+      e.setTool('floatingTransform');
+      e.announce('Transforming selected pixels');
+    },
     saveAreaSelection,
     restoreLastSavedAreaSelection,
     deleteLastSavedAreaSelection,
@@ -761,6 +779,7 @@ export function createActionHandlers(
     toolWarp: setTool('warp'),
     toolScale: setTool('scale'),
     toolSlice: setTool('slice'),
+    toolKnife: setTool('knife'),
     toolCloneStamp: setTool('cloneStamp'),
     toolSam2Segment: setTool('sam2Segment'),
     toolPage: setTool('page'),
@@ -963,6 +982,11 @@ export function createActionHandlers(
             }
           : n,
       );
+      // Path text must paint after its referenced shape. `arrangeNode` handles
+      // both root and nested siblings without changing the current selection.
+      if (e.state.document.rootChildren) {
+        e.updateDoc((doc) => arrangeNodeDoc(doc, textNode.id, 'front'));
+      }
       e.commitTransaction();
       e.announce?.(`Text placed on ${pathNode.name}`);
     },

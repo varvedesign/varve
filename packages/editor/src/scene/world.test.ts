@@ -18,7 +18,12 @@ import {
   invalidateNodes,
   invalidateSubtree,
 } from './transformCache';
-import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './world';
+import {
+  isNodeEffectivelyLocked,
+  nodeLocalBounds,
+  nodeWorldBounds,
+  nodeWorldTransform,
+} from './world';
 
 function buildDoc() {
   let doc = createDocument();
@@ -90,6 +95,26 @@ describe('nodeWorldTransform', () => {
     const t = nodeWorldTransform(doc, 'f2');
     expect(t[4]).toBeCloseTo(150, EPS);
     expect(t[5]).toBeCloseTo(100, EPS);
+  });
+});
+
+describe('isNodeEffectivelyLocked', () => {
+  it('protects a locked node and all descendants', () => {
+    let doc = buildDoc();
+    doc = { ...doc, nodes: { ...doc.nodes, f1: { ...doc.nodes.f1!, locked: true } } };
+
+    expect(isNodeEffectivelyLocked(doc, 'f1')).toBe(true);
+    expect(isNodeEffectivelyLocked(doc, 'f2')).toBe(true);
+    expect(isNodeEffectivelyLocked(doc, 's1')).toBe(true);
+    expect(isNodeEffectivelyLocked(doc, 's2')).toBe(false);
+  });
+
+  it('does not treat a locked child as locking its parent', () => {
+    let doc = buildDoc();
+    doc = { ...doc, nodes: { ...doc.nodes, s1: { ...doc.nodes.s1!, locked: true } } };
+
+    expect(isNodeEffectivelyLocked(doc, 's1')).toBe(true);
+    expect(isNodeEffectivelyLocked(doc, 'f2')).toBe(false);
   });
 });
 

@@ -1,9 +1,10 @@
 /**
  * Tests for image fill modes (fit, fill, stretch, tile) in replay.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getImageCache, resetImageCache } from './imageCache';
 import { computeImagePlacement, localToSourcePixel } from './imagePlacement';
+import { projectedLongEdgeForTransform } from './mockup/warpReplay';
 import { replayIr } from './replay';
 import type { FillIR, RenderItem } from './types';
 
@@ -100,6 +101,7 @@ function makeRecorder(): {
       },
       lineDashOffset: 0,
       setLineDash: () => calls.push('setLineDash'),
+      getTransform: () => ({ a: 2, b: 0, c: 0, d: 2, e: 0, f: 0 }),
       drawImage: (
         image: CanvasImageSource | string,
         a1: number,
@@ -175,6 +177,14 @@ afterEach(() => {
 });
 
 describe('image fill modes', () => {
+  it('measures device-space image footprint conservatively under affine transforms', () => {
+    expect(projectedLongEdgeForTransform(400, 200, { a: 2, b: 0, c: 0, d: 2 })).toBe(800);
+    // A skewed/non-uniform matrix must never under-request source detail.
+    expect(projectedLongEdgeForTransform(400, 200, { a: 1, b: 1, c: 2, d: 1 })).toBeGreaterThan(
+      800,
+    );
+  });
+
   it('uses an interactive proxy while keeping authoritative source dimensions', () => {
     const source = 'data:image/png;base64,adaptive-source';
     const cache = getImageCache();
@@ -206,6 +216,41 @@ describe('image fill modes', () => {
     );
 
     expect(calls.filter((call) => call.includes('adaptive-proxy'))).toHaveLength(1);
+  });
+
+  it('keeps the nearest resident proxy visible while a sharper image bucket decodes', () => {
+    const source = 'data:image/png;base64,progressive-source';
+    const cache = getImageCache();
+    const proxy = mockBitmap('resident-proxy', 512, 256);
+    cache.setLoaded(cache.atSizeKey(source, 512), proxy);
+    const loadAtSize = vi.spyOn(cache, 'loadAtSize').mockResolvedValue(mockBitmap('next-proxy', 2048, 1024));
+    const { target, calls } = makeRecorder();
+
+    replayIr(
+      target,
+      [
+        rectItem(
+          400,
+          200,
+          imageFill({
+            type: 'image',
+            src: source,
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            imageWidth: 4000,
+            imageHeight: 2000,
+          }),
+        ),
+      ],
+      undefined,
+      undefined,
+      { intent: 'settled-preview', maxSourceDim: 2048 },
+    );
+
+    expect(loadAtSize).toHaveBeenCalledWith(source, 2048, { width: 4000, height: 2000 });
+    expect(calls.filter((call) => call.includes('resident-proxy'))).toHaveLength(1);
   });
 
   it('stretch fills the whole primitive bounds', () => {

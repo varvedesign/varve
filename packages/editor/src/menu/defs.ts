@@ -561,6 +561,13 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
           group: 'transform',
           run: () => runAction('areaSelectionRotateCCW'),
         },
+        {
+          id: 'transformSelectedPixels',
+          labelKey: 'menu.edit.transformSelectedPixels',
+          kind: 'command',
+          group: 'transform',
+          run: () => runAction('transformSelectedPixels'),
+        },
       ],
     },
     {
