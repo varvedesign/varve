@@ -43,7 +43,7 @@ function severityBg(severity: CombinedPreflightSeverity): string {
     case 'warning':
       return 'color-mix(in oklab, var(--color-feedback-warning) 16%, transparent)';
     case 'info':
-      return 'var(--elevation-surface-sunken, rgba(128, 128, 128, 0.08))';
+      return 'var(--elevation-surface-sunken)';
   }
 }
 

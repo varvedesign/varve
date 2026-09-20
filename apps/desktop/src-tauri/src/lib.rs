@@ -5521,35 +5521,265 @@ pub fn run() {
             app.manage(file_open::PendingFileOpens::default());
             file_open::register_startup_args(app.handle());
 
-            // WebKitGTK owns the touchpad pinch gesture and applies it as page
-            // zoom, scaling the entire UI. The gesture never reaches JS, so the
-            // canvas's own pinch handling cannot see it, and wry exposes no
-            // setting to disable it (`zoom_hotkeys_enabled` is WebView2-only).
+            // Touchpad pinch on WebKitGTK. WebKitGTK performs NO pinch zoom of
+            // its own — the GTK3 API has no ZoomGestureController (verified
+            // against the 2.52.6 source tree and the installed library) — so
+            // the GDK touchpad-pinch stream it receives simply dies: a
+            // trackpad pinch did nothing on the canvas.
             //
-            // Intercept it instead: whenever WebKit moves the page zoom away
-            // from 1.0, forward that factor to the frontend as a canvas zoom and
-            // immediately restore the page. The gesture then zooms the artwork,
-            // which is what a pinch on a canvas is expected to do.
+            // Primary arm: attach a GtkGestureZoom to the webview. GTK 3.24+
+            // routes touchpad pinch through GtkGesture, and nothing else
+            // claims it, so the gesture observes the raw stream and we forward
+            // the cumulative scale to the frontend, which zooms the artwork
+            // about the gesture centre.
+            //
+            // Fallback arm: WebKit builds that DO page-zoom on pinch move
+            // `zoom_level`. Levels are cumulative within a gesture, so the
+            // emitted factor must be a delta against a per-gesture baseline —
+            // emitting the raw level per notify would compound it (zoom ×=
+            // level on every notify). The fallback is suppressed while our
+            // gesture owns the pinch so the two arms can never double-apply.
             #[cfg(target_os = "linux")]
             {
+                use std::cell::Cell;
+                use std::rc::Rc;
+                use std::time::{Duration, Instant};
+
+                use gtk::glib::object::ObjectExt;
+                use gtk::prelude::Cast;
+                use gtk::prelude::ContainerExt;
+                use gtk::prelude::GestureExt;
+                use gtk::prelude::StaticType;
+                use gtk::prelude::WidgetExt;
+                use gtk::prelude::WidgetExtManual;
                 use webkit2gtk::WebViewExt;
+
                 let zoom_handle = app.handle().clone();
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.with_webview(move |platform| {
+                    let attach_result = window.with_webview(move |platform| {
                         let webview = platform.inner();
+
+                        // GTK3 only delivers touchpad pinch events to the GDK
+                        // window under the pointer when that window's event
+                        // mask includes TOUCHPAD_GESTURE_MASK. Nothing in the
+                        // wry/WebKitGTK stack sets it — which is why the pinch
+                        // stream never reached ANY handler (no WebKit page
+                        // zoom before, no gesture recognition now).
+                        //
+                        // The mask must be applied recursively: with DMABUF
+                        // rendering the webview nests child widgets whose
+                        // windows own the pointer surface, and add_events on
+                        // the parent does not cover a child widget's windows.
+                        // A plain-GTK probe window with the mask receives the
+                        // gesture fine on this desktop, so delivery dies
+                        // exactly here when any surface is left unmasked.
+                        fn opt_widget_into_pinch(widget: &gtk::Widget) {
+                            widget.add_events(gtk::gdk::EventMask::TOUCHPAD_GESTURE_MASK);
+                            if let Some(container) = widget.dynamic_cast_ref::<gtk::Container>() {
+                                container.forall(&opt_widget_into_pinch);
+                            }
+                        }
+                        let webview_widget: gtk::Widget = webview.clone().upcast();
+                        opt_widget_into_pinch(&webview_widget);
+                        // The top-level window too: when the pointer hovers
+                        // chrome/decorations the surface belongs to it.
+                        if let Some(toplevel) = webview_widget.toplevel() {
+                            opt_widget_into_pinch(&toplevel);
+                        }
+
+                        let pinch_handle = zoom_handle.clone();
+                        let pinch_active = Rc::new(Cell::new(false));
+                        let first_direct_logged = Rc::new(Cell::new(false));
+
+                        // One-time dump of the widget hierarchy the mask walk
+                        // covered, so log evidence shows what the window is
+                        // actually built from.
+                        let mut hierarchy = String::new();
+                        fn walk_hierarchy(widget: &gtk::Widget, depth: usize, out: &mut String) {
+                            use std::cell::RefCell;
+                            use std::fmt::Write as _;
+                            let _ = writeln!(out, "{}{}", " ".repeat(depth), widget.type_().name());
+                            if let Some(container) = widget.dynamic_cast_ref::<gtk::Container>() {
+                                let children: RefCell<Vec<gtk::Widget>> = RefCell::new(Vec::new());
+                                container.forall(&|child: &gtk::Widget| {
+                                    children.borrow_mut().push(child.clone());
+                                });
+                                for child in children.into_inner() {
+                                    walk_hierarchy(&child, depth + 2, out);
+                                }
+                            }
+                        }
+                        walk_hierarchy(&webview_widget, 0, &mut hierarchy);
+                        crate::logs::log_line(
+                            "input",
+                            &format!("webview widget hierarchy under pointer surface:\n{hierarchy}"),
+                        );
+
+                        // Catch-all event tracer (diagnostic): log every
+                        // non-motion GDK event reaching the toplevel, the
+                        // webview, and each descendant. Pinch delivery dies
+                        // somewhere between the compositor and the gesture —
+                        // this shows exactly which widget (if any) sees a
+                        // TouchpadPinch event, and what else arrives instead.
+                        fn attach_event_tracer(widget: &gtk::Widget, label: &str) {
+                            let label_owned = label.to_owned();
+                            widget.connect_event(move |_w, event| {
+                                let kind = format!("{:?}", event.event_type());
+                                if kind.contains("Motion")
+                                    || kind.contains("Enter")
+                                    || kind.contains("Leave")
+                                    || kind.contains("Expose")
+                                {
+                                    return gtk::glib::Propagation::Proceed;
+                                }
+                                crate::logs::log_line(
+                                    "input-trace",
+                                    &format!("{label_owned}: {kind}"),
+                                );
+                                gtk::glib::Propagation::Proceed
+                            });
+                            if let Some(container) = widget.dynamic_cast_ref::<gtk::Container>() {
+                                let children: std::cell::RefCell<Vec<gtk::Widget>> =
+                                    std::cell::RefCell::new(Vec::new());
+                                container.forall(&|child: &gtk::Widget| {
+                                    children.borrow_mut().push(child.clone());
+                                });
+                                let child_list = children.into_inner();
+                                for child in &child_list {
+                                    let type_name = child.type_().name();
+                                    let child_label =
+                                        format!("{}/{}", label, type_name.to_string());
+                                    attach_event_tracer(child, &child_label);
+                                }
+                            }
+                        }
+                        if let Some(toplevel_for_trace) = webview_widget.toplevel() {
+                            attach_event_tracer(&toplevel_for_trace, "TOP");
+                        }
+                        attach_event_tracer(&webview_widget, "WEBVIEW");
+                        crate::logs::log_line("input", "event tracers attached (toplevel + webview tree)");
+
+                        // Direct TouchpadPinch handling — the primary arm.
+                        //
+                        // Instrumentation on the operator's machine proved the
+                        // pinch events arrive at this widget's ::event signal
+                        // (a clean TouchpadPinch stream) while GtkGesture
+                        // recognition never fires under Tauri's event
+                        // integration — the same wiring recognizes them in a
+                        // plain GTK main loop. So handle the events here:
+                        // GdkEventTouchpadPinch carries phase plus a scale
+                        // that is cumulative since begin — exactly the
+                        // contract the frontend bridge listener already
+                        // implements (the macOS WebKit gesture-event shape).
+                        //
+                        // Returning Stop also keeps the stream away from
+                        // WebKit, whose own response to a pinch (zooming the
+                        // whole page/UI) was the original bug report.
+                        //
+                        // pinch_active also suppresses the zoom_level fallback
+                        // arm below so the two can never double-apply.
+                        let direct_handle = pinch_handle.clone();
+                        let direct_pinch_active = pinch_active.clone();
+                        webview.connect_event(move |_w, event| {
+                            if event.event_type() != gtk::gdk::EventType::TouchpadPinch {
+                                return gtk::glib::Propagation::Proceed;
+                            }
+                            let Some(pinch) = event.downcast_ref::<gtk::gdk::EventTouchpadPinch>()
+                            else {
+                                return gtk::glib::Propagation::Proceed;
+                            };
+                            let phase_raw: i8 = pinch.as_ref().phase;
+                            let phase = match phase_raw {
+                                0 => "begin",
+                                1 => "update",
+                                _ => "end",
+                            };
+                            direct_pinch_active.set(phase == "begin");
+                            if phase == "begin" && !first_direct_logged.get() {
+                                first_direct_logged.set(true);
+                                crate::logs::log_line(
+                                    "input",
+                                    "touchpad pinch handled directly from TouchpadPinch events — forwarding to canvas",
+                                );
+                            }
+                            let scale = pinch.scale();
+                            if !scale.is_finite() || scale <= 0.0 {
+                                return gtk::glib::Propagation::Stop;
+                            }
+                            let (x, y) = pinch.position();
+                            let _ = direct_handle.emit(
+                                "canvas://pinch-zoom",
+                                serde_json::json!({
+                                    "phase": phase,
+                                    "scale": scale,
+                                    "x": x,
+                                    "y": y,
+                                }),
+                            );
+                            gtk::glib::Propagation::Stop
+                        });
+
+                        let fallback_baseline = Rc::new(Cell::new(1.0_f64));
+                        let fallback_last = Rc::new(Cell::new(Instant::now()));
+                        let first_fallback_logged = Rc::new(Cell::new(false));
                         webview.connect_zoom_level_notify(move |view| {
                             let level = view.zoom_level();
                             // Guard against re-entering on our own reset.
                             if (level - 1.0).abs() < f64::EPSILON {
                                 return;
                             }
+                            if !first_fallback_logged.get() {
+                                first_fallback_logged.set(true);
+                                crate::logs::log_line(
+                                    "input",
+                                    "webkit page-zoom fallback: zoom_level moved by the platform; forwarding delta factors",
+                                );
+                            }
+                            // Our own gesture arm owns the pinch; never let a
+                            // page-zoom notify double-apply the same fingers.
+                            if pinch_active.get() {
+                                view.set_zoom_level(1.0);
+                                return;
+                            }
+                            let now = Instant::now();
+                            if now.duration_since(fallback_last.get())
+                                > Duration::from_millis(250)
+                            {
+                                fallback_baseline.set(1.0);
+                            }
+                            fallback_last.set(now);
+                            let base = fallback_baseline.get();
+                            let factor = if base > f64::EPSILON {
+                                level / base
+                            } else {
+                                level
+                            };
+                            fallback_baseline.set(level);
                             let _ = zoom_handle.emit(
                                 "canvas://pinch-zoom",
-                                serde_json::json!({ "factor": level }),
+                                serde_json::json!({ "factor": factor }),
                             );
                             view.set_zoom_level(1.0);
                         });
+
+                        crate::logs::log_line(
+                            "input",
+                            "pinch bridge attached: recursive gesture mask + GtkGestureZoom + zoom_level fallback installed",
+                        );
                     });
+                    if let Err(attach_error) = attach_result {
+                        crate::logs::log_line(
+                            "input",
+                            &format!(
+                                "pinch bridge attach FAILED inside with_webview: {attach_error}"
+                            ),
+                        );
+                    }
+                } else {
+                    crate::logs::log_line(
+                        "input",
+                        "pinch bridge attach FAILED: no webview window named 'main' at setup",
+                    );
                 }
             }
 
@@ -5712,6 +5942,7 @@ pub fn run() {
             font_storage::load_font_from_filesystem,
             font_storage::list_filesystem_fonts,
             font_storage::remove_font_from_filesystem,
+            font_storage::release_document_fonts,
             font_storage::get_filesystem_font_storage_usage,
             // Native model file storage
             read_model_file,

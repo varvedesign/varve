@@ -38,6 +38,7 @@ import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { DisclosureSection } from './controls/DisclosureSection';
+import { FieldSizingContext } from './controls/NumberField';
 import { InspectorContextHeader } from './InspectorContextHeader';
 import { InspectorTabBar } from './InspectorTabBar';
 import { deriveInspectorContext, type InspectorContext } from './inspectorContext';
@@ -309,268 +310,280 @@ export function PropertiesPanel() {
   };
 
   return (
-    <section
-      className="editor-inspector"
-      data-panel-root="inspector"
-      data-inspector-context={inspectorContext.scope}
-      aria-label="Inspector"
-    >
-      <VariablesPanelDialog open={state.variablesPanelVisible} onClose={toggleVariablesPanel} />
-      <PanelDragHandle
-        panelTypeId="inspector"
-        panelInstanceId="inspector-primary"
-        currentWindowId="main"
-        title="Inspector"
+    // Panel fields own their width from the row geometry (single column,
+    // pair cell, action gutter), not from each value's numeric range: a 39px
+    // Opacity beside a 239px Blend mode field read as disorganized sizing
+    // (2026-09-19). The provider covers every tab and legacy panel.
+    <FieldSizingContext.Provider value="fill">
+      <section
+        className="editor-inspector"
+        data-panel-root="inspector"
+        data-inspector-context={inspectorContext.scope}
+        aria-label="Inspector"
       >
-        <InspectorTabBar
-          tabs={visibleTabConfigs}
-          activeTab={tab}
-          onActivate={activateTab}
-          onDetach={
-            <div className="insp-panel__header-actions">
-              <PanelDetachButton />
-              {toggleRightPanel && (
-                <Tooltip label="Collapse Inspector (Ctrl+Shift+B)">
-                  <button
-                    type="button"
-                    className="editor__collapse-btn insp-panel__header-btn"
-                    onClick={() => toggleRightPanel()}
-                    aria-label="Collapse Inspector (Ctrl+Shift+B)"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <rect
-                        x="2"
-                        y="2"
-                        width="12"
-                        height="12"
-                        rx="2"
-                        stroke="currentColor"
-                        strokeWidth="1.25"
+        <VariablesPanelDialog open={state.variablesPanelVisible} onClose={toggleVariablesPanel} />
+        <PanelDragHandle
+          panelTypeId="inspector"
+          panelInstanceId="inspector-primary"
+          currentWindowId="main"
+          title="Inspector"
+        >
+          <InspectorTabBar
+            tabs={visibleTabConfigs}
+            activeTab={tab}
+            onActivate={activateTab}
+            onDetach={
+              <div className="insp-panel__header-actions">
+                <PanelDetachButton />
+                {toggleRightPanel && (
+                  <Tooltip label="Collapse Inspector (Ctrl+Shift+B)">
+                    <button
+                      type="button"
+                      className="editor__collapse-btn insp-panel__header-btn"
+                      onClick={() => toggleRightPanel()}
+                      aria-label="Collapse Inspector (Ctrl+Shift+B)"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
                         fill="none"
-                      />
-                      <rect
-                        x="10"
-                        y="2"
-                        width="4"
-                        height="12"
-                        rx="1.5"
-                        fill="currentColor"
-                        fillOpacity="0.25"
-                      />
-                      <line
-                        x1="10"
-                        y1="2"
-                        x2="10"
-                        y2="14"
-                        stroke="currentColor"
-                        strokeWidth="1.25"
-                      />
-                      <path
-                        d="M4.5 6L6.5 8L4.5 10"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </Tooltip>
-              )}
-            </div>
+                        aria-hidden="true"
+                      >
+                        <rect
+                          x="2"
+                          y="2"
+                          width="12"
+                          height="12"
+                          rx="2"
+                          stroke="currentColor"
+                          strokeWidth="1.25"
+                          fill="none"
+                        />
+                        <rect
+                          x="10"
+                          y="2"
+                          width="4"
+                          height="12"
+                          rx="1.5"
+                          fill="currentColor"
+                          fillOpacity="0.25"
+                        />
+                        <line
+                          x1="10"
+                          y1="2"
+                          x2="10"
+                          y2="14"
+                          stroke="currentColor"
+                          strokeWidth="1.25"
+                        />
+                        <path
+                          d="M4.5 6L6.5 8L4.5 10"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                )}
+              </div>
+            }
+          />
+        </PanelDragHandle>
+        <InspectorContextHeader
+          context={inspectorContext}
+          action={
+            tab === 'properties' && summary.kind === 'empty' ? (
+              <SectionManagerTrigger sectionIds={DESIGN_TAB_SECTION_IDS} />
+            ) : undefined
           }
         />
-      </PanelDragHandle>
-      <InspectorContextHeader
-        context={inspectorContext}
-        action={
-          tab === 'properties' && summary.kind === 'empty' ? (
-            <SectionManagerTrigger sectionIds={DESIGN_TAB_SECTION_IDS} />
-          ) : undefined
-        }
-      />
 
-      {tab === 'properties' && (
-        <div
-          className="insp-panel"
-          id="insp-tabpanel-properties"
-          role="tabpanel"
-          aria-labelledby="insp-tab-properties"
-        >
-          {/* Pixel coverage leads only while it is what is being inspected;
+        {tab === 'properties' && (
+          <div
+            className="insp-panel"
+            id="insp-tabpanel-properties"
+            role="tabpanel"
+            aria-labelledby="insp-tab-properties"
+          >
+            {/* Pixel coverage leads only while it is what is being inspected;
               otherwise it follows the object's own properties. */}
-          {inspectorContext.scope === 'pixel-selection' && <SelectionSourcesPanel />}
-          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'properties'}>
-            {summary.kind === 'empty' && <EmptySelectionState context={inspectorContext} />}
-            {summary.kind === 'single' && (
-              <SingleSelectionPanel
-                nodes={selNodes}
-                headerAction={<SectionManagerTrigger sectionIds={DESIGN_TAB_SECTION_IDS} />}
-              />
-            )}
-            {summary.kind === 'multi' && (
-              <MultiSelectionPanel
-                nodes={selNodes}
-                summary={summary}
-                headerAction={<SectionManagerTrigger sectionIds={DESIGN_TAB_SECTION_IDS} />}
-              />
-            )}
-          </SelectionLockGuard>
-          {inspectorContext.scope !== 'pixel-selection' && <SelectionSourcesPanel />}
-          {/* Plugin contributions: the governed extension surface. The host
+            {inspectorContext.scope === 'pixel-selection' && <SelectionSourcesPanel />}
+            <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'properties'}>
+              {summary.kind === 'empty' && <EmptySelectionState context={inspectorContext} />}
+              {summary.kind === 'single' && (
+                <SingleSelectionPanel
+                  nodes={selNodes}
+                  headerAction={<SectionManagerTrigger sectionIds={DESIGN_TAB_SECTION_IDS} />}
+                />
+              )}
+              {summary.kind === 'multi' && (
+                <MultiSelectionPanel
+                  nodes={selNodes}
+                  summary={summary}
+                  headerAction={<SectionManagerTrigger sectionIds={DESIGN_TAB_SECTION_IDS} />}
+                />
+              )}
+            </SelectionLockGuard>
+            {inspectorContext.scope !== 'pixel-selection' && <SelectionSourcesPanel />}
+            {/* Plugin contributions: the governed extension surface. The host
               applies tab targeting, availability, ordering, and error
               boundaries — plugins can never bypass the registry grammar. */}
-          <PluginSections
-            tab="properties"
-            host={{
-              selectionCount: selNodes.length,
-              workspaceMode: state.workspaceMode,
-              activeTool: state.tool,
-            }}
-          />
-          {/* Insights remains document-level and last in the Design composition.
+            <PluginSections
+              tab="properties"
+              host={{
+                selectionCount: selNodes.length,
+                workspaceMode: state.workspaceMode,
+                activeTool: state.tool,
+              }}
+            />
+            {/* Insights remains document-level and last in the Design composition.
               It is lazy because the audit panel is also reachable from the
               legacy tab/deep-link path. Registry-managed (sectionId); its
               hidden state is applied here because it renders outside
               composeSections. */}
-          <Suspense fallback={null}>
-            <SelectionLockGuard restriction={restrictionNotice}>
-              {isSectionVisible(state.sectionVisibility, 'insights') && (
-                <DisclosureSection title="Insights" sectionId="insights">
-                  <AuditPanel request={intelRequest} />
-                </DisclosureSection>
-              )}
-            </SelectionLockGuard>
-          </Suspense>
-        </div>
-      )}
+            <Suspense fallback={null}>
+              <SelectionLockGuard restriction={restrictionNotice}>
+                {isSectionVisible(state.sectionVisibility, 'insights') && (
+                  <DisclosureSection title="Insights" sectionId="insights">
+                    <AuditPanel request={intelRequest} />
+                  </DisclosureSection>
+                )}
+              </SelectionLockGuard>
+            </Suspense>
+          </div>
+        )}
 
-      {/* Legacy appearance tab — content is merged into the Design tab; this
+        {/* Legacy appearance tab — content is merged into the Design tab; this
           block remains so stored preferences and deep links that request the
           appearance tab still render correctly. */}
-      {tab === 'appearance' && (
-        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'appearance'}>
-            <AppearancePanel />
-          </SelectionLockGuard>
-        </LazyTabPanel>
-      )}
-      {tab === 'adjustments' && (
-        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'adjustments'}>
-            <AdjustmentsPanel />
-          </SelectionLockGuard>
-        </LazyTabPanel>
-      )}
-      {tab === 'prototype' && (
-        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'prototype'}>
-            <PrototypePanel />
-          </SelectionLockGuard>
-        </LazyTabPanel>
-      )}
-      {tab === 'export' && (
-        <div
-          className="insp-panel"
-          id="insp-tabpanel-export"
-          role="tabpanel"
-          aria-labelledby="insp-tab-export"
-        >
+        {tab === 'appearance' && (
+          <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
+            <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'appearance'}>
+              <AppearancePanel />
+            </SelectionLockGuard>
+          </LazyTabPanel>
+        )}
+        {tab === 'adjustments' && (
+          <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
+            <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'adjustments'}>
+              <AdjustmentsPanel />
+            </SelectionLockGuard>
+          </LazyTabPanel>
+        )}
+        {tab === 'prototype' && (
+          <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
+            <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'prototype'}>
+              <PrototypePanel />
+            </SelectionLockGuard>
+          </LazyTabPanel>
+        )}
+        {tab === 'export' && (
           <div
-            className="insp-panel__sub-tabs"
-            role="tablist"
-            aria-label="Export options"
-            ref={exportSubTabListRef}
-            onKeyDown={handleExportSubTabKey}
-          >
-            <button
-              type="button"
-              role="tab"
-              id="insp-sub-tab-format"
-              className="insp-panel__sub-tab"
-              aria-selected={exportSubTab === 'format'}
-              aria-controls="insp-tabpanel-export-sub"
-              tabIndex={exportSubTab === 'format' ? 0 : -1}
-              data-export-sub-tab="format"
-              onClick={() => setExportSubTab('format')}
-            >
-              Format
-            </button>
-            <button
-              type="button"
-              role="tab"
-              id="insp-sub-tab-code"
-              className="insp-panel__sub-tab"
-              aria-selected={exportSubTab === 'code'}
-              aria-controls="insp-tabpanel-export-sub"
-              tabIndex={exportSubTab === 'code' ? 0 : -1}
-              data-export-sub-tab="code"
-              onClick={() => setExportSubTab('code')}
-            >
-              Code
-            </button>
-          </div>
-          <div
-            className="insp-panel__sub-content"
-            id="insp-tabpanel-export-sub"
+            className="insp-panel"
+            id="insp-tabpanel-export"
             role="tabpanel"
-            aria-labelledby={`insp-sub-tab-${exportSubTab}`}
+            aria-labelledby="insp-tab-export"
           >
-            {exportSubTab === 'format' && selNodes.length > 0 ? (
-              <AssetExportControls
-                node={selNodes[0] as SceneNode}
-                doc={state.document}
-                platform={platform}
-                selectedCount={selNodes.length}
-                onAddPreset={handleAddExportPreset}
-                onAddPresets={handleAddExportPresets}
-                onUpdatePreset={handleUpdateExportPreset}
-                onRemovePreset={handleRemoveExportPreset}
-                onOpenAdvancedExport={() => setShowExportDialog(true)}
-              />
-            ) : exportSubTab === 'code' && selNodes.length > 0 ? (
-              <CodeGenView
-                node={selNodes[0] as SceneNode}
-                doc={state.document}
-                variableStore={docVariableStore(state.document)}
-              />
-            ) : (
-              <div className="spec-export__empty-state">
-                <div className="spec-export__empty-icon" aria-hidden="true">
-                  <Icon name="Download" size={24} label={undefined} />
+            <div
+              className="insp-panel__sub-tabs"
+              role="tablist"
+              aria-label="Export options"
+              ref={exportSubTabListRef}
+              onKeyDown={handleExportSubTabKey}
+            >
+              <button
+                type="button"
+                role="tab"
+                id="insp-sub-tab-format"
+                className="insp-panel__sub-tab"
+                aria-selected={exportSubTab === 'format'}
+                aria-controls="insp-tabpanel-export-sub"
+                tabIndex={exportSubTab === 'format' ? 0 : -1}
+                data-export-sub-tab="format"
+                onClick={() => setExportSubTab('format')}
+              >
+                Format
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="insp-sub-tab-code"
+                className="insp-panel__sub-tab"
+                aria-selected={exportSubTab === 'code'}
+                aria-controls="insp-tabpanel-export-sub"
+                tabIndex={exportSubTab === 'code' ? 0 : -1}
+                data-export-sub-tab="code"
+                onClick={() => setExportSubTab('code')}
+              >
+                Code
+              </button>
+            </div>
+            <div
+              className="insp-panel__sub-content"
+              id="insp-tabpanel-export-sub"
+              role="tabpanel"
+              aria-labelledby={`insp-sub-tab-${exportSubTab}`}
+            >
+              {exportSubTab === 'format' && selNodes.length > 0 ? (
+                <AssetExportControls
+                  node={selNodes[0] as SceneNode}
+                  doc={state.document}
+                  platform={platform}
+                  selectedCount={selNodes.length}
+                  onAddPreset={handleAddExportPreset}
+                  onAddPresets={handleAddExportPresets}
+                  onUpdatePreset={handleUpdateExportPreset}
+                  onRemovePreset={handleRemoveExportPreset}
+                  onOpenAdvancedExport={() => setShowExportDialog(true)}
+                />
+              ) : exportSubTab === 'code' && selNodes.length > 0 ? (
+                <CodeGenView
+                  node={selNodes[0] as SceneNode}
+                  doc={state.document}
+                  variableStore={docVariableStore(state.document)}
+                />
+              ) : (
+                <div className="spec-export__empty-state">
+                  <div className="spec-export__empty-icon" aria-hidden="true">
+                    <Icon name="Download" size={24} label={undefined} />
+                  </div>
+                  <p className="insp-panel__empty-hint">
+                    Select a node to export it as SVG, PNG, PDF, or generate code.
+                  </p>
+                  <button
+                    type="button"
+                    className="spec-export__empty-action"
+                    onClick={() => setShowExportDialog(true)}
+                    aria-label="Open export workspace"
+                  >
+                    <Icon name="SlidersHorizontal" size={14} label={undefined} />
+                    <span>Open Export Workspace</span>
+                  </button>
                 </div>
-                <p className="insp-panel__empty-hint">
-                  Select a node to export it as SVG, PNG, PDF, or generate code.
-                </p>
-                <button
-                  type="button"
-                  className="spec-export__empty-action"
-                  onClick={() => setShowExportDialog(true)}
-                  aria-label="Open export workspace"
-                >
-                  <Icon name="SlidersHorizontal" size={14} label={undefined} />
-                  <span>Open Export Workspace</span>
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
-      {tab === 'audit' && (
-        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <AuditPanel request={intelRequest} />
-        </LazyTabPanel>
-      )}
-      {tab === 'fonts' && (
-        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <FontBrowserPanel />
-        </LazyTabPanel>
-      )}
-      {tab === 'email' && (
-        <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
-          <EmailPanel />
-        </LazyTabPanel>
-      )}
-    </section>
+        )}
+        {tab === 'audit' && (
+          <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
+            <AuditPanel request={intelRequest} />
+          </LazyTabPanel>
+        )}
+        {tab === 'fonts' && (
+          <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
+            <FontBrowserPanel />
+          </LazyTabPanel>
+        )}
+        {tab === 'email' && (
+          <LazyTabPanel tab={tab} label={getInspectorTabDefinition(tab, effectiveConfig)?.label}>
+            <EmailPanel />
+          </LazyTabPanel>
+        )}
+      </section>
+    </FieldSizingContext.Provider>
   );
 }
 

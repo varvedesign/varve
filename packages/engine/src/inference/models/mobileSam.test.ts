@@ -2,11 +2,26 @@ import { describe, expect, it } from 'vitest';
 import {
   decodeMobileSamDecoderOutput,
   encodeMobileSamPrompts,
+  preprocessMobileSamImageData,
   resizeLongestSideDimensions,
   validateMobileSamPrompts,
 } from '../models/mobileSam';
 
 describe('MobileSAM ONNX contract', () => {
+  it('emits raw RGB HWC input with provider-owned longest-side resizing', () => {
+    const result = preprocessMobileSamImageData(
+      {
+        width: 2,
+        height: 1,
+        data: new Uint8ClampedArray([10, 20, 30, 0, 100, 110, 120, 255]),
+      } as ImageData,
+      2,
+    );
+    expect(result.width).toBe(2);
+    expect(result.height).toBe(1);
+    expect(Array.from(result.tensor)).toEqual([10, 20, 30, 100, 110, 120]);
+  });
+
   it('uses SAM ResizeLongestSide rounding and top-left padding geometry', () => {
     expect(resizeLongestSideDimensions(1920, 1080)).toEqual({
       width: 1024,
@@ -24,13 +39,13 @@ describe('MobileSAM ONNX contract', () => {
 
   it('maps a wide-image point and box into the resized encoder space', () => {
     const point = encodeMobileSamPrompts({ points: [{ x: 0.5, y: 0.5, label: 1 }] }, 1920, 1080);
-    expect(point.point_coords.data).toEqual(new Float32Array([512, 288]));
-    expect(point.point_labels.data).toEqual(new Float32Array([1]));
-    expect(point.orig_im_size.data).toEqual(new Float32Array([1080, 1920]));
+    expect(point.point_coords!.data).toEqual(new Float32Array([512, 288]));
+    expect(point.point_labels!.data).toEqual(new Float32Array([1]));
+    expect(point.orig_im_size!.data).toEqual(new Float32Array([1080, 1920]));
 
     const box = encodeMobileSamPrompts({ box: { x1: 0, y1: 0, x2: 1, y2: 1 } }, 1920, 1080);
-    expect(box.point_coords.data).toEqual(new Float32Array([0, 0, 1024, 576]));
-    expect(box.point_labels.data).toEqual(new Float32Array([2, 3]));
+    expect(box.point_coords!.data).toEqual(new Float32Array([0, 0, 1024, 576]));
+    expect(box.point_labels!.data).toEqual(new Float32Array([2, 3]));
   });
 
   it('preserves negative prompts and supplies the required empty mask input', () => {
@@ -44,11 +59,11 @@ describe('MobileSAM ONNX contract', () => {
       1000,
       1000,
     );
-    expect(encoded.point_labels.data).toEqual(new Float32Array([1, 0]));
-    expect(encoded.mask_input.dims).toEqual([1, 1, 256, 256]);
-    expect(encoded.mask_input.data.every((value) => value === 0)).toBe(true);
-    expect(encoded.has_mask_input.data[0]).toBe(0);
-    expect(encoded.has_mask_input.dims).toEqual([1]);
+    expect(encoded.point_labels!.data).toEqual(new Float32Array([1, 0]));
+    expect(encoded.mask_input!.dims).toEqual([1, 1, 256, 256]);
+    expect(encoded.mask_input!.data.every((value) => value === 0)).toBe(true);
+    expect(encoded.has_mask_input!.data[0]).toBe(0);
+    expect(encoded.has_mask_input!.dims).toEqual([1]);
   });
 
   it('resizes previous logits and marks the mask prompt as present', () => {
@@ -61,12 +76,12 @@ describe('MobileSAM ONNX contract', () => {
       800,
       600,
     );
-    expect(encoded.has_mask_input.data[0]).toBe(1);
-    expect(encoded.mask_input.data.length).toBe(256 * 256);
-    expect(encoded.mask_input.data[0]).toBe(0);
-    expect(encoded.mask_input.data[255]).toBeCloseTo(1);
-    expect(encoded.mask_input.data[256 * 255]).toBeCloseTo(2);
-    expect(encoded.mask_input.data[256 * 256 - 1]).toBeCloseTo(3);
+    expect(encoded.has_mask_input!.data[0]).toBe(1);
+    expect(encoded.mask_input!.data.length).toBe(256 * 256);
+    expect(encoded.mask_input!.data[0]).toBe(0);
+    expect(encoded.mask_input!.data[255]).toBeCloseTo(1);
+    expect(encoded.mask_input!.data[256 * 255]).toBeCloseTo(2);
+    expect(encoded.mask_input!.data[256 * 256 - 1]).toBeCloseTo(3);
   });
 
   it('accepts raw predicted-IoU scores above one and preserves all four candidates', () => {

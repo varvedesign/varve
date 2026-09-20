@@ -87,9 +87,9 @@ export function TableCellEditor({ cellId, zoom, worldToScreen, onDone }: Props) 
         fontFamily: 'var(--font-display, sans-serif)',
         fontWeight: cell.isHeader ? 600 : 400,
         color: cell.isHeader
-          ? 'var(--color-text-strong, #292d36)'
-          : 'var(--color-text-strong, #292d36)',
-        background: 'var(--color-surface-raised, rgba(255,255,255,0.92))',
+          ? 'var(--color-text-primary)'
+          : 'var(--color-text-primary)',
+        background: 'var(--color-surface-raised)',
         border: '2px solid var(--color-canvas-selection)',
         borderRadius: 'var(--radius-control-compact)',
         boxShadow: '0 2px 10px rgba(0,0,0,0.18)',

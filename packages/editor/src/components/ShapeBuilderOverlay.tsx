@@ -5,8 +5,8 @@ import {
   previewShapeBuilderAction,
   previewShapeBuilderSelection,
 } from '@varve/scene';
-import { Button } from '@varve/ui';
 import { useMemo, useState } from 'react';
+import { Button } from '@varve/ui';
 import type { ShapeBuilderDraft } from '../tools';
 
 interface ShapeBuilderOverlayProps {
@@ -251,7 +251,7 @@ export function ShapeBuilderOverlay({
           minWidth: 280,
           maxWidth: 360,
           padding: 'var(--space-3)',
-          border: '1px solid var(--color-border-accent)',
+          border: '1px solid var(--color-accent-primary)',
           borderRadius: 'var(--radius-surface)',
           background: 'var(--elevation-surface-raised)',
           color: 'var(--color-text-primary)',
@@ -325,7 +325,11 @@ export function ShapeBuilderOverlay({
             </Button>
           ))}
         </div>
-        <Button variant="ghost" onClick={onExit} style={{ alignSelf: 'flex-start', minHeight: 32 }}>
+        <Button
+          variant="ghost"
+          onClick={onExit}
+          style={{ alignSelf: 'flex-start', minHeight: 32 }}
+        >
           Exit Shape Builder (Esc)
         </Button>
       </section>

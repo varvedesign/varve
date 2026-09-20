@@ -23,13 +23,13 @@ import {
   setRowSizing,
   setZebra,
 } from '@varve/scene';
-import { Switch } from '@varve/ui';
+import { SegmentedControl, type SegmentedOption, Switch } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
-import { SegmentedControl, type SegmentedOption } from '../controls/SegmentedControl';
+
 import { TableAppearanceSection } from './TableAppearanceSection';
 
 interface Props {

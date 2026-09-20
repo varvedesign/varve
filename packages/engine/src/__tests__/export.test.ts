@@ -2,7 +2,7 @@
  * Tile-based export for oversized canvases.
  */
 import { describe, expect, it, type Mock, vi } from 'vitest';
-import { getCanvasSizeLimit, tiledExport } from '../export';
+import { getCanvasSizeLimit, streamTiledExport, tiledExport } from '../export';
 
 describe('getCanvasSizeLimit', () => {
   it('returns 32767 for chromium', () => {
@@ -129,5 +129,25 @@ describe('tiledExport', () => {
       coveredX += c.w;
     }
     expect(coveredX).toBe(30000);
+  });
+});
+
+describe('streamTiledExport', () => {
+  it('yields each tile to a bounded consumer in row-major order', async () => {
+    const seen: Array<{ x: number; y: number }> = [];
+    for await (const tile of streamTiledExport(
+      { totalW: 20_000, totalH: 1, dpr: 1 },
+      (viewport) => {
+        seen.push({ x: viewport.x, y: viewport.y });
+        return new ImageData(viewport.w, viewport.h);
+      },
+      'webkit',
+    )) {
+      expect(tile.image.width).toBe(tile.viewport.w);
+    }
+    expect(seen).toEqual([
+      { x: 0, y: 0 },
+      { x: 16_384, y: 0 },
+    ]);
   });
 });

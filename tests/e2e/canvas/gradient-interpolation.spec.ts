@@ -33,10 +33,10 @@ async function createRectWithGradient(page: import('@playwright/test').Page) {
 }
 
 /**
- * Switch the fill type through the Fill section's compact type menu.
+ * Switch the fill type through the Fill section's labelled type select.
  */
 async function switchFillToGradient(page: import('@playwright/test').Page) {
-  const typeTrigger = page.getByRole('button', { name: /^Fill type:/i }).first();
+  const typeTrigger = page.getByRole('combobox', { name: 'Fill type', exact: true }).first();
   if (await typeTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
     await selectFillType(page, 'Gradient');
     await page.waitForTimeout(500);

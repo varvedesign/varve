@@ -37,6 +37,7 @@ describe('prepareDiffusionFrame', () => {
     expect(frame.mask[0]).toBe(0);
     expect(frame.imageData.data[0]).toBe(127);
     expect(frame.imageData.data[(128 * 512 + 1) * 4]).not.toBe(127);
+    expect(frame.maskedImageData).toBeUndefined();
   });
 
   it('maps a model result back to exact source dimensions and protects padding', () => {
@@ -150,6 +151,35 @@ describe('prepareDiffusionFrame', () => {
     expect(frame.mask[frame.contentY * frame.width + 1]).toBe(255);
     expect(frame.maskConvention).toBe('white-preserve-black-edit');
     expect(frame.maskInput).toBe('masked-image-and-mask');
+    expect(frame.maskedImageData?.data[frame.contentY * frame.width * 4]).toBe(0);
+    expect(frame.maskedImageData?.data[frame.contentY * frame.width * 4 + 3]).toBe(255);
+    expect(frame.maskedImageData?.data[(frame.contentY * frame.width + 1) * 4]).toBe(
+      source.data[4],
+    );
+  });
+
+  it('clears edit coverage for low-level providers using the edit-polarity mask', () => {
+    const source = image(2, 1);
+    source.data.set([200, 100, 50, 255, 80, 160, 220, 0]);
+    const frame = prepareDiffusionFrame(source, new Uint8Array([255, 0]), 2, 1, {
+      id: 'test-low-level-edit-mask-v1',
+      preprocessingVersion: 'test-letterbox-v1',
+      inputKind: 'masked-inpainting',
+      maskConvention: 'white-edit-black-preserve',
+      maskInput: 'masked-image-plus-mask',
+      frameWidth: 2,
+      frameHeight: 2,
+      dimensionMultiple: 2,
+    });
+
+    const row = frame.contentY * frame.width * 4;
+    expect(frame.maskedImageData?.data[row]).toBe(0);
+    expect(frame.maskedImageData?.data[row + 1]).toBe(0);
+    expect(frame.maskedImageData?.data[row + 2]).toBe(0);
+    // Hidden RGB is cleared even when the pixel is outside edit coverage.
+    expect(frame.maskedImageData?.data[row + 4]).toBe(0);
+    expect(frame.maskedImageData?.data[row + 5]).toBe(0);
+    expect(frame.maskedImageData?.data[row + 6]).toBe(0);
   });
 
   it('requires an explicit mask tensor contract for masked providers', () => {

@@ -183,8 +183,8 @@
 
 .caf-dialog__mask-operation:hover,
 .caf-dialog__mask-operation--active {
-  border-color: var(--color-border-accent);
-  background: var(--color-surface-accent-subtle);
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-subtle);
   color: var(--color-text-primary);
 }
 
@@ -202,7 +202,7 @@
 }
 
 .caf-dialog__mask-health-error {
-  color: var(--color-feedback-error);
+  color: var(--color-text-danger);
   font-weight: 600;
 }
 

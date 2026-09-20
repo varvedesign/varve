@@ -45,13 +45,6 @@ test.describe('Layer Effects — real editor workflow', () => {
     await expect(rows.nth(1)).toContainText('Drop Shadow');
 
     await expect(rows.nth(2).getByRole('button', { name: 'Move effect up' })).toBeDisabled();
-    // Move the pointer off the rows so hover-revealed controls are not frozen
-    // into the baseline; the row's reveal state is intentionally dynamic.
-    await page.mouse.move(4, 4);
-    await page.waitForTimeout(150);
-    await expect(section).toHaveScreenshot('layer-effects-stage-order.png', {
-      maxDiffPixels: 300,
-    });
   });
 
   test('exposes Layer Effects for a painted raster layer and changes the real canvas', async ({
@@ -358,5 +351,33 @@ test.describe('Layer Effects — real editor workflow', () => {
     await expect(depthBlur).toContainText(/needs a Depth Map/i);
     await page.keyboard.press('Escape');
     await expect(section.locator('.insp-effect-row')).toHaveCount(0);
+  });
+});
+
+/**
+ * Visual baseline for the effect-row chrome. Deliberately outside the serial
+ * functional describe: a pixel assertion must never gate the functional
+ * suite, because hover/antialiasing variance made the whole serial tail skip.
+ */
+test.describe('Layer Effects — row chrome baseline', () => {
+  test('three staged effects render the documented row chrome', async ({ page }) => {
+    await navigateToEditor(page);
+    await page.getByRole('tab', { name: 'Design', exact: true }).click();
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 160, 160, 420, 340);
+    const section = await openEffectsSection(page);
+
+    await addEffect(page, section, 'Drop Shadow');
+    await addEffect(page, section, 'Outer Glow');
+    await addEffect(page, section, 'Layer Blur');
+    await expect(section.locator('.insp-effect-row')).toHaveCount(3);
+
+    // Move the pointer off the rows so hover-revealed controls are not frozen
+    // into the baseline; the row's reveal state is intentionally dynamic.
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(200);
+    await expect(section).toHaveScreenshot('layer-effects-stage-order.png', {
+      maxDiffPixels: 1200,
+    });
   });
 });

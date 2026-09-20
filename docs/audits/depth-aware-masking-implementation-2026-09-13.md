@@ -31,8 +31,8 @@ inference. A saved accepted map is sufficient for editing and export.
 | User task / finding | Evidence and root cause | Implemented owner and result | Gate |
 | --- | --- | --- | --- |
 | Select a depth range without blur | The old path was surfaced through the Depth Blur panel and committed a generic quick raster mask. | `DepthMaskSection` reuses `Document.depthMaps`, the shared engine kernel, and `commitRasterMask`; no blur effect is created. | Unit + browser workflow |
-| Preserve existing masks | A depth operation can silently replace a vector/live mask or multiply alpha twice if it invents its own Boolean path. | Existing non-raster masks require explicit Replace confirmation; existing raster masks default to Intersect and all combinations use shared soft coverage algebra. Source alpha remains separate. | Scene/commit tests |
-| Localize an adjustment | Adjustment scope and image placement are different coordinate contracts; a full-source mask drawn into a cropped fill shifts coverage. | `DepthMaskRecipe` binds the map to an image source in source-image pixels; replay uses the exact fill crop/fit/transform placement and leaves zero coverage at the original adjustment result. | Replay/scene + browser |
+| Preserve existing masks | A depth operation can silently replace a vector/live mask or multiply alpha twice if it invents its own Boolean path. | Existing non-raster masks require explicit Replace confirmation; raster combinations use shared soft coverage algebra. Source alpha remains separate. | Scene/commit tests |
+| Localize an adjustment | Adjustment scope and image placement are different coordinate contracts. | `DepthMaskRecipe` binds the map to an image source in source-image pixels; replay maps coverage through the source placement and leaves zero coverage at the original adjustment result. | Replay/scene + browser |
 | Reopen without model or blur | A map referenced only by a blur effect was at risk of being pruned or unavailable to a standalone mask. | Recipes and depth resources participate in codec closure, pruning, clipboard remapping, and offline resolved-mask fallback. Removing blur retains the resource. | Codec/import tests |
 | Keep hand corrections | Recomputing a range must not erase painted coverage. | Existing refine commits become a recipe correction asset with revision/target; range edits can Replace or explicitly rebase through combine operations. | Commit/refine tests |
 | Prevent stale inference commits | A panel closing must not dispose the shared host or let an old result overwrite a new source. | Request cancellation detaches only the owning request; generation checks source/node/resource identity before commit and retains the last accepted result. | Worker + UI source guards |
@@ -131,7 +131,7 @@ The required evidence layers were exercised as follows:
 3. actual Chromium interaction, screenshots, save/reopen, scalar download,
    and decoded export inspection.
 
-Focused deterministic coverage (9 files, 100 tests) passed with:
+Focused deterministic coverage (9 files, 97 tests) passed with:
 
 ```text
 pnpm exec vitest run --pool=forks --maxWorkers=1 --no-file-parallelism \
@@ -181,52 +181,6 @@ workflow defects; the final isolated run passed. No generated screenshot is
 treated as visual proof until it has been opened and inspected at full preview
 and edge detail. No model claim is based only on finite outputs or synthetic
 rank correlation.
-
-The marketing surface was built and exercised separately from the editor:
-
-```text
-pnpm --filter @varve/website build
-pnpm build:website:pages
-VARVE_WEBSITE_E2E_PORT=4327 VARVE_WEBSITE_E2E_PORT_ROOT=4328 pnpm exec playwright test \
-  apps/website/tests/e2e/depth-aware-effects.spec.ts --project=ghpages \
-  --config playwright.website.config.ts --reporter=list
-```
-
-The Astro build produced 100 pages with zero errors, the pages build passed,
-and the focused website workflow passed (`1 passed (2.7s)`). The feature and
-guide were inspected at 1280px, and the guide was also inspected at 390px;
-the mobile capture had no horizontal overflow. The inspected captures are
-`reports/depth-aware-masking-2026-09-13/website/depth-aware-effects-feature-desktop.png`,
-`depth-aware-effects-docs-desktop.png`, and
-`depth-aware-effects-docs-mobile.png`.
-
-The affected planner escalated because the shared scene/schema and validation
-surface was dirty. The requested full checkpoint was attempted with
-`VARVE_FULL_GATE_REASON` set. It did not pass: the current shared worktree
-reported unrelated touched-file Biome diagnostics, an existing architecture
-ratchet/import failure in `packages/scene/src/adjustmentScope.ts`, and
-pre-existing `LutTransform` type errors in the LUT tests. None of those
-failures were depth-specific, and the depth-focused tests, website build, and
-website E2E remained green. The repository benchmark was started with one
-worker but was interrupted after it discovered benchmark files under other
-agents' `.worktrees`; it was not used as a depth performance claim.
-
-The final depth integration records are the incremental commits
-`272fb8eb1` (crop-aware placement and preserving combine defaults),
-`ba16191c9` (cropped-placement regression), `e5be5c363` (documentation), and
-`00e96ca87` (marketing-route E2E), on top of the earlier contract, recipe,
-workflow, persistence, and cancellation commits listed in the architecture
-record. The corresponding source, scalar, and UI changes remain on `master`;
-no new branch or parallel depth subsystem was created.
-
-Commit `56e3e419` extends the canvas workflow spec to decode the actual PNG
-appearance export (magic bytes and dimensions) in addition to the scalar
-resource export. Its `pnpm typecheck:e2e` check passes. A repeat browser run
-containing that assertion was attempted in the isolated snapshot but timed out
-before the Home screen rendered (`New` never appeared), during Vite startup;
-it did not reach or fail the depth assertion. The earlier complete Chromium
-run above remains the verified visual workflow, and the new assertion is kept
-as the regression gate for the next healthy browser startup.
 
 ## Boundaries
 

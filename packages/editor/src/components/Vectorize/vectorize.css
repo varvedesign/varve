@@ -52,7 +52,7 @@
   border-radius: var(--radius-control-compact);
   min-height: 96px;
   background: repeating-conic-gradient(
-    var(--color-surface-checker-a, rgba(0, 0, 0, 0.06)) 0% 25%,
+    var(--color-surface-checker-a) 0% 25%,
     transparent 0% 50%
   );
   background-size: 12px 12px;

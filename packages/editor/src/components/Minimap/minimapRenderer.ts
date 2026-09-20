@@ -56,6 +56,8 @@ export interface MinimapColors {
   lockedStroke: string;
   /** Outlier marker. */
   outlierStroke: string;
+  /** Adjustment-node bar; matches the Layers panel adjustment identity. */
+  adjustmentFill: string;
   /** Frame label text. */
   labelFill: string;
   /** Publishing page fill. */
@@ -81,9 +83,10 @@ export function resolveMinimapColors(
     selectionStroke: getVar('--color-interactive-default', '#39d0c6'),
     viewportFill: getVar('--color-interactive-default', '#39d0c6'),
     viewportStroke: getVar('--color-interactive-default', '#39d0c6'),
-    hiddenFill: 'rgba(128, 128, 128, 0.15)',
-    lockedStroke: '#666',
-    outlierStroke: '#ff6b6b',
+    hiddenFill: getVar('--color-text-disabled', '#808080'),
+    lockedStroke: getVar('--color-border-strong', '#666666'),
+    outlierStroke: getVar('--color-feedback-danger', '#ff6b6b'),
+    adjustmentFill: getVar('--color-layer-accent-adjustment', '#a06a30'),
     labelFill: getVar('--color-text-muted', '#999'),
     pageFill: getVar('--color-surface-default', '#2a2a2a'),
     pageStroke: getVar('--color-border-strong', '#777'),
@@ -153,16 +156,26 @@ function drawGroupEntry(
   ctx.setLineDash([]);
 }
 
+/**
+ * Minimap entries use the same identity colors as the Layers panel so a node
+ * reads as the same kind in both surfaces. Values come from the theme-aware
+ * minimap color set; only the adjustment bar needs an alpha composite, which
+ * is expressed as a fill with globalAlpha so no literal is required.
+ */
 function drawAdjustmentEntry(
   ctx: CanvasRenderingContext2D,
   entry: MinimapEntry,
   tf: MinimapTransform,
+  colors: MinimapColors,
 ): void {
   const mm = worldRectToMinimap(entry.bounds, tf);
 
   // Adjustment nodes: thin horizontal bar
-  ctx.fillStyle = 'rgba(128, 128, 255, 0.3)';
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = colors.adjustmentFill;
   ctx.fillRect(mm.x, mm.y, mm.w, Math.max(mm.h, 2));
+  ctx.restore();
 }
 
 function drawSelectionHighlight(
@@ -342,7 +355,7 @@ export function renderMinimap(
         drawTextEntry(ctx, entry, tf, colors);
         break;
       case 'adjustment':
-        drawAdjustmentEntry(ctx, entry, tf);
+        drawAdjustmentEntry(ctx, entry, tf, colors);
         break;
       default:
         drawShapeEntry(ctx, entry, tf, colors);

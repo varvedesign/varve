@@ -64,11 +64,12 @@ variant rounds both levels. State changes never change radius.
 
 ### Responsive behavior
 
-- **Wrap, never clip.** Inspector field columns use
-  `repeat(auto-fit, minmax(min(6rem, 100%), 1fr))`: options wrap onto
-  additional rows instead of shrinking below their labels. When a segment is
-  genuinely squeezed, its label ellipsizes and the tooltip still carries the
-  full text.
+- **Wrap by content, never clip.** Inspector field columns use
+  `repeat(auto-fit, minmax(fit-content, 1fr))`: a segment track is at least as
+  wide as its label, so short-label groups (Off/Top/Front/Side) stay on one
+  row and long labels wrap only when they genuinely must. `fit-content` caps
+  at the available width, so a single oversized label shrinks to the container
+  and ellipsizes with its tooltip instead of overflowing.
 - **No horizontal scroll strips.** A scrolled segmented control hides options
   at the inline end; wrap instead (the Upscale dialog does).
 - Icon-only variants stay on one row longest because their targets are

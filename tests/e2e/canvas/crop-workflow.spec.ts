@@ -118,6 +118,7 @@ test.describe('Image crop workflow — trim, expand, convert, reset', () => {
 
     // At least one should be visible depending on current fit mode
     expect(convertVisible || expandVisible).toBe(true);
+    await expect(page.getByRole('button', { name: /^generative expand$/i })).toBeVisible();
   });
 
   test('Trim to Subject button triggers via keyboard shortcut', async ({ page }) => {

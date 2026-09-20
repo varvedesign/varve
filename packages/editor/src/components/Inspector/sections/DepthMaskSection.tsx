@@ -720,7 +720,6 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
                 max={100}
                 step={0.1}
                 unit="%"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Depth mask near endpoint"
                 onChange={(value) => setRange((current) => ({ ...current, near: value }))}
               />
@@ -734,7 +733,6 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
                 max={100}
                 step={0.1}
                 unit="%"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Depth mask far endpoint"
                 onChange={(value) => setRange((current) => ({ ...current, far: value }))}
               />
@@ -748,7 +746,6 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
                 max={50}
                 step={0.1}
                 unit="% depth"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Depth mask near transition"
                 onChange={(value) => setRange((current) => ({ ...current, nearTransition: value }))}
               />
@@ -762,7 +759,6 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
                 max={50}
                 step={0.1}
                 unit="% depth"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Depth mask far transition"
                 onChange={(value) => setRange((current) => ({ ...current, farTransition: value }))}
               />

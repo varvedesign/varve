@@ -6,16 +6,10 @@ test('document color settings distinguish working RGB from blend evaluation', as
 
   await expect(page.getByText('Working RGB', { exact: true })).toBeVisible();
   await expect(page.getByText('Blend evaluation', { exact: true })).toBeVisible();
-  await expect(page.getByRole('radio', { name: 'Legacy sRGB', exact: true })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
+  await expect(page.getByRole('radio', { name: 'Legacy sRGB', exact: true })).toBeChecked();
 
   await page.getByRole('radio', { name: 'Linear light', exact: true }).click();
-  await expect(page.getByRole('radio', { name: 'Linear light', exact: true })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
+  await expect(page.getByRole('radio', { name: 'Linear light', exact: true })).toBeChecked();
 
   await page.screenshot({
     path: '/tmp/opencode/blend-evaluation-settings.png',

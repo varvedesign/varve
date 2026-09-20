@@ -6020,7 +6020,12 @@ fieldset.insp-canvas-props,
   gap: var(--space-2);
   min-width: 0;
   min-height: var(--insp-row-height);
-  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+  /* The label column is bounded so every control starts on the same edge,
+   * but it must fit the longest real label at the interface-label size
+   * ("Object geometry" measured 112px at 13px/600). 38% wrapped it onto two
+   * lines and grew every row in the section; 44% keeps one-line labels and
+   * still leaves the control column the majority of the row. */
+  grid-template-columns: minmax(0, 44%) minmax(0, 1fr);
 }
 
 .insp-field__label {
@@ -6033,7 +6038,9 @@ fieldset.insp-canvas-props,
   color: var(--color-text-muted);
   font-family: var(--type-interface-label-family);
   font-size: var(--insp-label-size, var(--font-size-2xs));
-  font-weight: var(--font-weight-semibold);
+  /* Weight comes from the role, not from a local override: the panel had
+   * drifted to 600 while the role specifies medium. */
+  font-weight: var(--type-interface-label-weight);
   line-height: var(--type-interface-label-line-height);
   white-space: nowrap;
   /* Scrub handle — drag on the label to change the value. */
@@ -6607,9 +6614,14 @@ fieldset.insp-canvas-props,
  * reported 2026-09-20). 6rem keeps the common four-option groups at a
  * balanced 2×2 inside the default control column; the old hard 2-column
  * container override forced columns below content width and is removed. */
+/* Content-driven auto-fit: a segment track is at least as wide as its label
+ * (fit-content caps at the available width), so short-label groups stay on one
+ * row, long labels wrap only when they genuinely must, and a single oversized
+ * label can still shrink to the container and ellipsize. A fixed minimum
+ * (6rem) forced "Off / Top / Front / Side" into a 2×2 grid. */
 .editor-inspector .insp-field__control > .varve-segmented {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(6rem, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(fit-content, 1fr));
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
@@ -6628,15 +6640,6 @@ fieldset.insp-canvas-props,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* Icon-only field groups keep a compact minimum so a four- or six-icon picker
- * stays on one row (or a balanced wrap) instead of inheriting the 6rem text
- * minimum and stacking one option per row. */
-.editor-inspector
-  .insp-field__control
-  > .varve-segmented:has(> .varve-segmented__btn > .varve-segmented__label.varve-visually-hidden) {
-  grid-template-columns: repeat(auto-fit, minmax(min(2.5rem, 100%), 1fr));
 }
 
 .editor-inspector .insp-field__control > div:has(> .insp-per-side),

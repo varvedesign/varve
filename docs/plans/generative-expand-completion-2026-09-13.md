@@ -1,9 +1,11 @@
 # Generative Expand and Subtract completion plan — 2026-09-13
 
-Status: complete on `master`; final validation is recorded below. Integration owner for this
-slice: Codex. This document deliberately does not claim ownership of unrelated
-dirty files listed by `git status`; those changes belong to concurrent work and
-will be re-read before any shared-file edit.
+Status: revised/partial on `master`; the desktop plumbing and limited LaMa
+qualification are recorded below, but semantic model qualification, browser
+Expand quality, and cross-platform evidence remain open. Integration owner for
+this slice: Codex. This document deliberately does not claim ownership of
+unrelated dirty files listed by `git status`; those changes belong to concurrent
+work and will be re-read before any shared-file edit.
 
 ## Research record
 
@@ -85,7 +87,9 @@ from hosted-service terms; no remote provider is enabled by this plan.
 
 The planned vertical slices are implemented in the existing Crop & Bounds /
 Generative Edit flow. No workspace, route, scene model, inference manager, or
-provider manager was added.
+provider manager was added. The browser Expand fallback was subsequently
+removed from the public capability surface after a real-photograph visual
+failure; the direct fallback tests remain as internal regression coverage.
 
 - `175045830` — coherent, bounded Expand passes with source restoration.
 - `a6ac35792` — accepted Expand save/reopen/export coverage.
@@ -122,12 +126,12 @@ Passed feature evidence:
   --nocapture` — 1 test, 4 real photographs, 148.86 seconds total; source
   RGBA protection passed for every case. Linux x86_64 CPU, `ort-native`,
   `lama-inpainting`, 208 MB model, approximately 850 MB reserved peak.
-- Editor Expand workflow: clean no-HMR Chromium run of
-  `tests/e2e/caf/expand-real-photo.spec.ts` — 1 test passed in 2.6 minutes;
-  reviewed 1664x1272 output, exact source placement, independent PNG decode,
-  undo/redo, reopen, and Restore Original. The browser used Fast/PatchMatch
-  because WASM was unavailable; it is workflow/fallback evidence, not native
-  LaMa quality evidence.
+- Browser Expand capability boundary: clean no-HMR Chromium run of
+  `tests/e2e/caf/expand-real-photo.spec.ts` — 1 test passed in 1.1 minutes on
+  a real landscape photograph; the browser Generate control was disabled and
+  the desktop/provider explanation was visible. The earlier 1664x1272 browser
+  output remains retained as rejected visual evidence because it showed edge
+  striping.
 - Editor Generative Subtract workflow: clean no-HMR Chromium run of the real
   photographic Remove test in `tests/e2e/caf/caf.spec.ts` — 1 test passed in
   2.8 minutes. It proves the `remove` recipe, bounded overlay, provider

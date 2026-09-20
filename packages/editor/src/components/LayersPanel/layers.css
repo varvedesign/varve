@@ -111,8 +111,8 @@
   justify-content: center;
   min-width: var(--target-min-compact);
   min-height: var(--target-min-compact);
-  width: var(--space-6);
-  height: var(--space-6);
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
   border: 1px solid transparent;
   background: none;
   color: var(--color-text-muted);
@@ -1416,8 +1416,8 @@
   justify-content: center;
   min-width: var(--target-min-compact);
   min-height: var(--target-min-compact);
-  width: var(--space-6);
-  height: var(--space-6);
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
   border: 1px solid transparent;
   background: none;
   color: var(--color-text-muted);

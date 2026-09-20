@@ -113,6 +113,33 @@ reliable. Revisit if operator feedback asks for it.
   observed for a 2× request, drift < 1 px) — that route exercises Varve's
   touch pointer pinch, not ctrl+wheel.
 
+## Root cause (definitive, 2026-09-19): gesture recognition never fires under Tauri
+
+The operator's real-trackpad event trace (the app's catch-all `::event`
+tracer, `input-trace` lines) settled the investigation: a clean stream of
+`TouchpadPinch` GDK events **arrives at the WebKitWebView widget** — delivery
+was never broken — while the attached `GtkGestureZoom` recognition never
+fires under Tauri's runtime. The identical wiring (mask + gesture + probe
+page) recognizes the same injected pinch in a plain GTK main loop, so the
+difference is Tauri's event integration, not WebKitGTK and not the
+compositor.
+
+The fix therefore stops relying on gesture recognition entirely: the
+webview's `::event` handler now answers `GdkEventTouchpadPinch` directly —
+`phase` (begin/update/end) plus `scale` (cumulative since begin, the same
+contract the frontend bridge listener already implements for the macOS
+WebKt gesture stream) plus the pinch-centre position — and forwards it as
+the existing `canvas://pinch-zoom {phase,…}` payload. The handler returns
+`Propagation::Stop` for pinch events, which also removes WebKit's own
+whole-page pinch response (the "pinching zooms in on the whole app" symptom
+from the operator's earlier report). The `GtkGestureZoom` arms were removed
+so the direct handler is the single source; the `zoom_level` fallback arm
+remains (guarded by the same `pinch_active` flag) for platforms whose pinch
+arrives as page zoom.
+
+First-pinch confirmation line in `varve.log`:
+`touchpad pinch handled directly from TouchpadPinch events`.
+
 ## Follow-up (2026-09-19): why pinch was still dead on the operator's machine
 
 After the gesture bridge landed, the trackpad pinch still did nothing on the

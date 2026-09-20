@@ -58,7 +58,6 @@
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   padding: 0;
-  text-transform: uppercase;
 }
 
 .adj-panel__preset-grid {
@@ -137,7 +136,6 @@
 .adj-panel__stack-title {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-secondary);
   min-width: 0;
@@ -765,7 +763,6 @@
   color: var(--color-interactive-default);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
@@ -1356,11 +1353,11 @@
 .adj-editor__swatch {
   aspect-ratio: 1;
   border-radius: var(--radius-control-compact);
-  border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.35));
+  border: 1px solid var(--color-border-subtle);
   cursor: pointer;
 }
 .adj-editor__swatch--active {
-  outline: 2px solid var(--color-accent-primary, #14b8a6);
+  outline: 2px solid var(--color-accent-primary);
   outline-offset: 1px;
 }
 .adj-editor__palette-input {
@@ -1371,7 +1368,7 @@
   resize: vertical;
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary, inherit);
-  border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.35));
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   padding: 6px;
 }

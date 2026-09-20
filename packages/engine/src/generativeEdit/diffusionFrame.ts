@@ -135,6 +135,12 @@ export const MOEBIUS_INPAINTING_FRAME_CONTRACT = {
 
 export interface DiffusionFrame {
   imageData: ImageData;
+  /**
+   * Source frame with edit coverage cleared for low-level providers that do
+   * not derive masked RGB internally. High-level image-and-mask providers
+   * leave this undefined and receive the unmodified imageData instead.
+   */
+  maskedImageData?: ImageData;
   mask: Uint8Array;
   width: number;
   height: number;
@@ -296,6 +302,41 @@ function fillLetterbox(imageData: ImageData): void {
 }
 
 /**
+ * Build the masked RGB conditioning used by low-level inpainting graphs.
+ * `mask` is already encoded for the provider, so derive keep coverage from
+ * the declared polarity instead of assuming that white always means edit.
+ * Alpha is not a model condition, but clearing RGB behind zero alpha avoids
+ * treating meaningless hidden channel values as visual context.
+ */
+function buildMaskedImage(
+  imageData: ImageData,
+  mask: Uint8Array,
+  convention: DiffusionMaskConvention,
+): ImageData {
+  if (mask.length !== imageData.width * imageData.height) {
+    throw new Error('Diffusion mask dimensions do not match the source frame');
+  }
+  const masked = new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
+  for (let index = 0, pixel = 0; index < masked.data.length; index += 4, pixel += 1) {
+    const providerCoverage = mask[pixel] ?? 0;
+    const keepCoverage = convention === 'white-preserve-black-edit'
+      ? providerCoverage
+      : 255 - providerCoverage;
+    const alpha = masked.data[index + 3] ?? 0;
+    if (alpha === 0) {
+      masked.data[index] = 0;
+      masked.data[index + 1] = 0;
+      masked.data[index + 2] = 0;
+      continue;
+    }
+    masked.data[index] = Math.round((masked.data[index]! * keepCoverage) / 255);
+    masked.data[index + 1] = Math.round((masked.data[index + 1]! * keepCoverage) / 255);
+    masked.data[index + 2] = Math.round((masked.data[index + 2]! * keepCoverage) / 255);
+  }
+  return masked;
+}
+
+/**
  * Prepare a bounded context for a diffusion inpainting profile.
  *
  * The context is uniformly scaled into the contract's frame. The editable
@@ -362,9 +403,14 @@ export function prepareDiffusionFrame(
     contentX,
     contentY,
   );
+  const maskedImageData =
+    contract.maskInput === 'image-and-mask'
+      ? undefined
+      : buildMaskedImage(modelImage, modelMask, contract.maskConvention);
 
   return {
     imageData: modelImage,
+    ...(maskedImageData ? { maskedImageData } : {}),
     mask: modelMask,
     width: contract.frameWidth,
     height: contract.frameHeight,

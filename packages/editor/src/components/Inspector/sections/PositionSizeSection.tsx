@@ -393,324 +393,334 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       {useArtboardCoords && (
         <p className="insp-panel__empty-hint">Coordinates shown relative to active artboard</p>
       )}
-      <div
-        ref={bindingTriggerRef}
-        className="insp-field-group insp-field-group--columns-2 insp-field-group--numeric-pair insp-field-group--binding insp-field-group--position"
-      >
-        <NumberField
-          label={useArtboardCoords ? 'X (AB)' : 'X'}
-          displayLabel="X"
-          unit="px"
-          value={toDisplayX(xValue)}
-          mixed={xState.kind === 'mixed'}
-          propertyState={xState}
-          readOnly={xBinding?.readOnly ?? false}
-          bindingLabel={nodes.length === 1 ? xBinding?.sourceLabel : undefined}
-          onUnbind={
-            nodes.length === 1 && xBinding ? () => editor.setSelectedBinding('x', null) : undefined
-          }
-          draftKey={draftKey}
-          onChange={(v) => editor.setSelectedX(fromDisplayX(v))}
-          onDelta={handleDeltaX}
-          fieldName="x"
-          onShiftClick={() => editor.setBindingField('x')}
-        />
-        <span className="insp-field-group__action-slot" aria-hidden="true" />
-        <NumberField
-          label={useArtboardCoords ? 'Y (AB)' : 'Y'}
-          displayLabel="Y"
-          unit="px"
-          value={toDisplayY(yValue)}
-          mixed={yState.kind === 'mixed'}
-          propertyState={yState}
-          readOnly={yBinding?.readOnly ?? false}
-          bindingLabel={nodes.length === 1 ? yBinding?.sourceLabel : undefined}
-          onUnbind={
-            nodes.length === 1 && yBinding ? () => editor.setSelectedBinding('y', null) : undefined
-          }
-          draftKey={draftKey}
-          onChange={(v) => editor.setSelectedY(fromDisplayY(v))}
-          onDelta={handleDeltaY}
-          fieldName="y"
-          onShiftClick={() => editor.setBindingField('y')}
-        />
-        <span className="insp-field-group__action-slot" aria-hidden="true" />
-        {editor.bindingField &&
-          ['x', 'y', 'width', 'height', 'rotation'].includes(editor.bindingField) && (
-            <BindingMenu
-              variableStore={docVariableStore(editor.state.document)}
-              targetType="number"
-              onBind={(variableId, expression) => {
-                if (editor.bindingField) {
-                  editor.setSelectedBinding(editor.bindingField, { variableId, expression });
-                }
-                editor.setBindingField(null);
-              }}
-              onClose={() => editor.setBindingField(null)}
-              triggerRef={bindingTriggerRef}
-            />
-          )}
-      </div>
-      {allSizable && (
-        <InspectorFieldGroup>
-          {isLineOrArrow ? (
-            <InspectorFieldGroup columns={2} className="insp-field-group--numeric-pair">
-              <NumberField
-                label="L"
-                unit="px"
-                value={lineLength}
-                min={0}
-                draftKey={draftKey}
-                onChange={handleLineLength}
-              />
-              <NumberField
-                label="A"
-                unit="°"
-                value={lineAngle}
-                min={-180}
-                max={360}
-                draftKey={draftKey}
-                onChange={handleLineAngle}
-              />
-            </InspectorFieldGroup>
-          ) : (
-            <InspectorFieldGroup className="insp-field-group--size insp-field-group--numeric-pair">
-              <NumberField
-                label="W"
-                displayLabel="W"
-                unit="px"
-                value={wRaw !== null && !isMixed(wRaw) ? wRaw : 0}
-                mixed={wRaw !== null && isMixed(wRaw)}
-                propertyState={wPropertyState}
-                min={0}
-                draftKey={draftKey}
-                onChange={handleW}
-                fieldName="width"
-                onShiftClick={() => editor.setBindingField('width')}
-              />
-              {isFrameSelection ? (
-                <Tooltip label="Swap orientation (Portrait / Landscape)">
-                  <button
-                    type="button"
-                    className="insp-orientation-btn"
-                    onClick={handleSwapOrientation}
-                    aria-label="Swap orientation"
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M8 3 4 7l4 4" />
-                      <path d="M4 7h16" />
-                      <path d="m16 21 4-4-4-4" />
-                      <path d="M20 17H4" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              ) : (
-                <span className="insp-field-group__action-slot" aria-hidden="true" />
-              )}
-              <NumberField
-                label="H"
-                displayLabel="H"
-                unit="px"
-                value={hRaw !== null && !isMixed(hRaw) ? hRaw : 0}
-                mixed={hRaw !== null && isMixed(hRaw)}
-                propertyState={hPropertyState}
-                min={0}
-                draftKey={draftKey}
-                onChange={handleH}
-                fieldName="height"
-                onShiftClick={() => editor.setBindingField('height')}
-              />
-              <label
-                className="insp-proportion-lock"
-                title={locked ? 'Constrain proportions (active)' : 'Constrain proportions'}
-              >
-                <input
-                  type="checkbox"
-                  className="insp-proportion-lock__input"
-                  checked={locked}
-                  onChange={() => setLocked((p) => !p)}
-                  aria-label="Constrain proportions"
-                />
-                {/* Linked/unlinked use the Lucide chain pair rather than a
-                    bespoke path, so the slashed state is unmistakable at 14px
-                    (2026-09-15 competitor research: ambiguous lock affordances). */}
-                <Icon
-                  name={locked ? 'Link2' : 'Link2Off'}
-                  size={14}
-                  className={`insp-proportion-icon${locked ? ' insp-proportion-icon--locked' : ''}`}
-                />
-              </label>
-            </InspectorFieldGroup>
-          )}
-        </InspectorFieldGroup>
-      )}
-      {/* Rotation + Flip row */}
-      <InspectorFieldGroup className="insp-field-group--rotation">
-        <NumberField
-          label="R"
-          displayLabel="R"
-          unit="°"
-          value={isMixed(rotationRaw) ? 0 : rotationRaw}
-          mixed={isMixed(rotationRaw)}
-          min={0}
-          max={360}
-          draftKey={draftKey}
-          onChange={(v) => editor.setSelectedRotation(v % 360 < 0 ? (v % 360) + 360 : v % 360)}
-          fieldName="rotation"
-          onShiftClick={() => editor.setBindingField('rotation')}
-        />
-        <TooltipProvider>
-          <div className="insp-flip-group" role="group" aria-label="Transform controls">
-            <Tooltip label="Flip horizontally">
-              <button
-                type="button"
-                aria-label="Flip horizontal"
-                onClick={editor.setSelectedFlipH}
-                className="insp-flip-btn"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3" />
-                  <path d="M16 3h3a2 2 0 0 1 2 2v14c0 1.1-.9 2-2 2h-3" />
-                  <path d="M12 20v2" />
-                  <path d="M12 14v2" />
-                  <path d="M12 8v2" />
-                  <path d="M12 2v2" />
-                </svg>
-              </button>
-            </Tooltip>
-            <Tooltip label="Flip vertically">
-              <button
-                type="button"
-                aria-label="Flip vertical"
-                onClick={editor.setSelectedFlipV}
-                className="insp-flip-btn"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M3 8V5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v3" />
-                  <path d="M3 16v3c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-3" />
-                  <path d="M4 12H2" />
-                  <path d="M10 12H8" />
-                  <path d="M16 12h-2" />
-                  <path d="M22 12h-2" />
-                </svg>
-              </button>
-            </Tooltip>
-            <Tooltip label={isSkewVisible ? 'Hide skew controls' : 'More transforms (Skew)'}>
-              <button
-                type="button"
-                aria-label={isSkewVisible ? 'Hide skew controls' : 'Show skew controls'}
-                aria-expanded={isSkewVisible}
-                onClick={() => setShowSkew((p) => !p)}
-                className={`insp-flip-btn ${isSkewVisible ? 'insp-flip-btn--active' : ''}`}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M4 20h14l4-16H8L4 20z" />
-                </svg>
-              </button>
-            </Tooltip>
-          </div>
-        </TooltipProvider>
-      </InspectorFieldGroup>
-      {/* Skew row — progressively disclosed */}
-      {isSkewVisible && (
-        <InspectorFieldGroup className="insp-field-group--skew insp-field-group--numeric-pair">
+      {/* One grid for the value rows: X/W/R and Y/H share columns, and the
+          size row's action gutter defines the middle track (frames carry a
+          second action there, so the gutter widens for the whole section). */}
+      <div className="insp-position-size" data-frame-actions={isFrameSelection || undefined}>
+        <div
+          ref={bindingTriggerRef}
+          className="insp-field-group insp-field-group--binding insp-field-group--position"
+        >
           <NumberField
-            label="Skew X"
-            unit="°"
-            value={isMixed(skewRaw) ? 0 : skewRaw}
-            mixed={isMixed(skewRaw)}
-            min={-89}
-            max={89}
+            label={useArtboardCoords ? 'X (AB)' : 'X'}
+            displayLabel="X"
+            unit="px"
+            value={toDisplayX(xValue)}
+            mixed={xState.kind === 'mixed'}
+            propertyState={xState}
+            readOnly={xBinding?.readOnly ?? false}
+            bindingLabel={nodes.length === 1 ? xBinding?.sourceLabel : undefined}
+            onUnbind={
+              nodes.length === 1 && xBinding
+                ? () => editor.setSelectedBinding('x', null)
+                : undefined
+            }
             draftKey={draftKey}
-            onChange={(v) => editor.setSelectedSkew(v, isMixed(skewYRaw) ? 0 : skewYRaw)}
-            fieldName="skewX"
+            onChange={(v) => editor.setSelectedX(fromDisplayX(v))}
+            onDelta={handleDeltaX}
+            fieldName="x"
+            onShiftClick={() => editor.setBindingField('x')}
           />
           <NumberField
-            label="Skew Y"
-            unit="°"
-            value={isMixed(skewYRaw) ? 0 : skewYRaw}
-            mixed={isMixed(skewYRaw)}
-            min={-89}
-            max={89}
+            label={useArtboardCoords ? 'Y (AB)' : 'Y'}
+            displayLabel="Y"
+            unit="px"
+            value={toDisplayY(yValue)}
+            mixed={yState.kind === 'mixed'}
+            propertyState={yState}
+            readOnly={yBinding?.readOnly ?? false}
+            bindingLabel={nodes.length === 1 ? yBinding?.sourceLabel : undefined}
+            onUnbind={
+              nodes.length === 1 && yBinding
+                ? () => editor.setSelectedBinding('y', null)
+                : undefined
+            }
             draftKey={draftKey}
-            onChange={(v) => editor.setSelectedSkew(isMixed(skewRaw) ? 0 : skewRaw, v)}
-            fieldName="skewY"
+            onChange={(v) => editor.setSelectedY(fromDisplayY(v))}
+            onDelta={handleDeltaY}
+            fieldName="y"
+            onShiftClick={() => editor.setBindingField('y')}
+          />
+          {editor.bindingField &&
+            ['x', 'y', 'width', 'height', 'rotation'].includes(editor.bindingField) && (
+              <BindingMenu
+                variableStore={docVariableStore(editor.state.document)}
+                targetType="number"
+                onBind={(variableId, expression) => {
+                  if (editor.bindingField) {
+                    editor.setSelectedBinding(editor.bindingField, { variableId, expression });
+                  }
+                  editor.setBindingField(null);
+                }}
+                onClose={() => editor.setBindingField(null)}
+                triggerRef={bindingTriggerRef}
+              />
+            )}
+        </div>
+        {allSizable && (
+          <InspectorFieldGroup>
+            {isLineOrArrow ? (
+              <InspectorFieldGroup className="insp-field-group--size">
+                <NumberField
+                  label="L"
+                  unit="px"
+                  value={lineLength}
+                  min={0}
+                  draftKey={draftKey}
+                  onChange={handleLineLength}
+                />
+                <NumberField
+                  label="A"
+                  unit="°"
+                  value={lineAngle}
+                  min={-180}
+                  max={360}
+                  draftKey={draftKey}
+                  onChange={handleLineAngle}
+                />
+              </InspectorFieldGroup>
+            ) : (
+              <InspectorFieldGroup className="insp-field-group--size">
+                <NumberField
+                  label="W"
+                  displayLabel="W"
+                  unit="px"
+                  value={wRaw !== null && !isMixed(wRaw) ? wRaw : 0}
+                  mixed={wRaw !== null && isMixed(wRaw)}
+                  propertyState={wPropertyState}
+                  min={0}
+                  draftKey={draftKey}
+                  onChange={handleW}
+                  fieldName="width"
+                  onShiftClick={() => editor.setBindingField('width')}
+                />
+                {/* The size actions sit between the two values they act on:
+                  the proportion lock constrains W/H, and frames add the
+                  orientation swap (which exchanges them). */}
+                <div className="insp-size-actions">
+                  <label
+                    className="insp-proportion-lock"
+                    title={locked ? 'Constrain proportions (active)' : 'Constrain proportions'}
+                  >
+                    <input
+                      type="checkbox"
+                      className="insp-proportion-lock__input"
+                      checked={locked}
+                      onChange={() => setLocked((p) => !p)}
+                      aria-label="Constrain proportions"
+                    />
+                    {/* Linked/unlinked use the Lucide chain pair rather than a
+                      bespoke path, so the slashed state is unmistakable at 14px
+                      (2026-09-15 competitor research: ambiguous lock affordances). */}
+                    <Icon
+                      name={locked ? 'Link2' : 'Link2Off'}
+                      size={14}
+                      className={`insp-proportion-icon${locked ? ' insp-proportion-icon--locked' : ''}`}
+                    />
+                  </label>
+                  {isFrameSelection && (
+                    <Tooltip label="Swap orientation (Portrait / Landscape)">
+                      <button
+                        type="button"
+                        className="insp-orientation-btn"
+                        onClick={handleSwapOrientation}
+                        aria-label="Swap orientation"
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M8 3 4 7l4 4" />
+                          <path d="M4 7h16" />
+                          <path d="m16 21 4-4-4-4" />
+                          <path d="M20 17H4" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
+                <NumberField
+                  label="H"
+                  displayLabel="H"
+                  unit="px"
+                  value={hRaw !== null && !isMixed(hRaw) ? hRaw : 0}
+                  mixed={hRaw !== null && isMixed(hRaw)}
+                  propertyState={hPropertyState}
+                  min={0}
+                  draftKey={draftKey}
+                  onChange={handleH}
+                  fieldName="height"
+                  onShiftClick={() => editor.setBindingField('height')}
+                />
+              </InspectorFieldGroup>
+            )}
+          </InspectorFieldGroup>
+        )}
+        {/* Rotation + Flip row */}
+        <InspectorFieldGroup className="insp-field-group--rotation">
+          <NumberField
+            label="R"
+            displayLabel="R"
+            unit="°"
+            value={isMixed(rotationRaw) ? 0 : rotationRaw}
+            mixed={isMixed(rotationRaw)}
+            min={0}
+            max={360}
+            draftKey={draftKey}
+            onChange={(v) => editor.setSelectedRotation(v % 360 < 0 ? (v % 360) + 360 : v % 360)}
+            fieldName="rotation"
+            onShiftClick={() => editor.setBindingField('rotation')}
           />
           <TooltipProvider>
-            <Tooltip label="Reset skew to 0">
-              <button
-                type="button"
-                aria-label="Reset skew"
-                onClick={() => {
-                  editor.setSelectedSkew(0, 0);
-                  setShowSkew(false);
-                }}
-                className="insp-flip-btn"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
+            <div className="insp-flip-group" role="group" aria-label="Transform controls">
+              <Tooltip label="Flip horizontally">
+                <button
+                  type="button"
+                  aria-label="Flip horizontal"
+                  onClick={editor.setSelectedFlipH}
+                  className="insp-flip-btn"
                 >
-                  <title>Reset skew</title>
-                  <path d="M3 12a9 9 0 1 0 9-9" />
-                  <path d="M3 4v5h5" />
-                </svg>
-              </button>
-            </Tooltip>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3" />
+                    <path d="M16 3h3a2 2 0 0 1 2 2v14c0 1.1-.9 2-2 2h-3" />
+                    <path d="M12 20v2" />
+                    <path d="M12 14v2" />
+                    <path d="M12 8v2" />
+                    <path d="M12 2v2" />
+                  </svg>
+                </button>
+              </Tooltip>
+              <Tooltip label="Flip vertically">
+                <button
+                  type="button"
+                  aria-label="Flip vertical"
+                  onClick={editor.setSelectedFlipV}
+                  className="insp-flip-btn"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 8V5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v3" />
+                    <path d="M3 16v3c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-3" />
+                    <path d="M4 12H2" />
+                    <path d="M10 12H8" />
+                    <path d="M16 12h-2" />
+                    <path d="M22 12h-2" />
+                  </svg>
+                </button>
+              </Tooltip>
+              <Tooltip label={isSkewVisible ? 'Hide skew controls' : 'More transforms (Skew)'}>
+                <button
+                  type="button"
+                  aria-label={isSkewVisible ? 'Hide skew controls' : 'Show skew controls'}
+                  aria-expanded={isSkewVisible}
+                  onClick={() => setShowSkew((p) => !p)}
+                  className={`insp-flip-btn ${isSkewVisible ? 'insp-flip-btn--active' : ''}`}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 20h14l4-16H8L4 20z" />
+                  </svg>
+                </button>
+              </Tooltip>
+            </div>
           </TooltipProvider>
         </InspectorFieldGroup>
-      )}
-      {/* Constraint controls — embedded from the former standalone Constraints
+        {/* Skew row — progressively disclosed */}
+        {isSkewVisible && (
+          <InspectorFieldGroup className="insp-field-group--skew insp-field-group--numeric-pair">
+            <NumberField
+              label="Skew X"
+              unit="°"
+              value={isMixed(skewRaw) ? 0 : skewRaw}
+              mixed={isMixed(skewRaw)}
+              min={-89}
+              max={89}
+              draftKey={draftKey}
+              onChange={(v) => editor.setSelectedSkew(v, isMixed(skewYRaw) ? 0 : skewYRaw)}
+              fieldName="skewX"
+            />
+            <NumberField
+              label="Skew Y"
+              unit="°"
+              value={isMixed(skewYRaw) ? 0 : skewYRaw}
+              mixed={isMixed(skewYRaw)}
+              min={-89}
+              max={89}
+              draftKey={draftKey}
+              onChange={(v) => editor.setSelectedSkew(isMixed(skewRaw) ? 0 : skewRaw, v)}
+              fieldName="skewY"
+            />
+            <TooltipProvider>
+              <Tooltip label="Reset skew to 0">
+                <button
+                  type="button"
+                  aria-label="Reset skew"
+                  onClick={() => {
+                    editor.setSelectedSkew(0, 0);
+                    setShowSkew(false);
+                  }}
+                  className="insp-flip-btn"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <title>Reset skew</title>
+                    <path d="M3 12a9 9 0 1 0 9-9" />
+                    <path d="M3 4v5h5" />
+                  </svg>
+                </button>
+              </Tooltip>
+            </TooltipProvider>
+          </InspectorFieldGroup>
+        )}
+        {/* Constraint controls — embedded from the former standalone Constraints
           section (ADR-0230). Hidden when the parent frame uses auto-layout
           where constraints are semantically meaningless. */}
-      {!parentHasAutoLayout && <ConstraintControls nodes={nodes} />}
+        {!parentHasAutoLayout && <ConstraintControls nodes={nodes} />}
+      </div>
     </DisclosureSection>
   );
 }

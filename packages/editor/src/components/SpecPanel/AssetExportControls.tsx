@@ -24,14 +24,14 @@ import {
   materializePreset,
   type PlatformKind,
 } from '@varve/scene/export';
-import { CopyButton, Icon, type IconName, Select, Tooltip } from '@varve/ui';
+import { CopyButton, Icon, type IconName, SegmentedControl, Select, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { runBatchPreflight } from '../../exportService';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
 import { buildJobs } from '../Export/ExportDialog';
 import { FormatBadge } from '../Export/FormatBadge';
-import { SegmentedControl } from '../Inspector/controls/SegmentedControl';
+
 import {
   buildFilename,
   downloadBlob,
