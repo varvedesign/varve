@@ -91,10 +91,7 @@ test.describe('Paint and filter rows', () => {
 
     const editor = page.locator('.insp-focused-editor');
     if (!(await editor.isVisible().catch(() => false))) {
-      await row
-        .getByRole('button', { name: /Brightness/ })
-        .first()
-        .click();
+      await row.getByRole('button', { name: /Brightness/ }).first().click();
     }
     await expect(editor).toBeVisible({ timeout: 10000 });
     await expect(editor).toContainText(/brightness/i);

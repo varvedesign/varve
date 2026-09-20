@@ -42,7 +42,6 @@ const ROUTES = [
   '/support-project',
   '/features/local-first',
   '/features/print-production',
-  '/features/comic-lettering',
   '/features/layers',
   '/docs/chromeos-linux',
   '/docs/chromebook',

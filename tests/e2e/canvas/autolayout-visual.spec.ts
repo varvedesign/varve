@@ -296,7 +296,7 @@ test.describe('Auto Layout comprehensive verification', () => {
     await selectFrame(page, box);
     await selectFromCombobox(page, 'Layout mode', 'Flex');
     await page.waitForTimeout(300);
-    await clickSegment(page, 'Align items', 'Align to middle');
+    await clickSegment(page, 'Align items', 'Ctr');
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/autolayout-05-align-center.png' });
   });
@@ -309,7 +309,7 @@ test.describe('Auto Layout comprehensive verification', () => {
     await selectFrame(page, box);
     await selectFromCombobox(page, 'Layout mode', 'Flex');
     await page.waitForTimeout(300);
-    await clickSegment(page, 'Align items', 'Align to bottom');
+    await clickSegment(page, 'Align items', 'End');
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/autolayout-05b-align-end.png' });
   });
@@ -324,7 +324,7 @@ test.describe('Auto Layout comprehensive verification', () => {
     await selectFrame(page, box);
     await selectFromCombobox(page, 'Layout mode', 'Flex');
     await page.waitForTimeout(300);
-    await clickSegment(page, 'Justify content', 'Space between');
+    await clickSegment(page, 'Justify content', 'Spc');
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/autolayout-06-justify-space-between.png' });
   });
@@ -337,7 +337,7 @@ test.describe('Auto Layout comprehensive verification', () => {
     await selectFrame(page, box);
     await selectFromCombobox(page, 'Layout mode', 'Flex');
     await page.waitForTimeout(300);
-    await clickSegment(page, 'Justify content', 'Justify center');
+    await clickSegment(page, 'Justify content', 'Ctr');
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/autolayout-06b-justify-center.png' });
   });
@@ -350,7 +350,7 @@ test.describe('Auto Layout comprehensive verification', () => {
     await selectFrame(page, box);
     await selectFromCombobox(page, 'Layout mode', 'Flex');
     await page.waitForTimeout(300);
-    await clickSegment(page, 'Justify content', 'Space evenly');
+    await clickSegment(page, 'Justify content', 'Evn');
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'test-results/autolayout-06c-justify-space-evenly.png' });
   });

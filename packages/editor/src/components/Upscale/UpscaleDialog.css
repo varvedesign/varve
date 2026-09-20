@@ -398,9 +398,7 @@
   width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
-  /* Wrap onto a second row instead of a horizontal scroll strip: a clipped
-   * or scrolled segmented control hides options (2026-09-20 review). */
-  flex-wrap: wrap;
+  overflow-x: auto;
 }
 
 .upscale-settings .varve-segmented__btn {
