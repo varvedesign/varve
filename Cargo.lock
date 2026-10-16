@@ -3837,6 +3837,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "varve-automation-host"
+version = "0.5.1"
+dependencies = [
+ "futures-util",
+ "rand 0.9.5",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "varve-bgremove"
 version = "0.5.1"
 dependencies = [
