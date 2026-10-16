@@ -334,6 +334,10 @@ test('an image import crosses to the other participant without killing the sessi
   expect(await editorStillMounted(pageA)).toBe(true);
   expect(await editorStillMounted(pageB)).toBe(true);
 
+  // A puts real content in the document first: a fresh document legitimately
+  // has no layers, so "B received the baseline" needs something to receive.
+  await drawRectangle(pageA);
+
   // A hosts the room from its own document through the real dialog path, so
   // the baseline is a document the app produced (the admin API + a hand-written
   // JSON seed produced a baseline that did not match either client).

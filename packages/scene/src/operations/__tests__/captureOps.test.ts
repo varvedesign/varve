@@ -172,4 +172,60 @@ describe('document.transaction-capture validation', () => {
     expect(summary.kind).toBe('modify');
     expect(summary.affectedEntityIds).toEqual(['n1_aaaa']);
   });
+
+  describe('embedded asset payloads (collaboration transport)', () => {
+    it('accepts a capture carrying the largest asset the document model allows', () => {
+      // 10 MB decoded is the document's own inline-asset bound; its base64 form
+      // is ~13.4 M characters, and a capture validator stricter than the model it
+      // validates makes such a value untransportable.
+      const dataUrl = `data:image/png;base64,${'A'.repeat(13_400_000)}`;
+      const capture = {
+        transactionId: 'tx-large-asset',
+        changes: [
+          {
+            changeType: 'added' as const,
+            entityId: 'asset-large',
+            entityType: 'asset',
+            propertyPath: 'assets',
+            after: {
+              id: 'asset-large',
+              storage: 'embedded',
+              mimeType: 'image/png',
+              dataUrl,
+              naturalWidth: 10,
+              naturalHeight: 10,
+              byteLength: 1,
+              hash: 'x',
+            },
+            summary: 'Added image asset',
+          },
+        ],
+        summary: {
+          label: 'Insert image',
+          affectedEntityIds: ['asset-large'],
+          kind: 'modify' as const,
+        },
+        beforeHash: 'a'.repeat(64),
+        afterHash: 'b'.repeat(64),
+      };
+      expect(validatePayload('document.transaction-capture', capture).ok).toBe(true);
+
+      // The guard still exists: a string beyond the model's reach is refused.
+      const tooLarge = {
+        ...capture,
+        changes: [
+          {
+            ...capture.changes[0],
+            after: {
+              ...capture.changes[0]!.after,
+              dataUrl: `data:image/png;base64,${'A'.repeat(15_000_000)}`,
+            },
+          },
+        ],
+      };
+      const rejected = validatePayload('document.transaction-capture', tooLarge);
+      expect(rejected.ok).toBe(false);
+      expect(rejected.ok ? [] : rejected.errors.join(' ')).toContain('size limit');
+    });
+  });
 });

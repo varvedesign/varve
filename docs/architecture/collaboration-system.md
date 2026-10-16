@@ -71,6 +71,13 @@ CRDT:
   committed (WAL, `synchronous=FULL`). Clients keep unacked operations
   pending across reconnects and re-send them once; the host deduplicates
   by `clientOpId` (at-least-once delivery without duplicates).
+- **A capture may carry any value the document model can hold.** The capture
+  validator's per-string bound is derived from the document's own inline-asset
+  bound (10 MB decoded), not guessed smaller: a validator stricter than the
+  model it validates makes legitimate content untransportable. The sender
+  pre-flights every capture against the same validator the receivers run and
+  reports a refusal to its author, so this class of failure is visible where it
+  happens instead of as a peer-side resynchronization.
 - **Large operations are framed, not truncated.** An operation frame above
   2 MB (`operation-begin` → ordered `operation-chunk` → `operation-end`)
   is reassembled by the host, integrity-checked against the sender's

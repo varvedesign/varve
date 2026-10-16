@@ -92,6 +92,15 @@ invite path is unexercised":
 |---|---|---|---|
 | The room server sends no CORS headers, so the app's browser-embedded client cannot create a room on a user-run server: "Host on this server" fails with a bare `Failed to fetch` (the browser blocks the response to the admin call, and there is no way to tell that from an unreachable server) | **Confirmed defect** | The app-hosted E2E trace shows the dialog in its error state with `Failed to fetch` and the admin request never reaching the server; the same request from Node succeeds | The HTTP surface answers CORS preflights for the same allow-list as the WebSocket (loopback + Tauri + `--allow-origin`), never `*`; `the_admin_api_answers_cross_origin_calls_from_allowed_origins_only` covers the allowed, refused, and configured cases |
 
+The root cause of "large images never replicate" was found last, by the E2E that
+had been failing for environmental reasons — which is exactly why the
+environmental failures were worth pursuing instead of reclassifying the test as
+flaky:
+
+| Finding | Verdict | Evidence | Action |
+|---|---|---|---|
+| A capture may not carry a string longer than 5,000,000 characters, while the document model itself accepts an embedded asset of up to 10 MB decoded (~13.4 M base64 characters). An inserted image above ~3.7 MB therefore produced a capture that the receiving client refused — and the sender was never told: the receiver logged `failed validation (string value exceeds size limit in after)`, resynchronized, and both participants kept their own document. The whole chunked-upload path was necessary but not sufficient | **Confirmed defect (root cause)** | The app-hosted E2E now reaches this state with a healthy baseline: the peer's console names the rule, and the image never arrives | The capture string bound is derived from the document's own asset bound (14 M) with the guard retained beyond it; the sender pre-flights every capture against the same validator and reports a refusal to the author; the receiver's notice names the rule |
+
 Carried forward as decisions rather than fixes, and recorded here so they are
 not mistaken for oversights: the app-hosted dialog cannot mint editor/viewer
 invites yet (every app-hosted link is an owner token, so the host's role

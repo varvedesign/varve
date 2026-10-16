@@ -232,6 +232,19 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
     ): string | null => {
       const engine = engineRef.current;
       if (engine?.status !== 'live') return null;
+      // Pre-flight the capture against the SAME validator every receiving
+      // client runs. A capture the receiver must refuse is otherwise sent,
+      // refused there, and answered with a resynchronization — while the author
+      // sees nothing wrong. (Measured: an inserted 3.9 MB image exceeded the
+      // capture string bound, so it never replicated and nobody was told.)
+      const validated = validatePayload('document.transaction-capture', capture);
+      if (!validated.ok) {
+        pushNotice({
+          code: 'operation-rejected',
+          message: `This change cannot be shared (${validated.errors.join('; ')}). It stays in your local document.`,
+        });
+        return null;
+      }
       const clientOpId = mintClientId();
       const op: RoomOperation = {
         clientOpId,
