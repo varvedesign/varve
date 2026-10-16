@@ -491,16 +491,20 @@ function ShellInner({
     distractionFreeMode,
   } = editor.state;
   const layersExpanded = leftPanelVisible || layersVisible;
-  const { closeResponsivePanels, closeResponsiveInspector, closeResponsiveLayers } =
-    useResponsivePanelClosers({
-      layersVisible,
-      inspectorVisible,
-      libraryPanelVisible,
-      setLayersVisible,
-      setInspectorVisible,
-      toggleLibraryPanel: editor.toggleLibraryPanel,
-      triggerRef: responsivePanelTriggerRef,
-    });
+  const {
+    closeResponsivePanels,
+    closeResponsiveInspector,
+    closeResponsiveLayers,
+    closeResponsiveLibrary,
+  } = useResponsivePanelClosers({
+    layersVisible,
+    inspectorVisible,
+    libraryPanelVisible,
+    setLayersVisible,
+    setInspectorVisible,
+    toggleLibraryPanel: editor.toggleLibraryPanel,
+    triggerRef: responsivePanelTriggerRef,
+  });
 
   useResponsiveDrawerFocus({
     layersVisible,
@@ -775,6 +779,7 @@ function ShellInner({
                 doc={editor.state.document}
                 onInstallLibrary={editor.installLibrary}
                 onUninstallLibrary={editor.uninstallLibrary}
+                onCloseResponsivePanel={closeResponsiveLibrary}
               />
             </section>
           )}
@@ -978,7 +983,7 @@ function ShellInner({
             the layers/inspector/resources drawers at <=899px. Gating them on
             a status-bar preference left a workspace with the status bar
             disabled with no reachable way to reveal a hidden panel. */}
-          {!distractionFreeMode && (
+          {!distractionFreeMode && !layersVisible && !inspectorVisible && !libraryPanelVisible && (
             <>
               {/* FAB for layers (responsive) */}
               <button

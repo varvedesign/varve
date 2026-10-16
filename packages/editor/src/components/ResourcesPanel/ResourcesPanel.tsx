@@ -7,11 +7,12 @@
  */
 
 import type { Document, Library } from '@varve/scene';
-import { Icon } from '@varve/ui';
+import { Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef } from 'react';
 import { useEditor } from '../../context';
 import { getMockupsTabRequest, subscribeMockupsTab } from '../../mockup/mockupTabStore';
 import { usePanelLocalState } from '../../workspace/panelLocalState';
+import { useCompactDrawerLayout } from '../../workspace/shellHooks';
 import { AIPanel } from '../AIPanel';
 import { IconBrowser } from '../IconBrowser/IconBrowser';
 import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
@@ -28,6 +29,12 @@ export interface ResourcesPanelProps {
   doc: Document;
   onInstallLibrary: (library: Library) => void;
   onUninstallLibrary: (libraryId: string) => void;
+  /**
+   * Closes the compact drawer this panel is presented in. Layers and Inspector
+   * already ship an in-panel close for that presentation; Resources did not, so
+   * its only pointer exit was the scrim strip beside the panel.
+   */
+  onCloseResponsivePanel?: () => void;
 }
 
 type ResourcesTab = 'libraries' | 'icons' | 'mockups' | 'assistant';
@@ -35,7 +42,13 @@ type ResourcesTab = 'libraries' | 'icons' | 'mockups' | 'assistant';
 /** Tab order must match the rendered order for Arrow/Home/End navigation. */
 const TAB_ORDER: readonly ResourcesTab[] = ['icons', 'libraries', 'mockups', 'assistant'];
 
-export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: ResourcesPanelProps) {
+export function ResourcesPanel({
+  doc,
+  onInstallLibrary,
+  onUninstallLibrary,
+  onCloseResponsivePanel,
+}: ResourcesPanelProps) {
+  const responsiveDrawer = useCompactDrawerLayout();
   const [activeTab, setActiveTab] = usePanelLocalState<ResourcesTab>(
     'library',
     'activeTab',
@@ -161,6 +174,18 @@ export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: Re
             </button>
           </div>
           <PanelDetachButton />
+          {responsiveDrawer && onCloseResponsivePanel && (
+            <Tooltip label="Close Resources panel">
+              <button
+                type="button"
+                className="editor__collapse-btn resources-panel__close-btn"
+                onClick={onCloseResponsivePanel}
+                aria-label="Close Resources panel"
+              >
+                <Icon name="X" size={16} />
+              </button>
+            </Tooltip>
+          )}
         </div>
       </PanelDragHandle>
 

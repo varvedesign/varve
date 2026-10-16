@@ -1,4 +1,11 @@
-import { type CSSProperties, type RefObject, useCallback, useEffect, useRef } from 'react';
+import {
+  type CSSProperties,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 /** Keep drawer width independent of the collapsed desktop grid column. */
 export function layersDrawerStyle(
@@ -82,7 +89,51 @@ export function useResponsivePanelClosers({
     restoreTriggerFocus();
   }, [restoreTriggerFocus, setLayersVisible]);
 
-  return { closeResponsivePanels, closeResponsiveInspector, closeResponsiveLayers };
+  /**
+   * Resources needs its own closer: it is the one drawer whose panel ships no
+   * in-panel close of its own, so without this its only pointer exit was the
+   * scrim strip (20px wide at 320px) — the reported "can't close the asset
+   * panel".
+   */
+  const closeResponsiveLibrary = useCallback(() => {
+    if (!libraryPanelVisible) return;
+    toggleLibraryPanel();
+    restoreTriggerFocus();
+  }, [libraryPanelVisible, restoreTriggerFocus, toggleLibraryPanel]);
+
+  return {
+    closeResponsivePanels,
+    closeResponsiveInspector,
+    closeResponsiveLayers,
+    closeResponsiveLibrary,
+  };
+}
+
+/**
+ * Whether the shell is in its compact (drawer/sheet) tier.
+ *
+ * One reader for every panel that has to present itself differently there, so
+ * the tier cannot be inferred from three copies of the same media query. The
+ * Inspector's local copy was the only one before this; it now uses this.
+ */
+export function useCompactDrawerLayout(): boolean {
+  const [compact, setCompact] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 899px)').matches,
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(max-width: 899px)');
+    const update = () => setCompact(query.matches);
+    update();
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
+
+  return compact;
 }
 
 type ResponsiveDrawerFocusOptions = Pick<
