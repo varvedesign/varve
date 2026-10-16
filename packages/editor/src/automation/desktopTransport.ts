@@ -7,26 +7,15 @@
  * events Rust emits into calls on the same `AutomationHost` the browser build
  * would use, so nothing above this file is platform-aware.
  *
- * Two mappings are worth stating plainly, because both are places a bridge can
- * quietly lose information:
- *
- * - **Rust connection ids become host connections lazily.** Rust owns the
- *   socket lifecycle; the protocol's per-connection state (handshake, limits,
- *   close intent) is created here on first sight of a connection id. A
- *   connection Rust refuses because the host is full is answered with
- *   "close", which is the honest outcome of a resource limit.
- * - **`shouldClose` crosses the boundary explicitly.** The protocol decides to
- *   end a session; if that decision were not sent back, Rust would leave a
- *   socket open that the protocol believes is finished.
+ * The mapping between Rust's events and host connections lives in
+ * `createFrameRelay` (`@varve/automation`): lazily-created connections, an
+ * explicit "close after this reply", and the protocol's own wording for
+ * transport-level refusals. It is shared with the test that drives a real Rust
+ * process over stdio, so this bridge and that test run the same code.
  */
-import type { AutomationHost, HostConnection } from '@varve/automation';
+import { type ConnectionAcceptor, createFrameRelay } from '@varve/automation';
 
-/**
- * Anything that can open a connection onto the current document session: the
- * host itself, or the controller that rebuilds its host when the session
- * changes. The relay needs nothing else, so it depends on nothing else.
- */
-export type ConnectionAcceptor = Pick<AutomationHost, 'open'>;
+export type { ConnectionAcceptor };
 
 export interface DesktopEndpoint {
   /** Identity shared with the discoverable instance record. */
@@ -130,21 +119,15 @@ export interface RelayHandle {
 /**
  * Connect Rust's endpoint to a host: frames in, replies out.
  *
- * Each side keeps doing its own job — Rust owns sockets and limits, the host
- * owns the protocol — and this is the only code that knows they are two things.
+ * Each side keeps doing its own job - Rust owns sockets and limits, the host
+ * owns the protocol - and this is the only code that knows they are two things.
+ * The mapping itself lives in `createFrameRelay` (`@varve/automation`), shared
+ * with the test that drives a real Rust process over stdio, so both run the same
+ * code.
  */
 export async function attachDesktopRelay(host: ConnectionAcceptor): Promise<RelayHandle> {
   const { invoke, listen } = await tauriModules();
-  const connections = new Map<string, HostConnection>();
-
-  const connectionFor = (rustId: string): HostConnection | null => {
-    const existing = connections.get(rustId);
-    if (existing) return existing;
-    const opened = host.open({ transport: 'ipc' });
-    if (!opened.ok) return null;
-    connections.set(rustId, opened.connection);
-    return opened.connection;
-  };
+  const relay = createFrameRelay(host);
 
   const answer = async (requestId: string, frame: string | null, closeAfter: boolean) => {
     try {
@@ -155,40 +138,18 @@ export async function attachDesktopRelay(host: ConnectionAcceptor): Promise<Rela
     }
   };
 
-  const forget = (rustId: string) => {
-    connections.get(rustId)?.close();
-    connections.delete(rustId);
-  };
-
   const stopFrames = await listen<FrameEventPayload>('automation:frame', async (event) => {
     const { connectionId, requestId, frame } = event.payload;
-    const connection = connectionFor(connectionId);
-    if (!connection) {
-      // The host is at its connection limit. Refusing by closing is the honest
-      // signal; an invented error frame would be a second protocol.
-      await answer(requestId, null, true);
-      return;
-    }
-    const response = await connection.handleLine(frame);
-    const closeAfter = connection.shouldClose;
-    await answer(requestId, response, closeAfter);
-    if (closeAfter) forget(connectionId);
+    const result = await relay.frame(connectionId, frame);
+    await answer(requestId, result.frame, result.closeAfter);
   });
 
   const stopErrors = await listen<TransportErrorPayload>(
     'automation:transport-error',
     async (event) => {
       const { connectionId, requestId, error } = event.payload;
-      const connection = connectionFor(connectionId);
-      let frame: string | null = null;
-      if (connection) {
-        // The protocol owns the wording of its own refusals.
-        if (error.kind === 'frame-too-large') frame = connection.onOverflow();
-        else if (error.kind === 'invalid-utf8') frame = connection.onInvalidUtf8();
-        else if (error.kind === 'hello-timeout') frame = connection.onHelloTimeout();
-      }
-      await answer(requestId, frame, true);
-      forget(connectionId);
+      const result = await relay.transportError(connectionId, error);
+      await answer(requestId, result.frame, result.closeAfter);
     },
   );
 
@@ -196,8 +157,7 @@ export async function attachDesktopRelay(host: ConnectionAcceptor): Promise<Rela
     stop() {
       stopFrames();
       stopErrors();
-      for (const connection of connections.values()) connection.close();
-      connections.clear();
+      relay.closeAll();
     },
   };
 }

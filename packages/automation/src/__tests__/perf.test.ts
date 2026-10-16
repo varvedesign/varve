@@ -155,7 +155,7 @@ describe('command latency grows with the document, not with the history', () => 
     }
     metrics.latencyMs = result;
     // Ten times the nodes may cost more, but not a hundred times more.
-    expect(nodeList[10_000]).toBeLessThan(Math.max(nodeList[1_000], 0.5) * 60);
+    expect(nodeList[10_000]).toBeLessThan(Math.max(nodeList[1_000] ?? 0, 0.5) * 60);
   }, 120_000);
 });
 
@@ -202,7 +202,7 @@ describe('batch throughput', () => {
     }
     metrics.batch = result;
     // Linear, not quadratic: per-step cost may not balloon as the batch grows.
-    expect(perStep[100]).toBeLessThan(Math.max(perStep[25], 0.05) * 6);
+    expect(perStep[100]).toBeLessThan(Math.max(perStep[25] ?? 0, 0.05) * 6);
   }, 120_000);
 
   it('a hundred separate commands cost about what the batch does, plus per-command overhead', async () => {
