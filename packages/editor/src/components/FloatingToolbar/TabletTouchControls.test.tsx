@@ -76,9 +76,23 @@ describe('TabletTouchControls', () => {
     expect(screen.getByRole('heading', { name: 'Gestures' })).toBeInTheDocument();
     expect(screen.getByText(/two fingers/i)).toBeInTheDocument();
     expect(screen.getByText(/pan and zoom the canvas/i)).toBeInTheDocument();
+    expect(screen.getByText(/twist rotates the view/i)).toBeInTheDocument();
     // The guide names gestures but must not become the only path: the
     // corresponding control for each mode stays in the panel.
     expect(screen.getByRole('button', { name: 'Constrain movement' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Deep select next tap' })).toBeInTheDocument();
+  });
+
+  it('offers the full layer-order set, disabled without a selection', async () => {
+    renderControls();
+    const trigger = await screen.findByRole('button', { name: 'Tablet editing controls' });
+    fireEvent.click(trigger);
+
+    expect(await screen.findByRole('dialog', { name: 'Tablet editing controls' })).toBeTruthy();
+    for (const name of ['Bring to front', 'Bring forward', 'Send backward', 'Send to back']) {
+      const button = screen.getByRole('button', { name });
+      expect(button).toBeInTheDocument();
+      expect(button).toBeDisabled();
+    }
   });
 });
