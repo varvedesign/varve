@@ -18,6 +18,7 @@ export interface NavigationRuntimeSettings {
   wheelMode: WheelNavigationMode;
   wheelSensitivity: number;
   wheelInertia: boolean;
+  twistRotationEnabled: boolean;
 }
 
 let cachedNavigation: NavigationRuntimeSettings | null = null;
@@ -29,6 +30,7 @@ function readNavigation(): NavigationRuntimeSettings {
     wheelMode: viewport.wheelMode,
     wheelSensitivity: viewport.wheelSensitivity,
     wheelInertia: viewport.wheelInertia,
+    twistRotationEnabled: viewport.twistRotationEnabled,
   };
 }
 
@@ -55,6 +57,7 @@ export function resetNavigationRuntime(): void {
     wheelMode: DEFAULT_VIEWPORT_SETTINGS.wheelMode,
     wheelSensitivity: DEFAULT_VIEWPORT_SETTINGS.wheelSensitivity,
     wheelInertia: DEFAULT_VIEWPORT_SETTINGS.wheelInertia,
+    twistRotationEnabled: DEFAULT_VIEWPORT_SETTINGS.twistRotationEnabled,
   };
   cachedInteractivePreview = 'automatic';
 }

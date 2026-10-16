@@ -1,11 +1,13 @@
 import {
   applyOperation,
+  PRESENTATION_THEME_ROLES as BUILT_IN_THEME_ROLE_LIST,
   type ContainerNode,
   cryptoId,
   deepCloneSubtree,
   describePresentationTheme,
   isContainer,
   type NodeId,
+  PRESENTATION_BUILT_IN_THEMES,
   PRESENTATION_RESIZE_MODES,
   PRESENTATION_SIZE_PRESETS,
   PRESENTATION_THEME_ROLES,
@@ -547,6 +549,34 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
     announce(`Applied “${activeTheme.name}” to this slide`);
   }, [activeSlide, activeTheme, announce, deckId, runOperation, themeRoleNodes]);
 
+  const [includeThemeFonts, setIncludeThemeFonts] = useState(false);
+  const applyBuiltInTheme = useCallback(
+    (presetId: string) => {
+      if (!activeSlide) return;
+      const preset = PRESENTATION_BUILT_IN_THEMES.find((candidate) => candidate.id === presetId);
+      runOperations(`Apply built-in theme (${preset?.name ?? presetId})`, [
+        {
+          type: 'presentation.theme.builtin.create',
+          payload: { themeId: presetId },
+        },
+        {
+          type: 'presentation.theme.apply',
+          payload: {
+            deckId,
+            entryId: activeSlide.id,
+            themeId: presetId,
+            ...(Object.keys(themeRoleNodes).length > 0 ? { roleNodes: themeRoleNodes } : {}),
+            ...(includeThemeFonts ? { applyFonts: true } : {}),
+          },
+        },
+      ]);
+      announce(
+        `Applied the ${preset?.name ?? presetId} theme${includeThemeFonts ? ' with fonts' : ''}`,
+      );
+    },
+    [activeSlide, announce, deckId, includeThemeFonts, runOperations, themeRoleNodes],
+  );
+
   const detachTheme = useCallback(() => {
     if (!activeSlide) return;
     runOperation('Detach theme from slide', 'presentation.theme.unlink', {
@@ -812,6 +842,43 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
               >
                 Detach theme
               </Button>
+            </div>
+            <div className="presentation-navigator__builtin-themes">
+              <strong>Built-in themes</strong>
+              <label className="presentation-navigator__fonts-toggle">
+                <input
+                  type="checkbox"
+                  checked={includeThemeFonts}
+                  onChange={(event) => setIncludeThemeFonts(event.currentTarget.checked)}
+                />
+                <span>Include fonts (may reflow text)</span>
+              </label>
+              <ul
+                className="presentation-navigator__theme-list"
+                aria-label="Built-in presentation themes"
+              >
+                {PRESENTATION_BUILT_IN_THEMES.map((preset) => (
+                  <li key={preset.id}>
+                    <button
+                      type="button"
+                      className="presentation-navigator__theme-preset"
+                      title={preset.description}
+                      onClick={() => applyBuiltInTheme(preset.id)}
+                    >
+                      <span className="presentation-navigator__swatch-row" aria-hidden="true">
+                        {BUILT_IN_THEME_ROLE_LIST.map((role) => (
+                          <span
+                            key={role}
+                            className="presentation-navigator__swatch"
+                            style={{ background: preset.colors[role] }}
+                          />
+                        ))}
+                      </span>
+                      <span>{preset.name}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
             {activeTheme && (
               <p className="presentation-navigator__size-hint">

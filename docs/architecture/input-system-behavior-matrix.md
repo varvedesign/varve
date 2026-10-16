@@ -53,6 +53,7 @@ diagnostics behavior.
 |---|---|
 | One finger | Routed to the active tool by default. Settings > Drawing input can reversibly switch one-finger touch to viewport navigation. |
 | Two-finger pinch | Combined pan + zoom around the gesture centroid. |
+| Two-finger twist | After about 5° of cumulative twist inside one pinch, the contacts' angle rotates the *view* about the gesture centroid; artwork never rotates. Disable with Settings > Drawing input > "Two-finger twist rotates the view". Replacement of a contact pair starts a fresh twist gesture, so the atan2 branch cut cannot read as a spin. |
 | Two-finger pan | The provisional first tool interaction is cancelled for that pointer only; its capture transfers into navigation ownership and the viewport pans without global undo or a history entry. |
 | Three or more fingers | Navigation-owned or ignored; never creates a path, selection change, or paint dab. |
 | Return from pinch | A remaining finger stays navigation-owned; a new contact is required before drawing resumes. |
@@ -167,6 +168,7 @@ The canvas navigation is a small explicit state machine owned by
 | Zoom (wheel) | ctrl/meta+wheel | wheel idle |
 | Navigation ownership | configured finger-navigation contact, middle-button/Hand drag, or second touch during a provisional tool interaction | Gesture end commits camera; pinch return leaves remaining contacts navigation-owned until they lift |
 | Tool-to-navigation transfer | A second contact claims navigation during a provisional tool interaction | Tool interaction is cancelled synchronously, then the still-live contacts belong to navigation; capture release cannot cancel the pinch |
+| Touch-pinch (pan/zoom/twist) | Two navigation-owned contacts | Cumulative twist past ~5° rotates the view about the centroid (`twistRotation.ts` dead-zone accumulator + shared `rotateAboutScreenPoint`); contact-pair replacement resets the accumulator; gesture end or cancellation commits the camera |
 | Cancellation | pointercancel, lost capture, Escape, blur/visibility loss, modal takeover, tool/document switch, or disposal | One idempotent close path clears timers, previews, scheduled work, drag flags, and capture; a fresh contact starts a new interaction |
 | Space-hand | Space keydown | Space keyup / blur |
 
@@ -190,8 +192,8 @@ capture cannot dismantle the active pinch.
 | Gesture sensitivity settings | Wheel policy (standard/always pan/always zoom), 0.25×–4× sensitivity, and optional mouse-wheel continuation are exposed in Settings > Drawing Input. |
 | Interactive preview quality | Settings > Performance exposes Automatic versus Full resolution while navigating; settled frames and exports remain authoritative. |
 | `zoomBy`/`zoomAtScreenPoint`/`panToWorldPoint` convenience API | Absorbed by existing `commitCamera`/`computeZoom*`; not re-exported |
-| Viewport-rotation gestures (touch twist) | Not implemented; rotation via toolbar/shortcuts only |
 | Diagnostics HUD toggle | Ring buffer exists; opt-in via `?perf=1` query param. Exposed as `window.__varvePerf` (see `drawDiagnostics.ts`). The input ring (`inputDiagnostics.ts`) installs `window.__varveInputDiagnostics` unconditionally and records nothing until `enable()` — the console workflow for capturing real wheel/pinch sessions is `__varveInputDiagnostics.enable()` → gesture → `export()`. |
+| Pen barrel-button action customization | Not exposed in settings |
 | WebKitGTK pinch hardware validation | Implemented (native GDK touchpad event bridge + guarded page-zoom fallback); real-trackpad confirmation on Linux Wayland is on the manual checklist below. |
 | Real USI Pen 2 pressure/tilt/eraser/palm behavior | Hardware truth is untested in this workspace; use the open checklist in [`drawing-input-quality-audit-2026-09-13.md`](../audits/drawing-input-quality-audit-2026-09-13.md). |
 | Real on-screen keyboard appearance/dismissal | Inset model and surface adaptation implemented and unit/E2E-tested with synthetic geometry; real OSK is a device check |
@@ -252,6 +254,7 @@ for desktop; they are not yet re-verified on the Duet.
 |---|---|---|
 | One-finger touch | Follows the persisted Drawing input preference: draw by default, or viewport navigation | `inputPolicy` unit tests + `tests/e2e/interaction/drawing-input.spec.ts`; physical touch pending |
 | Two-finger touch | Pan + zoom about the centroid; second contact cancels only the first pointer’s provisional tool interaction | `inputPolicy` unit tests + `drawing-input.spec.ts`; physical touch pending |
+| Two-finger twist | View rotation about the centroid after a ~5° dead zone; artwork and history untouched; reversible in Settings > Drawing input | `twistRotation.test.ts` (9 unit tests) + `chromeos-device-matrix.spec.ts` two-finger twist test (synthetic CDP touch); physical twist pending |
 | Touch long-press | Opens the deep-selection menu (SelectTool, `LONG_PRESS_MS`) | unit tests + implementation |
 | Touch multi-select | Toolbar toggle (`state.touchMultiSelect`) with marquee suppression | E2E and unit tests |
 | Tablet editing controls | Floating toolbar popover: Constrain, From centre, Bypass snap, one-shot deep select, Duplicate, six alignment actions, Bring forward, Send backward, and a compact Gestures reference | `TabletTouchControls.test.tsx` (gate, latched state, gesture guide), `tests/e2e/interaction/tablet-editing-controls.spec.ts` (target size, orientation), `tests/e2e/interaction/tablet-keyboardless-workflow.spec.ts` (align + reorder actually applied) |

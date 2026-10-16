@@ -80,7 +80,6 @@ import {
   isPointInsideRect,
   preparedFragmentFromRootSets,
 } from './dropUtils';
-import { useCollabPresence } from './hooks/useCollabPresence';
 import {
   createRenderWorkerHost,
   disposeWorkerFrame,
@@ -526,7 +525,6 @@ export function CanvasArea({
   const snapSessionRef = useRef<SnapSession>(createSnapSession());
   const isometricSnapLockRef = useRef<IsometricSnapLock | null>(null);
 
-  const collab = useCollabPresence(state.activeId, null, state.pan);
   const [nodeEditTargetId, setNodeEditTargetId] = useState<string | null>(null);
   const [nodeEditSelectedAnchors, setNodeEditSelectedAnchors] = useState<ReadonlySet<number>>(
     new Set(),
@@ -1500,12 +1498,6 @@ export function CanvasArea({
     : null;
   const canvasIsEmpty = isCanvasEmpty(rootNodes());
 
-  const stubRemoteCursors = collab.users.slice(0, 2).map((u, i) => ({
-    userId: u.id,
-    x: 120 + i * 80,
-    y: 120 + i * 40,
-  }));
-
   return (
     <section
       ref={setCombinedRef}
@@ -1580,8 +1572,6 @@ export function CanvasArea({
         selectedGuideId={state.selectedGuideId}
         unitType={state.unitType}
         rulerMode={state.rulerMode}
-        collabUsers={collab.users}
-        stubRemoteCursors={stubRemoteCursors}
         snapGuides={snapGuides}
         nodeEditTargetId={nodeEditTargetId}
         nodeEditSelectedAnchors={nodeEditSelectedAnchors}

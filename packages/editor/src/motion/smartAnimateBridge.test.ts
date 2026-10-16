@@ -3,7 +3,17 @@ import { addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/sc
 import { describe, expect, it } from 'vitest';
 import { computeSmartAnimateHotspotOverrides } from './smartAnimateBridge';
 
-const getBounds = () => ({ x: 0, y: 0, w: 100, h: 50 });
+/**
+ * The caller supplies a layer's **composed scene rectangle** (the presenter
+ * passes `nodeWorldBounds`). It used to be handed a *local* rect that
+ * `hotspotLayout` then combined with the node's own `transform[4..5]`, which
+ * double-counted nesting and ignored ancestors entirely.
+ */
+const SCENE_BOUNDS: Record<string, { x: number; y: number; w: number; h: number }> = {
+  r1: { x: 10, y: 20, w: 100, h: 50 },
+  r2: { x: 110, y: 220, w: 100, h: 50 },
+};
+const getSceneBounds = (id: string) => SCENE_BOUNDS[id] ?? null;
 
 describe('computeSmartAnimateHotspotOverrides', () => {
   it('interpolates matched hotspot position between screens', () => {
@@ -48,7 +58,7 @@ describe('computeSmartAnimateHotspotOverrides', () => {
       values,
       0.5,
       { kind: 'linear' },
-      getBounds,
+      getSceneBounds,
     );
 
     expect(mid.from.r1?.left).toBeGreaterThan(10);
@@ -102,7 +112,7 @@ describe('computeSmartAnimateHotspotOverrides', () => {
       values,
       0.5,
       { kind: 'linear' },
-      getBounds,
+      getSceneBounds,
     );
     expect(mid.from.r1?.rotation).toBe(45);
     expect(mid.to.r2?.rotation).toBe(45);
@@ -153,7 +163,7 @@ describe('computeSmartAnimateHotspotOverrides', () => {
       values,
       0.5,
       { kind: 'linear' },
-      getBounds,
+      getSceneBounds,
     );
     expect(mid.from.r1?.cornerRadius).toBe(14.5);
     expect(mid.to.r2?.cornerRadius).toBe(14.5);
@@ -202,7 +212,7 @@ describe('computeSmartAnimateHotspotOverrides', () => {
       values,
       0.5,
       { kind: 'linear' },
-      getBounds,
+      getSceneBounds,
     );
     // Midpoint of red→blue: expect ~128 for each channel.
     expect(mid.from.r1?.fill).toContain('rgba(');
@@ -254,7 +264,7 @@ describe('computeSmartAnimateHotspotOverrides', () => {
       values,
       0.5,
       { kind: 'linear' },
-      getBounds,
+      getSceneBounds,
     );
     expect(mid.from.r1?.strokeWidth).toBe(3.5);
     expect(mid.to.r2?.strokeWidth).toBe(3.5);
@@ -303,12 +313,80 @@ describe('computeSmartAnimateHotspotOverrides', () => {
       values,
       0.5,
       { kind: 'linear' },
-      getBounds,
+      getSceneBounds,
     );
     // New properties default to 0/empty when absent.
     expect(mid.from.r1?.rotation).toBe(0);
     expect(mid.from.r1?.cornerRadius).toBe(0);
     expect(mid.from.r1?.fill).toBe('');
     expect(mid.from.r1?.strokeWidth).toBe(0);
+  });
+
+  /**
+   * Regression for the placement defect: a nested layer's hotspot rect must
+   * come from its composed scene rectangle. The old code added the node's own
+   * `transform[4..5]` to whatever rect it was handed, so a nested layer's
+   * interpolated position was wrong by every ancestor offset.
+   */
+  it('takes a nested layer position from composed scene bounds', () => {
+    let doc = createDocument('SA');
+    doc = addNode(doc, makeFrameNode('f1', { name: 'f1', order: 'a0', children: ['g1'] }));
+    doc = addNode(doc, makeFrameNode('f2', { name: 'f2', order: 'a1', children: ['g2'] }));
+    // The groups sit far from the origin; the shapes inside them are children.
+    doc = addNode(doc, {
+      kind: 'group',
+      id: 'g1',
+      name: 'g1',
+      transform: [1, 0, 0, 1, 400, 500],
+      children: ['r1'],
+    } as unknown as import('@varve/scene').SceneNode);
+    doc = addNode(doc, {
+      kind: 'group',
+      id: 'g2',
+      name: 'g2',
+      transform: [1, 0, 0, 1, 900, 1200],
+      children: ['r2'],
+    } as unknown as import('@varve/scene').SceneNode);
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'r1',
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+        { name: 'Nested', transform: [1, 0, 0, 1, 30, 40] },
+      ),
+    );
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'r2',
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+        { name: 'Nested', transform: [1, 0, 0, 1, 30, 40] },
+      ),
+    );
+    doc = { ...doc, rootChildren: ['f1', 'f2'] };
+
+    // Composed scene rectangles: group offset + local offset.
+    const composed: Record<string, { x: number; y: number; w: number; h: number }> = {
+      r1: { x: 430, y: 540, w: 100, h: 50 },
+      r2: { x: 930, y: 1240, w: 100, h: 50 },
+    };
+
+    const mid = computeSmartAnimateHotspotOverrides(
+      doc,
+      [{ fromId: 'r1', toId: 'r2', name: 'Nested' }],
+      {
+        Nested: {
+          opacity: { from: 1, to: 1 },
+          transform: { from: [1, 0, 0, 1, 30, 40], to: [1, 0, 0, 1, 30, 40] },
+        },
+      },
+      0.5,
+      { kind: 'linear' },
+      (id: string) => composed[id] ?? null,
+    );
+
+    // Halfway between 430 and 930, and between 540 and 1240.
+    expect(mid.from.r1?.left).toBeCloseTo(680);
+    expect(mid.from.r1?.top).toBeCloseTo(890);
   });
 });

@@ -98,7 +98,7 @@ export function getBackupService(): BackupService | null {
  *     Frame tool now correctly creates a FrameNode (container), not a ShapeNode.
  */
 
-import { getTransactionHooks } from '@varve/collab';
+import { emitLocalCapture, getTransactionHooks } from '@varve/collab';
 import type {
   Adjustment,
   Affine,
@@ -297,7 +297,6 @@ import {
   scopeForTargets,
   serializeDocument as serializeSceneDocument,
   setActivePage as setActivePageDoc,
-  setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
   setDocumentBitDepth as setDocumentBitDepthDoc,
   setDocumentBlendEvaluationSpace as setDocumentBlendEvaluationSpaceDoc,
@@ -2604,9 +2603,14 @@ const PROTO_NOOP: import('./context/PrototypeContext').PrototypeContextValue = {
   setPrototypeVariable: () => {},
   startPresentation: () => {},
   stopPresentation: () => {},
+  restartPrototype: () => {},
   getPrototypeScreens: () => [],
   prototypeCurrentScreen: '',
   navigatePrototypeTo: () => {},
+  prototypeHistoryDepth: 0,
+  prototypeGoBack: () => {},
+  prototypeShowHotspots: false,
+  togglePrototypeHotspots: () => {},
   prototypeTransition: null,
   clearPrototypeTransition: () => {},
   selectedInteractionId: null,
@@ -3410,6 +3414,40 @@ export function EditorProvider({
     });
   }, []);
 
+  /**
+   * ADR-0200: apply a REMOTE transaction. Remote edits are not local
+   * history: no undo step, no persistent-history revision (the skip flag
+   * makes the document watcher ignore exactly this transition). Prunes
+   * selection ids the remote transaction deleted and marks the session
+   * dirty — room state is not the saved local file.
+   */
+  const applyCollabTransaction = useCallback((next: Document, label: string) => {
+    if (next === stateRef.current.document) return;
+    historySkipRef.current = true;
+    const synced = editorGridFromDoc(next);
+    const alive = new Set(Object.keys(next.nodes));
+    setState((current) => {
+      const selection = current.selection.filter((id) => alive.has(id));
+      return {
+        ...current,
+        document: next,
+        selection: selection.length === current.selection.length ? current.selection : selection,
+        primaryId: selection.includes(current.primaryId ?? '')
+          ? current.primaryId
+          : (selection[0] ?? null),
+        documentGrid: synced.documentGrid,
+        isometricGrid: synced.isometricGrid,
+        snapGrid: synced.documentGrid.spacingX,
+        dirty: true,
+        revision: current.revision + 1,
+        sessions: current.sessions.map((sess) =>
+          sess.id === current.activeId ? { ...sess, dirty: true } : sess,
+        ),
+        collabLastRemoteLabel: label,
+      };
+    });
+  }, []);
+
   /** Icon asset operations (insert/replace/detach) — see useIconAssets.ts. */
   const iconAssets = useIconAssets({
     stateRef,
@@ -3436,6 +3474,10 @@ export function EditorProvider({
         smRuntimeRef.current = next;
         const nextTimeline = getCurrentStateTimelineId(next);
         if (nextTimeline && nextTimeline !== prevTimeline) {
+          // Editor-state only. This used to also call `updateDoc`, which wrote
+          // `activeTimelineId` into the canonical document on every frame of a
+          // state-machine transition while the viewer was open — the same class
+          // of defect as the other prototype write-throughs.
           patch({
             motion: {
               ...stateRef.current.motion,
@@ -3443,7 +3485,6 @@ export function EditorProvider({
               currentTime: 0,
             },
           });
-          updateDoc((d) => setActiveTimelineDoc(d, nextTimeline));
         }
       }
       rafId = requestAnimationFrame(tick);
@@ -3910,6 +3951,11 @@ export function EditorProvider({
     inTransactionRef,
     historySkipRef,
     disabled: disablePersistentHistory || projectionMode,
+    onLocalCapture: (before, after, label, kind) => {
+      // ADR-0200: the active collab session replicates committed local
+      // transactions to the room. No-op sink when no session is active.
+      emitLocalCapture({ before, after, label, kind });
+    },
   });
   /** Ref to the persistent-history API for use inside stable callbacks. */
   persistentHistoryRef.current = persistentHistory;
@@ -4151,6 +4197,7 @@ export function EditorProvider({
       platform,
       persistentHistory,
       updateDoc,
+      applyCollabTransaction,
       patch,
       insertIconAsset: iconAssets.insertIconAsset,
       replaceIconAsset: iconAssets.replaceIconAsset,
@@ -11153,7 +11200,6 @@ export function EditorProvider({
                     state={state}
                     setState={setState}
                     stateRef={stateRef}
-                    updateDoc={updateDoc}
                     prototypeRuntimeRef={prototypeRuntimeRef}
                     smRuntimeRef={smRuntimeRef}
                     playTimeline={motionValue?.playTimeline}

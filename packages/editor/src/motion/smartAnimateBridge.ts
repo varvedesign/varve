@@ -38,17 +38,24 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+/**
+ * A layer's rectangle in **scene space**, for hotspot interpolation.
+ *
+ * The caller supplies composed scene bounds (`nodeWorldBounds`), which already
+ * include every ancestor transform. This function used to add the node's own
+ * `transform[4..5]` to a *local* rect, which both double-counted the node's own
+ * translation for nested nodes and ignored its ancestors entirely — the same
+ * defect that misplaced static hotspots.
+ */
 function hotspotLayout(
   nodeId: NodeId,
   nodes: Record<NodeId, SceneNode>,
-  getBounds: (id: NodeId) => { x: number; y: number; w: number; h: number } | null,
+  getSceneBounds: (id: NodeId) => { x: number; y: number; w: number; h: number } | null,
 ): { x: number; y: number; w: number; h: number } | null {
   const node = nodes[nodeId];
-  const bounds = getBounds(nodeId);
+  const bounds = getSceneBounds(nodeId);
   if (!node || !bounds) return null;
-  const tx = node.transform?.[4] ?? 0;
-  const ty = node.transform?.[5] ?? 0;
-  return { x: tx + bounds.x, y: ty + bounds.y, w: bounds.w, h: bounds.h };
+  return { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h };
 }
 
 /** Compute smart-animate property deltas between two frame screens. */
@@ -76,7 +83,7 @@ export function computeSmartAnimateHotspotOverrides(
   smartAnimateValues: Record<string, SmartAnimateLayerValues>,
   progress: number,
   easing: EasingDefinition,
-  getBounds: (nodeId: NodeId) => { x: number; y: number; w: number; h: number } | null,
+  getSceneBounds: (nodeId: NodeId) => { x: number; y: number; w: number; h: number } | null,
 ): {
   from: Record<NodeId, HotspotTransitionOverride>;
   to: Record<NodeId, HotspotTransitionOverride>;
@@ -87,8 +94,8 @@ export function computeSmartAnimateHotspotOverrides(
 
   for (const match of matches) {
     const layerValues = smartAnimateValues[match.name];
-    const fromLayout = hotspotLayout(match.fromId, doc.nodes, getBounds);
-    const toLayout = hotspotLayout(match.toId, doc.nodes, getBounds);
+    const fromLayout = hotspotLayout(match.fromId, doc.nodes, getSceneBounds);
+    const toLayout = hotspotLayout(match.toId, doc.nodes, getSceneBounds);
     if (!fromLayout || !toLayout) continue;
 
     const opacityVal = layerValues?.opacity;

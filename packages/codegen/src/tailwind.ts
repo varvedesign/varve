@@ -6,6 +6,9 @@
  */
 
 import type { Document, SceneNode, VariableStore } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
+import { resolveBundleAssets } from './bundle-assets';
+import { gradientToCss } from './css';
 import { analyzeNodeFlattening } from './flattening';
 import type { IRDocument, SemanticNode } from './ir-types';
 import { toComponentName, toFileStem } from './naming';
@@ -17,6 +20,14 @@ import { mimeTypeForLanguage } from './types';
 export interface TailwindExportOptions {
   /** Pre-rasterized image assets keyed by sourceNodeId. */
   rasterAssets?: Record<string, RasterAsset>;
+  /**
+   * `'inline'` (default) keeps raster/image bytes as data URLs inside the
+   * emitted classes; `'files'` references content-addressed files under
+   * `assets/` and attaches them to the bundle.
+   */
+  assetMode?: 'inline' | 'files';
+  /** `nodeId → relative path` overrides for raster assets (the files profile). */
+  assetPaths?: Record<string, string>;
   /** Use Tailwind arbitrary value syntax. Default true. */
   arbitraryValues?: boolean;
   /** Base font size for rem. Default 16. */
@@ -37,6 +48,119 @@ function escapeXml(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/** Tailwind arbitrary value: separators collapse, inner spaces become underscores. */
+function twArbitrary(cssValue: string): string {
+  return cssValue.replace(/,\s+/g, ',').replace(/\s+/g, '_');
+}
+
+interface TwPaintLayer {
+  image: string;
+  size: string;
+  repeat: string;
+  position: string;
+}
+
+/**
+ * Build the layered background for a node from its visible fill stack, in
+ * CSS paint order (topmost fill first — the reverse of authored order).
+ * Shares the CSS emitter's gradient lowering so the two targets cannot
+ * disagree about the same gradient.
+ */
+function twFillLayers(node: SceneNode): TwPaintLayer[] {
+  const fills = node.fills?.filter((f) => f.visible !== false) ?? [];
+  if (fills.length === 0) return [];
+  const pos = computeNodePos(node);
+  const layers: TwPaintLayer[] = [];
+  for (const fill of [...fills].reverse()) {
+    if (fill.type === 'solid') {
+      const hex = hexOf(fill.color as { r?: number; g?: number; b?: number });
+      layers.push({
+        image: `linear-gradient(${hex},${hex})`,
+        size: 'auto',
+        repeat: 'no-repeat',
+        position: '0% 0%',
+      });
+    } else if (fill.type === 'gradient' && fill.gradient) {
+      const css = gradientToCss(fill.gradient, pos.w, pos.h);
+      if (css) {
+        layers.push({ image: css, size: 'auto', repeat: 'no-repeat', position: '0% 0%' });
+      }
+    } else if (fill.type === 'image' && fill.image?.src) {
+      layers.push({
+        image: `url(${fill.image.src})`,
+        size:
+          fill.image.fit === 'fill'
+            ? 'cover'
+            : fill.image.fit === 'fit'
+              ? 'contain'
+              : fill.image.fit === 'stretch'
+                ? '100%_100%'
+                : 'auto',
+        repeat: fill.image.fit === 'tile' ? 'repeat' : 'no-repeat',
+        position: 'center',
+      });
+    }
+  }
+  return layers;
+}
+
+/**
+ * Tailwind utilities for one rich-text run, emitting only properties that
+ * differ from the text node's own typography — the wrapper already carries
+ * the node style, so identical runs contribute no classes.
+ */
+function runClassesDelta(
+  format: import('@varve/scene').CharacterFormat | undefined,
+  node: import('@varve/scene').TextNode,
+): string[] {
+  if (!format) return [];
+  const classes: string[] = [];
+  if (format.fontFamily && format.fontFamily !== node.fontFamily) {
+    classes.push(`font-['${format.fontFamily.replace(/ /g, '_')}']`);
+  }
+  if (format.fontSize !== undefined && format.fontSize !== node.fontSize) {
+    classes.push(`text-[${format.fontSize}px]`);
+  }
+  if (format.fontWeight !== undefined && format.fontWeight !== node.fontWeight) {
+    classes.push(`font-[${format.fontWeight}]`);
+  }
+  if (format.fontStyle === 'italic') classes.push('italic');
+  if (format.color) {
+    const runHex = hexOf(format.color as { r?: number; g?: number; b?: number });
+    const nodeHex = hexOf(node.fill as { r?: number; g?: number; b?: number });
+    // Identical color is the node default; the wrapper already carries it.
+    if (runHex !== nodeHex) classes.push(`text-[${runHex}]`);
+  }
+  if (format.lineHeight !== undefined && format.lineHeight !== node.lineHeight) {
+    classes.push(`leading-[${format.lineHeight}]`);
+  }
+  if (format.letterSpacing !== undefined && format.letterSpacing !== (node.letterSpacing ?? 0)) {
+    classes.push(`tracking-[${format.letterSpacing}px]`);
+  }
+  if (format.textCase === 'uppercase') classes.push('uppercase');
+  else if (format.textCase === 'lowercase') classes.push('lowercase');
+  else if (format.textCase === 'capitalize') classes.push('capitalize');
+  if (format.textDecoration === 'underline') classes.push('underline');
+  else if (format.textDecoration === 'line-through') classes.push('line-through');
+  return classes;
+}
+
+/** Combined box-shadow arbitrary value, inset entries included. */
+function twShadowValue(effects: SceneNode['effects']): string | null {
+  const parts = (effects ?? [])
+    .filter(
+      (e): e is Extract<typeof e, { x: number }> =>
+        (e.type === 'dropShadow' || e.type === 'innerShadow') && e.visible !== false,
+    )
+    .map((e) => {
+      const [r, g, b, alpha] = managedColorToRgba(e.color);
+      const color = `rgba(${r},${g},${b},${((alpha / 255) * (e.opacity ?? 1)).toFixed(3)})`;
+      const box = `${e.x}px_${e.y}px_${e.blur}px_${e.spread}px_${color}`;
+      return e.type === 'innerShadow' ? `inset_${box}` : box;
+    });
+  return parts.length > 0 ? parts.join(',') : null;
 }
 
 function sizeTw(px: number, av: boolean, prefix = 'w'): string {
@@ -545,6 +669,7 @@ export function exportNodeToTailwind(
     const tokenName = opts?.variableStore
       ? resolveTokenName(current.bindings, 'fill', opts.variableStore)
       : undefined;
+    const paintLayers = twFillLayers(current);
     if (current.kind === 'text') {
       if (tokenName) b.classes.push(`text-[var(--${tokenName})]`);
       else {
@@ -556,9 +681,37 @@ export function exportNodeToTailwind(
       if (current.fontSize) b.classes.push(`text-[${current.fontSize}px]`);
     } else if (tokenName) {
       b.classes.push(`bg-[var(--${tokenName})]`);
+    } else if (paintLayers.length > 0) {
+      // The authored stack in CSS paint order (one combined image value —
+      // two bg-[image] utilities would fight over the same property).
+      b.classes.push(`bg-[${twArbitrary(paintLayers.map((l) => l.image).join(','))}]`);
+      if (paintLayers.some((l) => l.size !== 'auto' || l.repeat !== 'no-repeat')) {
+        b.classes.push(`[background-size:${paintLayers.map((l) => l.size).join(',')}]`);
+        b.classes.push(`[background-repeat:${paintLayers.map((l) => l.repeat).join(',')}]`);
+        b.classes.push(`[background-position:${paintLayers.map((l) => l.position).join(',')}]`);
+      }
     } else {
       const fill = current.fills?.[0]?.color ?? current.fill;
       if (fill) b.classes.push(`bg-[${hexOf(fill as { r?: number; g?: number; b?: number })}]`);
+    }
+
+    // Native-representable effects as literal arbitrary values; everything
+    // else stays with the diagnostics (and the raster path when composed).
+    const shadowValue = twShadowValue(current.effects);
+    if (shadowValue) b.classes.push(`shadow-[${shadowValue}]`);
+    for (const effect of current.effects ?? []) {
+      if (effect.visible === false) continue;
+      if (effect.type === 'layerBlur') b.classes.push(`blur-[${effect.radius}px]`);
+      else if (effect.type === 'backgroundBlur')
+        b.classes.push(`backdrop-blur-[${effect.radius}px]`);
+    }
+
+    // A pre-rasterized surface replaces the subtree entirely: the image is
+    // the pixels, so children are not re-emitted beside it.
+    const raster = opts?.rasterAssets?.[current.id];
+    if (raster) {
+      const src = opts?.assetPaths?.[current.id] ?? raster.dataUrl;
+      return `${pad}<img src="${escapeXml(src)}" alt="${escapeXml(current.name)}" className="${b.classes.join(' ')}" />`;
     }
 
     const classStr = b.classes.join(' ');
@@ -566,7 +719,41 @@ export function exportNodeToTailwind(
     if (current.kind === 'text') {
       // A JSX expression container escapes its own contents, so the design
       // text is encoded exactly once — no `&amp;` visible in the output.
-      return `${pad}<span className="${classStr}">{${JSON.stringify(current.text ?? '')}}</span>`;
+      const tn = current as import('@varve/scene').TextNode;
+      if (tn.textAlign && tn.textAlign !== 'left') {
+        b.classes.push(`text-${tn.textAlign}`);
+      }
+      const dir =
+        tn.direction === 'rtl' ? ' dir="rtl"' : tn.direction === 'ltr' ? ' dir="ltr"' : '';
+      const paragraphs = tn.richText?.paragraphs;
+      if (paragraphs && paragraphs.length > 0) {
+        // Paragraph structure becomes real elements; a deliberate blank
+        // paragraph renders as <p><br /></p> so the empty line survives.
+        const pHtml = paragraphs
+          .map((p) => {
+            const pCls: string[] = [];
+            if (p.format?.textAlign === 'center') pCls.push('text-center');
+            else if (p.format?.textAlign === 'right') pCls.push('text-right');
+            else if (p.format?.textAlign === 'justify') pCls.push('text-justify');
+            const pDir = p.format?.direction === 'rtl' ? ' dir="rtl"' : '';
+            const cls = pCls.length > 0 ? ` className="${pCls.join(' ')}"` : '';
+            const visibleRuns = (p.runs ?? []).filter((run) => run.text.length > 0);
+            if (visibleRuns.length === 0) return `${pad}  <p${cls}${pDir}><br /></p>`;
+            const inner = visibleRuns
+              .map((run) => {
+                const runCls = runClassesDelta(run.format, tn);
+                const text = JSON.stringify(run.text);
+                return runCls.length > 0
+                  ? `<span className="${runCls.join(' ')}">{${text}}</span>`
+                  : `{${text}}`;
+              })
+              .join('');
+            return `${pad}  <p${cls}${pDir}>${inner}</p>`;
+          })
+          .join('\n');
+        return `${pad}<div className="${classStr}"${dir}>\n${pHtml}\n${pad}</div>`;
+      }
+      return `${pad}<span className="${classStr}"${dir}>{${JSON.stringify(tn.text ?? '')}}</span>`;
     }
 
     const children =
@@ -641,9 +828,13 @@ export function exportNodeToTailwindBundle(
   doc: Document,
   opts?: TailwindExportOptions,
 ): GeneratedBundle {
+  const resolved = resolveBundleAssets({
+    rasterAssets: opts?.rasterAssets,
+    assetMode: opts?.assetMode,
+  });
   const componentName = toComponentName(opts?.componentName ?? node.name);
   const fileStem = toFileStem(opts?.fileStem ?? componentName);
-  const body = exportNodeToTailwind(node, doc, opts);
+  const body = exportNodeToTailwind(node, doc, { ...opts, assetPaths: resolved.assetPaths });
   const indented = body
     .split('\n')
     .map((line) => (line.length > 0 ? `    ${line}` : line))
@@ -651,7 +842,7 @@ export function exportNodeToTailwindBundle(
 
   const contents = [
     '// Tailwind utility classes are emitted as complete literal strings so that',
-    '// Tailwind’s source scanner can see them. Do not assemble class names at runtime.',
+    "// Tailwind's source scanner can see them. Do not assemble class names at runtime.",
     `export function ${componentName}() {`,
     '  return (',
     '    <>',
@@ -661,6 +852,19 @@ export function exportNodeToTailwindBundle(
     '}',
     '',
   ].join('\n');
+
+  const setup = [
+    `Copy ${fileStem}.tsx into your project and render <${componentName} />.`,
+    'Requires Tailwind >= 3.4 (v4 supported): token references use the explicit var() form, named after the bound document variable.',
+    'Ensure the file is inside your Tailwind source globs so the classes are detected.',
+  ];
+  if (resolved.assets && resolved.assets.length > 0) {
+    setup.splice(
+      1,
+      0,
+      `Keep the assets/ folder beside the component — the classes reference those files by relative path.`,
+    );
+  }
 
   return {
     target: 'react-tailwind',
@@ -674,17 +878,14 @@ export function exportNodeToTailwindBundle(
         entry: true,
       },
     ],
+    assets: resolved.assets,
     // Verified against the Tailwind docs (2026-09-29): the square-bracket
     // `bg-[--name]` shorthand added in v3.3 was replaced in v4 by parentheses
     // (`bg-(--name)`), and the bare-shorthand form is not valid in both. The
     // emitted references use the explicit `var()` form, which is valid
     // arbitrary-value syntax in v3 and v4 alike.
     dependencies: { react: '>=18', tailwindcss: '>=3.4' },
-    setup: [
-      `Copy ${fileStem}.tsx into your project and render <${componentName} />.`,
-      'Requires Tailwind >= 3.4 (v4 supported): token references use the explicit var() form, named after the bound document variable.',
-      'Ensure the file is inside your Tailwind source globs so the classes are detected.',
-    ],
+    setup,
     diagnostics: tailwindDiagnostics(node, doc),
   };
 }

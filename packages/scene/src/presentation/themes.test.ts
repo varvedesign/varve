@@ -16,6 +16,8 @@ import {
   registerBuiltinOperations,
   validatePayload,
 } from '../operations';
+import { createTextStyle } from '../styles';
+import { createBuiltInPresentationTheme } from './builtinThemes';
 import { normalizePresentationMetadata } from './normalize';
 import {
   applyPresentationTheme,
@@ -321,5 +323,94 @@ describe('presentation themes', () => {
     expect(reapplied.nodes['accent-node']?.bindings?.fill?.variableId).toBe(
       document.presentation!.themes[0]!.colorVariables.accent,
     );
+  });
+});
+
+describe('presentation theme typography', () => {
+  it('applies role text styles only when fonts are explicitly requested', () => {
+    let document = withLayoutBinding(makeSlideDocument());
+    document = createBuiltInPresentationTheme(document, 'builtin-meridian');
+    const theme = document.presentation!.themes.find(
+      (candidate) => candidate.id === 'builtin-meridian',
+    )!;
+    expect(Object.keys(theme.textStyles).length).toBeGreaterThan(0);
+
+    const withoutFonts = applyPresentationTheme(
+      document,
+      'deck',
+      'entry',
+      'builtin-meridian',
+      ROLE_MAP,
+    );
+    expect((withoutFonts.nodes['title-node'] as { styleId?: string }).styleId).toBeUndefined();
+
+    const withFonts = applyPresentationTheme(
+      document,
+      'deck',
+      'entry',
+      'builtin-meridian',
+      ROLE_MAP,
+      {
+        applyFonts: true,
+      },
+    );
+    const heading = (withFonts.nodes['title-node'] as { styleId?: string }).styleId;
+    expect(heading).toBe(theme.textStyles.title);
+    // caption has no mapped node here; body node follows the theme's body role.
+    expect((withFonts.nodes['body-node'] as { styleId?: string }).styleId).toBe(
+      theme.textStyles.body,
+    );
+  });
+
+  it('never replaces a foreign local text style, but re-themes its own', () => {
+    let document = withLayoutBinding(makeSlideDocument());
+    document = createBuiltInPresentationTheme(document, 'builtin-paper');
+    const theme = document.presentation!.themes.find(
+      (candidate) => candidate.id === 'builtin-paper',
+    )!;
+    // A deliberate local style on the body node.
+    const local = createTextStyle(document, 'Author body', {
+      fontFamily: 'IBM Plex Sans Variable',
+      fontSize: 30,
+      fontWeight: 500,
+    });
+    document = local.doc;
+    document = {
+      ...document,
+      nodes: {
+        ...document.nodes,
+        'body-node': {
+          ...document.nodes['body-node']!,
+          styleId: local.style.id,
+        } as (typeof document.nodes)['body-node'],
+      },
+    };
+
+    const applied = applyPresentationTheme(document, 'deck', 'entry', 'builtin-paper', ROLE_MAP, {
+      applyFonts: true,
+    });
+    expect((applied.nodes['body-node'] as { styleId?: string }).styleId).toBe(local.style.id);
+    expect((applied.nodes['title-node'] as { styleId?: string }).styleId).toBe(
+      theme.textStyles.title,
+    );
+
+    // Switching themes re-styles nodes that follow the previous theme's styles.
+    document = createBuiltInPresentationTheme(applied, 'builtin-monochrome');
+    const nextTheme = document.presentation!.themes.find(
+      (candidate) => candidate.id === 'builtin-monochrome',
+    )!;
+    const switched = applyPresentationTheme(
+      document,
+      'deck',
+      'entry',
+      'builtin-monochrome',
+      ROLE_MAP,
+      { applyFonts: true },
+    );
+    expect((switched.nodes['title-node'] as { styleId?: string }).styleId).toBe(
+      nextTheme.textStyles.title,
+    );
+    // The local body style still wins.
+    expect((switched.nodes['body-node'] as { styleId?: string }).styleId).toBe(local.style.id);
   });
 });

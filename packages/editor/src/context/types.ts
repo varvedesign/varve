@@ -384,6 +384,8 @@ export interface EditorState {
   textCreationSettings?: TextCreationSettings;
   zoom: number;
   pan: { x: number; y: number };
+  /** Label of the most recently applied remote collab transaction (ADR-0200 diagnostics). */
+  collabLastRemoteLabel?: string;
   selection: NodeId[];
   /** Primary/anchor selection ID — the first or most recently focused node
    *  in multi-selection. Used for inspector context, alignment origin, and
@@ -1044,6 +1046,14 @@ export interface EditorContextValue {
   groupCompoundOperation: (label: string, action: () => void) => void;
   undo: () => void;
   redo: () => void;
+  /**
+   * ADR-0200: apply a REMOTE transaction to the document without creating
+   * a local undo step or a persistent-history revision (remote edits are
+   * not local history; shared-session undo is compensating and lives in
+   * the collab session provider). Prunes selection ids the transaction
+   * deleted and marks the session dirty — room state is not the saved file.
+   */
+  applyCollabTransaction: (next: Document, label: string) => void;
   newDocument: () => void;
   serializeDocument: () => string;
   updateDoc: (fn: (doc: Document) => Document) => void;
@@ -1430,6 +1440,16 @@ export interface EditorContextValue {
   getPrototypeScreens: () => Array<{ id: string; name: string }>;
   prototypeCurrentScreen: string;
   navigatePrototypeTo: (screenId: string) => void;
+  /** Depth of the running session's authored navigation history (0 = nowhere back). */
+  prototypeHistoryDepth: number;
+  /** Walk the running session's authored history back one step. */
+  prototypeGoBack: () => void;
+  /** Whether the prototype viewer draws active-region hints. */
+  prototypeShowHotspots: boolean;
+  /** Toggle the prototype viewer's active-region hints. */
+  togglePrototypeHotspots: () => void;
+  /** Restart the running flow at its entry point. */
+  restartPrototype: () => void;
 
   // State machines
   getStateMachines: () => import('@varve/scene').StateMachine[];

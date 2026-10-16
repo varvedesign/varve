@@ -45,7 +45,12 @@ describe('built-in presentation layout sources', () => {
       expect(frame.w).toBe(1920);
       expect(frame.h).toBe(1080);
       expect(Object.keys(source?.roleNodes ?? {})).not.toContain('');
-      expect(Object.keys(source?.roleNodes ?? {}).length).toBeGreaterThan(1);
+      // Blank is the documented empty slide; every other template maps roles.
+      if (template.id === 'blank') {
+        expect(Object.keys(source?.roleNodes ?? {})).toHaveLength(0);
+      } else {
+        expect(Object.keys(source?.roleNodes ?? {}).length).toBeGreaterThan(1);
+      }
       expect(frame.children.every((id) => Boolean(document.nodes[id]))).toBe(true);
     }
   });

@@ -250,6 +250,9 @@ export interface TypographySpec {
   fontFamily: string;
   fontSize: number;
   fontWeight: number;
+  fontStyle?: 'normal' | 'italic';
+  /** Resolved CSS color of the text (run-level wins over node fill). */
+  color?: string;
   lineHeight: number;
   letterSpacing: number;
   textTransform?: 'uppercase' | 'lowercase' | 'capitalize' | 'none';
@@ -344,9 +347,23 @@ export interface TextRun {
   style: Partial<TypographySpec>;
 }
 
+/**
+ * One authored paragraph carried through the IR. When `TextContent.paragraphs`
+ * is present it is authoritative and emitters use it exclusively — the flat
+ * `runs` list and the plain `value` are legacy/compat views, never an
+ * additional output.
+ */
+export interface TextParagraphSpec {
+  runs: TextRun[];
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  direction?: 'ltr' | 'rtl';
+  paragraphSpacing?: number;
+}
+
 export interface TextContent {
   value: string;
   runs?: TextRun[];
+  paragraphs?: TextParagraphSpec[];
   overset?: boolean;
 }
 

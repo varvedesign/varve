@@ -12,6 +12,7 @@ import {
   computeFloatingOrigin,
   fitBoundsCameraWithRotation,
   placeWorldPointAtScreen,
+  rotateAboutScreenPoint,
   screenToWorld,
   zoomAboutPoint,
 } from '@varve/shared';
@@ -78,6 +79,7 @@ import {
 } from './navigationState';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
 import { type PinchBridgePayload, resolvePinchBridgeAction } from './pinchBridge';
+import { createTwistRotationAccumulator, type TwistRotationAccumulator } from './twistRotation';
 import { resolveWheelAction } from './wheelClassifier';
 import { createWheelGestureClassifier } from './wheelGesture';
 
@@ -360,6 +362,9 @@ export function useCanvasInputs({
   const pinchRef = useRef<{
     lastDist: number;
     lastCentroid: { x: number; y: number };
+    /** Contact-pair angle; null until a second contact defines it. */
+    lastAngle: number | null;
+    twist: TwistRotationAccumulator;
   } | null>(null);
   // Safari/WebKit gesture events can accompany Pointer Events for the same
   // fingers. Once that native stream is admitted, it owns the touch contacts
@@ -368,6 +373,9 @@ export function useCanvasInputs({
     worldAnchor: [number, number];
     baseZoom: number;
     clientAnchor: [number, number];
+    /** Cumulative gesture-event rotation in degrees; null when unreported. */
+    lastRotation: number | null;
+    twist: TwistRotationAccumulator;
   } | null>(null);
   const nativeGestureEditorInteractionOpen = useRef(false);
   const nativeFactorInteractionEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -430,6 +438,7 @@ export function useCanvasInputs({
     return {
       dist: Math.hypot(b.x - a.x, b.y - a.y),
       centroid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      angle: Math.atan2(b.y - a.y, b.x - a.x),
     };
   }
 
@@ -754,7 +763,12 @@ export function useCanvasInputs({
           const startedPinch = pinchRef.current === null;
           const geo = pinchGeometry();
           if (geo) {
-            pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
+            pinchRef.current = {
+              lastDist: geo.dist,
+              lastCentroid: geo.centroid,
+              lastAngle: geo.angle,
+              twist: createTwistRotationAccumulator(),
+            };
             setViewportAnchor(geo.centroid.x, geo.centroid.y);
           }
           if (startedPinch && isInteractionTracingEnabled())
@@ -896,26 +910,52 @@ export function useCanvasInputs({
           const el = contentCanvasRef.current;
           const canvasW = el?.clientWidth ?? 1920;
           const canvasH = el?.clientHeight ?? 1080;
+          const viewport = { width: canvasW, height: canvasH };
+          const left = Number.isFinite(canvasRect.left) ? canvasRect.left : 0;
+          const top = Number.isFinite(canvasRect.top) ? canvasRect.top : 0;
+
+          // Twist rotates the view about the gesture centroid first; pan and
+          // zoom then compose on the rotated base. With the setting off or
+          // the dead zone uncrossed the fed delta is 0 and the base stays
+          // bit-identical to the pre-twist camera, so plain pinching is
+          // unchanged.
+          let base: Camera = { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation };
+          if (getNavigationSettings().twistRotationEnabled && pinch.lastAngle !== null) {
+            const twistDelta = pinch.twist.feed(geo.angle - pinch.lastAngle);
+            if (twistDelta !== 0) {
+              base = rotateAboutScreenPoint(
+                base,
+                [geo.centroid.x - left, geo.centroid.y - top],
+                twistDelta,
+                viewport,
+              );
+            }
+          }
+          pinch.lastAngle = geo.angle;
 
           const panned = {
-            x: s.pan.x + (geo.centroid.x - pinch.lastCentroid.x),
-            y: s.pan.y + (geo.centroid.y - pinch.lastCentroid.y),
+            x: base.pan.x + (geo.centroid.x - pinch.lastCentroid.x),
+            y: base.pan.y + (geo.centroid.y - pinch.lastCentroid.y),
           };
-          const cam = { pan: panned, zoom: s.zoom, rotation: s.cameraRotation };
-          const viewport = { width: canvasW, height: canvasH };
+          const cam = { pan: panned, zoom: base.zoom, rotation: base.rotation };
           const origin = computeFloatingOrigin(cam, viewport);
           const anchor = screenToWorld(
             cam,
-            geo.centroid.x - canvasRect.left,
-            geo.centroid.y - canvasRect.top,
+            geo.centroid.x - left,
+            geo.centroid.y - top,
             viewport,
             origin,
           );
           const factor = pinch.lastDist > 0 ? geo.dist / pinch.lastDist : 1;
-          const newCam = zoomAboutPoint(cam, anchor, clampZoom(s.zoom * factor), viewport);
+          const newCam = zoomAboutPoint(cam, anchor, clampZoom(base.zoom * factor), viewport);
           previewCamera(newCam);
           markInteractionCanvasChanged();
-          pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
+          pinchRef.current = {
+            lastDist: geo.dist,
+            lastCentroid: geo.centroid,
+            lastAngle: geo.angle,
+            twist: pinch.twist,
+          };
         } else if (trackedMove) {
           // One-finger navigation is opt-in and has no tool/history side
           // effects. The delta is already in CSS pixels, matching camera pan.
@@ -1169,7 +1209,14 @@ export function useCanvasInputs({
           // current pair rather than the released pointer's old centroid.
           const nextGeo = pinchGeometry();
           if (nextGeo) {
-            pinchRef.current = { lastDist: nextGeo.dist, lastCentroid: nextGeo.centroid };
+            // A replacement pair starts a fresh twist gesture: the atan2
+            // branch cut between old and new angles would read as a spin.
+            pinchRef.current = {
+              lastDist: nextGeo.dist,
+              lastCentroid: nextGeo.centroid,
+              lastAngle: nextGeo.angle,
+              twist: createTwistRotationAccumulator(),
+            };
             setViewportAnchor(nextGeo.centroid.x, nextGeo.centroid.y);
           }
         } else {
@@ -1309,7 +1356,13 @@ export function useCanvasInputs({
         if (touchPointers.current.size >= 2) {
           const nextGeo = pinchGeometry();
           if (nextGeo) {
-            pinchRef.current = { lastDist: nextGeo.dist, lastCentroid: nextGeo.centroid };
+            // Replacement pair: fresh twist gesture (see the pointerup rebase).
+            pinchRef.current = {
+              lastDist: nextGeo.dist,
+              lastCentroid: nextGeo.centroid,
+              lastAngle: nextGeo.angle,
+              twist: createTwistRotationAccumulator(),
+            };
             setViewportAnchor(nextGeo.centroid.x, nextGeo.centroid.y);
           }
         } else {
@@ -1625,6 +1678,8 @@ export function useCanvasInputs({
 
     interface WebKitGestureEvent extends Event {
       scale: number;
+      /** Cumulative rotation in degrees (Safari/WebKit gesture events). */
+      rotation?: number;
       clientX: number;
       clientY: number;
     }
@@ -1654,7 +1709,10 @@ export function useCanvasInputs({
       return pinchGeometry()?.centroid ?? lastPointer ?? canvasCenterClient();
     };
 
-    const captureNativeGestureAnchor = (point: { x: number; y: number }): boolean => {
+    const captureNativeGestureAnchor = (
+      point: { x: number; y: number },
+      rotation: number | null,
+    ): boolean => {
       const s = stateRef.current;
       const canvasEl = contentCanvasRef.current;
       const viewport = {
@@ -1673,6 +1731,8 @@ export function useCanvasInputs({
         worldAnchor: [anchor[0], anchor[1]],
         baseZoom: Number.isFinite(s.zoom) ? clampZoom(s.zoom) : 1,
         clientAnchor: [point.x, point.y],
+        lastRotation: rotation,
+        twist: createTwistRotationAccumulator(),
       };
       return true;
     };
@@ -1683,7 +1743,9 @@ export function useCanvasInputs({
       refreshCanvasRect?.();
       const ge = e as Partial<WebKitGestureEvent>;
       const point = resolveGesturePoint(ge.clientX, ge.clientY);
-      if (!captureNativeGestureAnchor(point)) return;
+      const startRotation =
+        typeof ge.rotation === 'number' && Number.isFinite(ge.rotation) ? ge.rotation : null;
+      if (!captureNativeGestureAnchor(point, startRotation)) return;
       pinchRef.current = null;
       const activePointer = activeDragPointer.current;
       const activeContact = activePointer
@@ -1740,12 +1802,51 @@ export function useCanvasInputs({
       e.preventDefault();
       const ge = e as WebKitGestureEvent;
       const point = resolveGesturePoint(ge.clientX, ge.clientY);
-      if (!nativeGestureRef.current && !captureNativeGestureAnchor(point)) return;
+      if (!nativeGestureRef.current) {
+        const lateRotation =
+          typeof ge.rotation === 'number' && Number.isFinite(ge.rotation) ? ge.rotation : null;
+        if (!captureNativeGestureAnchor(point, lateRotation)) return;
+      }
       const scale =
         typeof ge.scale === 'number' && Number.isFinite(ge.scale) && ge.scale > 0 ? ge.scale : 1;
       setViewportAnchor(point.x, point.y);
       refreshCanvasRect?.();
       cancelWheelInertiaRef.current?.();
+      // Twist first; the world-anchor placement below then re-solves pan on
+      // the rotated camera. Gesture-event rotation is cumulative in degrees.
+      const gesture = nativeGestureRef.current;
+      const rotationDegrees =
+        typeof ge.rotation === 'number' && Number.isFinite(ge.rotation) ? ge.rotation : null;
+      if (
+        gesture &&
+        getNavigationSettings().twistRotationEnabled &&
+        rotationDegrees !== null &&
+        gesture.lastRotation !== null
+      ) {
+        const twistDelta = gesture.twist.feed(
+          (rotationDegrees * Math.PI) / 180 - (gesture.lastRotation * Math.PI) / 180,
+        );
+        gesture.lastRotation = rotationDegrees;
+        if (twistDelta !== 0) {
+          const s = stateRef.current;
+          const rect = canvasRectRef.current;
+          const left = Number.isFinite(rect.left) ? rect.left : 0;
+          const top = Number.isFinite(rect.top) ? rect.top : 0;
+          previewCamera(
+            rotateAboutScreenPoint(
+              { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation },
+              [point.x - left, point.y - top],
+              twistDelta,
+              {
+                width: contentCanvasRef.current?.clientWidth ?? 800,
+                height: contentCanvasRef.current?.clientHeight ?? 600,
+              },
+            ),
+          );
+        }
+      } else if (gesture && rotationDegrees !== null) {
+        gesture.lastRotation = rotationDegrees;
+      }
       placeWorldAnchorAtClientPoint(
         nativeGestureRef.current?.worldAnchor ?? [0, 0],
         point.x,
@@ -2022,7 +2123,13 @@ export function useCanvasInputs({
         if (touchPointers.current.size >= 2) {
           const nextGeo = pinchGeometry();
           if (nextGeo) {
-            pinchRef.current = { lastDist: nextGeo.dist, lastCentroid: nextGeo.centroid };
+            // Replacement pair: fresh twist gesture (see the pointerup rebase).
+            pinchRef.current = {
+              lastDist: nextGeo.dist,
+              lastCentroid: nextGeo.centroid,
+              lastAngle: nextGeo.angle,
+              twist: createTwistRotationAccumulator(),
+            };
             setViewportAnchor(nextGeo.centroid.x, nextGeo.centroid.y);
           }
         } else {

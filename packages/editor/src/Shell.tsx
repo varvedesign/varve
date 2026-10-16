@@ -30,7 +30,6 @@ import {
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
 import { SelectionBreadcrumb } from './components/Breadcrumb/SelectionBreadcrumb';
 import { CodePanel } from './components/CodePanel/CodePanel';
-import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ContentAwareFillDialog } from './components/ContentAwareFill';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FirstRunOverlay } from './components/FirstRunOverlay';
@@ -39,7 +38,6 @@ import { MissingFontController } from './components/FontBrowser/MissingFontContr
 import { HistoryPanel } from './components/HistoryPanel';
 import { ImageCompareOverlay } from './components/ImageCompareOverlay';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
-import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
 import { LogoPanel } from './components/LogoPanel/LogoPanel';
 import { LogoPreviewDialog } from './components/LogoPreview/LogoPreviewDialog';
 import { MasterPanel } from './components/MasterPanel/MasterPanel';
@@ -78,6 +76,14 @@ import { UpscaleDialogHost } from './components/Upscale/UpscaleDialogHost';
 import { LifecycleProvider } from './lifecycle';
 import { buildCanvasContextMenuItems } from './menu/canvasContextMenu';
 import './components/Shell/shellStyles.css';
+import {
+  CollabCanvasPresence,
+  CollabHeaderControl,
+  CollabLayersPresence,
+  CollabNotices,
+  CollabSessionProvider,
+  ShareDialog,
+} from './collab';
 import { ManageLayoutsDialog } from './components/ManageLayoutsDialog';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { SpreadSettings } from './components/SpreadSettings/SpreadSettings';
@@ -90,12 +96,10 @@ import {
   setToastHandler,
   useEditor,
 } from './context';
-import { useCollabPresence } from './hooks/useCollabPresence';
 import { useFileImport } from './importing/useFileImport';
 import { type LayersDnDHandle, LayersPanel } from './LayersPanel';
 import { ContextualHelpPanel, resetOnboarding, useEditorHelp, WhatIsThis } from './onboard';
 import { StatusBar } from './StatusBar';
-import { nodeLocalBounds } from './scene/world';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import {
@@ -188,11 +192,7 @@ function ShellInner({
     index: number;
   } | null>(null);
 
-  const { presences: collabPresences, users: collabUsers } = useCollabPresence(
-    editor.state.activeId,
-    editor.state.cursorPos,
-    editor.state.pan,
-  );
+  const [collabShareOpen, setCollabShareOpen] = useState(false);
 
   const [canvasContextMenu, setCanvasContextMenu] = useState<{
     anchor: OverlayAnchor;
@@ -581,650 +581,666 @@ function ShellInner({
 
   return (
     <DnDShell editor={editor} layersDndRef={layersDndRef} canvasRef={canvasContainerRef}>
-      <div
-        ref={shellRef}
-        className={`editor-shell${distractionFreeMode ? ' editor-shell--distraction-free' : ''}${
-          editor.state.logoPanelVisible ? ' editor-shell--logo-open' : ''
-        }`}
-        style={gridStyle}
-      >
-        <a href="#editor-main" className="editor-shell__skip-link">
-          Skip to canvas
-        </a>
-        {/* E4 (2026-08-10): document-level heading for SR heading navigation. */}
-        <h1 className="sr-only">
-          {editorHeadingLabel(editor.state.sessions, editor.state.activeId)}
-        </h1>
-        {!distractionFreeMode && (
-          <header className="editor-shell__menubar">
-            <Menubar
-              onBackToHome={onBackToHome}
-              onGettingStarted={() => onboardingLayerRef.current?.openWelcome()}
-              onWhatsNew={() => editorHelp.setHelpCenterOpen(true)}
-            />
-            <ContextControlBar />
-          </header>
-        )}
-        <FloatingToolbar style={dockGeometry.toolbarStyle} />
-        {!distractionFreeMode && effectiveConfig.tabStrip && (
-          <TabStrip onBackToHome={onBackToHome} />
-        )}
-        {distractionFreeMode && (
-          <Tooltip label="Exit distraction-free mode" shortcut="Ctrl+Shift+F">
-            <button
-              type="button"
-              className="editor-shell__exit-focus"
-              onClick={editor.toggleDistractionFreeMode}
-              aria-label="Exit distraction-free mode (Ctrl+Shift+F)"
-            >
-              <Icon name="Minimize2" size={14} />
-              Exit Focus
-            </button>
-          </Tooltip>
-        )}
+      <CollabSessionProvider>
         <div
-          className="editor-shell__canvas-dock"
-          style={dockGeometry.canvasStyle}
-          data-dock-node="canvas"
+          ref={shellRef}
+          className={`editor-shell${distractionFreeMode ? ' editor-shell--distraction-free' : ''}${
+            editor.state.logoPanelVisible ? ' editor-shell--logo-open' : ''
+          }`}
+          style={gridStyle}
         >
-          <SelectionBreadcrumb />
-          <main className="editor-shell__main" style={{ display: 'contents' }}>
-            <ErrorBoundary resetKey={editor.state.document.id}>
-              <CanvasArea
-                canvasContainerRef={canvasContainerRef}
-                onContextMenu={handleCanvasContextMenu}
+          <a href="#editor-main" className="editor-shell__skip-link">
+            Skip to canvas
+          </a>
+          {/* E4 (2026-08-10): document-level heading for SR heading navigation. */}
+          <h1 className="sr-only">
+            {editorHeadingLabel(editor.state.sessions, editor.state.activeId)}
+          </h1>
+          {!distractionFreeMode && (
+            <header className="editor-shell__menubar">
+              <Menubar
+                onBackToHome={onBackToHome}
+                onGettingStarted={() => onboardingLayerRef.current?.openWelcome()}
+                onWhatsNew={() => editorHelp.setHelpCenterOpen(true)}
               />
-            </ErrorBoundary>
-          </main>
-        </div>
-        <MissingFontController promptSuspended={Boolean(fileImport.report || transferReport)} />
-        <CollabCursorOverlay
-          users={collabUsers}
-          cursors={[]}
-          worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
-        />
-        <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
-        <AuditOverlayHost canvasRef={canvasContainerRef} />
-        {fileImport.progress && (
-          <ImportProgress
-            current={fileImport.progress.current}
-            total={fileImport.progress.total}
-            fileName={fileImport.progress.fileName}
-            onCancel={fileImport.cancel}
-          />
-        )}
-        {fileImport.report && (
-          <ImportResults
-            result={fileImport.report}
-            onClose={fileImport.dismissReport}
-            onRevealSelection={revealImportedSelection}
-          />
-        )}
-        {transferReport && (
-          <ImportResults
-            result={transferReport}
-            onClose={() => setTransferReport(null)}
-            onRevealSelection={revealImportedSelection}
-          />
-        )}
-        <ImageCompareOverlay
-          active={editor.state.beforeAfterCompare}
-          selection={editor.selectedNodes()}
-          document={editor.state.document}
-          worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
-        />
-        {!distractionFreeMode && pageSurfaceVisibility.showPageNavigation && (
-          <section
-            className="page-nav-container"
-            data-panel="pagenav"
-            id="editor-pagenav-panel"
-            style={dockGeometry.panelStyles.pagenav}
-            role={dockGeometry.tabPanelA11y.pagenav ? 'tabpanel' : 'group'}
-            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.pagenav)}
+              <ContextControlBar />
+              <CollabHeaderControl onOpenShare={() => setCollabShareOpen(true)} />
+            </header>
+          )}
+          <FloatingToolbar style={dockGeometry.toolbarStyle} />
+          {!distractionFreeMode && effectiveConfig.tabStrip && (
+            <TabStrip onBackToHome={onBackToHome} />
+          )}
+          {distractionFreeMode && (
+            <Tooltip label="Exit distraction-free mode" shortcut="Ctrl+Shift+F">
+              <button
+                type="button"
+                className="editor-shell__exit-focus"
+                onClick={editor.toggleDistractionFreeMode}
+                aria-label="Exit distraction-free mode (Ctrl+Shift+F)"
+              >
+                <Icon name="Minimize2" size={14} />
+                Exit Focus
+              </button>
+            </Tooltip>
+          )}
+          <div
+            className="editor-shell__canvas-dock"
+            style={dockGeometry.canvasStyle}
+            data-dock-node="canvas"
           >
-            <PageNav />
-          </section>
-        )}
-        {!distractionFreeMode && (
-          <aside
-            className="editor__layers-panel editor__panel--glass"
-            data-panel="layers"
-            data-editor-shortcut-scope="layers-tree"
-            data-testid="layers-panel"
-            id="editor-layers-panel"
-            data-visible={layersVisible || undefined}
-            style={layersDrawerStyle(dockGeometry.panelStyles.layers, widths.layers, layersPref)}
-            role={
-              dockGeometry.tabPanelA11y.layers ? 'tabpanel' : layersVisible ? 'dialog' : undefined
-            }
-            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.layers)}
-            aria-label={layersVisible ? 'Layers' : undefined}
-            data-collapsed={!layersExpanded || undefined}
-            {...(!layersExpanded ? { inert: true } : {})}
-          >
-            <ErrorBoundary resetKey={editor.state.document.id}>
-              <PresenceIndicator presences={collabPresences} />
-              <MinimapPanel
-                canvasOwnerRef={canvasContainerRef}
-                onCloseResponsivePanel={closeResponsiveLayers}
-              />
-              <MasterPanel />
-              {pageSurfaceVisibility.showPagesPanel && <PagesPanel />}
-              <SpreadSettings />
-              {!isDetached('layers') && <LayersPanel dndRef={layersDndRef} />}
-            </ErrorBoundary>
-            <PanelResizeHandle
-              side="layers"
-              visible={dockGeometry.canvasStyle.position !== 'absolute'}
-              width={widths.layers}
-              onResize={(w) => setWidth('layers', w)}
-            />
-          </aside>
-        )}
-        {!distractionFreeMode && (
-          <aside
-            className="editor__inspector-panel editor__panel--glass"
-            data-panel="inspector"
-            data-editor-shortcut-scope="inspector-history"
-            id="editor-inspector-panel"
-            data-visible={inspectorVisible || undefined}
-            style={dockGeometry.panelStyles.inspector}
-            role={
-              dockGeometry.tabPanelA11y.inspector
-                ? 'tabpanel'
-                : inspectorVisible
-                  ? 'dialog'
-                  : undefined
-            }
-            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.inspector)}
-            aria-label={inspectorVisible ? 'Inspector' : undefined}
-            data-collapsed={!rightPanelVisible || undefined}
-            {...(!rightPanelVisible ? { inert: true } : {})}
-          >
-            <ErrorBoundary resetKey={editor.state.document.id}>
-              {!isDetached('inspector') && (
-                <PropertiesPanel onCloseResponsivePanel={closeResponsiveInspector} />
-              )}
-            </ErrorBoundary>
-            <PanelResizeHandle
-              side="inspector"
-              visible={dockGeometry.canvasStyle.position !== 'absolute'}
-              width={widths.inspector}
-              onResize={(w) => setWidth('inspector', w)}
-            />
-          </aside>
-        )}
-        {libraryPanelVisible && !distractionFreeMode && !isDetached('library') && (
-          // data-visible drives the <=899px drawer transform. Without it the
-          // panel stayed translated fully off-screen, so Resources could be
-          // "open" in state and never reachable on a narrow viewport.
-          <section
-            className="editor__library-panel"
-            data-panel="library"
-            data-visible
-            id="editor-library-panel"
-            aria-label="Resources"
-            role={dockGeometry.tabPanelA11y.library ? 'tabpanel' : 'dialog'}
-            data-editor-shortcut-scope={
-              dockGeometry.tabPanelA11y.library ? undefined : 'resources-history'
-            }
-            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.library)}
-            style={dockGeometry.panelStyles.library}
-          >
-            <ResourcesPanel
-              doc={editor.state.document}
-              onInstallLibrary={editor.installLibrary}
-              onUninstallLibrary={editor.uninstallLibrary}
-            />
-          </section>
-        )}
-        {codegenPanelVisible && !distractionFreeMode && !isDetached('codegen') && (
-          <section
-            className="editor__codegen-panel"
-            data-panel="codegen"
-            id="editor-codegen-panel"
-            style={dockGeometry.panelStyles.codegen}
-            role={dockGeometry.tabPanelA11y.codegen ? 'tabpanel' : 'group'}
-            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.codegen)}
-          >
-            <CodePanel doc={editor.state.document} selection={editor.selectedNodes()} />
-          </section>
-        )}
-        {editor.state.logoPanelVisible && !distractionFreeMode && !isDetached('logo') && (
-          <section
-            className="editor__logo-panel"
-            data-panel="logo"
-            data-testid="logo-panel"
-            id="editor-logo-panel"
-            style={dockGeometry.panelStyles.logo}
-            role={dockGeometry.tabPanelA11y.logo ? 'tabpanel' : 'group'}
-            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.logo)}
-          >
-            <LogoPanel />
-          </section>
-        )}
-        {(effectiveConfig.panels.emailPreview.visible ||
-          (effectiveConfig.panels.emailOutput.visible && !distractionFreeMode) ||
-          (editor.state.timelinePanelVisible && !distractionFreeMode && !isDetached('timeline')) ||
-          dockGeometry.tabGroups.length > 0 ||
-          dockGeometry.floatingGroups.length > 0 ||
-          dockGeometry.splitters.length > 0 ||
-          dockGeometry.recoveryNotice) && (
-          <WorkspaceBottomPanels
-            showEmailPreview={effectiveConfig.panels.emailPreview.visible && !distractionFreeMode}
-            showEmailOutput={effectiveConfig.panels.emailOutput.visible && !distractionFreeMode}
-            panelStyles={dockGeometry.panelStyles}
-            dockTabGroups={dockGeometry.tabGroups}
-            dockFloatingGroups={dockGeometry.floatingGroups}
-            dockSplitters={dockGeometry.splitters}
-            dockPanelMoveHandles={dockGeometry.dockPanelMoveHandles}
-            dockPanelDropPreview={dockGeometry.dockPanelDropPreview}
-            dockTabPanelA11y={dockGeometry.tabPanelA11y}
-            onSelectDockTab={dockGeometry.selectDockTab}
-            dockRecovery={dockGeometry.recoveryNotice}
-          >
-            {editor.state.timelinePanelVisible &&
-            !distractionFreeMode &&
-            !isDetached('timeline') ? (
+            <SelectionBreadcrumb />
+            <main className="editor-shell__main" style={{ display: 'contents' }}>
               <ErrorBoundary resetKey={editor.state.document.id}>
-                <TimelinePanel
-                  timelines={editor.state.document.timelines ?? {}}
-                  activeTimelineId={editor.state.motion.activeTimelineId}
-                  currentTime={editor.state.motion.currentTime}
-                  isPlaying={editor.state.motion.isPlaying}
-                  playbackSpeed={editor.state.motion.playbackSpeed}
-                  loop={editor.state.motion.loop}
-                  autoKeyframe={editor.state.motion.autoKeyframe}
-                  onionSkin={editor.state.motion.onionSkinEnabled}
-                  motionPresets={editor.state.document.motionPresets ?? {}}
-                  selectedTrackIds={editor.state.motion.selectedTrackIds}
-                  selectedKeyframe={
-                    selectedKeyframe
-                      ? { trackId: selectedKeyframe.trackId, index: selectedKeyframe.index }
-                      : null
-                  }
-                  graphEditorVisible={editor.state.graphEditorVisible}
-                  onPlay={() => editor.playTimeline()}
-                  onPause={() => editor.pauseTimeline()}
-                  onStop={() => editor.stopTimeline()}
-                  onSeek={(time) => editor.seekTimeline(time)}
-                  onSpeedChange={(speed) => editor.setPlaybackSpeed(speed)}
-                  onToggleLoop={() => editor.toggleLoop()}
-                  onToggleAutoKeyframe={() => editor.toggleAutoKeyframe()}
-                  onToggleOnionSkin={() => editor.toggleOnionSkin()}
-                  onToggleGraphEditor={() => editor.toggleGraphEditor()}
-                  onDeleteKeyframe={(tlId, trackId, progress) =>
-                    editor.deleteKeyframe(tlId, trackId, progress)
-                  }
-                  onMoveKeyframe={(tlId, trackId, oldP, newP) =>
-                    editor.moveKeyframe(tlId, trackId, oldP, newP)
-                  }
-                  onUpdateKeyframeEasing={(tlId, trackId, progress, easing) =>
-                    editor.updateKeyframeEasing(tlId, trackId, progress, easing)
-                  }
-                  onSetTrackMuted={(tlId, trackId, muted) =>
-                    editor.setTrackMuted(tlId, trackId, muted)
-                  }
-                  onSetTrackSolo={(tlId, trackId, solo) => editor.setTrackSolo(tlId, trackId, solo)}
-                  onAddMarker={(timeMs) => {
-                    const tlId = editor.state.motion.activeTimelineId;
-                    if (!tlId) return;
-                    const tl = editor.state.document.timelines?.[tlId];
-                    if (!tl) return;
-                    const count = (tl.markers?.length ?? 0) + 1;
-                    const progress = tl.duration > 0 ? timeMs / tl.duration : 0;
-                    editor.addTimelineMarker(tlId, `Marker ${count}`, progress);
-                  }}
-                  onRenameMarker={async (markerId) => {
-                    const tlId = editor.state.motion.activeTimelineId;
-                    if (!tlId) return;
-                    const marker = editor.state.document.timelines?.[tlId]?.markers?.find(
-                      (m) => m.id === markerId,
-                    );
-                    const nextName = await promptDialog('Marker name', marker?.name ?? '');
-                    if (nextName?.trim()) {
-                      editor.renameTimelineMarker(tlId, markerId, nextName.trim());
-                    }
-                  }}
-                  onDeleteMarker={(markerId) => {
-                    const tlId = editor.state.motion.activeTimelineId;
-                    if (tlId) editor.removeTimelineMarker(tlId, markerId);
-                  }}
-                  onSavePreset={async () => {
-                    const tlId = editor.state.motion.activeTimelineId;
-                    if (!tlId) return;
-                    const name = await promptDialog('Preset name');
-                    if (name?.trim()) {
-                      editor.createMotionPresetFromTimeline(tlId, name.trim());
-                    }
-                  }}
-                  onApplyPreset={(presetId) => {
-                    const tlId = editor.state.motion.activeTimelineId;
-                    if (tlId) editor.applyMotionPreset(presetId, tlId);
-                  }}
-                  onSelectTimeline={(id) => editor.setActiveTimeline(id)}
-                  onCreateTimeline={() => editor.createTimeline()}
-                  onSelectTrack={(trackId) => {
-                    const s = editor.state.motion;
-                    const alreadySelected = s.selectedTrackIds.includes(trackId);
-                    editor.setMotionSelectedTracks?.(
-                      alreadySelected
-                        ? s.selectedTrackIds.filter((id) => id !== trackId)
-                        : [...s.selectedTrackIds, trackId],
-                    );
-                  }}
-                  onClickKeyframe={(trackId, progress) => {
-                    const tl = editor.state.motion.activeTimelineId
-                      ? editor.state.document.timelines?.[editor.state.motion.activeTimelineId]
-                      : null;
-                    if (tl) editor.seekTimeline(progress * tl.duration);
-                    // Wire the selected keyframe so the track row's arrow-key
-                    // stepping and Delete actually have a target.
-                    const track = tl?.tracks.find((t) => t.id === trackId);
-                    const index = track
-                      ? track.keyframes.findIndex((kf) => kf.progress === progress)
-                      : -1;
-                    setSelectedKeyframe(index >= 0 ? { trackId, index } : null);
-                  }}
-                  onSetTrackNestedTimeline={(trackId, nestedTimelineId, startProgress) => {
-                    const tlId = editor.state.motion.activeTimelineId;
-                    if (tlId) {
-                      editor.setTrackNestedTimeline(tlId, trackId, nestedTimelineId, startProgress);
-                    }
-                  }}
-                  getNodeName={(nodeId) => editor.state.document.nodes[nodeId]?.name}
+                <CanvasArea
+                  canvasContainerRef={canvasContainerRef}
+                  onContextMenu={handleCanvasContextMenu}
                 />
               </ErrorBoundary>
-            ) : null}
-          </WorkspaceBottomPanels>
-        )}
-        {editor.state.historyPanelVisible && !distractionFreeMode && (
-          <section
-            className="editor__history-panel"
-            data-panel="history"
-            data-testid="history-panel"
-            id="editor-history-panel"
-            style={dockGeometry.panelStyles.history}
-            role={dockGeometry.tabPanelA11y.history ? 'tabpanel' : 'group'}
-            {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.history)}
-          >
-            <ErrorBoundary resetKey={editor.state.document.id}>
-              <HistoryPanel />
-            </ErrorBoundary>
-          </section>
-        )}
-        {!distractionFreeMode && effectiveConfig.statusBar && (
-          <>
-            <SelectionInfoBar />
-            <StatusBar
-              onOpenPalette={(shortcutId) => {
-                setPaletteFocusShortcutId(shortcutId);
-                openPalette();
-              }}
+            </main>
+          </div>
+          <MissingFontController promptSuspended={Boolean(fileImport.report || transferReport)} />
+          <CollabCanvasPresence />
+          <CollabNotices />
+          <ShareDialog open={collabShareOpen} onClose={() => setCollabShareOpen(false)} />
+          <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
+          <AuditOverlayHost canvasRef={canvasContainerRef} />
+          {fileImport.progress && (
+            <ImportProgress
+              current={fileImport.progress.current}
+              total={fileImport.progress.total}
+              fileName={fileImport.progress.fileName}
+              onCancel={fileImport.cancel}
             />
-          </>
-        )}
-        {/* Responsive panel launchers and their backdrop are deliberately
+          )}
+          {fileImport.report && (
+            <ImportResults
+              result={fileImport.report}
+              onClose={fileImport.dismissReport}
+              onRevealSelection={revealImportedSelection}
+            />
+          )}
+          {transferReport && (
+            <ImportResults
+              result={transferReport}
+              onClose={() => setTransferReport(null)}
+              onRevealSelection={revealImportedSelection}
+            />
+          )}
+          <ImageCompareOverlay
+            active={editor.state.beforeAfterCompare}
+            selection={editor.selectedNodes()}
+            document={editor.state.document}
+            worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
+          />
+          {!distractionFreeMode && pageSurfaceVisibility.showPageNavigation && (
+            <section
+              className="page-nav-container"
+              data-panel="pagenav"
+              id="editor-pagenav-panel"
+              style={dockGeometry.panelStyles.pagenav}
+              role={dockGeometry.tabPanelA11y.pagenav ? 'tabpanel' : 'group'}
+              {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.pagenav)}
+            >
+              <PageNav />
+            </section>
+          )}
+          {!distractionFreeMode && (
+            <aside
+              className="editor__layers-panel editor__panel--glass"
+              data-panel="layers"
+              data-editor-shortcut-scope="layers-tree"
+              data-testid="layers-panel"
+              id="editor-layers-panel"
+              data-visible={layersVisible || undefined}
+              style={layersDrawerStyle(dockGeometry.panelStyles.layers, widths.layers, layersPref)}
+              role={
+                dockGeometry.tabPanelA11y.layers ? 'tabpanel' : layersVisible ? 'dialog' : undefined
+              }
+              {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.layers)}
+              aria-label={layersVisible ? 'Layers' : undefined}
+              data-collapsed={!layersExpanded || undefined}
+              {...(!layersExpanded ? { inert: true } : {})}
+            >
+              <ErrorBoundary resetKey={editor.state.document.id}>
+                <CollabLayersPresence />
+                <MinimapPanel
+                  canvasOwnerRef={canvasContainerRef}
+                  onCloseResponsivePanel={closeResponsiveLayers}
+                />
+                <MasterPanel />
+                {pageSurfaceVisibility.showPagesPanel && <PagesPanel />}
+                <SpreadSettings />
+                {!isDetached('layers') && <LayersPanel dndRef={layersDndRef} />}
+              </ErrorBoundary>
+              <PanelResizeHandle
+                side="layers"
+                visible={dockGeometry.canvasStyle.position !== 'absolute'}
+                width={widths.layers}
+                onResize={(w) => setWidth('layers', w)}
+              />
+            </aside>
+          )}
+          {!distractionFreeMode && (
+            <aside
+              className="editor__inspector-panel editor__panel--glass"
+              data-panel="inspector"
+              data-editor-shortcut-scope="inspector-history"
+              id="editor-inspector-panel"
+              data-visible={inspectorVisible || undefined}
+              style={dockGeometry.panelStyles.inspector}
+              role={
+                dockGeometry.tabPanelA11y.inspector
+                  ? 'tabpanel'
+                  : inspectorVisible
+                    ? 'dialog'
+                    : undefined
+              }
+              {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.inspector)}
+              aria-label={inspectorVisible ? 'Inspector' : undefined}
+              data-collapsed={!rightPanelVisible || undefined}
+              {...(!rightPanelVisible ? { inert: true } : {})}
+            >
+              <ErrorBoundary resetKey={editor.state.document.id}>
+                {!isDetached('inspector') && (
+                  <PropertiesPanel onCloseResponsivePanel={closeResponsiveInspector} />
+                )}
+              </ErrorBoundary>
+              <PanelResizeHandle
+                side="inspector"
+                visible={dockGeometry.canvasStyle.position !== 'absolute'}
+                width={widths.inspector}
+                onResize={(w) => setWidth('inspector', w)}
+              />
+            </aside>
+          )}
+          {libraryPanelVisible && !distractionFreeMode && !isDetached('library') && (
+            // data-visible drives the <=899px drawer transform. Without it the
+            // panel stayed translated fully off-screen, so Resources could be
+            // "open" in state and never reachable on a narrow viewport.
+            <section
+              className="editor__library-panel"
+              data-panel="library"
+              data-visible
+              id="editor-library-panel"
+              aria-label="Resources"
+              role={dockGeometry.tabPanelA11y.library ? 'tabpanel' : 'dialog'}
+              data-editor-shortcut-scope={
+                dockGeometry.tabPanelA11y.library ? undefined : 'resources-history'
+              }
+              {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.library)}
+              style={dockGeometry.panelStyles.library}
+            >
+              <ResourcesPanel
+                doc={editor.state.document}
+                onInstallLibrary={editor.installLibrary}
+                onUninstallLibrary={editor.uninstallLibrary}
+              />
+            </section>
+          )}
+          {codegenPanelVisible && !distractionFreeMode && !isDetached('codegen') && (
+            <section
+              className="editor__codegen-panel"
+              data-panel="codegen"
+              id="editor-codegen-panel"
+              style={dockGeometry.panelStyles.codegen}
+              role={dockGeometry.tabPanelA11y.codegen ? 'tabpanel' : 'group'}
+              {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.codegen)}
+            >
+              <CodePanel doc={editor.state.document} selection={editor.selectedNodes()} />
+            </section>
+          )}
+          {editor.state.logoPanelVisible && !distractionFreeMode && !isDetached('logo') && (
+            <section
+              className="editor__logo-panel"
+              data-panel="logo"
+              data-testid="logo-panel"
+              id="editor-logo-panel"
+              style={dockGeometry.panelStyles.logo}
+              role={dockGeometry.tabPanelA11y.logo ? 'tabpanel' : 'group'}
+              {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.logo)}
+            >
+              <LogoPanel />
+            </section>
+          )}
+          {(effectiveConfig.panels.emailPreview.visible ||
+            (effectiveConfig.panels.emailOutput.visible && !distractionFreeMode) ||
+            (editor.state.timelinePanelVisible &&
+              !distractionFreeMode &&
+              !isDetached('timeline')) ||
+            dockGeometry.tabGroups.length > 0 ||
+            dockGeometry.floatingGroups.length > 0 ||
+            dockGeometry.splitters.length > 0 ||
+            dockGeometry.recoveryNotice) && (
+            <WorkspaceBottomPanels
+              showEmailPreview={effectiveConfig.panels.emailPreview.visible && !distractionFreeMode}
+              showEmailOutput={effectiveConfig.panels.emailOutput.visible && !distractionFreeMode}
+              panelStyles={dockGeometry.panelStyles}
+              dockTabGroups={dockGeometry.tabGroups}
+              dockFloatingGroups={dockGeometry.floatingGroups}
+              dockSplitters={dockGeometry.splitters}
+              dockPanelMoveHandles={dockGeometry.dockPanelMoveHandles}
+              dockPanelDropPreview={dockGeometry.dockPanelDropPreview}
+              dockTabPanelA11y={dockGeometry.tabPanelA11y}
+              onSelectDockTab={dockGeometry.selectDockTab}
+              dockRecovery={dockGeometry.recoveryNotice}
+            >
+              {editor.state.timelinePanelVisible &&
+              !distractionFreeMode &&
+              !isDetached('timeline') ? (
+                <ErrorBoundary resetKey={editor.state.document.id}>
+                  <TimelinePanel
+                    timelines={editor.state.document.timelines ?? {}}
+                    activeTimelineId={editor.state.motion.activeTimelineId}
+                    currentTime={editor.state.motion.currentTime}
+                    isPlaying={editor.state.motion.isPlaying}
+                    playbackSpeed={editor.state.motion.playbackSpeed}
+                    loop={editor.state.motion.loop}
+                    autoKeyframe={editor.state.motion.autoKeyframe}
+                    onionSkin={editor.state.motion.onionSkinEnabled}
+                    motionPresets={editor.state.document.motionPresets ?? {}}
+                    selectedTrackIds={editor.state.motion.selectedTrackIds}
+                    selectedKeyframe={
+                      selectedKeyframe
+                        ? { trackId: selectedKeyframe.trackId, index: selectedKeyframe.index }
+                        : null
+                    }
+                    graphEditorVisible={editor.state.graphEditorVisible}
+                    onPlay={() => editor.playTimeline()}
+                    onPause={() => editor.pauseTimeline()}
+                    onStop={() => editor.stopTimeline()}
+                    onSeek={(time) => editor.seekTimeline(time)}
+                    onSpeedChange={(speed) => editor.setPlaybackSpeed(speed)}
+                    onToggleLoop={() => editor.toggleLoop()}
+                    onToggleAutoKeyframe={() => editor.toggleAutoKeyframe()}
+                    onToggleOnionSkin={() => editor.toggleOnionSkin()}
+                    onToggleGraphEditor={() => editor.toggleGraphEditor()}
+                    onDeleteKeyframe={(tlId, trackId, progress) =>
+                      editor.deleteKeyframe(tlId, trackId, progress)
+                    }
+                    onMoveKeyframe={(tlId, trackId, oldP, newP) =>
+                      editor.moveKeyframe(tlId, trackId, oldP, newP)
+                    }
+                    onUpdateKeyframeEasing={(tlId, trackId, progress, easing) =>
+                      editor.updateKeyframeEasing(tlId, trackId, progress, easing)
+                    }
+                    onSetTrackMuted={(tlId, trackId, muted) =>
+                      editor.setTrackMuted(tlId, trackId, muted)
+                    }
+                    onSetTrackSolo={(tlId, trackId, solo) =>
+                      editor.setTrackSolo(tlId, trackId, solo)
+                    }
+                    onAddMarker={(timeMs) => {
+                      const tlId = editor.state.motion.activeTimelineId;
+                      if (!tlId) return;
+                      const tl = editor.state.document.timelines?.[tlId];
+                      if (!tl) return;
+                      const count = (tl.markers?.length ?? 0) + 1;
+                      const progress = tl.duration > 0 ? timeMs / tl.duration : 0;
+                      editor.addTimelineMarker(tlId, `Marker ${count}`, progress);
+                    }}
+                    onRenameMarker={async (markerId) => {
+                      const tlId = editor.state.motion.activeTimelineId;
+                      if (!tlId) return;
+                      const marker = editor.state.document.timelines?.[tlId]?.markers?.find(
+                        (m) => m.id === markerId,
+                      );
+                      const nextName = await promptDialog('Marker name', marker?.name ?? '');
+                      if (nextName?.trim()) {
+                        editor.renameTimelineMarker(tlId, markerId, nextName.trim());
+                      }
+                    }}
+                    onDeleteMarker={(markerId) => {
+                      const tlId = editor.state.motion.activeTimelineId;
+                      if (tlId) editor.removeTimelineMarker(tlId, markerId);
+                    }}
+                    onSavePreset={async () => {
+                      const tlId = editor.state.motion.activeTimelineId;
+                      if (!tlId) return;
+                      const name = await promptDialog('Preset name');
+                      if (name?.trim()) {
+                        editor.createMotionPresetFromTimeline(tlId, name.trim());
+                      }
+                    }}
+                    onApplyPreset={(presetId) => {
+                      const tlId = editor.state.motion.activeTimelineId;
+                      if (tlId) editor.applyMotionPreset(presetId, tlId);
+                    }}
+                    onSelectTimeline={(id) => editor.setActiveTimeline(id)}
+                    onCreateTimeline={() => editor.createTimeline()}
+                    onSelectTrack={(trackId) => {
+                      const s = editor.state.motion;
+                      const alreadySelected = s.selectedTrackIds.includes(trackId);
+                      editor.setMotionSelectedTracks?.(
+                        alreadySelected
+                          ? s.selectedTrackIds.filter((id) => id !== trackId)
+                          : [...s.selectedTrackIds, trackId],
+                      );
+                    }}
+                    onClickKeyframe={(trackId, progress) => {
+                      const tl = editor.state.motion.activeTimelineId
+                        ? editor.state.document.timelines?.[editor.state.motion.activeTimelineId]
+                        : null;
+                      if (tl) editor.seekTimeline(progress * tl.duration);
+                      // Wire the selected keyframe so the track row's arrow-key
+                      // stepping and Delete actually have a target.
+                      const track = tl?.tracks.find((t) => t.id === trackId);
+                      const index = track
+                        ? track.keyframes.findIndex((kf) => kf.progress === progress)
+                        : -1;
+                      setSelectedKeyframe(index >= 0 ? { trackId, index } : null);
+                    }}
+                    onSetTrackNestedTimeline={(trackId, nestedTimelineId, startProgress) => {
+                      const tlId = editor.state.motion.activeTimelineId;
+                      if (tlId) {
+                        editor.setTrackNestedTimeline(
+                          tlId,
+                          trackId,
+                          nestedTimelineId,
+                          startProgress,
+                        );
+                      }
+                    }}
+                    getNodeName={(nodeId) => editor.state.document.nodes[nodeId]?.name}
+                  />
+                </ErrorBoundary>
+              ) : null}
+            </WorkspaceBottomPanels>
+          )}
+          {editor.state.historyPanelVisible && !distractionFreeMode && (
+            <section
+              className="editor__history-panel"
+              data-panel="history"
+              data-testid="history-panel"
+              id="editor-history-panel"
+              style={dockGeometry.panelStyles.history}
+              role={dockGeometry.tabPanelA11y.history ? 'tabpanel' : 'group'}
+              {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.history)}
+            >
+              <ErrorBoundary resetKey={editor.state.document.id}>
+                <HistoryPanel />
+              </ErrorBoundary>
+            </section>
+          )}
+          {!distractionFreeMode && effectiveConfig.statusBar && (
+            <>
+              <SelectionInfoBar />
+              <StatusBar
+                onOpenPalette={(shortcutId) => {
+                  setPaletteFocusShortcutId(shortcutId);
+                  openPalette();
+                }}
+              />
+            </>
+          )}
+          {/* Responsive panel launchers and their backdrop are deliberately
             outside the statusBar config gate: they are the only way to open
             the layers/inspector/resources drawers at <=899px. Gating them on
             a status-bar preference left a workspace with the status bar
             disabled with no reachable way to reveal a hidden panel. */}
-        {!distractionFreeMode && (
-          <>
-            {/* FAB for layers (responsive) */}
-            <button
-              type="button"
-              className="editor__fab editor__fab--layers"
-              aria-controls="editor-layers-panel"
-              onClick={(event) => {
-                responsivePanelTriggerRef.current = event.currentTarget;
-                setLayersVisible((v) => !v);
-              }}
-              aria-expanded={layersVisible}
-              aria-label={layersVisible ? 'Hide layers panel' : 'Show layers panel'}
-            >
-              <Icon name="LayoutGrid" />
-            </button>
-            {/* FAB for inspector (responsive) */}
-            <button
-              type="button"
-              className="editor__fab editor__fab--inspector"
-              aria-controls="editor-inspector-panel"
-              onClick={(event) => {
-                responsivePanelTriggerRef.current = event.currentTarget;
-                setInspectorVisible((v) => !v);
-              }}
-              aria-expanded={inspectorVisible}
-              aria-label={inspectorVisible ? 'Hide inspector panel' : 'Show inspector panel'}
-            >
-              <Icon name="Settings" />
-            </button>
-            {/* FAB for library (responsive) */}
-            <button
-              type="button"
-              className="editor__fab editor__fab--library"
-              aria-controls="editor-library-panel"
-              onClick={(event) => {
-                responsivePanelTriggerRef.current = event.currentTarget;
-                editor.toggleLibraryPanel();
-              }}
-              aria-expanded={libraryPanelVisible}
-              aria-label={libraryPanelVisible ? 'Hide resources panel' : 'Show resources panel'}
-            >
-              <Icon name="Library" />
-            </button>
-            {/* Backdrop for overlays. libraryPanelVisible is included because
+          {!distractionFreeMode && (
+            <>
+              {/* FAB for layers (responsive) */}
+              <button
+                type="button"
+                className="editor__fab editor__fab--layers"
+                aria-controls="editor-layers-panel"
+                onClick={(event) => {
+                  responsivePanelTriggerRef.current = event.currentTarget;
+                  setLayersVisible((v) => !v);
+                }}
+                aria-expanded={layersVisible}
+                aria-label={layersVisible ? 'Hide layers panel' : 'Show layers panel'}
+              >
+                <Icon name="LayoutGrid" />
+              </button>
+              {/* FAB for inspector (responsive) */}
+              <button
+                type="button"
+                className="editor__fab editor__fab--inspector"
+                aria-controls="editor-inspector-panel"
+                onClick={(event) => {
+                  responsivePanelTriggerRef.current = event.currentTarget;
+                  setInspectorVisible((v) => !v);
+                }}
+                aria-expanded={inspectorVisible}
+                aria-label={inspectorVisible ? 'Hide inspector panel' : 'Show inspector panel'}
+              >
+                <Icon name="Settings" />
+              </button>
+              {/* FAB for library (responsive) */}
+              <button
+                type="button"
+                className="editor__fab editor__fab--library"
+                aria-controls="editor-library-panel"
+                onClick={(event) => {
+                  responsivePanelTriggerRef.current = event.currentTarget;
+                  editor.toggleLibraryPanel();
+                }}
+                aria-expanded={libraryPanelVisible}
+                aria-label={libraryPanelVisible ? 'Hide resources panel' : 'Show resources panel'}
+              >
+                <Icon name="Library" />
+              </button>
+              {/* Backdrop for overlays. libraryPanelVisible is included because
                 the dismiss handler already closes Resources — without it, a
                 Resources-only drawer had no scrim and no pointer dismissal. */}
-            {(layersVisible || inspectorVisible || libraryPanelVisible) && (
-              // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
-              <div
-                className="editor__panel-backdrop"
-                onClick={closeResponsivePanels}
-                role="presentation"
-              />
-            )}
-          </>
-        )}
-        <ShortcutPalette
-          open={paletteOpen}
-          onClose={() => {
-            closePalette();
-            setPaletteFocusShortcutId(undefined);
-          }}
-          onSelect={handlePaletteSelect}
-          workspaceMode={editor.state.workspaceMode}
-          focusShortcutId={paletteFocusShortcutId}
-        />
-        <QuickActionsBar
-          open={quickActionsOpen}
-          onClose={() => setQuickActionsOpen(false)}
-          workspaceMode={editor.state.workspaceMode}
-          onExecute={(id) => {
-            editor.recordAction(`menu:${id}`);
-            if (id === 'open') {
-              const input = fileRef.current;
-              if (input) input.click();
-            }
-            setQuickActionsOpen(false);
-          }}
-        />
-        <input
-          ref={fileRef}
-          id="file-open-input"
-          type="file"
-          accept=".varve,.strata,.json"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = () => {
-              const text = reader.result as string;
-              // File > Open lands in its own tab (Figma/Photoshop), leaving
-              // the current document open. The picker gives us no path or
-              // app-store id, so the tab stays unbound until it is saved.
-              editor.openFile(undefined, file.name, undefined, text);
-            };
-            reader.readAsText(file);
-            e.target.value = '';
-          }}
-        />
-
-        <input
-          id="file-import-input"
-          ref={fileImport.inputRef}
-          type="file"
-          accept={fileImport.accept}
-          multiple
-          style={{ display: 'none' }}
-          onChange={fileImport.onFilesSelected}
-        />
-
-        {/* Settings dialog */}
-        <SettingsDialog
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          initialSection={settingsSection}
-          onOnboardingReset={() => {
-            resetOnboarding(platform);
-          }}
-        />
-        {/* Workspace customization dialog */}
-        <WorkspaceCustomizeDialog
-          open={workspaceCustomizeOpen}
-          onClose={() => setWorkspaceCustomizeOpen(false)}
-        />
-        {/* Named layouts: save/apply/recover single-window arrangements */}
-        <ManageLayoutsDialog open={manageLayoutsOpen} onClose={() => setManageLayoutsOpen(false)} />
-        {/* Content-Aware Fill dialog */}
-        {editor.state.cafDialogNodeId && (
-          <ContentAwareFillDialog
-            nodeId={editor.state.cafDialogNodeId}
-            isOpen={true}
-            onClose={editor.closeCafDialog}
-            onApplied={editor.closeCafDialog}
+              {(layersVisible || inspectorVisible || libraryPanelVisible) && (
+                // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
+                <div
+                  className="editor__panel-backdrop"
+                  onClick={closeResponsivePanels}
+                  role="presentation"
+                />
+              )}
+            </>
+          )}
+          <ShortcutPalette
+            open={paletteOpen}
+            onClose={() => {
+              closePalette();
+              setPaletteFocusShortcutId(undefined);
+            }}
+            onSelect={handlePaletteSelect}
+            workspaceMode={editor.state.workspaceMode}
+            focusShortcutId={paletteFocusShortcutId}
           />
-        )}
-
-        {/* State Machine panel — document-wide, opt-in (see toggleStateMachinePanel) */}
-        <StateMachinePanel
-          open={editor.state.stateMachinePanelVisible}
-          onClose={editor.toggleStateMachinePanel}
-        />
-
-        {/* Export dialog + batch BG removal (self-contained) */}
-        <ExportLayer ref={exportLayerRef} platform={platform} />
-        <FindReplaceLayer ref={findReplaceLayerRef} />
-        <IconBrowserDialog
-          open={iconBrowserOpen}
-          onClose={() => setIconBrowserOpen(false)}
-          title="Insert icon"
-        />
-
-        {editor.state.subjectPickerSession && (
-          <SubjectPickerOverlay
-            session={editor.state.subjectPickerSession}
-            onConfirm={(keepIds) => editor.confirmSubjectPicker(keepIds)}
-            onCancel={() => editor.cancelSubjectPicker()}
-            onHighlight={(id) => editor.patch({ subjectHighlightId: id })}
+          <QuickActionsBar
+            open={quickActionsOpen}
+            onClose={() => setQuickActionsOpen(false)}
+            workspaceMode={editor.state.workspaceMode}
+            onExecute={(id) => {
+              editor.recordAction(`menu:${id}`);
+              if (id === 'open') {
+                const input = fileRef.current;
+                if (input) input.click();
+              }
+              setQuickActionsOpen(false);
+            }}
           />
-        )}
+          <input
+            ref={fileRef}
+            id="file-open-input"
+            type="file"
+            accept=".varve,.strata,.json"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = () => {
+                const text = reader.result as string;
+                // File > Open lands in its own tab (Figma/Photoshop), leaving
+                // the current document open. The picker gives us no path or
+                // app-store id, so the tab stays unbound until it is saved.
+                editor.openFile(undefined, file.name, undefined, text);
+              };
+              reader.readAsText(file);
+              e.target.value = '';
+            }}
+          />
 
-        {/* Onboarding: welcome, tour, checklist, tips */}
-        <OnboardingLayer ref={onboardingLayerRef} platform={platform} onBackToHome={onBackToHome} />
+          <input
+            id="file-import-input"
+            ref={fileImport.inputRef}
+            type="file"
+            accept={fileImport.accept}
+            multiple
+            style={{ display: 'none' }}
+            onChange={fileImport.onFilesSelected}
+          />
 
-        {/* First-run overlay: 3-step tips shown once */}
-        <FirstRunOverlay />
+          {/* Settings dialog */}
+          <SettingsDialog
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            initialSection={settingsSection}
+            onOnboardingReset={() => {
+              resetOnboarding(platform);
+            }}
+          />
+          {/* Workspace customization dialog */}
+          <WorkspaceCustomizeDialog
+            open={workspaceCustomizeOpen}
+            onClose={() => setWorkspaceCustomizeOpen(false)}
+          />
+          {/* Named layouts: save/apply/recover single-window arrangements */}
+          <ManageLayoutsDialog
+            open={manageLayoutsOpen}
+            onClose={() => setManageLayoutsOpen(false)}
+          />
+          {/* Content-Aware Fill dialog */}
+          {editor.state.cafDialogNodeId && (
+            <ContentAwareFillDialog
+              nodeId={editor.state.cafDialogNodeId}
+              isOpen={true}
+              onClose={editor.closeCafDialog}
+              onApplied={editor.closeCafDialog}
+            />
+          )}
 
-        {/* Recovery dialog + termination lifecycle (unsaved-work guard) */}
-        <LifecycleProvider onBackToHome={onBackToHome} />
+          {/* State Machine panel — document-wide, opt-in (see toggleStateMachinePanel) */}
+          <StateMachinePanel
+            open={editor.state.stateMachinePanelVisible}
+            onClose={editor.toggleStateMachinePanel}
+          />
 
-        {/* Prototype presenter (fullscreen preview) */}
-        <PrototypePresenter
-          isOpen={editor.state.isPresenting}
-          onClose={editor.stopPresentation}
-          screens={editor.getPrototypeScreens()}
-          currentScreenId={editor.prototypeCurrentScreen}
-          onNavigate={editor.navigatePrototypeTo}
-          onEvent={editor.handlePrototypeEvent}
-          prototypeDocument={editor.state.document}
-          overlayStack={editor.state.prototypeRuntime?.state.overlayStack ?? []}
-          hitTestNode={(world) => {
-            const hit = editor.hitTestNode(world);
-            return hit ? { nodeId: hit.nodeId } : null;
-          }}
-          getNodeBounds={(nodeId) => {
-            const node = editor.state.document.nodes[nodeId];
-            if (!node) return null;
-            return nodeLocalBounds(node, editor.state.document);
-          }}
-          activeTransition={editor.prototypeTransition}
-          onClearTransition={editor.clearPrototypeTransition}
-        />
+          {/* Export dialog + batch BG removal (self-contained) */}
+          <ExportLayer ref={exportLayerRef} platform={platform} />
+          <FindReplaceLayer ref={findReplaceLayerRef} />
+          <IconBrowserDialog
+            open={iconBrowserOpen}
+            onClose={() => setIconBrowserOpen(false)}
+            title="Insert icon"
+          />
 
-        {/* Contextual help side panel (F1) */}
-        <ContextualHelpPanel
-          state={editorHelp.contextual.state}
-          onClose={editorHelp.contextual.close}
-          onSetArticle={editorHelp.contextual.setArticle}
-          onSetSearchQuery={editorHelp.contextual.setSearchQuery}
-        />
+          {editor.state.subjectPickerSession && (
+            <SubjectPickerOverlay
+              session={editor.state.subjectPickerSession}
+              onConfirm={(keepIds) => editor.confirmSubjectPicker(keepIds)}
+              onCancel={() => editor.cancelSubjectPicker()}
+              onHighlight={(id) => editor.patch({ subjectHighlightId: id })}
+            />
+          )}
 
-        {/* What's This? click-to-learn overlay (Shift+F1) */}
-        <WhatIsThis
-          open={editorHelp.whatIsThisOpen}
-          onOpenHelp={editorHelp.handleWhatIsThisArticle}
-          onExit={editorHelp.exitWhatIsThis}
-        />
+          {/* Onboarding: welcome, tour, checklist, tips */}
+          <OnboardingLayer
+            ref={onboardingLayerRef}
+            platform={platform}
+            onBackToHome={onBackToHome}
+          />
 
-        {/* Help Browser */}
-        <HelpBrowser
-          open={editorHelp.helpCenterOpen}
-          onClose={() => editorHelp.setHelpCenterOpen(false)}
-        />
-        <PromptDialog />
-        <ConfirmDialog />
+          {/* First-run overlay: 3-step tips shown once */}
+          <FirstRunOverlay />
 
-        {/* Logo small-size preview */}
-        <LogoPreviewDialog />
+          {/* Recovery dialog + termination lifecycle (unsaved-work guard) */}
+          <LifecycleProvider onBackToHome={onBackToHome} />
 
-        {/* Upscale dialog — always mounted so the native dialog can run its
+          {/* Prototype presenter (fullscreen preview). Screen geometry is owned
+              by PrototypeScreenView, which derives active regions from the same
+              raster the image came from — the presenter is not given a second
+              hit-test path. */}
+          <PrototypePresenter
+            isOpen={editor.state.isPresenting}
+            onClose={editor.stopPresentation}
+            screens={editor.getPrototypeScreens()}
+            currentScreenId={editor.prototypeCurrentScreen}
+            onNavigate={editor.navigatePrototypeTo}
+            onEvent={editor.handlePrototypeEvent}
+            prototypeDocument={editor.state.document}
+            overlayStack={editor.state.prototypeRuntime?.state.overlayStack ?? []}
+            historyDepth={editor.prototypeHistoryDepth}
+            onBack={editor.prototypeGoBack}
+            showHotspots={editor.prototypeShowHotspots}
+            onToggleHotspots={editor.togglePrototypeHotspots}
+            activeTransition={editor.prototypeTransition}
+            onClearTransition={editor.clearPrototypeTransition}
+            onRestart={editor.restartPrototype}
+          />
+
+          {/* Contextual help side panel (F1) */}
+          <ContextualHelpPanel
+            state={editorHelp.contextual.state}
+            onClose={editorHelp.contextual.close}
+            onSetArticle={editorHelp.contextual.setArticle}
+            onSetSearchQuery={editorHelp.contextual.setSearchQuery}
+          />
+
+          {/* What's This? click-to-learn overlay (Shift+F1) */}
+          <WhatIsThis
+            open={editorHelp.whatIsThisOpen}
+            onOpenHelp={editorHelp.handleWhatIsThisArticle}
+            onExit={editorHelp.exitWhatIsThis}
+          />
+
+          {/* Help Browser */}
+          <HelpBrowser
+            open={editorHelp.helpCenterOpen}
+            onClose={() => editorHelp.setHelpCenterOpen(false)}
+          />
+          <PromptDialog />
+          <ConfirmDialog />
+
+          {/* Logo small-size preview */}
+          <LogoPreviewDialog />
+
+          {/* Upscale dialog — always mounted so the native dialog can run its
             close() focus restoration; the body only mounts while open. */}
-        <UpscaleDialogHost open={editor.upscaleDialogOpen} onClose={editor.closeUpscaleDialog} />
+          <UpscaleDialogHost open={editor.upscaleDialogOpen} onClose={editor.closeUpscaleDialog} />
 
-        {/* Curated effects dialog — shares the live primary editor state. */}
-        <EffectStudioDialogHost />
+          {/* Curated effects dialog — shares the live primary editor state. */}
+          <EffectStudioDialogHost />
 
-        <ImageResizeDialogHost />
+          <ImageResizeDialogHost />
 
-        {/* Image Trace dialog */}
-        {editor.vectorizeDialogOpen && <VectorizeDialogHost />}
+          {/* Image Trace dialog */}
+          {editor.vectorizeDialogOpen && <VectorizeDialogHost />}
 
-        {/* Frequency Separation dialog */}
-        {editor.frequencySeparationDialogOpen && <FrequencySeparationDialogHost />}
+          {/* Frequency Separation dialog */}
+          {editor.frequencySeparationDialogOpen && <FrequencySeparationDialogHost />}
 
-        {/* File Thumbnail picker */}
-        <ThumbnailPickerHost />
-        {/* Document Color Mode (Assign vs Convert) */}
-        <ColorConversionHost />
+          {/* File Thumbnail picker */}
+          <ThumbnailPickerHost />
+          {/* Document Color Mode (Assign vs Convert) */}
+          <ColorConversionHost />
 
-        {/* Canvas right-click context menu */}
-        {canvasContextMenu &&
-          (() => {
-            const closeMenu = () => setCanvasContextMenu(null);
-            const items = buildCanvasContextMenuItems({ editor, closeMenu });
-            return (
-              <ContextMenu
-                items={items}
-                anchor={canvasContextMenu.anchor}
-                onClose={closeMenu}
-                label="Canvas context menu"
-                size="default"
-              />
-            );
-          })()}
-      </div>
+          {/* Canvas right-click context menu */}
+          {canvasContextMenu &&
+            (() => {
+              const closeMenu = () => setCanvasContextMenu(null);
+              const items = buildCanvasContextMenuItems({ editor, closeMenu });
+              return (
+                <ContextMenu
+                  items={items}
+                  anchor={canvasContextMenu.anchor}
+                  onClose={closeMenu}
+                  label="Canvas context menu"
+                  size="default"
+                />
+              );
+            })()}
+        </div>
+      </CollabSessionProvider>
     </DnDShell>
   );
 }

@@ -47,6 +47,8 @@ export interface BuildStepSample {
 export interface ShowSample {
   /** Index into the included (non-skipped) slide list. */
   slideIndex: number;
+  /** Show-clock time when delivery entered the current slide (this visit). */
+  slideEnteredAt: number;
   /** The slide is arriving; transition progress is meaningful. */
   phase: 'transition' | 'shown';
   transition: {
@@ -256,6 +258,7 @@ export class ShowDirector {
     if (!runtime) {
       return {
         slideIndex: this.cursor,
+        slideEnteredAt: now,
         phase: 'shown',
         transition: null,
         builds: [],
@@ -298,6 +301,7 @@ export class ShowDirector {
     });
     return {
       slideIndex: this.cursor,
+      slideEnteredAt: runtime.enteredAt,
       phase: inTransition ? 'transition' : 'shown',
       transition: transition
         ? {

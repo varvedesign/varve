@@ -68,6 +68,31 @@ export {
   processDelays,
   setVariable,
 } from './runtime';
+export type {
+  FramePoint,
+  PrototypeHotspot,
+  PrototypeHotspotLayer,
+  ResolvedHotspots,
+  ResolveHotspotsArgs,
+  ScreenFrameMapping,
+  ScreenRasterInfo,
+  ScreenRect,
+} from './screenGeometry';
+// Screen geometry — the one mapping from scene space to the frame box, shared
+// by the screen raster and every active region.
+export {
+  ancestorChain,
+  buildParentIndex,
+  framePointToScene,
+  hitTestPrototypeHotspots,
+  hotspotSceneRect,
+  identityScreenRaster,
+  interactiveNodeIds,
+  resolvePrototypeHotspots,
+  scenePointToFrame,
+  sceneRectToFrame,
+  screenFrameMapping,
+} from './screenGeometry';
 export type { ScrollContainer, ScrollState } from './scrolling';
 // Scrolling
 export {

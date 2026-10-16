@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { saveExportBytes } from '../../exportSaveAdapter';
 import { PresentationStage, type StageBitmap } from './PresentationStage';
+import { PresenterConsole } from './PresenterConsole';
 import { capturePresentationFrame, decodePresentationFrame } from './presentationCapture';
 import {
   PRESENTATION_EXPORT_EVENT,
@@ -108,6 +109,7 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
   const [error, setError] = useState<string | null>(null);
   const [outputWarnings, setOutputWarnings] = useState<string[]>([]);
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
+  const [presenterView, setPresenterView] = useState(false);
 
   const getEngineOnce = useCallback(() => {
     if (getEngine) return getEngine();
@@ -148,6 +150,7 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
         directorRef.current = null;
       }
       setReducedMotion(prefersReducedMotion());
+      setPresenterView(false);
       setRequest(snapshot);
       setSlideIndex(startIndex);
       setError(null);
@@ -214,9 +217,19 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
     [],
   );
 
+  useEffect(() => {
+    if (request?.mode !== 'preview') return;
+    const onFullscreenChange = () => {
+      if (document.fullscreenElement) setPresenterView(false);
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, [request]);
+
   const closeDelivery = useCallback(() => {
     activeExportRef.current?.abort();
     setRequest(null);
+    setPresenterView(false);
     directorRef.current = null;
     bitmapsRef.current.clear();
     setError(null);
@@ -521,39 +534,52 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
                 available for preview.
               </p>
             )}
-            <section
-              className="presentation-audience__stage"
-              aria-live="polite"
-              aria-label="Slide stage"
-              tabIndex={-1}
-              data-autofocus
-            >
-              {director && request.slides.length > 0 ? (
-                <PresentationStage
-                  document={request.document}
-                  revision={request.revision}
-                  slides={request.slides}
-                  transitions={resolvedTransitions}
-                  director={director}
-                  clock={clockRef.current}
-                  renderer={rendererRef.current}
-                  bitmaps={bitmapsRef.current}
-                  bitmapsVersion={bitmapsVersion}
-                  reducedMotion={reducedMotion}
-                />
-              ) : null}
-              {loadingPreview && <p role="status">Preparing slide…</p>}
-              {error && (
-                <p className="presentation-audience__error" role="alert">
-                  {error}
-                </p>
-              )}
-              {!loadingPreview && !error && request.slides.length === 0 && (
-                <p role="status">
-                  No slides are included. Include a slide in the Slides panel to start.
-                </p>
-              )}
-            </section>
+            {presenterView && director && director.slideCount > 0 ? (
+              <PresenterConsole
+                slides={request.slides}
+                director={director}
+                clock={clockRef.current}
+                bitmaps={bitmapsRef.current}
+                bitmapsVersion={bitmapsVersion}
+                onRequestPrevious={() => stepSlide(-1)}
+                onRequestAdvance={() => stepSlide(1)}
+                onShowAudience={() => setPresenterView(false)}
+              />
+            ) : (
+              <section
+                className="presentation-audience__stage"
+                aria-live="polite"
+                aria-label="Slide stage"
+                tabIndex={-1}
+                data-autofocus
+              >
+                {director && request.slides.length > 0 ? (
+                  <PresentationStage
+                    document={request.document}
+                    revision={request.revision}
+                    slides={request.slides}
+                    transitions={resolvedTransitions}
+                    director={director}
+                    clock={clockRef.current}
+                    renderer={rendererRef.current}
+                    bitmaps={bitmapsRef.current}
+                    bitmapsVersion={bitmapsVersion}
+                    reducedMotion={reducedMotion}
+                  />
+                ) : null}
+                {loadingPreview && <p role="status">Preparing slide…</p>}
+                {error && (
+                  <p className="presentation-audience__error" role="alert">
+                    {error}
+                  </p>
+                )}
+                {!loadingPreview && !error && request.slides.length === 0 && (
+                  <p role="status">
+                    No slides are included. Include a slide in the Slides panel to start.
+                  </p>
+                )}
+              </section>
+            )}
             <div className="presentation-audience__controls">
               <Button size="sm" variant="ghost" onClick={() => jumpToSlide(0)}>
                 Start from beginning
@@ -578,6 +604,14 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
                 disabled={request.slides.length < 2 || slideIndex >= request.slides.length - 1}
               >
                 Next
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setPresenterView(true)}
+                disabled={presenterView}
+              >
+                Presenter view
               </Button>
               <Button size="sm" variant="ghost" onClick={() => void enterFullscreen()}>
                 Fullscreen

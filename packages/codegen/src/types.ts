@@ -91,6 +91,35 @@ export type GeneratedFileLanguage =
   | 'text';
 
 /**
+ * A binary asset that ships alongside a generated bundle's code files.
+ *
+ * The bundle contract is multi-file by design: a generated project that
+ * references `assets/<hash>.png` must be able to resolve that file from the
+ * export alone — never from Varve's session (blob/object URLs), dev server,
+ * or document storage. Paths are stable POSIX relatives derived from content
+ * hashes, so two exports of unchanged art produce identical bundles.
+ */
+export interface BundleAsset {
+  /** POSIX-style relative path inside the exported unit (`assets/<hash>.png`). */
+  path: string;
+  mimeType: string;
+  /** Exact file bytes. Metadata (dims, hash) must describe these bytes. */
+  bytes: Uint8Array;
+  /** SHA-256 of `bytes`, hex-encoded. Deduplication identity. */
+  sha256: string;
+  /** Why the asset exists in the bundle. */
+  role: 'raster-fallback' | 'image';
+  /** Intrinsic pixel dimensions of the decoded raster. */
+  pixelWidth?: number;
+  pixelHeight?: number;
+  /** Placement dimensions in CSS/document units. */
+  cssWidth?: number;
+  cssHeight?: number;
+  /** The design node the asset was produced from. */
+  sourceNodeId?: string;
+}
+
+/**
  * One physical file in a generated bundle.
  *
  * A code export is not always one string. React + CSS Modules is two files,
@@ -136,6 +165,13 @@ export interface GeneratedBundle {
   target: string;
   deliverable: CodeDeliverableKind;
   files: GeneratedFile[];
+  /**
+   * Binary assets the bundle's files reference by relative path. Absent
+   * (not empty) means the emitter inlines everything as data URLs — the
+   * snippet profile. A bundle that advertises asset files must include
+   * every referenced path here.
+   */
+  assets?: BundleAsset[];
   /**
    * Runtime/build dependencies the consumer must provide, as
    * `packageName -> semver range`. Never invented: an entry here means the

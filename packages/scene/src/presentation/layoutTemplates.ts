@@ -23,6 +23,18 @@ export const PRESENTATION_BUILT_IN_LAYOUTS = [
   { id: 'evidence', name: 'Evidence', description: 'Claim, visual evidence, and source caption' },
   { id: 'process', name: 'Process', description: 'Three ordered steps' },
   { id: 'conclusion', name: 'Conclusion', description: 'Closing headline and takeaway' },
+  { id: 'title-only', name: 'Title only', description: 'Statement slide with an accent bar' },
+  {
+    id: 'two-content',
+    name: 'Two content columns',
+    description: 'Title over two parallel columns',
+  },
+  {
+    id: 'picture-caption',
+    name: 'Picture with caption',
+    description: 'Full-width visual with a caption line',
+  },
+  { id: 'blank', name: 'Blank', description: 'Empty slide for free composition' },
 ] as const satisfies readonly PresentationBuiltInLayout[];
 
 export type PresentationBuiltInLayoutId = (typeof PRESENTATION_BUILT_IN_LAYOUTS)[number]['id'];
@@ -126,6 +138,27 @@ function templateItems(templateId: PresentationBuiltInLayoutId): LayoutItem[] {
         text('body', '[Next step or closing note]', 0.08, 0.58, 0.68, 0.13, 26),
         rect('accent', 0.08, 0.78, 0.12, 0.012, [36, 157, 148], 2),
       ];
+    case 'title-only':
+      return [
+        text('title', '[Statement]', 0.1, 0.34, 0.8, 0.28, 54, 700),
+        rect('accent', 0.1, 0.68, 0.16, 0.014, [36, 157, 148], 2),
+      ];
+    case 'two-content':
+      return [
+        text('title', '[Title]', 0.07, 0.06, 0.86, 0.13, 40, 700),
+        rect('column-primary', 0.07, 0.24, 0.41, 0.64),
+        text('body-primary', '[First column]', 0.09, 0.27, 0.37, 0.58, 24),
+        rect('column-secondary', 0.52, 0.24, 0.41, 0.64),
+        text('body-secondary', '[Second column]', 0.54, 0.27, 0.37, 0.58, 24),
+      ];
+    case 'picture-caption':
+      return [
+        text('title', '[Title]', 0.07, 0.06, 0.86, 0.12, 36, 700),
+        rect('visual', 0.07, 0.22, 0.86, 0.6),
+        text('caption', '[Caption]', 0.07, 0.85, 0.86, 0.08, 18),
+      ];
+    case 'blank':
+      return [];
   }
 }
 

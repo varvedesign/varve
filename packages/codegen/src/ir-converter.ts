@@ -418,6 +418,10 @@ function buildIR(doc: Document): IRDocument {
     }
 
     function enrichNode(semNode: SemanticNode, sourceId: string) {
+      // Register every node in the flat index, not just roots: consumers
+      // (target analysis, the IR emitters) address nodes by id, and a
+      // roots-only index silently hid every child from them.
+      nodes[semNode.id] = semNode;
       const srcNode = doc.nodes[sourceId];
       if (srcNode) {
         semNode.flattening = computeFlattenInfo(srcNode, doc);

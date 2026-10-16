@@ -37,6 +37,7 @@ import {
   parseServerMessage,
   type RoomOperation,
   type SelectionPresence,
+  type ViewportPresence,
 } from './protocol';
 
 export interface CollabTransport {
@@ -77,6 +78,9 @@ export interface CollabEngineHandlers {
   onRoster(participants: ParticipantInfo[]): void;
   onCursor(actorId: string, cursor: CursorPresence): void;
   onSelection(actorId: string, selection: SelectionPresence): void;
+  /** Spotlight/viewport broadcast from a remote participant. */
+  onViewport(actorId: string, viewport: ViewportPresence): void;
+  /** Spotlight/viewport broadcast from a remote participant. */
   onChat(message: ChatMessage): void;
   onNotice(notice: CollabNotice): void;
   onStatus(status: CollabStatus): void;
@@ -129,6 +133,9 @@ export class CollabSyncEngine {
   private presenceTimer: unknown = null;
   private readonly cursors = new Map<string, { cursor: CursorPresence; at: number }>();
   private readonly selections = new Map<string, { selection: SelectionPresence; at: number }>();
+  private readonly viewports = new Map<string, { viewport: ViewportPresence; at: number }>();
+  private viewportTimer: unknown = null;
+  private lastViewportSent: ViewportPresence | null = null;
   private endedReason: string | null = null;
   private leaving = false;
   private lastCursorSent: CursorPresence | null = null;
@@ -207,6 +214,29 @@ export class CollabSyncEngine {
     });
   }
 
+  /**
+   * Publish the local camera viewport. While `spotlighting` is true the
+   * participant invites followers; following remains a per-viewer opt-in
+   * and is cancelled by any local camera interaction (never forced).
+   */
+  sendViewport(
+    pageId: string | null,
+    centerX: number,
+    centerY: number,
+    zoom: number,
+    spotlighting: boolean,
+  ): void {
+    this.lastViewportSent = { pageId, centerX, centerY, zoom, spotlighting };
+    if (this.viewportTimer !== null) return;
+    this.viewportTimer = this.timers.setTimeout(() => {
+      this.viewportTimer = null;
+      const viewport = this.lastViewportSent;
+      if (viewport && this.status === 'live') {
+        this.transport?.send({ type: 'viewport', ...viewport });
+      }
+    }, 1000 / PROTOCOL_LIMITS.presenceHz);
+  }
+
   sendChat(text: string, messageId: string): boolean {
     const trimmed = text.slice(0, PROTOCOL_LIMITS.maxChatLength);
     if (this.status !== 'live' || trimmed.trim().length === 0) return false;
@@ -221,6 +251,13 @@ export class CollabSyncEngine {
   /** True when the op is ours and still unacknowledged. */
   isPending(clientOpId: string): boolean {
     return this.pending.has(clientOpId);
+  }
+
+  /** Ask the host to replay everything after our last applied sequence. */
+  resync(): void {
+    if (this.status === 'live' || this.status === 'syncing') {
+      this.transport?.send({ type: 'sync-request', fromSeq: this.appliedSeq });
+    }
   }
 
   /** Live remote presence, TTL-filtered. */
@@ -247,6 +284,14 @@ export class CollabSyncEngine {
       actorId,
       selection: entry.selection,
     }));
+  }
+
+  /** TTL-filtered spotlight/viewport broadcasts, spotlighting first. */
+  liveViewports(): Array<{ actorId: string; viewport: ViewportPresence }> {
+    this.expirePresence();
+    return [...this.viewports.entries()]
+      .map(([actorId, entry]) => ({ actorId, viewport: entry.viewport }))
+      .sort((a, b) => Number(b.viewport.spotlighting) - Number(a.viewport.spotlighting));
   }
 
   participantFor(actorId: string): ParticipantInfo | null {
@@ -406,6 +451,7 @@ export class CollabSyncEngine {
         this.participants = this.participants.filter((p) => p.actorId !== message.actorId);
         this.cursors.delete(message.actorId);
         this.selections.delete(message.actorId);
+        this.viewports.delete(message.actorId);
         this.options.handlers.onRoster(this.participants);
         this.options.handlers.onNotice({
           code: 'participant-left',
@@ -428,6 +474,14 @@ export class CollabSyncEngine {
         }
         break;
       }
+      case 'presence-viewport': {
+        if (message.actorId !== this.actorId) {
+          this.viewports.set(message.actorId, { viewport: message.viewport, at: this.nowMs() });
+          this.options.handlers.onViewport(message.actorId, message.viewport);
+        }
+        break;
+      }
+
       case 'chat': {
         this.options.handlers.onChat(message.message);
         break;
@@ -502,6 +556,9 @@ export class CollabSyncEngine {
     for (const [actorId, entry] of this.selections) {
       if (entry.at < cutoff) this.selections.delete(actorId);
     }
+    for (const [actorId, entry] of this.viewports) {
+      if (entry.at < cutoff) this.viewports.delete(actorId);
+    }
   }
 
   private teardownTransport(): void {
@@ -512,6 +569,10 @@ export class CollabSyncEngine {
     if (this.presenceTimer !== null) {
       this.timers.clearTimeout(this.presenceTimer);
       this.presenceTimer = null;
+    }
+    if (this.viewportTimer !== null) {
+      this.timers.clearTimeout(this.viewportTimer);
+      this.viewportTimer = null;
     }
     this.transport?.close();
     this.transport = null;

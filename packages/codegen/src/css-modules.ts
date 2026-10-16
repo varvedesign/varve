@@ -11,6 +11,7 @@
  */
 
 import type { Document as SceneDocument, SceneNode } from '@varve/scene';
+import { resolveBundleAssets } from './bundle-assets';
 import { type CssExportOptions, collectCssRules, cssTargetGaps } from './css';
 import { styleKeyAccess, toComponentName, toFileStem } from './naming';
 import { unstableImageSourceReason } from './shared';
@@ -29,6 +30,12 @@ export interface CssModulesExportOptions extends CssExportOptions {
   fileStem?: string;
   /** Directory prefix for emitted paths. Default: '' (files sit together). */
   directory?: string;
+  /**
+   * `'inline'` (default) keeps raster bytes as data URLs in the stylesheet;
+   * `'files'` writes them as content-addressed files under `assets/` and
+   * attaches them to the bundle.
+   */
+  assetMode?: 'inline' | 'files';
 }
 
 type Rules = ReturnType<typeof collectCssRules>;
@@ -57,6 +64,47 @@ function buildPair(
 }
 
 /**
+ * Inline React style for one rich-text run: only properties that differ from
+ * the text node's own typography (the wrapping element carries it). CSS
+ * Modules scope class names; run-level deltas are the standard inline-style
+ * case.
+ */
+function runStyleObject(
+  format: import('@varve/scene').CharacterFormat | undefined,
+  node: import('@varve/scene').TextNode,
+): Record<string, string> {
+  const style: Record<string, string> = {};
+  if (!format) return style;
+  if (format.fontFamily && format.fontFamily !== node.fontFamily)
+    style.fontFamily = `'${format.fontFamily}'`;
+  if (format.fontSize !== undefined && format.fontSize !== node.fontSize)
+    style.fontSize = `${format.fontSize}px`;
+  if (format.fontWeight !== undefined && format.fontWeight !== node.fontWeight)
+    style.fontWeight = String(format.fontWeight);
+  if (format.fontStyle === 'italic') style.fontStyle = 'italic';
+  if (format.color) {
+    const c = format.color as { r?: number; g?: number; b?: number };
+    const n = node.fill as { r?: number; g?: number; b?: number };
+    const differs = c.r !== undefined && (c.r !== n.r || c.g !== n.g || c.b !== n.b);
+    if (differs) {
+      style.color = `#${[c.r, c.g, c.b]
+        .map((v) => (v ?? 0).toString(16).padStart(2, '0'))
+        .join('')}`;
+    }
+  }
+  if (format.lineHeight !== undefined && format.lineHeight !== node.lineHeight)
+    style.lineHeight = String(format.lineHeight);
+  if (format.letterSpacing !== undefined && format.letterSpacing !== (node.letterSpacing ?? 0))
+    style.letterSpacing = `${format.letterSpacing}px`;
+  if (format.textCase === 'uppercase') style.textTransform = 'uppercase';
+  else if (format.textCase === 'lowercase') style.textTransform = 'lowercase';
+  else if (format.textCase === 'capitalize') style.textTransform = 'capitalize';
+  if (format.textDecoration === 'underline') style.textDecoration = 'underline';
+  else if (format.textDecoration === 'line-through') style.textDecoration = 'line-through';
+  return style;
+}
+
+/**
  * JSX element tree for one CSS Modules rule, recursing through the class
  * names the stylesheet actually emitted.
  */
@@ -67,6 +115,38 @@ function renderElement(rule: Rule, byName: Map<string, Rule>, depth: number): st
   if (rule.node.kind === 'text') {
     // JSX expression container with a JSON string literal: handles `&`, `<`,
     // `{`, quotes, backticks, and newlines with exactly one encoding pass.
+    const tn = rule.node as import('@varve/scene').TextNode;
+    const paragraphs = tn.richText?.paragraphs;
+    if (paragraphs && paragraphs.length > 0) {
+      const pHtml = paragraphs
+        .map((p) => {
+          const pStyle: string[] = [];
+          if (p.format?.textAlign && p.format.textAlign !== 'left') {
+            pStyle.push(`textAlign: '${p.format.textAlign}'`);
+          }
+          if (p.format?.direction === 'rtl') {
+            pStyle.push("direction: 'rtl'");
+          }
+          const styleAttr = pStyle.length > 0 ? ` style={{ ${pStyle.join(', ')} }}` : '';
+          const visibleRuns = (p.runs ?? []).filter((run) => run.text.length > 0);
+          if (visibleRuns.length === 0) return `${pad}  <p${styleAttr}><br /></p>`;
+          const inner = visibleRuns
+            .map((run) => {
+              const style = runStyleObject(run.format, tn);
+              const styleAttr2 =
+                Object.keys(style).length > 0
+                  ? ` style={{ ${Object.entries(style)
+                      .map(([k, v]) => `${k}: '${v}'`)
+                      .join(', ')} }}`
+                  : '';
+              return `<span${styleAttr2}>{${JSON.stringify(run.text)}}</span>`;
+            })
+            .join('');
+          return `${pad}  <p${styleAttr}>${inner}</p>`;
+        })
+        .join('\n');
+      return `${pad}<div ${classNameAttr}>\n${pHtml}\n${pad}</div>`;
+    }
     return `${pad}<span ${classNameAttr}>{${JSON.stringify(rule.node.text)}}</span>`;
   }
 
@@ -182,7 +262,12 @@ export function exportNodeToCssModulesBundle(
   doc: SceneDocument,
   opts?: CssModulesExportOptions,
 ): GeneratedBundle {
-  const pair = buildPair(node, doc, opts);
+  const resolved = resolveBundleAssets({
+    rasterAssets: opts?.rasterAssets,
+    assetMode: opts?.assetMode,
+  });
+  const emissionOpts = { ...opts, assetPaths: resolved.assetPaths };
+  const pair = buildPair(node, doc, emissionOpts);
   const directory = opts?.directory ?? '';
   const prefix = directory.length > 0 ? `${directory.replace(/\/+$/, '')}/` : '';
   const hasRaster = pair.rules.some((rule) => Boolean(opts?.rasterAssets?.[rule.node.id]));
@@ -201,17 +286,27 @@ export function exportNodeToCssModulesBundle(
     entry: true,
   };
 
+  const setup = [
+    `Copy ${tsxFile.path} and ${cssFile.path} into your project, keeping both files together.`,
+    `Render <${pair.componentName} /> — it takes no props.`,
+    'Requires a bundler with CSS Modules support (Vite, Next.js, or webpack with css-loader).',
+  ];
+  if (resolved.assets && resolved.assets.length > 0) {
+    setup.splice(
+      1,
+      0,
+      'Keep the assets/ folder beside the stylesheet — the rules reference those files by relative path.',
+    );
+  }
+
   return {
     target: 'react-cssmodules',
     deliverable: 'component',
     files: [tsxFile, cssFile],
+    assets: resolved.assets,
     dependencies: { react: '>=18' },
-    setup: [
-      `Copy ${tsxFile.path} and ${cssFile.path} into your project, keeping both files together.`,
-      `Render <${pair.componentName} /> — it takes no props.`,
-      'Requires a bundler with CSS Modules support (Vite, Next.js, or webpack with css-loader).',
-    ],
-    diagnostics: diagnosticsFor(node, doc, opts),
+    setup,
+    diagnostics: diagnosticsFor(node, doc, emissionOpts),
   };
 }
 

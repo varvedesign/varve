@@ -5,14 +5,8 @@ import {
   handleEvent as protoHandleEvent,
   setVariable as protoSetVar,
 } from '@varve/prototype';
-import type { Document, SMRuntime } from '@varve/scene';
-import {
-  createStateMachineRuntime,
-  getCurrentStateTimelineId,
-  setActiveTimeline as setActiveTimelineDoc,
-  triggerSMEvent,
-  updateVariableInDocument,
-} from '@varve/scene';
+import type { SMRuntime } from '@varve/scene';
+import { createStateMachineRuntime, getCurrentStateTimelineId, triggerSMEvent } from '@varve/scene';
 import type { ReactNode } from 'react';
 import {
   createContext,
@@ -38,18 +32,36 @@ export interface PrototypeContextValue {
   handlePrototypeEvent: (event: unknown) => void;
   /** Get prototype variable value */
   getPrototypeVariable: (id: string) => string | number | boolean | undefined;
-  /** Set prototype variable value */
+  /**
+   * Set a prototype variable value **in the running session only**.
+   *
+   * The session is isolated: a prototype interaction must not rewrite the
+   * document's authored variable defaults, must not create an undo entry and
+   * must not mark the document dirty. Changing an authored default is an
+   * explicit editing action in the Variables panel, not a side effect of
+   * playback.
+   */
   setPrototypeVariable: (id: string, value: string | number | boolean) => void;
   /** Start presentation mode (fullscreen) */
   startPresentation: () => void;
   /** Stop presentation mode */
   stopPresentation: () => void;
+  /** Restart the running flow at its entry point. */
+  restartPrototype: () => void;
   /** Get all frame nodes (screens) for prototype */
   getPrototypeScreens: () => Array<{ id: string; name: string }>;
   /** Current screen in prototype */
   prototypeCurrentScreen: string;
   /** Navigate to a prototype screen */
   navigatePrototypeTo: (screenId: string) => void;
+  /** Authored navigation history depth (0 when there is nowhere to go back to). */
+  prototypeHistoryDepth: number;
+  /** Walk authored history back one step (overlay first, then screen). */
+  prototypeGoBack: () => void;
+  /** Whether the viewer draws active-region hints. */
+  prototypeShowHotspots: boolean;
+  /** Toggle the viewer's active-region hints. */
+  togglePrototypeHotspots: () => void;
   /** Active screen transition during prototype navigation. */
   prototypeTransition: ActivePrototypeTransition | null;
   clearPrototypeTransition: () => void;
@@ -71,7 +83,6 @@ interface PrototypeProviderProps {
   state: EditorState;
   setState: React.Dispatch<React.SetStateAction<EditorState>>;
   stateRef: React.MutableRefObject<EditorState>;
-  updateDoc: (fn: (doc: Document) => Document) => void;
   /** Shared refs — kept in the parent so the delay-polling useEffect can access them. */
   prototypeRuntimeRef: React.MutableRefObject<PrototypeRuntime | null>;
   smRuntimeRef: React.MutableRefObject<SMRuntime | null>;
@@ -90,7 +101,6 @@ export function PrototypeProvider({
   state,
   setState,
   stateRef,
-  updateDoc,
   prototypeRuntimeRef,
   smRuntimeRef,
   playTimeline = () => {},
@@ -109,7 +119,19 @@ export function PrototypeProvider({
     null,
   );
   const [prototypeCurrentScreen, setPrototypeCurrentScreen] = useState('');
+  const [prototypeHistoryDepth, setPrototypeHistoryDepth] = useState(0);
+  const [prototypeShowHotspots, setPrototypeShowHotspots] = useState(false);
   const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null);
+
+  /** Mirror the runtime's authored history depth into React state. */
+  const syncHistoryDepth = useCallback(() => {
+    const runtime = prototypeRuntimeRef.current;
+    if (!runtime) {
+      setPrototypeHistoryDepth(0);
+      return;
+    }
+    setPrototypeHistoryDepth(runtime.screenHistory.length + runtime.state.overlayStack.length);
+  }, [prototypeRuntimeRef]);
 
   const setPrototypeMode = useCallback(
     (active: boolean) => {
@@ -127,10 +149,12 @@ export function PrototypeProvider({
           },
         });
         setPrototypeCurrentScreen(entryScreenId);
+        setPrototypeHistoryDepth(0);
       } else {
         prototypeRuntimeRef.current = null;
         smRuntimeRef.current = null;
         patch({ prototypeRuntime: null });
+        setPrototypeHistoryDepth(0);
       }
     },
     [patch, stateRef, prototypeRuntimeRef, smRuntimeRef],
@@ -211,8 +235,17 @@ export function PrototypeProvider({
       }
 
       setPrototypeCurrentScreen(runtime.state.currentScreenId);
+      syncHistoryDepth();
     },
-    [patch, stateRef, prototypeRuntimeRef, smRuntimeRef, playTimeline, stopTimeline],
+    [
+      patch,
+      stateRef,
+      prototypeRuntimeRef,
+      smRuntimeRef,
+      playTimeline,
+      stopTimeline,
+      syncHistoryDepth,
+    ],
   );
 
   const getPrototypeVariable = useCallback(
@@ -224,35 +257,32 @@ export function PrototypeProvider({
     [prototypeRuntimeRef],
   );
 
+  /**
+   * Session-local variable write.
+   *
+   * This deliberately does **not** call `updateDoc`. The document holds the
+   * authored defaults for a variable; a prototype session holds the values the
+   * viewer is exercising. Projecting a session write back into the document
+   * made playback mutate authored state, produce an undo entry per interaction
+   * and mark the document dirty — an observation matching an external report
+   * of prototype scrubs creating an undo entry per frame. Editing an authored
+   * default is the Variables panel's job, inside a real transaction.
+   */
   const setPrototypeVariable = useCallback(
     (id: string, value: string | number | boolean) => {
       const runtime = prototypeRuntimeRef.current;
       if (runtime) protoSetVar(runtime, id, value);
-      updateDoc((doc) => {
-        const v = doc.variableStore?.variables[id];
-        if (!v) return doc;
-        const mode = doc.variableStore?.activeMode ?? 'default';
-        try {
-          return updateVariableInDocument(doc, id, {
-            valuesByMode: { ...v.valuesByMode, [mode]: value },
-          });
-        } catch {
-          // A token-linked variable refuses a value it cannot project
-          // (`synchronizeVariableEdit` throws on token/sync diagnostics), and
-          // that refusal must not escape a prototype interaction: the throw
-          // would leave playback mid-gesture, and writing the bound value
-          // anyway would desynchronise the token document. The runtime value
-          // set above is what the running prototype reads, so the interaction
-          // keeps its behaviour; only the document projection is skipped. The
-          // Variables panel surfaces the same refusal to the user when the
-          // value is edited directly.
-          return doc;
-        }
-      });
     },
-    [updateDoc, prototypeRuntimeRef],
+    [prototypeRuntimeRef],
   );
 
+  /**
+   * Enter presentation. The session gets its own runtime; the document is not
+   * written to. (This previously called `updateDoc(setActiveTimeline)` to
+   * point the document at a state-machine timeline. Authoring state must not
+   * move because a viewer opened, so the timeline pointer stays where the
+   * author left it and only the runtime conveniences are established here.)
+   */
   const startPresentation = useCallback(() => {
     const doc = stateRef.current.document;
     const { runtime, entryScreenId } = createRuntimeFromDocument(doc);
@@ -277,13 +307,28 @@ export function PrototypeProvider({
           }
         : {}),
     });
-    updateDoc((d) => (smTimelineId ? setActiveTimelineDoc(d, smTimelineId) : d));
     setPrototypeCurrentScreen(entryScreenId);
-  }, [patch, stateRef, updateDoc, prototypeRuntimeRef, smRuntimeRef]);
+    setPrototypeHistoryDepth(0);
+  }, [patch, stateRef, prototypeRuntimeRef, smRuntimeRef]);
 
   const stopPresentation = useCallback(() => {
     patch({ isPresenting: false });
   }, [patch]);
+
+  /** Restart the flow from its entry point without touching authored state. */
+  const restartPrototype = useCallback(() => {
+    const { runtime, entryScreenId } = createRuntimeFromDocument(stateRef.current.document);
+    prototypeRuntimeRef.current = runtime;
+    patch({
+      prototypeRuntime: runtime,
+      prototypeData: {
+        interactions: interactionsMapFromDocument(stateRef.current.document),
+      },
+    });
+    setPrototypeCurrentScreen(entryScreenId);
+    setPrototypeHistoryDepth(0);
+    setPrototypeTransition(null);
+  }, [patch, stateRef, prototypeRuntimeRef]);
 
   const getPrototypeScreens = useCallback(() => {
     return Object.values(state.document.nodes)
@@ -291,6 +336,14 @@ export function PrototypeProvider({
       .map((n) => ({ id: n.id, name: n.name }));
   }, [state.document.nodes]);
 
+  /**
+   * Inspection navigation (flow view, previous/next screen). This is *not*
+   * authored navigation: it deliberately does not push the authored history
+   * stack, so the viewer's Back control keeps describing where the flow has
+   * actually been. (It previously mutated `runtime.state.currentScreenId`
+   * directly, which also meant `goBack` popped an entry the user never
+   * created.)
+   */
   const navigatePrototypeTo = useCallback(
     (screenId: string) => {
       const runtime = prototypeRuntimeRef.current;
@@ -298,9 +351,33 @@ export function PrototypeProvider({
         runtime.state.currentScreenId = screenId;
       }
       setPrototypeCurrentScreen(screenId);
+      syncHistoryDepth();
     },
-    [prototypeRuntimeRef],
+    [prototypeRuntimeRef, syncHistoryDepth],
   );
+
+  /** Walk authored history back one step: top overlay first, then screen. */
+  const prototypeGoBack = useCallback(() => {
+    const runtime = prototypeRuntimeRef.current;
+    if (!runtime) return;
+    const fromScreenId = runtime.state.currentScreenId;
+    protoApplyActionResult(runtime, { kind: 'goBack' });
+    const toScreenId = runtime.state.currentScreenId;
+    if (toScreenId !== fromScreenId) {
+      setPrototypeTransition({
+        fromScreenId,
+        toScreenId,
+        transition: { kind: 'instant', duration: 0, easing: { kind: 'linear' } },
+        startedAt: performance.now(),
+      });
+    }
+    setPrototypeCurrentScreen(toScreenId);
+    syncHistoryDepth();
+  }, [prototypeRuntimeRef, syncHistoryDepth]);
+
+  const togglePrototypeHotspots = useCallback(() => {
+    setPrototypeShowHotspots((visible) => !visible);
+  }, []);
 
   const clearPrototypeTransition = useCallback(() => setPrototypeTransition(null), []);
 
@@ -321,9 +398,14 @@ export function PrototypeProvider({
       setPrototypeVariable,
       startPresentation,
       stopPresentation,
+      restartPrototype,
       getPrototypeScreens,
       prototypeCurrentScreen,
       navigatePrototypeTo,
+      prototypeHistoryDepth,
+      prototypeGoBack,
+      prototypeShowHotspots,
+      togglePrototypeHotspots,
       prototypeTransition,
       clearPrototypeTransition,
       selectedInteractionId,
@@ -337,9 +419,14 @@ export function PrototypeProvider({
       setPrototypeVariable,
       startPresentation,
       stopPresentation,
+      restartPrototype,
       getPrototypeScreens,
       prototypeCurrentScreen,
       navigatePrototypeTo,
+      prototypeHistoryDepth,
+      prototypeGoBack,
+      prototypeShowHotspots,
+      togglePrototypeHotspots,
       prototypeTransition,
       clearPrototypeTransition,
       selectedInteractionId,

@@ -146,6 +146,14 @@ export function TabletTouchControls() {
               type="button"
               className="tablet-touch-controls__action"
               disabled={!hasSelection}
+              onClick={() => editor.arrangeSelected('front')}
+            >
+              Bring to front
+            </button>
+            <button
+              type="button"
+              className="tablet-touch-controls__action"
+              disabled={!hasSelection}
               onClick={() => editor.arrangeSelected('forward')}
             >
               Bring forward
@@ -157,6 +165,14 @@ export function TabletTouchControls() {
               onClick={() => editor.arrangeSelected('backward')}
             >
               Send backward
+            </button>
+            <button
+              type="button"
+              className="tablet-touch-controls__action"
+              disabled={!hasSelection}
+              onClick={() => editor.arrangeSelected('back')}
+            >
+              Send to back
             </button>
           </fieldset>
           {/* A compact gesture reference. The gestures are the same ones the
@@ -171,7 +187,7 @@ export function TabletTouchControls() {
               <dt>One finger</dt>
               <dd>Follows Drawing input: draws, or pans when set to navigate.</dd>
               <dt>Two fingers</dt>
-              <dd>Pan and zoom the canvas.</dd>
+              <dd>Pan and zoom the canvas; a firm twist rotates the view.</dd>
               <dt>Long press</dt>
               <dd>Pick a nested object under your finger.</dd>
               <dt>Multi</dt>

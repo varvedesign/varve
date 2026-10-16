@@ -52,6 +52,7 @@ import {
   DEFAULT_LAYOUT_SPEC,
   DEFAULT_TOKEN_BINDINGS,
 } from './ir-types';
+import { colorToHex } from './shared';
 
 // ── Color Helpers ──────────────────────────────────────────────────────────────
 
@@ -186,6 +187,8 @@ function buildTypographySpec(node: SceneNode): TypographySpec {
     base.fontFamily = tn.fontFamily || 'Inter';
     base.fontSize = tn.fontSize || 16;
     base.fontWeight = tn.fontWeight || 400;
+    base.fontStyle = tn.fontStyle !== 'normal' ? tn.fontStyle : undefined;
+    base.color = colorToHex(tn.fill);
     base.lineHeight = tn.lineHeight || 1.4;
     base.letterSpacing = tn.letterSpacing || 0;
     if (tn.textAlign) base.textAlign = tn.textAlign;
@@ -531,25 +534,33 @@ function buildFlexChildSpec(node: SceneNode): FlexChildSpec | undefined {
 function buildContentSpec(node: SceneNode): ContentSpec {
   if (node.kind === 'text') {
     const tn = node as TextNode;
+    const paragraphs = tn.richText?.paragraphs.map((p) => ({
+      runs: (p.runs ?? []).map((r) => ({
+        text: r.text,
+        style: {
+          fontFamily: r.format?.fontFamily,
+          fontStyle: r.format?.fontStyle !== 'normal' ? r.format?.fontStyle : undefined,
+          fontSize: r.format?.fontSize,
+          fontWeight: r.format?.fontWeight,
+          color: r.format?.color ? colorToHex(r.format.color) : undefined,
+          lineHeight: r.format?.lineHeight,
+          letterSpacing: r.format?.letterSpacing,
+          textTransform: r.format?.textCase !== 'none' ? r.format?.textCase : undefined,
+          decoration: r.format?.textDecoration !== 'none' ? r.format?.textDecoration : undefined,
+        },
+      })),
+      textAlign: p.format?.textAlign,
+      direction: p.format?.direction,
+      paragraphSpacing: p.format?.paragraphSpacing,
+    }));
     return {
       type: 'text',
       text: {
         value: tn.text || '',
-        runs: tn.richText?.paragraphs.flatMap(
-          (p) =>
-            p.runs?.map((r) => ({
-              text: r.text,
-              style: {
-                fontFamily: r.format?.fontFamily,
-                fontSize: r.format?.fontSize,
-                fontWeight: r.format?.fontWeight,
-                lineHeight: r.format?.lineHeight,
-                letterSpacing: r.format?.letterSpacing,
-                decoration:
-                  r.format?.textDecoration !== 'none' ? r.format?.textDecoration : undefined,
-              },
-            })) ?? [],
-        ),
+        paragraphs,
+        // Legacy flat view, kept in sync for consumers that predate
+        // paragraphs; new emitters read `paragraphs` exclusively.
+        runs: paragraphs?.flatMap((p) => p.runs ?? []),
       },
     };
   }
@@ -682,7 +693,13 @@ function convertToSemanticNode(
   const appearance: AppearanceSpec = {
     ...DEFAULT_APPEARANCE_SPEC,
     background: buildFillSpec(node, doc.colorConfig?.defaultGradientInterpolation ?? 'oklab'),
-    foreground: buildFillSpec(node, doc.colorConfig?.defaultGradientInterpolation ?? 'oklab'),
+    // Foreground is the text ink, not a copy of the box background: emitters
+    // read it as the glyph colour, and duplicating the fill stack here made
+    // every text node inherit its container's paint.
+    foreground:
+      node.kind === 'text'
+        ? [{ type: 'solid' as const, value: colorToHex(node.fill), opacity: 1 }]
+        : [],
     strokes: buildStrokeSpec(node),
     border: buildBorderSpec(node),
     typography: buildTypographySpec(node),
