@@ -98,7 +98,7 @@ their runtime cannot represent the authored responsive behavior.
 ### Dependable layout contract (2026-10-15)
 
 The exact behavior matrix and versioning rationale are recorded in
-[ADR-0242](../adr/0242-dependable-layout-contract.md). Existing documents keep
+[ADR-0244](../adr/0244-dependable-layout-contract.md). Existing documents keep
 the legacy grid sizing interpretation when `layoutSemanticsVersion` is absent
 or `1`; new grid layouts opt into version `2`. This avoids silently shifting
 saved artwork when intrinsic grid sizing is corrected.
