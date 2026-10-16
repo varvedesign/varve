@@ -942,6 +942,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
      */
     session: SessionMeta | null;
     saveIssue: EditorState['saveIssue'];
+    /** The active workspace, which decides which surface new layers belong to. */
+    workspaceMode: string;
   };
   /** Persistent revision history session (M7/M8). */
   persistentHistory: PersistentHistoryApi;
@@ -3476,6 +3478,7 @@ export function EditorProvider({
       transactionOpen: inTransactionRef.current,
       session: stateRef.current.sessions.find((s) => s.id === stateRef.current.activeId) ?? null,
       saveIssue: stateRef.current.saveIssue,
+      workspaceMode: stateRef.current.workspaceMode,
     }),
     [],
   );

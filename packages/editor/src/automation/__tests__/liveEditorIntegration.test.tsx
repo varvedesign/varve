@@ -11,6 +11,7 @@ import type { HostConnection } from '@varve/automation';
 import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
+import { activeSurfaceRootIds } from '../../navigation/navigationBounds';
 import {
   loadAutomationController,
   peekAutomationController,
@@ -188,6 +189,40 @@ describe('connected session over the real editor', () => {
     const r3 = (await execute(connection, 4, 'varve.document.info', {}))?.result.revision
       .after as number;
     expect(r3).toBeGreaterThan(r2);
+  });
+
+  it('puts a created node on the surface the person is looking at, not on a hidden one', async () => {
+    await mount();
+    await enable();
+    const { connection } = await connect();
+
+    const created = await execute(connection, 1, 'varve.node.create', rect);
+    expect(created?.result.outcome).toBe('applied');
+    const id = created?.result.created[0] as string;
+    await waitFor(() => expect(live().state.document.nodes[id]).toBeDefined());
+
+    const doc = live().state.document;
+    const roots = activeSurfaceRootIds(doc, live().state.workspaceMode);
+    expect(roots.length).toBeGreaterThan(0);
+    // Walk up from the new node: it must reach the active surface's content
+    // root, or it renders but never appears in the Layers panel.
+    const parentOf = (child: string) =>
+      Object.entries(doc.nodes).find(([, n]) =>
+        (n as { children?: string[] }).children?.includes(child),
+      )?.[0];
+    let cursor: string | undefined = id;
+    let reached = false;
+    while (cursor) {
+      if (roots.includes(cursor)) {
+        reached = true;
+        break;
+      }
+      cursor = parentOf(cursor);
+    }
+    expect(reached).toBe(true);
+    // And the session reports that same surface as its default.
+    const info = await execute(connection, 2, 'varve.document.info', {});
+    expect(roots).toContain(info?.result.output.defaultParentId);
   });
 
   it('refuses a plan based on a revision a person has since changed', async () => {

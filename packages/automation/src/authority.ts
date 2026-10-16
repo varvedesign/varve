@@ -111,6 +111,18 @@ export interface DocumentAuthority {
   getRevision(): number;
   /** Immutable snapshot of the committed document. */
   getDocument(): Document;
+  /**
+   * Where a new node goes when the caller names no parent.
+   *
+   * A headless session has no notion of "what the person is looking at", so it
+   * leaves this out and the first publishing page's content root is used. A live
+   * editor answers with the surface its own tools insert into (the active design
+   * canvas, or the active page in a publishing workspace): a node placed anywhere
+   * else renders but never appears in the Layers panel or on the canvas the
+   * person is looking at. `undefined` means "no opinion"; `null` means the
+   * document root.
+   */
+  defaultParentId?(): string | null | undefined;
   commit(input: CommitInput): CommitResult | Promise<CommitResult>;
   /** Most recent first. */
   listTransactions(limit?: number): TransactionRecord[];

@@ -1,6 +1,6 @@
 import { defineCommand } from '../catalog';
 import { type Infer, s } from '../schema';
-import { defaultInsertionParent } from '../surface';
+import { resolveDefaultParent } from '../surface';
 
 const INFO_OUTPUT = s.object({
   documentId: s.string({ maxBytes: 128 }),
@@ -49,7 +49,7 @@ export const documentInfo = defineCommand({
       nodeCount: Object.keys(doc.nodes).length,
       pageCount: doc.pages?.length ?? 0,
       activePageId: doc.pages && doc.pages.length > 0 ? (page?.id ?? null) : null,
-      defaultParentId: defaultInsertionParent(doc),
+      defaultParentId: resolveDefaultParent(authority),
       canvas: typeof width === 'number' && typeof height === 'number' ? { width, height } : null,
       instance: { mode: info.mode, instanceId: info.instanceId, generation: info.generation },
     };

@@ -49,6 +49,12 @@ export interface LiveEditorSnapshot {
    * refuses and the client retries.
    */
   transactionOpen?: boolean;
+  /**
+   * The content root the editor's own tools insert new layers into: the active
+   * design canvas in a design workspace, the active page in a publishing one.
+   * Absent when the editor cannot say, which leaves the headless default.
+   */
+  defaultParentId?: string;
 }
 
 export interface LiveEditorBindings {
@@ -169,6 +175,10 @@ export function createLiveEditorPort(options: LivePortOptions): EditorLivePort {
 
     document() {
       return snapshot().document;
+    },
+
+    defaultParentId() {
+      return snapshot().defaultParentId;
     },
 
     status(): Availability {

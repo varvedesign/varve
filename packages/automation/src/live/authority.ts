@@ -75,6 +75,11 @@ export interface LiveEditorPort {
    * `revision()`, and MUST have advanced `revision()` before returning `ok`.
    */
   install(input: CommitInput): CommitResult;
+  /**
+   * The surface the editor inserts its own new layers into right now, or
+   * `undefined` when it cannot say. See `DocumentAuthority.defaultParentId`.
+   */
+  defaultParentId?(): string | null | undefined;
 }
 
 export interface LiveAuthorityOptions {
@@ -102,6 +107,10 @@ export class LiveAuthority implements DocumentAuthority {
       documentId: this.pinned.documentId,
       documentName: this.pinned.documentName,
     };
+  }
+
+  defaultParentId(): string | null | undefined {
+    return this.port.defaultParentId?.();
   }
 
   availability(): Availability {

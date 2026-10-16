@@ -40,7 +40,7 @@ import type {
 } from './receipt';
 import { RECEIPT_SCHEMA } from './receipt';
 import { type Issue, s, validate, validateUnknown } from './schema';
-import { defaultInsertionParent } from './surface';
+import { resolveDefaultParent } from './surface';
 import { canonicalJson, closestMatch, utf8ByteLength } from './text';
 
 export interface Limits {
@@ -1230,7 +1230,7 @@ export class Executor {
       principal: ctx.principal,
       defaultParentId: ctx.defaultParentId
         ? ctx.defaultParentId()
-        : defaultInsertionParent(ctx.authority.getDocument()),
+        : resolveDefaultParent(ctx.authority),
       now: ctx.now ?? Date.now,
       ...(ctx.rng ? { rng: ctx.rng } : {}),
     };

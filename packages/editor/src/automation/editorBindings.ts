@@ -14,6 +14,7 @@
  */
 import { flushSync } from 'react-dom';
 import type { EditorContextValue } from '../context';
+import { activeWorkspaceContentRoot } from '../scene/activeWorkspace';
 import type { LiveEditorBindings, LiveEditorSnapshot } from './livePort';
 
 export function createEditorBindings(source: () => EditorContextValue | null): LiveEditorBindings {
@@ -34,6 +35,13 @@ export function createEditorBindings(source: () => EditorContextValue | null): L
         revision: now.revision,
         sessionId: now.sessionId,
         transactionOpen: now.transactionOpen,
+        // The surface the person is looking at, by the rule the editor's own
+        // tools use. A node placed anywhere else renders but never appears in
+        // the Layers panel or on the canvas.
+        ...(() => {
+          const root = activeWorkspaceContentRoot(now.document, now.workspaceMode);
+          return root ? { defaultParentId: root } : {};
+        })(),
       };
       return lastKnown;
     },
