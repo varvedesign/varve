@@ -29,7 +29,7 @@ tablet presentation is the automatic answer only when touch/pen is the *only*
 pointing capability — touch-capable (`any-pointer: coarse`, `maxTouchPoints > 0`,
 or an observed touch/pen contact) **and** no fine pointer
 (`any-pointer: fine`) is exposed. With a fine pointer present, auto keeps
-`desktop` above 899 CSS px and `compact` below it, because a touchscreen
+`desktop` above 899 CSS px and `compact` at or below it, because a touchscreen
 laptop, a pen display, or an iPad-with-trackpad that also reports a fine
 pointer is a desktop session; letting an observed touch flip it is the
 classic false positive that hijacks the user's layout. Manual `tablet` /
