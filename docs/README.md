@@ -269,6 +269,7 @@ pass report in
 | `adr/0238-comic-webtoon-workflow-architecture.md` | Comic/webtoon workflow: no dedicated workspace; document profile, capability-keyed page surfaces, shared tools, optional presets |
 | `adr/0239-six-task-workspaces-and-ordered-shortcuts.md` | Six task workspaces with one ordered switcher/shortcut sequence; Logo tools and Code export remain shared workflows |
 | `adr/0240-presentation-decks.md` | Ordered editable-frame decks, safe layout revision, structured capture, and raster-first delivery |
+| `adr/0242-live-artwork-source-and-evaluation.md` | Live blends, repeats, mesh paints, warps, and effects retain sources and share evaluation context |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |
