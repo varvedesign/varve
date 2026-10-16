@@ -264,6 +264,14 @@ test.describe('Varve-native text corpus', () => {
         `-> ${reportPath} (manifest ${report.manifestDigest.slice(0, 16)}…)`,
     );
 
+    // Non-vacuity: `attempted` and `failed` are both derived from the same
+    // array, so an empty or truncated manifest would satisfy `failed === 0`
+    // while proving nothing. The denominator is asserted against the manifest
+    // itself, which is read from disk rather than derived from the run.
+    expect(manifest.entries.length).toBeGreaterThan(0);
+    expect(report.attempted).toBe(report.manifestEntries);
+    expect(report.manifestEntries).toBe(manifest.entries.length);
+    expect(report.manifestDigest).toBe(manifestDigest);
     expect(report.failed).toBe(0);
     for (const result of results) {
       expect(result.status, `${result.id} ${result.error ?? ''}`).toBe('completed');

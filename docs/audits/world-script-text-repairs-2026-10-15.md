@@ -140,6 +140,19 @@ glues them, and the test now asserts the positive push-out property
 - **Vertical caret/selection wiring.** Engine vertical caret stops and
   selection rects exist and are unit-tested at the engine level; the editor
   editing surface still delegates pointer/caret to the textarea.
+- **Corpus harness limits a review found and this cycle did not fix.** The
+  harness's per-entry checks are narrower than its header claims, and each gap
+  is now recorded rather than implied: the ink threshold is an absolute dark-
+  pixel count over the whole canvas rather than a before/after delta inside the
+  node's box, and the board fill is theme-dependent (dark theme's board is
+  itself "ink"), so the threshold could be satisfied without the entry painting
+  — the spec pins no theme; `nodeText` and `locateTextNode` pick *the first*
+  text node with slightly different predicates, which agree only because the
+  pristine document has no text node, an invariant nothing asserts; and the
+  writing-mode and rich-text options the spec applies are never verified after
+  reopen, so a codec that dropped them would still report `completed`. The
+  vacuity guard — manifest non-empty, `attempted === manifestEntries`, digest
+  equal to the manifest on disk — is now asserted.
 - **Corpus coverage limits.** The Varve-native corpus covers the browser
   (Chromium) application path only — it does not exercise packaged desktop
   builds, native shaping, or the PDF import/export lanes, and its
