@@ -66,16 +66,26 @@ describe('raster layer engine conversion: tile content identity', () => {
     expect(data.tiles['0:0']!.pixels).toBe(shared.pixels);
   });
 
-  it('does not hand over a view that shares a larger buffer', () => {
-    // A tile is always 128x128x4; if a producer ever passed a subarray the IR
-    // must still read the tile's own bytes, not a neighbour's.
-    const pixels = new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4);
-    pixels[0] = 9;
-    pixels[pixels.length - 1] = 11;
-    const data = convert(layerWith(new Map([['0:0', { pixels, version: 1 }]])));
+  it('reads the tile view own bytes when a producer hands over a subarray', () => {
+    // A tile is 128x128x4 bytes, but a producer may legitimately hand over a
+    // view into a shared scratch buffer. The contract the IR must honour is
+    // therefore "the bytes this view covers", not "the start of the backing
+    // buffer": filling the surroundings with a distinct value makes an
+    // offset-blind read visible. The previous version of this test allocated a
+    // full-size array, so it exercised no view at all.
+    const tileBytes = TILE_SIZE * TILE_SIZE * 4;
+    const backing = new Uint8ClampedArray(tileBytes * 3).fill(77);
+    const view = backing.subarray(tileBytes, tileBytes * 2);
+    view[0] = 9;
+    view[view.length - 1] = 11;
+
+    const data = convert(layerWith(new Map([['0:0', { pixels: view, version: 1 }]])));
     const handed = data.tiles['0:0']!.pixels as Uint8ClampedArray;
-    expect(handed.length).toBe(pixels.length);
+
+    expect(handed.length).toBe(tileBytes);
     expect(handed[0]).toBe(9);
     expect(handed[handed.length - 1]).toBe(11);
+    // Exactly the view's own bytes, with the 77 fill around it untouched.
+    expect([...handed].filter((b) => b !== 77)).toEqual([9, 11]);
   });
 });

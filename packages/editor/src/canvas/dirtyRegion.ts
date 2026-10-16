@@ -191,6 +191,32 @@ function changedRasterTileBounds(before: RasterLayerNode, after: RasterLayerNode
 }
 
 /**
+ * True when two revisions of a raster layer differ only in their tiles.
+ *
+ * A tile key is a grid coordinate in the layer's own space, so the tight
+ * per-tile rect path is only valid while nothing else about the node moved or
+ * changed how it paints. Everything else on the record — `transform`,
+ * `width`/`height`, `opacity`, `blendMode`, `visible`, masks, warps — either
+ * places the tiles or changes their appearance, and reference comparison of the
+ * remaining fields is exactly the condition for "the tile grid still maps
+ * straight to world space". A pure paint dab keeps every other field by
+ * reference, so it takes the fast path; a drag replaces the transform array and
+ * does not.
+ */
+function rasterPlacementUnchanged(before: RasterLayerNode, after: RasterLayerNode): boolean {
+  const rest: Record<string, unknown> = { ...before };
+  const other: Record<string, unknown> = { ...after };
+  delete rest.tiles;
+  delete other.tiles;
+  const keys = Object.keys(rest);
+  if (keys.length !== Object.keys(other).length) return false;
+  for (const key of keys) {
+    if (rest[key] !== other[key]) return false;
+  }
+  return true;
+}
+
+/**
  * The effective alpha-mask identity of a node: the authoritative mask asset
  * data URL, or the legacy inline mask data URL. Used to detect mask changes
  * that a bounds diff cannot see (a mask appearing, being edited, or being
@@ -395,13 +421,26 @@ function evaluateDocumentDirtyRegion(
 
       if (rBefore && rAfter) {
         const tileRects = changedRasterTileBounds(rBefore, rAfter);
-        if (tileRects.length === 0) continue;
-        for (const tr of tileRects) {
-          recorder?.add(tr, 'raster-tile', id);
-          bounds = unionBounds(bounds, tr);
-          rectCount++;
+        // Tile keys are grid coordinates in the layer's own space, so a tight
+        // per-tile rect is only meaningful while the layer's placement and
+        // appearance are unchanged. Otherwise fall through to the generic path
+        // below, which is transform-aware and contributes the layer's old *and*
+        // new world bounds — the only thing that vacates its previous position.
+        //
+        // Previously this branch `continue`d whenever no tile changed, so a
+        // raster layer that merely moved (drag, arrow-key nudge, or a
+        // multi-select drag alongside another node) contributed no rects at
+        // all: alone it escalated to a full redraw, and beside any other
+        // changed node it produced a partial frame that neither repainted the
+        // layer at its new position nor cleared the old one.
+        if (tileRects.length > 0 && rasterPlacementUnchanged(rBefore, rAfter)) {
+          for (const tr of tileRects) {
+            recorder?.add(tr, 'raster-tile', id);
+            bounds = unionBounds(bounds, tr);
+            rectCount++;
+          }
+          continue;
         }
-        continue;
       }
     }
 

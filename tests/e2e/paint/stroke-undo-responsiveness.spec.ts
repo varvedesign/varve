@@ -22,14 +22,20 @@
  *     at the same camera (`__varvePerf.forceFullRedraw`, the oracle the repo
  *     already requires for any pixel-reuse change). Equal hashes mean the
  *     cached composition is equivalent to correct fresh rendering.
- *  3. Steady and camera-only frames perform no scene->engine node conversion
+ *  3. A same-state authoritative redraw — no document change at all — performs
+ *     no scene->engine node conversion while the memo serves the frame
  *     (`engineNodeComputes === 0`), which is the load-immune signal that the
- *     raster node is not being reconverted per frame.
+ *     raster node is not being reconverted per redraw. Deliberately *not*
+ *     claimed for camera-only frames: a zoom can reveal nodes that were culled
+ *     and therefore never memoized, so `0` is not a valid expectation there.
  *
  * Timing is recorded and reported, not asserted against a budget: this repo's
  * dev machine carries a heavy concurrent load (AGENTS.md), so a wall-clock
  * ceiling here would be a flaky test rather than a measurement. The measured
- * latency is attached to the test report instead.
+ * latency and the renderer that actually painted are attached to the test
+ * report instead — the first run of this spec executed the main-thread fallback
+ * because the render worker retired with `worker-startup-timeout`, and the
+ * recorded path is what stops that run being cited as worker coverage.
  *
  * Concurrency hygiene: serial, single worker (shared dev server).
  */
@@ -220,9 +226,34 @@ async function undoAndMeasure(
 }
 
 /**
+ * Distinct render paths actually executed in the recent frame ring.
+ *
+ * Requested settings are not evidence: this run's console reported
+ * `Render worker stopped permanently; using main-thread Canvas 2D
+ * (worker-startup-timeout)`, so the pixel-equivalence oracle below validated the
+ * main-thread fallback rather than the worker. Recording the observed paths
+ * means the next run states which path it covered instead of implying the one
+ * that was configured.
+ */
+async function observedRenderPaths(
+  page: import('@playwright/test').Page,
+): Promise<{ actual: string[]; coarse: string[] }> {
+  return page.evaluate(() => {
+    const frames = (window as unknown as PerfWindow).__varvePerf?.getFrames(30) ?? [];
+    const actual = new Set<string>();
+    const coarse = new Set<string>();
+    for (const frame of frames) {
+      if (frame.actualDrawingPath) actual.add(frame.actualDrawingPath);
+      if (frame.renderPath) coarse.add(frame.renderPath);
+    }
+    return { actual: [...actual].sort(), coarse: [...coarse].sort() };
+  });
+}
+
+/**
  * The repo-mandated pixel-reuse oracle: hash, force an authoritative
  * main-thread redraw at the same camera, hash again. Equal hashes mean the
- * screen matches what a full redraw would have produced.
+ * incrementally maintained surface matches what a full redraw would produce.
  */
 async function expectOracleEquality(page: import('@playwright/test').Page, label: string) {
   const before = await canvasHash(page);
@@ -233,7 +264,13 @@ async function expectOracleEquality(page: import('@playwright/test').Page, label
   });
   await waitForSettledFrame(page);
   const after = await canvasHash(page);
-  expect(result.authoritative, `${label}: oracle must report an authoritative frame`).toBe(true);
+  // `authoritative` is `true` by construction in the result type, so this only
+  // proves the promise resolved rather than throwing or timing out — the
+  // runtime acceptance condition in perfRuntime (frameSource ===
+  // 'oracle-full-redraw', a non-partial content frame, matching document and
+  // camera) is what makes the redraw authoritative, and it is not visible from
+  // here. The hash equality below is the actual assertion.
+  expect(result.authoritative, `${label}: the oracle must resolve`).toBe(true);
   expect(after, `${label}: incremental frame must equal an authoritative full redraw`).toBe(before);
 }
 
@@ -294,12 +331,17 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
     // The executed path and settled backing resolution are recorded so a
     // "fast" number can never be attributed to a preview-scale frame.
     const geometry = await canvasGeometry(page);
+    const paths = await observedRenderPaths(page);
     const summary = {
       note: 'key-press to first frame whose pixels match the target state',
       measured: latencies,
       settledGeometry: geometry,
+      // Which renderer actually painted, so this run cannot be cited as worker
+      // coverage if the worker retired and the main thread took over.
+      renderPaths: paths,
       frames: [undo1.frame, undo2.frame, redo.frame],
     };
+    expect(paths.actual.length, 'the run must report which renderer painted').toBeGreaterThan(0);
     // Also on stdout: the `list` reporter does not write attachments to disk, so
     // without this the measured numbers exist only inside a report UI.
     console.log(`[stroke-undo] ${JSON.stringify(summary)}`);

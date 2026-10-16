@@ -188,16 +188,41 @@ that). `strictlyIdentical` is one-sided: `true` implies equal canonical bytes,
   adding artifacts to that shared directory changes runtime selection for every
   session, so it is a coordinated change. See
   `docs/research/perf-cow-history-cache-ledger-2026-10-16.md` -> "Not done".
-- `Engine.hitTest` is not behind `withStubFallback`'s `requiresRasterFallback`
-  guard. No production caller passes a raster-bearing scene (the editor uses the
-  TypeScript `HitTestEngine`), but with D5 that path would serialise typed arrays
-  as index-keyed objects and fail the Rust deserializer into the stub fallback.
-  Extend the guard to `hitTest` before any caller relies on it.
+- `Engine.hitTest` was **not** behind `withStubFallback`'s
+  `requiresRasterFallback` guard. Closed: raster-bearing scenes now route to the
+  stub for hit testing too (`engine.ts`, with a positive and a negative
+  regression). No production caller reached it — the editor hit-tests through
+  the TypeScript `HitTestEngine` — so the guard removes a trap rather than
+  fixing an observed failure.
+- A raster layer whose **tiles** were unchanged but whose placement or
+  appearance changed contributed no dirty rects at all
+  (`dirtyRegion.ts`). Alone it escalated to a full redraw; beside any other
+  changed node it produced a partial frame that neither repainted the layer at
+  its new position nor cleared the old one — a multi-select drag of a painted
+  layer with any other object is the obvious trigger. Closed: the tight
+  per-tile path (tile keys are grid coordinates in the layer's own space, so it
+  is only meaningful under an unchanged placement) now requires
+  `rasterPlacementUnchanged`, and everything else uses the transform-aware
+  generic path, which contributes old *and* new world bounds. Two regressions:
+  a moved layer must contribute bounds covering both positions (fails with
+  "expected 'full' to be 'partial'" without the fix), and a re-published layer
+  with identical tile records is bounded to its own area instead of escalating.
 - `RasterLayerCache` keys surfaces by node id alone and
   `resetRasterLayerCache` has no production caller; a retired document's surfaces
   are only reclaimed by LRU eviction inside the 128 MiB budget. Identity
   comparison (D3) keeps this correct across documents; it is a bounded resource
   retention, not a correctness hazard.
+- Not audited here: `liquifyRenderCache` and `frequencySeparationRenderCache`
+  still key on `rasterTileMapRevision` (version and count), so the
+  alias case D3 fixed elsewhere could hand back a stale warped tile set there.
+  Outside this change set, and D3's claim names only its four consumers.
+- `canonical.ts`'s `payloadToAssetId` map is last-writer-wins by insertion
+  order. If two assets share a `dataUrl` and a fill still holds that raw data
+  URL as `src`, the substituted id — and therefore the persisted hash — depends
+  on map insertion order, while `strictlyIdentical` compares key sets and would
+  call the two documents identical. Unreachable case found; making the map
+  order-independent would change persisted hashes for such documents, so it
+  needs the same explicit decision as D4.
 
 ## Rejected shortcuts
 
