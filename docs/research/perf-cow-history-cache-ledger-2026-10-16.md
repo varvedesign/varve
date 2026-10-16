@@ -247,6 +247,17 @@ behaviour for every other agent's session (the loader would start selecting the
 WASM engine where it currently falls back to the stub), so it is a coordinated
 change rather than a unilateral one.
 
+`tests/e2e/canvas/raster-stroke-history.spec.ts` adds the cases that spec does
+not: redo restores exact pixels across two strokes, a stroke painted after an
+undo, and revisiting each branch after switching in the History panel (the
+scenario item 2 above says was never reproduced end to end). It passes on the
+final code, 3 of 3. It has **not** been shown to fail against the pre-fix tile
+identity code, and the stroke-after-undo test does not assert that the second
+stroke shares a tile with the undone one. Writing it also surfaced a separate,
+unfixed timing defect, recorded in ADR-0241 Open items ("Undo during an unfinished
+capture"): with a wait that only checks canvas stability, undo can run before
+persistent history has recorded the stroke and leave a wrong history under load.
+
 Undo-to-first-correct-frame latency in the app is covered by
 `tests/e2e/paint/stroke-undo-responsiveness.spec.ts`, which measures
 key-press -> first frame whose pixels match the target state, asserts the

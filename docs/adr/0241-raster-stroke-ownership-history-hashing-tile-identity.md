@@ -293,6 +293,22 @@ that). `strictlyIdentical` is one-sided: `true` implies equal canonical bytes,
   a moved layer must contribute bounds covering both positions (fails with
   "expected 'full' to be 'partial'" without the fix), and a re-published layer
   with identical tile records is bounded to its own area instead of escalating.
+- **Undo during an unfinished capture (observed, not root-caused, not fixed).**
+  In the editor, Ctrl+Z pressed shortly after a stroke, before persistent history
+  has recorded it, sometimes ended with a wrong history: the stroke and its layer
+  were undone together, a stray "Delete" step was appended, and Redo was lost.
+  `tests/e2e/canvas/raster-stroke-history.spec.ts` failed 4 of 4 runs in that state
+  (machine load average ~12; the spec's only wait was canvas stability). Real-browser
+  capture latency measured 0.4-2.1 s per stroke then, against 10-30 ms for the same
+  capture in isolation. Four later runs of the same short-wait flow were correct
+  under both hash schemes once load dropped, so the failure could not be
+  reproduced in the A/B and the attribution to load and capture timing rather
+  than to D4 rests on that elimination and on the latency measurement, not on a
+  reproduced fix. `context.tsx` routes undo to the in-memory stack whenever the
+  session reports `canUndo` false and enqueues the capture from inside a state
+  updater; that is the suspected path and it is unverified. The spec now waits for
+  the History panel step count before every navigation and asserts undo and redo
+  move the head without appending a step and leave Redo available.
 - `RasterLayerCache` keys surfaces by node id alone and
   `resetRasterLayerCache` has no production caller; a retired document's surfaces
   are only reclaimed by LRU eviction inside the 128 MiB budget. Identity
