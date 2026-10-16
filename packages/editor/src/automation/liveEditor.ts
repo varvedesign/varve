@@ -28,11 +28,26 @@ export function getAutomationController(): AutomationController {
   return controller;
 }
 
+let published: EditorContextValue | null = null;
+
 export function publishEditorToAutomation(editor: EditorContextValue): void {
+  published = editor;
   getAutomationController().attach(editor);
+}
+
+/**
+ * Identity of the document session the editor is showing right now, or `null`
+ * before the editor has published. Read through the editor's synchronous
+ * accessor, so it never lags the render.
+ */
+export function currentDocumentIdentity(): { sessionId: string; id: string; name: string } | null {
+  if (!published) return null;
+  const now = published.readAutomationState();
+  return { sessionId: now.sessionId, id: now.document.id, name: now.document.name };
 }
 
 /** For tests: drop the singleton so each test starts with automation off. */
 export function resetAutomationControllerForTesting(): void {
   controller = null;
+  published = null;
 }

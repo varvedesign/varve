@@ -347,11 +347,18 @@ export interface AutomationSettingsStore {
    * effects stay unavailable until they have their own explicit consent.
    */
   grants: 'read' | 'edit';
+  /**
+   * Hold every change an accepted client proposes until the person approves it.
+   * On by default, and only an explicit `false` turns it off, so a missing or
+   * hand-edited value cannot quietly remove the check.
+   */
+  requireApproval: boolean;
 }
 
 export const DEFAULT_AUTOMATION_SETTINGS: AutomationSettingsStore = {
   enabled: false,
   grants: 'read',
+  requireApproval: true,
 };
 
 function normalizeAutomationSettings(
@@ -360,6 +367,7 @@ function normalizeAutomationSettings(
   return {
     enabled: value.enabled === true,
     grants: value.grants === 'edit' ? 'edit' : 'read',
+    requireApproval: value.requireApproval !== false,
   };
 }
 

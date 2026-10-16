@@ -21,6 +21,13 @@
  */
 import type { AutomationHost, HostConnection } from '@varve/automation';
 
+/**
+ * Anything that can open a connection onto the current document session: the
+ * host itself, or the controller that rebuilds its host when the session
+ * changes. The relay needs nothing else, so it depends on nothing else.
+ */
+export type ConnectionAcceptor = Pick<AutomationHost, 'open'>;
+
 export interface DesktopEndpoint {
   /** Identity shared with the discoverable instance record. */
   instanceId: string;
@@ -126,7 +133,7 @@ export interface RelayHandle {
  * Each side keeps doing its own job — Rust owns sockets and limits, the host
  * owns the protocol — and this is the only code that knows they are two things.
  */
-export async function attachDesktopRelay(host: AutomationHost): Promise<RelayHandle> {
+export async function attachDesktopRelay(host: ConnectionAcceptor): Promise<RelayHandle> {
   const { invoke, listen } = await tauriModules();
   const connections = new Map<string, HostConnection>();
 

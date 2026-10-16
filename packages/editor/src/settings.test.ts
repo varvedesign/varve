@@ -384,3 +384,69 @@ describe('resetSettings', () => {
     });
   });
 });
+
+describe('automation settings', () => {
+  const KEY = 'varve-editor-settings';
+
+  it('is off, read-only and approval-gated by default', () => {
+    expect(loadSettings().automation).toEqual({
+      enabled: false,
+      grants: 'read',
+      requireApproval: true,
+    });
+  });
+
+  it('round-trips an explicit choice', () => {
+    updateSettings({ automation: { enabled: true, grants: 'edit', requireApproval: false } });
+    expect(loadSettings().automation).toEqual({
+      enabled: true,
+      grants: 'edit',
+      requireApproval: false,
+    });
+  });
+
+  it('does not let a hand-edited value widen access', () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        automation: { enabled: 'yes', grants: 'admin', requireApproval: 'no' },
+      }),
+    );
+    expect(loadSettings().automation).toEqual({
+      enabled: false,
+      grants: 'read',
+      requireApproval: true,
+    });
+  });
+
+  it('only an explicit false turns approval off', () => {
+    for (const value of [undefined, null, 0, '', 'false']) {
+      localStorage.setItem(
+        KEY,
+        JSON.stringify({ automation: { enabled: true, requireApproval: value } }),
+      );
+      expect(loadSettings().automation.requireApproval, String(value)).toBe(true);
+    }
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ automation: { enabled: true, requireApproval: false } }),
+    );
+    expect(loadSettings().automation.requireApproval).toBe(false);
+  });
+
+  it('keeps a partial patch from resetting the other fields', () => {
+    updateSettings({ automation: { enabled: true, grants: 'edit', requireApproval: false } });
+    updateSettings({ automation: { enabled: false } as never });
+    expect(loadSettings().automation).toMatchObject({ grants: 'edit', requireApproval: false });
+  });
+
+  it('resets to the safe defaults', () => {
+    updateSettings({ automation: { enabled: true, grants: 'edit', requireApproval: false } });
+    resetSettings();
+    expect(loadSettings().automation).toEqual({
+      enabled: false,
+      grants: 'read',
+      requireApproval: true,
+    });
+  });
+});

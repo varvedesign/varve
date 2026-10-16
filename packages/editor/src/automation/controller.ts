@@ -112,6 +112,11 @@ export class AutomationController {
     this.now = options.now ?? Date.now;
   }
 
+  /** Identity of this window, shared with the discoverable endpoint record. */
+  get instanceId(): string {
+    return this.options.instanceId;
+  }
+
   // ── Person's decisions ────────────────────────────────────────────────────
 
   setPolicy(policy: AutomationPolicy): void {
