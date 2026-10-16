@@ -305,20 +305,65 @@ describe('dock geometry', () => {
     const controls = Object.fromEntries(
       design.splitters.map((splitter) => [splitter.nodeId, splitter.controlledElementId]),
     );
-    // These ids are rendered by Shell.tsx; a splitter pointing at a
-    // non-existent id is worse than one with no aria-controls at all.
     expect(controls['layers-main']).toBe('editor-layers-panel');
     expect(controls['center-inspector']).toBe('editor-inspector-panel');
 
-    // The Motion workspace's companion splitter sizes Timeline, whose container
-    // is rendered by WorkspaceBottomPanels and carries no id.
+    // The bottom-strip panels DO have container ids; a hand-written subset that
+    // omitted them made their splitters announce no controlled element.
     const motion = resolveDockTreeGeometry(
       createDefaultEditorDockLayout('motion').windows[0]!.dockRoot,
       1440,
       900,
     );
     const companion = motion.splitters.find((splitter) => splitter.direction === 'column');
-    expect(companion?.controlledElementId).toBeNull();
+    expect(companion?.controlledElementId).toBe('editor-timeline-panel');
+
+    const email = resolveDockTreeGeometry(
+      createDefaultEditorDockLayout('email').windows[0]!.dockRoot,
+      1440,
+      900,
+    );
+    const emailCompanion = email.splitters.find((splitter) => splitter.direction === 'column');
+    expect(emailCompanion?.controlledElementId).toBe('editor-email-preview-panel');
+
+    // A seam that divides a nested pane rather than one panel must not point at
+    // an arbitrary panel inside it.
+    const nested: DockNode = {
+      kind: 'split',
+      id: 'nested-seam',
+      direction: 'row',
+      ratio: 0.5,
+      first: {
+        kind: 'split',
+        id: 'inner',
+        direction: 'row',
+        ratio: 0.5,
+        first: { kind: 'canvas', id: 'c' },
+        second: { kind: 'panel', id: 'p1', panelInstanceId: 'l-1', panelTypeId: 'layers' },
+      },
+      second: { kind: 'canvas', id: 'c2' },
+    };
+    const nestedGeometry = resolveDockTreeGeometry(nested, 1600, 900);
+    expect(
+      nestedGeometry.splitters.find((s) => s.nodeId === 'nested-seam')?.controlledElementId,
+    ).toBe(null);
+  });
+
+  it('names a nested-pane seam after the pane it visibly divides', () => {
+    resetPanelRegistry();
+    registerBuiltinPanels();
+    // Motion's centre column is itself a split (canvas over the companion), so
+    // the seam to its right belongs to the Inspector — not to the Timeline
+    // buried inside that column.
+    const motion = resolveDockTreeGeometry(
+      createDefaultEditorDockLayout('motion').windows[0]!.dockRoot,
+      1440,
+      900,
+    );
+    const inspectorSeam = motion.splitters.find(
+      (splitter) => splitter.nodeId === 'center-inspector',
+    );
+    expect(inspectorSeam?.accessibleName).toBe('Resize Inspector panel');
   });
 
   it('sizes a split between two bounded panels by its ratio, not by a maxima sum', () => {

@@ -16,7 +16,9 @@
  *   'keep-mounted'); library/codegen/logo/timeline/pagenav unmount
  *   ('unmount-with-state' — local state is lost today and must not be
  *   silently retained).
- * - Width floors come from PANEL_LIMITS (layers 180, inspector 240).
+ * - Width floors and maxima are declared here and read back by every
+ *   consumer (workspace/panelWidthLimits.ts for the compact tier and the
+ *   Resources panel, workspace/dock/dockPanelSizing.ts for the dock).
  */
 
 import { getBuiltinDetachableWiring } from './panelLifecycle';

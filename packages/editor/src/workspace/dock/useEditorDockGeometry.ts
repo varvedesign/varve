@@ -921,6 +921,7 @@ export function useEditorDockGeometry(
     dockPanelMove.preview,
     mode,
     persistSplitRatio,
+    persistSplitReset,
     persistFloatBounds,
     persistRedock,
     floatInteractions,

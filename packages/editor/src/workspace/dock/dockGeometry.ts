@@ -404,7 +404,7 @@ function allocateAxis(input: AxisAllocationInput): {
   const { extent, ratio, firstMin, secondMin, firstMax, secondMax, builtin } = input;
   const canFit = extent > 0 && extent - secondMin >= firstMin;
   if (!canFit) {
-    return { size: extent * ratio, minRatio: 0.05, maxRatio: 0.95 };
+    return { size: extent * ratio, minRatio: MIN_SPLIT_RATIO, maxRatio: MAX_SPLIT_RATIO };
   }
   // A pane's declared maximum is enforced where its growth would cost the
   // canvas — i.e. when the *other* pane is the unbounded absorber subtree that

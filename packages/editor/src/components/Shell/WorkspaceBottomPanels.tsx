@@ -10,24 +10,12 @@ import type {
   EditorDockGeometry,
 } from '../../workspace/dock/useEditorDockGeometry';
 import { getDockPanelA11yProps } from '../../workspace/dock/useEditorDockGeometry';
+import { PANEL_ELEMENT_IDS } from '../../workspace/panelElementIds';
 import type { PanelId } from '../../workspace/panelIds';
 import { tryGetPanelDefinition } from '../../workspace/panelRegistry';
 import { EmailOutputPanel } from '../Inspector/panels/EmailOutputPanel';
 import { EmailPreviewPanel } from '../Inspector/panels/EmailPreviewPanel';
 import './WorkspaceBottomPanels.css';
-
-const DOCK_PANEL_ELEMENT_IDS: Record<PanelId, string> = {
-  layers: 'editor-layers-panel',
-  inspector: 'editor-inspector-panel',
-  timeline: 'editor-timeline-panel',
-  pagenav: 'editor-pagenav-panel',
-  library: 'editor-library-panel',
-  codegen: 'editor-codegen-panel',
-  logo: 'editor-logo-panel',
-  history: 'editor-history-panel',
-  emailPreview: 'editor-email-preview-panel',
-  emailOutput: 'editor-email-output-panel',
-};
 
 export interface WorkspaceBottomPanelsProps {
   showEmailPreview: boolean;
@@ -200,7 +188,7 @@ export function WorkspaceBottomPanels({
                 type="button"
                 role="tab"
                 aria-selected={active}
-                aria-controls={DOCK_PANEL_ELEMENT_IDS[panel.panelTypeId]}
+                aria-controls={PANEL_ELEMENT_IDS[panel.panelTypeId]}
                 tabIndex={active ? 0 : -1}
                 className="workspace-dock-tabs__tab"
                 onClick={() => onSelectDockTab?.(group.nodeId, panel.instanceId)}

@@ -23,6 +23,7 @@
  *   pane may grow to `maximumSize`.
  */
 
+import { PANEL_ELEMENT_IDS } from '../panelElementIds';
 import { tryGetPanelDefinition } from '../panelRegistry';
 import { panelWidthLimits } from '../panelWidthLimits';
 import {
@@ -164,7 +165,13 @@ function panelPreferredSize(panelTypeId: PanelTypeId): PanelSize | null {
  * answers with the first pane that has a title (the other side of a built-in
  * split is the canvas, which has none).
  */
-export function getDockNodePaneTitle(node: DockNode): string | null {
+/**
+ * Title of the pane a dock subtree presents, one level deep: a tab group
+ * answers with its active panel, and a nested split deliberately answers
+ * `null` so a seam is named after the pane it visibly divides (the Inspector's
+ * edge, not a panel buried inside the centre column).
+ */
+export function getDockPaneTitle(node: DockNode): string | null {
   switch (node.kind) {
     case 'panel':
       return tryGetPanelDefinition(node.panelTypeId)?.title ?? null;
@@ -174,8 +181,6 @@ export function getDockNodePaneTitle(node: DockNode): string | null {
         node.panels[0];
       return active ? (tryGetPanelDefinition(active.panelTypeId)?.title ?? null) : null;
     }
-    case 'split':
-      return getDockNodePaneTitle(node.first) ?? getDockNodePaneTitle(node.second);
     default:
       return null;
   }
@@ -186,52 +191,30 @@ export function getDockNodePaneTitle(node: DockNode): string | null {
  * themselves resizing. Naming every splitter "Resize dock panels" announced
  * two or three identical controls with no way to tell which one had focus; the
  * ARIA window-splitter pattern instead names the splitter after the pane it
- * sizes. When the first pane is the canvas subtree, the titled pane on the
- * other side is the one the seam belongs to (the Inspector's edge, not the
- * artboard's).
+ * sizes.
  */
 export function getDockSplitAccessibleName(first: DockNode, second: DockNode): string {
-  const title = getDockNodePaneTitle(first) ?? getDockNodePaneTitle(second);
+  const title = getDockPaneTitle(first) ?? getDockPaneTitle(second);
   return title ? `Resize ${title} panel` : 'Resize dock panels';
 }
 
 /**
- * Panel types whose container carries a stable element id
- * (`id="editor-<type>-panel"` in `Shell.tsx`). Used for `aria-controls`, which
- * must reference an element that exists: the bottom-strip panels
- * (timeline/email) are rendered by `WorkspaceBottomPanels` and have no such id,
- * so they deliberately omit the attribute instead of pointing nowhere.
- */
-const PANELS_WITH_ELEMENT_ID: ReadonlySet<PanelTypeId> = new Set([
-  'layers',
-  'inspector',
-  'pagenav',
-  'library',
-  'codegen',
-  'logo',
-  'history',
-]);
-
-/**
- * The element a splitter's `aria-controls` may point at: the container of the
- * pane it sizes, when that pane is a single panel with a known id.
+ * Id of the element a splitter's `aria-controls` may point at, or `null` when
+ * the seam does not divide a single panel or tab group — a dangling
+ * `aria-controls` is worse than none, and pointing at one arbitrary panel
+ * inside a nested pane would misdescribe what the splitter sizes.
  */
 export function getDockSplitControlledId(first: DockNode, second: DockNode): string | null {
-  const pane = hasElementId(first) ? first : hasElementId(second) ? second : null;
-  if (pane?.kind === 'panel' && PANELS_WITH_ELEMENT_ID.has(pane.panelTypeId)) {
-    return `editor-${pane.panelTypeId}-panel`;
-  }
-  return null;
+  return paneElementId(first) ?? paneElementId(second);
 }
 
-function hasElementId(node: DockNode): boolean {
-  if (node.kind === 'panel') return PANELS_WITH_ELEMENT_ID.has(node.panelTypeId);
+function paneElementId(node: DockNode): string | null {
+  if (node.kind === 'panel') return PANEL_ELEMENT_IDS[node.panelTypeId] ?? null;
   if (node.kind === 'tabs') {
     const active =
       node.panels.find((panel) => panel.instanceId === node.activePanelInstanceId) ??
       node.panels[0];
-    return active ? PANELS_WITH_ELEMENT_ID.has(active.panelTypeId) : false;
+    return active ? (PANEL_ELEMENT_IDS[active.panelTypeId] ?? null) : null;
   }
-  if (node.kind === 'split') return hasElementId(node.first) || hasElementId(node.second);
-  return false;
+  return null;
 }
