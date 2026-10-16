@@ -34,8 +34,16 @@ impl std::fmt::Display for ConnectionId {
 /// What the application wants the transport to do after a frame.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RelayOutcome {
-    /// Write this line back to the client.
+    /// Write this line back to the client and keep the connection open.
     Reply(String),
+    /// Write this line back and then close.
+    ///
+    /// Distinct from [`RelayOutcome::Reply`] on purpose: the protocol often has
+    /// one last thing to say *and* a reason to stop — a rejection that ends the
+    /// session, a final acknowledgement before the client is refused. Closing
+    /// without writing would lose the explanation, and writing without closing
+    /// would leave a socket the application believes is finished.
+    ReplyAndClose(String),
     /// Send nothing further on this connection and close it.
     Close,
 }

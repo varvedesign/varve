@@ -229,6 +229,24 @@ async fn keeps_connections_independent_and_ordered_within_one() {
 }
 
 #[tokio::test]
+async fn a_reply_and_close_outcome_writes_the_last_word_then_closes() {
+    let harness = Harness::start(
+        vec![RelayOutcome::ReplyAndClose("{\"byebye\":true}".into())],
+        limits(),
+    )
+    .await;
+    let (mut reader, mut stream) = harness.connect().await;
+    write_line(&mut stream, "hello").await;
+    let mut reply = String::new();
+    reader.read_line(&mut reply).await.unwrap();
+    assert_eq!(reply.trim_end(), "{\"byebye\":true}");
+    // And then the socket is closed rather than left open.
+    let mut after = String::new();
+    assert_eq!(reader.read_line(&mut after).await.unwrap(), 0);
+    let _ = harness.host.shutdown().await;
+}
+
+#[tokio::test]
 async fn a_close_outcome_ends_the_connection_without_writing() {
     let harness = Harness::start(vec![RelayOutcome::Close], limits()).await;
     let (mut reader, mut stream) = harness.connect().await;

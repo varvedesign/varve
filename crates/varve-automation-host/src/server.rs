@@ -291,6 +291,11 @@ async fn serve_connection(
                                 return;
                             }
                         }
+                        RelayOutcome::ReplyAndClose(response) => {
+                            let _ = write_frame(&mut writer, &response, &limits).await;
+                            let _ = writer.shutdown().await;
+                            return;
+                        }
                         RelayOutcome::Close => {
                             let _ = writer.shutdown().await;
                             return;

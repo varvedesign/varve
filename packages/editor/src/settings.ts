@@ -263,6 +263,7 @@ export interface EditorSettings {
   collab: CollabSettingsStore;
   ai: AiSettingsStore;
   privacy: PrivacySettingsStore;
+  automation: AutomationSettingsStore;
   learning: LearningSettingsStore;
   features: {
     /** Enable finding navigation (deep-link + inspector section jump). */
@@ -328,6 +329,39 @@ export const DEFAULT_PRIVACY_SETTINGS: PrivacySettingsStore = {
   usageAnalytics: 'unknown',
   diagnostics: 'unknown',
 };
+
+/**
+ * Agent access to the running application.
+ *
+ * Off by default and read by the endpoint host, not by a command: no command
+ * may change this, so an attached client cannot widen its own authority. The
+ * command catalog refuses to register settings, permission or automation
+ * domains precisely so this value has one owner - the person using Varve.
+ */
+export interface AutomationSettingsStore {
+  /** When false, nothing is listening and no endpoint is published. */
+  enabled: boolean;
+  /**
+   * What an accepted client may do. `read` inspects; `edit` also mutates the
+   * document. There is no "full access" option: capture, export and external
+   * effects stay unavailable until they have their own explicit consent.
+   */
+  grants: 'read' | 'edit';
+}
+
+export const DEFAULT_AUTOMATION_SETTINGS: AutomationSettingsStore = {
+  enabled: false,
+  grants: 'read',
+};
+
+function normalizeAutomationSettings(
+  value: Partial<AutomationSettingsStore>,
+): AutomationSettingsStore {
+  return {
+    enabled: value.enabled === true,
+    grants: value.grants === 'edit' ? 'edit' : 'read',
+  };
+}
 
 export const DEFAULT_LEARNING_SETTINGS: LearningSettingsStore = {
   showContextualTips: true,
@@ -455,6 +489,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   collab: { ...DEFAULT_COLLAB_SETTINGS },
   ai: { ...DEFAULT_AI_SETTINGS },
   privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+  automation: { ...DEFAULT_AUTOMATION_SETTINGS },
   learning: { ...DEFAULT_LEARNING_SETTINGS },
   features: { ...DEFAULT_FEATURES },
 };
@@ -531,6 +566,7 @@ export function loadSettings(): EditorSettings {
         collab: { ...DEFAULT_COLLAB_SETTINGS },
         ai: { ...DEFAULT_AI_SETTINGS },
         privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+        automation: { ...DEFAULT_AUTOMATION_SETTINGS },
         learning: { ...DEFAULT_LEARNING_SETTINGS },
         features: { ...DEFAULT_FEATURES },
       };
@@ -598,6 +634,12 @@ export function loadSettings(): EditorSettings {
     );
     privacy.usageAnalytics = normalizeAnalyticsConsent(privacy.usageAnalytics);
     privacy.diagnostics = normalizeAnalyticsConsent(privacy.diagnostics);
+    const automation = normalizeAutomationSettings(
+      mergePartial(
+        DEFAULT_AUTOMATION_SETTINGS,
+        parsed.automation as Partial<AutomationSettingsStore>,
+      ),
+    );
     return {
       general: mergePartial(
         DEFAULT_GENERAL_SETTINGS,
@@ -639,6 +681,7 @@ export function loadSettings(): EditorSettings {
       collab: mergePartial(DEFAULT_COLLAB_SETTINGS, parsed.collab as Partial<CollabSettingsStore>),
       ai: mergePartial(DEFAULT_AI_SETTINGS, parsed.ai as Partial<AiSettingsStore>),
       privacy,
+      automation,
       learning: mergePartial(
         DEFAULT_LEARNING_SETTINGS,
         parsed.learning as Partial<LearningSettingsStore>,
@@ -665,6 +708,7 @@ export function loadSettings(): EditorSettings {
       collab: { ...DEFAULT_COLLAB_SETTINGS },
       ai: { ...DEFAULT_AI_SETTINGS },
       privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+      automation: { ...DEFAULT_AUTOMATION_SETTINGS },
       learning: { ...DEFAULT_LEARNING_SETTINGS },
       features: { ...DEFAULT_FEATURES },
     };
@@ -807,6 +851,7 @@ export interface EditorSettingsPatch {
   collab?: Partial<CollabSettingsStore>;
   ai?: Partial<AiSettingsStore>;
   privacy?: Partial<PrivacySettingsStore>;
+  automation?: Partial<AutomationSettingsStore>;
   learning?: Partial<LearningSettingsStore>;
 }
 
@@ -832,6 +877,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     collab: { ...current.collab, ...patch.collab },
     ai: { ...current.ai, ...patch.ai },
     privacy: { ...current.privacy, ...patch.privacy },
+    automation: { ...current.automation, ...patch.automation },
     learning: { ...current.learning, ...patch.learning },
     features: { ...current.features },
   };
@@ -856,6 +902,7 @@ export function resetSettings(): EditorSettings {
     collab: { ...DEFAULT_COLLAB_SETTINGS },
     ai: { ...DEFAULT_AI_SETTINGS },
     privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+    automation: { ...DEFAULT_AUTOMATION_SETTINGS },
     learning: { ...DEFAULT_LEARNING_SETTINGS },
     features: { ...DEFAULT_FEATURES },
   };

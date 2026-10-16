@@ -6,6 +6,7 @@ mod font;
 mod font_storage;
 mod generative_qualification;
 mod generative_resources;
+mod automation_host;
 mod collab_host;
 mod lifecycle;
 mod logs;
@@ -5875,6 +5876,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            automation_host::automation_apply_policy,
+            automation_host::automation_status,
+            automation_host::automation_reply,
+            automation_host::automation_stop,
             collab_host::collab_host_start,
             collab_host::collab_host_status,
             collab_host::collab_room_create,
