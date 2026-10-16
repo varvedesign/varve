@@ -136,6 +136,14 @@ function layoutToCss(layout: LayoutSpec, unit: string, base: number): Record<str
 
   if (layout.mode === 'grid') {
     props.display = 'grid';
+    if (layout.gridTemplateColumns) props['grid-template-columns'] = layout.gridTemplateColumns;
+    if (layout.gridTemplateRows) props['grid-template-rows'] = layout.gridTemplateRows;
+  }
+  if (layout.gridPlacement) {
+    const { column, row, columnSpan, rowSpan } = layout.gridPlacement;
+    if (column !== 'auto')
+      props['grid-column'] = columnSpan > 1 ? `${column} / span ${columnSpan}` : String(column);
+    if (row !== 'auto') props['grid-row'] = rowSpan > 1 ? `${row} / span ${rowSpan}` : String(row);
   }
 
   const pad = layout.padding;
@@ -409,7 +417,7 @@ export function exportIrToHtml(
   // ── Atomic class building ──────────────────────────────────────────────────
   function buildNodeCss(
     node: SemanticNode,
-    parentIsFlex: boolean,
+    parentIsFlow: boolean,
   ): { className: string; css: string; htmlTag: string } {
     const baseName = makeClassName(node.name || node.kind || 'el');
     let className = baseName;
@@ -425,7 +433,7 @@ export function exportIrToHtml(
 
     // Only emit position: absolute or relative when the parent is a stacking context
     // If parent is flex, remove absolute positioning from children
-    if (parentIsFlex && layoutProps.position) {
+    if (parentIsFlow && layoutProps.position) {
       delete layoutProps.position;
     }
 
@@ -459,8 +467,8 @@ export function exportIrToHtml(
   }
 
   // ── Recursive HTML emitter ─────────────────────────────────────────────────
-  function emitNode(node: SemanticNode, parentIsFlex: boolean, depth: number): string {
-    const { className, css, htmlTag } = buildNodeCss(node, parentIsFlex);
+  function emitNode(node: SemanticNode, parentIsFlow: boolean, depth: number): string {
+    const { className, css, htmlTag } = buildNodeCss(node, parentIsFlow);
     if (css) cssLines.push(css);
 
     const innerIndent = indent.repeat(depth + 1);
@@ -481,7 +489,9 @@ export function exportIrToHtml(
     // Children
     const childrenHtml = node.children
       .filter((c) => c.visible !== false)
-      .map((c) => emitNode(c, node.layout.mode === 'flex', depth + 1))
+      .map((c) =>
+        emitNode(c, node.layout.mode === 'flex' || node.layout.mode === 'grid', depth + 1),
+      )
       .join('\n');
 
     // Flattened image content

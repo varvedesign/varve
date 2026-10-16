@@ -8,6 +8,49 @@ import { exportIrToHtml } from '../html';
 import { sceneToIR } from '../ir-converter';
 
 describe('exportIrToHtml', () => {
+  it('preserves stable grid tracks and authored child spans in CSS', () => {
+    const doc = createDocument('Grid export');
+    const child = {
+      ...makeFrameNode('card', { name: 'Card', w: 180, h: 80 }),
+      gridPlacement: {
+        gridColumnStartTrackId: 'middle',
+        gridColumnSpan: 2,
+        gridRowStart: 1,
+      },
+    };
+    const frame = makeFrameNode('grid', {
+      name: 'Dashboard',
+      w: 600,
+      h: 300,
+      children: [child.id],
+      layoutStyle: {
+        mode: 'grid',
+        direction: 'row',
+        gap: 12,
+        padding: [16, 16, 16, 16],
+        wrap: false,
+        grow: 0,
+        shrink: 0,
+        gridColumnTracks: [
+          { id: 'left', size: '1fr' },
+          { id: 'middle', size: '2fr' },
+          { id: 'right', size: '1fr' },
+        ],
+      },
+    });
+    const docWithNodes = {
+      ...doc,
+      nodes: { [frame.id]: frame, [child.id]: child },
+      rootChildren: [frame.id],
+    };
+
+    const result = exportIrToHtml(sceneToIR(docWithNodes));
+
+    expect(result.css).toContain('grid-template-columns: 1fr 2fr 1fr;');
+    expect(result.css).toContain('grid-column: 2 / span 2;');
+    expect(result.css).toContain('grid-row: 1;');
+  });
+
   it('produces valid HTML document structure', () => {
     const doc = createDocument('Test Design');
     const frame = makeFrameNode('f1', { name: 'Container' });
