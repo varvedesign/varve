@@ -2,7 +2,7 @@
 
 Canonical contract for driving Varve from a command line, a JSON control
 channel, or an MCP server. Decision record:
-[ADR-0243](../adr/0243-agent-control-command-service.md). Research and failure
+[ADR-0244](../adr/0244-agent-control-command-service.md). Research and failure
 ledger: [agent-control-research-2026-10-15](../research/agent-control-research-2026-10-15.md).
 
 The goal: every supported operation has one discoverable, validated command

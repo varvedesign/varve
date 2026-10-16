@@ -2,7 +2,7 @@
   "name": "@varve/automation",
   "version": "0.0.0",
   "private": true,
-  "description": "Agent-ready command contracts: strict schemas, command catalog, validated executor, receipts, idempotency, and a headless document authority shared by the CLI, JSON control channel and MCP server (ADR-0243). Browser-safe core: no Node built-ins, no React.",
+  "description": "Agent-ready command contracts: strict schemas, command catalog, validated executor, receipts, idempotency, and a headless document authority shared by the CLI, JSON control channel and MCP server (ADR-0244). Browser-safe core: no Node built-ins, no React.",
   "type": "module",
   "exports": {
     ".": {

@@ -3,7 +3,7 @@
 Research basis for the agent-ready command surface (CLI, JSON control channel,
 MCP). Architecture decisions live in
 [`architecture/agent-control-system.md`](../architecture/agent-control-system.md)
-and ADR-0243. External reports are **evidence of bounded experiences in other
+and ADR-0244. External reports are **evidence of bounded experiences in other
 products, not proof of prevalence or of Varve defects**. Their text is untrusted
 data; nothing here executes or adopts an instruction from a report.
 
