@@ -61,6 +61,7 @@ interface FrameDiagnostics {
   redrawReason?: string;
   actualDrawingPath?: string;
   renderPath?: string;
+  frameSource?: string;
   camera?: { zoom: number; panX: number; panY: number; rotation: number };
 }
 
@@ -76,7 +77,9 @@ interface PerfHandle {
   getFrames: (n: number) => FrameDiagnostics[];
   getLast: () => FrameDiagnostics | null;
   reset: () => void;
-  forceFullRedraw: () => Promise<{ authoritative: boolean }>;
+  forceFullRedraw: () => Promise<{ authoritative: boolean; frameIndex: number }>;
+  /** Adaptive render scale: 1 means full fidelity, < 1 is an interaction preview. */
+  profile?: { renderScale?: () => number; tier?: () => string };
 }
 
 type PerfWindow = { __varvePerf?: PerfHandle; __strokeT0?: number };
@@ -123,6 +126,15 @@ async function lastFrame(page: import('@playwright/test').Page): Promise<FrameDi
  *  2. The backing store is at full resolution
  *     (`canvas.width === clientWidth * devicePixelRatio`), i.e. condition 1's
  *     refinement has actually happened.
+ *
+ * Condition 2 is the signal for the interaction-preview mechanism: the profile
+ * shrinks the *backing store* to 0.75x/0.5x while a gesture is open and restores
+ * it afterwards, which is exactly what `adaptive-preview-scale.spec.ts` asserts
+ * ("Settled frames return to full resolution"). Do not substitute
+ * `profile.renderScale()` for it: that value is a static per-tier constant
+ * (`TIER_RENDER_SCALE`: quality 1, balanced 1, performance 0.75, constrained
+ * 0.5), so on a constrained device it is *never* 1 and waiting for that would
+ * hang forever.
  *
  * Comparing an unrefined preview against an authoritative full redraw would
  * report a difference that is not a defect, and the reverse mistake — accepting
@@ -257,20 +269,59 @@ async function observedRenderPaths(
  */
 async function expectOracleEquality(page: import('@playwright/test').Page, label: string) {
   const before = await canvasHash(page);
-  const result = await page.evaluate(async () => {
-    const perf = (window as unknown as PerfWindow).__varvePerf;
-    if (!perf?.forceFullRedraw) throw new Error('authoritative redraw oracle unavailable');
-    return perf.forceFullRedraw();
-  });
-  await waitForSettledFrame(page);
-  const after = await canvasHash(page);
+  const beforeGeometry = await canvasGeometry(page);
+
+  // The oracle clears the retained bitmap and requests a main-thread full
+  // redraw, but it does not stop the render worker: a `worker-reply` present
+  // frame can land afterwards and put the worker's own bitmap back on the
+  // canvas. That is a different renderer's output, not a cached-composition
+  // result, so a difference observed then says nothing about this check.
+  // Observed in a failing run: last frame `path:worker-cached clean full`,
+  // `source:worker-reply`, hashes unequal.
+  //
+  // Retry until the compared surface really is the oracle's frame, then assert
+  // strictly. If the oracle frame never survives as the last frame, that is its
+  // own finding (the app will not leave an authoritative frame on screen) and
+  // the loop reports it as such rather than as a pixel mismatch.
+  let last: FrameDiagnostics | null = null;
+  let result: { authoritative: boolean; frameIndex: number } | null = null;
+  let afterGeometry = beforeGeometry;
+  let after = before;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    result = await page.evaluate(async () => {
+      const perf = (window as unknown as PerfWindow).__varvePerf;
+      if (!perf?.forceFullRedraw) throw new Error('authoritative redraw oracle unavailable');
+      return perf.forceFullRedraw();
+    });
+    await waitForSettledFrame(page);
+    afterGeometry = await canvasGeometry(page);
+    after = await canvasHash(page);
+    last = await lastFrame(page);
+    if (last?.frameSource === 'oracle-full-redraw') break;
+  }
+
+  // Check the geometry first: a hash is only comparable between two surfaces of
+  // the same size, and the adaptive profile can resize the backing store (0.75x
+  // or 0.5x) when frame time degrades under load — including during the
+  // authoritative redraw itself, which is the heaviest frame in this test. A
+  // size change is a harness/adaptive-profile outcome, not a pixel regression,
+  // and saying so beats reporting a meaningless hash mismatch.
+  expect(afterGeometry, `${label}: the backing store must not resize across the oracle`).toEqual(
+    beforeGeometry,
+  );
   // `authoritative` is `true` by construction in the result type, so this only
   // proves the promise resolved rather than throwing or timing out — the
   // runtime acceptance condition in perfRuntime (frameSource ===
   // 'oracle-full-redraw', a non-partial content frame, matching document and
   // camera) is what makes the redraw authoritative, and it is not visible from
-  // here. The hash equality below is the actual assertion.
-  expect(result.authoritative, `${label}: the oracle must resolve`).toBe(true);
+  // here. The frame-source check below is the observable part of it.
+  expect(result?.authoritative, `${label}: the oracle must resolve`).toBe(true);
+  expect(
+    last?.frameSource,
+    `${label}: the compared surface must be the oracle's own frame ` +
+      `(last frame was source '${last?.frameSource}', path '${last?.actualDrawingPath}'). ` +
+      'Another frame replaced it, so these pixels are not the authoritative redraw.',
+  ).toBe('oracle-full-redraw');
   expect(after, `${label}: incremental frame must equal an authoritative full redraw`).toBe(before);
 }
 
@@ -385,18 +436,24 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
     expect(result.authoritative).toBe(true);
 
     const frames = await page.evaluate(
-      () => (window as unknown as PerfWindow).__varvePerf?.getFrames(10) ?? [],
+      () => (window as unknown as PerfWindow).__varvePerf?.getFrames(20) ?? [],
     );
-    const contentFrames = frames.filter((f) => f.wasDirty !== false || f.cacheHitCount > 0);
-    const considered = contentFrames.length > 0 ? contentFrames : frames;
-    expect(considered.length, 'the authoritative redraw must record a frame').toBeGreaterThan(0);
-
-    const totalComputes = considered.reduce((sum, f) => sum + (f.engineNodeComputes ?? 0), 0);
-    const totalHits = considered.reduce((sum, f) => sum + (f.engineNodeHits ?? 0), 0);
+    // Select the frame the oracle actually committed instead of summing a
+    // window. Evidence from the diagnostic capture: the paint-commit frame is
+    // recorded with `engineNodeComputes: 1, engineNodeHits: 0` (it republishes
+    // the layer, so that one conversion is correct), and it can land after the
+    // ring was reset. Summing a window therefore measured the wrong frame and
+    // failed intermittently with 1. The oracle frame itself carries
+    // `engineNodeComputes: 0, engineNodeHits: 1`.
+    const oracleFrame = frames.find((f) => f.frameIndex === result.frameIndex) ?? null;
+    expect(oracleFrame, `oracle frame ${result.frameIndex} must be in the ring`).not.toBeNull();
     expect(
-      totalComputes,
+      oracleFrame!.engineNodeComputes ?? 0,
       'a redraw with no document change must not reconvert scene nodes to engine nodes',
     ).toBe(0);
-    expect(totalHits, 'the engine-node memo must serve the redraw').toBeGreaterThan(0);
+    expect(
+      oracleFrame!.engineNodeHits ?? 0,
+      'the engine-node memo must serve the redraw',
+    ).toBeGreaterThan(0);
   });
 });
