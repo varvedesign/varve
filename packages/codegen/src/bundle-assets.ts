@@ -29,7 +29,11 @@ export function resolveBundleAssets(opts: {
   rasterAssets?: Record<string, RasterAsset>;
   assetMode?: 'inline' | 'files';
 }): { assetPaths?: Record<string, string>; assets?: BundleAsset[]; failedNodeIds: string[] } {
-  if (!opts.rasterAssets || Object.keys(opts.rasterAssets).length === 0 || opts.assetMode !== 'files') {
+  if (
+    !opts.rasterAssets ||
+    Object.keys(opts.rasterAssets).length === 0 ||
+    opts.assetMode !== 'files'
+  ) {
     return { failedNodeIds: [] };
   }
   const built = buildBundleAssets(opts.rasterAssets);
