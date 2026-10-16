@@ -108,7 +108,7 @@ export interface StoryOutline {
 
 // ── Constraints types (Figma-style responsive positioning) ─────────────────
 
-export type ConstraintAxis = 'min' | 'max' | 'center' | 'stretch' | 'scale';
+export type ConstraintAxis = 'min' | 'max' | 'center' | 'centerOffset' | 'stretch' | 'scale';
 
 export interface Constraints {
   horizontal: ConstraintAxis;

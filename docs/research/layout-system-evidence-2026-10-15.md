@@ -18,7 +18,7 @@ rechecked before they are repeated as current facts.
 | [FilmCraft #639](https://github.com/storytold/filmcraft/issues/639) | Requested on-canvas transform handles with one-step undo and Escape cancel; closed via #667. This is a transferable interaction pattern, not layout-solver evidence. | Use direct manipulation only for visible track/guide affordances and preserve existing drag cancellation/history rules. | Pending: gesture cancels without mutation and commits once. |
 | [EffectCraft #284](https://github.com/storytold/effectcraft/issues/284) | A UI issue list included controls/scrolling and scaling gaps later addressed in #391. This concerns panel usability. | Keep dense inspector sections scrollable and test full controls at compact heights. | Pending: compact inspector capture and keyboard traversal. |
 | ArtCraft and DeckCraft issue searches | No directly applicable document auto-layout/grid/constraint report was found in the targeted issue searches; DeckCraft's surfaced rendering issue was not enough to infer a layout cause. | Do not force unrelated media generation or slide rendering issues into this feature. Revisit only if later evidence identifies a shared layout boundary. | Not applicable to the current behavior matrix. |
-| [Figma layout-version guide](https://help.figma.com/hc/en-us/articles/42031586813719-Use-auto-layout-with-CSS-Flexbox-in-mind) | Figma documents changed stroke influence, Fill sizing, and auto-gap behavior with existing files left on the legacy version until opted in. | Preserve current Varve semantics; use explicit new `centerOffset` rather than redefining existing `center`; preview any future semantic migration. | Pending: legacy fixture remains unchanged; new policy fixture matches its explicit contract. |
+| [Figma layout-version guide](https://help.figma.com/hc/en-us/articles/42031586813719-Use-auto-layout-with-CSS-Flexbox-in-mind) | Figma documents changed stroke influence, Fill sizing, and auto-gap behavior with existing files left on the legacy version until opted in. | Preserve current Varve semantics; use explicit new `centerOffset` rather than redefining existing `center`; preview any future semantic migration. | `constraints.test.ts`: center-offset resize oracle passes and the legacy proportional-center oracle remains unchanged. Inspector component tests: 21 passed on 2026-10-15. |
 | [CSS Flexbox Level 1](https://www.w3.org/TR/css-flexbox-1/) and [CSS Grid Level 2](https://www.w3.org/TR/css-grid/) | Standards define per-line flexible sizing/freezing and intrinsic track contributions before flexible tracks. | Use as bounded conformance references. Document deliberate design-editor differences such as signed flow gaps and scene-pixel units. | Pending: exact arithmetic fixtures and a bounded CSS overlap subset. |
 
 ## Current Varve source audit
@@ -33,8 +33,8 @@ rechecked before they are repeated as current facts.
   `layoutSemanticsVersion: 2` resolves intrinsic/span contributions before
   fractional tracks and repeats authored implicit tracks; absent/version 1
   retains legacy sizing. Stable track identities and editor mutations remain.
-- `packages/scene/src/constraints.ts` currently gives `center` proportional
-  placement. The new `centerOffset` policy will be additive.
+- `packages/scene/src/constraints.ts` preserves proportional `center` and adds
+  `centerOffset`, which keeps the child center's offset from the parent center.
 - `crates/varve-layout/src/lib.rs` has no production callers and leaves grid
   templates as a stub; TypeScript remains the active layout solver.
 
