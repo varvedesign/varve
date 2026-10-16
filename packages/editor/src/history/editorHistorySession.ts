@@ -69,6 +69,7 @@ import {
   recoverTail,
   redoRevision,
   replayAndVerify,
+  revisionHashScheme,
   SnapshotScheduler,
   strictlyIdentical,
   undoRevision,
@@ -83,6 +84,7 @@ import {
 import type { Document, NodeId } from '@varve/scene';
 import {
   canonicalHistoryHash,
+  HISTORY_HASH_SCHEME_CURRENT,
   registerBuiltinOperations,
   type SemanticSummary,
   validatePayload,
@@ -331,8 +333,9 @@ export class EditorHistorySession {
     }
     const { branch, head } = verified;
 
-    // Reconcile the working document against the recorded head.
-    const workingHash = canonicalHistoryHash(document);
+    // Reconcile the working document against the recorded head. The comparison
+    // is only meaningful under the scheme the head's hash was written with.
+    const workingHash = canonicalHistoryHash(document, revisionHashScheme(head));
     if (workingHash === head.canonicalDocumentHash) {
       // Verified equal to the head's recorded digest, so the first capture can
       // reuse that digest instead of hashing this document again.
@@ -392,9 +395,7 @@ export class EditorHistorySession {
       // When `before` is the very document object this session recorded (or
       // verified on load) for the head revision, the head's stored digest is
       // its canonical hash: re-deriving it would hash every raster byte again.
-      const knownBaseHash =
-        this.documentCache.get(head.revisionId) === before ? head.canonicalDocumentHash : undefined;
-      const plan = await this.planExactCapture(before, after, knownBaseHash);
+      const plan = await this.planExactCapture(before, after, this.reusableBaseHash(head, before));
       if (!plan) return null;
       const revision = await this.commitCapture(
         before,
@@ -427,9 +428,27 @@ export class EditorHistorySession {
     issues: HistoryIssue[],
   ): Promise<RevisionRecord | null> {
     const parentDocument = await this.loadCachedDocument(parent.revisionId, parent);
-    const plan = await this.planExactCapture(parentDocument, after, parent.canonicalDocumentHash);
+    const plan = await this.planExactCapture(
+      parentDocument,
+      after,
+      this.reusableBaseHash(parent, parentDocument),
+    );
     if (!plan) return null;
     return this.commitCapture(parentDocument, after, parent, branch, plan, options, origin, issues);
+  }
+
+  /**
+   * The recorded hash of `document` when it can stand in for hashing it again:
+   * `document` must be the very object the session recorded or verified for
+   * `revision`, and the hash must have been written under the scheme this
+   * capture compares in. A scheme-1 head therefore pays one fresh pass, after
+   * which the revision it produces is scheme 2 and every later capture reuses.
+   */
+  private reusableBaseHash(revision: RevisionRecord, document: Document): string | undefined {
+    if (this.documentCache.get(revision.revisionId) !== document) return undefined;
+    return revisionHashScheme(revision) === HISTORY_HASH_SCHEME_CURRENT
+      ? revision.canonicalDocumentHash
+      : undefined;
   }
 
   /** Build a replay plan from exact document differences plus raster blobs. */
@@ -542,7 +561,7 @@ export class EditorHistorySession {
     // transport shape, for example) still goes through the hash comparison.
     // `nextId` is the one field the canonical history hash excludes.
     if (!strictlyIdentical(replayed, after, { ignoreRootKeys: ['nextId'] })) {
-      const replayedHash = canonicalHistoryHash(replayed);
+      const replayedHash = canonicalHistoryHash(replayed, HISTORY_HASH_SCHEME_CURRENT);
       if (replayedHash !== diff.targetHash) {
         const message = `capture replay mismatch: expected ${diff.targetHash}, got ${replayedHash}`;
         issues?.push({ severity: 'error', code: 'history.capture-hash-mismatch', message });
@@ -560,6 +579,7 @@ export class EditorHistorySession {
       parentRevisionIds: [parent.revisionId],
       transactionId,
       canonicalDocumentHash: diff.targetHash,
+      hashScheme: HISTORY_HASH_SCHEME_CURRENT,
       operationStart: position,
       operationEnd: end,
       author: { actorId: this.actorId, kind: 'local-user' },

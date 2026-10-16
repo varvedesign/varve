@@ -100,6 +100,7 @@ export {
   ReplayError,
   replayAndVerify,
   replayToDocument,
+  revisionHashScheme,
   verifySegments,
 } from './replay';
 export {

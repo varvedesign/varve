@@ -13,8 +13,10 @@
  * Run: pnpm exec vitest run --config vitest.bench.config.ts \
  *        packages/history/src/__benchmarks__/rasterCapture.bench.ts
  * Sizes: VARVE_BENCH_RASTER_SIZES="2x2,4x4,8x8" (columns x rows of 128px tiles).
+ * Rows are also appended as JSON lines to $VARVE_BENCH_OUT when it is set.
  */
 
+import { appendFileSync } from 'node:fs';
 import type { BrushDab, Document, RasterLayerNode, RasterTile } from '@varve/scene';
 import {
   addNode,
@@ -111,6 +113,28 @@ function time<T>(fn: () => T, runs: number): { out: T; medianMs: number } {
   return { out, medianMs: median(samples) };
 }
 
+/** Median of `fn(input)` where `setup` builds a fresh, untimed input for every run. */
+function timeFresh<I, T>(setup: () => I, fn: (input: I) => T, runs: number): number {
+  const samples: number[] = [];
+  for (let i = 0; i < runs; i++) {
+    const input = setup();
+    const t0 = performance.now();
+    fn(input);
+    samples.push(performance.now() - t0);
+  }
+  return median(samples);
+}
+
+/** The same document with every tile buffer copied, so no digest is memoized. */
+function withColdTiles(doc: Document): Document {
+  const node = doc.nodes[LAYER_ID] as RasterLayerNode;
+  const tiles = new Map<string, RasterTile>();
+  for (const [key, tile] of node.tiles) {
+    tiles.set(key, { pixels: new Uint8ClampedArray(tile.pixels), version: tile.version });
+  }
+  return { ...doc, nodes: { ...doc.nodes, [LAYER_ID]: { ...node, tiles } } };
+}
+
 async function timeAsync<T>(
   fn: () => Promise<T>,
   runs: number,
@@ -131,7 +155,14 @@ describe('raster history capture baseline', () => {
       const { doc, layer } = buildDocument(cols, rows);
       const tileCount = cols * rows;
 
-      const hash = time(() => canonicalHistoryHash(doc), 3);
+      const hashV1 = time(() => canonicalHistoryHash(doc, 1), 3);
+      // Scheme 2 on buffers it has never seen (attach, reload, first hash).
+      const hashV2Cold = timeFresh(
+        () => withColdTiles(doc),
+        (cold) => canonicalHistoryHash(cold, 2),
+        3,
+      );
+      canonicalHistoryHash(doc, 2); // warm the memo for the stroke scenarios below
 
       // One stroke batch: 16 sequential dabs straddling a four-tile corner.
       const origin = TILE_SIZE - 20;
@@ -192,6 +223,23 @@ describe('raster history capture baseline', () => {
         if (tile !== layer.tiles.get(key)) distinctTilesTouched++;
       }
 
+      // The document hashing a committed stroke pays: base known (scheme 1
+      // recomputes it), then the target. Scheme 2 re-hashes only the new tiles,
+      // so each sample gets a freshly drawn stroke rather than a memoized one.
+      const diffV1 = time(
+        () => diffDocuments(doc, afterDoc, { epsilonPolicy: 'exact', hashScheme: 1 }),
+        3,
+      );
+      const freshStroke = (): Document => {
+        let node = layer;
+        for (const dab of dabs) node = compositeDabOnNode(node, dab, COLOR, {});
+        return { ...doc, nodes: { ...doc.nodes, [LAYER_ID]: node } };
+      };
+      const diffV2Ms = timeFresh(
+        freshStroke,
+        (next) => diffDocuments(doc, next, { epsilonPolicy: 'exact', hashScheme: 2 }),
+        5,
+      );
       const diff = time(() => diffDocuments(doc, afterDoc, { epsilonPolicy: 'exact' }), 3);
       const capture = await timeAsync(
         () =>
@@ -216,7 +264,8 @@ describe('raster history capture baseline', () => {
       const row = {
         tiles: tileCount,
         rasterMiB: (tileCount * TILE_SIZE * TILE_SIZE * 4) / 1048576,
-        canonicalHashMs: +hash.medianMs.toFixed(1),
+        hashV1Ms: +hashV1.medianMs.toFixed(1),
+        hashV2ColdMs: +hashV2Cold.toFixed(1),
         batch16DabsMs: +batchMs.toFixed(2),
         batchTileBuffersAllocated: batch.count,
         batchAllocatedMiB: +(batch.bytes / 1048576).toFixed(2),
@@ -226,12 +275,19 @@ describe('raster history capture baseline', () => {
         draftTileBuffersAllocated: draftAlloc.count,
         draftAllocatedMiB: +(draftAlloc.bytes / 1048576).toFixed(2),
         distinctTilesTouched,
+        strokeDiffV1Ms: +diffV1.medianMs.toFixed(1),
+        strokeDiffV2Ms: +diffV2Ms.toFixed(1),
         diffExactMs: +diff.medianMs.toFixed(1),
         captureDeltasMs: +capture.medianMs.toFixed(1),
         captureEntries: capture.out.entries.length,
         idleRasterCaptureMs: +idle.medianMs.toFixed(2),
       };
       console.log(`RASTER_CAPTURE_BASELINE ${JSON.stringify(row)}`);
+      // Vitest can swallow console output depending on the reporter; a file keeps
+      // the measurement retrievable.
+      if (process.env.VARVE_BENCH_OUT) {
+        appendFileSync(process.env.VARVE_BENCH_OUT, `${JSON.stringify(row)}\n`);
+      }
 
       // Sanity only: the fixture really exercised the raster path.
       expect(distinctTilesTouched).toBeGreaterThan(0);

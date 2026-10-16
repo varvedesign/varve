@@ -32,7 +32,7 @@
  *   replaces `dataUrl` with an `asset:<id>` reference so a re-encode does not
  *   churn revision identity.)
  */
-import type { Document } from '@varve/scene';
+import type { Document, HistoryHashScheme } from '@varve/scene';
 import { canonicalHistoryHash, graphemeClusters } from '@varve/scene';
 
 export type DiffEntityKind =
@@ -119,11 +119,17 @@ export interface DiffOptions {
    * Canonical history hash of `base`, when the caller already holds it (for
    * example a revision's recorded `canonicalDocumentHash` for a document the
    * session verified on load). It is trusted, not recomputed: pass it only for
-   * the very document value it was computed from. Hashing a document is
-   * proportional to its raster bytes, so reusing a known digest removes a full
-   * pass from every history capture.
+   * the very document value it was computed from, and only when it was computed
+   * under `hashScheme`. Hashing a document is proportional to its raster bytes
+   * under scheme 1, so reusing a known digest removes a full pass from every
+   * history capture.
    */
   baseHash?: string;
+  /**
+   * Canonical byte form both hashes use (default: the current scheme). A
+   * supplied `baseHash` must have been computed under the same scheme.
+   */
+  hashScheme?: HistoryHashScheme;
 }
 
 // ── Collection registry ───────────────────────────────────────────────────────
@@ -211,8 +217,8 @@ export function diffDocuments(
     changes: [],
     options: { epsilonPolicy: options.epsilonPolicy ?? 'default' },
   };
-  const baseHash = options.baseHash ?? canonicalHistoryHash(base);
-  const targetHash = canonicalHistoryHash(target);
+  const baseHash = options.baseHash ?? canonicalHistoryHash(base, options.hashScheme);
+  const targetHash = canonicalHistoryHash(target, options.hashScheme);
   if (baseHash === targetHash) {
     return { baseHash, targetHash, changed: false, changes: [], summary: emptySummary() };
   }

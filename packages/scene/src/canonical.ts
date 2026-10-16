@@ -17,7 +17,16 @@
  *
  * Idempotence: canonicalize(canonicalize(doc)) === canonicalize(doc).
  * Hash input: exactly these bytes via SHA-256 (./sha256.ts).
+ *
+ * History hash schemes (ADR-0241 D4). Scheme 1 is the form above: a byte array
+ * (raster tile pixels) is spelled out as a JSON number list. Scheme 2 replaces
+ * each byte array by a token carrying its length and its own SHA-256, which is
+ * memoized per immutable buffer (./byteDigest.ts); a document with no byte
+ * arrays has the same bytes under both schemes. Stored revisions and snapshots
+ * name their scheme, and verification always uses the scheme they were written
+ * under, so a scheme-1 record stays verifiable forever.
  */
+import { type ByteArray, byteArrayDigest } from './byteDigest';
 import type { Document } from './document';
 import { Sha256Stream } from './sha256';
 import type { SceneNode } from './types';
@@ -27,6 +36,14 @@ export interface CanonicalizeOptions {
   excludePayloads?: boolean;
   /** Omit derived runtime counters from content hashes (history policy). */
   excludeVolatile?: boolean;
+  /**
+   * How byte arrays (raster tile pixels) enter the canonical bytes. `inline`
+   * (default) spells every byte out as a JSON number: history hash scheme 1.
+   * `digest` writes `bytes:<length>:<sha256>` instead: scheme 2. The `digest`
+   * form is not valid JSON by design, so it cannot be mistaken for any scheme-1
+   * text.
+   */
+  byteArrays?: 'inline' | 'digest';
 }
 
 export class CanonicalizationError extends Error {
@@ -475,6 +492,14 @@ function buildSerializeCtx(
  * Throws CanonicalizationError on non-finite numbers or unsupported values.
  */
 export function canonicalizeDocument(doc: Document, opts: CanonicalizeOptions = {}): string {
+  if (opts.byteArrays === 'digest') {
+    // Scheme-2 text. Only diagnostics and the oracle tests materialise it;
+    // hashing goes through `canonicalDocumentDigest`.
+    const tree = canonify(doc, '', buildSerializeCtx(doc, opts, true));
+    const sink = new TextSink();
+    writeCanonical(sink, tree, true);
+    return sink.text();
+  }
   const tree = canonify(doc, '', buildSerializeCtx(doc, opts, false));
   return JSON.stringify(tree);
 }
@@ -491,7 +516,52 @@ export function canonicalizeDocument(doc: Document, opts: CanonicalizeOptions = 
 const SINK_CAPACITY = 1 << 16;
 const SINK_HEADROOM = 8;
 
-class DigestSink {
+/** The output operations `writeCanonical` needs; a hasher and a string builder implement it. */
+interface CanonicalSink {
+  byte(b: number): void;
+  ascii(text: string): void;
+  jsonString(text: string): void;
+  /** A byte array as the JSON number list `JSON.stringify` would emit (scheme 1). */
+  bytes(values: ByteArray): void;
+  /** A byte array as `bytes:<length>:<sha256>` (scheme 2). */
+  byteToken(values: ByteArray): void;
+}
+
+/** Spell a byte array as the scheme-2 token. Hex and decimal only: no JSON delimiter occurs in it. */
+function byteToken(values: ByteArray): string {
+  return `bytes:${values.length}:${byteArrayDigest(values)}`;
+}
+
+/** Builds the canonical text in memory. Diagnostic and test use only. */
+class TextSink implements CanonicalSink {
+  private readonly parts: string[] = [];
+
+  byte(b: number): void {
+    this.parts.push(String.fromCharCode(b));
+  }
+
+  ascii(text: string): void {
+    this.parts.push(text);
+  }
+
+  jsonString(text: string): void {
+    this.parts.push(JSON.stringify(text));
+  }
+
+  bytes(values: ByteArray): void {
+    this.parts.push(JSON.stringify(Array.from(values)));
+  }
+
+  byteToken(values: ByteArray): void {
+    this.parts.push(byteToken(values));
+  }
+
+  text(): string {
+    return this.parts.join('');
+  }
+}
+
+class DigestSink implements CanonicalSink {
   private readonly buf = new Uint8Array(SINK_CAPACITY);
   private n = 0;
   private readonly hash = new Sha256Stream();
@@ -527,8 +597,13 @@ class DigestSink {
     this.ascii(json);
   }
 
+  /** Append a byte array as the scheme-2 token. */
+  byteToken(values: ByteArray): void {
+    this.ascii(byteToken(values));
+  }
+
   /** Append a byte array as the JSON number array `JSON.stringify` would emit. */
-  bytes(values: Uint8Array | Uint8ClampedArray): void {
+  bytes(values: ByteArray): void {
     this.byte(0x5b); // [
     const buf = this.buf;
     let n = this.n;
@@ -566,7 +641,7 @@ class DigestSink {
  * objects/arrays/primitives plus typed-array leaves, `undefined` array items
  * become `null`, and `undefined` object members are omitted.
  */
-function writeCanonical(sink: DigestSink, value: unknown): void {
+function writeCanonical(sink: CanonicalSink, value: unknown, digestBytes: boolean): void {
   if (value === null || value === undefined) {
     sink.ascii('null');
     return;
@@ -585,14 +660,15 @@ function writeCanonical(sink: DigestSink, value: unknown): void {
       break;
   }
   if (isByteArray(value)) {
-    sink.bytes(value);
+    if (digestBytes) sink.byteToken(value);
+    else sink.bytes(value);
     return;
   }
   if (Array.isArray(value)) {
     sink.byte(0x5b);
     for (let i = 0; i < value.length; i++) {
       if (i > 0) sink.byte(0x2c);
-      writeCanonical(sink, value[i]);
+      writeCanonical(sink, value[i], digestBytes);
     }
     sink.byte(0x5d);
     return;
@@ -607,19 +683,20 @@ function writeCanonical(sink: DigestSink, value: unknown): void {
     first = false;
     sink.jsonString(key);
     sink.byte(0x3a);
-    writeCanonical(sink, member);
+    writeCanonical(sink, member, digestBytes);
   }
   sink.byte(0x7d);
 }
 
 /**
- * SHA-256 of exactly the bytes `canonicalizeDocument` returns, without
- * materialising them. Throws CanonicalizationError like `canonicalizeDocument`.
+ * SHA-256 of exactly the bytes `canonicalizeDocument` returns for the same
+ * options, without materialising them. Throws CanonicalizationError like
+ * `canonicalizeDocument`.
  */
 export function canonicalDocumentDigest(doc: Document, opts: CanonicalizeOptions = {}): string {
   const tree = canonify(doc, '', buildSerializeCtx(doc, opts, true));
   const sink = new DigestSink();
-  writeCanonical(sink, tree);
+  writeCanonical(sink, tree, opts.byteArrays === 'digest');
   return sink.digestHex();
 }
 
@@ -632,12 +709,53 @@ export function canonicalHash(doc: Document, opts: CanonicalizeOptions = {}): st
 }
 
 /**
+ * Which canonical byte form a history hash was computed over (ADR-0241 D4).
+ * 1: raster bytes spelled out (every record written before scheme 2 existed).
+ * 2: raster bytes replaced by their memoized SHA-256, so hashing a document
+ *    after a stroke costs the touched tiles instead of every tile.
+ */
+export type HistoryHashScheme = 1 | 2;
+
+/** The scheme every newly written revision and snapshot uses. */
+export const HISTORY_HASH_SCHEME_CURRENT: HistoryHashScheme = 2;
+
+/** The scheme of a stored record that predates the `hashScheme` field. */
+export const HISTORY_HASH_SCHEME_LEGACY: HistoryHashScheme = 1;
+
+export function isHistoryHashScheme(value: unknown): value is HistoryHashScheme {
+  return value === 1 || value === 2;
+}
+
+/**
+ * The scheme a stored record's hash was computed under. A record without the
+ * field is scheme 1. A field holding anything else is a record from a newer
+ * writer: it is reported rather than guessed at, because verifying under the
+ * wrong scheme would either wave through or condemn a document unjustly.
+ */
+export function historyHashSchemeOf(record: { hashScheme?: number }): HistoryHashScheme {
+  const scheme = record.hashScheme ?? HISTORY_HASH_SCHEME_LEGACY;
+  if (!isHistoryHashScheme(scheme)) {
+    throw new RangeError(`unsupported history hash scheme: ${String(scheme)}`);
+  }
+  return scheme;
+}
+
+/**
  * Content hash used by persistent history and semantic merge/replay.
  * `nextId` is persisted for compatibility but is derived from document ids,
  * so it must not make two semantically identical revisions hash differently.
+ *
+ * `scheme` defaults to the current one. Anything comparing against a stored
+ * hash must pass the scheme that record names (`historyHashSchemeOf`).
  */
-export function canonicalHistoryHash(doc: Document): string {
-  return canonicalHash(doc, { excludeVolatile: true });
+export function canonicalHistoryHash(
+  doc: Document,
+  scheme: HistoryHashScheme = HISTORY_HASH_SCHEME_CURRENT,
+): string {
+  return canonicalHash(doc, {
+    excludeVolatile: true,
+    byteArrays: scheme === 2 ? 'digest' : 'inline',
+  });
 }
 
 export { canonicalDigest, sha256Hex, sha256Utf8 } from './sha256';

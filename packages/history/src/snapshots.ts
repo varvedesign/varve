@@ -7,8 +7,14 @@
  * explicit checkpoint, shutdown), never every-transaction.
  */
 
-import type { Document, RasterLayerNode } from '@varve/scene';
-import { canonicalHistoryHash, DocumentCodec } from '@varve/scene';
+import type { Document, HistoryHashScheme, RasterLayerNode } from '@varve/scene';
+import {
+  byteArrayDigest,
+  canonicalHistoryHash,
+  DocumentCodec,
+  HISTORY_HASH_SCHEME_CURRENT,
+  historyHashSchemeOf,
+} from '@varve/scene';
 import { hashTilePixels, type RasterTileEntry, type RasterTileStore } from './rasterTileStore';
 import type { HistoryStore } from './store';
 
@@ -23,6 +29,11 @@ export interface SnapshotRasterTile {
 export interface SnapshotRecord {
   /** Content address: the canonical SHA-256 digest. */
   canonicalHash: string;
+  /**
+   * Canonical byte form `canonicalHash` was computed over (ADR-0241 D4). Absent
+   * means scheme 1. Decoding verifies the document under this scheme.
+   */
+  hashScheme?: HistoryHashScheme;
   documentId: string;
   canonicalText: string;
   /**
@@ -96,7 +107,7 @@ export async function createSnapshot(
   // to number arrays. A history snapshot must instead round-trip the live
   // scene representation, including `Map<string, RasterTile>`.
   const canonicalText = DocumentCodec.encode(document);
-  const hash = canonicalHistoryHash(document);
+  const hash = canonicalHistoryHash(document, HISTORY_HASH_SCHEME_CURRENT);
   const existing = await store.getSnapshot(opts.documentId, hash);
   if (existing?.encoding === 'document-codec') return existing;
   const raster = opts.rasterTileStore ? await captureSnapshotRasterTiles(document) : null;
@@ -104,6 +115,7 @@ export async function createSnapshot(
   if (raster?.entries.length) await opts.rasterTileStore!.putBatch(raster.entries);
   const snapshot: SnapshotRecord = {
     canonicalHash: hash,
+    hashScheme: HISTORY_HASH_SCHEME_CURRENT,
     documentId: opts.documentId,
     canonicalText,
     encoding: 'document-codec',
@@ -133,8 +145,11 @@ export async function captureSnapshotRasterTiles(document: Document): Promise<{
     for (const [tileKey, tile] of [...node.tiles.entries()].sort(([a], [b]) =>
       a.localeCompare(b),
     )) {
+      // A published tile is immutable, so its memoized digest is its content
+      // hash (the document hash just computed it). The copy is what is stored,
+      // and the store verifies the copy against this hash when it is written.
+      const contentHash = byteArrayDigest(tile.pixels);
       const pixels = new Uint8ClampedArray(tile.pixels);
-      const contentHash = await hashTilePixels(pixels);
       manifest.push({ nodeId, tileKey, contentHash, version: tile.version });
       entries.push({ tileKey: `${nodeId}:${tileKey}`, contentHash, pixels });
     }
@@ -159,7 +174,7 @@ export function snapshotToDocument(snapshot: SnapshotRecord): Document {
   }
   const decoded = DocumentCodec.decode(snapshot.canonicalText);
   if (!decoded.ok) throw new Error(`snapshot decode failed: ${decoded.error}`);
-  const actual = canonicalHistoryHash(decoded.document);
+  const actual = canonicalHistoryHash(decoded.document, historyHashSchemeOf(snapshot));
   if (actual !== snapshot.canonicalHash) {
     throw new Error(
       `snapshot canonical hash mismatch: expected ${snapshot.canonicalHash}, got ${actual}`,

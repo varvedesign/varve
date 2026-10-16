@@ -20,6 +20,7 @@ export * from './bindings';
 export * from './boolean';
 export * from './brush';
 export * from './brushPackage';
+export * from './byteDigest';
 export * from './callout';
 export * from './canonical';
 export * from './clippingMask';

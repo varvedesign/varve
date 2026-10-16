@@ -1,6 +1,6 @@
 # ADR-0241: Raster stroke ownership, history hashing cost, and tile content identity
 
-- **Status:** Accepted for D1-D3 (implemented). D4 is **Proposed** and not in effect.
+- **Status:** Accepted and implemented (D1-D5). D4 was approved by the maintainer on 2026-10-16.
 - **Date:** 2026-10-16
 - **Related:** ADR-0198, ADR-0203, ADR-0214, `docs/architecture/persistent-history.md`,
   `docs/architecture/render-pipeline.md`,
@@ -74,7 +74,7 @@ every stored revision and snapshot.
 - Typed-array detection is realm-independent (`isByteArray`). The previous
   `instanceof` check made a cross-realm array canonicalize as `{"0":...}`.
 Result: hash passes per raster stroke 3 -> 1; digest 2.5-3.3x faster per
-pass. Capture remains **O(raster bytes)**; see D4.
+pass. Under scheme 1 capture remained **O(raster bytes)**; D4 removes that.
 
 **D3 - Tile content identity is a runtime token, not the version.**
 `tilePixelsIdentity(pixels)` (a `WeakMap`-assigned, process-local number) is
@@ -84,15 +84,43 @@ carried as `contentId` on engine tile records. `RasterLayerCache`,
 persisted and never enters the canonical form. When absent, behaviour is the
 previous version-only comparison.
 
-**D4 - Proposed, not implemented: hash scheme v2 (tile Merkle).** To make
-capture O(changed tiles), tile pixels would contribute to the document hash as
-their own SHA-256 (memoized per immutable buffer) instead of as bytes.
-Documents with no byte-array values hash identically under v1 and v2. This changes
-the persisted `canonicalDocumentHash` for raster-bearing documents, so it
-needs: a `hashScheme` marker on revisions/snapshots/operation payload hashes,
-dual-scheme verification for legacy records, migration and recovery tests, and
-explicit approval. It is the only route to interactive capture at the 24 MP
-scale because pure-TypeScript SHA-256 cannot hash ~100 MiB per stroke.
+**D4 - History hash scheme 2: tile Merkle (implemented).** The canonical history
+hash of a raster document spelled every pixel out, so committing a stroke, and
+every undo and redo, cost O(raster bytes) however little changed. Scheme 2 hashes
+each tile's bytes once, memoizes that digest on the (immutable) buffer, and puts
+`bytes:<length>:<sha256>` into the canonical text where scheme 1 put the JSON
+number list. A document with no byte arrays has identical bytes, and so an
+identical hash, under both schemes (pinned by test). The token is not valid
+JSON, so no scheme-1 text can equal a scheme-2 text.
+
+- `canonicalHistoryHash(doc, scheme = 2)`; `byteArrayDigest` is the memo.
+- `RevisionRecord.hashScheme` and `SnapshotRecord.hashScheme` name the scheme a
+  stored hash was written under; a record without the field is scheme 1. Every
+  new revision and snapshot writes `2`.
+- **Dual-scheme verification.** Replay verification, snapshot decode and the
+  attach reconciliation hash under the scheme the record names
+  (`historyHashSchemeOf`), so a history written before this change verifies
+  forever and is never rewritten. A scheme-1 record relabelled as 2 (or the
+  reverse) fails closed, and an unknown scheme is refused with
+  `replay.unknown-hash-scheme` rather than guessed.
+- **Upgrade is in place and lazy.** A scheme-1 head is attached as it was; the
+  first capture on it hashes its base afresh under scheme 2 (one O(bytes) pass,
+  as before), writes a scheme-2 revision, and every later capture reuses the
+  recorded digest.
+- **The memo's contract is immutability of published tile buffers**, which
+  `RasterTileDraft` and every other tile operation already honour (they clone
+  before writing). `canonicalHashScheme.test.ts` pins it for each tile
+  operation. The replay-verification oracle is unchanged: it replays stored
+  operations into fresh buffers and hashes those. A buffer mutated after it was
+  hashed would record a stale digest that the next load's fresh hash would
+  contradict, which is detected, not silent.
+- Measured through the real `EditorHistorySession` (Ryzen 5300U under load
+  average ~11, in-memory stores; `sessionRasterCapture.bench.ts`): a stroke on a
+  94 MiB (~24 MP) layer commits in a median 21-23 ms (worst 27-45 ms) hashing
+  ~0.7 MiB, where scheme 1 hashes the whole layer (one pass ~8-10 s). The
+  per-undo dirty check (two whole-document hashes in `applyLoadedRevision`) drops
+  from 10.4 s to 28 ms at 94 MiB and from 3.2 s to 8 ms at 16 MiB. Attach still
+  costs O(raster bytes) once per document open (6-9 s at 94 MiB).
 
 **D5 - Tile pixels cross into the IR by reference, and the IR cache does not
 charge what it does not own.** `RasterTileIR.pixels` accepts the document's
@@ -138,7 +166,8 @@ the whole-stringify again on every frame. See
   dominates; sustained 1000-dab stroke: -12% at 4 tiles, +4% at 64 tiles,
   within noise). The benefit is allocation volume and GC pressure.
 - Capture does a third of the hashing and each pass is ~3x cheaper; large
-  raster documents no longer build a document-sized string.
+  raster documents no longer build a document-sized string. Under scheme 2 a
+  stroke costs the tiles it touched, not the layer (D4).
 - A divergent-branch checkout or undo-then-different-stroke can no longer be
   mistaken for "tile unchanged" by the retained raster surface, the partial
   redraw region, the IR cache, or the pyramid.
@@ -147,7 +176,18 @@ the whole-stringify again on every frame. See
 
 ## Migration impact
 
-None. No persisted field, schema, or hash value changes in D1-D3.
+D1-D3 and D5 change no persisted field, schema, or hash value. D4 adds the
+optional `hashScheme` field to revision and snapshot records and changes the
+hash value of every **raster-bearing** document written from now on. Existing
+records are neither rewritten nor re-verified differently (they are scheme 1 by
+absence); a history is a mix of schemes after its first new revision. Documents
+with no byte arrays are unaffected.
+
+**Downgrade is not supported for raster-bearing histories.** A build that
+predates D4 verifies every revision under scheme 1 and would report a scheme-2
+revision of a raster document as a hash mismatch (recovery would then rewind to
+the last scheme-1 revision). The revisions are not deleted, but the affected
+history is only readable by a build that knows `hashScheme`.
 
 ## Compatibility impact
 
@@ -178,7 +218,11 @@ that). `strictlyIdentical` is one-sided: `true` implies equal canonical bytes,
 - Engine-node conversion cost is **resolved for tile pixels** by D5. What
   remains is the per-node work around it (node records, resolution of styles,
   warps and separation bands), which is not O(raster bytes).
-- D4 approval and implementation.
+- Document open still costs O(raster bytes) once: attach hashes every tile,
+  builds the genesis snapshot (codec text plus the tile-store manifest) and the
+  tile store verifies each blob it is given. Persisting the digests with the
+  document would remove the hash pass; it is a file-format change and is not
+  proposed here.
 - Threaded/SIMD raster kernel: requires a built engine WASM artifact,
   `wasm-opt`, and a COOP/COEP determination for the Tauri webview; a
   candidate is the TypeScript separable blur for radius > 32 px. Verified

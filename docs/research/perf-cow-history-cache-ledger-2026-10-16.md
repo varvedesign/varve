@@ -157,7 +157,13 @@ pairing defect is not present on the paths read: `beginTransaction` and the
    Six regressions fail on the previous code (plus the new identity module's own test). **Not reproduced end to end**
    in the editor UI (branch switch in the History panel); the reachable
    scenario is derived from the code path, not observed.
-3. **Whole-document hash x3 per commit** (reduced to x1, still O(bytes)).
+3. **Whole-document hash x3 per commit** (reduced to x1, then made O(touched
+   tiles) by hash scheme 2, ADR-0241 D4, approved by the maintainer 2026-10-16).
+   The same hashing ran on every undo and redo (`applyLoadedRevision`'s dirty
+   check hashes the saved and the restored document): 10.4 s at 94 MiB under
+   scheme 1, 28 ms under scheme 2. Stroke commit through the real session at
+   94 MiB: median 21-23 ms. Remaining: document open is still O(raster bytes)
+   once (6-9 s at 94 MiB).
 4. **Per-dab tile cloning** (fixed; allocation, not latency).
 5. **Engine-node conversion O(layer) per batch** (fixed, ADR-0241 D5). Tile
    pixels cross into the IR by reference, and the IR cache no longer charges
@@ -210,9 +216,8 @@ pairing defect is not present on the paths read: `beginTransaction` and the
 
 ## Not done (and why)
 
-Threaded/SIMD raster kernel, cached-composition dependency graph beyond the
-raster key, and Playwright coverage of the paint/undo flow are not implemented or
-not run in this change; see ADR-0241 "Open items".
+Threaded/SIMD raster kernel and a cached-composition dependency graph beyond the
+raster key are not implemented; see ADR-0241 "Open items".
 
 Verified this session about the WASM route, so the gap is stated precisely
 rather than assumed:
