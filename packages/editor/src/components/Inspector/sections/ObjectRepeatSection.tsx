@@ -1,7 +1,10 @@
 import type { GroupNode, ObjectRepeat } from '@varve/scene';
+import type { Point } from '@varve/shared';
 import { Button, Select } from '@varve/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
+import { expandObjectRepeat, releaseObjectRepeat } from '../../../scene/objectRepeatExpansion';
+import { sourceLocalBounds } from '../../../scene/objectRepeatGeometry';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
@@ -14,10 +17,10 @@ const MODE_OPTIONS = [
   { value: 'mirror', label: 'Mirror' },
 ];
 
-function defaultRepeat(type: ObjectRepeat['type']): ObjectRepeat {
+function defaultRepeat(type: ObjectRepeat['type'], center: Point): ObjectRepeat {
   if (type === 'grid') return { type, columns: 2, rows: 1, spacingX: 120, spacingY: 0 };
-  if (type === 'radial') return { type, copies: 8, center: [0, 0], sweep: 360 };
-  return { type: 'mirror', horizontal: true, vertical: false, center: [0, 0] };
+  if (type === 'radial') return { type, copies: 8, center, sweep: 360 };
+  return { type: 'mirror', horizontal: true, vertical: false, center };
 }
 
 /** Inspector controls for a live repeated group; source children stay editable. */
@@ -67,10 +70,21 @@ export function ObjectRepeatSection({
           options={MODE_OPTIONS}
           onChange={(value) => {
             if (value === 'none') updateRepeat(undefined);
-            else
-              updateRepeat(
-                repeat?.type === value ? repeat : defaultRepeat(value as ObjectRepeat['type']),
+            else {
+              const bounds = sourceLocalBounds(
+                editor.state.document,
+                node,
+                editor.getWorldTransform,
               );
+              const center: Point = bounds
+                ? [bounds.x + bounds.w / 2, bounds.y + bounds.h / 2]
+                : [0, 0];
+              updateRepeat(
+                repeat?.type === value
+                  ? repeat
+                  : defaultRepeat(value as ObjectRepeat['type'], center),
+              );
+            }
           }}
         />
       </FieldRow>
@@ -176,6 +190,53 @@ export function ObjectRepeatSection({
             onChange={(y) => patchRepeat({ center: [repeat.center[0], y] })}
           />
         </>
+      )}
+
+      {repeat && (
+        <FieldRow label="Lifecycle">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              editor.groupCompoundOperation('Release live repeat', () => {
+                editor.updateDoc((document) => releaseObjectRepeat(document, node.id));
+              });
+              editor.showToast({
+                message: 'Repeat released; only the authored source remains.',
+                type: 'success',
+              });
+            }}
+          >
+            Release to source
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              let generatedCount = 0;
+              try {
+                editor.groupCompoundOperation('Expand live repeat', () => {
+                  editor.updateDoc((document) => {
+                    const expanded = expandObjectRepeat(document, node.id);
+                    generatedCount = expanded.generatedRootIds.length;
+                    return expanded.document;
+                  });
+                });
+                editor.showToast({
+                  message: `Repeat expanded into ${generatedCount} independent object(s).`,
+                  type: 'success',
+                });
+              } catch (error) {
+                editor.showToast({
+                  message: error instanceof Error ? error.message : 'Could not expand this repeat.',
+                  type: 'error',
+                });
+              }
+            }}
+          >
+            Expand copies
+          </Button>
+        </FieldRow>
       )}
     </DisclosureSection>
   );

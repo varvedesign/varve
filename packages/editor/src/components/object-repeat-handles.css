@@ -1,0 +1,31 @@
+.object-repeat-handle:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+button.object-repeat-handle {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  appearance: none;
+  background: transparent;
+  touch-action: none;
+  user-select: none;
+}
+
+.object-repeat-handle__dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-canvas-selection);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.object-repeat-handle[data-repeat-active="true"] .object-repeat-handle__dot {
+  width: 16px;
+  height: 16px;
+}

@@ -55,6 +55,7 @@ import { MockupSurfaceOverlay } from './MockupSurfaceOverlay';
 import { MotionPathOverlay } from './MotionPathOverlay';
 import { NodeEditControls } from './NodeEditControls';
 import { NodeEditOverlay } from './NodeEditOverlay';
+import { ObjectRepeatHandleOverlay } from './ObjectRepeatHandleOverlay';
 import { OnionSkinOverlay } from './OnionSkinOverlay';
 import { PageLayoutOverlay } from './PageLayoutOverlay';
 import { PagePrintOverlays } from './PagePrintOverlays';
@@ -689,6 +690,7 @@ export function CanvasOverlays({
           onEditCancel={editor.abortTransaction}
         />
       )}
+      <ObjectRepeatHandleOverlay />
       {tool === 'warp' && editor.state.warpEdit && (
         <WarpOverlay zoom={zoom} pan={pan} cameraRotation={cameraRotation} />
       )}

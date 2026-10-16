@@ -29,7 +29,7 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="capability-grid">
           <article>
             <h3>Grid</h3>
-            <p>Set row and column counts and horizontal or vertical spacing.</p>
+            <p>Set row and column counts, or drag the horizontal spacing handle on the canvas.</p>
           </article>
           <article>
             <h3>Radial</h3>
@@ -41,17 +41,18 @@ import { sitePath } from '../../lib/siteUrl';
           </article>
         </div>
         <p>
-          The children remain the authored source. Selecting a repeated group exposes numeric
-          controls in the Inspector; editing a source child updates the evaluated instances. The
-          repeat recipe is part of the document model and survives codec save/reopen.
+          The children remain the authored source. Grid spacing and radial or mirror centers have
+          canvas handles; radial sweep has a handle too. Counts, rows, columns, and mirror axes stay
+          in the Inspector. Editing a source child updates the evaluated instances. The repeat
+          recipe is part of the document model and survives codec save/reopen.
         </p>
       </section>
 
       <aside class="boundary-card" aria-labelledby="repeat-boundaries">
         <h2 id="repeat-boundaries">Current boundaries</h2>
         <ul>
-          <li>Repeat placement is edited numerically in the Inspector; direct canvas handles are not available yet.</li>
-          <li>Release or expand into independent artwork is not available yet.</li>
+          <li>Canvas handles adjust grid spacing, radial center and sweep, and mirror center. Counts, grid dimensions, and mirror axes stay in the Inspector.</li>
+          <li>Release keeps the authored source; Expand creates independent top-level copies. Expansion is capped at 50,000 generated nodes, and nested repeats remain live inside copies.</li>
           <li>Generation is capped at 512 instances to bound render and hit-test work.</li>
           <li>SVG, PDF, and raster export fidelity for object repeats has not been independently qualified. This page makes no interchange editability claim.</li>
         </ul>
