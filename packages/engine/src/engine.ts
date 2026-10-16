@@ -476,6 +476,16 @@ export function withStubFallback(primary: Engine): Engine {
       }
     },
     async hitTest(scene, world) {
+      // Same reason as `buildIr` above: the raster tile payload has no native
+      // transport yet. The Rust deserializer would either reject a raster node
+      // or, now that tile pixels cross as typed arrays, receive an index-keyed
+      // object instead of a number list — after serialising megabytes of tile
+      // JSON. The stub is the reference implementation, so routing here is both
+      // correct and cheap. No production caller currently reaches this with a
+      // raster scene (the editor hit-tests through the TypeScript
+      // `HitTestEngine`); the guard exists so the first one that does gets the
+      // reference answer instead of a serialisation cliff.
+      if (requiresRasterFallback(scene)) return stub.hitTest(scene, world);
       try {
         return await primary.hitTest(scene, world);
       } catch {
