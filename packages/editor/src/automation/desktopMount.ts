@@ -24,7 +24,12 @@ import { isTauriRuntime } from '@varve/platform';
 import type { AutomationSettingsStore } from '../settings';
 import type { AutomationController } from './controller';
 import type { ConnectionAcceptor, DesktopEndpoint, RelayHandle } from './desktopTransport';
-import { currentDocumentIdentity, getAutomationController } from './liveEditor';
+import {
+  currentDocumentIdentity,
+  loadAutomationController,
+  peekAutomationController,
+  watchDocumentChanges,
+} from './liveEditor';
 
 export type MountState = 'off' | 'starting' | 'running' | 'unreachable' | 'error';
 
@@ -50,17 +55,27 @@ export interface DesktopTransportApi {
   attachDesktopRelay(acceptor: ConnectionAcceptor): Promise<RelayHandle>;
 }
 
+/** What the mount needs from the controller. */
+export type MountController = Pick<
+  AutomationController,
+  'setPolicy' | 'setCredential' | 'openConnection' | 'instanceId'
+>;
+
 export interface MountDeps {
-  controller: Pick<
-    AutomationController,
-    'setPolicy' | 'setCredential' | 'openConnection' | 'onChange'
-  >;
+  /**
+   * Loads the controller. Called only once a person has turned automation on,
+   * so the code behind it stays out of the startup graph until then.
+   */
+  loadController: () => Promise<MountController>;
+  /** The controller if it has ever been loaded; `null` means nothing to turn off. */
+  peekController: () => MountController | null;
   /** True when a local listener can exist (the desktop application). */
   desktop: boolean;
   loadTransport: () => Promise<DesktopTransportApi>;
-  instanceId: string;
   /** The document session the editor is showing, if it has published yet. */
   document: () => { id: string; name: string } | null;
+  /** Be told when the editor shows a different document, or its first one. */
+  watchDocument: (listener: () => void) => () => void;
 }
 
 interface Scope {
@@ -78,13 +93,11 @@ export class AutomationMount {
   private version = 0;
   private chain: Promise<void> = Promise.resolve();
   private readonly listeners = new Set<(status: MountStatus) => void>();
-  private readonly unsubscribe: () => void;
+  private unsubscribe: (() => void) | null = null;
+  private stopWatchingDocument: (() => void) | null = null;
+  private applied: AutomationSettingsStore | null = null;
 
-  constructor(private readonly deps: MountDeps) {
-    // The controller rebuilds its runtime when the document session changes.
-    // That is also when the endpoint must follow.
-    this.unsubscribe = deps.controller.onChange(() => this.followDocument());
-  }
+  constructor(private readonly deps: MountDeps) {}
 
   status(): MountStatus {
     return this.current;
@@ -97,16 +110,39 @@ export class AutomationMount {
     };
   }
 
-  /** Apply the person's setting. Resolves once this application has finished. */
+  /**
+   * Apply the person's setting. Resolves once this application has finished.
+   *
+   * Applying the setting it is already running with is a no-op: restarting the
+   * endpoint mints a new credential and drops every connected client, which
+   * must never happen because of an unrelated edit elsewhere in Settings.
+   */
   apply(settings: AutomationSettingsStore): Promise<void> {
+    const previous = this.applied;
+    if (
+      previous &&
+      previous.enabled === settings.enabled &&
+      previous.grants === settings.grants &&
+      previous.requireApproval === settings.requireApproval
+    ) {
+      return this.chain;
+    }
+    return this.schedule(settings);
+  }
+
+  private schedule(settings: AutomationSettingsStore): Promise<void> {
     this.latest = settings;
+    this.applied = { ...settings };
     const version = ++this.version;
     this.chain = this.chain.then(() => this.run(settings, version));
     return this.chain;
   }
 
   dispose(): void {
-    this.unsubscribe();
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+    this.stopWatchingDocument?.();
+    this.stopWatchingDocument = null;
     this.listeners.clear();
   }
 
@@ -121,19 +157,37 @@ export class AutomationMount {
     }
   }
 
+  /**
+   * The editor now shows a different document (or its first). Re-scope the
+   * endpoint when it is running for another document, or start it when it was
+   * only waiting for one. A same-document notification is ignored.
+   */
   private followDocument(): void {
     const settings = this.latest;
-    if (!settings?.enabled || this.current.state !== 'running' || !this.scope) return;
+    if (!settings?.enabled) return;
     const now = this.deps.document();
-    if (now && now.id !== this.scope.documentId) void this.apply(settings);
+    if (!now) return;
+    const waiting = this.current.state === 'starting' && !this.scope;
+    const moved = this.current.state === 'running' && this.scope?.documentId !== now.id;
+    if (waiting || moved) void this.schedule(settings);
+  }
+
+  private watchDocuments(on: boolean): void {
+    if (on && !this.stopWatchingDocument) {
+      this.stopWatchingDocument = this.deps.watchDocument(() => this.followDocument());
+    } else if (!on) {
+      this.stopWatchingDocument?.();
+      this.stopWatchingDocument = null;
+    }
   }
 
   private async teardown(stopEndpoint: boolean): Promise<void> {
     this.relay?.stop();
     this.relay = null;
     this.scope = null;
-    this.deps.controller.setPolicy({ enabled: false, grants: ['read'], requireApproval: true });
-    this.deps.controller.setCredential(null);
+    const controller = this.deps.peekController();
+    controller?.setPolicy({ enabled: false, grants: ['read'], requireApproval: true });
+    controller?.setCredential(null);
     if (stopEndpoint && this.deps.desktop) {
       try {
         const transport = await this.deps.loadTransport();
@@ -148,6 +202,7 @@ export class AutomationMount {
   private async run(settings: AutomationSettingsStore, version: number): Promise<void> {
     if (version !== this.version) return; // a newer setting superseded this one
 
+    this.watchDocuments(settings.enabled);
     if (!settings.enabled) {
       await this.teardown(true);
       this.set(OFF);
@@ -180,6 +235,7 @@ export class AutomationMount {
 
     this.set({ ...this.current, state: 'starting', message: null });
     try {
+      const controller = await this.deps.loadController();
       const transport = await this.deps.loadTransport();
       if (version !== this.version) return;
       this.relay?.stop();
@@ -190,7 +246,7 @@ export class AutomationMount {
         grants: settings.grants,
         documentId: document.id,
         documentName: document.name,
-        instanceId: this.deps.instanceId,
+        instanceId: controller.instanceId,
       };
       let endpoint: DesktopEndpoint | null;
       try {
@@ -211,14 +267,14 @@ export class AutomationMount {
         throw new Error('the desktop endpoint did not start');
       }
 
-      this.deps.controller.setCredential(endpoint.credential);
-      this.deps.controller.setPolicy({
+      controller.setCredential(endpoint.credential);
+      controller.setPolicy({
         enabled: true,
         grants: settings.grants === 'edit' ? ['read', 'edit'] : ['read'],
         requireApproval: settings.requireApproval,
       });
       this.relay = await transport.attachDesktopRelay({
-        open: (options) => this.deps.controller.openConnection(options.transport),
+        open: (options) => controller.openConnection(options.transport),
       });
       this.scope = { documentId: document.id, grants: settings.grants };
       this.set({
@@ -241,19 +297,19 @@ export class AutomationMount {
 
 let singleton: AutomationMount | null = null;
 
-/** The window's mount, wired to the real controller and the desktop transport. */
+/** The window's mount, wired to the real (lazily loaded) controller and transport. */
 export function getAutomationMount(): AutomationMount {
   if (!singleton) {
-    const controller = getAutomationController();
     singleton = new AutomationMount({
-      controller,
+      loadController: loadAutomationController,
+      peekController: peekAutomationController,
       desktop: isTauriRuntime(),
       loadTransport: () => import('./desktopTransport'),
-      instanceId: controller.instanceId,
       document: () => {
         const now = currentDocumentIdentity();
         return now ? { id: now.id, name: now.name } : null;
       },
+      watchDocument: watchDocumentChanges,
     });
   }
   return singleton;

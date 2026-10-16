@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AutomationSettingsStore } from '../../settings';
-import { AutomationMount, type DesktopTransportApi, type MountDeps } from '../desktopMount';
+import {
+  AutomationMount,
+  type DesktopTransportApi,
+  type MountController,
+  type MountDeps,
+} from '../desktopMount';
 
 const ON_READ: AutomationSettingsStore = { enabled: true, grants: 'read', requireApproval: true };
 const ON_EDIT: AutomationSettingsStore = { enabled: true, grants: 'edit', requireApproval: false };
@@ -10,7 +15,8 @@ function setup(
   options: { desktop?: boolean; document?: { id: string; name: string } | null } = {},
 ) {
   const calls: string[] = [];
-  let changeListener: () => void = () => undefined;
+  let documentListener: () => void = () => undefined;
+  let watching = 0;
   let document = options.document === undefined ? { id: 'doc-1', name: 'One' } : options.document;
   let credentialCounter = 0;
 
@@ -31,25 +37,34 @@ function setup(
       return relay;
     }),
   };
+  let controllerLoaded = false;
   const controller = {
+    instanceId: 'window-test',
     setPolicy: vi.fn(
       (p: { enabled: boolean; grants: readonly string[]; requireApproval: boolean }) =>
         void calls.push(`policy:${p.enabled}:${p.grants.join('+')}:${p.requireApproval}`),
     ),
     setCredential: vi.fn((c: string | null) => void calls.push(`credential:${c}`)),
     openConnection: vi.fn(),
-    onChange: vi.fn((listener: () => void) => {
-      changeListener = listener;
-      return () => undefined;
-    }),
   };
   const loadTransport = vi.fn(async () => transport);
+  const loadController = vi.fn(async () => {
+    controllerLoaded = true;
+    return controller as unknown as MountController;
+  });
   const deps: MountDeps = {
-    controller: controller as unknown as MountDeps['controller'],
+    loadController,
+    peekController: () => (controllerLoaded ? (controller as unknown as MountController) : null),
     desktop: options.desktop ?? true,
     loadTransport,
-    instanceId: 'window-test',
     document: () => document,
+    watchDocument: (listener) => {
+      watching += 1;
+      documentListener = listener;
+      return () => {
+        watching -= 1;
+      };
+    },
   };
   const mount = new AutomationMount(deps);
   return {
@@ -57,9 +72,11 @@ function setup(
     calls,
     transport,
     controller,
+    loadController,
     loadTransport,
     relay,
-    fireChange: () => changeListener(),
+    fireChange: () => documentListener(),
+    watching: () => watching,
     openDocument: (next: { id: string; name: string }) => {
       document = next;
     },
@@ -71,9 +88,8 @@ describe('AutomationMount', () => {
     const t = setup();
     await t.mount.apply(OFF);
     expect(t.mount.status().state).toBe('off');
-    expect(t.controller.setPolicy).toHaveBeenCalledWith(
-      expect.objectContaining({ enabled: false }),
-    );
+    // Nothing was ever enabled, so the heavy controller is never even loaded.
+    expect(t.loadController).not.toHaveBeenCalled();
     expect(t.transport.applyDesktopPolicy).not.toHaveBeenCalled();
   });
 
@@ -111,6 +127,7 @@ describe('AutomationMount', () => {
     expect(t.mount.status().state).toBe('unreachable');
     expect(t.mount.status().message).toContain('desktop application');
     expect(t.loadTransport).not.toHaveBeenCalled();
+    expect(t.loadController).not.toHaveBeenCalled();
     expect(t.controller.setPolicy).not.toHaveBeenCalledWith(
       expect.objectContaining({ enabled: true }),
     );
@@ -140,15 +157,55 @@ describe('AutomationMount', () => {
     expect(t.calls).toContain('endpoint.stop');
   });
 
-  it('applies settings in order, so a quick on-then-off ends off with the endpoint stopped', async () => {
+  it('drops a setting that a newer one superseded before it started', async () => {
     const t = setup();
     const first = t.mount.apply(ON_EDIT);
     const second = t.mount.apply(OFF);
     await Promise.all([first, second]);
     expect(t.mount.status().state).toBe('off');
+    expect(t.transport.applyDesktopPolicy).not.toHaveBeenCalled();
+    expect(t.loadController).not.toHaveBeenCalled();
+  });
+
+  it('turns off an enable that is already in flight, without ever enabling the controller', async () => {
+    const t = setup();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    (t.transport.applyDesktopPolicy as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async (input) => {
+        await gate; // the endpoint is mid-start when the person changes their mind
+        return {
+          endpoint: '/run/varve/v-test/s',
+          instanceId: input.instanceId,
+          credential: 'late',
+        };
+      },
+    );
+    const enabling = t.mount.apply(ON_EDIT);
+    await vi.waitFor(() => expect(t.transport.applyDesktopPolicy).toHaveBeenCalled());
+    const disabling = t.mount.apply(OFF);
+    release();
+    await Promise.all([enabling, disabling]);
+
+    expect(t.mount.status().state).toBe('off');
+    expect(t.calls).toContain('endpoint.stop');
+    expect(t.controller.setPolicy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+    expect(t.controller.setCredential).not.toHaveBeenCalledWith('late');
+  });
+
+  it('turns a running session off completely', async () => {
+    const t = setup();
+    await t.mount.apply(ON_EDIT);
+    await t.mount.apply(OFF);
+    expect(t.mount.status().state).toBe('off');
+    expect(t.relay.stop).toHaveBeenCalled();
     expect(t.calls.at(-1)).toBe('endpoint.stop');
-    const policies = t.controller.setPolicy.mock.calls.map((c) => c[0].enabled);
-    expect(policies.at(-1)).toBe(false);
+    expect(t.controller.setPolicy.mock.calls.at(-1)?.[0].enabled).toBe(false);
+    expect(t.controller.setCredential).toHaveBeenLastCalledWith(null);
   });
 
   it('recovers when the endpoint outlived a webview reload and no longer yields a credential', async () => {
@@ -179,19 +236,51 @@ describe('AutomationMount', () => {
 
     t.openDocument({ id: 'doc-2', name: 'Two' });
     t.fireChange();
+    await vi.waitFor(() => expect(t.mount.status().state).toBe('running'));
     await vi.waitFor(() => expect(t.transport.applyDesktopPolicy).toHaveBeenCalledTimes(2));
-    await t.mount.apply(ON_EDIT); // let the queued re-scope settle
     expect(t.calls).toContain('apply:doc-2:edit');
     expect(t.controller.setCredential).toHaveBeenCalledWith('credential-2');
     expect(t.relay.stop).toHaveBeenCalled();
   });
 
-  it('does not restart the endpoint for activity on the same document', async () => {
+  it('does not restart the endpoint for a notification about the same document', async () => {
     const t = setup();
     await t.mount.apply(ON_EDIT);
     t.fireChange();
     t.fireChange();
     await Promise.resolve();
     expect(t.transport.applyDesktopPolicy).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts once the first document opens when it was persisted on at a document-less start', async () => {
+    const t = setup({ document: null });
+    await t.mount.apply(ON_EDIT);
+    expect(t.mount.status().state).toBe('starting');
+    expect(t.watching()).toBe(1);
+
+    t.openDocument({ id: 'doc-9', name: 'Nine' });
+    t.fireChange();
+    await vi.waitFor(() => expect(t.mount.status().state).toBe('running'));
+    expect(t.calls).toContain('apply:doc-9:edit');
+  });
+
+  it('applying the setting it already runs with is a no-op, so unrelated edits keep clients', async () => {
+    const t = setup();
+    await t.mount.apply(ON_EDIT);
+    await t.mount.apply({ ...ON_EDIT });
+    await t.mount.apply({ ...ON_EDIT });
+    expect(t.transport.applyDesktopPolicy).toHaveBeenCalledTimes(1);
+    expect(t.relay.stop).not.toHaveBeenCalled();
+  });
+
+  it('restarts when the grants really change, and stops watching documents when turned off', async () => {
+    const t = setup();
+    await t.mount.apply(ON_READ);
+    await t.mount.apply(ON_EDIT);
+    expect(t.transport.applyDesktopPolicy).toHaveBeenCalledTimes(2);
+    expect(t.calls).toContain('apply:doc-1:edit');
+    expect(t.watching()).toBe(1);
+    await t.mount.apply(OFF);
+    expect(t.watching()).toBe(0);
   });
 });

@@ -12,7 +12,8 @@ import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
 import {
-  getAutomationController,
+  loadAutomationController,
+  peekAutomationController,
   publishEditorToAutomation,
   resetAutomationControllerForTesting,
 } from '../liveEditor';
@@ -20,6 +21,13 @@ import {
 type Editor = ReturnType<typeof useEditor>;
 
 const CREDENTIAL = 'integration-secret';
+
+/** The loaded controller; a test that reaches for it before enabling is wrong. */
+function ctrl() {
+  const loaded = peekAutomationController();
+  if (!loaded) throw new Error('the automation controller has not been loaded');
+  return loaded;
+}
 let editor: Editor | undefined;
 
 function Publisher() {
@@ -56,7 +64,7 @@ async function rpc(
 }
 
 async function connect(credential = CREDENTIAL) {
-  const opened = getAutomationController().openConnection('ipc');
+  const opened = ctrl().openConnection('ipc');
   if (!opened.ok) throw new Error(opened.message);
   const connection = opened.connection;
   const hello = await rpc(connection, 'h', 'session.hello', {
@@ -79,11 +87,11 @@ function execute(
 
 const rect = { kind: 'rect', x: 10, y: 20, width: 30, height: 40 };
 
-function enable(
+async function enable(
   grants: Array<'read' | 'edit' | 'export'> = ['read', 'edit'],
   requireApproval = false,
 ) {
-  const controller = getAutomationController();
+  const controller = await loadAutomationController();
   controller.setCredential(CREDENTIAL);
   controller.setPolicy({ enabled: true, grants, requireApproval });
   // The shell re-publishes on every state change; do it once now that policy is set.
@@ -102,16 +110,19 @@ afterEach(() => {
 });
 
 describe('connected session over the real editor', () => {
-  it('is off until a person turns it on, and refuses connections while off', async () => {
+  it('does not even load the controller until a person turns automation on', async () => {
     await mount();
-    const opened = getAutomationController().openConnection('ipc');
+    // The editor has rendered and published itself, and nothing was created.
+    expect(peekAutomationController()).toBeNull();
+    const controller = await loadAutomationController();
+    const opened = controller.openConnection('ipc');
     expect(opened.ok).toBe(false);
     if (!opened.ok) expect(opened.message).toContain('turned off');
   });
 
   it('refuses a wrong credential and never reveals the right one', async () => {
     await mount();
-    enable();
+    await enable();
     const { hello } = await connect('guess');
     expect(hello?.error.code).toBe(-32001);
     expect(JSON.stringify(hello)).not.toContain(CREDENTIAL);
@@ -119,7 +130,7 @@ describe('connected session over the real editor', () => {
 
   it('reports a connected session for the open document, not a headless one', async () => {
     await mount();
-    enable();
+    await enable();
     const { connection, hello } = await connect();
     expect(hello?.result.session.mode).toBe('connected');
     expect(hello?.result.session.documentId).toBe(live().state.document.id);
@@ -130,7 +141,7 @@ describe('connected session over the real editor', () => {
 
   it('applies an edit through the editor as one labelled undo step', async () => {
     await mount();
-    enable();
+    await enable();
     const { connection } = await connect();
     const before = Object.keys(live().state.document.nodes).length;
 
@@ -153,7 +164,7 @@ describe('connected session over the real editor', () => {
 
   it('keeps the revision monotonic across the agent, a person and undo', async () => {
     await mount();
-    enable();
+    await enable();
     const { connection } = await connect();
     const r0 = (await execute(connection, 1, 'varve.document.info', {}))?.result.revision
       .after as number;
@@ -181,7 +192,7 @@ describe('connected session over the real editor', () => {
 
   it('refuses a plan based on a revision a person has since changed', async () => {
     await mount();
-    enable();
+    await enable();
     const { connection } = await connect();
     const planned = (await execute(connection, 1, 'varve.document.info', {}))?.result.revision
       .after as number;
@@ -203,7 +214,7 @@ describe('connected session over the real editor', () => {
 
   it("does not fold a change into a person's open transaction", async () => {
     await mount();
-    enable();
+    await enable();
     const { connection } = await connect();
 
     act(() => {
@@ -226,7 +237,7 @@ describe('connected session over the real editor', () => {
 
   it('enforces the granted permissions through the same executor', async () => {
     await mount();
-    enable(['read']);
+    await enable(['read']);
     const { connection } = await connect();
     const denied = await execute(connection, 1, 'varve.node.create', rect);
     expect(denied?.result.error.code).toBe('PERMISSION_DENIED');
@@ -237,9 +248,9 @@ describe('connected session over the real editor', () => {
 
   it('closes a client when its document session is replaced and never retargets it', async () => {
     await mount();
-    enable();
+    await enable();
     const { connection } = await connect();
-    const first = getAutomationController().status().session;
+    const first = ctrl().status().session;
     expect(first).not.toBeNull();
 
     act(() => {
@@ -250,7 +261,7 @@ describe('connected session over the real editor', () => {
       publishEditorToAutomation(live());
     });
 
-    const next = getAutomationController().status().session;
+    const next = ctrl().status().session;
     expect(next?.generation).not.toBe(first?.generation);
     expect(next?.documentId).toBe(live().state.document.id);
     // The old client is gone; it must attach again.
@@ -261,32 +272,30 @@ describe('connected session over the real editor', () => {
 
   it('stops answering when a person turns automation off', async () => {
     await mount();
-    enable();
+    await enable();
     const { connection } = await connect();
-    getAutomationController().setPolicy({
+    ctrl().setPolicy({
       enabled: false,
       grants: ['read'],
       requireApproval: false,
     });
     expect(connection.shouldClose).toBe(true);
-    expect(getAutomationController().openConnection('ipc').ok).toBe(false);
+    expect(ctrl().openConnection('ipc').ok).toBe(false);
   });
 
   it('holds a change for approval and applies it only after a person agrees', async () => {
     await mount();
-    enable(['read', 'edit'], true);
+    await enable(['read', 'edit'], true);
     const { connection } = await connect();
     const before = Object.keys(live().state.document.nodes).length;
 
     const pending = execute(connection, 1, 'varve.node.create', rect);
-    await waitFor(() =>
-      expect(getAutomationController().status().pendingApprovals).toHaveLength(1),
-    );
-    const held = getAutomationController().status().pendingApprovals[0];
+    await waitFor(() => expect(ctrl().status().pendingApprovals).toHaveLength(1));
+    const held = ctrl().status().pendingApprovals[0];
     expect(held?.command).toBe('varve.node.create');
     expect(Object.keys(live().state.document.nodes).length).toBe(before);
 
-    getAutomationController().decide(held?.receiptId as string, { approved: true });
+    ctrl().decide(held?.receiptId as string, { approved: true });
     const result = await pending;
     expect(result?.result.outcome).toBe('applied');
     expect(Object.keys(live().state.document.nodes).length).toBe(before + 1);
@@ -294,14 +303,12 @@ describe('connected session over the real editor', () => {
 
   it('refuses a change a person declines, and records it in the activity log', async () => {
     await mount();
-    enable(['read', 'edit'], true);
+    await enable(['read', 'edit'], true);
     const { connection } = await connect();
     const pending = execute(connection, 1, 'varve.node.create', rect);
-    await waitFor(() =>
-      expect(getAutomationController().status().pendingApprovals).toHaveLength(1),
-    );
-    const held = getAutomationController().status().pendingApprovals[0];
-    getAutomationController().decide(held?.receiptId as string, {
+    await waitFor(() => expect(ctrl().status().pendingApprovals).toHaveLength(1));
+    const held = ctrl().status().pendingApprovals[0];
+    ctrl().decide(held?.receiptId as string, {
       approved: false,
       reason: 'not now',
     });
@@ -311,7 +318,7 @@ describe('connected session over the real editor', () => {
       Object.values(live().state.document.nodes).filter((n) => n.kind === 'shape'),
     ).toHaveLength(0);
 
-    const log = getAutomationController().status().activity;
+    const log = ctrl().status().activity;
     expect(log.at(-1)).toMatchObject({
       client: 'test-agent',
       command: 'varve.node.create',
@@ -324,15 +331,15 @@ describe('connected session over the real editor', () => {
 
   it('blocks new commits while paused but still lets a client read why', async () => {
     await mount();
-    enable();
+    await enable();
     const { connection } = await connect();
-    getAutomationController().pause('paused for review');
+    ctrl().pause('paused for review');
     const blocked = await execute(connection, 1, 'varve.node.create', rect);
     expect(blocked?.result.outcome).toBe('rejected');
     expect(blocked?.result.error.message).toContain('paused for review');
     const read = await execute(connection, 2, 'varve.document.info', {});
     expect(read?.result.outcome).toBe('ok');
-    getAutomationController().resume();
+    ctrl().resume();
     expect((await execute(connection, 3, 'varve.node.create', rect))?.result.outcome).toBe(
       'applied',
     );

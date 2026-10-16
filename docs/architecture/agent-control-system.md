@@ -30,9 +30,9 @@ This document describes the contract and marks what exists. A claim here is
 | **Local endpoint transport for the running application** | **Implemented: `crates/varve-automation-host` (26 tests over a real socket) plus the Tauri bridge `apps/desktop/src-tauri/src/automation_host.rs`, which `cargo check` compiles** |
 | **Parity manifest and its gate** | **Implemented: 334 real action ids measured, 14 commands recorded, 197 unmapped with a dated backlog** |
 | **Editor-side `LiveEditorPort` over the canonical `updateDoc` path** | Implemented in `packages/editor/src/automation/` alongside an `AutomationController` (policy, approvals, activity). The editor context exposes `readAutomationState()` so a check and an install cannot straddle a flush and a person's open transaction is visible |
-| **Desktop listener reachable from the webview** | The endpoint compiles and the crate is tested, but the webview bridge `desktopTransport.ts` has no caller yet: the controller does not choose a transport, so the endpoint is not started by the app |
+| **Desktop listener reachable from the webview** | Wired: `desktopMount.ts` starts the endpoint, hands its credential to the controller, enables the controller and attaches the relay when a person turns the setting on, and tears all three down when they turn it off. Unit-tested with an injected transport; **not yet run against a launched desktop app** |
 | **Windows named-pipe transport** | Not implemented. `Transport::NamedPipe` exists and is refused with an explicit `Unsupported` error, so the gap is a compile-time fact rather than a runtime surprise |
-| Approvals, Agent settings surface | Planned; `ApprovalRequest` has no production supplier |
+| Approvals and the Agent access settings surface | Implemented: the controller supplies approvals (bound to exact args, target and revision, rechecked at commit) and `Settings > Agent Access` shows pending approvals, connected clients (disconnect), pause/resume, an activity list and the attach command. Tested against the real `EditorProvider` and controller; visual and keyboard review in a running window not done |
 | Page, component, text-run, effect, export, capture, motion commands | Not started; counted in the parity manifest as the unmapped backlog |
 
 ## Layers
@@ -439,6 +439,51 @@ The credential is minted by the transport because the transport owns the
 instance directory, and it is handed to the webview **once**, because the webview
 is what compares it. `automation_status` never returns it.
 
+## Turning it on: the setting, the mount and the surface
+
+Connected mode is off until a person turns it on in `Settings > Agent Access`.
+The stored setting (`settings.automation`) has three values: `enabled`, `grants`
+(`read` or `edit`; there is no wider choice) and `requireApproval` (on unless
+explicitly `false`; a missing or hand-edited value cannot remove the check). No
+command can read or change it, so an attached client cannot widen its own
+authority.
+
+`desktopMount.ts` turns that setting into a running session, in a fixed order:
+
+1. Load the controller. Until now it does not exist: the automation system is a
+   dynamic import, and publishing the editor into the seam stores one reference.
+2. Start (or re-scope) the endpoint and learn its credential.
+3. Hand the credential to the controller, then enable the controller.
+4. Attach the relay.
+
+Any failure at any step leaves the controller disabled with no credential, stops
+the endpoint, and reports `error` with the reason. The mount also guarantees:
+
+- **Latest setting wins, in order.** Applications are serialized and a
+  superseded one is dropped. Turning it off while the endpoint is mid-start ends
+  with the endpoint stopped and the controller never enabled.
+- **Applying the setting it already runs with is a no-op.** A restart mints a new
+  credential and disconnects clients, so an unrelated edit elsewhere in Settings
+  must never cause one. The settings provider keys its effect on the three
+  values, not on the section object the store rebuilds.
+- **The endpoint follows the document.** It is re-scoped when the editor shows a
+  different document, and started when it was persisted on at a document-less
+  start (Home). A client is never carried across to a document it did not attach
+  to.
+- **A webview reload is recoverable.** The Rust endpoint outlives the page and
+  reports "running" without a credential the new page cannot know. The mount
+  restarts it, which is the only way to learn a credential.
+- **A browser says so.** The state is `Unavailable here` with the reason; nothing
+  pretends to listen.
+
+The surface shows what the controller knows and nothing it should not: state in
+words (not colour alone), the attach command (`varve mcp --instance <id>`;
+the credential stays in an owner-only file and is never displayed), pending
+approvals with the command, target document, revision and a bounded view of the
+arguments, connected clients with Disconnect, Pause/Allow changes, and a
+bounded activity list (200 entries, no arguments). Argument text is shown as
+plain text, never interpreted.
+
 ## Parity manifest
 
 `packages/automation/parity/agent-parity.json` links every action the editor can
@@ -469,14 +514,14 @@ catalog, with the same validation and authorization as a named command.
 
 ## Known parity gaps (recorded, not hidden)
 
-- **The endpoint is not started by the application.** Every piece exists and is
-  verified in isolation, but the controller does not yet choose a transport, so
-  the endpoint has no caller and no client can attach to a running Varve. When it
-  is wired, `varve doctor` must stop reporting `connected: false`.
-- **Nothing has been run end to end against a live application.** The transport
-  is tested against a real socket with a scripted relay; the editor mount is
-  tested against a scripted controller. No test drives a real client into a real
-  running editor, because that requires the wiring above.
+- **The wiring has not been exercised in a launched application.** The setting
+  now starts the endpoint, enables the controller and attaches the relay
+  (`automation/desktopMount.ts`), and every seam is tested: the mount with an
+  injected transport, the controller and the real `EditorProvider` together, the
+  settings surface against both, and the Rust host over a real socket with a
+  scripted relay. No test yet drives a real client through the Rust socket into a
+  running editor window, so the Rust-to-webview hop (`automation:frame` events,
+  `automation_reply`) is covered only by each side's own tests.
 - **Windows has no transport.** `Transport::for_this_platform()` reports the gap
   and the endpoint refuses to start there with a clear error.
 - The editor also cannot be mutated by automation through any other path: the
@@ -499,10 +544,11 @@ catalog, with the same validation and authorization as a named command.
   capture commands are not implemented. A drag's intermediate samples cannot be
   reproduced by a committed-result command, and no bounded gesture-replay
   contract exists yet.
-- An agent commit can still be *folded into* a person's open transaction rather
-  than refused: `readAutomationState()` now exposes `transactionOpen`, so the
-  port can refuse, but refusing and joining are both defensible and the choice
-  must be recorded where the port is wired.
+- An agent commit is **refused, not joined**, while a person has a transaction
+  open (a drag, a text edit): the port answers with a retryable `CONFLICT`
+  instead of folding the agent's change into the person's undo step. A client
+  that retries after the person finishes succeeds. A stale plan is refused with
+  `REVISION_CONFLICT`; neither is a silent overwrite.
 - Clicking, selection, camera and tool changes are not commands. A request
   cannot take over the user's screen, and no agent-scoped view command exists,
   so `view`-class authorization is declared but unused.

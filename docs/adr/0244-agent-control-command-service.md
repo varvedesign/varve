@@ -1,6 +1,6 @@
 # ADR-0244: Agent control command service
 
-- **Status:** Accepted (core, local transports, live authority, endpoint transport, editor port and parity gate implemented; the endpoint has no production caller yet)
+- **Status:** Accepted (core, local transports, live authority, endpoint transport, editor port, settings surface and parity gate implemented; the wiring from the setting to the endpoint has not yet been run in a launched desktop app)
 - **Date:** 2026-10-15
 
 ## Context
@@ -73,8 +73,10 @@ on `0aa316bca`:
   until UI code migrates; parity is verified by tests, not by shared routing.
 - The endpoint lives in Rust and the protocol in the webview, so a transport
   cannot become a second implementation of validation or authorization.
-- Until the endpoint has a production caller, connected mode is still not
-  reachable from an external process; an adapter asked to connect must fail,
+- Connected mode starts only from the person's setting, through one mount that
+  fails closed (endpoint first, controller enabled only after it) and restarts
+  nothing for an unrelated settings change. Until it has been run in a launched
+  desktop app, an adapter asked to connect that finds no endpoint must fail,
   never fall back to an empty headless session.
 
 ## Migration impact
@@ -99,7 +101,7 @@ comments, metadata) is data and never instruction.
 
 ## Accessibility implications
 
-The Agent settings surface (planned) reuses the design system's focus order,
+The Agent Access settings surface reuses the design system's focus order,
 labels, and non-color status cues. Approval prompts are keyboard operable and
 announced.
 

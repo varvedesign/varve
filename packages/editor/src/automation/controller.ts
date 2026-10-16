@@ -47,6 +47,8 @@ export const DEFAULT_AUTOMATION_POLICY: AutomationPolicy = {
 };
 
 export interface ActivityEntry {
+  /** Monotonic within this window; a stable identity for rendering. */
+  seq: number;
   at: number;
   client: string;
   command: string;
@@ -104,6 +106,7 @@ export class AutomationController {
   private runtime: Runtime | null = null;
   private attachments = 0;
   private readonly activity: ActivityEntry[] = [];
+  private activitySeq = 0;
   private readonly pending = new Map<string, PendingApproval>();
   private readonly listeners = new Set<(status: ControllerStatus) => void>();
   private readonly now: () => number;
@@ -308,6 +311,7 @@ export class AutomationController {
   private record({ principal, receipt }: ObservedReceipt): void {
     const command = 'command' in receipt ? receipt.command : 'batch';
     this.activity.push({
+      seq: ++this.activitySeq,
       at: this.now(),
       client: principal.label,
       command,

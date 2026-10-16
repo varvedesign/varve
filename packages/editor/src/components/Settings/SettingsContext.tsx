@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import { documentAccentController } from '../../appearance/documentAccent';
+import { getAutomationMount } from '../../automation/desktopMount';
 import {
   refreshInteractivePreviewSettings,
   refreshNavigationSettings,
@@ -47,6 +48,7 @@ export type SettingsSection =
   | 'collab'
   | 'ai'
   | 'privacy'
+  | 'automation'
   | 'learning'
   | 'updates'
   | 'about';
@@ -103,6 +105,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     documentAccentController.setPreference(accentSource);
   }, [accentSource]);
+
+  // Agent access: a person's setting becomes a running (or stopped) connected
+  // session. The mount is tiny until automation is first turned on; everything
+  // heavy loads then. See automation/desktopMount.ts.
+  // Keyed on the three primitives, not the section object: the store rebuilds
+  // that object on every settings change, and a restart would drop the clients.
+  const automationEnabled = settings.automation.enabled;
+  const automationGrants = settings.automation.grants;
+  const automationApproval = settings.automation.requireApproval;
+  useEffect(() => {
+    void getAutomationMount().apply({
+      enabled: automationEnabled,
+      grants: automationGrants,
+      requireApproval: automationApproval,
+    });
+  }, [automationEnabled, automationGrants, automationApproval]);
 
   const persist = useCallback((next: EditorSettings) => {
     setSettings(next);

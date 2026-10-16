@@ -41,6 +41,7 @@ import { BackupSettingsPanel } from '../Backup/BackupSettingsPanel';
 import { ContactLink } from '../ContactLink';
 import { InspectorColorPopover } from '../Inspector/controls/InspectorColorPopover';
 import { whiteForMode } from '../Inspector/panels/DocumentPanel';
+import { AgentAccessSection } from './AgentAccessSection';
 import { BgRemovalModelsTab } from './BgRemovalModelsTab';
 import { ColorizationModelsTab } from './ColorizationModelsTab';
 import { DrawingInputSettingsTab } from './DrawingInputSettingsTab';
@@ -66,6 +67,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'plugins', label: 'Plugins' },
   { id: 'collab', label: 'Collab' },
   { id: 'ai', label: 'On-device Assistants' },
+  { id: 'automation', label: 'Agent Access' },
   { id: 'privacy', label: 'Privacy & Diagnostics' },
   { id: 'updates', label: 'Updates' },
   { id: 'about', label: 'About' },
@@ -316,6 +318,7 @@ export function SettingsDialog({
             {activeSection === 'plugins' && <PluginManager />}
             {activeSection === 'collab' && <CollabSection />}
             {activeSection === 'ai' && <AISection />}
+            {activeSection === 'automation' && <AgentAccessSection />}
             {activeSection === 'privacy' && <PrivacyDiagnosticsSection />}
             {activeSection === 'updates' && <UpdatesSection />}
             {activeSection === 'about' && <AboutSection />}
