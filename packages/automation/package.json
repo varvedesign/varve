@@ -1,0 +1,23 @@
+{
+  "name": "@varve/automation",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent-ready command contracts: strict schemas, command catalog, validated executor, receipts, idempotency, and a headless document authority shared by the CLI, JSON control channel and MCP server (ADR-0241). Browser-safe core: no Node built-ins, no React.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cd ../.. && vitest run packages/automation"
+  },
+  "dependencies": {
+    "@varve/scene": "workspace:*",
+    "@varve/shared": "workspace:*"
+  },
+  "license": "FSL-1.1-MIT"
+}

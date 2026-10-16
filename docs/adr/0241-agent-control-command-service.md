@@ -1,0 +1,107 @@
+# ADR-0241: Agent control command service
+
+- **Status:** Accepted (core implemented; transports and live editor bridge in progress)
+- **Date:** 2026-10-15
+
+## Context
+
+Varve's operations are reachable only through the graphical editor. Measured
+on `0aa316bca`:
+
+- The editor mutates through 460 direct `updateDoc(` sites (219 in
+  `context.tsx`). Only three editor files use the 48-operation registry in
+  `@varve/scene`, and its validators are shallow: `node.create` accepts any
+  object with `id` and `kind`, `node.move` clamps silently, and
+  `applyOperation` neither validates nor checks preconditions.
+- `ActionRegistry` handlers return `void`; `dispatch` returns a boolean after
+  the call. There is no completion receipt.
+- ADR-0130's typed command route exists only as the test-constructed broker in
+  `workspace/session/`; the live broker is `workspace/sessionBroker.ts`.
+- The desktop app opens no listener. The CLI covers validate/diff/merge and its
+  launcher needs `esbuild` and a source checkout at run time.
+- The session envelope size cap counts UTF-16 units, not bytes (a 720 KB CJK
+  payload measures 240 KB against a 256 KiB cap).
+
+## Alternatives
+
+1. **Expose `ActionRegistry` by action id.** Rejected: handlers close over
+   window-local state, return nothing, and the registry is name-addressed and
+   unscoped, so it would expose settings and every shortcut stub.
+2. **Route every UI mutation through the scene operation registry first.**
+   Rejected as a prerequisite: 460 call sites, and it would block the work on a
+   multi-month refactor. It remains the direction for new UI work.
+3. **Script the GUI with synthetic input.** Rejected: fragile, steals focus,
+   cannot report structured results, and gives no inspection.
+4. **A separate command service with strict contracts and a shared authority
+   interface (chosen).**
+
+## Decision
+
+- Add `@varve/automation`: schema DSL, command catalog, executor, receipts,
+  idempotency, headless authority, and the first command family. Browser-safe.
+- A command is data plus a pure `query`/`plan`. The executor is the single
+  place that validates, authorizes, pins the target, dedupes, commits and
+  produces a receipt. Adapters (CLI, control channel, MCP, editor bridge) are
+  thin and build a principal from transport evidence.
+- `DocumentAuthority` is the one commit point. A headless authority exists now;
+  the live editor will provide another behind the same interface so commands
+  mean the same thing in both.
+- Command semantics follow the UI function, not the registry shortcut. Where
+  the editor has a pure function, it moves into `@varve/scene` and the editor
+  re-exports it (`resizeSceneNode` is the first).
+- Rollback is a field-level three-way revert of one attributed transaction,
+  refusing on conflict rather than erasing later work.
+- Settings, permissions, approvals, security and updater are forbidden command
+  domains.
+- Parity with the UI is tracked by a machine-readable manifest with honest
+  denominators, not asserted by command count.
+
+## Consequences
+
+- A request the GUI can never generate (duplicate ids, huge lists, NaN, hostile
+  Unicode) is rejected at the same boundary the GUI would use.
+- New UI features should expose a command through the catalog; the manifest
+  check fails CI when a mutation route has no mapping and no recorded reason.
+- Until the live authority lands, connected mode does not exist; an adapter
+  asked to connect must fail, never fall back to an empty headless session.
+- Two mutation vocabularies coexist (UI `updateDoc` and catalog commands)
+  until UI code migrates; parity is verified by tests, not by shared routing.
+
+## Migration impact
+
+Additive. `resizeSceneNode` moves to `@varve/scene` and is re-exported from the
+editor module; behavior is unchanged and now covered by a test. No document
+format change.
+
+## Cross-platform implications
+
+The core has no platform dependencies. Local transports use Unix domain
+sockets on Linux and macOS and an authenticated loopback or named pipe on
+Windows; only Linux is exercised in this repository's local validation.
+
+## Security implications
+
+Principal derives from transport evidence only. Authorization is enforced in
+the executor and nowhere else. Commands cannot change settings or grants. The
+trust boundary is stated honestly: a local token is not a sandbox against
+malware running as the same user. Prompt-injection content (layer names,
+comments, metadata) is data and never instruction.
+
+## Accessibility implications
+
+The Agent settings surface (planned) reuses the design system's focus order,
+labels, and non-color status cues. Approval prompts are keyboard operable and
+announced.
+
+## Performance implications
+
+Validation is linear in request size with explicit node, depth and byte caps.
+Receipt id sets are derived by an O(nodes) reference diff per commit
+(reference inequality first), cheap on 10k-node documents. The in-process
+editor path does not serialize per pointer event.
+
+## Rejected shortcuts
+
+Generic `set(anyPath)`; arbitrary JavaScript or shell execution; trusting
+client-declared roots or `actorId`; returning success from a handler lookup;
+blind "last N undo"; treating loopback as authorization.

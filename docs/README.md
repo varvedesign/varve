@@ -269,6 +269,7 @@ pass report in
 | `adr/0238-comic-webtoon-workflow-architecture.md` | Comic/webtoon workflow: no dedicated workspace; document profile, capability-keyed page surfaces, shared tools, optional presets |
 | `adr/0239-six-task-workspaces-and-ordered-shortcuts.md` | Six task workspaces with one ordered switcher/shortcut sequence; Logo tools and Code export remain shared workflows |
 | `adr/0240-presentation-decks.md` | Ordered editable-frame decks, safe layout revision, structured capture, and raster-first delivery |
+| `adr/0241-agent-control-command-service.md` | Agent control: strict command contracts, one executor, shared document authority, receipts, idempotency and attributed rollback (see `architecture/agent-control-system.md`) |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |
@@ -289,6 +290,7 @@ pass report in
 | `architecture/wasm-backends.md` | WASM backend architecture |
 | `architecture/motion-system.md` | Motion/animation architecture |
 | `architecture/presentation-system.md` | Frame-referenced decks, layout roles, notes, audience preview, and multi-page delivery |
+| `architecture/agent-control-system.md` | Agent control contract: strict commands, executor pipeline, receipts, idempotency, attributed rollback (ADR-0241) |
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |
 | `architecture/text-on-path.md` | Text-on-path data, rendering, editing, export, and fidelity limits |
 | `architecture/clipboard-system.md` | System clipboard ownership, fragment fidelity, representation negotiation, placement, and Cut safety |
