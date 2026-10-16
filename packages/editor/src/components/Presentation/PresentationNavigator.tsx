@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { PanelDetachButton } from '../PanelDragHandle';
 import { PresentationLayoutManager } from './PresentationLayoutManager';
+import { PresentationMotionPanel } from './PresentationMotionPanel';
 import { PresentationPreflightPanel } from './PresentationPreflightPanel';
 import { PresentationThumbnail } from './PresentationThumbnail';
 import {
@@ -1144,6 +1145,14 @@ export function PresentationNavigator({ showDetach = true }: { showDetach?: bool
                     }}
                   />
                 </label>
+                {entry.id === activeEntryId && resolution.deck && (
+                  <PresentationMotionPanel
+                    deck={resolution.deck}
+                    entry={entry}
+                    document={state.document}
+                    runOperation={runOperation}
+                  />
+                )}
               </li>
             );
           })}

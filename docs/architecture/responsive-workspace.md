@@ -23,15 +23,24 @@ the switcher visually quiet. Workspace shortcuts remain registered and
 discoverable through each switcher's tooltip and accessible shortcut names.
 
 `appearance.layoutPreference` is persisted as `auto`, `tablet`, or `desktop` and
-is independent of density and the one-finger drawing policy. Auto uses viewport
-width, pointer capabilities, and observed touch/pen contacts: through 899 CSS px
-it selects tablet controls on touch-capable surfaces; through 1280 px it prefers
-tablet presentation when touch is available; at wider sizes it keeps tablet
-presentation for coarse-only input or observed touch/pen use. Manual choices
-remain authoritative while the CSS still reflows to fit. The browser cannot
-reliably detect whether a detachable keyboard is physically attached, so Varve
-does not claim to detect keyboard attachment or an operating-system tablet-mode
-switch. Presentation changes wait until active contacts and IME composition end.
+is independent of density and the one-finger drawing policy. Auto resolves
+through `resolveLayoutPresentation` (`packages/editor/src/settings/layoutPresentation.ts`):
+tablet presentation is the automatic answer only when touch/pen is the *only*
+pointing capability — touch-capable (`any-pointer: coarse`, `maxTouchPoints > 0`,
+or an observed touch/pen contact) **and** no fine pointer
+(`any-pointer: fine`) is exposed. With a fine pointer present, auto keeps
+`desktop` above 899 CSS px and `compact` at or below it, because a touchscreen
+laptop, a pen display, or an iPad-with-trackpad that also reports a fine
+pointer is a desktop session; letting an observed touch flip it is the
+classic false positive that hijacks the user's layout. Manual `tablet` /
+`desktop` choices always win, and observed contacts only ever record that a
+digitizer exists — they never select the tablet layout on their own. The
+browser cannot reliably detect whether a detachable keyboard is physically
+attached, so Varve does not claim to detect keyboard attachment or an
+operating-system tablet-mode switch; on devices where ChromeOS keeps a mouse
+as the primary pointer in tablet mode, the View menu and Appearance setting
+provide the manual override. Presentation changes wait until active contacts
+and IME composition end.
 
 The View menu and Appearance settings expose the same preference. Changing it
 does not remount panels or discard their selection, scroll position, active

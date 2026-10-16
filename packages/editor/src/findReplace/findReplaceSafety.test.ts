@@ -574,3 +574,87 @@ describe('adjacent and growing replacements do not loop or corrupt', () => {
     expect(textOf(doc)).toBe('remove');
   });
 });
+
+describe('self-containing replacements are matched once, never rescanned', () => {
+  // FigCraft #410 class: a replace-all that rescans after each edit either
+  // loops on the replacement text it just inserted or skips later original
+  // matches because the cursor advanced past them. The plan is computed once
+  // against the frozen document, applied per target in descending offset
+  // order, and every edit is revalidated against its original range, so the
+  // inserted replacement is never itself a candidate.
+
+  it('replaces every adjacent occurrence exactly once as the text grows', () => {
+    const doc = docWith('aaaa');
+    const plan = planReplacements(doc, spec({ query: 'aa' }), 'aaa');
+    expect(plan.considered).toBe(2);
+    const result = applyReplacementPlan(doc, plan, plan.revision);
+    expect(result.applied).toBe(2);
+    expect(result.skippedStale).toBe(0);
+    expect(textOf(result.doc)).toBe('aaaaaa');
+  });
+
+  it('does not re-match inside an inserted replacement that contains the needle', () => {
+    const { doc, count } = replaceAll(
+      docWith('aa'),
+      'a',
+      'xa',
+      DEFAULT_SEARCH_OPTIONS,
+      'document',
+      [],
+      false,
+      false,
+      false,
+    );
+    expect(count).toBe(2);
+    expect(textOf(doc)).toBe('xaxa');
+  });
+
+  it('expands $& templates without rescanning the re-inserted match', () => {
+    const doc = docWith('aa');
+    const plan = planReplacements(
+      doc,
+      spec({ query: 'a', options: { ...DEFAULT_SEARCH_OPTIONS, useRegex: true } }),
+      '$&a',
+    );
+    expect(plan.considered).toBe(2);
+    const result = applyReplacementPlan(doc, plan, plan.revision);
+    expect(result.applied).toBe(2);
+    expect(textOf(result.doc)).toBe('aaaa');
+  });
+
+  it('extends every word when the replacement starts with the needle', () => {
+    const { doc, count } = replaceAll(
+      docWith('find find'),
+      'find',
+      'finder',
+      DEFAULT_SEARCH_OPTIONS,
+      'document',
+      [],
+      false,
+      false,
+      false,
+    );
+    expect(count).toBe(2);
+    expect(textOf(doc)).toBe('finder finder');
+  });
+
+  it('edits each target once when the replacement contains the needle', () => {
+    let doc = createDocument('regression', true);
+    doc = addNode(doc, textNode('text-1', { text: 'a' }));
+    doc = addNode(doc, textNode('text-2', { text: 'a' }));
+    const { doc: next, count } = replaceAll(
+      doc,
+      'a',
+      'aa',
+      DEFAULT_SEARCH_OPTIONS,
+      'document',
+      [],
+      false,
+      false,
+      false,
+    );
+    expect(count).toBe(2);
+    expect(textOf(next, 'text-1')).toBe('aa');
+    expect(textOf(next, 'text-2')).toBe('aa');
+  });
+});

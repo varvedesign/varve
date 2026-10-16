@@ -64,11 +64,14 @@ describe('node edit screen-space hit testing', () => {
     expect(hit && hit.kind === 'segment' ? hit.segmentIndex : -1).toBe(2);
   });
 
-  it('keeps mouse/pen tolerances at the tight defaults', () => {
+  it('keeps mouse/pen tolerances at the tight defaults and treats unknown as touch-like', () => {
     expect(nodeEditTolerancesForPointer('mouse')).toBe(DEFAULT_NODE_EDIT_TOLERANCES);
     expect(nodeEditTolerancesForPointer('pen')).toBe(DEFAULT_NODE_EDIT_TOLERANCES);
-    expect(nodeEditTolerancesForPointer(undefined)).toBe(DEFAULT_NODE_EDIT_TOLERANCES);
     expect(nodeEditTolerancesForPointer('touch')).toBe(TOUCH_NODE_EDIT_TOLERANCES);
+    // Same touch-like policy as input ownership for unreporting WebViews.
+    expect(nodeEditTolerancesForPointer('unknown')).toBe(TOUCH_NODE_EDIT_TOLERANCES);
+    expect(nodeEditTolerancesForPointer('')).toBe(TOUCH_NODE_EDIT_TOLERANCES);
+    expect(nodeEditTolerancesForPointer(undefined)).toBe(DEFAULT_NODE_EDIT_TOLERANCES);
   });
 
   it('grows touch tolerance in screen space without moving geometry', () => {

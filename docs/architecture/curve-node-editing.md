@@ -54,6 +54,13 @@ movement is converted back through the complete affine inverse before geometry
 mutation, so rotation, reflection, non-uniform scale, shear, and nesting do not
 change the meaning of a drag.
 
+Touch contacts use enlarged tolerances (`TOUCH_NODE_EDIT_TOLERANCES`: anchors
+and handles 24 CSS px, segments a 12 px band) because a finger has no hover
+affordance and a wide contact patch; mouse and pen keep the tight radii
+(8/7/9 px) that dense path editing needs. Both are WCAG 2.5.8-constrained
+screen-space tolerances over the authored geometry — no node ever moves
+because its hit target grew. Nearest-wins keeps dense anchors predictable.
+
 The deterministic hit priority is anchor, handle, then segment. Anchors win
 when a collapsed/crowded handle overlaps the anchor target. A segment drag
 keeps its endpoint anchors fixed and adjusts that segment's endpoint handles;

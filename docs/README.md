@@ -92,6 +92,7 @@ pass report in
 | [research/design-tool-failure-modes-2026-09-21.md](research/design-tool-failure-modes-2026-09-21.md) | Public complaint research and realistic local-first, export, portability, and trust responses |
 | [research/design-tool-failure-modes-2026-10-02.md](research/design-tool-failure-modes-2026-10-02.md) | 2025–2026 pricing, lock-in, AI, telemetry, signing, accessibility, and licence-trust complaint research; claim-register guardrails |
 | [research/presentation-workflow-2026-09-29.md](research/presentation-workflow-2026-09-29.md) | Dated presentation-product evidence, Varve baseline audit, and implementation decisions |
+| [research/document-workflows-tracker-ledger-2026-10-15.md](research/document-workflows-tracker-ledger-2026-10-15.md) | figcraft/pdfcraft/deckcraft evidence ledger for document workflows, seed validation with negatives, and primary-source checks |
 | [audits/presentation-workflow-defects-2026-09-29.md](audits/presentation-workflow-defects-2026-09-29.md) | Reproduced Varve defects and presentation regression scenarios |
 | [audits/website-homepage-hero-eyebrow-2026-09-29.md](audits/website-homepage-hero-eyebrow-2026-09-29.md) | Homepage hero eyebrow responsive findings, failure-mode research, screenshots, and validation |
 | [audits/toolbar-design-review-2026-09-29.md](audits/toolbar-design-review-2026-09-29.md) | Palette divider, surface, narrow-viewport and workspace-grouping findings, external failure evidence, screenshots, and validation |
@@ -269,7 +270,9 @@ pass report in
 | `adr/0238-comic-webtoon-workflow-architecture.md` | Comic/webtoon workflow: no dedicated workspace; document profile, capability-keyed page surfaces, shared tools, optional presets |
 | `adr/0239-six-task-workspaces-and-ordered-shortcuts.md` | Six task workspaces with one ordered switcher/shortcut sequence; Logo tools and Code export remain shared workflows |
 | `adr/0240-presentation-decks.md` | Ordered editable-frame decks, safe layout revision, structured capture, and raster-first delivery |
-| `adr/0241-agent-control-command-service.md` | Agent control: strict command contracts, one executor, shared document authority, receipts, idempotency and attributed rollback (see `architecture/agent-control-system.md`) |
+| `adr/0241-raster-stroke-ownership-history-hashing-tile-identity.md` | Stroke-scoped exclusive tile ownership, cheaper history capture with an unchanged hash value, and runtime tile content identity instead of version equality |
+| `adr/0242-document-authority-and-interchange.md` | One document authority per kind with preservation adapters; separate identity axes; derived structure never owns edits; honest output claims |
+| `adr/0243-agent-control-command-service.md` | Agent control: strict command contracts, one executor, shared document authority, receipts, idempotency and attributed rollback (see `architecture/agent-control-system.md`) |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |
@@ -290,7 +293,7 @@ pass report in
 | `architecture/wasm-backends.md` | WASM backend architecture |
 | `architecture/motion-system.md` | Motion/animation architecture |
 | `architecture/presentation-system.md` | Frame-referenced decks, layout roles, notes, audience preview, and multi-page delivery |
-| `architecture/agent-control-system.md` | Agent control contract: strict commands, executor pipeline, receipts, idempotency, attributed rollback (ADR-0241) |
+| `architecture/agent-control-system.md` | Agent control contract: strict commands, executor pipeline, receipts, idempotency, attributed rollback (ADR-0243) |
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |
 | `architecture/text-on-path.md` | Text-on-path data, rendering, editing, export, and fidelity limits |
 | `architecture/clipboard-system.md` | System clipboard ownership, fragment fidelity, representation negotiation, placement, and Cut safety |
@@ -609,6 +612,7 @@ The following dated files were moved from `docs/architecture/` to
 | `plans/archived/rename-strata-consultation.md` | Dated record of the product-rename consultation (file retains its original name) |
 | `plans/macos-intel-feasibility.md` | Decision record: macOS Intel support rejected (2026-08-18); grounds a row of `release/platform-support-matrix.md` |
 | `plans/comic-lettering-system.md` | Comic lettering architecture decision, feature admission matrix, slice ledger, and known defects |
+| `plans/document-workflows-plan-2026-10-15.md` | Connected document-workflow plan: audit baseline, slice ledger with status, and per-slice validation requirements |
 | Other `plans/*.md` | Per-session implementation plans and deferred-work records |
 | `plans/archived/*.md` | Completed/superseded plans, archived per the convention in `plans/archived/session-04-packaging.md` |
 

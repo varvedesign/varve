@@ -1,4 +1,4 @@
-# ADR-0241: Agent control command service
+# ADR-0243: Agent control command service
 
 - **Status:** Accepted (core implemented; transports and live editor bridge in progress)
 - **Date:** 2026-10-15

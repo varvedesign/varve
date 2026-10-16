@@ -15,7 +15,7 @@
   control adapters), `apps/desktop/src-tauri/src/automation.rs`, an editor
   automation bridge and Settings surface, parity manifest and CI check.
 - Docs: `docs/architecture/agent-control-system.md`,
-  `docs/adr/0241-agent-control-command-service.md`,
+  `docs/adr/0243-agent-control-command-service.md`,
   `docs/research/agent-control-research-2026-10-15.md`, this record.
 
 ## Owner

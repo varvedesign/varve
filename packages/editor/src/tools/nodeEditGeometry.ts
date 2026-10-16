@@ -31,10 +31,18 @@ export const TOUCH_NODE_EDIT_TOLERANCES: NodeEditHitTolerances = {
   segment: 12,
 };
 
+/**
+ * Pointer-type → tolerance policy. Unknown and empty pointer types are
+ * touch-like here for the same reason `inputPolicy` treats them as
+ * touch-like for ownership: a Webview that cannot say what contacted the
+ * surface is most conservatively served the wide, forgiving target.
+ */
 export function nodeEditTolerancesForPointer(
   pointerType: string | undefined | null,
 ): NodeEditHitTolerances {
-  return pointerType === 'touch' ? TOUCH_NODE_EDIT_TOLERANCES : DEFAULT_NODE_EDIT_TOLERANCES;
+  return pointerType === 'touch' || pointerType === 'unknown' || pointerType === ''
+    ? TOUCH_NODE_EDIT_TOLERANCES
+    : DEFAULT_NODE_EDIT_TOLERANCES;
 }
 
 export type NodeEditHit =
