@@ -81,6 +81,15 @@ export function AgentAccessSection() {
           id="agent-access-edit"
         />
       </SettingsFieldRow>
+      <SettingsFieldRow label="Allow agents to save">
+        <SwitchField
+          label={automation.save ? 'Save allowed' : 'No saving'}
+          checked={automation.save}
+          disabled={automation.grants !== 'edit'}
+          onChange={(event) => updateSection('automation', { save: event.target.checked })}
+          id="agent-access-save"
+        />
+      </SettingsFieldRow>
       <SettingsFieldRow label="Ask me before each change">
         <SwitchField
           label={automation.requireApproval ? 'Ask first' : 'Apply without asking'}
@@ -92,9 +101,20 @@ export function AgentAccessSection() {
           id="agent-access-approval"
         />
       </SettingsFieldRow>
+      <SettingsFieldRow label="Allow agents to take images">
+        <SwitchField
+          label={automation.capture ? 'Images allowed' : 'No images'}
+          checked={automation.capture}
+          onChange={(event) => updateSection('automation', { capture: event.target.checked })}
+          id="agent-access-capture"
+        />
+      </SettingsFieldRow>
       <p className="settings-section__hint">
-        Capture, export and anything that leaves this computer stay unavailable to agents. Turning
-        this off disconnects every agent immediately and does not undo changes already made.
+        An image is a render of one part of your document, not a picture of your screen. Agents that
+        can see images may send them to their own provider. Saving writes only to the file you
+        already chose for this document, never to a path the agent picks. Exporting to other files,
+        and anything else that leaves this computer, stays unavailable. Turning this off disconnects
+        every agent immediately and does not undo changes already made.
       </p>
 
       <div
@@ -148,7 +168,7 @@ export function AgentAccessSection() {
                 </div>
                 <div className="agent-access__actions">
                   <Button
-                    variant="primary"
+                    variant="default"
                     size="sm"
                     onClick={() => view.decide(request.receiptId, { approved: true })}
                   >

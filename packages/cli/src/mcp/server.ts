@@ -22,6 +22,7 @@ import {
   s,
 } from '@varve/automation';
 import { type ControlClient, type HelloResult, RpcError } from '../control/client';
+import { extractImage } from './image';
 import { standardSchema } from './standardSchema';
 
 export interface VarveMcpOptions {
@@ -126,19 +127,23 @@ const WRITES = {
 } as const;
 
 type ToolResult = {
-  content: Array<{ type: 'text'; text: string }>;
+  content: Array<
+    { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
+  >;
   structuredContent?: Record<string, unknown>;
   isError?: boolean;
 };
 
 function receiptResult(receipt: Receipt | BatchReceipt): ToolResult {
   const failed = receipt.outcome === 'rejected' || receipt.outcome === 'unknown';
+  const { stripped, image } = extractImage(receipt);
   return {
     content: [
       { type: 'text', text: receipt.summary },
-      { type: 'text', text: JSON.stringify(receipt) },
+      ...(image ? [{ type: 'image' as const, data: image.data, mimeType: image.mimeType }] : []),
+      { type: 'text', text: JSON.stringify(stripped) },
     ],
-    structuredContent: receipt as unknown as Record<string, unknown>,
+    structuredContent: stripped as unknown as Record<string, unknown>,
     ...(failed ? { isError: true } : {}),
   };
 }

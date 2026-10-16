@@ -13,7 +13,7 @@
  * until then publishing the editor stores one reference and returns.
  */
 import type { EditorContextValue } from '../context';
-import type { AutomationController } from './controller';
+import type { AutomationController, ControllerOptions } from './controller';
 
 let controller: AutomationController | null = null;
 let loading: Promise<AutomationController> | null = null;
@@ -52,12 +52,15 @@ export function whenAutomationControllerLoaded(
 }
 
 /** Load (once) and return the controller, handing it the editor published so far. */
-export function loadAutomationController(): Promise<AutomationController> {
+export function loadAutomationController(
+  overrides: Partial<ControllerOptions> = {},
+): Promise<AutomationController> {
   if (!loading) {
     loading = import('./controller').then((module) => {
       const created = new module.AutomationController({
         instanceId: `window-${randomId()}`,
         serverInfo: { name: 'varve-editor', version: '0' },
+        ...overrides,
       });
       controller = created;
       if (published) created.attach(published);

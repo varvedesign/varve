@@ -13,6 +13,7 @@
  * unknown outcome for the caller to reconcile, never executed blindly.
  */
 import type { BatchReceipt, Receipt } from './receipt';
+import { utf8ByteLength } from './text';
 
 export interface IdempotencyEntry {
   key: string;
@@ -27,21 +28,34 @@ export interface IdempotencyEntry {
 
 export interface IdempotencyOptions {
   maxEntries?: number;
+  /**
+   * Total encoded size of retained receipts. Entries count is not a memory
+   * bound once a receipt can carry an image: 1024 retained captures would hold
+   * gigabytes. A receipt larger than the whole budget is not retained at all,
+   * which a declared retry then reports as an unknown outcome, never as a
+   * repeat.
+   */
+  maxBytes?: number;
   ttlMs?: number;
   now?: () => number;
 }
 
 export const DEFAULT_IDEMPOTENCY_ENTRIES = 1024;
+export const DEFAULT_IDEMPOTENCY_BYTES = 32 * 1024 * 1024;
 export const DEFAULT_IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class IdempotencyStore {
   private readonly entries = new Map<string, IdempotencyEntry>();
+  private readonly sizes = new Map<string, number>();
+  private retainedBytes = 0;
   private readonly maxEntries: number;
+  private readonly maxBytes: number;
   private readonly ttlMs: number;
   private readonly now: () => number;
 
   constructor(options: IdempotencyOptions = {}) {
     this.maxEntries = options.maxEntries ?? DEFAULT_IDEMPOTENCY_ENTRIES;
+    this.maxBytes = options.maxBytes ?? DEFAULT_IDEMPOTENCY_BYTES;
     this.ttlMs = options.ttlMs ?? DEFAULT_IDEMPOTENCY_TTL_MS;
     this.now = options.now ?? Date.now;
   }
@@ -55,20 +69,43 @@ export class IdempotencyStore {
     const entry = this.entries.get(scoped);
     if (!entry) return undefined;
     if (this.now() - entry.storedAt > this.ttlMs) {
-      this.entries.delete(scoped);
+      this.forget(scoped);
       return undefined;
     }
     return entry;
   }
 
-  record(entry: IdempotencyEntry): void {
-    const scoped = IdempotencyStore.scope(entry.principalId, entry.documentId, entry.key);
+  private forget(scoped: string): void {
     this.entries.delete(scoped);
+    this.retainedBytes -= this.sizes.get(scoped) ?? 0;
+    this.sizes.delete(scoped);
+  }
+
+  /**
+   * Retain a receipt for replay. Returns false when it was not kept because it
+   * alone exceeds the byte budget; the caller still has the real result, and a
+   * later declared retry will be told the outcome is unknown rather than be
+   * handed a second execution.
+   */
+  record(entry: IdempotencyEntry): boolean {
+    const scoped = IdempotencyStore.scope(entry.principalId, entry.documentId, entry.key);
+    this.forget(scoped);
+    const size = utf8ByteLength(JSON.stringify(entry.receipt));
+    if (size > this.maxBytes) return false;
     this.entries.set(scoped, entry);
-    while (this.entries.size > this.maxEntries) {
-      const oldest = this.entries.keys().next().value as string;
-      this.entries.delete(oldest);
+    this.sizes.set(scoped, size);
+    this.retainedBytes += size;
+    while (this.entries.size > this.maxEntries || this.retainedBytes > this.maxBytes) {
+      const oldest = this.entries.keys().next().value as string | undefined;
+      if (oldest === undefined) break;
+      this.forget(oldest);
     }
+    return true;
+  }
+
+  /** Encoded size currently retained, for diagnostics and tests. */
+  get bytes(): number {
+    return this.retainedBytes;
   }
 
   get size(): number {

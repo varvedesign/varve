@@ -21,6 +21,26 @@
     "unfinished"
   ],
   "commands": {
+    "varve.capture.node": {
+      "status": "implemented",
+      "gesture": [],
+      "preconditions": [
+        "a live application window (headless sessions have nothing to render)",
+        "the capture permission, which edit does not imply"
+      ],
+      "tests": [
+        "packages/automation/src/__tests__/capture.test.ts",
+        "packages/editor/src/automation/__tests__/liveExternals.test.ts",
+        "packages/editor/src/automation/__tests__/liveExternalsIntegration.test.tsx",
+        "packages/cli/src/mcp/image.test.ts"
+      ],
+      "limits": [
+        "Captures document pixels rendered by the export pipeline, not a screenshot of the application window or a native GPU surface.",
+        "One node per call, PNG only, longest edge at most 2048 px and at most 2 MiB encoded.",
+        "Real pixel rendering is exercised in a browser run; jsdom unit tests inject the renderer."
+      ],
+      "uiSurfaces": []
+    },
     "varve.document.info": {
       "status": "implemented",
       "gesture": [],
@@ -40,36 +60,42 @@
       "gesture": [],
       "preconditions": [
         "a document session is open",
-        "a file gateway is attached (varve serve / varve mcp)"
+        "headless: a file gateway is attached (varve serve / varve mcp)",
+        "live: the person already chose where this document is saved",
+        "the export permission, which edit does not imply"
       ],
-      "tests": ["packages/cli/src/__tests__/control-mcp.subprocess.test.ts"],
+      "tests": [
+        "packages/cli/src/__tests__/control-mcp.subprocess.test.ts",
+        "packages/editor/src/automation/__tests__/liveExternals.test.ts",
+        "packages/editor/src/automation/__tests__/liveExternalsIntegration.test.tsx"
+      ],
       "limits": [
         "Not available under `varve exec`/`varve batch`, which attach no external handler; those write results with --in-place/--out instead.",
-        "No connected runtime yet, so the desktop app cannot be asked to save through this command."
+        "A live session saves only where the person already chose; a never-saved or download-only document, a browser file handle, or any caller-chosen path is refused and nothing is written.",
+        "A live save reports the revision written and the destination; it does not report byte size or hash, because the editor persistence layer owns encoding."
       ],
       "uiSurfaces": ["save"]
     },
-    "varve.node.list": {
+    "varve.history.list": {
       "status": "implemented",
       "gesture": [],
       "preconditions": ["a document session is open"],
-      "tests": ["packages/automation/src/__tests__/executor.test.ts"],
-      "uiSurfaces": ["openDocumentPanel"]
+      "tests": ["packages/automation/src/__tests__/live.test.ts"],
+      "uiSurfaces": ["toggleHistoryPanel", "restoreFromSnapshot"]
     },
-    "varve.node.get": {
+    "varve.history.rollback": {
       "status": "implemented",
       "gesture": [],
-      "preconditions": ["a document session is open"],
-      "tests": ["packages/automation/src/__tests__/executor.test.ts"],
-      "uiSurfaces": ["openInspectorProperties", "openInspectPanel"]
-    },
-    "varve.node.find": {
-      "status": "implemented",
-      "gesture": [],
-      "preconditions": ["a document session is open"],
-      "tests": ["packages/automation/src/__tests__/executor.test.ts"],
-      "limits": ["Reports ambiguity; it never coerces a name into an id."],
-      "uiSurfaces": ["findReplace", "detectDuplicates", "selectAllWithSameFont"]
+      "preconditions": [
+        "the transaction is still retained",
+        "no later transaction changed the same entities"
+      ],
+      "tests": ["packages/automation/src/__tests__/live.test.ts"],
+      "limits": [
+        "Compensating and attributed: it reverts one named transaction and refuses on conflict. It never pops the last N edits.",
+        "Undo/redo as a user presses them are a different mechanism (the editor's snapshot stack) and are not this command."
+      ],
+      "uiSurfaces": ["undo", "redo"]
     },
     "varve.node.create": {
       "status": "implemented",
@@ -88,23 +114,34 @@
       ],
       "uiSurfaces": ["toolRect", "toolEllipse", "toolFrame", "toolText", "insertIcon"]
     },
-    "varve.node.set": {
+    "varve.node.delete": {
       "status": "implemented",
       "gesture": [],
-      "preconditions": ["every named node exists and none is locked"],
+      "preconditions": ["no named node is a page or master content root"],
       "tests": ["packages/automation/src/__tests__/live.test.ts"],
-      "limits": [
-        "Typed properties only (name, visible, locked, opacity, rotation, blendMode, fill, text, fontSize). No arbitrary property path.",
-        "Writes a static opacity; the editor's own setter also feeds motion auto-keyframing while a timeline plays.",
-        "Nodes with stacked fills reject a single `fill` rather than silently changing nothing."
-      ],
-      "uiSurfaces": [
-        "openInspectorProperties",
-        "textBold",
-        "textItalic",
-        "textUnderline",
-        "textAlignLeft"
-      ]
+      "uiSurfaces": ["delete", "flattenSelection", "rasterizeSelection"]
+    },
+    "varve.node.find": {
+      "status": "implemented",
+      "gesture": [],
+      "preconditions": ["a document session is open"],
+      "tests": ["packages/automation/src/__tests__/executor.test.ts"],
+      "limits": ["Reports ambiguity; it never coerces a name into an id."],
+      "uiSurfaces": ["findReplace", "detectDuplicates", "selectAllWithSameFont"]
+    },
+    "varve.node.get": {
+      "status": "implemented",
+      "gesture": [],
+      "preconditions": ["a document session is open"],
+      "tests": ["packages/automation/src/__tests__/executor.test.ts"],
+      "uiSurfaces": ["openInspectorProperties", "openInspectPanel"]
+    },
+    "varve.node.list": {
+      "status": "implemented",
+      "gesture": [],
+      "preconditions": ["a document session is open"],
+      "tests": ["packages/automation/src/__tests__/executor.test.ts"],
+      "uiSurfaces": ["openDocumentPanel"]
     },
     "varve.node.move": {
       "status": "implemented",
@@ -123,24 +160,6 @@
         "alignLeft",
         "distributeHorizontal"
       ]
-    },
-    "varve.node.resize": {
-      "status": "implemented",
-      "gesture": ["drag-handle-resize"],
-      "preconditions": ["the node kind has a direct size, and is not locked"],
-      "tests": [
-        "packages/automation/src/__tests__/executor.test.ts",
-        "packages/scene/src/nodeResize.test.ts"
-      ],
-      "limits": ["Refuses kinds without a direct size instead of guessing one."],
-      "uiSurfaces": ["resizeImage", "toolScale"]
-    },
-    "varve.node.delete": {
-      "status": "implemented",
-      "gesture": [],
-      "preconditions": ["no named node is a page or master content root"],
-      "tests": ["packages/automation/src/__tests__/live.test.ts"],
-      "uiSurfaces": ["delete", "flattenSelection", "rasterizeSelection"]
     },
     "varve.node.reorder": {
       "status": "implemented",
@@ -163,26 +182,34 @@
       ],
       "uiSurfaces": ["group", "ungroup", "enterFrame"]
     },
-    "varve.history.list": {
+    "varve.node.resize": {
       "status": "implemented",
-      "gesture": [],
-      "preconditions": ["a document session is open"],
-      "tests": ["packages/automation/src/__tests__/live.test.ts"],
-      "uiSurfaces": ["toggleHistoryPanel", "restoreFromSnapshot"]
-    },
-    "varve.history.rollback": {
-      "status": "implemented",
-      "gesture": [],
-      "preconditions": [
-        "the transaction is still retained",
-        "no later transaction changed the same entities"
+      "gesture": ["drag-handle-resize"],
+      "preconditions": ["the node kind has a direct size, and is not locked"],
+      "tests": [
+        "packages/automation/src/__tests__/executor.test.ts",
+        "packages/scene/src/nodeResize.test.ts"
       ],
+      "limits": ["Refuses kinds without a direct size instead of guessing one."],
+      "uiSurfaces": ["resizeImage", "toolScale"]
+    },
+    "varve.node.set": {
+      "status": "implemented",
+      "gesture": [],
+      "preconditions": ["every named node exists and none is locked"],
       "tests": ["packages/automation/src/__tests__/live.test.ts"],
       "limits": [
-        "Compensating and attributed: it reverts one named transaction and refuses on conflict. It never pops the last N edits.",
-        "Undo/redo as a user presses them are a different mechanism (the editor's snapshot stack) and are not this command."
+        "Typed properties only (name, visible, locked, opacity, rotation, blendMode, fill, text, fontSize). No arbitrary property path.",
+        "Writes a static opacity; the editor's own setter also feeds motion auto-keyframing while a timeline plays.",
+        "Nodes with stacked fills reject a single `fill` rather than silently changing nothing."
       ],
-      "uiSurfaces": ["undo", "redo"]
+      "uiSurfaces": [
+        "openInspectorProperties",
+        "textBold",
+        "textItalic",
+        "textUnderline",
+        "textAlignLeft"
+      ]
     }
   },
   "reviewed": {

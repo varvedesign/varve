@@ -29,6 +29,7 @@ import {
 } from '@varve/automation';
 import type { EditorContextValue } from '../context';
 import { createEditorBindings } from './editorBindings';
+import { createLiveExternals, type RenderNode } from './liveExternals';
 import { createLiveEditorPort, type EditorLivePort } from './livePort';
 
 export interface AutomationPolicy {
@@ -82,6 +83,8 @@ export interface ControllerOptions {
   now?: () => number;
   /** How long a held change waits for a person before it is refused. */
   approvalTimeoutMs?: number;
+  /** Replaces the export pipeline as the renderer behind capture. For tests. */
+  render?: RenderNode;
 }
 
 const ACTIVITY_LIMIT = 200;
@@ -250,6 +253,10 @@ export class AutomationController {
       serverInfo: this.options.serverInfo,
       admit: (request) => this.admit(request),
       approval: (request) => this.requestApproval(request),
+      externals: createLiveExternals({
+        editor: () => this.editor,
+        ...(this.options.render ? { render: this.options.render } : {}),
+      }),
       principalPrefix: 'client',
     });
     const unsubscribe = host.onChange(() => this.emit());
@@ -294,6 +301,9 @@ export class AutomationController {
 
   private requestApproval(request: ApprovalRequest): Promise<ApprovalDecision> {
     if (!this.policy.requireApproval) return Promise.resolve({ approved: true });
+    // A capture the person granted by name changes nothing; asking each time
+    // would be a focus-stealing prompt for something the grant already covers.
+    if (request.authorization === 'capture') return Promise.resolve({ approved: true });
     return new Promise<ApprovalDecision>((resolve) => {
       const timer = setTimeout(
         () => {

@@ -393,15 +393,27 @@ describe('automation settings', () => {
       enabled: false,
       grants: 'read',
       requireApproval: true,
+      capture: false,
+      save: false,
     });
   });
 
   it('round-trips an explicit choice', () => {
-    updateSettings({ automation: { enabled: true, grants: 'edit', requireApproval: false } });
+    updateSettings({
+      automation: {
+        enabled: true,
+        grants: 'edit',
+        requireApproval: false,
+        capture: true,
+        save: true,
+      },
+    });
     expect(loadSettings().automation).toEqual({
       enabled: true,
       grants: 'edit',
       requireApproval: false,
+      capture: true,
+      save: true,
     });
   });
 
@@ -409,14 +421,42 @@ describe('automation settings', () => {
     localStorage.setItem(
       KEY,
       JSON.stringify({
-        automation: { enabled: 'yes', grants: 'admin', requireApproval: 'no' },
+        automation: {
+          enabled: 'yes',
+          grants: 'admin',
+          requireApproval: 'no',
+          capture: 'true',
+          save: true,
+        },
       }),
     );
     expect(loadSettings().automation).toEqual({
       enabled: false,
       grants: 'read',
       requireApproval: true,
+      capture: false,
+      save: false,
     });
+  });
+
+  it('never lets a stored value grant saving without changes', () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ automation: { enabled: true, grants: 'read', save: true } }),
+    );
+    expect(loadSettings().automation.save).toBe(false);
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ automation: { enabled: true, grants: 'edit', save: true } }),
+    );
+    expect(loadSettings().automation.save).toBe(true);
+  });
+
+  it('capture is on only when it is exactly true', () => {
+    for (const value of [undefined, null, 1, 'true', {}]) {
+      localStorage.setItem(KEY, JSON.stringify({ automation: { enabled: true, capture: value } }));
+      expect(loadSettings().automation.capture, String(value)).toBe(false);
+    }
   });
 
   it('only an explicit false turns approval off', () => {
@@ -441,12 +481,22 @@ describe('automation settings', () => {
   });
 
   it('resets to the safe defaults', () => {
-    updateSettings({ automation: { enabled: true, grants: 'edit', requireApproval: false } });
+    updateSettings({
+      automation: {
+        enabled: true,
+        grants: 'edit',
+        requireApproval: false,
+        capture: true,
+        save: true,
+      },
+    });
     resetSettings();
     expect(loadSettings().automation).toEqual({
       enabled: false,
       grants: 'read',
       requireApproval: true,
+      capture: false,
+      save: false,
     });
   });
 });

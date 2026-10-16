@@ -52,6 +52,7 @@ export const AUTOMATION_COMMANDS = new Set([
   'serve',
   'mcp',
   'instances',
+  'config',
 ]);
 
 const ARGS_LIMIT = 1024 * 1024;
@@ -575,6 +576,10 @@ export async function runAutomationCommand(io: Io, argv: string[]): Promise<Exit
       case 'mcp': {
         const { runMcp } = await import('./mcp');
         return await runMcp(io, rest);
+      }
+      case 'config': {
+        const { runConfig } = await import('./config');
+        return await runConfig(io, rest);
       }
       default:
         io.err(`unknown command: ${name}\n`);

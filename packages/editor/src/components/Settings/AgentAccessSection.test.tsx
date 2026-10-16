@@ -62,6 +62,8 @@ describe('AgentAccessSection', () => {
     expect((screen.getByLabelText('Off') as HTMLInputElement).checked).toBe(false);
     expect(screen.getByText('Read only')).toBeTruthy();
     expect(screen.getByText('Ask first')).toBeTruthy();
+    expect(screen.getByText('No saving')).toBeTruthy();
+    expect(screen.getByText('No images')).toBeTruthy();
     expect(screen.getByRole('status', { name: 'Agent access status' }).textContent).toContain(
       'Off',
     );
@@ -69,10 +71,25 @@ describe('AgentAccessSection', () => {
     expect(screen.queryByText(/varve mcp --instance/)).toBeNull();
   });
 
-  it('the approval switch is unavailable while changes are not allowed', () => {
+  it('approval and saving are unavailable while changes are not allowed', () => {
     mount();
-    const approval = screen.getByLabelText('Ask first') as HTMLInputElement;
-    expect(approval.disabled).toBe(true);
+    expect((screen.getByLabelText('Ask first') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('No saving') as HTMLInputElement).disabled).toBe(true);
+    // Images do not depend on changes: they can be granted on their own.
+    expect((screen.getByLabelText('No images') as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it('saving and images are separate, explicit choices that persist', () => {
+    mount();
+    fireEvent.click(screen.getByLabelText('No images'));
+    expect(loadSettings().automation.capture).toBe(true);
+    expect(loadSettings().automation.grants).toBe('read');
+
+    fireEvent.click(screen.getByLabelText('Read only'));
+    const save = screen.getByLabelText('No saving') as HTMLInputElement;
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+    expect(loadSettings().automation.save).toBe(true);
   });
 
   it('persists the choice, and says plainly that a browser cannot listen', async () => {

@@ -33,7 +33,10 @@ This document describes the contract and marks what exists. A claim here is
 | **Desktop listener reachable from the webview** | Wired: `desktopMount.ts` starts the endpoint, hands its credential to the controller, enables the controller and attaches the relay when a person turns the setting on, and tears all three down when they turn it off. Unit-tested with an injected transport; **not yet run against a launched desktop app** |
 | **Windows named-pipe transport** | Not implemented. `Transport::NamedPipe` exists and is refused with an explicit `Unsupported` error, so the gap is a compile-time fact rather than a runtime surprise |
 | Approvals and the Agent access settings surface | Implemented: the controller supplies approvals (bound to exact args, target and revision, rechecked at commit) and `Settings > Agent Access` shows pending approvals, connected clients (disconnect), pause/resume, an activity list and the attach command. Tested against the real `EditorProvider` and controller; visual and keyboard review in a running window not done |
-| Page, component, text-run, effect, export, capture, motion commands | Not started; counted in the parity manifest as the unmapped backlog |
+| **`varve.document.save` in a live window** | Implemented. Writes only where the person already chose for the document (the editor's own Save, with its disk-changed and destination checks); a never-saved, download-only or browser-handle document, or any caller-chosen path, is refused and nothing is written. Needs the `export` permission, which `edit` does not imply. Tested against the real provider with an instrumented platform; **not run against a real file system through the desktop app** |
+| **`varve.capture.node`** | Implemented for a live window: one node as a PNG from the export pipeline, with size, the document rectangle it covers, the revision rendered, whether every font and image had settled, and the renderer. Needs the `capture` permission. Tested with an injected renderer in jsdom; the real pixel pipeline is covered only where stated in the verification record |
+| **`varve config mcp`** | Implemented, read-only: prints MCP client configuration with the absolute interpreter and launcher paths. Verified by launching what it printed from a path with spaces and an empty `PATH` with an independent client |
+| Page, component, text-run, effect, export-to-file, motion commands | Not started; counted in the parity manifest as the unmapped backlog |
 
 ## Layers
 
@@ -220,6 +223,18 @@ session, run the command through the executor, and print the receipt.
 - Exit codes: `0` ok, `1` request refused, `2` usage error, `3` file error or
   path not allowed, `4` unknown outcome of a retry, `5` conflict (document,
   revision or lock). Existing document commands keep their own codes.
+
+### Client configuration
+
+`varve config mcp (--instance <id> | --file <doc> | --new <name>) [--client
+generic|vscode|claude-code]` prints the configuration an MCP client needs, with
+the absolute interpreter and launcher paths taken from the running process. It
+writes nothing and edits no client: registering a server is the person's action.
+An `--instance` configuration is pinned with `--require-mode connected`, so a
+client pointed at the running application can never quietly become an empty
+headless document. Readiness is three separate checks that this command does not
+answer: `varve doctor` (the local protocol), `varve instances --verify` (the
+intended window is reachable), and the client's own server list (registered).
 
 ### File safety
 
@@ -447,11 +462,16 @@ is what compares it. `automation_status` never returns it.
 ## Turning it on: the setting, the mount and the surface
 
 Connected mode is off until a person turns it on in `Settings > Agent Access`.
-The stored setting (`settings.automation`) has three values: `enabled`, `grants`
-(`read` or `edit`; there is no wider choice) and `requireApproval` (on unless
-explicitly `false`; a missing or hand-edited value cannot remove the check). No
-command can read or change it, so an attached client cannot widen its own
-authority.
+The stored setting (`settings.automation`) has five values, each naming exactly
+one thing: `enabled`; `grants` (`read` or `edit`); `save` (the `export` class,
+only while changes are allowed, and only ever to the file the person already
+chose); `capture` (the `capture` class, an image of one node); and
+`requireApproval` (on unless explicitly `false`; a missing or hand-edited value
+cannot remove the check). Nothing is implied by anything else: editing does not
+imply saving, and saving does not imply images. A granted capture is not held
+for approval each time, because it changes nothing and the person granted it by
+name; changes and saves are held while approval is on. No command can read or
+change any of this, so an attached client cannot widen its own authority.
 
 `desktopMount.ts` turns that setting into a running session, in a fixed order:
 
@@ -557,8 +577,10 @@ catalog, with the same validation and authorization as a named command.
 - Headless sessions have no workspace mode. The default insertion parent is the
   active page's content root; the live editor may use its active surface and
   reports it in the receipt.
-- Gesture replay, pressure strokes, text runs, components, pages, export and
-  capture commands are not implemented. A drag's intermediate samples cannot be
+- Gesture replay, pressure strokes, text runs, components, pages and
+  export-to-file commands are not implemented. Capture covers one node as a PNG;
+  there is no region, page, contact-sheet or full-UI capture, and no capture of a
+  native GPU surface. A drag's intermediate samples cannot be
   reproduced by a committed-result command, and no bounded gesture-replay
   contract exists yet.
 - An agent commit is **refused, not joined**, while a person has a transaction
@@ -569,6 +591,12 @@ catalog, with the same validation and authorization as a named command.
 - Clicking, selection, camera and tool changes are not commands. A request
   cannot take over the user's screen, and no agent-scoped view command exists,
   so `view`-class authorization is declared but unused.
-- `varve.document.save` exists in headless sessions through the CLI and MCP
-  adapters, but not under `varve exec`/`varve batch`, which attach no external
-  handler.
+- `varve.document.save` exists in headless sessions through `varve serve` and
+  `varve mcp`, and in a live window; it does not exist under `varve exec` /
+  `varve batch`, which attach no external handler (those write with `--in-place`
+  or `--out`). A live save reports the revision written and the destination, not
+  a byte size or hash, because the editor's persistence layer owns the encoding.
+- A capture's `complete` flag reflects the export pipeline's own barrier (fonts
+  settled, image resources settled or reported). It is not a claim that the
+  document is finished, and a document that is edited while the image renders is
+  reported through `currentRevision` rather than waited for.

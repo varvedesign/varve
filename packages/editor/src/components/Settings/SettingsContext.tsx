@@ -114,13 +114,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const automationEnabled = settings.automation.enabled;
   const automationGrants = settings.automation.grants;
   const automationApproval = settings.automation.requireApproval;
+  const automationCapture = settings.automation.capture;
+  const automationSave = settings.automation.save;
   useEffect(() => {
     void getAutomationMount().apply({
       enabled: automationEnabled,
       grants: automationGrants,
       requireApproval: automationApproval,
+      capture: automationCapture,
+      save: automationSave,
     });
-  }, [automationEnabled, automationGrants, automationApproval]);
+  }, [automationEnabled, automationGrants, automationApproval, automationCapture, automationSave]);
 
   const persist = useCallback((next: EditorSettings) => {
     setSettings(next);

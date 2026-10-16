@@ -9,8 +9,8 @@ readable form of the same numbers and carries no separate authority.
 
 | Measure | Count |
 |---|---|
-| Semantic commands registered | 14 |
-| Commands recorded in the manifest | 14 |
+| Semantic commands registered | 15 |
+| Commands recorded in the manifest | 15 |
 | Editor actions that can be dispatched | 334 |
 | Actions mapped to a command | 19 |
 | Actions recorded as "not a semantic command" | 118 |
@@ -25,8 +25,9 @@ is not a menu-item count, and a command that covers several routes is counted on
 
 | Command | Status | Action-route coverage (enforced) | Tests |
 |---|---|---|---|
+| `varve.capture.node` | implemented | — | `packages/automation/src/__tests__/capture.test.ts`<br>`packages/editor/src/automation/__tests__/liveExternals.test.ts`<br>`packages/editor/src/automation/__tests__/liveExternalsIntegration.test.tsx`<br>`packages/cli/src/mcp/image.test.ts` |
 | `varve.document.info` | implemented | `auditDocument`<br>`auditPage`<br>`auditSelection`<br>`documentInfo` | `packages/automation/src/__tests__/live.test.ts` |
-| `varve.document.save` | implemented | `save` | `packages/cli/src/__tests__/control-mcp.subprocess.test.ts` |
+| `varve.document.save` | implemented | `save` | `packages/cli/src/__tests__/control-mcp.subprocess.test.ts`<br>`packages/editor/src/automation/__tests__/liveExternals.test.ts`<br>`packages/editor/src/automation/__tests__/liveExternalsIntegration.test.tsx` |
 | `varve.history.list` | implemented | no action route; reached by direct call (`toggleHistoryPanel`, `restoreFromSnapshot`) | `packages/automation/src/__tests__/live.test.ts` |
 | `varve.history.rollback` | implemented | no action route; reached by direct call (`undo`, `redo`) | `packages/automation/src/__tests__/live.test.ts` |
 | `varve.node.create` | implemented | `insertIcon`<br>`toolEllipse`<br>`toolFrame`<br>`toolRect`<br>`toolText` | `packages/automation/src/__tests__/live.test.ts`<br>`packages/automation/src/__tests__/executor.test.ts` |
@@ -42,9 +43,14 @@ is not a menu-item count, and a command that covers several routes is counted on
 
 ## Recorded limits
 
+- `varve.capture.node`
+  - Captures document pixels rendered by the export pipeline, not a screenshot of the application window or a native GPU surface.
+  - One node per call, PNG only, longest edge at most 2048 px and at most 2 MiB encoded.
+  - Real pixel rendering is exercised in a browser run; jsdom unit tests inject the renderer.
 - `varve.document.save`
   - Not available under `varve exec`/`varve batch`, which attach no external handler; those write results with --in-place/--out instead.
-  - No connected runtime yet, so the desktop app cannot be asked to save through this command.
+  - A live session saves only where the person already chose; a never-saved or download-only document, a browser file handle, or any caller-chosen path is refused and nothing is written.
+  - A live save reports the revision written and the destination; it does not report byte size or hash, because the editor persistence layer owns encoding.
 - `varve.history.rollback`
   - Compensating and attributed: it reverts one named transaction and refuses on conflict. It never pops the last N edits.
   - Undo/redo as a user presses them are a different mechanism (the editor's snapshot stack) and are not this command.

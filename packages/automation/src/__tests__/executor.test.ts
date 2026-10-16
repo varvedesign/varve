@@ -756,7 +756,7 @@ describe('approval, observation and availability', () => {
     expect(r.outcome).toBe('applied');
     expect(seen).toHaveLength(1);
     expect(seen[0]?.command).toBe('varve.node.create');
-    expect((seen[0]?.preview as { created: string[] }).created).toHaveLength(1);
+    expect((seen[0]?.preview as { created: string[] } | undefined)?.created).toHaveLength(1);
   });
 
   it('refuses when the person declines, changing nothing', async () => {

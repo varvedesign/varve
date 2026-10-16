@@ -3,13 +3,32 @@ import type { AutomationSettingsStore } from '../../settings';
 import {
   AutomationMount,
   type DesktopTransportApi,
+  grantsFor,
   type MountController,
   type MountDeps,
 } from '../desktopMount';
 
-const ON_READ: AutomationSettingsStore = { enabled: true, grants: 'read', requireApproval: true };
-const ON_EDIT: AutomationSettingsStore = { enabled: true, grants: 'edit', requireApproval: false };
-const OFF: AutomationSettingsStore = { enabled: false, grants: 'read', requireApproval: true };
+const ON_READ: AutomationSettingsStore = {
+  enabled: true,
+  grants: 'read',
+  requireApproval: true,
+  capture: false,
+  save: false,
+};
+const ON_EDIT: AutomationSettingsStore = {
+  enabled: true,
+  grants: 'edit',
+  requireApproval: false,
+  capture: false,
+  save: false,
+};
+const OFF: AutomationSettingsStore = {
+  enabled: false,
+  grants: 'read',
+  requireApproval: true,
+  capture: false,
+  save: false,
+};
 
 function setup(
   options: { desktop?: boolean; document?: { id: string; name: string } | null } = {},
@@ -282,5 +301,39 @@ describe('AutomationMount', () => {
     expect(t.watching()).toBe(1);
     await t.mount.apply(OFF);
     expect(t.watching()).toBe(0);
+  });
+
+  it('maps each setting to exactly the permissions it names, nothing implied', async () => {
+    const base = { enabled: true, requireApproval: true, capture: false, save: false };
+    expect(grantsFor({ ...base, grants: 'read' })).toEqual(['read']);
+    expect(grantsFor({ ...base, grants: 'edit' })).toEqual(['read', 'edit']);
+    expect(grantsFor({ ...base, grants: 'edit', save: true })).toEqual(['read', 'edit', 'export']);
+    expect(grantsFor({ ...base, grants: 'read', capture: true })).toEqual(['read', 'capture']);
+    // Saving presupposes changes: a read-only setting never yields export.
+    expect(grantsFor({ ...base, grants: 'read', save: true })).toEqual(['read']);
+    expect(grantsFor({ ...base, grants: 'edit', capture: true, save: true })).toEqual([
+      'read',
+      'edit',
+      'export',
+      'capture',
+    ]);
+  });
+
+  it('hands the controller the permissions and restarts when only capture or save changes', async () => {
+    const t = setup();
+    await t.mount.apply({ ...ON_EDIT, capture: true, save: true });
+    expect(t.controller.setPolicy).toHaveBeenLastCalledWith({
+      enabled: true,
+      grants: ['read', 'edit', 'export', 'capture'],
+      requireApproval: false,
+    });
+    expect(t.transport.applyDesktopPolicy).toHaveBeenCalledTimes(1);
+    await t.mount.apply({ ...ON_EDIT, capture: true, save: false });
+    expect(t.transport.applyDesktopPolicy).toHaveBeenCalledTimes(2);
+    expect(t.controller.setPolicy).toHaveBeenLastCalledWith({
+      enabled: true,
+      grants: ['read', 'edit', 'capture'],
+      requireApproval: false,
+    });
   });
 });

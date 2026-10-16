@@ -353,12 +353,28 @@ export interface AutomationSettingsStore {
    * hand-edited value cannot quietly remove the check.
    */
   requireApproval: boolean;
+  /**
+   * Let a client ask for an image of a node. Separate from `grants` because it
+   * produces pixels that can leave the device through the agent's own model;
+   * off until a person says otherwise. Capture changes nothing, so a granted
+   * capture is not held for approval each time.
+   */
+  capture: boolean;
+  /**
+   * Let a client save the document - to the file the person already chose for
+   * it, never to a path of its own. A separate class (`export`) from editing:
+   * making a change in memory and making it durable are different consents.
+   * Meaningful only while changes are allowed.
+   */
+  save: boolean;
 }
 
 export const DEFAULT_AUTOMATION_SETTINGS: AutomationSettingsStore = {
   enabled: false,
   grants: 'read',
   requireApproval: true,
+  capture: false,
+  save: false,
 };
 
 function normalizeAutomationSettings(
@@ -368,6 +384,9 @@ function normalizeAutomationSettings(
     enabled: value.enabled === true,
     grants: value.grants === 'edit' ? 'edit' : 'read',
     requireApproval: value.requireApproval !== false,
+    capture: value.capture === true,
+    // Saving presupposes changes; a hand-edited store cannot grant it alone.
+    save: value.grants === 'edit' && value.save === true,
   };
 }
 

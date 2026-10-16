@@ -420,6 +420,9 @@ automation (headless; every command is validated and returns a receipt):
   varve mcp (--file <doc> | --new <name> | --connect <endpoint> --token-file
         <path> | --instance <id>) [--grant ...] [--require-mode headless|connected]
                                              MCP server on stdio (headless or attached)
+  varve config mcp [--client generic|vscode|claude-code] (--instance <id> |
+        --file <doc> | --new <name>) [--grant ...] [--json]
+                                             print MCP client configuration (changes nothing)
 
   Changes are NOT saved unless --in-place or --out is given. File policy:
   VARVE_READ_ROOTS / VARVE_WRITE_ROOTS (or --read-root / --write-root).

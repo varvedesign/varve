@@ -83,6 +83,19 @@ interface Scope {
   grants: 'read' | 'edit';
 }
 
+/** The permissions a setting allows. Endpoint scope uses only read/edit; the rest is policy. */
+export function grantsFor(
+  settings: AutomationSettingsStore,
+): Array<'read' | 'edit' | 'capture' | 'export'> {
+  const grants: Array<'read' | 'edit' | 'capture' | 'export'> = ['read'];
+  if (settings.grants === 'edit') {
+    grants.push('edit');
+    if (settings.save) grants.push('export');
+  }
+  if (settings.capture) grants.push('capture');
+  return grants;
+}
+
 const OFF: MountStatus = { state: 'off', endpoint: null, instanceId: null, message: null };
 
 export class AutomationMount {
@@ -123,6 +136,8 @@ export class AutomationMount {
       previous &&
       previous.enabled === settings.enabled &&
       previous.grants === settings.grants &&
+      previous.capture === settings.capture &&
+      previous.save === settings.save &&
       previous.requireApproval === settings.requireApproval
     ) {
       return this.chain;
@@ -270,11 +285,11 @@ export class AutomationMount {
       controller.setCredential(endpoint.credential);
       controller.setPolicy({
         enabled: true,
-        grants: settings.grants === 'edit' ? ['read', 'edit'] : ['read'],
+        grants: grantsFor(settings),
         requireApproval: settings.requireApproval,
       });
       this.relay = await transport.attachDesktopRelay({
-        open: (options) => controller.openConnection(options.transport),
+        open: (options) => controller.openConnection(options?.transport),
       });
       this.scope = { documentId: document.id, grants: settings.grants };
       this.set({

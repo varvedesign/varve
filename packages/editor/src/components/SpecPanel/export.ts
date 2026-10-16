@@ -112,6 +112,24 @@ export interface RasterExportResult {
   warnings: string[];
   /** Typed image-resource failures classified during export preflight. */
   resourceFailures: import('../../export/resourceReadiness').FailedResource[];
+  /**
+   * Whether every image resource had settled when rendering began. `timeout`
+   * means some were still loading (they cannot appear in this output) and
+   * `failed` means some permanently failed; both are also in `warnings`.
+   */
+  readiness: { images: 'ready' | 'failed' | 'timeout'; pending: number; failed: number };
+  /**
+   * What the rendered surface covers, so a pixel can be mapped back to the
+   * document: pixel (px, py) is world (bounds.x + px / scale, bounds.y + py /
+   * scale), or frame-local when `frameLocal` was requested. Describes the
+   * surface before any `pipeline` resize stage.
+   */
+  geometry: {
+    bounds: { x: number; y: number; w: number; h: number };
+    scale: number;
+    width: number;
+    height: number;
+  };
 }
 
 function collectEngineFonts(nodes: readonly EngineNode[]): ExportFontRequest[] {
@@ -656,7 +674,22 @@ export async function exportNodeAsRaster(
     }
   }
 
-  return { blob, warnings, resourceFailures };
+  return {
+    blob,
+    warnings,
+    resourceFailures,
+    readiness: {
+      images: settlement.status,
+      pending: settlement.status === 'timeout' ? settlement.pending.length : 0,
+      failed: resourceFailures.length,
+    },
+    geometry: {
+      bounds: { x: bbox.x, y: bbox.y, w: bbox.w, h: bbox.h },
+      scale,
+      width: w,
+      height: h,
+    },
+  };
 }
 
 /**

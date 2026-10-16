@@ -935,6 +935,13 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
     revision: number;
     sessionId: string;
     transactionOpen: boolean;
+    /**
+     * The active session's file identity and dirty flag, read from the same
+     * ref as the document. Lets a caller decide whether a Save would need a
+     * person (no destination chosen yet) before it asks for one.
+     */
+    session: SessionMeta | null;
+    saveIssue: EditorState['saveIssue'];
   };
   /** Persistent revision history session (M7/M8). */
   persistentHistory: PersistentHistoryApi;
@@ -3467,6 +3474,8 @@ export function EditorProvider({
       revision: stateRef.current.revision,
       sessionId: stateRef.current.activeId,
       transactionOpen: inTransactionRef.current,
+      session: stateRef.current.sessions.find((s) => s.id === stateRef.current.activeId) ?? null,
+      saveIssue: stateRef.current.saveIssue,
     }),
     [],
   );
