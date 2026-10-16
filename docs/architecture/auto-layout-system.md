@@ -27,7 +27,7 @@
 | Grid layout | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** — repeat tracks, occupant mapping, spans, and constrained application |
 | Grid hug/intrinsic sizing | ✓ | ✓ | — | — | ✓ | **Working** — px/auto tracks measure through the shared grid resolver; fractional tracks contribute no unconstrained size |
 | Grid hidden/absolute filtering | ✓ | ✓ | — | — | — | **Working (new)** — parity fix, not deeply tested |
-| Components/instances | ✓ | ✓ | ✓ | N/A | — | **Unverified this pass** — structurally frames, so the generic frame path applies, but no dedicated instance/override test was run |
+| Components/instances | ✓ | ✓ | ✓ | N/A | ✓ | Grid rules and stable child track anchors survive instantiation, document save/reopen, and detach; see the regression test. Component override and master-propagation coverage remains separate. |
 | Text intrinsic sizing | ✓ | ✓ | N/A | ✓ | ✓ | **Working** (measureText), confirmed visually |
 | Codegen | ✓ | N/A | N/A | N/A | ✓ | **Working with target diagnostics** — authored sizing survives intermediate conversion |
 | Save/reopen | ✓ | N/A | N/A | N/A | ✓ | **Working** — schema 2.26 migration normalises optional sizing fields |
@@ -162,4 +162,4 @@ verification gate and are not inferred from solver tests.
 - **Canvas reordering**: dragging a single flow child within its existing flex frame now updates scene child order and reflows in the same undo transaction. A visual insertion indicator, multi-child reordering, and gap/padding drag handles remain future work.
 - **Real typographic baseline alignment** is not implemented; `alignItems` has no `baseline` option, which is correct per the "don't expose a fake option" principle rather than an oversight.
 - **RTL/logical direction** (`start`/`end` independent of `left`/`right`) is not modeled — `row`/`column` are physical, not logical.
-- Figma REST JSON imports preserve the supported grid track subset, row/column gaps, manual cell anchors/spans, and row auto-flow. Unsupported grid syntax, placements, or cell alignment falls back to fixed imported geometry with an explicit loss warning. A grid-bearing native `.fig` fixture, component overrides, full save/reopen and undo/redo browser workflows, and native target output still need the final matrix.
+- Figma REST JSON imports preserve the supported grid track subset, row/column gaps, manual cell anchors/spans, and row auto-flow. Unsupported grid syntax, placements, or cell alignment falls back to fixed imported geometry with an explicit loss warning. Component instantiation preserves root layout rules and child anchors across save/reopen and detach. A grid-bearing native `.fig` fixture, component override propagation, full editor undo/redo browser workflows, and native target output still need the final matrix.
