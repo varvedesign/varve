@@ -2,7 +2,7 @@
   "name": "@varve/collab",
   "version": "0.0.0",
   "private": true,
-  "description": "Local-first CRDT awareness and reconnect over the varve-sync SQLite core.",
+  "description": "Local-first real-time collaboration: semantic-operation sync, presence, and per-participant selective undo (ADR-0200).",
   "type": "module",
   "exports": {
     ".": {

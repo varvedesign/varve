@@ -1,0 +1,287 @@
+{
+  "protocolVersion": 1,
+  "description": "Cross-implementation conformance fixtures for the Varve collab wire protocol v1. The TypeScript client (packages/collab/src/protocol.ts) and the Rust room host (crates/varve-room) must both accept every entry in `valid` and reject every entry in `invalid`. Checked by protocol.test.ts and the Rust fixture test.",
+  "valid": [
+    {
+      "type": "hello",
+      "protocol": 1,
+      "token": "inv_0123456789abcdef",
+      "clientId": "c1a2b3c4-0000-4000-8000-000000000001",
+      "displayName": "Kevin"
+    },
+    {
+      "type": "operation",
+      "op": {
+        "clientOpId": "op-0001",
+        "basedOnSeq": 3,
+        "actorId": "actor-7f3a",
+        "actorName": "Kevin",
+        "transactionId": "tx-0001",
+        "label": "Set opacity",
+        "kind": "modify",
+        "originAuthor": "local-user",
+        "revertsClientOpId": null,
+        "capture": {
+          "transactionId": "tx-0001",
+          "changes": [
+            {
+              "changeType": "modified",
+              "entityId": "n1",
+              "entityType": "node",
+              "propertyPath": "nodes.n1.opacity",
+              "before": 1,
+              "after": 0.5,
+              "summary": "Node \"n1\": opacity changed from 1 to 0.5"
+            }
+          ],
+          "summary": { "label": "Set opacity", "affectedEntityIds": ["n1"], "kind": "modify" },
+          "beforeHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "afterHash": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      }
+    },
+    { "type": "cursor", "pageId": "page-1", "x": 120.5, "y": -3.25 },
+    { "type": "cursor", "pageId": null, "x": 0, "y": 0 },
+    { "type": "selection", "pageId": "page-1", "nodeIds": ["n1", "n2"] },
+    { "type": "chat", "message": { "messageId": "m-1", "actorId": "actor-7f3a", "text": "hello" } },
+    { "type": "sync-request", "fromSeq": 4 },
+    { "type": "leave" },
+    { "type": "ping" },
+    {
+      "type": "welcome",
+      "protocol": 1,
+      "roomSeq": 7,
+      "actorId": "actor-9b2c",
+      "role": "editor",
+      "participants": [
+        {
+          "actorId": "actor-7f3a",
+          "displayName": "Kevin",
+          "colorIndex": 0,
+          "role": "owner",
+          "clientId": "c1a2b3c4-0000-4000-8000-000000000001"
+        },
+        {
+          "actorId": "actor-9b2c",
+          "displayName": "Sam",
+          "colorIndex": 1,
+          "role": "editor",
+          "clientId": "c1a2b3c4-0000-4000-8000-000000000002"
+        }
+      ],
+      "snapshot": { "uptoSeq": 7, "documentJson": "{\"id\":\"d1\",\"formatVersion\":\"2.33\"}" },
+      "sharedBaselineSeq": 0
+    },
+    { "type": "operation-accepted", "clientOpId": "op-0001", "seq": 8 },
+    {
+      "type": "operation-rejected",
+      "clientOpId": "op-0002",
+      "reason": "viewers cannot edit",
+      "fatal": false
+    },
+    {
+      "type": "operation",
+      "seq": 9,
+      "op": {
+        "clientOpId": "op-0003",
+        "basedOnSeq": 8,
+        "actorId": "actor-7f3a",
+        "actorName": "Kevin",
+        "transactionId": "tx-0003",
+        "label": "Move node",
+        "kind": "move",
+        "originAuthor": "local-user",
+        "revertsClientOpId": "op-0001",
+        "capture": {
+          "transactionId": "tx-0003",
+          "changes": [],
+          "summary": { "label": "Move", "affectedEntityIds": [], "kind": "move" },
+          "beforeHash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "afterHash": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      }
+    },
+    {
+      "type": "participant-joined",
+      "participant": {
+        "actorId": "actor-aa01",
+        "displayName": "Rin",
+        "colorIndex": 2,
+        "role": "viewer",
+        "clientId": "c1a2b3c4-0000-4000-8000-000000000003"
+      }
+    },
+    { "type": "participant-left", "actorId": "actor-aa01", "reason": "disconnect" },
+    {
+      "type": "presence-cursor",
+      "actorId": "actor-aa01",
+      "cursor": { "pageId": "page-1", "x": 12, "y": 34 }
+    },
+    {
+      "type": "presence-selection",
+      "actorId": "actor-aa01",
+      "selection": { "pageId": null, "nodeIds": [] }
+    },
+    {
+      "type": "chat",
+      "message": {
+        "messageId": "m-2",
+        "actorId": "actor-aa01",
+        "text": "emoji ok: 👍🏽 bidi: سلام"
+      }
+    },
+    {
+      "type": "sync",
+      "fromSeq": 3,
+      "seq": 5,
+      "operations": [
+        {
+          "seq": 4,
+          "op": {
+            "clientOpId": "op-0004",
+            "basedOnSeq": 3,
+            "actorId": "actor-7f3a",
+            "actorName": "Kevin",
+            "transactionId": "tx-0004",
+            "label": "Edit",
+            "kind": "modify",
+            "originAuthor": "local-user",
+            "revertsClientOpId": null,
+            "capture": {
+              "transactionId": "tx-0004",
+              "changes": [],
+              "summary": { "label": "Edit", "affectedEntityIds": [], "kind": "modify" },
+              "beforeHash": "1111111111111111111111111111111111111111111111111111111111111111",
+              "afterHash": "2222222222222222222222222222222222222222222222222222222222222222"
+            }
+          }
+        }
+      ]
+    },
+    { "type": "snapshot", "snapshot": { "uptoSeq": 12, "documentJson": "{}" } },
+    { "type": "role-changed", "actorId": "actor-9b2c", "role": "viewer" },
+    { "type": "room-ended", "reason": "owner stopped sharing" },
+    {
+      "type": "error",
+      "code": "room-full",
+      "message": "room is at the participant limit",
+      "fatal": true
+    },
+    { "type": "pong" }
+  ],
+  "invalid": [
+    { "type": "hello", "protocol": 2, "token": "t", "clientId": "c", "displayName": "n" },
+    { "type": "hello", "protocol": 1, "token": "", "clientId": "c", "displayName": "n" },
+    { "type": "hello", "protocol": 1, "token": "t", "clientId": 42, "displayName": "n" },
+    {
+      "type": "hello",
+      "protocol": 1,
+      "token": "t",
+      "clientId": "c",
+      "displayName": "this display name is far too long for the protocol limit of sixty"
+    },
+    {
+      "type": "operation",
+      "op": {
+        "clientOpId": "op-1",
+        "basedOnSeq": -1,
+        "actorId": "a",
+        "actorName": "n",
+        "transactionId": "tx",
+        "label": "l",
+        "kind": "modify",
+        "originAuthor": "local-user",
+        "revertsClientOpId": null,
+        "capture": {
+          "transactionId": "tx",
+          "changes": [],
+          "summary": { "label": "x", "affectedEntityIds": [], "kind": "modify" },
+          "beforeHash": "11",
+          "afterHash": "22"
+        }
+      }
+    },
+    {
+      "type": "operation",
+      "op": {
+        "clientOpId": "op-1",
+        "basedOnSeq": 1,
+        "actorId": "a",
+        "actorName": "n",
+        "transactionId": "tx",
+        "label": "l",
+        "kind": "modify",
+        "originAuthor": "remote-user",
+        "revertsClientOpId": null,
+        "capture": {
+          "transactionId": "tx",
+          "changes": [],
+          "summary": { "label": "x", "affectedEntityIds": [], "kind": "modify" },
+          "beforeHash": "11",
+          "afterHash": "22"
+        }
+      }
+    },
+    {
+      "type": "operation",
+      "op": {
+        "clientOpId": "op-1",
+        "basedOnSeq": 1,
+        "actorId": "a",
+        "actorName": "n",
+        "transactionId": "tx",
+        "label": "l",
+        "kind": "modify",
+        "originAuthor": "local-user",
+        "revertsClientOpId": null,
+        "capture": {
+          "transactionId": "tx",
+          "changes": "not-an-array",
+          "summary": { "label": "x", "affectedEntityIds": [], "kind": "modify" },
+          "beforeHash": "11",
+          "afterHash": "22"
+        }
+      }
+    },
+    { "type": "cursor", "pageId": "p", "x": 1e999, "y": 0 },
+    { "type": "cursor", "pageId": "p", "x": null, "y": 0 },
+    { "type": "selection", "pageId": "p", "nodeIds": "n1" },
+    { "type": "chat", "message": { "messageId": "m", "actorId": "a", "text": 7 } },
+    {
+      "type": "chat",
+      "message": {
+        "messageId": "m",
+        "actorId": "a",
+        "text": "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
+      }
+    },
+    { "type": "sync-request", "fromSeq": -2 },
+    { "type": "unknown-frame" },
+    {
+      "type": "welcome",
+      "protocol": 1,
+      "roomSeq": 1,
+      "actorId": "a",
+      "role": "superuser",
+      "participants": [],
+      "snapshot": { "uptoSeq": 0, "documentJson": "{}" },
+      "sharedBaselineSeq": 0
+    },
+    {
+      "type": "welcome",
+      "protocol": 1,
+      "roomSeq": 1,
+      "actorId": "a",
+      "role": "editor",
+      "participants": [
+        { "actorId": "a", "displayName": "d", "colorIndex": 9, "role": "editor", "clientId": "c" }
+      ],
+      "snapshot": { "uptoSeq": 0, "documentJson": "{}" },
+      "sharedBaselineSeq": 0
+    },
+    { "type": "operation-accepted", "clientOpId": "op-1" },
+    { "type": "error", "code": "x", "message": "y" },
+    "not-an-object",
+    42
+  ]
+}

@@ -13,6 +13,47 @@
 /** Marker for the collab package. */
 export const PACKAGE = '@varve/collab' as const;
 
+// ── Real-time collaboration core (ADR-0200) ──────────────────────────────
+
+export { fallbackColorIndex, forgetDeviceId, getDeviceId, mintClientId } from './identity';
+export {
+  type ChatMessage,
+  type ClientMessage,
+  COLLAB_PROTOCOL_VERSION,
+  type CursorPresence,
+  isCapturePayloadLike,
+  isRoomOperationLike,
+  type ParticipantInfo,
+  type ParticipantRole,
+  PROTOCOL_LIMITS,
+  parseClientMessage,
+  parseServerMessage,
+  type RoomOperation,
+  type RoomSnapshot,
+  type SelectionPresence,
+  type ServerMessage,
+} from './protocol';
+export {
+  type CompensationSkip,
+  computeRedoCompensation,
+  computeStepCompensation,
+  deepEqualsStable,
+  type LocalCaptureStep,
+  type RedoStep,
+  readFromDocument,
+  type SkipReason,
+  type StepCompensation,
+} from './selectiveUndo';
+export {
+  applySplice,
+  clusters,
+  type MergeIncomingOptions,
+  type MergeOutcome,
+  mergeIncomingSplice,
+  spliceBetween,
+  type TextSplice,
+} from './textSplice';
+
 // ── Collab user / cursor types ────────────────────────────────────
 
 export interface CollabUser {
