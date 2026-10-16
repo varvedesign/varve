@@ -254,9 +254,10 @@ scenario item 2 above says was never reproduced end to end). It passes on the
 final code, 3 of 3. It has **not** been shown to fail against the pre-fix tile
 identity code, and the stroke-after-undo test does not assert that the second
 stroke shares a tile with the undone one. Writing it also surfaced a separate,
-unfixed timing defect, recorded in ADR-0241 Open items ("Undo during an unfinished
-capture"): with a wait that only checks canvas stability, undo can run before
-persistent history has recorded the stroke and leave a wrong history under load.
+unfixed timing defect, recorded in ADR-0241 Open items: undo pressed before
+persistent history has caught up with the first strokes of a freshly opened
+document can leave a wrong history. It reproduced only as the first (cold) case of
+a run and is suspected, not verified, to be the session attaching late.
 
 Undo-to-first-correct-frame latency in the app is covered by
 `tests/e2e/paint/stroke-undo-responsiveness.spec.ts`, which measures

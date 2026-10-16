@@ -293,20 +293,23 @@ that). `strictlyIdentical` is one-sided: `true` implies equal canonical bytes,
   a moved layer must contribute bounds covering both positions (fails with
   "expected 'full' to be 'partial'" without the fix), and a re-published layer
   with identical tile records is bounded to its own area instead of escalating.
-- **Undo during an unfinished capture (observed, not root-caused, not fixed).**
-  In the editor, Ctrl+Z pressed shortly after a stroke, before persistent history
-  has recorded it, sometimes ended with a wrong history: the stroke and its layer
-  were undone together, a stray "Delete" step was appended, and Redo was lost.
-  `tests/e2e/canvas/raster-stroke-history.spec.ts` failed 4 of 4 runs in that state
-  (machine load average ~12; the spec's only wait was canvas stability). Real-browser
-  capture latency measured 0.4-2.1 s per stroke then, against 10-30 ms for the same
-  capture in isolation. Four later runs of the same short-wait flow were correct
-  under both hash schemes once load dropped, so the failure could not be
-  reproduced in the A/B and the attribution to load and capture timing rather
-  than to D4 rests on that elimination and on the latency measurement, not on a
-  reproduced fix. `context.tsx` routes undo to the in-memory stack whenever the
-  session reports `canUndo` false and enqueues the capture from inside a state
-  updater; that is the suspected path and it is unverified. The spec now waits for
+- **Undo shortly after opening a document, before history has caught up
+  (observed, not root-caused, not fixed).** In the editor, painting and then
+  pressing Ctrl+Z before persistent history has recorded the strokes sometimes
+  ended with a wrong history: the strokes and their layer were undone together, a
+  stray "Delete" step was appended, and Redo was lost. It reproduced as the
+  *first* case of a fresh dev-server run (cold module loading, load average ~8-12),
+  four of four times with a spec whose only wait was canvas stability, and not in
+  the warm cases that followed (correct at 1x, 4x and 8x CPU throttle and on four
+  further runs under both hash schemes). The first step after the first stroke was
+  labelled "Edit", the generic label a reconciliation capture gets, where a normal
+  capture says "Create"; that points at the persistent session attaching after
+  the first strokes rather than at a capture race, and in that window `context.tsx`
+  routes undo to the in-memory stack (`persistent.attached` and `canUndo` are
+  false). Real-browser capture latency in that state measured 0.4-2.1 s per
+  stroke against 10-30 ms for the same capture in isolation. None of this is
+  verified by instrumenting the app, it is not caused by D4 (identical under both
+  schemes), and the production-build window is unmeasured. The spec now waits for
   the History panel step count before every navigation and asserts undo and redo
   move the head without appending a step and leave Redo available.
 - `RasterLayerCache` keys surfaces by node id alone and
