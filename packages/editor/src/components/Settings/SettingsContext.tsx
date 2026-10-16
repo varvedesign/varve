@@ -126,7 +126,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     });
   }, [automationEnabled, automationGrants, automationApproval, automationCapture, automationSave]);
 
+  // The newest settings, updated synchronously. `updateSection` builds its next
+  // state from this rather than from the `settings` it closed over: two changes
+  // made before React re-renders (a double click, a key repeat, a driven UI)
+  // would otherwise each start from the same stale snapshot and the second
+  // would silently discard the first.
+  const settingsRef = useRef(settings);
   const persist = useCallback((next: EditorSettings) => {
+    settingsRef.current = next;
     setSettings(next);
     saveEditorSettings(next);
   }, []);
@@ -163,16 +170,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const updateSection = useCallback(
     (section: SettingsSection, values: Record<string, unknown>) => {
-      const current = (settings as unknown as Record<string, unknown>)[section] as
+      const latest = settingsRef.current;
+      const current = (latest as unknown as Record<string, unknown>)[section] as
         | Record<string, unknown>
         | undefined;
       if (!current) return;
       persist({
-        ...settings,
+        ...latest,
         [section]: { ...current, ...values },
       } as EditorSettings);
     },
-    [settings, persist],
+    [persist],
   );
 
   const resetSettings = useCallback(() => {
