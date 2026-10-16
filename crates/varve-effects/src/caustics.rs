@@ -7,6 +7,7 @@
 //! along the analytic gradient. Tileable mode uses integer-lattice wave
 //! vectors so the field is exactly periodic in space.
 
+use crate::parallel::{for_each_row_band, Execution};
 use crate::prng::seeded01;
 use crate::{clamp01, clamp_byte, js_round, CoordSpace, EffectQuality, Params};
 
@@ -79,6 +80,24 @@ pub fn apply(
     quality: EffectQuality,
     coord: CoordSpace,
 ) -> Result<(), String> {
+    apply_with(out, w, h, p, quality, coord, Execution::scalar())
+}
+
+/// [`apply`] with the wave-field evaluation spread over `exec`'s row bands.
+///
+/// The final composite pass stays serial on purpose: it resamples `out` at
+/// displaced positions while writing it, so a pixel can read one an earlier
+/// pixel already replaced. That order is part of the output, and the output must
+/// not change, so that pass cannot be split into independent bands.
+pub fn apply_with(
+    out: &mut [u8],
+    w: u32,
+    h: u32,
+    p: &Params,
+    quality: EffectQuality,
+    coord: CoordSpace,
+    exec: Execution,
+) -> Result<(), String> {
     if w == 0 || h == 0 {
         return Ok(());
     }
@@ -121,32 +140,36 @@ pub fn apply(
     let step_x = w as f64 / field_w as f64;
     let step_y = h as f64 / field_h as f64;
     let field_n = (field_w * field_h) as usize;
-    let mut fx = vec![0.0f64; field_n];
-    let mut fy = vec![0.0f64; field_n];
-    let mut lap = vec![0.0f64; field_n];
-
-    for gy in 0..field_h {
-        for gx in 0..field_w {
-            let px = (gx as f64 + 0.5) * step_x;
-            let py = (gy as f64 + 0.5) * step_y;
-            let mut hx = 0.0;
-            let mut hy = 0.0;
-            let mut hlap = 0.0;
-            for &(kx, ky, phase, speed, amp) in &waves {
-                let arg = kx * px + ky * py + phase + speed * time * std::f64::consts::PI * 2.0;
-                let s = arg.sin();
-                let c = arg.cos();
-                let k2 = kx * kx + ky * ky;
-                hx += amp * kx * c;
-                hy += amp * ky * c;
-                hlap += -amp * k2 * s;
+    // One interleaved (fx, fy, laplacian) triple per field cell: the same
+    // storage the three separate vectors used, but a single slice the row
+    // bands can share out.
+    let mut field = vec![0.0f64; field_n * 3];
+    let field_row = field_w as usize * 3;
+    for_each_row_band(&mut field, field_row, exec, |first_row, band| {
+        for (ry, row) in band.chunks_mut(field_row).enumerate() {
+            let gy = (first_row + ry) as u32;
+            for gx in 0..field_w {
+                let px = (gx as f64 + 0.5) * step_x;
+                let py = (gy as f64 + 0.5) * step_y;
+                let mut hx = 0.0;
+                let mut hy = 0.0;
+                let mut hlap = 0.0;
+                for &(kx, ky, phase, speed, amp) in &waves {
+                    let arg = kx * px + ky * py + phase + speed * time * std::f64::consts::PI * 2.0;
+                    let s = arg.sin();
+                    let c = arg.cos();
+                    let k2 = kx * kx + ky * ky;
+                    hx += amp * kx * c;
+                    hy += amp * ky * c;
+                    hlap += -amp * k2 * s;
+                }
+                let o = gx as usize * 3;
+                row[o] = hx * depth;
+                row[o + 1] = hy * depth;
+                row[o + 2] = hlap * depth;
             }
-            let gi = (gy * field_w + gx) as usize;
-            fx[gi] = hx * depth;
-            fy[gi] = hy * depth;
-            lap[gi] = hlap * depth;
         }
-    }
+    });
 
     // Complexity: mix a fine secondary field (deterministic) into the
     // laplacian.
@@ -154,9 +177,10 @@ pub fn apply(
     if complexity_raw > 0.0 {
         let c = clamp01(complexity_raw);
         let seed_raw = p.f("seed", 0.0);
-        for (gi, value) in lap.iter_mut().enumerate() {
+        for gi in 0..field_n {
             let gx = gi as u32 % field_w;
             let gy = gi as u32 / field_w;
+            let value = &mut field[gi * 3 + 2];
             let n = seeded01(
                 ((js_round(*value * 4096.0) as i64)
                     ^ (seed_raw + gy as f64 * 31.0 + gx as f64 * 7.0) as i64)
@@ -172,6 +196,9 @@ pub fn apply(
     let focus_scale = (0.3 + sharpness * 1.2) * 0.06 * scale_px;
     let wt = p.rgb("waterTint");
     let st = p.rgb("surfaceTint");
+    let fx = |i: usize| field[i * 3];
+    let fy = |i: usize| field[i * 3 + 1];
+    let lap = |i: usize| field[i * 3 + 2];
 
     for y in 0..h {
         let gy = (y as f64 / step_y - 0.5).max(0.0).min(field_h as f64 - 1.0);
@@ -187,18 +214,18 @@ pub fn apply(
             let i10 = (gy0 * field_w + gx1) as usize;
             let i01 = (gy1 * field_w + gx0) as usize;
             let i11 = (gy1 * field_w + gx1) as usize;
-            let gx_ = fx[i00]
-                + (fx[i10] - fx[i00]) * fxx
-                + (fx[i01] - fx[i00]) * fyy
-                + (fx[i00] - fx[i10] - fx[i01] + fx[i11]) * fxx * fyy;
-            let gy_ = fy[i00]
-                + (fy[i10] - fy[i00]) * fxx
-                + (fy[i01] - fy[i00]) * fyy
-                + (fy[i00] - fy[i10] - fy[i01] + fy[i11]) * fxx * fyy;
-            let lap_ = lap[i00]
-                + (lap[i10] - lap[i00]) * fxx
-                + (lap[i01] - lap[i00]) * fyy
-                + (lap[i00] - lap[i10] - lap[i01] + lap[i11]) * fxx * fyy;
+            let gx_ = fx(i00)
+                + (fx(i10) - fx(i00)) * fxx
+                + (fx(i01) - fx(i00)) * fyy
+                + (fx(i00) - fx(i10) - fx(i01) + fx(i11)) * fxx * fyy;
+            let gy_ = fy(i00)
+                + (fy(i10) - fy(i00)) * fxx
+                + (fy(i01) - fy(i00)) * fyy
+                + (fy(i00) - fy(i10) - fy(i01) + fy(i11)) * fxx * fyy;
+            let lap_ = lap(i00)
+                + (lap(i10) - lap(i00)) * fxx
+                + (lap(i01) - lap(i00)) * fyy
+                + (lap(i00) - lap(i10) - lap(i01) + lap(i11)) * fxx * fyy;
 
             let o = (y * w + x) as usize * 4;
             let a = out[o + 3];

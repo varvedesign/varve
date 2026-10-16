@@ -9,7 +9,7 @@
  */
 
 import type { Document } from '@varve/scene';
-import { canonicalHistoryHash } from '@varve/scene';
+import { canonicalHistoryHash, HISTORY_HASH_SCHEME_CURRENT } from '@varve/scene';
 import type { RasterTileStore } from './rasterTileStore';
 import { createSnapshot } from './snapshots';
 import { type HistoryStore, mintHistoryId } from './store';
@@ -39,13 +39,14 @@ export interface CreateRevisionInput {
 
 /** Build a RevisionRecord for a document state (does not persist it). */
 export function buildRevision(input: CreateRevisionInput): RevisionRecord {
-  const hash = canonicalHistoryHash(input.document);
+  const hash = canonicalHistoryHash(input.document, HISTORY_HASH_SCHEME_CURRENT);
   return {
     revisionId: mintHistoryId('r'),
     documentId: input.documentId,
     parentRevisionIds: [...input.parentRevisionIds],
     transactionId: input.transactionId,
     canonicalDocumentHash: hash,
+    hashScheme: HISTORY_HASH_SCHEME_CURRENT,
     snapshotId: input.snapshotId,
     operationStart: input.operationStart,
     operationEnd: input.operationEnd,

@@ -426,100 +426,6 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
                     Host on this server
                   </Button>
                 </div>
-                {hosted && (
-                  <div className="collab-share__hosted">
-                    <p className="collab-share__hint">
-                      Room <strong>{hosted.roomId}</strong> is ready. Invite links carry the token
-                      in the fragment, so it stays out of server logs. Local hosting is reachable on
-                      this machine only; for LAN or internet sessions run your own server over TLS.
-                    </p>
-                    <label htmlFor="collab-share-invite">Owner invite link</label>
-                    <input
-                      id="collab-share-invite"
-                      readOnly
-                      value={inviteLink}
-                      onFocus={(e) => e.currentTarget.select()}
-                    />
-                    <div className="collab-share__actions">
-                      <Button size="sm" variant="default" onClick={startHostedSession}>
-                        Start sharing now
-                      </Button>
-                      {hosted.mode === 'app' && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => void stopAppHost()}
-                          disabled={busy || sessionUsesHostedRoom}
-                          disabledReason={
-                            sessionUsesHostedRoom
-                              ? 'Leave the session first: stopping the host would disconnect everyone on it.'
-                              : undefined
-                          }
-                        >
-                          Stop hosting on this device
-                        </Button>
-                      )}
-                    </div>
-                    <div className="collab-share__invite-roles">
-                      <label htmlFor="collab-invite-role">Invite someone as</label>
-                      <Select
-                        id="collab-invite-role"
-                        label="Invite role"
-                        value={inviteRole}
-                        onChange={(value) => setInviteRole(value as 'editor' | 'viewer')}
-                        options={[
-                          { value: 'editor', label: 'Editor — can change the document' },
-                          { value: 'viewer', label: 'Viewer — can watch and use cursor chat' },
-                        ]}
-                      />
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => void createInvite(inviteRole)}
-                        disabled={busy}
-                      >
-                        Create {inviteRole} link
-                      </Button>
-                    </div>
-                    <ul className="collab-share__invite-list" aria-label="Invites you created">
-                      {invites.map((invite) => (
-                        <li key={invite.token}>
-                          <span className="collab-share__invite-role">{invite.role}</span>
-                          <input
-                            readOnly
-                            value={invite.link}
-                            onFocus={(e) => e.currentTarget.select()}
-                          />
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => void revokeInvite(invite.token)}
-                            disabled={busy}
-                          >
-                            Revoke
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                    {inviteStatus && (
-                      <p className="collab-share__hint" role="status">
-                        {inviteStatus}
-                      </p>
-                    )}
-                    <p className="collab-share__hint">
-                      Revoking closes the sessions an invite is already using. It cannot recall a
-                      copy someone already saved, and the role is enforced by the host, not by this
-                      dialog.
-                    </p>
-                    {hosted.mode === 'app' && (
-                      <p className="collab-share__hint">
-                        Stopping closes the local listener. The room stays in this app's storage: a
-                        later start reopens it on a new port, and participants rejoin with their
-                        invite tokens.
-                      </p>
-                    )}
-                  </div>
-                )}
               </section>
             )}
 
@@ -568,6 +474,108 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
               </section>
             )}
           </>
+        )}
+
+        {/* Reachable whenever a room is hosted — including while a session is
+            live, which is when a host actually invites someone. */}
+        {hosted && (
+          <section className="collab-share__section">
+            {hosted && (
+              <div className="collab-share__hosted">
+                <p className="collab-share__hint">
+                  Room <strong>{hosted.roomId}</strong> is ready. Invite links carry the token in
+                  the fragment, so it stays out of server logs. Local hosting is reachable on this
+                  machine only; for LAN or internet sessions run your own server over TLS.
+                </p>
+                <label htmlFor="collab-share-invite">Owner invite link</label>
+                <input
+                  id="collab-share-invite"
+                  readOnly
+                  value={inviteLink}
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+                <div className="collab-share__actions">
+                  {!active && (
+                    <Button size="sm" variant="default" onClick={startHostedSession}>
+                      Start sharing now
+                    </Button>
+                  )}
+                  {hosted.mode === 'app' && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => void stopAppHost()}
+                      disabled={busy || sessionUsesHostedRoom}
+                      disabledReason={
+                        sessionUsesHostedRoom
+                          ? 'Leave the session first: stopping the host would disconnect everyone on it.'
+                          : undefined
+                      }
+                    >
+                      Stop hosting on this device
+                    </Button>
+                  )}
+                </div>
+                <div className="collab-share__invite-roles">
+                  <label htmlFor="collab-invite-role">Invite someone as</label>
+                  <Select
+                    id="collab-invite-role"
+                    label="Invite role"
+                    value={inviteRole}
+                    onChange={(value) => setInviteRole(value as 'editor' | 'viewer')}
+                    options={[
+                      { value: 'editor', label: 'Editor — can change the document' },
+                      { value: 'viewer', label: 'Viewer — can watch and use cursor chat' },
+                    ]}
+                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void createInvite(inviteRole)}
+                    disabled={busy}
+                  >
+                    Create {inviteRole} link
+                  </Button>
+                </div>
+                <ul className="collab-share__invite-list" aria-label="Invites you created">
+                  {invites.map((invite) => (
+                    <li key={invite.token}>
+                      <span className="collab-share__invite-role">{invite.role}</span>
+                      <input
+                        readOnly
+                        value={invite.link}
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void revokeInvite(invite.token)}
+                        disabled={busy}
+                      >
+                        Revoke
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+                {inviteStatus && (
+                  <p className="collab-share__hint" role="status">
+                    {inviteStatus}
+                  </p>
+                )}
+                <p className="collab-share__hint">
+                  Revoking closes the sessions an invite is already using. It cannot recall a copy
+                  someone already saved, and the role is enforced by the host, not by this dialog.
+                </p>
+                {hosted.mode === 'app' && (
+                  <p className="collab-share__hint">
+                    Stopping closes the local listener. The room stays in this app's storage: a
+                    later start reopens it on a new port, and participants rejoin with their invite
+                    tokens.
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
         )}
         {error && (
           <p className="collab-share__error" role="alert">

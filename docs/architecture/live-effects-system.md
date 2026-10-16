@@ -113,6 +113,16 @@ Adjustment → FilterIR → applyFilterWithCompositing (sync, interactive previe
   actual desktop GPU consumer in this milestone is image resampling, while
   live-effect replay remains CPU-authoritative until an end-to-end consumer
   can preserve ordering, masks, cancellation, and frame delivery.
+- **Native kernels use bounded row-band threads** (ADR-0241 D6).
+  `apply_effect` runs under `Execution::bounded()`: at most four threads,
+  caller included, never the last free core, no threads for small work, and
+  `VARVE_EFFECT_THREADS` lowers the cap. `apply_effect_with(.., Execution::scalar())`
+  is the single-threaded diagnostic path. Output is byte-identical to scalar by
+  construction and by test (`crates/varve-effects/tests/parallel_parity.rs`
+  against checksums of the pre-parallel output, and the TS-fixture agreement
+  tests under forced bands). Dither, VHS, lens flare and the caustics composite
+  pass stay serial; `cargo run --release -p varve-effects --example effect_cost`
+  prints scalar-versus-bounded time for every kind. There is no explicit SIMD.
 - GPU kernels live in `packages/compositor/src/webgpu/effects/` — a compute
   runner + one WGSL kernel per effect (dither error diffusion is sequential,
   so its GPU tier falls back to CPU). Offline naga compilation in

@@ -9,7 +9,7 @@ exact) are the reliable parts.
 
 Companion: `docs/research/perf-cow-history-cache-ledger-2026-10-16.md` (sources,
 tracker evidence), `docs/adr/0241-raster-stroke-ownership-history-hashing-tile-identity.md`
-(decisions D1-D3; D4 proposed).
+(decisions D1-D5, D4 being the hash scheme that makes history capture O(touched tiles)).
 
 ## What was wrong
 

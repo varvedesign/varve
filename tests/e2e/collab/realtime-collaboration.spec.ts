@@ -142,6 +142,19 @@ async function joinViaShareDialog(page: Page, role: 'owner' | 'editor'): Promise
 }
 
 /**
+ * Open the Share/Session dialog. Once a session is live the header button is
+ * named "Session" rather than "Share" (the same dialog either way).
+ */
+async function openShareDialog(page: Page): Promise<void> {
+  const share = page.getByRole('button', { name: 'Share', exact: true });
+  if (await share.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await share.click();
+    return;
+  }
+  await page.getByRole('button', { name: 'Session', exact: true }).click();
+}
+
+/**
  * Host a room from this page's own document through the Share dialog, and
  * return the room id (the invite link carries the owner token).
  */
@@ -428,10 +441,16 @@ test('a role-scoped invite is minted and revoked from the dialog, and the host e
   //    the dialog. Before this existed the dialog could only hand out the owner
   //    token, so the host's role enforcement was unreachable from the UI.
   const hosted = await hostFromApp(host, `http://127.0.0.1:${serverPort}`);
-  await host.getByRole('button', { name: 'Share', exact: true }).click();
+  // Hosting started a session, so the header control now reads "Session". The
+  // invite controls are present in the dialog whether or not a session is live
+  // (that is the point: a host invites people while sharing).
+  await openShareDialog(host);
   const hostDialog = host.getByRole('dialog');
-  await hostDialog.getByRole('tab', { name: 'Host' }).click();
-  await hostDialog.locator('#collab-share-admin').fill('e2e-admin');
+  await expect(hostDialog.getByText(/Room .* is ready/)).toBeVisible({ timeout: 15000 });
+  // Pick the viewer role in the dialog's role Select (a custom listbox, not a
+  // native select), then mint the link.
+  await hostDialog.getByLabel('Invite role').click();
+  await hostDialog.getByRole('option', { name: /Viewer/ }).click();
   await hostDialog.getByRole('button', { name: 'Create viewer link' }).click();
   const inviteInput = hostDialog.locator('.collab-share__invite-list input').first();
   await inviteInput.waitFor({ timeout: 15000 });
@@ -443,7 +462,7 @@ test('a role-scoped invite is minted and revoked from the dialog, and the host e
   const roomFromLink = /room=([^&]+)/.exec(viewerLink)?.[1] ?? '';
   const tokenFromLink = /t=([^&]+)/.exec(viewerLink)?.[1] ?? '';
   expect(roomFromLink).toBe(hosted.roomId);
-  await viewer.getByRole('button', { name: 'Share', exact: true }).click();
+  await openShareDialog(viewer);
   const viewerDialog = viewer.getByRole('dialog');
   await viewerDialog.getByRole('tab', { name: 'Join' }).click();
   await viewerDialog.locator('#collab-join-server').fill(`http://127.0.0.1:${serverPort}`);
@@ -463,23 +482,22 @@ test('a role-scoped invite is minted and revoked from the dialog, and the host e
 
   // 4. Revoking the invite from the dialog ends the viewer's live session
   //    rather than leaving an authenticated socket in place.
-  await host.getByRole('button', { name: 'Share', exact: true }).click();
+  await openShareDialog(host);
   const revokeDialog = host.getByRole('dialog');
-  await revokeDialog.getByRole('tab', { name: 'Host' }).click();
   await revokeDialog.getByRole('button', { name: 'Revoke' }).first().click();
-  await expect(revokeDialog.getByRole('status')).toContainText(/revoked/i, { timeout: 15000 });
+  // The dialog has its own visually-hidden live region, so scope to the
+  // paragraph that reports the revocation.
+  await expect(revokeDialog.locator('p[role="status"]')).toContainText(/revoked/i, {
+    timeout: 15000,
+  });
   await revokeDialog.getByRole('button', { name: 'Close dialog' }).click();
 
-  await expect
-    .poll(
-      async () =>
-        (await viewer
-          .locator('.collab-header-control__status')
-          .textContent()
-          .catch(() => '')) ?? '',
-      { timeout: 20000 },
-    )
-    .not.toContain('Live');
+  // The viewer is back to not being in a session: the header shows the plain
+  // Share button again (an ended session renders no status badge), which is the
+  // unambiguous signal that the revoked socket was closed.
+  await expect(viewer.getByRole('button', { name: 'Share', exact: true })).toBeVisible({
+    timeout: 20000,
+  });
 
   await hostContext.close();
   await viewerContext.close();

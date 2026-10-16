@@ -8,6 +8,7 @@
  */
 
 import type { Document, RasterLayerNode, RasterTile, SceneNode } from '@varve/scene';
+import { byteArrayDigest } from '@varve/scene';
 import type { RasterTileEntry, RasterTileStore } from './rasterTileStore';
 import { hashTilePixels } from './rasterTileStore';
 
@@ -70,8 +71,12 @@ async function entryFor(
   tile: RasterTile | undefined,
 ): Promise<{ hash: string | null; version: number | null; entry?: RasterTileEntry }> {
   if (!tile) return { hash: null, version: null };
+  // The tile is an immutable published buffer, so its memoized digest is the
+  // content hash: a tile the document hash already covered costs nothing here.
+  // The copy below is what gets stored, and the store re-verifies it against
+  // this hash on write, so a stale digest cannot reach a blob unnoticed.
+  const contentHash = byteArrayDigest(tile.pixels);
   const pixels = new Uint8ClampedArray(tile.pixels);
-  const contentHash = await hashTilePixels(pixels);
   return {
     hash: contentHash,
     version: tile.version,

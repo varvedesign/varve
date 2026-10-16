@@ -193,7 +193,9 @@ describe('canonicalDocumentDigest', () => {
     expectSameDigest(doc, { excludeVolatile: true });
     expectSameDigest(doc, { excludePayloads: false });
     expect(canonicalHash(doc)).toBe(canonicalDocumentDigest(doc));
-    expect(canonicalHistoryHash(doc)).toBe(canonicalDocumentDigest(doc, { excludeVolatile: true }));
+    expect(canonicalHistoryHash(doc, 1)).toBe(
+      canonicalDocumentDigest(doc, { excludeVolatile: true }),
+    );
   });
 
   it('keeps payload exclusion identical for asset data URLs', () => {

@@ -369,23 +369,42 @@ back to saved content become clean again without adding persisted metadata.
 Measured and decided in [ADR-0241](../adr/0241-raster-stroke-ownership-history-hashing-tile-identity.md);
 evidence in [the research ledger](../research/perf-cow-history-cache-ledger-2026-10-16.md).
 
-- The canonical history hash **value is unchanged** (scheme v1). Every stored
-  revision, snapshot and operation payload hash remains verifiable.
-- Hashing a document is proportional to its raster bytes: ~270 ms per MiB of
+- Two canonical byte forms exist, named by `hashScheme` on every revision and
+  snapshot record (absent means scheme 1). **Scheme 1** spells each raster
+  pixel out as a JSON number and is the value every record written before
+  2026-10-16 carries; it never changes. **Scheme 2** replaces each byte array by
+  `bytes:<length>:<sha256>`, with the digest memoized on the immutable buffer, so
+  hashing a document costs the tiles that are new to it. A document with no byte
+  arrays hashes identically under both. New revisions and snapshots are scheme 2.
+- **Verification uses the record's own scheme** (`historyHashSchemeOf`):
+  `replayAndVerify`, snapshot decode and attach reconciliation. A history may
+  mix schemes; legacy records are never rewritten. A mislabelled record fails
+  closed and an unknown scheme is refused (`replay.unknown-hash-scheme`).
+- A scheme-1 head is upgraded lazily: the first capture on it hashes the base
+  afresh under scheme 2 (one O(raster bytes) pass), and every later capture
+  reuses the recorded digest (`DiffOptions.baseHash`, accepted only when the
+  digest was written under the scheme the capture compares in).
+- Hashing under scheme 1 is proportional to raster bytes: ~270 ms per MiB of
   raster on the development machine, almost all of it pure-TypeScript SHA-256
   (~40 MB/s). A capture used to hash three times (diff base, diff target,
-  replay verification); it now hashes once for a raster stroke when the
-  `before` document is the object the session recorded or verified for the
-  head revision, and otherwise twice.
+  replay verification); it hashes once, and under scheme 2 that pass covers
+  only the touched tiles. Measured through the real session at 94 MiB (~24 MP):
+  a stroke commits in ~21-23 ms median and the per-undo dirty check drops from
+  10.4 s to 28 ms.
 - `canonicalDocumentDigest` streams the canonical bytes into an incremental
-  SHA-256 and is verified byte-for-byte against `canonicalizeDocument`.
+  SHA-256 and is verified byte-for-byte against `canonicalizeDocument` (both
+  forms).
 - Replay verification accepts a structurally identical replay
   (`strictlyIdentical`) without a hash and otherwise compares hashes exactly as
   before. `DiffOptions.baseHash` is trusted input: pass it only for the very
   document it was computed from.
 - Byte arrays are detected realm-independently. A cross-realm tile array used
   to canonicalize as an index-keyed object and fail snapshot verification.
-- **Capture is still O(raster bytes).** Making it O(changed tiles) needs a
-  tile-reference hash scheme that changes persisted hash values for raster
-  documents (ADR-0241 D4, proposed, not approved).
-
+- **The memo's contract is that a published tile buffer is never written.**
+  `RasterTileDraft` and every tile operation clone before writing
+  (`canonicalHashScheme.test.ts` pins it per operation). Do not add a path that
+  mutates a tile's pixels in place after the document has been hashed.
+- **Document open is still O(raster bytes)** (first hash, genesis snapshot, tile
+  store verification): 6-9 s for a fully painted 24 MP layer. **Downgrading** a
+  raster-bearing history to a build without `hashScheme` support reports its
+  scheme-2 revisions as hash mismatches; see ADR-0241 Migration impact.

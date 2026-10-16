@@ -10,6 +10,7 @@
 //! Offsets are expressed in document pixels and scaled by the caller-provided
 //! coordSpace, so a 4px split stays a 4px split at any zoom.
 
+use crate::parallel::{for_each_row_band, Execution};
 use crate::{clamp01, clamp_byte, CoordSpace, Params};
 
 const PI: f64 = std::f64::consts::PI;
@@ -49,6 +50,11 @@ fn js_hypot(x: f64, y: f64) -> f64 {
 
 /// Apply RGB split in place — port of `applyRgbSplit`.
 pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, coord: CoordSpace) {
+    apply_with(out, w, h, p, coord, Execution::scalar());
+}
+
+/// [`apply`] with the per-pixel resampling spread over `exec`'s row bands.
+pub fn apply_with(out: &mut [u8], w: u32, h: u32, p: &Params, coord: CoordSpace, exec: Execution) {
     if w == 0 || h == 0 {
         return;
     }
@@ -71,14 +77,18 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, coord: CoordSpace) {
         let green_y = p.f("greenY", 0.0) * scale * intensity;
         let blue_x = p.f("blueX", 0.0) * scale * intensity;
         let blue_y = p.f("blueY", 0.0) * scale * intensity;
-        for y in 0..h {
-            for x in 0..w {
-                let o = ((y * w + x) * 4) as usize;
-                out[o] = interpolate(&src, w, h, x, y, 0, red_x, red_y, border);
-                out[o + 1] = interpolate(&src, w, h, x, y, 1, green_x, green_y, border);
-                out[o + 2] = interpolate(&src, w, h, x, y, 2, blue_x, blue_y, border);
+        let row_len = (w * 4) as usize;
+        for_each_row_band(out, row_len, exec, |first_row, band| {
+            for (ry, row) in band.chunks_mut(row_len).enumerate() {
+                let y = (first_row + ry) as u32;
+                for x in 0..w {
+                    let o = (x * 4) as usize;
+                    row[o] = interpolate(&src, w, h, x, y, 0, red_x, red_y, border);
+                    row[o + 1] = interpolate(&src, w, h, x, y, 1, green_x, green_y, border);
+                    row[o + 2] = interpolate(&src, w, h, x, y, 2, blue_x, blue_y, border);
+                }
             }
-        }
+        });
     } else {
         let amount = p.f("amount", 4.0) * scale * intensity;
         let falloff = f64::max(0.0, p.f("falloff", 1.0));
@@ -89,18 +99,22 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, coord: CoordSpace) {
             1.0,
             js_hypot(f64::max(cx, w as f64 - cx), f64::max(cy, h as f64 - cy)),
         );
-        for y in 0..h {
-            for x in 0..w {
-                let o = ((y * w + x) * 4) as usize;
-                let r = js_hypot(x as f64 - cx, y as f64 - cy) / max_r;
-                let t = r.powf(falloff) * amount;
-                let dx = t * angle.cos();
-                let dy = t * angle.sin();
-                out[o] = interpolate(&src, w, h, x, y, 0, dx, dy, border);
-                out[o + 1] = interpolate(&src, w, h, x, y, 1, 0.0, 0.0, border);
-                out[o + 2] = interpolate(&src, w, h, x, y, 2, -dx, -dy, border);
+        let row_len = (w * 4) as usize;
+        for_each_row_band(out, row_len, exec, |first_row, band| {
+            for (ry, row) in band.chunks_mut(row_len).enumerate() {
+                let y = (first_row + ry) as u32;
+                for x in 0..w {
+                    let o = (x * 4) as usize;
+                    let r = js_hypot(x as f64 - cx, y as f64 - cy) / max_r;
+                    let t = r.powf(falloff) * amount;
+                    let dx = t * angle.cos();
+                    let dy = t * angle.sin();
+                    row[o] = interpolate(&src, w, h, x, y, 0, dx, dy, border);
+                    row[o + 1] = interpolate(&src, w, h, x, y, 1, 0.0, 0.0, border);
+                    row[o + 2] = interpolate(&src, w, h, x, y, 2, -dx, -dy, border);
+                }
             }
-        }
+        });
     }
 
     unpremultiply(out);

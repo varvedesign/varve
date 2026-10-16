@@ -286,9 +286,38 @@ test('after strokes: does a forced full redraw recover silent pixels?', async ({
   let previousHash = await hashOf();
   let caught: Record<string, unknown> | null = null;
 
-  for (let i = 0; i < 5; i++) {
-    const dy = i * 40;
-    await dragOnCanvas(page, { x: 300, y: 220 + dy }, { x: 520, y: 340 + dy });
+  // Strokes must cover *fresh* pixels. An earlier version offset each stroke by
+  // 40px, which laid black ink over black ink: the canvas hash legitimately did
+  // not change and the probe reported "silent strokes" that were nothing of the
+  // kind (4 of 5 on one run, 1 of 5 on another — a meaningless number either
+  // way). These five strokes are far apart and short, so a stroke that leaves
+  // the canvas unchanged means the pixels really did not arrive.
+  const strokes: Array<[{ x: number; y: number }, { x: number; y: number }]> = [
+    [
+      { x: 120, y: 120 },
+      { x: 200, y: 140 },
+    ],
+    [
+      { x: 380, y: 120 },
+      { x: 460, y: 140 },
+    ],
+    [
+      { x: 120, y: 260 },
+      { x: 200, y: 280 },
+    ],
+    [
+      { x: 380, y: 260 },
+      { x: 460, y: 280 },
+    ],
+    [
+      { x: 250, y: 400 },
+      { x: 330, y: 420 },
+    ],
+  ];
+
+  for (let i = 0; i < strokes.length; i++) {
+    const [from, to] = strokes[i]!;
+    await dragOnCanvas(page, from, to);
     await settle(page);
     const hash = await hashOf();
     const changed = hash !== previousHash;

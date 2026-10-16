@@ -12,7 +12,7 @@
  */
 
 import type { Document } from '@varve/scene';
-import { canonicalHistoryHash, DocumentCodec } from '@varve/scene';
+import { canonicalHistoryHash, DocumentCodec, HISTORY_HASH_SCHEME_CURRENT } from '@varve/scene';
 import { createSnapshot } from './snapshots';
 import { type HistoryStore, mintHistoryId } from './store';
 import type { CheckpointRef, IntegrityIssue, RevisionAuthor, RevisionRecord } from './types';
@@ -101,6 +101,7 @@ export async function importLegacyVersions(
       documentId: opts.documentId,
       parentRevisionIds: [],
       canonicalDocumentHash: hash,
+      hashScheme: HISTORY_HASH_SCHEME_CURRENT,
       snapshotId: snapshot.canonicalHash,
       author: opts.author,
       semanticSummary: {

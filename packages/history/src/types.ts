@@ -8,7 +8,7 @@
  * - Log positions index into the append-only operation segments.
  * - Timestamps are metadata only — they never determine ordering or hashing.
  */
-import type { SemanticSummary } from '@varve/scene';
+import type { HistoryHashScheme, SemanticSummary } from '@varve/scene';
 
 export type RevisionOrigin =
   | 'edit'
@@ -42,6 +42,12 @@ export interface RevisionRecord {
   transactionId?: string;
   /** SHA-256 of the canonical document bytes (ADR-0021/0027). */
   canonicalDocumentHash: string;
+  /**
+   * Canonical byte form `canonicalDocumentHash` was computed over (ADR-0241 D4).
+   * Absent means scheme 1, which is what every record written before the field
+   * existed used. Verification always hashes under this scheme.
+   */
+  hashScheme?: HistoryHashScheme;
   /** Content-addressed snapshot reference, when one exists. */
   snapshotId?: string;
   /** Inclusive log range that produced this revision (absent for imports). */

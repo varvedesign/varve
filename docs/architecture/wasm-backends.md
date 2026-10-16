@@ -47,7 +47,8 @@ string boundary for IR and hit test. It contains no raster pixel kernels, and
 `RUSTFLAGS` value; whether LLVM vectorized any of that code has not been
 inspected. The CPU raster kernels (blur, compositing) are TypeScript. rayon
 appears in the WASM dependency tree through `varve-trace` but nothing runs
-threaded there.
+threaded there. (The native desktop effect kernels are different: they take
+bounded row-band threads, see `live-effects-system.md` and ADR-0241 D6.)
 
 ## API Boundary
 

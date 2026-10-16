@@ -9,7 +9,8 @@
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
-use varve_effects::{apply_effect, CoordSpace, EffectKind, EffectQuality, EffectRequest};
+use varve_effects::parallel::Execution;
+use varve_effects::{apply_effect_with, CoordSpace, EffectKind, EffectQuality, EffectRequest};
 
 pub struct Fixture {
     pub name: String,
@@ -106,9 +107,21 @@ fn parse_one(v: Value) -> Fixture {
     }
 }
 
-/// Run `apply_effect` for a fixture and compare against the expected output.
-/// Returns Ok(()) on agreement, Err with a summary of the first mismatches.
-pub fn run_and_compare(fx: &Fixture) -> Result<(), String> {
+/// Every execution policy a fixture must agree under: the single-threaded
+/// diagnostic path and forced row bands (a split even on these tiny images,
+/// including a remainder band), so the parallel path is held to the TypeScript
+/// reference bytes themselves rather than to the Rust scalar path.
+pub fn policies() -> [(&'static str, Execution); 3] {
+    [
+        ("scalar", Execution::scalar()),
+        ("2 bands", Execution::with_threads(2).with_min_band_items(1)),
+        ("4 bands", Execution::with_threads(4).with_min_band_items(1)),
+    ]
+}
+
+/// Run the effect for a fixture under `exec` and compare against the expected
+/// output. Returns Ok(()) on agreement, Err with a summary of the first mismatches.
+pub fn run_and_compare(fx: &Fixture, exec: Execution) -> Result<(), String> {
     let request = EffectRequest {
         effect: fx.effect,
         width: fx.width,
@@ -117,8 +130,8 @@ pub fn run_and_compare(fx: &Fixture) -> Result<(), String> {
         coord_space: fx.coord_space,
         params: fx.params.clone(),
     };
-    let actual =
-        apply_effect(&request, &fx.input).map_err(|e| format!("apply_effect failed: {e}"))?;
+    let actual = apply_effect_with(&request, &fx.input, exec)
+        .map_err(|e| format!("apply_effect failed: {e}"))?;
     if actual.len() != fx.expected.len() {
         return Err(format!(
             "length mismatch: got {}, expected {}",
@@ -167,8 +180,10 @@ pub fn run_and_compare(fx: &Fixture) -> Result<(), String> {
 pub fn assert_all(cases: &[Fixture]) {
     let mut failures = Vec::new();
     for fx in cases {
-        if let Err(e) = run_and_compare(fx) {
-            failures.push(format!("{}: {e}", fx.name));
+        for (label, exec) in policies() {
+            if let Err(e) = run_and_compare(fx, exec) {
+                failures.push(format!("{} [{label}]: {e}", fx.name));
+            }
         }
     }
     assert!(

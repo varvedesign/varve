@@ -6,6 +6,7 @@
 //! an HSL-derived colour. No black layers required: the effect is entirely
 //! self-contained. Same (seed, params, surface) => same output.
 
+use crate::parallel::{for_each_row_band, Execution};
 use crate::prng::fbm2;
 use crate::{clamp01, clamp_byte, js_round, Params};
 
@@ -50,6 +51,11 @@ fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (f64, f64, f64) {
 
 /// Apply the light leak in place — port of `applyLightLeak`.
 pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params) {
+    apply_with(out, w, h, p, Execution::scalar());
+}
+
+/// [`apply`] with the per-pixel noise field spread over `exec`'s row bands.
+pub fn apply_with(out: &mut [u8], w: u32, h: u32, p: &Params, exec: Execution) {
     let intensity = p.f("intensity", 0.6).max(0.0);
     if intensity <= 0.0 {
         return;
@@ -77,27 +83,31 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params) {
     );
 
     let sigma2 = 2.0 * sigma * sigma;
-    for y in 0..h {
-        for x in 0..w {
-            let o = ((y * w + x) * 4) as usize;
-            // Oriented noise coordinates.
-            let dx = x as f64 - cx;
-            let dy = y as f64 - cy;
-            let nx = dx * cos_a - dy * sin_a;
-            let ny = dx * sin_a + dy * cos_a;
-            let n = fbm2(nx * noise_freq, ny * noise_freq, seed, octaves);
-            let g = (-(dx * dx + dy * dy) / sigma2).exp();
-            let leak = n * g * intensity;
-            if leak <= 0.004 {
-                continue;
+    let row_len = (w * 4) as usize;
+    for_each_row_band(out, row_len, exec, |first_row, band| {
+        for (ry, row) in band.chunks_mut(row_len).enumerate() {
+            let y = (first_row + ry) as u32;
+            for x in 0..w {
+                let o = (x * 4) as usize;
+                let dx = x as f64 - cx;
+                let dy = y as f64 - cy;
+                let nx = dx * cos_a - dy * sin_a;
+                let ny = dx * sin_a + dy * cos_a;
+                let n = fbm2(nx * noise_freq, ny * noise_freq, seed, octaves);
+                let g = (-(dx * dx + dy * dy) / sigma2).exp();
+                let leak = n * g * intensity;
+                if leak <= 0.004 {
+                    continue;
+                }
+                let lr = cr * leak;
+                let lg = cg * leak;
+                let lb = cb * leak;
+                row[o] = clamp_byte(255.0 - ((255.0 - row[o] as f64) * (255.0 - lr)) / 255.0);
+                row[o + 1] =
+                    clamp_byte(255.0 - ((255.0 - row[o + 1] as f64) * (255.0 - lg)) / 255.0);
+                row[o + 2] =
+                    clamp_byte(255.0 - ((255.0 - row[o + 2] as f64) * (255.0 - lb)) / 255.0);
             }
-            // Screen blend.
-            let lr = cr * leak;
-            let lg = cg * leak;
-            let lb = cb * leak;
-            out[o] = clamp_byte(255.0 - ((255.0 - out[o] as f64) * (255.0 - lr)) / 255.0);
-            out[o + 1] = clamp_byte(255.0 - ((255.0 - out[o + 1] as f64) * (255.0 - lg)) / 255.0);
-            out[o + 2] = clamp_byte(255.0 - ((255.0 - out[o + 2] as f64) * (255.0 - lb)) / 255.0);
         }
-    }
+    });
 }

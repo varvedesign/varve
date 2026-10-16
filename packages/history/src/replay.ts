@@ -8,8 +8,14 @@
  * never influence replay.
  */
 
-import type { Document } from '@varve/scene';
-import { applyOperation, canonicalHistoryHash, hasOperation } from '@varve/scene';
+import type { Document, HistoryHashScheme } from '@varve/scene';
+import {
+  applyOperation,
+  canonicalHistoryHash,
+  HISTORY_HASH_SCHEME_CURRENT,
+  hasOperation,
+  historyHashSchemeOf,
+} from '@varve/scene';
 import { verifySegmentChecksum } from './log';
 import { applyRasterDelta, RASTER_DELTA_OPERATION, type RasterDeltaPayload } from './rasterDelta';
 import { createRasterTileStore, type RasterTileStore } from './rasterTileStore';
@@ -77,9 +83,25 @@ export async function applyStoredOperationsAsync(
   return doc;
 }
 
-/** Canonical hash of a document (replay verification input). */
-export function hashOf(document: Document): string {
-  return canonicalHistoryHash(document);
+/**
+ * Canonical hash of a document (replay verification input). Pass the scheme the
+ * stored hash was written under to compare against it; the default is the
+ * scheme new records use.
+ */
+export function hashOf(
+  document: Document,
+  scheme: HistoryHashScheme = HISTORY_HASH_SCHEME_CURRENT,
+): string {
+  return canonicalHistoryHash(document, scheme);
+}
+
+/** The scheme a revision's recorded hash was written under (fails on an unknown one). */
+export function revisionHashScheme(revision: RevisionRecord): HistoryHashScheme {
+  try {
+    return historyHashSchemeOf(revision);
+  } catch (error) {
+    throw new ReplayError('replay.unknown-hash-scheme', `${revision.revisionId}: ${String(error)}`);
+  }
 }
 
 /** Position just after `position` (exclusive start for ranges). */
@@ -163,7 +185,7 @@ export async function replayAndVerify(
   const ops = await store.readOperations(documentId, start, end);
   const replayed = await applyStoredOperationsAsync(document, ops, tileStore);
 
-  const actual = hashOf(replayed);
+  const actual = hashOf(replayed, revisionHashScheme(revision));
   return {
     revisionId,
     verified: actual === revision.canonicalDocumentHash,
