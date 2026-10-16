@@ -26,15 +26,20 @@ use wasm_bindgen::prelude::*;
 pub mod conversions;
 pub mod icc;
 pub mod profiles;
+pub mod proof;
 
 pub use conversions::{
     apply_tac, cmyk_to_rgb, engine_color_rgba, linear_rgb_to_xyz, linear_to_srgb, profile_gcr,
     profile_tac, rgb_to_cmyk, rgb_to_cmyk_icc, srgb_to_linear, xyz_to_linear_rgb,
 };
-pub use icc::{BundledProfile, IccEngine};
+pub use icc::{profile_fingerprint, BundledProfile, IccEngine};
 pub use profiles::{
     bundled_cmyk, bundled_srgb, parse_icc_profile_info, tetrahedral_interpolate,
     validate_icc_profile, PrintProfile, ProfileInfo, RenderingIntent,
+};
+pub use proof::{
+    ProofEngine, ProofParams, ProofSimulationSupport, ProofTransformKey,
+    DEFAULT_MAX_PROOF_TRANSFORMS,
 };
 
 /// Return the crate version string.
