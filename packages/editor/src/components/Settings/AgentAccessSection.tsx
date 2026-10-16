@@ -23,6 +23,21 @@ const STATE_LABEL: Record<string, string> = {
   error: 'Could not start',
 };
 
+const GRANT_WORDS: Record<string, string> = {
+  read: 'read the document',
+  edit: 'change it',
+  export: 'save it',
+  capture: 'take images',
+  view: 'move their own view',
+  external: 'act outside Varve',
+};
+
+/** The permissions an agent currently has, in words a person would use. */
+function describeGrants(grants: readonly string[]): string {
+  if (grants.length === 0) return 'nothing (access is off)';
+  return grants.map((grant) => GRANT_WORDS[grant] ?? grant).join(', ');
+}
+
 function clock(at: number): string {
   const date = new Date(at);
   return [date.getHours(), date.getMinutes(), date.getSeconds()]
@@ -48,6 +63,9 @@ export function AgentAccessSection() {
   const host = view.controller?.host ?? null;
   const approvals = view.controller?.pendingApprovals ?? [];
   const activity = [...(view.controller?.activity ?? [])].reverse().slice(0, 20);
+  const session = view.controller?.session ?? null;
+  const grants = view.controller?.policy.enabled ? view.controller.policy.grants : [];
+  const allowed = describeGrants(grants);
   const attach =
     view.mount.state === 'running' && view.mount.instanceId
       ? `varve mcp --instance ${view.mount.instanceId}`
@@ -133,6 +151,23 @@ export function AgentAccessSection() {
           </span>
         ) : null}
       </div>
+
+      {session ? (
+        <dl className="agent-access__facts">
+          <div>
+            <dt>Document</dt>
+            <dd>{session.documentName}</dd>
+          </div>
+          <div>
+            <dt>Connection</dt>
+            <dd>Live window (not a copy)</dd>
+          </div>
+          <div>
+            <dt>Agents may</dt>
+            <dd>{allowed}</dd>
+          </div>
+        </dl>
+      ) : null}
 
       {attach ? (
         <div className="agent-access__attach">

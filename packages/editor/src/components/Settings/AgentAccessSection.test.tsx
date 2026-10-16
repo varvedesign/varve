@@ -171,6 +171,41 @@ describe('AgentAccessSection', () => {
     expect(screen.getByLabelText('Recent agent activity').textContent).toContain('applied');
   });
 
+  it('names the document, that it is the live window, and exactly what the agent may do', async () => {
+    mount();
+    await waitFor(() => expect(editor).toBeDefined());
+    const controller = await loadAutomationController();
+    controller.setCredential('secret');
+    controller.setPolicy({
+      enabled: true,
+      grants: ['read', 'edit', 'capture'],
+      requireApproval: true,
+    });
+    act(() => {
+      publishEditorToAutomation(editor as Editor);
+    });
+    await waitFor(() => expect(screen.getByText('Live window (not a copy)')).toBeTruthy());
+    expect(screen.getByText((editor as Editor).state.document.name)).toBeTruthy();
+    const may = screen.getByText(/read the document/);
+    expect(may.textContent).toBe('read the document, change it, take images');
+    // Saving was not granted, so it is not claimed.
+    expect(may.textContent).not.toContain('save');
+  });
+
+  it('says nothing is allowed while access is off', async () => {
+    mount();
+    await waitFor(() => expect(editor).toBeDefined());
+    const controller = await loadAutomationController();
+    controller.setCredential('secret');
+    controller.setPolicy({ enabled: true, grants: ['read'], requireApproval: true });
+    act(() => {
+      publishEditorToAutomation(editor as Editor);
+    });
+    await waitFor(() => expect(screen.getByText('read the document')).toBeTruthy());
+    controller.setPolicy({ enabled: false, grants: ['read'], requireApproval: true });
+    await waitFor(() => expect(screen.queryByText('Live window (not a copy)')).toBeNull());
+  });
+
   it('Decline refuses the change and nothing is created', async () => {
     mount();
     await waitFor(() => expect(editor).toBeDefined());
