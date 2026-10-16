@@ -48,7 +48,7 @@ Nothing leaves the host.
 | `--listen <addr:port>` | `127.0.0.1:8790` | Bind address. |
 | `--expose` | off | Permit a non-loopback bind. Required for any non-loopback address; startup also refuses without an explicit `--admin-token`. |
 | `--admin-token <t>` | generated | Admin API credential (room creation, invites, revocation, room end). |
-| `--allow-origin <o>` | none | Browser origin additionally allowed to open a socket (repeatable). |
+| `--allow-origin <o>` | none | Browser origin additionally allowed to open a socket **and** to call the admin API cross-origin (repeatable). |
 | `--allow-host <h>` | none | `Host` header additionally accepted on the upgrade (repeatable). |
 | `--help` | — | Print usage. |
 
@@ -255,6 +255,18 @@ listener, start the server with `--allow-host rooms.example.com`. If a web
 client is served from another origin, add `--allow-origin https://app.example.com`.
 Opening a browser page that connects to the room also requires that origin to
 be allowed; the desktop app does not (it sends no `Origin`).
+
+### Cross-origin calls (the app hosting on your server)
+
+The desktop app's webview and the browser build are not served by the room
+server, so creating a room from the app ("Host on this server") is a
+**cross-origin** request. The server answers CORS preflights for exactly the
+origins the WebSocket allows (loopback pages, the Tauri webview, plus every
+`--allow-origin`), never for `*`, because the admin token travels in a request
+header. Measured failure without this (fixed 2026-10-16): the app showed only
+"Failed to fetch" and could not create a room on a user-run server. If you host
+the web client from a different origin, list that origin with
+`--allow-origin`.
 
 What TLS does and does not give you: it encrypts the wire between client and
 proxy, and between proxy and server if you configure that. It does **not**

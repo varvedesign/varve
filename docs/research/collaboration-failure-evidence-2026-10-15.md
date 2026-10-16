@@ -85,6 +85,13 @@ until someone reads the client's console):
 |---|---|---|---|
 | The desktop Share dialog's **host-on-this-server** path hands the room a document the app produced, but a room created through the admin API with a hand-written JSON seed produces a baseline that does not match any client: every later operation fails the receiving client's validation and it resynchronizes in a loop. The E2E's own hand-written seed hit this | **Confirmed defect (setup-dependent)** | The E2E trace contains `failed validation; resynchronizing.` on the receiving page while the sending page is `Live` and shows its import; the two pages held visibly different documents | The validation notice now names the rule that refused the change, the E2E hosts through the dialog path so the baseline is app-produced, and the requirement is documented for operators creating rooms with `curl` |
 
+A second E2E-driven find, which the review had flagged only as "the app-hosted
+invite path is unexercised":
+
+| Finding | Verdict | Evidence | Action |
+|---|---|---|---|
+| The room server sends no CORS headers, so the app's browser-embedded client cannot create a room on a user-run server: "Host on this server" fails with a bare `Failed to fetch` (the browser blocks the response to the admin call, and there is no way to tell that from an unreachable server) | **Confirmed defect** | The app-hosted E2E trace shows the dialog in its error state with `Failed to fetch` and the admin request never reaching the server; the same request from Node succeeds | The HTTP surface answers CORS preflights for the same allow-list as the WebSocket (loopback + Tauri + `--allow-origin`), never `*`; `the_admin_api_answers_cross_origin_calls_from_allowed_origins_only` covers the allowed, refused, and configured cases |
+
 Carried forward as decisions rather than fixes, and recorded here so they are
 not mistaken for oversights: the app-hosted dialog cannot mint editor/viewer
 invites yet (every app-hosted link is an owner token, so the host's role

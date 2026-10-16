@@ -16,8 +16,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use axum::extract::ws::{CloseFrame, Message as WsMessage, WebSocket, WebSocketUpgrade};
-use axum::extract::{ConnectInfo, Path as AxumPath, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::extract::{ConnectInfo, Path as AxumPath, Request, State};
+use axum::http::{header, HeaderMap, HeaderValue, Method, StatusCode};
+use axum::middleware::Next;
 use axum::response::IntoResponse;
 use axum::routing::{delete, get, post};
 use axum::Router;
@@ -408,6 +409,7 @@ pub struct AdminRoom {
 // ── HTTP surface ──────────────────────────────────────────────────────────────
 
 pub fn router(host: Arc<RoomHost>) -> Router {
+    let cors_state = host.clone();
     Router::new()
         .route("/health", get(health))
         .route("/ready", get(ready))
@@ -419,7 +421,81 @@ pub fn router(host: Arc<RoomHost>) -> Router {
         .route("/admin/rooms/{room_id}/invites", post(admin_invites))
         .route("/admin/invites/{token_hash}", delete(admin_revoke))
         .route("/admin/rooms/{room_id}", delete(admin_end_room))
+        .layer(axum::middleware::from_fn_with_state(cors_state, cors))
         .with_state(host)
+}
+
+/// Is this browser origin allowed to talk to the HTTP surface?
+///
+/// Same answer the WebSocket upgrade gives: loopback pages and the Tauri
+/// webview always, anything else only when `allowed_origins` names it.
+fn browser_origin_allowed(host: &RoomHost, origin: &str) -> bool {
+    is_local_origin(origin)
+        || host
+            .config
+            .allowed_origins
+            .iter()
+            .any(|candidate| candidate.eq_ignore_ascii_case(origin.trim()))
+}
+
+fn apply_cors(response: &mut axum::response::Response, origin: Option<&str>, allowed: bool) {
+    let headers = response.headers_mut();
+    // `Vary` always: the answer depends on the request's Origin.
+    headers.append(header::VARY, HeaderValue::from_static("origin"));
+    if !allowed {
+        return;
+    }
+    let Some(origin) = origin else { return };
+    if let Ok(value) = HeaderValue::from_str(origin) {
+        headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, value);
+    }
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_METHODS,
+        HeaderValue::from_static("GET, POST, DELETE, OPTIONS"),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_HEADERS,
+        HeaderValue::from_static("content-type, x-varve-admin-token"),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_MAX_AGE,
+        HeaderValue::from_static("600"),
+    );
+    // Never `*`: the admin API carries a credential in a request header.
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+}
+
+/// CORS for the HTTP surface.
+///
+/// The desktop app's webview and the browser build are not served by the room
+/// server, so "host on your own server" and `/join`-adjacent reads are
+/// cross-origin requests. Without this the browser blocks them and the user
+/// sees only "Failed to fetch" (measured: the app-hosted E2E could not create a
+/// room on a user-run server). The allow-list is the WebSocket one — an
+/// explicit origin list, never a wildcard, because the admin token travels in a
+/// header.
+async fn cors(State(host): State<Arc<RoomHost>>, request: Request, next: Next) -> axum::response::Response {
+    let origin = request
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
+    let allowed = origin
+        .as_deref()
+        .is_some_and(|origin| browser_origin_allowed(&host, origin));
+    if request.method() == Method::OPTIONS {
+        // Preflight: answer without touching the routes.
+        let mut response = if allowed {
+            StatusCode::NO_CONTENT.into_response()
+        } else {
+            StatusCode::FORBIDDEN.into_response()
+        };
+        apply_cors(&mut response, origin.as_deref(), allowed);
+        return response;
+    }
+    let mut response = next.run(request).await;
+    apply_cors(&mut response, origin.as_deref(), allowed);
+    response
 }
 
 async fn health() -> impl IntoResponse {
@@ -625,12 +701,7 @@ fn is_loopback_bind(host: &RoomHost) -> bool {
 ///   `Host: evil.example`, which is refused here.
 fn origin_allowed(host: &RoomHost, headers: &HeaderMap) -> bool {
     if let Some(origin) = headers.get("origin").and_then(|value| value.to_str().ok()) {
-        let allowed = is_local_origin(origin)
-            || host
-                .config
-                .allowed_origins
-                .iter()
-                .any(|candidate| candidate.eq_ignore_ascii_case(origin.trim()));
+        let allowed = browser_origin_allowed(host, origin);
         if !allowed {
             return false;
         }

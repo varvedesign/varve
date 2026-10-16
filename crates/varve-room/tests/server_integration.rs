@@ -889,6 +889,122 @@ async fn each_chunked_upload_refusal_branch_is_fail_closed() {
     );
 }
 
+/// The app's webview and the browser build are not served by the room server,
+/// so the admin API is a CROSS-ORIGIN call for them. Without CORS headers the
+/// browser blocks it and the user sees only "Failed to fetch" — measured with
+/// the app-hosted E2E, which could not create a room on a user-run server.
+#[tokio::test]
+async fn the_admin_api_answers_cross_origin_calls_from_allowed_origins_only() {
+    let dir = temp_dir("cors");
+    let (host, address, _shutdown) = serve_host(dir.clone()).await;
+    let room = host
+        .admin_create_room("doc-1", "{\"id\":\"doc-1\"}")
+        .expect("room");
+
+    // A loopback page (the desktop dev server, the browser demo) may preflight.
+    let (status, headers) = http_request(
+        address,
+        "OPTIONS /admin/rooms HTTP/1.1",
+        &[
+            ("Origin", "http://localhost:1420"),
+            ("Access-Control-Request-Method", "POST"),
+            ("Access-Control-Request-Headers", "x-varve-admin-token, content-type"),
+        ],
+    )
+    .await;
+    assert_eq!(status, 204, "an allowed origin's preflight must succeed");
+    assert_eq!(
+        headers.get("access-control-allow-origin").map(String::as_str),
+        Some("http://localhost:1420")
+    );
+    assert!(headers
+        .get("access-control-allow-headers")
+        .is_some_and(|value| value.contains("x-varve-admin-token")));
+
+    // A remote page is refused, and is told nothing it could use.
+    let (status, headers) = http_request(
+        address,
+        "OPTIONS /admin/rooms HTTP/1.1",
+        &[("Origin", "https://evil.example")],
+    )
+    .await;
+    assert_eq!(status, 403);
+    assert!(!headers.contains_key("access-control-allow-origin"));
+
+    // A configured --allow-origin is accepted, and the real request carries the
+    // token (the CORS answer is never a wildcard, because it is a credential).
+    let mut config = HostConfig::for_data_dir(dir.clone());
+    config.admin_token = Some("test-admin-token".to_string());
+    config.allowed_origins = vec!["https://rooms.example.com".to_string()];
+    let configured = RoomHost::open(config).expect("host opens");
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    let address2 = varve_room::serve(
+        configured,
+        "127.0.0.1:0".parse().unwrap(),
+        shutdown_rx,
+    )
+    .await
+    .expect("binds");
+    let (status, headers) = http_request(
+        address2,
+        "OPTIONS /admin/rooms HTTP/1.1",
+        &[("Origin", "https://rooms.example.com")],
+    )
+    .await;
+    assert_eq!(status, 204);
+    assert_eq!(
+        headers.get("access-control-allow-origin").map(String::as_str),
+        Some("https://rooms.example.com")
+    );
+    assert_ne!(
+        headers.get("access-control-allow-origin").map(String::as_str),
+        Some("*"),
+        "a credential-bearing API must never allow every origin"
+    );
+    let _ = shutdown_tx.send(true);
+    let _ = room;
+}
+
+/// Minimal HTTP/1.1 request over loopback: status code plus response headers.
+async fn http_request(
+    address: SocketAddr,
+    request_line: &str,
+    headers: &[(&str, &str)],
+) -> (u16, std::collections::HashMap<String, String>) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut stream = tokio::net::TcpStream::connect(address)
+        .await
+        .expect("connect");
+    let mut request = format!("{request_line}\r\nHost: {address}\r\nConnection: close\r\n");
+    for (name, value) in headers {
+        request.push_str(&format!("{name}: {value}\r\n"));
+    }
+    request.push_str("\r\n");
+    stream
+        .write_all(request.as_bytes())
+        .await
+        .expect("request written");
+    let mut raw = Vec::new();
+    let _ = stream.read_to_end(&mut raw).await;
+    let text = String::from_utf8_lossy(&raw).to_string();
+    let status = text
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        .and_then(|code| code.parse::<u16>().ok())
+        .unwrap_or(0);
+    let mut collected = std::collections::HashMap::new();
+    for line in text.lines().skip(1) {
+        if line.is_empty() {
+            break;
+        }
+        if let Some((name, value)) = line.split_once(':') {
+            collected.insert(name.trim().to_ascii_lowercase(), value.trim().to_string());
+        }
+    }
+    (status, collected)
+}
+
 #[tokio::test]
 async fn invalid_tokens_are_refused_before_any_room_data_flows() {
     let dir = temp_dir("badtoken");
