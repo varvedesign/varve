@@ -388,6 +388,22 @@ impl ProofEngine {
         self.transforms.len()
     }
 
+    /// Content fingerprint of the registered display profile, when present.
+    pub fn display_profile_fingerprint(&self) -> Option<u64> {
+        self.profiles
+            .iter()
+            .find(|p| p.purpose == ProfilePurpose::Display)
+            .map(|p| p.fingerprint)
+    }
+
+    /// Content fingerprint of the registered output profile, when present.
+    pub fn output_profile_fingerprint(&self) -> Option<u64> {
+        self.profiles
+            .iter()
+            .find(|p| p.purpose == ProfilePurpose::Output)
+            .map(|p| p.fingerprint)
+    }
+
     /// Total ICC bytes currently retained by this engine.
     pub fn retained_profile_bytes(&self) -> usize {
         self.profiles.iter().map(|p| p.bytes.len()).sum()
