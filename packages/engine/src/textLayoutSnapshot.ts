@@ -17,6 +17,7 @@ import { ellipseLineWidthProfile, type TextWrapShape } from '@varve/shared';
 import {
   isVerticalWritingMode,
   type TextOrientation,
+  type VerticalGlyphOrientation,
   verticalOrientationForCluster,
   type WritingMode,
 } from '@varve/shared/verticalText';
@@ -779,6 +780,7 @@ interface VerticalClusterRecord {
   start: number;
   end: number;
   records: readonly GlyphRecord[];
+  orientation: VerticalGlyphOrientation;
   advance: number;
   /** Set when consecutive combined clusters were merged into this one cell. */
   combined?: true;
@@ -831,7 +833,17 @@ function mergeCombinedClusters(
       start: merged[0]!.start,
       end: merged[merged.length - 1]!.end,
       records: merged.flatMap((cluster) => cluster.records),
-      advance: merged.reduce((max, cluster) => Math.max(max, cluster.advance), 0),
+      orientation: 'upright',
+      // A combined cell is one em tall regardless of the sideways advances
+      // its digit clusters would use unmerged.
+      advance: merged.reduce(
+        (max, cluster) =>
+          Math.max(
+            max,
+            cluster.records.reduce((size, record) => Math.max(size, record.run.fontSize), 0),
+          ),
+        0,
+      ),
       combined: true,
     });
     index = end;
@@ -878,14 +890,24 @@ function layoutVerticalParagraphLines(
       (advance, record) => Math.max(advance, Math.abs(record.glyph.yAdvance)),
       0,
     );
+    const orientation = verticalOrientationForCluster(clusterText, textOrientation);
+    // Sideways clusters flow with their shaped horizontal advances (the CSS
+    // `sideways` metric contract) so a rotated Latin run keeps its natural
+    // rhythm; upright clusters keep the one-em cell.
+    const advance =
+      orientation === 'sideways'
+        ? Math.max(
+            clusterRecords.reduce((sum, record) => sum + Math.abs(record.glyph.xAdvance), 0),
+            1,
+          )
+        : Math.max(nativeAdvance, fontSize || lineHeightOverride || 16);
     clusters.push({
       text: clusterText,
       start: grapheme.index,
       end,
       records: clusterRecords,
-      // Canvas fallback has no ttb advance, so one em is the stable logical
-      // cell. Native vertical shaping can supply a more precise yAdvance.
-      advance: Math.max(nativeAdvance, fontSize || lineHeightOverride || 16),
+      orientation,
+      advance,
     });
     boundaryIndex++;
   }
@@ -980,18 +1002,14 @@ function layoutVerticalParagraphLines(
         continue;
       }
       const glyphs = cluster.records.map((record) => {
-        const clusterText = sourceMap.text.slice(record.clusterStart, record.clusterEnd);
-        const fontSize = record.run.fontSize;
         const glyph: PositionedGlyph = {
           ...record.glyph,
           clusterUtf16: paragraph.sourceStart + record.clusterStart,
           sourceEnd: paragraph.sourceStart + record.clusterEnd,
           x: x + columnWidth / 2 + record.glyph.xOffset,
-          y:
-            (inlineOffsetByCluster.get(record.clusterStart) ?? 0) +
-            Math.max(fontSize, Math.abs(record.glyph.yAdvance)) / 2,
-          verticalAdvance: Math.max(fontSize, Math.abs(record.glyph.yAdvance)),
-          orientation: verticalOrientationForCluster(clusterText, textOrientation),
+          y: (inlineOffsetByCluster.get(record.clusterStart) ?? 0) + cluster.advance / 2,
+          verticalAdvance: cluster.advance,
+          orientation: cluster.orientation,
         };
         return glyph;
       });

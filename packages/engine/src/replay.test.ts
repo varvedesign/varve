@@ -1527,6 +1527,87 @@ describe('replayIr', () => {
     expect(rec.calls.some((call) => call === 'strokeText("あ",0,0)')).toBe(true);
   });
 
+  it('paints consecutive sideways clusters as one coalesced rotated run', () => {
+    const rec = new MeasuredRecorder();
+    replayIr(rec, [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
+        strokes: [],
+        primitive: {
+          kind: 'text',
+          text: 'AB',
+          fontSize: 18,
+          fontFamily: 'Inter',
+          fontWeight: 500,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+          textAlignVertical: 'top' as const,
+          writingMode: 'vertical-rl' as const,
+          textOrientation: 'mixed' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
+          x: 12,
+          y: 8,
+          w: 80,
+          h: 80,
+        },
+      },
+    ]);
+    // One rotated draw for the whole sideways run — kerning survives — and
+    // no per-cluster split draws.
+    expect(rec.calls.some((call) => call === 'fillText("AB",0,0)')).toBe(true);
+    expect(rec.calls.some((call) => call === 'fillText("A",0,0)')).toBe(false);
+    expect(rec.calls.some((call) => call === 'fillText("B",0,0)')).toBe(false);
+    expect(rec.calls.filter((call) => call.startsWith('rotate('))).toHaveLength(1);
+    expect(rec.calls.filter((call) => call.startsWith('scale('))).toHaveLength(0);
+  });
+
+  it('paints upright clusters individually between sideways runs', () => {
+    const rec = new MeasuredRecorder();
+    replayIr(rec, [
+      {
+        transform: [1, 0, 0, 1, 0, 0] as const,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as const,
+        strokes: [],
+        primitive: {
+          kind: 'text',
+          text: 'AあB',
+          fontSize: 18,
+          fontFamily: 'Inter',
+          fontWeight: 500,
+          fontStyle: 'normal' as const,
+          textAlign: 'left' as const,
+          textAlignVertical: 'top' as const,
+          writingMode: 'vertical-rl' as const,
+          textOrientation: 'mixed' as const,
+          letterSpacing: 0,
+          lineHeight: 1.4,
+          paragraphSpacing: 0,
+          textCase: 'none' as const,
+          textDecoration: 'none' as const,
+          textOverflow: 'visible' as const,
+          listStyle: 'none' as const,
+          x: 12,
+          y: 8,
+          w: 80,
+          h: 80,
+        },
+      },
+    ]);
+    // The upright あ splits the sideways run: A and B paint separately, あ
+    // paints unrotated in its own cell.
+    expect(rec.calls.some((call) => call === 'fillText("A",0,0)')).toBe(true);
+    expect(rec.calls.some((call) => call === 'fillText("B",0,0)')).toBe(true);
+    expect(rec.calls.some((call) => call === 'fillText("あ",0,0)')).toBe(true);
+    expect(rec.calls.filter((call) => call.startsWith('rotate('))).toHaveLength(2);
+  });
+
   // ── Bezier path rendering: single-handle transitions ───────────────
 
   /** Create a minimal ReplayTarget mock with spy-able methods. */

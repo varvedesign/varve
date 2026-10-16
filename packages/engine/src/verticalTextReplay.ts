@@ -4,13 +4,21 @@
  * Kept outside replay.ts because replay.ts is a deliberately complexity-capped
  * hot path. This module consumes the canonical snapshot and only owns the
  * vertical paint policy; horizontal replay remains unchanged.
+ *
+ * Sideways clusters paint as coherent rotated runs (one draw call per
+ * consecutive same-format group) so kerning and ligatures of rotated Latin
+ * survive; upright and combined cells paint per cluster.
  */
 
 import { managedColorToRgba } from '@varve/shared';
 import { resolveCanvasFontFamily, setCanvasFont, withEmojiFallback } from './canvasFontAliases';
 import type { ReplayTarget } from './replayTypes';
 import { shapeText } from './shaping';
-import { buildTextLayoutSnapshot, type TextLayoutSnapshot } from './textLayoutSnapshot';
+import {
+  buildTextLayoutSnapshot,
+  type PositionedGlyph,
+  type TextLayoutSnapshot,
+} from './textLayoutSnapshot';
 import type { CharacterFormat, EngineColor, RenderItem, RichText } from './types';
 
 type TextPrimitive = Extract<RenderItem['primitive'], { kind: 'text' }>;
@@ -96,6 +104,57 @@ function paintCluster(
   target.restore();
 }
 
+function clusterTextOf(snapshot: TextLayoutSnapshot, glyph: PositionedGlyph): string | null {
+  const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
+  if (cluster.length === 0 || cluster.includes('\n')) return null;
+  return cluster;
+}
+
+/**
+ * Extend a sideways group from `start` while clusters stay sideways, unpainted,
+ * source-contiguous, and (when `formatKeyOf` is supplied) format-identical.
+ * Returns the exclusive end index; a lone cluster yields start + 1.
+ */
+function extendSidewaysGroup(
+  snapshot: TextLayoutSnapshot,
+  glyphs: readonly PositionedGlyph[],
+  start: number,
+  isPainted: (glyph: PositionedGlyph) => boolean,
+  formatKeyOf?: (glyph: PositionedGlyph) => string,
+): number {
+  let end = start + 1;
+  while (end < glyphs.length) {
+    const previous = glyphs[end - 1]!;
+    const candidate = glyphs[end]!;
+    if (candidate.orientation !== 'sideways' || candidate.combinedScale != null) break;
+    if (isPainted(candidate)) break;
+    if (!clusterTextOf(snapshot, candidate)) break;
+    if (candidate.clusterUtf16 !== previous.sourceEnd) break;
+    if (formatKeyOf && formatKeyOf(candidate) !== formatKeyOf(glyphs[start]!)) break;
+    end += 1;
+  }
+  return end;
+}
+
+/** Paint one coalesced sideways run: a single rotated draw at the group origin. */
+function paintSidewaysGroup(
+  target: ReplayTarget,
+  first: PositionedGlyph,
+  text: string,
+  origin: { x: number; y: number },
+  drawText: (text: string) => void,
+): void {
+  target.save();
+  target.translate(
+    origin.x + first.x + first.xOffset,
+    origin.y + first.y - first.verticalAdvance! / 2,
+  );
+  target.rotate(Math.PI / 2);
+  target.textAlign = 'left';
+  drawText(text);
+  target.restore();
+}
+
 /** Build the same canonical vertical snapshot used by fill replay. */
 export function buildVerticalTextSnapshot(
   target: ReplayTarget,
@@ -138,24 +197,73 @@ export function paintVerticalCanonicalRichText(
   target.textAlign = 'center';
   target.textBaseline = 'middle';
   const painted = new Set<string>();
+  const isPainted = (glyph: PositionedGlyph): boolean =>
+    painted.has(`${glyph.clusterUtf16}:${glyph.sourceEnd}`);
+  const formatKeyOf = (glyph: PositionedGlyph): string => {
+    const format = richTextFormatAt(richText, glyph.clusterUtf16);
+    return JSON.stringify([
+      format.fontFamily,
+      format.fontSize,
+      format.fontWeight,
+      format.fontStyle,
+      format.color ? rgba(format.color) : '',
+    ]);
+  };
   for (const line of snapshot.lines) {
     for (const run of line.runs) {
-      for (const glyph of run.glyphs) {
-        const key = `${line.paragraphIndex}:${glyph.clusterUtf16}`;
-        if (painted.has(key)) continue;
-        painted.add(key);
-        const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
-        if (cluster.length === 0 || cluster.includes('\n')) continue;
+      let index = 0;
+      while (index < run.glyphs.length) {
+        const glyph = run.glyphs[index]!;
+        if (isPainted(glyph)) {
+          index += 1;
+          continue;
+        }
+        const cluster = clusterTextOf(snapshot, glyph);
+        if (!cluster) {
+          index += 1;
+          continue;
+        }
         const format = richTextFormatAt(richText, glyph.clusterUtf16);
-        const weight = format.fontWeight ?? run.sourceRun.fontWeight;
-        const size = format.fontSize ?? run.sourceRun.fontSize;
-        const family = format.fontFamily ?? run.sourceRun.fontFamily;
+        if (glyph.orientation === 'sideways' && glyph.combinedScale == null) {
+          const groupEnd = extendSidewaysGroup(snapshot, run.glyphs, index, isPainted, formatKeyOf);
+          if (groupEnd - index > 1) {
+            const first = glyph;
+            const last = run.glyphs[groupEnd - 1]!;
+            const groupText = snapshot.text.slice(first.clusterUtf16, last.sourceEnd);
+            const groupFormat = richTextFormatAt(richText, first.clusterUtf16);
+            setCanvasFont(
+              target,
+              verticalFontString(
+                groupFormat.fontFamily ?? run.sourceRun.fontFamily,
+                groupFormat.fontSize ?? run.sourceRun.fontSize,
+                groupFormat.fontWeight ?? run.sourceRun.fontWeight,
+                groupFormat.fontStyle ?? run.sourceRun.fontStyle,
+                groupFormat.openTypeFeatures ?? p.openTypeFeatures,
+                groupFormat.variableFontSettings ?? p.variableAxes,
+                groupText,
+              ),
+            );
+            if (groupFormat.color) target.fillStyle = rgba(groupFormat.color);
+            paintSidewaysGroup(
+              target,
+              first,
+              groupText,
+              { x: p.x + offset.x, y: p.y + offset.y },
+              (value) => target.fillText(value, 0, 0),
+            );
+            if (groupFormat.color) target.fillStyle = originalFillStyle;
+            for (let i = index; i < groupEnd; i++) painted.add(paintedKeyOf(run.glyphs[i]!));
+            index = groupEnd;
+            continue;
+          }
+        }
+        painted.add(paintedKeyOf(glyph));
         setCanvasFont(
           target,
           verticalFontString(
-            family,
-            size,
-            weight,
+            format.fontFamily ?? run.sourceRun.fontFamily,
+            format.fontSize ?? run.sourceRun.fontSize,
+            format.fontWeight ?? run.sourceRun.fontWeight,
             format.fontStyle ?? run.sourceRun.fontStyle,
             format.openTypeFeatures ?? p.openTypeFeatures,
             format.variableFontSettings ?? p.variableAxes,
@@ -173,9 +281,14 @@ export function paintVerticalCanonicalRichText(
           glyph.combinedScale,
         );
         target.fillStyle = originalFillStyle;
+        index += 1;
       }
     }
   }
+}
+
+function paintedKeyOf(glyph: PositionedGlyph): string {
+  return `${glyph.clusterUtf16}:${glyph.sourceEnd}`;
 }
 
 export function paintVerticalCanonicalText(
@@ -188,6 +301,7 @@ export function paintVerticalCanonicalText(
   target.textAlign = 'center';
   target.textBaseline = 'middle';
   const painted = new Set<string>();
+  const isPainted = (glyph: PositionedGlyph): boolean => painted.has(paintedKeyOf(glyph));
   for (const line of snapshot.lines) {
     for (const run of line.runs) {
       const weight =
@@ -206,12 +320,36 @@ export function paintVerticalCanonicalText(
           snapshot.text.slice(run.sourceStart, run.sourceEnd),
         ),
       );
-      for (const glyph of run.glyphs) {
-        const key = `${line.paragraphIndex}:${glyph.clusterUtf16}`;
-        if (painted.has(key)) continue;
-        painted.add(key);
-        const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
-        if (cluster.length === 0 || cluster.includes('\n')) continue;
+      let index = 0;
+      while (index < run.glyphs.length) {
+        const glyph = run.glyphs[index]!;
+        if (isPainted(glyph)) {
+          index += 1;
+          continue;
+        }
+        const cluster = clusterTextOf(snapshot, glyph);
+        if (!cluster) {
+          index += 1;
+          continue;
+        }
+        if (glyph.orientation === 'sideways' && glyph.combinedScale == null) {
+          const groupEnd = extendSidewaysGroup(snapshot, run.glyphs, index, isPainted);
+          if (groupEnd - index > 1) {
+            const first = glyph;
+            const last = run.glyphs[groupEnd - 1]!;
+            paintSidewaysGroup(
+              target,
+              first,
+              snapshot.text.slice(first.clusterUtf16, last.sourceEnd),
+              { x: p.x + offset.x, y: p.y + offset.y },
+              (value) => target.fillText(value, 0, 0),
+            );
+            for (let i = index; i < groupEnd; i++) painted.add(paintedKeyOf(run.glyphs[i]!));
+            index = groupEnd;
+            continue;
+          }
+        }
+        painted.add(paintedKeyOf(glyph));
         paintCluster(
           target,
           cluster,
@@ -219,7 +357,9 @@ export function paintVerticalCanonicalText(
           p.y + offset.y + glyph.y + glyph.yOffset,
           glyph.orientation ?? 'sideways',
           (value) => target.fillText(value, 0, 0),
+          glyph.combinedScale,
         );
+        index += 1;
       }
     }
     if (p.textDecoration === 'underline' || p.textDecoration === 'line-through') {
@@ -251,27 +391,52 @@ export function paintVerticalCanonicalTextStroke(
   target.textAlign = 'center';
   target.textBaseline = 'middle';
   const painted = new Set<string>();
+  const isPainted = (glyph: PositionedGlyph): boolean => painted.has(paintedKeyOf(glyph));
   for (const line of snapshot.lines) {
     const weight = effectiveWeight(p);
-    setCanvasFont(
-      target,
-      verticalFontString(
-        p.fontFamily,
-        p.fontSize,
-        weight,
-        line.runs[0]?.sourceRun.fontStyle,
-        p.openTypeFeatures,
-        p.variableAxes,
-        line.runs.map((run) => snapshot.text.slice(run.sourceStart, run.sourceEnd)).join(''),
-      ),
-    );
     for (const run of line.runs) {
-      for (const glyph of run.glyphs) {
-        const key = `${line.paragraphIndex}:${glyph.clusterUtf16}`;
-        if (painted.has(key)) continue;
-        painted.add(key);
-        const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
-        if (cluster.length === 0 || cluster.includes('\n')) continue;
+      setCanvasFont(
+        target,
+        verticalFontString(
+          p.fontFamily,
+          p.fontSize,
+          weight,
+          run.sourceRun.fontStyle,
+          p.openTypeFeatures,
+          p.variableAxes,
+          snapshot.text.slice(run.sourceStart, run.sourceEnd),
+        ),
+      );
+      let index = 0;
+      while (index < run.glyphs.length) {
+        const glyph = run.glyphs[index]!;
+        if (isPainted(glyph)) {
+          index += 1;
+          continue;
+        }
+        const cluster = clusterTextOf(snapshot, glyph);
+        if (!cluster) {
+          index += 1;
+          continue;
+        }
+        if (glyph.orientation === 'sideways' && glyph.combinedScale == null) {
+          const groupEnd = extendSidewaysGroup(snapshot, run.glyphs, index, isPainted);
+          if (groupEnd - index > 1) {
+            const first = glyph;
+            const last = run.glyphs[groupEnd - 1]!;
+            paintSidewaysGroup(
+              target,
+              first,
+              snapshot.text.slice(first.clusterUtf16, last.sourceEnd),
+              { x: p.x + offset.x, y: p.y + offset.y },
+              (value) => target.strokeText?.(value, 0, 0),
+            );
+            for (let i = index; i < groupEnd; i++) painted.add(paintedKeyOf(run.glyphs[i]!));
+            index = groupEnd;
+            continue;
+          }
+        }
+        painted.add(paintedKeyOf(glyph));
         paintCluster(
           target,
           cluster,
@@ -280,6 +445,7 @@ export function paintVerticalCanonicalTextStroke(
           glyph.orientation ?? 'sideways',
           (value) => target.strokeText?.(value, 0, 0),
         );
+        index += 1;
       }
     }
   }

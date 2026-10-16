@@ -140,17 +140,21 @@ describe('TextLayoutSnapshot', () => {
     expect(snapshot.text).toBe('AあBC');
     expect(snapshot.lines).toHaveLength(2);
     expect(snapshot.lines[0]?.x).toBeGreaterThan(snapshot.lines[1]?.x ?? 0);
-    expect(snapshot.lines[0]?.height).toBe(32);
+    // Sideways A flows with its shaped horizontal advance (10px), upright あ
+    // keeps the one-em cell (16px): the column is 26px tall, not 32.
+    expect(snapshot.lines[0]?.height).toBe(26);
     expect(snapshot.lines[0]?.sourceStart).toBe(0);
     expect(snapshot.lines[1]?.sourceStart).toBe(2);
     expect(snapshot.lines[0]?.runs[0]?.glyphs[0]?.orientation).toBe('sideways');
+    expect(snapshot.lines[0]?.runs[0]?.glyphs[0]?.verticalAdvance).toBe(10);
     expect(snapshot.lines[0]?.runs[0]?.glyphs[1]?.orientation).toBe('upright');
+    expect(snapshot.lines[0]?.runs[0]?.glyphs[1]?.verticalAdvance).toBe(16);
 
     const caret = hitTestTextLayout(snapshot, snapshot.lines[0]!.x ?? 0, 24);
     expect(caret.offset).toBe(2);
     expect(selectionRects(snapshot, 0, 1)[0]).toMatchObject({
       width: snapshot.lines[0]?.width,
-      height: 16,
+      height: 10,
     });
   });
 
@@ -223,12 +227,16 @@ describe('vertical tate-chu-yoko combined cells', () => {
     expect(stopOffsets.has(1)).toBe(false);
   });
 
-  it('keeps unflagged digits as separate upright cells', () => {
+  it('keeps unflagged digits as separate sideways cells at shaped advances', () => {
     const snapshot = layoutVertical('12', false);
     const glyphs = snapshot.lines[0]?.runs[0]?.glyphs ?? [];
     expect(glyphs).toHaveLength(2);
-    expect(snapshot.lines[0]?.height).toBe(32);
+    // ASCII digits are R in UAX #50: sideways cells flow at the shaped
+    // horizontal advance (10px each), not one-em cells.
+    expect(snapshot.lines[0]?.height).toBe(20);
     expect(glyphs[0]?.combinedScale).toBeUndefined();
+    expect(glyphs[0]?.verticalAdvance).toBe(10);
+    expect(glyphs[0]?.orientation).toBe('sideways');
   });
 
   it('caps combined runs at four clusters and wraps the remainder', () => {
@@ -239,7 +247,9 @@ describe('vertical tate-chu-yoko combined cells', () => {
     expect(glyphs[0]?.sourceEnd).toBe(4);
     expect(glyphs[1]?.clusterUtf16).toBe(4);
     expect(glyphs[1]?.sourceEnd).toBe(5);
-    expect(snapshot.lines[0]?.height).toBe(32);
+    // One-em combined cell (16) plus the sideways remainder digit at its
+    // shaped 10px advance.
+    expect(snapshot.lines[0]?.height).toBe(26);
   });
 
   it('never combines in horizontal writing mode', () => {
