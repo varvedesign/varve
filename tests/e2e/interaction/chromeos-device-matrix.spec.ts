@@ -732,6 +732,69 @@ test.describe('touch interaction', () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test('two-finger twist rotates the view without moving artwork', async ({ page }) => {
+    await navigateToEditor(page);
+    await settleLayout(page);
+
+    const box = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
+    if (!box) throw new Error('content canvas not laid out');
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const beforeDocument = await serializeEditorDocument(page);
+    const session = await page.context().newCDPSession(page);
+
+    try {
+      // Place the two contacts horizontally, then rotate them 30 degrees
+      // around the shared centre in five steps. Per-step angle change is 6°,
+      // so the first move stays inside the twist dead zone by design.
+      const radius = 90;
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [
+          { x: cx - radius, y: cy, id: 1 },
+          { x: cx + radius, y: cy, id: 2 },
+        ],
+      });
+      for (let step = 1; step <= 5; step += 1) {
+        const theta = (step * 6 * Math.PI) / 180;
+        await session.send('Input.dispatchTouchEvent', {
+          type: 'touchMove',
+          touchPoints: [
+            {
+              x: cx - radius * Math.cos(theta),
+              y: cy - radius * Math.sin(theta),
+              id: 1,
+            },
+            {
+              x: cx + radius * Math.cos(theta),
+              y: cy + radius * Math.sin(theta),
+              id: 2,
+            },
+          ],
+        });
+      }
+      await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    } finally {
+      await session.detach();
+    }
+    await page.waitForTimeout(250);
+
+    // The status bar exposes a rotation chip only while the view is rotated;
+    // 30° of twist minus the dead zone must leave a visible non-zero angle.
+    const rotationChip = page.locator('.editor-status__rotation');
+    await expect(rotationChip).toBeVisible({ timeout: 5000 });
+    const degrees = Number.parseInt(await rotationChip.innerText(), 10);
+    expect(Number.isFinite(degrees)).toBe(true);
+    expect(Math.abs(degrees)).toBeGreaterThan(5);
+    expect(Math.abs(degrees)).toBeLessThan(60);
+    // The view rotated; the artwork did not.
+    const afterDocument = await serializeEditorDocument(page);
+    expect(afterDocument).toEqual(beforeDocument);
+    const pageScale = await page.evaluate(() => window.visualViewport?.scale ?? 1);
+    expect(pageScale).toBeCloseTo(1, 2);
+    expect(pageErrors).toEqual([]);
+  });
+
   test('hands a cancelled touch into pinch navigation and requires a fresh contact', async ({
     page,
   }) => {
