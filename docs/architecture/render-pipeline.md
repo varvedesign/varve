@@ -540,6 +540,7 @@ for a tile must compare more than the version:
 | `dirtyRegion` raster tile diff | the pixel buffer itself plus `version` |
 | `SubtreeIrCache` raster summary | rolling hash over every tile's key, `version`, `contentId` |
 | Pyramid `l0Snapshot` | `version` plus `contentId` / typed-array buffer identity |
+| `liquifyRenderCache` + `frequencySeparationRenderCache` | `version` plus buffer identity, via `rasterTileMapRevision` |
 
 `contentId` comes from `tilePixelsIdentity(tile.pixels)`: a process-local,
 non-persisted token per immutable pixel buffer. It is attached when the scene

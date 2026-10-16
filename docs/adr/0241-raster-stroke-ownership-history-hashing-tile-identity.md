@@ -213,9 +213,13 @@ that). `strictlyIdentical` is one-sided: `true` implies equal canonical bytes,
   comparison (D3) keeps this correct across documents; it is a bounded resource
   retention, not a correctness hazard.
 - Not audited here: `liquifyRenderCache` and `frequencySeparationRenderCache`
-  still key on `rasterTileMapRevision` (version and count), so the
-  alias case D3 fixed elsewhere could hand back a stale warped tile set there.
-  Outside this change set, and D3's claim names only its four consumers.
+  keyed on `rasterTileMapRevision`, which folded in only tile keys and
+  `version`. **Closed**: the revision now also mixes each tile's pixel-buffer
+  identity, so the aliasing case D3 fixed elsewhere can no longer return warped
+  or separation tiles derived from another revision's pixels. A regression pins
+  that two different buffers at the same version produce different revisions
+  (`expected '1:3v04gu' not to be '1:3v04gu'` without the fix) while a re-read
+  of the same buffers still hits.
 - `canonical.ts`'s `payloadToAssetId` map is last-writer-wins by insertion
   order. If two assets share a `dataUrl` and a fill still holds that raw data
   URL as `src`, the substituted id — and therefore the persisted hash — depends
