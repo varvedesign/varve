@@ -587,7 +587,8 @@ Two misses are recorded rather than glossed:
 | Playwright probe (after) | 1/1 passed, `VARVE_E2E_PORT=1553`, `report-after.json` |
 | `tests/e2e/workspace/dock-layout-geometry.spec.ts` + `tests/e2e/responsive/layers-inspector-panels.spec.ts` | **4/4 and 7/7 pass** (ports 1557 and 1559, §5.8) |
 | Compact drawers + text probe (Chromium, ports 1563-1565) | 1/1 pass after two harness fixes; measurements in §5.10 |
-| `tests/e2e/responsive/compact-drawers.spec.ts` (new, repo-resident) | `typecheck:e2e` and biome pass; browser run queued through the heavy lease |
+| `tests/e2e/responsive/compact-drawers.spec.ts` (new, repo-resident) | **5/5 pass** (port 1569, 2.7m): the four drawer-route viewports and the compact text floor |
+| `tests/e2e/workspace/dock-layout-geometry.spec.ts` after the band change | **4/4 pass** (port 1568), so the capability-sized band leaves splitter pointer and keyboard behaviour intact |
 
 **Full suite: not run.** It is an escalation the planner attributes to
 foreign toolchain changes, the tree carries three type errors from other
@@ -676,6 +677,29 @@ Two caveats about that run, recorded so its numbers are read correctly:
   the chosen dismiss point *is* `editor__panel-backdrop` before clicking, so the
   mis-aimed-tap case fails loudly instead of silently testing nothing; whether
   the scrim route works is settled by that spec, not by this probe.
+
+### 5.12 The compact-drawer contract, verified end to end (2026-10-16)
+
+`tests/e2e/responsive/compact-drawers.spec.ts`, port 1569, **5/5 pass in 2.7m**.
+Per viewport (320×640, 390×844, 640×400, 899×600) the spec now confirms, in the
+running application:
+
+- the Resources drawer opens from its launcher and the close control is visible;
+- the element a pointer would activate at that control's centre **is the control
+  or its icon** (containment, not identity — an icon is a legitimate nested
+  target);
+- activating it dismisses the drawer and the launcher returns;
+- Escape dismisses it;
+- the scrim dismisses it, asserted by first checking that the element under the
+  chosen dismiss point **is `editor__panel-backdrop`**;
+- and at 320px the status bar and application menu render at ≥13px with nothing
+  in the panel clipped without an ellipsis.
+
+The scrim assertion is the one that earned its keep: it failed loudly twice — once
+on my over-strict identity check, and once on a regression this session introduced
+when the backdrop was nested inside the launchers' `!compactDrawerOpen` gate, so
+no scrim was rendered at all (§9 item 7). A test that clicked the dismiss point
+without checking what it hit would have passed through both.
 
 ### 5.11 Not established
 
