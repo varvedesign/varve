@@ -190,6 +190,27 @@ async function canvasGeometry(page: import('@playwright/test').Page) {
 }
 
 /**
+ * Activate the paint tool and confirm it actually is the active tool.
+ *
+ * The keyboard shortcut alone is a race: the app has to process the key before
+ * the first pointer event, and under load it may not have. A missing wait here
+ * is not hypothetical — a run of this spec failed at `a paint stroke must
+ * change visible pixels` because the drag was still handled by the select tool,
+ * so nothing was painted. `[data-tool="paint"][aria-pressed="true"]` is the
+ * deterministic signal other specs in this repo already use, rather than a
+ * fixed sleep.
+ */
+async function activatePaintTool(page: import('@playwright/test').Page): Promise<void> {
+  const paint = page.locator('[data-testid="toolbar"] [data-tool="paint"]');
+  await page.keyboard.press('b');
+  await expect(paint, 'the paint tool must be the active tool before drawing').toHaveAttribute(
+    'aria-pressed',
+    'true',
+    { timeout: 10_000 },
+  );
+}
+
+/**
  * Paint one stroke and return once the frame ring is quiet.
  */
 async function paintStroke(
@@ -345,7 +366,7 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
     const emptyHash = await canvasHash(page);
 
     // Stroke 1.
-    await page.keyboard.press('b');
+    await activatePaintTool(page);
     await paintStroke(page, { x: 320, y: 260 }, { x: 520, y: 400 });
     const afterFirst = await canvasHash(page);
     expect(afterFirst, 'a paint stroke must change visible pixels').not.toBe(emptyHash);
@@ -418,7 +439,7 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
       .toBe(true);
 
     await page.locator(CANVAS).waitFor({ timeout: 20_000 });
-    await page.keyboard.press('b');
+    await activatePaintTool(page);
     await paintStroke(page, { x: 300, y: 250 }, { x: 560, y: 420 });
 
     // Nothing about the document changes for this redraw: it invalidates the
@@ -438,15 +459,17 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
     const frames = await page.evaluate(
       () => (window as unknown as PerfWindow).__varvePerf?.getFrames(20) ?? [],
     );
-    // Select the frame the oracle actually committed instead of summing a
-    // window. Evidence from the diagnostic capture: the paint-commit frame is
-    // recorded with `engineNodeComputes: 1, engineNodeHits: 0` (it republishes
-    // the layer, so that one conversion is correct), and it can land after the
-    // ring was reset. Summing a window therefore measured the wrong frame and
-    // failed intermittently with 1. The oracle frame itself carries
-    // `engineNodeComputes: 0, engineNodeHits: 1`.
-    const oracleFrame = frames.find((f) => f.frameIndex === result.frameIndex) ?? null;
-    expect(oracleFrame, `oracle frame ${result.frameIndex} must be in the ring`).not.toBeNull();
+    // Select the last frame the oracle actually committed. Not by `frameIndex`:
+    // the diagnostic capture shows several frame *records* sharing one
+    // `frameIndex` (the paint-commit frame, a worker-reply present frame and the
+    // oracle frame all reported `frameIndex: 1`), so matching on it can pick the
+    // paint frame — which correctly carries `engineNodeComputes: 1,
+    // engineNodeHits: 0` because it republishes the layer. `frameSource` is the
+    // identity here: only the oracle's own redraw reports
+    // `'oracle-full-redraw'`, and only that frame carries `0` and `1`.
+    const oracleFrame =
+      [...frames].reverse().find((f) => f.frameSource === 'oracle-full-redraw') ?? null;
+    expect(oracleFrame, 'the oracle redraw must be in the frame ring').not.toBeNull();
     expect(
       oracleFrame!.engineNodeComputes ?? 0,
       'a redraw with no document change must not reconvert scene nodes to engine nodes',

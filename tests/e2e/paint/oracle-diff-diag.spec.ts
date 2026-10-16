@@ -185,7 +185,13 @@ test.describe('oracle diff diagnostic (opt-in)', () => {
       .toBe(true);
     await page.locator(CANVAS).waitFor({ timeout: 20_000 });
 
+    // Deterministic tool activation: a bare `press('b')` races the app's key
+    // handling under load, and a drag then paints nothing.
     await page.keyboard.press('b');
+    await expect(
+      page.locator('[data-testid="toolbar"] [data-tool="paint"]'),
+      'the paint tool must be active before drawing',
+    ).toHaveAttribute('aria-pressed', 'true', { timeout: 10_000 });
     await dragOnCanvas(page, { x: 320, y: 260 }, { x: 520, y: 400 });
     await settle(page);
 
