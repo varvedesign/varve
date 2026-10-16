@@ -18,7 +18,12 @@
  * host_stdio` (or VARVE_HOST_STDIO_BIN). Without it the suite is reported as
  * skipped with that instruction; it is not silently green.
  */
-import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process';
+import {
+  type ChildProcess,
+  type ChildProcessWithoutNullStreams,
+  spawn,
+  spawnSync,
+} from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
@@ -65,7 +70,7 @@ if (!harness) {
 
 let root: string;
 let bundle: string;
-const spawned: ChildProcessWithoutNullStreams[] = [];
+const spawned: ChildProcess[] = [];
 
 beforeAll(() => {
   if (!harness) return;
@@ -267,7 +272,7 @@ function cli(args: string[], runtimeDir: string, timeoutMs = 60_000) {
       env: { PATH: '', VARVE_RUNTIME_DIR: runtimeDir },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    spawned.push(child as ChildProcessWithoutNullStreams);
+    spawned.push(child);
     let stdout = '';
     let stderr = '';
     child.stdout.setEncoding('utf8');

@@ -28,7 +28,7 @@ describe('resizeSceneNode', () => {
   it('scales a line about its center', () => {
     const node = makeShapeNode('l', { kind: 'line', from: [0, 0], to: [10, 0], tolerance: 2 });
     const out = resizeSceneNode(node, 20, 1) as ShapeNode;
-    const shape = out.shape as { from: number[]; to: number[] };
+    const shape = out.shape as unknown as { from: number[]; to: number[] };
     expect(shape.from[0]).toBeCloseTo(-5);
     expect(shape.to[0]).toBeCloseTo(15);
   });
