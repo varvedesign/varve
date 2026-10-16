@@ -23,7 +23,9 @@ This document describes the contract and marks what exists. A claim here is
 | CLI `commands`, `describe`, `exec`, `batch`, `inspect`, `doctor` over a document file | Implemented (`@varve/cli`), verified through a real subprocess against the packaged bundle |
 | Self-contained CLI bundle, no runtime esbuild | Implemented (`build:bundle`); installers/sidecar packaging not done |
 | Strict JSON input (duplicate keys, `__proto__`, overflow, depth, bytes) | Implemented |
-| JSON-RPC control protocol, stdio MCP server | Planned |
+| JSON-RPC 2.0 control protocol over a local socket (`varve serve`) | Implemented, verified with a raw client on Linux |
+| stdio MCP server (`varve mcp`), headless and attached modes | Implemented, verified with a raw client and the v1 and v2 SDK clients |
+| Streamable HTTP MCP transport | Not implemented (deliberate; see below) |
 | Live editor authority, desktop listener, approvals, Settings surface | Planned |
 | Page, component, text-run, effect, export, capture, motion commands | Not started; tracked in the parity manifest as gaps |
 
@@ -239,6 +241,100 @@ before-hash: not landed, execute; anything else: unknown outcome, exit 4).
 Runs with `--out` have no journal: re-running regenerates the result file
 with new ids.
 
+## Control protocol (`varve.control/1`)
+
+JSON-RPC 2.0, one UTF-8 JSON document per line (the same framing as MCP stdio),
+over a Unix domain socket or a Windows named pipe. Transport-independent core:
+`ControlConnection` in `@varve/automation`; the socket server and client live
+in `@varve/cli`.
+
+- **Handshake**: the first frame must be `session.hello` with a credential,
+  client name and the protocol versions the client speaks. Before it, frames
+  are limited to 4 KiB and anything else closes the connection. After
+  authentication the limit is 4 MiB. A hello deadline and a failed-credential
+  limit close idle and guessing connections.
+- **Methods**: `session.hello`, `session.info`, `catalog.list`,
+  `catalog.describe`, `command.execute`, `batch.execute`, `session.close`,
+  `ping`. Unknown methods are `-32601`.
+- **Application vs protocol errors**: a refused command is a *successful RPC*
+  whose result is a receipt with `outcome: "rejected"`. JSON-RPC errors are for
+  protocol problems only (parse, unknown method, not authenticated, frame too
+  large).
+- **Authored work needs a receipt**: a notification (no `id`) is never
+  executed, and JSON-RPC batch arrays are refused; `batch.execute` is the
+  ordered, atomic editing transaction.
+- **Ordering and bounds**: requests on one connection run in order; frames are
+  discarded as they stream when oversize (not buffered, then rejected); a
+  result larger than the response limit is refused with `-32005`.
+- **Client**: replies are matched by id; late, duplicate or foreign replies are
+  ignored and counted, so a stale success cannot be reported as another
+  request's result. A timeout is reported as an unknown outcome.
+- **Isolation**: one client closing its connection never stops the session.
+
+### Endpoint identity and credentials
+
+Each instance has a directory (mode 0700 on Unix) holding the socket, a
+credential file (0600) and `instance.json`. The record names the app, version,
+pid, document and endpoint but never the credential, so `varve instances` can
+be shown or logged. `varve instances --verify` proves an endpoint answers and
+reports the identity it returns. Credential comparison is constant time.
+
+The same-user boundary is stated plainly: another process running as the same
+user can read the credential file. These controls stop other users, other
+origins and accidental exposure; they are not a sandbox against same-account
+malware.
+
+## MCP server (`varve mcp`)
+
+stdio only. The SDK is `@modelcontextprotocol/server` 2.3.1 (exact pin).
+
+- **Modes are explicit.** `--file` or `--new` opens an isolated headless
+  session and `varve_session` says it is not the running application.
+  `--connect <endpoint> --token-file <path>` or `--instance <id>` attaches to a
+  control endpoint. If attaching fails the server exits with an error; it never
+  opens an empty document instead. `--require-mode` refuses a session of the
+  wrong kind.
+- **Fixed tool set**: `varve_session`, `varve_search_commands`,
+  `varve_describe_command`, `varve_query`, `varve_invoke`, `varve_batch`. The
+  list does not change with GUI selection or earlier searches and is returned in
+  a deterministic order; `listChanged` is advertised as false.
+- **Honest annotations**: tools that cannot write are read-only. `varve_query`
+  runs only `effect: read` commands. `varve_invoke` and `varve_batch` can delete
+  and are marked destructive. Annotations are advisory; every call is authorized
+  by the executor.
+- **Results**: every receipt is returned as structured content plus the
+  serialized JSON in a text block, with `isError` set for `rejected` and
+  `unknown` outcomes. Output schemas are the receipt schemas, and a test asserts
+  every real receipt conforms.
+- **Default permissions are read-only.** Edits need `--grant edit`; saving needs
+  `export`. Permissions come from the process command line the person
+  configured, never from a tool argument.
+- **stdout** carries protocol messages only; diagnostics go to stderr; the
+  process exits when stdin closes.
+
+### Compatibility matrix
+
+| Client | Era negotiated | Result | Evidence |
+|---|---|---|---|
+| Hand-written raw client, `server/discover` + `_meta` | 2026-07-28 | Works | `control-mcp.subprocess.test.ts` |
+| `@modelcontextprotocol/client` 2.3.1, pinned 2026-07-28 | 2026-07-28 | Works | same |
+| `@modelcontextprotocol/client` 2.3.1, default handshake | legacy `initialize` | Works | same |
+| `@modelcontextprotocol/sdk` 1.32.1 (v1), `initialize` | legacy | Works | same |
+| Raw client, unsupported `_meta` version | n/a | `-32022` with the supported list | same |
+| `--legacy reject` with an `initialize` client | n/a | Error naming 2026-07-28 | same |
+| Claude Desktop, Claude Code, Cursor, MCP Inspector | not run | **Unverified** | none |
+| Streamable HTTP clients | not applicable | No HTTP transport | none |
+
+Tasks (async jobs) and MCP Apps are not used: nothing here is long-running yet,
+and clients without the extension would have no handle for it.
+
+### Why no HTTP transport
+
+stdio and the local socket cover the demonstrated workflows. An HTTP listener
+adds Origin and Host validation, DNS-rebinding exposure, token audience binding
+and session semantics that this system does not yet need. It stays out until a
+client workflow requires it.
+
 ## What a command is not
 
 It is not a generic `set(anyPath)`, not `eval`, and not a shell. The generic
@@ -257,3 +353,7 @@ catalog, with the same validation and authorization as a named command.
   reports it in the receipt.
 - Gesture replay, pressure strokes, text runs, components, pages, export and
   capture commands are not implemented.
+- `varve.document.save` exists in headless sessions through the CLI and MCP
+  adapters. There is no connected (live editor) runtime yet, so nothing can
+  attach to the running desktop application; `varve doctor` and `varve_session`
+  say so.

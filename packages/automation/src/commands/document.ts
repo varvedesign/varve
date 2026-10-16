@@ -56,4 +56,37 @@ export const documentInfo = defineCommand({
   },
 });
 
-export const DOCUMENT_COMMANDS = [documentInfo];
+const SAVE_INPUT = s.object({
+  path: s.optional(
+    s.string({
+      maxBytes: 4096,
+      minLength: 1,
+      description:
+        'Destination file. Omit to use the session default. A path is only honored inside the session write roots.',
+    }),
+  ),
+});
+
+const SAVE_OUTPUT = s.object({
+  path: s.string({ maxBytes: 4096 }),
+  bytes: s.integer({ min: 0 }),
+  contentHash: s.string({ maxBytes: 64 }),
+  revision: s.integer({ min: 0 }),
+});
+
+export const documentSave = defineCommand({
+  id: 'varve.document.save',
+  version: 1,
+  title: 'Save the document to a file',
+  summary:
+    'Write the current committed document to disk atomically and report the destination, size and hash. A committed edit is not a saved file until this succeeds. Refuses to overwrite files it did not create unless the session was started to write that file.',
+  keywords: ['write', 'persist', 'export', 'file', 'durable'],
+  effect: 'external',
+  authorization: 'export',
+  runtimes: ['headless', 'connected'],
+  input: SAVE_INPUT,
+  output: SAVE_OUTPUT,
+  examples: [{ title: 'Save to the session destination', args: {} }],
+});
+
+export const DOCUMENT_COMMANDS = [documentInfo, documentSave];

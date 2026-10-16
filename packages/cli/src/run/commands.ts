@@ -49,6 +49,9 @@ export const AUTOMATION_COMMANDS = new Set([
   'batch',
   'inspect',
   'doctor',
+  'serve',
+  'mcp',
+  'instances',
 ]);
 
 const ARGS_LIMIT = 1024 * 1024;
@@ -561,6 +564,18 @@ export async function runAutomationCommand(io: Io, argv: string[]): Promise<Exit
         return await runInspect(io, rest);
       case 'doctor':
         return await runDoctor(io, rest);
+      case 'serve': {
+        const { runServe } = await import('./serve');
+        return await runServe(io, rest);
+      }
+      case 'instances': {
+        const { runInstances } = await import('./serve');
+        return await runInstances(io, rest);
+      }
+      case 'mcp': {
+        const { runMcp } = await import('./mcp');
+        return await runMcp(io, rest);
+      }
       default:
         io.err(`unknown command: ${name}\n`);
         return EXIT.USAGE;

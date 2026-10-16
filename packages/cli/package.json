@@ -20,11 +20,14 @@
     "build:bundle": "node scripts/build-bundle.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "2.3.1",
     "@varve/automation": "workspace:*",
     "@varve/history": "workspace:*",
     "@varve/scene": "workspace:*"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "esbuild": "^0.28.2"
   },
   "license": "FSL-1.1-MIT",

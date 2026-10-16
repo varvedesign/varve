@@ -44,6 +44,17 @@ lucide-react (ISC)
   https://github.com/tauri-apps/tauri
   Licensed under MIT OR Apache-2.0 (dual).
 
+@modelcontextprotocol/server and @modelcontextprotocol/core (Apache-2.0)
+  Copyright (c) Anthropic, PBC
+  https://github.com/modelcontextprotocol/typescript-sdk
+  Licensed under Apache License 2.0. Bundled into the varve command line tool
+  (packages/cli) for the MCP stdio server.
+
+zod (MIT)
+  Copyright (c) Colin McDonnell
+  https://github.com/colinhacks/zod
+  Licensed under MIT License. A dependency of the MCP SDK above.
+
 onnxruntime-web (MIT)
   Copyright (c) Microsoft Corporation
   https://github.com/microsoft/onnxruntime

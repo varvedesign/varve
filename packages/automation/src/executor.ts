@@ -22,7 +22,14 @@ import { touchedBetween } from './diff';
 import { CommandRejection, type ErrorCode, type ErrorInfo, errorInfo } from './errors';
 import { IdempotencyStore } from './idempotency';
 import type { Principal } from './principal';
-import type { BatchReceipt, BatchStepReceipt, Outcome, Receipt, TargetInfo } from './receipt';
+import type {
+  BatchReceipt,
+  BatchStepReceipt,
+  DurableInfo,
+  Outcome,
+  Receipt,
+  TargetInfo,
+} from './receipt';
 import { RECEIPT_SCHEMA } from './receipt';
 import { type Issue, s, validate, validateUnknown } from './schema';
 import { defaultInsertionParent } from './surface';
@@ -83,9 +90,37 @@ export const BATCH_REQUEST_SCHEMA = s.object({
   target: s.optional(TARGET_PIN),
 });
 
+export interface ExternalEnv {
+  principal: Principal;
+  authority: DocumentAuthority;
+  receiptId: string;
+}
+
+export type ExternalResult =
+  | { ok: true; summary: string; output: unknown; durable?: DurableInfo }
+  | {
+      ok: false;
+      code: ErrorCode;
+      message: string;
+      hint?: string;
+      details?: Record<string, unknown>;
+    };
+
+/**
+ * Runtime-supplied implementation of a command with effects beyond the
+ * document (saving a file, exporting). Supplied by the adapter that owns the
+ * file system or transport; the core never touches either.
+ */
+export type ExternalHandler = (
+  args: unknown,
+  env: ExternalEnv,
+) => Promise<ExternalResult> | ExternalResult;
+
 export interface ExecutorContext {
   principal: Principal;
   authority: DocumentAuthority;
+  /** Handlers for `external` commands, keyed by command id. */
+  externals?: Readonly<Record<string, ExternalHandler>>;
   /** Default parent for node creation; connected mode supplies the active surface. */
   defaultParentId?: () => string | null;
   now?: () => number;
@@ -235,6 +270,71 @@ export class Executor {
     }
 
     const cctx = this.commandContext(ctx);
+
+    if (command.effect === 'external' || command.effect === 'job') {
+      const handler = ctx.externals?.[command.id];
+      if (!handler) {
+        return this.rejected(
+          ctx,
+          receiptId,
+          command.id,
+          version,
+          errorInfo('UNAVAILABLE', {
+            message: `${command.id} is not available in this session: no runtime handler is attached for it`,
+            hint: 'this session does not provide that capability; nothing was changed',
+          }),
+        );
+      }
+      if (request.dryRun) {
+        return {
+          ...this.baseReceipt(ctx, receiptId, command, parsed.defaulted),
+          outcome: 'preview',
+          summary: `Would run ${command.title}. Nothing was changed.`,
+        };
+      }
+      const result = await handler(parsed.value, {
+        principal: ctx.principal,
+        authority: ctx.authority,
+        receiptId,
+      });
+      if (!result.ok) {
+        return this.rejected(
+          ctx,
+          receiptId,
+          command.id,
+          version,
+          errorInfo(result.code, {
+            message: result.message,
+            ...(result.hint ? { hint: result.hint } : {}),
+            ...(result.details ? { details: result.details } : {}),
+          }),
+        );
+      }
+      this.assertOutput(command, result.output);
+      let completed: Receipt = {
+        ...this.baseReceipt(ctx, receiptId, command, parsed.defaulted),
+        outcome: 'applied',
+        summary: result.summary,
+        output: result.output,
+        durable: result.durable ?? { saved: false },
+      };
+      if (request.idempotencyKey) {
+        this.idempotency.record({
+          key: request.idempotencyKey,
+          principalId: ctx.principal.id,
+          documentId: info.documentId,
+          operation: command.id,
+          argsHash,
+          receipt: completed,
+          storedAt: (ctx.now ?? Date.now)(),
+        });
+        completed = {
+          ...completed,
+          idempotency: { key: request.idempotencyKey, replayed: false, argsHash },
+        };
+      }
+      return completed;
+    }
 
     if (command.revert) {
       if (request.dryRun) {

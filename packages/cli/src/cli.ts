@@ -413,6 +413,13 @@ automation (headless; every command is validated and returns a receipt):
         atomic|partial] [--on-error stop|continue] [save options as exec]
   varve inspect --file <doc> [--depth <n>] [--json]
   varve doctor [--json]                      environment, catalog and path policy
+  varve serve (--file <doc> | --new <name>) [--grant read,edit,export]
+        [--in-place | --out <path> [--overwrite]] [--write-root <dir>]
+        [--idle-exit-seconds <n>]            headless session on a local socket
+  varve instances [--verify] [--json]        list local control endpoints
+  varve mcp (--file <doc> | --new <name> | --connect <endpoint> --token-file
+        <path> | --instance <id>) [--grant ...] [--require-mode headless|connected]
+                                             MCP server on stdio (headless or attached)
 
   Changes are NOT saved unless --in-place or --out is given. File policy:
   VARVE_READ_ROOTS / VARVE_WRITE_ROOTS (or --read-root / --write-root).

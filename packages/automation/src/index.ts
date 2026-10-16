@@ -1,6 +1,7 @@
 export * from './authority';
 export * from './catalog';
 export * from './commands';
+export * from './control';
 export * from './diff';
 export * from './errors';
 export * from './executor';
