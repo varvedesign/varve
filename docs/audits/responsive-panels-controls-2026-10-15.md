@@ -414,43 +414,50 @@ Inspector sheet height, Inspector value ellipses at 200 % text).
 Ordered by the assignment's priority (access first, then authorities, then
 polish), each with the evidence already gathered:
 
-1. **Tree-level reachability at short heights (O6, partially attributed).** The
-   probe §5.4 closed the *mechanism* half: `.editor__layers-panel` is the scroll
-   owner (`overflow-y: auto`, `client 529 / scroll 585` at 1366×768;
-   `363/590` at 1024×600; `242/578` at 1280×480), so rail content is reachable by
-   scrolling and the "box extends past a scrolling ancestor" reading was my own
-   metric's false positive. The replacement probe (`report-rail2.json`) creates
-   real rows with the rectangle tool and hit-tests the last row plus the sticky
-   bulk bar at 1280×480 / 1024×600 / 1366×768; its result lands separately.
-2. **Splitter collapse/reset affordance.** Naming and `aria-controls` are done
-   (§6.2). Enter-to-collapse is optional for a *variable* splitter in the APG
-   pattern, but the retired legacy handle's reset-to-default is a real capability
-   the dock has not restored. A `dblclick` handler is the obvious implementation
-   and the obvious flake risk against the repo's own double-drag specs — it needs
-   a run of `dock-layout-geometry` before it ships.
-3. **The splitter band's 12 px canvas overlap (§5.3)**. Reducing it means
-   choosing a smaller fine-pointer band (24 px is retained for coarse pointers)
-   and justifying it against WCAG 2.2 SC 2.5.8's spacing exception — a UX
-   decision that needs its own E2E before shipping, since the band is a shared
-   interaction. Measured evidence is in §5.3 so the next attempt starts from data.
-4. **The `isUntouchedBuiltinSplit` limitation — FIXED** (see §9.5). The
+1. **Tree-level reachability at short heights (O6) — verified for rows, and for
+   the bulk bar by the repository's own spec.** The rail is the scroll owner
+   (`client 529 / scroll 585` at 1366×768, `363/590` at 1024×600, `242/578` at
+   1280×480), a real row stays inside the viewport and hit-tests itself at all
+   three short heights, and `layers-panel-visual` — which drives a five-layer
+   multi-selection and asserts the sticky bulk bar's box against the rail's —
+   passes 2/2. What is *not* measured is a multi-row tree at 1280×480; the probe
+   that would have done it seeded only one row.
+2. **Splitter collapse/reset — done.** Enter on a focused splitter returns a
+   built-in split to its creation ratio and to the state where its declared
+   preferred size governs again (`resetSplitRatio`), which is the affordance the
+   retired legacy handle exposed as "double-click resets". Keyboard-only by
+   choice, so it cannot fire during a pointer drag.
+3. **The splitter band's canvas overlap — done** (`077451f81`). The band is now
+   sized by input capability: 24px centred on the seam for a coarse pointer, 16px
+   (8px each side) for a fine one, bounded to 8–32px. Pinned by a test asserting
+   width, centring and clamps.
+4. **The `isUntouchedBuiltinSplit` limitation — fixed** (see §9.5). The
    repository's own `dock-layout-geometry` spec caught it swallowing the default
    window's first `ArrowRight`; touched-ness is now state on the split node.
-5. **`getDockNodePreferredSize` chrome asymmetry** — the minimum/maximum helpers
-   add `DOCK_PANEL_CHROME_HEIGHT` on the block axis, the preferred helper does
-   not, so a bottom companion's opening height includes its chrome (motion
-   Timeline: 240 declared, 208 body). One-line fix, no reachability impact; not
-   attempted because the constant lives in `dockOps`, which already imports
-   `dockPanelSizing`, so the tidy fix is a shared constants module — a refactor
-   of a hot file that should not ride along unverified.
-6. **Reproduce the 640 px inspector rails in the browser** — the derived maximum
-   makes them reachable again and `report-after2.json` measured 640 live from a
-   pointer drag, but the five inspector specs themselves have not been run.
-7. September items O4 (stale navigator visual baseline — its recorded 288 px
-   width is exactly what this change restores, so it may now pass on width and
-   still differ in height; must be regenerated *after* this change, never
-   before), O7 (**fixed** in §6.2), O8 (Inspector value-side ellipses at 200 %
-   text).
+5. **`getDockNodePreferredSize` chrome asymmetry — fixed.** The block axis adds
+   the single chrome row the dock actually draws (a tab group draws its strip
+   *instead of* the panel chrome, not in addition), so a bottom companion's
+   declared body height is what opens.
+6. **The 640px inspector rails — verified.** A pointer drag reaches 640 live, and
+   `inspector-responsive-surface-audit` passes 5/5 (four in the clean run, the
+   fifth re-run alone after a 180s timeout under load, in 1.4m).
+7. **A modal scrim's chrome — fixed** (`077451f81`, found by the promoted spec).
+   The floating toolbar sat *above* the compact drawers' scrim, so a dismiss tap
+   above the Resources sheet changed the active tool instead of closing the
+   drawer; the launcher FABs sat *below* it, so their labels promised an action a
+   pointer could not deliver. Both are retired while a drawer is open, driven by
+   one flag, and the invariant is now stated in
+   `docs/architecture/responsive-workspace.md`.
+8. **Still open: O4** (the navigator visual baseline must be regenerated *after*
+   these geometry changes — its recorded 288px rail width is what the sizing work
+   restored, and its height may still differ) and **O8** (Inspector value-side
+   ellipses at 200% text, deferred by impact in the September audit). Both need
+   browser slots; neither is a code change that can be made blind.
+9. **Test-harness gaps worth closing centrally:** the commit checkpoint's
+   `direct-unit` step times out at 180s on a *single* test file under load (it ran
+   the same file in 50s on a quieter attempt), and it runs vitest rather than tsc
+   for unit test files, so a type error in a test-only commit can survive the
+   hook. Both bit this session; both are fixable once.
 
 ### 9.5 Fixed: the resize that lands on a built-in split's creation ratio
 
