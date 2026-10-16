@@ -1,0 +1,154 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import StatusPill from '../../components/StatusPill.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Live Object Repeats"
+  description="Create editable grid, radial, and mirror repeats from a shared group source in Varve."
+>
+  <div class="container-custom">
+    <main class="live-repeat-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Live Object Repeats
+      </nav>
+
+      <header class="feature-heading">
+        <StatusPill status="experimental" label="Source-build preview" />
+        <h1>Repeat the group. Keep its source editable.</h1>
+        <p class="feature-intro">
+          Grid, radial, and mirror arrangements stay attached to a group. Change its source
+          artwork, then tune the repeat in the Inspector without replacing the authored shapes with
+          a pile of copies.
+        </p>
+      </header>
+
+      <section class="feature-section" aria-labelledby="repeat-controls">
+        <h2 id="repeat-controls">Three arrangements, one source group</h2>
+        <div class="capability-grid">
+          <article>
+            <h3>Grid</h3>
+            <p>Set row and column counts and horizontal or vertical spacing.</p>
+          </article>
+          <article>
+            <h3>Radial</h3>
+            <p>Set the instance count, sweep, and rotation center. A full turn avoids a doubled seam.</p>
+          </article>
+          <article>
+            <h3>Mirror</h3>
+            <p>Choose either or both local axes and set the reflection center.</p>
+          </article>
+        </div>
+        <p>
+          The children remain the authored source. Selecting a repeated group exposes numeric
+          controls in the Inspector; editing a source child updates the evaluated instances. The
+          repeat recipe is part of the document model and survives codec save/reopen.
+        </p>
+      </section>
+
+      <aside class="boundary-card" aria-labelledby="repeat-boundaries">
+        <h2 id="repeat-boundaries">Current boundaries</h2>
+        <ul>
+          <li>Repeat placement is edited numerically in the Inspector; direct canvas handles are not available yet.</li>
+          <li>Release or expand into independent artwork is not available yet.</li>
+          <li>Generation is capped at 512 instances to bound render and hit-test work.</li>
+          <li>SVG, PDF, and raster export fidelity for object repeats has not been independently qualified. This page makes no interchange editability claim.</li>
+        </ul>
+      </aside>
+
+      <p class="related-link">
+        Object repeats arrange scene artwork. See <a href={sitePath('/features/patterns')}>reusable
+        patterns</a> for repeating paint inside a shape with a separate definition workflow.
+      </p>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .live-repeat-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: var(--space-8) 0;
+  }
+
+  .breadcrumb {
+    color: var(--text-secondary);
+    font-size: var(--type-interface-readout-size);
+    margin-bottom: var(--space-6);
+  }
+
+  .breadcrumb a,
+  .related-link a {
+    color: var(--text-link);
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+  }
+
+  .feature-heading h1 {
+    color: var(--text-primary);
+    font-family: var(--font-editorial);
+    font-size: var(--type-marketing-hero-size);
+    line-height: 1.08;
+    margin: var(--space-4) 0;
+  }
+
+  .feature-intro {
+    color: var(--text-secondary);
+    font-size: var(--type-content-lead-size);
+    line-height: 1.6;
+    max-width: 42rem;
+  }
+
+  .feature-section,
+  .boundary-card {
+    margin-top: var(--space-8);
+  }
+
+  .feature-section h2,
+  .boundary-card h2 {
+    color: var(--text-primary);
+    font-size: var(--type-display-section-size);
+    margin-bottom: var(--space-4);
+  }
+
+  .feature-section p,
+  .boundary-card li,
+  .related-link {
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .capability-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  .capability-grid article,
+  .boundary-card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    padding: var(--space-4);
+  }
+
+  .capability-grid h3 {
+    color: var(--text-primary);
+    margin: 0 0 var(--space-2);
+  }
+
+  .capability-grid p,
+  .boundary-card ul {
+    margin: 0;
+  }
+
+  .boundary-card li + li {
+    margin-top: var(--space-2);
+  }
+
+  .related-link {
+    margin-top: var(--space-6);
+  }
+</style>

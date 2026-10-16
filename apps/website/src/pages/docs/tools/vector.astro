@@ -69,6 +69,22 @@ import '../../../styles/docs-prose.css';
       </section>
 
       <section class="docs-section">
+        <h2>Live object repeats</h2>
+        <p>
+          Select a group to edit its live Grid, Radial, or Mirror arrangement in the Inspector.
+          The group's child layers remain its authored source, so edits to those children feed the
+          evaluated instances. Grid count and spacing, radial count/sweep/center, and mirror axes
+          and center are numeric controls. Generation is capped at 512 instances.
+        </p>
+        <p>
+          These are scene-object generators, separate from <a href={sitePath('/features/patterns')}>pattern fills</a>,
+          which repeat paint inside shapes. Canvas handles, release/expand, and independently
+          verified SVG/PDF/raster output are not available yet. See the{' '}
+          <a href={sitePath('/features/live-object-repeats')}>live repeat status page</a> for the current boundaries.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Pencil Tool <code>Shift+P</code></h2>
         <p>
           The Pencil tool enables freehand drawing. Click and drag to draw a path that follows your cursor. Behind the scenes, Varve applies two stages of refinement:
