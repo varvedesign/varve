@@ -191,6 +191,15 @@ describe('morph interpolation', () => {
     expect(a[1]).toBeCloseTo(-Math.SQRT1_2, 5);
   });
 
+  it('uses deterministic element-wise interpolation for a singular endpoint', () => {
+    const fromNode = engineNode({ id: 'f', transform: identity });
+    const toNode = engineNode({ id: 't', transform: [0, 0, 0, 1, 10, 20] });
+    const geometry = { frameWorldFrom: identity, frameWorldTo: identity };
+    const middle = sampleMorphPairOverride(fromNode, toNode, geometry, 0.5);
+
+    expect(middle.transform).toEqual([0.5, 0, 0, 1, 5, 10]);
+  });
+
   it('maps interpolated geometry back through the incoming frame world', () => {
     const frameFrom = translate(0, 0);
     const frameTo = translate(1920, 0);

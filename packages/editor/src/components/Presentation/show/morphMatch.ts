@@ -162,7 +162,14 @@ function interpolateLocal(from: Affine, to: Affine, t: number): Affine | null {
   const b = decomposeOrThrow(to);
   if (!a || !b) {
     // Element-wise fallback for degenerate endpoints; still deterministic.
-    return from.map((value, index) => value + (to[index]! - value) * t) as Affine;
+    return [
+      from[0] + (to[0] - from[0]) * t,
+      from[1] + (to[1] - from[1]) * t,
+      from[2] + (to[2] - from[2]) * t,
+      from[3] + (to[3] - from[3]) * t,
+      from[4] + (to[4] - from[4]) * t,
+      from[5] + (to[5] - from[5]) * t,
+    ];
   }
   // Shortest-arc rotation: never spin the long way around.
   const twoPi = Math.PI * 2;
