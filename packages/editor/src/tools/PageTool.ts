@@ -22,6 +22,13 @@ import type { CursorSpec, GestureResult, ToolContext, ToolCursorState, ToolId } 
 export const MIN_PAGE_SIZE = 50;
 /** Corner handle hit tolerance in CSS px (screen-constant). */
 const HANDLE_TOLERANCE_CSS_PX = 10;
+/**
+ * Touch has no hover affordance and a wide contact patch; the resize corners
+ * keep the 24 CSS px target floor in screen space. The division by zoom at
+ * the use site converts this into world units against the page geometry, so
+ * the tolerance stays screen-space regardless of camera.
+ */
+const PAGE_HANDLE_TOUCH_TOLERANCE_CSS_PX = 24;
 
 type Corner = readonly [1 | -1, 1 | -1];
 
@@ -99,7 +106,10 @@ export class PageTool extends BaseTool {
     if (activePage) {
       const placed = resolvePageTrim(ctx, activePage);
       if (placed) {
-        const tolerance = HANDLE_TOLERANCE_CSS_PX / ctx.zoom;
+        const tolerance =
+          (e.pointerType === 'touch'
+            ? PAGE_HANDLE_TOUCH_TOLERANCE_CSS_PX
+            : HANDLE_TOLERANCE_CSS_PX) / ctx.zoom;
         const corner = cornerUnderPoint(placed, world, tolerance);
         if (corner) {
           this.gesture = {

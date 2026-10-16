@@ -31,7 +31,11 @@ import { findPathTopologyDependency, pathTopologyBlockMessage } from '../pathTop
 import { nodeWorldTransform } from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
-import { findNodeEditHit, type NodeEditHit } from './nodeEditGeometry';
+import {
+  findNodeEditHit,
+  type NodeEditHit,
+  nodeEditTolerancesForPointer,
+} from './nodeEditGeometry';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 type PathShape = Extract<ShapeNode['shape'], { kind: 'path' }>;
@@ -287,6 +291,7 @@ export class NodeEditTool extends BaseTool {
       worldTransform,
       screen,
       (point) => ctx.worldToCanvas(point.x, point.y),
+      nodeEditTolerancesForPointer(e.pointerType),
     );
     if (!hit) {
       if (!e.shiftKey && !(e.pointerType === 'touch' && ctx.touchMultiSelect.active)) {
@@ -472,6 +477,7 @@ export class NodeEditTool extends BaseTool {
       worldTransform,
       pointerScreen(ctx, e),
       (point) => ctx.worldToCanvas(point.x, point.y),
+      nodeEditTolerancesForPointer(e.pointerType),
     );
     if (hit?.kind !== 'segment') return;
     const inserted = insertPointOnPath(target.shape, hit.ringIndex, hit.segmentIndex, hit.t);

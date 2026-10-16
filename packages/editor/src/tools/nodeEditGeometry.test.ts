@@ -1,6 +1,11 @@
 import type { PathPoint } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
-import { findNodeEditHit } from './nodeEditGeometry';
+import {
+  DEFAULT_NODE_EDIT_TOLERANCES,
+  findNodeEditHit,
+  nodeEditTolerancesForPointer,
+  TOUCH_NODE_EDIT_TOLERANCES,
+} from './nodeEditGeometry';
 
 const point = (x: number, y: number, handleOut: [number, number] | null = null): PathPoint => ({
   x,
@@ -57,5 +62,44 @@ describe('node edit screen-space hit testing', () => {
     expect(hit?.kind).toBe('segment');
     expect(hit && hit.kind === 'segment' ? hit.ringIndex : -1).toBe(1);
     expect(hit && hit.kind === 'segment' ? hit.segmentIndex : -1).toBe(2);
+  });
+
+  it('keeps mouse/pen tolerances at the tight defaults', () => {
+    expect(nodeEditTolerancesForPointer('mouse')).toBe(DEFAULT_NODE_EDIT_TOLERANCES);
+    expect(nodeEditTolerancesForPointer('pen')).toBe(DEFAULT_NODE_EDIT_TOLERANCES);
+    expect(nodeEditTolerancesForPointer(undefined)).toBe(DEFAULT_NODE_EDIT_TOLERANCES);
+    expect(nodeEditTolerancesForPointer('touch')).toBe(TOUCH_NODE_EDIT_TOLERANCES);
+  });
+
+  it('grows touch tolerance in screen space without moving geometry', () => {
+    const rings = [[point(0, 0), point(200, 0)]];
+    // (10,10) sits 14px from the anchor and 10px above the segment: a miss for
+    // the precise-pointer radii, an anchor hit for the touch radii.
+    const pointer = { x: 10, y: 10 };
+    expect(findNodeEditHit(rings, false, [1, 0, 0, 1, 0, 0], pointer, (world) => world)).toBeNull();
+    expect(
+      findNodeEditHit(
+        rings,
+        false,
+        [1, 0, 0, 1, 0, 0],
+        pointer,
+        (world) => world,
+        TOUCH_NODE_EDIT_TOLERANCES,
+      ),
+    ).toEqual({ kind: 'anchor', anchorIdx: 0 });
+  });
+
+  it('resolves dense anchors predictably under touch tolerance (nearest wins)', () => {
+    const rings = [[point(0, 0), point(20, 0), point(40, 0)]];
+    // Equidistant-ish tap between anchors 0 and 1 must pick the nearest one.
+    const hit = findNodeEditHit(
+      rings,
+      false,
+      [1, 0, 0, 1, 0, 0],
+      { x: 13, y: 0 },
+      (world) => world,
+      TOUCH_NODE_EDIT_TOLERANCES,
+    );
+    expect(hit).toEqual({ kind: 'anchor', anchorIdx: 1 });
   });
 });

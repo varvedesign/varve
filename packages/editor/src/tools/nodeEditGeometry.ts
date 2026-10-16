@@ -6,6 +6,37 @@ export const NODE_ANCHOR_HIT_RADIUS_CSS_PX = 8;
 export const NODE_HANDLE_HIT_RADIUS_CSS_PX = 7;
 export const NODE_SEGMENT_HIT_RADIUS_CSS_PX = 9;
 
+/**
+ * Screen-space pointer tolerances for one hit test. Mouse and pen are precise
+ * pointers and keep the tight radii; touch grows them without touching the
+ * authored geometry (WCAG 2.5.8's 24 CSS px floor; 2.5.5's 44 px stays a
+ * goal for chrome, not for on-canvas geometry targets). Nearest-wins
+ * selection keeps overlapping dense anchors predictable.
+ */
+export interface NodeEditHitTolerances {
+  anchor: number;
+  handle: number;
+  segment: number;
+}
+
+export const DEFAULT_NODE_EDIT_TOLERANCES: NodeEditHitTolerances = {
+  anchor: NODE_ANCHOR_HIT_RADIUS_CSS_PX,
+  handle: NODE_HANDLE_HIT_RADIUS_CSS_PX,
+  segment: NODE_SEGMENT_HIT_RADIUS_CSS_PX,
+};
+
+export const TOUCH_NODE_EDIT_TOLERANCES: NodeEditHitTolerances = {
+  anchor: 24,
+  handle: 24,
+  segment: 12,
+};
+
+export function nodeEditTolerancesForPointer(
+  pointerType: string | undefined | null,
+): NodeEditHitTolerances {
+  return pointerType === 'touch' ? TOUCH_NODE_EDIT_TOLERANCES : DEFAULT_NODE_EDIT_TOLERANCES;
+}
+
 export type NodeEditHit =
   | { kind: 'anchor'; anchorIdx: number }
   | { kind: 'handle'; anchorIdx: number; which: 'in' | 'out' }
@@ -79,7 +110,8 @@ function closestScreenParameter(
  * Hit-test anchors, handles, then segments in screen space. The projection
  * callback is the same full camera pipeline used by the renderer, so this
  * remains correct under rotation, floating origin, shear, and non-uniform
- * scale. The radii are deliberately CSS pixels and never divided by zoom.
+ * scale. The radii are deliberately CSS pixels and never divided by zoom;
+ * touch callers pass {@link TOUCH_NODE_EDIT_TOLERANCES}.
  */
 export function findNodeEditHit(
   rings: readonly (readonly PathPoint[])[],
@@ -87,6 +119,7 @@ export function findNodeEditHit(
   worldTransform: Affine,
   pointer: ScreenPoint,
   project: (world: { x: number; y: number }) => ScreenPoint,
+  tolerances: NodeEditHitTolerances = DEFAULT_NODE_EDIT_TOLERANCES,
 ): NodeEditHit | null {
   let offset = 0;
   let nearestAnchor: { index: number; dist: number } | null = null;
@@ -98,10 +131,7 @@ export function findNodeEditHit(
       const anchor = projectedPoint(worldTransform, [point.x, point.y], project);
       if (anchor) {
         const dist = Math.sqrt(distanceSquared(anchor, pointer));
-        if (
-          dist <= NODE_ANCHOR_HIT_RADIUS_CSS_PX &&
-          (!nearestAnchor || dist < nearestAnchor.dist)
-        ) {
+        if (dist <= tolerances.anchor && (!nearestAnchor || dist < nearestAnchor.dist)) {
           nearestAnchor = { index: offset + index, dist };
         }
       }
@@ -115,10 +145,7 @@ export function findNodeEditHit(
         );
         if (!control) continue;
         const dist = Math.sqrt(distanceSquared(control, pointer));
-        if (
-          dist <= NODE_HANDLE_HIT_RADIUS_CSS_PX &&
-          (!nearestHandle || dist < nearestHandle.dist)
-        ) {
+        if (dist <= tolerances.handle && (!nearestHandle || dist < nearestHandle.dist)) {
           nearestHandle = { anchorIdx: offset + index, which, dist };
         }
       }
@@ -153,7 +180,7 @@ export function findNodeEditHit(
         project,
       );
       if (
-        candidate.dist <= NODE_SEGMENT_HIT_RADIUS_CSS_PX &&
+        candidate.dist <= tolerances.segment &&
         (!nearestSegment || candidate.dist < nearestSegment.dist)
       ) {
         nearestSegment = { ringIndex, segmentIndex, ...candidate };
