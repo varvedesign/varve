@@ -146,6 +146,47 @@ refused entry is never stored, so the layer paid the whole-layer conversion and
 the whole-stringify again on every frame. See
 `docs/perf/2026-10-16-raster-tile-transport.md`.
 
+**D6 - Bounded row-band threads in the native effect kernels (implemented).**
+The only raster compute that can use more than one core today is the native
+desktop path: `apply_live_effect_binary` runs `varve-effects` on one blocking
+thread per request, at up to 8192x4096. The kernels compute every output pixel
+from read-only input with fixed-order arithmetic, so disjoint bands of output
+rows can run on different threads without changing a byte.
+
+- `varve_effects::parallel::Execution` is the policy. `bounded()` (what
+  `apply_effect` uses) takes at most 4 threads, caller included, never the last
+  free core (a two-core machine runs scalar), no thread for less than 128 Ki
+  output bytes per band, and `VARVE_EFFECT_THREADS` can lower it. `scalar()` is
+  the same code as one band and stays selectable (`apply_effect_with`).
+  `std::thread::scope` only: no pool, no `unsafe`, nothing outlives the call.
+- Parallel stages: gaussian blur (both passes and the sRGB conversions), box
+  downsample and bilinear upsample, bloom (bright pass, streak, combine,
+  composite), light shafts (occlusion, ray march, scatter blur, composite), RGB
+  split, CRT (main pass, glow blur, glow blend), light leak, and the caustics
+  wave field.
+- **Deliberately serial.** Dither and VHS are not banded (error diffusion carries
+  state across pixels; VHS and lens flare cost ~0.1 s at 4 MP). The caustics
+  composite stays serial because it resamples `out` while writing it, so a pixel
+  can read one an earlier pixel already replaced; that order is part of the
+  output and the output must not change.
+- **Correctness oracle.** `tests/parallel_parity.rs` pins FNV-1a checksums of
+  29 cases (every effect, border modes, quality tiers, degenerate 1xN / Nx1 /
+  2-row / 3-row images) generated from the pre-parallel kernels, and asserts the
+  scalar path, 2/3/4 forced bands, and the default policy reproduce them. The
+  TypeScript-fixture agreement tests now also run under scalar, 2 and 4 forced
+  bands, so the parallel output is held to the TS reference bytes themselves.
+- Measured (`cargo run --release -p varve-effects --example effect_cost 2048`,
+  4 MP, 4 threads, machine load average 6-8, single runs): light shafts 4.26 s ->
+  1.64 s at export quality (2.6x), CRT 0.70 -> 0.21 s (3.4x), bloom 1.24 -> 0.58 s
+  (2.1x), light leak 0.60 -> 0.20 s (3.0x), RGB split 0.23 -> 0.12 s (2.0x),
+  caustics 1.32 -> 0.75 s (1.8x); dither, VHS, lens flare, palette snap ~1.0x. Every
+  output byte-identical to the scalar path.
+- **No SIMD claim.** `unsafe_code` is denied workspace-wide and `std::simd` is
+  unstable, so there is no explicit SIMD here, and whether LLVM auto-vectorized
+  any f64 loop was not inspected. Nothing in this ADR is evidence of SIMD
+  acceleration. The WASM engine route stays blocked as described under Open
+  items.
+
 ## Alternatives considered
 
 - **Faster SHA only.** An 8-round unrolled core measured ~1.4x under load;
@@ -223,9 +264,10 @@ that). `strictlyIdentical` is one-sided: `true` implies equal canonical bytes,
   tile store verifies each blob it is given. Persisting the digests with the
   document would remove the hash pass; it is a file-format change and is not
   proposed here.
-- Threaded/SIMD raster kernel: requires a built engine WASM artifact,
-  `wasm-opt`, and a COOP/COEP determination for the Tauri webview; a
-  candidate is the TypeScript separable blur for radius > 32 px. Verified
+- Threaded/SIMD raster kernel in the **web/WASM** engine: requires a built
+  engine WASM artifact, `wasm-opt`, and a COOP/COEP determination for the Tauri
+  webview; a candidate is the TypeScript separable blur for radius > 32 px.
+  (The native desktop kernels are threaded, D6; SIMD is unclaimed everywhere.) Verified
   2026-10-16: no engine artifact is present in `apps/desktop/public/wasm/`
   (only the colour engine), the WASM surface contains no raster pixel kernel, a
   threaded `wasm32-unknown-unknown` build needs a nightly `-Z build-std`, and

@@ -2,12 +2,16 @@
 //!
 //! Usage: `cargo run --release -p varve-effects --example effect_cost [size]`
 //!
-//! Reports wall-clock time per effect on a deterministic synthetic raster so
-//! the native GPU backend has a measured baseline to beat.
+//! Reports wall-clock time per effect on a deterministic synthetic raster, once
+//! on the single-threaded scalar path and once under the bounded row-band
+//! policy `apply_effect` uses, and checks the two outputs are byte-identical.
+//! The native GPU backend has this as its measured baseline to beat. Set
+//! `VARVE_EFFECT_THREADS=1` to see what a one-thread policy reports.
 
 use std::time::Instant;
 
-use varve_effects::{apply_effect, EffectKind, EffectQuality, EffectRequest};
+use varve_effects::parallel::Execution;
+use varve_effects::{apply_effect_with, EffectKind, EffectQuality, EffectRequest};
 
 fn synthetic_rgba(width: u32, height: u32) -> Vec<u8> {
     let mut out = vec![0u8; (width as usize) * (height as usize) * 4];
@@ -47,8 +51,12 @@ fn main() {
         EffectKind::Caustics,
     ];
 
+    let bounded = Execution::bounded();
     for quality in [EffectQuality::Interactive, EffectQuality::Export] {
-        println!("varve-effects CPU cost — {width}x{height} RGBA, quality={quality:?}");
+        println!(
+            "varve-effects CPU cost — {width}x{height} RGBA, quality={quality:?}, bounded policy = {} thread(s)",
+            bounded.threads()
+        );
         for kind in kinds {
             let request = EffectRequest {
                 effect: kind,
@@ -59,12 +67,18 @@ fn main() {
                 params: serde_json::json!({}),
             };
             let start = Instant::now();
-            match apply_effect(&request, &input) {
-                Ok(_) => {
-                    let ms = start.elapsed().as_secs_f64() * 1000.0;
-                    println!("{kind:?}: {ms:.1} ms");
-                }
-                Err(err) => println!("{kind:?}: error: {err}"),
+            let scalar = apply_effect_with(&request, &input, Execution::scalar());
+            let scalar_ms = start.elapsed().as_secs_f64() * 1000.0;
+            let start = Instant::now();
+            let parallel = apply_effect_with(&request, &input, bounded);
+            let parallel_ms = start.elapsed().as_secs_f64() * 1000.0;
+            match (scalar, parallel) {
+                (Ok(a), Ok(b)) => println!(
+                    "{kind:?}: scalar {scalar_ms:.1} ms, bounded {parallel_ms:.1} ms ({:.2}x), identical: {}",
+                    scalar_ms / parallel_ms,
+                    a == b
+                ),
+                (Err(err), _) | (_, Err(err)) => println!("{kind:?}: error: {err}"),
             }
         }
     }

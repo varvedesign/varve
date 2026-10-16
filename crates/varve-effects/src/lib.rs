@@ -27,11 +27,13 @@ pub mod light_leak;
 pub mod light_shafts;
 pub mod palette_core;
 pub mod palette_snap;
+pub mod parallel;
 pub mod prng;
 pub mod quality;
 pub mod rgb_split;
 pub mod vhs;
 
+use parallel::Execution;
 use serde::{Deserialize, Serialize};
 
 /// Live-effect kinds — mirrors `AdjustmentKind` for the live-effects family
@@ -212,8 +214,20 @@ pub fn validate_surface(width: u32, height: u32, rgba_len: usize) -> Result<(), 
     Ok(())
 }
 
-/// Apply a live effect to RGBA bytes in place, returning the result.
+/// Apply a live effect to RGBA bytes, returning the result, using bounded
+/// row-band parallelism ([`Execution::bounded`]). Output is byte-identical to
+/// [`apply_effect_with`] under [`Execution::scalar`].
 pub fn apply_effect(request: &EffectRequest, rgba: &[u8]) -> Result<Vec<u8>, String> {
+    apply_effect_with(request, rgba, Execution::bounded())
+}
+
+/// [`apply_effect`] under an explicit execution policy. [`Execution::scalar`]
+/// is the single-threaded diagnostic path.
+pub fn apply_effect_with(
+    request: &EffectRequest,
+    rgba: &[u8],
+    exec: Execution,
+) -> Result<Vec<u8>, String> {
     validate_surface(request.width, request.height, rgba.len())?;
     let params = Params::new(&request.params);
     let coord = request.coord_space.unwrap_or_default();
@@ -225,18 +239,24 @@ pub fn apply_effect(request: &EffectRequest, rgba: &[u8]) -> Result<Vec<u8>, Str
         EffectKind::PaletteSnap => {
             palette_snap::apply(&mut out, request.width, request.height, &params)
         }
-        EffectKind::Bloom => bloom::apply(
+        EffectKind::Bloom => bloom::apply_with(
             &mut out,
             request.width,
             request.height,
             &params,
             request.quality,
             coord,
+            exec,
         )?,
-        EffectKind::RgbSplit => {
-            rgb_split::apply(&mut out, request.width, request.height, &params, coord)
-        }
-        EffectKind::Crt => crt::apply(&mut out, request.width, request.height, &params),
+        EffectKind::RgbSplit => rgb_split::apply_with(
+            &mut out,
+            request.width,
+            request.height,
+            &params,
+            coord,
+            exec,
+        ),
+        EffectKind::Crt => crt::apply_with(&mut out, request.width, request.height, &params, exec),
         EffectKind::Vhs => vhs::apply(
             &mut out,
             request.width,
@@ -244,12 +264,13 @@ pub fn apply_effect(request: &EffectRequest, rgba: &[u8]) -> Result<Vec<u8>, Str
             &params,
             request.quality,
         ),
-        EffectKind::LightShafts => light_shafts::apply(
+        EffectKind::LightShafts => light_shafts::apply_with(
             &mut out,
             request.width,
             request.height,
             &params,
             request.quality,
+            exec,
         ),
         EffectKind::LensFlare => lens_flare::apply(
             &mut out,
@@ -259,15 +280,16 @@ pub fn apply_effect(request: &EffectRequest, rgba: &[u8]) -> Result<Vec<u8>, Str
             request.quality,
         ),
         EffectKind::LightLeak => {
-            light_leak::apply(&mut out, request.width, request.height, &params)
+            light_leak::apply_with(&mut out, request.width, request.height, &params, exec)
         }
-        EffectKind::Caustics => caustics::apply(
+        EffectKind::Caustics => caustics::apply_with(
             &mut out,
             request.width,
             request.height,
             &params,
             request.quality,
             coord,
+            exec,
         )?,
     }
     Ok(out)

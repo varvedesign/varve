@@ -216,8 +216,10 @@ pairing defect is not present on the paths read: `beginTransaction` and the
 
 ## Not done (and why)
 
-Threaded/SIMD raster kernel and a cached-composition dependency graph beyond the
-raster key are not implemented; see ADR-0241 "Open items".
+The WASM/web threaded or SIMD raster kernel and a cached-composition
+dependency graph beyond the raster key are not implemented; see ADR-0241 "Open
+items". (The native desktop effect kernels are threaded, ADR-0241 D6, with
+no SIMD claim.)
 
 Verified this session about the WASM route, so the gap is stated precisely
 rather than assumed:

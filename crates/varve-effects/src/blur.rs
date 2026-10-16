@@ -2,6 +2,7 @@
 //! `packages/engine/src/blur.ts` (`gaussianBlurLinearLight` +
 //! `gaussianBlurSeparable`). Used by the bloom kernel.
 
+use crate::parallel::{for_each_row_band, Execution};
 use crate::{clamp_byte, js_round, prng::srgb_to_linear};
 
 fn clamp_edge(x: i64, size: i64) -> i64 {
@@ -68,60 +69,75 @@ fn unpremultiply(data: &mut [u8]) {
 }
 
 /// Convolve with a 1D kernel in one direction — port of `convolve1D`.
+///
+/// Each output pixel is computed independently from `src` with the taps summed
+/// in kernel order, so spreading output rows over `exec`'s bands cannot change a
+/// byte. (The vertical pass used to walk column by column; row order gives the
+/// same per-pixel arithmetic and a sequential write pattern.)
 #[allow(clippy::too_many_arguments)]
-fn convolve1d(src: &[u8], dst: &mut [u8], w: u32, h: u32, kernel: &[f64], horizontal: bool) {
+fn convolve1d(
+    src: &[u8],
+    dst: &mut [u8],
+    w: u32,
+    h: u32,
+    kernel: &[f64],
+    horizontal: bool,
+    exec: Execution,
+) {
     let radius = (kernel.len() as i64 - 1) / 2;
     let w = w as i64;
     let h = h as i64;
-    if horizontal {
-        for y in 0..h {
+    let row_len = (w * 4) as usize;
+    for_each_row_band(dst, row_len, exec, |first_row, band| {
+        for (ry, row) in band.chunks_mut(row_len).enumerate() {
+            let y = (first_row + ry) as i64;
             for x in 0..w {
                 let mut r = 0.0f64;
                 let mut g = 0.0f64;
                 let mut b = 0.0f64;
                 let mut a = 0.0f64;
-                for (k, kw) in kernel.iter().enumerate() {
-                    let sx = clamp_edge(x + k as i64 - radius, w);
-                    let idx = ((y * w + sx) * 4) as usize;
-                    r += src[idx] as f64 * kw;
-                    g += src[idx + 1] as f64 * kw;
-                    b += src[idx + 2] as f64 * kw;
-                    a += src[idx + 3] as f64 * kw;
+                if horizontal {
+                    for (k, kw) in kernel.iter().enumerate() {
+                        let sx = clamp_edge(x + k as i64 - radius, w);
+                        let idx = ((y * w + sx) * 4) as usize;
+                        r += src[idx] as f64 * kw;
+                        g += src[idx + 1] as f64 * kw;
+                        b += src[idx + 2] as f64 * kw;
+                        a += src[idx + 3] as f64 * kw;
+                    }
+                } else {
+                    for (k, kw) in kernel.iter().enumerate() {
+                        let sy = clamp_edge(y + k as i64 - radius, h);
+                        let idx = ((sy * w + x) * 4) as usize;
+                        r += src[idx] as f64 * kw;
+                        g += src[idx + 1] as f64 * kw;
+                        b += src[idx + 2] as f64 * kw;
+                        a += src[idx + 3] as f64 * kw;
+                    }
                 }
-                let idx = ((y * w + x) * 4) as usize;
-                dst[idx] = clamp_byte(r);
-                dst[idx + 1] = clamp_byte(g);
-                dst[idx + 2] = clamp_byte(b);
-                dst[idx + 3] = clamp_byte(a);
+                let idx = (x * 4) as usize;
+                row[idx] = clamp_byte(r);
+                row[idx + 1] = clamp_byte(g);
+                row[idx + 2] = clamp_byte(b);
+                row[idx + 3] = clamp_byte(a);
             }
         }
-    } else {
-        for x in 0..w {
-            for y in 0..h {
-                let mut r = 0.0f64;
-                let mut g = 0.0f64;
-                let mut b = 0.0f64;
-                let mut a = 0.0f64;
-                for (k, kw) in kernel.iter().enumerate() {
-                    let sy = clamp_edge(y + k as i64 - radius, h);
-                    let idx = ((sy * w + x) * 4) as usize;
-                    r += src[idx] as f64 * kw;
-                    g += src[idx + 1] as f64 * kw;
-                    b += src[idx + 2] as f64 * kw;
-                    a += src[idx + 3] as f64 * kw;
-                }
-                let idx = ((y * w + x) * 4) as usize;
-                dst[idx] = clamp_byte(r);
-                dst[idx + 1] = clamp_byte(g);
-                dst[idx + 2] = clamp_byte(b);
-                dst[idx + 3] = clamp_byte(a);
-            }
-        }
-    }
+    });
 }
 
 /// Separable gaussian blur — port of `gaussianBlurSeparable`.
 pub fn gaussian_blur_separable(data: &[u8], w: u32, h: u32, radius: i64) -> Vec<u8> {
+    gaussian_blur_separable_with(data, w, h, radius, Execution::scalar())
+}
+
+/// [`gaussian_blur_separable`] with both passes spread over `exec`'s bands.
+pub fn gaussian_blur_separable_with(
+    data: &[u8],
+    w: u32,
+    h: u32,
+    radius: i64,
+    exec: Execution,
+) -> Vec<u8> {
     let pixels_len = (w * h * 4) as usize;
     if radius <= 0 {
         return data.to_vec();
@@ -136,8 +152,16 @@ pub fn gaussian_blur_separable(data: &[u8], w: u32, h: u32, radius: i64) -> Vec<
         let kernel = gaussian_kernel(small_radius);
         premultiply(&mut small_data);
         let mut tmp = vec![0u8; small_data.len()];
-        convolve1d(&small_data, &mut tmp, small_w, small_h, &kernel, true);
-        convolve1d(&tmp, &mut small_data, small_w, small_h, &kernel, false);
+        convolve1d(&small_data, &mut tmp, small_w, small_h, &kernel, true, exec);
+        convolve1d(
+            &tmp,
+            &mut small_data,
+            small_w,
+            small_h,
+            &kernel,
+            false,
+            exec,
+        );
         unpremultiply(&mut small_data);
         return upsample_nearest(&small_data, small_w, small_h, w, h);
     }
@@ -146,8 +170,8 @@ pub fn gaussian_blur_separable(data: &[u8], w: u32, h: u32, radius: i64) -> Vec<
     premultiply(&mut pixels);
     let kernel = gaussian_kernel(radius);
     let mut tmp = vec![0u8; pixels_len];
-    convolve1d(&pixels, &mut tmp, w, h, &kernel, true);
-    convolve1d(&tmp, &mut pixels, w, h, &kernel, false);
+    convolve1d(&pixels, &mut tmp, w, h, &kernel, true, exec);
+    convolve1d(&tmp, &mut pixels, w, h, &kernel, false, exec);
     unpremultiply(&mut pixels);
     pixels
 }
@@ -195,33 +219,51 @@ fn upsample_nearest(src: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) 
 /// Gaussian blur in linear light — port of `gaussianBlurLinearLight` in
 /// blur.ts. Returns a new buffer; input untouched.
 pub fn gaussian_blur_linear_light(data: &[u8], w: u32, h: u32, radius: i64) -> Vec<u8> {
+    gaussian_blur_linear_light_with(data, w, h, radius, Execution::scalar())
+}
+
+/// [`gaussian_blur_linear_light`] with the colour conversions and both blur
+/// passes spread over `exec`'s bands. The transfer curves call `powf` per
+/// channel, which costs as much as the convolution at small radii.
+pub fn gaussian_blur_linear_light_with(
+    data: &[u8],
+    w: u32,
+    h: u32,
+    radius: i64,
+    exec: Execution,
+) -> Vec<u8> {
     if radius <= 0 {
         return data.to_vec();
     }
+    let row_len = (w * 4) as usize;
     let mut pixels = data.to_vec();
     // Convert to linear light: srgbToLinear on each RGB channel, stored back
     // as bytes (clamped) — matches the TS `clampByte(srgbToLinear(r) * 255)`.
-    for i in (0..pixels.len()).step_by(4) {
-        let r = pixels[i] as f64;
-        let g = pixels[i + 1] as f64;
-        let b = pixels[i + 2] as f64;
-        pixels[i] = clamp_byte(srgb_to_linear(r) * 255.0);
-        pixels[i + 1] = clamp_byte(srgb_to_linear(g) * 255.0);
-        pixels[i + 2] = clamp_byte(srgb_to_linear(b) * 255.0);
-    }
+    for_each_row_band(&mut pixels, row_len, exec, |_, band| {
+        for i in (0..band.len()).step_by(4) {
+            let r = band[i] as f64;
+            let g = band[i + 1] as f64;
+            let b = band[i + 2] as f64;
+            band[i] = clamp_byte(srgb_to_linear(r) * 255.0);
+            band[i + 1] = clamp_byte(srgb_to_linear(g) * 255.0);
+            band[i + 2] = clamp_byte(srgb_to_linear(b) * 255.0);
+        }
+    });
 
-    let blurred = gaussian_blur_separable(&pixels, w, h, radius);
+    let blurred = gaussian_blur_separable_with(&pixels, w, h, radius, exec);
 
     // Convert back to sRGB.
     let mut out = blurred;
-    for i in (0..out.len()).step_by(4) {
-        let r = out[i] as f64 / 255.0;
-        let g = out[i + 1] as f64 / 255.0;
-        let b = out[i + 2] as f64 / 255.0;
-        out[i] = js_round(srgb_to_linear_out(r)) as u8;
-        out[i + 1] = js_round(srgb_to_linear_out(g)) as u8;
-        out[i + 2] = js_round(srgb_to_linear_out(b)) as u8;
-    }
+    for_each_row_band(&mut out, row_len, exec, |_, band| {
+        for i in (0..band.len()).step_by(4) {
+            let r = band[i] as f64 / 255.0;
+            let g = band[i + 1] as f64 / 255.0;
+            let b = band[i + 2] as f64 / 255.0;
+            band[i] = js_round(srgb_to_linear_out(r)) as u8;
+            band[i + 1] = js_round(srgb_to_linear_out(g)) as u8;
+            band[i + 2] = js_round(srgb_to_linear_out(b)) as u8;
+        }
+    });
     out
 }
 
