@@ -1065,3 +1065,53 @@
   border: 1px solid var(--color-border-strong);
   background: var(--elevation-surface-sunken);
 }
+
+/* ── Codegen preview (SVG / HTML targets) ─────────────── */
+.spec-codegen__preview-toggle {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--elevation-surface);
+  color: var(--color-text);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.spec-codegen__preview-toggle[aria-pressed="true"] {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent);
+}
+
+.spec-codegen__preview-widths {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.spec-codegen__preview-widths button {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--elevation-surface);
+  color: var(--color-text-muted);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.spec-codegen__preview-widths button[aria-pressed="true"] {
+  color: var(--color-text);
+  border-color: var(--color-accent);
+}
+
+.spec-codegen__preview {
+  width: 100%;
+  min-height: 220px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+.spec-codegen__preview-note {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  margin: 0;
+}
