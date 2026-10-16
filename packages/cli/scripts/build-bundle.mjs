@@ -30,6 +30,14 @@ const result = buildSync({
   outfile,
   logLevel: 'error',
   legalComments: 'none',
+  // Ship a production build. Without this the bundle inherits whatever
+  // NODE_ENV the user's shell happens to have (usually none), and the scene
+  // package's development-only `devValidate` re-validates the WHOLE document
+  // after every operation: a create on a 4,000-node document took 1.3 to 2.3 s
+  // for that diagnostic alone. The executor validates every command's input and
+  // re-decodes every document it writes, so nothing here depends on the
+  // diagnostic. See docs/perf/agent-control-baseline-2026-10-16.md.
+  define: { 'process.env.NODE_ENV': '"production"' },
   // Some bundled dependencies are CommonJS and call require() at load time.
   banner: {
     js: "import { createRequire as __varveCreateRequire } from 'node:module';\nconst require = __varveCreateRequire(import.meta.url);",

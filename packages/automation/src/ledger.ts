@@ -16,11 +16,28 @@ interface StoredTransaction {
   before: Document;
   after: Document;
   touched: Touched;
+  /** Node-table entries this snapshot keeps alive (see `maxRetainedEntries`). */
+  weight: number;
 }
+
+/** About 37 MB of snapshots at observed cost; 200 transactions fit up to ~5,000 nodes. */
+export const DEFAULT_RETAINED_ENTRIES = 1_000_000;
 
 export interface LedgerOptions {
   /** Transactions retained for rollback; older ones expire. */
   maxTransactions?: number;
+  /**
+   * Upper bound on node-table entries kept alive across retained snapshots.
+   *
+   * A count of transactions is not a memory bound: every retained snapshot owns
+   * its own node table, so 200 transactions cost about 2 MB on a 1,000-node
+   * document, 38 MB on 5,000 and 75 MB on 10,000, and a 100,000-node document
+   * would hold three quarters of a gigabyte. Entries are the unit because they
+   * are what grows. The most recent transaction is always kept, so rolling back
+   * one's own last change works at any size; older ones expire sooner on large
+   * documents, and a request for one is told so (`HISTORY_EXPIRED`).
+   */
+  maxRetainedEntries?: number;
   /** Prefix for generated transaction ids. */
   idPrefix?: string;
 }
@@ -56,10 +73,13 @@ export class TransactionLedger {
   private sequence = 0;
   private expiredThrough = 0;
   private readonly max: number;
+  private readonly maxEntries: number;
+  private retainedEntries = 0;
   private readonly prefix: string;
 
   constructor(options: LedgerOptions = {}) {
     this.max = options.maxTransactions ?? 200;
+    this.maxEntries = options.maxRetainedEntries ?? DEFAULT_RETAINED_ENTRIES;
     this.prefix = options.idPrefix ?? 't';
   }
 
@@ -81,17 +101,29 @@ export class TransactionLedger {
       deleted: input.deleted,
       ...(input.revertsTransactionId ? { revertsTransactionId: input.revertsTransactionId } : {}),
     };
+    const weight = Object.keys(input.after.nodes).length;
     this.stored.push({
       record,
       before: input.before,
       after: input.after,
       touched: touchedBetween(input.before, input.after),
+      weight,
     });
-    while (this.stored.length > this.max) {
-      this.stored.shift();
+    this.retainedEntries += weight;
+    while (
+      this.stored.length > this.max ||
+      (this.retainedEntries > this.maxEntries && this.stored.length > 1)
+    ) {
+      const dropped = this.stored.shift() as StoredTransaction;
+      this.retainedEntries -= dropped.weight;
       this.expiredThrough += 1;
     }
     return record;
+  }
+
+  /** Node-table entries currently retained, for diagnostics and tests. */
+  get retained(): { transactions: number; entries: number } {
+    return { transactions: this.stored.length, entries: this.retainedEntries };
   }
 
   list(limit = 50): TransactionRecord[] {
@@ -118,7 +150,7 @@ export class TransactionLedger {
         return {
           ok: false,
           reason: 'expired',
-          message: `transaction ${transactionId} is older than the ${this.max} retained for rollback`,
+          message: `transaction ${transactionId} is older than the ${this.stored.length} most recent transactions retained for rollback`,
         };
       }
       return {

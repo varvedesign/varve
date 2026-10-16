@@ -608,6 +608,7 @@ The following dated files were moved from `docs/architecture/` to
 | `perf/ledger.md` | Performance benchmark ledger |
 | `perf/findings.md` | Performance findings |
 | `perf/webgl2-qualification.md` | Experimental WebGL2 compatibility and promotion evidence contract |
+| `perf/agent-control-baseline-2026-10-16.md` | Measured cost of the agent command layer and packaged CLI: latency, batch throughput, response sizes, retained memory, and two findings fixed |
 | `perf/*.md` | Dated performance investigations |
 
 ## Plans (historical)

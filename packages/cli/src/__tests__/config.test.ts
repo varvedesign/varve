@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -180,6 +188,16 @@ function tree(dir: string): string[] {
   }
   return found.sort();
 }
+
+describe('the packaged bundle', () => {
+  it('is a production build, so a development-only diagnostic cannot slow every edit', () => {
+    const text = readFileSync(bundle, 'utf8');
+    // `devValidate` re-validates the whole document after every operation unless
+    // NODE_ENV is "production". The bundle pins it, so no check reads the
+    // environment at all.
+    expect(text).not.toMatch(/process\.env\.NODE_ENV/);
+  });
+});
 
 describe('the printed configuration, run for real', () => {
   it('launches a server a real client can use, from a path with spaces and no PATH', async () => {
