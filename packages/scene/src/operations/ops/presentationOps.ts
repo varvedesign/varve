@@ -1,5 +1,9 @@
 import type { Document } from '../../document';
 import {
+  createBuiltInPresentationTheme,
+  findBuiltInPresentationTheme,
+} from '../../presentation/builtinThemes';
+import {
   detachPresentationLayout,
   resetPresentationLayoutOverrides,
 } from '../../presentation/layoutOverrides';
@@ -163,6 +167,12 @@ export interface PresentationThemeApplyPayload {
   themeId: string;
   /** Role to slide object. Defaults to the slide's layout roles. */
   roleNodes?: Partial<Record<PresentationThemeRole, NodeId>>;
+  /** Explicit opt-in: role typography reflows text. */
+  applyFonts?: boolean;
+}
+
+export interface PresentationBuiltInThemePayload {
+  themeId: string;
 }
 
 export interface PresentationThemeIdPayload {
@@ -638,6 +648,10 @@ function validateThemeApply(payload: unknown): ValidationResult<PresentationThem
       }
     }
   }
+  const applyFonts = payload.applyFonts;
+  if (applyFonts !== undefined && typeof applyFonts !== 'boolean') {
+    return { ok: false, errors: ['presentation.theme.apply applyFonts must be a boolean'] };
+  }
   return {
     ok: true,
     value: {
@@ -647,8 +661,19 @@ function validateThemeApply(payload: unknown): ValidationResult<PresentationThem
       ...(record(roleNodes)
         ? { roleNodes: roleNodes as PresentationThemeApplyPayload['roleNodes'] }
         : {}),
+      ...(typeof applyFonts === 'boolean' ? { applyFonts } : {}),
     },
   };
+}
+
+function validateBuiltInTheme(payload: unknown): ValidationResult<PresentationBuiltInThemePayload> {
+  if (!record(payload) || !nonEmptyString(payload.themeId)) {
+    return { ok: false, errors: ['presentation.theme.builtin.create requires themeId'] };
+  }
+  if (!findBuiltInPresentationTheme(payload.themeId)) {
+    return { ok: false, errors: [`unknown built-in presentation theme: ${payload.themeId}`] };
+  }
+  return { ok: true, value: { themeId: payload.themeId } };
 }
 
 function validateThemeId(payload: unknown): ValidationResult<PresentationThemeIdPayload> {
@@ -1438,6 +1463,26 @@ export function registerPresentationOperations(): void {
     maxPayloadBytes: 8_000,
   });
 
+  registerOperation<PresentationBuiltInThemePayload>({
+    type: 'presentation.theme.builtin.create',
+    schemaVersion: 1,
+    validate: validateBuiltInTheme,
+    apply: (document, payload) => createBuiltInPresentationTheme(document, payload.themeId),
+    summarize: (payload) => ({
+      label: `Add built-in presentation theme (${payload.themeId})`,
+      kind: 'create',
+      affectedEntityIds: [payload.themeId],
+    }),
+    affectedEntities: (payload) => [payload.themeId],
+    precondition: (document, payload) =>
+      document.presentation
+        ? findBuiltInPresentationTheme(payload.themeId)
+          ? null
+          : `unknown built-in presentation theme: ${payload.themeId}`
+        : 'A presentation deck is required before creating a theme.',
+    maxPayloadBytes: 1_000,
+  });
+
   registerOperation<PresentationThemeIdPayload>({
     type: 'presentation.theme.remove',
     schemaVersion: 1,
@@ -1467,6 +1512,7 @@ export function registerPresentationOperations(): void {
         payload.entryId,
         payload.themeId,
         payload.roleNodes,
+        { applyFonts: payload.applyFonts },
       ),
     summarize: () => ({
       label: 'Apply presentation theme',

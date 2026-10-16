@@ -253,11 +253,18 @@ export function removePresentationTheme(document: Document, themeId: string): Do
 }
 
 /**
- * Bind mapped slide objects to the theme's colour variables.
+ * Bind mapped slide objects to the theme's colour variables, optionally
+ * applying the theme's role text styles.
  *
  * `roleNodes` defaults to the slide's layout roles, so a slide laid out with
  * title/subtitle/accent roles is themed without remapping by hand. Returns the
  * document unchanged when nothing new would be bound.
+ *
+ * Font application is explicit (`applyFonts`), because role typography changes
+ * metrics and reflows text. The style pass follows the same local-override
+ * rule as colour: a node already carrying a foreign (non-theme) text style is
+ * deliberate work and keeps it; nodes carrying no style or a theme-owned one
+ * follow the theme's role styles.
  */
 export function applyPresentationTheme(
   document: Document,
@@ -265,6 +272,7 @@ export function applyPresentationTheme(
   entryId: string,
   themeId: string,
   roleNodes?: Partial<Record<PresentationThemeRole, NodeId>>,
+  options?: { applyFonts?: boolean },
 ): Document {
   const deck = findPresentationDeck(document, deckId);
   const entry = deck?.slides.find((slide) => slide.id === entryId);
@@ -295,6 +303,10 @@ export function applyPresentationTheme(
     } as SceneNode;
   }
 
+  if (options?.applyFonts) {
+    applyThemeTextStyles(document, nodes, theme, mapping);
+  }
+
   const metadata = document.presentation;
   if (!metadata) return document;
   // Record the theme even when every mapped object stayed local: the slide is
@@ -315,6 +327,34 @@ export function applyPresentationTheme(
       ),
     },
   };
+}
+
+/** Style ids owned by any presentation theme; carrying one means "follows the brand". */
+function presentationThemeStyleIds(document: Document): Set<string> {
+  const ids = new Set<string>();
+  for (const theme of document.presentation?.themes ?? []) {
+    for (const styleId of Object.values(theme.textStyles)) ids.add(styleId);
+  }
+  return ids;
+}
+
+function applyThemeTextStyles(
+  document: Document,
+  nodes: Record<NodeId, SceneNode>,
+  theme: PresentationTheme,
+  mapping: Partial<Record<PresentationThemeRole, NodeId>>,
+): void {
+  const owned = presentationThemeStyleIds(document);
+  for (const [role, styleId] of Object.entries(theme.textStyles)) {
+    const nodeId = mapping[role as PresentationThemeRole];
+    if (!nodeId) continue;
+    const node = nodes[nodeId];
+    if (!node) continue;
+    if (!document.styles?.[styleId]) continue;
+    const current = (node as { styleId?: string }).styleId;
+    if (current && !owned.has(current)) continue;
+    nodes[nodeId] = { ...node, styleId } as SceneNode;
+  }
 }
 
 /**
