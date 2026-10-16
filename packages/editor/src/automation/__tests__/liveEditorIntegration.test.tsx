@@ -1,0 +1,340 @@
+/**
+ * Connected-mode integration against the real `EditorProvider`.
+ *
+ * Nothing here fakes the editor: the document, the undo stack, the transaction
+ * layer and the render flush are the editor's own. The only stand-in is the
+ * publishing effect, which is what the shell's `registerEditorActions` effect
+ * does on every state change.
+ */
+import { act, render, waitFor } from '@testing-library/react';
+import type { HostConnection } from '@varve/automation';
+import { useEffect } from 'react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { EditorProvider, useEditor } from '../../context';
+import {
+  getAutomationController,
+  publishEditorToAutomation,
+  resetAutomationControllerForTesting,
+} from '../liveEditor';
+
+type Editor = ReturnType<typeof useEditor>;
+
+const CREDENTIAL = 'integration-secret';
+let editor: Editor | undefined;
+
+function Publisher() {
+  const ctx = useEditor();
+  editor = ctx;
+  useEffect(() => {
+    publishEditorToAutomation(ctx);
+  });
+  return null;
+}
+
+async function mount() {
+  render(
+    <EditorProvider>
+      <Publisher />
+    </EditorProvider>,
+  );
+  await waitFor(() => expect(editor).toBeDefined());
+}
+
+function live(): Editor {
+  if (!editor) throw new Error('editor not mounted');
+  return editor;
+}
+
+async function rpc(
+  connection: HostConnection,
+  id: number | string,
+  method: string,
+  params: unknown,
+) {
+  const line = await connection.handleLine(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
+  return line === null ? null : (JSON.parse(line) as Record<string, any>);
+}
+
+async function connect(credential = CREDENTIAL) {
+  const opened = getAutomationController().openConnection('ipc');
+  if (!opened.ok) throw new Error(opened.message);
+  const connection = opened.connection;
+  const hello = await rpc(connection, 'h', 'session.hello', {
+    credential,
+    client: { name: 'test-agent', version: '1' },
+    protocolVersions: ['varve.control/1'],
+  });
+  return { connection, hello };
+}
+
+function execute(
+  connection: HostConnection,
+  id: number,
+  command: string,
+  args: unknown,
+  extra = {},
+) {
+  return rpc(connection, id, 'command.execute', { command, args, ...extra });
+}
+
+const rect = { kind: 'rect', x: 10, y: 20, width: 30, height: 40 };
+
+function enable(
+  grants: Array<'read' | 'edit' | 'export'> = ['read', 'edit'],
+  requireApproval = false,
+) {
+  const controller = getAutomationController();
+  controller.setCredential(CREDENTIAL);
+  controller.setPolicy({ enabled: true, grants, requireApproval });
+  // The shell re-publishes on every state change; do it once now that policy is set.
+  act(() => {
+    publishEditorToAutomation(live());
+  });
+}
+
+beforeEach(() => {
+  editor = undefined;
+  resetAutomationControllerForTesting();
+});
+
+afterEach(() => {
+  resetAutomationControllerForTesting();
+});
+
+describe('connected session over the real editor', () => {
+  it('is off until a person turns it on, and refuses connections while off', async () => {
+    await mount();
+    const opened = getAutomationController().openConnection('ipc');
+    expect(opened.ok).toBe(false);
+    if (!opened.ok) expect(opened.message).toContain('turned off');
+  });
+
+  it('refuses a wrong credential and never reveals the right one', async () => {
+    await mount();
+    enable();
+    const { hello } = await connect('guess');
+    expect(hello?.error.code).toBe(-32001);
+    expect(JSON.stringify(hello)).not.toContain(CREDENTIAL);
+  });
+
+  it('reports a connected session for the open document, not a headless one', async () => {
+    await mount();
+    enable();
+    const { connection, hello } = await connect();
+    expect(hello?.result.session.mode).toBe('connected');
+    expect(hello?.result.session.documentId).toBe(live().state.document.id);
+    const info = await execute(connection, 1, 'varve.document.info', {});
+    expect(info?.result.outcome).toBe('ok');
+    expect(info?.result.output.instance.mode).toBe('connected');
+  });
+
+  it('applies an edit through the editor as one labelled undo step', async () => {
+    await mount();
+    enable();
+    const { connection } = await connect();
+    const before = Object.keys(live().state.document.nodes).length;
+
+    const created = await execute(connection, 2, 'varve.node.create', rect);
+    expect(created?.result.outcome).toBe('applied');
+    const id = created?.result.created[0] as string;
+    await waitFor(() => expect(live().state.document.nodes[id]).toBeDefined());
+    expect(Object.keys(live().state.document.nodes).length).toBe(before + 1);
+    expect(live().state.canUndo).toBe(true);
+    expect(live().state.dirty).toBe(true);
+    expect(live().state.undoLabel).toBe('Create rect');
+
+    // One undo removes exactly the agent's change.
+    act(() => {
+      live().undo();
+    });
+    await waitFor(() => expect(Object.keys(live().state.document.nodes).length).toBe(before));
+    expect(live().state.document.nodes[id]).toBeUndefined();
+  });
+
+  it('keeps the revision monotonic across the agent, a person and undo', async () => {
+    await mount();
+    enable();
+    const { connection } = await connect();
+    const r0 = (await execute(connection, 1, 'varve.document.info', {}))?.result.revision
+      .after as number;
+
+    const first = await execute(connection, 2, 'varve.node.create', rect);
+    const r1 = first?.result.revision.after as number;
+    expect(r1).toBeGreaterThan(r0);
+
+    act(() => {
+      live().updateDoc((doc) => ({ ...doc, name: 'Renamed by a person' }));
+    });
+    await waitFor(() => expect(live().state.document.name).toBe('Renamed by a person'));
+    const r2 = (await execute(connection, 3, 'varve.document.info', {}))?.result.revision
+      .after as number;
+    expect(r2).toBeGreaterThan(r1);
+
+    act(() => {
+      live().undo();
+    });
+    await waitFor(() => expect(live().state.document.name).not.toBe('Renamed by a person'));
+    const r3 = (await execute(connection, 4, 'varve.document.info', {}))?.result.revision
+      .after as number;
+    expect(r3).toBeGreaterThan(r2);
+  });
+
+  it('refuses a plan based on a revision a person has since changed', async () => {
+    await mount();
+    enable();
+    const { connection } = await connect();
+    const planned = (await execute(connection, 1, 'varve.document.info', {}))?.result.revision
+      .after as number;
+
+    act(() => {
+      live().updateDoc((doc) => ({ ...doc, name: 'A person edited first' }));
+    });
+    await waitFor(() => expect(live().state.document.name).toBe('A person edited first'));
+
+    const stale = await execute(connection, 2, 'varve.node.create', rect, {
+      expectedRevision: planned,
+    });
+    expect(stale?.result.outcome).toBe('rejected');
+    expect(stale?.result.error.code).toBe('REVISION_CONFLICT');
+    expect(live().state.document.name).toBe('A person edited first');
+    const created = Object.values(live().state.document.nodes).filter((n) => n.kind === 'shape');
+    expect(created).toHaveLength(0);
+  });
+
+  it("does not fold a change into a person's open transaction", async () => {
+    await mount();
+    enable();
+    const { connection } = await connect();
+
+    act(() => {
+      live().beginTransaction();
+    });
+    const busy = await execute(connection, 1, 'varve.node.create', rect);
+    expect(busy?.result.outcome).toBe('rejected');
+    expect(busy?.result.error.code).toBe('CONFLICT');
+    expect(busy?.result.error.retryable).toBe(true);
+    expect(
+      Object.values(live().state.document.nodes).filter((n) => n.kind === 'shape'),
+    ).toHaveLength(0);
+
+    act(() => {
+      live().commitTransaction();
+    });
+    const retried = await execute(connection, 2, 'varve.node.create', rect);
+    expect(retried?.result.outcome).toBe('applied');
+  });
+
+  it('enforces the granted permissions through the same executor', async () => {
+    await mount();
+    enable(['read']);
+    const { connection } = await connect();
+    const denied = await execute(connection, 1, 'varve.node.create', rect);
+    expect(denied?.result.error.code).toBe('PERMISSION_DENIED');
+    expect(
+      Object.values(live().state.document.nodes).filter((n) => n.kind === 'shape'),
+    ).toHaveLength(0);
+  });
+
+  it('closes a client when its document session is replaced and never retargets it', async () => {
+    await mount();
+    enable();
+    const { connection } = await connect();
+    const first = getAutomationController().status().session;
+    expect(first).not.toBeNull();
+
+    act(() => {
+      live().newDocument();
+    });
+    await waitFor(() => expect(live().state.document.id).not.toBe(first?.documentId));
+    act(() => {
+      publishEditorToAutomation(live());
+    });
+
+    const next = getAutomationController().status().session;
+    expect(next?.generation).not.toBe(first?.generation);
+    expect(next?.documentId).toBe(live().state.document.id);
+    // The old client is gone; it must attach again.
+    expect(connection.shouldClose).toBe(true);
+    const stale = await execute(connection, 9, 'varve.node.create', rect);
+    expect(stale).toBeNull();
+  });
+
+  it('stops answering when a person turns automation off', async () => {
+    await mount();
+    enable();
+    const { connection } = await connect();
+    getAutomationController().setPolicy({
+      enabled: false,
+      grants: ['read'],
+      requireApproval: false,
+    });
+    expect(connection.shouldClose).toBe(true);
+    expect(getAutomationController().openConnection('ipc').ok).toBe(false);
+  });
+
+  it('holds a change for approval and applies it only after a person agrees', async () => {
+    await mount();
+    enable(['read', 'edit'], true);
+    const { connection } = await connect();
+    const before = Object.keys(live().state.document.nodes).length;
+
+    const pending = execute(connection, 1, 'varve.node.create', rect);
+    await waitFor(() =>
+      expect(getAutomationController().status().pendingApprovals).toHaveLength(1),
+    );
+    const held = getAutomationController().status().pendingApprovals[0];
+    expect(held?.command).toBe('varve.node.create');
+    expect(Object.keys(live().state.document.nodes).length).toBe(before);
+
+    getAutomationController().decide(held?.receiptId as string, { approved: true });
+    const result = await pending;
+    expect(result?.result.outcome).toBe('applied');
+    expect(Object.keys(live().state.document.nodes).length).toBe(before + 1);
+  });
+
+  it('refuses a change a person declines, and records it in the activity log', async () => {
+    await mount();
+    enable(['read', 'edit'], true);
+    const { connection } = await connect();
+    const pending = execute(connection, 1, 'varve.node.create', rect);
+    await waitFor(() =>
+      expect(getAutomationController().status().pendingApprovals).toHaveLength(1),
+    );
+    const held = getAutomationController().status().pendingApprovals[0];
+    getAutomationController().decide(held?.receiptId as string, {
+      approved: false,
+      reason: 'not now',
+    });
+    const result = await pending;
+    expect(result?.result.error.code).toBe('PERMISSION_DENIED');
+    expect(
+      Object.values(live().state.document.nodes).filter((n) => n.kind === 'shape'),
+    ).toHaveLength(0);
+
+    const log = getAutomationController().status().activity;
+    expect(log.at(-1)).toMatchObject({
+      client: 'test-agent',
+      command: 'varve.node.create',
+      outcome: 'rejected',
+      code: 'PERMISSION_DENIED',
+    });
+    // The log carries no arguments.
+    expect(JSON.stringify(log)).not.toContain('"width"');
+  });
+
+  it('blocks new commits while paused but still lets a client read why', async () => {
+    await mount();
+    enable();
+    const { connection } = await connect();
+    getAutomationController().pause('paused for review');
+    const blocked = await execute(connection, 1, 'varve.node.create', rect);
+    expect(blocked?.result.outcome).toBe('rejected');
+    expect(blocked?.result.error.message).toContain('paused for review');
+    const read = await execute(connection, 2, 'varve.document.info', {});
+    expect(read?.result.outcome).toBe('ok');
+    getAutomationController().resume();
+    expect((await execute(connection, 3, 'varve.node.create', rect))?.result.outcome).toBe(
+      'applied',
+    );
+  });
+});

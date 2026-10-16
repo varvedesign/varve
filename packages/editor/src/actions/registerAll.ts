@@ -1,5 +1,6 @@
 import { isTauriRuntime } from '@varve/platform';
 import { type ContactChannelId, contactMailto } from '@varve/shared';
+import { publishEditorToAutomation } from '../automation/liveEditor';
 import { isCapabilityRestricted } from '../capabilities/restrictions';
 import { registerColorConversionActions } from '../components/ColorConversion/colorConversionCommands';
 import { registerPresentationActions } from '../components/Presentation/presentationCommands';
@@ -145,6 +146,12 @@ export function registerEditorActions(
 ): void {
   const r = getActionRegistry();
   const handlers = createActionHandlers(ctx, callbacks);
+
+  // Hand the current editor to the automation controller. This runs on every
+  // editor state change, so a connected session always sees fresh context
+  // without a hub file importing it. A no-op reference store while automation
+  // is turned off.
+  publishEditorToAutomation(ctx);
 
   // Thumbnail commands: source selection + picker entry point. Registered
   // BEFORE registerAllShortcuts() so real handlers win over no-op stubs.

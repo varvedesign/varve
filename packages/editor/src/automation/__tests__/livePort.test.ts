@@ -37,12 +37,22 @@ class FakeEditorState implements LiveEditorBindings {
     };
   }
 
-  install(label: string, doc: Document): boolean {
-    if (this.refuseInstall) return false;
+  /** When set, the next install finds the editor already moved on to this document. */
+  racingEdit: Document | null = null;
+
+  install(label: string, doc: Document, expected: Document): 'applied' | 'stale' | 'refused' {
+    if (this.refuseInstall) return 'refused';
+    if (this.racingEdit) {
+      // A person's queued edit rendered between the port's read and the update.
+      this.document = this.racingEdit;
+      this.revision += 1;
+      this.racingEdit = null;
+    }
+    if (this.document !== expected) return 'stale';
     this.document = doc;
     if (!this.silentRevision) this.revision += 1;
     this.undo.push(label);
-    return true;
+    return 'applied';
   }
 
   /** A person editing: a new document object, through the editor's own path. */
@@ -293,5 +303,36 @@ describe('editor live port', () => {
     });
     expect(accepted.ok).toBe(true);
     expect(editor.undo).toEqual(['Rename']);
+  });
+
+  it('reports a revision conflict, not a failure, when a person edit lands during the install', () => {
+    const { editor, port } = setup();
+    const base = port.revision();
+    editor.racingEdit = renamed(editor.document, 'Person won the race');
+    const result = port.install({
+      plan: {
+        doc: renamed(editor.document, 'Agent edit'),
+        label: 'Rename',
+        created: [],
+        changed: [],
+        deleted: [],
+      },
+      origin: { principalId: 'a', kind: 'agent', label: 'a', transport: 'ipc' },
+      command: 'varve.node.set',
+      receiptId: 'r1',
+      baseRevision: base,
+    });
+    expect(result).toMatchObject({ ok: false, reason: 'revision-conflict' });
+    expect(editor.document.name).toBe('Person won the race');
+    expect(editor.undo).toEqual([]);
+    expect((result as { currentRevision: number }).currentRevision).toBe(port.revision());
+  });
+
+  it('uses the supplied generation so a rebuilt attachment is distinguishable', () => {
+    const editor = new FakeEditorState();
+    const first = createLiveEditorPort({ bindings: editor, instanceId: 'w', generation: 'g-1' });
+    const second = createLiveEditorPort({ bindings: editor, instanceId: 'w', generation: 'g-2' });
+    expect(first.info().generation).toBe('g-1');
+    expect(second.info().generation).toBe('g-2');
   });
 });

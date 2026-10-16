@@ -1,6 +1,6 @@
 # ADR-0244: Agent control command service
 
-- **Status:** Accepted (core, local transports, live authority and parity gate implemented; the connected transport and the editor-side port are not)
+- **Status:** Accepted (core, local transports, live authority, endpoint transport, editor port and parity gate implemented; the endpoint has no production caller yet)
 - **Date:** 2026-10-15
 
 ## Context
@@ -71,9 +71,11 @@ on `0aa316bca`:
   is in the report so it cannot be implied away.
 - Two mutation vocabularies coexist (UI `updateDoc` and catalog commands)
   until UI code migrates; parity is verified by tests, not by shared routing.
-- Until the connected transport lands, connected mode does not exist; an
-  adapter asked to connect must fail, never fall back to an empty headless
-  session.
+- The endpoint lives in Rust and the protocol in the webview, so a transport
+  cannot become a second implementation of validation or authorization.
+- Until the endpoint has a production caller, connected mode is still not
+  reachable from an external process; an adapter asked to connect must fail,
+  never fall back to an empty headless session.
 
 ## Migration impact
 

@@ -923,6 +923,19 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   state: EditorState;
   /** The platform facade (Tauri/web/memory), undefined if none was provided. */
   platform: Platform | undefined;
+  /**
+   * Synchronous read of what an automation session must know right now: the
+   * document, the revision counter, the active document session, and whether a
+   * transaction is open (a person mid-drag or mid-composition). Reads the
+   * latest rendered state rather than a captured render, so a check and a
+   * following install cannot straddle a flush. Not a way to change anything.
+   */
+  readAutomationState: () => {
+    document: Document;
+    revision: number;
+    sessionId: string;
+    transactionOpen: boolean;
+  };
   /** Persistent revision history session (M7/M8). */
   persistentHistory: PersistentHistoryApi;
   setTool: (t: ToolId) => void;
@@ -3448,6 +3461,16 @@ export function EditorProvider({
     });
   }, []);
 
+  const readAutomationState = useCallback(
+    () => ({
+      document: stateRef.current.document,
+      revision: stateRef.current.revision,
+      sessionId: stateRef.current.activeId,
+      transactionOpen: inTransactionRef.current,
+    }),
+    [],
+  );
+
   /** Icon asset operations (insert/replace/detach) — see useIconAssets.ts. */
   const iconAssets = useIconAssets({
     stateRef,
@@ -4197,6 +4220,7 @@ export function EditorProvider({
       platform,
       persistentHistory,
       updateDoc,
+      readAutomationState,
       applyCollabTransaction,
       patch,
       insertIconAsset: iconAssets.insertIconAsset,
@@ -10949,6 +10973,7 @@ export function EditorProvider({
       persistentHistory,
       setCamera,
       updateDoc,
+      readAutomationState,
       rootNodes,
       updateNodeProp,
       onBackToHome,

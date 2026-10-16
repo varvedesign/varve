@@ -11,7 +11,14 @@
 import type { IdRng } from '@varve/scene';
 import type { DocumentAuthority } from '../authority';
 import type { CommandEffect } from '../catalog';
-import type { ExecutionPolicy, Executor, ExecutorContext, ExternalHandler } from '../executor';
+import type {
+  ApprovalDecision,
+  ApprovalRequest,
+  ExecutionPolicy,
+  Executor,
+  ExecutorContext,
+  ExternalHandler,
+} from '../executor';
 import type { Principal } from '../principal';
 import { type Infer, s, validateUnknown } from '../schema';
 import { encodeError, encodeResult, parseFrame, RPC_ERROR, type RpcRequest } from './jsonrpc';
@@ -49,6 +56,12 @@ export interface ControlServerConfig {
    * transport's host, never by request data, and it can only refuse.
    */
   policy?: ExecutionPolicy;
+  /**
+   * Holds each change for a person's decision. Supplied by the trusted host (a
+   * UI), never reachable from a request, and there is no method an agent can
+   * call to approve its own work.
+   */
+  approval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   /** Map a presented credential to a principal, or `null` to refuse it. */
   authenticate(
     credential: string,
@@ -265,6 +278,7 @@ export class ControlConnection {
       authority: this.config.authority,
       ...(this.config.externals ? { externals: this.config.externals } : {}),
       ...(this.config.policy ? { policy: this.config.policy } : {}),
+      ...(this.config.approval ? { approval: this.config.approval } : {}),
       ...(this.config.rng ? { rng: this.config.rng } : {}),
     };
   }

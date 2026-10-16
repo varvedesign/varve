@@ -27,9 +27,11 @@ This document describes the contract and marks what exists. A claim here is
 | stdio MCP server (`varve mcp`), headless and attached modes | Implemented, verified with a raw client and the v1 and v2 SDK clients |
 | Streamable HTTP MCP transport | Not implemented (deliberate; see below) |
 | **Live authority, host, per-client principals, pause/revoke** | **Implemented (`@varve/automation/live`), unit-tested against a real control connection** |
+| **Local endpoint transport for the running application** | **Implemented: `crates/varve-automation-host` (26 tests over a real socket) plus the Tauri bridge `apps/desktop/src-tauri/src/automation_host.rs`, which `cargo check` compiles** |
 | **Parity manifest and its gate** | **Implemented: 334 real action ids measured, 14 commands recorded, 197 unmapped with a dated backlog** |
-| **Editor-side `LiveEditorPort` over the canonical `updateDoc` path** | Not implemented; the port contract exists and is tested, but nothing in `packages/editor` mounts it |
-| **Desktop listener (OS transport for connected mode)** | Not implemented. No `@varve/automation` import exists in `packages/editor`, `apps/desktop` or `apps/desktop/src-tauri` |
+| **Editor-side `LiveEditorPort` over the canonical `updateDoc` path** | Implemented in `packages/editor/src/automation/` alongside an `AutomationController` (policy, approvals, activity). The editor context exposes `readAutomationState()` so a check and an install cannot straddle a flush and a person's open transaction is visible |
+| **Desktop listener reachable from the webview** | The endpoint compiles and the crate is tested, but the webview bridge `desktopTransport.ts` has no caller yet: the controller does not choose a transport, so the endpoint is not started by the app |
+| **Windows named-pipe transport** | Not implemented. `Transport::NamedPipe` exists and is refused with an explicit `Unsupported` error, so the gap is a compile-time fact rather than a runtime surprise |
 | Approvals, Agent settings surface | Planned; `ApprovalRequest` has no production supplier |
 | Page, component, text-run, effect, export, capture, motion commands | Not started; counted in the parity manifest as the unmapped backlog |
 
@@ -403,6 +405,40 @@ that must not depend on which transport it was:
 Policy is enforced through `ExecutionPolicy` at the executor's single gate. It
 can only refuse — it cannot grant — and it is never reachable from a request.
 
+## The transport split
+
+The endpoint cannot live in the webview: a browser page cannot open a listener.
+So the socket is in Rust and **the protocol is in the webview**, and the two meet
+at one narrow seam.
+
+```
+crates/varve-automation-host     endpoint, framing, limits, instance record
+        ^  FrameRelay trait
+        |  "here is a line; tell me what to write back"
+apps/desktop/src-tauri/automation_host.rs
+        ^  emit + invoke
+        |  one event per frame, one reply per frame
+packages/editor/src/automation/desktopTransport.ts
+        ^
+        |  AutomationHost  →  Executor  →  LiveAuthority  →  LiveEditorPort
+packages/editor/src/automation/controller.ts
+```
+
+What the transport is allowed to decide is deliberately small: byte limits, a
+handshake deadline, a connection cap, and who is connected. It does not parse
+JSON-RPC, does not read `session.hello`, does not compare credentials, and does
+not decide success. When it must refuse something — an over-limit frame,
+invalid UTF-8, a connection that never handshook — it *asks the application for
+the frame to write* rather than inventing an error format, because `-32003` and
+the sentence that goes with it belong to the protocol. With no answer it closes.
+
+That is why `varve.control/1` has one implementation rather than two, and why a
+transport change cannot loosen validation or authorization.
+
+The credential is minted by the transport because the transport owns the
+instance directory, and it is handed to the webview **once**, because the webview
+is what compares it. `automation_status` never returns it.
+
 ## Parity manifest
 
 `packages/automation/parity/agent-parity.json` links every action the editor can
@@ -433,13 +469,16 @@ catalog, with the same validation and authorization as a named command.
 
 ## Known parity gaps (recorded, not hidden)
 
-- **Connected mode has no transport.** The live authority, the host, the policy
-  and the rollback rules exist and are tested, but nothing outside
-  `@varve/automation` constructs them: there is no `@varve/automation` import in
-  `packages/editor`, in `apps/desktop`, or in `apps/desktop/src-tauri`. There is
-  no listener in the desktop app, so nothing can attach to the running
-  application and `varve doctor` and `varve_session` say so. The editor-side
-  `LiveEditorPort` implementation and the OS socket are the remaining work.
+- **The endpoint is not started by the application.** Every piece exists and is
+  verified in isolation, but the controller does not yet choose a transport, so
+  the endpoint has no caller and no client can attach to a running Varve. When it
+  is wired, `varve doctor` must stop reporting `connected: false`.
+- **Nothing has been run end to end against a live application.** The transport
+  is tested against a real socket with a scripted relay; the editor mount is
+  tested against a scripted controller. No test drives a real client into a real
+  running editor, because that requires the wiring above.
+- **Windows has no transport.** `Transport::for_this_platform()` reports the gap
+  and the endpoint refuses to start there with a clear error.
 - The editor also cannot be mutated by automation through any other path: the
   command catalog is not reachable from the UI, and the UI is not reachable from
   the catalog.
@@ -460,6 +499,10 @@ catalog, with the same validation and authorization as a named command.
   capture commands are not implemented. A drag's intermediate samples cannot be
   reproduced by a committed-result command, and no bounded gesture-replay
   contract exists yet.
+- An agent commit can still be *folded into* a person's open transaction rather
+  than refused: `readAutomationState()` now exposes `transactionOpen`, so the
+  port can refuse, but refusing and joining are both defensible and the choice
+  must be recorded where the port is wired.
 - Clicking, selection, camera and tool changes are not commands. A request
   cannot take over the user's screen, and no agent-scoped view command exists,
   so `view`-class authorization is declared but unused.

@@ -59,10 +59,18 @@ export interface LiveEditorBindings {
   read(): LiveEditorSnapshot;
   /**
    * Install a whole document as one labelled history step, through the editor's
-   * own transaction and label path. Returns `false` when the editor refused to
-   * apply it (no document session).
+   * own transaction and label path.
+   *
+   * `expected` is the document the plan was computed against. The editor applies
+   * the change only if its state still holds exactly that document at the moment
+   * the update runs, so a person's edit that was queued but not yet rendered is
+   * never overwritten:
+   *
+   * - `applied`  the document was installed;
+   * - `stale`    the editor's state had already moved on, nothing was changed;
+   * - `refused`  the editor could not apply it at all (no document session).
    */
-  install(label: string, doc: Document): boolean;
+  install(label: string, doc: Document, expected: Document): 'applied' | 'stale' | 'refused';
 }
 
 export interface LivePortOptions {
@@ -72,6 +80,12 @@ export interface LivePortOptions {
    * two windows of the same document are distinguishable.
    */
   instanceId: string;
+  /**
+   * Identifies this attachment. Defaults to the document session id; a caller
+   * that rebuilds a port for a session it returns to should pass a fresh value
+   * so a client from an earlier attachment can never mistake it for its own.
+   */
+  generation?: string;
 }
 
 export interface EditorLivePort extends LiveEditorPort {
@@ -139,7 +153,7 @@ export function createLiveEditorPort(options: LivePortOptions): EditorLivePort {
         instanceId: options.instanceId,
         // The session this port was built for. It never changes under a client:
         // a replaced session is refused rather than silently followed.
-        generation: pinnedSessionId,
+        generation: options.generation ?? pinnedSessionId,
         documentId: now.document.id,
         documentName: now.document.name,
       };
@@ -198,7 +212,17 @@ export function createLiveEditorPort(options: LivePortOptions): EditorLivePort {
             'the planned document is the document already loaded, so applying it would change nothing',
         };
       }
-      if (!bindings.install(input.plan.label, input.plan.doc)) {
+      const outcome = bindings.install(input.plan.label, input.plan.doc, now.document);
+      if (outcome === 'stale') {
+        // The editor's state moved between our read and the update running. The
+        // person's edit wins; the client re-plans against the new revision.
+        return {
+          ok: false,
+          reason: 'revision-conflict',
+          currentRevision: sync(snapshot()),
+        };
+      }
+      if (outcome === 'refused') {
         return {
           ok: false,
           reason: 'unavailable',

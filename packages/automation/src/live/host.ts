@@ -29,7 +29,13 @@ import {
   type ControlLimits,
   DEFAULT_CONTROL_LIMITS,
 } from '../control/connection';
-import type { ExecutionPolicy, Executor, ExternalHandler } from '../executor';
+import type {
+  ApprovalDecision,
+  ApprovalRequest,
+  ExecutionPolicy,
+  Executor,
+  ExternalHandler,
+} from '../executor';
 import type { AuthorizationClass, Principal, PrincipalKind, TransportKind } from '../principal';
 
 /** What a verified credential is allowed to do. */
@@ -58,6 +64,8 @@ export interface AutomationHostOptions {
   serverInfo: { name: string; version: string };
   admit: AdmitClient;
   externals?: Readonly<Record<string, ExternalHandler>>;
+  /** Hold each change for a person's decision (see `ExecutorContext.approval`). */
+  approval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   limits?: Partial<ControlLimits>;
   /** Concurrent connections the transport may hold open. */
   maxConnections?: number;
@@ -234,6 +242,7 @@ export class AutomationHost {
         executor: this.options.executor,
         authority: this.options.authority,
         ...(this.options.externals ? { externals: this.options.externals } : {}),
+        ...(this.options.approval ? { approval: this.options.approval } : {}),
         ...(this.options.rng ? { rng: this.options.rng } : {}),
         serverInfo: this.options.serverInfo,
         limits: this.limits,

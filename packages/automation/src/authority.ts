@@ -70,7 +70,11 @@ export type CommitResult =
       ok: false;
       reason: 'unavailable';
       message: string;
-      code?: 'TARGET_MISMATCH' | 'UNAVAILABLE' | 'INVARIANT_VIOLATION';
+      /**
+       * `CONFLICT` is for a refusal that clears by itself: a person is in the
+       * middle of an edit, so the same plan may be installed a moment later.
+       */
+      code?: 'TARGET_MISMATCH' | 'UNAVAILABLE' | 'INVARIANT_VIOLATION' | 'CONFLICT';
     };
 
 export type RollbackResult =
