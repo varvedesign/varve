@@ -1,3 +1,4 @@
+import type { PresentationHandoutOptions, PresentationHandoutPage } from '@varve/scene';
 import { zipSync, zlibSync } from 'fflate';
 
 export interface PresentationRasterPage {
@@ -180,4 +181,216 @@ export function makePresentationPngArchive(
     files[fileName] = slide.png;
   }
   return zipSync(files, { level: 6 });
+}
+
+interface CompressedSlide {
+  width: number;
+  height: number;
+  rgb: Uint8Array;
+  alpha: Uint8Array;
+}
+
+function escapePdfText(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+
+/**
+ * Assembles a handout PDF from an imposition plan and captured slide rasters.
+ *
+ * Slides draw as images into their planned slots; ruled note lines are vector
+ * strokes; page numbers and header/footer text use the standard Helvetica
+ * base-14 font, so the handout keeps real (searchable) chrome text even
+ * though slide content itself is raster. The appearance-only disclosure for
+ * slide content still applies and is surfaced by the export dialog.
+ */
+export class PresentationHandoutPdfBuilder {
+  private readonly slides: CompressedSlide[] = [];
+  private compressedBytes = 0;
+
+  get slideCount(): number {
+    return this.slides.length;
+  }
+
+  addSlide(page: PresentationRasterPage): void {
+    validatePage(page);
+    const pixelCount = page.width * page.height;
+    const rgb = new Uint8Array(pixelCount * 3);
+    const alpha = new Uint8Array(pixelCount);
+    for (let pixel = 0; pixel < pixelCount; pixel++) {
+      const source = pixel * 4;
+      const target = pixel * 3;
+      rgb[target] = page.pixels[source]!;
+      rgb[target + 1] = page.pixels[source + 1]!;
+      rgb[target + 2] = page.pixels[source + 2]!;
+      alpha[pixel] = page.pixels[source + 3]!;
+    }
+    const compressedRgb = zlibSync(rgb, { level: 6 });
+    const compressedAlpha = zlibSync(alpha, { level: 6 });
+    const next = this.compressedBytes + compressedRgb.length + compressedAlpha.length;
+    if (next > MAX_COMPRESSED_PDF_BYTES) {
+      throw new Error('Handout exceeds the 256 MB compressed image limit. Export fewer slides.');
+    }
+    this.compressedBytes = next;
+    this.slides.push({
+      width: page.width,
+      height: page.height,
+      rgb: compressedRgb,
+      alpha: compressedAlpha,
+    });
+  }
+
+  finish(
+    pages: readonly PresentationHandoutPage[],
+    options: Pick<PresentationHandoutOptions, 'slideNumbers' | 'headerText' | 'footerText'>,
+  ): Uint8Array {
+    if (pages.length === 0) throw new Error('Add at least one slide before exporting a handout');
+    if (this.slides.length === 0)
+      throw new Error('Add at least one slide before exporting a handout');
+    const encoder = new TextEncoder();
+    const chunks: Uint8Array[] = [];
+    const offsets: number[] = [0];
+    let position = 0;
+    const bytes = (chunk: Uint8Array) => {
+      chunks.push(chunk);
+      position += chunk.length;
+    };
+    const text = (value: string) => bytes(encoder.encode(value));
+    const object = (id: number, content: string) => {
+      offsets[id] = position;
+      text(`${id} 0 obj\n${content}\nendobj\n`);
+    };
+    const stream = (id: number, dictionary: string, data: string) => {
+      const data8 = encoder.encode(data);
+      offsets[id] = position;
+      text(`${id} 0 obj\n<< ${dictionary} /Length ${data8.length} >>\nstream\n`);
+      bytes(data8);
+      text('\nendstream\nendobj\n');
+    };
+    const imageStream = (id: number, dictionary: string, data: Uint8Array) => {
+      offsets[id] = position;
+      text(`${id} 0 obj\n<< ${dictionary} /Length ${data.length} >>\nstream\n`);
+      bytes(data);
+      text('\nendstream\nendobj\n');
+    };
+
+    text('%PDF-1.4\n');
+    bytes(new Uint8Array([37, 128, 129, 130, 131, 10]));
+    object(1, '<< /Type /Catalog /Pages 2 0 R >>');
+    // Object layout: 3 = shared Helvetica; then per page: page, content, and
+    // two objects per slide image (RGB + alpha mask).
+    object(3, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+    const perPageObjects = 2;
+    let cursor = 4;
+    const pageIds: number[] = [];
+    for (const _page of pages) {
+      const imageCount = _page.slots.reduce(
+        (total, slot) => total + (this.slides[slot.slideIndex] ? 1 : 0),
+        0,
+      );
+      pageIds.push(cursor);
+      cursor += perPageObjects + imageCount * 2;
+    }
+    object(
+      2,
+      `<< /Type /Pages /Kids [ ${pageIds.map((id) => `${id} 0 R`).join(' ')} ] /Count ${pages.length} >>`,
+    );
+
+    let slideCursor = 4;
+    for (const [pageIndex, page] of pages.entries()) {
+      const pageId = pageIds[pageIndex]!;
+      const contentId = pageId + 1;
+      const drawParts: string[] = [];
+      const resources: string[] = [];
+      // Paper fill so slides never sit on a transparent page.
+      drawParts.push(
+        `0.956862745 0.956862745 0.956862745 rg\n0 0 ${page.widthPt} ${page.heightPt} re\nf`,
+      );
+      page.slots.forEach((slot, slotIndex) => {
+        const slide = this.slides[slot.slideIndex];
+        if (!slide) return;
+        const imageId = pageId + 2 + slotIndex * 2;
+        const alphaId = imageId + 1;
+        resources.push(`/Im${slotIndex} ${imageId} 0 R`);
+        imageStream(
+          imageId,
+          `/Type /XObject /Subtype /Image /Width ${slide.width} /Height ${slide.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask ${alphaId} 0 R`,
+          slide.rgb,
+        );
+        imageStream(
+          alphaId,
+          `/Type /XObject /Subtype /Image /Width ${slide.width} /Height ${slide.height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode`,
+          slide.alpha,
+        );
+        // PDF's origin is bottom-left; the planner is top-left.
+        const yPdf = page.heightPt - slot.yPt - slot.hPt;
+        drawParts.push(
+          `q\n${slot.wPt} 0 0 ${slot.hPt} ${slot.xPt} ${yPdf} cm\n/Im${slotIndex} Do\nQ`,
+        );
+      });
+      if (page.noteLines) {
+        const lines: string[] = ['0.5 w', '0.6 0.6 0.6 RG'];
+        for (let line = 0; line < page.noteLines.lineCount; line++) {
+          const yPdf = page.heightPt - page.noteLines.yPt - line * page.noteLines.spacingPt;
+          lines.push(
+            `${page.noteLines.xPt} ${yPdf} m\n${page.noteLines.xPt + page.noteLines.wPt} ${yPdf} l\nS`,
+          );
+        }
+        drawParts.push(lines.join('\n'));
+      }
+      const drawText = (value: string, xPt: number, yPt: number, size: number) => {
+        drawParts.push(
+          `BT\n/F1 ${size} Tf\n1 0 0 1 ${xPt} ${yPt} Tm\n(${escapePdfText(value)}) Tj\nET`,
+        );
+      };
+      if (options.headerText) {
+        drawText(options.headerText, 36, page.heightPt - 24, 9);
+      }
+      if (options.footerText) {
+        drawText(options.footerText, 36, 18, 9);
+      }
+      if (options.slideNumbers) {
+        // Slide numbers print under each slot in deck order.
+        page.slots.forEach((slot) => {
+          drawText(
+            String(slot.slideIndex + 1),
+            slot.xPt,
+            page.heightPt - slot.yPt - slot.hPt - 12,
+            8,
+          );
+        });
+      }
+      object(
+        pageId,
+        `<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 ${page.widthPt} ${page.heightPt} ] /Contents ${contentId} 0 R /Resources << /Font << /F1 3 0 R >> /XObject << ${resources.join(' ')} >> >> >>`,
+      );
+      stream(contentId, '', drawParts.join('\n'));
+      slideCursor += perPageObjects;
+      void slideCursor;
+    }
+
+    const xref = position;
+    text(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`);
+    for (const offset of offsets.slice(1)) {
+      text(`${String(offset).padStart(10, '0')} 00000 n \n`);
+    }
+    text(`trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    const output = new Uint8Array(position);
+    let out = 0;
+    for (const chunk of chunks) {
+      output.set(chunk, out);
+      out += chunk.length;
+    }
+    return output;
+  }
+}
+
+/** One-shot handout assembly: capture slides, plan pages, then build. */
+export function makePresentationHandoutPdf(
+  slides: readonly PresentationRasterPage[],
+  plan: readonly PresentationHandoutPage[],
+  options: Pick<PresentationHandoutOptions, 'slideNumbers' | 'headerText' | 'footerText'>,
+): Uint8Array {
+  const builder = new PresentationHandoutPdfBuilder();
+  for (const slide of slides) builder.addSlide(slide);
+  return builder.finish(plan, options);
 }

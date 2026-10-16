@@ -248,3 +248,17 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.presentation-delivery__handout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.presentation-delivery__handout-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-bottom: var(--space-1);
+}

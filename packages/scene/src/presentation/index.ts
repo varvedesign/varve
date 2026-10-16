@@ -1,4 +1,5 @@
 export * from './builtinThemes';
+export * from './handouts';
 export * from './layoutOverrides';
 export * from './layouts';
 export * from './layoutTemplates';
