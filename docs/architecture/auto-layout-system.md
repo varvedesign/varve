@@ -2,7 +2,7 @@
 
 **Canonical doc** — audit status, model, engine, and known limitations.
 
-## 1. Current State (2026-09-09)
+## 1. Current State (2026-10-15)
 
 | Capability | Scene Model | Engine | Inspector | Canvas | Tests | Status |
 |---|---|---|---|---|---|---|
@@ -94,6 +94,42 @@ stroke protrusion per edge; shadows, blur, and other effects do not contribute.
 The resolved layout result is the source for canvas handles, hit testing,
 thumbnails, and exports. Target emitters may provide a resolved snapshot when
 their runtime cannot represent the authored responsive behavior.
+
+### Dependable layout contract (2026-10-15)
+
+The exact behavior matrix and versioning rationale are recorded in
+[ADR-0242](../adr/0242-dependable-layout-contract.md). Existing documents keep
+the legacy grid sizing interpretation when `layoutSemanticsVersion` is absent
+or `1`; new grid layouts opt into version `2`. This avoids silently shifting
+saved artwork when intrinsic grid sizing is corrected.
+
+- Flex wrapping resolves line membership from hypothetical bases before Fill
+  distribution. Flexible space is allocated per line, and items that reach a
+  min/max bound release or consume their remaining share through another
+  allocation pass. Signed flow gaps remain supported and are not CSS gaps.
+- Physical row and column gaps stay independent. In a row flow, column gap is
+  main-axis spacing and row gap is cross-axis spacing; a column flow maps them
+  to the opposite physical axes.
+- Grid track syntax is limited to bounded `px`, `fr`, `auto`, and bounded
+  `repeat()` definitions. Unsupported expressions are rejected before
+  expansion. Track arrays carry stable identities; grid cell anchors and spans
+  follow those IDs through reorder and resize. Removing a referenced track
+  opens a before/after preview and deterministically rehomes placements only
+  when the candidate remains valid.
+- The grid-track edit is one document update and one history action. The grid
+  solver remains the source of resolved geometry; the inspector preview is a
+  proposed document, not a second layout result.
+- Absolute children inside layout frames continue to use responsive
+  constraints. `centerOffset` is a distinct anchor policy that preserves the
+  child's center offset from the parent's center; existing proportional
+  `center` behavior is unchanged.
+- HTML/CSS code generation preserves grid tracks, independent gaps, anchored
+  child tracks, and spans when the target has equivalent CSS primitives.
+
+The supporting [evidence ledger](../research/layout-system-evidence-2026-10-15.md)
+records competitor reports with their reproduction limits. Native Tauri
+interaction and supported-browser resize checks remain a separate runtime
+verification gate and are not inferred from solver tests.
 
 ## 3. Files Changed
 

@@ -13,6 +13,21 @@ Varve has four different kinds of canvas guidance, each with an explicit owner:
 Auto layout is not a grid overlay. `FrameNode.layoutStyle` and `@varve/layout` arrange
 children; they must not be used as a proxy for visual layout-guide geometry.
 
+## Auto-layout grid tracks
+
+Grid track arrays on `FrameNode.layoutStyle` provide stable track identity while
+the readable template remains the serialized CSS-like source. Child placements
+may anchor to a track ID and span rows or columns. Reordering keeps those anchors
+attached to their tracks. Track removal uses a before/after preview and only
+applies a deterministic rehome when the resulting placements are valid. These
+edits travel through one document update so undo restores the entire grid edit.
+
+Auto-layout grid semantics are versioned independently from visual guide
+geometry. Missing or version-1 layout semantics keep the legacy track sizing;
+version 2 resolves intrinsic and spanning contributions before fractional tracks.
+See the [auto-layout contract](auto-layout-system.md#dependable-layout-contract-2026-10-15)
+and [ADR-0242](../adr/0242-dependable-layout-contract.md).
+
 ## Coordinate and state contract
 
 All canvas overlays project through the shared `screenToWorld` / `worldToScreen` camera

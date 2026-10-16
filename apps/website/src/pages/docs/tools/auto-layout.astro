@@ -38,6 +38,12 @@ import '../../../styles/docs-prose.css';
       </section>
 
       <section class="docs-section">
+        <h2>Grid tracks and cell placement</h2>
+        <p>Grid frames support bounded <code>px</code>, <code>fr</code>, <code>auto</code>, and <code>repeat()</code> tracks. Track rows have stable identities, so reordering a track keeps children anchored to it. Child cells can span rows or columns.</p>
+        <p>Removing a track opens a before/after preview. Apply rehomes affected children only when the resulting placements are valid; the frame and placement updates share one undo step. Existing documents retain their legacy grid sizing until they opt into the versioned intrinsic sizing behavior.</p>
+      </section>
+
+      <section class="docs-section">
         <h2>Borders in layout</h2>
         <p>Enable <strong>Include borders in layout</strong> when visible stroke protrusions should contribute to a child footprint. The engine uses the union of visible per-edge stroke extents, preserves affine transforms, and excludes shadows and blur. Leave it off for the legacy geometry-only behavior.</p>
       </section>
