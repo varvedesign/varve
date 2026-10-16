@@ -531,6 +531,33 @@ above: it failed in global setup on another session's transient mid-edit state
 (`useCollabSession` outside its provider), which is no longer present.
 
 
+### 6.3 Compact drawers and small-viewport text (2026-10-16)
+
+Follow-up task: "the asset panels have several issues like not being able to
+close them… also how is text handled for smaller viewports".
+
+| Commit | Repair |
+|---|---|
+| `5214165e6` | **The Resources drawer could not be closed by pointer.** `ResourcesPanel` was the only compact drawer with no close control of its own (Layers and Inspector both render one), so its sole pointer exit was the scrim strip beside the panel — 90px at 390px wide, 20px at 320px — and the launcher reading "Hide resources panel" could not be used either, because launchers sit at `--z-raised` (10) beneath a scrim at `--z-overlay - 1` (999). It now renders the same `editor__collapse-btn` close control as the other two drawers, `closeResponsiveLibrary` closes Resources alone, launchers are not rendered while a drawer is open (no visible control promises an impossible action), and the panel's tab row became a shrinkable scroll container — with a 300px drawer, four tabs and two controls, the row could not compress and the rightmost control *was* the one clipped. `useCompactDrawerLayout` is now the single reader of the compact tier. |
+| `ae19bf2a8` | **Compact tiers reduced interface text to 12px.** Interface type is a single rem scale with no viewport adaptation, and the status bar (≤899px) and menu labels (≤640px) selected `--font-size-2xs` — the smallest strings in the chrome, shrunk where legibility is hardest. The floor is declared once as the token, scoped to `.editor-shell` in the compact tier, so every 12px string there is 13px and a call site cannot reintroduce the shrink by choosing the token. No `clamp()`/`vw` type was added, so the root font-size preference stays the single magnification lever. |
+| `7d47ac00d` | Unit coverage pinning the close control's presence by tier, its absence without a closer, the closer's isolation, and the tab row's declarations (jsdom does not apply external CSS, so that last one asserts the declaration, as the repository's other stylesheet-shape tests do). |
+| `tests/e2e/responsive/compact-drawers.spec.ts` | The probe that measured all of the above, promoted into the corpus: per viewport it opens the drawer, asserts the close control is visible, asserts `elementFromPoint` at the control's centre returns the control (a painted-but-covered button is the failure being guarded), clicks it and asserts dismissal plus the launcher's return, repeats for Escape, and for the scrim asserts the element under the chosen dismiss point *is* `editor__panel-backdrop` before clicking. A final test asserts the 13px compact floor and an empty clipped-without-ellipsis sweep in the Resources panel. Measurements in §5.10. |
+
+Two misses are recorded rather than glossed:
+
+- Canonicalizing the Resources width range to the registry's declared minimum
+  (220, was a hand-written 240) broke three assertions in
+  `PanelWidthDragEdge.test.tsx`. The affected set now passes; the process cause
+  was running hand-picked test paths instead of the planner's closure, which does
+  select that file.
+- The first three attempts to validate the drawer fix in the running app all
+  failed on *harness* problems, not the application: a 50-minute lease deadline
+  behind other sessions' full suites; a helper waiting for `.layers-panel` to be
+  visible at 390px where Layers is a hidden drawer (the trap
+  `tests/e2e/global-setup.ts` documents); and a probe using a throwing
+  `locator.boundingBox()` that discarded its own evidence mid-run. The promoted
+  spec avoids all three.
+
 ## 7. Validation performed
 
 | Command | Result |
@@ -545,7 +572,9 @@ above: it failed in global setup on another session's transient mid-edit state
 | `pnpm verify:plan` | ran; reports `FULL-SUITE ESCALATION: YES` for *"workspace/toolchain/validation-infrastructure change"* — driven by the 146 changed paths in this shared tree, not by this slice |
 | Playwright probe (before) | 4/5 passed, `VARVE_E2E_PORT=1552`, isolated output dir |
 | Playwright probe (after) | 1/1 passed, `VARVE_E2E_PORT=1553`, `report-after.json` |
-| `tests/e2e/workspace/dock-layout-geometry.spec.ts` + `tests/e2e/responsive/layers-inspector-panels.spec.ts` | queued through the heavy lease; not complete at write time (§5.9) |
+| `tests/e2e/workspace/dock-layout-geometry.spec.ts` + `tests/e2e/responsive/layers-inspector-panels.spec.ts` | **4/4 and 7/7 pass** (ports 1557 and 1559, §5.8) |
+| Compact drawers + text probe (Chromium, ports 1563-1565) | 1/1 pass after two harness fixes; measurements in §5.10 |
+| `tests/e2e/responsive/compact-drawers.spec.ts` (new, repo-resident) | `typecheck:e2e` and biome pass; browser run queued through the heavy lease |
 
 **Full suite: not run.** It is an escalation the planner attributes to
 foreign toolchain changes, the tree carries three type errors from other
@@ -594,7 +623,48 @@ Other results from the same clean run and the run before it:
 - `dock-layout-geometry` and `inspector-responsive-surface-audit` results are in
   §5.8.
 
-### 5.9 Not established
+### 5.10 Compact drawers and interface text (measured, 2026-10-16)
+
+A Chromium probe (`VARVE_E2E_PORT=1563-1565`, heavy-lease wrapped) measured the
+drawer close routes and the rendered type at 320×640, 390×844, 640×400 and
+899×600, after the two fixes in §6.3.
+
+| Viewport | Close control | Hit test at its centre | After activating | Launcher returns |
+|---|---|---|---|---|
+| 390×844 portrait (bottom sheet) | present, 32×32 | hits itself | panel unmounts | yes |
+| 320×640 portrait (reflow floor) | present, 32×32 at x=287 | hits itself | closed | yes |
+| 640×400 landscape | present, 32×32 at x=607 | hits itself | closed | yes |
+| 899×600 landscape | present, 32×32 at x=866 (right edge 898 ≤ 899) | hits itself | closed | yes |
+
+Escape closed the drawer at every viewport, and the launcher returned afterwards
+in all four cases — which also rules out the failure mode where the close control
+works but the launcher gate (launchers are hidden while a drawer is open) leaves
+the drawer unopenable.
+
+Rendered interface text at all four compact viewports: root 16px, status bar
+**13px** (was 12px), application menu items **13px** (was 12px at ≤640px), panel
+body 15px, and **zero** elements with text clipped and no ellipsis. The Resources
+tab row reports `scrollWidth` 379–381 against `clientWidth` 267–357, i.e. the
+tabs scroll instead of pushing the rightmost control — the way out of the drawer
+— past the panel edge.
+
+Two caveats about that run, recorded so its numbers are read correctly:
+
+- The probe left the drawer open at the end of each loop iteration, so
+  `launcherVisibleWhenClosed: false` for three viewports is the probe's own state
+  leakage (the launcher gate correctly hides launchers while a drawer is open),
+  **not** an application finding.
+- **The scrim tap did not dismiss the drawer in that run**, at any viewport, and
+  this is recorded as *unattributed*. The probe measured the free strip
+  horizontally, which is meaningless for a bottom sheet (the sheet spans the full
+  width, so the metric was 0 and the click landed inside the sheet), and it did
+  not record which element sat under its tap point for the side-drawer cases.
+  `tests/e2e/responsive/compact-drawers.spec.ts` now asserts the hit target at
+  the chosen dismiss point *is* `editor__panel-backdrop` before clicking, so the
+  mis-aimed-tap case fails loudly instead of silently testing nothing; whether
+  the scrim route works is settled by that spec, not by this probe.
+
+### 5.11 Not established
 
 - No Firefox/WebKit run; no packaged Tauri run; no physical keyboard, IME, pen
   or multi-monitor check; no screen-reader pass. Chromium only.
