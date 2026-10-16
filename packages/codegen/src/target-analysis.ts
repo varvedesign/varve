@@ -8,29 +8,16 @@
  */
 
 import type { Document, SceneNode } from '@varve/scene';
-import { composeTargetGaps } from './compose';
-import { cssTargetGaps } from './css';
-import { cssModulesTargetGaps } from './css-modules';
-import { flutterTargetGaps } from './flutter';
-import { svgTargetGaps } from './svg';
-import { swiftuiTargetGaps } from './swiftui';
-import { tailwindTargetGaps } from './tailwind';
+import type { CodeExportFormat } from './targets';
+import { gapsForFormat } from './targets';
 import type { TargetGap } from './types';
 
-/** Code-export format identifiers handled by this analyser. */
-export type CodeExportFormat =
-  | 'css'
-  | 'react'
-  | 'react-cssmodules'
-  | 'react-tailwind'
-  | 'flutter'
-  | 'swiftui'
-  | 'compose'
-  | 'svg'
-  | 'svg-component'
-  | 'vue'
-  | 'svelte'
-  | 'web-component';
+/**
+ * Code-export format identifiers. The union now lives in the target registry,
+ * which is the single declaration of which targets exist; this re-export keeps
+ * existing importers working without giving them a second copy to drift from.
+ */
+export type { CodeExportFormat };
 
 /** Summary of all gaps found in a document for a given format. */
 export interface TargetAnalysisResult {
@@ -42,19 +29,28 @@ export interface TargetAnalysisResult {
 
 type GapFn = (node: SceneNode, doc: Document) => TargetGap[];
 
+/**
+ * Gap reporters, resolved from the target registry.
+ *
+ * This was a second hand-maintained map of the same knowledge the registry now
+ * holds, which is how a target could exist in one place and not the other.
+ * `react` has no analyser because its emitter lives in `index.ts` and cannot be
+ * registered without a cycle; it reports no gaps explicitly rather than by
+ * omission, so the absence is a decision rather than an oversight.
+ */
 const GAP_FNS: Record<CodeExportFormat, GapFn> = {
-  css: cssTargetGaps,
+  css: gapsForFormat('css') ?? (() => []),
   react: () => [],
-  'react-cssmodules': cssModulesTargetGaps,
-  'react-tailwind': tailwindTargetGaps,
-  flutter: flutterTargetGaps,
-  swiftui: swiftuiTargetGaps,
-  compose: composeTargetGaps,
-  svg: svgTargetGaps,
-  'svg-component': svgTargetGaps,
-  vue: () => [],
-  svelte: () => [],
-  'web-component': () => [],
+  'react-cssmodules': gapsForFormat('react-cssmodules') ?? (() => []),
+  'react-tailwind': gapsForFormat('react-tailwind') ?? (() => []),
+  flutter: gapsForFormat('flutter') ?? (() => []),
+  swiftui: gapsForFormat('swiftui') ?? (() => []),
+  compose: gapsForFormat('compose') ?? (() => []),
+  svg: gapsForFormat('svg') ?? (() => []),
+  'svg-component': gapsForFormat('svg-component') ?? (() => []),
+  vue: gapsForFormat('vue') ?? (() => []),
+  svelte: gapsForFormat('svelte') ?? (() => []),
+  'web-component': gapsForFormat('web-component') ?? (() => []),
 };
 
 /**

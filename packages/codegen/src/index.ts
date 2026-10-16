@@ -136,6 +136,21 @@ export {
   tailwindTargetGaps,
 } from './tailwind';
 export * from './target-analysis';
+export type {
+  CodeExportFormat as CodeTargetExportFormat,
+  CodeTargetDescriptor,
+  CodeTargetId,
+  CodeTargetOptions,
+} from './targets';
+// Target registry — the single declaration of what each target is.
+export {
+  CODE_TARGETS,
+  codeTarget,
+  extensionForTarget,
+  gapsForFormat,
+  sanitiseFileStem,
+  singleFileBundle,
+} from './targets';
 export { resolveTokenName } from './tokens';
 export type {
   BundleDiagnostic,

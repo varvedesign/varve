@@ -457,3 +457,54 @@ HTML target is the remaining work, and it needs the IR-building path
   emitters but they are wrong on rotated and percentage content.
 - `unit: 'rem'` is still not reachable from the editor UI: `CssExportOptions.unit`
   has no caller in `packages/editor`.
+
+## 9. Slice D (part 2) — one target registry
+
+### 9.1 Why the mislabel was possible
+
+`CodePanel` and `CodeGenView` each declared their own target list and their own
+label per target. That is the whole mechanism behind "HTML/CSS" naming a
+stylesheet emitter: the name was restated per surface instead of derived from the
+emitter behind it. `packages/codegen/src/targets.ts` now holds the single
+declaration — id, label, deliverable kind, analysis formats, download extension,
+highlight key, scope note, capability reporter, and the generation dispatch — and
+`target-analysis.ts` derives its gap map from it instead of keeping a second
+hand-maintained copy of the same knowledge.
+
+### 9.2 Three exclusions, each with a reason
+
+- **`react` is not registered and has no capability analyser.** `exportNodeToReact`
+  is defined *inside* `packages/codegen/src/index.ts` (around line 1000), and
+  `index.ts` re-exports the registry — so registering it creates an import cycle.
+  Moving that emitter into a `react.ts` is the prerequisite and is deliberately
+  not folded into this change. The absence is asserted by a test, so it stays a
+  decision rather than becoming an oversight.
+- **`html` is not a target.** `exportIrToHtml` takes the design IR rather than a
+  node, so it needs the IR-building path (`ir-builders.ts`) instead of a string
+  adapter. No target claims HTML until that exists.
+- **`svg-component`** is an analysis format with no emitter of its own; the SVG
+  descriptor answers for it, and a test pins that routing.
+
+### 9.3 Path safety, and two bugs my own tests caught
+
+`singleFileBundle` derives a file name from the authored layer name through
+`sanitiseFileStem`. The first version had two real defects, both found by the
+tests rather than by review: `..\..\etc\passwd` kept its `..` after separators
+became dashes (a traversal primitive survives separator replacement), and the
+leading-dot strip left a `-..-` artefact. The fix removes dot runs *before*
+collapsing dashes and trimming edges.
+
+A third issue was a lint error, not a logic error: the control-character class
+tripped `noControlCharactersInRegex`, so the filter now works by code point
+instead of by a literal range.
+
+### 9.4 Still open in slice D
+
+- Move `exportNodeToReact` into its own module, then register `react` and remove
+  the last unanalysed format.
+- Both panels still declare which subset of targets they *show* (a presentation
+  decision, now asserted to be the only remaining duplication) — but neither yet
+  reads its tabs, labels or generation dispatch from the registry. That
+  migration is what actually retires the drift class; the registry and the
+  derived gap map are the foundation it needs.
+- Expose an HTML target once the IR path is available.
