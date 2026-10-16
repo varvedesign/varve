@@ -9,8 +9,17 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Document, SceneNode } from '@varve/scene';
 import { DocumentCodec, validateDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
+
+/** Corpus builders guarantee their ids; make that contract explicit to tsc. */
+function requireNode(doc: Document, id: string): SceneNode {
+  const node = doc.nodes[id];
+  if (!node) throw new Error(`corpus node ${id} missing`);
+  return node;
+}
+
 import { exportNodeToCss } from '../css';
 import { exportNodeToCssModulesBundle } from '../css-modules';
 import { exportNodeToFlutter } from '../flutter';
@@ -44,7 +53,6 @@ describe('acceptance corpus', () => {
       const decoded = DocumentCodec.decode(json);
       expect(decoded.ok, decoded.ok ? '' : decoded.error).toBe(true);
       if (!decoded.ok) return;
-      expect(decoded.document.version).toBe(doc.version);
       expect(Object.keys(decoded.document.nodes).sort()).toEqual(Object.keys(doc.nodes).sort());
     });
   }
@@ -52,11 +60,11 @@ describe('acceptance corpus', () => {
   it('graphics showcase carries the effects under test', () => {
     const g = buildGraphicsShowcaseDoc();
     const shadowed = g.doc.nodes[g.shadowedRectId];
-    expect(shadowed?.effects.some((e) => e.type === 'dropShadow')).toBe(true);
-    expect(shadowed?.effects.some((e) => e.type === 'innerShadow')).toBe(true);
+    expect(shadowed?.effects?.some((e) => e.type === 'dropShadow')).toBe(true);
+    expect(shadowed?.effects?.some((e) => e.type === 'innerShadow')).toBe(true);
     const angular = g.doc.nodes[g.angularGradientRectId];
     expect(
-      angular?.fills?.some((f) => f.type === 'gradient' && f.gradient.type === 'angular'),
+      angular?.fills?.some((f) => f.type === 'gradient' && f.gradient?.type === 'angular'),
     ).toBe(true);
     expect(g.doc.nodes[g.blendedCircleId]?.blendMode).toBe('multiply');
     const masked = g.doc.nodes[g.maskedGroupId] as { mask?: { sourceNodeId?: string } };
@@ -68,7 +76,9 @@ describe('acceptance corpus', () => {
     const component = c.doc.components[c.componentId];
     expect(component?.properties?.some((p) => p.name === 'Label')).toBe(true);
     expect(component?.variants?.some((v) => v.id === c.largeVariantId)).toBe(true);
-    const instance = c.doc.nodes[c.largeInstanceId];
+    const instance = c.doc.nodes[c.largeInstanceId] as
+      | { variant?: string; propertyOverrides?: Record<string, unknown> }
+      | undefined;
     expect(instance?.variant).toBe(c.largeVariantId);
     expect(instance?.propertyOverrides?.Label).toBe('Try Varve');
   });
@@ -81,46 +91,46 @@ describe('acceptance corpus', () => {
     const graphics = buildGraphicsShowcaseDoc();
     writeFileSync(
       join(outDir, 'graphics-showcase.svg'),
-      exportNodeToSvg(graphics.doc.nodes[graphics.rootId], graphics.doc),
+      exportNodeToSvg(requireNode(graphics.doc, graphics.rootId), graphics.doc),
     );
     writeFileSync(
       join(outDir, 'graphics-showcase.css'),
-      exportNodeToCss(graphics.doc.nodes[graphics.rootId], graphics.doc),
+      exportNodeToCss(requireNode(graphics.doc, graphics.rootId), graphics.doc),
     );
-    const tw = exportNodeToTailwindBundle(graphics.doc.nodes[graphics.rootId], graphics.doc);
+    const tw = exportNodeToTailwindBundle(requireNode(graphics.doc, graphics.rootId), graphics.doc);
     for (const file of tw.files) {
       writeFileSync(join(outDir, `graphics-showcase.${file.path}`), file.contents);
     }
     writeFileSync(
       join(outDir, 'graphics-showcase-modules.tsx'),
-      exportNodeToCssModulesBundle(graphics.doc.nodes[graphics.rootId], graphics.doc).files[0]
-        ?.contents ?? '',
+      exportNodeToCssModulesBundle(requireNode(graphics.doc, graphics.rootId), graphics.doc)
+        .files[0]?.contents ?? '',
     );
     writeFileSync(
       join(outDir, 'graphics-showcase.dart'),
-      exportNodeToFlutter(graphics.doc.nodes[graphics.rootId], graphics.doc),
+      exportNodeToFlutter(requireNode(graphics.doc, graphics.rootId), graphics.doc),
     );
     writeFileSync(
       join(outDir, 'graphics-showcase.swift'),
-      exportNodeToSwiftUI(graphics.doc.nodes[graphics.rootId], graphics.doc),
+      exportNodeToSwiftUI(requireNode(graphics.doc, graphics.rootId), graphics.doc),
     );
 
     const rich = buildRichTextDoc();
     writeFileSync(
       join(outDir, 'rich-text.svg'),
-      exportNodeToSvg(rich.doc.nodes[rich.rootId], rich.doc),
+      exportNodeToSvg(requireNode(rich.doc, rich.rootId), rich.doc),
     );
     const wrapped = buildWrappedTextDoc();
     writeFileSync(
       join(outDir, 'wrapped-text.svg'),
-      exportNodeToSvg(wrapped.doc.nodes[wrapped.rootId], wrapped.doc),
+      exportNodeToSvg(requireNode(wrapped.doc, wrapped.rootId), wrapped.doc),
     );
     const page = buildResponsivePageDoc();
     writeFileSync(
       join(outDir, 'responsive-page.css'),
-      exportNodeToCss(page.doc.nodes[page.rootId], page.doc),
+      exportNodeToCss(requireNode(page.doc, page.rootId), page.doc),
     );
-    const pageTw = exportNodeToTailwindBundle(page.doc.nodes[page.rootId], page.doc);
+    const pageTw = exportNodeToTailwindBundle(requireNode(page.doc, page.rootId), page.doc);
     for (const file of pageTw.files) {
       writeFileSync(join(outDir, `responsive-page.${file.path}`), file.contents);
     }

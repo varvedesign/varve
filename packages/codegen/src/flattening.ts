@@ -182,6 +182,12 @@ const CSS_REPRESENTABLE_REASONS: Set<FlattenReason> = new Set([
   'multiple-strokes',
   'inner-shadow',
   'layer-blur',
+  // Native CSS: `conic-gradient(from … at …)` with an interpolation hint
+  // reproduces the angular field, and `backdrop-filter: blur()` the
+  // background blur. Diamond gradients keep their raster requirement — CSS
+  // has no four-sided spread representation.
+  'angular-gradient',
+  'background-blur',
 ]);
 
 export function canEmitAsHtml(
@@ -204,8 +210,8 @@ export function canEmitAsHtml(
     return { canEmit: true, reasons: spec.reasons, emitAs: 'native' };
   }
 
-  // Adjustment layers and background blur truly need raster fallback
-  if (spec.reasons.includes('adjustment-layer') || spec.reasons.includes('background-blur')) {
+  // Adjustment layers truly need raster fallback
+  if (spec.reasons.includes('adjustment-layer')) {
     return { canEmit: false, reasons: spec.reasons, emitAs: 'image' };
   }
 

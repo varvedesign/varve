@@ -33,6 +33,13 @@ export { exportInteractiveAnimations, exportInteractivePrototype } from './anima
 export { timelineToLottieJSON } from './animation-lottie';
 export { timelineToSVGAnimations } from './animation-svg';
 export {
+  buildBundleAssets,
+  bundleAssetFromRaster,
+  bytesToDataUrl,
+  dataUrlToBytes,
+  resolveBundleAssets,
+} from './bundle-assets';
+export {
   collectCssRules,
   cssDeclarationsForNode,
   cssTargetGaps,

@@ -10,7 +10,7 @@
  * document plus the ids a test needs to address subtrees.
  */
 
-import type { Document, GroupNode, ManagedColor, NodeId, RichText } from '@varve/scene';
+import type { Document, FrameNode, GroupNode, ManagedColor, NodeId, RichText } from '@varve/scene';
 import {
   addChild,
   addComponentProperty,
@@ -36,6 +36,18 @@ const rgb = (r: number, g: number, b: number, a = 255): ManagedColor => ({
   b,
   a,
 });
+
+/**
+ * Frame sizing applied after construction: `makeFrameNode`'s option list
+ * predates the per-axis sizing fields, so they are set on the node object.
+ */
+function withSizing(
+  node: FrameNode,
+  width: 'fixed' | 'hug' | 'fill' | 'relative',
+  height: 'fixed' | 'hug' | 'fill' | 'relative',
+): FrameNode {
+  return { ...node, layoutSizingWidth: width, layoutSizingHeight: height };
+}
 
 const TEAL = rgb(57, 208, 198);
 const INK = rgb(16, 21, 31);
@@ -72,7 +84,7 @@ export function buildGraphicsShowcaseDoc(): GraphicsShowcaseDoc {
   const root = makeFrameNode('root', {
     name: 'Showcase',
     w: 480,
-    h: 360,
+    h: 380,
     fill: rgb(24, 28, 36),
     clipContent: true,
   });
@@ -141,7 +153,7 @@ export function buildGraphicsShowcaseDoc(): GraphicsShowcaseDoc {
 
   const blendedCircle = makeShapeNode(
     'blended',
-    { kind: 'ellipse', x: 84, y: 212, w: 120, h: 120 },
+    { kind: 'ellipse', cx: 144, cy: 272, rx: 60, ry: 60 },
     {
       name: 'Blended orb',
       fill: CORAL,
@@ -152,7 +164,7 @@ export function buildGraphicsShowcaseDoc(): GraphicsShowcaseDoc {
 
   const maskSource = makeShapeNode(
     'mask-source',
-    { kind: 'ellipse', x: 0, y: 0, w: 160, h: 168 },
+    { kind: 'ellipse', cx: 80, cy: 84, rx: 80, ry: 84 },
     { name: 'Mask ellipse', fill: rgb(255, 255, 255) },
   );
 
@@ -172,6 +184,10 @@ export function buildGraphicsShowcaseDoc(): GraphicsShowcaseDoc {
   doc = addNode(doc, groupWithMask);
   doc = addChild(doc, 'masked-group', maskSource);
   doc = addChild(doc, 'masked-group', maskedChild);
+  // Re-parent the CURRENT node entry: addChild re-registers the object it is
+  // handed, so the stale pre-children reference would orphan the subtree.
+  const populatedGroup = doc.nodes['masked-group'];
+  if (populatedGroup) doc = addChild(doc, 'root', populatedGroup);
 
   const imageShape = makeShapeNode(
     'image-shape',
@@ -183,7 +199,23 @@ export function buildGraphicsShowcaseDoc(): GraphicsShowcaseDoc {
   );
   doc = addChild(doc, 'root', {
     ...imageShape,
-    fills: [imageFill(TINY_PNG_DATA_URL, { fit: 'cover', imageWidth: 1, imageHeight: 1 })],
+    fills: [imageFill(TINY_PNG_DATA_URL, { fit: 'fill', imageWidth: 1, imageHeight: 1 })],
+  });
+
+  const linearBadge = makeShapeNode(
+    'linear-badge',
+    { kind: 'rect', x: 136, y: 24, w: 56, h: 24 },
+    { name: 'Linear badge' },
+  );
+  doc = addChild(doc, 'root', {
+    ...linearBadge,
+    fills: [
+      gradientFill('linear', [
+        { position: 0, color: CORAL },
+        { position: 1, color: TEAL },
+      ]),
+    ],
+    cornerRadius: 6,
   });
 
   return {
@@ -337,6 +369,9 @@ export function buildResponsivePageDoc(): ResponsivePageDoc {
       gap: 24,
       padding: [32, 32, 32, 32],
       alignItems: 'stretch',
+      wrap: false,
+      grow: 0,
+      shrink: 0,
     },
   });
   doc = addNode(doc, root);
@@ -346,18 +381,19 @@ export function buildResponsivePageDoc(): ResponsivePageDoc {
     w: 896,
     h: 56,
     fill: INK,
-    layoutSizingWidth: 'fill',
-    layoutSizingHeight: 'fixed',
     layoutStyle: {
       mode: 'flex',
       direction: 'row',
       gap: 16,
       padding: [0, 24, 0, 24],
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'spaceBetween',
+      wrap: false,
+      grow: 0,
+      shrink: 0,
     },
   });
-  doc = addChild(doc, 'root', header);
+  doc = addChild(doc, 'root', withSizing(header, 'fill', 'fixed'));
 
   const brand = makeTextNode('brand', 'Varve', {
     name: 'Brand',
@@ -378,11 +414,8 @@ export function buildResponsivePageDoc(): ResponsivePageDoc {
     w: 896,
     h: 220,
     fill: TEAL,
-    layoutSizingWidth: 'fill',
-    layoutSizingHeight: 'fixed',
-    cornerRadius: 16,
   });
-  doc = addChild(doc, 'root', hero);
+  doc = addChild(doc, 'root', withSizing({ ...hero, cornerRadius: 16 }, 'fill', 'fixed'));
   const heroText = makeTextNode('hero-text', 'Ship designs that become real code', {
     name: 'Hero title',
     fontSize: 32,
@@ -397,28 +430,35 @@ export function buildResponsivePageDoc(): ResponsivePageDoc {
     w: 896,
     h: 180,
     fill: rgb(250, 250, 250),
-    layoutSizingWidth: 'fill',
-    layoutSizingHeight: 'hug',
     layoutStyle: {
       mode: 'flex',
       direction: 'row',
       gap: 16,
+      padding: [0, 0, 0, 0],
       alignItems: 'stretch',
+      wrap: false,
+      grow: 0,
+      shrink: 0,
     },
   });
-  doc = addChild(doc, 'root', cardsRow);
+  doc = addChild(doc, 'root', withSizing(cardsRow, 'fill', 'hug'));
   for (let i = 0; i < 3; i += 1) {
     const card = makeFrameNode(`card-${i}`, {
       name: `Card ${i + 1}`,
       w: 200,
       h: 120,
       fill: rgb(255, 255, 255),
-      layoutSizingWidth: 'fill',
-      layoutSizingHeight: 'hug',
-      cornerRadius: 10,
-      layoutStyle: { mode: 'flex', direction: 'column', gap: 8, padding: [16, 16, 16, 16] },
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'column',
+        gap: 8,
+        padding: [16, 16, 16, 16],
+        wrap: false,
+        grow: 0,
+        shrink: 0,
+      },
     });
-    doc = addChild(doc, 'cards', card);
+    doc = addChild(doc, 'cards', withSizing({ ...card, cornerRadius: 10 }, 'fill', 'hug'));
     const title = makeTextNode(`card-title-${i}`, `Feature ${i + 1}`, {
       name: 'Card title',
       fontSize: 16,
@@ -433,10 +473,8 @@ export function buildResponsivePageDoc(): ResponsivePageDoc {
     w: 896,
     h: 48,
     fill: rgb(230, 233, 238),
-    layoutSizingWidth: 'fill',
-    layoutSizingHeight: 'fixed',
   });
-  doc = addChild(doc, 'root', footer);
+  doc = addChild(doc, 'root', withSizing(footer, 'fill', 'fixed'));
 
   return { doc, rootId: 'root', headerId: 'header', cardsRowId: 'cards', heroId: 'hero' };
 }
@@ -464,7 +502,15 @@ export function buildComponentFamilyDoc(): ComponentFamilyDoc {
     w: 520,
     h: 200,
     fill: rgb(250, 250, 250),
-    layoutStyle: { mode: 'flex', direction: 'row', gap: 24, padding: [24, 24, 24, 24] },
+    layoutStyle: {
+      mode: 'flex',
+      direction: 'row',
+      gap: 24,
+      padding: [24, 24, 24, 24],
+      wrap: false,
+      grow: 0,
+      shrink: 0,
+    },
   });
   doc = addNode(doc, root);
 
@@ -474,10 +520,19 @@ export function buildComponentFamilyDoc(): ComponentFamilyDoc {
     w: 140,
     h: 44,
     fill: TEAL,
-    cornerRadius: 22,
-    layoutStyle: { mode: 'flex', direction: 'row', alignItems: 'center', justifyContent: 'center' },
+    layoutStyle: {
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      grow: 0,
+      shrink: 0,
+      padding: [0, 0, 0, 0],
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
   });
-  doc = addNode(doc, master);
+  doc = addNode(doc, { ...master, cornerRadius: 22 });
   const masterLabel = makeTextNode('btn-label', 'Get started', {
     name: 'Label',
     fontSize: 15,

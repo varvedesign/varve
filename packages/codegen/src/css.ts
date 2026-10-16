@@ -12,13 +12,14 @@
 
 import type {
   FrameNode,
+  GradientFill,
   ManagedColor,
   Document as SceneDocument,
   SceneNode,
   VariableStore,
 } from '@varve/scene';
 import { isImageShape } from '@varve/scene';
-import { managedColorToRgba } from '@varve/shared';
+import { linearGradientHandles, managedColorToRgba, radialGradientHandles } from '@varve/shared';
 import { canEmitAsHtml } from './flattening';
 import { toCssClassName, uniqueName } from './naming';
 import {
@@ -52,6 +53,13 @@ export interface CssExportOptions {
    */
   rasterAssets?: Record<string, RasterAsset>;
   /**
+   * `nodeId → relative path` overrides for raster assets. When a path is
+   * present for a node it is emitted instead of the asset's inline data URL —
+   * the file-profile of a multi-file bundle. Absent entries fall back to the
+   * inline data URL (the self-contained snippet profile).
+   */
+  assetPaths?: Record<string, string>;
+  /**
    * Include hidden (`visible: false`) nodes. Default false: hidden layers are
    * an authored decision, not a conversion failure.
    */
@@ -60,6 +68,137 @@ export interface CssExportOptions {
 
 function formatColor(c: ManagedColor, format: 'hex' | 'rgb'): string {
   return format === 'hex' ? colorToHex(c) : rgba(c);
+}
+
+/** RGBA string that always carries the color's alpha (gradient stops). */
+function stopColor(c: ManagedColor): string {
+  return rgba(c);
+}
+
+/** A paint whose stored alpha alone is below 1, wrapped in a color-mix. */
+function withPaintOpacity(css: string, opacity: number): string {
+  if (opacity >= 1) return css;
+  const pct = Math.max(0, Math.min(100, opacity * 100));
+  return `color-mix(in srgb, ${css} ${pct.toFixed(3)}%, transparent)`;
+}
+
+/**
+ * Insert an approximate stop for each authored midpoint bias.
+ *
+ * CSS has no per-stop midpoint syntax; the standard approximation adds an
+ * intermediate stop at the biased position with the sRGB-blended color. The
+ * deviation from the renderer's interpolation-space blend is sub-pixel for
+ * typical biases and is disclosed by the target gaps for exotic cases.
+ */
+function stopsWithMidpoints(stops: GradientFill['stops']): GradientFill['stops'] {
+  const out: GradientFill['stops'] = [];
+  for (let i = 0; i < stops.length; i += 1) {
+    const stop = stops[i];
+    if (!stop) continue;
+    out.push(stop);
+    const next = stops[i + 1];
+    if (!next || stop.midpoint === undefined || stop.midpoint === 0.5) continue;
+    const [r1, g1, b1, a1] = managedColorToRgba(stop.color);
+    const [r2, g2, b2, a2] = managedColorToRgba(next.color);
+    const t = stop.midpoint;
+    out.push({
+      position: stop.position + (next.position - stop.position) * t,
+      color: {
+        space: 'rgb',
+        r: Math.round(r1 + (r2 - r1) * t),
+        g: Math.round(g1 + (g2 - g1) * t),
+        b: Math.round(b1 + (b2 - b1) * t),
+        a: Math.round(a1 + (a2 - a1) * t),
+      },
+    });
+  }
+  return out;
+}
+
+/** CSS Color 4 interpolation hint for a gradient's pinned space. */
+function interpolationHint(fill: GradientFill): string {
+  switch (fill.interpolationSpace) {
+    case 'oklab':
+      return 'in oklab, ';
+    case 'oklch':
+      return `in oklch ${fill.hueInterpolation ?? 'shorter'} hue, `;
+    case 'hsl':
+      return `in hsl ${fill.hueInterpolation ?? 'shorter'} hue, `;
+    case 'linear-srgb':
+      return 'in srgb-linear, ';
+    default:
+      return '';
+  }
+}
+
+function gradientStopList(fill: GradientFill): string {
+  return stopsWithMidpoints(fill.stops)
+    .map((s) => `${stopColor(s.color)} ${(s.position * 100).toFixed(3)}%`)
+    .join(', ');
+}
+
+/**
+ * Faithful CSS for a scene gradient, or null when the field has no CSS
+ * representation (diamond). Geometry comes from the same canonical handles
+ * the renderer uses (`@varve/shared` gradientGeometry), expressed against
+ * the node's own box in px, so the emitted gradient tracks the authored
+ * rotation and transform instead of a guessed angle.
+ */
+export function gradientToCss(fill: GradientFill, boxW: number, boxH: number): string | null {
+  const hint = interpolationHint(fill);
+  const stops = gradientStopList(fill);
+  if (fill.stops.length === 0) return null;
+  const repeating = fill.tilingMode === 'repeat' || fill.tilingMode === 'reflect';
+
+  if (fill.type === 'linear') {
+    const { start, end } = linearGradientHandles(fill, { x: 0, y: 0, w: boxW, h: boxH });
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    // CSS 0deg points up and increases clockwise; the handles are in
+    // y-down screen space, so the direction vector maps as atan2(dx, -dy).
+    const angle = (Math.atan2(dx, -dy) * 180) / Math.PI;
+    const fn = repeating ? 'repeating-linear-gradient' : 'linear-gradient';
+    return `${fn}(${hint}${angle.toFixed(3)}deg, ${stops})`;
+  }
+
+  if (fill.type === 'radial') {
+    const { center, uAxisEnd, vAxisEnd } = radialGradientHandles(fill, {
+      x: 0,
+      y: 0,
+      w: boxW,
+      h: boxH,
+    });
+    const rx = Math.hypot(uAxisEnd[0] - center[0], uAxisEnd[1] - center[1]);
+    const ry = Math.hypot(vAxisEnd[0] - center[0], vAxisEnd[1] - center[1]);
+    const shape =
+      Math.abs(rx - ry) < 0.01
+        ? `circle ${rx.toFixed(3)}px`
+        : `ellipse ${rx.toFixed(3)}px ${ry.toFixed(3)}px`;
+    const fn = repeating ? 'repeating-radial-gradient' : 'radial-gradient';
+    return `${fn}(${hint}${shape} at ${center[0].toFixed(3)}px ${center[1].toFixed(3)}px, ${stops})`;
+  }
+
+  if (fill.type === 'angular') {
+    const handles = radialGradientHandles(fill, { x: 0, y: 0, w: boxW, h: boxH });
+    // Canvas conic starts on the +u axis (3 o'clock, clockwise); CSS conic
+    // starts at 12 o'clock — the same sweep, rotated a quarter turn.
+    const ux = handles.uAxisEnd[0] - handles.center[0];
+    const uy = handles.uAxisEnd[1] - handles.center[1];
+    const from = (Math.atan2(uy, ux) * 180) / Math.PI + 90;
+    const fn = repeating ? 'repeating-conic-gradient' : 'conic-gradient';
+    return `${fn}(${hint}from ${from.toFixed(3)}deg at ${handles.center[0].toFixed(3)}px ${handles.center[1].toFixed(3)}px, ${stops})`;
+  }
+
+  // Diamond has no CSS gradient representation; the caller falls back to the
+  // raster path.
+  return null;
+}
+
+interface BackgroundLayer {
+  image: string;
+  size?: string;
+  repeat?: string;
+  position?: string;
 }
 
 function formatSize(px: number, unit: 'px' | 'rem', base: number): string {
@@ -242,7 +381,8 @@ export function cssDeclarationsForNode(
     lines.push(`max-height: ${formatSize(node.maxHeight, unit, base)};`);
 
   if (asset) {
-    lines.push(`background-image: url("${escapeCssString(asset.dataUrl)}");`);
+    const assetUrl = opts?.assetPaths?.[node.id] ?? asset.dataUrl;
+    lines.push(`background-image: url("${escapeCssString(assetUrl)}");`);
     lines.push('background-size: 100% 100%;');
     lines.push('background-repeat: no-repeat;');
   } else if (!needsRaster) {
@@ -254,33 +394,62 @@ export function cssDeclarationsForNode(
       lines.push(
         tokenName ? `color: var(--${tokenName});` : `color: ${formatColor(node.fill, colorFmt)};`,
       );
+    } else if (paintsFill && (node.fills?.some((f) => f.visible !== false) ?? false)) {
+      // Layered fill stack. CSS background-image layers composite top-first,
+      // while a fill stack paints bottom-first — so the emission walks the
+      // authored stack in reverse. A topmost solid becomes a gradient layer
+      // too: `background-color` would paint below every image layer and
+      // silently reorder the authored stack.
+      const layers: BackgroundLayer[] = [];
+      for (const fill of [...(node.fills ?? [])].reverse()) {
+        if (fill.visible === false) continue;
+        if (fill.type === 'solid' && fill.color) {
+          layers.push({
+            image: withPaintOpacity(formatColor(fill.color, colorFmt), fill.opacity ?? 1),
+          });
+        } else if (fill.type === 'gradient' && fill.gradient) {
+          const css = gradientToCss(fill.gradient, pos.w, pos.h);
+          if (css) layers.push({ image: withPaintOpacity(css, fill.opacity ?? 1) });
+        } else if (fill.type === 'image' && fill.image?.src) {
+          layers.push({
+            image: `url("${escapeCssString(fill.image.src)}")`,
+            size:
+              fill.image.fit === 'fill'
+                ? 'cover'
+                : fill.image.fit === 'fit'
+                  ? 'contain'
+                  : fill.image.fit === 'stretch'
+                    ? '100% 100%'
+                    : 'auto',
+            repeat: fill.image.fit === 'tile' ? 'repeat' : 'no-repeat',
+            position: 'center',
+          });
+        }
+      }
+      if (layers.length > 0) {
+        lines.push(`background-image: ${layers.map((l) => l.image).join(', ')};`);
+        if (layers.some((l) => l.size)) {
+          lines.push(`background-size: ${layers.map((l) => l.size ?? 'auto').join(', ')};`);
+          lines.push(
+            `background-repeat: ${layers.map((l) => l.repeat ?? 'no-repeat').join(', ')};`,
+          );
+          lines.push(
+            `background-position: ${layers.map((l) => l.position ?? '0% 0%').join(', ')};`,
+          );
+        }
+      } else {
+        lines.push(
+          tokenName
+            ? `background: var(--${tokenName});`
+            : `background: ${formatColor(node.fill, colorFmt)};`,
+        );
+      }
     } else if (paintsFill) {
       lines.push(
         tokenName
           ? `background: var(--${tokenName});`
           : `background: ${formatColor(node.fill, colorFmt)};`,
       );
-    }
-
-    // Image fill: emit background-image for image-filled shapes.
-    const imgFill = node.fills?.find((f) => f.type === 'image' && f.image?.src);
-    if (imgFill?.image && paintsFill) {
-      lines.push(`background-image: url("${escapeCssString(imgFill.image.src)}");`);
-      lines.push(
-        imgFill.image.fit === 'fill'
-          ? 'background-size: cover;'
-          : imgFill.image.fit === 'fit'
-            ? 'background-size: contain;'
-            : imgFill.image.fit === 'stretch'
-              ? 'background-size: 100% 100%;'
-              : 'background-size: auto;',
-      );
-      lines.push(
-        imgFill.image.fit === 'tile'
-          ? 'background-repeat: repeat;'
-          : 'background-repeat: no-repeat;',
-      );
-      lines.push('background-position: center;');
     }
   }
 
@@ -380,18 +549,34 @@ export function cssDeclarationsForNode(
     if (cssBlend && CSS_BLEND_MODES.has(cssBlend)) lines.push(`mix-blend-mode: ${cssBlend};`);
   }
 
-  // Drop shadows map to box-shadow one-to-one. Inner shadows do not: they are
-  // reported as a gap and need the raster path.
+  // Shadows map to box-shadow: drop shadows directly; inner shadows as the
+  // `inset` variant, which follows the same border-radius geometry. Blurs are
+  // native CSS filters — a layer blur composes the element and its subtree,
+  // a background blur samples whatever paints behind the element.
   const shadows = (node.effects ?? [])
     .filter(
-      (e): e is Extract<typeof e, { x: number }> => e.type === 'dropShadow' && e.visible !== false,
+      (e): e is Extract<typeof e, { x: number }> =>
+        (e.type === 'dropShadow' || e.type === 'innerShadow') && e.visible !== false,
     )
     .map((e) => {
       const [r, g, b, alpha] = managedColorToRgba(e.color);
       const color = `rgba(${r},${g},${b},${((alpha / 255) * (e.opacity ?? 1)).toFixed(3)})`;
-      return `${formatSize(e.x, unit, base)} ${formatSize(e.y, unit, base)} ${formatSize(e.blur, unit, base)} ${formatSize(e.spread, unit, base)} ${color}`;
+      const box = `${formatSize(e.x, unit, base)} ${formatSize(e.y, unit, base)} ${formatSize(e.blur, unit, base)} ${formatSize(e.spread, unit, base)} ${color}`;
+      return e.type === 'innerShadow' ? `inset ${box}` : box;
     });
   if (shadows.length > 0) lines.push(`box-shadow: ${shadows.join(', ')};`);
+
+  const blurFilters: string[] = [];
+  for (const e of node.effects ?? []) {
+    if (e.visible === false) continue;
+    if (e.type === 'layerBlur') blurFilters.push(`blur(${formatSize(e.radius, unit, base)})`);
+    else if (e.type === 'backgroundBlur')
+      blurFilters.push(`backdrop-blur(${formatSize(e.radius, unit, base)})`);
+  }
+  const layerBlur = blurFilters.filter((f) => f.startsWith('blur('));
+  if (layerBlur.length > 0) lines.push(`filter: ${layerBlur.join(' ')};`);
+  const backdropBlur = blurFilters.filter((f) => f.startsWith('backdrop-blur('));
+  if (backdropBlur.length > 0) lines.push(`backdrop-filter: ${backdropBlur.join(' ')};`);
 
   return lines;
 }
