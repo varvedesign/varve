@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { applyGridLayout } from '@varve/layout';
 import { DocumentCodec, validateDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
@@ -408,13 +409,42 @@ describe('Figma JSON importer', () => {
       type: 'FRAME',
       name: 'Grid frame',
       layoutMode: 'GRID',
+      gridColumnCount: 3,
+      gridRowCount: 2,
+      gridColumnGap: 16,
+      gridRowGap: 12,
+      gridColumnsSizing: '100px 1fr 2fr',
+      gridRowsSizing: 'auto 80px',
+      gridItemsPositioning: 'MANUAL',
+      gridAutoTracks: 'NONE',
       layoutGrids: [
         { pattern: 'COLUMNS', count: 4, gutterSize: 16, sectionSize: 80 },
         { pattern: 'ROWS', count: 3, gutterSize: 12, sectionSize: 48, visible: false },
       ],
       exportSettings: [{ format: 'PNG', suffix: '@2x', constraint: { type: 'SCALE', value: 2 } }],
       absoluteBoundingBox: { x: 20, y: 320, width: 360, height: 200 },
-      children: [],
+      children: [
+        {
+          id: 'grid:first',
+          type: 'RECTANGLE',
+          name: 'Grid first cell',
+          absoluteBoundingBox: { x: 20, y: 320, width: 80, height: 40 },
+          gridRowAnchorIndex: 0,
+          gridColumnAnchorIndex: 0,
+          gridRowSpan: 1,
+          gridColumnSpan: 1,
+        },
+        {
+          id: 'grid:span',
+          type: 'RECTANGLE',
+          name: 'Grid spanning cell',
+          absoluteBoundingBox: { x: 140, y: 320, width: 200, height: 40 },
+          gridRowAnchorIndex: 0,
+          gridColumnAnchorIndex: 1,
+          gridRowSpan: 1,
+          gridColumnSpan: 2,
+        },
+      ],
     });
     children.push({
       id: 'mask:frame',
@@ -464,9 +494,41 @@ describe('Figma JSON importer', () => {
     const future = nodes.find((node) => node.name === 'Future container');
     expect(grid).toMatchObject({
       kind: 'frame',
-      layoutStyle: { mode: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' },
+      layoutStyle: {
+        mode: 'grid',
+        layoutSemanticsVersion: 2,
+        gridTemplateColumns: '100px 1fr 2fr',
+        gridTemplateRows: 'auto 80px',
+        columnGap: 16,
+        rowGap: 12,
+      },
       presets: [{ format: 'png', scale: { type: 'factor', value: 2 } }],
     });
+    const gridChildren = [
+      nodes.find((node) => node.name === 'Grid first cell'),
+      nodes.find((node) => node.name === 'Grid spanning cell'),
+    ];
+    expect(gridChildren[0]?.gridPlacement).toEqual({
+      gridColumnStart: 1,
+      gridColumnEnd: 2,
+      gridColumnSpan: 1,
+      gridRowStart: 1,
+      gridRowEnd: 2,
+      gridRowSpan: 1,
+    });
+    expect(gridChildren[1]?.gridPlacement).toMatchObject({
+      gridColumnStart: 2,
+      gridColumnEnd: 4,
+      gridColumnSpan: 2,
+      gridRowStart: 1,
+      gridRowEnd: 2,
+      gridRowSpan: 1,
+    });
+    const reflowed = applyGridLayout(result.document, grid!.id);
+    const reflowedFirst = reflowed.nodes[gridChildren[0]!.id]!;
+    const reflowedSpan = reflowed.nodes[gridChildren[1]!.id]!;
+    expect(reflowedSpan.transform[4]).toBeGreaterThan(reflowedFirst.transform[4]);
+    expect(reflowedSpan.transform[5]).toBe(reflowedFirst.transform[5]);
     const importedGuides = Object.values(result.document.gridSettings?.layoutGrids ?? {});
     expect(importedGuides).toHaveLength(1);
     expect(importedGuides[0]).toHaveLength(2);
@@ -490,5 +552,56 @@ describe('Figma JSON importer', () => {
     expect(contentRoot && result.document.nodes[contentRoot]?.transform).toEqual([
       2, 0, 0, 2, 0, 0,
     ]);
+  });
+
+  it('keeps fixed child geometry and reports loss when grid sizing cannot be represented', () => {
+    const input = JSON.parse(fixture()) as Record<string, unknown>;
+    const document = input.document as Record<string, unknown>;
+    const pages = document.children as Array<Record<string, unknown>>;
+    const page = pages[0]!;
+    const pageChildren = page.children as Array<Record<string, unknown>>;
+    pageChildren.push({
+      id: 'grid:unsupported',
+      type: 'FRAME',
+      name: 'Unsupported grid',
+      layoutMode: 'GRID',
+      gridColumnCount: 2,
+      gridColumnsSizing: 'minmax(80px, 1fr) 1fr',
+      gridRowCount: 1,
+      gridRowsSizing: 'auto',
+      layoutGrids: [{ pattern: 'COLUMNS', count: 9, sectionSize: 40, gutterSize: 8 }],
+      absoluteBoundingBox: { x: 20, y: 300, width: 240, height: 120 },
+      children: [
+        {
+          id: 'grid:unsupported-child',
+          type: 'RECTANGLE',
+          name: 'Unsupported grid child',
+          absoluteBoundingBox: { x: 35, y: 320, width: 60, height: 30 },
+          gridRowAnchorIndex: 0,
+          gridColumnAnchorIndex: 0,
+        },
+      ],
+    });
+    const result = createFigmaParser().parse(JSON.stringify(input));
+    const parent = Object.values(result.document.nodes).find(
+      (node) => node.name === 'Unsupported grid',
+    );
+    const child = Object.values(result.document.nodes).find(
+      (node) => node.name === 'Unsupported grid child',
+    );
+    expect(parent?.kind).toBe('frame');
+    if (parent?.kind !== 'frame')
+      throw new Error('Unsupported grid parent was not imported as a frame');
+    expect(parent).toMatchObject({ w: 240, h: 120 });
+    expect(parent.layoutStyle).toBeUndefined();
+    expect(child?.gridPlacement).toBeUndefined();
+    expect(child?.transform[4]).toBe(15);
+    expect(child?.transform[5]).toBe(20);
+    expect(result.warnings).toContain(
+      'Auto-layout grid on "Unsupported grid" was imported as fixed geometry because its column track sizing is unavailable or unsupported; its original child positions are preserved.',
+    );
+    expect(result.unsupportedFeatures).toContain(
+      'auto-layout grid on "Unsupported grid" (its column track sizing is unavailable or unsupported)',
+    );
   });
 });

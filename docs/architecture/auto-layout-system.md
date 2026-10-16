@@ -2,7 +2,7 @@
 
 **Canonical doc** — audit status, model, engine, and known limitations.
 
-## 1. Current State (2026-09-09)
+## 1. Current State (2026-10-15)
 
 | Capability | Scene Model | Engine | Inspector | Canvas | Tests | Status |
 |---|---|---|---|---|---|---|
@@ -27,7 +27,7 @@
 | Grid layout | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** — repeat tracks, occupant mapping, spans, and constrained application |
 | Grid hug/intrinsic sizing | ✓ | ✓ | — | — | ✓ | **Working** — px/auto tracks measure through the shared grid resolver; fractional tracks contribute no unconstrained size |
 | Grid hidden/absolute filtering | ✓ | ✓ | — | — | — | **Working (new)** — parity fix, not deeply tested |
-| Components/instances | ✓ | ✓ | ✓ | N/A | — | **Unverified this pass** — structurally frames, so the generic frame path applies, but no dedicated instance/override test was run |
+| Components/instances | ✓ | ✓ | ✓ | N/A | ✓ | Grid rules and stable child track anchors survive instantiation, document save/reopen, and detach; see the regression test. Component override and master-propagation coverage remains separate. |
 | Text intrinsic sizing | ✓ | ✓ | N/A | ✓ | ✓ | **Working** (measureText), confirmed visually |
 | Codegen | ✓ | N/A | N/A | N/A | ✓ | **Working with target diagnostics** — authored sizing survives intermediate conversion |
 | Save/reopen | ✓ | N/A | N/A | N/A | ✓ | **Working** — schema 2.26 migration normalises optional sizing fields |
@@ -95,6 +95,42 @@ The resolved layout result is the source for canvas handles, hit testing,
 thumbnails, and exports. Target emitters may provide a resolved snapshot when
 their runtime cannot represent the authored responsive behavior.
 
+### Dependable layout contract (2026-10-15)
+
+The exact behavior matrix and versioning rationale are recorded in
+[ADR-0244](../adr/0244-dependable-layout-contract.md). Existing documents keep
+the legacy grid sizing interpretation when `layoutSemanticsVersion` is absent
+or `1`; new grid layouts opt into version `2`. This avoids silently shifting
+saved artwork when intrinsic grid sizing is corrected.
+
+- Flex wrapping resolves line membership from hypothetical bases before Fill
+  distribution. Flexible space is allocated per line, and items that reach a
+  min/max bound release or consume their remaining share through another
+  allocation pass. Signed flow gaps remain supported and are not CSS gaps.
+- Physical row and column gaps stay independent. In a row flow, column gap is
+  main-axis spacing and row gap is cross-axis spacing; a column flow maps them
+  to the opposite physical axes.
+- Grid track syntax is limited to bounded `px`, `fr`, `auto`, and bounded
+  `repeat()` definitions. Unsupported expressions are rejected before
+  expansion. Track arrays carry stable identities; grid cell anchors and spans
+  follow those IDs through reorder and resize. Removing a referenced track
+  opens a before/after preview and deterministically rehomes placements only
+  when the candidate remains valid.
+- The grid-track edit is one document update and one history action. The grid
+  solver remains the source of resolved geometry; the inspector preview is a
+  proposed document, not a second layout result.
+- Absolute children inside layout frames continue to use responsive
+  constraints. `centerOffset` is a distinct anchor policy that preserves the
+  child's center offset from the parent's center; existing proportional
+  `center` behavior is unchanged.
+- HTML/CSS code generation preserves grid tracks, independent gaps, anchored
+  child tracks, and spans when the target has equivalent CSS primitives.
+
+The supporting [evidence ledger](../research/layout-system-evidence-2026-10-15.md)
+records competitor reports with their reproduction limits. Native Tauri
+interaction and supported-browser resize checks remain a separate runtime
+verification gate and are not inferred from solver tests.
+
 ## 3. Files Changed
 
 ### Layout Engine (`packages/layout/src`)
@@ -122,8 +158,8 @@ their runtime cannot represent the authored responsive behavior.
 ## 4. Known Limitations (see final report for full prioritization)
 
 - **Cycle diagnostic not surfaced**: `checkLayoutCycle` exists and is tested but isn't called from any mutation path — there's no user-facing warning when a configuration would have cycled (the engine still resolves deterministically; this is about UX feedback, not correctness).
-- **Absolute-child constraints** (left+top / right+bottom / center / stretch scale) are not layered on top of `layoutPosition: 'absolute'` — absolute children currently just keep their existing transform, with no responsive anchoring within the layout parent.
+- **Absolute-child constraints** apply during layout-frame reflow, while flow children are arranged independently. `centerOffset` preserves the child's signed offset from the parent center; legacy `center` remains proportional. Native interaction coverage across rotation and cancel/undo is still pending.
 - **Canvas reordering**: dragging a single flow child within its existing flex frame now updates scene child order and reflows in the same undo transaction. A visual insertion indicator, multi-child reordering, and gap/padding drag handles remain future work.
 - **Real typographic baseline alignment** is not implemented; `alignItems` has no `baseline` option, which is correct per the "don't expose a fake option" principle rather than an oversight.
 - **RTL/logical direction** (`start`/`end` independent of `left`/`right`) is not modeled — `row`/`column` are physical, not logical.
-- Component overrides, full save/reopen and undo/redo browser workflows, and native target output still need the final matrix; the pure scene migration and codegen intermediate tests cover their contracts.
+- Figma REST JSON imports preserve the supported grid track subset, row/column gaps, manual cell anchors/spans, and row auto-flow. Unsupported grid syntax, placements, or cell alignment falls back to fixed imported geometry with an explicit loss warning. Component instantiation preserves root layout rules and child anchors across save/reopen and detach. A grid-bearing native `.fig` fixture, component override propagation, full editor undo/redo browser workflows, and native target output still need the final matrix.

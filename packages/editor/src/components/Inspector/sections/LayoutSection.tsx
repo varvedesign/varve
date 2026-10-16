@@ -31,6 +31,7 @@ import { NumberField } from '../controls/NumberField';
 
 import { commonValue, isMixed } from '../selection/selectionState';
 import { GridPlacementFields } from './GridPlacementFields';
+import { GridTrackEditor } from './GridTrackEditor';
 
 /* Alignment and justification are icon pickers: six abbreviated text segments
  * ("Spc/Ard/Evn") were unreadable, and six text options exceed the segmented
@@ -168,7 +169,11 @@ export function LayoutSection({ node }: { node: FrameNode }) {
               ]}
               onChange={(v) => {
                 if (v === 'none') setNodeLayout(node.id, undefined);
-                else patch({ mode: v as LayoutMode });
+                else
+                  patch({
+                    mode: v as LayoutMode,
+                    ...(v === 'grid' && ls?.mode !== 'grid' ? { layoutSemanticsVersion: 2 } : {}),
+                  });
               }}
             />
           </FieldRow>
@@ -196,7 +201,12 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                       value={ls.gridTemplateColumns ?? ''}
                       placeholder="e.g., 1fr 1fr 1fr"
                       className="insp-select"
-                      onChange={(e) => patch({ gridTemplateColumns: e.target.value || undefined })}
+                      onChange={(e) =>
+                        patch({
+                          gridTemplateColumns: e.target.value || undefined,
+                          gridColumnTracks: undefined,
+                        })
+                      }
                       aria-label="Grid template columns"
                     />
                   </FieldRow>
@@ -207,7 +217,12 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                       value={ls.gridTemplateRows ?? ''}
                       placeholder="e.g., auto 1fr auto"
                       className="insp-select"
-                      onChange={(e) => patch({ gridTemplateRows: e.target.value || undefined })}
+                      onChange={(e) =>
+                        patch({
+                          gridTemplateRows: e.target.value || undefined,
+                          gridRowTracks: undefined,
+                        })
+                      }
                       aria-label="Grid template rows"
                     />
                   </FieldRow>
@@ -233,6 +248,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                     min={0}
                     onChange={(v) => patch({ rowGap: v })}
                   />
+                  <GridTrackEditor frameId={node.id} layoutStyle={ls} document={state.document} />
                   <NumberField
                     label="Col gap"
                     unit="px"

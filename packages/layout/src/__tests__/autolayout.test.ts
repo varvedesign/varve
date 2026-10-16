@@ -457,6 +457,91 @@ describe('computeFlexLayout', () => {
     expect(results.map((result) => result.w)).toEqual([40, 250]);
   });
 
+  it('allocates Fill space after fixed children and gaps', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 500;
+    const fixed = makeChild('fixed', 0, 0, 100, 40);
+    fixed.layoutSizingWidth = 'fixed';
+    const first = makeChild('first', 0, 0, 0, 40);
+    first.layoutSizingWidth = 'fill';
+    const second = makeChild('second', 0, 0, 0, 40);
+    second.layoutSizingWidth = 'fill';
+
+    const results = computeFlexLayout(frame, [fixed, first, second]);
+    expect(results.map(({ x, w }) => [x, w])).toEqual([
+      [0, 100],
+      [110, 190],
+      [310, 190],
+    ]);
+  });
+
+  it('forms wrap lines from minimum bases, then redistributes Fill per line', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 5,
+      columnGap: 10,
+      rowGap: 24,
+      wrap: true,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 230;
+    const children = ['a', 'b', 'c', 'd'].map((id) => {
+      const child = makeChild(id, 0, 0, 0, 20);
+      child.layoutSizingWidth = 'fill';
+      child.minWidth = 100;
+      return child;
+    });
+
+    const results = computeFlexLayout(frame, children);
+    expect(results.map(({ id, x, y, w }) => [id, x, y, w])).toEqual([
+      ['a', 0, 0, 110],
+      ['b', 120, 0, 110],
+      ['c', 0, 44, 110],
+      ['d', 120, 44, 110],
+    ]);
+  });
+
+  it('uses physical row and column gaps when wrapping a vertical flow', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'column',
+      gap: 3,
+      rowGap: 12,
+      columnGap: 20,
+      wrap: true,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 240;
+    frame.h = 100;
+    const children = ['a', 'b', 'c', 'd'].map((id) => {
+      const child = makeChild(id, 0, 0, 20, 60);
+      child.layoutSizingHeight = 'fill';
+      child.minHeight = 40;
+      return child;
+    });
+
+    const results = computeFlexLayout(frame, children);
+    expect(results.map(({ id, x, y, h }) => [id, x, y, h])).toEqual([
+      ['a', 0, 0, 44],
+      ['b', 0, 56, 44],
+      ['c', 40, 0, 44],
+      ['d', 40, 56, 44],
+    ]);
+  });
+
   it('a child cross-axis sizing set to hug is never stretched by parent alignItems', () => {
     const frame = makeFrame({
       mode: 'flex',

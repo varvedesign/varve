@@ -23,32 +23,64 @@ export interface GridItem {
 
 type TrackSize = { kind: 'px'; value: number } | { kind: 'fr'; value: number } | { kind: 'auto' };
 
-function parseTrackTemplate(template: string): TrackSize[] {
-  if (!template || template.trim() === '') return [];
+const MAX_GRID_TRACKS = 128;
+const MAX_GRID_CHILDREN = 4096;
+const MAX_GRID_SPAN = 128;
+const MAX_GRID_PLACEMENT_CELLS = 262_144;
+
+interface ParsedTracks {
+  tracks: TrackSize[];
+  error?: string;
+}
+
+function parseSingleTrack(token: string): TrackSize | null {
+  if (token === 'auto') return { kind: 'auto' };
+  const match = /^(\d+(?:\.\d+)?|\.\d+)(px|fr)$/.exec(token);
+  if (!match) return null;
+  const value = Number(match[1]);
+  if (!Number.isFinite(value) || (match[2] === 'fr' && value <= 0)) return null;
+  return match[2] === 'px' ? { kind: 'px', value } : { kind: 'fr', value };
+}
+
+/** Strict, bounded subset of CSS grid tracks. Unknown syntax never degrades to auto. */
+function parseTrackTemplate(template: string): ParsedTracks {
+  if (!template || template.trim() === '') return { tracks: [] };
+  if (template.length > 16_384) return { tracks: [], error: 'template-too-long' };
   const parts: string[] = [];
-  const tokenPattern = /repeat\(\s*(\d+)\s*,\s*([^()]+?)\s*\)|[^\s]+/g;
-  for (const match of template.matchAll(tokenPattern)) {
-    const count = Number.parseInt(match[1] ?? '', 10);
-    if (Number.isFinite(count) && match[2]) {
-      const repeated = match[2].trim().split(/\s+/);
-      for (let i = 0; i < count; i++) parts.push(...repeated);
-    } else if (match[0]) {
-      parts.push(match[0]);
+  const tokenPattern = /\s*(repeat\s*\([^()]*\)|[^\s()]+)\s*/gy;
+  let offset = 0;
+  while (offset < template.length) {
+    tokenPattern.lastIndex = offset;
+    const match = tokenPattern.exec(template);
+    if (!match || match.index !== offset) return { tracks: [], error: 'invalid-track-syntax' };
+    offset = tokenPattern.lastIndex;
+    const token = match[1]!;
+    if (/^repeat\b/.test(token)) {
+      const repeat = /^repeat\s*\(\s*(\d+)\s*,\s*([^()]*)\s*\)$/.exec(token);
+      if (!repeat) return { tracks: [], error: 'unsupported-repeat' };
+      const count = Number(repeat[1]);
+      const repeatedTokens = repeat[2]!.trim().split(/\s+/).filter(Boolean);
+      const repeated = repeatedTokens.map(parseSingleTrack);
+      if (
+        !Number.isSafeInteger(count) ||
+        count < 1 ||
+        repeated.length === 0 ||
+        repeated.some((track) => track === null)
+      ) {
+        return { tracks: [], error: 'invalid-repeat' };
+      }
+      if (parts.length + repeated.length * count > MAX_GRID_TRACKS) {
+        return { tracks: [], error: 'track-limit-exceeded' };
+      }
+      for (let i = 0; i < count; i++) parts.push(...repeatedTokens);
+    } else {
+      parts.push(token);
+      if (parts.length > MAX_GRID_TRACKS) return { tracks: [], error: 'track-limit-exceeded' };
     }
   }
-  return parts.map((part) => {
-    if (part.endsWith('px')) {
-      return { kind: 'px', value: parseFloat(part) };
-    }
-    if (part.endsWith('fr')) {
-      return { kind: 'fr', value: parseFloat(part) };
-    }
-    if (part === 'auto') {
-      return { kind: 'auto' };
-    }
-    const val = parseFloat(part);
-    return Number.isNaN(val) ? { kind: 'auto' } : { kind: 'px', value: val };
-  });
+  const tracks = parts.map(parseSingleTrack);
+  if (tracks.some((track) => track === null)) return { tracks: [], error: 'unsupported-track' };
+  return { tracks: tracks as TrackSize[] };
 }
 
 /**
@@ -56,8 +88,12 @@ function parseTrackTemplate(template: string): TrackSize[] {
  * Returns pixel values with fr units resolved proportionally and -1 for auto.
  */
 export function parseGridTracks(template: string, availableSize: number, gap: number): number[] {
-  const tracks = parseTrackTemplate(template);
+  const parsed = parseTrackTemplate(template);
+  if (parsed.error) return [];
+  const tracks = parsed.tracks;
   if (tracks.length === 0) return [];
+
+  if (!Number.isFinite(availableSize) || !Number.isFinite(gap) || gap < 0) return [];
 
   const gapTotal = Math.max(0, tracks.length - 1) * gap;
   const fixedTotal = tracks.reduce((sum, t) => (t.kind === 'px' ? sum + t.value : sum), 0);
@@ -79,35 +115,17 @@ export function parseGridTracks(template: string, availableSize: number, gap: nu
   });
 }
 
-function childSize(n: SceneNode, includeBorders = false): { w: number; h: number } {
-  return measureNodeSize(n, includeBorders);
+/** Return validated, expanded track tokens for typed track-editing commands. */
+export function parseGridTrackDefinitions(template: string): string[] | null {
+  const parsed = parseTrackTemplate(template);
+  if (parsed.error) return null;
+  return parsed.tracks.map((track) =>
+    track.kind === 'auto' ? 'auto' : `${track.value}${track.kind}`,
+  );
 }
 
-function resolveAutoTracks(
-  tracks: number[],
-  children: SceneNode[],
-  cellMapping: number[],
-  isColumn: boolean,
-  includeBorders: boolean,
-): number[] {
-  return tracks.map((size, idx) => {
-    if (size !== -1) return size;
-
-    const childIndices = cellMapping
-      .map((cellIdx, childIdx) => (cellIdx === idx ? childIdx : -1))
-      .filter((c) => c >= 0);
-
-    if (childIndices.length === 0) return 0;
-
-    let maxSize = 0;
-    for (const ci of childIndices) {
-      if (children[ci]) {
-        const sz = childSize(children[ci], includeBorders);
-        maxSize = Math.max(maxSize, isColumn ? sz.h : sz.w);
-      }
-    }
-    return maxSize || 100;
-  });
+function childSize(n: SceneNode, includeBorders = false): { w: number; h: number } {
+  return measureNodeSize(n, includeBorders);
 }
 
 interface CellAssignment {
@@ -116,6 +134,76 @@ interface CellAssignment {
   row: number;
   colSpan: number;
   rowSpan: number;
+}
+
+function resolveGridTrackSizes(
+  definitions: TrackSize[],
+  children: SceneNode[],
+  assignments: CellAssignment[],
+  available: number,
+  gap: number,
+  isColumn: boolean,
+  includeBorders: boolean,
+): number[] {
+  const sizes = definitions.map((track) => (track.kind === 'px' ? track.value : 0));
+  const flexibleKinds = new Set<TrackSize['kind']>(['auto', 'fr']);
+
+  // Intrinsic single-cell contributions establish track bases before any `fr`
+  // space is distributed. A span contributes its unmet demand across flexible
+  // tracks in that span without changing fixed pixel tracks.
+  for (const assignment of assignments) {
+    const child = children[assignment.childIndex];
+    if (!child) continue;
+    const intrinsic = childSize(child, includeBorders);
+    const demand = isColumn ? intrinsic.w : intrinsic.h;
+    const start = isColumn ? assignment.col : assignment.row;
+    const span = isColumn ? assignment.colSpan : assignment.rowSpan;
+    const indices = Array.from({ length: span }, (_, offset) => start + offset);
+    const eligible = indices.filter((index) => flexibleKinds.has(definitions[index]?.kind ?? 'px'));
+    if (eligible.length === 0) continue;
+    const current = indices.reduce((sum, index) => sum + (sizes[index] ?? 0), 0) + (span - 1) * gap;
+    const deficit = Math.max(0, demand - current);
+    if (deficit === 0) continue;
+    const share = deficit / eligible.length;
+    for (const index of eligible) sizes[index] = (sizes[index] ?? 0) + share;
+  }
+
+  const frTotal = definitions.reduce(
+    (sum, track) => sum + (track.kind === 'fr' ? track.value : 0),
+    0,
+  );
+  if (frTotal > 0) {
+    const gaps = Math.max(0, definitions.length - 1) * gap;
+    const baseTotal = sizes.reduce((sum, size) => sum + size, 0);
+    const free = Math.max(0, available - gaps - baseTotal);
+    for (let index = 0; index < definitions.length; index++) {
+      const track = definitions[index]!;
+      if (track.kind === 'fr') sizes[index] = (sizes[index] ?? 0) + (free * track.value) / frTotal;
+    }
+  }
+
+  return sizes;
+}
+
+function resolveLegacyAutoTracks(
+  tracks: number[],
+  children: SceneNode[],
+  assignments: CellAssignment[],
+  isColumn: boolean,
+  includeBorders: boolean,
+): number[] {
+  return tracks.map((size, index) => {
+    if (size !== -1) return size;
+    let maxSize = 0;
+    for (const assignment of assignments) {
+      if ((isColumn ? assignment.col : assignment.row) !== index) continue;
+      const child = children[assignment.childIndex];
+      if (!child) continue;
+      const intrinsic = childSize(child, includeBorders);
+      maxSize = Math.max(maxSize, isColumn ? intrinsic.w : intrinsic.h);
+    }
+    return maxSize || 100;
+  });
 }
 
 /**
@@ -138,11 +226,36 @@ export function computeGridLayout(
   const availH = Math.max(0, parentH - pt - pb);
   const gridAutoFlow = layoutStyle.gridAutoFlow ?? 'row';
 
-  const cols = parseGridTracks(layoutStyle.gridTemplateColumns ?? '', availW, columnGap);
-  const rows = parseGridTracks(layoutStyle.gridTemplateRows ?? '', availH, rowGap);
-
-  const explicitCols = cols.length > 0 ? cols : [-1];
-  const explicitRows = rows.length > 0 ? rows : [availH];
+  const columnTemplate = layoutStyle.gridColumnTracks?.length
+    ? layoutStyle.gridColumnTracks.map((track) => track.size).join(' ')
+    : (layoutStyle.gridTemplateColumns ?? '');
+  const rowTemplate = layoutStyle.gridRowTracks?.length
+    ? layoutStyle.gridRowTracks.map((track) => track.size).join(' ')
+    : (layoutStyle.gridTemplateRows ?? '');
+  const parsedColumns = parseTrackTemplate(columnTemplate);
+  const parsedRows = parseTrackTemplate(rowTemplate);
+  const columnTrackIds = layoutStyle.gridColumnTracks?.map((track) => track.id);
+  const rowTrackIds = layoutStyle.gridRowTracks?.map((track) => track.id);
+  if (
+    parsedColumns.error ||
+    parsedRows.error ||
+    (columnTrackIds && new Set(columnTrackIds).size !== columnTrackIds.length) ||
+    (rowTrackIds && new Set(rowTrackIds).size !== rowTrackIds.length) ||
+    (columnTrackIds && columnTrackIds.length !== parsedColumns.tracks.length) ||
+    (rowTrackIds && rowTrackIds.length !== parsedRows.tracks.length) ||
+    children.length > MAX_GRID_CHILDREN ||
+    !Number.isFinite(columnGap) ||
+    !Number.isFinite(rowGap) ||
+    columnGap < 0 ||
+    rowGap < 0
+  ) {
+    return [];
+  }
+  const colDefinitions = parsedColumns.tracks;
+  const rowDefinitions = parsedRows.tracks;
+  const explicitCols: TrackSize[] = colDefinitions.length > 0 ? colDefinitions : [{ kind: 'auto' }];
+  const explicitRows: TrackSize[] =
+    rowDefinitions.length > 0 ? rowDefinitions : [{ kind: 'px', value: availH }];
 
   const childNodes = children
     .map((cid) => doc.nodes[cid])
@@ -161,22 +274,68 @@ export function computeGridLayout(
     const child = childNodes[i];
     if (!child) continue;
     const g = child.gridPlacement;
-    if (g && (g.gridColumnStart != null || g.gridRowStart != null)) {
+    if (
+      g &&
+      (g.gridColumnStart != null ||
+        g.gridRowStart != null ||
+        g.gridColumnStartTrackId != null ||
+        g.gridRowStartTrackId != null)
+    ) {
+      const colIdIndex = g.gridColumnStartTrackId
+        ? columnTrackIds?.indexOf(g.gridColumnStartTrackId)
+        : undefined;
+      const rowIdIndex = g.gridRowStartTrackId
+        ? rowTrackIds?.indexOf(g.gridRowStartTrackId)
+        : undefined;
+      if (
+        (g.gridColumnStartTrackId != null && (colIdIndex == null || colIdIndex < 0)) ||
+        (g.gridRowStartTrackId != null && (rowIdIndex == null || rowIdIndex < 0))
+      ) {
+        return [];
+      }
+      const colStart = (colIdIndex ?? (g.gridColumnStart ?? 1) - 1) + 1;
+      const rowStart = (rowIdIndex ?? (g.gridRowStart ?? 1) - 1) + 1;
+      const colEnd = g.gridColumnEnd ?? colStart + (g.gridColumnSpan ?? 1);
+      const rowEnd = g.gridRowEnd ?? rowStart + (g.gridRowSpan ?? 1);
+      const colSpan = g.gridColumnSpan ?? colEnd - colStart;
+      const rowSpan = g.gridRowSpan ?? rowEnd - rowStart;
+      if (
+        ![colStart, rowStart, colEnd, rowEnd].every(Number.isSafeInteger) ||
+        colStart < 1 ||
+        rowStart < 1 ||
+        colSpan < 1 ||
+        rowSpan < 1 ||
+        colSpan > MAX_GRID_SPAN ||
+        rowSpan > MAX_GRID_SPAN ||
+        colStart > MAX_GRID_TRACKS ||
+        rowStart > MAX_GRID_TRACKS ||
+        colEnd > MAX_GRID_TRACKS + 1 ||
+        rowEnd > MAX_GRID_TRACKS + 1
+      ) {
+        return [];
+      }
       explicitPlacements.push({
         childIndex: i,
-        colStart: g.gridColumnStart ?? 1,
-        colEnd: g.gridColumnEnd ?? (g.gridColumnStart ?? 1) + 1,
-        rowStart: g.gridRowStart ?? 1,
-        rowEnd: g.gridRowEnd ?? (g.gridRowStart ?? 1) + 1,
+        colStart,
+        colEnd,
+        rowStart,
+        rowEnd,
       });
     } else {
       autoFlowIndices.push(i);
     }
   }
 
+  // Bound placement bookkeeping before allocating any cell map.
+  const placementWork = explicitPlacements.reduce((sum, p) => {
+    return sum + (p.colEnd - p.colStart) * (p.rowEnd - p.rowStart);
+  }, 0);
+  if (placementWork > MAX_GRID_PLACEMENT_CELLS) return [];
+
   // Build grid placement matrix
   const usedCells = new Set<string>();
   const assignments: CellAssignment[] = [];
+  let placementChecks = placementWork;
 
   for (const ep of explicitPlacements) {
     const cs = ep.colStart - 1;
@@ -187,7 +346,9 @@ export function computeGridLayout(
     const rowSpan = Math.max(1, re - rs);
     for (let c = cs; c < cs + colSpan; c++) {
       for (let r = rs; r < rs + rowSpan; r++) {
-        usedCells.add(`${c},${r}`);
+        const cell = `${c},${r}`;
+        if (usedCells.has(cell)) return [];
+        usedCells.add(cell);
       }
     }
     assignments.push({ childIndex: ep.childIndex, col: cs, row: rs, colSpan, rowSpan });
@@ -202,6 +363,7 @@ export function computeGridLayout(
         let found = false;
         for (let c = 0; !found; c++) {
           for (let r = 0; r <= Math.max(row, explicitRows.length - 1); r++) {
+            if (++placementChecks > MAX_GRID_PLACEMENT_CELLS) return [];
             if (!usedCells.has(`${c},${r}`)) {
               col = c;
               row = r;
@@ -235,6 +397,7 @@ export function computeGridLayout(
         let found = false;
         for (let r = 0; !found; r++) {
           for (let c = 0; c <= Math.max(col, explicitCols.length - 1); c++) {
+            if (++placementChecks > MAX_GRID_PLACEMENT_CELLS) return [];
             if (!usedCells.has(`${c},${r}`)) {
               col = c;
               row = r;
@@ -268,45 +431,71 @@ export function computeGridLayout(
     maxCol = Math.max(maxCol, a.col + a.colSpan);
     maxRow = Math.max(maxRow, a.row + a.rowSpan);
   }
+  if (maxCol > MAX_GRID_TRACKS || maxRow > MAX_GRID_TRACKS) return [];
 
-  const resolvedCols: number[] = [];
+  const usesIntrinsicTracks = layoutStyle.layoutSemanticsVersion === 2;
+  const resolvedCols: TrackSize[] = [];
   for (let c = 0; c < maxCol; c++) {
     if (c < explicitCols.length) {
-      resolvedCols.push(explicitCols[c] ?? 100);
+      resolvedCols.push(explicitCols[c] ?? { kind: 'auto' });
     } else {
-      resolvedCols.push(explicitCols[explicitCols.length - 1] ?? 100);
+      resolvedCols.push(colDefinitions[colDefinitions.length - 1] ?? { kind: 'auto' });
     }
   }
 
-  const resolvedRows: number[] = [];
+  const resolvedRows: TrackSize[] = [];
   for (let r = 0; r < maxRow; r++) {
     if (r < explicitRows.length) {
-      resolvedRows.push(explicitRows[r] ?? 100);
+      resolvedRows.push(explicitRows[r] ?? { kind: 'auto' });
     } else {
-      resolvedRows.push(explicitRows[explicitRows.length - 1] ?? 100);
+      resolvedRows.push(rowDefinitions[rowDefinitions.length - 1] ?? { kind: 'auto' });
     }
   }
 
-  const columnMap: number[] = [];
-  const rowMap: number[] = [];
-  for (const a of assignments) {
-    columnMap[a.childIndex] = a.col;
-    rowMap[a.childIndex] = a.row;
+  const includeBorders = layoutStyle.includeBordersInLayout === true;
+  let resolvedColSizes: number[];
+  let resolvedRowSizes: number[];
+  if (usesIntrinsicTracks) {
+    resolvedColSizes = resolveGridTrackSizes(
+      resolvedCols,
+      childNodes,
+      assignments,
+      availW,
+      columnGap,
+      true,
+      includeBorders,
+    );
+    resolvedRowSizes = resolveGridTrackSizes(
+      resolvedRows,
+      childNodes,
+      assignments,
+      availH,
+      rowGap,
+      false,
+      includeBorders,
+    );
+  } else {
+    const legacyCols = parseGridTracks(layoutStyle.gridTemplateColumns ?? '', availW, columnGap);
+    const legacyRows = parseGridTracks(layoutStyle.gridTemplateRows ?? '', availH, rowGap);
+    const colSizes = legacyCols.length > 0 ? legacyCols : [-1];
+    const rowSizes = legacyRows.length > 0 ? legacyRows : [availH];
+    while (colSizes.length < maxCol) colSizes.push(colSizes[colSizes.length - 1] ?? 100);
+    while (rowSizes.length < maxRow) rowSizes.push(rowSizes[rowSizes.length - 1] ?? 100);
+    resolvedColSizes = resolveLegacyAutoTracks(
+      colSizes,
+      childNodes,
+      assignments,
+      true,
+      includeBorders,
+    );
+    resolvedRowSizes = resolveLegacyAutoTracks(
+      rowSizes,
+      childNodes,
+      assignments,
+      false,
+      includeBorders,
+    );
   }
-  const resolvedColSizes = resolveAutoTracks(
-    resolvedCols,
-    childNodes,
-    columnMap,
-    false,
-    layoutStyle.includeBordersInLayout === true,
-  );
-  const resolvedRowSizes = resolveAutoTracks(
-    resolvedRows,
-    childNodes,
-    rowMap,
-    true,
-    layoutStyle.includeBordersInLayout === true,
-  );
 
   const colPositions: number[] = [pl];
   for (let c = 0; c < resolvedColSizes.length; c++) {

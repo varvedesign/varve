@@ -272,6 +272,7 @@ pass report in
 | `adr/0240-presentation-decks.md` | Ordered editable-frame decks, safe layout revision, structured capture, and raster-first delivery |
 | `adr/0241-raster-stroke-ownership-history-hashing-tile-identity.md` | Stroke-scoped exclusive tile ownership, cheaper history capture with an unchanged hash value, and runtime tile content identity instead of version equality |
 | `adr/0242-document-authority-and-interchange.md` | One document authority per kind with preservation adapters; separate identity axes; derived structure never owns edits; honest output claims |
+| `adr/0244-dependable-layout-contract.md` | Dependable authored flow/grid layout, constraints, tracks, diagnostics, and round-trip behavior |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |

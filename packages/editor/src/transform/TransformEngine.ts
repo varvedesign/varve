@@ -40,6 +40,52 @@ import { OBJECT_RESIZE_POLICIES } from '../context/selectionState';
 
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 
+function constrainAbsoluteLayoutChildren(
+  doc: Document,
+  frame: Extract<SceneNode, { kind: 'frame' }>,
+  oldW: number,
+  oldH: number,
+  newW: number,
+  newH: number,
+): Record<string, SceneNode> {
+  const updates: Record<string, SceneNode> = {};
+  for (const childId of frame.children) {
+    const child = doc.nodes[childId];
+    if (child?.layoutPosition !== 'absolute' || !child.constraints) continue;
+    const bounds = nodeLocalBounds(child, doc);
+    if (!bounds) continue;
+    const result = applyConstraints(
+      child.constraints,
+      {
+        x: child.transform[4] + bounds.x,
+        y: child.transform[5] + bounds.y,
+        w: bounds.w,
+        h: bounds.h,
+      },
+      oldW,
+      oldH,
+      newW,
+      newH,
+    );
+    const resized =
+      Math.abs(result.w - bounds.w) > 0.001 || Math.abs(result.h - bounds.h) > 0.001
+        ? resizeNodeGeometry(child, result.w, result.h)
+        : child;
+    updates[childId] = {
+      ...resized,
+      transform: [
+        child.transform[0],
+        child.transform[1],
+        child.transform[2],
+        child.transform[3],
+        result.x,
+        result.y,
+      ] as Affine,
+    } as SceneNode;
+  }
+  return updates;
+}
+
 export interface TransformNodeState {
   id: NodeId;
   node: SceneNode;
@@ -475,8 +521,19 @@ export class TransformEngine {
           } else if (node.layoutStyle) {
             // Layout frames reflow: layout owns child positions (and
             // fill/grow sizes), so a canvas resize must re-run the layout
-            // against the frame's new box — constraint propagation alone
-            // leaves flex/grid children exactly where they were.
+            // against the frame's new box. Absolute children stay outside the
+            // flow solver and continue to obey their responsive constraints.
+            Object.assign(
+              updates,
+              constrainAbsoluteLayoutChildren(
+                { ...currentDoc, nodes: { ...currentDoc.nodes, ...updates } },
+                node,
+                oldW,
+                oldH,
+                newW,
+                newH,
+              ),
+            );
             const reflowed = reflowLayoutChildren(
               { ...currentDoc, nodes: { ...currentDoc.nodes, ...updates } },
               node.id,
