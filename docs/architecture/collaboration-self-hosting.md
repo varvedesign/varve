@@ -329,6 +329,28 @@ the client keeps unacknowledged operations pending and re-sends them.
 | A participant silently disappears after ~15 minutes of watching | Their client stopped sending the liveness heartbeat (a crashed or frozen tab, or a client that never sent one — the desktop, browser and test clients all do). | Nothing to fix server-side: the socket was dead. The slot is freed deliberately so a crashed tab cannot hold a place in a 10-participant room. |
 | Two servers on one data directory | The single-owner rule was violated. | Stop one immediately and restore from backup; divergent rooms are possible. |
 
+### The data-directory lock
+
+The single-owner rule is enforced, not just advised. On startup the host takes
+a lock row in `rooms.db` (owner id, pid, hostname, `refreshed_at`); a second
+process against the same directory is refused with the holder named:
+
+```text
+another room host (pid 4242 on build-box) owns this data directory;
+run one process per data directory
+```
+
+While it serves, the host refreshes the lock every 30 seconds. A lock whose
+heartbeat is older than **120 seconds** is treated as abandoned, so a crashed
+host is recoverable without database surgery — start the server again and it
+takes the directory over. If a running host ever finds that another process
+took the lock from it, it prints that and exits (code 3) instead of writing to a
+directory it no longer owns. Stopping a host releases the lock immediately.
+
+Operational consequence: **stop the old process before starting the new one**
+when restarting (a rolling restart of two processes on one directory is the
+misconfiguration the lock exists to prevent).
+
 ### Single-owner rule
 
 Run **one** process per data directory. Two processes against one SQLite file

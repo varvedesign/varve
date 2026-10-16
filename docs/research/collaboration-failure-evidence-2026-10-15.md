@@ -101,12 +101,12 @@ flaky:
 |---|---|---|---|
 | A capture may not carry a string longer than 5,000,000 characters, while the document model itself accepts an embedded asset of up to 10 MB decoded (~13.4 M base64 characters). An inserted image above ~3.7 MB therefore produced a capture that the receiving client refused — and the sender was never told: the receiver logged `failed validation (string value exceeds size limit in after)`, resynchronized, and both participants kept their own document. The whole chunked-upload path was necessary but not sufficient | **Confirmed defect (root cause)** | The app-hosted E2E now reaches this state with a healthy baseline: the peer's console names the rule, and the image never arrives | The capture string bound is derived from the document's own asset bound (14 M) with the guard retained beyond it; the sender pre-flights every capture against the same validator and reports a refusal to the author; the receiver's notice names the rule |
 
-Carried forward as decisions rather than fixes, and recorded here so they are
-not mistaken for oversights: the app-hosted dialog cannot mint editor/viewer
-invites yet (every app-hosted link is an owner token, so the host's role
-enforcement is unreachable through the UI), the Share dialog's tablist has no
-APG arrow-key behaviour, and unacknowledged operations are still not persisted
-across a reload.
+Closed after the review pass (each with tests, described above and in the
+architecture doc): unacknowledged operations are now persisted and replayed on
+the next join; the app mints and revokes role-scoped invites from the dialog,
+so the host's role enforcement is reachable through the UI; the Share dialog's
+tablist implements the APG keyboard contract; and the single-owner rule is
+enforced by a lock row with a staleness window rather than documented only.
 
 ## 4. Open gaps recorded by this pass
 

@@ -30,6 +30,12 @@ import type { CapturedChange } from '@varve/scene';
 import { planChunkedOperation } from './chunkedOperation';
 import { mintClientId } from './identity';
 import {
+  type PendingOperationRecord,
+  type PendingOperationStore,
+  prunePendingRecords,
+  roomKeyFor,
+} from './pendingStore';
+import {
   type ChatMessage,
   type ClientMessage,
   COLLAB_PROTOCOL_VERSION,
@@ -116,6 +122,13 @@ export interface CollabEngineOptions {
   /** Timer injection for tests; defaults to setTimeout/clearTimeout. */
   timers?: CollabTimers;
   now?: () => number;
+  /**
+   * Durable queue for unacknowledged operations. When present, work the host
+   * has not acknowledged survives a reload and is re-applied locally and
+   * re-sent on the next join, so the room catches up to the author's own
+   * document instead of silently staying behind it.
+   */
+  pendingStore?: PendingOperationStore;
 }
 
 export interface CollabTimers {
@@ -190,6 +203,11 @@ export class CollabSyncEngine {
   private endedReason: string | null = null;
   private leaving = false;
   private lastCursorSent: CursorPresence | null = null;
+  /** Records duplicated into the durable queue, in submission order. */
+  private readonly pendingSaves = new Map<string, PendingOperationRecord>();
+  private persistChain: Promise<void> = Promise.resolve();
+  private persistGeneration = 0;
+  private pendingStoreFailureReported = false;
 
   constructor(options: CollabEngineOptions) {
     this.options = options;
@@ -212,7 +230,78 @@ export class CollabSyncEngine {
   start(): void {
     if (this.transport || this.leaving) return;
     this.setStatus('connecting');
+    this.restorePending();
     this.openTransport();
+  }
+
+  /**
+   * Load unacknowledged work from the durable queue.
+   *
+   * Runs concurrently with the handshake: whichever finishes second sends the
+   * work, so a slow disk never loses it and a fast socket never waits for it.
+   */
+  private restorePending(): void {
+    const store = this.options.pendingStore;
+    if (!store) return;
+    const roomKey = roomKeyFor(this.options.roomUrl);
+    void store
+      .load(roomKey)
+      .then((records) => {
+        if (this.leaving || this.endedReason) return;
+        const now = this.nowMs();
+        const { kept, dropped, overBudget } = prunePendingRecords(records, now);
+        if (kept.length === 0 && dropped === 0) return;
+        for (const record of kept) {
+          if (this.pending.has(record.clientOpId)) continue;
+          this.pending.set(record.clientOpId, { op: record.op, sentAt: now });
+          this.pendingSaves.set(record.clientOpId, record);
+        }
+        if (dropped > 0) {
+          this.options.handlers.onNotice({
+            code: 'operation-rejected',
+            message: `${dropped} unshared edit${dropped === 1 ? '' : 's'} from an earlier session ${overBudget ? 'no longer fit the queue' : 'expired'} and could not be re-sent. They remain in your local document.`,
+          });
+        }
+        if (kept.length > 0) {
+          this.options.handlers.onNotice({
+            code: 'resynced',
+            message: `Re-sending ${kept.length} edit${kept.length === 1 ? '' : 's'} this room never acknowledged.`,
+          });
+        }
+        // The local document already has these edits; re-applying is
+        // idempotent and guarantees it even if recovery restored an older
+        // revision. Then, if the room is already live, send them now.
+        this.reapplyPendingCaptures();
+        if (this.status === 'live') this.resendPending();
+        this.persistPending();
+      })
+      .catch(() => this.reportPendingStoreFailure());
+  }
+
+  /** Persist the unacknowledged queue, newest state wins, one write at a time. */
+  private persistPending(): void {
+    const store = this.options.pendingStore;
+    if (!store) return;
+    const roomKey = roomKeyFor(this.options.roomUrl);
+    const records = [...this.pendingSaves.values()];
+    const generation = ++this.persistGeneration;
+    this.persistChain = this.persistChain
+      .then(() => {
+        // A newer snapshot has already been queued: this one is stale.
+        if (generation !== this.persistGeneration) return;
+        return records.length === 0 ? store.clear(roomKey) : store.save(roomKey, records);
+      })
+      .catch(() => this.reportPendingStoreFailure());
+  }
+
+  private reportPendingStoreFailure(): void {
+    if (this.pendingStoreFailureReported) return;
+    this.pendingStoreFailureReported = true;
+    this.options.handlers.onNotice({
+      code: 'protocol-error',
+      message:
+        'Unacknowledged edits could not be stored for recovery on this device; they are still in your local document.',
+    });
   }
 
   /** Leave the room and stop reconnecting. Idempotent. */
@@ -220,8 +309,17 @@ export class CollabSyncEngine {
     this.leaving = true;
     this.transport?.send({ type: 'leave' });
     this.teardownTransport();
+    // Deliberately NOT clearing the durable queue: unacknowledged work is the
+    // author's, not the room's, and rejoining the same room should deliver it.
     this.pending.clear();
+    this.persistPending();
     this.setStatus('ended');
+  }
+
+  /** Drop the durable copy of one acknowledged or refused operation. */
+  private forgetPendingSave(clientOpId: string): void {
+    if (!this.pendingSaves.delete(clientOpId)) return;
+    this.persistPending();
   }
 
   /**
@@ -241,6 +339,13 @@ export class CollabSyncEngine {
       return false;
     }
     this.pending.set(op.clientOpId, { op, sentAt: this.nowMs() });
+    this.pendingSaves.set(op.clientOpId, {
+      clientOpId: op.clientOpId,
+      label: op.label,
+      savedAt: this.nowMs(),
+      op,
+    });
+    this.persistPending();
     return this.sendOperation(op);
   }
 
@@ -643,6 +748,7 @@ export class CollabSyncEngine {
         // refuses anything at or below `appliedSeq`, so a late replay of an
         // earlier contribution can never overwrite my later value.
         this.pending.delete(message.clientOpId);
+        this.forgetPendingSave(message.clientOpId);
         this.appliedIds.add(message.clientOpId);
         this.appliedSeq = Math.max(this.appliedSeq, message.seq);
         break;
@@ -650,6 +756,7 @@ export class CollabSyncEngine {
       case 'operation-rejected': {
         const pending = this.pending.get(message.clientOpId);
         this.pending.delete(message.clientOpId);
+        this.forgetPendingSave(message.clientOpId);
         this.options.handlers.onNotice({
           code: 'operation-rejected',
           message: message.reason,
@@ -688,6 +795,7 @@ export class CollabSyncEngine {
         for (const entry of message.operations) {
           if (!journaled.has(entry.op.clientOpId)) continue;
           this.pending.delete(entry.op.clientOpId);
+          this.forgetPendingSave(entry.op.clientOpId);
         }
         const unsettled = this.blockedKeys(journaled);
         for (const entry of message.operations) {
@@ -798,6 +906,7 @@ export class CollabSyncEngine {
       case 'room-ended': {
         this.endedReason = message.reason;
         this.pending.clear();
+        this.persistPending();
         this.teardownTransport();
         this.setStatus('ended');
         this.options.handlers.onNotice({ code: 'room-ended', message: message.reason });
@@ -808,6 +917,7 @@ export class CollabSyncEngine {
         if (message.fatal) {
           this.endedReason = message.message;
           this.pending.clear();
+          this.persistPending();
           this.teardownTransport();
           this.setStatus('ended');
         }

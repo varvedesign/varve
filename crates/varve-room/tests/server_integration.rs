@@ -13,6 +13,7 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use varve_room::protocol::ParticipantRole;
+use varve_room::store::RoomStoreError;
 use varve_room::{HostConfig, RoomHost};
 
 type Ws = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -281,8 +282,14 @@ async fn two_clients_exchange_ops_and_the_journal_survives_restart() {
         .starts_with("actor-"));
 
     // Restart the server against the same data dir: the journal is durable,
-    // a fresh client bootstraps from snapshot + replayed operations.
+    // a fresh client bootstraps from snapshot + replayed operations. The
+    // single-owner lock means the old process must actually be gone first —
+    // dropping the last handle is what releases the directory.
     let _ = shutdown.send(true);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    drop(owner);
+    drop(editor);
+    drop(host);
     tokio::time::sleep(Duration::from_millis(200)).await;
     let (_host2, address2, _shutdown2) = serve_host(dir).await;
     let mut late_joiner = connect(address2, &room.room_id, &editor_token).await;
@@ -933,7 +940,7 @@ async fn the_admin_api_answers_cross_origin_calls_from_allowed_origins_only() {
 
     // A configured --allow-origin is accepted, and the real request carries the
     // token (the CORS answer is never a wildcard, because it is a credential).
-    let mut config = HostConfig::for_data_dir(dir.clone());
+    let mut config = HostConfig::for_data_dir(temp_dir("cors-configured"));
     config.admin_token = Some("test-admin-token".to_string());
     config.allowed_origins = vec!["https://rooms.example.com".to_string()];
     let configured = RoomHost::open(config).expect("host opens");
@@ -1005,16 +1012,77 @@ async fn http_request(
     (status, collected)
 }
 
+/// One process per data directory, enforced rather than documented: two hosts
+/// on one store can write divergent histories, and the store cannot tell which
+/// one is right. The lock is also recoverable — a crashed holder stops
+/// refreshing, and the next process takes the directory over instead of being
+/// refused forever.
+#[tokio::test]
+async fn a_second_host_is_refused_until_the_first_releases_the_directory() {
+    let dir = temp_dir("single-owner");
+    std::fs::create_dir_all(&dir).expect("data dir");
+    let first = varve_room::RoomStore::open(&dir.join("rooms.db")).expect("store");
+    first
+        .acquire_host_lock("owner-a", 11, "host-a", 1_000, 120_000)
+        .expect("first acquire");
+
+    // A live holder refuses a second owner.
+    match first
+        .acquire_host_lock("owner-b", 22, "host-b", 1_100, 120_000)
+        .expect("second attempt")
+    {
+        varve_room::store::LockOutcome::Held { owner_pid, .. } => assert_eq!(owner_pid, 11),
+        other => panic!("expected the lock to be held, got {other:?}"),
+    }
+
+    // The holder's own heartbeat keeps it.
+    assert_eq!(
+        first.refresh_host_lock("owner-a", 1_200).expect("refresh"),
+        varve_room::store::LockHeartbeat::Refreshed
+    );
+
+    // A crashed holder stops refreshing: after the staleness window the
+    // directory can be taken over.
+    assert!(matches!(
+        first
+            .acquire_host_lock("owner-c", 33, "host-c", 200_000, 120_000)
+            .expect("stale takeover"),
+        varve_room::store::LockOutcome::Acquired
+    ));
+
+    // And a clean stop releases it immediately.
+    first.release_host_lock("owner-c").expect("release");
+    assert!(matches!(
+        first
+            .acquire_host_lock("owner-d", 44, "host-d", 200_100, 120_000)
+            .expect("after release"),
+        varve_room::store::LockOutcome::Acquired
+    ));
+
+    // Through the host API: a second host on a directory a live host serves is
+    // refused with a message an operator can act on.
+    let live_dir = temp_dir("single-owner-live");
+    let (_host, _address, _shutdown) = serve_host(live_dir.clone()).await;
+    let refused = RoomHost::open(HostConfig {
+        admin_token: Some("t".to_string()),
+        ..HostConfig::for_data_dir(live_dir.clone())
+    });
+    match refused {
+        Err(RoomStoreError::HostLocked { hostname, .. }) => {
+            assert!(!hostname.is_empty(), "the refusal names the holder");
+        }
+        Ok(_) => panic!("a second host must not open a directory another host owns"),
+        Err(other) => panic!("unexpected error: {other}"),
+    }
+}
+
 #[tokio::test]
 async fn invalid_tokens_are_refused_before_any_room_data_flows() {
     let dir = temp_dir("badtoken");
-    let (_host, address, _shutdown) = serve_host(dir.clone()).await;
-    let room_host = RoomHost::open(HostConfig {
-        admin_token: Some("test-admin-token".to_string()),
-        ..HostConfig::for_data_dir(dir)
-    })
-    .expect("library host");
-    let room = room_host
+    // The running host owns this data directory (single-owner rule), so it is
+    // also the host that creates the room.
+    let (host, address, _shutdown) = serve_host(dir.clone()).await;
+    let room = host
         .admin_create_room("doc-1", "{\"id\":\"doc-1\"}")
         .expect("room");
 

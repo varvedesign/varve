@@ -246,6 +246,14 @@ One implementation (`crates/varve-room`), two deployment shapes:
   (loopback by default). `--expose` is the explicit non-loopback decision
   and REQUIRES an explicit admin token. Run ONE process per data directory
   (the single-owner rule). TLS termination belongs to a reverse proxy.
+- **Role-scoped invites are minted and revoked from the app**: the Share
+  dialog creates editor or viewer links (`collab_room_invite` on the embedded
+  host, the admin API for a user-run server), lists the links it created, and
+  revokes one by token (`collab_room_revoke`; the self-hosted path sends the
+  token's SHA-256, which is all the server stores). Before this the app could
+  only hand out its owner token, so the host's role enforcement was unreachable
+  from the UI. Revoking closes the sessions that invite is using; the UI says
+  plainly that a copy already saved cannot be recalled.
 - **Invite links land somewhere real**: `<server>/join#room=<id>&t=<token>`
   serves a CSP-locked landing page that reads the fragment locally (the
   token is never sent to the server), shows the room/server/token to paste
@@ -342,14 +350,21 @@ page origin that will open the socket (see below).
   library reference; they are not fetched from a peer.
 - Reload ends your selective-undo scope (session-local compensation
   stack); committed work stays in the room and is disclosed in the UI.
-- Offline editing queues pending operations only while the app runs; the
-  pending queue is not yet persisted to disk (an app crash can lose
-  unacked local edits — the local file itself is untouched).
+- Unacknowledged operations are persisted (`IndexedDbPendingOperationStore`,
+  200 operations / 48 MB / 7 days per room, pruned with a visible count) and
+  re-applied locally and re-sent on the next join to the same room, so the
+  ROOM catches up to the author's own document. The local document always held
+  the edit; this queue only repairs the room. Authorship is not preserved across
+  a reload — the host assigns a fresh actor id per join, so a replayed edit is
+  authored by the rejoining session. A store failure degrades recovery, never
+  the session, and is reported once.
 - No host migration, no offline permission re-check replay, no P2P/TURN.
-- The single-owner rule (one process per data directory) is documented and
-  matters — two hosts on one store can diverge — but it is **not enforced** by
-  the host: there is no lock row refusing a second owner. Figma enforces the
-  equivalent with a per-file lock before accepting writes.
+- The single-owner rule (one process per data directory) is **enforced**: the
+  store holds a `host_lock` row (owner id, pid, hostname, refreshed_at), a
+  second host is refused with the holder named, the serving host refreshes the
+  lock every 30 s, and a lock whose heartbeat is older than 120 s is treated as
+  abandoned (a crashed host is recoverable without database surgery). A host
+  that loses the lock to another process exits rather than diverging.
 - The host validates frame shape and roles, not design semantics: it cannot
   reject a cycle-creating reparent, so a hostile editor can force other clients
   to resynchronize (they stay correct, but they see the notice).

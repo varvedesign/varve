@@ -79,7 +79,26 @@ pub struct RoomHost {
     config: HostConfig,
     rooms: Mutex<HashMap<String, RoomState>>,
     operation_counter: AtomicU64,
+    /// Identity of this process in the data directory's host lock.
+    owner_id: String,
 }
+
+impl Drop for RoomHost {
+    fn drop(&mut self) {
+        // Release the directory's single-owner lock so the next process starts
+        // without waiting for the staleness window. Never panics: a poisoned
+        // lock at drop time must not abort the process.
+        if let Ok(store) = self.store.lock() {
+            let _ = store.release_host_lock(&self.owner_id);
+        }
+    }
+}
+
+/// How long a host may go without refreshing its lock before another process
+/// treats it as abandoned. Three heartbeats of slack.
+const HOST_LOCK_STALE_MS: i64 = 120_000;
+/// Heartbeat interval for the host lock.
+const HOST_LOCK_REFRESH_MS: u64 = 30_000;
 
 struct ParticipantEntry {
     info: ParticipantInfo,
@@ -254,6 +273,13 @@ impl RateLimiter {
     }
 }
 
+/// Best-effort host name for the lock record (diagnostics only).
+fn hostname() -> String {
+    std::env::var("HOSTNAME")
+        .or_else(|_| std::env::var("COMPUTERNAME"))
+        .unwrap_or_else(|_| "unknown-host".to_string())
+}
+
 fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -267,11 +293,32 @@ impl RoomHost {
             RoomStoreError::Sqlite(rusqlite::Error::ToSqlConversionFailure(Box::new(error)))
         })?;
         let store = RoomStore::open(&config.data_dir.join("rooms.db"))?;
+        let owner_id = mint_token();
+        match store.acquire_host_lock(
+            &owner_id,
+            std::process::id() as i64,
+            &hostname(),
+            now_ms(),
+            HOST_LOCK_STALE_MS,
+        )? {
+            crate::store::LockOutcome::Acquired => {}
+            crate::store::LockOutcome::Held {
+                owner_pid,
+                hostname: holder,
+                ..
+            } => {
+                return Err(RoomStoreError::HostLocked {
+                    owner_pid,
+                    hostname: holder,
+                })
+            }
+        }
         Ok(Arc::new(Self {
             store: Mutex::new(store),
             config,
             rooms: Mutex::new(HashMap::new()),
             operation_counter: AtomicU64::new(0),
+            owner_id,
         }))
     }
 
@@ -1694,6 +1741,7 @@ fn spawn_accept_loop(
     shutdown: tokio::sync::watch::Receiver<bool>,
     handle: &tokio::runtime::Handle,
 ) {
+    spawn_lock_heartbeat(&host, handle, shutdown.clone());
     let app = router(host);
     let mut shutdown_rx = shutdown;
     handle.spawn(async move {
@@ -1705,6 +1753,46 @@ fn spawn_accept_loop(
             let _ = shutdown_rx.wait_for(|stop| *stop).await;
         })
         .await;
+    });
+}
+
+/// Refresh the data-directory lock while this host is serving.
+///
+/// The heartbeat is what makes the lock's staleness window meaningful: a host
+/// that crashes stops refreshing, and the next process may take the directory
+/// over instead of being refused forever.
+fn spawn_lock_heartbeat(
+    host: &Arc<RoomHost>,
+    handle: &tokio::runtime::Handle,
+    mut shutdown: tokio::sync::watch::Receiver<bool>,
+) {
+    let host = host.clone();
+    handle.spawn(async move {
+        let mut ticker = tokio::time::interval(Duration::from_millis(HOST_LOCK_REFRESH_MS));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            tokio::select! {
+                _ = ticker.tick() => {}
+                _ = shutdown.wait_for(|stop| *stop) => return,
+            }
+            let outcome = {
+                let store = lock(&host.store);
+                store.refresh_host_lock(&host.owner_id, now_ms())
+            };
+            match outcome {
+                // Another process took the directory over after a stall: this
+                // one must stop writing rather than diverge.
+                Ok(crate::store::LockHeartbeat::TakenOver { owner_pid }) => {
+                    eprintln!(
+                        "varve-room: the data directory was taken over by pid {owner_pid}; stopping"
+                    );
+                    std::process::exit(3);
+                }
+                // Our own clean release (the store dropped on shutdown).
+                Ok(crate::store::LockHeartbeat::Released) => return,
+                _ => {}
+            }
+        }
     });
 }
 

@@ -35,9 +35,11 @@ import {
   computeRedoCompensation,
   computeStepCompensation,
   getDeviceId,
+  MemoryPendingOperationStore,
   mergeIncomingSplice,
   mintClientId,
   type ParticipantInfo,
+  type PendingOperationStore,
   PROTOCOL_LIMITS,
   type RoomOperation,
   type SelectionPresence,
@@ -68,6 +70,7 @@ import {
 import { getActionRegistry } from '../actions/ActionRegistry';
 import { getCursorWorldPosition, subscribeCursorWorldPosition } from '../canvas/cursorPosition';
 import { useEditor } from '../context';
+import { IndexedDbPendingOperationStore } from './pendingOperationStore';
 
 // ── Public shape ──────────────────────────────────────────────────────────────
 
@@ -168,6 +171,9 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
   const [followingActorId, setFollowingActorId] = useState<string | null>(null);
 
   const engineRef = useRef<CollabSyncEngine | null>(null);
+  // One store instance per app session (IndexedDB handles are reused; the
+  // memory fallback keeps tests and private-mode browsers working).
+  const pendingStoreRef = useRef<PendingOperationStore>(createPendingStore());
   const undoStackRef = useRef<SessionCapture[]>([]);
   const redoStackRef = useRef<RedoEntry[]>([]);
   const followingRef = useRef<string | null>(null);
@@ -610,6 +616,9 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
           },
         },
         createTransport: (roomUrl) => new WebSocketCollabTransport(roomUrl),
+        // Unacknowledged edits survive a reload: the room catches up to the
+        // local document on the next join instead of staying behind it.
+        pendingStore: pendingStoreRef.current,
         timers: {
           setTimeout: (handler, ms) => window.setTimeout(handler, ms),
           clearTimeout: (handle) => window.clearTimeout(handle as number),
@@ -755,6 +764,18 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Persistent when the platform allows it, in-memory otherwise. */
+function createPendingStore(): PendingOperationStore {
+  try {
+    if (typeof indexedDB !== 'undefined' && indexedDB !== null) {
+      return new IndexedDbPendingOperationStore();
+    }
+  } catch {
+    // Private mode / disabled storage: fall through to memory.
+  }
+  return new MemoryPendingOperationStore();
+}
 
 function useDisplayName(): string {
   const [name, setName] = useState('');
