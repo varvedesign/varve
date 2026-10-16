@@ -48,3 +48,25 @@ formatted by this work.
 - Integration route: merge sequentially toward master after the owner of the
   presentation migration lands, then re-run the affected plan on the
   integrated SHA. No push is performed from this session.
+
+## Integration record (2026-10-16)
+
+- **Two writers shared this worktree.** A second writer (not visible as a
+  session) committed review fixes and the Rust stdio harness while this session
+  committed the editor, settings, capture/save, CLI and test work. Commits were
+  made with explicit path lists; the second writer committed through an isolated
+  index (`GIT_INDEX_FILE`), which the repository now guards against
+  (`scripts/quality/guard-index-not-stale.mjs`).
+- **Commit `3d4278cef` carries the wrong message.** Its subject says "docs" and it
+  is a docs commit, but a broad stage by the other writer swept this session's
+  staged editor files into it: `packages/editor/src/automation/{controller,
+  editorBindings,liveEditor}.ts`, the updated `livePort.ts` and its tests,
+  `liveEditorIntegration.test.tsx`, the `readAutomationState()` accessor in
+  `context.tsx`, and the `registerAll.ts` publish call. History was not rewritten,
+  because another writer was active and rewriting shared history is out of
+  bounds. The content is correct; only the message is incomplete.
+- **Master was merged into the branch** (`b82095c35`) to pick up the collaboration
+  work and the `bundle-assets` module; the only conflict was the docs index, where
+  both rows were kept. Nothing was pushed.
+- **Not touched:** `packages/automation/README.md` is the other writer's
+  untracked file and was never staged by this session.

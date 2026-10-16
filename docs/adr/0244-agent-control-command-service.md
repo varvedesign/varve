@@ -53,6 +53,17 @@ on `0aa316bca`:
   refusing on conflict rather than erasing later work.
 - Settings, permissions, approvals, security and updater are forbidden command
   domains.
+- Permissions are separate classes with a separate switch each, and nothing
+  implies anything else: `edit` does not imply saving (`export`), and neither
+  implies producing images (`capture`). A live save writes only where the person
+  already chose and never opens a dialog; a capture is the export pipeline's
+  pixels of one node with its revision, geometry and readiness, not a screenshot
+  of the window. A capture the person granted by name is not held for approval
+  each time; changes and saves are.
+- Idempotency is scoped to the *client* (credential plus declared name), not the
+  connection, because a retry after a lost reply arrives on a new connection.
+  Attribution stays per connection. Retained receipts are bounded by encoded
+  size as well as count, since a receipt can carry an image.
 - Parity with the UI is tracked by a machine-readable manifest with honest
   denominators, not asserted by command count.
 
@@ -78,6 +89,15 @@ on `0aa316bca`:
   nothing for an unrelated settings change. Until it has been run in a launched
   desktop app, an adapter asked to connect that finds no endpoint must fail,
   never fall back to an empty headless session.
+
+- The packaged CLI is a production build (`NODE_ENV` pinned in the bundle). The
+  scene package's development-only whole-document validation otherwise ran after
+  every edit and made a headless session's edits cost O(document): 50 commits on
+  a 3,000-node file took 11.6 to 15.4 s instead of 2.0 to 5.2 s. Measurements are
+  in `docs/perf/agent-control-baseline-2026-10-16.md`.
+- Rollback history is bounded by retained node-table entries as well as by
+  transaction count, so a very large document keeps fewer transactions rather
+  than hundreds of megabytes. The most recent one is always kept.
 
 ## Migration impact
 
