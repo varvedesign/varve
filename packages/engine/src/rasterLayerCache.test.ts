@@ -15,6 +15,7 @@ import {
   type RasterLayerSurface,
   resetRasterLayerCache,
 } from './rasterLayerCache';
+import { tilePixelsIdentity } from './rasterTileIdentity';
 
 const TILE = 4; // Small tiles keep the fixtures readable.
 
@@ -294,6 +295,54 @@ describe('RasterLayerCache content identity', () => {
     writes.length = 0;
     const again = cache.acquire('layer', TILE, TILE, { '0:0': tile(3, 5) }, TILE);
     expect(again!.plan.changed).toEqual([]);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('re-uploads when another document reuses the same layer id and version', () => {
+    // Node ids are document-local and can repeat across documents (legacy
+    // sequential ids, or a reopened file). A retained surface keyed only by the
+    // id would then hand document A's pixels to document B, because the version
+    // counter restarts too. Pixel-buffer identity is what separates them.
+    const { writes } = installFakeCanvas();
+    const cache = new RasterLayerCache();
+
+    const docAPixels = new Uint8ClampedArray(TILE * TILE * 4).fill(10);
+    cache.acquire(
+      'n5',
+      TILE,
+      TILE,
+      { '0:0': { pixels: docAPixels, version: 1, contentId: tilePixelsIdentity(docAPixels) } },
+      TILE,
+    );
+    writes.length = 0;
+
+    const docBPixels = new Uint8ClampedArray(TILE * TILE * 4).fill(200);
+    const second = cache.acquire(
+      'n5',
+      TILE,
+      TILE,
+      { '0:0': { pixels: docBPixels, version: 1, contentId: tilePixelsIdentity(docBPixels) } },
+      TILE,
+    );
+
+    expect(second!.plan.changed).toEqual(['0:0']);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.fill).toBe(200);
+  });
+
+  it('records the residual limit: without an identity, a colliding id and version cannot be told apart', () => {
+    // Pins exactly what the identity buys, so the fallback's weakness is a
+    // documented property rather than a surprise. `sceneNodeToEngineNode`
+    // always supplies `contentId`; a producer that omits it is the only route
+    // to this case.
+    const { writes } = installFakeCanvas();
+    const cache = new RasterLayerCache();
+    cache.acquire('n5', TILE, TILE, { '0:0': tile(1, 10) }, TILE);
+    writes.length = 0;
+
+    const second = cache.acquire('n5', TILE, TILE, { '0:0': tile(1, 200) }, TILE);
+
+    expect(second!.plan.changed).toEqual([]);
     expect(writes).toHaveLength(0);
   });
 });

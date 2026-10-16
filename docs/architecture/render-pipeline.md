@@ -565,6 +565,33 @@ Because the IR now reads the document's buffer, **nothing in the IR path may
 write to `RasterTileIR.pixels`, and an upload must never transfer its
 `ArrayBuffer`** (that would detach the document's own storage).
 
+## Cache-key coverage (2026-10-16)
+
+Two mechanisms keep a cached `RenderItem` from being reused for changed content,
+and they have different jobs:
+
+1. **`computeInvalidationPlan`** (`canvas/invalidationPlan.ts`) compares node
+   object identity (`previous.nodes[id] !== next.nodes[id]`). The document model
+   is copy-on-write, so *any* per-node field edit produces a new node object and
+   invalidates that node, its ancestors, and a structural change wipes the cache.
+   This is the primary mechanism.
+2. **`cacheContentParts` + `SubtreeIrCache.nodeHash`** is the documented
+   defence-in-depth layer, for content drift on nodes that were *not* explicitly
+   invalidated. It must therefore cover every field the IR builder reads.
+
+Ten text-shaping inputs the builder consumes (`tracking`, `direction`,
+`language`, `kerningMode`, `writingMode`, `textOrientation`, `glyphAdjustments`,
+`pairAdjustments`, `textWrapShape`, `fontReference`) were missing from (2). No
+stale frame was reproduced, because (1) covers per-node edits; the gap was in
+the secondary layer only, and it is closed. `textOrientation`/
+`writingMode`-style fields are read by `replay.ts` (vertical layout, upright
+glyphs) and `tracking` becomes a per-cluster advance, so they do change pixels.
+
+Checked while auditing the key and **not** a gap: document-level soft proofing
+(the proof transform is applied to the assembled frame at replay time and the
+proof toggle is part of the render revision, so no IR invalidation is needed),
+and visibility, clip/mask and blend fields (already covered).
+
 ## Known Gaps
 
 - **CI never exercises the real WebGPU rendering path (2026-07-11).** `.github/workflows/ci.yml`'s `rust`/`js` matrix runs on GitHub-hosted `ubuntu-latest`/`macos-latest`/`windows-latest` — none provide real GPU hardware. `packages/compositor/src/webgpu/golden.test.ts`'s `native WebGPU path renders without error` test self-skips via `it.skipIf(navigator.gpu === undefined)`, which is always true in Vitest/jsdom. The `e2e` job runs real Chromium via Playwright, but GitHub-hosted runners give headless Chromium no GPU passthrough either — at best it falls back to a software rasterizer (the same class of adapter Task 16 / ADR-0003 now declines at the app level), so even E2E doesn't validate the hardware-accelerated path. "Tests pass" and "E2E passes" should not be read as "the WebGPU path works on real hardware." See `docs/architecture/webgpu-manual-verification.md` for the manual check to run before relying on this path in a release. Resolving this properly (a GPU-enabled CI runner) is an infra/cost decision, not made here.

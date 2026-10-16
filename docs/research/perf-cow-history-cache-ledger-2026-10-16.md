@@ -163,6 +163,33 @@ pairing defect is not present on the paths read: `beginTransaction` and the
    pixels cross into the IR by reference, and the IR cache no longer charges
    bytes it does not own, so raster layers above a few MiB are cached instead of
    being refused and re-converted forever.
+6. **IR cache key missing ten text-shaping inputs** (fixed). `tracking`,
+   `direction`, `language`, `kerningMode`, `writingMode`, `textOrientation`,
+   `glyphAdjustments`, `pairAdjustments`, `textWrapShape` and `fontReference`
+   are read by `replay.ts` but were absent from `cacheContentParts`. The primary
+   invalidation path (`computeInvalidationPlan`, node object identity) covers
+   per-node edits, so no stale frame was reproduced; the gap was in the
+   documented defence-in-depth layer only. Verified by removing the fields from
+   the key again: **8 of the 10** new cases then fail (direction, language,
+   kerningMode, writingMode, textOrientation, glyphAdjustments,
+   pairAdjustments, textWrapShape). The `tracking` and `fontReference` pushes
+   are preceded by an explanatory comment, which the revert script's pattern did
+   not match, so those two were still hashed during the reverted run and are
+   **not** independently verified - they are the same code shape as the other
+   eight.
+
+## Evaluated and found sound (recorded so the audit is not one-sided)
+
+- **Document-level soft proofing** does not need IR invalidation: the proof
+  transform is applied to the assembled frame at replay time (`applyProofToFrame`
+  returns the identical array when off) and the proof toggle is part of the
+  render revision, so toggling it already forces a frame. A separate
+  `proof-provider-ready` redraw trigger covers the provider arriving late.
+- **Per-node invalidation is complete for field edits**, because
+  `computeInvalidationPlan` compares node object identity on a copy-on-write
+  document.
+- **Partial/worker replay guards** for structural masks, groups and retouch
+  cases are intact and were not weakened for cache or worker hit rates.
 
 ## References revalidated (R1-R7)
 
@@ -185,11 +212,37 @@ pairing defect is not present on the paths read: `beginTransaction` and the
 
 Threaded/SIMD raster kernel, cached-composition dependency graph beyond the
 raster key, and Playwright coverage of the paint/undo flow are not implemented or
-not run in this change; see ADR-0241 "Open items". The WASM toolchain needed to
-build and verify a SIMD artifact is not present locally, and a threaded
-`wasm32-unknown-unknown` build needs a nightly `-Z build-std`, so "threads in the
-WASM engine" is not reachable from the pinned stable toolchain at all.
+not run in this change; see ADR-0241 "Open items".
 
-Undo-to-first-correct-frame latency in the running app is still not measured
-here. The measurements above are mechanism-level (allocation volume, hash
-passes, cache admission), not the end-to-end interaction.
+Verified this session about the WASM route, so the gap is stated precisely
+rather than assumed:
+
+- `apps/desktop/public/wasm/` contains the **colour** engine artifact
+  (`varve_colour_bg.wasm`, 2026-10-02) and **no engine artifact**
+  (`varve_wasm_bg.wasm`) and no SIMD variant. The engine the canvas can load
+  through `wasmLoader.ts` therefore has nothing to load here.
+- `wasm32-unknown-unknown` is installed, `wasm-pack` is on PATH and
+  `/usr/bin/llvm-objdump` exists, so an artifact *can* be built and inspected.
+  `cargo tree -p varve-wasm` is 96 crates and it does pull `rayon v1.12`
+  (through `varve-trace`), but nothing in that build can spawn a thread, so the
+  rayon work runs on the calling thread there.
+- A threaded `wasm32-unknown-unknown` build (atomics + shared memory) needs a
+  nightly `-Z build-std`; it is not reachable from this pinned stable
+  toolchain at all, independent of COOP/COEP.
+- The engine surface exported to WASM is IR build, hit test, contour trace and
+  media probe. It contains no raster pixel kernel, so `+simd128` there cannot
+  make rasterization faster, and this session did not build or disassemble an
+  artifact to check whether LLVM vectorized the IR code. **The SIMD artifact
+  remains unverified.**
+
+Writing new artifacts into `apps/desktop/public/wasm/` would also change runtime
+behaviour for every other agent's session (the loader would start selecting the
+WASM engine where it currently falls back to the stub), so it is a coordinated
+change rather than a unilateral one.
+
+Undo-to-first-correct-frame latency in the app is covered by
+`tests/e2e/paint/stroke-undo-responsiveness.spec.ts`, which measures
+key-press -> first frame whose pixels match the target state, asserts the
+in-memory undo restores the *exact* earlier canvas hash, and runs the
+full-redraw oracle after every stroke and undo. The mechanism-level numbers
+above are not that measurement.

@@ -153,6 +153,11 @@ None. No persisted field, schema, or hash value changes in D1-D3.
 
 - `RasterTileIR.contentId` is optional; consumers fall back to version-only
   comparison when it is absent.
+- `RasterTileIR.pixels` is now `number[] | Uint8ClampedArray | Uint8Array`
+  (D5). Consumers must read it through `ArrayLike<number>`, must treat it as
+  read-only, and must never transfer its `ArrayBuffer` — that would detach the
+  document's own storage. A `number[]` payload is still accepted, so out-of-tree
+  producers keep working.
 - `@varve/history` exports `strictlyIdentical`; `@varve/scene` exports
   `canonicalDocumentDigest`, `Sha256Stream`, `isByteArray`, `RasterTileDraft`,
   `beginRasterTileDraft`; `@varve/engine` exports `tilePixelsIdentity` and the
@@ -176,10 +181,23 @@ that). `strictlyIdentical` is one-sided: `true` implies equal canonical bytes,
 - D4 approval and implementation.
 - Threaded/SIMD raster kernel: requires a built engine WASM artifact,
   `wasm-opt`, and a COOP/COEP determination for the Tauri webview; a
-  candidate is the TypeScript separable blur for radius > 32 px.
+  candidate is the TypeScript separable blur for radius > 32 px. Verified
+  2026-10-16: no engine artifact is present in `apps/desktop/public/wasm/`
+  (only the colour engine), the WASM surface contains no raster pixel kernel, a
+  threaded `wasm32-unknown-unknown` build needs a nightly `-Z build-std`, and
+  adding artifacts to that shared directory changes runtime selection for every
+  session, so it is a coordinated change. See
+  `docs/research/perf-cow-history-cache-ledger-2026-10-16.md` -> "Not done".
+- `Engine.hitTest` is not behind `withStubFallback`'s `requiresRasterFallback`
+  guard. No production caller passes a raster-bearing scene (the editor uses the
+  TypeScript `HitTestEngine`), but with D5 that path would serialise typed arrays
+  as index-keyed objects and fail the Rust deserializer into the stub fallback.
+  Extend the guard to `hitTest` before any caller relies on it.
 - `RasterLayerCache` keys surfaces by node id alone and
-  `resetRasterLayerCache` has no production caller; legacy sequential ids can
-  collide across documents.
+  `resetRasterLayerCache` has no production caller; a retired document's surfaces
+  are only reclaimed by LRU eviction inside the 128 MiB budget. Identity
+  comparison (D3) keeps this correct across documents; it is a bounded resource
+  retention, not a correctness hazard.
 
 ## Rejected shortcuts
 

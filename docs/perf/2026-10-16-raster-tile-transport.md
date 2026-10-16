@@ -133,6 +133,36 @@ Both reverted-tree attempts ran on a machine at load average 17-23 (4 cores), so
 the unverified row is a tooling limit here, not a pass.
 
 
+## Why the wire boundary is safe
+
+Passing the document's buffer into the IR is only safe if nothing serialises it:
+
+- **Native/WASM IR build.** `createEngine` wraps every native and WASM engine in
+  `withStubFallback`, whose `buildIr` routes any scene containing a
+  `rasterLayer` node with `rasterLayerData` to the pure-TypeScript engine, so
+  tile payloads never reach `build_ir_json`/`JSON.stringify` on that path. That
+  guard predates this change and is what kept the `number[]` payload working
+  there; it now also keeps a typed array away from the Rust deserializer.
+- **Worker transport.** The IR crosses to the render worker by structured clone,
+  where a typed array copies as bytes instead of as a boxed JS array. Nothing
+  transfers it, so the document's buffer stays attached to its owner.
+- **Persistence.** `RasterTileIR` is a render-time type; the document stores
+  `RasterTile` with its own `Uint8ClampedArray` and its own base64 codec
+  (`serializeTiles`/`deserializeTiles`), neither of which this change touches.
+  The portable document schema and every stored hash are unchanged.
+- **Cache keys.** `estimateItemBytes` is the only place that stringifies an IR
+  item, and it now collapses tile payloads instead of walking them;
+  `cacheContentParts` hashes tiles through `rasterLayerVersionSummary`, which
+  reads keys, versions and content identities and never touches pixels.
+
+Known residual: `Engine.hitTest` is *not* behind the raster guard, so a future
+caller passing a raster-bearing scene to the WASM/native engine would
+`JSON.stringify` typed arrays as index-keyed objects and fail the Rust
+deserializer, falling back to the stub (correct, but wasteful). No production
+caller does this today — the editor hit-tests through the TypeScript
+`HitTestEngine` — and it is recorded in ADR-0241's open items rather than
+silently left.
+
 ## Not measured / not claimed
 
 - No end-to-end stroke-to-frame latency measurement in the running app is
