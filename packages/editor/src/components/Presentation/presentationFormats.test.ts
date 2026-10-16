@@ -145,3 +145,43 @@ describe('presentation handout PDF', () => {
     );
   });
 });
+
+describe('handout chrome text encoding', () => {
+  it('maps non-WinAnsi footer text to safe byte values instead of UTF-8 mojibake', async () => {
+    const { planPresentationHandout } = await import('@varve/scene');
+    const { makePresentationHandoutPdf } = await import('./presentationFormats');
+    const page = { width: 320, height: 180, pixels: new Uint8Array(320 * 180 * 4).fill(255) };
+    const plan = planPresentationHandout([{ wPx: 1920, hPx: 1080 }], {
+      layout: '1-up',
+      paper: 'a4',
+      orientation: 'portrait',
+      marginPt: 36,
+      gapPt: 18,
+      slideNumbers: true,
+      noteLines: false,
+    });
+    const bytes = makePresentationHandoutPdf([page], plan, {
+      slideNumbers: true,
+      footerText: '设计评审 Réunion',
+    });
+    const raw = Buffer.from(bytes).toString('latin1');
+    // The four CJK characters become explicit '?' replacements, and no
+    // multi-byte UTF-8 sequence for the first character (0xE8 0xAE 0xBE)
+    // leaks into the single-byte-encoded text operator.
+    expect(raw).toContain('(???? R');
+    const utf8She = Buffer.from('设', 'utf8');
+    let foundUtf8 = false;
+    for (let index = 0; index <= bytes.length - 3; index++) {
+      if (
+        bytes[index] === utf8She[0] &&
+        bytes[index + 1] === utf8She[1] &&
+        bytes[index + 2] === utf8She[2]
+      ) {
+        foundUtf8 = true;
+        break;
+      }
+    }
+    expect(foundUtf8).toBe(false);
+    expect(raw).toContain('Tj');
+  });
+});

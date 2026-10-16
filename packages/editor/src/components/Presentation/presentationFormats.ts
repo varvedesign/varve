@@ -190,8 +190,40 @@ interface CompressedSlide {
   alpha: Uint8Array;
 }
 
-function escapePdfText(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+// The handout's chrome font is Helvetica under WinAnsiEncoding, which covers
+// Latin-1 plus a few extras. TextEncoder emits UTF-8 bytes, which the font
+// would misread for anything outside that set — so chrome text maps to
+// WinAnsi byte values and marks genuinely unencodable characters instead of
+// writing mojibake into the page.
+const WINANSI_EXTRA = new Set([
+  0x2022, 0x2020, 0x2021, 0x2026, 0x2018, 0x2019, 0x201c, 0x201d, 0x2013, 0x2014, 0x20ac,
+]);
+
+function toWinAnsiBytes(value: string): Uint8Array {
+  const bytes: number[] = [];
+  for (const char of value) {
+    const code = char.codePointAt(0) ?? 0x3f;
+    if (code === 0x0a || code === 0x0d) {
+      bytes.push(0x20);
+    } else if (code <= 0xff && (code >= 0x20 || code === 0x09)) {
+      bytes.push(code);
+    } else if (WINANSI_EXTRA.has(code)) {
+      bytes.push(0x3f);
+    } else {
+      bytes.push(0x3f);
+    }
+  }
+  return Uint8Array.from(bytes);
+}
+
+function encodePdfChromeText(value: string): string {
+  let out = '';
+  for (const byte of toWinAnsiBytes(value)) {
+    const char = String.fromCharCode(byte);
+    if (char === '\\' || char === '(' || char === ')') out += `\\${char}`;
+    else out += char;
+  }
+  return out;
 }
 
 /**
@@ -339,7 +371,7 @@ export class PresentationHandoutPdfBuilder {
       }
       const drawText = (value: string, xPt: number, yPt: number, size: number) => {
         drawParts.push(
-          `BT\n/F1 ${size} Tf\n1 0 0 1 ${xPt} ${yPt} Tm\n(${escapePdfText(value)}) Tj\nET`,
+          `BT\n/F1 ${size} Tf\n1 0 0 1 ${xPt} ${yPt} Tm\n(${encodePdfChromeText(value)}) Tj\nET`,
         );
       };
       if (options.headerText) {

@@ -149,3 +149,41 @@ describe('presentation deck model', () => {
     expect(resolvePresentationSlides(broken, 'deck').deliveryErrors).toHaveLength(1);
   });
 });
+
+describe('delivery error reporting', () => {
+  it('blocks delivery on existing-but-invalid frame references, not only missing ones', () => {
+    // Regression: an invalid-frame reference is invisible by construction, so
+    // the old visible-only test excluded it from deliveryErrors and the slide
+    // silently vanished from the show with no repair warning.
+    const notAFrame = {
+      id: 'not-a-frame',
+      name: 'stray rect',
+      kind: 'shape',
+      shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      transform: [1, 0, 0, 1, 0, 0],
+    } as unknown as Parameters<typeof resolvePresentationSlides>[0]['nodes'][string];
+    const document = {
+      ...createDocument('Invalid frame delivery', true),
+      nodes: { 'not-a-frame': notAFrame },
+      presentation: {
+        schemaVersion: 2 as const,
+        decks: [
+          {
+            id: 'deck',
+            name: 'Deck',
+            width: 1920,
+            height: 1080,
+            sections: [],
+            slides: [{ id: 'one', frameId: 'not-a-frame', title: 'Broken' }],
+          },
+        ],
+        layouts: [],
+        themes: [],
+      },
+    };
+    const resolution = resolvePresentationSlides(document, 'deck');
+    expect(resolution.includedSlides).toHaveLength(0);
+    expect(resolution.deliveryErrors).toHaveLength(1);
+    expect(resolution.deliveryErrors[0]?.status).toBe('invalid-frame');
+  });
+});

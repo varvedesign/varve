@@ -552,6 +552,17 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
     }
   }, []);
 
+  // Mouse-only presenters still need clicks to finish the last slide's
+  // transition or builds, so Next stays enabled while any authored motion
+  // remains on the final slide.
+  const lastSlide = request?.slides[request.slides.length - 1];
+  const lastSlideNeedsClicks = Boolean(
+    lastSlide &&
+      ((lastSlide.entry.builds?.length ?? 0) > 0 ||
+        (lastSlide.frame
+          ? resolveSlideTransition(request.deck, lastSlide.entry).kind !== 'none'
+          : false)),
+  );
   const director = request?.mode === 'preview' ? directorRef.current : null;
   const resolvedTransitions: PresentationTransition[] = request
     ? request.slides.map((slide) => resolveSlideTransition(request.deck, slide.entry))
@@ -645,7 +656,10 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
                 size="sm"
                 variant="ghost"
                 onClick={() => stepSlide(1)}
-                disabled={request.slides.length < 2 || slideIndex >= request.slides.length - 1}
+                disabled={
+                  request.slides.length < 2 ||
+                  (slideIndex >= request.slides.length - 1 && !lastSlideNeedsClicks)
+                }
               >
                 Next
               </Button>

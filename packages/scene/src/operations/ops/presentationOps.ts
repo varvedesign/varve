@@ -271,6 +271,20 @@ function validateSlideEntry(value: unknown): value is PresentationSlideEntry {
   ) {
     return false;
   }
+  if (value.transition !== undefined && !isValidPresentationTransition(value.transition)) {
+    return false;
+  }
+  if (value.builds !== undefined) {
+    if (!Array.isArray(value.builds) || value.builds.length > MAX_PRESENTATION_BUILDS_PER_SLIDE) {
+      return false;
+    }
+    const ids = new Set<string>();
+    for (const step of value.builds) {
+      if (!isValidPresentationBuild(step)) return false;
+      if (ids.has(step.id)) return false;
+      ids.add(step.id);
+    }
+  }
   if (
     (value.notes !== undefined && typeof value.notes !== 'string') ||
     (value.notes !== undefined && value.notes.length > 250_000) ||
