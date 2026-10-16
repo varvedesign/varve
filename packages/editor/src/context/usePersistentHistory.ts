@@ -51,6 +51,13 @@ interface UsePersistentHistoryOptions {
   /** One-shot skip signal set by context.tsx when the commit boundary has
    *  already captured a transition (consumed by the document watcher). */
   historySkipRef: { current: boolean };
+  /**
+   * Collab broadcast hook (ADR-0200): invoked in capture order for every
+   * committed local transaction. The collaboration session provider uses
+   * it to replicate the change list to the room; it never participates in
+   * single-user history.
+   */
+  onLocalCapture?: (before: Document, after: Document, label: string, kind: string) => void;
   /** Disable persistent history entirely (auxiliary panel projections —
    *  ADR-0204). The auxiliary window must NOT write revisions to the
    *  canonical branch: its externalState applications would create phantom
@@ -100,8 +107,16 @@ function syncGridFromDocument(document: Document) {
 }
 
 export function usePersistentHistory(options: UsePersistentHistoryOptions): PersistentHistoryApi {
-  const { document, selection, patch, inTransactionRef, historySkipRef, disabled, stateRef } =
-    options;
+  const {
+    document,
+    selection,
+    patch,
+    inTransactionRef,
+    historySkipRef,
+    disabled,
+    stateRef,
+    onLocalCapture,
+  } = options;
   const documentId = document?.id ?? null;
   const savedDocumentRef = useRef<Document | null>(null);
   if (stateRef && !stateRef.current.dirty && !inTransactionRef.current) {
@@ -124,6 +139,8 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   const attachPromiseRef = useRef<Promise<void> | null>(null);
   const patchRef = useRef(patch);
   patchRef.current = patch;
+  const onLocalCaptureRef = useRef(onLocalCapture);
+  onLocalCaptureRef.current = onLocalCapture;
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
   /** Previous document reference seen by the watcher (per document id). */
@@ -286,6 +303,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
           const session = sessionRef.current;
           if (!session || session.documentId !== before.id || after.id !== before.id) return;
           await session.capture(before, after, selectionAtEdit, { label, kind });
+          onLocalCaptureRef.current?.(before, after, label, kind);
           bump();
         } catch (err) {
           console.warn('[history] capture failed', err);

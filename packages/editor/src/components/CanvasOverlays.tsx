@@ -8,7 +8,6 @@
  * load and make overlay composition independently testable.
  */
 
-import type { CollabUser } from '@varve/collab';
 import type { Adjustment, MeshWarp, SpatialBlurEffect } from '@varve/engine';
 import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/scene';
 import {
@@ -39,7 +38,6 @@ import type { SnapGuide } from '../tools/snapping';
 import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './AlignmentOverlay';
 import { BlurGalleryOverlay } from './BlurGalleryOverlay';
 import { CanvasAccessibilityTree } from './CanvasAccessibilityTree';
-import { CollabCursorOverlay, type RemoteCursor } from './CollabCursorOverlay/CollabCursorOverlay';
 import { ColorBlindnessOverlay, type ColorBlindnessView } from './ColorBlindnessOverlay';
 import { CreateTableFromDataDialog } from './CreateTableFromDataDialog';
 import { CropOverlay } from './CropOverlay';
@@ -103,8 +101,6 @@ export interface CanvasOverlaysProps {
   selectedGuideId: string | null;
   unitType: 'px' | 'pt' | 'mm' | 'cm' | 'in' | '%';
   rulerMode?: RulerMode;
-  collabUsers: CollabUser[];
-  stubRemoteCursors: RemoteCursor[];
   snapGuides: SnapGuide[];
   nodeEditTargetId: string | null;
   nodeEditSelectedAnchors: ReadonlySet<number>;
@@ -151,8 +147,6 @@ export function CanvasOverlays({
   selectedGuideId,
   unitType,
   rulerMode,
-  collabUsers,
-  stubRemoteCursors,
   snapGuides,
   nodeEditTargetId,
   nodeEditSelectedAnchors,
@@ -625,11 +619,6 @@ export function CanvasOverlays({
           sourceCanvas={contentCanvasRef.current}
         />
       )}
-      <CollabCursorOverlay
-        users={collabUsers}
-        cursors={stubRemoteCursors}
-        worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
-      />
       <DebugOverlayHost />
       <Ruler
         zoom={zoom}

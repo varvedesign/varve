@@ -32,6 +32,7 @@ export {
   type RoomSnapshot,
   type SelectionPresence,
   type ServerMessage,
+  type ViewportPresence,
 } from './protocol';
 export {
   type CompensationSkip,
@@ -63,6 +64,34 @@ export {
   type TextSplice,
 } from './textSplice';
 export { WebSocketCollabTransport } from './webSocketTransport';
+
+// ── Local capture bridge (editor → collab session) ───────────────────────
+// Module-global like the legacy TransactionHooks: the editor's persistent
+// history pipeline emits committed transactions; the active collab session
+// subscribes to replicate them to the room.
+
+import type { Document } from '@varve/scene';
+
+export interface LocalCaptureEvent {
+  before: Document;
+  after: Document;
+  label: string;
+  kind: string;
+}
+
+type LocalCaptureSink = (event: LocalCaptureEvent) => void;
+
+let localCaptureSink: LocalCaptureSink | null = null;
+
+/** Subscribe to committed local transactions. Returns an unsubscribe fn. */
+export function setLocalCaptureSink(sink: LocalCaptureSink | null): void {
+  localCaptureSink = sink;
+}
+
+/** Editor-side emit (called by the persistent history wiring). */
+export function emitLocalCapture(event: LocalCaptureEvent): void {
+  localCaptureSink?.(event);
+}
 
 // ── Collab user / cursor types ────────────────────────────────────
 
