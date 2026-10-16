@@ -22,9 +22,13 @@ import {
   managedColorToCss,
   resolveBlendEvaluationSpace,
 } from '@varve/shared';
-import { SegmentedControl, Select, Switch } from '@varve/ui';
+import { SegmentedControl, Select, Switch, SwitchField } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import {
+  BLACK_INK_SIMULATION_SUPPORTED,
+  isProofConditionAvailable,
+} from '../../../render/proofProvider';
 import {
   DEFAULT_VIEWPORT_SETTINGS,
   loadSettings,
@@ -370,7 +374,11 @@ export function DocumentPanel() {
                 value={proofConfig.profileId}
                 options={Object.entries(CMYK_PROFILES).map(([id, p]) => ({
                   value: id,
-                  label: p.name,
+                  // Conditions with no bundled ICC profile are marked so the
+                  // label itself carries the limitation, not just the control
+                  // state after selection.
+                  label: isProofConditionAvailable(id) ? p.name : `${p.name} (unavailable)`,
+                  disabled: !isProofConditionAvailable(id),
                 }))}
                 onChange={(id) =>
                   setProofConfig({
@@ -382,6 +390,13 @@ export function DocumentPanel() {
               />
             </div>
           </div>
+          {proofEnabled && !isProofConditionAvailable(proofConfig.profileId) && (
+            <p className="insp-field__hint" role="status">
+              Proofing is off for this condition: no ICC profile for &ldquo;
+              {proofConfig.profileName ?? proofConfig.profileId}&rdquo; is bundled with Varve.
+              Choose a profile marked available to simulate an output condition.
+            </p>
+          )}
           <div className="insp-field">
             <span className="insp-field__label">Simulation</span>
             <div className="insp-field__control insp-field__control--inline">
@@ -392,9 +407,15 @@ export function DocumentPanel() {
                   setProofConfig({ ...proofConfig, simulatePaperColor: e.target.checked })
                 }
               />
-              <Switch
+              <SwitchField
                 label="Black ink"
                 checked={proofConfig.simulateBlackInk}
+                disabled={!BLACK_INK_SIMULATION_SUPPORTED}
+                disabledReason={
+                  BLACK_INK_SIMULATION_SUPPORTED
+                    ? undefined
+                    : 'The ICC proofing transform cannot simulate black ink; Varve does not offer a substitute.'
+                }
                 onChange={(e) =>
                   setProofConfig({ ...proofConfig, simulateBlackInk: e.target.checked })
                 }

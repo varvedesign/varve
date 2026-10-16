@@ -561,6 +561,7 @@ export type { ProductStatusStage } from './product';
 export { PRODUCT_STATUS } from './product';
 export type {
   NormalizedProofTransformResult,
+  ProfileGamutChecker,
   ProfileProofConverter,
   ProfileProofConverterNormalized,
   ProofRenderingIntent,
@@ -571,9 +572,11 @@ export {
   applyProofToNormalized,
   applyProofToRgba,
   clearProofConverters,
+  hasRealGamutCheck,
   isColorOutOfProofGamut,
   isProofingAvailable,
   proofConfigKey,
+  registerProfileGamutChecker,
   registerProfileProofConverter,
   registerProfileProofConverterNormalized,
 } from './proofTransform';

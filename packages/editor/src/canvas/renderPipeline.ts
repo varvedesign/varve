@@ -94,6 +94,7 @@ import {
   documentHasPerspectiveImage,
   perspectiveSurfaceCache,
 } from '../render/perspectiveImage';
+import { applyProofToFrame, ensureProofProvider } from '../render/proofProvider';
 import { resolveRendererAttribution } from '../render/rendererAttribution';
 import { observeCanvasRenderRevision } from '../render/renderRevision';
 import { alphaBounds } from '../render/surfaceBounds';
@@ -1248,6 +1249,39 @@ export function renderContent(deps: RenderContentDeps): void {
       ir = await eng.buildIr({ nodes: flatNodes });
       buildIrMs = performance.now() - t0c;
     }
+
+    // Document proof configuration (print intent). The proof *toggle* is session
+    // state on the editor; the config is document state. `proofEnabled` was
+    // already part of this frame's render revision, so toggling proof forces a
+    // redraw rather than reusing a cached bitmap.
+    const docProofConfig = editor.proofEnabled && editor.proofConfig ? editor.proofConfig : null;
+
+    // Warm the ICC proof provider when proofing is on. The provider fetches and
+    // instantiates the colour WASM module and compiles the proofing transform,
+    // which is asynchronous, so the first frames after a toggle would otherwise
+    // draw unproofed. When the provider becomes available it asks for one
+    // redraw; while it is unavailable `applyProofToFrame` is a no-op and the
+    // canvas shows the unproofed frame rather than freezing or lying.
+    if (docProofConfig) {
+      void ensureProofProvider(docProofConfig).then((status) => {
+        if (status.available) {
+          requestContentDrawRef.current?.('proof-provider-ready', 'asset-ready');
+        }
+      });
+    }
+
+    // Soft proofing: display-only transform applied to the assembled frame,
+    // before either the worker submission or a main-thread replay consumes it.
+    // Applying it here — rather than in the consumers — means both render paths
+    // proof, which they previously did not: the worker path called the shared
+    // proof walker but never had a converter registered, and the main-thread
+    // path called it not at all.
+    //
+    // `applyProofToFrame` returns the identical array when proofing is off or
+    // unavailable, and otherwise returns a new array of new items, so cached
+    // render items keep their authored colours and a later frame re-proofs from
+    // clean sources instead of compounding the transform.
+    const proofedIr = applyProofToFrame(ir, docProofConfig);
     // A slow or contended render can start after the wheel/pointer interaction
     // has quieted. Keep the frame classified as interaction work when the
     // captured camera differs from the last painted camera; otherwise a late
@@ -1464,7 +1498,11 @@ export function renderContent(deps: RenderContentDeps): void {
       // Canvas2D fallback, keeping proxy selection footprint-aware on both
       // structural and flat scenes.
       if (targetCtx === ctxNN && compositorRef.current && !needsStructural) {
-        compositorRef.current.drawVectorItems([item], replayColorOptions, replayImagePolicy);
+        compositorRef.current.drawVectorItems(
+          applyProofToFrame([item], docProofConfig),
+          replayColorOptions,
+          replayImagePolicy,
+        );
       } else {
         replayIr(
           targetCtx as unknown as ReplayTarget,
@@ -2338,11 +2376,10 @@ export function renderContent(deps: RenderContentDeps): void {
           renderRevision,
           fallbackRevision: workerFallbackRevisionRef,
           command: {
-            ir,
+            ir: proofedIr,
             camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
             viewport: { width: VP_W, height: VP_H },
             docVersion,
-            proof: editor.proofEnabled ? editor.proofConfig : null,
             blendEvaluationSpace: replayColorOptions.blendEvaluationSpace,
             dpr,
             imageSourceCaps: workerImageSourceCaps,
@@ -2384,15 +2421,19 @@ export function renderContent(deps: RenderContentDeps): void {
             // dirty rects over pixels from the old revision.
             surfaceIsAuthoritative = false;
           } else {
-            compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
+            compositorRef.current?.drawVectorItems(
+              proofedIr,
+              replayColorOptions,
+              replayImagePolicy,
+            );
           }
         }
         ctxNN.restore();
       } else {
-        compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
+        compositorRef.current?.drawVectorItems(proofedIr, replayColorOptions, replayImagePolicy);
       }
     } else {
-      compositorRef.current?.drawVectorItems(ir, replayColorOptions, replayImagePolicy);
+      compositorRef.current?.drawVectorItems(proofedIr, replayColorOptions, replayImagePolicy);
     }
 
     // Record replay time: from the first replay call to just before cleanup
