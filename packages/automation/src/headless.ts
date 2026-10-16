@@ -17,15 +17,7 @@ import type {
   RollbackResult,
   TransactionRecord,
 } from './authority';
-import { deepEqual, type Touched, touchedBetween } from './diff';
-import { revertTransaction } from './revert';
-
-interface StoredTransaction {
-  record: TransactionRecord;
-  before: Document;
-  after: Document;
-  touched: Touched;
-}
+import { TransactionLedger } from './ledger';
 
 export interface HeadlessOptions {
   document: Document;
@@ -38,12 +30,9 @@ export interface HeadlessOptions {
 export class HeadlessAuthority implements DocumentAuthority {
   private doc: Document;
   private revision = 0;
-  private sequence = 0;
-  private readonly stored: StoredTransaction[] = [];
-  private expiredThrough = 0;
+  private readonly ledger: TransactionLedger;
   private readonly instanceId: string;
   private readonly generation: string;
-  private readonly maxTransactions: number;
   private readonly newId: () => string;
 
   constructor(options: HeadlessOptions) {
@@ -51,7 +40,7 @@ export class HeadlessAuthority implements DocumentAuthority {
     this.doc = options.document;
     this.instanceId = options.instanceId ?? `headless-${this.newId().slice(0, 8)}`;
     this.generation = this.newId().slice(0, 12);
-    this.maxTransactions = options.maxTransactions ?? 200;
+    this.ledger = new TransactionLedger({ maxTransactions: options.maxTransactions });
   }
 
   info(): AuthorityInfo {
@@ -76,7 +65,13 @@ export class HeadlessAuthority implements DocumentAuthority {
     if (input.baseRevision !== this.revision) {
       return { ok: false, reason: 'revision-conflict', currentRevision: this.revision };
     }
-    return this.append(this.doc, input.plan.doc, {
+    const before = this.doc;
+    this.revision += 1;
+    this.doc = input.plan.doc;
+    const record = this.ledger.record({
+      before,
+      after: input.plan.doc,
+      revision: this.revision,
       label: input.plan.label,
       origin: input.origin,
       command: input.command,
@@ -85,124 +80,38 @@ export class HeadlessAuthority implements DocumentAuthority {
       changed: input.plan.changed,
       deleted: input.plan.deleted,
     });
+    return { ok: true, revision: this.revision, transactionId: record.transactionId };
   }
 
   listTransactions(limit = 50): TransactionRecord[] {
-    return this.stored
-      .slice(-limit)
-      .reverse()
-      .map((entry) => entry.record);
+    return this.ledger.list(limit);
   }
 
   rollback(transactionId: string, origin: Origin, receiptId: string): RollbackResult {
-    const index = this.stored.findIndex((entry) => entry.record.transactionId === transactionId);
-    if (index < 0) {
-      const sequence = Number(transactionId.replace(/^t/, ''));
-      if (Number.isInteger(sequence) && sequence > 0 && sequence <= this.expiredThrough) {
-        return {
-          ok: false,
-          reason: 'expired',
-          message: `transaction ${transactionId} is older than the ${this.maxTransactions} retained for rollback`,
-        };
-      }
-      return {
-        ok: false,
-        reason: 'unknown-transaction',
-        message: `no transaction ${transactionId} in this session`,
-      };
-    }
-
-    const target = this.stored[index] as StoredTransaction;
-    const reverted = revertTransaction(this.doc, target.before, target.after);
-    if (!reverted.ok) {
-      const entities = new Set(reverted.conflicts.map((conflict) => conflict.entity));
-      const conflicting = this.stored
-        .slice(index + 1)
-        .filter((later) => {
-          for (const entity of entities) {
-            if (entity === 'document') {
-              if (later.touched.fields.size > 0) return true;
-            } else if (later.touched.nodes.has(entity)) {
-              return true;
-            }
-          }
-          return false;
-        })
-        .map((later) => later.record.transactionId);
-      return {
-        ok: false,
-        reason: 'conflict',
-        message: `rolling back ${transactionId} would erase later work: ${reverted.conflicts
-          .slice(0, 3)
-          .map((conflict) => `${conflict.entity} ${conflict.reason}`)
-          .join('; ')}`,
-        conflictingTransactions: conflicting,
-        entities: [...entities],
-      };
-    }
-
-    if (deepEqual(reverted.doc, this.doc)) {
-      return {
-        ok: false,
-        reason: 'nothing-to-roll-back',
-        message: `transaction ${transactionId} has no remaining effect to undo`,
-      };
-    }
-
-    const touched = touchedBetween(this.doc, reverted.doc);
-    const result = this.append(this.doc, reverted.doc, {
-      label: `Roll back: ${target.record.label}`,
+    const prepared = this.ledger.prepareRollback(this.doc, transactionId);
+    if (!prepared.ok) return prepared;
+    const before = this.doc;
+    this.revision += 1;
+    this.doc = prepared.doc;
+    const record = this.ledger.record({
+      before,
+      after: prepared.doc,
+      revision: this.revision,
+      label: prepared.label,
       origin,
       command: 'varve.history.rollback',
       receiptId,
-      created: [...touched.nodes].filter((id) => !(id in this.doc.nodes)),
-      changed: [...touched.nodes].filter((id) => id in this.doc.nodes && id in reverted.doc.nodes),
-      deleted: [...touched.nodes].filter((id) => !(id in reverted.doc.nodes)),
+      created: prepared.created,
+      changed: prepared.changed,
+      deleted: prepared.deleted,
       revertsTransactionId: transactionId,
     });
     return {
       ok: true,
-      revision: result.revision,
-      transactionId: result.transactionId,
-      restored: reverted.restored,
-    };
-  }
-
-  private append(
-    before: Document,
-    after: Document,
-    meta: {
-      label: string;
-      origin: Origin;
-      command: string;
-      receiptId: string;
-      created: string[];
-      changed: string[];
-      deleted: string[];
-      revertsTransactionId?: string;
-    },
-  ): Extract<CommitResult, { ok: true }> {
-    this.revision += 1;
-    this.sequence += 1;
-    const record: TransactionRecord = {
-      transactionId: `t${this.sequence}`,
       revision: this.revision,
-      label: meta.label,
-      origin: meta.origin,
-      command: meta.command,
-      receiptId: meta.receiptId,
-      created: meta.created,
-      changed: meta.changed,
-      deleted: meta.deleted,
-      ...(meta.revertsTransactionId ? { revertsTransactionId: meta.revertsTransactionId } : {}),
+      transactionId: record.transactionId,
+      restored: prepared.restored,
     };
-    this.stored.push({ record, before, after, touched: touchedBetween(before, after) });
-    this.doc = after;
-    while (this.stored.length > this.maxTransactions) {
-      this.stored.shift();
-      this.expiredThrough += 1;
-    }
-    return { ok: true, revision: this.revision, transactionId: record.transactionId };
   }
 }
 

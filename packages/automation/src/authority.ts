@@ -56,7 +56,9 @@ export interface CommitInput {
 
 export type CommitResult =
   | { ok: true; revision: number; transactionId: string }
-  | { ok: false; reason: 'revision-conflict'; currentRevision: number };
+  | { ok: false; reason: 'revision-conflict'; currentRevision: number }
+  /** The pinned document is no longer reachable (tab closed, document replaced). */
+  | { ok: false; reason: 'unavailable'; message: string };
 
 export type RollbackResult =
   | { ok: true; revision: number; transactionId: string; restored: string[] }
@@ -76,8 +78,19 @@ export interface AuthorityInfo {
   documentName: string;
 }
 
+export type Availability =
+  | { ok: true }
+  | { ok: false; code: 'TARGET_MISMATCH' | 'UNAVAILABLE'; message: string; hint?: string };
+
 export interface DocumentAuthority {
   info(): AuthorityInfo;
+  /**
+   * Whether the pinned document can currently be read and edited. A live
+   * editor can lose its target (the person switched tabs or replaced the
+   * document); the executor refuses with the reason instead of acting on a
+   * different document.
+   */
+  availability?(): Availability;
   getRevision(): number;
   /** Immutable snapshot of the committed document. */
   getDocument(): Document;

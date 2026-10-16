@@ -116,9 +116,43 @@ export type ExternalHandler = (
   env: ExternalEnv,
 ) => Promise<ExternalResult> | ExternalResult;
 
+/**
+ * What a person is asked to approve. It names the exact operation: command,
+ * validated arguments, target and the revision the plan was computed against.
+ * An approval is single-use and is rechecked against the revision before the
+ * commit, so a stale approval can never apply to a document that has moved.
+ */
+export interface ApprovalRequest {
+  receiptId: string;
+  principal: { id: string; label: string; kind: string };
+  command: string;
+  commandTitle: string;
+  effect: string;
+  authorization: string;
+  args: unknown;
+  target: TargetInfo;
+  revision: number;
+  preview: { label: string; created: string[]; changed: string[]; deleted: string[] } | null;
+}
+
+export type ApprovalDecision = { approved: true } | { approved: false; reason?: string };
+
+export interface ObservedReceipt {
+  principal: { id: string; label: string; kind: string };
+  receipt: Receipt | BatchReceipt;
+  kind: 'single' | 'batch';
+}
+
 export interface ExecutorContext {
   principal: Principal;
   authority: DocumentAuthority;
+  /**
+   * When present, every operation that changes anything is held until the
+   * callback resolves. The callback is supplied by the trusted host (a UI), is
+   * never reachable from a request, and has no "approve" method an agent can
+   * call.
+   */
+  approval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   /** Handlers for `external` commands, keyed by command id. */
   externals?: Readonly<Record<string, ExternalHandler>>;
   /** Default parent for node creation; connected mode supplies the active surface. */
@@ -129,6 +163,8 @@ export interface ExecutorContext {
 
 export interface ExecutorOptions {
   catalog: CommandCatalog;
+  /** Called after every receipt, for activity logs. Must not throw into the caller. */
+  onReceipt?: (observed: ObservedReceipt) => void;
   idempotency?: IdempotencyStore;
   limits?: Partial<Limits>;
   newId?: () => string;
@@ -160,12 +196,14 @@ export class Executor {
   private readonly idempotency: IdempotencyStore;
   private readonly limits: Limits;
   private readonly newId: () => string;
+  private readonly onReceipt?: ExecutorOptions['onReceipt'];
   private receiptCounter = 0;
 
   constructor(options: ExecutorOptions) {
     this.catalog = options.catalog;
     this.idempotency = options.idempotency ?? new IdempotencyStore();
     this.limits = { ...DEFAULT_LIMITS, ...options.limits };
+    this.onReceipt = options.onReceipt;
     this.newId =
       options.newId ??
       (() => {
@@ -178,11 +216,85 @@ export class Executor {
 
   async execute(ctx: ExecutorContext, request: unknown): Promise<Receipt> {
     const receiptId = this.newId();
+    let receipt: Receipt;
     try {
-      return await this.executeSingle(ctx, request, receiptId);
+      receipt = await this.executeSingle(ctx, request, receiptId);
     } catch (error) {
-      return this.rejected(ctx, receiptId, 'unknown', 0, internalError(error));
+      receipt = this.rejected(ctx, receiptId, 'unknown', 0, internalError(error));
     }
+    this.observe(ctx, receipt, 'single');
+    return receipt;
+  }
+
+  private observe(ctx: ExecutorContext, receipt: Receipt | BatchReceipt, kind: 'single' | 'batch') {
+    if (!this.onReceipt) return;
+    try {
+      this.onReceipt({
+        principal: {
+          id: ctx.principal.id,
+          label: ctx.principal.label,
+          kind: ctx.principal.kind,
+        },
+        receipt,
+        kind,
+      });
+    } catch {
+      // An observer failure must never change the result of an operation.
+    }
+  }
+
+  /** Hold an operation for a person's decision, then recheck what it was based on. */
+  private async requireApproval(
+    ctx: ExecutorContext,
+    command: Command,
+    receiptId: string,
+    args: unknown,
+    revision: number,
+    preview: ApprovalRequest['preview'],
+  ): Promise<ErrorInfo | null> {
+    if (!ctx.approval) return null;
+    let decision: ApprovalDecision;
+    try {
+      decision = await ctx.approval({
+        receiptId,
+        principal: {
+          id: ctx.principal.id,
+          label: ctx.principal.label,
+          kind: ctx.principal.kind,
+        },
+        command: command.id,
+        commandTitle: command.title,
+        effect: command.effect,
+        authorization: command.authorization,
+        args,
+        target: this.target(ctx),
+        revision,
+        preview,
+      });
+    } catch {
+      return errorInfo('PERMISSION_DENIED', {
+        message: 'the approval could not be obtained, so nothing was changed',
+      });
+    }
+    if (!decision.approved) {
+      return errorInfo('PERMISSION_DENIED', {
+        message: `the person using Varve did not approve this change${decision.reason ? `: ${decision.reason}` : ''}`,
+        hint: 'ask what they would like instead; do not retry the same request unchanged',
+      });
+    }
+    const availability = ctx.authority.availability?.();
+    if (availability && !availability.ok) {
+      return errorInfo(availability.code, { message: availability.message });
+    }
+    const now = ctx.authority.getRevision();
+    if (now !== revision) {
+      return errorInfo('REVISION_CONFLICT', {
+        message: `the document changed from revision ${revision} to ${now} while waiting for approval; the approval no longer applies`,
+        hint: 'read the document again and propose the change against the current state',
+        details: { expected: revision, current: now },
+      });
+    }
+    return null;
   }
 
   private async executeSingle(
@@ -292,6 +404,17 @@ export class Executor {
           summary: `Would run ${command.title}. Nothing was changed.`,
         };
       }
+      const refusedExternal = await this.requireApproval(
+        ctx,
+        command,
+        receiptId,
+        parsed.value,
+        revisionBefore,
+        null,
+      );
+      if (refusedExternal) {
+        return this.rejected(ctx, receiptId, command.id, version, refusedExternal);
+      }
       const result = await handler(parsed.value, {
         principal: ctx.principal,
         authority: ctx.authority,
@@ -344,6 +467,15 @@ export class Executor {
           summary: `Would run ${command.title}. Nothing was changed.`,
         };
       }
+      const refusedRevert = await this.requireApproval(
+        ctx,
+        command,
+        receiptId,
+        parsed.value,
+        revisionBefore,
+        null,
+      );
+      if (refusedRevert) return this.rejected(ctx, receiptId, command.id, version, refusedRevert);
       const outcome = await command.revert(ctx.authority, parsed.value, {
         origin: originOf(ctx.principal),
         receiptId,
@@ -430,6 +562,20 @@ export class Executor {
       };
     } else {
       const sets = this.exactSets(original, evaluated);
+      const refused = await this.requireApproval(
+        ctx,
+        command,
+        receiptId,
+        parsed.value,
+        revisionBefore,
+        {
+          label: evaluated.label,
+          created: sets.created,
+          changed: sets.changed,
+          deleted: sets.deleted,
+        },
+      );
+      if (refused) return this.rejected(ctx, receiptId, command.id, version, refused);
       const plan: CommitPlan = {
         doc: evaluated.doc,
         label: evaluated.label,
@@ -451,7 +597,9 @@ export class Executor {
           receiptId,
           command.id,
           version,
-          staleRevision(revisionBefore, committed.currentRevision),
+          committed.reason === 'unavailable'
+            ? errorInfo('TARGET_MISMATCH', { message: committed.message })
+            : staleRevision(revisionBefore, committed.currentRevision),
         );
       }
       receipt = {
@@ -493,11 +641,14 @@ export class Executor {
 
   async executeBatch(ctx: ExecutorContext, request: unknown): Promise<BatchReceipt> {
     const receiptId = this.newId();
+    let receipt: BatchReceipt;
     try {
-      return await this.runBatch(ctx, request, receiptId);
+      receipt = await this.runBatch(ctx, request, receiptId);
     } catch (error) {
-      return this.batchRejected(ctx, receiptId, 'atomic', [], internalError(error));
+      receipt = this.batchRejected(ctx, receiptId, 'atomic', [], internalError(error));
     }
+    this.observe(ctx, receipt, 'batch');
+    return receipt;
   }
 
   private async runBatch(
@@ -756,6 +907,16 @@ export class Executor {
       };
     }
 
+    const refused = await this.requireApproval(
+      ctx,
+      { id: 'batch', title: 'Batch', effect: 'mutate', authorization: 'edit' } as Command,
+      receiptId,
+      { steps: steps.map((step) => ({ command: step.command, args: step.args })) },
+      revisionBefore,
+      { label: `Batch (${steps.length} steps)`, created, changed, deleted },
+    );
+    if (refused) return this.batchRejected(ctx, receiptId, 'atomic', stepReceipts, refused);
+
     const committed = await ctx.authority.commit({
       plan: {
         doc: working,
@@ -775,7 +936,9 @@ export class Executor {
         receiptId,
         'atomic',
         stepReceipts,
-        staleRevision(revisionBefore, committed.currentRevision),
+        committed.reason === 'unavailable'
+          ? errorInfo('TARGET_MISMATCH', { message: committed.message })
+          : staleRevision(revisionBefore, committed.currentRevision),
       );
     }
     return {
@@ -938,6 +1101,13 @@ export class Executor {
     target: { documentId?: string; generation?: string; instanceId?: string } | undefined,
     commandVersion: number | undefined,
   ): ErrorInfo | null {
+    const availability = ctx.authority.availability?.();
+    if (availability && !availability.ok) {
+      return errorInfo(availability.code, {
+        message: availability.message,
+        ...(availability.hint ? { hint: availability.hint } : {}),
+      });
+    }
     const info = ctx.authority.info();
     if (!command.runtimes.includes(info.mode)) {
       return errorInfo('UNAVAILABLE', {

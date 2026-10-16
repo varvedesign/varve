@@ -740,3 +740,129 @@ describe('receipts', () => {
     expect(r.error?.code).toBe('SCHEMA_VERSION_MISMATCH');
   });
 });
+
+describe('approval, observation and availability', () => {
+  const rectArgs = { kind: 'rect', x: 0, y: 0, width: 5, height: 5 };
+
+  it('holds a change until a person approves, naming the exact operation', async () => {
+    const s1 = makeSession();
+    const seen: Array<{ command: string; revision: number; preview: unknown }> = [];
+    s1.ctx.approval = async (request) => {
+      seen.push({ command: request.command, revision: request.revision, preview: request.preview });
+      expect(s1.authority.getRevision()).toBe(0); // nothing applied while waiting
+      return { approved: true };
+    };
+    const r = await s1.run('varve.node.create', rectArgs);
+    expect(r.outcome).toBe('applied');
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.command).toBe('varve.node.create');
+    expect((seen[0]?.preview as { created: string[] }).created).toHaveLength(1);
+  });
+
+  it('refuses when the person declines, changing nothing', async () => {
+    const s1 = makeSession();
+    s1.ctx.approval = async () => ({ approved: false, reason: 'not now' });
+    const r = await s1.run('varve.node.create', rectArgs);
+    expect(r.outcome).toBe('rejected');
+    expect(r.error?.code).toBe('PERMISSION_DENIED');
+    expect(r.error?.message).toContain('not now');
+    expect(s1.authority.getRevision()).toBe(0);
+  });
+
+  it('does not apply a stale approval after the document moved', async () => {
+    const s1 = makeSession();
+    s1.ctx.approval = async () => {
+      // A person edits while the approval prompt is open.
+      s1.authority.commit({
+        plan: {
+          doc: { ...s1.doc(), name: 'Renamed by a person' },
+          label: 'Rename',
+          created: [],
+          changed: [],
+          deleted: [],
+        },
+        origin: { principalId: 'u', kind: 'user', label: 'u', transport: 'ui' },
+        command: 'ui',
+        receiptId: 'ui-1',
+        baseRevision: s1.authority.getRevision(),
+      });
+      return { approved: true };
+    };
+    const r = await s1.run('varve.node.create', rectArgs);
+    expect(r.outcome).toBe('rejected');
+    expect(r.error?.code).toBe('REVISION_CONFLICT');
+    expect(r.error?.message).toContain('while waiting for approval');
+    expect(Object.values(s1.doc().nodes).filter((n) => n.kind === 'shape')).toHaveLength(0);
+  });
+
+  it('treats a failing approval callback as a refusal', async () => {
+    const s1 = makeSession();
+    s1.ctx.approval = async () => {
+      throw new Error('ui closed');
+    };
+    const r = await s1.run('varve.node.create', rectArgs);
+    expect(r.error?.code).toBe('PERMISSION_DENIED');
+    expect(s1.authority.getRevision()).toBe(0);
+  });
+
+  it('never asks about reads', async () => {
+    const s1 = makeSession();
+    let asked = 0;
+    s1.ctx.approval = async () => {
+      asked += 1;
+      return { approved: true };
+    };
+    const r = await s1.run('varve.document.info', {});
+    expect(r.outcome).toBe('ok');
+    expect(asked).toBe(0);
+  });
+
+  it('asks once for an atomic batch and once per step in partial mode', async () => {
+    const s1 = makeSession();
+    let asked = 0;
+    s1.ctx.approval = async () => {
+      asked += 1;
+      return { approved: true };
+    };
+    const steps = [
+      { command: 'varve.node.create', args: rectArgs },
+      { command: 'varve.node.create', args: rectArgs },
+    ];
+    await s1.executor.executeBatch(s1.ctx, { steps });
+    expect(asked).toBe(1);
+    await s1.executor.executeBatch(s1.ctx, { mode: 'partial', steps });
+    expect(asked).toBe(3);
+  });
+
+  it('reports every receipt to an observer, and an observer error changes nothing', async () => {
+    const seen: string[] = [];
+    const s1 = makeSession({
+      executor: {
+        onReceipt: ({ receipt, principal: who }) => {
+          seen.push(`${who.id}:${receipt.outcome}`);
+          throw new Error('observer failed');
+        },
+      },
+    });
+    const r = await s1.run('varve.node.create', rectArgs);
+    expect(r.outcome).toBe('applied');
+    await s1.run('varve.node.delete', { nodeIds: ['ghost'] });
+    expect(seen).toEqual(['local-owner:applied', 'local-owner:rejected']);
+  });
+
+  it('refuses every command while the authority reports its target unavailable', async () => {
+    const s1 = makeSession();
+    const original = s1.authority.info.bind(s1.authority);
+    void original;
+    (s1.authority as unknown as { availability: () => unknown }).availability = () => ({
+      ok: false,
+      code: 'TARGET_MISMATCH',
+      message: 'the document tab is no longer active',
+    });
+    const read = await s1.run('varve.document.info', {});
+    expect(read.error?.code).toBe('TARGET_MISMATCH');
+    const write = await s1.run('varve.node.create', rectArgs);
+    expect(write.error?.code).toBe('TARGET_MISMATCH');
+    expect(s1.authority.getRevision()).toBe(0);
+  });
+});
