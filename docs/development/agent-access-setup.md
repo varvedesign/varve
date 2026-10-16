@@ -109,10 +109,18 @@ dated backlog, are in
 - Text, layer names and other document content reach an agent as data. The
   agent's own model may send what it reads or any image to its provider.
 
-## Not verified yet
+## Verified, and not
 
-Stated so a missing check is never mistaken for a pass: the attached path has
-not been exercised in a launched Tauri window on any platform; Windows has no
-transport (named pipes are not implemented); macOS and installer-packaged
-launches are untested; Claude Desktop, Cursor and VS Code were not available for
-a real registration test.
+Verified on Linux in the launched desktop application (WebKitGTK under Xvfb): the
+setting starts a real endpoint; `varve instances --verify` and a separate client
+process attach to the open document; a change is held, approved with a real click
+and appears in the Layers panel; a capture returns native pixels in the requested
+colour; pausing refuses changes; and switching off removes the endpoint. To rerun
+it, build the debug app with the WebDriver feature and use an isolated profile
+(the full command is in the header of `tests/wdio/agent-access.e2e.ts`).
+
+Stated so a missing check is never mistaken for a pass: macOS and Windows have not
+been run, and Windows has no transport (named pipes are not implemented);
+installer-packaged launches are untested; Claude Desktop, Cursor and VS Code were
+not available for a real registration test; and the document must have been opened
+in the window before a client attaches.

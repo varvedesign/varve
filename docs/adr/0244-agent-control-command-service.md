@@ -1,6 +1,6 @@
 # ADR-0244: Agent control command service
 
-- **Status:** Accepted (core, local transports, live authority, endpoint transport, editor port, settings surface and parity gate implemented; the wiring from the setting to the endpoint has not yet been run in a launched desktop app)
+- **Status:** Accepted (core, local transports, live authority, endpoint transport, editor port, settings surface and parity gate implemented; the wiring from the setting to the endpoint is verified in the launched desktop app on Linux only)
 - **Date:** 2026-10-15
 
 ## Context
@@ -86,9 +86,12 @@ on `0aa316bca`:
   cannot become a second implementation of validation or authorization.
 - Connected mode starts only from the person's setting, through one mount that
   fails closed (endpoint first, controller enabled only after it) and restarts
-  nothing for an unrelated settings change. Until it has been run in a launched
-  desktop app, an adapter asked to connect that finds no endpoint must fail,
-  never fall back to an empty headless session.
+  nothing for an unrelated settings change. An adapter asked to connect that finds
+  no endpoint must fail, never fall back to an empty headless session. This path
+  was verified in the launched app, which found four defects unit tests had not
+  (a command that never returned, nodes placed on a surface the person could not
+  see, disconnected clients left listed, and lost settings updates); see
+  `docs/architecture/agent-control-system.md`.
 
 - The packaged CLI is a production build (`NODE_ENV` pinned in the bundle). The
   scene package's development-only whole-document validation otherwise ran after

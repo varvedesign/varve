@@ -30,7 +30,7 @@ This document describes the contract and marks what exists. A claim here is
 | **Local endpoint transport for the running application** | **Implemented: `crates/varve-automation-host` (26 tests over a real socket) plus the Tauri bridge `apps/desktop/src-tauri/src/automation_host.rs`, which `cargo check` compiles** |
 | **Parity manifest and its gate** | **Implemented: 334 real action ids measured, 14 commands recorded, 197 unmapped with a dated backlog** |
 | **Editor-side `LiveEditorPort` over the canonical `updateDoc` path** | Implemented in `packages/editor/src/automation/` alongside an `AutomationController` (policy, approvals, activity). The editor context exposes `readAutomationState()` so a check and an install cannot straddle a flush and a person's open transaction is visible |
-| **Desktop listener reachable from the webview** | Wired: `desktopMount.ts` starts the endpoint, hands its credential to the controller, enables the controller and attaches the relay when a person turns the setting on, and tears all three down when they turn it off. Unit-tested with an injected transport; **not yet run against a launched desktop app** |
+| **Desktop listener reachable from the webview** | Wired: `desktopMount.ts` starts the endpoint, hands its credential to the controller, enables the controller and attaches the relay when a person turns the setting on, and tears all three down when they turn it off. Unit-tested with an injected transport, and **verified in the launched desktop app on Linux** (WebKitGTK under Xvfb, seven tests, three consecutive runs on fresh profiles; see "What the launched app found") |
 | **Windows named-pipe transport** | Not implemented. `Transport::NamedPipe` exists and is refused with an explicit `Unsupported` error, so the gap is a compile-time fact rather than a runtime surprise |
 | Approvals and the Agent access settings surface | Implemented: the controller supplies approvals (bound to exact args, target and revision, rechecked at commit) and `Settings > Agent Access` shows pending approvals, connected clients (disconnect), pause/resume, an activity list and the attach command. Tested against the real `EditorProvider` and controller; visual and keyboard review in a running window not done |
 | **`varve.document.save` in a live window** | Implemented. Writes only where the person already chose for the document (the editor's own Save, with its disk-changed and destination checks); a never-saved, download-only or browser-handle document, or any caller-chosen path, is refused and nothing is written. Needs the `export` permission, which `edit` does not imply. Tested against the real provider with an instrumented platform; **not run against a real file system through the desktop app** |
@@ -522,6 +522,33 @@ arguments, connected clients with Disconnect, Pause/Allow changes, and a
 bounded activity list (200 entries, no arguments). Argument text is shown as
 plain text, never interpreted.
 
+## What the launched app found
+
+Running the feature in the real desktop application, rather than reasoning about
+it, found four defects that no unit, integration or browser test had caught. All
+four are fixed, each with a test that fails against the old behaviour:
+
+1. **Enabling never completed.** The `automation_apply_policy` command called
+   `block_on` from inside an `async` command already running on the runtime. That
+   panics the task, the panic is not reported to the webview, and the invoke
+   promise never settled: the surface sat on "Starting" with no endpoint. It
+   compiled and passed `cargo check` and every crate test.
+2. **An agent's node was invisible.** It was created, approved, listed and
+   capturable, but sat on a print page while the Design workspace shows a design
+   canvas, so it never appeared in the Layers panel. The live editor now supplies
+   its own default surface.
+3. **A client that left stayed listed.** Rust owns the sockets and nothing told the
+   webview when one closed, so every short-lived CLI call left a dead session
+   until the connection cap turned real clients away. The transport now reports
+   every closed connection.
+4. **Settings changes could be lost.** `updateSection` built its next state from a
+   stale closure, so two changes before a render lost the first. This affected
+   every Settings section, not only this one.
+
+Two of the five failures seen while writing the native test were the test's own
+state (a profile that survives between runs, and a recovery prompt left by
+abrupt shutdowns); the run now uses a fresh profile each time.
+
 ## Parity manifest
 
 `packages/automation/parity/agent-parity.json` links every action the editor can
@@ -564,14 +591,12 @@ catalog, with the same validation and authorization as a named command.
   mask or an adjustment scope *after* the transaction could be removed by a
   rollback that then reports success.
 
-- **The wiring has not been exercised in a launched application.** The setting
-  now starts the endpoint, enables the controller and attaches the relay
-  (`automation/desktopMount.ts`), and every seam is tested: the mount with an
-  injected transport, the controller and the real `EditorProvider` together, the
-  settings surface against both, and the Rust host over a real socket with a
-  scripted relay. No test yet drives a real client through the Rust socket into a
-  running editor window, so the Rust-to-webview hop (`automation:frame` events,
-  `automation_reply`) is covered only by each side's own tests.
+- **The launched-app run covers Linux only.** The desktop application was
+  driven through its embedded WebDriver (`tests/wdio/agent-access.e2e.ts`, WebKitGTK
+  under Xvfb): the setting starts a real endpoint, a separate client process attaches
+  to the open document, a held change is approved with a real click, a capture
+  returns native pixels, and switching it off removes the endpoint. macOS (WKWebView)
+  and Windows (WebView2) have not been run; Windows has no transport at all.
 - **Windows has no transport.** `Transport::for_this_platform()` reports the gap
   and the endpoint refuses to start there with a clear error.
 - The editor also cannot be mutated by automation through any other path: the
@@ -587,9 +612,11 @@ catalog, with the same validation and authorization as a named command.
   record keyframes.
 - Nodes with stacked fills reject a single `fill` rather than silently
   changing nothing; a stacked-fill command does not exist yet.
-- Headless sessions have no workspace mode. The default insertion parent is the
-  active page's content root; the live editor may use its active surface and
-  reports it in the receipt.
+- Headless sessions have no workspace mode, so their default insertion parent is
+  the first publishing page's content root. A live editor answers with the surface
+  its own tools insert into (`defaultParentId`), which is what keeps an agent's
+  nodes visible in the Layers panel; `document.info` reports the same parent a
+  command would use. An explicit `parentId` always wins.
 - Gesture replay, pressure strokes, text runs, components, pages and
   export-to-file commands are not implemented. Capture covers one node as a PNG;
   there is no region, page, contact-sheet or full-UI capture, and no capture of a
