@@ -7,7 +7,6 @@ import { setRasterPyramidEnabled } from '@varve/engine/rasterPyramid';
 import { asRenderRevision } from '@varve/shared';
 import { canvasBackingSize } from '../canvas/canvasSurface';
 import { closeImageBitmapMap, reconcileImageBitmapMap } from './collectImageBitmaps';
-import { applyProofToIr } from './proofing';
 import { shouldTransferRenderedFrame } from './renderWorkerGuards';
 import { applyWorkerCamera } from './workerCamera';
 import { adoptFontFacesDetailed } from './workerFonts';
@@ -116,14 +115,21 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
       ctx.save();
       try {
         applyWorkerCamera(ctx, msg.camera, msg.dpr, msg.viewport);
-        // Soft proofing: display-only transform applied before replay. Never
-        // mutates document colors and never runs for exports.
-        const ir = msg.proof
-          ? applyProofToIr(msg.ir as RenderItem[], msg.proof)
-          : (msg.ir as RenderItem[]);
-        replayIr(ctx as unknown as ReplayTarget, ir, (src) => imageMap[src], undefined, undefined, {
-          blendEvaluationSpace: msg.blendEvaluationSpace,
-        });
+        // Soft proofing is applied by the host before the frame is posted (see
+        // `proofProvider.applyProofToFrame`), so the worker replays the IR it
+        // is given and never transforms colours itself. Proofing here as well
+        // would convert the frame twice: the worker has no proof provider, and
+        // the IR it receives has already been proofed.
+        replayIr(
+          ctx as unknown as ReplayTarget,
+          msg.ir as RenderItem[],
+          (src) => imageMap[src],
+          undefined,
+          undefined,
+          {
+            blendEvaluationSpace: msg.blendEvaluationSpace,
+          },
+        );
       } finally {
         ctx.restore();
       }

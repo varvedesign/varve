@@ -1281,7 +1281,7 @@ export function renderContent(deps: RenderContentDeps): void {
     // unavailable, and otherwise returns a new array of new items, so cached
     // render items keep their authored colours and a later frame re-proofs from
     // clean sources instead of compounding the transform.
-    const proofedIr = applyProofToFrame(ir, docProofConfig);
+    const proofedIr = applyProofToFrame(ir, docProofConfig, docProofConfig?.gamutWarning);
     // A slow or contended render can start after the wheel/pointer interaction
     // has quieted. Keep the frame classified as interaction work when the
     // captured camera differs from the last painted camera; otherwise a late
@@ -1499,7 +1499,7 @@ export function renderContent(deps: RenderContentDeps): void {
       // structural and flat scenes.
       if (targetCtx === ctxNN && compositorRef.current && !needsStructural) {
         compositorRef.current.drawVectorItems(
-          applyProofToFrame([item], docProofConfig),
+          applyProofToFrame([item], docProofConfig, docProofConfig?.gamutWarning),
           replayColorOptions,
           replayImagePolicy,
         );

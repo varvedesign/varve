@@ -26,12 +26,15 @@ type DisplayProofColor = import('@varve/shared').ManagedColorShim & {
 };
 
 /**
- * A proof converter returns display-sRGB values. Its result must not retain
- * the source profile metadata: doing so would make replay resolve, for
- * example, already-proofed sRGB numbers as Display P3 and transform them a
- * second time. This copy is display-only and never reaches the document.
+ * Build a proofed display colour: the source colour's identity, alpha and
+ * unrelated fields, with the proofed sRGB channels substituted.
+ *
+ * The result must not retain the source profile metadata: doing so would make
+ * replay resolve, for example, already-proofed sRGB numbers as Display P3 and
+ * transform them a second time. This copy is display-only and never reaches
+ * the document.
  */
-function displaySrgbProofColor(
+export function displaySrgbProofColor(
   source: import('@varve/shared').ManagedColorShim,
   rgba: readonly [number, number, number, number],
   bitDepth?: 'uint8' | 'float32',
@@ -82,56 +85,92 @@ function proofColor(
 }
 
 /**
- * Apply the proof transform to a full render item. Returns the SAME object
- * when proofing is unavailable or nothing changed, so callers can skip
- * re-render work on the hot path.
+ * Every colour-bearing field of a render item, in traversal order.
+ *
+ * Derived from the walker itself rather than re-listing the fields, so the two
+ * can never disagree: if `mapItemColors` gains a colour field, this sees it
+ * automatically. The batched provider uses this to decide what to transform,
+ * then hands the results back through the same walker.
  */
-export function applyProofToItem(item: RenderItem, config: ProofTransformConfig): RenderItem {
-  const fill = proofColor(item.fill, config);
-  let next: RenderItem = fill === item.fill ? item : { ...item, fill };
+export function colorSlotsOfItem(item: RenderItem): unknown[] {
+  const seen = new Set<unknown>();
+  const ordered: unknown[] = [];
+  mapItemColors(item, (color) => {
+    // A colour field may legitimately be absent (an unfilled shape, a text run
+    // without an explicit colour). Those are not colours to transform.
+    if (color == null) return color;
+    if (!seen.has(color)) {
+      seen.add(color);
+      ordered.push(color);
+    }
+    return color;
+  });
+  return ordered;
+}
 
-  const proofedFills = mapIfChanged(next.fills, (f) => {
+export function mapFrameColors(
+  items: readonly RenderItem[],
+  mapper: (
+    color: import('@varve/shared').ManagedColorShim,
+  ) => import('@varve/shared').ManagedColorShim,
+): RenderItem[] {
+  let anyChanged = false;
+  const out = items.map((item) => {
+    const next = mapItemColors(item, mapper);
+    if (next !== item) anyChanged = true;
+    return next;
+  });
+  return anyChanged ? (out as RenderItem[]) : (items as RenderItem[]);
+}
+
+/** Apply a colour mapping to one render item (see {@link mapFrameColors}). */
+function mapItemColors(
+  item: RenderItem,
+  mapper: (
+    color: import('@varve/shared').ManagedColorShim,
+  ) => import('@varve/shared').ManagedColorShim,
+): RenderItem {
+  let next: RenderItem = item;
+
+  const fill = mapper(item.fill);
+  if (fill !== item.fill) next = { ...next, fill };
+
+  const filled = mapIfChanged(next.fills, (f) => {
     if (f.type === 'solid') {
-      const c = proofColor(f.color, config);
+      const c = mapper(f.color);
       return c === f.color ? f : { ...f, color: c };
     }
     if (f.type === 'gradient') {
       const stops = mapIfChanged(f.stops, (s) => {
-        const c = proofColor(s.color, config);
+        const c = mapper(s.color);
         return c === s.color ? s : { ...s, color: c };
       });
       return stops === f.stops ? f : { ...f, stops: stops ?? [] };
     }
     return f;
   });
-  if (proofedFills !== next.fills) {
-    next = { ...next, fills: proofedFills };
-  }
+  if (filled !== next.fills) next = { ...next, fills: filled };
 
-  const proofedStrokes = mapIfChanged(next.strokes, (s) => {
-    const c = proofColor(s.color, config);
+  const stroked = mapIfChanged(next.strokes, (s) => {
+    const c = mapper(s.color);
     return c === s.color ? s : { ...s, color: c };
   });
-  if (proofedStrokes !== next.strokes) {
-    next = { ...next, strokes: proofedStrokes };
-  }
+  if (stroked !== next.strokes) next = { ...next, strokes: stroked };
 
-  const proofedEffects = mapIfChanged(next.effects, (e) => {
+  const effected = mapIfChanged(next.effects, (e) => {
     if ('color' in e && e.color) {
-      const c = proofColor(e.color, config);
+      const c = mapper(e.color);
       return c === e.color ? e : { ...e, color: c };
     }
     if (e.type === 'glassMaterial') {
-      const tint = proofColor(e.tint, config);
-      const edge = proofColor(e.edgeHighlightColor, config);
+      const tint = mapper(e.tint);
+      const edge = mapper(e.edgeHighlightColor);
       if (tint === e.tint && edge === e.edgeHighlightColor) return e;
       return { ...e, tint, edgeHighlightColor: edge };
     }
     return e;
   });
-  if (proofedEffects !== next.effects) {
-    next = { ...next, effects: proofedEffects };
-  }
+  if (effected !== next.effects) next = { ...next, effects: effected };
 
   const primitive = next.primitive;
   if (primitive && primitive.kind === 'text' && primitive.richText) {
@@ -139,7 +178,7 @@ export function applyProofToItem(item: RenderItem, config: ProofTransformConfig)
     const paragraphs = primitive.richText.paragraphs.map((para) => {
       const runs = para.runs.map((run) => {
         if (!run.format?.color) return run;
-        const c = proofColor(run.format.color, config);
+        const c = mapper(run.format.color);
         if (c === run.format.color) return run;
         runsChanged = true;
         return { ...run, format: { ...run.format, color: c } };
@@ -161,15 +200,15 @@ export function applyProofToItem(item: RenderItem, config: ProofTransformConfig)
 }
 
 /**
- * Apply the proof transform to a full IR frame. Returns the same array
- * identity when proofing is unavailable so callers can skip re-render work.
+ * Apply the proof transform to a full render item. Returns the SAME object
+ * when proofing is unavailable or nothing changed, so callers can skip
+ * re-render work on the hot path.
  */
+export function applyProofToItem(item: RenderItem, config: ProofTransformConfig): RenderItem {
+  return mapItemColors(item, (color) => proofColor(color, config));
+}
+
+/** Apply the proof transform to a full IR frame (see {@link mapFrameColors}). */
 export function applyProofToIr(items: RenderItem[], config: ProofTransformConfig): RenderItem[] {
-  let changed = false;
-  const out = items.map((item) => {
-    const next = applyProofToItem(item, config);
-    if (next !== item) changed = true;
-    return next;
-  });
-  return changed ? out : items;
+  return mapFrameColors(items, (color) => proofColor(color, config));
 }
