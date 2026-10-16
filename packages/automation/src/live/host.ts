@@ -21,6 +21,7 @@
  * it; nothing in a request can influence either.
  */
 import type { IdRng } from '@varve/scene';
+import { sha256Utf8 } from '@varve/scene';
 import type { DocumentAuthority } from '../authority';
 import type { CommandEffect } from '../catalog';
 import {
@@ -81,6 +82,17 @@ export interface ConnectionSummary {
   connectionId: string;
   /** `null` until `session.hello` is accepted. */
   principalId: string | null;
+  /**
+   * Stable pseudonym for the credential this connection presented, so a
+   * revocation can outlive the connection that earned it.
+   *
+   * Revocation cannot key on the principal id: a principal is minted per
+   * connection, so a reconnecting client would simply be a new principal with
+   * the same credential and the same grants. This is a truncated SHA-256 of the
+   * credential — a name, not a secret. It identifies a client without carrying
+   * anything that could be replayed.
+   */
+  clientKey: string | null;
   label: string;
   client: { name: string; version?: string } | null;
   transport: TransportKind;
@@ -127,6 +139,7 @@ export interface HostConnection {
 class HostConnectionImpl implements HostConnection {
   readonly connectionId: string;
   private principalId: string | null = null;
+  private clientKey: string | null = null;
   private label: string;
   private client: { name: string; version?: string } | null = null;
   private readonly transport: TransportKind;
@@ -157,8 +170,9 @@ class HostConnectionImpl implements HostConnection {
   }
 
   /** Called by the host once a principal is minted for this connection. */
-  admit(principal: Principal, client: { name: string; version?: string }): void {
+  admit(principal: Principal, client: { name: string; version?: string }, clientKey: string): void {
     this.principalId = principal.id;
+    this.clientKey = clientKey;
     this.label = principal.label;
     this.client = client;
   }
@@ -183,6 +197,7 @@ class HostConnectionImpl implements HostConnection {
     return {
       connectionId: this.connectionId,
       principalId: this.principalId,
+      clientKey: this.clientKey,
       label: this.label,
       client: this.client,
       transport: this.transport,
@@ -197,6 +212,17 @@ class HostConnectionImpl implements HostConnection {
     this.inner.close();
     this.onClosed(this);
   }
+}
+
+/**
+ * A stable name for a presented credential.
+ *
+ * Truncated to 16 hex characters: long enough that two clients cannot collide
+ * in practice, and it is a pseudonym rather than the credential, so showing it
+ * in a status list does not hand anyone a way in.
+ */
+function credentialKey(credential: string): string {
+  return sha256Utf8(credential).slice(0, 16);
 }
 
 export class AutomationHost {
@@ -247,7 +273,7 @@ export class AutomationHost {
         serverInfo: this.options.serverInfo,
         limits: this.limits,
         authenticate: (credential, client) => this.authenticate(connectionId, credential, client),
-        policy: this.policyFor(() => connectionId),
+        policy: this.policyFor(),
       }),
       (closed) => {
         this.connections.delete(closed.connectionId);
@@ -283,24 +309,38 @@ export class AutomationHost {
     this.emit();
   }
 
-  /** Revoke one client: its connections close and any queued request is refused. */
+  /**
+   * Revoke one client: its live connections close, and the credential it
+   * presented is refused from then on.
+   *
+   * Refusing the credential is the part that matters. Closing a socket is a
+   * gesture: a client that already read the credential file can reconnect in
+   * milliseconds, and without this it would be admitted as a new principal with
+   * the same grants — which makes "revoked" a label rather than a decision.
+   */
   revoke(principalId: string): number {
-    this.revoked.add(principalId);
     let closed = 0;
     for (const connection of [...this.connections.values()]) {
-      if (connection.summary().principalId === principalId) {
-        connection.close();
-        closed += 1;
-      }
+      const summary = connection.summary();
+      if (summary.principalId !== principalId) continue;
+      if (summary.clientKey !== null) this.revoked.add(summary.clientKey);
+      connection.close();
+      closed += 1;
     }
     if (closed === 0) this.emit();
     return closed;
   }
 
-  /** Forget a revocation so the same client id can be admitted again. */
-  clearRevocation(principalId: string): void {
-    this.revoked.delete(principalId);
-    this.emit();
+  /** Client keys currently refused, so a surface can offer to re-admit one. */
+  revokedClients(): string[] {
+    return [...this.revoked];
+  }
+
+  /** Re-admit a client key: its credential is accepted again. */
+  clearRevocation(clientKey: string): boolean {
+    const removed = this.revoked.delete(clientKey);
+    if (removed) this.emit();
+    return removed;
   }
 
   closeAll(): void {
@@ -342,6 +382,11 @@ export class AutomationHost {
     credential: string,
     client: { name: string; version?: string },
   ): Promise<Principal | null> {
+    // A revoked credential is refused before the caller is consulted. The host
+    // owns "who is connected" (as it already does for pause and the connection
+    // cap); `admit` owns "is this credential valid". Both are necessary.
+    const clientKey = credentialKey(credential);
+    if (this.revoked.has(clientKey)) return null;
     const admission = await this.options.admit({ credential, client, connectionId });
     if (admission === null) return null;
     const principal: Principal = {
@@ -351,24 +396,19 @@ export class AutomationHost {
       transport: admission.transport ?? 'ipc',
       grants: admission.grants,
     };
-    this.connections.get(connectionId)?.admit(principal, client);
+    this.connections.get(connectionId)?.admit(principal, client, clientKey);
     this.emit();
     return principal;
   }
 
   /**
-   * The policy closes over the connection id and resolves the principal lazily:
-   * a `ControlConnection` needs its policy at construction, but the principal
-   * only exists once `session.hello` is accepted, and a principal a connection
-   * has not yet earned must not be able to block it retroactively.
+   * Pause is the only thing this policy decides, and it needs no principal.
+   * Revocation is enforced where trust is decided (`authenticate`) and the
+   * connection is closed at the same moment, so a check here could never run.
    */
-  private policyFor(connectionId: () => string): ExecutionPolicy {
+  private policyFor(): ExecutionPolicy {
     return {
       blockReason: (effect: CommandEffect): string | null => {
-        const principalId = this.connections.get(connectionId())?.summary().principalId ?? null;
-        if (principalId !== null && this.revoked.has(principalId)) {
-          return 'this client was revoked by the person running Varve';
-        }
         if (!this.paused) return null;
         if (effect === 'read' || effect === 'view') return null;
         return this.pausedReason ?? 'automation is paused';

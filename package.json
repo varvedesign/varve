@@ -62,6 +62,7 @@
     "verify:affected": "node scripts/quality/verify.mjs affected",
     "verify:full": "node scripts/quality/verify.mjs full",
     "verify:commit": "node scripts/quality/commit-checkpoint.mjs",
+    "guard:index": "node scripts/quality/guard-index-not-stale.mjs",
     "verify:push": "node scripts/quality/pre-push.mjs",
     "workflow:status": "node scripts/quality/operation-history.mjs status",
     "workflow:doctor": "node scripts/quality/operation-history.mjs doctor",

@@ -9,10 +9,18 @@
  *
  *   envelope → command lookup → runtime → authorization → target pin →
  *   argument schema → idempotency → revision precondition → plan →
- *   invariants → commit → receipt
+ *   output schema → commit → receipt
  *
  * Authorization is checked here and only here, so an alias, a batch step or a
  * retry cannot reach a command the principal was not granted.
+ *
+ * What this module does NOT do is verify document invariants: parent existence,
+ * acyclic containment, mask and scope references, and everything else a `plan`
+ * must not violate are the responsibility of each command, which raises
+ * `INVARIANT_VIOLATION` itself. A new command that omits them will not be caught
+ * centrally. The receipt's created/changed/deleted sets are the exception and do
+ * hold centrally, because they are derived by diffing the documents rather than
+ * taken from the command — so a command cannot make a receipt lie.
  */
 import type { Document, IdRng } from '@varve/scene';
 import { sha256Utf8 } from '@varve/scene';

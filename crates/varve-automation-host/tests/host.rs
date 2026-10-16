@@ -40,6 +40,18 @@ impl TestRelay {
         })
     }
 
+    /// Replies with a frame of a chosen size, and answers transport errors.
+    fn with_big_reply(bytes: usize) -> Arc<Self> {
+        Arc::new(Self {
+            replies: Mutex::new(vec![RelayOutcome::Reply(format!(
+                "{{\"pad\":\"{}\"}}",
+                "z".repeat(bytes)
+            ))]),
+            answer_transport_errors: true,
+            ..Default::default()
+        })
+    }
+
     fn answering_transport_errors() -> Arc<Self> {
         Arc::new(Self {
             answer_transport_errors: true,
@@ -82,6 +94,9 @@ impl FrameRelay for TestRelay {
             ),
             TransportError::InvalidUtf8 => "{\"error\":{\"code\":-32700}}".to_string(),
             TransportError::HelloTimeout => "{\"error\":{\"code\":-32002}}".to_string(),
+            TransportError::ResponseTooLarge { limit } => {
+                format!("{{\"error\":{{\"code\":-32005,\"limit\":{limit}}}}}")
+            }
         };
         self.error_frames.lock().unwrap().push(frame.clone());
         ready(Some(frame)).boxed()
@@ -225,6 +240,39 @@ async fn keeps_connections_independent_and_ordered_within_one() {
     let ids: Vec<&str> = frames.iter().map(|(id, _)| id.as_str()).collect();
     assert_eq!(ids.iter().filter(|id| **id == "c1").count(), 2);
     assert_eq!(ids.iter().filter(|id| **id == "c2").count(), 1);
+    let _ = harness.host.shutdown().await;
+}
+
+#[tokio::test]
+async fn reports_a_reply_it_cannot_write_instead_of_closing_in_silence() {
+    // The limit sits above the size of the protocol's own refusal frame and well
+    // below the reply, which is the real-world relationship: a limit tight
+    // enough to reject its own error message would be unusable.
+    let relay = TestRelay::with_big_reply(4096);
+    let harness = Harness::start_with(
+        Arc::clone(&relay),
+        HostLimits {
+            max_response_bytes: 256,
+            hello_timeout: Duration::from_millis(400),
+            ..HostLimits::default()
+        },
+        "bigreply",
+    )
+    .await;
+
+    let (mut reader, mut stream) = harness.connect().await;
+    write_line(&mut stream, "{\"jsonrpc\":\"2.0\",\"id\":1}").await;
+    let mut reply = String::new();
+    reader.read_line(&mut reply).await.unwrap();
+    // The command behind this reply may already have applied, so the client must
+    // be told the reply was too large rather than left with a bare EOF and an
+    // unknown outcome.
+    assert!(reply.contains("-32005"), "got {reply}");
+    assert!(
+        reply.len() <= 256,
+        "the refusal itself must fit the limit it reports"
+    );
+    assert_eq!(reader.read_line(&mut String::new()).await.unwrap(), 0);
     let _ = harness.host.shutdown().await;
 }
 

@@ -113,6 +113,10 @@ function command(lane, argv, timeoutMs = DEFAULT_TIMEOUT_MS) {
 export function selectCommitCommands(stagedFiles) {
   const files = [...new Set(stagedFiles)].sort();
   const commands = [
+    // First, and deliberately: the index is one file shared by every worktree and
+    // every agent, and a stale one turns this very commit into the erasure of a
+    // commit that already landed. Read-only, and it names the offending paths.
+    command('guard:index', ['node', 'scripts/quality/guard-index-not-stale.mjs', '--quiet']),
     command('format-lint:staged', [
       'pnpm',
       'exec',

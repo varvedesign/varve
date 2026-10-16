@@ -69,6 +69,13 @@ pub enum TransportError {
     InvalidUtf8,
     /// No frame arrived within the handshake deadline.
     HelloTimeout,
+    /// The application produced a reply larger than the transport will write.
+    ///
+    /// Reported rather than closed in silence because the command behind it has
+    /// already been applied: a bare EOF leaves the client believing the outcome
+    /// is unknown, when in fact the work landed and only the description of it
+    /// was too large to send.
+    ResponseTooLarge { limit: usize },
 }
 
 /// Moves frames between the transport and the application.

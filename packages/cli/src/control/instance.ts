@@ -17,7 +17,6 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -89,8 +88,31 @@ export function createInstanceDirectory(
   const base = runtimeDirectory(env);
   const short =
     instanceId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) || randomBytes(4).toString('hex');
-  const dir = join(base, `v-${short}`);
-  if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+
+  // The name carries a random suffix, and an existing directory is never
+  // removed.
+  //
+  // The earlier scheme was `v-<first eight alphanumerics of the instance id>`,
+  // which is a constant for every headless session: their ids all begin
+  // "headless-", so two concurrent sessions mapped to the same path and the
+  // second one deleted the first one's socket, credential and record. The first
+  // server kept serving clients that were already connected while being
+  // undiscoverable and unverifiable to everyone else.
+  //
+  // A unique name makes a collision a bug rather than a stale leftover, so
+  // refusing is correct and deleting is not. The prefix stays `v-` because
+  // discovery is defined as "every `v-*` directory with a readable record".
+  let dir = '';
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const candidate = join(base, `v-${short}-${randomBytes(4).toString('hex')}`);
+    if (!existsSync(candidate)) {
+      dir = candidate;
+      break;
+    }
+  }
+  if (dir === '') {
+    throw new Error(`could not find an unused instance directory under ${base}`);
+  }
   mkdirSync(dir, { mode: 0o700 });
   ensurePrivateDirectory(dir);
   const token = randomBytes(32).toString('hex');

@@ -466,24 +466,43 @@ describe('automation host', () => {
     expect(editor.undo.at(-1)?.origin).toBe('agent');
   });
 
-  it('revoking one client closes only that client and blocks its work', async () => {
+  it('revoking a client closes its connections and refuses its credential', async () => {
     const { open, hello, host, editor } = await hostSetup();
     const doomed = open();
     const kept = open();
     const doomedSession = await hello(doomed);
     await hello(kept);
-    const revokedId = doomedSession.result.principal.id;
+    const revokedId = doomedSession.result.principal.id as string;
+    // The key is what a surface offers to re-admit, and what makes the refusal
+    // outlive the connection.
+    const clientKey = host.status().connections.find((c) => c.principalId === revokedId)?.clientKey;
+    expect(clientKey).toBeTruthy();
 
     expect(host.revoke(revokedId)).toBe(1);
     expect(doomed.shouldClose).toBe(true);
     const nodesBefore = Object.keys(editor.doc.nodes).length;
-    // A revoked connection gets a close, not a silent acceptance.
-    const afterRevoke = await doomed.handleLine(
-      frame(9, 'command.execute', { command: 'varve.node.create', args: rect() }),
-    );
-    expect(afterRevoke).toBeNull();
+    expect(
+      await doomed.handleLine(
+        frame(9, 'command.execute', { command: 'varve.node.create', args: rect() }),
+      ),
+    ).toBeNull();
     expect(Object.keys(editor.doc.nodes)).toHaveLength(nodesBefore);
+    expect(host.revokedClients()).toEqual([clientKey]);
 
+    // The claim under test: a client that already holds the credential cannot
+    // simply reconnect as a new principal and carry on.
+    const reconnected = open();
+    const refused = await hello(reconnected);
+    expect(refused.error?.code).toBe(-32001);
+    expect(refused.error?.message).toBe('credential refused');
+
+    // And a re-admission is a decision a person can make, not a one-way door.
+    expect(host.clearRevocation(clientKey as string)).toBe(true);
+    const readmitted = open();
+    const admitted = await hello(readmitted);
+    expect(admitted.result?.principal?.id).toBeTruthy();
+
+    // The client that was never revoked was never disturbed.
     expect(kept.shouldClose).toBe(false);
     const stillWorks = JSON.parse(
       (await kept.handleLine(

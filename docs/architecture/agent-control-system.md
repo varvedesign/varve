@@ -78,8 +78,13 @@ input. The first failure produces a rejected receipt and changes nothing.
 7. **Arguments**: strict schema validation with JSON-pointer issues.
 8. **Idempotency**: see below.
 9. **Revision precondition**: optional `expectedRevision`.
-10. **Plan**: the command computes a next document; invariants are verified
-    (a created node must really exist under its parent).
+10. **Plan**: the command computes a next document, and its result is validated
+    against the command's declared output schema. Document invariants — parent
+    existence, acyclic containment, mask and scope references — are enforced by
+    the **command itself** (`INVARIANT_VIOLATION`), not centrally; see the
+    [known gaps](#known-parity-gaps-recorded-not-hidden). Created/changed/deleted
+    sets are the filesystem-independent exception: they are derived by diffing
+    the documents, so a command cannot make a receipt lie.
 11. **Commit**: atomic against the revision the plan was computed from.
 12. **Receipt**.
 
@@ -513,6 +518,18 @@ It is not a generic `set(anyPath)`, not `eval`, and not a shell. The generic
 catalog, with the same validation and authorization as a named command.
 
 ## Known parity gaps (recorded, not hidden)
+
+- **No central plan-invariant verification.** Each command raises
+  `INVARIANT_VIOLATION` for the invariants it knows about, and a new command that
+  omits them is not caught anywhere: `executor.ts` validates arguments, the
+  output schema and the resulting id sets, but never the document's shape. This
+  is deliberate debt, stated rather than implied, because a from-scratch plan
+  verifier is its own slice.
+- **A rollback checks child-list references only.** `varve.history.rollback`
+  refuses when a later edit makes a three-way revert unsafe, but its
+  dangling-reference check inspects containment lists; a node bound as a clip
+  mask or an adjustment scope *after* the transaction could be removed by a
+  rollback that then reports success.
 
 - **The wiring has not been exercised in a launched application.** The setting
   now starts the endpoint, enables the controller and attaches the relay

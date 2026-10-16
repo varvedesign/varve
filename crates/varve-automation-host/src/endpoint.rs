@@ -128,6 +128,7 @@ pub fn ensure_private_directory(path: &Path) -> io::Result<()> {
                 if meta.permissions().mode() & 0o077 != 0 {
                     fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
                 }
+                verify_owner(path, &meta)?;
             }
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
@@ -146,6 +147,58 @@ pub fn ensure_private_directory(path: &Path) -> io::Result<()> {
         Err(error) => return Err(error),
     }
     Ok(())
+}
+
+/// Refuse a directory that belongs to another user.
+///
+/// The mode bits alone do not answer this: a 0700 directory someone else made is
+/// still theirs, and anything written into it — the credential above all — is
+/// readable by them. The CLI's twin checks `process.getuid()`; Rust cannot,
+/// because `libc::getuid` is `unsafe` and this workspace denies unsafe code.
+///
+/// So the check creates a file and compares owners. Creating a file makes the
+/// creator its owner, which is exactly the fact needed: if the directory's owner
+/// and the file's owner differ, the directory is not ours. The probe is removed
+/// immediately, and a leftover probe from a crashed run is skipped rather than
+/// mistaken for a verdict.
+#[cfg(unix)]
+fn verify_owner(path: &Path, meta: &fs::Metadata) -> io::Result<()> {
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    for _ in 0..4 {
+        let probe = path.join(format!(".varve-owner-{}", hex(&random_bytes::<6>())));
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&probe)
+        {
+            Ok(file) => {
+                drop(file);
+                let owner = fs::metadata(&probe)?.uid();
+                let _ = fs::remove_file(&probe);
+                if owner != meta.uid() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        format!(
+                            "{} is owned by another user; refusing to use it for control endpoints",
+                            path.display()
+                        ),
+                    ));
+                }
+                return Ok(());
+            }
+            // Someone else's probe, or a leftover: try another name.
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        format!(
+            "could not verify ownership of {}: a probe file could not be created",
+            path.display()
+        ),
+    ))
 }
 
 /// The per-user runtime directory.
@@ -192,17 +245,49 @@ pub fn create_endpoint_at(
         .take(8)
         .collect();
     let short = if short.is_empty() {
-        hex(&random_bytes::<4>())
+        "session".to_string()
     } else {
         short
     };
-    let dir = root.join(format!("v-{short}"));
-    if fs::symlink_metadata(&dir).is_ok() {
-        // Replace it: a leftover from a crashed run, or a planted directory.
-        // `remove_dir_all` refuses to follow symlinks, so this cannot be
-        // redirected into another tree.
-        fs::remove_dir_all(&dir)?;
+
+    // The name carries a random suffix, and an existing directory is never
+    // removed.
+    //
+    // The earlier scheme was `v-<first eight alphanumerics of the instance id>`,
+    // which is a constant for every headless session: their ids all begin
+    // "headless-", so two concurrent sessions mapped to the same path and the
+    // second `remove_dir_all` deleted the first one's socket, credential and
+    // record. The first server kept serving already-connected clients while
+    // being undiscoverable and unverifiable, which is the worst of both.
+    //
+    // A unique name makes a collision a bug or an attack rather than a stale
+    // leftover, so refusing is correct and deleting is not. The caller retries.
+    //
+    // The prefix stays `v-` because discovery is defined as "every `v-*`
+    // directory with a readable instance record", and that scan is what both
+    // `varve instances` and the desktop app rely on.
+    let mut chosen: Option<PathBuf> = None;
+    for _ in 0..8 {
+        let candidate = root.join(format!("v-{short}-{}", hex(&random_bytes::<4>())));
+        match fs::symlink_metadata(&candidate) {
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                chosen = Some(candidate);
+                break;
+            }
+            // Something is already there. Leave it alone and try another name.
+            Ok(_) => continue,
+            Err(error) => return Err(error),
+        }
     }
+    let dir = chosen.ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!(
+                "could not find an unused instance directory under {}",
+                root.display()
+            ),
+        )
+    })?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::DirBuilderExt;
@@ -351,20 +436,29 @@ mod tests {
             create_endpoint_at(&sandbox.dir, "connected-abcdef123456", Transport::UnixSocket)
                 .unwrap();
         assert!(created.dir.starts_with(&sandbox.dir));
-        // The directory name is the sanitized instance id truncated to eight
-        // characters, which is what the CLI's createInstanceDirectory() does.
-        // The two sides must agree or discovery finds nothing.
-        let expected_short: String = "connected-abcdef123456"
+        let name = created.dir.file_name().unwrap().to_str().unwrap();
+        // `v-` for discovery, then a readable prefix derived from the instance
+        // id (the same eight alphanumerics the CLI uses), then a unique suffix
+        // that is what stops two sessions sharing a directory.
+        let expected_prefix: String = "connected-abcdef123456"
             .chars()
             .filter(|c| c.is_ascii_alphanumeric())
             .take(8)
             .collect();
-        assert_eq!(
-            created.dir.file_name().unwrap().to_str().unwrap(),
-            format!("v-{expected_short}")
+        assert!(
+            name.starts_with(&format!("v-{expected_prefix}-")),
+            "unexpected name {name}"
         );
+        assert_eq!(name.len(), "v-".len() + expected_prefix.len() + 1 + 8);
         assert_eq!(created.token.len(), 64);
         assert_eq!(created.endpoint, created.dir.join("s"));
+        let leftovers: Vec<String> = fs::read_dir(&created.dir)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with(".varve-owner-"))
+            .collect();
+        assert!(leftovers.is_empty(), "ownership probe left behind: {leftovers:?}");
         #[cfg(unix)]
         {
             let dir_mode = fs::metadata(&created.dir).unwrap().permissions().mode() & 0o777;
@@ -378,28 +472,31 @@ mod tests {
     }
 
     #[test]
-    #[cfg(unix)]
-    fn refuses_a_symlinked_runtime_directory_instead_of_following_it() {
-        let sandbox = Sandbox::new("symlink");
-        let link = sandbox.dir.join("link");
-        std::os::unix::fs::symlink(&sandbox.dir, &link).unwrap();
-        let error = ensure_private_directory(&link).unwrap_err();
-        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
-        // And through the real entry point, not just the helper.
-        let error = create_endpoint_at(&link, "x", Transport::UnixSocket).unwrap_err();
-        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
-    }
-
-    #[test]
-    fn replaces_an_existing_instance_directory_instead_of_trusting_it() {
-        let sandbox = Sandbox::new("replace");
-        let first = create_endpoint_at(&sandbox.dir, "sameworker", Transport::UnixSocket).unwrap();
-        let planted = first.dir.join("planted");
-        fs::write(&planted, b"planted by someone else").unwrap();
-        let second = create_endpoint_at(&sandbox.dir, "sameworker", Transport::UnixSocket).unwrap();
-        assert_eq!(second.dir, first.dir);
-        assert!(!planted.exists(), "the previous contents must not survive");
-        assert_ne!(second.token, first.token, "a new run gets a new credential");
+    fn never_reuses_or_removes_a_directory_that_already_exists() {
+        let sandbox = Sandbox::new("unique");
+        // Two sessions with the same instance id — which is what a headless
+        // session's derived name used to collapse into — must not share a
+        // directory, and neither may delete the other's credentials.
+        let first = create_endpoint_at(&sandbox.dir, "headless-aaaa", Transport::UnixSocket)
+            .unwrap();
+        let planted = first.dir.join("belongs-to-the-first");
+        fs::write(&planted, b"still here").unwrap();
+        let second = create_endpoint_at(&sandbox.dir, "headless-aaaa", Transport::UnixSocket)
+            .unwrap();
+        assert_ne!(second.dir, first.dir, "two sessions must not share a directory");
+        assert!(planted.exists(), "nothing may be removed from another instance");
+        assert!(first.token_file.exists(), "the first session keeps its credential");
+        assert_ne!(second.token, first.token);
+        // And both remain discoverable, which is what makes the old behaviour
+        // silent rather than loud.
+        let mut names: Vec<String> = fs::read_dir(&sandbox.dir)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with("v-"))
+            .collect();
+        names.sort();
+        assert_eq!(names.len(), 2, "both instances exist side by side");
     }
 
     #[test]

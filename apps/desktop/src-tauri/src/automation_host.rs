@@ -146,6 +146,10 @@ impl FrameRelay for AppRelay {
             }),
             TransportError::InvalidUtf8 => serde_json::json!({ "kind": "invalid-utf8" }),
             TransportError::HelloTimeout => serde_json::json!({ "kind": "hello-timeout" }),
+            TransportError::ResponseTooLarge { limit } => serde_json::json!({
+                "kind": "response-too-large",
+                "limit": limit,
+            }),
         };
         let payload = serde_json::json!({
             "kind": "transport-error",

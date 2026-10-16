@@ -35,7 +35,14 @@ use crate::relay::{ConnectionId, FrameRelay, RelayOutcome, TransportError};
 pub struct HostLimits {
     /// Largest accepted line after the handshake.
     pub max_frame_bytes: usize,
-    /// Largest accepted line before it.
+    /// Largest accepted line before the session is established.
+    ///
+    /// Enforced until the first complete line arrives, not until the application
+    /// has accepted the handshake: the transport cannot know that a line *was* a
+    /// valid handshake, and it must not decide protocol. The residual window is
+    /// bounded and is not an authority weakness — an unauthenticated peer can
+    /// hold at most one buffer of this size while the protocol refuses it, and a
+    /// non-answering application is cut off by the relay's own deadline.
     pub max_hello_bytes: usize,
     /// How long a connection has to send its first complete frame.
     pub hello_timeout: Duration,
@@ -287,12 +294,12 @@ async fn serve_connection(
                     }
                     match relay.deliver(id.clone(), line).await {
                         RelayOutcome::Reply(response) => {
-                            if write_frame(&mut writer, &response, &limits).await.is_err() {
+                            if !write_bounded(&mut writer, &response, &limits, &relay, &id).await {
                                 return;
                             }
                         }
                         RelayOutcome::ReplyAndClose(response) => {
-                            let _ = write_frame(&mut writer, &response, &limits).await;
+                            let _ = write_bounded(&mut writer, &response, &limits, &relay, &id).await;
                             let _ = writer.shutdown().await;
                             return;
                         }
@@ -332,6 +339,37 @@ async fn serve_connection(
             }
         }
     }
+}
+
+/// Write a reply, or report that it is too large to write.
+///
+/// The size is checked before anything is written, so the socket never carries a
+/// truncated frame, and the refusal is phrased by the application rather than by
+/// the transport.
+#[cfg(unix)]
+async fn write_bounded(
+    writer: &mut tokio::net::unix::OwnedWriteHalf,
+    frame: &str,
+    limits: &HostLimits,
+    relay: &Arc<dyn FrameRelay>,
+    id: &ConnectionId,
+) -> bool {
+    if frame.len() <= limits.max_response_bytes {
+        return write_frame(writer, frame, limits).await.is_ok();
+    }
+    if let Some(notice) = relay
+        .transport_error(
+            id.clone(),
+            TransportError::ResponseTooLarge {
+                limit: limits.max_response_bytes,
+            },
+        )
+        .await
+    {
+        let _ = write_frame(writer, &notice, limits).await;
+    }
+    let _ = writer.shutdown().await;
+    false
 }
 
 #[cfg(unix)]

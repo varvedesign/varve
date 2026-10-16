@@ -21,6 +21,7 @@ import type {
 } from '../executor';
 import type { Principal } from '../principal';
 import { type Infer, s, validateUnknown } from '../schema';
+import { utf8ByteLength } from '../text';
 import { encodeError, encodeResult, parseFrame, RPC_ERROR, type RpcRequest } from './jsonrpc';
 
 export const CONTROL_PROTOCOL = 'varve.control/1';
@@ -202,11 +203,18 @@ export class ControlConnection {
   }
 
   private bounded(request: RpcRequest, encoded: string): string {
-    if (encoded.length > this.limits.maxResponseBytes) {
+    // Bytes, not code units: every other budget in this system is UTF-8 bytes,
+    // and the transport that writes this frame counts bytes too. Measuring in
+    // UTF-16 units let a reply pass here (6 M CJK characters is 6 M units but
+    // ~18 MB) and then be refused on the way out, which closed the socket after
+    // the command had already been applied.
+    const bytes = utf8ByteLength(encoded);
+    if (bytes > this.limits.maxResponseBytes) {
       return encodeError(
         request.id,
         RPC_ERROR.RESPONSE_TOO_LARGE,
-        `the result exceeds ${this.limits.maxResponseBytes} bytes; request less data`,
+        `the result is ${bytes} bytes, over the ${this.limits.maxResponseBytes} byte limit; request less data`,
+        { bytes, limit: this.limits.maxResponseBytes },
       );
     }
     return encoded;
