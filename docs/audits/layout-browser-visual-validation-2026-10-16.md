@@ -1,0 +1,33 @@
+# Layout browser visual validation — 2026-10-16
+
+## Runtime and scope
+
+- Chromium project, Playwright 1.62.1, integration candidate `39e28a371889379891ec1d8d25e47da95bc36178`.
+- The editor loaded the newly generated baseline and SIMD WASM modules from `just wasm-build`; these runs did not log the earlier TypeScript-stub renderer fallback.
+- The clean commit at that master tip references `packages/codegen/src/bundle-assets.ts`, which was still untracked in the shared working checkout. For these scratch integration runs only, the untracked `bundle-assets.ts` and `svgTextLayout.ts` sources were copied into the temporary worktree to let Vite compile. They were not added to the feature branch or merge commit.
+
+## Executed workflows
+
+| Command / case | Result | What was inspected |
+|---|---|---|
+| `node scripts/quality/heavy-lease.mjs "e2e: wrap, fill and undo layout interactions" -- npx playwright test tests/e2e/canvas/autolayout-visual.spec.ts --project=chromium --workers=1 --reporter=list --grep 'wrap enabled\|child fill sizing expands\|undo reverts layout change'` | 3 passed | Wrapped children, Fill width geometry, and one-step undo. |
+| `node scripts/quality/heavy-lease.mjs "e2e: layout guides desktop/mobile visual capture" -- npx playwright test tests/e2e/canvas/grid-system.spec.ts --project=chromium --workers=1 --reporter=list` | 2 passed | Independent guide visibility/history; Guide Layouts controls, 390×844 bounds, validation, keyboard focus, Escape cancellation. |
+| `node scripts/quality/heavy-lease.mjs "e2e: responsive constraints parent resize" -- npx playwright test tests/e2e/canvas/constraints.spec.ts --project=chromium --workers=1 --reporter=list --grep 'resizing parent frame propagates constraints'` | 1 passed | Stretched child width followed parent resize. |
+
+The screenshots were opened and inspected. The compact dialog remains within 390×844, has two-column margin controls, and preserves reachable Cancel/Apply buttons. The editor view shows visual guides in their own inspector section, separate from the layout solver. Auto-layout screenshots show children wrapping and a Fill child spanning the available row width.
+
+### Captures
+
+![Wrapped flex children in the editor](../screenshots/layout/autolayout-wrap-2026-10-16.png)
+
+![Fill-sized child in the editor](../screenshots/layout/autolayout-fill-2026-10-16.png)
+
+![Layout guide editor controls](../screenshots/layout/layout-guides-editor-2026-10-16.png)
+
+![Guide Layouts desktop dialog](../screenshots/layout/guide-layout-dialog-desktop-2026-10-16.png)
+
+![Guide Layouts dialog at 390×844](../screenshots/layout/guide-layout-dialog-mobile-2026-10-16.png)
+
+## Limits
+
+These are browser interaction and visual checks, not the entire requested eight-document corpus. The runs do not cover native Tauri GUI capture, track-handle pointer previews, imported-component first edit, typography/resource loading, collaborative pressure, rotated snapping, independent responsive-code rendering, or edit-to-correct-frame latency. Those remain unverified; screenshots do not stand in for those cases.
