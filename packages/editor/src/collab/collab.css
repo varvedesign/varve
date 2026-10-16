@@ -76,7 +76,7 @@
 .collab-chat-composer {
   position: absolute;
   left: 50%;
-  bottom: 14px;
+  bottom: 44px; /* clears the canvas status strip */
   transform: translateX(-50%);
   display: flex;
   align-items: center;
