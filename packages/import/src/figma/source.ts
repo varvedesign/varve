@@ -107,6 +107,20 @@ export interface FigmaSourceNode {
   counterAxisAlignItems?: string;
   primaryAxisSizingMode?: string;
   counterAxisSizingMode?: string;
+  gridRowCount?: number;
+  gridColumnCount?: number;
+  gridRowGap?: number;
+  gridColumnGap?: number;
+  gridRowsSizing?: string;
+  gridColumnsSizing?: string;
+  gridAutoTracks?: 'NONE' | 'ROWS' | string;
+  gridItemsPositioning?: 'MANUAL' | 'ROW_AUTO_FLOW' | string;
+  gridChildHorizontalAlign?: 'AUTO' | 'MIN' | 'CENTER' | 'MAX' | string;
+  gridChildVerticalAlign?: 'AUTO' | 'MIN' | 'CENTER' | 'MAX' | string;
+  gridRowAnchorIndex?: number;
+  gridColumnAnchorIndex?: number;
+  gridRowSpan?: number;
+  gridColumnSpan?: number;
   layoutSizingHorizontal?: string;
   layoutSizingVertical?: string;
   layoutGrow?: number;
@@ -220,6 +234,10 @@ function finite(value: unknown, fallback: number): number {
 
 function positive(value: unknown, fallback: number): number {
   return Math.max(0, finite(value, fallback));
+}
+
+function optionalFinite(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 function recordArray(value: unknown): JsonRecord[] {
@@ -498,6 +516,20 @@ function normalizeNode(
     counterAxisAlignItems: stringValue(raw.counterAxisAlignItems),
     primaryAxisSizingMode: stringValue(raw.primaryAxisSizingMode),
     counterAxisSizingMode: stringValue(raw.counterAxisSizingMode),
+    gridRowCount: optionalFinite(raw.gridRowCount),
+    gridColumnCount: optionalFinite(raw.gridColumnCount),
+    gridRowGap: optionalFinite(raw.gridRowGap),
+    gridColumnGap: optionalFinite(raw.gridColumnGap),
+    gridRowsSizing: stringValue(raw.gridRowsSizing),
+    gridColumnsSizing: stringValue(raw.gridColumnsSizing),
+    gridAutoTracks: stringValue(raw.gridAutoTracks),
+    gridItemsPositioning: stringValue(raw.gridItemsPositioning),
+    gridChildHorizontalAlign: stringValue(raw.gridChildHorizontalAlign),
+    gridChildVerticalAlign: stringValue(raw.gridChildVerticalAlign),
+    gridRowAnchorIndex: optionalFinite(raw.gridRowAnchorIndex),
+    gridColumnAnchorIndex: optionalFinite(raw.gridColumnAnchorIndex),
+    gridRowSpan: optionalFinite(raw.gridRowSpan),
+    gridColumnSpan: optionalFinite(raw.gridColumnSpan),
     layoutSizingHorizontal: stringValue(raw.layoutSizingHorizontal),
     layoutSizingVertical: stringValue(raw.layoutSizingVertical),
     layoutGrow: finite(raw.layoutGrow, 0),
