@@ -2418,9 +2418,11 @@ function paintRasterLayer(
       const col = Number(colStr);
       const row = Number(rowStr);
       if (!Number.isFinite(col) || !Number.isFinite(row)) continue;
-      const pixels = new Uint8ClampedArray(tile.pixels);
       const imageData = ctx.createImageData(TILE, TILE);
-      imageData.data.set(pixels);
+      // `set` reads through the view, so a typed array (the document's own
+      // buffer) and a plain number array both upload without an intermediate
+      // copy of the tile.
+      imageData.data.set(tile.pixels);
       ctx.putImageData(imageData, col * TILE, row * TILE);
       compositedTiles++;
     }

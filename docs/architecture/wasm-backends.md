@@ -40,6 +40,15 @@ model is browser-tab-shaped and doesn't necessarily map 1:1 onto a Tauri webview
 Runtime selection: `loadWasmEngineModule()` tries SIMD variant first (HEAD probe),
 then baseline. `prewarmWasmEngine()` instantiates during idle via `requestIdleCallback`.
 
+**What the SIMD artifact does not do (verified 2026-10-16):** `varve-wasm`
+exports only IR build, hit test, contour trace and media probe, with a JSON
+string boundary for IR and hit test. It contains no raster pixel kernels, and
+`varve-effects` is not a dependency of `varve-wasm`. `+simd128` is a blanket
+`RUSTFLAGS` value; whether LLVM vectorized any of that code has not been
+inspected. The CPU raster kernels (blur, compositing) are TypeScript. rayon
+appears in the WASM dependency tree through `varve-trace` but nothing runs
+threaded there.
+
 ## API Boundary
 
 Coarse scene-level calls only (avoid per-node WASM transitions):

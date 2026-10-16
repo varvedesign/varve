@@ -33,10 +33,12 @@ import {
   DOCK_PANEL_CHROME_HEIGHT,
   DOCK_TAB_STRIP_MIN_HEIGHT,
   redockFloatingGroup,
+  resetSplitRatio,
   setFloatingGroupBounds,
   setSplitRatio,
   validateDockLayout,
 } from './dockOps';
+import { getBuiltinDefaultRatio } from './dockPanelSizing';
 import {
   beginDockRestoreAttempt,
   createDockRestoreWriterId,
@@ -582,6 +584,32 @@ export function useEditorDockGeometry(
     [dockLayout, mode],
   );
 
+  /**
+   * Return a built-in split to its creation ratio and to its preferred-size
+   * opening state — the affordance the retired legacy handle offered as
+   * "double-click resets to the default". On the dock splitter it is Enter on
+   * the focused separator, so it never competes with a pointer drag.
+   */
+  const persistSplitReset = useCallback(
+    (targetMode: WorkspaceMode, nodeId: string) => {
+      updateWorkspacePreferences((current) => {
+        const savedLayout =
+          current[targetMode]?.dockLayout ??
+          (targetMode === mode ? dockLayout : createDefaultEditorDockLayout(targetMode));
+        const primaryIndex = savedLayout.windows.findIndex((window) => window.role === 'primary');
+        if (primaryIndex < 0) return current;
+        const primary = savedLayout.windows[primaryIndex]!;
+        const nextRoot = resetSplitRatio(primary.dockRoot, nodeId);
+        if (nextRoot === primary.dockRoot) return current;
+        const windows = savedLayout.windows.map((window, index) =>
+          index === primaryIndex ? { ...window, dockRoot: nextRoot } : window,
+        );
+        return setDockLayoutOverride(current, targetMode, { ...savedLayout, windows });
+      });
+    },
+    [dockLayout, mode],
+  );
+
   const floatInteractions = useFloatingGroupInteractions(
     mode,
     bounds ? { width: bounds.width, height: bounds.height } : null,
@@ -812,6 +840,14 @@ export function useEditorDockGeometry(
           nextRatio = splitter.minRatio;
         } else if (event.key === 'End') {
           nextRatio = splitter.maxRatio;
+        } else if (event.key === 'Enter') {
+          // Reset to the built-in default (ratio and preferred-size opening).
+          // Keyboard-only, so it cannot be triggered by a stray pointer drag.
+          if (getBuiltinDefaultRatio(splitter.nodeId) !== null) {
+            event.preventDefault();
+            persistSplitReset(mode, splitter.nodeId);
+          }
+          return;
         }
         if (nextRatio === null) return;
         event.preventDefault();
@@ -885,6 +921,7 @@ export function useEditorDockGeometry(
     dockPanelMove.preview,
     mode,
     persistSplitRatio,
+    persistSplitReset,
     persistFloatBounds,
     persistRedock,
     floatInteractions,

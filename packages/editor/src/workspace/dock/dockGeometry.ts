@@ -1,8 +1,16 @@
 import {
   DOCK_PANEL_CHROME_HEIGHT,
   DOCK_TAB_STRIP_MIN_HEIGHT,
+  getDockNodeMaximumSize,
   getDockNodeMinimumSize,
+  MAX_SPLIT_RATIO,
+  MIN_SPLIT_RATIO,
 } from './dockOps';
+import {
+  getBuiltinPreferredExtent,
+  getDockSplitAccessibleName,
+  getDockSplitControlledId,
+} from './dockPanelSizing';
 import type {
   DockFloatingGroup,
   DockNode,
@@ -54,6 +62,10 @@ export interface DockSplitPlacement {
   maxRatio: number;
   extent: number;
   rect: DockRect;
+  /** Accessible name: the pane this splitter sizes (APG window splitter). */
+  accessibleName: string;
+  /** Id of the sized pane's container, or `null` when it has no stable id. */
+  controlledElementId: string | null;
 }
 
 export interface DockTreeGeometry {
@@ -156,17 +168,25 @@ export function resolveDockTreeGeometry(
     const firstMin = getDockNodeMinimumSize(node.first);
     const secondMin = getDockNodeMinimumSize(node.second);
     if (node.direction === 'row') {
-      const desired = rect.width * ratio;
-      const maxFirst = rect.width - secondMin.width;
-      const firstWidth =
-        maxFirst >= firstMin.width ? clamp(desired, firstMin.width, maxFirst) : rect.width * ratio;
-      const canFit = rect.width > 0 && maxFirst >= firstMin.width;
+      const allocation = allocateAxis({
+        desired: rect.width * ratio,
+        extent: rect.width,
+        ratio,
+        firstMin: firstMin.width,
+        secondMin: secondMin.width,
+        firstMax: getDockNodeMaximumSize(node.first).width,
+        secondMax: getDockNodeMaximumSize(node.second).width,
+        builtin: getBuiltinPreferredExtent(node, 'row', node.first, node.second),
+      });
+      const firstWidth = allocation.size;
       splitters.push({
         nodeId: node.id,
         direction: node.direction,
+        accessibleName: getDockSplitAccessibleName(node.first, node.second),
+        controlledElementId: getDockSplitControlledId(node.first, node.second),
         ratio: rect.width > 0 ? firstWidth / rect.width : ratio,
-        minRatio: canFit ? Math.max(0.05, firstMin.width / rect.width) : 0.05,
-        maxRatio: canFit ? Math.min(0.95, maxFirst / rect.width) : 0.95,
+        minRatio: allocation.minRatio,
+        maxRatio: allocation.maxRatio,
         extent: rect.width,
         rect: {
           x: rect.x + firstWidth - 12,
@@ -182,19 +202,25 @@ export function resolveDockTreeGeometry(
         width: rect.width - firstWidth,
       });
     } else {
-      const desired = rect.height * ratio;
-      const maxFirst = rect.height - secondMin.height;
-      const firstHeight =
-        maxFirst >= firstMin.height
-          ? clamp(desired, firstMin.height, maxFirst)
-          : rect.height * ratio;
-      const canFit = rect.height > 0 && maxFirst >= firstMin.height;
+      const allocation = allocateAxis({
+        desired: rect.height * ratio,
+        extent: rect.height,
+        ratio,
+        firstMin: firstMin.height,
+        secondMin: secondMin.height,
+        firstMax: getDockNodeMaximumSize(node.first).height,
+        secondMax: getDockNodeMaximumSize(node.second).height,
+        builtin: getBuiltinPreferredExtent(node, 'column', node.first, node.second),
+      });
+      const firstHeight = allocation.size;
       splitters.push({
         nodeId: node.id,
         direction: node.direction,
+        accessibleName: getDockSplitAccessibleName(node.first, node.second),
+        controlledElementId: getDockSplitControlledId(node.first, node.second),
         ratio: rect.height > 0 ? firstHeight / rect.height : ratio,
-        minRatio: canFit ? Math.max(0.05, firstMin.height / rect.height) : 0.05,
-        maxRatio: canFit ? Math.min(0.95, maxFirst / rect.height) : 0.95,
+        minRatio: allocation.minRatio,
+        maxRatio: allocation.maxRatio,
         extent: rect.height,
         rect: {
           x: rect.x,
@@ -329,4 +355,87 @@ export function resolveDockFloatingGroupGeometry(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+interface AxisAllocationInput {
+  /** Ratio-derived size, before any declared bound. */
+  desired: number;
+  /** Host extent along this axis. */
+  extent: number;
+  /** Stored ratio, used only when the host cannot satisfy the minimums. */
+  ratio: number;
+  firstMin: number;
+  secondMin: number;
+  firstMax: number;
+  secondMax: number;
+  /** The pane governed by a built-in split's declared preferred size, if any. */
+  builtin: { side: 'first' | 'second'; extent: number } | null;
+}
+
+/**
+ * Resolve one split axis into a first-pane size plus the range a splitter may
+ * drag through.
+ *
+ * The pair is treated as an interval rather than as "clamp the first pane":
+ *
+ * - `floor`  keeps the *second* pane inside its declared maximum
+ *   (`extent - secondMax`), because a dragged ratio can push the second pane
+ *   past its own ceiling even when the first pane is within its range.
+ * - `ceiling` keeps the first pane inside its declared maximum, bounded by the
+ *   second pane's minimum.
+ * - Both bounds apply only where the other pane is the unbounded absorber
+ *   subtree holding the canvas. In a split between two bounded panels the host
+ *   is legitimately allowed to exceed the sum of their maxima, so the stored
+ *   ratio (the user's own arrangement) decides; see `boundFirst`/`boundSecond`.
+ * - A built-in split that still carries its creation ratio keeps its declared
+ *   preferred size and never more than the stored ratio already gave it, so a
+ *   narrow host allocates exactly as it did before the preferred rule existed.
+ * - When the host cannot satisfy the minimums, the stored ratio stands: that is
+ *   the documented fallback, unchanged.
+ *
+ * `minRatio`/`maxRatio` come from the same interval, so the keyboard range and
+ * the pointer range reach the same pane sizes.
+ */
+function allocateAxis(input: AxisAllocationInput): {
+  size: number;
+  minRatio: number;
+  maxRatio: number;
+} {
+  const { extent, ratio, firstMin, secondMin, firstMax, secondMax, builtin } = input;
+  const canFit = extent > 0 && extent - secondMin >= firstMin;
+  if (!canFit) {
+    return { size: extent * ratio, minRatio: MIN_SPLIT_RATIO, maxRatio: MAX_SPLIT_RATIO };
+  }
+  // A pane's declared maximum is enforced where its growth would cost the
+  // canvas — i.e. when the *other* pane is the unbounded absorber subtree that
+  // holds the canvas (`getDockNodeMaximumSize` reports Infinity for it). A
+  // split between two bounded panels is the user's own arrangement of one
+  // region: no canvas competes for that space, the host can legitimately be
+  // wider than both maxima together, and forcing a bound there could only
+  // stretch one pane or leave a gap in the shell.
+  const boundFirst = !Number.isFinite(secondMax);
+  const boundSecond = !Number.isFinite(firstMax);
+  const ceiling = boundFirst ? Math.min(firstMax, extent - secondMin) : extent - secondMin;
+  // The second pane's ceiling also has to leave the first pane its minimum.
+  const secondCeiling = boundSecond
+    ? Math.min(secondMax, extent - firstMin)
+    : Number.POSITIVE_INFINITY;
+  let desired = input.desired;
+  if (builtin) {
+    desired =
+      builtin.side === 'first'
+        ? Math.min(desired, builtin.extent)
+        : Math.max(desired, extent - builtin.extent);
+  }
+  const floor = Math.max(firstMin, extent - secondCeiling);
+  const size =
+    floor <= ceiling
+      ? clamp(desired, floor, ceiling)
+      : clamp(extent * ratio, firstMin, extent - secondMin);
+  const maxRatio = Math.min(MAX_SPLIT_RATIO, ceiling / extent);
+  return {
+    size,
+    minRatio: Math.max(MIN_SPLIT_RATIO, Math.min(maxRatio, floor / extent)),
+    maxRatio,
+  };
 }

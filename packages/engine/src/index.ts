@@ -1330,6 +1330,7 @@ export {
   unpremultiplyRgba32f,
   webpProfileEmbeddingSupported,
 } from './rasterColor';
+export { getRasterLayerCache, RasterLayerCache, resetRasterLayerCache } from './rasterLayerCache';
 export type {
   FittedRasterDimensions,
   RasterCanvas,
@@ -1343,6 +1344,7 @@ export {
   encodeRasterSurface,
   fitRasterDimensions,
 } from './rasterSurface';
+export { tilePixelsIdentity } from './rasterTileIdentity';
 export type {
   RasterTraceFill,
   RasterTraceMode,
@@ -1596,6 +1598,7 @@ export type {
   PathPoint,
   Point,
   Primitive,
+  RasterTileIR,
   RenderItem,
   Scene,
   SceneNode,

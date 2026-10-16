@@ -14,10 +14,13 @@
  */
 
 import { type PanelSize, tryGetPanelDefinition } from '../panelRegistry';
+import { getBuiltinDefaultRatio, getDockPanelMaximumSize } from './dockPanelSizing';
 import {
   createCanvasNode,
   createPanelInstanceRef,
   DOCK_LAYOUT_SCHEMA_VERSION,
+  DOCK_PANEL_CHROME_HEIGHT,
+  DOCK_TAB_STRIP_MIN_HEIGHT,
   type DockFloatingGroup,
   type DockLayout,
   type DockNode,
@@ -32,15 +35,15 @@ import {
 
 export const MIN_SPLIT_RATIO = 0.05;
 export const MAX_SPLIT_RATIO = 0.95;
-/** Shared height for a dock-owned panel header or tab strip. */
-export const DOCK_PANEL_CHROME_HEIGHT = 32;
 /** Imported layouts stay small enough to validate and render predictably. */
 export const MAX_DOCK_DEPTH = 16;
 export const MAX_DOCK_NODES = 64;
 export const MAX_DOCK_PANELS = 32;
 export const MAX_DOCK_WINDOWS = 8;
 export const MAX_DOCK_FLOAT_GROUPS = 16;
-export const DOCK_TAB_STRIP_MIN_HEIGHT = 32;
+// Owned by `dockTypes` so `dockPanelSizing` can size panel *bodies* without an
+// import cycle through this module; re-exported here for existing importers.
+export { DOCK_PANEL_CHROME_HEIGHT, DOCK_TAB_STRIP_MIN_HEIGHT };
 
 export const DEFAULT_DOCK_FLOAT_BOUNDS = { x: 0.18, y: 0.1, width: 0.38, height: 0.72 } as const;
 
@@ -326,6 +329,57 @@ export function getDockNodeMinimumSize(root: DockNode): PanelSize {
   }
 }
 
+/**
+ * Largest dimensions the registered panels below a node accept.
+ *
+ * The canvas is the flex absorber and reports `Infinity`, so a subtree holding
+ * it is bounded only by the window. A `tabs` node must satisfy every panel it
+ * hosts, so the tightest maximum wins — the mirror of the minimum-size rule.
+ * Panels without a declared `maximumSize` fall back to twice their preferred
+ * size (`dockPanelSizing.getDockPanelMaximumSize`).
+ */
+export function getDockNodeMaximumSize(root: DockNode): PanelSize {
+  switch (root.kind) {
+    case 'canvas':
+      return { width: Number.POSITIVE_INFINITY, height: Number.POSITIVE_INFINITY };
+    case 'empty':
+      return { width: 0, height: 0 };
+    case 'panel': {
+      const size = getDockPanelMaximumSize(root.panelTypeId);
+      return size
+        ? { width: size.width, height: size.height + DOCK_PANEL_CHROME_HEIGHT }
+        : { width: Number.POSITIVE_INFINITY, height: Number.POSITIVE_INFINITY };
+    }
+    case 'tabs': {
+      const maximum = root.panels.reduce<PanelSize>(
+        (maximum, panel) => {
+          const size = getDockPanelMaximumSize(panel.panelTypeId);
+          if (!size) return maximum;
+          return {
+            width: Math.min(maximum.width, size.width),
+            height: Math.min(maximum.height, size.height),
+          };
+        },
+        { width: Number.POSITIVE_INFINITY, height: Number.POSITIVE_INFINITY },
+      );
+      return {
+        width: maximum.width,
+        height:
+          maximum.height === Number.POSITIVE_INFINITY
+            ? maximum.height
+            : maximum.height + (root.panels.length > 1 ? DOCK_TAB_STRIP_MIN_HEIGHT : 0),
+      };
+    }
+    case 'split': {
+      const first = getDockNodeMaximumSize(root.first);
+      const second = getDockNodeMaximumSize(root.second);
+      return root.direction === 'row'
+        ? { width: first.width + second.width, height: Math.max(first.height, second.height) }
+        : { width: Math.max(first.width, second.width), height: first.height + second.height };
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Mutation
 // ---------------------------------------------------------------------------
@@ -460,8 +514,27 @@ export function setSplitRatio(root: DockNode, splitNodeId: string, ratio: number
   const target = findDockNode(root, splitNodeId);
   if (target?.kind !== 'split' || !Number.isFinite(ratio)) return root;
   const nextRatio = clampRatio(ratio);
-  if (target.ratio === nextRatio) return root;
-  return replaceNode(root, splitNodeId, { ...target, ratio: nextRatio });
+  // A resize that lands on the value already stored still counts as the user
+  // claiming this split, so a built-in split's preferred-size rule stops
+  // applying from that point on.
+  if (target.ratio === nextRatio && target.ratioTouched) return root;
+  return replaceNode(root, splitNodeId, { ...target, ratio: nextRatio, ratioTouched: true });
+}
+
+/**
+ * Return a built-in split to its creation ratio *and* to the state where the
+ * pane's declared preferred size governs again — the affordance the retired
+ * legacy handle offered as "double-click resets to the default". Any other
+ * split has no default to return to and is left alone.
+ */
+export function resetSplitRatio(root: DockNode, splitNodeId: string): DockNode {
+  const target = findDockNode(root, splitNodeId);
+  if (target?.kind !== 'split') return root;
+  const defaultRatio = getBuiltinDefaultRatio(splitNodeId);
+  if (defaultRatio === null) return root;
+  if (target.ratio === defaultRatio && target.ratioTouched !== true) return root;
+  const { ratioTouched: _touched, ...rest } = target;
+  return replaceNode(root, splitNodeId, { ...rest, ratio: defaultRatio });
 }
 
 /** Reorder a panel in a tab group without changing which panel is active. */
@@ -1420,6 +1493,7 @@ function stripDocumentPins(root: DockNode): DockNode {
         id: root.id,
         direction: root.direction,
         ratio: root.ratio,
+        ...(root.ratioTouched ? { ratioTouched: true } : {}),
         first: stripDocumentPins(root.first),
         second: stripDocumentPins(root.second),
       };

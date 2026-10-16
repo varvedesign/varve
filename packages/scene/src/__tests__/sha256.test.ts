@@ -1,8 +1,23 @@
 /**
  * SHA-256 known-answer tests (FIPS 180-4) for the canonical digest.
  */
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { canonicalDigest, sha256Hex, sha256Utf8 } from '../sha256';
+import { canonicalDigest, Sha256Stream, sha256Hex, sha256Utf8 } from '../sha256';
+
+function nodeSha256(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+function patterned(length: number, seed: number): Uint8Array {
+  const out = new Uint8Array(length);
+  let s = seed >>> 0;
+  for (let i = 0; i < length; i++) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    out[i] = s >>> 24;
+  }
+  return out;
+}
 
 function fromHex(hex: string): Uint8Array {
   const out = new Uint8Array(hex.length / 2);
@@ -50,5 +65,45 @@ describe('sha256Hex', () => {
 
   it('canonicalDigest equals sha256Utf8', () => {
     expect(canonicalDigest('{"a":1}')).toBe(sha256Utf8('{"a":1}'));
+  });
+});
+
+describe('sha256 cross-checked against node:crypto', () => {
+  it('agrees for every length through two blocks, including the 55/56/63/64-byte padding edges', () => {
+    for (let n = 0; n <= 200; n++) {
+      const data = patterned(n, n + 1);
+      expect(sha256Hex(data), `length ${n}`).toBe(nodeSha256(data));
+    }
+  });
+
+  it('agrees for a multi-megabyte buffer', () => {
+    const data = patterned(5 * 1024 * 1024 + 13, 77);
+    expect(sha256Hex(data)).toBe(nodeSha256(data));
+  });
+
+  it('is independent of how the input is chunked', () => {
+    const data = patterned(70_000, 5);
+    const want = nodeSha256(data);
+    const sizes = [1, 2, 3, 7, 31, 63, 64, 65, 127, 128, 1000, 4096, 65_536, 70_000];
+    for (const size of sizes) {
+      const stream = new Sha256Stream();
+      for (let at = 0; at < data.length; at += size) {
+        stream.update(data, at, Math.min(data.length, at + size));
+      }
+      expect(stream.digestHex(), `chunk size ${size}`).toBe(want);
+    }
+  });
+
+  it('honours start/end offsets without reading outside them', () => {
+    const data = patterned(300, 9);
+    const stream = new Sha256Stream().update(data, 10, 133);
+    expect(stream.digestHex()).toBe(nodeSha256(data.subarray(10, 133)));
+  });
+
+  it('refuses reuse after finalization', () => {
+    const stream = new Sha256Stream().update(new Uint8Array(3));
+    stream.digestHex();
+    expect(() => stream.update(new Uint8Array(1))).toThrow(/finalized/);
+    expect(() => stream.digestHex()).toThrow(/finalized/);
   });
 });

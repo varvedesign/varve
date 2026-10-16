@@ -22,8 +22,15 @@
  *   tolerances). NaN/Infinity are rejected by canonical serialization.
  * - Text changes are diffed at grapheme-cluster granularity and carry
  *   cluster ranges for merge-time overlap detection (ADR-0034).
- * - Volatile/payload state is excluded: asset `dataUrl` bytes and the
- *   `nextId` counter are not semantic content.
+ * - `nextId` is excluded (a counter, not semantic content). Asset `dataUrl`
+ *   bytes ARE carried: an `added` asset change includes the full
+ *   `DocumentAsset`, which is how a collaborator receives an embedded image.
+ *   That makes an image insertion a genuine multi-megabyte operation, and it
+ *   is why the collab wire has a chunked upload path for operation frames
+ *   above `PROTOCOL_LIMITS.maxOperationBytes`.
+ *   (Canonical *hashing* is a separate concern: `@varve/scene` canonical.ts
+ *   replaces `dataUrl` with an `asset:<id>` reference so a re-encode does not
+ *   churn revision identity.)
  */
 import type { Document } from '@varve/scene';
 import { canonicalHistoryHash, graphemeClusters } from '@varve/scene';
@@ -45,6 +52,7 @@ export type DiffEntityKind =
   | 'guide'
   | 'swatch'
   | 'iconAsset'
+  | 'annotation'
   | 'font'
   | 'spotColor'
   | 'spotLibrary';
@@ -107,6 +115,15 @@ export interface DocumentDiff {
 export interface DiffOptions {
   /** 'default' applies the property-specific epsilon table; 'exact' disables it. */
   epsilonPolicy?: 'default' | 'exact';
+  /**
+   * Canonical history hash of `base`, when the caller already holds it (for
+   * example a revision's recorded `canonicalDocumentHash` for a document the
+   * session verified on load). It is trusted, not recomputed: pass it only for
+   * the very document value it was computed from. Hashing a document is
+   * proportional to its raster bytes, so reusing a known digest removes a full
+   * pass from every history capture.
+   */
+  baseHash?: string;
 }
 
 // ── Collection registry ───────────────────────────────────────────────────────
@@ -129,6 +146,9 @@ const TOP_LEVEL_COLLECTIONS: Record<string, CollectionSpec> = {
   styles: { entityType: 'style' },
   masters: { entityType: 'master' },
   iconAssets: { entityType: 'iconAsset' },
+  // Keyed by annotation id, so one annotation edit is one entity change rather
+  // than a whole-document replacement.
+  annotations: { entityType: 'annotation' },
   assets: { entityType: 'asset' },
   stateMachines: { entityType: 'stateMachine' },
   pages: { entityType: 'page', ordered: true },
@@ -179,7 +199,7 @@ const FORBIDDEN_CAPTURE_PATH_SEGMENTS = new Set(['__proto__', 'constructor', 'pr
 
 interface DiffContext {
   changes: SemanticChange[];
-  options: Required<DiffOptions>;
+  options: Required<Pick<DiffOptions, 'epsilonPolicy'>>;
 }
 
 export function diffDocuments(
@@ -191,7 +211,7 @@ export function diffDocuments(
     changes: [],
     options: { epsilonPolicy: options.epsilonPolicy ?? 'default' },
   };
-  const baseHash = canonicalHistoryHash(base);
+  const baseHash = options.baseHash ?? canonicalHistoryHash(base);
   const targetHash = canonicalHistoryHash(target);
   if (baseHash === targetHash) {
     return { baseHash, targetHash, changed: false, changes: [], summary: emptySummary() };
@@ -693,6 +713,8 @@ function entityLabel(entityType: DiffEntityKind): string {
       return 'Spot library';
     case 'font':
       return 'Font';
+    case 'annotation':
+      return 'Annotation';
     case 'document':
       return 'Document';
   }

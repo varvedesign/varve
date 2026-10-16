@@ -334,6 +334,18 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     return rubyRangeForSelection(richText, selection);
   }, [editor.state.selectionRange, textNodes]);
 
+  /**
+   * Ruby annotations authored on the selected text. They round-trip through the
+   * document and survive edits, but no layout or export path consumes them:
+   * `LayoutTextInput` carries only pre-shaped runs, so the canonical snapshot
+   * has no annotation input to position. Until that path exists the reading
+   * must not disappear without a word — hence the warning below.
+   */
+  const rubyAnnotationCount = useMemo(
+    () => textNodes.reduce((total, node) => total + (node.richText?.ruby?.length ?? 0), 0),
+    [textNodes],
+  );
+
   const createBalloon = useCallback(() => {
     const textNode = textNodes[0];
     if (!textNode || calloutTextIds.has(textNode.id)) return;
@@ -800,6 +812,15 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             </div>
           </div>
         </FieldRow>
+      )}
+      {rubyAnnotationCount > 0 && (
+        <p className="insp-hint insp-hint--warn" role="status">
+          {rubyAnnotationCount === 1
+            ? '1 ruby reading is stored with this text but not drawn'
+            : `${rubyAnnotationCount} ruby readings are stored with this text but not drawn`}
+          : no layout or export path consumes ruby yet, so the annotation is preserved in the
+          document and never rendered. It will appear once ruby rendering ships.
+        </p>
       )}
       <div ref={bindingTriggerRef} className="insp-field-group typography-controls">
         {textContent !== null && (

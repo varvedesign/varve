@@ -80,6 +80,15 @@ with the reference-app research corpus in
 pass report in
 [`audits/layers-panel-workspace-evolution-report-2026-09-19.md`](audits/layers-panel-workspace-evolution-report-2026-09-19.md).
 
+Real-time collaboration is documented in
+[`architecture/collaboration-system.md`](architecture/collaboration-system.md)
+(model, ownership/identity, selective undo, presence and cursor chat, security
+boundaries, known limits) and operated from
+[`architecture/collaboration-self-hosting.md`](architecture/collaboration-self-hosting.md)
+(configuration, origin/host policy, volumes and backup/restore, reverse-proxy
+TLS, limits, troubleshooting). The decision record is
+[`adr/0243-realtime-collaboration.md`](adr/0243-realtime-collaboration.md).
+
 | Doc | Purpose |
 |-----|---------|
 | [README.md](../README.md) (root) | What Varve is, quick start, key packages |
@@ -272,6 +281,7 @@ pass report in
 | `adr/0240-presentation-decks.md` | Ordered editable-frame decks, safe layout revision, structured capture, and raster-first delivery |
 | `adr/0241-raster-stroke-ownership-history-hashing-tile-identity.md` | Stroke-scoped exclusive tile ownership, cheaper history capture with an unchanged hash value, and runtime tile content identity instead of version equality |
 | `adr/0242-document-authority-and-interchange.md` | One document authority per kind with preservation adapters; separate identity axes; derived structure never owns edits; honest output claims |
+| `adr/0243-realtime-collaboration.md` | Authoritative semantic-operation rooms (no CRDT), per-participant compensating undo, one host implementation for app-hosted and self-hosted shapes, presence/chat/spotlight as a lossy lane |
 | `adr/0244-agent-control-command-service.md` | Agent control: strict command contracts, one executor, shared document authority, receipts, idempotency and attributed rollback (see `architecture/agent-control-system.md`) |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |

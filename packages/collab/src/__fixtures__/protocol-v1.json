@@ -1,6 +1,6 @@
 {
   "protocolVersion": 1,
-  "description": "Cross-implementation conformance fixtures for the Varve collab wire protocol v1. The TypeScript client (packages/collab/src/protocol.ts) and the Rust room host (crates/varve-room) must both accept every entry in `valid` and reject every entry in `invalid`. Checked by protocol.test.ts and the Rust fixture test.",
+  "description": "Cross-implementation conformance fixtures for the Varve collab wire protocol v1. The TypeScript client (packages/collab/src/protocol.ts) and the Rust room host (crates/varve-room) must both accept every entry in `valid` and reject every entry in `invalid`. Checked by protocol.test.ts and the Rust fixture test. Note: non-finite numbers (e.g. 1e999) are covered TS-side only; Rust rejects them at JSON parse time, before this fixture is even readable.",
   "valid": [
     {
       "type": "hello",
@@ -45,6 +45,25 @@
     { "type": "selection", "pageId": "page-1", "nodeIds": ["n1", "n2"] },
     { "type": "chat", "message": { "messageId": "m-1", "actorId": "actor-7f3a", "text": "hello" } },
     { "type": "sync-request", "fromSeq": 4 },
+    {
+      "type": "operation-begin",
+      "uploadId": "upload-0001",
+      "totalBytes": 3145728,
+      "chunkCount": 12,
+      "digest": "3b1f2a4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708"
+    },
+    {
+      "type": "operation-chunk",
+      "uploadId": "upload-0001",
+      "index": 0,
+      "data": "{\"type\":\"operation\",\"op\":{\"clientOpId\":\"op-img-1\"}}"
+    },
+    { "type": "operation-end", "uploadId": "upload-0001" },
+    {
+      "type": "operation-upload-rejected",
+      "uploadId": "upload-0001",
+      "reason": "Upload digest did not match."
+    },
     { "type": "leave" },
     { "type": "ping" },
     {
@@ -243,7 +262,6 @@
         }
       }
     },
-    { "type": "cursor", "pageId": "p", "x": 1e999, "y": 0 },
     { "type": "cursor", "pageId": "p", "x": null, "y": 0 },
     { "type": "selection", "pageId": "p", "nodeIds": "n1" },
     { "type": "chat", "message": { "messageId": "m", "actorId": "a", "text": 7 } },
@@ -257,6 +275,32 @@
     },
     { "type": "sync-request", "fromSeq": -2 },
     { "type": "unknown-frame" },
+    {
+      "type": "operation-begin",
+      "uploadId": "u",
+      "totalBytes": 0,
+      "chunkCount": 1,
+      "digest": "3b1f2a4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708"
+    },
+    {
+      "type": "operation-begin",
+      "uploadId": "u",
+      "totalBytes": 1024,
+      "chunkCount": 1,
+      "digest": "not-a-digest"
+    },
+    {
+      "type": "operation-begin",
+      "uploadId": "u",
+      "totalBytes": 1024,
+      "chunkCount": 99999,
+      "digest": "3b1f2a4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708"
+    },
+    { "type": "operation-chunk", "uploadId": "u", "index": -1, "data": "x" },
+    { "type": "operation-chunk", "uploadId": "u", "index": 0, "data": 7 },
+    { "type": "operation-chunk", "uploadId": "u", "index": 0 },
+    { "type": "operation-end", "uploadId": "" },
+    { "type": "operation-upload-rejected", "uploadId": "u" },
     {
       "type": "welcome",
       "protocol": 1,

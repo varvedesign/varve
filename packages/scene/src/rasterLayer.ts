@@ -692,58 +692,183 @@ export function compositeDabOnNode(
   color: readonly [number, number, number, number],
   options: DabCompositeArg = false,
 ): RasterLayerNode {
-  const { alphaLock, coverage, wetEdge, strokeOpacity } = normalizeCompositeOptions(options);
-  const brushShape = dab.shape ?? 'circle';
-  const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
-  const tileKeys = tilesForDab(dab);
+  const draft = beginRasterTileDraft(node);
+  draft.compositeDab(dab, color, options);
+  return draft.commit();
+}
 
-  const blendMode = dab.blendMode ?? 'normal';
-  const newTiles = new Map(node.tiles);
+/** Counters describing the copying one draft performed (tests, benches, diagnostics). */
+export interface RasterTileDraftStats {
+  /** Dabs applied through this draft. */
+  dabs: number;
+  /** Existing tiles whose pixels were copied into draft-owned storage. */
+  clonedTiles: number;
+  /** Tiles allocated because the dab touched a previously absent tile. */
+  createdTiles: number;
+}
 
-  for (const { col, row } of tileKeys) {
-    const key = makeTileKey(col, row);
-    const tile = newTiles.get(key);
-    // Alpha lock can never deposit onto an absent (fully transparent) tile, so
-    // do not materialise one — that would grow the document for no pixels.
-    if (!tile && alphaLock) continue;
-    const source = tile ?? createEmptyTile();
-    const newPixels = new Uint8ClampedArray(source.pixels);
-    const newTile: RasterTile = { pixels: newPixels, version: source.version + 1 };
+/**
+ * Exclusive tile ownership for a run of dabs against one raster layer.
+ *
+ * `compositeDabOnNode` historically copied the whole tile `Map` and every
+ * touched 128x128 tile for each dab, so a stroke batch re-cloned a tile the
+ * previous dab in the same batch already owned exclusively. A draft copies the
+ * `Map` once and clones a given tile at most once: the first dab to touch a
+ * tile takes a private copy, later dabs mutate that private copy in place, and
+ * `commit()` publishes the result as an ordinary immutable node.
+ *
+ * Published structure is never written: tiles that are not in the draft's
+ * owned set are shared by reference with `base` (and with every document that
+ * shares them), and are only ever read. Tile `version` is advanced once per
+ * dab that touches the tile, exactly as the per-dab path did, so versions (and
+ * therefore history deltas, pyramid keys and snapshots) are unchanged.
+ *
+ * A draft is single-use: after `commit()` the owned tile records are published
+ * and any further mutation throws instead of aliasing a visible document.
+ */
+export class RasterTileDraft {
+  private readonly base: RasterLayerNode;
+  private readonly tiles: Map<string, RasterTile>;
+  /** Keys whose record and pixel buffer were created by this draft. */
+  private readonly owned = new Set<string>();
+  private sealed = false;
+  readonly stats: RasterTileDraftStats = { dabs: 0, clonedTiles: 0, createdTiles: 0 };
 
-    const tileOriginX = col * TILE_SIZE;
-    const tileOriginY = row * TILE_SIZE;
-    const localDabX = dab.x - tileOriginX;
-    const localDabY = dab.y - tileOriginY;
-
-    const wrote = compositeBrushDabOnPixels(
-      newTile.pixels,
-      TILE_SIZE,
-      localDabX,
-      localDabY,
-      dab.radius,
-      dab.opacity,
-      dab.flow,
-      brushMask,
-      dab,
-      color,
-      alphaLock,
-      blendMode,
-      dab.grain,
-      tileOriginX,
-      tileOriginY,
-      coverage,
-      wetEdge,
-      strokeOpacity,
-      key,
-    );
-
-    // A brand-new tile that received nothing (fully masked out by a selection)
-    // must not be added — an empty tile is not the same as no tile.
-    if (!tile && !wrote) continue;
-    newTiles.set(key, newTile);
+  constructor(base: RasterLayerNode) {
+    this.base = base;
+    this.tiles = new Map(base.tiles);
   }
 
-  return { ...node, tiles: newTiles };
+  compositeDab(
+    dab: BrushDab,
+    color: readonly [number, number, number, number],
+    options: DabCompositeArg = false,
+  ): void {
+    this.assertOpen();
+    const { alphaLock, coverage, wetEdge, strokeOpacity } = normalizeCompositeOptions(options);
+    const brushShape = dab.shape ?? 'circle';
+    const brushMask = createBrushMask(
+      dab.radius,
+      dab.hardness,
+      brushShape,
+      dab.angle,
+      dab.roundness,
+    );
+    const blendMode = dab.blendMode ?? 'normal';
+    this.stats.dabs += 1;
+
+    for (const { col, row } of tilesForDab(dab)) {
+      const key = makeTileKey(col, row);
+      const existing = this.tiles.get(key);
+      // Alpha lock can never deposit onto an absent (fully transparent) tile, so
+      // do not materialise one — that would grow the document for no pixels.
+      if (!existing && alphaLock) continue;
+
+      const owned = existing !== undefined && this.owned.has(key);
+      let target: RasterTile;
+      if (owned) {
+        target = existing;
+      } else {
+        // `createEmptyTile()` is version 1, so a freshly created tile's first
+        // published version is 2 — preserved from the per-dab implementation.
+        const sourceVersion = existing ? existing.version : 1;
+        target = {
+          pixels: existing
+            ? new Uint8ClampedArray(existing.pixels)
+            : new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4),
+          version: sourceVersion,
+        };
+      }
+
+      const tileOriginX = col * TILE_SIZE;
+      const tileOriginY = row * TILE_SIZE;
+      const wrote = compositeBrushDabOnPixels(
+        target.pixels,
+        TILE_SIZE,
+        dab.x - tileOriginX,
+        dab.y - tileOriginY,
+        dab.radius,
+        dab.opacity,
+        dab.flow,
+        brushMask,
+        dab,
+        color,
+        alphaLock,
+        blendMode,
+        dab.grain,
+        tileOriginX,
+        tileOriginY,
+        coverage,
+        wetEdge,
+        strokeOpacity,
+        key,
+      );
+
+      // A brand-new tile that received nothing (fully masked out by a selection)
+      // must not be added — an empty tile is not the same as no tile.
+      if (!existing && !wrote) continue;
+
+      target.version += 1;
+      if (!owned) {
+        this.tiles.set(key, target);
+        this.owned.add(key);
+        if (existing) this.stats.clonedTiles += 1;
+        else this.stats.createdTiles += 1;
+      }
+    }
+  }
+
+  /** Erase with the same tip geometry and dynamics as a paint dab. */
+  eraseDab(dab: BrushDab, options: DabCompositeArg = false): void {
+    this.assertOpen();
+    const { coverage, strokeOpacity } = normalizeCompositeOptions(options);
+    const brushShape = dab.shape ?? 'circle';
+    const brushMask = createBrushMask(
+      dab.radius,
+      dab.hardness,
+      brushShape,
+      dab.angle,
+      dab.roundness,
+    );
+    this.stats.dabs += 1;
+
+    for (const { col, row } of tilesForDab(dab)) {
+      const key = makeTileKey(col, row);
+      const existing = this.tiles.get(key);
+      if (!existing) continue;
+      const owned = this.owned.has(key);
+      const target: RasterTile = owned
+        ? existing
+        : { pixels: new Uint8ClampedArray(existing.pixels), version: existing.version };
+
+      eraseDabFromTilePixels(target.pixels, col, row, key, dab, brushMask, coverage, strokeOpacity);
+
+      target.version += 1;
+      if (!owned) {
+        this.tiles.set(key, target);
+        this.owned.add(key);
+        this.stats.clonedTiles += 1;
+      }
+    }
+  }
+
+  /** Publish the draft as an immutable node. The draft may not be used again. */
+  commit(): RasterLayerNode {
+    this.assertOpen();
+    this.sealed = true;
+    return { ...this.base, tiles: this.tiles };
+  }
+
+  private assertOpen(): void {
+    if (this.sealed) {
+      throw new Error('RasterTileDraft was already committed; its tiles are published');
+    }
+  }
+}
+
+/** Begin a stroke-scoped draft over `node`. See {@link RasterTileDraft}. */
+export function beginRasterTileDraft(node: RasterLayerNode): RasterTileDraft {
+  return new RasterTileDraft(node);
 }
 
 export function compositeDabOnTiles(
@@ -879,67 +1004,69 @@ export function eraseDabOnNode(
   dab: BrushDab,
   options: DabCompositeArg = false,
 ): RasterLayerNode {
-  const { coverage, strokeOpacity } = normalizeCompositeOptions(options);
-  const brushShape = dab.shape ?? 'circle';
-  const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
-  const size = Math.ceil(dab.radius * 2);
-  const tileKeys = tilesForDab(dab);
-  const newTiles = new Map(node.tiles);
+  const draft = beginRasterTileDraft(node);
+  draft.eraseDab(dab, options);
+  return draft.commit();
+}
 
-  for (const { col, row } of tileKeys) {
-    const key = makeTileKey(col, row);
-    const tile = newTiles.get(key);
-    if (!tile) continue;
-    const pixels = new Uint8ClampedArray(tile.pixels);
-    const localDabX = dab.x - col * TILE_SIZE;
-    const localDabY = dab.y - row * TILE_SIZE;
-    const { minX, minY, maxX, maxY } = rasterBoundsForDab({
-      x: localDabX,
-      y: localDabY,
-      radius: dab.radius,
-    });
-    for (let py = minY; py < maxY; py++) {
-      if (py < 0 || py >= TILE_SIZE) continue;
-      for (let px = minX; px < maxX; px++) {
-        if (px < 0 || px >= TILE_SIZE) continue;
-        const selectionValue = coverage
-          ? sampleCoverage(coverage, col * TILE_SIZE + px, row * TILE_SIZE + py)
-          : 1;
-        if (selectionValue <= 0) continue;
-        let eraseAlpha =
-          sampleBrushMask(
-            brushMask,
-            size,
-            px - (localDabX - dab.radius),
-            py - (localDabY - dab.radius),
-            dab,
-          ) *
-          dab.opacity *
-          dab.flow *
-          selectionValue;
-        if (strokeOpacity) {
-          eraseAlpha = limitStrokeOpacityDeposit(
-            strokeOpacity,
-            key,
-            py * TILE_SIZE + px,
-            eraseAlpha,
-            dab.opacity,
-          );
-        }
-        if (eraseAlpha <= 0) continue;
-        const index = (py * TILE_SIZE + px) * 4;
-        const remaining = Math.max(0, 1 - eraseAlpha);
-        pixels[index + 3] = Math.round(pixels[index + 3]! * remaining);
-        if (pixels[index + 3] === 0) {
-          pixels[index] = 0;
-          pixels[index + 1] = 0;
-          pixels[index + 2] = 0;
-        }
+/** Apply one erase dab to a tile buffer the caller exclusively owns. */
+function eraseDabFromTilePixels(
+  pixels: Uint8ClampedArray,
+  col: number,
+  row: number,
+  key: string,
+  dab: BrushDab,
+  brushMask: Float64Array,
+  coverage: CoverageMask | null,
+  strokeOpacity: StrokeOpacityAccumulator | null,
+): void {
+  const size = Math.ceil(dab.radius * 2);
+  const localDabX = dab.x - col * TILE_SIZE;
+  const localDabY = dab.y - row * TILE_SIZE;
+  const { minX, minY, maxX, maxY } = rasterBoundsForDab({
+    x: localDabX,
+    y: localDabY,
+    radius: dab.radius,
+  });
+  for (let py = minY; py < maxY; py++) {
+    if (py < 0 || py >= TILE_SIZE) continue;
+    for (let px = minX; px < maxX; px++) {
+      if (px < 0 || px >= TILE_SIZE) continue;
+      const selectionValue = coverage
+        ? sampleCoverage(coverage, col * TILE_SIZE + px, row * TILE_SIZE + py)
+        : 1;
+      if (selectionValue <= 0) continue;
+      let eraseAlpha =
+        sampleBrushMask(
+          brushMask,
+          size,
+          px - (localDabX - dab.radius),
+          py - (localDabY - dab.radius),
+          dab,
+        ) *
+        dab.opacity *
+        dab.flow *
+        selectionValue;
+      if (strokeOpacity) {
+        eraseAlpha = limitStrokeOpacityDeposit(
+          strokeOpacity,
+          key,
+          py * TILE_SIZE + px,
+          eraseAlpha,
+          dab.opacity,
+        );
+      }
+      if (eraseAlpha <= 0) continue;
+      const index = (py * TILE_SIZE + px) * 4;
+      const remaining = Math.max(0, 1 - eraseAlpha);
+      pixels[index + 3] = Math.round(pixels[index + 3]! * remaining);
+      if (pixels[index + 3] === 0) {
+        pixels[index] = 0;
+        pixels[index + 1] = 0;
+        pixels[index + 2] = 0;
       }
     }
-    newTiles.set(key, { pixels, version: tile.version + 1 });
   }
-  return { ...node, tiles: newTiles };
 }
 
 // ── Smudge compositing ───────────────────────────────────────────────────────

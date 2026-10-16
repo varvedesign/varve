@@ -179,7 +179,12 @@ function changedRasterTileBounds(before: RasterLayerNode, after: RasterLayerNode
     const bTile = before.tiles.get(key);
     const aTile = after.tiles.get(key);
     if (bTile === aTile) continue;
-    if (bTile && aTile && bTile.version === aTile.version) continue;
+    // Equal version numbers do not imply equal pixels: a divergent branch, or
+    // an undo followed by another stroke, reuses them. Published tile buffers
+    // are immutable, so the same buffer is the only proof of the same pixels.
+    if (bTile && aTile && bTile.pixels === aTile.pixels && bTile.version === aTile.version) {
+      continue;
+    }
     rects.push(rasterTileWorldBounds(key));
   }
   return rects;

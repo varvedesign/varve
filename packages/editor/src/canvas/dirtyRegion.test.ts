@@ -214,6 +214,51 @@ describe('computeDocumentDirtyRegion', () => {
     }
   });
 
+  it('reports partial when a tile keeps its version number but holds different pixels', () => {
+    // Two histories can reach the same per-tile version with different content
+    // (a divergent branch, or an undo followed by another stroke). Equal
+    // version numbers must not be taken to mean equal pixels.
+    const base = addNode(
+      createDocument('RasterBranch', true),
+      makeRasterLayerNode('raster', { width: 256, height: 256 }),
+    );
+    const layer = base.nodes.raster! as import('@varve/scene').RasterLayerNode;
+    const tileA = { pixels: new Uint8ClampedArray(128 * 128 * 4).fill(10), version: 2 };
+    const tileB = { pixels: new Uint8ClampedArray(128 * 128 * 4).fill(200), version: 2 };
+    const branchA = {
+      ...base,
+      nodes: { ...base.nodes, raster: { ...layer, tiles: new Map([['0:0', tileA]]) } },
+    };
+    const branchB = {
+      ...base,
+      nodes: { ...base.nodes, raster: { ...layer, tiles: new Map([['0:0', tileB]]) } },
+    };
+
+    const result = computeDocumentDirtyRegion(branchA, branchB);
+
+    expect(result.kind).toBe('partial');
+  });
+
+  it('reports no work when the very same tile buffer is shared between documents', () => {
+    const base = addNode(
+      createDocument('RasterShared', true),
+      makeRasterLayerNode('raster', { width: 256, height: 256 }),
+    );
+    const layer = base.nodes.raster! as import('@varve/scene').RasterLayerNode;
+    const shared = { pixels: new Uint8ClampedArray(128 * 128 * 4).fill(10), version: 2 };
+    const a = {
+      ...base,
+      nodes: { ...base.nodes, raster: { ...layer, tiles: new Map([['0:0', shared]]) } },
+    };
+    // A new node object and a new Map, but the identical tile record: nothing
+    // about the pixels changed, so no redraw region is owed.
+    const b = {
+      ...base,
+      nodes: { ...base.nodes, raster: { ...layer, tiles: new Map([['0:0', shared]]) } },
+    };
+    expect(computeDocumentDirtyRegion(a, b).kind).not.toBe('partial');
+  });
+
   it('reports partial for new raster layer (leaf node)', () => {
     const before = createDocument('RasterNew', true);
     const after = addNode(before, makeRasterLayerNode('raster', { width: 512, height: 512 }));

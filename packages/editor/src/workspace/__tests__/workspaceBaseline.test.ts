@@ -24,6 +24,8 @@ import {
   clampPanelWidth,
   PANEL_LIMITS,
 } from '../../components/PanelResizeHandle';
+import { registerBuiltinPanels } from '../panelDefinitions';
+import { resetPanelRegistry } from '../panelRegistry';
 import {
   getEffectivePanelConfig,
   getPanelWidths,
@@ -140,12 +142,25 @@ describe('workspace panel baseline: Shell mount contract', () => {
 });
 
 describe('workspace panel baseline: width clamps', () => {
-  it('clamps widths to PANEL_LIMITS', () => {
-    expect(clampPanelWidth('layers', 100)).toBe(PANEL_LIMITS.layers.min);
-    expect(clampPanelWidth('layers', 999)).toBe(PANEL_LIMITS.layers.max);
-    expect(clampPanelWidth('inspector', 100)).toBe(PANEL_LIMITS.inspector.min);
-    expect(clampPanelWidth('inspector', 999)).toBe(PANEL_LIMITS.inspector.max);
+  // The clamp reads the panel registry, so the registry must be populated or
+  // these assertions would exercise the fallback literals instead of the real
+  // definitions — the drift this block exists to catch.
+  beforeEach(() => {
+    resetPanelRegistry();
+    registerBuiltinPanels();
+  });
+
+  it('clamps widths to the registry-declared range', () => {
+    expect(clampPanelWidth('layers', 100)).toBe(180);
+    expect(clampPanelWidth('layers', 999)).toBe(576);
+    expect(clampPanelWidth('inspector', 100)).toBe(240);
+    expect(clampPanelWidth('inspector', 999)).toBe(640);
     expect(clampPanelWidth('layers', 240)).toBe(240);
+    // The literals above are the registry's own values (maximumSize, or twice
+    // preferredSize when a definition does not declare one); assert the
+    // agreement so a definition change cannot leave this tier behind.
+    expect(PANEL_LIMITS.layers).toEqual({ min: 180, max: 576 });
+    expect(PANEL_LIMITS.inspector).toEqual({ min: 240, max: 640 });
   });
 
   it('keeps the canvas column at least CANVAS_MIN_WIDTH wide', () => {
@@ -162,9 +177,9 @@ describe('workspace panel baseline: width clamps', () => {
     // section) as number | null; null means "CSS clamp default". This is
     // the persistence contract a future dock model must migrate from.
     expect(PANEL_LIMITS.layers.min).toBe(180);
-    expect(PANEL_LIMITS.layers.max).toBe(480);
+    expect(PANEL_LIMITS.layers.max).toBe(576);
     expect(PANEL_LIMITS.inspector.min).toBe(240);
-    expect(PANEL_LIMITS.inspector.max).toBe(600);
+    expect(PANEL_LIMITS.inspector.max).toBe(640);
   });
 });
 

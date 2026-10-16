@@ -25,12 +25,11 @@ import type {
 } from '@varve/scene';
 import {
   appendStrokePoints,
+  beginRasterTileDraft,
   beginStroke,
   cloneStrokeEngineState,
-  compositeDabOnNode,
   createStrokeOpacityAccumulator,
   defaultBrushPreset,
-  eraseDabOnNode,
   maskValueFromColor,
   type StrokeOpacityAccumulator,
   TILE_SIZE,
@@ -597,11 +596,15 @@ export class PaintTool extends BaseTool {
 
     let deposited = false;
     ctx.updateNode(rasterNodeId, (node) => {
-      let updated = node as RasterLayerNode;
+      // One draft per batch: the tile map is copied once and each touched tile
+      // is cloned at most once, instead of once per dab. The node returned is
+      // an ordinary immutable value; `node` and every tile it shares are only
+      // ever read.
+      const draft = beginRasterTileDraft(node as RasterLayerNode);
       for (const dab of batch.dabs) {
         const coverage = selectionCoverageForDab(ctx, rasterNodeId, dab, areaSelection);
         if (eraser) {
-          updated = eraseDabOnNode(updated, dab, {
+          draft.eraseDab(dab, {
             coverage,
             strokeOpacity: session.strokeOpacity,
           });
@@ -609,14 +612,14 @@ export class PaintTool extends BaseTool {
         }
         const dabColor = session.wet ? this.mixWet(session, dab, color) : color;
         if (session.wet) deposited = true;
-        updated = compositeDabOnNode(updated, dab, dabColor, {
+        draft.compositeDab(dab, dabColor, {
           alphaLock,
           coverage,
           wetEdge: session.wetEdge,
           strokeOpacity: session.strokeOpacity,
         });
       }
-      return updated;
+      return draft.commit();
     });
     if (session.strokeOpacity?.overflowed && !session.strokeOpacityLimitAnnounced) {
       session.strokeOpacityLimitAnnounced = true;

@@ -691,4 +691,210 @@ describe('SubtreeIrCache', () => {
       expect(SubtreeIrCache.estimateItemBytes(item)).toBeGreaterThan(0);
     });
   });
+
+  // Ten text-shaping inputs the IR builder reads were absent from the content
+  // key: `replay.ts` turns `tracking` into per-cluster advance, applies
+  // `glyphAdjustments`/`pairAdjustments` to glyph positions, keys shaping off
+  // `direction`/`language`, switches layout on `writingMode`/`textOrientation`,
+  // selects a face through `fontReference` and wraps against `textWrapShape`.
+  //
+  // A node edit is invalidated by object identity before this hash is consulted
+  // (`computeInvalidationPlan` compares node references), so no stale frame was
+  // demonstrated. The hash is the documented defence-in-depth layer for nodes
+  // that were *not* explicitly invalidated, and it could not catch drift in any
+  // of these; the test pins that it now can.
+  describe('text-shaping inputs are part of the content key', () => {
+    const base = makeNode({ kind: 'text', text: 'Hello' });
+
+    const changes: Array<[string, Partial<EngineNode>]> = [
+      ['tracking', { tracking: 25 }],
+      ['direction', { direction: 'rtl' }],
+      ['language', { language: 'ar' }],
+      ['kerningMode', { kerningMode: 'none' }],
+      ['writingMode', { writingMode: 'vertical-rl' }],
+      ['textOrientation', { textOrientation: 'upright' }],
+      [
+        'glyphAdjustments',
+        {
+          glyphAdjustments: { 1: { dx: 2, dy: 0, advance: 1, rotation: 0, scaleX: 1, scaleY: 1 } },
+        },
+      ],
+      ['pairAdjustments', { pairAdjustments: { 0: 4 } }],
+      ['textWrapShape', { textWrapShape: 'ellipse' }],
+      ['fontReference', { fontReference: { artifactHash: 'a'.repeat(64) } }],
+    ];
+
+    it.each(changes)('%s changes the content hash', (_name, patch) => {
+      const identity = [1, 0, 0, 1, 0, 0] as const;
+      const beforeParts = report(base);
+      const afterParts = report({ ...base, ...patch } as EngineNode);
+      expect(afterParts.join('|')).not.toBe(beforeParts.join('|'));
+      expect(SubtreeIrCache.nodeHash('n1', identity, '', afterParts)).not.toBe(
+        SubtreeIrCache.nodeHash('n1', identity, '', beforeParts),
+      );
+    });
+
+    it('is unchanged when a text node is hashed twice with the same content', () => {
+      const identity = [1, 0, 0, 1, 0, 0] as const;
+      const a = SubtreeIrCache.nodeHash('n1', identity, '', report(base));
+      const b = SubtreeIrCache.nodeHash('n1', identity, '', report(base));
+      expect(a).toBe(b);
+    });
+
+    it('does not mark the sub-hash buckets for non-text nodes', () => {
+      const { sub } = cacheContentParts(makeNode({ kind: 'rect' }));
+      expect(sub.text).toBe(false);
+    });
+  });
+
+  // A raster layer's tile payloads are references to the document's immutable
+  // buffers, so estimateItemBytes must neither walk them (O(raster bytes) per
+  // store, and roughly 450 KB of JSON for a 64 KB tile) nor charge them to a
+  // cache that does not own them. The inflation was not cosmetic: it made any
+  // layer above roughly 7 MiB of pixels look like an oversized entry, so `set`
+  // refused it and raster layers got no IR reuse at all while still paying the
+  // whole-layer conversion on every frame.
+  describe('estimateItemBytes bounds tile pixel payloads', () => {
+    const TILE_PIXELS = 128 * 128 * 4;
+
+    const rasterItem = (tileCount: number): RenderItem =>
+      ({
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+        primitive: {
+          kind: 'rasterLayer',
+          width: 128 * tileCount,
+          height: 128,
+          pixelMode: false,
+          tiles: Object.fromEntries(
+            Array.from({ length: tileCount }, (_, i) => [
+              `${i}:0`,
+              { pixels: new Uint8ClampedArray(TILE_PIXELS).fill(i & 0xff), version: 1 },
+            ]),
+          ),
+        },
+      }) as unknown as RenderItem;
+
+    it('does not scale with pixel count', () => {
+      const oneBytes = SubtreeIrCache.estimateItemBytes(rasterItem(1));
+      const manyBytes = SubtreeIrCache.estimateItemBytes(rasterItem(64));
+      // 64 tiles cost about 64 small charges, not 64 x 65,536 x ~7 bytes of
+      // JSON. Under the naive path this ratio was roughly 64x plus a 28 MB term.
+      expect(manyBytes).toBeLessThan(oneBytes * 100);
+      expect(manyBytes).toBeLessThan(64 * 1024);
+    });
+
+    it('cost is bounded for a large raster layer (pixels are never visited)', () => {
+      const item = rasterItem(256);
+      const t0 = performance.now();
+      for (let i = 0; i < 200; i++) SubtreeIrCache.estimateItemBytes(item);
+      const elapsed = performance.now() - t0;
+      // 200 estimates over 256 tiles is ~3.3M pixel entries under the naive
+      // path. Generous ceiling so a loaded machine cannot make this flaky.
+      expect(elapsed).toBeLessThan(500);
+    });
+
+    it('keeps a raster layer cacheable instead of refusing it as oversized', () => {
+      const softBudget = 50 * 1024 * 1024;
+      const cache = new SubtreeIrCache(500, softBudget);
+      // 200 tiles = 12.8 MiB of pixels, above the old ~7 MiB refusal point.
+      const item = rasterItem(200);
+      cache.set('raster-node', 'h1', item);
+      expect(cache.get('raster-node', 'h1')).toBe(item);
+      const diag = cache.diagnostics();
+      expect(diag.recentEvictions.filter((e) => e.reason === 'oversized_entry')).toHaveLength(0);
+      expect(diag.bytes).toBeLessThan(softBudget);
+    });
+
+    it('still counts a plain number-array payload as referenced, not owned', () => {
+      const item = {
+        transform: [1, 0, 0, 1, 0, 0],
+        primitive: {
+          kind: 'rasterLayer',
+          width: 128,
+          height: 128,
+          pixelMode: false,
+          tiles: {
+            '0:0': { pixels: new Array(TILE_PIXELS).fill(7), version: 1 },
+          },
+        },
+      } as unknown as RenderItem;
+      expect(SubtreeIrCache.estimateItemBytes(item)).toBeLessThan(4 * 1024);
+    });
+
+    // Frozen-history control. This is the *previous* estimate body, kept here
+    // so the reason for the change is reproducible rather than described: it
+    // charges tile bytes the entry does not own, so an ordinary layer is
+    // refused as `oversized_entry`, is never stored, and pays the conversion
+    // plus the stringify on every single frame. If the production estimate ever
+    // regresses to walking pixels, `currentMemoryBytes` assertions above fail
+    // and this control shows what the numbers become.
+    it('control: the previous formula refuses a 4 MiB layer the current one stores', () => {
+      const softBudget = 50 * 1024 * 1024;
+      const item = rasterItem(64); // 4 MiB of pixels
+      let longStringChars = 0;
+      const json = JSON.stringify(item, (_key, value) => {
+        if (typeof value === 'string' && value.length > 256) {
+          longStringChars += value.length;
+          return '';
+        }
+        return value;
+      });
+      const previousBytes = (json.length + longStringChars) * 2 + 64;
+
+      expect(previousBytes).toBeGreaterThan(softBudget);
+
+      const cache = new SubtreeIrCache(500, softBudget);
+      cache.set('raster-node', 'h1', item);
+      expect(cache.get('raster-node', 'h1')).toBe(item);
+    });
+  });
+});
+
+describe('cacheContentParts raster layer identity', () => {
+  const rasterNode = (
+    tiles: Record<string, { pixels: number[]; version: number; contentId?: number }>,
+  ): EngineNode =>
+    makeNode({
+      kind: 'rasterLayer',
+      rasterLayerData: { width: 256, height: 128, pixelMode: false, tiles },
+    });
+  const px = (fill: number) => new Array(8).fill(fill);
+
+  it('separates tiles that share a count and a version sum but not their pixels', () => {
+    // Same tile count (2) and same version sum (3): the old summary was equal.
+    const a = rasterNode({
+      '0:0': { pixels: px(1), version: 1, contentId: 11 },
+      '1:0': { pixels: px(2), version: 2, contentId: 12 },
+    });
+    const b = rasterNode({
+      '0:0': { pixels: px(9), version: 2, contentId: 21 },
+      '1:0': { pixels: px(8), version: 1, contentId: 22 },
+    });
+    expect(report(a)).not.toEqual(report(b));
+  });
+
+  it('separates two layers whose versions match but whose content identities differ', () => {
+    const a = rasterNode({ '0:0': { pixels: px(1), version: 2, contentId: 31 } });
+    const b = rasterNode({ '0:0': { pixels: px(5), version: 2, contentId: 32 } });
+    expect(report(a)).not.toEqual(report(b));
+  });
+
+  it('is unchanged for identical tiles, so unaffected layers keep hitting the cache', () => {
+    const a = rasterNode({ '0:0': { pixels: px(1), version: 2, contentId: 41 } });
+    const b = rasterNode({ '0:0': { pixels: px(1), version: 2, contentId: 41 } });
+    expect(report(a)).toEqual(report(b));
+  });
+
+  it('does not depend on tile key insertion order', () => {
+    const a = rasterNode({
+      '0:0': { pixels: px(1), version: 1, contentId: 1 },
+      '1:0': { pixels: px(2), version: 2, contentId: 2 },
+    });
+    const b = rasterNode({
+      '1:0': { pixels: px(2), version: 2, contentId: 2 },
+      '0:0': { pixels: px(1), version: 1, contentId: 1 },
+    });
+    expect(report(a)).toEqual(report(b));
+  });
 });

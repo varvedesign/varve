@@ -87,7 +87,17 @@
   exists). AI features are on in Settings by default and can be turned off.
   Larger models download only when requested.
 
-**Not yet implemented:** real-time collaboration exists only as UI scaffolding.
+**Real-time collaboration (beta):** local-first editing needs no account and
+no server. To work with other people, host a room from the desktop app (loopback
+on your machine) or run the standalone room server you control. Participants
+apply an ordered sequence of validated, property-level operations — not a
+whole-document last-write-wins — with live cursors, selections, cursor chat, and
+spotlight follow. In a shared session, undo reverses only your own eligible
+edits: a collaborator's later change to the same property is preserved and the
+skip is explained. Sessions are not end-to-end encrypted (the room server stores
+documents in plaintext), a loopback session is not an internet invite, and
+`docs/architecture/collaboration-system.md` lists the remaining limits.
+
 The native desktop application is the full product; an experimental browser build
 is available at [varve.studio/try](https://varve.studio/try/), and
 [Varve on Chromebook](https://varve.studio/docs/chromebook) explains the browser,
@@ -388,8 +398,20 @@ run locally. There is no Varve-hosted inference service.
 <details>
 <summary><strong>Does Varve support real-time collaboration?</strong></summary>
 <br>
-Not yet. There is UI scaffolding for it, but no collaboration transport or
-protocol is implemented today.
+Yes, in beta. Open a document, choose <strong>Share</strong>, and either host the
+session from the desktop app (reachable from other apps and browser tabs on the
+same machine) or point Varve at a room server you run yourself for cross-machine
+sessions. Edits replicate as validated semantic operations in a host-assigned
+order, with live cursors, remote selection outlines, cursor chat (<kbd>/</kbd>),
+and optional spotlight following. Undo in a shared session is per-participant:
+it never overwrites a collaborator's later change to the same property.
+
+Boundaries worth knowing up front: sessions are not end-to-end encrypted (the
+room server stores documents in plaintext), a localhost address is not an
+internet invite — that needs your own reachable server behind TLS — and the
+desktop app is the supported client. See
+<code>docs/architecture/collaboration-system.md</code> for the model and
+<code>docs/architecture/collaboration-self-hosting.md</code> for running a server.
 </details>
 
 <details>

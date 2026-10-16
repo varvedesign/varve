@@ -1,13 +1,18 @@
 /**
- * @varve/collab — local-first CRDT awareness + reconnect (Strata plan §3.2, Phase 2).
+ * @varve/collab — local-first real-time collaboration (ADR-0200): an
+ * authoritative, ordered semantic-operation room plus ephemeral presence and
+ * per-participant selective undo (see docs/architecture/collaboration-system.md).
  *
- * P5: Transaction hooks for Yjs integration. These are stub hook points
- * that will be wired to Yjs document transactions when sync lands in
- * Phase 2. The editor's beginTransaction/commitTransaction/abortTransaction
- * will call these hooks to batch Yjs updates into a single undo entry.
+ * Nothing here is a stub. The transport-agnostic engine drives the wire
+ * protocol in `./protocol`; `WebSocketCollabTransport` is the browser/Tauri
+ * adapter; `./selectiveUndo` computes compensating captures; `./textSplice`
+ * merges concurrent text edits. `./identity` carries the three deliberately
+ * distinct identities (device, client, actor).
  *
- * Session W6: added CollabUser/LiveCursor types and stub Tauri-facing
- * functions for UI development.
+ * The `TransactionHooks` surface below is a no-op returning empty values by
+ * design: it is the seam the editor's persistent-history pipeline uses to
+ * publish committed transactions (`emitLocalCapture`) and the collab session
+ * subscribes to it. It is not an unimplemented CRDT integration.
  */
 
 /** Marker for the collab package. */
@@ -15,6 +20,11 @@ export const PACKAGE = '@varve/collab' as const;
 
 // ── Real-time collaboration core (ADR-0200) ──────────────────────────────
 
+export {
+  type ChunkedUploadPlan,
+  planChunkedOperation,
+  sliceByUtf8Bytes,
+} from './chunkedOperation';
 export { fallbackColorIndex, forgetDeviceId, getDeviceId, mintClientId } from './identity';
 export {
   type ChatMessage,
@@ -23,6 +33,7 @@ export {
   type CursorPresence,
   isCapturePayloadLike,
   isRoomOperationLike,
+  isSha256Hex,
   type ParticipantInfo,
   type ParticipantRole,
   PROTOCOL_LIMITS,
@@ -32,6 +43,7 @@ export {
   type RoomSnapshot,
   type SelectionPresence,
   type ServerMessage,
+  utf8ByteLength,
   type ViewportPresence,
 } from './protocol';
 export {
@@ -114,14 +126,16 @@ export interface LiveCursor {
 // ── Transaction hooks (existing) ──────────────────────────────────
 
 /** Transaction hook interface. The editor calls these when a transaction
- * is in progress. When Yjs is wired in, these will wrap Y.Doc.transact(). */
+ * is in progress, so a future batching consumer has a seam to hook. The
+ * live collab path does NOT use these: local captures reach the room through
+ * `emitLocalCapture`/`setLocalCaptureSink` below. */
 export interface TransactionHooks {
   onBeginTransaction: () => void;
   onCommitTransaction: () => void;
   onAbortTransaction: () => void;
 }
 
-/** No-op transaction hooks (default when sync is not active). */
+/** No-op transaction hooks (the default; nothing consumes them today). */
 export const noopTransactionHooks: TransactionHooks = {
   onBeginTransaction: () => {},
   onCommitTransaction: () => {},
@@ -130,7 +144,9 @@ export const noopTransactionHooks: TransactionHooks = {
 
 /**
  * Register transaction hooks. Returns an unregister function.
- * When Yjs is wired in, this will connect to the Y.Doc instance.
+ * Kept as a documented extension seam: an aggregating consumer (for example
+ * batching a multi-step gesture) would register here instead of forking the
+ * history pipeline.
  */
 export function registerTransactionHooks(hooks: TransactionHooks): () => void {
   _activeHooks = hooks;
@@ -148,19 +164,27 @@ export function getTransactionHooks(): TransactionHooks {
 
 let _activeHooks: TransactionHooks = noopTransactionHooks;
 
-// ── Stub Tauri-facing functions ──────────────────────────────────
+// ── Legacy editor-facing helpers ──────────────────────────────────
 
 /**
- * No real collaboration backend exists yet (no Tauri IPC, no CRDT sync) —
- * returning fake collaborators here would show invented people ("Alice",
- * "Bob") as live cursors/presence indicators in every single-user session.
- * Returns empty until this is wired to a real backend.
+ * Editor-reported collaboration roster.
+ *
+ * Returns an EMPTY array, deliberately. The live roster comes from the room
+ * session (`useCollabSession().participants`, populated from the host's
+ * `welcome`/`participant-*` frames). Returning invented people here is how
+ * the old stub put "Alice"/"Bob"/"Charlie" cursors in every single-user
+ * session; that is a defect, not a placeholder.
  */
 export async function getCollabUsers(_documentId: string): Promise<CollabUser[]> {
   return [];
 }
 
-/** Stub: no-op cursor update. Will be replaced with Tauri IPC. */
+/**
+ * Cursor broadcast is owned by the session engine
+ * (`CollabSyncEngine.sendCursor`), which coalesces to the presence rate and
+ * only sends while the room is live. This entry point is retained for
+ * callers that still route through it and does nothing.
+ */
 export async function updateCursor(_documentId: string, _cursor: LiveCursor): Promise<void> {
   await Promise.resolve();
 }

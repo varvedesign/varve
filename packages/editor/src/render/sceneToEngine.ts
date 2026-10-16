@@ -18,7 +18,9 @@ import {
   DEFAULT_WARP_QUALITY,
   type SceneNode as EngineNode,
   hasLiveWarps,
+  type RasterTileIR,
   registerImageResourceHandle,
+  tilePixelsIdentity,
   type WarpQualitySettings,
   warpShapeToPath,
   warpTextToClusterAdjustments,
@@ -568,11 +570,19 @@ export function sceneNodeToEngineNode(
     // worker, thumbnails and export all see the same deformed pixels without
     // rewriting the source tiles. Identity fields skip the pass entirely.
     const sourceTiles = decoded ?? warpedTilesForRender(node);
-    const tiles: Record<string, { pixels: number[]; version: number }> = {};
+    const tiles: Record<string, RasterTileIR> = {};
     for (const [key, tile] of sourceTiles) {
       tiles[key] = {
-        pixels: Array.from(tile.pixels),
+        // By reference: the tile buffer is immutable once published, so the IR
+        // reads the document's pixels instead of copying them. `Array.from`
+        // here cost ~130 ms per MiB of raster on every conversion (a stroke
+        // batch publishes a new node, so that is every batch) and held the
+        // pixels as an 8x-larger boxed number array.
+        pixels: tile.pixels,
         version: tile.version,
+        // `version` repeats across divergent histories; the buffer identity
+        // is what tells a retained surface that these are different pixels.
+        contentId: tilePixelsIdentity(tile.pixels),
       };
     }
     return {

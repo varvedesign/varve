@@ -276,3 +276,57 @@ describe('TypographySection colour entry point', () => {
     expect(screen.getByText('Gradient')).toBeInTheDocument();
   });
 });
+
+describe('TypographySection ruby capability warning', () => {
+  /**
+   * Ruby is authored, persisted, and range-rebased, but `LayoutTextInput`
+   * carries only pre-shaped runs — nothing in `packages/engine` reads
+   * `RichText.ruby`. So an authored reading is invisible on canvas and in
+   * every export, and the panel must say so rather than let it disappear
+   * silently.
+   */
+  it('says nothing when the text carries no ruby', () => {
+    const node = makeTextNode('t1', 'auto');
+    renderSection(<TypographySection nodes={[node]} />);
+    expect(screen.queryByText(/ruby readings? (is|are) stored/i)).toBeNull();
+  });
+
+  it('warns that a stored reading is not drawn', () => {
+    const node = {
+      ...makeTextNode('t1', 'auto'),
+      richText: {
+        paragraphs: [{ runs: [{ text: 'Hello' }] }],
+        ruby: [{ start: 0, end: 2, text: 'He' }],
+      },
+    } as TextNode;
+    renderSection(<TypographySection nodes={[node]} />);
+    const warning = screen.getByText(/1 ruby reading is stored with this text but not drawn/i);
+    expect(warning).toBeTruthy();
+    // A non-colour diagnostic: the state must be readable as text, and it must
+    // be announced rather than only styled.
+    expect(warning.getAttribute('role')).toBe('status');
+    expect(warning.textContent).toMatch(/never rendered/i);
+  });
+
+  it('counts the readings across the selected text nodes', () => {
+    const first = {
+      ...makeTextNode('t1', 'auto'),
+      richText: {
+        paragraphs: [{ runs: [{ text: 'Hello' }] }],
+        ruby: [{ start: 0, end: 2, text: 'He' }],
+      },
+    } as TextNode;
+    const second = {
+      ...makeTextNode('t2', 'auto'),
+      richText: {
+        paragraphs: [{ runs: [{ text: 'World' }] }],
+        ruby: [
+          { start: 0, end: 2, text: 'Wo' },
+          { start: 3, end: 5, text: 'rl' },
+        ],
+      },
+    } as TextNode;
+    renderSection(<TypographySection nodes={[first, second]} />);
+    expect(screen.getByText(/3 ruby readings are stored/i)).toBeTruthy();
+  });
+});

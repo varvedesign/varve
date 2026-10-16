@@ -15,6 +15,7 @@ import {
   type RasterLayerSurface,
   resetRasterLayerCache,
 } from './rasterLayerCache';
+import { tilePixelsIdentity } from './rasterTileIdentity';
 
 const TILE = 4; // Small tiles keep the fixtures readable.
 
@@ -245,5 +246,198 @@ describe('RasterLayerCache', () => {
     // Second pass: 1 of 4 tiles uploaded, 3 skipped.
     expect(cache.diagnostics.tilesUploaded).toBe(5);
     expect(cache.diagnostics.tilesSkipped).toBe(3);
+  });
+});
+
+describe('RasterLayerCache content identity', () => {
+  beforeEach(() => {
+    resetRasterLayerCache();
+  });
+
+  const tileWithId = (version: number, fill: number, contentId: number) => ({
+    pixels: new Array(TILE * TILE * 4).fill(fill),
+    version,
+    contentId,
+  });
+
+  it('re-uploads a tile whose version matches but whose content differs', () => {
+    const { writes } = installFakeCanvas();
+    const cache = new RasterLayerCache();
+
+    // Branch A painted tile 0:0 to version 2.
+    cache.acquire('layer', TILE, TILE, { '0:0': tileWithId(2, 10, 101) }, TILE);
+    writes.length = 0;
+
+    // Branch B reached the same version number with different pixels.
+    const second = cache.acquire('layer', TILE, TILE, { '0:0': tileWithId(2, 200, 202) }, TILE);
+
+    expect(second!.plan.changed).toEqual(['0:0']);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.fill).toBe(200);
+  });
+
+  it('still skips a tile whose version and content identity are both unchanged', () => {
+    const { writes } = installFakeCanvas();
+    const cache = new RasterLayerCache();
+    cache.acquire('layer', TILE, TILE, { '0:0': tileWithId(2, 10, 101) }, TILE);
+    writes.length = 0;
+
+    const again = cache.acquire('layer', TILE, TILE, { '0:0': tileWithId(2, 10, 101) }, TILE);
+
+    expect(again!.plan.changed).toEqual([]);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('falls back to version-only comparison when no content identity is supplied', () => {
+    const { writes } = installFakeCanvas();
+    const cache = new RasterLayerCache();
+    cache.acquire('layer', TILE, TILE, { '0:0': tile(3, 5) }, TILE);
+    writes.length = 0;
+    const again = cache.acquire('layer', TILE, TILE, { '0:0': tile(3, 5) }, TILE);
+    expect(again!.plan.changed).toEqual([]);
+    expect(writes).toHaveLength(0);
+  });
+
+  it('re-uploads when another document reuses the same layer id and version', () => {
+    // Node ids are document-local and can repeat across documents (legacy
+    // sequential ids, or a reopened file). A retained surface keyed only by the
+    // id would then hand document A's pixels to document B, because the version
+    // counter restarts too. Pixel-buffer identity is what separates them.
+    const { writes } = installFakeCanvas();
+    const cache = new RasterLayerCache();
+
+    const docAPixels = new Uint8ClampedArray(TILE * TILE * 4).fill(10);
+    cache.acquire(
+      'n5',
+      TILE,
+      TILE,
+      { '0:0': { pixels: docAPixels, version: 1, contentId: tilePixelsIdentity(docAPixels) } },
+      TILE,
+    );
+    writes.length = 0;
+
+    const docBPixels = new Uint8ClampedArray(TILE * TILE * 4).fill(200);
+    const second = cache.acquire(
+      'n5',
+      TILE,
+      TILE,
+      { '0:0': { pixels: docBPixels, version: 1, contentId: tilePixelsIdentity(docBPixels) } },
+      TILE,
+    );
+
+    expect(second!.plan.changed).toEqual(['0:0']);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.fill).toBe(200);
+  });
+
+  it('records the residual limit: without an identity, a colliding id and version cannot be told apart', () => {
+    // Pins exactly what the identity buys, so the fallback's weakness is a
+    // documented property rather than a surprise. `sceneNodeToEngineNode`
+    // always supplies `contentId`; a producer that omits it is the only route
+    // to this case.
+    const { writes } = installFakeCanvas();
+    const cache = new RasterLayerCache();
+    cache.acquire('n5', TILE, TILE, { '0:0': tile(1, 10) }, TILE);
+    writes.length = 0;
+
+    const second = cache.acquire('n5', TILE, TILE, { '0:0': tile(1, 200) }, TILE);
+
+    expect(second!.plan.changed).toEqual([]);
+    expect(writes).toHaveLength(0);
+  });
+});
+
+/**
+ * A tile payload now arrives either as the document's own `Uint8ClampedArray`
+ * or as a plain number array. Both must upload the same bytes: the transport
+ * change is a memory and allocation change, never a pixel change.
+ */
+describe('tile payload forms', () => {
+  const BYTES = TILE * TILE * 4;
+
+  function recordUploads(): Array<{ x: number; y: number; bytes: Uint8ClampedArray }> {
+    const uploads: Array<{ x: number; y: number; bytes: Uint8ClampedArray }> = [];
+    class FakeOffscreen {
+      width = 0;
+      height = 0;
+      constructor(w: number, h: number) {
+        this.width = w;
+        this.height = h;
+      }
+      getContext() {
+        return {
+          createImageData: (w: number, h: number) => ({
+            data: new Uint8ClampedArray(w * h * 4),
+          }),
+          putImageData: (data: { data: Uint8ClampedArray }, x: number, y: number) => {
+            uploads.push({ x, y, bytes: new Uint8ClampedArray(data.data) });
+          },
+          clearRect: () => {},
+        };
+      }
+    }
+    (globalThis as unknown as { OffscreenCanvas: unknown }).OffscreenCanvas = FakeOffscreen;
+    return uploads;
+  }
+
+  const pattern = (n: number): number[] =>
+    Array.from({ length: BYTES }, (_, i) => (i * (n + 3)) % 256);
+
+  beforeEach(() => {
+    resetRasterLayerCache();
+  });
+
+  it('uploads a typed-array payload byte-identically to a number array', () => {
+    const expected = pattern(1);
+
+    const arrayUploads = recordUploads();
+    new RasterLayerCache().acquire(
+      'a',
+      TILE,
+      TILE,
+      { '0:0': { pixels: [...expected], version: 1 } },
+      TILE,
+    );
+    expect(arrayUploads).toHaveLength(1);
+
+    const typedUploads = recordUploads();
+    new RasterLayerCache().acquire(
+      'b',
+      TILE,
+      TILE,
+      { '0:0': { pixels: Uint8ClampedArray.from(expected), version: 1 } },
+      TILE,
+    );
+    expect(typedUploads).toHaveLength(1);
+
+    expect([...typedUploads[0]!.bytes]).toEqual([...arrayUploads[0]!.bytes]);
+    expect([...typedUploads[0]!.bytes]).toEqual(expected);
+  });
+
+  it('leaves the document buffer untouched (the IR only reads it)', () => {
+    const uploads = recordUploads();
+    const pixels = Uint8ClampedArray.from(pattern(7));
+    const before = Uint8ClampedArray.from(pixels);
+    new RasterLayerCache().acquire('a', TILE, TILE, { '0:0': { pixels, version: 1 } }, TILE);
+    expect(uploads).toHaveLength(1);
+    expect([...pixels]).toEqual([...before]);
+  });
+
+  it('accepts a Uint8Array payload and an odd-sized partial tile', () => {
+    const uploads = recordUploads();
+    const partial = new Uint8Array(8);
+    partial.set([1, 2, 3, 4, 5, 6, 7, 8]);
+    new RasterLayerCache().acquire(
+      'a',
+      TILE,
+      TILE,
+      { '0:0': { pixels: partial, version: 1 } },
+      TILE,
+    );
+    // A short payload writes its own bytes and leaves the rest of the tile
+    // transparent; it must not throw and must not read past its end.
+    expect(uploads).toHaveLength(1);
+    expect([...uploads[0]!.bytes.slice(0, 8)]).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect([...uploads[0]!.bytes.slice(8)].every((b) => b === 0)).toBe(true);
   });
 });

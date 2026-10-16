@@ -109,6 +109,7 @@ export function registerProfileProofConverterNormalized(
 export function clearProofConverters(): void {
   profileConverters.clear();
   normalizedProfileConverters.clear();
+  profileGamutCheckers.clear();
   transformCache.clear();
   normalizedTransformCache.clear();
 }
@@ -191,17 +192,62 @@ export function applyProofToNormalized(
 }
 
 /**
- * Out-of-proof-gamut status for a color under the given proof condition.
- * Returns:
- * - `true` when the proof transform clips meaningfully,
- * - `false` when the color survives the proof transform,
- * - `null` when no profile converter is registered (unknown — callers must
- *   disclose the limitation rather than claiming a result).
+ * A real gamut-check query supplied by a runtime engine.
+ *
+ * Returns `true` when the colour lies outside the output condition's gamut,
+ * `false` when it is reproducible, and `null` when the engine cannot answer.
+ * `null` is distinct from `false`: an unavailable check must never be reported
+ * as "in gamut".
+ */
+export type ProfileGamutChecker = (rgba: [number, number, number, number]) => boolean | null;
+
+const profileGamutCheckers = new Map<string, ProfileGamutChecker>();
+
+/**
+ * Register a real gamut-check provider (desktop bridge or WASM).
+ *
+ * A provider registered here replaces `isColorOutOfProofGamut`'s approximate
+ * fallback for its profile id.
+ */
+export function registerProfileGamutChecker(profileId: string, checker: ProfileGamutChecker): void {
+  profileGamutCheckers.set(profileId, checker);
+}
+
+/**
+ * Out-of-proof-gamut status for a colour under the given proof condition.
+ *
+ * Resolution order:
+ *
+ * 1. A registered [`ProfileGamutChecker`] — a real CMM gamut-check pipeline
+ *    (`cmsFLAGS_GAMUTCHECK`). This is the authoritative answer.
+ * 2. The documented approximation below, when a converter exists but no gamut
+ *    checker does.
+ * 3. `null` when no converter is registered (unknown — callers must disclose
+ *    the limitation rather than claiming a result).
+ *
+ * ## The approximation, and why it is only a fallback
+ *
+ * Without a gamut pipeline the only available signal is "did the proofed value
+ * move more than `tolerance`". That is **not** a gamut test: a colour can move
+ * because of rendering intent or paper-white simulation while remaining well
+ * inside the target gamut, and a colour can be out of gamut while a
+ * perceptual-intent mapping keeps it numerically still. It is retained only so
+ * that runtimes without gamut support report something rather than nothing,
+ * and it is now reachable only when a caller registers a converter but no
+ * checker.
  */
 export function isColorOutOfProofGamut(
   rgba: [number, number, number, number],
   config: ProofTransformConfig,
 ): boolean | null {
+  const checker = profileGamutCheckers.get(config.profileId);
+  if (checker) {
+    const result = checker(rgba);
+    // A checker that cannot answer falls through to the approximation rather
+    // than being swallowed as `false`.
+    if (result !== null) return result;
+  }
+
   const converter = profileConverters.get(config.profileId);
   if (!converter) return null;
   const converted = invokeConverter(converter, rgba);
@@ -212,6 +258,11 @@ export function isColorOutOfProofGamut(
     Math.abs(converted[1] - rgba[1]) > tolerance ||
     Math.abs(converted[2] - rgba[2]) > tolerance
   );
+}
+
+/** Whether a real gamut-check provider is registered for this condition. */
+export function hasRealGamutCheck(config: ProofTransformConfig): boolean {
+  return profileGamutCheckers.has(config.profileId);
 }
 
 /** True when any profile converter is registered (proofing is available). */

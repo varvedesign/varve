@@ -86,6 +86,7 @@ export type GeneratedFileLanguage =
   | 'json'
   | 'dart'
   | 'swift'
+  | 'kotlin'
   | 'vue'
   | 'svelte'
   | 'text';
@@ -153,6 +154,13 @@ export interface BundleDiagnostic {
   nodeName?: string;
   /** Feature or primitive that could not be represented faithfully. */
   feature?: string;
+  /**
+   * What the consumer should do instead. A diagnostic that only reports a
+   * limitation is half a handoff: this is the actionable half, and it uses the
+   * same vocabulary as `TargetGap.fallback` so the preflight view and the
+   * bundle speak about a gap the same way.
+   */
+  fallback?: string;
 }
 
 /**
@@ -205,6 +213,8 @@ export function mimeTypeForLanguage(language: GeneratedFileLanguage): string {
       return 'text/x-dart';
     case 'swift':
       return 'text/x-swift';
+    case 'kotlin':
+      return 'text/x-kotlin';
     case 'vue':
       return 'text/x-vue';
     case 'svelte':

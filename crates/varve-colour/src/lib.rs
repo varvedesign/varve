@@ -26,15 +26,20 @@ use wasm_bindgen::prelude::*;
 pub mod conversions;
 pub mod icc;
 pub mod profiles;
+pub mod proof;
 
 pub use conversions::{
     apply_tac, cmyk_to_rgb, engine_color_rgba, linear_rgb_to_xyz, linear_to_srgb, profile_gcr,
     profile_tac, rgb_to_cmyk, rgb_to_cmyk_icc, srgb_to_linear, xyz_to_linear_rgb,
 };
-pub use icc::{BundledProfile, IccEngine};
+pub use icc::{profile_fingerprint, BundledProfile, IccEngine};
 pub use profiles::{
     bundled_cmyk, bundled_srgb, parse_icc_profile_info, tetrahedral_interpolate,
     validate_icc_profile, PrintProfile, ProfileInfo, RenderingIntent,
+};
+pub use proof::{
+    ProofEngine, ProofParams, ProofSimulationSupport, ProofTransformKey,
+    DEFAULT_MAX_PROOF_TRANSFORMS,
 };
 
 /// Return the crate version string.
@@ -156,6 +161,217 @@ pub fn wasm_convert_srgb_buffer_to_cmyk(
         out.push(k);
     }
     Ok(out)
+}
+
+// ── Soft proofing (real ICC proofing chain) ─────────────────────────────
+//
+// These bindings expose `proof::ProofEngine` to the browser runtime, where the
+// renderer needs a display-only proof transform. The engine is stateful (it
+// holds compiled transforms) and is therefore an opaque handle rather than a
+// collection of free functions.
+//
+// Profile identity is a content fingerprint computed in Rust; the JS side never
+// constructs a cache key from a path or a display name.
+
+/// Raw bytes of the bundled sRGB display profile, for fingerprinting on the JS
+/// side and for handing the same bytes back to `WasmProofEngine`.
+#[wasm_bindgen]
+pub fn wasm_bundled_srgb_profile() -> Vec<u8> {
+    profiles::bundled_srgb().to_vec()
+}
+
+/// Raw bytes of the bundled ISO Coated v2 (FOGRA39) output profile.
+#[wasm_bindgen]
+pub fn wasm_bundled_cmyk_profile() -> Vec<u8> {
+    profiles::bundled_cmyk().to_vec()
+}
+
+/// Content fingerprint of ICC profile bytes (FNV-1a 64-bit, returned as a hex
+/// string). Callers use this as the profile identity in cache keys and UI.
+#[wasm_bindgen]
+pub fn wasm_profile_fingerprint(data: &[u8]) -> String {
+    format!("{:016x}", icc::profile_fingerprint(data))
+}
+
+fn proof_error(message: String) -> JsValue {
+    JsValue::from_str(&message)
+}
+
+fn parse_proof_intent(name: &str) -> Result<RenderingIntent, JsValue> {
+    profiles::RenderingIntent::parse_intent(name)
+        .ok_or_else(|| proof_error(format!("Unknown rendering intent: '{name}'")))
+}
+
+/// A display-only ICC proof engine.
+///
+/// Register the display profile and the output (proof) condition, then proof
+/// normalized sRGB buffers. Nothing here writes to a document.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub struct WasmProofEngine {
+    inner: proof::ProofEngine,
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl WasmProofEngine {
+    /// Create an engine with no profiles registered. Registering at least one
+    /// display and one output profile is a precondition for proofing.
+    #[cfg_attr(feature = "wasm", wasm_bindgen(constructor))]
+    pub fn new() -> WasmProofEngine {
+        WasmProofEngine {
+            inner: proof::ProofEngine::new(),
+        }
+    }
+
+    /// Register the RGB display profile. Rejects bytes that are not a valid,
+    /// parseable RGB ICC profile; a rejected profile leaves the previous one
+    /// (and its transforms) untouched.
+    pub fn set_display_profile(&mut self, name: &str, data: &[u8]) -> Result<(), JsValue> {
+        self.inner
+            .set_display_profile(name, data)
+            .map_err(proof_error)
+    }
+
+    /// Register the output (proof) condition profile. RGB, CMYK and Gray output
+    /// profiles are accepted.
+    pub fn set_output_profile(&mut self, name: &str, data: &[u8]) -> Result<(), JsValue> {
+        self.inner
+            .set_output_profile(name, data)
+            .map_err(proof_error)
+    }
+
+    /// Identity of the registered display profile, or an empty string when none
+    /// is registered. This is the fingerprint, not the name.
+    pub fn display_profile_fingerprint(&self) -> String {
+        self.inner
+            .display_profile_fingerprint()
+            .map(|f| format!("{f:016x}"))
+            .unwrap_or_default()
+    }
+
+    /// Identity of the registered output profile, or an empty string.
+    pub fn output_profile_fingerprint(&self) -> String {
+        self.inner
+            .output_profile_fingerprint()
+            .map(|f| format!("{f:016x}"))
+            .unwrap_or_default()
+    }
+
+    /// Proof an interleaved normalized sRGB buffer (`rgb.len() % 3 == 0`,
+    /// channels in `[0, 1]`). Returns the display-referred result.
+    #[allow(clippy::too_many_arguments)]
+    pub fn proof_buffer(
+        &mut self,
+        rgb: Vec<f32>,
+        rendering_intent: &str,
+        black_point_compensation: bool,
+        simulate_paper_color: bool,
+        gamut_check: bool,
+    ) -> Result<Vec<f32>, JsValue> {
+        let params = proof::ProofParams {
+            rendering_intent: parse_proof_intent(rendering_intent)?,
+            black_point_compensation,
+            simulate_paper_color,
+            gamut_check,
+            simulate_black_ink: false,
+        };
+        self.inner
+            .proof_rgb_buffer(&rgb, &params)
+            .map_err(proof_error)
+    }
+
+    /// Proof a single normalized sRGB colour.
+    pub fn proof_pixel(
+        &mut self,
+        r: f32,
+        g: f32,
+        b: f32,
+        rendering_intent: &str,
+        black_point_compensation: bool,
+        simulate_paper_color: bool,
+    ) -> Result<Vec<f32>, JsValue> {
+        let params = proof::ProofParams {
+            rendering_intent: parse_proof_intent(rendering_intent)?,
+            black_point_compensation,
+            simulate_paper_color,
+            gamut_check: false,
+            simulate_black_ink: false,
+        };
+        let out = self
+            .inner
+            .proof_rgb([r, g, b], &params)
+            .map_err(proof_error)?;
+        Ok(out.to_vec())
+    }
+
+    /// Whether the colour lies outside the output condition's gamut, from a real
+    /// gamut-check pipeline.
+    pub fn is_out_of_gamut(
+        &mut self,
+        r: f32,
+        g: f32,
+        b: f32,
+        rendering_intent: &str,
+        black_point_compensation: bool,
+        simulate_paper_color: bool,
+    ) -> Result<bool, JsValue> {
+        let params = proof::ProofParams {
+            rendering_intent: parse_proof_intent(rendering_intent)?,
+            black_point_compensation,
+            simulate_paper_color,
+            gamut_check: false,
+            simulate_black_ink: false,
+        };
+        self.inner
+            .is_out_of_gamut([r, g, b], &params)
+            .map_err(proof_error)
+    }
+
+    /// Which requested simulations actually reach the transform, as four
+    /// flags in the order `[renderingIntent, blackPointCompensation,
+    /// paperColor, blackInk]`. Lets the UI avoid presenting an inert control as
+    /// if it simulated ink.
+    ///
+    /// Returned as a plain flag vector rather than a JS object so the binding
+    /// needs no host-specific dependency and stays testable on every target.
+    pub fn simulation_support(
+        &self,
+        simulate_paper_color: bool,
+        simulate_black_ink: bool,
+    ) -> Vec<u8> {
+        let params = proof::ProofParams {
+            simulate_paper_color,
+            simulate_black_ink,
+            ..proof::ProofParams::default()
+        };
+        let support = self.inner.simulation_support(&params);
+        vec![
+            u8::from(support.rendering_intent),
+            u8::from(support.black_point_compensation),
+            u8::from(support.paper_color),
+            u8::from(support.black_ink),
+        ]
+    }
+
+    /// Total area coverage limit of the registered output profile, in percent.
+    pub fn total_area_coverage(&self) -> Result<f64, JsValue> {
+        self.inner.total_area_coverage().map_err(proof_error)
+    }
+
+    /// Number of compiled transforms retained (diagnostics).
+    pub fn cached_transform_count(&self) -> usize {
+        self.inner.cached_transform_count()
+    }
+
+    /// Total ICC profile bytes retained (diagnostics/budget accounting).
+    pub fn retained_profile_bytes(&self) -> usize {
+        self.inner.retained_profile_bytes()
+    }
+}
+
+impl Default for WasmProofEngine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Validate that a byte slice is a structurally valid ICC profile.

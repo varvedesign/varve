@@ -55,6 +55,29 @@ impl BundledProfile {
     }
 }
 
+/// Content fingerprint of ICC profile bytes.
+///
+/// This is the identity rule for profile-dependent caching: a profile is
+/// identified by what its bytes *are*, never by a path or display name. Two
+/// files with the same name but different bytes therefore cannot collide, and
+/// replacing the bytes at one path cannot reuse a stale transform.
+///
+/// FNV-1a 64-bit with a length salt. This is a cache-identity hash, not a
+/// security boundary — it only has to make accidental collisions between
+/// distinct ICC payloads negligible, and it is fast enough to run over a
+/// multi-megabyte press profile without a crypto dependency in the WASM build.
+pub fn profile_fingerprint(bytes: &[u8]) -> u64 {
+    const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+
+    let mut hash = FNV_OFFSET ^ (bytes.len() as u64);
+    for &byte in bytes {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    hash
+}
+
 /// A colour-management engine backed by real ICC profiles.
 ///
 /// Creates tintbox transforms between profiles and converts pixel buffers.

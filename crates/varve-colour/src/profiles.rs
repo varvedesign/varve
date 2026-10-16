@@ -58,7 +58,7 @@ impl PrintProfile {
 }
 
 /// Rendering intent for colour conversion.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RenderingIntent {
     /// Perceptual: preserve overall colour relationship (photos).
     Perceptual,

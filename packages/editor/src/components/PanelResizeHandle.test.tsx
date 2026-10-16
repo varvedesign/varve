@@ -1,12 +1,19 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { registerBuiltinPanels } from '../workspace/panelDefinitions';
+import { resetPanelRegistry, tryGetPanelDefinition } from '../workspace/panelRegistry';
 import {
   defaultPanelWidth,
-  PANEL_LIMITS,
   PanelResizeHandle,
+  panelLimits,
   resolveDisplayWidths,
 } from './PanelResizeHandle';
+
+beforeEach(() => {
+  resetPanelRegistry();
+  registerBuiltinPanels();
+});
 
 describe('resolveDisplayWidths', () => {
   it('returns the desired widths unchanged when the viewport has room', () => {
@@ -54,8 +61,8 @@ describe('PanelResizeHandle semantics', () => {
       'aria-valuenow',
       String(defaultPanelWidth('layers', window.innerWidth)),
     );
-    expect(splitter).toHaveAttribute('aria-valuemin', String(PANEL_LIMITS.layers.min));
-    expect(splitter).toHaveAttribute('aria-valuemax', String(PANEL_LIMITS.layers.max));
+    expect(splitter).toHaveAttribute('aria-valuemin', '180');
+    expect(splitter).toHaveAttribute('aria-valuemax', '576');
     expect(splitter).toHaveAttribute('aria-valuetext', expect.stringContaining('pixels'));
     expect(splitter).toHaveAttribute('aria-controls', 'editor-layers-panel');
   });
@@ -71,6 +78,26 @@ describe('PanelResizeHandle semantics', () => {
     fireEvent.keyDown(splitter, { key: 'ArrowLeft' });
     expect(onResize).toHaveBeenCalledWith(376);
     fireEvent.keyDown(splitter, { key: 'Home' });
-    expect(onResize).toHaveBeenCalledWith(PANEL_LIMITS.inspector.min);
+    expect(onResize).toHaveBeenCalledWith(240);
+  });
+
+  it('reads its usable range from the panel registry, not a second copy', () => {
+    // The desktop dock sizes these same panels from the registry's
+    // preferred/maximum sizes. If a definition changes, the compact tier must
+    // follow it instead of keeping its own hard-coded range.
+    const layers = panelLimits('layers');
+    expect(layers).toEqual({ min: 180, max: 576 });
+    const inspector = panelLimits('inspector');
+    expect(inspector).toEqual({ min: 240, max: 640 });
+    for (const side of ['layers', 'inspector'] as const) {
+      const definition = tryGetPanelDefinition(side);
+      expect(definition?.minimumSize.width).toBe(panelLimits(side).min);
+      // The maximum is the declared `maximumSize` when a definition sets one,
+      // and otherwise the derived policy: twice the preferred width. Either
+      // way the compact tier must report the same number the dock enforces.
+      const declaredMaximum =
+        definition?.maximumSize?.width ?? (definition?.preferredSize?.width ?? 0) * 2;
+      expect(declaredMaximum).toBe(panelLimits(side).max);
+    }
   });
 });

@@ -22,6 +22,14 @@ import {
   type WritingMode,
 } from '@varve/shared/verticalText';
 import { type BreakUnit, graphemeBreakUnits, segmentBreakUnits } from './text/lineBreak';
+import {
+  buildLineBreakSequence,
+  codePointIndexAt,
+  isDictionarySegmentedBoundary,
+  isLineEdgeProhibitedBreak,
+  isProhibitedBreak,
+  type LineBreakSequence,
+} from './text/lineBreakProhibition';
 import type { ItemizedParagraph } from './text/paragraphs';
 import { itemizeParagraph, splitParagraphs } from './text/paragraphs';
 import { lineVisualRuns } from './text/visualOrder';
@@ -209,6 +217,14 @@ interface LayoutUnit {
   unit: BreakUnit;
   records: readonly GlyphRecord[];
   width: number;
+  /**
+   * This unit is one grapheme of a word too long for the line, produced by the
+   * emergency split in `buildLayoutUnits`. UAX #14 joins alphabetics (LB28), so
+   * honoring prohibition inside such a run would prevent the word from ever
+   * wrapping; the emergency split is exactly UAX #14's documented "no suitable
+   * break opportunity" case, so prohibition yields there.
+   */
+  emergencySplit?: boolean;
 }
 
 interface RawLine {
@@ -501,20 +517,159 @@ function buildLayoutUnits(
           paragraph.text,
           sourceMap,
         );
-        let pieceCursor = attachCursorOf(attach, pieces[0]!.start);
+        // The pieces stay breakable so an over-long word can still wrap, but a
+        // pair the prohibition rules must not separate is kept together inside
+        // the piece list: splitting `1234。` and then letting `。` start a line
+        // would reintroduce the very violation this pass exists to prevent.
+        const grouped = mergeEmergencyPieces(pieces, paragraph.text);
+        let pieceCursor = attachCursorOf(attach, grouped[0]!.start);
         units.splice(
           i,
           1,
-          ...pieces.map((piece) => {
+          ...grouped.map((piece) => {
             pieceCursor = nextAttachCursor(attach, pieceCursor, piece.start);
-            return makeLayoutUnit(piece, attach, pieceCursor);
+            return makeLayoutUnit(piece, attach, pieceCursor, true);
           }),
         );
-        i += pieces.length - 1;
+        i += grouped.length - 1;
       }
     }
   }
-  return units;
+  return mergeUnbreakableUnits(units, paragraph.text);
+}
+
+/**
+ * Fold grapheme pieces of an over-long word where UAX #14 prohibits the break
+ * between them.
+ *
+ * The pieces exist to let a word wrap, so they stay individually breakable —
+ * but a prohibited pair inside the word is a real violation, not a wrap
+ * trade-off: without this, `1234。` at a narrow measure is split into `1234`
+ * and `。`, and the full stop begins a line.
+ *
+ * Only the line-EDGE rules regroup here. The word-internal rules have to
+ * yield, because breaking inside this word is the emergency the split exists
+ * for: regrouping them rebuilds the original unit and the word stops wrapping
+ * (measured: `epsilon` then occupies one 70px line at a 60px measure). See
+ * `isLineEdgeProhibitedBreak`.
+ *
+ * The South East Asian tailoring applies here exactly as it does in
+ * `mergeUnbreakableUnits`: LB1 resolves `SA` to `AL` and LB28 then joins every
+ * grapheme, so the segmentation boundary must survive regardless (measured:
+ * Thai lines of 70px inside a 40px measure).
+ */
+function mergeEmergencyPieces(pieces: readonly BreakUnit[], text: string): BreakUnit[] {
+  if (pieces.length < 2) return [...pieces];
+  const sequence = buildLineBreakSequence(text);
+  const grouped: BreakUnit[] = [];
+  for (const piece of pieces) {
+    const previous = grouped[grouped.length - 1];
+    if (
+      previous &&
+      !isDictionarySegmentedBoundary(sequence, piece.start) &&
+      isLineEdgeProhibitedAt(sequence, piece.start)
+    ) {
+      grouped[grouped.length - 1] = {
+        start: previous.start,
+        end: piece.end,
+        text: text.slice(previous.start, piece.end),
+        isWhitespace: false,
+        isWord: true,
+        isBreakable: false,
+      };
+      continue;
+    }
+    grouped.push(piece);
+  }
+  return grouped;
+}
+
+/**
+ * Fold adjacent units that UAX #14 prohibits a line break between into single
+ * units, so the greedy fill can never place a break at a reserved position.
+ *
+ * Doing this here rather than testing prohibition inside `wrapLines` keeps the
+ * wrap loop unchanged and gives JLREQ's push-out (追い出し) behaviour for free:
+ * `。` travels with the character before it, `（` with the character after it,
+ * and no line ever overhangs its measure. It also covers the rules that exist
+ * to keep a *unit* intact rather than to protect a line edge — numbers
+ * (LB25), `person(s)` (LB30), Hangul syllable blocks (LB26/LB27), Brahmic
+ * orthographic syllables (LB28a) and emoji modifier sequences (LB30b) — which
+ * would otherwise be broken apart by the fill loop.
+ *
+ * Boundaries next to a whitespace unit are left alone. LB7 does prohibit a
+ * break before a space, but the fill loop already refuses to break there, and
+ * folding the space into the preceding word would start charging trailing
+ * spaces against the line measure — the behaviour this pipeline deliberately
+ * lets overflow and trims at paint time.
+ *
+ * Emergency grapheme splits are exempt: they exist precisely because a word
+ * had no break opportunity inside it and the line would otherwise overflow, so
+ * re-merging them would restore the overflow they were created to remove.
+ */
+function mergeUnbreakableUnits(units: readonly LayoutUnit[], text: string): LayoutUnit[] {
+  if (units.length < 2) return [...units];
+  // Built on first use: a paragraph whose unit boundaries all sit next to
+  // whitespace (ordinary space-separated text) can never merge, so the common
+  // case pays nothing for the class table.
+  let sequence: LineBreakSequence | null = null;
+  const merged: LayoutUnit[] = [];
+  for (const unit of units) {
+    const previous = merged[merged.length - 1];
+    if (
+      previous &&
+      !previous.unit.isWhitespace &&
+      !unit.unit.isWhitespace &&
+      !(previous.emergencySplit && unit.emergencySplit)
+    ) {
+      sequence ??= buildLineBreakSequence(text);
+      if (
+        !isDictionarySegmentedBoundary(sequence, unit.unit.start) &&
+        isBreakProhibitedAt(sequence, unit.unit.start)
+      ) {
+        merged[merged.length - 1] = {
+          unit: {
+            start: previous.unit.start,
+            end: unit.unit.end,
+            text: text.slice(previous.unit.start, unit.unit.end),
+            isWhitespace: false,
+            isWord: previous.unit.isWord || unit.unit.isWord,
+            isBreakable: previous.unit.isBreakable,
+          },
+          records: [...previous.records, ...unit.records],
+          width: previous.width + unit.width,
+        };
+        continue;
+      }
+    }
+    merged.push(unit);
+  }
+  return merged;
+}
+
+/**
+ * Whether UAX #14 prohibits a line break immediately before the unit starting
+ * at `utf16Offset`. An offset that is not a code point boundary, or a
+ * paragraph whose classes are empty, leaves the position breakable so the
+ * engine never loses the ability to wrap.
+ */
+function isBreakProhibitedAt(sequence: LineBreakSequence, utf16Offset: number): boolean {
+  if (sequence.classes.length === 0) return false;
+  const codePointIndex = codePointIndexAt(sequence, utf16Offset);
+  if (codePointIndex === null) return false;
+  return isProhibitedBreak(sequence, codePointIndex);
+}
+
+/**
+ * Whether the position puts a line-edge-protected character at the start or end
+ * of a line. Used where a word-internal prohibition has to yield to the
+ * emergency split; see `isLineEdgeProhibitedBreak`.
+ */
+function isLineEdgeProhibitedAt(sequence: LineBreakSequence, utf16Offset: number): boolean {
+  if (sequence.classes.length === 0) return false;
+  const codePointIndex = codePointIndexAt(sequence, utf16Offset);
+  if (codePointIndex === null) return false;
+  return isLineEdgeProhibitedBreak(sequence, codePointIndex);
 }
 
 function attachCursorOf(
@@ -559,6 +714,7 @@ function makeLayoutUnit(
   unit: BreakUnit,
   attach: Array<{ start: number; records: readonly GlyphRecord[] }>,
   attachCursor: number,
+  emergencySplit = false,
 ): LayoutUnit {
   const records: GlyphRecord[] = [];
   for (let i = attachCursor; i < attach.length; i++) {
@@ -567,7 +723,7 @@ function makeLayoutUnit(
     records.push(...entry.records);
   }
   const width = records.reduce((sum, record) => sum + Math.max(0, record.glyph.xAdvance), 0);
-  return { unit, records, width };
+  return emergencySplit ? { unit, records, width, emergencySplit } : { unit, records, width };
 }
 
 /**
@@ -577,6 +733,22 @@ function makeLayoutUnit(
  * and are trimmed at paint time). A word that does not fit starts a new line.
  * The paragraph's logical order is preserved: visual reordering happens per
  * line afterwards.
+ *
+ * Positions the UAX #14 prohibition rules reserve are not break opportunities
+ * at all: `buildLayoutUnits` has already merged those neighbours into one
+ * unit, so a Japanese line can no longer begin with `。` `、` `」` or a small
+ * kana, nor end with `「` or `（`. That realises JLREQ's line-start
+ * prohibition (行頭禁則) and line-end prohibition (行末禁則) as push-out
+ * (追い出し): the offending character migrates to the next line together with
+ * the character it belongs to, so a prohibition never splits a pair the rules
+ * keep together. Hanging punctuation (ぶら下げ) is deliberately not
+ * implemented; see `docs/architecture/text-pipeline.md`.
+ *
+ * Prohibition takes precedence over the measure: a unit the rules make
+ * indivisible can still be wider than the line (a merged `$7,890` in a 50px
+ * box, or a single wide glyph), and such a unit is placed alone and overhangs.
+ * That is inherent — no layout both fits and preserves the token — and is
+ * pinned by a test rather than left implicit.
  *
  * `lineWidths` narrows specific lines (contour/balloon wrapping). The overall
  * `maxWidth` remains the hard cap; lines past the end of the profile reuse its
@@ -947,9 +1119,35 @@ function layoutVerticalParagraphLines(
     current = [];
     currentHeight = 0;
   };
+  // Vertical writing obeys the same UAX #14 prohibition as horizontal. The
+  // columns are filled cluster by cluster rather than unit by unit, so the
+  // prohibition is applied by push-out (追い出し) here: when the break would
+  // land between a cluster and a predecessor it must not be separated from,
+  // that trailing group moves to the next column with the incoming cluster
+  // instead of the incoming cluster leaving it stranded.
+  const sequence = buildLineBreakSequence(paragraph.text);
   for (const cluster of cells) {
     if (maxInline > 0 && current.length > 0 && currentHeight + cluster.advance > maxInline) {
+      let moved: VerticalClusterRecord[] = [];
+      let movedHeight = 0;
+      if (isBreakProhibitedAt(sequence, cluster.start)) {
+        let cut = current.length - 1;
+        while (cut > 0 && isBreakProhibitedAt(sequence, current[cut]!.start)) cut--;
+        if (cut > 0) {
+          moved = current.slice(cut);
+          movedHeight = moved.reduce((sum, entry) => sum + entry.advance, 0);
+          current = current.slice(0, cut);
+          currentHeight -= movedHeight;
+        }
+      }
+      // `cut === 0` leaves the whole column unbreakable: fall through to a
+      // plain break rather than growing the column without limit. That is the
+      // documented emergency mode, and it cannot loop because `moved` is empty.
       flush();
+      if (moved.length > 0) {
+        current = moved;
+        currentHeight = movedHeight;
+      }
     }
     current.push(cluster);
     currentHeight += cluster.advance;

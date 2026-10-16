@@ -501,8 +501,42 @@ export interface SceneNode {
     width: number;
     height: number;
     pixelMode: boolean;
-    tiles: Record<string, { pixels: number[]; version: number }>;
+    tiles: Record<string, RasterTileIR>;
   };
+}
+
+/**
+ * Tile pixels as they cross into the render IR.
+ *
+ * A `Uint8ClampedArray` is the scene model's storage and is handed over **by
+ * reference**, never copied: published tile buffers are immutable (a writer
+ * clones before mutating — see `RasterTileDraft`), so the IR may read the
+ * document's buffer directly. Consumers must therefore treat `pixels` as
+ * read-only and must not transfer its `ArrayBuffer`, which would detach the
+ * document's own storage.
+ *
+ * `number[]` remains accepted because the IR is also built from decoded or
+ * received data outside the scene model; readers must go through
+ * `ArrayLike<number>` rather than assuming either form.
+ */
+export type RasterTilePixels = number[] | Uint8ClampedArray | Uint8Array;
+
+/**
+ * One raster tile as it crosses into the render IR.
+ *
+ * `version` is the document's per-node mutation counter and is *not* a content
+ * identity (two histories can reach the same number with different pixels).
+ * `contentId` is a runtime-only token for the exact pixel buffer; consumers
+ * that skip work for an unchanged tile must compare it when present.
+ *
+ * A tile pixel payload is 128x128x4 = 65,536 bytes. Anything that measures,
+ * hashes or serialises a RenderItem must bound tile payloads explicitly
+ * instead of walking them (see `SubtreeIrCache.estimateItemBytes`).
+ */
+export interface RasterTileIR {
+  pixels: RasterTilePixels;
+  version: number;
+  contentId?: number;
 }
 
 /** P2: Fill type for the engine (mirrors @varve/scene Fill). */
@@ -763,7 +797,7 @@ export type Primitive =
       width: number;
       height: number;
       pixelMode: boolean;
-      tiles: Record<string, { pixels: number[]; version: number }>;
+      tiles: Record<string, RasterTileIR>;
       /**
        * Stable scene-node id, used to key the persistent backing surface that
        * lets replay upload only changed tiles. Optional: without it replay

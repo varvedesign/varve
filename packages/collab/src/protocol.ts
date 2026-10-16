@@ -36,6 +36,19 @@ export const PROTOCOL_LIMITS = {
   maxSelectionIds: 200,
   /** Maximum serialized capture payload bytes per operation frame. */
   maxOperationBytes: 2_000_000,
+  /**
+   * Operations above `maxOperationBytes` are uploaded in chunks instead of a
+   * single frame. This is the ordinary path for an embedded image asset: the
+   * document's own inline-asset bound is 10 MB
+   * (`@varve/scene` documentCodec MAX_INLINE_ASSET_BYTES), so inserting a
+   * photo into a shared document produces a capture well above the inline
+   * ceiling. Chunking changes framing, never semantics: the host reassembles
+   * the frame and validates it exactly like an inline one.
+   */
+  maxChunkedOperationBytes: 64_000_000,
+  /** UTF-8 bytes per `operation-chunk` payload (also bounds frame escaping). */
+  maxUploadChunkBytes: 262_144,
+  maxUploadChunks: 4_096,
   /** Maximum serialized document bytes for the bootstrap snapshot. */
   maxSnapshotBytes: 64_000_000,
   /** Maximum participants per room (host-configurable, never exceeded). */
@@ -69,6 +82,16 @@ export interface CursorPresence {
 export interface SelectionPresence {
   pageId: string | null;
   nodeIds: string[];
+}
+
+/** Camera viewport broadcast for spotlight/follow (all world coordinates). */
+export interface ViewportPresence {
+  pageId: string | null;
+  centerX: number;
+  centerY: number;
+  zoom: number;
+  /** True while this participant is spotlighting for followers. */
+  spotlighting: boolean;
 }
 
 /** Ephemeral cursor-chat message. Never persisted, never a document mutation. */
@@ -109,8 +132,34 @@ export type ClientMessage =
       displayName: string;
     }
   | { type: 'operation'; op: RoomOperation }
+  | {
+      /** Opens a chunked upload of an oversized operation frame. */
+      type: 'operation-begin';
+      uploadId: string;
+      /** UTF-8 byte length of the reassembled frame. */
+      totalBytes: number;
+      chunkCount: number;
+      /** SHA-256 hex of the reassembled frame's UTF-8 bytes. */
+      digest: string;
+    }
+  | {
+      type: 'operation-chunk';
+      uploadId: string;
+      index: number;
+      /** Characters of the serialized frame, in order. */
+      data: string;
+    }
+  | { type: 'operation-end'; uploadId: string }
   | { type: 'cursor'; pageId: string | null; x: number; y: number }
   | { type: 'selection'; pageId: string | null; nodeIds: string[] }
+  | {
+      type: 'viewport';
+      pageId: string | null;
+      centerX: number;
+      centerY: number;
+      zoom: number;
+      spotlighting: boolean;
+    }
   | { type: 'chat'; message: ChatMessage }
   | { type: 'sync-request'; fromSeq: number }
   | { type: 'leave' }
@@ -143,6 +192,7 @@ export type ServerMessage =
   | { type: 'participant-left'; actorId: string; reason: string }
   | { type: 'presence-cursor'; actorId: string; cursor: CursorPresence }
   | { type: 'presence-selection'; actorId: string; selection: SelectionPresence }
+  | { type: 'presence-viewport'; actorId: string; viewport: ViewportPresence }
   | { type: 'chat'; message: ChatMessage }
   | {
       type: 'sync';
@@ -153,6 +203,15 @@ export type ServerMessage =
   | { type: 'snapshot'; snapshot: RoomSnapshot }
   | { type: 'role-changed'; actorId: string; role: ParticipantRole }
   | { type: 'room-ended'; reason: string }
+  | {
+      /**
+       * A chunked upload was refused. The operation was never journaled and
+       * stays pending local work on the sender.
+       */
+      type: 'operation-upload-rejected';
+      uploadId: string;
+      reason: string;
+    }
   | { type: 'error'; code: string; message: string; fatal: boolean }
   | { type: 'pong' };
 
@@ -231,6 +290,39 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
         : null;
     case 'operation':
       return isRoomOperationLike(value.op) ? { type: 'operation', op: value.op } : null;
+    case 'operation-begin':
+      return isBoundedString(value.uploadId, ID_MAX) &&
+        value.uploadId.length > 0 &&
+        isFiniteNumber(value.totalBytes) &&
+        value.totalBytes > 0 &&
+        value.totalBytes <= PROTOCOL_LIMITS.maxChunkedOperationBytes &&
+        isIntegerWithin(value.chunkCount, 1, PROTOCOL_LIMITS.maxUploadChunks) &&
+        isSha256Hex(value.digest)
+        ? {
+            type: 'operation-begin',
+            uploadId: value.uploadId,
+            totalBytes: value.totalBytes,
+            chunkCount: value.chunkCount,
+            digest: value.digest,
+          }
+        : null;
+    case 'operation-chunk':
+      return isBoundedString(value.uploadId, ID_MAX) &&
+        value.uploadId.length > 0 &&
+        isIntegerWithin(value.index, 0, PROTOCOL_LIMITS.maxUploadChunks - 1) &&
+        typeof value.data === 'string' &&
+        utf8ByteLength(value.data) <= PROTOCOL_LIMITS.maxUploadChunkBytes
+        ? {
+            type: 'operation-chunk',
+            uploadId: value.uploadId,
+            index: value.index,
+            data: value.data,
+          }
+        : null;
+    case 'operation-end':
+      return isBoundedString(value.uploadId, ID_MAX) && value.uploadId.length > 0
+        ? { type: 'operation-end', uploadId: value.uploadId }
+        : null;
     case 'cursor':
       return (value.pageId === null || isBoundedString(value.pageId, ID_MAX)) &&
         isFiniteNumber(value.x) &&
@@ -388,6 +480,10 @@ export function parseServerMessage(value: unknown): ServerMessage | null {
       return isBoundedString(value.reason, 200)
         ? { type: 'room-ended', reason: value.reason }
         : null;
+    case 'operation-upload-rejected':
+      return isBoundedString(value.uploadId, ID_MAX) && isBoundedString(value.reason, 300)
+        ? { type: 'operation-upload-rejected', uploadId: value.uploadId, reason: value.reason }
+        : null;
     case 'error':
       return isBoundedString(value.code, 60) &&
         isBoundedString(value.message, 300) &&
@@ -399,6 +495,30 @@ export function parseServerMessage(value: unknown): ServerMessage | null {
     default:
       return null;
   }
+}
+
+/** UTF-8 byte length without allocating a buffer. */
+export function utf8ByteLength(text: string): number {
+  let bytes = 0;
+  for (let index = 0; index < text.length; index++) {
+    const code = text.charCodeAt(index);
+    if (code < 0x80) bytes += 1;
+    else if (code < 0x800) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff && index + 1 < text.length) {
+      // A well-formed surrogate pair encodes to four bytes total.
+      bytes += 4;
+      index += 1;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
+export function isSha256Hex(value: unknown): value is string {
+  return typeof value === 'string' && value.length === 64 && /^[0-9a-f]+$/i.test(value);
+}
+
+function isIntegerWithin(value: unknown, min: number, max: number): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
 }
 
 function isParticipantInfoLike(value: unknown): value is ParticipantInfo {
