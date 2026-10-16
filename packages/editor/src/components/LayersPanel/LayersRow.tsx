@@ -631,6 +631,9 @@ export const LayersRow = memo(function LayersRow({
               className="layers-row__name-input"
               value={editValue}
               placeholder={ghostName ?? ''}
+              // Resolve the editing direction from the authored name so an
+              // RTL layer name edits in its own order, not the UI's.
+              dir="auto"
               onPointerDown={stopDragActivation}
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={commitRename}
@@ -639,7 +642,11 @@ export const LayersRow = memo(function LayersRow({
             />
           ) : (
             <Tooltip label={displayName} truncationOnly>
+              {/* dir="auto" isolates mixed-direction names: an Arabic or
+              Hebrew name keeps its own word order and punctuation placement
+              against the LTR chrome instead of mirroring around it. */}
               <span
+                dir="auto"
                 className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}${searchMatch ? ' layers-row__name--match' : ''}${!hasRealName ? ' layers-row__name--ghost' : ''}`}
               >
                 {displayName}

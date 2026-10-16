@@ -761,3 +761,24 @@ describe('LayersRow — appearance labels', () => {
     expect(rowLabel).toContain('1 object filter');
   });
 });
+
+describe('LayersRow bidi isolation', () => {
+  it('renders RTL layer names with dir=auto so word order is not mirrored', () => {
+    const node = makeNode('n1', 'THIS IS A TEXT');
+    const { container } = renderRow({ node });
+    const name = container.querySelector<HTMLElement>('.layers-row__name');
+    expect(name).toBeTruthy();
+    // dir="auto" makes the element resolve its base direction from its own
+    // content (first-strong), so Latin-in-RTL-chrome and RTL names both keep
+    // their authored order instead of mirroring against the panel's LTR base.
+    expect(name!.getAttribute('dir')).toBe('auto');
+  });
+
+  it('keeps dir=auto on mixed Arabic-Latin layer names', () => {
+    const node = makeNode('n1', '\u0646\u0635 \u0639\u0631\u0628\u064a Test');
+    const { container } = renderRow({ node });
+    const name = container.querySelector<HTMLElement>('.layers-row__name');
+    expect(name!.getAttribute('dir')).toBe('auto');
+    expect(name!.textContent).toContain('Test');
+  });
+});
