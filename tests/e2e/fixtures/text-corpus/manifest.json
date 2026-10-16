@@ -1,0 +1,90 @@
+{
+  "manifestVersion": 1,
+  "description": "Varve-native multilingual text corpus. Each entry is created through the editor context (application layer), laid out by the canonical snapshot pipeline, rasterized by the live compositor, and round-tripped through serializeDocument/loadDocument. Results are written to reports/text-corpus/<run-id>/results.json (the run id is VARVE_E2E_OUTPUT_DIR, so concurrent runs stay isolated) with the manifest SHA-256 digest.",
+  "entries": [
+    {
+      "id": "latin-basic",
+      "category": "latin",
+      "text": "Pack my box with five dozen liquor jugs.",
+      "options": {}
+    },
+    {
+      "id": "latin-combining",
+      "category": "latin-ext",
+      "text": "José saw a coördinate on the façade — naïve, as usual.",
+      "options": {}
+    },
+    {
+      "id": "greek-cyrillic",
+      "category": "greek-cyrillic",
+      "text": "Ω Σύμβολο · Жук у реки — Φ and Ψ over Б and Д.",
+      "options": {}
+    },
+    {
+      "id": "arabic-mixed",
+      "category": "bidi",
+      "text": "بيع المنتجات 2026 إلى https://example.com/path?a=1 — sold (as-is) daily.",
+      "options": {}
+    },
+    {
+      "id": "hebrew-isolates",
+      "category": "bidi",
+      "text": "תיקון \u2066CODE-42\u2069 זמין עכשיו.",
+      "options": {}
+    },
+    {
+      "id": "devanagari-conjuncts",
+      "category": "indic",
+      "text": "नमस्ते दुनिया — संयुक्त अक्षर परीक्षा।",
+      "options": {}
+    },
+    {
+      "id": "thai-breaking",
+      "category": "thai",
+      "text": "ภาษาไทยสวยงาม การตัดคำอัตโนมัติทำงานได้",
+      "options": {}
+    },
+    {
+      "id": "japanese-horizontal",
+      "category": "cjk",
+      "text": "東京タワーは高さ333メートルで、1958年に完成しました。",
+      "options": {}
+    },
+    {
+      "id": "japanese-vertical",
+      "category": "cjk-vertical",
+      "text": "縦書き(A) -50度! 「東京」12、本日",
+      "options": { "writingMode": "vertical-rl", "textOrientation": "mixed" }
+    },
+    {
+      "id": "japanese-vertical-tcy",
+      "category": "cjk-vertical",
+      "text": "平成12年、東京",
+      "options": { "writingMode": "vertical-rl", "textOrientation": "mixed", "combineDigits": true }
+    },
+    {
+      "id": "cjk-mixed-regional",
+      "category": "cjk",
+      "text": "简体中文与日本語の漢字 — 한국어 Hangul 함께.",
+      "options": {}
+    },
+    {
+      "id": "emoji-sequences",
+      "category": "emoji",
+      "text": "Ship it 🚀 — family 👨‍👩‍👧, flag 🇯🇵, keycap 1\uFE0F\u20E3.",
+      "options": {}
+    },
+    {
+      "id": "bidi-mirroring",
+      "category": "bidi",
+      "text": "The range (a — b) في النص العربي [x, y] مقبول.",
+      "options": {}
+    },
+    {
+      "id": "nbsp-zwsp",
+      "category": "whitespace",
+      "text": "Non\u00A0breaking\u00A0space stays; zero​width​space breaks.",
+      "options": {}
+    }
+  ]
+}
