@@ -1,6 +1,12 @@
 import { applyAffine } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
-import { MAX_OBJECT_REPEAT_INSTANCES, objectRepeatTransforms } from './objectRepeat';
+import { addNode, createDocument, makeGroupNode, makeShapeNode } from './document';
+import { DocumentCodec } from './documentCodec';
+import {
+  MAX_OBJECT_REPEAT_INSTANCES,
+  objectRepeatTransforms,
+  objectRepeatWorldTransforms,
+} from './objectRepeat';
 
 describe('objectRepeatTransforms', () => {
   it('keeps the source first and lays out a bounded local grid in paint order', () => {
@@ -88,5 +94,37 @@ describe('objectRepeatTransforms', () => {
         sweep: 360,
       }),
     ).toHaveLength(MAX_OBJECT_REPEAT_INSTANCES);
+  });
+
+  it('round-trips a live repeat recipe while preserving the editable source group', () => {
+    let document = createDocument('Live repeat', true);
+    const source = makeShapeNode('source', { kind: 'rect', x: 10, y: 20, w: 30, h: 40 });
+    const group = makeGroupNode('repeat-group', {
+      children: ['source'],
+      objectRepeat: { type: 'grid', columns: 3, rows: 1, spacingX: 80, spacingY: 0 },
+    });
+    document = addNode(addNode(document, source), group);
+
+    const result = DocumentCodec.decode(DocumentCodec.encode(document));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.nodes[group.id]).toMatchObject({
+      kind: 'group',
+      children: ['source'],
+      objectRepeat: { type: 'grid', columns: 3, rows: 1, spacingX: 80, spacingY: 0 },
+    });
+    expect(result.document.nodes.source).toMatchObject({ kind: 'shape', id: 'source' });
+  });
+
+  it('lifts repeat transforms into world space around the group transform', () => {
+    const groupWorld: [number, number, number, number, number, number] = [0, 1, -1, 0, 100, 50];
+    const [source, copy] = objectRepeatWorldTransforms(
+      { type: 'grid', columns: 2, rows: 1, spacingX: 40, spacingY: 0 },
+      groupWorld,
+    );
+
+    expect(applyAffine(source!, [5, 7])).toEqual([5, 7]);
+    expect(applyAffine(copy!, [5, 7])).toEqual([5, 47]);
   });
 });
