@@ -84,7 +84,19 @@ const MAX_CAPTURED_CHANGES = 20_000;
 const MAX_ENTITY_ID_LENGTH = 200;
 const MAX_ENTITY_TYPE_LENGTH = 40;
 const MAX_SUMMARY_LENGTH = 512;
-const MAX_STRING_VALUE_LENGTH = 5_000_000;
+/**
+ * Longest string a captured change may carry.
+ *
+ * Sized from the document model, not from a guess: `documentCodec.ts` accepts
+ * an embedded asset of up to 10 MB decoded, which is ~13.4 M base64 characters
+ * plus the data-URL prefix. A tighter capture bound makes a value the document
+ * itself can hold untransportable — measured 2026-10-16, an inserted 3.9 MB
+ * image produced a capture the receiving client refused with "string value
+ * exceeds size limit in after", so the image never replicated and the sender
+ * was never told. The wire still bounds the whole operation (2 MB inline,
+ * 64 MB reassembled), which is where memory pressure is actually controlled.
+ */
+const MAX_STRING_VALUE_LENGTH = 14_000_000;
 const HASH_RE = /^[0-9a-f]{64}$/;
 const PATH_SEGMENT_RE = /^[A-Za-z0-9_-]+$/;
 

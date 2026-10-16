@@ -17,16 +17,30 @@
 
 .resources-panel__tabs {
   display: flex;
-  flex: 1;
+  /* The tab list yields before the row's controls do: `flex: 1` with
+     `flex-shrink: 0` (as this was) cannot compress, so at 320px the four tabs
+     plus the detach and close controls overflowed the 300px drawer and the
+     rightmost control — the only way out of the drawer — was clipped. With a
+     shrinkable scroll container the labels keep their full text instead of
+     ellipsing, and the controls stay pinned. */
+  flex: 1 1 auto;
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-2) 0;
-  flex-shrink: 0;
 }
 
 .resources-panel__tabs-row > .panel-detach-btn,
 .resources-panel__tabs-row > .varve-tooltip-trigger {
   margin-inline: var(--space-1) var(--space-2);
+  /* Close and detach are never the thing that gets squeezed out. */
+  flex: 0 0 auto;
+}
+
+.resources-panel__close-btn {
+  color: var(--color-text-secondary);
 }
 
 .resources-panel__tab {

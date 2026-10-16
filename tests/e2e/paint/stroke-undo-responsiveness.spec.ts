@@ -22,14 +22,20 @@
  *     at the same camera (`__varvePerf.forceFullRedraw`, the oracle the repo
  *     already requires for any pixel-reuse change). Equal hashes mean the
  *     cached composition is equivalent to correct fresh rendering.
- *  3. Steady and camera-only frames perform no scene->engine node conversion
+ *  3. A same-state authoritative redraw — no document change at all — performs
+ *     no scene->engine node conversion while the memo serves the frame
  *     (`engineNodeComputes === 0`), which is the load-immune signal that the
- *     raster node is not being reconverted per frame.
+ *     raster node is not being reconverted per redraw. Deliberately *not*
+ *     claimed for camera-only frames: a zoom can reveal nodes that were culled
+ *     and therefore never memoized, so `0` is not a valid expectation there.
  *
  * Timing is recorded and reported, not asserted against a budget: this repo's
  * dev machine carries a heavy concurrent load (AGENTS.md), so a wall-clock
  * ceiling here would be a flaky test rather than a measurement. The measured
- * latency is attached to the test report instead.
+ * latency and the renderer that actually painted are attached to the test
+ * report instead — the first run of this spec executed the main-thread fallback
+ * because the render worker retired with `worker-startup-timeout`, and the
+ * recorded path is what stops that run being cited as worker coverage.
  *
  * Concurrency hygiene: serial, single worker (shared dev server).
  */
@@ -55,6 +61,7 @@ interface FrameDiagnostics {
   redrawReason?: string;
   actualDrawingPath?: string;
   renderPath?: string;
+  frameSource?: string;
   camera?: { zoom: number; panX: number; panY: number; rotation: number };
 }
 
@@ -70,7 +77,9 @@ interface PerfHandle {
   getFrames: (n: number) => FrameDiagnostics[];
   getLast: () => FrameDiagnostics | null;
   reset: () => void;
-  forceFullRedraw: () => Promise<{ authoritative: boolean }>;
+  forceFullRedraw: () => Promise<{ authoritative: boolean; frameIndex: number }>;
+  /** Adaptive render scale: 1 means full fidelity, < 1 is an interaction preview. */
+  profile?: { renderScale?: () => number; tier?: () => string };
 }
 
 type PerfWindow = { __varvePerf?: PerfHandle; __strokeT0?: number };
@@ -117,6 +126,15 @@ async function lastFrame(page: import('@playwright/test').Page): Promise<FrameDi
  *  2. The backing store is at full resolution
  *     (`canvas.width === clientWidth * devicePixelRatio`), i.e. condition 1's
  *     refinement has actually happened.
+ *
+ * Condition 2 is the signal for the interaction-preview mechanism: the profile
+ * shrinks the *backing store* to 0.75x/0.5x while a gesture is open and restores
+ * it afterwards, which is exactly what `adaptive-preview-scale.spec.ts` asserts
+ * ("Settled frames return to full resolution"). Do not substitute
+ * `profile.renderScale()` for it: that value is a static per-tier constant
+ * (`TIER_RENDER_SCALE`: quality 1, balanced 1, performance 0.75, constrained
+ * 0.5), so on a constrained device it is *never* 1 and waiting for that would
+ * hang forever.
  *
  * Comparing an unrefined preview against an authoritative full redraw would
  * report a difference that is not a defect, and the reverse mistake — accepting
@@ -172,6 +190,27 @@ async function canvasGeometry(page: import('@playwright/test').Page) {
 }
 
 /**
+ * Activate the paint tool and confirm it actually is the active tool.
+ *
+ * The keyboard shortcut alone is a race: the app has to process the key before
+ * the first pointer event, and under load it may not have. A missing wait here
+ * is not hypothetical — a run of this spec failed at `a paint stroke must
+ * change visible pixels` because the drag was still handled by the select tool,
+ * so nothing was painted. `[data-tool="paint"][aria-pressed="true"]` is the
+ * deterministic signal other specs in this repo already use, rather than a
+ * fixed sleep.
+ */
+async function activatePaintTool(page: import('@playwright/test').Page): Promise<void> {
+  const paint = page.locator('[data-testid="toolbar"] [data-tool="paint"]');
+  await page.keyboard.press('b');
+  await expect(paint, 'the paint tool must be the active tool before drawing').toHaveAttribute(
+    'aria-pressed',
+    'true',
+    { timeout: 10_000 },
+  );
+}
+
+/**
  * Paint one stroke and return once the frame ring is quiet.
  */
 async function paintStroke(
@@ -220,20 +259,90 @@ async function undoAndMeasure(
 }
 
 /**
+ * Distinct render paths actually executed in the recent frame ring.
+ *
+ * Requested settings are not evidence: this run's console reported
+ * `Render worker stopped permanently; using main-thread Canvas 2D
+ * (worker-startup-timeout)`, so the pixel-equivalence oracle below validated the
+ * main-thread fallback rather than the worker. Recording the observed paths
+ * means the next run states which path it covered instead of implying the one
+ * that was configured.
+ */
+async function observedRenderPaths(
+  page: import('@playwright/test').Page,
+): Promise<{ actual: string[]; coarse: string[] }> {
+  return page.evaluate(() => {
+    const frames = (window as unknown as PerfWindow).__varvePerf?.getFrames(30) ?? [];
+    const actual = new Set<string>();
+    const coarse = new Set<string>();
+    for (const frame of frames) {
+      if (frame.actualDrawingPath) actual.add(frame.actualDrawingPath);
+      if (frame.renderPath) coarse.add(frame.renderPath);
+    }
+    return { actual: [...actual].sort(), coarse: [...coarse].sort() };
+  });
+}
+
+/**
  * The repo-mandated pixel-reuse oracle: hash, force an authoritative
  * main-thread redraw at the same camera, hash again. Equal hashes mean the
- * screen matches what a full redraw would have produced.
+ * incrementally maintained surface matches what a full redraw would produce.
  */
 async function expectOracleEquality(page: import('@playwright/test').Page, label: string) {
   const before = await canvasHash(page);
-  const result = await page.evaluate(async () => {
-    const perf = (window as unknown as PerfWindow).__varvePerf;
-    if (!perf?.forceFullRedraw) throw new Error('authoritative redraw oracle unavailable');
-    return perf.forceFullRedraw();
-  });
-  await waitForSettledFrame(page);
-  const after = await canvasHash(page);
-  expect(result.authoritative, `${label}: oracle must report an authoritative frame`).toBe(true);
+  const beforeGeometry = await canvasGeometry(page);
+
+  // The oracle clears the retained bitmap and requests a main-thread full
+  // redraw, but it does not stop the render worker: a `worker-reply` present
+  // frame can land afterwards and put the worker's own bitmap back on the
+  // canvas. That is a different renderer's output, not a cached-composition
+  // result, so a difference observed then says nothing about this check.
+  // Observed in a failing run: last frame `path:worker-cached clean full`,
+  // `source:worker-reply`, hashes unequal.
+  //
+  // Retry until the compared surface really is the oracle's frame, then assert
+  // strictly. If the oracle frame never survives as the last frame, that is its
+  // own finding (the app will not leave an authoritative frame on screen) and
+  // the loop reports it as such rather than as a pixel mismatch.
+  let last: FrameDiagnostics | null = null;
+  let result: { authoritative: boolean; frameIndex: number } | null = null;
+  let afterGeometry = beforeGeometry;
+  let after = before;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    result = await page.evaluate(async () => {
+      const perf = (window as unknown as PerfWindow).__varvePerf;
+      if (!perf?.forceFullRedraw) throw new Error('authoritative redraw oracle unavailable');
+      return perf.forceFullRedraw();
+    });
+    await waitForSettledFrame(page);
+    afterGeometry = await canvasGeometry(page);
+    after = await canvasHash(page);
+    last = await lastFrame(page);
+    if (last?.frameSource === 'oracle-full-redraw') break;
+  }
+
+  // Check the geometry first: a hash is only comparable between two surfaces of
+  // the same size, and the adaptive profile can resize the backing store (0.75x
+  // or 0.5x) when frame time degrades under load — including during the
+  // authoritative redraw itself, which is the heaviest frame in this test. A
+  // size change is a harness/adaptive-profile outcome, not a pixel regression,
+  // and saying so beats reporting a meaningless hash mismatch.
+  expect(afterGeometry, `${label}: the backing store must not resize across the oracle`).toEqual(
+    beforeGeometry,
+  );
+  // `authoritative` is `true` by construction in the result type, so this only
+  // proves the promise resolved rather than throwing or timing out — the
+  // runtime acceptance condition in perfRuntime (frameSource ===
+  // 'oracle-full-redraw', a non-partial content frame, matching document and
+  // camera) is what makes the redraw authoritative, and it is not visible from
+  // here. The frame-source check below is the observable part of it.
+  expect(result?.authoritative, `${label}: the oracle must resolve`).toBe(true);
+  expect(
+    last?.frameSource,
+    `${label}: the compared surface must be the oracle's own frame ` +
+      `(last frame was source '${last?.frameSource}', path '${last?.actualDrawingPath}'). ` +
+      'Another frame replaced it, so these pixels are not the authoritative redraw.',
+  ).toBe('oracle-full-redraw');
   expect(after, `${label}: incremental frame must equal an authoritative full redraw`).toBe(before);
 }
 
@@ -257,10 +366,24 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
     const emptyHash = await canvasHash(page);
 
     // Stroke 1.
-    await page.keyboard.press('b');
+    await activatePaintTool(page);
     await paintStroke(page, { x: 320, y: 260 }, { x: 520, y: 400 });
     const afterFirst = await canvasHash(page);
-    expect(afterFirst, 'a paint stroke must change visible pixels').not.toBe(emptyHash);
+    // Reproduced product symptom, not harness noise. Observed once with full
+    // frame diagnostics: the stroke is committed (the layer appears in the
+    // Layers panel and history records a commit) while the canvas stays empty,
+    // on a `worker-cached clean full` frame with `source: worker-reply` and
+    // `dirty: 0%`. `renderPipeline.ts` composites a matching worker bitmap
+    // *instead of* replaying the fresh IR, so a bitmap that lacks the stroke is
+    // presented as current. Discriminate presentation from rendering with
+    //   VARVE_ORACLE_DIAG=1 npx playwright test tests/e2e/paint/oracle-diff-diag.spec.ts
+    // which paints several strokes and reports whether a forced authoritative
+    // redraw recovers the pixels.
+    expect(
+      afterFirst,
+      'a paint stroke must change visible pixels — the canvas kept a stale frame ' +
+        '(see tests/e2e/paint/oracle-diff-diag.spec.ts for the discriminating probe)',
+    ).not.toBe(emptyHash);
     await expectOracleEquality(page, 'after stroke 1');
 
     // Stroke 2.
@@ -294,12 +417,17 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
     // The executed path and settled backing resolution are recorded so a
     // "fast" number can never be attributed to a preview-scale frame.
     const geometry = await canvasGeometry(page);
+    const paths = await observedRenderPaths(page);
     const summary = {
       note: 'key-press to first frame whose pixels match the target state',
       measured: latencies,
       settledGeometry: geometry,
+      // Which renderer actually painted, so this run cannot be cited as worker
+      // coverage if the worker retired and the main thread took over.
+      renderPaths: paths,
       frames: [undo1.frame, undo2.frame, redo.frame],
     };
+    expect(paths.actual.length, 'the run must report which renderer painted').toBeGreaterThan(0);
     // Also on stdout: the `list` reporter does not write attachments to disk, so
     // without this the measured numbers exist only inside a report UI.
     console.log(`[stroke-undo] ${JSON.stringify(summary)}`);
@@ -325,7 +453,7 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
       .toBe(true);
 
     await page.locator(CANVAS).waitFor({ timeout: 20_000 });
-    await page.keyboard.press('b');
+    await activatePaintTool(page);
     await paintStroke(page, { x: 300, y: 250 }, { x: 560, y: 420 });
 
     // Nothing about the document changes for this redraw: it invalidates the
@@ -343,18 +471,26 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
     expect(result.authoritative).toBe(true);
 
     const frames = await page.evaluate(
-      () => (window as unknown as PerfWindow).__varvePerf?.getFrames(10) ?? [],
+      () => (window as unknown as PerfWindow).__varvePerf?.getFrames(20) ?? [],
     );
-    const contentFrames = frames.filter((f) => f.wasDirty !== false || f.cacheHitCount > 0);
-    const considered = contentFrames.length > 0 ? contentFrames : frames;
-    expect(considered.length, 'the authoritative redraw must record a frame').toBeGreaterThan(0);
-
-    const totalComputes = considered.reduce((sum, f) => sum + (f.engineNodeComputes ?? 0), 0);
-    const totalHits = considered.reduce((sum, f) => sum + (f.engineNodeHits ?? 0), 0);
+    // Select the last frame the oracle actually committed. Not by `frameIndex`:
+    // the diagnostic capture shows several frame *records* sharing one
+    // `frameIndex` (the paint-commit frame, a worker-reply present frame and the
+    // oracle frame all reported `frameIndex: 1`), so matching on it can pick the
+    // paint frame — which correctly carries `engineNodeComputes: 1,
+    // engineNodeHits: 0` because it republishes the layer. `frameSource` is the
+    // identity here: only the oracle's own redraw reports
+    // `'oracle-full-redraw'`, and only that frame carries `0` and `1`.
+    const oracleFrame =
+      [...frames].reverse().find((f) => f.frameSource === 'oracle-full-redraw') ?? null;
+    expect(oracleFrame, 'the oracle redraw must be in the frame ring').not.toBeNull();
     expect(
-      totalComputes,
+      oracleFrame!.engineNodeComputes ?? 0,
       'a redraw with no document change must not reconvert scene nodes to engine nodes',
     ).toBe(0);
-    expect(totalHits, 'the engine-node memo must serve the redraw').toBeGreaterThan(0);
+    expect(
+      oracleFrame!.engineNodeHits ?? 0,
+      'the engine-node memo must serve the redraw',
+    ).toBeGreaterThan(0);
   });
 });

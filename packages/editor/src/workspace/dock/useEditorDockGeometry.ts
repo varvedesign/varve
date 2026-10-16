@@ -22,6 +22,8 @@ import type {
   DockTabGroupPlacement,
 } from './dockGeometry';
 import {
+  DOCK_SPLITTER_BAND_COARSE,
+  DOCK_SPLITTER_BAND_FINE,
   type DockPanelVisibility,
   type DockRect,
   resolveDockFloatingGroupGeometry,
@@ -188,6 +190,22 @@ export function useEditorDockGeometry(
       (Boolean(modePreference?.unreadableDockLayout) ||
         shouldUseDockRecoveryDefault(modePreference?.dockRestore)));
   const [bounds, setBounds] = useState<DockBounds | null>(null);
+  // A coarse pointer gets the 24px band it needs; a mouse or trackpad gets the
+  // narrower one, so the splitter stops owning the outermost 12px of canvas.
+  const [coarsePointer, setCoarsePointer] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse), (any-pointer: coarse)').matches,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(pointer: coarse), (any-pointer: coarse)');
+    const update = () => setCoarsePointer(query.matches);
+    update();
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
   const [splitPreview, setSplitPreview] = useState<SplitPreview | null>(null);
   const activeSplitResize = useRef<ActiveSplitResize | null>(null);
   const measureRef = useRef<() => void>(() => {});
@@ -532,6 +550,7 @@ export function useEditorDockGeometry(
     retrySavedMode,
     shellRef,
     stableVisibility,
+    coarsePointer,
   ]);
 
   const persistSplitRatio = useCallback(
@@ -668,6 +687,9 @@ export function useEditorDockGeometry(
       bounds.width,
       bounds.height,
       stableVisibility,
+      {
+        splitterBand: coarsePointer ? DOCK_SPLITTER_BAND_COARSE : DOCK_SPLITTER_BAND_FINE,
+      },
     );
     const runtimeFloatingGroups = (primary.floatingGroups ?? []).map((group) => ({
       ...group,

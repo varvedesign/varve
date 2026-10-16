@@ -169,6 +169,45 @@ reported `false` rather than silently mapped onto ink limiting. Rendering
 intent, BPC and paper simulation are all `true` and are covered by tests that
 fail if the configuration stops changing the output.
 
+### 3.3 Batching, and a gamut warning that is not a second transform
+
+Per-colour WASM crossings were measured on the real build (**executed**):
+
+```
+4096 colours
+  proof_pixel per-colour : 67.7 ms  (60542/s)
+  is_out_of_gamut each   : 22.0 ms  (186208/s)
+  proof_buffer batch     : 23.8 ms  (171848/s)
+  => 500-colour vector frame: proof 8.26 ms, +gamut 2.69 ms
+```
+
+A 500-colour document therefore spent roughly 8 ms per frame in call overhead
+alone — about half a 60 fps budget. The frame's colours are now collected into
+one interleaved buffer and transformed in single calls.
+
+The gamut warning rides on the same buffer rather than adding a pass: with
+`gamut_check` set, out-of-gamut entries are returned as the lcms2 alarm colour
+(`0x7F00`), which is what the editor tints toward by the configured opacity.
+**Executed** verification that the flag behaves as designed:
+
+```
+input          [1,0,0, 0.5,0.5,0.5, 0,0,1, 0.2,0.8,0.3]
+gamut_check=on 0.4961 0.4961 0.4961 | 0.5119 0.5123 0.5125 | 0.4961 … | 0.4961 …
+gamut_check=off 0.8999 0.2085 0.1545 | 0.5119 0.5123 0.5125 | 0.1336 … | 0.4047 …
+```
+
+Saturated red, blue and a saturated green are flagged; mid-grey is not, and its
+proofed value is identical in both passes — the warning does not disturb colours
+that are reproducible.
+
+### 3.4 One colour walker, not two
+
+`colorSlotsOfItem` is derived from the walker that applies the mapping, rather
+than re-listing a render item's colour fields. A new colour field therefore
+cannot be proofed by one path and silently skipped by the other. A coverage
+suite locks this down across all ten colour-bearing fields (fill, solid and
+gradient fills, strokes, effect colours, glass tint/edge, rich-text run colours).
+
 ## 4. Capability matrix (12 model × depth cells)
 
 "Document data" = the typed value model. "Raster path" = decode/edit/encode.
@@ -210,21 +249,36 @@ cargo clippy -p varve-colour --all-targets    0 warnings
 cargo check -p varve-colour --target wasm32-unknown-unknown --features wasm   0 warnings
 cargo check -p varve-print -p varve-wasm      clean
 wasm-pack build (proof bindings)              produced a loadable module
-Node probe against the real WASM build        results in §3.1
-tsc --noEmit @varve/shared                    0 errors
-tsc --noEmit @varve/editor                    0 errors (in colour files)
-tsc --noEmit @varve/ui                        0 errors
-vitest proof + render suites                  28 passed
+Node probe against the real WASM build        results in §3.1 and §3.3
+tsc --noEmit @varve/shared / @varve/editor / @varve/ui    0 errors
+vitest render + canvas + DocumentPanel + ColorPicker       1084 passed, 1 skipped
+vitest @varve/ui + @varve/shared (all projects)            1138 passed
+vitest @varve/editor (whole package, background run)       8887 passed, 9 failed
 ```
+
+The 9 failures in the whole-package editor run are **not** in colour code:
+
+- 8 in `components/ResourcesPanel/PanelWidthDragEdge.test.tsx` (keyboard resize
+  clamping, expected `240px` got `220px`) — that file and
+  `ResourcesPanel.tsx` were being modified by a concurrent agent during this
+  work, and the failure is a panel-geometry assertion.
+- 1 in `menu/__tests__/menuPerf.bench.test.ts` (`p95` 62.8 ms against a 50 ms
+  budget) — a wall-clock budget under heavy concurrent load, in the same class
+  of measurement as the heavy-task lease exists to serialise.
+
+Both were reproduced as unrelated to colour: no proofing, rendering-identity, or
+walk-coverage test failed.
 
 ### Not run, and why
 
-- **Browser E2E for the proof toggle.** The heavy-task lease was held by a
-  concurrent agent's Playwright run for the whole window. Bypassing the lease is
-  prohibited, and running a second Chromium alongside it would reproduce exactly
-  the memory-pressure failures the lease exists to prevent. The main-thread
-  proof wiring is therefore verified by typecheck and unit tests only, not by a
-  real browser interaction.
+- **Browser E2E for the proof toggle.** The heavy-task lease was held by
+  concurrent Playwright runs for most of the window (`dock-layout-geometry`,
+  `live-object-repeat`, `realtime-collaboration`). Bypassing it is prohibited,
+  and running a second Chromium alongside it would reproduce exactly the
+  memory-pressure failures the lease exists to prevent. The proof wiring is
+  therefore verified by typecheck, unit tests against an injected engine, and a
+  real-WASM Node probe — but not by a real browser interaction. **This is the
+  single largest unverified claim in this document.**
 - **Full suite.** `pnpm verify:plan` reported `FULL-SUITE ESCALATION: YES`, but
   its stated reasons derive from **concurrent agents'** changes in the working
   tree (`packages/automation/`, `packages/collab/src/protocol.ts`, `varve-room`,
@@ -233,3 +287,21 @@ vitest proof + render suites                  28 passed
 - **Physical monitor or print verification.** No hardware, no calibrated
   display, no controlled viewing conditions. No claim is made about physical
   colour accuracy.
+
+## 7. Remaining work, ranked
+
+1. **Second and third real output conditions.** The proof menu exposes six press
+   conditions and the engine bundles one. Either ship the other profiles with
+   verified licensing, or reduce the menu to what exists. This is the largest
+   remaining honesty gap in the UI.
+2. **Remove or relabel the analytical ICC path** (§2.2). It is still reachable
+   and still disagrees with the real transform by up to 216/255 per channel.
+3. **End-to-end raster precision** (§2.4, §4): wire the unwired
+   `rasterColor/` descriptors into decode/edit/save, or state the depth limits
+   in the UI.
+4. **Display management** (§2.5): the proof chain targets sRGB because the
+   canvas surface is untagged. Real display integration would change that one
+   constant and need per-monitor verification.
+5. **Browser E2E for the proof workflow**, including a visual capture of a
+   proofed frame, once the lease allows.
+

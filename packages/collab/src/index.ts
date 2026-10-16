@@ -27,6 +27,16 @@ export {
 } from './chunkedOperation';
 export { fallbackColorIndex, forgetDeviceId, getDeviceId, mintClientId } from './identity';
 export {
+  estimateBytes,
+  MemoryPendingOperationStore,
+  PENDING_LIMITS,
+  type PendingOperationRecord,
+  type PendingOperationStore,
+  type PruneOutcome,
+  prunePendingRecords,
+  roomKeyFor,
+} from './pendingStore';
+export {
   type ChatMessage,
   type ClientMessage,
   COLLAB_PROTOCOL_VERSION,

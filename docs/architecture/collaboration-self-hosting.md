@@ -48,7 +48,7 @@ Nothing leaves the host.
 | `--listen <addr:port>` | `127.0.0.1:8790` | Bind address. |
 | `--expose` | off | Permit a non-loopback bind. Required for any non-loopback address; startup also refuses without an explicit `--admin-token`. |
 | `--admin-token <t>` | generated | Admin API credential (room creation, invites, revocation, room end). |
-| `--allow-origin <o>` | none | Browser origin additionally allowed to open a socket (repeatable). |
+| `--allow-origin <o>` | none | Browser origin additionally allowed to open a socket **and** to call the admin API cross-origin (repeatable). |
 | `--allow-host <h>` | none | `Host` header additionally accepted on the upgrade (repeatable). |
 | `--help` | — | Print usage. |
 
@@ -256,6 +256,18 @@ client is served from another origin, add `--allow-origin https://app.example.co
 Opening a browser page that connects to the room also requires that origin to
 be allowed; the desktop app does not (it sends no `Origin`).
 
+### Cross-origin calls (the app hosting on your server)
+
+The desktop app's webview and the browser build are not served by the room
+server, so creating a room from the app ("Host on this server") is a
+**cross-origin** request. The server answers CORS preflights for exactly the
+origins the WebSocket allows (loopback pages, the Tauri webview, plus every
+`--allow-origin`), never for `*`, because the admin token travels in a request
+header. Measured failure without this (fixed 2026-10-16): the app showed only
+"Failed to fetch" and could not create a room on a user-run server. If you host
+the web client from a different origin, list that origin with
+`--allow-origin`.
+
 What TLS does and does not give you: it encrypts the wire between client and
 proxy, and between proxy and server if you configure that. It does **not**
 protect the document from the server, the proxy, or the store. Do not describe
@@ -275,9 +287,12 @@ this deployment as end-to-end encrypted.
 | Snapshot upload | 64 MB | Out-of-bounds frames are refused. Owner-only. |
 | Chat messages | 280 characters | Longer frames are refused; the client also enforces `maxlength`. |
 | Selection broadcast | 200 node ids | Larger frames are refused. |
-| Chat rate | 0.5/s, burst 5 | Excess messages are dropped silently by design (presence is lossy). |
+| Finalized chat rate | 0.5/s, burst 5 | A refused message is reported to its author (`chat-rate-limited`); no message a person pressed Enter on is dropped silently. |
+| Chat DRAFTS | 20/s, burst 40 | Separate bucket, so live-typing drafts can never consume the finalized-message budget. Drafts stay lossy by design. |
 | Operation rate | 30/s, burst 60 | Excess operations are rejected with a visible reason; the local edit is kept as pending work. |
 | Idle socket | 15 minutes without a frame | The socket is closed and the departure announced, releasing the participant slot. Clients send a 30-second `ping` heartbeat, so a participant who is only watching is not reaped. |
+| Outbound queue | 256 frames per connection | A peer that stops reading is ended with a reason and can reconnect; the host never buffers operations without limit for one stalled client. |
+| Text bounds | Characters, not bytes (chat 280, label 120, names 60) | Both sides count characters, so a multi-byte message is never refused after the client accepted it. |
 
 Overload is per connection and per room. The host never blocks a whole room on
 one slow participant: each participant has its own outbound queue, and a
@@ -313,6 +328,28 @@ the client keeps unacknowledged operations pending and re-sends them.
 | Journal grows without bound | No owner has been present to upload a snapshot. | Have the owner reopen the session, or end and recreate the room. |
 | A participant silently disappears after ~15 minutes of watching | Their client stopped sending the liveness heartbeat (a crashed or frozen tab, or a client that never sent one — the desktop, browser and test clients all do). | Nothing to fix server-side: the socket was dead. The slot is freed deliberately so a crashed tab cannot hold a place in a 10-participant room. |
 | Two servers on one data directory | The single-owner rule was violated. | Stop one immediately and restore from backup; divergent rooms are possible. |
+
+### The data-directory lock
+
+The single-owner rule is enforced, not just advised. On startup the host takes
+a lock row in `rooms.db` (owner id, pid, hostname, `refreshed_at`); a second
+process against the same directory is refused with the holder named:
+
+```text
+another room host (pid 4242 on build-box) owns this data directory;
+run one process per data directory
+```
+
+While it serves, the host refreshes the lock every 30 seconds. A lock whose
+heartbeat is older than **120 seconds** is treated as abandoned, so a crashed
+host is recoverable without database surgery — start the server again and it
+takes the directory over. If a running host ever finds that another process
+took the lock from it, it prints that and exits (code 3) instead of writing to a
+directory it no longer owns. Stopping a host releases the lock immediately.
+
+Operational consequence: **stop the old process before starting the new one**
+when restarting (a rolling restart of two processes on one directory is the
+misconfiguration the lock exists to prevent).
 
 ### Single-owner rule
 

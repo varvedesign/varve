@@ -144,6 +144,28 @@ const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
       </section>
 
       <section class="feature-section">
+        <h2>Authored motion, played deterministically</h2>
+        <p>
+          Slides can carry a transition — fade, slide, push, wipe, or morph — with a duration
+          that keeps its exact fractional value everywhere, plus ordered object builds with
+          on-click, with-previous, and after-previous triggers, delays, and by-paragraph steps for
+          text. Playback runs on one show clock: a click during a transition completes only the
+          transition, a click while a build plays completes only that effect, and the first
+          automatic build starts exactly once. Morph matches objects only on unique, same-kind
+          names; anything unmatched fades in place instead of flying across the slide, and
+          one-line rewraps never split a by-paragraph build into extra clicks.
+        </p>
+        <p>
+          Presenter view shows the current slide's private notes, elapsed and per-slide timers,
+          the next slide, build progress, and pause/resume. It renders only in presenter view:
+          when the audience surface takes over, notes leave the page entirely rather than hiding
+          behind CSS. With reduced motion enabled, the same sequence plays with immediate
+          states, and saved timings are never rewritten. A separate OS presenter window with
+          display choice remains future work.
+        </p>
+      </section>
+
+      <section class="feature-section">
         <h2>Built around real workflow failures</h2>
         <p>
           Existing-layout rebuilding, masks disappearing in slide export, and export actions that

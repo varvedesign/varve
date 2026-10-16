@@ -104,17 +104,36 @@ const LINE_START_PROHIBITED = [
 /** JLREQ §3.1.8 — none of these may end a line. */
 const LINE_END_PROHIBITED = ['「', '『', '（', '【', '〔', '〈', '《', '［', '｛', '“', '‘'];
 
+/** Whether any line carries `token` whole, i.e. the token was not broken. */
+function textsIncludeToken(snapshot: TextLayoutSnapshot, text: string, token: string): boolean {
+  return snapshot.lines.some((line) =>
+    text.slice(line.sourceStart, line.sourceEnd).includes(token),
+  );
+}
+
 describe('Japanese line-start and line-end prohibition', () => {
+  /**
+   * These sweeps assert an invariant: whatever `Intl.Segmenter` does with a
+   * given run, a line edge never holds a character the rules exclude. It is
+   * deliberately ICU-agnostic — the outcome must hold on Node, Chromium and
+   * WebKitGTK alike, so a red result on another platform is a real defect
+   * rather than a version difference.
+   *
+   * Measured load-bearing coverage, by disabling `mergeUnbreakableUnits` and
+   * re-running this file: **34 of these 65 cases fail** without the pass —
+   * 18 line-start members (the non-`\p{P}` ones: iteration marks `々` `ヽ` and
+   * the small kana, a selection of which is visible in the names below), all
+   * 11 line-end members, and the push-out assertion. The remaining line-start
+   * members (`。` `、` `」` `！` `？` `・` …) pass either way because
+   * `segmentBreakUnits` already glues closing punctuation to the word before
+   * it; they are kept as invariant coverage, not as proof of the pass.
+   */
   it.each(LINE_START_PROHIBITED)('never begins a line with %s', (character) => {
     // Force a break candidate immediately before the character by padding the
     // line to its exact measure, then a two-character tail.
     for (const prefixChars of [3, 4, 5, 6, 7]) {
       const text = `${'あ'.repeat(prefixChars)}${character}い`;
       const snapshot = layout(text, prefixChars * 10);
-      expect(
-        lineTexts(snapshot, text).slice(1),
-        `${character} after ${prefixChars} kana`,
-      ).not.toContain(expect.stringMatching(new RegExp(`^${character}`)));
       for (const line of lineTexts(snapshot, text).slice(1)) {
         expect(line.startsWith(character), `line [${line}] starts with ${character}`).toBe(false);
       }
@@ -127,6 +146,37 @@ describe('Japanese line-start and line-end prohibition', () => {
       const snapshot = layout(text, prefixChars * 10);
       for (const line of lineTexts(snapshot, text).slice(0, -1)) {
         expect(line.endsWith(character), `line [${line}] ends with ${character}`).toBe(false);
+      }
+    }
+  });
+
+  /**
+   * Line-end prohibition is push-out, so it is provable positively: an opening
+   * bracket must travel with the character it introduces. A word followed by
+   * `「`/`（`/`『` is the shape that strands the bracket when nothing merges,
+   * and the assertion below cannot hold unless the two are kept together.
+   */
+  it('push-out keeps a bracket with the content it introduces', () => {
+    for (const [open, close] of [
+      ['「', '」'],
+      ['（', '）'],
+      ['『', '』'],
+      ['【', '】'],
+    ] as const) {
+      for (const measure of [20, 30, 40, 50, 60]) {
+        const text = `漢字${open}かな${close}です`;
+        const lines = lineTexts(layout(text, measure), text);
+        expect(lines.join(''), `${open} at ${measure}px lost text`).toBe(text);
+        const holder = lines.find((line) => line.includes(open));
+        expect(holder, `${open} at ${measure}px: ${JSON.stringify(lines)}`).toBeDefined();
+        const openIndexInLine = holder!.indexOf(open);
+        expect(
+          holder!.length > openIndexInLine + 1,
+          `${open} at ${measure}px ends the line: ${JSON.stringify(lines)}`,
+        ).toBe(true);
+        // The character after the bracket is on the same line, i.e. the
+        // bracket did not end the line and was not separated from its content.
+        expect(holder!.endsWith(open)).toBe(false);
       }
     }
   });
@@ -299,9 +349,10 @@ describe('prohibition does not disturb the behaviour it was added beside', () =>
   });
 
   it('keeps a prohibited character off a line start even when its word must be split', () => {
-    // `1234。` is a single glued unit wider than the measure, so the emergency
-    // grapheme split runs — and it must regroup the pieces rather than let the
-    // full stop begin a line.
+    // `1234。` is a single glued unit wider than the measure, so the split runs —
+    // and it must keep the pieces together rather than let the full stop begin a
+    // line. A line-edge rule may cost one grapheme of overhang, which is what
+    // makes that possible: the group reaches the measure and `。` still joins.
     const text = '1234。5678';
     for (const maxWidth of [30, 40, 50]) {
       const texts = lineTexts(layout(text, maxWidth), text);
@@ -312,19 +363,91 @@ describe('prohibition does not disturb the behaviour it was added beside', () =>
     }
   });
 
-  it('lets an indivisible token overflow rather than breaking it, and keeps every character', () => {
-    // `$7,890` is glued by LB25 (PR × NU chain) and is 60px at this metric. In a
-    // 50px box there is no layout that both fits and preserves the token, so the
-    // engine keeps the token whole and the line overhangs. Pinning this makes the
-    // trade-off explicit: prohibition wins over the measure.
+  it('bounds a run that has no legal break opportunity at all', () => {
+    // Twelve non-starters are prohibited at every internal boundary, so no
+    // arrangement inside the measure exists. Before the split was bounded this
+    // produced a single 120px line in a 40px box; it now wraps with at most one
+    // grapheme of overhang and never loses a character.
+    const runs = [
+      'ー'.repeat(12),
+      '…'.repeat(12),
+      '。'.repeat(12),
+      'うわーーーーーーーーーーーー。',
+    ];
+    for (const text of runs) {
+      for (const maxWidth of [40, 70, 110]) {
+        const snapshot = layout(text, maxWidth);
+        expect(lineTexts(snapshot, text).join(''), `at ${maxWidth}px`).toBe(text);
+        for (const line of snapshot.lines) {
+          // One grapheme of overhang is the documented bound.
+          expect(line.width, `line at ${maxWidth}px`).toBeLessThanOrEqual(maxWidth + 10);
+        }
+        // A run that cannot fit even with that allowance has to wrap; one that
+        // fits outright legitimately stays on a single line.
+        const total = text.length * 10;
+        expect(
+          snapshot.lines.length > 1,
+          `${text.slice(0, 3)} at ${maxWidth}px (total ${total}px)`,
+        ).toBe(total > maxWidth + 10);
+      }
+    }
+  });
+
+  it('keeps a token whole while it fits and breaks it near its end when it cannot', () => {
+    // `$7,890` is 60px at this metric. Where the measure allows it the merge
+    // keeps it intact; at 50px no arrangement fits, so the emergency break is
+    // taken - the token is broken, but never after the currency sign, and no
+    // character is lost.
     const text = 'total $7,890 end';
-    const texts = lineTexts(layout(text, 50), text);
-    expect(texts.join('')).toBe(text);
-    expect(
-      texts.some((line) => line.includes('$7,890')),
-      JSON.stringify(texts),
-    ).toBe(true);
-    // The token is kept whole rather than split after the currency sign.
-    expect(texts.some((line) => line.endsWith('$'))).toBe(false);
+    for (const maxWidth of [50, 60, 70, 110, 160, 240]) {
+      const texts = lineTexts(layout(text, maxWidth), text);
+      expect(texts.join(''), `at ${maxWidth}px`).toBe(text);
+      expect(
+        texts.some((line) => line.endsWith('$')),
+        `at ${maxWidth}px: ${JSON.stringify(texts)}`,
+      ).toBe(false);
+    }
+    for (const maxWidth of [110, 160, 240]) {
+      expect(textsIncludeToken(layout(text, maxWidth), text, '$7,890'), `at ${maxWidth}px`).toBe(
+        true,
+      );
+    }
+  });
+
+  it('keeps an opening bracket with its content in vertical columns', () => {
+    // The same JLREQ invariant in vertical writing, on the shape that strands a
+    // bracket when nothing is kept together: every boundary in the column is
+    // prohibited, so the incoming cluster joins the column instead of starting
+    // one of its own.
+    const cases: ReadonlyArray<readonly [string, readonly number[]]> = [
+      ['あああ。」', [32, 48, 64]],
+      ['ああ。', [32, 48]],
+      ['あああ。「い', [32, 48, 64]],
+    ];
+    for (const [text, measures] of cases) {
+      for (const maxWidth of measures) {
+        const snapshot = buildTextLayoutSnapshot(text, makeShaping(text), {
+          maxWidth,
+          sourceRevision: 'doc:1',
+          fontRevision: 'font:1',
+          writingMode: 'vertical-rl',
+          textOrientation: 'mixed',
+        });
+        const columns = snapshot.lines.map((line) => text.slice(line.sourceStart, line.sourceEnd));
+        expect(columns.join(''), `${text} at ${maxWidth}px lost text`).toBe(text);
+        for (const column of columns.slice(1)) {
+          expect(
+            '。、」'.includes(column[0] ?? ''),
+            `${text} at ${maxWidth}px: ${JSON.stringify(columns)}`,
+          ).toBe(false);
+        }
+        for (const column of columns.slice(0, -1)) {
+          expect(
+            '「（'.includes(column.at(-1) ?? ''),
+            `${text} at ${maxWidth}px: ${JSON.stringify(columns)}`,
+          ).toBe(false);
+        }
+      }
+    }
   });
 });

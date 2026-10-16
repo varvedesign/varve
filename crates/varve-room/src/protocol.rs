@@ -155,6 +155,15 @@ pub struct ChatMessageFrame {
     #[serde(rename = "actorId")]
     pub actor_id: String,
     pub text: String,
+    /// Draft frames stream while the author types and are lossy; the final
+    /// frame is the authored message and gets its own (tighter) budget, so a
+    /// draft burst can never starve it. `text: ""` with `composing: false`
+    /// withdraws the message id.
+    ///
+    /// Required, not defaulted: the client always sends it, and a frame that
+    /// omits it is a version mismatch the conformance fixtures treat as
+    /// invalid rather than silently guessing draft-versus-final.
+    pub composing: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -306,8 +315,15 @@ pub struct ViewportFrame {
 
 // ── Validation (host-side mirror of the TS guards) ───────────────────────────
 
+/// Character bound for a text field.
+///
+/// Counts CHARACTERS, not bytes, deliberately: the client bounds UTF-16 code
+/// units, and a string's code points are always <= its code units, so a
+/// character bound can never be stricter than the client's. A byte bound could
+/// be (a 94-character Japanese message is 282 bytes), which silently refused
+/// messages and operations the client had already accepted.
 fn bounded(value: &str, max: usize) -> bool {
-    !value.is_empty() && value.len() <= max
+    !value.is_empty() && value.chars().count() <= max
 }
 
 impl ClientMessage {
@@ -332,10 +348,10 @@ impl ClientMessage {
                 if !bounded(&op.client_op_id, 128)
                     || op.based_on_seq < 0
                     || !bounded(&op.actor_id, 128)
-                    || op.actor_name.len() > 60
+                    || !bounded(&op.actor_name, 60)
                     || !bounded(&op.transaction_id, 128)
-                    || op.label.len() > 120
-                    || op.kind.len() > 40
+                    || !bounded(&op.label, 120)
+                    || !bounded(&op.kind, 40)
                     || (op.origin_author != "local-user" && op.origin_author != "system")
                 {
                     return Err("operation fields out of bounds");
@@ -363,9 +379,11 @@ impl ClientMessage {
                 }
             }
             ClientMessage::Chat { message } => {
+                // `text` may be EMPTY on a final frame: that withdraws the
+                // draft, and peers must receive the clear.
                 if !bounded(&message.message_id, 128)
                     || !bounded(&message.actor_id, 128)
-                    || message.text.len() > MAX_CHAT_LENGTH
+                    || message.text.chars().count() > MAX_CHAT_LENGTH
                 {
                     return Err("chat fields out of bounds");
                 }

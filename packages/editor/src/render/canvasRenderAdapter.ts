@@ -16,7 +16,7 @@ export {
   calloutRenderOverrideForNode,
   sceneNodeToEngineNode,
 } from './sceneToEngine';
-export { workerBitmapDelta } from './workerCamera';
+export { reprojectableWorkerDelta, workerBitmapDelta } from './workerCamera';
 export {
   createRenderWorkerHost,
   disposeWorkerFrame,

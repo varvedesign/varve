@@ -60,7 +60,11 @@ describe('parseClientMessage', () => {
       { type: 'cursor', pageId: 'p1', x: 1.5, y: -2 },
       { type: 'cursor', pageId: null, x: 0, y: 0 },
       { type: 'selection', pageId: 'p1', nodeIds: ['n1', 'n2'] },
-      { type: 'chat', message: { messageId: 'm1', actorId: 'a1', text: 'hello' } },
+      {
+        type: 'chat',
+        message: { messageId: 'm1', actorId: 'a1', text: 'hello', composing: false },
+      },
+      { type: 'chat', message: { messageId: 'm1', actorId: 'a1', text: '', composing: false } },
       { type: 'sync-request', fromSeq: 4 },
       { type: 'leave' },
       { type: 'ping' },
@@ -91,7 +95,11 @@ describe('parseClientMessage', () => {
         pageId: 'p',
         nodeIds: Array.from({ length: PROTOCOL_LIMITS.maxSelectionIds + 1 }, (_, i) => `n${i}`),
       },
-      { type: 'chat', message: { messageId: 'm', actorId: 'a', text: 'x'.repeat(281) } },
+      {
+        type: 'chat',
+        message: { messageId: 'm', actorId: 'a', text: 'x'.repeat(281), composing: false },
+      },
+      { type: 'chat', message: { messageId: 'm', actorId: 'a', text: 'x', composing: 'yes' } },
       { type: 'sync-request', fromSeq: -5 },
     ];
     for (const frame of hostile) {
@@ -141,7 +149,7 @@ describe('parseServerMessage', () => {
       { type: 'participant-left', actorId: 'a2', reason: 'disconnect' },
       { type: 'presence-cursor', actorId: 'a2', cursor: { pageId: null, x: 3, y: 4 } },
       { type: 'presence-selection', actorId: 'a2', selection: { pageId: 'p1', nodeIds: [] } },
-      { type: 'chat', message: { messageId: 'm2', actorId: 'a2', text: 'hi' } },
+      { type: 'chat', message: { messageId: 'm2', actorId: 'a2', text: 'hi', composing: true } },
       {
         type: 'sync',
         fromSeq: 3,

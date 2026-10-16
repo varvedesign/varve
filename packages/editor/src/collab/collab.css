@@ -5,7 +5,6 @@
   inset: 0;
   pointer-events: none;
   overflow: hidden;
-  z-index: var(--z-index-canvas-overlay, 30);
 }
 
 .collab-presence-layer__svg {
@@ -35,10 +34,10 @@
   margin-top: 14px;
   margin-left: 2px;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--color-text-on-accent);
-  font-size: var(--font-size-xs, 11px);
-  font-weight: var(--font-weight-medium, 500);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   white-space: nowrap;
 }
 
@@ -49,9 +48,9 @@
   max-width: 240px;
   padding: 6px 10px;
   border: 1.5px solid var(--color-border-subtle);
-  border-radius: 12px 12px 12px 3px;
-  background: var(--color-surface-raised, var(--color-surface-default));
-  box-shadow: var(--shadow-1, 0 1px 4px rgb(0 0 0 / 0.18));
+  border-radius: var(--radius-floating) var(--radius-floating) var(--radius-floating)
+    var(--radius-control-compact);
+  background: var(--color-surface-default);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -63,13 +62,13 @@
 }
 
 .collab-presence-layer__bubble-author {
-  font-size: var(--font-size-xs, 11px);
-  font-weight: var(--font-weight-semibold, 600);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
 }
 
 .collab-presence-layer__bubble-text {
-  color: var(--color-text-default, var(--color-text-muted));
-  font-size: var(--font-size-sm, 13px);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
@@ -77,25 +76,29 @@
 .collab-chat-composer {
   position: absolute;
   left: 50%;
-  bottom: 14px;
+  bottom: 44px; /* clears the canvas status strip */
   transform: translateX(-50%);
-  display: none;
+  display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 10px;
-  background: var(--color-surface-raised, var(--color-surface-default));
-  box-shadow: var(--shadow-1, 0 1px 4px rgb(0 0 0 / 0.18));
+  border-radius: var(--radius-control);
+  background: var(--color-surface-default);
+  opacity: 0.55;
+  transition: opacity 160ms cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: auto;
 }
 
-.collab-chat-composer.is-open {
-  display: flex;
+.collab-chat-composer:focus-within {
+  opacity: 1;
+  border-color: var(--color-border-strong);
 }
 
-.collab-chat-composer.is-open ~ .collab-presence-layer__svg {
-  pointer-events: none;
+@media (prefers-reduced-motion: reduce) {
+  .collab-chat-composer {
+    transition: none;
+  }
 }
 
 .collab-chat-composer__label {
@@ -112,25 +115,20 @@
   border: none;
   outline: none;
   background: transparent;
-  color: var(--color-text-default, var(--color-text-muted));
-  font-size: var(--font-size-sm, 13px);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
 }
 
 .collab-chat-composer__hint {
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs, 11px);
+  font-size: var(--font-size-xs);
   white-space: nowrap;
-}
-
-/* The composer opens only with focus; style via :focus-within. */
-.collab-presence-layer:has(.collab-chat-composer__input:focus) .collab-chat-composer {
-  display: flex;
 }
 
 .collab-header-control {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
 }
 
 .collab-header-control__status {
@@ -138,9 +136,9 @@
   align-items: center;
   gap: 6px;
   padding: 2px 10px;
-  border-radius: 999px;
-  font-size: var(--font-size-xs, 11px);
-  font-weight: var(--font-weight-medium, 500);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   border: 1px solid var(--color-border-subtle);
   color: var(--color-text-muted);
 }
@@ -152,7 +150,7 @@
 
 .collab-header-control__status.is-warning {
   border-color: var(--color-feedback-warning);
-  color: var(--color-feedback-warning-strong, var(--color-feedback-warning));
+  color: var(--color-feedback-warning-strong);
 }
 
 .collab-header-control__status.is-busy {
@@ -167,15 +165,15 @@
 .collab-avatars__item {
   width: 24px;
   height: 24px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 2px solid var(--color-surface-app);
   margin-left: -6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--color-text-on-accent);
-  font-size: var(--font-size-xs, 11px);
-  font-weight: var(--font-weight-semibold, 600);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
   padding: 0;
 }
@@ -193,14 +191,14 @@
   margin-left: -6px;
   width: 24px;
   height: 24px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 2px solid var(--color-surface-app);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: var(--color-surface-default);
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs, 11px);
+  font-size: var(--font-size-xs);
 }
 
 .collab-notices {
@@ -212,16 +210,15 @@
   flex-direction: column;
   gap: 4px;
   pointer-events: none;
-  z-index: var(--z-index-canvas-overlay, 30);
 }
 
 .collab-notices__item {
   padding: 4px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-raised, var(--color-surface-default));
+  background: var(--color-surface-default);
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs, 11px);
+  font-size: var(--font-size-xs);
 }
 
 /* Share dialog */
@@ -229,7 +226,7 @@
 .collab-share {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3, 12px);
+  gap: var(--space-3);
   min-width: min(480px, 84vw);
 }
 
@@ -240,91 +237,91 @@
 
 .collab-share__tab {
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   padding: 4px 14px;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm, 13px);
+  font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
 .collab-share__tab.is-active {
   border-color: var(--color-border-strong);
   background: var(--color-surface-default);
-  color: var(--color-text-default, var(--color-text-muted));
+  color: var(--color-text-primary);
 }
 
 .collab-share__section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
 }
 
 .collab-share__section h3 {
   margin: 0;
-  font-size: var(--font-size-md, 15px);
+  font-size: var(--font-size-md);
 }
 
 .collab-share__grid {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: var(--space-2, 8px) var(--space-3, 12px);
+  gap: var(--space-2) var(--space-3);
   align-items: center;
 }
 
 .collab-share__grid label {
-  font-size: var(--font-size-sm, 13px);
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
 .collab-share__grid input {
   padding: 5px 8px;
   border: 1px solid var(--color-border-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-default);
-  color: var(--color-text-default, var(--color-text-muted));
-  font-size: var(--font-size-sm, 13px);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
 }
 
 .collab-share__actions {
   display: flex;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .collab-share__hint {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm, 13px);
+  font-size: var(--font-size-sm);
 }
 
 .collab-share__hosted {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
-  padding: var(--space-2, 8px);
+  gap: var(--space-2);
+  padding: var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
 }
 
 .collab-share__hosted label {
-  font-size: var(--font-size-sm, 13px);
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
 .collab-share__hosted input {
   padding: 5px 8px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
-  background: var(--color-surface-sunken, var(--color-surface-default));
-  color: var(--color-text-default, var(--color-text-muted));
-  font-size: var(--font-size-xs, 11px);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
 }
 
 .collab-share__error {
   margin: 0;
   color: var(--color-text-danger);
-  font-size: var(--font-size-sm, 13px);
+  font-size: var(--font-size-sm);
 }
 
 @media (prefers-reduced-motion: reduce) {

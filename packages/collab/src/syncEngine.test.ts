@@ -289,7 +289,10 @@ function makeHarness(engineId: number, host: FakeHost, token = 'good-token'): Ha
     displayName: `User ${engineId}`,
     clientId: `client-${engineId}`,
     handlers: {
-      applySnapshot: (documentJson, uptoSeq) => applied.push({ documentJson, uptoSeq }),
+      applySnapshot: (documentJson, uptoSeq) => {
+        applied.push({ documentJson, uptoSeq });
+        return true;
+      },
       applyRemoteOperation: (op) => applied.push({ op }),
       onRoster: () => {},
       onCursor: () => {},
@@ -425,7 +428,7 @@ describe('CollabSyncEngine', () => {
     expect(live[0]!.cursor).toEqual({ pageId: 'page-1', x: 42, y: 7 });
     expect(live[0]!.participant?.actorId).toBe('actor-1');
 
-    expect(b.engine.sendChat('hello there', 'm-1')).toBe(true);
+    expect(b.engine.sendChat('hello there', 'm-1', false)).toBe(true);
     expect(host.ops).toHaveLength(0); // chat never becomes a document op
     expect(a.chats).toEqual(['hello there']);
   });

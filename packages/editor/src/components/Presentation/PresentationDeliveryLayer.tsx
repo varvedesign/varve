@@ -2,14 +2,17 @@ import { createEngine, type Engine } from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import {
   type Document,
+  HANDOUT_LAYOUTS,
   type PresentationDeck,
+  type PresentationHandoutLayout,
   type PresentationTransition,
+  planPresentationHandout,
   type ResolvedPresentationSlide,
   resolvePresentationSlides,
   resolveSlideTransition,
 } from '@varve/scene';
 import { sanitizeFileName } from '@varve/scene/export';
-import { Button, Dialog } from '@varve/ui';
+import { Button, Dialog, Select } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { saveExportBytes } from '../../exportSaveAdapter';
@@ -23,7 +26,11 @@ import {
   setPresentationPreviewOpen,
 } from './presentationCommands';
 import { resolvePresentationDeliveryScope } from './presentationDeliveryScope';
-import { makePresentationPngArchive, PresentationPdfBuilder } from './presentationFormats';
+import {
+  makePresentationPngArchive,
+  PresentationHandoutPdfBuilder,
+  PresentationPdfBuilder,
+} from './presentationFormats';
 import { SlideLiveRenderer } from './show/showStage';
 import {
   computeBuildSchedule,
@@ -34,7 +41,7 @@ import {
 import './presentationDelivery.css';
 
 type DeliveryMode = 'preview' | 'export';
-type OutputFormat = 'pdf' | 'png';
+type OutputFormat = 'pdf' | 'png' | 'handout';
 
 interface DeliverySnapshot {
   mode: DeliveryMode;
@@ -110,6 +117,9 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
   const [outputWarnings, setOutputWarnings] = useState<string[]>([]);
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
   const [presenterView, setPresenterView] = useState(false);
+  const [handoutLayout, setHandoutLayout] = useState<PresentationHandoutLayout>('3-up');
+  const [handoutNoteLines, setHandoutNoteLines] = useState(true);
+  const [handoutLandscape, setHandoutLandscape] = useState(false);
 
   const getEngineOnce = useCallback(() => {
     if (getEngine) return getEngine();
@@ -350,6 +360,7 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
       try {
         const engine = await getEngineOnce();
         const pdfBuilder = new PresentationPdfBuilder();
+        const handoutBuilder = format === 'handout' ? new PresentationHandoutPdfBuilder() : null;
         const pngSlides: Array<{ title: string; png: Uint8Array }> = [];
         let archiveBytes = 0;
         for (const [index, slide] of request.slides.entries()) {
@@ -373,17 +384,50 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
             }
             pngSlides.push({ title: slideName(request.deck, slide.entry), png });
           } else {
-            pdfBuilder.addPage(await decodePresentationFrame(captured.blob));
+            const page = await decodePresentationFrame(captured.blob);
+            if (handoutBuilder) handoutBuilder.addSlide(page);
+            else pdfBuilder.addPage(page);
           }
           await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
         }
         ensureSnapshotCurrent(request, editorRef.current.state);
         if (controller.signal.aborted) throw new DOMException('Export cancelled', 'AbortError');
         setProgress('Preparing file');
-        const bytes =
-          format === 'pdf' ? pdfBuilder.finish() : makePresentationPngArchive(pngSlides);
-        const extension = format === 'pdf' ? '.pdf' : '.zip';
-        const mimeType = format === 'pdf' ? 'application/pdf' : 'application/zip';
+        let bytes: Uint8Array;
+        let extension: string;
+        let mimeType: string;
+        if (format === 'pdf') {
+          bytes = pdfBuilder.finish();
+          extension = '.pdf';
+          mimeType = 'application/pdf';
+        } else if (format === 'handout' && handoutBuilder) {
+          const plan = planPresentationHandout(
+            request.slides.map((slide) => ({
+              wPx: slide.frame?.w ?? 1920,
+              hPx: slide.frame?.h ?? 1080,
+            })),
+            {
+              layout: handoutLayout,
+              paper: 'a4',
+              orientation: handoutLandscape ? 'landscape' : 'portrait',
+              marginPt: 36,
+              gapPt: 18,
+              slideNumbers: true,
+              noteLines: handoutNoteLines,
+              footerText: request.deck.name,
+            },
+          );
+          bytes = handoutBuilder.finish(plan, {
+            slideNumbers: true,
+            footerText: request.deck.name,
+          });
+          extension = '.pdf';
+          mimeType = 'application/pdf';
+        } else {
+          bytes = makePresentationPngArchive(pngSlides);
+          extension = '.zip';
+          mimeType = 'application/zip';
+        }
         const fileName = sanitizeFileName(
           request.selectedScope ? `${request.deck.name} selected slides` : request.deck.name,
           extension,
@@ -508,6 +552,17 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
     }
   }, []);
 
+  // Mouse-only presenters still need clicks to finish the last slide's
+  // transition or builds, so Next stays enabled while any authored motion
+  // remains on the final slide.
+  const lastSlide = request?.slides[request.slides.length - 1];
+  const lastSlideNeedsClicks = Boolean(
+    lastSlide &&
+      ((lastSlide.entry.builds?.length ?? 0) > 0 ||
+        (lastSlide.frame
+          ? resolveSlideTransition(request.deck, lastSlide.entry).kind !== 'none'
+          : false)),
+  );
   const director = request?.mode === 'preview' ? directorRef.current : null;
   const resolvedTransitions: PresentationTransition[] = request
     ? request.slides.map((slide) => resolveSlideTransition(request.deck, slide.entry))
@@ -601,7 +656,10 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
                 size="sm"
                 variant="ghost"
                 onClick={() => stepSlide(1)}
-                disabled={request.slides.length < 2 || slideIndex >= request.slides.length - 1}
+                disabled={
+                  request.slides.length < 2 ||
+                  (slideIndex >= request.slides.length - 1 && !lastSlideNeedsClicks)
+                }
               >
                 Next
               </Button>
@@ -650,9 +708,38 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
               </p>
             )}
             <p className="presentation-delivery__limit">
-              PDF is a compressed raster screen document. Text and vectors are not editable, notes
-              are private, and the PDF does not contain tagged accessibility structure.
+              PDF output is a compressed raster screen document. Text and vectors are not editable,
+              notes are private, and the PDF does not contain tagged accessibility structure. The
+              handout imposes the same raster slides onto paper pages; only page numbers and header
+              text are real text.
             </p>
+            <div className="presentation-delivery__handout">
+              <Select
+                label="Handout layout"
+                aria-label="Handout layout"
+                value={handoutLayout}
+                onValueChange={(value) => setHandoutLayout(value as PresentationHandoutLayout)}
+                options={HANDOUT_LAYOUTS.map((layout) => ({ value: layout, label: layout }))}
+              />
+              <Select
+                label="Handout orientation"
+                aria-label="Handout orientation"
+                value={handoutLandscape ? 'landscape' : 'portrait'}
+                onValueChange={(value) => setHandoutLandscape(value === 'landscape')}
+                options={[
+                  { value: 'portrait', label: 'Portrait' },
+                  { value: 'landscape', label: 'Landscape' },
+                ]}
+              />
+              <label className="presentation-delivery__handout-toggle">
+                <input
+                  type="checkbox"
+                  checked={handoutNoteLines}
+                  onChange={(event) => setHandoutNoteLines(event.currentTarget.checked)}
+                />
+                <span>Note-taking lines (3-up)</span>
+              </label>
+            </div>
             {blockingSlides.length > 0 && (
               <div className="presentation-delivery__error" role="alert">
                 {blockingSlides.length} included slide reference(s) need repair before export.
@@ -701,6 +788,13 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
                     onClick={() => void exportDeck('png')}
                   >
                     Export PNG sequence
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    disabled={request.slides.length === 0 || blockingSlides.length > 0}
+                    onClick={() => void exportDeck('handout')}
+                  >
+                    Export handout PDF
                   </Button>
                 </>
               )}

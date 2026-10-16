@@ -155,15 +155,21 @@ class OrderedHost {
     this.journal.push(op);
     const seq = this.seq;
     if (this.dropNextAck) {
+      // Journaled and relayed, but the sender never learns the sequence.
       this.dropNextAck = false;
-      return; // journaled; the acknowledgement never arrives
+    } else {
+      sender.deliver({ type: 'operation-accepted', clientOpId: op.clientOpId, seq });
     }
-    sender.deliver({ type: 'operation-accepted', clientOpId: op.clientOpId, seq });
     for (const other of this.connections) {
       if (other !== sender && other.actorId !== null) {
         other.deliver({ type: 'operation', seq, op });
       }
     }
+  }
+
+  /** Redeliver one journaled operation to a connection (a late replay). */
+  replayTo(connection: Connection, seq: number, op: RoomOperation): void {
+    connection.deliver({ type: 'operation', seq, op });
   }
 
   /** Release the held in-flight operation; it is ordered last. */
@@ -188,22 +194,23 @@ class TestTransport implements CollabTransport {
   private readonly disconnectHandlers: Array<() => void> = [];
   private connected = false;
 
+  readonly connection: Connection;
+
   constructor(
     private readonly host: OrderedHost,
     readonly engineId: number,
   ) {
+    this.connection = {
+      engineId,
+      actorId: null,
+      deliver: (message) => {
+        if (!this.connected) return;
+        for (const handler of this.frameHandlers) handler(JSON.stringify(message));
+      },
+      holdNextOperation: false,
+    };
     host.connections.push(this.connection);
   }
-
-  private readonly connection: Connection = {
-    engineId: this.engineId,
-    actorId: null,
-    deliver: (message) => {
-      if (!this.connected) return;
-      for (const handler of this.frameHandlers) handler(JSON.stringify(message));
-    },
-    holdNextOperation: false,
-  };
 
   holdNextOperation(): void {
     this.connection.holdNextOperation = true;
@@ -269,6 +276,7 @@ function connect(host: OrderedHost, engineId: number) {
         // bookkeeping matters here.
         void documentJson;
         void uptoSeq;
+        return true;
       },
       applyRemoteOperation: (op) => {
         applied.push(op.clientOpId);
@@ -302,6 +310,41 @@ function submit(engine: CollabSyncEngine, doc: FakeDoc, op: RoomOperation): void
   }
   engine.submitOperation(op);
 }
+
+describe('an unloadable room baseline', () => {
+  it('refuses the session instead of joining a room it cannot apply', () => {
+    const host = new OrderedHost();
+    const transport = new TestTransport(host, 9);
+    const statuses: string[] = [];
+    const notices: string[] = [];
+    const engine = new CollabSyncEngine({
+      roomUrl: 'ws://test/room/r',
+      inviteToken: 'good-token',
+      displayName: 'User 9',
+      clientId: 'client-9',
+      handlers: {
+        applySnapshot: () => false, // the client cannot load this baseline
+        applyRemoteOperation: () => {},
+        onRoster: () => {},
+        onCursor: () => {},
+        onSelection: () => {},
+        onViewport: () => {},
+        onChat: () => {},
+        onNotice: (notice) => notices.push(notice.message),
+        onStatus: (status) => statuses.push(status),
+      },
+      createTransport: () => transport,
+      timers: { setTimeout: () => 0, clearTimeout: () => {} },
+    });
+    engine.start();
+
+    expect(engine.status).toBe('ended');
+    expect(statuses).toContain('ended');
+    expect(notices.some((message) => /could not be loaded/i.test(message))).toBe(true);
+    // And it never claims to be live in a room it cannot apply.
+    expect(statuses).not.toContain('live');
+  });
+});
 
 describe('conflicting-change convergence', () => {
   it('keeps the local value when an unacknowledged change is ordered later by the room', () => {
@@ -358,6 +401,39 @@ describe('conflicting-change convergence', () => {
     expect(a.doc.values[path]).toEqual(b.doc.values[path]);
   });
 
+  it('never applies a contribution ordered BEFORE my own accepted change (guard)', () => {
+    // This pins the guarantee that makes the anti-flicker rule complete: an
+    // operation at or below the sequence of my own ACKNOWLEDGED change is
+    // refused by the applied-sequence watermark, so a late replay of an
+    // earlier contribution cannot put this client on a value the room no
+    // longer holds. (Reaching that state required the acknowledgement to be
+    // lost AND the earlier change to arrive afterwards; every interleaving
+    // tried here is already refused by the watermark, which is why this is a
+    // guard rather than a regression for a defect.)
+    const host = new OrderedHost();
+    const a = connect(host, 1);
+    const b = connect(host, 2);
+    const path = 'nodes.n1.opacity';
+
+    host.dropNextAck = true; // A's change is journaled and relayed; A never learns its seq
+    submit(a.engine, a.doc, makeOperation('op-a', [makeChange(path, 1, 0.5)]));
+    expect(b.doc.values[path]).toBe(0.5);
+
+    submit(b.engine, b.doc, makeOperation('op-b', [makeChange(path, 1, 0.8)]));
+    expect(b.doc.values[path]).toBe(0.8); // B's own, ordered later
+
+    // The room replays A's change (seq 1) to B, after B already knows its own
+    // change sits at seq 2.
+    host.replayTo(b.transport.connection, 1, host.journal[0]!);
+
+    expect(b.doc.values[path]).toBe(0.8);
+    // A learns the true order on reconnect and converges on B's value.
+    a.transport.disconnect();
+    a.transport.reconnect();
+    expect(a.doc.values[path]).toBe(0.8);
+    expect(a.doc.values[path]).toEqual(b.doc.values[path]);
+  });
+
   it('converges after an explicit reconnect replay', () => {
     const host = new OrderedHost();
     const a = connect(host, 1);
@@ -401,6 +477,34 @@ describe('conflicting-change convergence', () => {
     // …and be re-sent so the room (and B) ends at the same value.
     expect(b.doc.values[path]).toBe(42);
     expect(snapshotApplied).toBe(1);
+  });
+
+  it('keeps the local value when the replay shows my change was ordered LAST', () => {
+    // The opposite ordering of the case above, and the one that used to
+    // diverge: my change is held in flight, a peer's conflicting change is
+    // ordered first, my change is ordered last, and I only learn that from the
+    // catch-up replay. Applying the peer's earlier change and then skipping my
+    // own (as "already applied") would leave me on their value while the room
+    // holds mine.
+    const host = new OrderedHost();
+    const a = connect(host, 1);
+    const b = connect(host, 2);
+    const path = 'nodes.n1.opacity';
+
+    a.transport.holdNextOperation();
+    submit(a.engine, a.doc, makeOperation('op-a', [makeChange(path, 1, 0.5)]));
+    submit(b.engine, b.doc, makeOperation('op-b', [makeChange(path, 1, 0.8)]));
+
+    // A goes offline before the relay of its own (still un-ordered) change
+    // could be acknowledged, then the host orders it last and A reconnects.
+    a.transport.disconnect();
+    host.release();
+    a.transport.reconnect();
+
+    expect(a.engine.isPending('op-a')).toBe(false);
+    expect(a.doc.values[path]).toBe(0.5);
+    expect(b.doc.values[path]).toBe(0.5);
+    expect(a.doc.values[path]).toEqual(b.doc.values[path]);
   });
 
   it('applies disjoint properties even while one of mine is unacknowledged', () => {

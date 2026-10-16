@@ -68,6 +68,7 @@ import {
   calloutRenderOverrideForNode,
   collectImageBitmaps,
   type RenderWorkerHost,
+  reprojectableWorkerDelta,
   sceneCanUseWorkerRenderer,
   sceneNeedsMainThreadTypography,
   sceneNeedsStructuralCompositing,
@@ -1281,7 +1282,7 @@ export function renderContent(deps: RenderContentDeps): void {
     // unavailable, and otherwise returns a new array of new items, so cached
     // render items keep their authored colours and a later frame re-proofs from
     // clean sources instead of compounding the transform.
-    const proofedIr = applyProofToFrame(ir, docProofConfig);
+    const proofedIr = applyProofToFrame(ir, docProofConfig, docProofConfig?.gamutWarning);
     // A slow or contended render can start after the wheel/pointer interaction
     // has quieted. Keep the frame classified as interaction work when the
     // captured camera differs from the last painted camera; otherwise a late
@@ -1499,7 +1500,7 @@ export function renderContent(deps: RenderContentDeps): void {
       // structural and flat scenes.
       if (targetCtx === ctxNN && compositorRef.current && !needsStructural) {
         compositorRef.current.drawVectorItems(
-          applyProofToFrame([item], docProofConfig),
+          applyProofToFrame([item], docProofConfig, docProofConfig?.gamutWarning),
           replayColorOptions,
           replayImagePolicy,
         );
@@ -2404,12 +2405,28 @@ export function renderContent(deps: RenderContentDeps): void {
           );
           workerBitmapPresented = compositorRef.current !== null;
         } else {
-          const delta = workerBitmapDelta(
-            wb.camera,
-            { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
-            vp,
-            dpr,
+          const delta = reprojectableWorkerDelta(
+            docIsCurrent,
+            workerBitmapDelta(
+              wb.camera,
+              { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
+              vp,
+              dpr,
+            ),
           );
+          // A reprojected bitmap exists to smooth *camera* movement by keeping
+          // the last rendered quality on screen while the worker delivers the
+          // next frame. It is never valid for a document change: the bitmap
+          // predates the edit, and `workerBitmapDelta` returns an affine
+          // whenever the two camera transforms differ — including the identity
+          // when they do not — so the old `if (delta)` truthiness test also
+          // accepted the identity case. A brush stroke leaves the camera alone,
+          // so every stroke could take this branch, composite the pre-edit
+          // bitmap and skip the fresh replay entirely, leaving the new ink
+          // invisible in the region it had just painted until something forced
+          // a full redraw. Reproduced: one silent stroke in five, with a forced
+          // authoritative redraw recovering the pixels
+          // (`tests/e2e/paint/oracle-diff-diag.spec.ts`).
           if (delta) {
             compositorRef.current?.compositeRasterLayer('worker-frame', wb.bitmap, delta, 'normal');
             workerBitmapPresented = compositorRef.current !== null;

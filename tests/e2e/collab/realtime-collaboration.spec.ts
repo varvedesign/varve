@@ -141,6 +141,31 @@ async function joinViaShareDialog(page: Page, role: 'owner' | 'editor'): Promise
     .waitFor({ timeout: 15000 });
 }
 
+/**
+ * Host a room from this page's own document through the Share dialog, and
+ * return the room id (the invite link carries the owner token).
+ */
+async function hostFromApp(
+  page: Page,
+  serverBase: string,
+): Promise<{ roomId: string; inviteLink: string }> {
+  await page.getByRole('button', { name: 'Share', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  // The dialog opens on Join when there is no session; hosting lives behind
+  // the Host tab.
+  await dialog.getByRole('tab', { name: 'Host' }).click();
+  await dialog.locator('#collab-share-server').fill(serverBase);
+  await dialog.locator('#collab-share-admin').fill('e2e-admin');
+  await dialog.getByRole('button', { name: 'Host on this server' }).click();
+  const link = dialog.locator('#collab-share-invite');
+  await link.waitFor({ timeout: 20000 });
+  const inviteLink = await link.inputValue();
+  const roomId = /room=([^&]+)/.exec(inviteLink)?.[1] ?? '';
+  expect(roomId).not.toBe('');
+  await dialog.getByRole('button', { name: 'Start sharing now' }).click();
+  return { roomId, inviteLink };
+}
+
 async function drawRectangle(page: Page): Promise<void> {
   await page.keyboard.press('r');
   await dragOnCanvas(page, 150, 150, 350, 300);
@@ -236,10 +261,13 @@ test('two participants edit live with selective undo and cursor chat', async ({ 
   await pageB.keyboard.press('ArrowRight');
   await pageB.waitForTimeout(600);
 
-  // Cursor chat: A opens the composer and broadcasts a draft; B sees the
-  // live bubble, then the finalized message.
+  // Cursor chat: A opens the composer and TYPES (one input event per key, the
+  // path a real user takes). B sees the live draft, and after Enter B sees the
+  // finalized message with its full text — the draft flood must not have
+  // consumed the finalized message's rate-limit budget.
   await pageA.keyboard.press('/');
-  await pageA.locator('#collab-chat-input').fill('hello from A');
+  const chatText = 'hello from A, typed key by key';
+  await pageA.locator('#collab-chat-input').pressSequentially(chatText, { delay: 30 });
   await expect(
     pageB
       .locator('.collab-presence-layer__bubble__text, .collab-presence-layer__bubble-text')
@@ -248,6 +276,16 @@ test('two participants edit live with selective undo and cursor chat', async ({ 
     timeout: 10000,
   });
   await pageA.locator('#collab-chat-input').press('Enter');
+  await expect
+    .poll(
+      async () =>
+        (await pageB
+          .locator('.collab-presence-layer__bubble__text, .collab-presence-layer__bubble-text')
+          .allTextContents()
+          .catch(() => [] as string[])) ?? [],
+      { timeout: 15000 },
+    )
+    .toContain(chatText);
   await pageA.screenshot({ path: 'reports/collab-e2e/01-live-session.png' });
   await pageB.screenshot({ path: 'reports/collab-e2e/02-live-session-peer.png' });
 
@@ -296,11 +334,47 @@ test('an image import crosses to the other participant without killing the sessi
   expect(await editorStillMounted(pageA)).toBe(true);
   expect(await editorStillMounted(pageB)).toBe(true);
 
-  await joinViaShareDialog(pageA, 'owner');
-  await joinViaShareDialog(pageB, 'editor');
+  // A puts real content in the document first: a fresh document legitimately
+  // has no layers, so "B received the baseline" needs something to receive.
+  await drawRectangle(pageA);
+
+  // A hosts the room from its own document through the real dialog path, so
+  // the baseline is a document the app produced (the admin API + a hand-written
+  // JSON seed produced a baseline that did not match either client).
+  const hosted = await hostFromApp(pageA, `http://127.0.0.1:${serverPort}`);
+  await expect(pageA.locator('.collab-header-control__status')).toContainText('Live', {
+    timeout: 15000,
+  });
+
+  // B joins the hosted room as the editor invited by A.
+  const invite = await fetch(
+    `http://127.0.0.1:${serverPort}/admin/rooms/${hosted.roomId}/invites`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-varve-admin-token': 'e2e-admin' },
+      body: JSON.stringify({ role: 'editor' }),
+    },
+  );
+  expect(invite.status).toBe(201);
+  const editorInvite = ((await invite.json()) as { inviteToken: string }).inviteToken;
+  await pageB.getByRole('button', { name: 'Share', exact: true }).click();
+  const joinDialog = pageB.getByRole('dialog');
+  await joinDialog.getByRole('tab', { name: 'Join' }).click();
+  await joinDialog.locator('#collab-join-server').fill(`http://127.0.0.1:${serverPort}`);
+  await joinDialog.locator('#collab-join-room').fill(hosted.roomId);
+  await joinDialog.locator('#collab-join-token').fill(editorInvite);
+  await joinDialog.getByRole('button', { name: 'Join session' }).click();
+  await pageB
+    .locator('.collab-header-control__status')
+    .filter({ hasText: 'Live' })
+    .waitFor({ timeout: 15000 });
   expect(await editorStillMounted(pageA)).toBe(true);
   expect(await editorStillMounted(pageB)).toBe(true);
 
+  // Both clients now hold the same document: B sees A's baseline content.
+  await expect
+    .poll(async () => pageB.getByRole('treeitem').count(), { timeout: 30000 })
+    .toBeGreaterThan(0);
   const layersBefore = await pageB.getByRole('treeitem').count();
 
   // A real multi-megabyte PNG: larger than an inline operation frame
@@ -339,33 +413,74 @@ test('an image import crosses to the other participant without killing the sessi
   await contextB.close();
 });
 
-test('viewer invite cannot mutate the room', async ({ browser }) => {
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  const viewerInvite = await fetch(`http://127.0.0.1:${serverPort}/admin/rooms/${roomId}/invites`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-varve-admin-token': 'e2e-admin' },
-    body: JSON.stringify({ role: 'viewer' }),
-  });
-  expect(viewerInvite.status).toBe(201);
-  const viewerToken = ((await viewerInvite.json()) as { inviteToken: string }).inviteToken;
+test('a role-scoped invite is minted and revoked from the dialog, and the host enforces the role', async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const hostContext = await browser.newContext();
+  const viewerContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  const viewer = await viewerContext.newPage();
+  await openEditor(host);
+  await openEditor(viewer);
 
-  await openEditor(page);
-  await page.getByRole('button', { name: 'Share', exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await dialog.getByRole('tab', { name: 'Join' }).click();
-  await dialog.locator('#collab-join-server').fill(`http://127.0.0.1:${serverPort}`);
-  await dialog.locator('#collab-join-room').fill(roomId);
-  await dialog.locator('#collab-join-token').fill(viewerToken);
-  await dialog.getByRole('button', { name: 'Join session' }).click();
-  await page
+  // 1. The host creates the room from the app and mints a VIEWER link through
+  //    the dialog. Before this existed the dialog could only hand out the owner
+  //    token, so the host's role enforcement was unreachable from the UI.
+  const hosted = await hostFromApp(host, `http://127.0.0.1:${serverPort}`);
+  await host.getByRole('button', { name: 'Share', exact: true }).click();
+  const hostDialog = host.getByRole('dialog');
+  await hostDialog.getByRole('tab', { name: 'Host' }).click();
+  await hostDialog.locator('#collab-share-admin').fill('e2e-admin');
+  await hostDialog.getByRole('button', { name: 'Create viewer link' }).click();
+  const inviteInput = hostDialog.locator('.collab-share__invite-list input').first();
+  await inviteInput.waitFor({ timeout: 15000 });
+  const viewerLink = await inviteInput.inputValue();
+  expect(viewerLink).toContain('t=');
+  await hostDialog.getByRole('button', { name: 'Close dialog' }).click();
+
+  // 2. The viewer joins with exactly that link.
+  const roomFromLink = /room=([^&]+)/.exec(viewerLink)?.[1] ?? '';
+  const tokenFromLink = /t=([^&]+)/.exec(viewerLink)?.[1] ?? '';
+  expect(roomFromLink).toBe(hosted.roomId);
+  await viewer.getByRole('button', { name: 'Share', exact: true }).click();
+  const viewerDialog = viewer.getByRole('dialog');
+  await viewerDialog.getByRole('tab', { name: 'Join' }).click();
+  await viewerDialog.locator('#collab-join-server').fill(`http://127.0.0.1:${serverPort}`);
+  await viewerDialog.locator('#collab-join-room').fill(roomFromLink);
+  await viewerDialog.locator('#collab-join-token').fill(tokenFromLink);
+  await viewerDialog.getByRole('button', { name: 'Join session' }).click();
+  await viewer
     .locator('.collab-header-control__status')
     .filter({ hasText: 'Live' })
     .waitFor({ timeout: 15000 });
 
-  // A viewer's edit is rejected with a visible notice, not silently dropped.
-  await drawRectangle(page);
-  await expect(page.locator('.collab-notices__item').first()).toBeVisible({ timeout: 15000 });
-  await page.screenshot({ path: 'reports/collab-e2e/04-viewer-rejection.png' });
-  await context.close();
+  // 3. The host enforces the role: a viewer's edit is rejected with a visible
+  //    notice, not silently dropped.
+  await drawRectangle(viewer);
+  await expect(viewer.locator('.collab-notices__item').first()).toBeVisible({ timeout: 15000 });
+  await viewer.screenshot({ path: 'reports/collab-e2e/04-viewer-rejection.png' });
+
+  // 4. Revoking the invite from the dialog ends the viewer's live session
+  //    rather than leaving an authenticated socket in place.
+  await host.getByRole('button', { name: 'Share', exact: true }).click();
+  const revokeDialog = host.getByRole('dialog');
+  await revokeDialog.getByRole('tab', { name: 'Host' }).click();
+  await revokeDialog.getByRole('button', { name: 'Revoke' }).first().click();
+  await expect(revokeDialog.getByRole('status')).toContainText(/revoked/i, { timeout: 15000 });
+  await revokeDialog.getByRole('button', { name: 'Close dialog' }).click();
+
+  await expect
+    .poll(
+      async () =>
+        (await viewer
+          .locator('.collab-header-control__status')
+          .textContent()
+          .catch(() => '')) ?? '',
+      { timeout: 20000 },
+    )
+    .not.toContain('Live');
+
+  await hostContext.close();
+  await viewerContext.close();
 });

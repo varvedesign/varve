@@ -843,6 +843,57 @@ describe('withStubFallback resilience', () => {
     expect(ir[0]?.primitive.kind).toBe('rasterLayer');
   });
 
+  it('routes raster tile scenes through the stub for hit testing too', async () => {
+    // Regression for the residual gap left by typed-array tile payloads: without
+    // this guard a raster scene reaching the wire backend would serialise tile
+    // pixels as an index-keyed object (megabytes of JSON) and either fail the
+    // Rust deserializer or hit-test against nothing.
+    const primary: Engine = {
+      backend: 'wasm',
+      buildIr: vi.fn(async () => []),
+      hitTest: vi.fn(async () => 999),
+    };
+    const eng = withStubFallback(primary);
+    const idx = await eng.hitTest(
+      {
+        nodes: [
+          {
+            id: 'raster-1',
+            name: 'Raster Layer',
+            kind: 'rasterLayer',
+            transform: [1, 0, 0, 1, 0, 0],
+            fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+            rasterLayerData: {
+              width: 128,
+              height: 128,
+              pixelMode: false,
+              tiles: { '0:0': { pixels: new Uint8ClampedArray(128 * 128 * 4), version: 1 } },
+            },
+          },
+        ],
+      },
+      [64, 64],
+    );
+
+    expect(primary.hitTest).not.toHaveBeenCalled();
+    // `999` is the sentinel above: it would mean the wire backend answered.
+    expect(idx).not.toBe(999);
+  });
+
+  it('still consults the wire backend for a scene with no raster payload', async () => {
+    // Negative control: the guard must be scoped to raster data, not to every
+    // scene, or it would silently disable native hit testing.
+    const primary: Engine = {
+      backend: 'wasm',
+      buildIr: vi.fn(async () => []),
+      hitTest: vi.fn(async () => 3),
+    };
+    const eng = withStubFallback(primary);
+    const idx = await eng.hitTest(scene, [1, 1]);
+    expect(primary.hitTest).toHaveBeenCalledTimes(1);
+    expect(idx).toBe(3);
+  });
+
   it('does not wrap a stub engine (no double fallback)', () => {
     const stub = createStubForTest();
     expect(withStubFallback(stub)).toBe(stub);

@@ -55,6 +55,13 @@ export const PROTOCOL_LIMITS = {
   maxParticipants: 10,
   /** Presence updates per second the client coalesces to. */
   presenceHz: 30,
+  /**
+   * Cursor-chat DRAFT frames per second the client coalesces to. A keystroke is
+   * not a message: sending one frame per key spends the host's finalized-chat
+   * budget and silently drops the message the author actually sent.
+   * Finalized frames bypass this and use the host's chat bucket.
+   */
+  chatDraftHz: 4,
 } as const;
 
 /** Participant identity as broadcast to every room member. */
@@ -98,8 +105,18 @@ export interface ViewportPresence {
 export interface ChatMessage {
   messageId: string;
   actorId: string;
-  /** Plain text only; rendered with textContent, never HTML. */
+  /**
+   * Plain text only; rendered with textContent, never HTML. An empty string
+   * with `composing: false` withdraws the message id (the author cancelled
+   * the draft) and must be relayed — clearing is a real event for peers.
+   */
   text: string;
+  /**
+   * True while the author may still be typing. Draft frames stream and are
+   * lossy; the final frame is the authored message and is rate-limited
+   * separately by the host, so drafts can never starve it.
+   */
+  composing: boolean;
 }
 
 /** A document mutation as it travels through the room. */
@@ -341,10 +358,16 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
       const message = value.message;
       return isBoundedString(message.messageId, ID_MAX) &&
         isBoundedString(message.actorId, ID_MAX) &&
-        isBoundedString(message.text, PROTOCOL_LIMITS.maxChatLength)
+        isBoundedString(message.text, PROTOCOL_LIMITS.maxChatLength) &&
+        typeof message.composing === 'boolean'
         ? {
             type: 'chat',
-            message: { messageId: message.messageId, actorId: message.actorId, text: message.text },
+            message: {
+              messageId: message.messageId,
+              actorId: message.actorId,
+              text: message.text,
+              composing: message.composing,
+            },
           }
         : null;
     }
@@ -447,10 +470,16 @@ export function parseServerMessage(value: unknown): ServerMessage | null {
       const message = value.message;
       return isBoundedString(message.messageId, ID_MAX) &&
         isBoundedString(message.actorId, ID_MAX) &&
-        isBoundedString(message.text, PROTOCOL_LIMITS.maxChatLength)
+        isBoundedString(message.text, PROTOCOL_LIMITS.maxChatLength) &&
+        typeof message.composing === 'boolean'
         ? {
             type: 'chat',
-            message: { messageId: message.messageId, actorId: message.actorId, text: message.text },
+            message: {
+              messageId: message.messageId,
+              actorId: message.actorId,
+              text: message.text,
+              composing: message.composing,
+            },
           }
         : null;
     }

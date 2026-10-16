@@ -43,7 +43,23 @@
     { "type": "cursor", "pageId": "page-1", "x": 120.5, "y": -3.25 },
     { "type": "cursor", "pageId": null, "x": 0, "y": 0 },
     { "type": "selection", "pageId": "page-1", "nodeIds": ["n1", "n2"] },
-    { "type": "chat", "message": { "messageId": "m-1", "actorId": "actor-7f3a", "text": "hello" } },
+    {
+      "type": "chat",
+      "message": {
+        "messageId": "m-1",
+        "actorId": "actor-7f3a",
+        "text": "hello",
+        "composing": false
+      }
+    },
+    {
+      "type": "chat",
+      "message": { "messageId": "m-1", "actorId": "actor-7f3a", "text": "hello", "composing": true }
+    },
+    {
+      "type": "chat",
+      "message": { "messageId": "m-1", "actorId": "actor-7f3a", "text": "", "composing": false }
+    },
     { "type": "sync-request", "fromSeq": 4 },
     {
       "type": "operation-begin",
@@ -146,7 +162,8 @@
       "message": {
         "messageId": "m-2",
         "actorId": "actor-aa01",
-        "text": "emoji ok: 👍🏽 bidi: سلام"
+        "text": "emoji ok: 👍🏽 bidi: سلام",
+        "composing": false
       }
     },
     {
@@ -265,6 +282,7 @@
     { "type": "cursor", "pageId": "p", "x": null, "y": 0 },
     { "type": "selection", "pageId": "p", "nodeIds": "n1" },
     { "type": "chat", "message": { "messageId": "m", "actorId": "a", "text": 7 } },
+    { "type": "chat", "message": { "messageId": "m", "actorId": "a", "text": "no flag" } },
     {
       "type": "chat",
       "message": {

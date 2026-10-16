@@ -42,6 +42,41 @@ test.describe('tablet text editing', () => {
       .toBe(true);
   });
 
+  test('double-tapping an existing text node reopens it for editing', async ({ page }) => {
+    await navigateToEditor(page);
+    await expect(page.locator('html')).toHaveAttribute('data-layout-mode', 'tablet');
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('tablet content canvas has no bounds');
+    const textX = canvasBox.x + 180;
+    const textY = canvasBox.y + 180;
+
+    // Author a text node first, then commit and return to the select tool so
+    // the double-tap routes through SelectTool's deep-edit path.
+    const toolbar = page.getByTestId('toolbar');
+    await toolbar.getByRole('button', { name: 'Text', exact: true }).first().tap();
+    await page.touchscreen.tap(textX, textY);
+    const editor = page.getByRole('textbox', { name: /editing text/i });
+    await expect(editor).toBeVisible({ timeout: 15_000 });
+    await page.keyboard.insertText('Double tap me');
+    await page.keyboard.press('Escape');
+    await expect(editor).toBeHidden({ timeout: 15_000 });
+
+    await toolbar.getByRole('button', { name: 'Select', exact: true }).first().tap();
+
+    // Two quick taps in one spot: Chromium synthesizes the double-tap as a
+    // dblclick, which is the same entry SelectTool serves to a desktop
+    // double-click. The edit surface must reopen carrying the committed text.
+    await page.touchscreen.tap(textX, textY);
+    await page.touchscreen.tap(textX, textY);
+
+    const reopened = page.getByRole('textbox', { name: /editing text/i });
+    await expect(reopened).toBeVisible({ timeout: 15_000 });
+    await expect(reopened).toHaveValue('Double tap me');
+    await page.keyboard.press('Escape');
+  });
+
   test('short tablet text entry survives keyboard-like reflow and keeps writing controls reachable', async ({
     page,
   }) => {

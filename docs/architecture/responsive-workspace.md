@@ -150,6 +150,22 @@ Consequences worth keeping in mind:
   default** (creation ratio *and* the preferred-size opening state) — the
   affordance the retired legacy handle exposed as "double-click resets".
   Escape cancels an in-flight drag.
+- **The splitter's grab band is sized by input capability, not by taste**: 24px
+  centred on the seam for a coarse pointer, 16px (8px each side) for a fine one,
+  bounded to 8–32px. A fixed 24px band cost the artwork its outermost 12px on
+  each edge for the canvas's full height — measured,
+  `elementFromPoint(canvas.left + 3, …)` returned the splitter — and also left
+  only 1px of clearance to the Layers filter toggle at 1024×600. Coarse pointers
+  keep the provisioning they need; fine pointers stop paying for it.
+- **Interface text has a compact floor.** Interface type is a single rem scale
+  with no viewport adaptation, so the compact tier must not *reduce* it: the
+  status bar and application menu labels used to drop to `--font-size-2xs`
+  (12px) at ≤899px and ≤640px. The floor is declared once, as that token, scoped
+  to `.editor-shell` in the compact tier (13px), so a call site cannot
+  reintroduce the shrink by choosing the token. The root font-size preference
+  remains the single magnification lever — no `clamp()`/`vw` type, which would
+  be a second scaling mechanism for the text-enlargement contracts to disagree
+  with.
 - The compact grid tier (`<= 899px`) reads the same registry through
   `panelLimits()` in `components/PanelResizeHandle.tsx`. Do not reintroduce a
   second list of panel widths: the two tiers already drifted once, and the
@@ -197,6 +213,42 @@ them. Full-page browser zoom scales both and is unaffected.
 - Desktop panel visibility (`Ctrl+B` / `Ctrl+Shift+B`) and per-workspace panel
   configuration remain the source of truth; drawer visibility is local UI
   state layered on top.
+
+### Nothing under a modal scrim may stay interactive
+
+A modal drawer's scrim divides the shell into "the drawer" and "everything
+else", and everything else must be inert. Three things broke that rule, all
+measured:
+
+- **The launcher FABs sit *below* the scrim** (`--z-raised` 10 against
+  `--z-overlay − 1` 999), so while a drawer is open their labels promised an
+  action a pointer could never deliver. They are therefore not rendered while a
+  compact drawer is open; the drawer's own close control takes over.
+- **The scrim itself can be gated away.** It was briefly nested inside the
+  launcher gate, which is `!compactDrawerOpen` — exactly the state in which the
+  scrim is needed. The drawer stayed modal in intent but the page was not
+  covered, so a dismissal tap fell through to the header
+  (`button.ccb__tool-pill`) and the only pointer exit was the drawer's own close
+  control. **The scrim's condition is the opposite of the launchers': it renders
+  while a drawer is open.** Do not group them.
+- **The floating toolbar is *below* the scrim** (`--elevation-z-raised` 100, so
+  z 101 against 999) and stays visible under it, as the canvas does. An earlier
+  note in this file claimed the opposite, inferred from a hit test taken while no
+  scrim existed; the tokens say otherwise and that claim is withdrawn.
+
+The invariant to preserve when adding chrome near the canvas: **while a compact
+drawer is open, the only interactive surfaces are the drawer, its close control,
+Escape, and the scrim.** Anything else must be hidden, inert, or below the
+scrim. The launchers' visibility and the scrim are driven by one flag
+(`compactDrawerOpen` in `Shell.tsx`) but with *opposite* polarity, which is
+precisely why they must not be written as one block.
+
+Every drawer owns an in-panel close control. Resources was the exception, and
+its only pointer exit was the scrim strip beside the panel — 90px at a 390px
+viewport, 20px at 320px. A drawer whose panel ships no close control is a trap on
+a touch-only device, because the scrim is the only other route and Escape needs a
+keyboard.
+
 
 ## Lower-edge geometry
 

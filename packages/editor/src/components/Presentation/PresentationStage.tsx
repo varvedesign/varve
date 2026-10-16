@@ -155,14 +155,6 @@ export function PresentationStage({
             transition ? Math.round(transition.progress * 500) : 'x'
           }:${Math.round((sample.builds.find((b) => b.state === 'active')?.progress ?? 0) * 500)}`;
 
-      // Clear only when we have a fresh frame to paint; an unprepared live
-      // path keeps the previous stable frame instead of flashing empty.
-      const willPaint =
-        transition !== null ||
-        !hasPendingBuilds ||
-        anyActiveBuild ||
-        stabilityKey !== lastKeyRef.current;
-
       if (transition && slide && nextSlide) {
         const e = transitionEase(transitions[sample.slideIndex]?.easing, transition.progress);
         const toBitmap = bitmaps.get(nextSlide.entry.id);
@@ -231,7 +223,8 @@ export function PresentationStage({
               // Live pair render; prepared lazily, crossfade fallback when
               // the plan is missing so the show never stalls or blanks.
               const planState = morphPlanRef.current;
-              if (planState?.plan) {
+              const planKey = `${sample.slideIndex}:${revision}`;
+              if (planState?.plan && planState.key === planKey) {
                 const framePlan = sampleMorphFrame(planState.plan, e);
                 busy = true;
                 void (async () => {
@@ -263,6 +256,7 @@ export function PresentationStage({
                         planFrameHeight(document, nextSlide.entry.frameId),
                       ),
                     );
+                    if (cancelled) return;
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     const a = scratchARef.current;
                     const b = scratchBRef.current;
@@ -300,14 +294,15 @@ export function PresentationStage({
         return;
       }
 
-      // Shown phase.
+      // Shown phase. Settled slides repaint only when their key changes:
+      // an idle show must not burn redraws (and shadowBlur) at refresh rate.
       if (!slide) return;
       if (!hasPendingBuilds && !anyActiveBuild) {
-        if (lastKeyRef.current !== stabilityKey || willPaint) {
+        if (lastKeyRef.current !== stabilityKey) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           drawStatic(sample.slideIndex);
+          lastKeyRef.current = stabilityKey;
         }
-        lastKeyRef.current = stabilityKey;
         return;
       }
       // Builds: live-render with overrides; nodes hidden by entrance steps
@@ -372,6 +367,7 @@ export function PresentationStage({
 
     const loop = () => {
       if (cancelled) return;
+      ensureMorphPlan();
       if (!busy) tick();
       raf = requestAnimationFrame(loop);
     };

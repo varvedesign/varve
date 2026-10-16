@@ -388,7 +388,9 @@ export function resolvePresentationSlides(
     (slide) =>
       slide.status !== 'ready' &&
       slide.entry.skipped !== true &&
-      (slide.status === 'missing' || slide.visible),
+      // An existing-but-invalid reference (or an export-region frame) is
+      // invisible by construction, so the visible test alone would silence it.
+      (slide.status === 'missing' || slide.status === 'invalid-frame' || slide.visible),
   );
   return { deck, slides, includedSlides, deliveryErrors };
 }

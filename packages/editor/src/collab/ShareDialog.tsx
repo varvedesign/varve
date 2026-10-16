@@ -14,8 +14,8 @@
  * Invite links carry the token in the URL FRAGMENT so it never reaches
  * server logs or referrers: http://host:port/join#room=<id>&t=<token>.
  */
-import { Button, Dialog } from '@varve/ui';
-import { useEffect, useState } from 'react';
+import { Button, Dialog, Select } from '@varve/ui';
+import { useEffect, useRef, useState } from 'react';
 import { useEditor } from '../context';
 import { useCollabSession } from './CollabSessionContext';
 import './collab.css';
@@ -44,7 +44,16 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
   const [hosted, setHosted] = useState<HostedRoom | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [invites, setInvites] = useState<
+    Array<{ token: string; role: 'editor' | 'viewer'; link: string }>
+  >([]);
+  const [inviteRole, setInviteRole] = useState<'editor' | 'viewer'>('editor');
+  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
   const [appHostSupported, setAppHostSupported] = useState(false);
+  const tabRefs = useRef<Record<'host' | 'join', HTMLButtonElement | null>>({
+    host: null,
+    join: null,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -177,6 +186,106 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
     }
   };
 
+  /**
+   * Mint a role-scoped invite for the room this tab is hosting.
+   *
+   * The app-hosted path mints through the embedded host (its admin token never
+   * leaves the process); the self-hosted path uses the operator's admin token
+   * the user already entered. Until this existed, every link the app handed out
+   * carried OWNER rights, so the host's role enforcement was unreachable.
+   */
+  const createInvite = async (role: 'editor' | 'viewer') => {
+    if (!hosted) return;
+    setBusy(true);
+    setError(null);
+    setInviteStatus(null);
+    try {
+      let token: string;
+      if (hosted.mode === 'app') {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const created = await invoke<{ inviteToken: string }>('collab_room_invite', {
+          roomId: hosted.roomId,
+          role,
+        });
+        token = created.inviteToken;
+      } else {
+        const response = await fetch(
+          `${hosted.serverBase}/admin/rooms/${encodeURIComponent(hosted.roomId)}/invites`,
+          {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              'x-varve-admin-token': adminToken,
+            },
+            body: JSON.stringify({ role }),
+          },
+        );
+        if (!response.ok) {
+          setError(
+            response.status === 401
+              ? 'The room server refused the admin token.'
+              : `The room server refused the invite (${response.status}).`,
+          );
+          return;
+        }
+        token = ((await response.json()) as { inviteToken: string }).inviteToken;
+      }
+      const link = `${hosted.serverBase}/join#room=${hosted.roomId}&t=${token}`;
+      setInvites((current) => [...current, { token, role, link }]);
+    } catch (reason) {
+      setError(describeError(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Revoke an invite. The host closes its live sessions; copies already
+   * received cannot be recalled, which the UI says plainly.
+   */
+  const revokeInvite = async (token: string) => {
+    if (!hosted) return;
+    setBusy(true);
+    setError(null);
+    try {
+      if (hosted.mode === 'app') {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const result = await invoke<{ revoked: boolean }>('collab_room_revoke', {
+          inviteToken: token,
+        });
+        setInviteStatus(result.revoked ? 'Invite revoked.' : 'That invite was already gone.');
+      } else {
+        // The server stores only the SHA-256 of the token.
+        if (typeof crypto?.subtle?.digest !== 'function') {
+          setError('Revoking needs a secure context (https or localhost).');
+          return;
+        }
+        const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+        const hash = [...new Uint8Array(digest)]
+          .map((byte) => byte.toString(16).padStart(2, '0'))
+          .join('');
+        const response = await fetch(`${hosted.serverBase}/admin/invites/${hash}`, {
+          method: 'DELETE',
+          headers: { 'x-varve-admin-token': adminToken },
+        });
+        if (!response.ok && response.status !== 404) {
+          setError(`The room server refused the revocation (${response.status}).`);
+          return;
+        }
+        setInviteStatus(
+          response.status === 404
+            ? 'That invite was already gone.'
+            : 'Invite revoked; its live sessions were closed.',
+        );
+      }
+      setInvites((current) => current.filter((entry) => entry.token !== token));
+    } catch (reason) {
+      setError(describeError(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const sessionUsesHostedRoom =
     active &&
     hosted !== null &&
@@ -221,29 +330,54 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
           </section>
         ) : (
           <>
-            <div className="collab-share__tabs" role="tablist">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'host'}
-                className={`collab-share__tab${tab === 'host' ? ' is-active' : ''}`}
-                onClick={() => setTab('host')}
-              >
-                Host
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'join'}
-                className={`collab-share__tab${tab === 'join' ? ' is-active' : ''}`}
-                onClick={() => setTab('join')}
-              >
-                Join
-              </button>
+            {/* APG tabs: one tab stop, arrows/Home/End move between them,
+                and each tab names the panel it controls. */}
+            <div
+              className="collab-share__tabs"
+              role="tablist"
+              aria-label="Share options"
+              onKeyDown={(event) => {
+                const order: Array<'host' | 'join'> = ['host', 'join'];
+                const index = order.indexOf(tab);
+                let next: 'host' | 'join' | null = null;
+                if (event.key === 'ArrowRight') next = order[(index + 1) % order.length]!;
+                else if (event.key === 'ArrowLeft')
+                  next = order[(index - 1 + order.length) % order.length]!;
+                else if (event.key === 'Home') next = order[0]!;
+                else if (event.key === 'End') next = order[order.length - 1]!;
+                if (!next) return;
+                event.preventDefault();
+                setTab(next);
+                tabRefs.current[next]?.focus();
+              }}
+            >
+              {(['host', 'join'] as const).map((value) => (
+                <button
+                  key={value}
+                  ref={(element) => {
+                    tabRefs.current[value] = element;
+                  }}
+                  type="button"
+                  role="tab"
+                  id={`collab-share-tab-${value}`}
+                  aria-selected={tab === value}
+                  aria-controls={`collab-share-panel-${value}`}
+                  tabIndex={tab === value ? 0 : -1}
+                  className={`collab-share__tab${tab === value ? ' is-active' : ''}`}
+                  onClick={() => setTab(value)}
+                >
+                  {value === 'host' ? 'Host' : 'Join'}
+                </button>
+              ))}
             </div>
 
             {tab === 'host' && (
-              <section className="collab-share__section">
+              <section
+                className="collab-share__section"
+                role="tabpanel"
+                id="collab-share-panel-host"
+                aria-labelledby="collab-share-tab-host"
+              >
                 <h3>Start a live session</h3>
                 {appHostSupported && (
                   <div className="collab-share__actions">
@@ -326,6 +460,57 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
                         </Button>
                       )}
                     </div>
+                    <div className="collab-share__invite-roles">
+                      <label htmlFor="collab-invite-role">Invite someone as</label>
+                      <Select
+                        id="collab-invite-role"
+                        label="Invite role"
+                        value={inviteRole}
+                        onChange={(value) => setInviteRole(value as 'editor' | 'viewer')}
+                        options={[
+                          { value: 'editor', label: 'Editor — can change the document' },
+                          { value: 'viewer', label: 'Viewer — can watch and use cursor chat' },
+                        ]}
+                      />
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void createInvite(inviteRole)}
+                        disabled={busy}
+                      >
+                        Create {inviteRole} link
+                      </Button>
+                    </div>
+                    <ul className="collab-share__invite-list" aria-label="Invites you created">
+                      {invites.map((invite) => (
+                        <li key={invite.token}>
+                          <span className="collab-share__invite-role">{invite.role}</span>
+                          <input
+                            readOnly
+                            value={invite.link}
+                            onFocus={(e) => e.currentTarget.select()}
+                          />
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void revokeInvite(invite.token)}
+                            disabled={busy}
+                          >
+                            Revoke
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                    {inviteStatus && (
+                      <p className="collab-share__hint" role="status">
+                        {inviteStatus}
+                      </p>
+                    )}
+                    <p className="collab-share__hint">
+                      Revoking closes the sessions an invite is already using. It cannot recall a
+                      copy someone already saved, and the role is enforced by the host, not by this
+                      dialog.
+                    </p>
                     {hosted.mode === 'app' && (
                       <p className="collab-share__hint">
                         Stopping closes the local listener. The room stays in this app's storage: a
@@ -339,7 +524,12 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
             )}
 
             {tab === 'join' && (
-              <section className="collab-share__section">
+              <section
+                className="collab-share__section"
+                role="tabpanel"
+                id="collab-share-panel-join"
+                aria-labelledby="collab-share-tab-join"
+              >
                 <h3>Join a session</h3>
                 <div className="collab-share__grid">
                   <label htmlFor="collab-join-server">Room server</label>

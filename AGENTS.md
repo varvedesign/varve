@@ -1106,7 +1106,49 @@ Invariants:
 5. PPTX interoperability stays deferred until its own feasibility and fidelity
    assessment.
 
-Open work: typography theming (`theme.textStyles`), formatting (non-geometry)
-inheritance and reset, cross-document layout/theme clipboard mapping, and
-image/mask/effect export fidelity cases. PPTX remains deferred until its own
-feasibility and fidelity assessment.
+Open work: formatting (non-geometry) inheritance and reset, cross-document
+layout/theme clipboard mapping, image/mask/effect export fidelity cases, a
+separate OS presenter window, and vector slide PDF via `varve-print`.
+Typography theming exists as an explicit `applyFonts` opt-in over built-in
+theme presets. Authored slide transitions and builds (presentation metadata
+schema 2) play in delivery through a deterministic show director
+(`packages/editor/src/components/Presentation/show/`); morph matches only
+unique same-kind names and fades unmatched objects in place. Handout export
+imposes raster slides via `packages/scene/src/presentation/handouts.ts`.
+PPTX: the blanket deferral is replaced by the phased assessment in
+`docs/research/pptx-fidelity-assessment-2026-10-16.md`; Varve still does not
+read or write `.pptx`, and must not claim to until those phases verify.
+
+## Collaboration System
+
+Canonical docs: `docs/architecture/collaboration-system.md`, ADR-0243.
+Behavioral decisions: ADR-0200 (D1–D5 stand); undo semantics: ADR-0019
+hybrid (Model B compensating reverts for shared sessions).
+
+- **Authoritative semantic-operation rooms** — the room host owns the order;
+  the sync unit is the validated `document.transaction-capture` payload.
+  Clients validate on receive and resynchronize on failure. No CRDT
+  (rationale and rejected alternatives in ADR-0243).
+- **One host implementation, two shapes**: `crates/varve-room` serves the
+  `varve-room-server` binary (self-hosted; loopback by default, `--expose`
+  requires an explicit admin token) and the embedded app-hosted host
+  (`collab_host_*` Tauri commands, loopback only).
+- **Shared-session undo is compensating**: the provider intercepts
+  undo/redo via the ActionRegistry while a session is active; compensations
+  broadcast with `revertsClientOpId` provenance. Never restore snapshots in
+  a shared session.
+- **Remote edits are not local history**: they apply through
+  `applyCollabTransaction` (no undo step, no persistent revision); the skip
+  flag prevents re-broadcast loops.
+- **Presence never mutates the document**: cursors/selections/viewports
+  (spotlight)/chat are ephemeral, TTL-filtered, protocol-rate-limited.
+  Spotlight follow is opt-in and cancelled by local camera interaction.
+- **Protocol conformance fixtures** are shared with the Rust host
+  (`packages/collab/src/__fixtures__/protocol-v1.json`); change both sides
+  plus fixtures together.
+- Security invariants: invite tokens only in URL fragments, SHA-256-hashed
+  at rest, constant-time verification; viewer mutations rejected at the
+  host; revocation closes live sockets; frame ceilings and rate limits
+  before parsing; no E2EE claims.
+- E2E journey: `tests/e2e/collab/realtime-collaboration.spec.ts` (two
+  browser contexts against a real `varve-room-server`).

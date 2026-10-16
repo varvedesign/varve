@@ -491,16 +491,29 @@ function ShellInner({
     distractionFreeMode,
   } = editor.state;
   const layersExpanded = leftPanelVisible || layersVisible;
-  const { closeResponsivePanels, closeResponsiveInspector, closeResponsiveLayers } =
-    useResponsivePanelClosers({
-      layersVisible,
-      inspectorVisible,
-      libraryPanelVisible,
-      setLayersVisible,
-      setInspectorVisible,
-      toggleLibraryPanel: editor.toggleLibraryPanel,
-      triggerRef: responsivePanelTriggerRef,
-    });
+  /**
+   * A compact drawer (or the Resources sheet) is modal, so the launchers — which
+   * sit at --z-raised (10) beneath the scrim at --z-overlay - 1 (999) — cannot be
+   * activated while one is open. Their labels promised an action the pointer
+   * could not deliver, and their own click handler is what closes the drawer, so
+   * they are not rendered in that state. The drawer's close control, Escape and
+   * the scrim are the routes out. False on desktop, where these flags never set.
+   */
+  const compactDrawerOpen = layersVisible || inspectorVisible || libraryPanelVisible;
+  const {
+    closeResponsivePanels,
+    closeResponsiveInspector,
+    closeResponsiveLayers,
+    closeResponsiveLibrary,
+  } = useResponsivePanelClosers({
+    layersVisible,
+    inspectorVisible,
+    libraryPanelVisible,
+    setLayersVisible,
+    setInspectorVisible,
+    toggleLibraryPanel: editor.toggleLibraryPanel,
+    triggerRef: responsivePanelTriggerRef,
+  });
 
   useResponsiveDrawerFocus({
     layersVisible,
@@ -775,6 +788,7 @@ function ShellInner({
                 doc={editor.state.document}
                 onInstallLibrary={editor.installLibrary}
                 onUninstallLibrary={editor.uninstallLibrary}
+                onCloseResponsivePanel={closeResponsiveLibrary}
               />
             </section>
           )}
@@ -973,12 +987,27 @@ function ShellInner({
               />
             </>
           )}
-          {/* Responsive panel launchers and their backdrop are deliberately
-            outside the statusBar config gate: they are the only way to open
-            the layers/inspector/resources drawers at <=899px. Gating them on
-            a status-bar preference left a workspace with the status bar
-            disabled with no reachable way to reveal a hidden panel. */}
-          {!distractionFreeMode && (
+          {/* The scrim exists precisely while a drawer does: it is what makes the
+            drawer modal, and it is a dismissal route. It must NOT be gated
+            together with the launchers, which are hidden in exactly this state —
+            doing that removed the scrim, so taps fell through to the header and
+            the drawer's only pointer exit was its own close control. */}
+          {!distractionFreeMode && compactDrawerOpen && (
+            // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
+            <div
+              className="editor__panel-backdrop"
+              onClick={closeResponsivePanels}
+              role="presentation"
+            />
+          )}
+          {/* Responsive panel launchers are deliberately outside the statusBar
+            config gate: they are the only way to open the
+            layers/inspector/resources drawers at <=899px. Gating them on a
+            status-bar preference left a workspace with the status bar disabled
+            with no reachable way to reveal a hidden panel. They are hidden while
+            a drawer is open, because at --z-raised (10) beneath the scrim (999)
+            their labels would promise an action the pointer cannot deliver. */}
+          {!distractionFreeMode && !compactDrawerOpen && (
             <>
               {/* FAB for layers (responsive) */}
               <button
@@ -1022,17 +1051,6 @@ function ShellInner({
               >
                 <Icon name="Library" />
               </button>
-              {/* Backdrop for overlays. libraryPanelVisible is included because
-                the dismiss handler already closes Resources — without it, a
-                Resources-only drawer had no scrim and no pointer dismissal. */}
-              {(layersVisible || inspectorVisible || libraryPanelVisible) && (
-                // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
-                <div
-                  className="editor__panel-backdrop"
-                  onClick={closeResponsivePanels}
-                  role="presentation"
-                />
-              )}
             </>
           )}
           <ShortcutPalette

@@ -142,6 +142,12 @@ function ChatComposer() {
       if (target?.isContentEditable) return;
       const tag = target?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      // ARIA text surfaces are text surfaces too: the project convention
+      // (packages/ui Toolbar) also excludes these roles, because stealing the
+      // keystroke from an ARIA textbox is the same bug as stealing it from an
+      // <input>.
+      const role = target?.getAttribute?.('role');
+      if (role === 'textbox' || role === 'combobox' || role === 'spinbutton') return;
       event.preventDefault();
       inputRef.current?.focus();
     };
@@ -227,7 +233,11 @@ function ChatAnnouncer() {
       announcedRef.current = new Set();
     }
     const seen = announcedRef.current;
-    if (seen.size > 200) seen.clear();
+    while (seen.size > 200) {
+      const oldest = seen.values().next().value;
+      if (oldest === undefined) break;
+      seen.delete(oldest);
+    }
     for (const bubble of session.chat) {
       if (bubble.composing || bubble.actorId === session.actorId) continue;
       if (seen.has(bubble.messageId)) continue;

@@ -35,9 +35,11 @@ import {
   computeRedoCompensation,
   computeStepCompensation,
   getDeviceId,
+  MemoryPendingOperationStore,
   mergeIncomingSplice,
   mintClientId,
   type ParticipantInfo,
+  type PendingOperationStore,
   PROTOCOL_LIMITS,
   type RoomOperation,
   type SelectionPresence,
@@ -68,6 +70,7 @@ import {
 import { getActionRegistry } from '../actions/ActionRegistry';
 import { getCursorWorldPosition, subscribeCursorWorldPosition } from '../canvas/cursorPosition';
 import { useEditor } from '../context';
+import { IndexedDbPendingOperationStore } from './pendingOperationStore';
 
 // ── Public shape ──────────────────────────────────────────────────────────────
 
@@ -168,6 +171,9 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
   const [followingActorId, setFollowingActorId] = useState<string | null>(null);
 
   const engineRef = useRef<CollabSyncEngine | null>(null);
+  // One store instance per app session (IndexedDB handles are reused; the
+  // memory fallback keeps tests and private-mode browsers working).
+  const pendingStoreRef = useRef<PendingOperationStore>(createPendingStore());
   const undoStackRef = useRef<SessionCapture[]>([]);
   const redoStackRef = useRef<RedoEntry[]>([]);
   const followingRef = useRef<string | null>(null);
@@ -232,6 +238,19 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
     ): string | null => {
       const engine = engineRef.current;
       if (engine?.status !== 'live') return null;
+      // Pre-flight the capture against the SAME validator every receiving
+      // client runs. A capture the receiver must refuse is otherwise sent,
+      // refused there, and answered with a resynchronization — while the author
+      // sees nothing wrong. (Measured: an inserted 3.9 MB image exceeded the
+      // capture string bound, so it never replicated and nobody was told.)
+      const validated = validatePayload('document.transaction-capture', capture);
+      if (!validated.ok) {
+        pushNotice({
+          code: 'operation-rejected',
+          message: `This change cannot be shared (${validated.errors.join('; ')}). It stays in your local document.`,
+        });
+        return null;
+      }
       const clientOpId = mintClientId();
       const op: RoomOperation = {
         clientOpId,
@@ -277,9 +296,11 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
       registerBuiltinOperations();
       const validated = validatePayload('document.transaction-capture', capture);
       if (!validated.ok) {
+        // Name the rule that refused it: a bare "failed validation" leaves the
+        // reason (and therefore the fix) invisible in the field.
         pushNotice({
           code: 'protocol-error',
-          message: 'A received change failed validation; resynchronizing.',
+          message: `A received change failed validation (${validated.errors.join('; ')}); resynchronizing.`,
         });
         engineRef.current?.resync();
         return;
@@ -495,13 +516,17 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
           applySnapshot: (documentJson) => {
             const decoded = DocumentCodec.decode(documentJson);
             if (!decoded.ok) {
+              // Refusing here is the point: joining a room whose baseline this
+              // client cannot load would fail validation on every incoming
+              // operation and resynchronize forever.
               pushNotice({
                 code: 'protocol-error',
                 message: 'The room snapshot could not be decoded.',
               });
-              return;
+              return false;
             }
             editor.applyCollabTransaction(decoded.document, 'Joined session');
+            return true;
           },
           applyRemoteOperation: (op) => {
             applyRemoteCapture(op.capture, op.label);
@@ -557,6 +582,8 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
           onChat: (message: ChatMessage) => {
             const participant = engineRef.current?.participantFor(message.actorId);
             if (message.text.length === 0) {
+              // The author withdrew the draft (Escape, or leaving the field):
+              // drop the bubble everywhere it was shown.
               setChat((current) =>
                 current.filter((bubble) => bubble.messageId !== message.messageId),
               );
@@ -571,7 +598,9 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
                 colorIndex: participant?.colorIndex ?? 0,
                 text: message.text,
                 at: Date.now(),
-                composing: true,
+                // A finalized message keeps the short TTL; only a live draft
+                // gets the longer composing window.
+                composing: message.composing,
               },
             ]);
           },
@@ -587,6 +616,9 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
           },
         },
         createTransport: (roomUrl) => new WebSocketCollabTransport(roomUrl),
+        // Unacknowledged edits survive a reload: the room catches up to the
+        // local document on the next join instead of staying behind it.
+        pendingStore: pendingStoreRef.current,
         timers: {
           setTimeout: (handler, ms) => window.setTimeout(handler, ms),
           clearTimeout: (handle) => window.clearTimeout(handle as number),
@@ -668,16 +700,12 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
     const engine = engineRef.current;
     if (!engine) return;
     composingMessageIdRef.current = composing ? messageId : null;
-    engine.sendChat(text, messageId);
-    if (!composing && text.trim().length > 0) {
-      // Finalize locally so the author sees their own bubble with its TTL.
-      setChat((current) =>
-        current.map((bubble) =>
-          bubble.messageId === messageId ? { ...bubble, composing: false, at: Date.now() } : bubble,
-        ),
-      );
-    }
-    if (!composing && text.trim().length === 0) {
+    engine.sendChat(text, messageId, composing);
+    // The author does not get a local bubble: bubbles are anchored to a
+    // REMOTE cursor, and the author's own text is already visible in the
+    // composer. A finalized message is simply withdrawn from local state (its
+    // bubble, if the peer sees it, belongs to the peer's cursor).
+    if (!composing) {
       setChat((current) => current.filter((bubble) => bubble.messageId !== messageId));
     }
   }, []);
@@ -736,6 +764,18 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Persistent when the platform allows it, in-memory otherwise. */
+function createPendingStore(): PendingOperationStore {
+  try {
+    if (typeof indexedDB !== 'undefined' && indexedDB !== null) {
+      return new IndexedDbPendingOperationStore();
+    }
+  } catch {
+    // Private mode / disabled storage: fall through to memory.
+  }
+  return new MemoryPendingOperationStore();
+}
 
 function useDisplayName(): string {
   const [name, setName] = useState('');

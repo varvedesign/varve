@@ -78,6 +78,24 @@ export interface DockTreeGeometry {
 
 export type DockPanelVisibility = Partial<Record<PanelTypeId, boolean>>;
 
+/**
+ * Width of a splitter's grab band, centred on the seam.
+ *
+ * The band is a hit target, so it is sized by input capability rather than by
+ * taste: a coarse pointer keeps the 24px provisioning, and a fine pointer gets
+ * 16px — 8px each side — which returns 4px of the canvas on each edge and 4px of
+ * clearance to the panel's own edge controls. Measured before this: at every
+ * desktop viewport `elementFromPoint(canvas.left + 3, ...)` returned the
+ * splitter, i.e. the outer 12px of the artboard belonged to the divider.
+ */
+export const DOCK_SPLITTER_BAND_COARSE = 24;
+export const DOCK_SPLITTER_BAND_FINE = 16;
+
+export interface DockGeometryOptions {
+  /** Grab band width in CSS px; defaults to the coarse-pointer size. */
+  splitterBand?: number;
+}
+
 /** Collapse temporarily hidden panel branches without changing saved intent. */
 export function projectVisibleDockTree(node: DockNode, visibility: DockPanelVisibility): DockNode {
   if (node.kind === 'panel') {
@@ -119,7 +137,14 @@ export function resolveDockTreeGeometry(
   width: number,
   height: number,
   visibility: DockPanelVisibility = {},
+  options: DockGeometryOptions = {},
 ): DockTreeGeometry {
+  const band = clamp(
+    Number.isFinite(options.splitterBand) ? options.splitterBand! : DOCK_SPLITTER_BAND_COARSE,
+    8,
+    32,
+  );
+  const overhang = band / 2;
   const projected = projectVisibleDockTree(root, visibility);
   const placements: DockPanelPlacement[] = [];
   const tabGroups: DockTabGroupPlacement[] = [];
@@ -189,9 +214,9 @@ export function resolveDockTreeGeometry(
         maxRatio: allocation.maxRatio,
         extent: rect.width,
         rect: {
-          x: rect.x + firstWidth - 12,
+          x: rect.x + firstWidth - overhang,
           y: rect.y,
-          width: 24,
+          width: band,
           height: rect.height,
         },
       });
@@ -224,9 +249,9 @@ export function resolveDockTreeGeometry(
         extent: rect.height,
         rect: {
           x: rect.x,
-          y: rect.y + firstHeight - 12,
+          y: rect.y + firstHeight - overhang,
           width: rect.width,
-          height: 24,
+          height: band,
         },
       });
       visit(node.first, { ...rect, height: firstHeight });

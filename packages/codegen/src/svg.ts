@@ -50,6 +50,16 @@ import {
   type SvgPatternRenderHost,
   svgPatternFillForNode,
 } from './svg-patterns';
+import { emitMeasuredTextContent, type SvgTextMeasurer } from './svgTextLayout';
+
+/**
+ * Font-metrics provider for the current `exportNodeToSvg` call. SVG export
+ * is synchronous and single-threaded, so a module-scoped provider is the
+ * least invasive way to reach the deep text emitter without threading
+ * another positional parameter through the whole walk. Null means no
+ * metrics were supplied and text uses the declared heuristic.
+ */
+let svgExportTextMeasurer: SvgTextMeasurer | null = null;
 
 export { svgPatternFillForNode } from './svg-patterns';
 
@@ -305,6 +315,12 @@ export interface SvgExportOptions {
    * rect entirely — required for logo marks, favicons, and overlays.
    */
   background?: 'white' | 'transparent';
+  /**
+   * Font-metrics provider for measured line breaking (the portable SVG text
+   * profile). Absent, area text keeps its declared heuristic fallback and
+   * the emission discloses that lines were not measured.
+   */
+  measure?: SvgTextMeasurer;
 }
 
 /**
@@ -393,8 +409,17 @@ function nodeSvgBounds(
     );
   }
   if (node.kind === 'text') {
-    const width = Math.max(1, node.text.length * (node.fontSize ?? 16) * 0.6);
-    const height = Math.max(1, (node.fontSize ?? 16) * (node.lineHeight ?? 1.2));
+    // Area text has an authored box — that box is the truth. Point text
+    // keeps the long-standing advance estimate (no authored geometry to
+    // measure here; it discloses nothing about wrapping).
+    const width =
+      node.textMode === 'area' && typeof node.w === 'number'
+        ? Math.max(1, node.w)
+        : Math.max(1, node.text.length * (node.fontSize ?? 16) * 0.6);
+    const height =
+      node.textMode === 'area' && typeof node.h === 'number'
+        ? Math.max(1, node.h)
+        : Math.max(1, (node.fontSize ?? 16) * (node.lineHeight ?? 1.2));
     return transformedBounds(
       [
         [0, 0],
@@ -848,6 +873,20 @@ function collectSubtreePathTextDefs(doc: SceneDocument, node: SceneNode): string
 }
 
 function buildTextContent(node: TextNode, indent: string): string {
+  if (svgExportTextMeasurer) {
+    const measured = emitMeasuredTextContent(node, indent, svgExportTextMeasurer);
+    if (measured !== null) return measured;
+  }
+  const heuristic = buildHeuristicTextContent(node, indent);
+  if (!svgExportTextMeasurer && node.textMode === 'area') {
+    // Declared limitation, not a silent approximation: without metrics the
+    // emission cannot know where the renderer would break lines.
+    return `${indent}  <!-- varve: area text exported without font metrics - line breaks follow authored newlines only -->\n${heuristic}`;
+  }
+  return heuristic;
+}
+
+function buildHeuristicTextContent(node: TextNode, indent: string): string {
   const baseY = 0;
   const lineHeight = (node.lineHeight ?? 1.2) * (node.fontSize ?? 16);
   const childIndent = `${indent}  `;
@@ -1349,6 +1388,7 @@ export function exportNodeToSvg(
   doc: SceneDocument,
   opts?: SvgExportOptions,
 ): string {
+  svgExportTextMeasurer = opts?.measure ?? null;
   const rasterAssets = opts?.rasterAssets;
   const exportRoot = resolveLiveBooleanForExport(node, doc) ?? node;
   const bounds = nodeSvgBounds(exportRoot, doc, [1, 0, 0, 1, 0, 0], rasterAssets);

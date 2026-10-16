@@ -44,8 +44,6 @@ export interface WorkerRenderCommand {
   imageSources?: string[];
   /** Display-resolution bucket retained for each image-source manifest entry. */
   imageSourceCaps?: Record<string, number>;
-  /** Display-only proof transform applied inside the worker before replay. */
-  proof?: import('@varve/shared').ProofTransformConfig | null;
   /** Explicit artistic blend evaluation policy for worker replay. */
   blendEvaluationSpace?: import('@varve/shared').BlendEvaluationSpace;
 }

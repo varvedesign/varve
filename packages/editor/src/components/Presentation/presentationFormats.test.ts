@@ -71,3 +71,117 @@ describe('presentation output encoders', () => {
     expect([...unzlibSync(compressed)]).toEqual([12, 34, 56]);
   });
 });
+
+describe('presentation handout PDF', () => {
+  const WIDE = { width: 320, height: 180 };
+
+  function solidPage(width: number, height: number): PresentationRasterPage {
+    const pixels = new Uint8Array(width * height * 4);
+    for (let index = 0; index < width * height; index++) {
+      pixels[index * 4] = 200;
+      pixels[index * 4 + 1] = 210;
+      pixels[index * 4 + 2] = 220;
+      pixels[index * 4 + 3] = 255;
+    }
+    return { width, height, pixels };
+  }
+
+  it('imposes slides into planned slots with ruled lines and real page-number text', async () => {
+    const { planPresentationHandout } = await import('@varve/scene');
+    const { makePresentationHandoutPdf } = await import('./presentationFormats');
+    const slides = Array.from({ length: 6 }, () => solidPage(WIDE.width, WIDE.height));
+    const plan = planPresentationHandout(
+      slides.map(() => ({ wPx: 1920, hPx: 1080 })),
+      {
+        layout: '3-up',
+        paper: 'a4',
+        orientation: 'portrait',
+        marginPt: 36,
+        gapPt: 18,
+        slideNumbers: true,
+        noteLines: true,
+      },
+    );
+    expect(plan).toHaveLength(2);
+    const bytes = makePresentationHandoutPdf(slides, plan, {
+      slideNumbers: true,
+      footerText: 'Quarterly review',
+    });
+    const raw = Buffer.from(bytes).toString('latin1');
+    expect(raw.startsWith('%PDF-1.4')).toBe(true);
+    expect(raw).toContain('/BaseFont /Helvetica');
+    // Page numbers and footer are real text operators.
+    expect(raw).toContain('(1) Tj');
+    expect(raw).toContain('(Quarterly review) Tj');
+    // Ruled note lines are vector strokes.
+    expect(raw).toContain('\nS');
+    // Two pages, three slides each; every slide is an RGB image plus its
+    // alpha soft mask.
+    expect(raw.match(/\/Type \/Page[^s]/g)).toHaveLength(2);
+    expect(raw.match(/\/Subtype \/Image/g)).toHaveLength(12);
+    expect(raw.match(/\/SMask /g)).toHaveLength(6);
+    const bytes2 = makePresentationHandoutPdf(slides.slice(0, 3), plan.slice(0, 1), {
+      slideNumbers: true,
+    });
+    const raw2 = Buffer.from(bytes2).toString('latin1');
+    expect(raw2.match(/\/Subtype \/Image/g)).toHaveLength(6);
+    expect(raw2.match(/\/SMask /g)).toHaveLength(3);
+  });
+
+  it('refuses to build a handout with no slides', async () => {
+    const { planPresentationHandout } = await import('@varve/scene');
+    const { makePresentationHandoutPdf } = await import('./presentationFormats');
+    const plan = planPresentationHandout([], {
+      layout: '1-up',
+      paper: 'a4',
+      orientation: 'portrait',
+      marginPt: 36,
+      gapPt: 18,
+      slideNumbers: true,
+      noteLines: false,
+    });
+    expect(() => makePresentationHandoutPdf([], plan, { slideNumbers: true })).toThrow(
+      /at least one slide/,
+    );
+  });
+});
+
+describe('handout chrome text encoding', () => {
+  it('maps non-WinAnsi footer text to safe byte values instead of UTF-8 mojibake', async () => {
+    const { planPresentationHandout } = await import('@varve/scene');
+    const { makePresentationHandoutPdf } = await import('./presentationFormats');
+    const page = { width: 320, height: 180, pixels: new Uint8Array(320 * 180 * 4).fill(255) };
+    const plan = planPresentationHandout([{ wPx: 1920, hPx: 1080 }], {
+      layout: '1-up',
+      paper: 'a4',
+      orientation: 'portrait',
+      marginPt: 36,
+      gapPt: 18,
+      slideNumbers: true,
+      noteLines: false,
+    });
+    const bytes = makePresentationHandoutPdf([page], plan, {
+      slideNumbers: true,
+      footerText: '设计评审 Réunion',
+    });
+    const raw = Buffer.from(bytes).toString('latin1');
+    // The four CJK characters become explicit '?' replacements, and no
+    // multi-byte UTF-8 sequence for the first character (0xE8 0xAE 0xBE)
+    // leaks into the single-byte-encoded text operator.
+    expect(raw).toContain('(???? R');
+    const utf8She = Buffer.from('设', 'utf8');
+    let foundUtf8 = false;
+    for (let index = 0; index <= bytes.length - 3; index++) {
+      if (
+        bytes[index] === utf8She[0] &&
+        bytes[index + 1] === utf8She[1] &&
+        bytes[index + 2] === utf8She[2]
+      ) {
+        foundUtf8 = true;
+        break;
+      }
+    }
+    expect(foundUtf8).toBe(false);
+    expect(raw).toContain('Tj');
+  });
+});

@@ -81,6 +81,16 @@ impl RoomStore {
                 room_id TEXT PRIMARY KEY REFERENCES rooms(room_id),
                 seq     INTEGER NOT NULL
             );
+            -- Single-owner enforcement: one process per data directory.
+            -- Two hosts on one store can write divergent histories and corrupt
+            -- the journal, so this is a lock rather than a documented hope.
+            CREATE TABLE IF NOT EXISTS host_lock (
+                id           INTEGER PRIMARY KEY CHECK (id = 1),
+                owner_id     TEXT NOT NULL,
+                owner_pid    INTEGER NOT NULL,
+                hostname     TEXT NOT NULL,
+                refreshed_at INTEGER NOT NULL
+            );
             "#,
         )?;
         Ok(Self { conn })
@@ -88,6 +98,96 @@ impl RoomStore {
 
     pub fn in_memory() -> Result<Self, rusqlite::Error> {
         Self::open(Path::new(":memory:"))
+    }
+
+    // ── Single-owner lock ─────────────────────────────────────────────────
+
+    /// Take the data directory's host lock, or report who holds it.
+    ///
+    /// A lock whose heartbeat is older than `stale_after_ms` is treated as
+    /// abandoned (the holder crashed) and taken over: refusing forever would
+    /// make a crash unrecoverable without manual database surgery.
+    pub fn acquire_host_lock(
+        &self,
+        owner_id: &str,
+        owner_pid: i64,
+        hostname: &str,
+        now: i64,
+        stale_after_ms: i64,
+    ) -> Result<LockOutcome, rusqlite::Error> {
+        let tx = self.conn.unchecked_transaction()?;
+        let existing: Option<(String, i64, String, i64)> = tx
+            .query_row(
+                "SELECT owner_id, owner_pid, hostname, refreshed_at FROM host_lock WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .optional()?;
+        if let Some((held_by, held_pid, held_host, refreshed_at)) = existing {
+            let stale = now.saturating_sub(refreshed_at) > stale_after_ms;
+            if !stale && held_by != owner_id {
+                return Ok(LockOutcome::Held {
+                    owner_id: held_by,
+                    owner_pid: held_pid,
+                    hostname: held_host,
+                    refreshed_at,
+                });
+            }
+        }
+        tx.execute(
+            "INSERT INTO host_lock (id, owner_id, owner_pid, hostname, refreshed_at)
+             VALUES (1, ?1, ?2, ?3, ?4)
+             ON CONFLICT(id) DO UPDATE SET
+                owner_id = excluded.owner_id,
+                owner_pid = excluded.owner_pid,
+                hostname = excluded.hostname,
+                refreshed_at = excluded.refreshed_at",
+            params![owner_id, owner_pid, hostname, now],
+        )?;
+        tx.commit()?;
+        Ok(LockOutcome::Acquired)
+    }
+
+    /// Heartbeat for the data-directory lock.
+    ///
+    /// Distinguishes "we still own it" from "another process took it over"
+    /// (stop writing, loudly) and from "the row is gone" (this host released it
+    /// while shutting down — stop the heartbeat, do not treat our own clean exit
+    /// as a takeover).
+    pub fn refresh_host_lock(
+        &self,
+        owner_id: &str,
+        now: i64,
+    ) -> Result<LockHeartbeat, rusqlite::Error> {
+        let updated = self.conn.execute(
+            "UPDATE host_lock SET refreshed_at = ?2 WHERE id = 1 AND owner_id = ?1",
+            params![owner_id, now],
+        )?;
+        if updated == 1 {
+            return Ok(LockHeartbeat::Refreshed);
+        }
+        let holder: Option<(String, i64)> = self
+            .conn
+            .query_row(
+                "SELECT owner_id, owner_pid FROM host_lock WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        Ok(match holder {
+            Some((other, pid)) if other != owner_id => LockHeartbeat::TakenOver { owner_pid: pid },
+            Some(_) => LockHeartbeat::Refreshed,
+            None => LockHeartbeat::Released,
+        })
+    }
+
+    /// Release the lock when this process stops owning the store.
+    pub fn release_host_lock(&self, owner_id: &str) -> Result<(), rusqlite::Error> {
+        self.conn.execute(
+            "DELETE FROM host_lock WHERE id = 1 AND owner_id = ?1",
+            params![owner_id],
+        )?;
+        Ok(())
     }
 
     // ── Rooms and invites ─────────────────────────────────────────────────
@@ -296,6 +396,19 @@ impl RoomStore {
         if upto_seq > current {
             return Err(RoomStoreError::SnapshotAheadOfJournal);
         }
+        // A snapshot BEHIND the stored baseline would leave a baseline older
+        // than the journal range already truncated from it. Refuse instead of
+        // silently moving every future joiner backwards.
+        let stored: Option<i64> = tx
+            .query_row(
+                "SELECT seq FROM snapshots WHERE room_id = ?1",
+                params![room_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if stored.is_some_and(|seq| upto_seq < seq) {
+            return Err(RoomStoreError::SnapshotBehindBaseline);
+        }
         tx.execute(
             "UPDATE snapshots SET seq = ?2, document_json = ?3, created_at = ?4 WHERE room_id = ?1",
             params![room_id, upto_seq, document_json, now],
@@ -355,6 +468,28 @@ impl RoomStore {
     }
 }
 
+/// Outcome of a lock heartbeat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LockHeartbeat {
+    Refreshed,
+    /// Another process owns the directory now.
+    TakenOver { owner_pid: i64 },
+    /// The lock row is gone: this host released it (shutting down).
+    Released,
+}
+
+/// Result of taking the data-directory lock.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LockOutcome {
+    Acquired,
+    Held {
+        owner_id: String,
+        owner_pid: i64,
+        hostname: String,
+        refreshed_at: i64,
+    },
+}
+
 /// Outcome of a journal append (see `append_operation`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppendOutcome {
@@ -366,6 +501,13 @@ pub enum AppendOutcome {
 
 #[derive(Debug)]
 pub enum RoomStoreError {
+    /// A snapshot older than the stored baseline was refused.
+    SnapshotBehindBaseline,
+    /// Another live process owns this data directory.
+    HostLocked {
+        owner_pid: i64,
+        hostname: String,
+    },
     Sqlite(rusqlite::Error),
     SequenceExhausted,
     SnapshotAheadOfJournal,
@@ -385,6 +527,16 @@ impl std::fmt::Display for RoomStoreError {
             RoomStoreError::SnapshotAheadOfJournal => {
                 write!(f, "snapshot seq is ahead of the journal head")
             }
+            RoomStoreError::SnapshotBehindBaseline => {
+                write!(f, "snapshot seq is behind the stored baseline")
+            }
+            RoomStoreError::HostLocked {
+                owner_pid,
+                hostname,
+            } => write!(
+                f,
+                "another room host (pid {owner_pid} on {hostname}) owns this data directory;                  run one process per data directory"
+            ),
         }
     }
 }
@@ -425,6 +577,31 @@ mod tests {
         assert_eq!(first, AppendOutcome::Appended { seq: 1 });
         assert_eq!(retry, AppendOutcome::Replayed { seq: 1 }); // never duplicated
         assert_eq!(store.current_seq("r1").unwrap(), 1);
+    }
+
+    #[test]
+    fn compaction_refuses_a_snapshot_behind_the_stored_baseline() {
+        // Moving the baseline backwards would leave it older than the journal
+        // range already truncated from it, and every future joiner would
+        // bootstrap from a document the room has moved past.
+        let store = RoomStore::in_memory().expect("store");
+        store.create_room("r1", "doc", 1).expect("room");
+        for seq in 0..3 {
+            store
+                .append_operation("r1", &format!("op-{seq}"), "actor", "{}", 1)
+                .expect("append");
+        }
+        store
+            .compact_with_snapshot("r1", 3, "{\"at\":3}", 1)
+            .expect("forward compaction");
+        assert!(matches!(
+            store.compact_with_snapshot("r1", 1, "{\"at\":1}", 1),
+            Err(RoomStoreError::SnapshotBehindBaseline)
+        ));
+        // The stored baseline is untouched by the refusal.
+        let baseline = store.baseline("r1").expect("baseline").expect("some");
+        assert_eq!(baseline.seq, 3);
+        assert_eq!(baseline.document_json, "{\"at\":3}");
     }
 
     #[test]

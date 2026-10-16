@@ -54,7 +54,10 @@ describe('PanelWidthDragEdge', () => {
     const { container, shell } = mountWithContainer();
     const handle = screen.getByRole('separator', { name: 'Resize resources panel' });
     expect(handle).toHaveAttribute('aria-orientation', 'vertical');
-    expect(handle).toHaveAttribute('aria-valuemin', '240');
+    // The floor is the registry's declared minimum for `library` (220), not a
+    // hand-written 240: the drag edge reads the same range as every other
+    // resizing surface so the two cannot disagree.
+    expect(handle).toHaveAttribute('aria-valuemin', '220');
     expect(handle).toHaveAttribute('aria-valuemax', '600');
     expect(container.style.getPropertyValue('--library-panel-width')).toBe('');
     expect(shell.style.getPropertyValue('--library-panel-overlay-width')).toBe('');
@@ -71,7 +74,7 @@ describe('PanelWidthDragEdge', () => {
     expect(getPanelWidths(getWorkspacePreferences(), 'design').library).toBe(316);
 
     fireEvent.keyDown(handle, { key: 'Home' });
-    expect(container.style.getPropertyValue('--library-panel-width')).toBe('240px');
+    expect(container.style.getPropertyValue('--library-panel-width')).toBe('220px');
 
     fireEvent.keyDown(handle, { key: 'End' });
     expect(container.style.getPropertyValue('--library-panel-width')).toBe('600px');
@@ -85,7 +88,7 @@ describe('PanelWidthDragEdge', () => {
     expect(container.style.getPropertyValue('--library-panel-width')).toBe('600px');
 
     for (let i = 0; i < 40; i++) fireEvent.keyDown(handle, { key: 'ArrowLeft' });
-    expect(container.style.getPropertyValue('--library-panel-width')).toBe('240px');
+    expect(container.style.getPropertyValue('--library-panel-width')).toBe('220px');
   });
 
   it('restores the active mode saved width on mount', () => {

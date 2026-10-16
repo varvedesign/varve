@@ -239,7 +239,7 @@ describe('computeDocumentDirtyRegion', () => {
     expect(result.kind).toBe('partial');
   });
 
-  it('reports no work when the very same tile buffer is shared between documents', () => {
+  it('bounds a re-published raster layer to its own area instead of escalating', () => {
     const base = addNode(
       createDocument('RasterShared', true),
       makeRasterLayerNode('raster', { width: 256, height: 256 }),
@@ -250,13 +250,54 @@ describe('computeDocumentDirtyRegion', () => {
       ...base,
       nodes: { ...base.nodes, raster: { ...layer, tiles: new Map([['0:0', shared]]) } },
     };
-    // A new node object and a new Map, but the identical tile record: nothing
-    // about the pixels changed, so no redraw region is owed.
+    // A new node object and a new Map, but the identical tile record.
     const b = {
       ...base,
       nodes: { ...base.nodes, raster: { ...layer, tiles: new Map([['0:0', shared]]) } },
     };
-    expect(computeDocumentDirtyRegion(a, b).kind).not.toBe('partial');
+
+    // Nothing about the pixels changed, so the frame must not escalate to a
+    // whole-viewport redraw. This assertion used to be `not.toBe('partial')`,
+    // which both `'full'` and `'none'` satisfy — and the code actually returned
+    // `'full'`, the most expensive answer, so the test could not fail for the
+    // property its name claimed.
+    const region = computeDocumentDirtyRegion(a, b);
+    expect(region.kind).toBe('partial');
+    if (region.kind !== 'partial') throw new Error('unreachable');
+    expect(region.bounds).toEqual({ x: 0, y: 0, w: 256, h: 256 });
+    expect(region.rectCount).toBe(2);
+  });
+
+  it('contributes old and new bounds when a raster layer moves without a tile change', () => {
+    // A drag changes the node's transform but not its tiles. Tile keys are grid
+    // coordinates in the layer's own space, so the tight per-tile path cannot
+    // express where the layer was or where it went. Without this, a partial
+    // frame next to any other changed node leaves the layer painted at its
+    // stale position and does not clear the old one.
+    const base = addNode(
+      createDocument('RasterMove', true),
+      makeRasterLayerNode('raster', { width: 256, height: 256 }),
+    );
+    const layer = base.nodes.raster! as import('@varve/scene').RasterLayerNode;
+    const tiles = new Map([
+      ['0:0', { pixels: new Uint8ClampedArray(128 * 128 * 4).fill(10), version: 1 }],
+    ]);
+    const before = { ...base, nodes: { ...base.nodes, raster: { ...layer, tiles } } };
+    const after = {
+      ...before,
+      nodes: {
+        ...before.nodes,
+        raster: { ...layer, tiles, transform: [1, 0, 0, 1, 300, 0] as typeof layer.transform },
+      },
+    };
+
+    const region = computeDocumentDirtyRegion(before, after);
+    expect(region.kind).toBe('partial');
+    if (region.kind !== 'partial') throw new Error('unreachable');
+    // The region must cover the layer at x=0 (where it was) and at x=300 (where
+    // it is now): 300 + 256 = 556.
+    expect(region.bounds.x).toBeLessThanOrEqual(0);
+    expect(region.bounds.x + region.bounds.w).toBeGreaterThanOrEqual(556);
   });
 
   it('reports partial for new raster layer (leaf node)', () => {

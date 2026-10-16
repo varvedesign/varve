@@ -17,6 +17,7 @@
 
 import {
   type BundleDiagnostic,
+  exportIrToHtml,
   exportNodeToComposeBundle,
   exportNodeToCss,
   exportNodeToCssModulesBundle,
@@ -26,18 +27,29 @@ import {
   exportNodeToTailwindBundle,
   type GeneratedFile,
   type GeneratedFileLanguage,
+  sceneToIR,
   toFileStem,
 } from '@varve/codegen';
 import type { Document, SceneNode, VariableStore } from '@varve/scene';
 import { CopyButton, type Tab, Tabs } from '@varve/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { computeLineDiff } from './codeDiff';
+import { buildPreviewSrcDoc, isPreviewableTarget } from './preview';
 import { highlight } from './syntax';
 
-type CodeTarget = 'svg' | 'css' | 'tailwind' | 'modules' | 'flutter' | 'swiftui' | 'compose';
+type CodeTarget =
+  | 'svg'
+  | 'html'
+  | 'css'
+  | 'tailwind'
+  | 'modules'
+  | 'flutter'
+  | 'swiftui'
+  | 'compose';
 
 const CODE_TABS: readonly Tab<CodeTarget>[] = [
   { value: 'svg', label: 'SVG' },
+  { value: 'html', label: 'HTML' },
   { value: 'css', label: 'CSS' },
   { value: 'tailwind', label: 'Tailwind' },
   { value: 'modules', label: 'Modules' },
@@ -110,6 +122,29 @@ function generateOutput(
         diagnostics: [],
         note: 'A standalone SVG document of the selected subtree. Open it in a browser or import it into a design tool.',
       };
+    case 'html': {
+      // Scoped to the selection: one subtree, not the whole document.
+      const ir = sceneToIR(doc, { rootIds: [node.id] });
+      const { html, css, warnings } = exportIrToHtml(ir, {});
+      const page = [
+        '<!doctype html>',
+        '<html><head><meta charset="utf-8">',
+        `<style>${css}</style>`,
+        '</head><body>',
+        html,
+        '</body></html>',
+      ].join('');
+      return {
+        deliverable: 'snippet',
+        files: [singleFile(node, page, 'html', 'text/html', '.html')],
+        diagnostics: warnings.map((warning) => ({
+          severity: warning.severity === 'error' ? ('error' as const) : ('info' as const),
+          message: warning.message,
+          nodeId: warning.nodeId,
+        })),
+        note: 'A standalone HTML page of the selected subtree: semantic elements, one stylesheet, no scripts. The preview renders these exact bytes.',
+      };
+    }
     case 'css':
       return {
         deliverable: 'snippet',
@@ -188,6 +223,8 @@ function generateOutput(
 export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
   const [activeTab, setActiveTab] = useState<CodeTarget>('css');
   const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewWidth, setPreviewWidth] = useState<number | 'full'>('full');
 
   const output = useMemo(
     () => generateOutput(node, doc, activeTab, variableStore),
@@ -199,6 +236,15 @@ export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
     files.find((file) => file.path === activeFile) ?? files.find((file) => file.entry) ?? files[0]!;
   const code = selectedFile.contents;
   const language = FILE_LANGUAGE[selectedFile.language];
+
+  // Only targets whose actual output a browser renders without a runtime
+  // get a preview (the FigmaToCode lesson: an HTML-only preview for a
+  // Tailwind/Flutter target is a fake, and a fake is worse than disclosure).
+  const previewable = isPreviewableTarget(activeTab);
+  const previewDoc = useMemo(() => {
+    if (!previewable) return '';
+    return buildPreviewSrcDoc(activeTab, { html: code });
+  }, [previewable, activeTab, code]);
 
   const highlightedLines = useMemo(() => highlight(code, language).split('\n'), [code, language]);
   const lineCount = highlightedLines.length;
@@ -264,6 +310,34 @@ export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
                 label={`${selectedFile.path} contents`}
                 className="spec-row__copy"
               />
+              {previewable && (
+                <button
+                  type="button"
+                  className="spec-codegen__preview-toggle"
+                  aria-pressed={previewVisible}
+                  onClick={() => setPreviewVisible((visible) => !visible)}
+                >
+                  {previewVisible ? 'Hide preview' : 'Preview'}
+                </button>
+              )}
+              {previewable && previewVisible && (
+                <div
+                  className="spec-codegen__preview-widths"
+                  role="group"
+                  aria-label="Preview width"
+                >
+                  {[375, 768, 'full' as const].map((value) => (
+                    <button
+                      key={String(value)}
+                      type="button"
+                      aria-pressed={previewWidth === value}
+                      onClick={() => setPreviewWidth(value)}
+                    >
+                      {value === 'full' ? 'Full' : value}
+                    </button>
+                  ))}
+                </div>
+              )}
               {changeSummary && (
                 <div className="spec-codegen__diff" aria-live="polite">
                   {changeSummary.added > 0 && (
@@ -275,6 +349,26 @@ export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
                 </div>
               )}
             </div>
+
+            {previewable && previewVisible && (
+              <iframe
+                title={`${activeTab} preview of ${node.name}`}
+                // Fully locked: opaque origin, no scripts, no same-origin, no
+                // forms/popups/navigation. Generated output is untrusted
+                // content; the preview renders its exact bytes and nothing
+                // else (see docs/architecture/code-export-system.md).
+                sandbox=""
+                srcDoc={previewDoc}
+                className="spec-codegen__preview"
+                style={previewWidth === 'full' ? undefined : { width: `${previewWidth}px` }}
+              />
+            )}
+            {!previewable && (
+              <p className="spec-codegen__preview-note">
+                No in-editor preview for this target: download the file and build it with its real
+                toolchain. A transformed preview would not be the deliverable.
+              </p>
+            )}
 
             {output.diagnostics.length > 0 && (
               <ul className="spec-codegen__diagnostics" aria-label="Conversion warnings">

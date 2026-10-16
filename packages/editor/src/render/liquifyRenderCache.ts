@@ -3,8 +3,9 @@
  *
  * Warping a full layer is only redone when its authored deformation or its
  * source tiles change. The cache is keyed by node id + a revision that folds
- * in tile versions and the field revision, and is byte-budgeted so a large
- * document cannot accumulate warped copies indefinitely.
+ * in tile versions, each tile's pixel-buffer identity and the field revision,
+ * and is byte-budgeted so a large document cannot accumulate warped copies
+ * indefinitely.
  */
 
 import {
@@ -13,6 +14,7 @@ import {
   type LiquifyField,
   liquifyFieldRevision,
   rasterTilesToImageData,
+  tilePixelsIdentity,
   validateLiquifyField,
   warpImageDataByField,
 } from '@varve/engine';
@@ -45,7 +47,18 @@ export function getLiquifyRenderCacheStats(): LiquifyRenderCacheStats {
   return { entries: cache.size, pixels: cachedPixels, maxPixels: MAX_CACHE_PIXELS };
 }
 
-/** FNV-1a over tile keys and versions: cheap, order-independent enough. */
+/**
+ * Revision of a tile table: its keys, each tile's version, and each tile's
+ * pixel-buffer identity.
+ *
+ * `version` alone is not a content identity — an undo followed by a different
+ * stroke, or a divergent-branch checkout, reaches the same number with
+ * different pixels — so two revisions that differ only in an aliased tile would
+ * otherwise produce the same revision string and this cache would hand back the
+ * warped tiles derived from the other pixels. The identity token makes the
+ * string stricter in exactly the case that matters and leaves a re-read of the
+ * same buffers as a hit.
+ */
 export function rasterTileMapRevision(tiles: ReadonlyMap<string, RasterTile>): string {
   let hash = 2166136261;
   let count = 0;
@@ -55,6 +68,8 @@ export function rasterTileMapRevision(tiles: ReadonlyMap<string, RasterTile>): s
       hash = Math.imul(hash, 16777619);
     }
     hash ^= tile.version;
+    hash = Math.imul(hash, 16777619);
+    hash ^= tilePixelsIdentity(tile.pixels);
     hash = Math.imul(hash, 16777619);
     count++;
   }

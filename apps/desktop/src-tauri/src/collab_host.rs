@@ -138,6 +138,68 @@ pub async fn collab_room_create(
     }))
 }
 
+/// Mint an invite for a room the app is hosting.
+///
+/// The app-hosted path previously handed out the OWNER token only, so the
+/// host's role enforcement (a viewer cannot mutate) was unreachable through the
+/// UI: every link the user shared carried full owner rights.
+#[tauri::command]
+pub async fn collab_room_invite(
+    app: tauri::AppHandle,
+    room_id: String,
+    role: String,
+    expires_in_hours: Option<i64>,
+) -> Result<serde_json::Value, String> {
+    ensure_host(&app)?;
+    let role = match role.as_str() {
+        "editor" => varve_room::protocol::ParticipantRole::Editor,
+        "viewer" => varve_room::protocol::ParticipantRole::Viewer,
+        other => return Err(format!("unsupported invite role: {other}")),
+    };
+    let host = hosted_room_host()?;
+    let expires_at = now_millis() + expires_in_hours.unwrap_or(24 * 7).max(1) * 3_600_000;
+    let token = host
+        .admin_create_invite(&room_id, role, expires_at)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({ "inviteToken": token }))
+}
+
+/// Revoke an invite. Revocation is an event: matching live sockets end now.
+#[tauri::command]
+pub async fn collab_room_revoke(invite_token: String) -> Result<serde_json::Value, String> {
+    let host = hosted_room_host()?;
+    let hash = varve_room::token::token_hash(&invite_token);
+    let revoked = host
+        .admin_revoke_invite(&hash)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({ "revoked": revoked }))
+}
+
+/// End a hosted room: its stored data is deleted and everyone is disconnected.
+#[tauri::command]
+pub async fn collab_room_end(room_id: String) -> Result<serde_json::Value, String> {
+    let host = hosted_room_host()?;
+    let ended = host
+        .admin_end_room(&room_id)
+        .map_err(|error| error.to_string())?;
+    Ok(serde_json::json!({ "ended": ended }))
+}
+
+fn hosted_room_host() -> Result<Arc<RoomHost>, String> {
+    let guard = lock_registry();
+    guard
+        .as_ref()
+        .map(|hosted| hosted.host.clone())
+        .ok_or_else(|| "room host unavailable".to_string())
+}
+
+fn now_millis() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as i64)
+        .unwrap_or(0)
+}
+
 /// Stop the embedded host. Rooms are durable: a later start reopens the same
 /// store on a NEW port, and clients reconnect with backoff using their invite
 /// tokens. The registry is cleared so the next start binds a live listener
