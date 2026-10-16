@@ -217,23 +217,31 @@ them. Full-page browser zoom scales both and is unaffected.
 ### Nothing under a modal scrim may stay interactive
 
 A modal drawer's scrim divides the shell into "the drawer" and "everything
-else", and everything else must be inert. Two pieces of chrome broke that rule
-in opposite directions, both measured:
+else", and everything else must be inert. Three things broke that rule, all
+measured:
 
 - **The launcher FABs sit *below* the scrim** (`--z-raised` 10 against
   `--z-overlay − 1` 999), so while a drawer is open their labels promised an
-  action a pointer could never deliver. They are not rendered while a compact
-  drawer is open; the drawer's own close control takes over.
-- **The floating toolbar sits *above* the scrim.** With the Resources sheet open
-  at 320×640, a dismiss tap above the sheet landed on `button.ccb__tool-pill`,
-  changing the active tool instead of closing the drawer. The toolbar is
-  therefore retired while a compact drawer is open, exactly like the launchers.
+  action a pointer could never deliver. They are therefore not rendered while a
+  compact drawer is open; the drawer's own close control takes over.
+- **The scrim itself can be gated away.** It was briefly nested inside the
+  launcher gate, which is `!compactDrawerOpen` — exactly the state in which the
+  scrim is needed. The drawer stayed modal in intent but the page was not
+  covered, so a dismissal tap fell through to the header
+  (`button.ccb__tool-pill`) and the only pointer exit was the drawer's own close
+  control. **The scrim's condition is the opposite of the launchers': it renders
+  while a drawer is open.** Do not group them.
+- **The floating toolbar is *below* the scrim** (`--elevation-z-raised` 100, so
+  z 101 against 999) and stays visible under it, as the canvas does. An earlier
+  note in this file claimed the opposite, inferred from a hit test taken while no
+  scrim existed; the tokens say otherwise and that claim is withdrawn.
 
 The invariant to preserve when adding chrome near the canvas: **while a compact
 drawer is open, the only interactive surfaces are the drawer, its close control,
 Escape, and the scrim.** Anything else must be hidden, inert, or below the
-scrim. Both conditions are driven by one flag (`compactDrawerOpen` in
-`Shell.tsx`), not by each surface deciding for itself.
+scrim. The launchers' visibility and the scrim are driven by one flag
+(`compactDrawerOpen` in `Shell.tsx`) but with *opposite* polarity, which is
+precisely why they must not be written as one block.
 
 Every drawer owns an in-panel close control. Resources was the exception, and
 its only pointer exit was the scrim strip beside the panel — 90px at a 390px

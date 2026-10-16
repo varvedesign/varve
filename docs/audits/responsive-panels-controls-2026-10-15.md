@@ -441,13 +441,19 @@ polish), each with the evidence already gathered:
 6. **The 640px inspector rails — verified.** A pointer drag reaches 640 live, and
    `inspector-responsive-surface-audit` passes 5/5 (four in the clean run, the
    fifth re-run alone after a 180s timeout under load, in 1.4m).
-7. **A modal scrim's chrome — fixed** (`077451f81`, found by the promoted spec).
-   The floating toolbar sat *above* the compact drawers' scrim, so a dismiss tap
-   above the Resources sheet changed the active tool instead of closing the
-   drawer; the launcher FABs sat *below* it, so their labels promised an action a
-   pointer could not deliver. Both are retired while a drawer is open, driven by
-   one flag, and the invariant is now stated in
-   `docs/architecture/responsive-workspace.md`.
+7. **A modal scrim's chrome — fixed, after a wrong first diagnosis.** The
+   floating toolbar was *not* above the scrim (`--elevation-z-raised` 100 → z 101
+   against 999); that claim came from a hit test taken while **no scrim existed**,
+   and it is withdrawn. The real defect was introduced by this session's own
+   launcher gate: the backdrop was nested inside `!compactDrawerOpen` — the exact
+   state in which a scrim is needed — so while a drawer was open the page was not
+   covered, a dismissal tap fell through to the header
+   (`button.ccb__tool-pill`), and the drawer's own close control was the only
+   pointer exit. The scrim now renders on `compactDrawerOpen` and the launchers
+   on its negation; the polarity inversion is called out in
+   `docs/architecture/responsive-workspace.md` so the two are not grouped again.
+   The launchers' own gate stands on its measured basis (`--z-raised` 10 under
+   the scrim, so their labels promised an unreachable action).
 8. **Still open: O4** (the navigator visual baseline must be regenerated *after*
    these geometry changes — its recorded 288px rail width is what the sizing work
    restored, and its height may still differ) and **O8** (Inspector value-side
