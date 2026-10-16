@@ -1,11 +1,13 @@
 import {
   addChild,
+  addNode,
   addPage as addPage2,
   assignMasterToPage,
   createClippingMask,
   createDocument,
   createMaster,
   makeFrameNode,
+  makeGroupNode,
   makeShapeNode,
   nextNodeId,
 } from '@varve/scene';
@@ -39,6 +41,30 @@ describe('HitTestEngine', () => {
     const hit = engine.hitTest({ x: 5, y: 5 });
     expect(hit).not.toBeNull();
     expect(hit?.nodeId).toBe(rectId);
+  });
+
+  it('selects a source group when the pointer lands on a live repeat copy', () => {
+    let doc = createDocument('repeat hit test', true);
+    doc = addNode(
+      doc,
+      makeGroupNode('repeat', {
+        objectRepeat: {
+          type: 'grid',
+          columns: 2,
+          rows: 1,
+          spacingX: 40,
+          spacingY: 0,
+        },
+      }),
+    );
+    doc = addChild(
+      doc,
+      'repeat',
+      makeShapeNode('source', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }),
+    );
+
+    const hit = new HitTestEngine(doc).hitTest({ x: 45, y: 8 });
+    expect(hit?.nodeId).toBe('repeat');
   });
 
   it('returns null when point is outside the rect', () => {

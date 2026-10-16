@@ -469,6 +469,46 @@ describe('CoordinateService — edge cases', () => {
     const b = nodeWorldBounds(doc, 'nonexistent');
     expect(b).toBeNull();
   });
+
+  it('unions live grid repeat instances into group world bounds', () => {
+    let doc = createDocument();
+    doc = addNode(
+      doc,
+      makeGroupNode('repeat', {
+        transform: [1, 0, 0, 1, 100, 50],
+        objectRepeat: {
+          type: 'grid',
+          columns: 3,
+          rows: 1,
+          spacingX: 120,
+          spacingY: 0,
+        },
+      }),
+    );
+    doc = addChild(doc, 'repeat', makeRect('source', [1, 0, 0, 1, 10, 5]));
+
+    expect(nodeWorldBounds(doc, 'repeat')).toEqual({ x: 110, y: 55, w: 340, h: 50 });
+  });
+
+  it('keeps source bounds when a repeated group has a singular transform', () => {
+    let doc = createDocument();
+    doc = addNode(
+      doc,
+      makeGroupNode('repeat', {
+        transform: [0, 0, 0, 0, 100, 50],
+        objectRepeat: {
+          type: 'grid',
+          columns: 3,
+          rows: 1,
+          spacingX: 120,
+          spacingY: 0,
+        },
+      }),
+    );
+    doc = addChild(doc, 'repeat', makeRect('source'));
+
+    expect(nodeWorldBounds(doc, 'repeat')).toEqual({ x: 100, y: 50, w: 0, h: 0 });
+  });
 });
 
 describe('CoordinateService — moving a parent must not rewrite descendants', () => {
