@@ -6,6 +6,7 @@
  */
 
 import {
+  createSvgTextMeasurer,
   exportNodeToCssModulesBundle,
   exportNodeToFlutter,
   exportNodeToSvg,
@@ -15,7 +16,7 @@ import {
   svgPatternFillForNode,
 } from '@varve/codegen';
 import type { Engine } from '@varve/engine';
-import { getFontRegistry } from '@varve/engine';
+import { awaitExportsReady, getFontRegistry } from '@varve/engine';
 import type { Document, ExportBatch, ExportFormat, ExportJob } from '@varve/scene';
 import {
   capabilitiesForFormat,
@@ -279,6 +280,43 @@ export function rasterScaleForJob(job: ExportJob, context: ExportRunContext): nu
 /**
  * Check a node for missing/restricted fonts and return warning strings.
  */
+/** Walk a scene subtree collecting font load requests (for measured export). */
+function collectSceneFontRequests(
+  node: Document['nodes'][string],
+  doc: Document,
+): import('@varve/engine').ExportFontRequest[] {
+  const requests: import('@varve/engine').ExportFontRequest[] = [];
+  const visit = (currentId: string, depth: number): void => {
+    if (depth > 64) return;
+    const current = doc.nodes[currentId];
+    if (!current) return;
+    if (current.kind === 'text') {
+      requests.push({
+        family: current.fontFamily ?? 'Inter',
+        weight: current.fontWeight ?? 400,
+        style: current.fontStyle === 'italic' ? 'italic' : 'normal',
+        text: current.text ?? '',
+      });
+      for (const paragraph of current.richText?.paragraphs ?? []) {
+        for (const run of paragraph.runs) {
+          if (!run.format?.fontFamily) continue;
+          requests.push({
+            family: run.format.fontFamily,
+            weight: run.format.fontWeight ?? current.fontWeight ?? 400,
+            style: run.format.fontStyle === 'italic' ? 'italic' : 'normal',
+            text: run.text,
+          });
+        }
+      }
+    }
+    if (current.kind === 'frame' || current.kind === 'group') {
+      for (const childId of current.children) visit(childId, depth + 1);
+    }
+  };
+  visit(node.id, 0);
+  return requests;
+}
+
 function collectMissingFontWarnings(node: Document['nodes'][string]): string[] {
   const warnings: string[] = [];
   const registry = getFontRegistry();
@@ -338,10 +376,14 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         },
       );
       const fontWarnings = collectMissingFontWarnings(node);
+      // Measured text requires settled fonts: metrics taken from fallback
+      // fonts would bake the wrong line breaks into the portable file.
+      await awaitExportsReady(collectSceneFontRequests(node, context.document));
       const svg = exportNodeToSvg(node, context.document, {
         rasterAssets,
         minify: job.vector?.minify ?? false,
         preserveColorSpace: job.vector?.embedImages === false,
+        measure: createSvgTextMeasurer() ?? undefined,
       });
       const disclosedSvg =
         context.includeAiDisclosure === false

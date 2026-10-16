@@ -126,6 +126,7 @@ export * from './shared';
 export * from './spec';
 export { exportNodeToSvelte, type SvelteExportOptions, svelteTargetGaps } from './svelte';
 export { exportNodeToSvg, svgPatternFillForNode, svgTargetGaps } from './svg';
+export { createSvgTextMeasurer, layoutSvgText } from './svgTextLayout';
 export { exportNodeToSwiftUI, swiftuiTargetGaps } from './swiftui';
 export {
   exportIrNodeToTailwind,
