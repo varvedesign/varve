@@ -29,6 +29,8 @@ interface HostedRoom {
   serverBase: string;
   roomId: string;
   ownerToken: string;
+  /** How this room is hosted: in-app (stoppable here) or a remote server. */
+  mode: 'app' | 'server';
 }
 
 export function ShareDialog({ open, onClose }: ShareDialogProps) {
@@ -81,6 +83,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
         serverBase: `http://127.0.0.1:${status.port}`,
         roomId: room.roomId,
         ownerToken: room.ownerInviteToken,
+        mode: 'app',
       });
     } catch (reason) {
       setError(describeError(reason));
@@ -115,6 +118,7 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
         serverBase: serverBase.replace(/\/$/, ''),
         roomId: created.roomId,
         ownerToken: created.ownerInviteToken,
+        mode: 'server',
       });
     } catch (reason) {
       setError(describeError(reason));
@@ -150,6 +154,33 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
     setHosted(null);
     onClose();
   };
+
+  /**
+   * Stop the in-app room host. Rooms live in the app's own storage directory,
+   * so stopping closes the listener without deleting anything: a later start
+   * reopens the same store on a new port and clients reconnect with their
+   * invite tokens. Stopping while this tab is still in the session would pull
+   * the listener out from under the participants, so the session must end
+   * first.
+   */
+  const stopAppHost = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('collab_host_stop');
+      setHosted(null);
+    } catch (reason) {
+      setError(describeError(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sessionUsesHostedRoom =
+    active &&
+    hosted !== null &&
+    session.session?.roomUrl.startsWith(hosted.serverBase.replace(/^http/, 'ws'));
 
   const inviteLink = hosted
     ? `${hosted.serverBase}/join#room=${hosted.roomId}&t=${hosted.ownerToken}`
@@ -279,7 +310,29 @@ export function ShareDialog({ open, onClose }: ShareDialogProps) {
                       <Button size="sm" variant="default" onClick={startHostedSession}>
                         Start sharing now
                       </Button>
+                      {hosted.mode === 'app' && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => void stopAppHost()}
+                          disabled={busy || sessionUsesHostedRoom}
+                          disabledReason={
+                            sessionUsesHostedRoom
+                              ? 'Leave the session first: stopping the host would disconnect everyone on it.'
+                              : undefined
+                          }
+                        >
+                          Stop hosting on this device
+                        </Button>
+                      )}
                     </div>
+                    {hosted.mode === 'app' && (
+                      <p className="collab-share__hint">
+                        Stopping closes the local listener. The room stays in this app's storage: a
+                        later start reopens it on a new port, and participants rejoin with their
+                        invite tokens.
+                      </p>
+                    )}
                   </div>
                 )}
               </section>

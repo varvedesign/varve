@@ -176,8 +176,12 @@ class LinkedTransport implements CollabTransport {
   }
 
   send(message: Parameters<CollabTransport['send']>[0]): boolean {
+    return this.sendFrame(JSON.stringify(message));
+  }
+
+  sendFrame(text: string): boolean {
     if (!this.connected) return false;
-    this.host.dispatch(this.connection(), JSON.stringify(message));
+    this.host.dispatch(this.connection(), text);
     return true;
   }
 
@@ -290,6 +294,7 @@ function makeHarness(engineId: number, host: FakeHost, token = 'good-token'): Ha
       onRoster: () => {},
       onCursor: () => {},
       onSelection: () => {},
+      onViewport: () => {},
       onChat: (message) => chats.push(message.text),
       onNotice: (notice) => notices.push({ code: notice.code, message: notice.message }),
       onStatus: (status) => statuses.push(status),

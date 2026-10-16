@@ -13,11 +13,14 @@
 //! semantics — every receiving client validates captures through its own
 //! operation registry and resynchronizes rather than guessing.
 
+pub mod join;
 pub mod protocol;
 pub mod server;
 pub mod store;
 pub mod token;
 
 pub use protocol::{ClientMessage, ServerMessage};
-pub use server::{serve, AdminRoom, HostConfig, RoomHost};
+pub use server::{
+    serve, serve_on_current_runtime, serve_with_handle, AdminRoom, HostConfig, RoomHost,
+};
 pub use store::RoomStore;

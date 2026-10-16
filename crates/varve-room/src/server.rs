@@ -27,10 +27,10 @@ use serde_json::json;
 use tokio::sync::mpsc;
 
 use crate::protocol::{
-    capture_payload_like, is_snapshot_upload_frame, ClientMessage, CursorFrame, JournalEntry,
+    capture_payload_like, is_large_capable_frame, ClientMessage, CursorFrame, JournalEntry,
     ParticipantInfo, ParticipantRole, RoomOperation, RoomSnapshot, SelectionFrame, ServerMessage,
-    ViewportFrame, MAX_CHAT_LENGTH, MAX_OPERATION_FRAME_BYTES, MAX_PARTICIPANTS, MAX_SELECTION_IDS,
-    MAX_SNAPSHOT_UPLOAD_BYTES,
+    ViewportFrame, MAX_CHAT_LENGTH, MAX_CHUNKED_OPERATION_BYTES, MAX_OPERATION_FRAME_BYTES,
+    MAX_PARTICIPANTS, MAX_SELECTION_IDS, MAX_SNAPSHOT_UPLOAD_BYTES,
 };
 use crate::store::{RoomStore, RoomStoreError};
 use crate::token::{mint_token, token_hash, token_hash_matches};
@@ -47,6 +47,16 @@ pub struct HostConfig {
     pub max_rooms: usize,
     /// Milliseconds a client may stay silent before the host closes it.
     pub idle_timeout_ms: u64,
+    /// Browser origins allowed to open a WebSocket beyond the always-allowed
+    /// local set (loopback `http://` pages and the Tauri webview). The
+    /// deployment's own page origin goes here when a server is exposed behind
+    /// a reverse proxy. Exact match, case-insensitive.
+    pub allowed_origins: Vec<String>,
+    /// Extra Host header values accepted on the upgrade. A loopback bind
+    /// additionally requires a loopback Host (DNS-rebinding defence); this
+    /// list is the escape hatch for a same-host reverse proxy whose public
+    /// name differs from the bind address.
+    pub allowed_hosts: Vec<String>,
 }
 
 impl HostConfig {
@@ -57,6 +67,8 @@ impl HostConfig {
             admin_token: None,
             max_rooms: 256,
             idle_timeout_ms: 15 * 60 * 1000,
+            allowed_origins: Vec::new(),
+            allowed_hosts: Vec::new(),
         }
     }
 }
@@ -93,6 +105,20 @@ struct RateLimiter {
     op_tokens: f64,
     chat_tokens: f64,
     last: SystemTime,
+}
+
+/// One in-flight chunked operation upload on a connection. At most one is
+/// open at a time and its buffer is bounded by
+/// `MAX_CHUNKED_OPERATION_BYTES`, so a client cannot make the host allocate
+/// unbounded memory by starting many uploads.
+struct PendingUpload {
+    upload_id: String,
+    total_bytes: usize,
+    chunk_count: usize,
+    digest: String,
+    buffer: String,
+    next_index: usize,
+    received_bytes: usize,
 }
 
 const OPS_PER_SECOND: f64 = 30.0;
@@ -274,6 +300,9 @@ pub fn router(host: Arc<RoomHost>) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/ready", get(ready))
+        .route("/join", get(crate::join::join_page))
+        .route("/join.js", get(crate::join::join_script))
+        .route("/join.css", get(crate::join::join_styles))
         .route("/room/{room_id}", get(ws_upgrade))
         .route("/admin/rooms", post(admin_rooms))
         .route("/admin/rooms/{room_id}/invites", post(admin_invites))
@@ -435,6 +464,79 @@ fn admin_unauthorized() -> axum::response::Response {
 
 // ── WebSocket session ─────────────────────────────────────────────────────────
 
+/// Loopback host spellings a browser may legitimately use for a local room.
+/// Accepts `host`, `host:port`, `[v6]`, `[v6]:port`, and bare `v6`.
+fn is_loopback_host(host: &str) -> bool {
+    let lower = host.trim().to_ascii_lowercase();
+    let bare = if let Some(rest) = lower.strip_prefix('[') {
+        rest.split(']').next().unwrap_or(rest)
+    } else if lower.matches(':').count() == 1 {
+        lower.split(':').next().unwrap_or(&lower)
+    } else {
+        // No colon (plain host) or several (a bare IPv6 literal).
+        &lower
+    };
+    matches!(bare, "localhost" | "127.0.0.1" | "::1" | "0.0.0.0") || bare.ends_with(".localhost")
+}
+
+fn is_local_origin(origin: &str) -> bool {
+    let lower = origin.trim().to_ascii_lowercase();
+    if lower == "tauri://localhost" || lower == "http://tauri.localhost" {
+        return true;
+    }
+    let Some(rest) = lower
+        .strip_prefix("http://")
+        .or_else(|| lower.strip_prefix("https://"))
+    else {
+        return false;
+    };
+    is_loopback_host(rest)
+}
+
+fn is_loopback_bind(host: &RoomHost) -> bool {
+    // Decided once at bind time; the upgrade check re-derives it from config.
+    !host.config.allow_non_loopback
+}
+
+/// The cross-site WebSocket hijacking boundary.
+///
+/// - `Origin` is what a browser page reports. Native clients send none.
+/// - Non-browser clients (the desktop app, tests, CLI tooling) send no Origin
+///   and are unaffected.
+/// - A browser page on a loopback origin, or in the Tauri webview, is
+///   allowed; anything else must be listed in `allowed_origins`. "Any
+///   `https://` origin" is NOT acceptable: an attacker page could then open a
+///   socket to a locally hosted room.
+/// - When the listener is loopback, the `Host` header must resolve to
+///   loopback too. Without this a malicious site can point its own DNS at
+///   127.0.0.1 and reach the local room from a page the browser believes is
+///   remote (DNS rebinding); the rebinding attempt arrives with
+///   `Host: evil.example`, which is refused here.
+fn origin_allowed(host: &RoomHost, headers: &HeaderMap) -> bool {
+    if let Some(origin) = headers.get("origin").and_then(|value| value.to_str().ok()) {
+        let allowed = is_local_origin(origin)
+            || host
+                .config
+                .allowed_origins
+                .iter()
+                .any(|candidate| candidate.eq_ignore_ascii_case(origin.trim()));
+        if !allowed {
+            return false;
+        }
+    }
+    if let Some(header_host) = headers.get("host").and_then(|value| value.to_str().ok()) {
+        let listed = host
+            .config
+            .allowed_hosts
+            .iter()
+            .any(|candidate| candidate.eq_ignore_ascii_case(header_host.trim()));
+        if !listed && is_loopback_bind(host) && !is_loopback_host(header_host) {
+            return false;
+        }
+    }
+    true
+}
+
 async fn ws_upgrade(
     State(host): State<Arc<RoomHost>>,
     AxumPath(room_id): AxumPath<String>,
@@ -442,19 +544,8 @@ async fn ws_upgrade(
     ConnectInfo(_addr): ConnectInfo<SocketAddr>,
     upgrade: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    // Origin checking: browser clients always send Origin; native clients
-    // send none. An Origin that is not allow-listed cannot open a socket —
-    // this is the cross-site WebSocket hijacking boundary. For now any
-    // Origin that matches the host itself is allowed and cross-origin
-    // browser pages are refused; native clients are unaffected.
-    if let Some(origin) = headers.get("origin").and_then(|v| v.to_str().ok()) {
-        let loopback_ok = origin.starts_with("http://localhost")
-            || origin.starts_with("http://127.0.0.1")
-            || origin.starts_with("tauri://")
-            || origin.starts_with("http://tauri.localhost");
-        if !loopback_ok && !origin.starts_with("https://") {
-            return StatusCode::FORBIDDEN.into_response();
-        }
+    if !origin_allowed(&host, &headers) {
+        return StatusCode::FORBIDDEN.into_response();
     }
     upgrade.on_upgrade(move |socket| run_session(host, room_id, socket))
 }
@@ -681,23 +772,46 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
         }
     });
 
-    // Inbound loop.
+    // Inbound loop. A socket that sends nothing for the idle window is
+    // treated exactly like a disconnect: it is deregistered and its
+    // participant slot is released (a crashed tab must not hold a place in a
+    // 10-participant room forever). Live clients send a `ping` heartbeat, so
+    // a quiet-but-healthy participant is never reaped.
     let mut limiter = RateLimiter::new();
+    let mut upload: Option<PendingUpload> = None;
+    let idle = Duration::from_millis(host.config.idle_timeout_ms);
     loop {
-        let next = stream.next().await;
+        let next = match tokio::time::timeout(idle, stream.next()).await {
+            Ok(next) => next,
+            Err(_) => break,
+        };
         let Some(frame) = next else { break };
         let Ok(message) = frame else { break };
         match message {
             WsMessage::Text(text) => {
-                if handle_client_frame(&host, &session, text.as_bytes(), &mut limiter, &outgoing_tx)
-                    .is_break()
+                if handle_client_frame(
+                    &host,
+                    &session,
+                    text.as_bytes(),
+                    &mut limiter,
+                    &mut upload,
+                    &outgoing_tx,
+                )
+                .is_break()
                 {
                     break;
                 }
             }
             WsMessage::Binary(bytes) => {
-                if handle_client_frame(&host, &session, &bytes, &mut limiter, &outgoing_tx)
-                    .is_break()
+                if handle_client_frame(
+                    &host,
+                    &session,
+                    &bytes,
+                    &mut limiter,
+                    &mut upload,
+                    &outgoing_tx,
+                )
+                .is_break()
                 {
                     break;
                 }
@@ -728,6 +842,244 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
     outbound.abort();
 }
 
+/// Apply one authenticated, structurally bounded operation: role check,
+/// rate limit, actor stamping, durable append, ack, relay. Shared verbatim by
+/// the inline and the chunked paths so framing can never change semantics.
+fn handle_operation(
+    host: &Arc<RoomHost>,
+    session: &Session,
+    mut op: RoomOperation,
+    limiter: &mut RateLimiter,
+    outgoing: &mpsc::UnboundedSender<ServerMessage>,
+) {
+    // Roles: viewers cannot mutate. The hidden-edit-button rule.
+    if session.role == ParticipantRole::Viewer {
+        let _ = outgoing.send(ServerMessage::OperationRejected {
+            client_op_id: op.client_op_id.clone(),
+            reason: "You have view-only access to this session.".to_string(),
+            fatal: false,
+        });
+        return;
+    }
+    if !limiter.take(false) {
+        let _ = outgoing.send(ServerMessage::OperationRejected {
+            client_op_id: op.client_op_id.clone(),
+            reason: "Sending changes too quickly.".to_string(),
+            fatal: false,
+        });
+        return;
+    }
+    // The wire cannot be trusted for semantics: an operation claims an actor
+    // identity but the session's authenticated identity overrides it.
+    // Checked arithmetic (FigCraft #309 class).
+    op.actor_id = session.actor_id.clone();
+    if op.based_on_seq < 0 || !capture_payload_like(&op.capture) {
+        let _ = outgoing.send(ServerMessage::OperationRejected {
+            client_op_id: op.client_op_id.clone(),
+            reason: "Operation payload failed structural validation.".to_string(),
+            fatal: true,
+        });
+        return;
+    }
+    let payload = match serde_json::to_string(&op) {
+        Ok(data) => data,
+        Err(_) => return,
+    };
+    let now = now_ms();
+    enum OpOutcome {
+        Appended(i64),
+        Replayed(i64),
+        Revoked,
+        StoreError(String),
+    }
+    let outcome = {
+        let store = host.store.lock().expect("store poisoned");
+        // Revocation is re-checked at the authoritative host for every
+        // mutation (Penpot #12155 lesson).
+        let still_valid = store.invite_is_still_valid(&session.token_hash, now);
+        match still_valid {
+            Ok(true) => {
+                let appended = store.append_operation(
+                    &session.room_id,
+                    &op.client_op_id,
+                    &session.actor_id,
+                    &payload,
+                    now,
+                );
+                match appended {
+                    Ok(crate::store::AppendOutcome::Appended { seq }) => OpOutcome::Appended(seq),
+                    Ok(crate::store::AppendOutcome::Replayed { seq }) => OpOutcome::Replayed(seq),
+                    Err(error) => OpOutcome::StoreError(error.to_string()),
+                }
+            }
+            Ok(false) => OpOutcome::Revoked,
+            Err(error) => OpOutcome::StoreError(error.to_string()),
+        }
+    };
+    match outcome {
+        OpOutcome::Appended(seq) => {
+            host.operation_counter.fetch_add(1, Ordering::Relaxed);
+            let _ = outgoing.send(ServerMessage::OperationAccepted {
+                client_op_id: op.client_op_id.clone(),
+                seq,
+            });
+            // Relay to every other live participant.
+            let rooms = host.rooms.lock().expect("room map poisoned");
+            if let Some(room) = rooms.get(&session.room_id) {
+                for (actor, entry) in &room.participants {
+                    if actor != &session.actor_id {
+                        let _ = entry.outgoing.send(ServerMessage::Operation {
+                            seq,
+                            op: op.clone(),
+                        });
+                    }
+                }
+            }
+        }
+        OpOutcome::Replayed(seq) => {
+            // Idempotent retry: re-ack with the stored sequence only.
+            let _ = outgoing.send(ServerMessage::OperationAccepted {
+                client_op_id: op.client_op_id.clone(),
+                seq,
+            });
+        }
+        OpOutcome::Revoked => {
+            let _ = outgoing.send(ServerMessage::OperationRejected {
+                client_op_id: op.client_op_id.clone(),
+                reason: "You no longer have access to this session.".to_string(),
+                fatal: true,
+            });
+        }
+        OpOutcome::StoreError(error) => {
+            // The change was NOT acked: the client keeps it as pending local
+            // work and may retry after reconnecting.
+            let _ = outgoing.send(ServerMessage::Error {
+                code: "store-error".to_string(),
+                message: format!("The session host could not persist the change: {error}"),
+                fatal: false,
+            });
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_host(config: HostConfig) -> Arc<RoomHost> {
+        let dir = std::env::temp_dir().join(format!(
+            "varve-room-origin-{}-{}",
+            std::process::id(),
+            config.data_dir.display()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut config = config;
+        config.data_dir = dir;
+        RoomHost::open(config).expect("host opens")
+    }
+
+    fn headers(pairs: &[(&str, &str)]) -> HeaderMap {
+        let mut map = HeaderMap::new();
+        for (name, value) in pairs {
+            map.insert(
+                axum::http::HeaderName::from_bytes(name.as_bytes()).expect("header name"),
+                value.parse().expect("header value"),
+            );
+        }
+        map
+    }
+
+    #[test]
+    fn loopback_pages_and_native_clients_can_open_a_socket() {
+        let host = test_host(HostConfig::for_data_dir(PathBuf::from("loopback")));
+        assert!(origin_allowed(&host, &headers(&[])));
+        for origin in [
+            "http://localhost:1420",
+            "http://127.0.0.1:5173",
+            "http://[::1]:8080",
+            "tauri://localhost",
+            "http://tauri.localhost",
+        ] {
+            assert!(
+                origin_allowed(&host, &headers(&[("origin", origin), ("host", "127.0.0.1:8790")])),
+                "{origin} must be allowed"
+            );
+        }
+    }
+
+    #[test]
+    fn a_remote_page_origin_is_refused() {
+        let host = test_host(HostConfig::for_data_dir(PathBuf::from("remote")));
+        for origin in ["https://evil.example", "http://evil.example:8080"] {
+            assert!(
+                !origin_allowed(&host, &headers(&[("origin", origin), ("host", "127.0.0.1:8790")])),
+                "{origin} must be refused"
+            );
+        }
+    }
+
+    #[test]
+    fn a_configured_origin_is_allowed_and_nothing_else_is() {
+        let mut config = HostConfig::for_data_dir(PathBuf::from("allowed"));
+        config.allowed_origins = vec!["https://rooms.example.com".to_string()];
+        let host = test_host(config);
+        assert!(origin_allowed(
+            &host,
+            &headers(&[
+                ("origin", "https://rooms.example.com"),
+                ("host", "127.0.0.1:8790")
+            ])
+        ));
+        assert!(!origin_allowed(
+            &host,
+            &headers(&[
+                ("origin", "https://rooms.example.com.evil.test"),
+                ("host", "127.0.0.1:8790")
+            ])
+        ));
+    }
+
+    #[test]
+    fn a_rebinding_host_header_is_refused_on_a_loopback_listener() {
+        let host = test_host(HostConfig::for_data_dir(PathBuf::from("rebind")));
+        // The page's origin looks local because the attacker's DNS points at
+        // 127.0.0.1, but the Host header still carries the attacker's name.
+        assert!(!origin_allowed(
+            &host,
+            &headers(&[
+                ("origin", "http://evil.example"),
+                ("host", "evil.example")
+            ])
+        ));
+        assert!(!origin_allowed(
+            &host,
+            &headers(&[("host", "evil.example:8790")])
+        ));
+    }
+
+    #[test]
+    fn a_listed_host_is_accepted_for_a_same_host_reverse_proxy() {
+        let mut config = HostConfig::for_data_dir(PathBuf::from("proxy"));
+        config.allowed_hosts = vec!["rooms.example.com".to_string()];
+        let host = test_host(config);
+        assert!(origin_allowed(
+            &host,
+            &headers(&[("host", "rooms.example.com")])
+        ));
+    }
+
+    #[test]
+    fn loopback_host_parsing_covers_ports_and_ipv6() {
+        assert!(is_loopback_host("localhost:3000"));
+        assert!(is_loopback_host("127.0.0.1"));
+        assert!(is_loopback_host("[::1]:8790"));
+        assert!(is_loopback_host("::1"));
+        assert!(is_loopback_host("app.localhost:1420"));
+        assert!(!is_loopback_host("localhost.evil.example"));
+        assert!(!is_loopback_host("evil.example:1420"));
+    }
+}
+
 fn display_name_of(message: &ClientMessage) -> String {
     if let ClientMessage::Hello { display_name, .. } = message {
         let trimmed = display_name.trim();
@@ -752,10 +1104,13 @@ fn handle_client_frame(
     session: &Session,
     raw: &[u8],
     limiter: &mut RateLimiter,
+    upload: &mut Option<PendingUpload>,
     outgoing: &mpsc::UnboundedSender<ServerMessage>,
 ) -> std::ops::ControlFlow<()> {
-    // Size ceilings before parsing; oversized non-snapshot frames close.
-    if raw.len() > MAX_OPERATION_FRAME_BYTES && !is_snapshot_upload_frame(raw) {
+    // Size ceilings before parsing; oversized frames must identify as a
+    // multi-frame kind (chunked operation, snapshot upload) or the socket
+    // is closed — an unknown oversized frame is a memory-exhaustion probe.
+    if raw.len() > MAX_OPERATION_FRAME_BYTES && !is_large_capable_frame(raw) {
         return std::ops::ControlFlow::Break(());
     }
     if raw.len() > MAX_SNAPSHOT_UPLOAD_BYTES {
@@ -782,116 +1137,131 @@ fn handle_client_frame(
             // A second hello on one socket is a protocol error.
             std::ops::ControlFlow::Break(())
         }
-        ClientMessage::Operation { mut op } => {
-            // Roles: viewers cannot mutate. The hidden-edit-button rule.
-            if session.role == ParticipantRole::Viewer {
-                let _ = outgoing.send(ServerMessage::OperationRejected {
-                    client_op_id: op.client_op_id.clone(),
-                    reason: "You have view-only access to this session.".to_string(),
-                    fatal: false,
+        ClientMessage::Operation { op } => {
+            handle_operation(host, session, op, limiter, outgoing);
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::OperationBegin {
+            upload_id,
+            total_bytes,
+            chunk_count,
+            digest,
+        } => {
+            if upload.is_some() {
+                let _ = outgoing.send(ServerMessage::OperationUploadRejected {
+                    upload_id,
+                    reason: "Another upload is already in progress.".to_string(),
                 });
                 return std::ops::ControlFlow::Continue(());
             }
-            if !limiter.take(false) {
-                let _ = outgoing.send(ServerMessage::OperationRejected {
-                    client_op_id: op.client_op_id.clone(),
-                    reason: "Sending changes too quickly.".to_string(),
-                    fatal: false,
-                });
-                return std::ops::ControlFlow::Continue(());
-            }
-            // The wire cannot be trusted for semantics: an operation claims
-            // an actor identity but the session's authenticated identity
-            // overrides it. Checked arithmetic (FigCraft #309 class).
-            op.actor_id = session.actor_id.clone();
-            if op.based_on_seq < 0 || !capture_payload_like(&op.capture) {
-                let _ = outgoing.send(ServerMessage::OperationRejected {
-                    client_op_id: op.client_op_id.clone(),
-                    reason: "Operation payload failed structural validation.".to_string(),
-                    fatal: true,
-                });
-                return std::ops::ControlFlow::Continue(());
-            }
-            let payload = match serde_json::to_string(&op) {
-                Ok(data) => data,
-                Err(_) => return std::ops::ControlFlow::Continue(()),
-            };
-            let now = now_ms();
-            enum OpOutcome {
-                Appended(i64),
-                Replayed(i64),
-                Revoked,
-                StoreError(String),
-            }
-            let outcome = {
-                let store = host.store.lock().expect("store poisoned");
-                // Revocation is re-checked at the authoritative host for
-                // every mutation (Penpot #12155 lesson).
-                let still_valid = store.invite_is_still_valid(&session.token_hash, now);
-                match still_valid {
-                    Ok(true) => {
-                        let appended = store.append_operation(
-                            &session.room_id,
-                            &op.client_op_id,
-                            &session.actor_id,
-                            &payload,
-                            now,
-                        );
-                        match appended {
-                            Ok(crate::store::AppendOutcome::Appended { seq }) => {
-                                OpOutcome::Appended(seq)
-                            }
-                            Ok(crate::store::AppendOutcome::Replayed { seq }) => {
-                                OpOutcome::Replayed(seq)
-                            }
-                            Err(error) => OpOutcome::StoreError(error.to_string()),
-                        }
-                    }
-                    Ok(false) => OpOutcome::Revoked,
-                    Err(error) => OpOutcome::StoreError(error.to_string()),
+            *upload = Some(PendingUpload {
+                upload_id,
+                total_bytes: total_bytes as usize,
+                chunk_count: chunk_count as usize,
+                digest: digest.to_ascii_lowercase(),
+                buffer: String::with_capacity((total_bytes as usize).min(1 << 20)),
+                next_index: 0,
+                received_bytes: 0,
+            });
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::OperationChunk {
+            upload_id,
+            index,
+            data,
+        } => {
+            let mut reject: Option<String> = None;
+            match upload.as_mut() {
+                None => reject = Some("No upload is in progress.".to_string()),
+                Some(pending) if pending.upload_id != upload_id => {
+                    reject = Some("Chunk for an unknown upload.".to_string());
                 }
-            };
-            match outcome {
-                OpOutcome::Appended(seq) => {
-                    host.operation_counter.fetch_add(1, Ordering::Relaxed);
-                    let _ = outgoing.send(ServerMessage::OperationAccepted {
-                        client_op_id: op.client_op_id.clone(),
-                        seq,
-                    });
-                    // Relay to every other live participant.
-                    let rooms = host.rooms.lock().expect("room map poisoned");
-                    if let Some(room) = rooms.get(&session.room_id) {
-                        for (actor, entry) in &room.participants {
-                            if actor != &session.actor_id {
-                                let _ = entry.outgoing.send(ServerMessage::Operation {
-                                    seq,
-                                    op: op.clone(),
-                                });
-                            }
-                        }
+                Some(pending) if index as usize != pending.next_index => {
+                    reject = Some("Chunks arrived out of order.".to_string());
+                }
+                Some(pending) => {
+                    let chunk_bytes = data.len();
+                    if pending.received_bytes + chunk_bytes > pending.total_bytes
+                        || pending.buffer.len() + chunk_bytes > MAX_CHUNKED_OPERATION_BYTES
+                    {
+                        reject = Some("Upload exceeds its declared size.".to_string());
+                    } else {
+                        pending.buffer.push_str(&data);
+                        pending.received_bytes += chunk_bytes;
+                        pending.next_index += 1;
                     }
                 }
-                OpOutcome::Replayed(seq) => {
-                    // Idempotent retry: re-ack with the stored sequence only.
-                    let _ = outgoing.send(ServerMessage::OperationAccepted {
-                        client_op_id: op.client_op_id.clone(),
-                        seq,
-                    });
+            }
+            if let Some(reason) = reject {
+                // Fail closed: the buffer is discarded, the operation stays
+                // pending on the client, and the client may retry.
+                let upload_id = upload.take().map(|p| p.upload_id).unwrap_or(upload_id);
+                let _ = outgoing.send(ServerMessage::OperationUploadRejected {
+                    upload_id,
+                    reason,
+                });
+            }
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::OperationEnd { upload_id } => {
+            let Some(pending) = upload.take() else {
+                let _ = outgoing.send(ServerMessage::OperationUploadRejected {
+                    upload_id,
+                    reason: "No upload is in progress.".to_string(),
+                });
+                return std::ops::ControlFlow::Continue(());
+            };
+            if pending.upload_id != upload_id {
+                let _ = outgoing.send(ServerMessage::OperationUploadRejected {
+                    upload_id,
+                    reason: "Upload id mismatch.".to_string(),
+                });
+                return std::ops::ControlFlow::Continue(());
+            }
+            let mut reject_reason: Option<String> = None;
+            if pending.next_index != pending.chunk_count {
+                reject_reason = Some("Upload ended before every chunk arrived.".to_string());
+            } else if pending.buffer.len() != pending.total_bytes {
+                reject_reason = Some("Upload length did not match its declaration.".to_string());
+            } else if crate::protocol::digest_hex(pending.buffer.as_bytes()) != pending.digest {
+                // Integrity: the reassembled frame must hash to what the
+                // client declared. WebSocket framing already protects the
+                // bytes in transit; this catches truncation, interleaving
+                // bugs, and a hostile frame that does not match its claim.
+                reject_reason = Some("Upload digest did not match.".to_string());
+            }
+            if let Some(reason) = reject_reason {
+                let _ = outgoing.send(ServerMessage::OperationUploadRejected {
+                    upload_id,
+                    reason,
+                });
+                return std::ops::ControlFlow::Continue(());
+            }
+            // The reassembled frame is validated exactly like an inline one:
+            // chunking changes framing, never semantics.
+            let parsed = serde_json::from_str::<ClientMessage>(&pending.buffer);
+            match parsed {
+                Ok(message @ ClientMessage::Operation { .. }) => {
+                    if message.validate().is_err() {
+                        let _ = outgoing.send(ServerMessage::Error {
+                            code: "bad-frame".to_string(),
+                            message: "Reassembled operation is out of bounds.".to_string(),
+                            fatal: false,
+                        });
+                        return std::ops::ControlFlow::Continue(());
+                    }
+                    if let ClientMessage::Operation { op } = message {
+                        handle_operation(host, session, op, limiter, outgoing);
+                    }
                 }
-                OpOutcome::Revoked => {
-                    let _ = outgoing.send(ServerMessage::OperationRejected {
-                        client_op_id: op.client_op_id.clone(),
-                        reason: "You no longer have access to this session.".to_string(),
-                        fatal: true,
-                    });
-                }
-                OpOutcome::StoreError(error) => {
-                    // The change was NOT acked: the client keeps it as
-                    // pending local work and may retry after reconnecting.
-                    let _ = outgoing.send(ServerMessage::Error {
-                        code: "store-error".to_string(),
-                        message: format!("The session host could not persist the change: {error}"),
-                        fatal: false,
+                _ => {
+                    let _ = outgoing.send(ServerMessage::OperationUploadRejected {
+                        upload_id,
+                        // Only operation frames may be uploaded in chunks: a
+                        // chunked hello would defeat the hello-once rule and a
+                        // chunked snapshot upload the owner gate's shape.
+                        reason: "A chunked upload must reassemble to a valid operation."
+                            .to_string(),
                     });
                 }
             }
@@ -1032,13 +1402,9 @@ fn handle_client_frame(
     }
 }
 
-/// Run the host's HTTP+WS server until shutdown is signalled. Returns the
-/// bound address (use port 0 for an OS-assigned port in app-hosted mode).
-pub async fn serve(
-    host: Arc<RoomHost>,
-    bind: SocketAddr,
-    shutdown: tokio::sync::watch::Receiver<bool>,
-) -> Result<SocketAddr, std::io::Error> {
+/// Validate a requested bind against the exposure policy. A non-loopback
+/// bind is an explicit decision (`--expose`) and requires an admin token.
+fn validate_bind(host: &RoomHost, bind: SocketAddr) -> Result<(), std::io::Error> {
     if !bind.ip().is_loopback() && !host.config.allow_non_loopback {
         return Err(std::io::Error::new(
             std::io::ErrorKind::PermissionDenied,
@@ -1051,13 +1417,19 @@ pub async fn serve(
             "a non-loopback bind requires an explicit admin token",
         ));
     }
-    let listener = tokio::net::TcpListener::bind(bind).await?;
-    let address = listener.local_addr()?;
+    Ok(())
+}
+
+/// Spawn the accept loop for an already-bound listener onto `handle`.
+fn spawn_accept_loop(
+    host: Arc<RoomHost>,
+    listener: tokio::net::TcpListener,
+    shutdown: tokio::sync::watch::Receiver<bool>,
+    handle: &tokio::runtime::Handle,
+) {
     let app = router(host);
     let mut shutdown_rx = shutdown;
-    // The server runs on a spawned task so the caller gets the bound
-    // address immediately (app-hosted mode needs it to build invite URLs).
-    tokio::spawn(async move {
+    handle.spawn(async move {
         let _ = axum::serve(
             listener,
             app.into_make_service_with_connect_info::<SocketAddr>(),
@@ -1067,5 +1439,66 @@ pub async fn serve(
         })
         .await;
     });
+}
+
+/// Bind and serve on a runtime handle supplied by the caller.
+///
+/// This is the entry point for embedders that are ALREADY inside an async
+/// runtime — the Tauri app-hosted desktop path. `serve` awaits
+/// `TcpListener::bind`, and `Runtime::block_on` panics when called from
+/// inside a runtime ("Cannot start a runtime from within a runtime"), so an
+/// async command cannot use it. Here the listener is bound with
+/// `std::net::TcpListener` (which needs no runtime), the bound address is
+/// returned immediately for building invite URLs, and only the accept loop
+/// is spawned onto the caller's runtime.
+///
+/// Returns the bound address (use port 0 for an OS-assigned port).
+pub fn serve_with_handle(
+    host: Arc<RoomHost>,
+    bind: SocketAddr,
+    shutdown: tokio::sync::watch::Receiver<bool>,
+    handle: &tokio::runtime::Handle,
+) -> Result<SocketAddr, std::io::Error> {
+    validate_bind(&host, bind)?;
+    let std_listener = std::net::TcpListener::bind(bind)?;
+    std_listener.set_nonblocking(true)?;
+    let address = std_listener.local_addr()?;
+    let listener = tokio::net::TcpListener::from_std(std_listener)?;
+    spawn_accept_loop(host, listener, shutdown, handle);
+    Ok(address)
+}
+
+/// `serve_with_handle` against the current thread's runtime. Errors when no
+/// runtime is entered on this thread rather than panicking.
+pub fn serve_on_current_runtime(
+    host: Arc<RoomHost>,
+    bind: SocketAddr,
+    shutdown: tokio::sync::watch::Receiver<bool>,
+) -> Result<SocketAddr, std::io::Error> {
+    let handle = tokio::runtime::Handle::try_current().map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "serve_on_current_runtime requires an entered async runtime",
+        )
+    })?;
+    serve_with_handle(host, bind, shutdown, &handle)
+}
+
+/// Run the host's HTTP+WS server until shutdown is signalled. Returns the
+/// bound address (use port 0 for an OS-assigned port in app-hosted mode).
+/// Awaits the bind, so this is for callers that are NOT already inside a
+/// runtime; embedders inside one use `serve_on_current_runtime`.
+pub async fn serve(
+    host: Arc<RoomHost>,
+    bind: SocketAddr,
+    shutdown: tokio::sync::watch::Receiver<bool>,
+) -> Result<SocketAddr, std::io::Error> {
+    validate_bind(&host, bind)?;
+    let listener = tokio::net::TcpListener::bind(bind).await?;
+    let address = listener.local_addr()?;
+    // The server runs on a spawned task so the caller gets the bound
+    // address immediately (app-hosted mode needs it to build invite URLs).
+    let handle = tokio::runtime::Handle::current();
+    spawn_accept_loop(host, listener, shutdown, &handle);
     Ok(address)
 }

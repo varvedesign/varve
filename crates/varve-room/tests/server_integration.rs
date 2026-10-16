@@ -26,8 +26,16 @@ fn temp_dir(label: &str) -> std::path::PathBuf {
 async fn serve_host(
     data_dir: std::path::PathBuf,
 ) -> (Arc<RoomHost>, SocketAddr, tokio::sync::watch::Sender<bool>) {
+    serve_host_with_idle(data_dir, 15 * 60 * 1000).await
+}
+
+async fn serve_host_with_idle(
+    data_dir: std::path::PathBuf,
+    idle_timeout_ms: u64,
+) -> (Arc<RoomHost>, SocketAddr, tokio::sync::watch::Sender<bool>) {
     let config = HostConfig {
         admin_token: Some("test-admin-token".to_string()),
+        idle_timeout_ms,
         ..HostConfig::for_data_dir(data_dir.clone())
     };
     let host = RoomHost::open(config).expect("host opens");
@@ -110,6 +118,108 @@ fn make_op(client_op_id: &str, label: &str) -> String {
     .to_string()
 }
 
+/// An operation whose capture carries embedded image bytes, mirroring what
+/// `diffDocuments` emits for a newly added `DocumentAsset` (the capture
+/// carries the data URL — see packages/history/src/diff.ts).
+fn make_asset_op(client_op_id: &str, data_url: &str) -> String {
+    json!({
+        "type": "operation",
+        "op": {
+            "clientOpId": client_op_id,
+            "basedOnSeq": 0,
+            "actorId": "spoofed-actor",
+            "actorName": "Tester",
+            "transactionId": format!("tx-{client_op_id}"),
+            "label": "Insert image",
+            "kind": "modify",
+            "originAuthor": "local-user",
+            "revertsClientOpId": null,
+            "capture": {
+                "transactionId": format!("tx-{client_op_id}"),
+                "changes": [{
+                    "changeType": "added",
+                    "entityId": "asset-abc",
+                    "entityType": "asset",
+                    "propertyPath": "assets",
+                    "after": {
+                        "id": "asset-abc",
+                        "storage": "embedded",
+                        "mimeType": "image/png",
+                        "dataUrl": data_url,
+                        "naturalWidth": 1,
+                        "naturalHeight": 1,
+                        "byteLength": 1,
+                        "hash": "deadbeef"
+                    },
+                    "summary": "Added image asset"
+                }],
+                "summary": { "label": "Insert image", "affectedEntityIds": ["asset-abc"], "kind": "modify" },
+                "beforeHash": "a".repeat(64),
+                "afterHash": "b".repeat(64)
+            }
+        }
+    })
+    .to_string()
+}
+
+const MAX_INLINE_FRAME_BYTES_TEST: usize = 2_000_000;
+const TEST_CHUNK_CHARS: usize = 200_000;
+
+/// Upload one serialized operation frame through the chunked path: begin,
+/// ordered chunks, end. Mirrors `packages/collab/src/chunkedOperation.ts`.
+async fn send_chunked_operation(ws: &mut Ws, upload_id: &str, frame: &str) {
+    let chars: Vec<char> = frame.chars().collect();
+    let chunk_count = chars.len().div_ceil(TEST_CHUNK_CHARS);
+    ws.send(WsMessage::Text(
+        json!({
+            "type": "operation-begin",
+            "uploadId": upload_id,
+            "totalBytes": frame.len(),
+            "chunkCount": chunk_count,
+            "digest": sha256_hex(frame.as_bytes()),
+        })
+        .to_string()
+        .into(),
+    ))
+    .await
+    .expect("begin sent");
+    for index in 0..chunk_count {
+        let start = index * TEST_CHUNK_CHARS;
+        let end = (start + TEST_CHUNK_CHARS).min(chars.len());
+        let data: String = chars[start..end].iter().collect();
+        ws.send(WsMessage::Text(
+            json!({
+                "type": "operation-chunk",
+                "uploadId": upload_id,
+                "index": index,
+                "data": data,
+            })
+            .to_string()
+            .into(),
+        ))
+        .await
+        .expect("chunk sent");
+    }
+    ws.send(WsMessage::Text(
+        json!({ "type": "operation-end", "uploadId": upload_id })
+            .to_string()
+            .into(),
+    ))
+    .await
+    .expect("end sent");
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 #[tokio::test]
 async fn two_clients_exchange_ops_and_the_journal_survives_restart() {
     let dir = temp_dir("restart");
@@ -188,6 +298,275 @@ async fn viewers_cannot_mutate_and_revocation_disconnects_live_sessions() {
     assert!(host.admin_revoke_invite(&hash).expect("revoke"));
     let ended = wait_for_frame(&mut viewer, "room-ended").await;
     assert_eq!(ended["reason"], "Your access was revoked");
+}
+
+/// An operation carrying an embedded image asset is larger than the inline
+/// frame ceiling: the document's own inline-asset bound is 10 MB
+/// (`documentCodec.ts` → MAX_INLINE_ASSET_BYTES), while an inline operation
+/// frame is capped at 2 MB. Inserting a photo into a shared document is the
+/// ordinary way to cross that line, so the host must reassemble a chunked
+/// upload rather than close the connection and strand the editor in a
+/// reconnect loop with the operation permanently pending.
+#[tokio::test]
+async fn a_large_asset_operation_is_reassembled_instead_of_killing_the_session() {
+    let dir = temp_dir("large-op");
+    let (host, address, _shutdown) = serve_host(dir.clone()).await;
+
+    let room = host
+        .admin_create_room("doc-1", "{\"id\":\"doc-1\"}")
+        .expect("room");
+    let editor_token = host
+        .admin_create_invite(&room.room_id, ParticipantRole::Editor, i64::MAX / 2)
+        .expect("invite");
+
+    let mut owner = connect(address, &room.room_id, &room.owner_invite_token).await;
+    wait_for_frame(&mut owner, "welcome").await;
+    let mut editor = connect(address, &room.room_id, &editor_token).await;
+    wait_for_frame(&mut editor, "welcome").await;
+
+    let data_url = format!("data:image/png;base64,{}", "A".repeat(3_000_000));
+    let frame = make_asset_op("op-large-1", &data_url);
+    assert!(
+        frame.len() > MAX_INLINE_FRAME_BYTES_TEST,
+        "the fixture must exceed the inline frame ceiling (was {})",
+        frame.len()
+    );
+
+    send_chunked_operation(&mut editor, "upload-1", &frame).await;
+
+    let accepted = wait_for_frame(&mut editor, "operation-accepted").await;
+    assert_eq!(accepted["clientOpId"], "op-large-1");
+    let relayed = wait_for_frame(&mut owner, "operation").await;
+    assert_eq!(relayed["op"]["clientOpId"], "op-large-1");
+    assert_eq!(
+        relayed["op"]["capture"]["changes"][0]["after"]["dataUrl"], data_url,
+        "the reassembled capture must carry the asset bytes intact"
+    );
+
+    // The connection is still usable: a small follow-up operation works.
+    editor
+        .send(WsMessage::Text(make_op("op-small-1", "Small").into()))
+        .await
+        .expect("second op sent");
+    let accepted = wait_for_frame(&mut editor, "operation-accepted").await;
+    assert_eq!(accepted["clientOpId"], "op-small-1");
+}
+
+/// Negative control for the chunked path: the memory ceiling still holds.
+/// An oversized frame that does NOT declare a multi-frame kind is closed on
+/// rather than buffered, so "chunk it" cannot be used to bypass the bound.
+#[tokio::test]
+async fn an_oversized_inline_operation_frame_is_still_refused() {
+    let dir = temp_dir("oversize-inline");
+    let (host, address, _shutdown) = serve_host(dir.clone()).await;
+    let room = host
+        .admin_create_room("doc-1", "{\"id\":\"doc-1\"}")
+        .expect("room");
+
+    let mut editor = connect(address, &room.room_id, &room.owner_invite_token).await;
+    wait_for_frame(&mut editor, "welcome").await;
+
+    let frame = make_asset_op("op-inline-huge", &format!("data:image/png;base64,{}", "A".repeat(3_000_000)));
+    assert!(frame.len() > MAX_INLINE_FRAME_BYTES_TEST);
+    editor
+        .send(WsMessage::Text(frame.into()))
+        .await
+        .expect("frame sent");
+
+    // Closed, never buffered: the socket ends without any operation ack.
+    let mut saw_ack = false;
+    loop {
+        match tokio::time::timeout(Duration::from_secs(5), editor.next()).await {
+            Ok(Some(Ok(WsMessage::Text(text)))) => {
+                let parsed: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+                if parsed["type"] == "operation-accepted" {
+                    saw_ack = true;
+                }
+            }
+            _ => break,
+        }
+    }
+    assert!(!saw_ack, "an oversized inline frame must never be accepted");
+}
+
+/// Interrupted and corrupt chunked uploads must never wedge a session: the
+/// abandoned buffer is bounded and droppable, a rejected upload is reported
+/// visibly, and the connection stays usable for ordinary operations.
+#[tokio::test]
+async fn a_corrupt_chunked_upload_is_rejected_and_the_session_survives() {
+    let dir = temp_dir("chunk-corrupt");
+    let (host, address, _shutdown) = serve_host(dir.clone()).await;
+    let room = host
+        .admin_create_room("doc-1", "{\"id\":\"doc-1\"}")
+        .expect("room");
+    let editor_token = host
+        .admin_create_invite(&room.room_id, ParticipantRole::Editor, i64::MAX / 2)
+        .expect("invite");
+
+    let mut editor = connect(address, &room.room_id, &editor_token).await;
+    wait_for_frame(&mut editor, "welcome").await;
+    let mut peer = connect(address, &room.room_id, &room.owner_invite_token).await;
+    wait_for_frame(&mut peer, "welcome").await;
+
+    // An upload that is opened and never finished occupies the connection's
+    // single upload slot. A second begin is refused with a visible reason
+    // rather than silently replacing or interleaving the first.
+    editor
+        .send(WsMessage::Text(
+            json!({
+                "type": "operation-begin",
+                "uploadId": "upload-abandoned",
+                "totalBytes": 64,
+                "chunkCount": 1,
+                "digest": "0".repeat(64),
+            })
+            .to_string()
+            .into(),
+        ))
+        .await
+        .expect("begin sent");
+    editor
+        .send(WsMessage::Text(
+            json!({
+                "type": "operation-begin",
+                "uploadId": "upload-second",
+                "totalBytes": 64,
+                "chunkCount": 1,
+                "digest": "0".repeat(64),
+            })
+            .to_string()
+            .into(),
+        ))
+        .await
+        .expect("second begin sent");
+    let refused = wait_for_frame(&mut editor, "operation-upload-rejected").await;
+    assert_eq!(refused["reason"], "Another upload is already in progress.");
+
+    // Ordinary operations are unaffected by the abandoned upload.
+    editor
+        .send(WsMessage::Text(make_op("op-after-abandon", "After abandon").into()))
+        .await
+        .expect("inline op sent");
+    let accepted = wait_for_frame(&mut editor, "operation-accepted").await;
+    assert_eq!(accepted["clientOpId"], "op-after-abandon");
+    let relayed = wait_for_frame(&mut peer, "operation").await;
+    assert_eq!(relayed["op"]["clientOpId"], "op-after-abandon");
+
+    // A fresh connection (the reconnect case) uploads a frame whose declared
+    // digest does not match: rejected, never journaled.
+    let mut reconnected = connect(address, &room.room_id, &editor_token).await;
+    wait_for_frame(&mut reconnected, "welcome").await;
+    reconnected
+        .send(WsMessage::Text(
+            json!({
+                "type": "operation-begin",
+                "uploadId": "upload-bad-digest",
+                "totalBytes": 3,
+                "chunkCount": 1,
+                "digest": "f".repeat(64),
+            })
+            .to_string()
+            .into(),
+        ))
+        .await
+        .expect("begin sent");
+    reconnected
+        .send(WsMessage::Text(
+            json!({ "type": "operation-chunk", "uploadId": "upload-bad-digest", "index": 0, "data": "abc" })
+                .to_string()
+                .into(),
+        ))
+        .await
+        .expect("chunk sent");
+    reconnected
+        .send(WsMessage::Text(
+            json!({ "type": "operation-end", "uploadId": "upload-bad-digest" })
+                .to_string()
+                .into(),
+        ))
+        .await
+        .expect("end sent");
+    let rejected = wait_for_frame(&mut reconnected, "operation-upload-rejected").await;
+    assert_eq!(rejected["reason"], "Upload digest did not match.");
+
+    // Still usable afterwards, and the rejected frame never reached the room.
+    reconnected
+        .send(WsMessage::Text(make_op("op-after-reject", "After reject").into()))
+        .await
+        .expect("op sent");
+    let accepted = wait_for_frame(&mut reconnected, "operation-accepted").await;
+    assert_eq!(accepted["clientOpId"], "op-after-reject");
+    let relayed = wait_for_frame(&mut peer, "operation").await;
+    assert_eq!(relayed["op"]["clientOpId"], "op-after-reject");
+}
+
+/// A socket that goes silent is reaped like a disconnect, so a crashed tab
+/// cannot hold one of a room's ten participant slots; a client that speaks
+/// (the liveness heartbeat) stays connected past the same window.
+#[tokio::test]
+async fn a_silent_socket_is_closed_and_the_room_is_told() {
+    let dir = temp_dir("idle");
+    let (host, address, _shutdown) = serve_host_with_idle(dir.clone(), 900).await;
+    let room = host
+        .admin_create_room("doc-1", "{\"id\":\"doc-1\"}")
+        .expect("room");
+    let editor_token = host
+        .admin_create_invite(&room.room_id, ParticipantRole::Editor, i64::MAX / 2)
+        .expect("invite");
+
+    // Phase 1: a silent socket simply ends.
+    let mut silent = connect(address, &room.room_id, &editor_token).await;
+    wait_for_frame(&mut silent, "welcome").await;
+    let closed = tokio::time::timeout(Duration::from_secs(6), silent.next()).await;
+    assert!(
+        matches!(
+            closed,
+            Ok(None) | Ok(Some(Ok(WsMessage::Close(_)))) | Ok(Some(Err(_)))
+        ),
+        "an idle socket must be closed by the host, got {closed:?}"
+    );
+
+    // Phase 2: the remaining participants are told, so the UI drops the
+    // presence instead of showing a stalled participant forever.
+    let mut observer = connect(address, &room.room_id, &room.owner_invite_token).await;
+    wait_for_frame(&mut observer, "welcome").await;
+    let mut silent2 = connect(address, &room.room_id, &editor_token).await;
+    wait_for_frame(&mut silent2, "welcome").await;
+
+    let mut saw_left = false;
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(8);
+    while tokio::time::Instant::now() < deadline {
+        observer
+            .send(WsMessage::Text(json!({ "type": "ping" }).to_string().into()))
+            .await
+            .expect("observer ping");
+        match tokio::time::timeout(Duration::from_millis(200), observer.next()).await {
+            Ok(Some(Ok(WsMessage::Text(text)))) => {
+                let parsed: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+                if parsed["type"] == "participant-left" {
+                    assert_eq!(parsed["reason"], "disconnect");
+                    saw_left = true;
+                    break;
+                }
+            }
+            Ok(Some(Ok(_))) => {}
+            other => panic!("observer stream ended early: {other:?}"),
+        }
+    }
+    assert!(saw_left, "the room must be told when a silent socket is reaped");
+
+    // Phase 3: a heartbeating participant survives the same idle window.
+    let mut beating = connect(address, &room.room_id, &editor_token).await;
+    wait_for_frame(&mut beating, "welcome").await;
+    for _ in 0..3 {
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        beating
+            .send(WsMessage::Text(json!({ "type": "ping" }).to_string().into()))
+            .await
+            .expect("ping sent");
+        let pong = wait_for_frame(&mut beating, "pong").await;
+        assert_eq!(pong["type"], "pong");
+    }
 }
 
 #[tokio::test]

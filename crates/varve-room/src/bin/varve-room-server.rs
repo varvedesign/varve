@@ -24,6 +24,8 @@ async fn main() {
     let mut listen = SocketAddr::from(([127, 0, 0, 1], 8790));
     let mut expose = false;
     let mut admin_token: Option<String> = None;
+    let mut allowed_origins: Vec<String> = Vec::new();
+    let mut allowed_hosts: Vec<String> = Vec::new();
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -37,6 +39,12 @@ async fn main() {
             "--expose" => expose = true,
             "--admin-token" => {
                 admin_token = Some(args.next().unwrap_or_else(|| usage("--admin-token")));
+            }
+            "--allow-origin" => {
+                allowed_origins.push(args.next().unwrap_or_else(|| usage("--allow-origin")));
+            }
+            "--allow-host" => {
+                allowed_hosts.push(args.next().unwrap_or_else(|| usage("--allow-host")));
             }
             "--help" | "-h" => {
                 print_help();
@@ -60,6 +68,8 @@ async fn main() {
     let config = HostConfig {
         allow_non_loopback: expose,
         admin_token,
+        allowed_origins,
+        allowed_hosts,
         ..HostConfig::for_data_dir(data_dir)
     };
     let host = match RoomHost::open(config) {
@@ -109,7 +119,14 @@ fn print_help() {
          --data-dir <path>     storage directory (default ./varve-rooms)\n\
          --listen <addr:port>  bind address (default 127.0.0.1:8790; loopback unless --expose)\n\
          --expose              allow non-loopback binds (firewall/TLS configuration is yours)\n\
-         --admin-token <t>     admin API token (generated + printed when absent)\n"
+         --admin-token <t>     admin API token (generated + printed when absent)\n\
+         --allow-origin <o>    browser origin allowed beyond the local set (repeatable);\n\
+                               needed for a web client served from another origin\n\
+         --allow-host <h>      Host header accepted beyond loopback (repeatable); for a\n\
+                               same-host reverse proxy whose public name differs\n\n\
+         Browser clients on loopback origins (localhost, 127.0.0.1, [::1], *.localhost) and\n\
+         the Tauri webview are always accepted; any other Origin must be listed above.\n\
+         A loopback listener also requires a loopback Host header (DNS-rebinding defence)."
     );
 }
 

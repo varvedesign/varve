@@ -26,6 +26,9 @@
  *   timer throttling must not become a reconnect storm).
  */
 
+import type { CapturedChange } from '@varve/scene';
+import { planChunkedOperation } from './chunkedOperation';
+import { mintClientId } from './identity';
 import {
   type ChatMessage,
   type ClientMessage,
@@ -37,6 +40,7 @@ import {
   parseServerMessage,
   type RoomOperation,
   type SelectionPresence,
+  utf8ByteLength,
   type ViewportPresence,
 } from './protocol';
 
@@ -45,6 +49,13 @@ export interface CollabTransport {
   connect(): void;
   /** Send one client frame. Returns false when the link is down. */
   send(message: ClientMessage): boolean;
+  /**
+   * Send an already-serialized frame. Chunked uploads need the reassembled
+   * text to be byte-identical to what the sender hashed, so the operation
+   * path serializes once and hands the text over rather than re-serializing.
+   * Returns false when the link is down.
+   */
+  sendFrame(text: string): boolean;
   /** Close the underlying connection (client-initiated leave). */
   close(): void;
   /** Underlying link events. */
@@ -116,6 +127,29 @@ const RECONNECT_MAX_MS = 30_000;
 /** Re-sent unacked ops are dropped by the host's dedupe window. */
 const MAX_PENDING = 500;
 const APPLIED_IDS_LIMIT = 2_000;
+const EMPTY_IDS: ReadonlySet<string> = new Set();
+/**
+ * Liveness heartbeat. The host treats a silent socket as dead after its idle
+ * window, so the client must speak even when the user is only watching. Well
+ * under the 15-minute default: background tabs are throttled to roughly one
+ * timer run per minute, which still beats the window.
+ */
+const HEARTBEAT_MS = 30_000;
+
+/**
+ * Conflict keys for one captured change (see `withoutConflictingChanges`).
+ * Property-level for value edits so disjoint properties never block each
+ * other; an entity-level key is added for creation and deletion, because a
+ * peer cannot legitimately have a concurrent change to an entity this client
+ * has only just created or removed.
+ */
+export function changeConflictKeys(change: CapturedChange): string[] {
+  const keys = [change.propertyPath ?? `entity:${change.entityId}`];
+  if (change.changeType === 'added' || change.changeType === 'removed') {
+    keys.push(`entity:${change.entityId}`);
+  }
+  return keys;
+}
 
 export class CollabSyncEngine {
   status: CollabStatus = 'idle';
@@ -131,6 +165,7 @@ export class CollabSyncEngine {
   private reconnectAttempt = 0;
   private reconnectHandle: unknown = null;
   private presenceTimer: unknown = null;
+  private heartbeatHandle: unknown = null;
   private readonly cursors = new Map<string, { cursor: CursorPresence; at: number }>();
   private readonly selections = new Map<string, { selection: SelectionPresence; at: number }>();
   private readonly viewports = new Map<string, { viewport: ViewportPresence; at: number }>();
@@ -176,8 +211,9 @@ export class CollabSyncEngine {
   /**
    * Submit a locally applied capture. The engine tracks it as pending
    * until the host acknowledges it. Returns false when the room is not
-   * live (the caller keeps the local state; the op is queued if the
-   * engine is reconnecting, dropped with a notice only when idle/ended).
+   * live or the operation cannot be framed (the caller keeps the local
+   * state; the op is queued if the engine is reconnecting, dropped with a
+   * notice only when idle/ended).
    */
   submitOperation(op: RoomOperation): boolean {
     if (this.pending.size >= MAX_PENDING) {
@@ -189,7 +225,61 @@ export class CollabSyncEngine {
       return false;
     }
     this.pending.set(op.clientOpId, { op, sentAt: this.nowMs() });
-    return this.transport?.send({ type: 'operation', op }) ?? false;
+    return this.sendOperation(op);
+  }
+
+  /**
+   * Frame one operation: inline when it fits, chunked when it does not. The
+   * host reassembles and validates it identically either way, so the only
+   * difference a large edit makes is which frames carry it.
+   */
+  private sendOperation(op: RoomOperation): boolean {
+    const transport = this.transport;
+    if (!transport) return false;
+    const text = JSON.stringify({ type: 'operation', op } satisfies ClientMessage);
+    if (utf8ByteLength(text) <= PROTOCOL_LIMITS.maxOperationBytes) {
+      return transport.sendFrame(text);
+    }
+    const plan = planChunkedOperation(text, mintClientId());
+    if (!plan.ok) {
+      // Larger than the host will ever accept. Never silent: the caller
+      // surfaces this and the local edit stays in the document and in the
+      // participant's own history.
+      this.pending.delete(op.clientOpId);
+      this.options.handlers.onNotice({
+        code: 'operation-rejected',
+        message: `This change is too large to share (${Math.ceil(plan.totalBytes / 1_000_000)} MB). It stays in your local document.`,
+        clientOpId: op.clientOpId,
+      });
+      return false;
+    }
+    if (
+      !transport.sendFrame(
+        JSON.stringify({
+          type: 'operation-begin',
+          uploadId: plan.uploadId,
+          totalBytes: plan.totalBytes,
+          chunkCount: plan.chunkCount,
+          digest: plan.digest,
+        } satisfies ClientMessage),
+      )
+    ) {
+      return false;
+    }
+    for (let index = 0; index < plan.chunks.length; index++) {
+      const sent = transport.sendFrame(
+        JSON.stringify({
+          type: 'operation-chunk',
+          uploadId: plan.uploadId,
+          index,
+          data: plan.chunks[index]!,
+        } satisfies ClientMessage),
+      );
+      if (!sent) return false;
+    }
+    return transport.sendFrame(
+      JSON.stringify({ type: 'operation-end', uploadId: plan.uploadId } satisfies ClientMessage),
+    );
   }
 
   /** Publish the local cursor (coalesced to the presence rate). */
@@ -251,6 +341,71 @@ export class CollabSyncEngine {
   /** True when the op is ours and still unacknowledged. */
   isPending(clientOpId: string): boolean {
     return this.pending.has(clientOpId);
+  }
+
+  /**
+   * Keys of local changes whose acknowledgement is still outstanding, for the
+   * conflict rule below. `journaledIds` names pending operations the catch-up
+   * replay has already shown to be ordered — those block nothing, because the
+   * room has already decided where they sit.
+   */
+  private blockedKeys(journaledIds: ReadonlySet<string>): Set<string> {
+    const blocked = new Set<string>();
+    for (const [clientOpId, entry] of this.pending) {
+      if (journaledIds.has(clientOpId)) continue;
+      for (const change of entry.op.capture.changes) {
+        for (const key of changeConflictKeys(change)) blocked.add(key);
+      }
+    }
+    return blocked;
+  }
+
+  /**
+   * The Figma anti-flicker rule (see docs/research/collaboration-failure-evidence-2026-10-15.md):
+   * a change arriving from the host that conflicts with a local change this
+   * client has not had acknowledged is DISCARDED, because the host
+   * acknowledges a change to its sender before relaying it and a WebSocket
+   * preserves per-connection order. An incoming conflicting change with no
+   * acknowledgement for mine therefore means mine has not been ordered yet:
+   * the room will order mine later, so my optimistic value is the room's
+   * future value.
+   *
+   * Without this rule the local value is silently replaced and never
+   * restored — own operations are not echoed back — so the two participants
+   * settle on different values for the same property.
+   */
+  private withoutConflictingChanges(
+    op: RoomOperation,
+    blocked: ReadonlySet<string>,
+  ): RoomOperation {
+    if (blocked.size === 0 || op.capture.changes.length === 0) return op;
+    const kept = op.capture.changes.filter(
+      (change) => !changeConflictKeys(change).some((key) => blocked.has(key)),
+    );
+    if (kept.length === op.capture.changes.length) return op;
+    return { ...op, capture: { ...op.capture, changes: kept } };
+  }
+
+  /**
+   * Re-apply unacknowledged local captures on top of an authoritative
+   * snapshot. A bootstrap snapshot replaces the whole document, so without
+   * this an offline edit is lost locally the moment it reconnects and is then
+   * re-sent — leaving this participant and the room permanently different.
+   * This is Figma's "reapplies any offline edits on top of this latest state".
+   */
+  private reapplyPendingCaptures(): void {
+    for (const entry of [...this.pending.values()]) {
+      this.options.handlers.applyRemoteOperation(entry.op);
+    }
+  }
+
+  /** Mark the pending operations a catch-up replay proved to be ordered. */
+  private settleJournaled(operations: ReadonlyArray<{ op: RoomOperation }>): Set<string> {
+    const journaled = new Set<string>();
+    for (const entry of operations) {
+      if (this.pending.has(entry.op.clientOpId)) journaled.add(entry.op.clientOpId);
+    }
+    return journaled;
   }
 
   /** Ask the host to replay everything after our last applied sequence. */
@@ -377,11 +532,14 @@ export class CollabSyncEngine {
           message.snapshot.documentJson,
           message.snapshot.uptoSeq,
         );
+        // The snapshot replaced the document: unacknowledged local work is
+        // re-applied on top of it and then re-sent (idempotent by clientOpId).
+        this.reapplyPendingCaptures();
         this.options.handlers.onRoster(message.participants);
         this.setStatus('live');
-        // Re-send unacked operations (idempotent by clientOpId).
+        this.startHeartbeat();
         for (const pending of this.pending.values()) {
-          this.transport?.send({ type: 'operation', op: pending.op });
+          this.sendOperation(pending.op);
           pending.sentAt = this.nowMs();
         }
         break;
@@ -411,9 +569,27 @@ export class CollabSyncEngine {
         }
         break;
       }
+      case 'operation-upload-rejected': {
+        // The chunked upload never became an operation: it was never
+        // journaled, so it stays pending local work. Retry happens on the
+        // next reconnect (or when the caller re-submits after a fix), and the
+        // reason is always surfaced rather than swallowed.
+        this.options.handlers.onNotice({
+          code: 'operation-rejected',
+          message: message.reason,
+        });
+        break;
+      }
       case 'sync': {
+        // Catch-up replay: it tells us the truth about ordering. A pending
+        // change that appears here is already ordered, so it is settled and
+        // blocks nothing; a change that does not appear will be ordered after
+        // everything in this replay and therefore keeps its local value.
+        const journaled = this.settleJournaled(message.operations);
+        for (const clientOpId of journaled) this.pending.delete(clientOpId);
+        const blocked = this.blockedKeys(journaled);
         for (const entry of message.operations) {
-          this.applyRoomOperation(entry.seq, entry.op);
+          this.applyRoomOperation(entry.seq, entry.op, blocked);
         }
         this.appliedSeq = Math.max(this.appliedSeq, message.seq);
         this.options.handlers.onNotice({
@@ -428,6 +604,12 @@ export class CollabSyncEngine {
           message.snapshot.documentJson,
           message.snapshot.uptoSeq,
         );
+        // Same as `welcome`: the snapshot does not contain unacknowledged
+        // local work, so it is re-applied until the host orders it.
+        this.reapplyPendingCaptures();
+        // A snapshot proves every pending operation is either inside it or
+        // still un-ordered; drop the ones the host already had? It cannot
+        // tell us, so pending operations stay pending and are re-sent.
         this.options.handlers.onNotice({
           code: 'resynced',
           message: 'Document resynchronized from snapshot.',
@@ -525,7 +707,11 @@ export class CollabSyncEngine {
     }
   }
 
-  private applyRoomOperation(seq: number, op: RoomOperation): void {
+  private applyRoomOperation(
+    seq: number,
+    op: RoomOperation,
+    blocked: ReadonlySet<string> = this.blockedKeys(EMPTY_IDS),
+  ): void {
     // Ordered application. Stale redelivery (resync overlap) drops by id.
     if (seq <= this.appliedSeq) {
       if (this.appliedIds.has(op.clientOpId)) return;
@@ -545,7 +731,11 @@ export class CollabSyncEngine {
       if (first) this.appliedIds.delete(first);
     }
     if (op.actorId === this.actorId) return; // own optimistic application
-    this.options.handlers.applyRemoteOperation(op);
+    const filtered = this.withoutConflictingChanges(op, blocked);
+    // Everything this operation carried was superseded by unacknowledged
+    // local work: there is nothing left to apply (and nothing to mark dirty).
+    if (filtered.capture.changes.length === 0) return;
+    this.options.handlers.applyRemoteOperation(filtered);
   }
 
   private expirePresence(): void {
@@ -561,10 +751,34 @@ export class CollabSyncEngine {
     }
   }
 
+  /**
+   * Keep the socket alive while the user watches without acting. The host
+   * reaps silent sockets, so a heartbeat is required for a participant who is
+   * only reading; presence frames alone are not a liveness signal.
+   */
+  private startHeartbeat(): void {
+    if (this.heartbeatHandle !== null) return;
+    const beat = () => {
+      this.heartbeatHandle = this.timers.setTimeout(() => {
+        this.heartbeatHandle = null;
+        if (this.leaving || this.endedReason) return;
+        if (this.status === 'live' || this.status === 'reconnecting') {
+          this.transport?.send({ type: 'ping' });
+          beat();
+        }
+      }, HEARTBEAT_MS);
+    };
+    beat();
+  }
+
   private teardownTransport(): void {
     if (this.reconnectHandle !== null) {
       this.timers.clearTimeout(this.reconnectHandle);
       this.reconnectHandle = null;
+    }
+    if (this.heartbeatHandle !== null) {
+      this.timers.clearTimeout(this.heartbeatHandle);
+      this.heartbeatHandle = null;
     }
     if (this.presenceTimer !== null) {
       this.timers.clearTimeout(this.presenceTimer);

@@ -117,8 +117,11 @@ export function CollabCanvasPresence() {
 
 /**
  * Cursor-chat composer: `/` opens it when no text control holds focus.
- * Live drafts broadcast under one message id; Enter finalizes; Escape
- * clears both locally and remotely.
+ * Live drafts broadcast under one message id; Enter sends; Escape or leaving
+ * the field clears the draft locally and remotely. A draft is never sent
+ * implicitly: an in-progress IME composition is not submitted by Enter (that
+ * key belongs to the candidate list), and blurring the field cancels rather
+ * than sending a half-typed message.
  */
 function ChatComposer() {
   const session = useCollabSessionSafe();
@@ -126,8 +129,10 @@ function ChatComposer() {
   const [messageId, setMessageId] = useState(() => cryptoMessageId());
   const inputRef = useRef<HTMLInputElement | null>(null);
   const active = session !== null && session.session !== null && session.status === 'live';
-  const composingRef = useRef(false);
-  composingRef.current = active;
+  // Refs, not state: the close path must see the value the key handler saw,
+  // and must fire exactly once per open regardless of which path closed it.
+  const draftRef = useRef('');
+  const closedRef = useRef(true);
 
   useEffect(() => {
     if (!active) return;
@@ -146,9 +151,11 @@ function ChatComposer() {
 
   if (!active) return null;
 
-  const finish = (cancel: boolean) => {
-    const text = cancel ? '' : draft;
-    session?.sendChat(messageId, text, false);
+  const close = (mode: 'send' | 'cancel') => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    session?.sendChat(messageId, mode === 'send' ? draftRef.current : '', false);
+    draftRef.current = '';
     setDraft('');
     setMessageId(cryptoMessageId());
     inputRef.current?.blur();
@@ -166,25 +173,73 @@ function ChatComposer() {
         value={draft}
         maxLength={PROTOCOL_LIMITS.maxChatLength}
         placeholder="Message collaborators, then press Enter"
+        aria-describedby="collab-chat-hint"
+        onFocus={() => {
+          closedRef.current = false;
+        }}
         onChange={(event) => {
+          draftRef.current = event.target.value;
           setDraft(event.target.value);
           if (session) session.sendChat(messageId, event.target.value, true);
         }}
         onKeyDown={(event) => {
+          // `isComposing` is true for the Enter that commits an IME candidate
+          // (Japanese, Chinese, Korean, …): sending there would post a
+          // half-composed draft. keyCode 229 covers engines that report the
+          // composition only that way.
+          const composing = event.nativeEvent.isComposing || event.keyCode === 229;
           if (event.key === 'Enter') {
             event.preventDefault();
-            finish(false);
+            if (!composing) close('send');
           } else if (event.key === 'Escape') {
             event.preventDefault();
-            finish(true);
+            close('cancel');
           }
         }}
-        onBlur={() => finish(false)}
+        onBlur={() => close('cancel')}
       />
-      <span className="collab-chat-composer__hint" aria-hidden>
-        Enter to send, Esc to clear
+      <span id="collab-chat-hint" className="collab-chat-composer__hint">
+        Enter to send · Esc or leaving the field clears it
       </span>
     </div>
+  );
+}
+
+/**
+ * Non-pointer presentation of cursor chat.
+ *
+ * Bubbles live on the canvas next to a cursor, which a screen-reader user
+ * cannot follow. Finalized messages from other participants are announced
+ * once, politely. Drafts are never announced — a live draft would fire on
+ * every keystroke — and the author's own messages are skipped.
+ */
+function ChatAnnouncer() {
+  const session = useCollabSessionSafe();
+  const [announcement, setAnnouncement] = useState('');
+  const announcedRef = useRef<Set<string>>(new Set());
+  const announcedActorRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!session) return;
+    // A new session (or actor) starts a fresh announcement history.
+    if (announcedActorRef.current !== session.actorId) {
+      announcedActorRef.current = session.actorId;
+      announcedRef.current = new Set();
+    }
+    const seen = announcedRef.current;
+    if (seen.size > 200) seen.clear();
+    for (const bubble of session.chat) {
+      if (bubble.composing || bubble.actorId === session.actorId) continue;
+      if (seen.has(bubble.messageId)) continue;
+      seen.add(bubble.messageId);
+      setAnnouncement(`${bubble.displayName}: ${bubble.text}`);
+    }
+  }, [session]);
+
+  return (
+    <span className="sr-only" role="status" aria-live="polite">
+      {announcement}
+    </span>
   );
 }
 
@@ -222,6 +277,7 @@ export function CollabHeaderControl({ onOpenShare }: { onOpenShare: () => void }
       <span className={`collab-header-control__status ${statusTone}`} role="status">
         {STATUS_LABEL[session.status] ?? session.status}
       </span>
+      <ChatAnnouncer />
       <ParticipantAvatars />
       <Button size="sm" variant="secondary" onClick={onOpenShare}>
         Session

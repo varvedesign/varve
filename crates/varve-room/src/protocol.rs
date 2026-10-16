@@ -20,6 +20,22 @@ pub const MAX_CHAT_LENGTH: usize = 280;
 pub const MAX_SELECTION_IDS: usize = 200;
 pub const MAX_PARTICIPANTS: usize = 10;
 
+/// Chunked operation upload bounds.
+///
+/// An operation frame larger than `MAX_OPERATION_FRAME_BYTES` must arrive as
+/// an ordered chunk sequence instead of one frame. This is the ordinary path
+/// for an embedded image asset: the document's own inline-asset bound is
+/// 10 MB (`packages/scene/src/documentCodec.ts` → `MAX_INLINE_ASSET_BYTES`),
+/// so inserting a photo into a shared document produces a capture well above
+/// the inline frame ceiling. The reassembled frame is validated exactly like
+/// an inline one — chunking changes framing, never semantics.
+pub const MAX_CHUNKED_OPERATION_BYTES: usize = 64_000_000;
+/// UTF-8 bytes of `operation-chunk` payload per frame. Chosen so a
+/// worst-case JSON-escaped chunk stays comfortably under
+/// `MAX_OPERATION_FRAME_BYTES`.
+pub const MAX_UPLOAD_CHUNK_BYTES: usize = 262_144;
+pub const MAX_UPLOAD_CHUNKS: usize = 4096;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ParticipantRole {
@@ -93,6 +109,33 @@ pub enum ClientMessage {
     SyncRequest {
         #[serde(rename = "fromSeq")]
         from_seq: i64,
+    },
+    /// Opens a chunked operation upload. The frame that follows the matching
+    /// `operation-end` is reassembled and handled exactly like an inline
+    /// `Operation`.
+    #[serde(rename = "operation-begin")]
+    OperationBegin {
+        #[serde(rename = "uploadId")]
+        upload_id: String,
+        #[serde(rename = "totalBytes")]
+        total_bytes: i64,
+        #[serde(rename = "chunkCount")]
+        chunk_count: i64,
+        /// SHA-256 hex of the reassembled frame's UTF-8 bytes.
+        digest: String,
+    },
+    #[serde(rename = "operation-chunk")]
+    OperationChunk {
+        #[serde(rename = "uploadId")]
+        upload_id: String,
+        index: i64,
+        /// Characters (not bytes) of the serialized frame, in order.
+        data: String,
+    },
+    #[serde(rename = "operation-end")]
+    OperationEnd {
+        #[serde(rename = "uploadId")]
+        upload_id: String,
     },
     #[serde(rename = "snapshot-upload")]
     SnapshotUpload {
@@ -225,6 +268,14 @@ pub enum ServerMessage {
         message: String,
         fatal: bool,
     },
+    /// A chunked upload was refused; the operation was never journaled and
+    /// the client keeps it as pending local work.
+    #[serde(rename = "operation-upload-rejected")]
+    OperationUploadRejected {
+        #[serde(rename = "uploadId")]
+        upload_id: String,
+        reason: String,
+    },
     Pong,
 }
 
@@ -324,6 +375,45 @@ impl ClientMessage {
                     return Err("fromSeq must be non-negative");
                 }
             }
+            ClientMessage::OperationBegin {
+                upload_id,
+                total_bytes,
+                chunk_count,
+                digest,
+            } => {
+                if !bounded(upload_id, 128) {
+                    return Err("uploadId out of bounds");
+                }
+                if *total_bytes <= 0 || *total_bytes as usize > MAX_CHUNKED_OPERATION_BYTES {
+                    return Err("upload exceeds the chunked operation ceiling");
+                }
+                if *chunk_count <= 0 || *chunk_count as usize > MAX_UPLOAD_CHUNKS {
+                    return Err("chunkCount out of bounds");
+                }
+                if digest.len() != 64 || !digest.chars().all(|c| c.is_ascii_hexdigit()) {
+                    return Err("digest must be a SHA-256 hex string");
+                }
+            }
+            ClientMessage::OperationChunk {
+                upload_id,
+                index,
+                data,
+            } => {
+                if !bounded(upload_id, 128) {
+                    return Err("uploadId out of bounds");
+                }
+                if *index < 0 || *index as usize >= MAX_UPLOAD_CHUNKS {
+                    return Err("chunk index out of bounds");
+                }
+                if data.len() > MAX_UPLOAD_CHUNK_BYTES {
+                    return Err("chunk payload out of bounds");
+                }
+            }
+            ClientMessage::OperationEnd { upload_id } => {
+                if !bounded(upload_id, 128) {
+                    return Err("uploadId out of bounds");
+                }
+            }
             ClientMessage::SnapshotUpload {
                 upto_seq,
                 document_json,
@@ -363,21 +453,38 @@ pub fn capture_payload_like(capture: &Value) -> bool {
     tx_ok && hash_ok && object.get("summary").is_some_and(Value::is_object)
 }
 
+/// SHA-256 hex of a byte string. Used for chunked-upload integrity: the
+/// reassembled frame must hash to what the client declared. This is a
+/// corruption/truncation check layered on top of WebSocket framing, not a
+/// cryptographic trust boundary — the connection is already authenticated.
+pub fn digest_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 /// Wire frame classification used to enforce per-kind size ceilings before
 /// JSON parsing. Frames at or under the operation cap parse as normal; a
-/// larger frame must identify itself as a snapshot upload or it is closed.
-pub fn is_snapshot_upload_frame(raw: &[u8]) -> bool {
+/// larger frame must identify itself as one of the kinds that legitimately
+/// stream in multiple frames, or it is closed on.
+pub fn is_large_capable_frame(raw: &[u8]) -> bool {
+    frame_type(raw).is_some_and(|kind| kind == "snapshot-upload" || kind == "operation-chunk")
+}
+
+fn frame_type(raw: &[u8]) -> Option<String> {
     // Our own serializer emits the tag first; accept that fast path and
     // fall back to a full parse for differently ordered producers.
-    if raw.starts_with(b"{\"type\":\"snapshot-upload\"") {
-        return true;
+    for kind in ["snapshot-upload", "operation-chunk"] {
+        if raw.starts_with(format!("{{\"type\":\"{kind}\"").as_bytes()) {
+            return Some(kind.to_string());
+        }
     }
     serde_json::from_slice::<Value>(raw)
         .ok()
-        .and_then(|v| {
-            v.get("type")
-                .and_then(Value::as_str)
-                .map(|t| t == "snapshot-upload")
-        })
-        .unwrap_or(false)
+        .and_then(|v| v.get("type").and_then(Value::as_str).map(str::to_string))
 }

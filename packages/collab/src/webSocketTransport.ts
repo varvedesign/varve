@@ -35,8 +35,12 @@ export class WebSocketCollabTransport implements CollabTransport {
   }
 
   send(message: ClientMessage): boolean {
+    return this.sendFrame(JSON.stringify(message));
+  }
+
+  sendFrame(text: string): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return false;
-    this.socket.send(JSON.stringify(message));
+    this.socket.send(text);
     return true;
   }
 
