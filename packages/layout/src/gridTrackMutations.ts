@@ -214,10 +214,10 @@ export function previewRemoveGridTrack(
     ) {
       continue;
     }
-    const idIndex = placement[idKey]
+    const idIndex: number = placement[idKey]
       ? current.findIndex((track) => track.id === placement[idKey])
       : -1;
-    const start = idIndex >= 0 ? idIndex : Math.max(0, (placement[startKey] ?? 1) - 1);
+    const start: number = idIndex >= 0 ? idIndex : Math.max(0, (placement[startKey] ?? 1) - 1);
     const span = placement[spanKey] ?? Math.max(1, (placement[endKey] ?? start + 2) - (start + 1));
     const otherIdIndex = placement[otherIdKey]
       ? otherTracks.findIndex((track) => track.id === placement[otherIdKey])
