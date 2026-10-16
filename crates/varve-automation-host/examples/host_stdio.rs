@@ -76,7 +76,10 @@ impl RelayInner {
         // No timeout: the harness is a test process, and a hang is a clearer
         // failure here than a connection that quietly closes.
         let answer = receiver.await.ok();
-        self.pending.lock().expect("pending map").remove(&request_id);
+        self.pending
+            .lock()
+            .expect("pending map")
+            .remove(&request_id);
         answer
     }
 }
@@ -90,10 +93,14 @@ fn describe(error: &TransportError) -> serde_json::Value {
         TransportError::FrameTooLarge {
             limit,
             before_hello,
-        } => serde_json::json!({ "kind": "frame-too-large", "limit": limit, "beforeHello": before_hello }),
+        } => {
+            serde_json::json!({ "kind": "frame-too-large", "limit": limit, "beforeHello": before_hello })
+        }
         TransportError::InvalidUtf8 => serde_json::json!({ "kind": "invalid-utf8" }),
         TransportError::HelloTimeout => serde_json::json!({ "kind": "hello-timeout" }),
-        TransportError::ResponseTooLarge { limit } => serde_json::json!({ "kind": "response-too-large", "limit": limit }),
+        TransportError::ResponseTooLarge { limit } => {
+            serde_json::json!({ "kind": "response-too-large", "limit": limit })
+        }
     }
 }
 
@@ -119,6 +126,20 @@ impl FrameRelay for StdioRelay {
         .boxed()
     }
 
+    fn connection_closed(&self, connection: ConnectionId) {
+        // Fire-and-forget: there is no reply to wait for, so no request id.
+        let inner = Arc::clone(&self.inner);
+        let line = format!(
+            "{}\n",
+            serde_json::json!({ "kind": "closed", "connectionId": connection.as_str() })
+        );
+        tokio::spawn(async move {
+            let mut out = inner.writer.lock().await;
+            let _ = out.write_all(line.as_bytes()).await;
+            let _ = out.flush().await;
+        });
+    }
+
     fn transport_error(
         &self,
         connection: ConnectionId,
@@ -139,7 +160,8 @@ async fn main() {
     let root = std::env::args()
         .nth(1)
         .expect("usage: host_stdio <runtime-root>");
-    let instance_id = std::env::var("VARVE_TEST_INSTANCE").unwrap_or_else(|_| "stdio-1".to_string());
+    let instance_id =
+        std::env::var("VARVE_TEST_INSTANCE").unwrap_or_else(|_| "stdio-1".to_string());
     let document_name =
         std::env::var("VARVE_TEST_DOCUMENT").unwrap_or_else(|_| "Stdio".to_string());
 

@@ -24,7 +24,15 @@ import {
   spawn,
   spawnSync,
 } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -45,20 +53,29 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '../../../..');
 const buildScript = join(here, '../../scripts/build-bundle.mjs');
 
+/**
+ * The harness binary, if one has been built.
+ *
+ * Several copies can exist at once (a worktree's own `target/`, a shared target
+ * directory, one named by the environment), and an older one silently testing
+ * old behaviour is worse than none. So an explicit path wins, and otherwise the
+ * most recently built candidate does.
+ */
 function findHarness(): string | null {
+  if (process.env.VARVE_HOST_STDIO_BIN) {
+    return existsSync(process.env.VARVE_HOST_STDIO_BIN) ? process.env.VARVE_HOST_STDIO_BIN : null;
+  }
   const candidates = [
-    process.env.VARVE_HOST_STDIO_BIN,
     process.env.CARGO_TARGET_DIR && join(process.env.CARGO_TARGET_DIR, 'debug/examples/host_stdio'),
     join(repoRoot, 'target/debug/examples/host_stdio'),
     '/home/kevina/CodingProjects/varve/target/debug/examples/host_stdio',
-  ];
-  for (const candidate of candidates) {
-    if (candidate && existsSync(candidate)) return candidate;
-  }
-  return null;
+  ].filter((candidate): candidate is string => Boolean(candidate) && existsSync(candidate));
+  candidates.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  return candidates[0] ?? null;
 }
 
 const harness = findHarness();
+if (harness) process.stderr.write(`\n[rust-endpoint] using harness ${harness}\n`);
 const suite = harness ? describe : describe.skip;
 if (!harness) {
   process.stderr.write(
@@ -95,6 +112,7 @@ interface RustHost {
   token: string;
   authority: HeadlessAuthority;
   child: ChildProcessWithoutNullStreams;
+  appHost: AutomationHost;
   relay: ReturnType<typeof createFrameRelay>;
   stop(): Promise<void>;
 }
@@ -156,7 +174,11 @@ async function startRustHost(instanceId = 'rust-xproc'): Promise<RustHost> {
       } catch {
         continue;
       }
-      if (payload.kind === 'frame') {
+      if (payload.kind === 'closed') {
+        // The endpoint tells the application a socket has gone, exactly as the
+        // desktop adapter's `automation:closed` event does.
+        relay.closed(payload.connectionId);
+      } else if (payload.kind === 'frame') {
         void relay
           .frame(payload.connectionId, payload.frame)
           .then((answer) => reply(payload.requestId, answer));
@@ -183,6 +205,7 @@ async function startRustHost(instanceId = 'rust-xproc'): Promise<RustHost> {
     token,
     authority,
     child,
+    appHost: host,
     relay,
     async stop() {
       child.stdin.end();
@@ -445,6 +468,40 @@ suite('a real Rust endpoint, the production relay and independent clients', () =
     expect(Object.keys(host.authority.getDocument().nodes).length).toBe(before + 1);
     second.destroy();
   }, 60_000);
+
+  it('forgets a client that simply disconnects, so short-lived clients never fill the host', async () => {
+    host = await startRustHost();
+    const live = () =>
+      host?.appHost.status().connections.filter((c) => c.state !== 'closed').length ?? -1;
+
+    const a = await RawClient.connect(host.endpoint);
+    a.send(helloFrame(host.token, 'short-lived'));
+    await a.next();
+    expect(live()).toBe(1);
+    expect(host.relay.open).toBe(1);
+
+    a.destroy(); // no goodbye: this is how every CLI call ends
+    const deadline = Date.now() + 10_000;
+    while (live() !== 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
+    expect(live()).toBe(0);
+    expect(host.relay.open).toBe(0);
+
+    // And it does not matter how many come and go: each one is released.
+    for (let i = 0; i < 12; i += 1) {
+      const c = await RawClient.connect(host.endpoint);
+      c.send(helloFrame(host.token, `burst-${i}`));
+      await c.next();
+      c.destroy();
+    }
+    const settle = Date.now() + 15_000;
+    while (live() !== 0 && Date.now() < settle) await new Promise((r) => setTimeout(r, 25));
+    expect(live()).toBe(0);
+    // The host is still accepting: nothing was left holding a slot.
+    const again = await RawClient.connect(host.endpoint);
+    again.send(helloFrame(host.token, 'after-the-burst'));
+    expect((await again.next()).result.session).toBeDefined();
+    again.destroy();
+  }, 90_000);
 
   it('removes its instance directory when the application goes away', async () => {
     host = await startRustHost();

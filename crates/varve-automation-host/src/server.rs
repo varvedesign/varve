@@ -24,8 +24,8 @@ use tokio::sync::{watch, Mutex};
 use tokio::task::JoinSet;
 
 use crate::endpoint::{
-    create_endpoint_at, write_record, AppIdentity, CreatedEndpoint, DocumentIdentity, InstanceRecord,
-    Transport, INSTANCE_SCHEMA,
+    create_endpoint_at, write_record, AppIdentity, CreatedEndpoint, DocumentIdentity,
+    InstanceRecord, Transport, INSTANCE_SCHEMA,
 };
 use crate::framing::{FrameEvent, LineFramer};
 use crate::relay::{ConnectionId, FrameRelay, RelayOutcome, TransportError};
@@ -232,7 +232,10 @@ async fn accept_loop(
                 let active = Arc::clone(&active);
                 active.fetch_add(1, Ordering::SeqCst);
                 connections.spawn(async move {
-                    serve_connection(stream, id, relay, limits).await;
+                    serve_connection(stream, id.clone(), Arc::clone(&relay), limits).await;
+                    // However it ended, tell the application: it holds a session
+                    // for this connection and cannot otherwise tell it is gone.
+                    relay.connection_closed(id);
                     active.fetch_sub(1, Ordering::SeqCst);
                 });
                 // Reap finished connections so the set does not grow forever.
@@ -299,7 +302,8 @@ async fn serve_connection(
                             }
                         }
                         RelayOutcome::ReplyAndClose(response) => {
-                            let _ = write_bounded(&mut writer, &response, &limits, &relay, &id).await;
+                            let _ =
+                                write_bounded(&mut writer, &response, &limits, &relay, &id).await;
                             let _ = writer.shutdown().await;
                             return;
                         }
@@ -449,7 +453,11 @@ mod tests {
     fn formats_the_timestamp_the_cli_sorts_on() {
         let stamp = now_iso8601();
         assert!(stamp.ends_with('Z'));
-        assert_eq!(stamp.len(), 24, "expected 2026-10-15T00:00:00.000Z, got {stamp}");
+        assert_eq!(
+            stamp.len(),
+            24,
+            "expected 2026-10-15T00:00:00.000Z, got {stamp}"
+        );
         // The date part must agree with the conversion the record is built from.
         let (year, month, day) = civil_from_days(0);
         assert_eq!(format!("{year:04}-{month:02}-{day:02}"), "1970-01-01");

@@ -40,6 +40,8 @@ use varve_automation_host::server::{start, HostConfig, HostLimits, InstanceIdent
 const FRAME_EVENT: &str = "automation:frame";
 /// Event asking the webview for the frame to write when the transport refuses.
 const TRANSPORT_ERROR_EVENT: &str = "automation:transport-error";
+/// Event telling the webview a connection has ended. No answer is expected.
+const CLOSED_EVENT: &str = "automation:closed";
 /// The protocol this endpoint speaks. Owned by the webview; recorded here so a
 /// client can refuse a version it does not speak before connecting.
 const CONTROL_PROTOCOL: &str = "varve.control/1";
@@ -95,7 +97,10 @@ async fn ask(
     };
     // Always clear the slot: a late reply must find nothing rather than
     // resolving a question nobody is waiting for any more.
-    waiters().lock().expect("relay waiter map").remove(&request_id);
+    waiters()
+        .lock()
+        .expect("relay waiter map")
+        .remove(&request_id);
     resolved
 }
 
@@ -132,6 +137,16 @@ impl FrameRelay for AppRelay {
         .boxed()
     }
 
+    fn connection_closed(&self, connection: ConnectionId) {
+        // The webview keeps a protocol session per connection and cannot see
+        // sockets, so without this a client that merely disconnects stays listed
+        // as connected until the connection cap turns real clients away.
+        let _ = self.app.emit(
+            CLOSED_EVENT,
+            serde_json::json!({ "connectionId": connection.as_str() }),
+        );
+    }
+
     fn transport_error(
         &self,
         connection: ConnectionId,
@@ -139,7 +154,10 @@ impl FrameRelay for AppRelay {
     ) -> BoxFuture<'static, Option<String>> {
         let app = self.app.clone();
         let described = match error {
-            TransportError::FrameTooLarge { limit, before_hello } => serde_json::json!({
+            TransportError::FrameTooLarge {
+                limit,
+                before_hello,
+            } => serde_json::json!({
                 "kind": "frame-too-large",
                 "limit": limit,
                 "beforeHello": before_hello,
@@ -204,7 +222,11 @@ fn record_for(
         },
         protocol: CONTROL_PROTOCOL.to_string(),
         endpoint: host.endpoint().to_string_lossy().into_owned(),
-        token_file: host.directory().join("token").to_string_lossy().into_owned(),
+        token_file: host
+            .directory()
+            .join("token")
+            .to_string_lossy()
+            .into_owned(),
         document: document.clone(),
     }
 }
@@ -315,7 +337,13 @@ pub async fn automation_apply_policy(
         limits: HostLimits::default(),
         transport: Transport::for_this_platform(),
     };
-    let host = tauri::async_runtime::block_on(start(config))
+    // Awaited, never `block_on`: this is an async command already running on the
+    // runtime, and blocking a runtime from inside itself panics the task. The
+    // panic is not reported to the webview, so the invoke promise never settles
+    // and the Settings surface sits at "Starting" forever. Only a launched app
+    // shows it; the crate's tests and `cargo check` cannot.
+    let host = start(config)
+        .await
         .map_err(|error| format!("control endpoint failed to start: {error}"))?;
     write_record(
         &host.directory().join("instance.json"),
@@ -377,7 +405,10 @@ pub async fn automation_reply(
     frame: Option<String>,
     close_after: bool,
 ) -> Result<bool, String> {
-    let sender = waiters().lock().expect("relay waiter map").remove(&request_id);
+    let sender = waiters()
+        .lock()
+        .expect("relay waiter map")
+        .remove(&request_id);
     match sender {
         Some(sender) => Ok(sender.send((frame, close_after)).is_ok()),
         None => Ok(false),

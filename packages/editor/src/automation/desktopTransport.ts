@@ -153,10 +153,19 @@ export async function attachDesktopRelay(host: ConnectionAcceptor): Promise<Rela
     },
   );
 
+  // Rust owns the sockets and the webview cannot see them, so a client that
+  // simply disconnects is invisible here unless Rust says so. Without this its
+  // session stays listed as connected until the connection cap turns real
+  // clients away.
+  const stopClosed = await listen<{ connectionId: string }>('automation:closed', (event) => {
+    relay.closed(event.payload.connectionId);
+  });
+
   return {
     stop() {
       stopFrames();
       stopErrors();
+      stopClosed();
       relay.closeAll();
     },
   };

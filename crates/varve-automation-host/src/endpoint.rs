@@ -203,7 +203,9 @@ fn verify_owner(path: &Path, meta: &fs::Metadata) -> io::Result<()> {
 
 /// The per-user runtime directory.
 pub fn runtime_directory() -> io::Result<PathBuf> {
-    let explicit = std::env::var("VARVE_RUNTIME_DIR").ok().filter(|v| !v.is_empty());
+    let explicit = std::env::var("VARVE_RUNTIME_DIR")
+        .ok()
+        .filter(|v| !v.is_empty());
     let base = match explicit {
         Some(dir) => PathBuf::from(dir),
         None => match std::env::var("XDG_RUNTIME_DIR") {
@@ -215,10 +217,7 @@ pub fn runtime_directory() -> io::Result<PathBuf> {
     Ok(base)
 }
 
-pub fn create_endpoint(
-    instance_id: &str,
-    transport: Transport,
-) -> io::Result<CreatedEndpoint> {
+pub fn create_endpoint(instance_id: &str, transport: Transport) -> io::Result<CreatedEndpoint> {
     create_endpoint_at(&runtime_directory()?, instance_id, transport)
 }
 
@@ -413,10 +412,8 @@ mod tests {
 
     impl Sandbox {
         fn new(name: &str) -> Self {
-            let dir = std::env::temp_dir().join(format!(
-                "varve-ah-test-{name}-{}",
-                std::process::id()
-            ));
+            let dir =
+                std::env::temp_dir().join(format!("varve-ah-test-{name}-{}", std::process::id()));
             let _ = fs::remove_dir_all(&dir);
             fs::create_dir_all(&dir).expect("sandbox");
             Self { dir }
@@ -432,9 +429,12 @@ mod tests {
     #[test]
     fn creates_an_owner_only_layout() {
         let sandbox = Sandbox::new("layout");
-        let created =
-            create_endpoint_at(&sandbox.dir, "connected-abcdef123456", Transport::UnixSocket)
-                .unwrap();
+        let created = create_endpoint_at(
+            &sandbox.dir,
+            "connected-abcdef123456",
+            Transport::UnixSocket,
+        )
+        .unwrap();
         assert!(created.dir.starts_with(&sandbox.dir));
         let name = created.dir.file_name().unwrap().to_str().unwrap();
         // `v-` for discovery, then a readable prefix derived from the instance
@@ -458,7 +458,10 @@ mod tests {
             .map(|entry| entry.file_name().to_string_lossy().into_owned())
             .filter(|name| name.starts_with(".varve-owner-"))
             .collect();
-        assert!(leftovers.is_empty(), "ownership probe left behind: {leftovers:?}");
+        assert!(
+            leftovers.is_empty(),
+            "ownership probe left behind: {leftovers:?}"
+        );
         #[cfg(unix)]
         {
             let dir_mode = fs::metadata(&created.dir).unwrap().permissions().mode() & 0o777;
@@ -466,7 +469,11 @@ mod tests {
                 dir_mode, 0o700,
                 "instance directory must not be group or other accessible"
             );
-            let token_mode = fs::metadata(&created.token_file).unwrap().permissions().mode() & 0o777;
+            let token_mode = fs::metadata(&created.token_file)
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777;
             assert_eq!(token_mode, 0o600, "credential must be owner-only");
         }
     }
@@ -477,15 +484,24 @@ mod tests {
         // Two sessions with the same instance id — which is what a headless
         // session's derived name used to collapse into — must not share a
         // directory, and neither may delete the other's credentials.
-        let first = create_endpoint_at(&sandbox.dir, "headless-aaaa", Transport::UnixSocket)
-            .unwrap();
+        let first =
+            create_endpoint_at(&sandbox.dir, "headless-aaaa", Transport::UnixSocket).unwrap();
         let planted = first.dir.join("belongs-to-the-first");
         fs::write(&planted, b"still here").unwrap();
-        let second = create_endpoint_at(&sandbox.dir, "headless-aaaa", Transport::UnixSocket)
-            .unwrap();
-        assert_ne!(second.dir, first.dir, "two sessions must not share a directory");
-        assert!(planted.exists(), "nothing may be removed from another instance");
-        assert!(first.token_file.exists(), "the first session keeps its credential");
+        let second =
+            create_endpoint_at(&sandbox.dir, "headless-aaaa", Transport::UnixSocket).unwrap();
+        assert_ne!(
+            second.dir, first.dir,
+            "two sessions must not share a directory"
+        );
+        assert!(
+            planted.exists(),
+            "nothing may be removed from another instance"
+        );
+        assert!(
+            first.token_file.exists(),
+            "the first session keeps its credential"
+        );
         assert_ne!(second.token, first.token);
         // And both remain discoverable, which is what makes the old behaviour
         // silent rather than loud.
@@ -550,11 +566,17 @@ mod tests {
             mode: "connected".into(),
             pid: std::process::id(),
             started_at: "2026-10-15T00:00:00.000Z".into(),
-            app: AppIdentity { name: "Varve".into(), version: "0.5.1".into() },
+            app: AppIdentity {
+                name: "Varve".into(),
+                version: "0.5.1".into(),
+            },
             protocol: "varve.control/1".into(),
             endpoint: created.endpoint.to_string_lossy().into(),
             token_file: created.token_file.to_string_lossy().into(),
-            document: DocumentIdentity { id: "doc-1".into(), name: "Poster".into() },
+            document: DocumentIdentity {
+                id: "doc-1".into(),
+                name: "Poster".into(),
+            },
         };
         write_record(&created.record_path, &record).unwrap();
         let raw = fs::read_to_string(&created.record_path).unwrap();

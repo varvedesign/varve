@@ -30,6 +30,7 @@ struct TestRelay {
     replies: Mutex<Vec<RelayOutcome>>,
     delivered: AtomicUsize,
     answer_transport_errors: bool,
+    closed: Mutex<Vec<String>>,
 }
 
 impl TestRelay {
@@ -62,6 +63,10 @@ impl TestRelay {
     fn frames(&self) -> Vec<(String, String)> {
         self.seen.lock().unwrap().clone()
     }
+
+    fn closed_connections(&self) -> Vec<String> {
+        self.closed.lock().unwrap().clone()
+    }
 }
 
 impl FrameRelay for TestRelay {
@@ -89,7 +94,10 @@ impl FrameRelay for TestRelay {
             return ready(None).boxed();
         }
         let frame = match error {
-            TransportError::FrameTooLarge { limit, before_hello } => format!(
+            TransportError::FrameTooLarge {
+                limit,
+                before_hello,
+            } => format!(
                 "{{\"error\":{{\"code\":-32003,\"limit\":{limit},\"preHello\":{before_hello}}}}}"
             ),
             TransportError::InvalidUtf8 => "{\"error\":{\"code\":-32700}}".to_string(),
@@ -100,6 +108,13 @@ impl FrameRelay for TestRelay {
         };
         self.error_frames.lock().unwrap().push(frame.clone());
         ready(Some(frame)).boxed()
+    }
+
+    fn connection_closed(&self, connection: ConnectionId) {
+        self.closed
+            .lock()
+            .unwrap()
+            .push(connection.as_str().to_string());
     }
 }
 
@@ -129,7 +144,10 @@ impl Harness {
             identity: InstanceIdentity {
                 instance_id: format!("test-{name}"),
                 app_version: "0.0.0-test".to_string(),
-                document: DocumentIdentity { id: "doc-1".into(), name: "Poster".into() },
+                document: DocumentIdentity {
+                    id: "doc-1".into(),
+                    name: "Poster".into(),
+                },
                 protocol: "varve.control/1".to_string(),
             },
             relay: relay.clone(),
@@ -148,7 +166,9 @@ impl Harness {
 
     /// A connected client, split so the reader and writer are independent.
     async fn connect(&self) -> (BufReader<OwnedReadHalf>, OwnedWriteHalf) {
-        let stream = UnixStream::connect(self.host.endpoint()).await.expect("connect");
+        let stream = UnixStream::connect(self.host.endpoint())
+            .await
+            .expect("connect");
         let (read, write) = stream.into_split();
         (BufReader::new(read), write)
     }
@@ -169,7 +189,11 @@ async fn write_line(stream: &mut OwnedWriteHalf, line: &str) {
 
 #[tokio::test]
 async fn publishes_a_discoverable_endpoint_and_relays_a_frame_to_a_reply() {
-    let harness = Harness::start(vec![RelayOutcome::Reply("{\"result\":{}}".into())], limits()).await;
+    let harness = Harness::start(
+        vec![RelayOutcome::Reply("{\"result\":{}}".into())],
+        limits(),
+    )
+    .await;
 
     // The instance record is what `varve instances` reads.
     let record = harness.record();
@@ -186,7 +210,11 @@ async fn publishes_a_discoverable_endpoint_and_relays_a_frame_to_a_reply() {
     );
 
     let (mut reader, mut stream) = harness.connect().await;
-    write_line(&mut stream, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.hello\"}").await;
+    write_line(
+        &mut stream,
+        "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"session.hello\"}",
+    )
+    .await;
 
     let mut reply = String::new();
     reader.read_line(&mut reply).await.unwrap();
@@ -204,7 +232,10 @@ async fn publishes_a_discoverable_endpoint_and_relays_a_frame_to_a_reply() {
 
     let directory = harness.host.directory().to_path_buf();
     harness.host.shutdown().await;
-    assert!(!directory.exists(), "the endpoint directory is removed on shutdown");
+    assert!(
+        !directory.exists(),
+        "the endpoint directory is removed on shutdown"
+    );
 }
 
 #[tokio::test]
@@ -281,13 +312,20 @@ async fn a_nothing_outcome_keeps_the_connection_open_without_a_reply() {
     // First frame: no reply at all (a notification). Second: the connection is
     // still usable, which is the point.
     let harness = Harness::start(
-        vec![RelayOutcome::Nothing, RelayOutcome::Reply("{\"after\":true}".into())],
+        vec![
+            RelayOutcome::Nothing,
+            RelayOutcome::Reply("{\"after\":true}".into()),
+        ],
         limits(),
     )
     .await;
     let (mut reader, mut stream) = harness.connect().await;
     write_line(&mut stream, "{\"method\":\"note\",\"no\":\"id\"}").await;
-    write_line(&mut stream, "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\"}").await;
+    write_line(
+        &mut stream,
+        "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\"}",
+    )
+    .await;
     let mut reply = String::new();
     reader.read_line(&mut reply).await.unwrap();
     assert_eq!(reply.trim_end(), "{\"after\":true}");
@@ -330,7 +368,11 @@ async fn refuses_an_oversize_first_frame_and_asks_the_app_for_the_error_text() {
     let relay = TestRelay::answering_transport_errors();
     let harness = Harness::start_with(
         Arc::clone(&relay),
-        HostLimits { max_hello_bytes: 16, hello_timeout: Duration::from_millis(400), ..HostLimits::default() },
+        HostLimits {
+            max_hello_bytes: 16,
+            hello_timeout: Duration::from_millis(400),
+            ..HostLimits::default()
+        },
         "oversize",
     )
     .await;
@@ -340,7 +382,10 @@ async fn refuses_an_oversize_first_frame_and_asks_the_app_for_the_error_text() {
     let mut reply = String::new();
     reader.read_line(&mut reply).await.unwrap();
     assert!(reply.contains("-32003"), "got {reply}");
-    assert!(reply.contains("\"preHello\":true"), "the phase is reported: {reply}");
+    assert!(
+        reply.contains("\"preHello\":true"),
+        "the phase is reported: {reply}"
+    );
     // Nothing was relayed: an over-limit line never reaches the application.
     assert!(relay.frames().is_empty());
     let _ = harness.host.shutdown().await;
@@ -389,7 +434,10 @@ async fn closes_a_connection_that_never_handshakes() {
     let relay = TestRelay::answering_transport_errors();
     let harness = Harness::start_with(
         Arc::clone(&relay),
-        HostLimits { hello_timeout: Duration::from_millis(120), ..HostLimits::default() },
+        HostLimits {
+            hello_timeout: Duration::from_millis(120),
+            ..HostLimits::default()
+        },
         "idle",
     )
     .await;
@@ -411,7 +459,11 @@ async fn closes_a_connection_that_never_handshakes() {
 async fn refuses_connections_beyond_the_cap_without_disturbing_the_rest() {
     let harness = Harness::start(
         vec![RelayOutcome::Reply("{\"ok\":true}".into())],
-        HostLimits { max_connections: 1, hello_timeout: Duration::from_millis(400), ..HostLimits::default() },
+        HostLimits {
+            max_connections: 1,
+            hello_timeout: Duration::from_millis(400),
+            ..HostLimits::default()
+        },
     )
     .await;
 
@@ -443,6 +495,101 @@ async fn shutdown_removes_the_endpoint_directory() {
     let directory = harness.host.directory().to_path_buf();
     assert!(directory.exists());
     harness.host.shutdown().await;
-    assert!(!directory.exists(), "a stopped host must not leave a findable endpoint");
+    assert!(
+        !directory.exists(),
+        "a stopped host must not leave a findable endpoint"
+    );
     let _ = std::fs::remove_dir_all(&harness.root);
+}
+
+/// Poll until the relay has been told about `count` closed connections.
+async fn wait_for_closed(relay: &TestRelay, count: usize) -> Vec<String> {
+    for _ in 0..200 {
+        let closed = relay.closed_connections();
+        if closed.len() >= count {
+            return closed;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    relay.closed_connections()
+}
+
+#[tokio::test]
+async fn tells_the_application_when_a_peer_simply_disconnects() {
+    // Every short-lived CLI call ends this way. The application keeps a protocol
+    // session per connection and cannot see sockets, so without this the session
+    // stays listed as connected until the connection cap turns real clients away.
+    let harness = Harness::start(vec![RelayOutcome::Reply("{\"ok\":true}".into())], limits()).await;
+    let (mut reader, mut stream) = harness.connect().await;
+    write_line(&mut stream, "hello").await;
+    let mut reply = String::new();
+    reader.read_line(&mut reply).await.unwrap();
+    assert!(
+        harness.relay.closed_connections().is_empty(),
+        "still connected, not yet closed"
+    );
+
+    drop(stream);
+    drop(reader);
+    let closed = wait_for_closed(&harness.relay, 1).await;
+    assert_eq!(closed, vec!["c1".to_string()]);
+    let _ = harness.host.shutdown().await;
+}
+
+#[tokio::test]
+async fn tells_the_application_about_a_connection_it_asked_to_close() {
+    let harness = Harness::start(vec![RelayOutcome::Close], limits()).await;
+    let (mut reader, mut stream) = harness.connect().await;
+    write_line(&mut stream, "hello").await;
+    let mut reply = String::new();
+    assert_eq!(reader.read_line(&mut reply).await.unwrap(), 0);
+    let closed = wait_for_closed(&harness.relay, 1).await;
+    assert_eq!(closed, vec!["c1".to_string()]);
+    let _ = harness.host.shutdown().await;
+}
+
+#[tokio::test]
+async fn tells_the_application_about_a_connection_the_transport_closed_for_a_limit() {
+    // A connection that never handshakes is closed by the transport, not by the
+    // peer and not by the application. The application must still hear about it.
+    let harness =
+        Harness::start_with(TestRelay::answering_transport_errors(), limits(), "silent").await;
+    let (mut reader, _stream) = harness.connect().await;
+    let mut line = String::new();
+    let _ = reader.read_line(&mut line).await; // hello-timeout notice, then EOF
+    let closed = wait_for_closed(&harness.relay, 1).await;
+    assert_eq!(closed, vec!["c1".to_string()]);
+    let _ = harness.host.shutdown().await;
+}
+
+#[tokio::test]
+async fn reports_each_connection_exactly_once_and_frees_its_slot() {
+    let mut tight = limits();
+    tight.max_connections = 1;
+    let harness = Harness::start(vec![RelayOutcome::Reply("{\"ok\":true}".into())], tight).await;
+    for round in 1..=3 {
+        let (mut reader, mut stream) = harness.connect().await;
+        write_line(&mut stream, "hello").await;
+        let mut reply = String::new();
+        reader.read_line(&mut reply).await.unwrap();
+        assert_eq!(
+            reply.trim_end(),
+            "{\"ok\":true}",
+            "round {round}: the slot was freed"
+        );
+        drop(stream);
+        drop(reader);
+        let closed = wait_for_closed(&harness.relay, round).await;
+        assert_eq!(closed.len(), round);
+    }
+    let closed = harness.relay.closed_connections();
+    let mut unique = closed.clone();
+    unique.sort();
+    unique.dedup();
+    assert_eq!(
+        unique.len(),
+        closed.len(),
+        "no connection is reported twice: {closed:?}"
+    );
+    let _ = harness.host.shutdown().await;
 }

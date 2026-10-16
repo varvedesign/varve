@@ -95,4 +95,14 @@ pub trait FrameRelay: Send + Sync + 'static {
     ) -> BoxFuture<'static, Option<String>> {
         ready(None).boxed()
     }
+
+    /// The connection has ended, for any reason: the peer left, a read failed, a
+    /// limit closed it, or the application asked for it.
+    ///
+    /// Without this the application cannot know. It keeps a protocol session per
+    /// connection, and a client that simply disconnects (every short-lived CLI
+    /// call does) would leave that session listed as connected forever, until the
+    /// connection cap turned new clients away. Fire-and-forget by design: the
+    /// socket is already gone, so there is nothing to wait for or to decide.
+    fn connection_closed(&self, _connection: ConnectionId) {}
 }
