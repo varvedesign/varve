@@ -396,3 +396,64 @@ new target to both, but it does not yet collapse them onto one registry — the
 duplication that allowed the mislabel to exist is reduced, not removed.
 `exportIrToHtml` is not yet exposed as an HTML target, so the CSS target remains
 a stylesheet fragment and says so.
+
+## 8. Slice B (part 1) — unit-conversion safety, and where the HTML capability went
+
+### 8.1 The FigCraft #454 class is structurally absent here, and now locked
+
+That report found rem output rewriting **text content** containing a numeric px
+token (`Tile 24px` became `Tile 1.5rem`) and a string prop default (`24px` became
+`1.5rem`). Varve's emitters are structurally different: `formatSize` in
+`packages/codegen/src/css.ts` is a narrow helper that only ever receives a
+**number**, and text is emitted through `JSON.stringify(node.text)`
+(`css-modules.ts`) or `escapeXml` (`tailwind.ts`, `html.ts`). A grep for a
+global px-token replacement over finished output — the shape that produces #454 —
+finds nothing.
+
+`packages/codegen/src/unit-safety.test.ts` (8 tests) locks it in both
+directions, because asserting only "text is unchanged" would pass even if
+conversion were silently disabled:
+
+- a numeric length **does** convert (`200px` → `12.5rem`);
+- rem output declares no stray `px` in a length property;
+- the rem base **does** change numeric lengths (`24 / 16` → `1.5rem`,
+  `24 / 20` → `1.2rem`);
+- the authored text, a URL with a `px=` query, and a script terminator survive
+  verbatim in the markup emitters.
+
+**An instructive near-miss.** My first version of these tests asserted the
+stylesheet does not contain `1.5rem`. That failed — correctly. `font-size: 24`
+converts to `1.5rem`, so a converted *length* and the text token `Tile 24px` can
+read identically. That is the same collision that made #454 confusing to
+diagnose. The assertions are therefore position-aware (a `content:` property, a
+JSX text position) and never substring-only. A test that discriminates by
+substring would have passed here while proving nothing.
+
+### 8.2 A real gap found: the HTML emitter exists but no target uses it
+
+`HtmlExportOptions` already supports `unit`, `baseFontSize`, `includeReset`,
+`useCustomProperties`, `responsive` and `reducedMotion`, and
+`exportIrToHtml(ir, opts)` is implemented. **No target in either code panel
+reaches it**, and `CodeExportFormat` has no HTML member.
+
+That is the actual origin of the mislabel corrected in §7.1: the "HTML/CSS"
+name was not arbitrary. A real HTML capability was written, then never wired, so
+the label described an intention rather than the emitter behind it. Relabelling
+to "CSS" made the label truthful; it did not deliver the markup. Exposing an
+HTML target is the remaining work, and it needs the IR-building path
+(`ir-builders.ts`) rather than a raw node, which is why it was not bolted on here.
+
+### 8.3 Still open in slice B
+
+- Expose an HTML target through `CodeExportFormat` and the panels.
+- Gradient geometry in `css.ts` emits hardcoded `px` (`gradientToCss`), so a rem
+  stylesheet is not fully unit-consistent. Box-relative gradient px is
+  defensible, but it is an exception that should be declared rather than
+  discovered.
+- The Inspector's measurement readouts (axis-correct percentage reference,
+  rotated world AABB reported as width/height, `X (parent)` read from a raw
+  `transform[4]`, and a hardcoded 16px rem base in `SpecPanel`) are **not** yet
+  repaired. Those are read-only surfaces, so they are lower risk than the
+  emitters but they are wrong on rotated and percentage content.
+- `unit: 'rem'` is still not reachable from the editor UI: `CssExportOptions.unit`
+  has no caller in `packages/editor`.
