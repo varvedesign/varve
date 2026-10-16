@@ -114,11 +114,46 @@ describe('parseGridTracks', () => {
     expect(parseGridTracks('repeat(3, 1fr)', 300, 0)).toEqual([100, 100, 100]);
     expect(parseGridTracks('repeat(2, 40px) 1fr', 200, 0)).toEqual([40, 40, 120]);
   });
+
+  it('rejects unsupported syntax instead of silently converting it to auto', () => {
+    expect(parseGridTracks('minmax(20px, 1fr)', 300, 0)).toEqual([]);
+    expect(parseGridTracks('25%', 300, 0)).toEqual([]);
+    expect(parseGridTracks('1fr ??? 2fr', 300, 0)).toEqual([]);
+  });
+
+  it('bounds repeat expansion and malformed gaps', () => {
+    expect(parseGridTracks('repeat(129, 1fr)', 300, 0)).toEqual([]);
+    expect(parseGridTracks('repeat(999999999999, 1fr)', 300, 0)).toEqual([]);
+    expect(parseGridTracks('1fr 1fr', 300, Number.NaN)).toEqual([]);
+    expect(parseGridTracks('1fr 1fr', 300, -1)).toEqual([]);
+  });
 });
 
 // ── computeGridLayout ────────────────────────────────────────────────────────
 
 describe('computeGridLayout', () => {
+  it('preserves the current geometry when explicit placements collide or exceed limits', () => {
+    const collisionDoc = addNode(
+      addNode(makeDoc(), 'a', {
+        gridPlacement: { gridColumnStart: 1, gridColumnEnd: 2, gridRowStart: 1, gridRowEnd: 2 },
+      }),
+      'b',
+    );
+    collisionDoc.nodes.b!.gridPlacement = {
+      gridColumnStart: 1,
+      gridColumnEnd: 2,
+      gridRowStart: 1,
+      gridRowEnd: 2,
+    };
+    const style = makeLayoutStyle();
+    expect(computeGridLayout(collisionDoc, 'parent', 300, 200, style, ['a', 'b'])).toEqual([]);
+
+    const oversizedDoc = addNode(makeDoc(), 'a', {
+      gridPlacement: { gridColumnStart: 1, gridColumnEnd: 130, gridRowStart: 1, gridRowEnd: 2 },
+    });
+    expect(computeGridLayout(oversizedDoc, 'parent', 300, 200, style, ['a'])).toEqual([]);
+  });
+
   it('places items in a simple 2x2 grid', () => {
     const doc = addNode(addNode(makeDoc(), 'a'), 'b');
     const parentId = 'parent';

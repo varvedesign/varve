@@ -10,7 +10,7 @@
  * - `computeFlexLayout` — row/column/reverse, wrap, gap, padding, align/
  *   justify, grow/shrink, fill/hug/fixed sizing (CSS flexbox model).
  * - `computeGridLayout` / `applyGridLayout` / `parseGridTracks` — explicit
- *   tracks (px/rem/%), auto-placement, placement overrides (CSS grid).
+ *   bounded px/fr/auto tracks, auto-placement, and placement overrides.
  * - `reflowLayoutChildren` — the single entry point that repositions (and,
  *   for fill/grow children, resizes) a frame's children against its current
  *   box after any frame-size change.
