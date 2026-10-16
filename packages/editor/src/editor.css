@@ -390,8 +390,25 @@ input[type="number"] {
 
 @media (max-width: 899px) {
   .editor-shell--logo-open {
-    /* Narrow layouts: the panel becomes a fixed overlay, so keep the column zeroed. */
+    /* Narrow layouts: the panel becomes a fixed overlay, so keep the column zero. */
     --logo-panel-width: 0px;
+  }
+
+  /* Interface type floor for the compact tier.
+   *
+   * Interface type is a single rem scale with no viewport adaptation, and this
+   * tier used to *reduce* it — the status bar and the application menu labels
+   * dropped to --font-size-2xs (12px) exactly where legibility is hardest. A
+   * 12px CSS pixel label on a high-DPR phone is physically tiny, and these are
+   * the tier's smallest strings (status messages, menu names).
+   *
+   * Raising the token here rather than at each call site keeps one authority
+   * for the floor: every 12px string in the editor's compact chrome becomes
+   * 13px, and a future call site cannot reintroduce the shrink by picking the
+   * token. Scoped to the shell so the Home surface and the website keep their
+   * own scale. */
+  .editor-shell {
+    --font-size-2xs: 0.8125rem;
   }
 }
 
