@@ -1,5 +1,6 @@
+import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { applyWorkerCamera, workerBitmapDelta } from './workerCamera';
+import { applyWorkerCamera, reprojectableWorkerDelta, workerBitmapDelta } from './workerCamera';
 
 describe('applyWorkerCamera', () => {
   it('applies DPR, pan, viewport-centred rotation, and zoom in main-thread order', () => {
@@ -51,5 +52,30 @@ describe('workerBitmapDelta', () => {
     );
     expect(delta?.[1]).toBeCloseTo(1);
     expect(delta?.[2]).toBeCloseTo(-1);
+  });
+});
+
+describe('reprojectableWorkerDelta', () => {
+  const identity: Affine = [1, 0, 0, 1, 0, 0];
+
+  it('refuses to reproject when the document changed, even with the identity delta', () => {
+    // The defect this pins: `workerBitmapDelta` returns an affine whenever the
+    // two camera transforms differ, *including the identity* when they do not, so
+    // a truthiness test on the delta alone accepted the unchanged-camera case.
+    // A brush stroke changes the document and leaves the camera alone, so the
+    // pre-edit bitmap was composited and the fresh replay skipped — the new ink
+    // stayed invisible until something forced a full redraw. Reproduced as one
+    // silent stroke in five, with a forced redraw recovering the pixels.
+    expect(reprojectableWorkerDelta(false, identity)).toBeNull();
+    expect(reprojectableWorkerDelta(false, [2, 0, 0, 2, 10, 10])).toBeNull();
+  });
+
+  it('allows reprojection for a camera-only change', () => {
+    expect(reprojectableWorkerDelta(true, [2, 0, 0, 2, 10, 10])).toEqual([2, 0, 0, 2, 10, 10]);
+    expect(reprojectableWorkerDelta(true, identity)).toEqual(identity);
+  });
+
+  it('refuses when there is no delta at all', () => {
+    expect(reprojectableWorkerDelta(true, null)).toBeNull();
   });
 });
