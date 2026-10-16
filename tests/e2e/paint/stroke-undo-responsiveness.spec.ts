@@ -36,7 +36,10 @@
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
-test.describe.configure({ mode: 'serial' });
+// Deliberately not `mode: 'serial'`: the two tests are independent measurements
+// (pixel-equivalence oracle; work-count reuse) and a pixel failure must not hide
+// the work-count result. `--workers=1` already serializes execution against the
+// shared dev server, which is the reason serial mode is used elsewhere.
 
 interface FrameDiagnostics {
   frameIndex: number;
@@ -51,6 +54,8 @@ interface FrameDiagnostics {
   committedAt?: number;
   redrawReason?: string;
   actualDrawingPath?: string;
+  renderPath?: string;
+  camera?: { zoom: number; panX: number; panY: number; rotation: number };
 }
 
 /**
@@ -97,20 +102,73 @@ async function lastFrame(page: import('@playwright/test').Page): Promise<FrameDi
   return page.evaluate(() => (window as unknown as PerfWindow).__varvePerf?.getLast() ?? null);
 }
 
-/** Wait until the frame ring stops advancing: two settled rAFs, no new frame. */
-async function settle(page: import('@playwright/test').Page): Promise<void> {
-  await page.evaluate(async () => {
-    const raf = () => new Promise((resolve) => requestAnimationFrame(resolve));
-    await raf();
-    await raf();
+/**
+ * Wait until the surface is genuinely settled before comparing pixels.
+ *
+ * This is the precondition the repo's oracle already requires
+ * (`adaptive-preview-scale.spec.ts`, `waitForSettledCamera`). Two conditions,
+ * both necessary:
+ *
+ *  1. The observed state — `[docVersion, camera, canvas.width, canvas.height]`
+ *     — has not changed for 500 ms. A single quiet `frameIndex` is not enough:
+ *     the adaptive profile deliberately renders interaction frames at a reduced
+ *     preview scale and re-renders at full fidelity after the 180 ms preview
+ *     quiet delay, so a frame can be "last" while still being a preview.
+ *  2. The backing store is at full resolution
+ *     (`canvas.width === clientWidth * devicePixelRatio`), i.e. condition 1's
+ *     refinement has actually happened.
+ *
+ * Comparing an unrefined preview against an authoritative full redraw would
+ * report a difference that is not a defect, and the reverse mistake — accepting
+ * a preview as settled — is how "already painted" pixels get declared correct.
+ */
+async function waitForSettledFrame(page: import('@playwright/test').Page): Promise<void> {
+  await page.evaluate(() => {
+    delete (window as unknown as { __varvePreviewSettling?: unknown }).__varvePreviewSettling;
   });
-  const first = await lastFrame(page);
-  for (let i = 0; i < 40; i++) {
-    await page.waitForTimeout(50);
-    const next = await lastFrame(page);
-    if (next && first && next.frameIndex === first.frameIndex) return;
-    if (next && !first) return;
-  }
+  await page.waitForFunction(
+    () => {
+      const target = window as unknown as {
+        __varvePerf?: { getLast?: () => FrameDiagnostics | null };
+        __varvePreviewSettling?: { state: string; since: number };
+      };
+      const frame = target.__varvePerf?.getLast?.();
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        'canvas.editor-canvas__content-layer',
+      );
+      if (!frame || !canvas) return false;
+      const state = JSON.stringify([frame.docVersion, frame.camera, canvas.width, canvas.height]);
+      const now = performance.now();
+      if (target.__varvePreviewSettling?.state !== state) {
+        target.__varvePreviewSettling = { state, since: now };
+        return false;
+      }
+      return (
+        now - target.__varvePreviewSettling.since >= 500 &&
+        canvas.width === Math.max(1, Math.round(canvas.clientWidth * devicePixelRatio)) &&
+        canvas.height === Math.max(1, Math.round(canvas.clientHeight * devicePixelRatio))
+      );
+    },
+    undefined,
+    // Generous: a paint stroke under a loaded machine can take a while to
+    // finish refining, and timing out here is a clearer failure than comparing
+    // an unsettled surface.
+    { polling: 50, timeout: 30_000 },
+  );
+}
+
+/** Backing-store geometry, for the recorded evidence. */
+async function canvasGeometry(page: import('@playwright/test').Page) {
+  return page.evaluate((selector) => {
+    const canvas = document.querySelector(selector) as HTMLCanvasElement;
+    return {
+      backingWidth: canvas.width,
+      backingHeight: canvas.height,
+      cssWidth: canvas.clientWidth,
+      cssHeight: canvas.clientHeight,
+      dpr: devicePixelRatio,
+    };
+  }, CANVAS);
 }
 
 /**
@@ -122,7 +180,7 @@ async function paintStroke(
   to: { x: number; y: number },
 ): Promise<void> {
   await dragOnCanvas(page, from, to);
-  await settle(page);
+  await waitForSettledFrame(page);
 }
 
 /**
@@ -173,7 +231,7 @@ async function expectOracleEquality(page: import('@playwright/test').Page, label
     if (!perf?.forceFullRedraw) throw new Error('authoritative redraw oracle unavailable');
     return perf.forceFullRedraw();
   });
-  await settle(page);
+  await waitForSettledFrame(page);
   const after = await canvasHash(page);
   expect(result.authoritative, `${label}: oracle must report an authoritative frame`).toBe(true);
   expect(after, `${label}: incremental frame must equal an authoritative full redraw`).toBe(before);
@@ -233,16 +291,20 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
     );
     // Report, do not budget: the dev machine runs under heavy concurrent load,
     // so a wall-clock ceiling here would measure the machine, not the editor.
+    // The executed path and settled backing resolution are recorded so a
+    // "fast" number can never be attributed to a preview-scale frame.
+    const geometry = await canvasGeometry(page);
+    const summary = {
+      note: 'key-press to first frame whose pixels match the target state',
+      measured: latencies,
+      settledGeometry: geometry,
+      frames: [undo1.frame, undo2.frame, redo.frame],
+    };
+    // Also on stdout: the `list` reporter does not write attachments to disk, so
+    // without this the measured numbers exist only inside a report UI.
+    console.log(`[stroke-undo] ${JSON.stringify(summary)}`);
     await testInfo.attach('undo-latency.json', {
-      body: JSON.stringify(
-        {
-          note: 'key-press to first frame whose pixels match the target state',
-          measured: latencies,
-          frames: [undo1.frame, undo2.frame, redo.frame],
-        },
-        null,
-        2,
-      ),
+      body: JSON.stringify(summary, null, 2),
       contentType: 'application/json',
     });
     expect(latencies.length, 'every undo/redo produced a measured frame').toBe(3);
@@ -277,7 +339,7 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
       if (!perf?.forceFullRedraw) throw new Error('authoritative redraw oracle unavailable');
       return perf.forceFullRedraw();
     });
-    await settle(page);
+    await waitForSettledFrame(page);
     expect(result.authoritative).toBe(true);
 
     const frames = await page.evaluate(
