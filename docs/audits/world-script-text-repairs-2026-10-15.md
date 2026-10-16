@@ -168,9 +168,9 @@ successfully initialised dependency, or a past audit.
 | Devanagari + conjuncts | canvas layout, save/reopen | Verified here | corpus entry `devanagari-conjuncts`; glyph form depends on the resolved platform font and was not visually reviewed by a language-competent reader |
 | Thai / Lao / Khmer line breaking | dictionary segmentation + prohibition | Verified here | corpus entry `thai-breaking`; measure-containment test in `textLayoutSnapshot.kinsoku.test.ts`. No native-speaker review of break quality |
 | Japanese horizontal | canvas layout, save/reopen | Verified here | corpus entry `japanese-horizontal` |
-| Japanese vertical (`vertical-rl`, mixed) | canvas layout | Carried (entry 3) | pinned UAX #50 orientation table; `verticalText.test.ts` |
+| Japanese vertical (`vertical-rl`, mixed) | canvas layout | Carried (entry 3) + Verified here (entry 8) | pinned UAX #50 orientation table; `verticalText.test.ts`; column-level prohibition in `textLayoutSnapshot.kinsoku.test.ts` |
 | Tate-chu-yoko | layout + authoring control | Carried (entry 4) | merged combined cell with measured fit; `RichTextSpanEditor.test.tsx` |
-| Line-start / line-end prohibition (行頭禁則・行末禁則) | paragraph layout | Verified here | 100.00% soundness vs the committed UAX #14 oracle; 37 + 11 characters pinned across five measures |
+| Line-start / line-end prohibition (行頭禁則・行末禁則) | paragraph layout, horizontal **and** vertical | Verified here | 100.00% soundness vs the committed UAX #14 oracle; 37 + 11 characters pinned across five measures horizontally and across four measures in vertical columns; the edge predicate used inside an emergency split is proven a subset of the full rules |
 | Hanging punctuation (ぶら下げ) | — | **Not implemented** | push-out used instead; see "Explicitly not claimed" |
 | Ruby / furigana | authored only | **Diagnosed defect, warning only** | schema + UI + rebasing exist; nothing renders; entry 9 |
 | Emphasis marks (圏点) | — | **Absent** | no schema, UI or layout path |
