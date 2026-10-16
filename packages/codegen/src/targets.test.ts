@@ -10,6 +10,7 @@
 
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
+import { svelteTargetGaps } from './svelte';
 import {
   CODE_TARGETS,
   type CodeExportFormat,
@@ -18,6 +19,8 @@ import {
   gapsForFormat,
   sanitiseFileStem,
 } from './targets';
+import { vueTargetGaps } from './vue';
+import { webComponentTargetGaps } from './web-component';
 
 const NODE = 'n1' as NodeId;
 
@@ -81,7 +84,10 @@ describe('CODE_TARGETS', () => {
         expect(analyser, format).toBeUndefined();
         continue;
       }
-      expect(analyser, format).toBeTypeOf('function');
+      // Identity, not merely "some function": a placeholder that replaced a
+      // real analyser would satisfy toBeTypeOf while silently dropping gaps.
+      const expected = CODE_TARGETS.find((target) => target.analysisFormats.includes(format));
+      expect(analyser, format).toBe(expected?.gaps);
     }
   });
 
@@ -162,5 +168,16 @@ describe('sanitiseFileStem', () => {
     expect(entry?.path).not.toContain('..');
     expect(entry?.path).not.toContain('/');
     expect(entry?.path.endsWith('.css')).toBe(true);
+  });
+});
+
+describe('analyser wiring regression', () => {
+  it('routes each markup target to its own real analyser', () => {
+    // An earlier version of the registry replaced these three with a
+    // placeholder "no capability analyser" note, silently suppressing genuine
+    // preflight gaps for Vue, Svelte and Web Component.
+    expect(gapsForFormat('vue')).toBe(vueTargetGaps);
+    expect(gapsForFormat('svelte')).toBe(svelteTargetGaps);
+    expect(gapsForFormat('web-component')).toBe(webComponentTargetGaps);
   });
 });

@@ -34,7 +34,7 @@ import { composeTargetGaps, exportNodeToComposeBundle } from './compose';
 import { cssTargetGaps, exportNodeToCss } from './css';
 import { cssModulesTargetGaps, exportNodeToCssModulesBundle } from './css-modules';
 import { exportNodeToFlutter, flutterTargetGaps } from './flutter';
-import { exportNodeToSvelte } from './svelte';
+import { exportNodeToSvelte, svelteTargetGaps } from './svelte';
 import { exportNodeToSvg, svgTargetGaps } from './svg';
 import { exportNodeToSwiftUI, swiftuiTargetGaps } from './swiftui';
 import { exportNodeToTailwindBundle, tailwindTargetGaps } from './tailwind';
@@ -46,8 +46,8 @@ import {
   mimeTypeForLanguage,
   type TargetGap,
 } from './types';
-import { exportNodeToVue } from './vue';
-import { exportNodeToWebComponent } from './web-component';
+import { exportNodeToVue, vueTargetGaps } from './vue';
+import { exportNodeToWebComponent, webComponentTargetGaps } from './web-component';
 
 /** Analysis vocabulary: which capability analyser applies to a target. */
 export type CodeExportFormat =
@@ -179,6 +179,7 @@ function stringTarget(input: {
   note: string;
   analysisFormats: readonly CodeExportFormat[];
   emit: (node: SceneNode, doc: SceneDocument, opts?: CodeTargetOptions) => string;
+  gaps: (node: SceneNode, doc: SceneDocument) => TargetGap[];
 }): CodeTargetDescriptor {
   return {
     id: input.id,
@@ -188,18 +189,12 @@ function stringTarget(input: {
     extension: input.extension,
     highlight: input.highlight,
     note: input.note,
-    // The Vue/Svelte/Web Component emitters have no capability analyser yet;
-    // an empty report would imply "no gaps", so the descriptor says so instead
-    // of manufacturing a clean bill of health.
-    gaps: () => [
-      {
-        nodeId: '',
-        nodeName: '',
-        feature: 'capability analysis',
-        severity: 'info',
-        fallback: `No capability analyser for ${input.id}; inspect the output manually`,
-      },
-    ],
+    // Each of these emitters has its own capability analyser. An earlier
+    // version of this file replaced it with a placeholder "no analyser" note,
+    // which silently stopped preflight reporting genuine gaps for three
+    // targets; the analyser is now required by the type so it cannot be
+    // dropped again by accident.
+    gaps: input.gaps,
     generate: (node, doc, opts) =>
       singleFileBundle(
         node,
@@ -337,6 +332,7 @@ export const CODE_TARGETS: readonly CodeTargetDescriptor[] = [
     highlight: 'vue',
     note: 'A Vue single-file-component fragment. It is not registered or mounted for you.',
     analysisFormats: ['vue'],
+    gaps: vueTargetGaps,
     emit: (node, doc) => exportNodeToVue(node, doc),
   }),
   stringTarget({
@@ -347,6 +343,7 @@ export const CODE_TARGETS: readonly CodeTargetDescriptor[] = [
     highlight: 'svelte',
     note: 'A Svelte component fragment. It is not registered or mounted for you.',
     analysisFormats: ['svelte'],
+    gaps: svelteTargetGaps,
     emit: (node, doc) => exportNodeToSvelte(node, doc),
   }),
   stringTarget({
@@ -357,6 +354,7 @@ export const CODE_TARGETS: readonly CodeTargetDescriptor[] = [
     highlight: 'web-component',
     note: 'A custom-element class. You must define the tag name and register it.',
     analysisFormats: ['web-component'],
+    gaps: webComponentTargetGaps,
     emit: (node, doc) => exportNodeToWebComponent(node, doc),
   }),
 ];

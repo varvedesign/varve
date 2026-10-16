@@ -1,11 +1,15 @@
 /**
  * Android Jetpack Compose (Kotlin) target emitter.
  *
- * Supported natively: solid and gradient fills (linear/radial/sweep), rounded
- * rectangles, ellipses, text, borders, uniform alpha, and a composed raster
- * surface referenced from the Android resource folder. Shapes with no Compose
- * primitive (polygon, star, arrow, line, free path) are reported as gaps rather
- * than approximated silently.
+ * Supported natively: a **solid** fill, rounded rectangles, ellipses, text,
+ * borders, uniform alpha, and a composed raster surface referenced from the
+ * Android resource folder. Shapes with no Compose primitive (polygon, star,
+ * arrow, line, free path) are reported as gaps rather than approximated
+ * silently.
+ *
+ * NOT supported, and disclosed rather than emitted blank: gradient, image and
+ * pattern fills. Only the legacy single `node.fill` is read here, so a shape
+ * whose appearance comes from `fills`/`paints` loses that appearance.
  *
  * Units follow the documented Android mapping: **dp** for lengths and **sp**
  * for type. A clickable control receives `sizeIn(minWidth = 48.dp,
@@ -106,6 +110,21 @@ export function kotlinIdentifier(name: string, fallback = 'Component'): string {
   return /^[A-Za-z_]/.test(base) && base.length > 0 ? base : fallback;
 }
 
+/**
+ * A Kotlin identifier derived from a design-token name.
+ *
+ * Substituting `_` for illegal characters is not enough: a name starting with a
+ * digit yields a syntactically invalid identifier, and two differently-spaced
+ * names collapse onto the same identifier. The result always starts with a
+ * letter or underscore, and collapsing names share one collector key so the
+ * generated object cannot declare a duplicate `val`.
+ */
+export function tokenIdentifier(name: string): string {
+  const substituted = name.replace(/[^A-Za-z0-9_]/g, '_');
+  if (substituted.length === 0) return 'Token';
+  return /^[0-9]/.test(substituted) ? `T_${substituted}` : substituted;
+}
+
 /** A dp length. Integral values avoid a trailing `.0`. */
 export function dp(value: number): string {
   const rounded = Math.round(value * 100) / 100;
@@ -157,9 +176,13 @@ function fillExpression(
     ? resolveTokenName(node.bindings, 'fill', opts.variableStore)
     : undefined;
   if (tokenName) {
+    const identifier = tokenIdentifier(tokenName);
     const value = argbColor(node.fill);
-    tokens.set(tokenName, { name: tokenName, value });
-    return `Tokens.${tokenName.replace(/[^A-Za-z0-9_]/g, '_')}`;
+    // Keyed by the derived identifier, not the raw name: two token names that
+    // derive the same identifier must collapse to one `val`, or the generated
+    // object declares a duplicate.
+    tokens.set(identifier, { name: identifier, value });
+    return `Tokens.${identifier}`;
   }
   return argbColor(node.fill);
 }
@@ -367,7 +390,17 @@ function emitNode(node: SceneNode, ctx: EmitContext): string[] {
   }
 
   if (body.length === 0) {
-    return [`${pad}Box(`, `${pad}    modifier = ${offset}`, `${pad})`];
+    // A leaf carries its own appearance: size, clip, fill, border, shadow and
+    // alpha all belong on this element. A bare offset box here exported a plain
+    // filled rectangle as an empty, uncoloured box.
+    const leafModifiers = [...modifiers, offset];
+    return [
+      `${pad}Box(`,
+      `${pad}    modifier = ${leafModifiers
+        .map((m, i) => (i === 0 ? m : `${pad}        ${m}`))
+        .join('\n')},`,
+      `${pad})`,
+    ];
   }
 
   return [
@@ -433,6 +466,7 @@ function composeBundle(
     'androidx.compose.foundation.layout.size',
     'androidx.compose.foundation.layout.sizeIn',
     'androidx.compose.foundation.shape.CircleShape',
+    'androidx.compose.foundation.shape.RectangleShape',
     'androidx.compose.foundation.shape.RoundedCornerShape',
     'androidx.compose.material3.Text',
     'androidx.compose.runtime.Composable',
@@ -453,7 +487,6 @@ function composeBundle(
     );
   }
 
-  const tokenReference = tokens.size > 0 ? 'import Tokens' : null;
   const signature = interactive
     ? `fun ${componentName}(onClick: () -> Unit = {})`
     : `fun ${componentName}()`;
@@ -467,7 +500,6 @@ function composeBundle(
     `package ${pkg}`,
     '',
     ...imports.map((entry) => `import ${entry}`).sort(),
-    ...(tokenReference ? ['', tokenReference] : []),
     '',
     '/**',
     ` * ${node.name} — generated from design artwork.`,
@@ -521,7 +553,7 @@ function composeBundle(
       'object Tokens {',
       ...[...tokens.values()]
         .sort((a, b) => a.name.localeCompare(b.name))
-        .map((token) => `    val ${token.name.replace(/[^A-Za-z0-9_]/g, '_')} = ${token.value}`),
+        .map((token) => `    val ${token.name} = ${token.value}`),
       '}',
       '',
     ];

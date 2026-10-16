@@ -508,3 +508,93 @@ instead of by a literal range.
   migration is what actually retires the drift class; the registry and the
   derived gap map are the foundation it needs.
 - Expose an HTML target once the IR path is available.
+
+## 10. Code review of this pass, and its findings
+
+An independent read-only review of the five commits was run. It found real
+defects in work already committed, two of them blockers. They are recorded here
+because the pass they belong to shipped them, and because the tests that should
+have caught them did not.
+
+### 10.1 Blockers found and fixed
+
+- **A leaf node discarded its entire appearance chain.** `compose.ts` built
+  `Modifier.size(...).clip(...).background(...).border(...).shadow(...)` and then,
+  for a node with no children, returned a bare offset box instead. Every plain
+  filled rectangle — the most common export case — emitted as an empty,
+  uncoloured box. The test suite passed because the fixture was a *frame with a
+  child*, and its fill was never asserted.
+- **`RectangleShape` was emitted but never imported.** `clipShape` returns it for
+  any node without a `cornerRadius`, and the import list carried only
+  `CircleShape` and `RoundedCornerShape`. A generated file would fail to resolve
+  the symbol. Invisible to the tests because the fixture set `cornerRadius: 12`.
+
+Both now have regressions: a childless filled rectangle must keep
+`.background(...)`, `.size(...)` and `.clip(...)`, and a node without a corner
+radius must emit `RectangleShape` **and** import it.
+
+### 10.2 A regression this pass introduced
+
+`stringTarget` in `targets.ts` replaced the capability reporters for Vue, Svelte
+and Web Component with a fabricated "no capability analyser" note. Those three
+analysers exist (`vueTargetGaps`, `svelteTargetGaps`, `webComponentTargetGaps`)
+and are tested — but because `target-analysis.ts` now resolves its entire gap map
+through `gapsForFormat`, preflight silently stopped reporting genuine gaps for
+three targets while the emitters' own tests kept passing. The descriptor type now
+**requires** a `gaps` function, so it cannot be dropped by accident again, and a
+test pins `gapsForFormat('vue') === vueTargetGaps` by identity rather than by
+`toBeTypeOf('function')` — the weaker assertion is what let a placeholder
+through.
+
+### 10.3 Other findings fixed
+
+- **Token identifiers.** Substituting `_` for illegal characters is not an
+  identifier derivation: `2x` produced `Tokens.2x` (a syntax error) and
+  `brand-teal` / `brand.teal` both produced `brand_teal`, giving a duplicate
+  `val` in one object. `tokenIdentifier` now guarantees a valid leading
+  character, and the collector is keyed by the derived identifier so collapsing
+  names share one entry.
+- **`import Tokens`** named a same-package object; removed. The reference stands
+  on its own.
+- **Overclaiming corrected.** The module header claimed gradient, linear, radial
+  and sweep fill support. `fillExpression` reads only the legacy single
+  `node.fill`, so gradient/image/pattern fills are lost — now stated as NOT
+  supported instead of implied as working.
+
+### 10.4 Findings accepted but not yet fixed
+
+- **The hit test uses the unclipped rect** (`screenGeometry.ts`), while the DOM
+  box honours accumuated clipping. A point inside a lower sibling's artwork that
+  lies under a clipped-away part of a higher sibling can still activate the
+  higher, invisible node — the same region-≠-pixel class this module exists to
+  remove.
+- **`fills`/`paints` are not read** by the Compose emitter, so a shape whose
+  appearance comes from the modern paint model loses it (disclosed, not silent).
+- **`singleFileBundle` sets `target: language`**, but `GeneratedBundle.target` is
+  meant to be a target identifier; bundles now carry `dart`/`swift`/`js` for
+  targets whose ids are `flutter`/`swiftui`/`web-component`.
+- **`sanitiseFileStem` does not guard Windows reserved device names** (`CON`,
+  `NUL`, `PRN`, `COM1`…), which matters under the cross-platform rule.
+- Minor: an overlay id inside the screen subtree is visited twice, emitting two
+  hotspots with the same `nodeId` (duplicate React key and tab stop);
+  `truncated` from the traversal bound is never surfaced; a hotspot inside a
+  fully transparent ancestor stays active; `pointFromEvent` uses the border box
+  while the image fills the padding box, leaving a 1–2px systematic offset.
+- **The registry is not yet consumed by the panels.** `CodePanel` and
+  `CodeGenView` still declare their own lists and labels, so the duplication the
+  registry was built to remove is still live. This pass built the foundation and
+  derived the gap map; it did not retire the drift class.
+
+### 10.5 Test-quality findings against this pass
+
+- A token test was **tautological**: conditional on `contents.includes('Tokens.')`
+  with no `variableStore` supplied, so the branch never ran.
+- `targets.test.ts` asserted only non-empty contents and path shape — it passes
+  with either blocker present.
+- The rotated-region test asserted only a *miss*, so an implementation returning
+  `null` unconditionally would pass it.
+- The letterbox assertion is only exercised where no raster exists, so
+  `letterboxed` is always `false` at the component level.
+- A weak structural proxy (`not.toMatch(/text = "[^"]*"[,)]*\$[^\\]/)` plus brace
+  counting) stands in for Kotlin parsing; the brace count would also fail on
+  braces inside string literals.

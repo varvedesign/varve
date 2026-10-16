@@ -25,6 +25,7 @@ import {
   kotlinIdentifier,
   kotlinString,
   sp,
+  tokenIdentifier,
 } from './compose';
 
 const ROOT = 'card' as NodeId;
@@ -351,5 +352,74 @@ describe('composeTargetGaps', () => {
       shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
     } as unknown as SceneNode;
     expect(composeTargetGaps(node, doc()).some((g) => g.feature === 'rotation')).toBe(true);
+  });
+});
+
+describe('leaf appearance regression', () => {
+  /** A plain filled rectangle with no children — the common export case. */
+  function leaf(): Document {
+    return {
+      nodes: {
+        leaf: {
+          kind: 'shape',
+          id: 'leaf',
+          name: 'Swatch',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 80, h: 40 },
+          fill: { space: 'rgb', r: 10, g: 20, b: 30, a: 255 },
+          cornerRadius: 6,
+        } as unknown as SceneNode,
+      },
+      rootChildren: ['leaf'],
+      pages: [],
+      guides: [],
+    } as unknown as Document;
+  }
+
+  const contents = (): string => {
+    const d = leaf();
+    const node = d.nodes.leaf as SceneNode;
+    return exportNodeToComposeBundle(node, d).files.find((f) => f.entry)?.contents ?? '';
+  };
+
+  it('keeps a leaf fill, size and clip on the emitted box', () => {
+    // The blocker: a leaf path returned a bare offset box, so a filled
+    // rectangle exported with no background at all.
+    const out = contents();
+    expect(out).toContain('background(Color(0xFF0A141E))');
+    expect(out).toContain('.size(80.dp, 40.dp)');
+    expect(out).toContain('.clip(RoundedCornerShape(6.dp))');
+  });
+
+  it('imports RectangleShape whenever it can be emitted', () => {
+    // `RectangleShape` is the default clip for a node without a corner radius,
+    // and was emitted while never being imported.
+    const d = leaf();
+    const node = d.nodes.leaf as unknown as { cornerRadius?: number; kind: string };
+    delete node.cornerRadius;
+    const out =
+      exportNodeToComposeBundle(d.nodes.leaf as SceneNode, d).files.find((f) => f.entry)
+        ?.contents ?? '';
+    expect(out).toContain('RectangleShape');
+    expect(out).toContain('import androidx.compose.foundation.shape.RectangleShape');
+  });
+});
+
+describe('tokenIdentifier', () => {
+  it('keeps a digit-leading token name a valid identifier', () => {
+    // `Tokens.2x` is a syntax error.
+    expect(tokenIdentifier('2x')).toBe('T_2x');
+    expect(tokenIdentifier('2x')).toMatch(/^[A-Za-z_]/);
+  });
+
+  it('collapses differently-spaced names onto one identifier', () => {
+    // Two such names share a collector key, so the object cannot declare a
+    // duplicate `val`.
+    expect(tokenIdentifier('brand-teal')).toBe(tokenIdentifier('brand.teal'));
+  });
+
+  it('falls back rather than producing an empty identifier', () => {
+    expect(tokenIdentifier('---')).toBe('___');
+    expect(tokenIdentifier('')).toBe('Token');
   });
 });
