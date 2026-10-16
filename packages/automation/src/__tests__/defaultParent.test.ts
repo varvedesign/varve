@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { DocumentAuthority } from '../authority';
 import { defaultInsertionParent } from '../surface';
 import { addFrame, makeSession, principal } from './harness';
 
@@ -70,7 +71,8 @@ describe('where a new node goes when the caller names no parent', () => {
 
   it('a headless authority never claims to know what a person is looking at', () => {
     const s = makeSession();
-    expect(s.authority.defaultParentId).toBeUndefined();
+    // Typed as the interface, which declares the optional method.
+    expect((s.authority as DocumentAuthority).defaultParentId).toBeUndefined();
     expect(principal('x', ['read']).grants).toEqual(['read']);
   });
 });

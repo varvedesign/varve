@@ -62,14 +62,14 @@ const buildScript = join(here, '../../scripts/build-bundle.mjs');
  * most recently built candidate does.
  */
 function findHarness(): string | null {
-  if (process.env.VARVE_HOST_STDIO_BIN) {
-    return existsSync(process.env.VARVE_HOST_STDIO_BIN) ? process.env.VARVE_HOST_STDIO_BIN : null;
-  }
+  const explicit = process.env.VARVE_HOST_STDIO_BIN;
+  if (explicit) return existsSync(explicit) ? explicit : null;
+  const targetDir = process.env.CARGO_TARGET_DIR;
   const candidates = [
-    process.env.CARGO_TARGET_DIR && join(process.env.CARGO_TARGET_DIR, 'debug/examples/host_stdio'),
+    ...(targetDir ? [join(targetDir, 'debug/examples/host_stdio')] : []),
     join(repoRoot, 'target/debug/examples/host_stdio'),
     '/home/kevina/CodingProjects/varve/target/debug/examples/host_stdio',
-  ].filter((candidate): candidate is string => Boolean(candidate) && existsSync(candidate));
+  ].filter((candidate) => existsSync(candidate));
   candidates.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
   return candidates[0] ?? null;
 }
