@@ -14,6 +14,7 @@ import {
   exportNodeToTailwindBundle,
   resolveBundleAssets,
   svgPatternFillForNode,
+  withRegenerationManifest,
 } from '@varve/codegen';
 import type { Engine } from '@varve/engine';
 import { awaitExportsReady, getFontRegistry } from '@varve/engine';
@@ -414,7 +415,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         },
       );
       assertRasterCompositionComplete(rasterDiagnostics);
-      const bundle =
+      const rawBundle =
         job.format === 'react-tailwind'
           ? exportNodeToTailwindBundle(node, context.document, {
               rasterAssets,
@@ -424,6 +425,13 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
               rasterAssets,
               assetMode: 'files',
             });
+      // Ownership manifest: hashes of exactly what this run generated, so a
+      // later regeneration can prove what is safe to update and what a
+      // developer edited (see packages/codegen/src/regeneration.ts).
+      const bundle = withRegenerationManifest(rawBundle, {
+        docRevision: context.document.id,
+        optionsFingerprint: `${job.format}`,
+      });
       const files = bundleToFiles(bundle, jobStem(job.fileName));
       return {
         bytes: files[0]?.bytes ?? encode(''),

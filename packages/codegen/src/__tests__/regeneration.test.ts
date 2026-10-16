@@ -74,7 +74,7 @@ describe('regeneration planner', () => {
     for (const file of first.files) destination[file.path] = file.contents;
 
     const second = sampleBundle('a');
-    const plan = planRegeneration(destination, firstManifest, second, SOURCE);
+    const plan = planRegeneration(destination, firstManifest, second);
     for (const entry of plan.entries) {
       if (entry.path === CODEGEN_MANIFEST_PATH) continue;
       expect(entry.action).toBe('update');
@@ -92,7 +92,7 @@ describe('regeneration planner', () => {
     for (const file of first.files) destination[file.path] = file.contents;
     destination[codePath] = `${destination[codePath]}\n// hand tweak`;
 
-    const plan = planRegeneration(destination, manifest, sampleBundle('a'), SOURCE);
+    const plan = planRegeneration(destination, manifest, sampleBundle('a'));
     const conflict = plan.entries.find((e) => e.path === codePath);
     expect(conflict?.action).toBe('conflict');
     expect(plan.hasConflicts).toBe(true);
@@ -109,7 +109,7 @@ describe('regeneration planner', () => {
       'use-card-wrapper.ts': '// handwritten hook\nexport {}',
       'README.md': '# consumer docs',
     };
-    const plan = planRegeneration(destination, manifest, sampleBundle('a'), SOURCE);
+    const plan = planRegeneration(destination, manifest, sampleBundle('a'));
     for (const entry of plan.entries) {
       if (entry.path.startsWith('use-card') || entry.path === 'README.md') {
         expect(entry.action).toBe('preserve');
@@ -133,7 +133,7 @@ describe('regeneration planner', () => {
       ...sampleBundle('a'),
       files: sampleBundle('a').files.filter((f) => f.path !== removedPath),
     };
-    const plan = planRegeneration(destination, manifest, trimmedBundle, SOURCE);
+    const plan = planRegeneration(destination, manifest, trimmedBundle);
     const stale = plan.entries.find((e) => e.path === removedPath);
     expect(stale?.action).toBe('stale');
     expect(stale?.currentSha256).toBeDefined();
@@ -143,7 +143,7 @@ describe('regeneration planner', () => {
     const destination: Record<string, string> = {
       'card.tsx': '// something already here with no manifest',
     };
-    const plan = planRegeneration(destination, null, sampleBundle('a'), SOURCE);
+    const plan = planRegeneration(destination, null, sampleBundle('a'));
     const ours = plan.entries.find((e) => e.path === 'card.tsx');
     // The destination path happens to collide with an emitted path only if
     // names match; regardless, no action may be 'update' without a manifest.
