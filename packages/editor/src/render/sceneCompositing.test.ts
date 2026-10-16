@@ -34,6 +34,29 @@ describe('sceneNeedsStructuralCompositing', () => {
     expect(sceneNeedsStructuralCompositing(doc)).toBe(false);
   });
 
+  it('routes live object repeats through structural replay', () => {
+    let doc = createDocument('live object repeat');
+    doc = addNode(
+      doc,
+      makeGroupNode('repeat', {
+        objectRepeat: {
+          type: 'grid',
+          columns: 3,
+          rows: 1,
+          spacingX: 80,
+          spacingY: 0,
+        },
+      }),
+    );
+    doc = addChild(
+      doc,
+      'repeat',
+      makeShapeNode('source', { kind: 'rect', x: 0, y: 0, w: 32, h: 32 }),
+    );
+
+    expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
+  });
+
   it('returns true when a visible mask is present', () => {
     let doc = createDocument('test');
     doc = addNode(

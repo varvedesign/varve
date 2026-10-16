@@ -26,6 +26,49 @@ const LEVELS_PARAMS = {
 };
 
 describe('replayStructuredScene', () => {
+  it('replays each live object-repeat instance from the retained group source', async () => {
+    let sceneDocument = createDocument('Live repeat', true);
+    const group = makeGroupNode('repeat', {
+      objectRepeat: {
+        type: 'grid',
+        columns: 3,
+        rows: 1,
+        spacingX: 48,
+        spacingY: 0,
+      },
+    });
+    sceneDocument = addNode(sceneDocument, group);
+    sceneDocument = addChild(
+      sceneDocument,
+      group.id,
+      makeShapeNode('source', { kind: 'rect', x: 0, y: 0, w: 24, h: 24 }),
+    );
+    const flattened = flattenSceneToEngine(sceneDocument, [group.id]);
+    const engine = await createEngine('stub');
+    const items = await engine.buildIr({ nodes: flattened.nodes });
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 80;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('test canvas unavailable');
+    const transforms = vi.spyOn(context, 'transform');
+
+    replayStructuredScene(context, {
+      document: sceneDocument,
+      rootIds: [group.id],
+      flattenedIds: flattened.ids,
+      items,
+    });
+
+    expect(transforms.mock.calls).toContainEqual([1, 0, 0, 1, 48, 0]);
+    expect(transforms.mock.calls).toContainEqual([1, 0, 0, 1, 96, 0]);
+    const retainedGroup = sceneDocument.nodes[group.id];
+    expect(retainedGroup?.kind).toBe('group');
+    if (retainedGroup?.kind === 'group') {
+      expect(retainedGroup.children).toEqual(['source']);
+    }
+  });
+
   it('clips frame descendants in world space while painting the frame first', async () => {
     let sceneDocument = createDocument('Frame export', true);
     const frame = makeFrameNode('frame', {

@@ -49,6 +49,7 @@ describe('Inspector feature ownership', () => {
         'layer-states',
         'text-on-path',
         'warp',
+        'object-repeat',
         'palette',
         'page-print',
         'canvas-background',
