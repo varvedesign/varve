@@ -27,6 +27,8 @@
  * unbounded residency.
  */
 
+import type { RasterTileIR } from './types';
+
 export interface RasterLayerSurface {
   canvas: OffscreenCanvas | HTMLCanvasElement;
   ctx: CanvasRenderingContext2D & OffscreenCanvasRenderingContext2D;
@@ -34,6 +36,11 @@ export interface RasterLayerSurface {
   height: number;
   /** Version of each tile currently resident in the surface, keyed `col:row`. */
   tileVersions: Map<string, number>;
+  /**
+   * Content identity of each resident tile when the caller supplied one. A
+   * version number alone cannot tell two histories' pixels apart.
+   */
+  tileContentIds?: Map<string, number>;
   bytes: number;
   lastUsedAt: number;
 }
@@ -56,7 +63,7 @@ export function planTileUploads(
   surface: RasterLayerSurface | null,
   width: number,
   height: number,
-  tiles: Readonly<Record<string, { pixels: number[]; version: number }>>,
+  tiles: Readonly<Record<string, RasterTileIR>>,
 ): TileUploadPlan {
   const requested = Object.keys(tiles);
   if (!surface || surface.width !== width || surface.height !== height) {
@@ -65,9 +72,22 @@ export function planTileUploads(
   const changed: string[] = [];
   for (const key of requested) {
     const resident = surface.tileVersions.get(key);
+    const requested_ = tiles[key]!;
     // `undefined` covers a newly added tile; a differing version covers an
     // edited one. Both need the pixels re-uploaded.
-    if (resident === undefined || resident !== tiles[key]!.version) changed.push(key);
+    if (resident === undefined || resident !== requested_.version) {
+      changed.push(key);
+      continue;
+    }
+    // Equal versions do not imply equal pixels: a divergent branch or an undo
+    // followed by another stroke reuses the number. When the caller identified
+    // the buffer, a different (or unknown) resident identity means re-upload.
+    if (
+      requested_.contentId !== undefined &&
+      surface.tileContentIds?.get(key) !== requested_.contentId
+    ) {
+      changed.push(key);
+    }
   }
   const removed: string[] = [];
   for (const key of surface.tileVersions.keys()) {
@@ -159,7 +179,7 @@ export class RasterLayerCache {
     layerKey: string,
     width: number,
     height: number,
-    tiles: Readonly<Record<string, { pixels: number[]; version: number }>>,
+    tiles: Readonly<Record<string, RasterTileIR>>,
     tileSize: number,
   ): { surface: RasterLayerSurface; plan: TileUploadPlan } | null {
     let surface = this.surfaces.get(layerKey) ?? null;
@@ -175,6 +195,7 @@ export class RasterLayerCache {
         width,
         height,
         tileVersions: new Map(),
+        tileContentIds: new Map(),
         bytes: width * height * 4,
         lastUsedAt: ++this.clock,
       };
@@ -196,6 +217,7 @@ export class RasterLayerCache {
         live.ctx.clearRect(col! * tileSize, row! * tileSize, tileSize, tileSize);
       }
       live.tileVersions.delete(key);
+      live.tileContentIds?.delete(key);
     }
 
     for (const key of plan.changed) {
@@ -206,9 +228,18 @@ export class RasterLayerCache {
       const row = Number(rowStr);
       if (!Number.isFinite(col) || !Number.isFinite(row)) continue;
       const imageData = live.ctx.createImageData(tileSize, tileSize);
-      imageData.data.set(new Uint8ClampedArray(tile.pixels));
+      // Reads through the view: works for the document's typed array and for a
+      // plain number array, without copying the tile first.
+      imageData.data.set(tile.pixels);
       live.ctx.putImageData(imageData, col * tileSize, row * tileSize);
       live.tileVersions.set(key, tile.version);
+      if (tile.contentId !== undefined) {
+        const resident = live.tileContentIds ?? new Map<string, number>();
+        resident.set(key, tile.contentId);
+        live.tileContentIds = resident;
+      } else {
+        live.tileContentIds?.delete(key);
+      }
       this.tilesUploaded++;
     }
     this.tilesSkipped += Object.keys(tiles).length - plan.changed.length;

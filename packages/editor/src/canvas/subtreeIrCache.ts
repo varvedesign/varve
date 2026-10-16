@@ -44,16 +44,35 @@ export interface SubHashReport {
   sub: ChangedSubHashes;
 }
 
-/** Raster-layer content version summary for hash — avoids hashing full pixels. */
+/**
+ * Raster-layer content summary for the IR cache key — avoids hashing pixels.
+ *
+ * The tile count and the *sum* of versions the key used to rely on are not an
+ * identity: `{1, 2}` and `{2, 1}` sum alike, and a tile's version repeats
+ * across divergent histories (undo then a different stroke, a branch switch).
+ * Each tile contributes its key, version and content identity to a rolling
+ * 64-bit hash instead, in key order, so any tile whose buffer was replaced
+ * changes the key.
+ */
 function rasterLayerVersionSummary(data: NonNullable<EngineNode['rasterLayerData']>): string {
   const { width, height, pixelMode, tiles } = data;
   const tileKeys = Object.keys(tiles).sort();
-  let versionSum = 0;
+  let lo = 0x811c9dc5;
+  let hi = 0x9e3779b1;
+  const mix = (n: number): void => {
+    lo = Math.imul(lo ^ n, 0x01000193) >>> 0;
+    hi = Math.imul(hi ^ (n + 0x9e3779b9), 0x85ebca6b) >>> 0;
+    hi = (hi ^ (hi >>> 13)) >>> 0;
+  };
   for (const k of tileKeys) {
+    for (let i = 0; i < k.length; i++) mix(k.charCodeAt(i));
     const t = tiles[k];
-    if (t) versionSum += t.version;
+    if (!t) continue;
+    mix(t.version);
+    mix(t.contentId ?? 0);
+    mix(0xff);
   }
-  return `raster:${width}x${height}:${pixelMode ? 'pixel' : 'image'}:t${tileKeys.length}:v${versionSum}`;
+  return `raster:${width}x${height}:${pixelMode ? 'pixel' : 'image'}:t${tileKeys.length}:h${lo.toString(36)}${hi.toString(36)}`;
 }
 
 /**
@@ -72,6 +91,26 @@ function rasterLayerVersionSummary(data: NonNullable<EngineNode['rasterLayerData
  * Short srcs (file paths, remote URLs) are hashed verbatim.
  */
 const MAX_INLINE_SRC = 256;
+
+/**
+ * Bytes charged for a raster tile pixel payload the IR holds by reference.
+ *
+ * A 128x128 RGBA tile is 65,536 bytes of pixels, but those bytes belong to the
+ * document's immutable tile buffer, not to the cache entry: the entry holds the
+ * grid key, the tile record and a pointer. Charging the payload would
+ * double-count document memory and (because a number array serialises to
+ * roughly 450 KB of JSON) push ordinary layers over the entry budget. This
+ * covers the key string, the record and the pointer.
+ */
+export const TILE_REFERENCE_BYTES = 96;
+
+/** Stand-in written in place of a tile payload so its bytes are never walked. */
+const TILE_PAYLOAD_MARKER = '~';
+
+/** True for the pixel payload shapes a raster tile record can carry. */
+function isTilePixelPayload(value: unknown): boolean {
+  return Array.isArray(value) || ArrayBuffer.isView(value);
+}
 export function imageSrcHashProxy(src: string): string {
   const n = src.length;
   if (n <= MAX_INLINE_SRC) return src;
@@ -322,18 +361,35 @@ export class SubtreeIrCache {
    * serialized output while still counting their real length (String.length is
    * O(1)); the byte estimate — and thus eviction behaviour — is unchanged, but
    * the cost is bounded regardless of image size.
+   *
+   * Tile pixel payloads are handled differently, because the ownership is
+   * different: a raster tile's `pixels` is a **reference** to the document's
+   * immutable buffer, not a copy the cache owns. Walking it therefore both
+   * mis-accounts memory (double-counting the document, and inflating one
+   * 65,536-byte tile to roughly 450 KB of JSON) and costs O(raster bytes) on
+   * the frame that stores the entry. The inflation was not cosmetic: it made
+   * any raster layer above roughly 7 MiB of pixels look like an oversized
+   * entry, so `set` refused it and raster layers got no IR reuse at all while
+   * still paying the conversion and the stringify every frame. Tiles are now
+   * charged {@link TILE_REFERENCE_BYTES} each — the key, record and pointer the
+   * entry actually holds — and the pixels are never visited.
    */
   static estimateItemBytes(item: RenderItem): number {
     try {
       let longStringChars = 0;
-      const json = JSON.stringify(item, (_key, value) => {
+      let tileRefs = 0;
+      const json = JSON.stringify(item, (key, value) => {
         if (typeof value === 'string' && value.length > MAX_INLINE_SRC) {
           longStringChars += value.length;
           return '';
         }
+        if (key === 'pixels' && isTilePixelPayload(value)) {
+          tileRefs++;
+          return TILE_PAYLOAD_MARKER;
+        }
         return value;
       });
-      return (json.length + longStringChars) * 2 + 64;
+      return (json.length + longStringChars) * 2 + 64 + tileRefs * TILE_REFERENCE_BYTES;
     } catch {
       return 1024;
     }

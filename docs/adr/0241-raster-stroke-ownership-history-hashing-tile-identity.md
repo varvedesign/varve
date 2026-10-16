@@ -1,0 +1,189 @@
+# ADR-0241: Raster stroke ownership, history hashing cost, and tile content identity
+
+- **Status:** Accepted for D1-D3 (implemented). D4 is **Proposed** and not in effect.
+- **Date:** 2026-10-16
+- **Related:** ADR-0198, ADR-0203, ADR-0214, `docs/architecture/persistent-history.md`,
+  `docs/architecture/render-pipeline.md`,
+  `docs/research/perf-cow-history-cache-ledger-2026-10-16.md`
+
+## Context
+
+The request was to make rendering use bounded threads and SIMD where they help,
+share unchanged document structure and raster data safely, make undo cheap
+without weakening durable history, and keep cached composition equivalent to a
+fresh render. Before choosing mechanisms, the real paths were traced and
+measured (numbers: the research ledger; machine: 4-core/8-thread Ryzen 5300U
+under a load average of 8-12 from other sessions, so absolute figures are
+indicative and every comparison below is an alternating same-process A/B).
+
+What the audit established:
+
+1. **No raster kernel runs threaded or SIMD today.** `varve-wasm` exports IR
+   build, hit-test, trace and media probe only. `+simd128` is a blanket
+   `RUSTFLAGS` value whose effect on emitted code has not been inspected.
+   Pixel kernels live in TypeScript (`blur.ts`, compositing) and native
+   `varve-effects`, which `varve-wasm` does not depend on.
+2. **A committed paint stroke hashes the whole document three times.**
+   `diffDocuments` hashes base and target; capture then hashes the replay
+   again. `canonicalHistoryHash` expands every tile byte to a JS number and
+   builds one string, then runs a pure-TypeScript SHA-256 (about 40 MB/s here).
+   Measured on noise tiles: 56-111 ms at 0.25 MiB, ~1.1 s at 4 MiB per hash;
+   linear at ~270 ms/MiB. Extrapolated, a fully painted 24 MP RGBA8 layer
+   (~96 MiB) is on the order of 25 s per hash, and its canonical text would be
+   roughly 0.7 of V8's maximum string length.
+3. **Per-dab tile cloning.** `compositeDabOnNode` copied the whole tile `Map`
+   and cloned every touched 128x128 tile for every dab: a 16-dab batch
+   allocated 62 tile buffers for 4 distinct tiles.
+4. **Tile `version` is used as content identity but is only a per-node
+   mutation counter.** `RasterLayerCache`, the dirty-region diff, the IR cache
+   summary and the pyramid keys all skip work when versions are equal. After
+   undo + a different stroke, or a divergent branch checkout, two different
+   pixel states carry the same number.
+5. **Engine-node conversion is O(layer) per stroke batch.**
+   `sceneNodeToEngineNode` runs `Array.from` over every tile of a raster layer
+   whenever the node identity changes: ~130 ms/MiB (0.5 s at 4 MiB, 2.1 s at
+   16 MiB). Not addressed by this ADR; see Open items.
+
+## Decision
+
+**D1 - Stroke-scoped exclusive tile ownership.** `RasterTileDraft`
+(`packages/scene/src/rasterLayer.ts`) copies the tile `Map` once and clones a
+given tile at most once per draft; later dabs write the draft's private copy.
+`commit()` publishes an ordinary immutable node and seals the draft. Published
+tiles are never written. Tile `version` advances once per dab that touches the
+tile, exactly as before, so versions, history deltas and canonical hashes are
+unchanged. `compositeDabOnNode` and `eraseDabOnNode` are now one-dab drafts
+(one kernel, no duplicate). `PaintTool.applyBatch` uses one draft per batch.
+`compositeSmudgeDabOnNode` is deliberately untouched: it reads source tiles
+while writing, so in-place mutation would change its semantics.
+
+**D2 - Cheaper history capture without changing the hash value.** The
+canonical history hash **value** is unchanged and remains authoritative for
+every stored revision and snapshot.
+- `canonicalDocumentDigest` streams the same bytes `canonicalizeDocument`
+  produces into an incremental `Sha256Stream` (no `Array.from`, no document
+  string). It is verified byte-for-byte against the string path.
+- `DiffOptions.baseHash` lets a caller that already holds the base document's
+  digest skip hashing it. `EditorHistorySession` supplies it only when the
+  `before` document is the object it recorded or verified for the head
+  revision (genesis, attach-equal, captured `after`, loaded-and-verified).
+- Replay verification first tries `strictlyIdentical(replayed, after)`; a
+  structural match proves the stored operations recreate the captured document
+  without a third hash. Anything not provably identical falls back to the hash
+  comparison, so the oracle is never weakened.
+- Typed-array detection is realm-independent (`isByteArray`). The previous
+  `instanceof` check made a cross-realm array canonicalize as `{"0":...}`.
+Result: hash passes per raster stroke 3 -> 1; digest 2.5-3.3x faster per
+pass. Capture remains **O(raster bytes)**; see D4.
+
+**D3 - Tile content identity is a runtime token, not the version.**
+`tilePixelsIdentity(pixels)` (a `WeakMap`-assigned, process-local number) is
+carried as `contentId` on engine tile records. `RasterLayerCache`,
+`dirtyRegion`, `cacheContentParts` and the pyramid `l0Snapshot` compare it
+(or the pixel buffer itself) in addition to `version`. `contentId` is never
+persisted and never enters the canonical form. When absent, behaviour is the
+previous version-only comparison.
+
+**D4 - Proposed, not implemented: hash scheme v2 (tile Merkle).** To make
+capture O(changed tiles), tile pixels would contribute to the document hash as
+their own SHA-256 (memoized per immutable buffer) instead of as bytes.
+Documents with no byte-array values hash identically under v1 and v2. This changes
+the persisted `canonicalDocumentHash` for raster-bearing documents, so it
+needs: a `hashScheme` marker on revisions/snapshots/operation payload hashes,
+dual-scheme verification for legacy records, migration and recovery tests, and
+explicit approval. It is the only route to interactive capture at the 24 MP
+scale because pure-TypeScript SHA-256 cannot hash ~100 MiB per stroke.
+
+**D5 - Tile pixels cross into the IR by reference, and the IR cache does not
+charge what it does not own.** `RasterTileIR.pixels` accepts the document's
+`Uint8ClampedArray` and `sceneNodeToEngineNode` passes the buffer itself;
+`replayIr` and `RasterLayerCache` read it through `ArrayLike<number>` instead of
+copying it into a fresh `Uint8ClampedArray`. This removes a lossless round trip
+through a boxed array 8x the size of the pixels. Reading the buffer is safe
+because published tiles are immutable (D1) and nothing in the IR path writes to
+them; an upload must never transfer the `ArrayBuffer`, which would detach the
+document's storage.
+
+`SubtreeIrCache.estimateItemBytes` charges such a tile
+`TILE_REFERENCE_BYTES` (the grid key, the record and the pointer) instead of
+walking its payload, because those bytes belong to the document. Both halves are
+required together: `JSON.stringify` renders a typed array as an index-keyed
+object (~10 characters per element) rather than a bare number list, so the
+transport change alone would have *raised* the entry estimate and lowered the
+cache's admission threshold. Measured (64 tiles, 4 MiB of pixels, 50 MiB
+budget): previous `number[]` + previous accounting = 28.6 MiB and ~1.14 s to
+compute; typed array + previous accounting = 91.2 MiB and **refused**; typed
+array + current accounting = 10.6 KiB and ~0 ms. Refusal was not a warning: a
+refused entry is never stored, so the layer paid the whole-layer conversion and
+the whole-stringify again on every frame. See
+`docs/perf/2026-10-16-raster-tile-transport.md`.
+
+## Alternatives considered
+
+- **Faster SHA only.** An 8-round unrolled core measured ~1.4x under load;
+  WebCrypto has no incremental API and is async; a WASM SHA needs the asset
+  pipeline that is not present locally. None changes the O(bytes) term.
+- **Hash memo keyed by `Document` identity.** Wrong silently if any code
+  mutates a published tile in place; the session-private identity-guarded
+  reuse in D2 has a narrow, verifiable lifetime instead.
+- **Make `version` globally unique.** The version is part of the canonical
+  document and the persisted raster delta; rewriting it changes hashes.
+- **Memoize `Array.from(tile.pixels)` per tile.** Trades CPU for a 4-8x
+  resident-memory multiple of every tile on a 4 GB target.
+
+## Consequences
+
+- Paint batches allocate one buffer per touched tile instead of one per dab
+  per tile. No latency win was demonstrated on this machine (the dab kernel
+  dominates; sustained 1000-dab stroke: -12% at 4 tiles, +4% at 64 tiles,
+  within noise). The benefit is allocation volume and GC pressure.
+- Capture does a third of the hashing and each pass is ~3x cheaper; large
+  raster documents no longer build a document-sized string.
+- A divergent-branch checkout or undo-then-different-stroke can no longer be
+  mistaken for "tile unchanged" by the retained raster surface, the partial
+  redraw region, the IR cache, or the pyramid.
+- Unchanged tiles keep their identity across conversions, so retained
+  surfaces still skip them.
+
+## Migration impact
+
+None. No persisted field, schema, or hash value changes in D1-D3.
+
+## Compatibility impact
+
+- `RasterTileIR.contentId` is optional; consumers fall back to version-only
+  comparison when it is absent.
+- `@varve/history` exports `strictlyIdentical`; `@varve/scene` exports
+  `canonicalDocumentDigest`, `Sha256Stream`, `isByteArray`, `RasterTileDraft`,
+  `beginRasterTileDraft`; `@varve/engine` exports `tilePixelsIdentity` and the
+  `RasterTileIR` type.
+- A cross-realm typed array now canonicalizes as an array (it previously
+  produced an index-keyed object, which no realm-consistent document can have
+  persisted).
+
+## Security considerations
+
+`contentId` is a process-local counter; it carries no content, is not
+persisted, and is not an integrity mechanism (SHA-256 content hashes remain
+that). `strictlyIdentical` is one-sided: `true` implies equal canonical bytes,
+`false` only means "not proven".
+
+## Open items
+
+- Engine-node conversion cost is **resolved for tile pixels** by D5. What
+  remains is the per-node work around it (node records, resolution of styles,
+  warps and separation bands), which is not O(raster bytes).
+- D4 approval and implementation.
+- Threaded/SIMD raster kernel: requires a built engine WASM artifact,
+  `wasm-opt`, and a COOP/COEP determination for the Tauri webview; a
+  candidate is the TypeScript separable blur for radius > 32 px.
+- `RasterLayerCache` keys surfaces by node id alone and
+  `resetRasterLayerCache` has no production caller; legacy sequential ids can
+  collide across documents.
+
+## Rejected shortcuts
+
+- Counting a cache-hit counter, a worker count or `+simd128` as evidence of
+  acceleration.
+- Re-timing a stack pop and calling undo instant.
+- Loosening the replay oracle to make capture faster.

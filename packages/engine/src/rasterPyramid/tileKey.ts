@@ -14,6 +14,8 @@
  * A cache entry stores its snapshot string and a lookup compares it.
  */
 
+import { tilePixelsIdentity } from '../rasterTileIdentity';
+
 export const PYRAMID_RESAMPLER_VERSION = 1;
 
 /**
@@ -48,6 +50,8 @@ export function sourceTileKey(col: number, row: number): string {
 export interface PyramidSourceTile {
   readonly version: number;
   readonly pixels?: Uint8ClampedArray | ArrayLike<number>;
+  /** Runtime identity of the pixel buffer; see `tilePixelsIdentity`. */
+  readonly contentId?: number;
 }
 
 /** Accepts either the scene Map or the engine-IR Record form of a tile table. */
@@ -55,12 +59,18 @@ export type PyramidSourceTiles =
   | ReadonlyMap<string, PyramidSourceTile>
   | Readonly<Record<string, PyramidSourceTile>>;
 
-function readVersion(tiles: PyramidSourceTiles, key: string): number {
-  if (tiles instanceof Map) {
-    return tiles.get(key)?.version ?? 0;
-  }
-  const t = (tiles as Record<string, PyramidSourceTile>)[key];
-  return t?.version ?? 0;
+/**
+ * A tile's source revision: its version, plus its pixel-buffer identity when
+ * one is available. The version alone repeats across divergent histories.
+ */
+function readRevision(tiles: PyramidSourceTiles, key: string): string {
+  const tile =
+    tiles instanceof Map ? tiles.get(key) : (tiles as Record<string, PyramidSourceTile>)[key];
+  if (!tile) return '0';
+  const identity =
+    tile.contentId ??
+    (ArrayBuffer.isView(tile.pixels) ? tilePixelsIdentity(tile.pixels) : undefined);
+  return identity === undefined ? String(tile.version) : `${tile.version}.${identity}`;
 }
 
 /**
@@ -74,7 +84,7 @@ export function l0Snapshot(
 ): string {
   const entries = children.map((c) => {
     const key = sourceTileKey(c.col, c.row);
-    const v = readVersion(tiles, key);
+    const v = readRevision(tiles, key);
     return `${c.col}:${c.row}:${v}`;
   });
   return entries.sort().join(';');
