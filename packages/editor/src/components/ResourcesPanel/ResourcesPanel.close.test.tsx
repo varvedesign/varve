@@ -53,7 +53,7 @@ function mountPanel(onCloseResponsivePanel?: () => void) {
   render(
     <EditorProvider>
       <ResourcesPanel
-        doc={createDocument({ name: 'Close control fixture' })}
+        doc={createDocument('Close control fixture')}
         onInstallLibrary={vi.fn()}
         onUninstallLibrary={vi.fn()}
         {...(onCloseResponsivePanel ? { onCloseResponsivePanel } : {})}

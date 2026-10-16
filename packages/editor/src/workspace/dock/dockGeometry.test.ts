@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { registerBuiltinPanels } from '../panelDefinitions';
 import { resetPanelRegistry } from '../panelRegistry';
 import {
+  DOCK_SPLITTER_BAND_COARSE,
+  DOCK_SPLITTER_BAND_FINE,
   getDockCanvasRect,
   getDockPanelPlacements,
   projectVisibleDockTree,
@@ -266,6 +268,35 @@ describe('dock geometry', () => {
       second: { kind: 'panel', id: 'p', panelInstanceId: 'l-1', panelTypeId: 'layers' },
     };
     expect(resetSplitRatio(userSplit, 'user-split')).toBe(userSplit);
+  });
+
+  it('sizes a splitter band by input capability, centred on the seam', () => {
+    resetPanelRegistry();
+    registerBuiltinPanels();
+    const root = createDefaultEditorDockLayout('design').windows[0]!.dockRoot;
+    const splitFor = (band?: number) => {
+      const geometry = resolveDockTreeGeometry(
+        root,
+        1440,
+        900,
+        {},
+        band === undefined ? {} : { splitterBand: band },
+      );
+      return geometry.splitters.find((splitter) => splitter.nodeId === 'layers-main')!;
+    };
+    const coarse = splitFor();
+    const fine = splitFor(DOCK_SPLITTER_BAND_FINE);
+    expect(coarse.rect.width).toBe(DOCK_SPLITTER_BAND_COARSE);
+    expect(fine.rect.width).toBe(DOCK_SPLITTER_BAND_FINE);
+    // Same seam, so the panel side loses nothing but the canvas side stops
+    // being owned by the divider: the band shrinks symmetrically about the edge.
+    const seam = coarse.rect.x + coarse.rect.width / 2;
+    expect(fine.rect.x + fine.rect.width / 2).toBeCloseTo(seam, 5);
+    expect(seam).toBeCloseTo(288, 5);
+    // Out-of-range values cannot produce a grab band too small to use or one
+    // that swallows the neighbouring pane.
+    expect(splitFor(1).rect.width).toBe(8);
+    expect(splitFor(400).rect.width).toBe(32);
   });
 
   it('names each splitter after the pane it sizes', () => {

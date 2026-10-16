@@ -491,6 +491,16 @@ function ShellInner({
     distractionFreeMode,
   } = editor.state;
   const layersExpanded = leftPanelVisible || layersVisible;
+  /**
+   * A compact drawer (or the Resources sheet) is modal: the scrim covers the
+   * canvas, so nothing underneath it may stay interactive. The launchers sit
+   * *below* the scrim and the floating toolbar *above* it — measured: a dismiss
+   * tap above the Resources sheet landed on `button.ccb__tool-pill`, changing
+   * the active tool instead of closing the drawer. Both are therefore retired
+   * while a drawer is open, leaving the drawer's own close control, Escape and
+   * the scrim as the ways out. False on desktop, where these flags never set.
+   */
+  const compactDrawerOpen = layersVisible || inspectorVisible || libraryPanelVisible;
   const {
     closeResponsivePanels,
     closeResponsiveInspector,
@@ -611,7 +621,7 @@ function ShellInner({
               <CollabHeaderControl onOpenShare={() => setCollabShareOpen(true)} />
             </header>
           )}
-          <FloatingToolbar style={dockGeometry.toolbarStyle} />
+          {!compactDrawerOpen && <FloatingToolbar style={dockGeometry.toolbarStyle} />}
           {!distractionFreeMode && effectiveConfig.tabStrip && (
             <TabStrip onBackToHome={onBackToHome} />
           )}
@@ -983,7 +993,7 @@ function ShellInner({
             the layers/inspector/resources drawers at <=899px. Gating them on
             a status-bar preference left a workspace with the status bar
             disabled with no reachable way to reveal a hidden panel. */}
-          {!distractionFreeMode && !layersVisible && !inspectorVisible && !libraryPanelVisible && (
+          {!distractionFreeMode && !compactDrawerOpen && (
             <>
               {/* FAB for layers (responsive) */}
               <button
