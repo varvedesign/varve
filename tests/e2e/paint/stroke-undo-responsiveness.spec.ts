@@ -369,7 +369,21 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
     await activatePaintTool(page);
     await paintStroke(page, { x: 320, y: 260 }, { x: 520, y: 400 });
     const afterFirst = await canvasHash(page);
-    expect(afterFirst, 'a paint stroke must change visible pixels').not.toBe(emptyHash);
+    // Reproduced product symptom, not harness noise. Observed once with full
+    // frame diagnostics: the stroke is committed (the layer appears in the
+    // Layers panel and history records a commit) while the canvas stays empty,
+    // on a `worker-cached clean full` frame with `source: worker-reply` and
+    // `dirty: 0%`. `renderPipeline.ts` composites a matching worker bitmap
+    // *instead of* replaying the fresh IR, so a bitmap that lacks the stroke is
+    // presented as current. Discriminate presentation from rendering with
+    //   VARVE_ORACLE_DIAG=1 npx playwright test tests/e2e/paint/oracle-diff-diag.spec.ts
+    // which paints several strokes and reports whether a forced authoritative
+    // redraw recovers the pixels.
+    expect(
+      afterFirst,
+      'a paint stroke must change visible pixels — the canvas kept a stale frame ' +
+        '(see tests/e2e/paint/oracle-diff-diag.spec.ts for the discriminating probe)',
+    ).not.toBe(emptyHash);
     await expectOracleEquality(page, 'after stroke 1');
 
     // Stroke 2.

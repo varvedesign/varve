@@ -169,7 +169,6 @@ async function diffAgainstBefore(page: import('@playwright/test').Page) {
 
 test.describe('oracle diff diagnostic (opt-in)', () => {
   test.skip(!enabled, 'set VARVE_ORACLE_DIAG=1 to run');
-
   test('captures the incremental-vs-authoritative difference after a stroke', async ({
     page,
   }, testInfo) => {
@@ -228,4 +227,131 @@ test.describe('oracle diff diagnostic (opt-in)', () => {
     writeFileSync(join(outDir, 'oracle-diff.json'), JSON.stringify(report, null, 2));
     console.log(`[oracle-diag] ${JSON.stringify(report)}`);
   });
+});
+
+/**
+ * Is a blank canvas after a committed stroke a *render* failure or a
+ * *presentation* failure?
+ *
+ * `stroke-undo-responsiveness.spec.ts` asserts "a paint stroke must change
+ * visible pixels" and has failed with the layer present in the Layers panel
+ * (`Brush Layer`), `nodes: 1`, `cacheEntries: 1`, and an empty canvas on a
+ * `worker-cached clean full` frame (`source: worker-reply`, `dirty: 0%`). That
+ * is consistent with either a stale worker bitmap being presented, or the IR
+ * genuinely lacking the stroke's tiles.
+ *
+ * A forced authoritative full redraw separates them: if the pixels come back,
+ * the document and the render path are correct and the defect is that a stale
+ * bitmap was allowed to stand for the current revision. If they do not, the IR
+ * or the tile upload is at fault.
+ *
+ * The symptom is intermittent (roughly one run in two or three), so this paints
+ * several strokes in one session and reports every iteration.
+ */
+test('after strokes: does a forced full redraw recover silent pixels?', async ({
+  page,
+}, testInfo) => {
+  test.skip(!enabled, 'set VARVE_ORACLE_DIAG=1 to run');
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await navigateToEditor(page, '/?perf=1');
+  await expect
+    .poll(async () => page.evaluate(() => Boolean((window as unknown as DiagWindow).__varvePerf)), {
+      timeout: 20_000,
+    })
+    .toBe(true);
+  await page.locator(CANVAS).waitFor({ timeout: 20_000 });
+
+  const hashOf = () =>
+    page.evaluate((selector) => {
+      const canvas = document.querySelector(selector) as HTMLCanvasElement;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('no 2d context');
+      const px = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let hash = 2166136261;
+      for (let i = 0; i < px.length; i += 97) {
+        hash ^= px[i] ?? 0;
+        hash = Math.imul(hash, 16777619);
+      }
+      return hash >>> 0;
+    }, CANVAS);
+
+  await page.keyboard.press('b');
+  await expect(
+    page.locator('[data-testid="toolbar"] [data-tool="paint"]'),
+    'the paint tool must be active before drawing',
+  ).toHaveAttribute('aria-pressed', 'true', { timeout: 10_000 });
+
+  const iterations: Array<Record<string, unknown>> = [];
+  let previousHash = await hashOf();
+  let caught: Record<string, unknown> | null = null;
+
+  for (let i = 0; i < 5; i++) {
+    const dy = i * 40;
+    await dragOnCanvas(page, { x: 300, y: 220 + dy }, { x: 520, y: 340 + dy });
+    await settle(page);
+    const hash = await hashOf();
+    const changed = hash !== previousHash;
+    const entry: Record<string, unknown> = {
+      iteration: i,
+      changed,
+      hashBefore: previousHash,
+      hash,
+    };
+
+    if (!changed && !caught) {
+      const framesBefore = await page.evaluate(
+        () => (window as unknown as DiagWindow).__varvePerf?.getFrames?.(8) ?? [],
+      );
+      const status = await page.evaluate(() => {
+        const perf = window as unknown as {
+          __varvePerf?: { workerStatus?: () => unknown; renderPath?: () => unknown };
+        };
+        return {
+          worker: perf.__varvePerf?.workerStatus?.() ?? null,
+          renderPath: perf.__varvePerf?.renderPath?.() ?? null,
+        };
+      });
+      await page.evaluate(async () => {
+        const perf = (window as unknown as DiagWindow).__varvePerf;
+        await perf?.forceFullRedraw?.();
+      });
+      await settle(page);
+      const afterForce = await hashOf();
+      const framesAfter = await page.evaluate(
+        () => (window as unknown as DiagWindow).__varvePerf?.getFrames?.(8) ?? [],
+      );
+      caught = {
+        iteration: i,
+        // The decisive split: if a forced redraw brings the pixels back, the
+        // document and render path are right and the defect is a stale bitmap
+        // standing in for the current revision. If not, the IR or the tile
+        // upload never had the stroke.
+        recoveredByForcedRedraw: afterForce !== hash,
+        hashAfterForceRedraw: afterForce,
+        layerCount: await page.getByRole('treeitem').count(),
+        status,
+        framesBefore,
+        framesAfter,
+      };
+      entry.caught = caught;
+    }
+
+    iterations.push(entry);
+    previousHash = hash;
+  }
+
+  writeFileSync(
+    join(testInfo.outputPath(), 'stroke-present.json'),
+    JSON.stringify({ iterations, caught }, null, 2),
+  );
+  console.log(
+    `[stroke-present] ${JSON.stringify({
+      silentStrokes: iterations.filter((it) => it.changed === false).length,
+      iterations: iterations.length,
+      recoveredByForcedRedraw: caught?.recoveredByForcedRedraw ?? null,
+    })}`,
+  );
+  // Reports rather than asserts: the gating assertion lives in
+  // stroke-undo-responsiveness.spec.ts.
 });
