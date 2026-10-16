@@ -229,6 +229,25 @@ async fn keeps_connections_independent_and_ordered_within_one() {
 }
 
 #[tokio::test]
+async fn a_nothing_outcome_keeps_the_connection_open_without_a_reply() {
+    // First frame: no reply at all (a notification). Second: the connection is
+    // still usable, which is the point.
+    let harness = Harness::start(
+        vec![RelayOutcome::Nothing, RelayOutcome::Reply("{\"after\":true}".into())],
+        limits(),
+    )
+    .await;
+    let (mut reader, mut stream) = harness.connect().await;
+    write_line(&mut stream, "{\"method\":\"note\",\"no\":\"id\"}").await;
+    write_line(&mut stream, "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\"}").await;
+    let mut reply = String::new();
+    reader.read_line(&mut reply).await.unwrap();
+    assert_eq!(reply.trim_end(), "{\"after\":true}");
+    assert_eq!(harness.relay.frames().len(), 2);
+    let _ = harness.host.shutdown().await;
+}
+
+#[tokio::test]
 async fn a_reply_and_close_outcome_writes_the_last_word_then_closes() {
     let harness = Harness::start(
         vec![RelayOutcome::ReplyAndClose("{\"byebye\":true}".into())],

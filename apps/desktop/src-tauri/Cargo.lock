@@ -402,6 +402,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
  "axum-core",
+ "base64 0.22.1",
  "bytes",
  "form_urlencoded",
  "futures-util",
@@ -420,8 +421,10 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "serde_urlencoded",
+ "sha1",
  "sync_wrapper",
  "tokio",
+ "tokio-tungstenite",
  "tower",
  "tower-layer",
  "tower-service",
@@ -1153,6 +1156,12 @@ dependencies = [
  "quote",
  "syn 2.0.119",
 ]
+
+[[package]]
+name = "data-encoding"
+version = "2.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
 
 [[package]]
 name = "dbus"
@@ -5404,6 +5413,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha1"
+version = "0.10.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a978451301f4db1d02937a4ab3ccce137717b81826e79b7d49ffe3244a13c3b8"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.2.17",
+ "digest 0.10.7",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6360,6 +6380,7 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",
@@ -6384,6 +6405,18 @@ checksum = "1729aa945f29d91ba541258c8df89027d5792d85a8841fb65e8bf0f4ede4ef61"
 dependencies = [
  "rustls",
  "tokio",
+]
+
+[[package]]
+name = "tokio-tungstenite"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f72a05e828585856dacd553fba484c242c46e391fb0e58917c942ee9202915c"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite",
 ]
 
 [[package]]
@@ -6622,6 +6655,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tungstenite"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c01152af293afb9c7c2a57e4b559c5620b421f6d133261c60dd2d0cdb38e6b8"
+dependencies = [
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.9.5",
+ "sha1",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "typeid"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6809,6 +6858,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "varve-automation-host"
+version = "0.5.1"
+dependencies = [
+ "futures-util",
+ "rand 0.9.5",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "varve-bgremove"
 version = "0.5.1"
 dependencies = [
@@ -6858,6 +6918,7 @@ dependencies = [
  "base64 0.23.1",
  "chrono",
  "font-enumeration",
+ "futures-util",
  "glib 0.22.8",
  "gtk",
  "image",
@@ -6876,8 +6937,10 @@ dependencies = [
  "tauri-plugin-updater",
  "tauri-plugin-wdio",
  "tauri-plugin-wdio-webdriver",
+ "tokio",
  "ttf-parser",
  "varve-accel",
+ "varve-automation-host",
  "varve-bgremove",
  "varve-bridge",
  "varve-core",
@@ -6885,6 +6948,7 @@ dependencies = [
  "varve-engine",
  "varve-media",
  "varve-print",
+ "varve-room",
  "varve-sync",
  "varve-trace",
  "varve-upscale",
@@ -6936,6 +7000,20 @@ dependencies = [
  "ttf-parser",
  "varve-colour",
  "varve-core",
+]
+
+[[package]]
+name = "varve-room"
+version = "0.5.1"
+dependencies = [
+ "axum",
+ "futures-util",
+ "rand 0.9.5",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tokio",
 ]
 
 [[package]]

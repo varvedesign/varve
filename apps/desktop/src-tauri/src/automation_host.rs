@@ -121,10 +121,12 @@ impl FrameRelay for AppRelay {
                 Some(reply) => reply,
                 None => return RelayOutcome::Close,
             };
+            // Total, so no combination is silently unrepresentable.
             match (frame, close_after) {
-                (Some(frame), true) => RelayOutcome::ReplyAndClose(frame),
                 (Some(frame), false) => RelayOutcome::Reply(frame),
-                (None, _) => RelayOutcome::Close,
+                (Some(frame), true) => RelayOutcome::ReplyAndClose(frame),
+                (None, false) => RelayOutcome::Nothing,
+                (None, true) => RelayOutcome::Close,
             }
         }
         .boxed()
@@ -175,7 +177,8 @@ fn state() -> &'static AsyncMutex<Option<Hosted>> {
     HOSTED.get_or_init(|| AsyncMutex::new(None))
 }
 
-fn instance_id() -> String {
+/// Fallback identity when the webview does not supply one.
+fn default_instance_id() -> String {
     format!("desktop-{}", std::process::id())
 }
 
@@ -257,6 +260,7 @@ pub async fn automation_apply_policy(
     grants: String,
     document_id: String,
     document_name: String,
+    instance_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     if !enabled {
         stop_host().await;
@@ -268,8 +272,18 @@ pub async fn automation_apply_policy(
         id: document_id,
         name: document_name,
     };
+    // The webview mints the instance id because it also reports it as the
+    // session's identity; one value with one source means the discoverable
+    // record and `session.hello` cannot disagree about which window a client is
+    // attached to.
+    let requested_instance = instance_id
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(default_instance_id);
     if let Some(hosted) = guard.as_ref() {
-        if hosted.grants == grants && hosted.document == document {
+        if hosted.grants == grants
+            && hosted.document == document
+            && hosted.instance_id == requested_instance
+        {
             // Nothing changed; do not bounce the socket under connected clients.
             return Ok(serde_json::json!({
                 "running": true,
@@ -283,7 +297,7 @@ pub async fn automation_apply_policy(
     }
 
     let relay: Arc<dyn FrameRelay> = Arc::new(AppRelay { app: app.clone() });
-    let instance_id = instance_id();
+    let instance_id = requested_instance;
     let config = HostConfig {
         runtime_root: varve_automation_host::endpoint::runtime_directory()
             .map_err(|error| format!("runtime directory: {error}"))?,

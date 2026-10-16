@@ -296,6 +296,7 @@ async fn serve_connection(
                             let _ = writer.shutdown().await;
                             return;
                         }
+                        RelayOutcome::Nothing => {}
                         RelayOutcome::Close => {
                             let _ = writer.shutdown().await;
                             return;

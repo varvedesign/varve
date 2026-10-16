@@ -46,6 +46,13 @@ pub enum RelayOutcome {
     ReplyAndClose(String),
     /// Send nothing further on this connection and close it.
     Close,
+    /// Write nothing and keep the connection open.
+    ///
+    /// A JSON-RPC notification has no response, and the protocol is explicit
+    /// that a notification is never executed as authored work. It must not
+    /// close a healthy connection either, so "no reply" is a decision the
+    /// transport has to be able to hear rather than infer.
+    Nothing,
 }
 
 /// A reason the transport itself must refuse something, before or instead of
