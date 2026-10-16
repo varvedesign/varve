@@ -1,6 +1,6 @@
 # ADR-0244: Dependable editable layout contract
 
-**Status:** Accepted for implementation  
+**Status:** Accepted for implementation
 **Date:** 2026-10-15
 
 ## Context
