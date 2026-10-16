@@ -29,6 +29,9 @@ import {
   renamePresentationDeck,
   renamePresentationSection,
   reorderPresentationSlide,
+  setPresentationDeckDefaultTransition,
+  setPresentationSlideBuilds,
+  setPresentationSlideTransition,
   updatePresentationSlide,
 } from '../../presentation/model';
 import {
@@ -45,12 +48,19 @@ import {
   removePresentationTheme,
   unlinkPresentationTheme,
 } from '../../presentation/themes';
+import {
+  isValidPresentationBuild,
+  isValidPresentationTransition,
+} from '../../presentation/transitions';
 import type {
+  PresentationBuildStep,
   PresentationDeck,
   PresentationLayoutSource,
   PresentationSection,
   PresentationSlideEntry,
+  PresentationTransition,
 } from '../../presentation/types';
+import { MAX_PRESENTATION_BUILDS_PER_SLIDE } from '../../presentation/types';
 import type { NodeId } from '../../types';
 import { registerOperation } from '../registry';
 import type { ValidationResult } from '../types';
@@ -85,6 +95,21 @@ export interface PresentationSlideUpdatePayload extends PresentationSlideReferen
 
 export interface PresentationSlideReorderPayload extends PresentationSlideReferencePayload {
   toIndex: number;
+}
+
+export interface PresentationSlideTransitionPayload extends PresentationSlideReferencePayload {
+  /** `null` clears the per-slide override so the deck default applies. */
+  transition: PresentationTransition | null;
+}
+
+export interface PresentationSlideBuildsPayload extends PresentationSlideReferencePayload {
+  /** Replaces the whole ordered build list; an empty array clears the builds. */
+  builds: PresentationBuildStep[];
+}
+
+export interface PresentationDeckTransitionPayload extends PresentationDeckIdPayload {
+  /** `null` removes the deck default; slides then cut unless they override. */
+  transition: PresentationTransition | null;
 }
 
 export interface PresentationSectionCreatePayload extends PresentationDeckIdPayload {
@@ -374,6 +399,80 @@ function validateSlideReorder(payload: unknown): ValidationResult<PresentationSl
   return {
     ok: true,
     value: { deckId: payload.deckId, entryId: payload.entryId, toIndex: payload.toIndex },
+  };
+}
+
+function validateSlideTransition(
+  payload: unknown,
+): ValidationResult<PresentationSlideTransitionPayload> {
+  if (!record(payload) || !nonEmptyString(payload.deckId) || !nonEmptyString(payload.entryId)) {
+    return { ok: false, errors: ['presentation.slide.setTransition requires deckId and entryId'] };
+  }
+  if (payload.transition !== null && !isValidPresentationTransition(payload.transition)) {
+    return { ok: false, errors: ['presentation.slide.setTransition requires a valid transition'] };
+  }
+  return {
+    ok: true,
+    value: {
+      deckId: payload.deckId,
+      entryId: payload.entryId,
+      transition: payload.transition as PresentationTransition | null,
+    },
+  };
+}
+
+function validateSlideBuilds(payload: unknown): ValidationResult<PresentationSlideBuildsPayload> {
+  if (!record(payload) || !nonEmptyString(payload.deckId) || !nonEmptyString(payload.entryId)) {
+    return { ok: false, errors: ['presentation.slide.setBuilds requires deckId and entryId'] };
+  }
+  if (!Array.isArray(payload.builds)) {
+    return { ok: false, errors: ['presentation.slide.setBuilds requires a builds array'] };
+  }
+  if (payload.builds.length > MAX_PRESENTATION_BUILDS_PER_SLIDE) {
+    return {
+      ok: false,
+      errors: [
+        `presentation.slide.setBuilds supports at most ${MAX_PRESENTATION_BUILDS_PER_SLIDE} builds`,
+      ],
+    };
+  }
+  if (
+    !payload.builds.every((step): step is PresentationBuildStep => isValidPresentationBuild(step))
+  ) {
+    return { ok: false, errors: ['presentation.slide.setBuilds contains an invalid build step'] };
+  }
+  const ids = new Set<string>();
+  for (const step of payload.builds as PresentationBuildStep[]) {
+    if (ids.has(step.id)) {
+      return { ok: false, errors: [`presentation build id is duplicated: ${step.id}`] };
+    }
+    ids.add(step.id);
+  }
+  return {
+    ok: true,
+    value: {
+      deckId: payload.deckId,
+      entryId: payload.entryId,
+      builds: payload.builds as PresentationBuildStep[],
+    },
+  };
+}
+
+function validateDeckTransition(
+  payload: unknown,
+): ValidationResult<PresentationDeckTransitionPayload> {
+  if (!record(payload) || !nonEmptyString(payload.deckId)) {
+    return { ok: false, errors: ['presentation.deck.setTransition requires deckId'] };
+  }
+  if (payload.transition !== null && !isValidPresentationTransition(payload.transition)) {
+    return { ok: false, errors: ['presentation.deck.setTransition requires a valid transition'] };
+  }
+  return {
+    ok: true,
+    value: {
+      deckId: payload.deckId,
+      transition: payload.transition as PresentationTransition | null,
+    },
   };
 }
 
@@ -932,6 +1031,72 @@ export function registerPresentationOperations(): void {
         ? null
         : `presentation slide destination is out of range: ${payload.toIndex}`;
     },
+    maxPayloadBytes: 8_000,
+  });
+
+  registerOperation<PresentationSlideTransitionPayload>({
+    type: 'presentation.slide.setTransition',
+    schemaVersion: 1,
+    validate: validateSlideTransition,
+    apply: (document, payload) =>
+      setPresentationSlideTransition(document, payload.deckId, payload.entryId, payload.transition),
+    summarize: (payload) => ({
+      label:
+        payload.transition === null
+          ? 'Reset slide transition'
+          : `Set slide transition (${payload.transition.kind})`,
+      kind: 'modify',
+      affectedEntityIds: [payload.deckId],
+    }),
+    affectedEntities: (payload) => [payload.deckId, payload.entryId],
+    precondition: (document, payload) =>
+      slideExists(document, payload.deckId, payload.entryId)
+        ? null
+        : `presentation slide entry does not exist: ${payload.entryId}`,
+    maxPayloadBytes: 8_000,
+  });
+
+  registerOperation<PresentationSlideBuildsPayload>({
+    type: 'presentation.slide.setBuilds',
+    schemaVersion: 1,
+    validate: validateSlideBuilds,
+    apply: (document, payload) =>
+      setPresentationSlideBuilds(document, payload.deckId, payload.entryId, payload.builds),
+    summarize: (payload) => ({
+      label:
+        payload.builds.length === 0
+          ? 'Clear slide builds'
+          : `Set slide builds (${payload.builds.length})`,
+      kind: 'modify',
+      affectedEntityIds: [payload.deckId],
+    }),
+    affectedEntities: (payload) => [payload.deckId, payload.entryId],
+    precondition: (document, payload) =>
+      slideExists(document, payload.deckId, payload.entryId)
+        ? null
+        : `presentation slide entry does not exist: ${payload.entryId}`,
+    maxPayloadBytes: 120_000,
+  });
+
+  registerOperation<PresentationDeckTransitionPayload>({
+    type: 'presentation.deck.setTransition',
+    schemaVersion: 1,
+    validate: validateDeckTransition,
+    apply: (document, payload) =>
+      setPresentationDeckDefaultTransition(document, payload.deckId, payload.transition),
+    summarize: (payload) => ({
+      label:
+        payload.transition === null
+          ? 'Reset deck default transition'
+          : `Set deck default transition (${payload.transition.kind})`,
+      kind: 'modify',
+      affectedEntityIds: [payload.deckId],
+    }),
+    affectedEntities: (payload) => [payload.deckId],
+    precondition: (document, payload) =>
+      findPresentationDeck(document, payload.deckId)
+        ? null
+        : `presentation deck does not exist: ${payload.deckId}`,
     maxPayloadBytes: 8_000,
   });
 

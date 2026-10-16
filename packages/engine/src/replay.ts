@@ -24,6 +24,7 @@ import {
   drawCanvasOpenTypeText,
   resolveCanvasFontFamily,
   setCanvasFont,
+  withEmojiFallback,
 } from './canvasFontAliases';
 import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { DepthMapCache, deserializeDepthMap, resizeDepthMap } from './depthMap';
@@ -3239,7 +3240,7 @@ function replayFontString(
   const style = fontStyle === 'italic' ? 'italic ' : '';
   const weight = Math.max(1, Math.min(1000, fontWeight));
   const resolvedFamily = resolveCanvasFontFamily(family, features, axes, text, faceKey);
-  return `${style}${weight} ${fontSize}px "${resolvedFamily}"`;
+  return `${style}${weight} ${fontSize}px ${withEmojiFallback(`"${resolvedFamily}"`)}`;
 }
 
 /** Paint one logical run, using parsed OpenType paths when Canvas2D cannot

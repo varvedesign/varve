@@ -66,6 +66,24 @@ let sourceFacesStyleSheetCount = -1;
 let aliasStyle: HTMLStyleElement | null = null;
 const aliasStyles: HTMLStyleElement[] = [];
 
+/**
+ * Platform color-emoji families appended after the primary family in canvas
+ * font shorthands. The canvas font matcher walks the list per glyph, so text
+ * glyphs keep coming from the primary family while emoji fall through to the
+ * first installed platform emoji face instead of tofu on minimal Linux font
+ * configurations (the "boxes in canvas and exported PNG" failure class).
+ * Absent families are skipped.
+ */
+const CANVAS_EMOJI_FALLBACK_FAMILIES = [
+  'Apple Color Emoji',
+  'Segoe UI Emoji',
+  'Noto Color Emoji',
+] as const;
+
+export function withEmojiFallback(quotedFamily: string): string {
+  return `${quotedFamily}, ${CANVAS_EMOJI_FALLBACK_FAMILIES.map((family) => `"${family}"`).join(', ')}`;
+}
+
 // SVG text images use the browser's native shaper when Canvas2D lacks its
 // optional feature properties. Bridge their completion into the same redraw
 // stream as generated FontFace aliases.

@@ -7,7 +7,7 @@
  */
 
 import { managedColorToRgba } from '@varve/shared';
-import { resolveCanvasFontFamily, setCanvasFont } from './canvasFontAliases';
+import { resolveCanvasFontFamily, setCanvasFont, withEmojiFallback } from './canvasFontAliases';
 import type { ReplayTarget } from './replayTypes';
 import { shapeText } from './shaping';
 import { buildTextLayoutSnapshot, type TextLayoutSnapshot } from './textLayoutSnapshot';
@@ -52,7 +52,7 @@ function verticalFontString(
 ): string {
   const italic = style === 'italic' ? 'italic ' : '';
   const resolvedFamily = resolveCanvasFontFamily(family, features, axes, text);
-  return `${italic}${Math.max(1, Math.min(1000, weight))} ${size}px "${resolvedFamily}"`;
+  return `${italic}${Math.max(1, Math.min(1000, weight))} ${size}px ${withEmojiFallback(`"${resolvedFamily}"`)}`;
 }
 
 function verticalBoxOffset(

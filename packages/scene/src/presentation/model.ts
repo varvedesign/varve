@@ -1,11 +1,14 @@
 import type { Document } from '../document';
 import type { NodeId } from '../types';
 import {
+  MAX_PRESENTATION_BUILDS_PER_SLIDE,
   PRESENTATION_SCHEMA_VERSION,
+  type PresentationBuildStep,
   type PresentationDeck,
   type PresentationMetadata,
   type PresentationSection,
   type PresentationSlideEntry,
+  type PresentationTransition,
 } from './types';
 
 export function getPresentationMetadata(document: Document): PresentationMetadata {
@@ -164,6 +167,80 @@ export function updatePresentationSlide(
     if (update.readingOrder === null) delete next.readingOrder;
     slides[index] = next;
     return { ...deck, slides };
+  });
+}
+
+/**
+ * Sets the transition played when delivery arrives at this slide. `null`
+ * clears the override so the deck default applies again.
+ */
+export function setPresentationSlideTransition(
+  document: Document,
+  deckId: string,
+  entryId: string,
+  transition: PresentationTransition | null,
+): Document {
+  return updateDeck(document, deckId, (deck) => {
+    const index = deck.slides.findIndex((slide) => slide.id === entryId);
+    if (index < 0) throw new Error(`presentation slide entry does not exist: ${entryId}`);
+    const slides = [...deck.slides];
+    if (transition) {
+      slides[index] = { ...slides[index]!, transition };
+    } else {
+      const { transition: _removed, ...rest } = slides[index]!;
+      slides[index] = rest;
+    }
+    return { ...deck, slides };
+  });
+}
+
+/**
+ * Replaces the slide's whole build list atomically. Empty lists clear the
+ * builds. Steps are stored in the given order; sequencing semantics are
+ * resolved by the show director at delivery time.
+ */
+export function setPresentationSlideBuilds(
+  document: Document,
+  deckId: string,
+  entryId: string,
+  builds: PresentationBuildStep[],
+): Document {
+  if (builds.length > MAX_PRESENTATION_BUILDS_PER_SLIDE) {
+    throw new RangeError(
+      `presentation slide build list exceeds ${MAX_PRESENTATION_BUILDS_PER_SLIDE}`,
+    );
+  }
+  const seen = new Set<string>();
+  for (const step of builds) {
+    if (seen.has(step.id)) {
+      throw new Error(`presentation build id already exists: ${step.id}`);
+    }
+    seen.add(step.id);
+  }
+  return updateDeck(document, deckId, (deck) => {
+    const index = deck.slides.findIndex((slide) => slide.id === entryId);
+    if (index < 0) throw new Error(`presentation slide entry does not exist: ${entryId}`);
+    const slides = [...deck.slides];
+    if (builds.length > 0) {
+      slides[index] = { ...slides[index]!, builds };
+    } else {
+      const { builds: _removed, ...rest } = slides[index]!;
+      slides[index] = rest;
+    }
+    return { ...deck, slides };
+  });
+}
+
+/** Sets the deck-wide default transition. `null` removes it (slides cut by default). */
+export function setPresentationDeckDefaultTransition(
+  document: Document,
+  deckId: string,
+  transition: PresentationTransition | null,
+): Document {
+  return updateDeck(document, deckId, (deck) => {
+    if (transition) return { ...deck, defaultTransition: transition };
+    const { defaultTransition: _removed, ...rest } = deck;
+    return rest;
   });
 }
 

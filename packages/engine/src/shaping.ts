@@ -24,7 +24,7 @@
  */
 
 import { openTypeFeaturesToCss } from '@varve/shared';
-import { resolveCanvasFontFamily, setCanvasFont } from './canvasFontAliases';
+import { resolveCanvasFontFamily, setCanvasFont, withEmojiFallback } from './canvasFontAliases';
 import { type FontReference, fontReferenceKey } from './font/fontIdentity';
 import type { ItemizedParagraph } from './text/paragraphs';
 import type {
@@ -125,7 +125,7 @@ function buildFontString(
     text,
     fontReference ? fontReferenceKey(fontReference) : undefined,
   );
-  return `${style}${weight}${fontSize}px "${resolvedFamily}"`;
+  return `${style}${weight}${fontSize}px ${withEmojiFallback(`"${resolvedFamily}"`)}`;
 }
 
 type CanvasTypographyContext = CanvasRenderingContext2D & {

@@ -1,3 +1,4 @@
+import { isValidPresentationTransition, normalizePresentationBuilds } from './transitions';
 import {
   PRESENTATION_SCHEMA_VERSION,
   type PresentationDeck,
@@ -8,6 +9,7 @@ import {
   type PresentationSlideLayoutBinding,
   type PresentationSlideThemeBinding,
   type PresentationTheme,
+  type PresentationTransition,
 } from './types';
 
 type RecordValue = Record<string, unknown>;
@@ -85,6 +87,10 @@ function normalizeSlide(value: unknown, index: number): PresentationSlideEntry |
     : undefined;
   const layoutBinding = normalizeBinding(raw.layoutBinding);
   const themeBinding = normalizeThemeBinding(raw.themeBinding);
+  const transition = isValidPresentationTransition(raw.transition)
+    ? (raw.transition as PresentationTransition)
+    : undefined;
+  const builds = normalizePresentationBuilds(raw.builds);
   return {
     id,
     frameId,
@@ -98,6 +104,8 @@ function normalizeSlide(value: unknown, index: number): PresentationSlideEntry |
     ...(typeof raw.language === 'string' ? { language: raw.language } : {}),
     ...(typeof raw.altText === 'string' ? { altText: raw.altText } : {}),
     ...(readingOrder ? { readingOrder } : {}),
+    ...(transition ? { transition } : {}),
+    ...(builds ? { builds } : {}),
   };
 }
 
@@ -122,6 +130,9 @@ function normalizeDeck(value: unknown): PresentationDeck | null {
         return normalized ? [normalized] : [];
       })
     : [];
+  const defaultTransition = isValidPresentationTransition(raw.defaultTransition)
+    ? (raw.defaultTransition as PresentationTransition)
+    : undefined;
   return {
     id: raw.id,
     name: asString(raw.name, 'Untitled presentation'),
@@ -130,6 +141,7 @@ function normalizeDeck(value: unknown): PresentationDeck | null {
     slides,
     sections,
     ...(typeof raw.themeId === 'string' ? { themeId: raw.themeId } : {}),
+    ...(defaultTransition ? { defaultTransition } : {}),
   };
 }
 
@@ -165,10 +177,21 @@ function normalizeTheme(value: unknown): PresentationTheme | null {
 /**
  * Validate and normalize persisted presentation metadata without requiring
  * referenced frames to exist. Broken references and their notes are retained.
+ *
+ * Version 1 envelopes (before transitions and builds) are accepted and
+ * upgraded; the output is always the current schema version. Unknown versions
+ * are declined rather than silently rewritten.
  */
 export function normalizePresentationMetadata(value: unknown): PresentationMetadata | undefined {
   const raw = asRecord(value);
-  if (!raw || (raw.schemaVersion !== undefined && raw.schemaVersion !== 1)) return undefined;
+  if (
+    !raw ||
+    (raw.schemaVersion !== undefined &&
+      raw.schemaVersion !== 1 &&
+      raw.schemaVersion !== PRESENTATION_SCHEMA_VERSION)
+  ) {
+    return undefined;
+  }
   if (!Array.isArray(raw.decks)) return undefined;
   const decks = raw.decks.flatMap((deck) => {
     const normalized = normalizeDeck(deck);

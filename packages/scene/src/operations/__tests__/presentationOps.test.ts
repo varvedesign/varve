@@ -44,6 +44,9 @@ describe('presentation operations', () => {
         'presentation.slide.remove',
         'presentation.slide.update',
         'presentation.slide.reorder',
+        'presentation.slide.setTransition',
+        'presentation.slide.setBuilds',
+        'presentation.deck.setTransition',
         'presentation.section.create',
         'presentation.section.rename',
         'presentation.section.delete',
@@ -130,6 +133,129 @@ describe('presentation operations', () => {
       skipped: true,
       sectionId: 'section-a',
     });
+  });
+
+  it('sets and clears transitions with fractional durations through replayable operations', () => {
+    let document = docWithFrames(makeFrameNode('frame-a'), makeFrameNode('frame-b'));
+    document = commitPresentationOperation(document, 'presentation.deck.create', {
+      id: 'deck',
+      name: 'Timing',
+      width: 1920,
+      height: 1080,
+    });
+    document = commitPresentationOperation(document, 'presentation.slide.add', {
+      deckId: 'deck',
+      entry: { id: 'slide-a', frameId: 'frame-a', title: 'Opening' },
+    });
+    document = commitPresentationOperation(document, 'presentation.deck.setTransition', {
+      deckId: 'deck',
+      transition: { kind: 'fade', durationMs: 333.5 },
+    });
+    expect(document.presentation?.decks[0]?.defaultTransition).toEqual({
+      kind: 'fade',
+      durationMs: 333.5,
+    });
+    document = commitPresentationOperation(document, 'presentation.slide.setTransition', {
+      deckId: 'deck',
+      entryId: 'slide-a',
+      transition: { kind: 'morph', durationMs: 0.75, easing: { kind: 'easeInOut' } },
+    });
+    expect(document.presentation?.decks[0]?.slides[0]?.transition).toEqual({
+      kind: 'morph',
+      durationMs: 0.75,
+      easing: { kind: 'easeInOut' },
+    });
+    document = commitPresentationOperation(document, 'presentation.slide.setTransition', {
+      deckId: 'deck',
+      entryId: 'slide-a',
+      transition: null,
+    });
+    expect(document.presentation?.decks[0]?.slides[0]?.transition).toBeUndefined();
+    document = commitPresentationOperation(document, 'presentation.deck.setTransition', {
+      deckId: 'deck',
+      transition: null,
+    });
+    expect(document.presentation?.decks[0]?.defaultTransition).toBeUndefined();
+
+    expect(
+      validatePayload('presentation.slide.setTransition', {
+        deckId: 'deck',
+        entryId: 'slide-a',
+        transition: { kind: 'spin', durationMs: 500 },
+      }).ok,
+    ).toBe(false);
+    expect(
+      validatePayload('presentation.slide.setTransition', {
+        deckId: 'deck',
+        entryId: 'slide-a',
+        transition: { kind: 'fade', durationMs: -1 },
+      }).ok,
+    ).toBe(false);
+    expect(
+      preconditionFailure(document, 'presentation.slide.setTransition', {
+        deckId: 'deck',
+        entryId: 'missing',
+        transition: { kind: 'fade', durationMs: 500 },
+      }),
+    ).toContain('does not exist');
+  });
+
+  it('replaces build lists atomically and rejects duplicates and oversized lists', () => {
+    let document = docWithFrames(makeFrameNode('frame-a'));
+    document = commitPresentationOperation(document, 'presentation.deck.create', {
+      id: 'deck',
+      name: 'Builds',
+      width: 1920,
+      height: 1080,
+    });
+    document = commitPresentationOperation(document, 'presentation.slide.add', {
+      deckId: 'deck',
+      entry: { id: 'slide-a', frameId: 'frame-a', title: 'Opening' },
+    });
+    document = commitPresentationOperation(document, 'presentation.slide.setBuilds', {
+      deckId: 'deck',
+      entryId: 'slide-a',
+      builds: [
+        { id: 'b1', nodeId: 'shape-1', effect: 'flyIn', trigger: 'onClick', durationMs: 400.5 },
+        {
+          id: 'b2',
+          nodeId: 'text-1',
+          effect: 'appear',
+          trigger: 'afterPrevious',
+          paragraphRange: { from: 0, to: 2 },
+        },
+      ],
+    });
+    expect(document.presentation?.decks[0]?.slides[0]?.builds).toHaveLength(2);
+    document = commitPresentationOperation(document, 'presentation.slide.setBuilds', {
+      deckId: 'deck',
+      entryId: 'slide-a',
+      builds: [],
+    });
+    expect(document.presentation?.decks[0]?.slides[0]?.builds).toBeUndefined();
+
+    expect(
+      validatePayload('presentation.slide.setBuilds', {
+        deckId: 'deck',
+        entryId: 'slide-a',
+        builds: [
+          { id: 'b1', nodeId: 'shape-1', effect: 'appear', trigger: 'onClick' },
+          { id: 'b1', nodeId: 'shape-2', effect: 'fade', trigger: 'onClick' },
+        ],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validatePayload('presentation.slide.setBuilds', {
+        deckId: 'deck',
+        entryId: 'slide-a',
+        builds: Array.from({ length: 201 }, (_, index) => ({
+          id: `b${index}`,
+          nodeId: 'shape-1',
+          effect: 'appear',
+          trigger: 'onClick',
+        })),
+      }).ok,
+    ).toBe(false);
   });
 
   it('removes deck references without deleting the frame and preserves unresolved notes', () => {

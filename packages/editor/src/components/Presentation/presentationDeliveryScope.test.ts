@@ -2,6 +2,7 @@ import {
   createDocument,
   type Document,
   makeFrameNode,
+  PRESENTATION_SCHEMA_VERSION,
   type PresentationSlideEntry,
   resolvePresentationSlides,
 } from '@varve/scene';
@@ -22,7 +23,7 @@ describe('resolvePresentationDeliveryScope', () => {
       ...createDocument('presentation export scope', true),
       nodes: { first, second, third, omitted },
       presentation: {
-        schemaVersion: 1,
+        schemaVersion: PRESENTATION_SCHEMA_VERSION,
         layouts: [],
         themes: [],
         decks: [

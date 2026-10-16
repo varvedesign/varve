@@ -92,6 +92,18 @@ describe('shapeRun', () => {
     expect(ctx.font).toContain('20px');
   });
 
+  it('appends platform emoji fallback families after the primary family', () => {
+    shapeRun({ text: 'Test', fontFamily: 'Georgia', fontSize: 20, ctx });
+    const font = ctx.font;
+    const primaryEnd = font.indexOf('"Georgia"');
+    expect(primaryEnd).toBeGreaterThan(0);
+    // The primary family stays first so text glyphs never resolve to an
+    // emoji face; emoji fall through to the first installed platform family.
+    expect(font.indexOf('"Apple Color Emoji"')).toBeGreaterThan(primaryEnd);
+    expect(font).toContain('"Segoe UI Emoji"');
+    expect(font).toContain('"Noto Color Emoji"');
+  });
+
   it('includes font weight and style in the font string', () => {
     shapeRun({
       text: 'Bold',
