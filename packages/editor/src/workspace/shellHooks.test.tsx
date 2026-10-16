@@ -71,6 +71,29 @@ describe('responsive panel close controls', () => {
     expect(document.activeElement).toBe(controls.trigger);
   });
 
+  it('closes only Resources and returns focus to its drawer trigger', () => {
+    // Resources was the one drawer whose panel shipped no close control, so its
+    // closer is the only in-panel route out: it must close Resources alone.
+    const controls = setupClosers();
+    act(() => controls.result.current.closeResponsiveLibrary());
+    expect(controls.toggleLibraryPanel).toHaveBeenCalledOnce();
+    expect(controls.setLayersVisible).not.toHaveBeenCalled();
+    expect(controls.setInspectorVisible).not.toHaveBeenCalled();
+    controls.frames[0]!(0);
+    expect(document.activeElement).toBe(controls.trigger);
+  });
+
+  it('does not toggle Resources on a repeated close', () => {
+    const controls = setupClosers();
+    controls.rerender({
+      layersVisible: false,
+      inspectorVisible: false,
+      libraryPanelVisible: false,
+    });
+    act(() => controls.result.current.closeResponsiveLibrary());
+    expect(controls.toggleLibraryPanel).not.toHaveBeenCalled();
+  });
+
   it('closes all open drawers on backdrop dismissal, without reopening Resources on a repeated close', () => {
     const controls = setupClosers();
     act(() => controls.result.current.closeResponsivePanels());
