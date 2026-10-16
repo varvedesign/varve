@@ -115,6 +115,15 @@ export function parseGridTracks(template: string, availableSize: number, gap: nu
   });
 }
 
+/** Return validated, expanded track tokens for typed track-editing commands. */
+export function parseGridTrackDefinitions(template: string): string[] | null {
+  const parsed = parseTrackTemplate(template);
+  if (parsed.error) return null;
+  return parsed.tracks.map((track) =>
+    track.kind === 'auto' ? 'auto' : `${track.value}${track.kind}`,
+  );
+}
+
 function childSize(n: SceneNode, includeBorders = false): { w: number; h: number } {
   return measureNodeSize(n, includeBorders);
 }
@@ -217,11 +226,23 @@ export function computeGridLayout(
   const availH = Math.max(0, parentH - pt - pb);
   const gridAutoFlow = layoutStyle.gridAutoFlow ?? 'row';
 
-  const parsedColumns = parseTrackTemplate(layoutStyle.gridTemplateColumns ?? '');
-  const parsedRows = parseTrackTemplate(layoutStyle.gridTemplateRows ?? '');
+  const columnTemplate = layoutStyle.gridColumnTracks?.length
+    ? layoutStyle.gridColumnTracks.map((track) => track.size).join(' ')
+    : (layoutStyle.gridTemplateColumns ?? '');
+  const rowTemplate = layoutStyle.gridRowTracks?.length
+    ? layoutStyle.gridRowTracks.map((track) => track.size).join(' ')
+    : (layoutStyle.gridTemplateRows ?? '');
+  const parsedColumns = parseTrackTemplate(columnTemplate);
+  const parsedRows = parseTrackTemplate(rowTemplate);
+  const columnTrackIds = layoutStyle.gridColumnTracks?.map((track) => track.id);
+  const rowTrackIds = layoutStyle.gridRowTracks?.map((track) => track.id);
   if (
     parsedColumns.error ||
     parsedRows.error ||
+    (columnTrackIds && new Set(columnTrackIds).size !== columnTrackIds.length) ||
+    (rowTrackIds && new Set(rowTrackIds).size !== rowTrackIds.length) ||
+    (columnTrackIds && columnTrackIds.length !== parsedColumns.tracks.length) ||
+    (rowTrackIds && rowTrackIds.length !== parsedRows.tracks.length) ||
     children.length > MAX_GRID_CHILDREN ||
     !Number.isFinite(columnGap) ||
     !Number.isFinite(rowGap) ||
@@ -253,13 +274,31 @@ export function computeGridLayout(
     const child = childNodes[i];
     if (!child) continue;
     const g = child.gridPlacement;
-    if (g && (g.gridColumnStart != null || g.gridRowStart != null)) {
-      const colStart = g.gridColumnStart ?? 1;
-      const rowStart = g.gridRowStart ?? 1;
-      const colEnd = g.gridColumnEnd ?? colStart + 1;
-      const rowEnd = g.gridRowEnd ?? rowStart + 1;
-      const colSpan = colEnd - colStart;
-      const rowSpan = rowEnd - rowStart;
+    if (
+      g &&
+      (g.gridColumnStart != null ||
+        g.gridRowStart != null ||
+        g.gridColumnStartTrackId != null ||
+        g.gridRowStartTrackId != null)
+    ) {
+      const colIdIndex = g.gridColumnStartTrackId
+        ? columnTrackIds?.indexOf(g.gridColumnStartTrackId)
+        : undefined;
+      const rowIdIndex = g.gridRowStartTrackId
+        ? rowTrackIds?.indexOf(g.gridRowStartTrackId)
+        : undefined;
+      if (
+        (g.gridColumnStartTrackId != null && (colIdIndex == null || colIdIndex < 0)) ||
+        (g.gridRowStartTrackId != null && (rowIdIndex == null || rowIdIndex < 0))
+      ) {
+        return [];
+      }
+      const colStart = (colIdIndex ?? (g.gridColumnStart ?? 1) - 1) + 1;
+      const rowStart = (rowIdIndex ?? (g.gridRowStart ?? 1) - 1) + 1;
+      const colEnd = g.gridColumnEnd ?? colStart + (g.gridColumnSpan ?? 1);
+      const rowEnd = g.gridRowEnd ?? rowStart + (g.gridRowSpan ?? 1);
+      const colSpan = g.gridColumnSpan ?? colEnd - colStart;
+      const rowSpan = g.gridRowSpan ?? rowEnd - rowStart;
       if (
         ![colStart, rowStart, colEnd, rowEnd].every(Number.isSafeInteger) ||
         colStart < 1 ||

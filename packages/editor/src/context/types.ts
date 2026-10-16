@@ -1157,6 +1157,12 @@ export interface EditorContextValue {
 
   // Layout
   setNodeLayout: (id: NodeId, layout: LayoutStyle | undefined) => void;
+  /** Apply track definitions and any previewed placement rehomes in one history transaction. */
+  setGridTrackLayout: (
+    id: NodeId,
+    layout: LayoutStyle,
+    placements: Record<NodeId, GridItemPlacement>,
+  ) => void;
   setLayoutGrid: (frameId: NodeId, grid: LayoutGrid) => void;
   removeLayoutGrid: (frameId: NodeId, gridId?: string) => void;
 

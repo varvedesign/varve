@@ -9118,6 +9118,21 @@ export function EditorProvider({
         });
       },
 
+      setGridTrackLayout: (id, layout, placements) => {
+        updateDoc((doc) => {
+          const frame = doc.nodes[id];
+          if (frame?.kind !== 'frame' || frame.layoutStyle?.mode !== 'grid') return doc;
+          const nodes = { ...doc.nodes, [id]: { ...frame, layoutStyle: layout } };
+          for (const [childId, gridPlacement] of Object.entries(placements)) {
+            const child = nodes[childId];
+            if (child && frame.children.includes(childId)) {
+              nodes[childId] = { ...child, gridPlacement };
+            }
+          }
+          return reflowLayoutChildren({ ...doc, nodes }, id);
+        });
+      },
+
       setLayoutGrid: (frameId, grid) => {
         const current = stateRef.current.document;
         if (current.nodes[frameId]?.kind !== 'frame') return;
@@ -11059,6 +11074,7 @@ export function EditorProvider({
       setNodeClipContent: value.setNodeClipContent,
       setLayerColor: value.setLayerColor,
       setNodeLayout: value.setNodeLayout,
+      setGridTrackLayout: value.setGridTrackLayout,
       guides: value.guides,
       addGuide: value.addGuide,
       removeGuide: value.removeGuide,
