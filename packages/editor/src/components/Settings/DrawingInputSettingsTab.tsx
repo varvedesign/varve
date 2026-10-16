@@ -281,6 +281,13 @@ export function DrawingInputSettingsTab() {
         onChange={(event) => updateNavigation({ wheelInertia: event.target.checked })}
       />
 
+      <SwitchField
+        label="Two-finger twist rotates the view"
+        description="During a two-finger pinch, rotating the contacts rotates the viewport around the gesture centre after about five degrees of twist; the artwork itself is never rotated. Turn off to keep pinch as pan and zoom only."
+        checked={settings.viewport.twistRotationEnabled}
+        onChange={(event) => updateNavigation({ twistRotationEnabled: event.target.checked })}
+      />
+
       <Button
         variant="ghost"
         size="sm"
@@ -289,6 +296,7 @@ export function DrawingInputSettingsTab() {
             wheelMode: DEFAULT_VIEWPORT_SETTINGS.wheelMode,
             wheelSensitivity: DEFAULT_VIEWPORT_SETTINGS.wheelSensitivity,
             wheelInertia: DEFAULT_VIEWPORT_SETTINGS.wheelInertia,
+            twistRotationEnabled: DEFAULT_VIEWPORT_SETTINGS.twistRotationEnabled,
           })
         }
       >

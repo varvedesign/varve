@@ -157,6 +157,8 @@ export interface ViewportSettingsStore {
   wheelSensitivity: number;
   /** Allow app-side continuation for detented mouse wheels; trackpad tails never use it. */
   wheelInertia: boolean;
+  /** Two-finger twist rotates the view during a pinch; off leaves pinch as pan+zoom only. */
+  twistRotationEnabled: boolean;
   pixelGridEnabled: boolean;
   pixelGridSnapEnabled: boolean;
   dotGridEnabled: boolean;
@@ -370,6 +372,7 @@ export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
   wheelMode: 'auto',
   wheelSensitivity: 1,
   wheelInertia: true,
+  twistRotationEnabled: true,
   pixelGridEnabled: false,
   pixelGridSnapEnabled: false,
   dotGridEnabled: false,
@@ -756,6 +759,10 @@ function normalizeViewportSettings(
       typeof viewport.wheelInertia === 'boolean'
         ? viewport.wheelInertia
         : DEFAULT_VIEWPORT_SETTINGS.wheelInertia,
+    twistRotationEnabled:
+      typeof viewport.twistRotationEnabled === 'boolean'
+        ? viewport.twistRotationEnabled
+        : DEFAULT_VIEWPORT_SETTINGS.twistRotationEnabled,
   };
 }
 
