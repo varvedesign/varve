@@ -363,3 +363,29 @@ its returned document. Restoration also updates the active tab's dirty flag
 and the recovery revision. The hook remembers the last observed clean document
 for the active editing session; canonical authored-state equality lets Redo
 back to saved content become clean again without adding persisted metadata.
+
+## Capture cost and hashing (2026-10-16)
+
+Measured and decided in [ADR-0241](../adr/0241-raster-stroke-ownership-history-hashing-tile-identity.md);
+evidence in [the research ledger](../research/perf-cow-history-cache-ledger-2026-10-16.md).
+
+- The canonical history hash **value is unchanged** (scheme v1). Every stored
+  revision, snapshot and operation payload hash remains verifiable.
+- Hashing a document is proportional to its raster bytes: ~270 ms per MiB of
+  raster on the development machine, almost all of it pure-TypeScript SHA-256
+  (~40 MB/s). A capture used to hash three times (diff base, diff target,
+  replay verification); it now hashes once for a raster stroke when the
+  `before` document is the object the session recorded or verified for the
+  head revision, and otherwise twice.
+- `canonicalDocumentDigest` streams the canonical bytes into an incremental
+  SHA-256 and is verified byte-for-byte against `canonicalizeDocument`.
+- Replay verification accepts a structurally identical replay
+  (`strictlyIdentical`) without a hash and otherwise compares hashes exactly as
+  before. `DiffOptions.baseHash` is trusted input: pass it only for the very
+  document it was computed from.
+- Byte arrays are detected realm-independently. A cross-realm tile array used
+  to canonicalize as an index-keyed object and fail snapshot verification.
+- **Capture is still O(raster bytes).** Making it O(changed tiles) needs a
+  tile-reference hash scheme that changes persisted hash values for raster
+  documents (ADR-0241 D4, proposed, not approved).
+

@@ -70,6 +70,7 @@ import {
   redoRevision,
   replayAndVerify,
   SnapshotScheduler,
+  strictlyIdentical,
   undoRevision,
   undoTo,
   validateBranchName,
@@ -272,6 +273,9 @@ export class EditorHistorySession {
         author: { actorId: this.actorId, kind: 'local-user' },
         rasterTileStore: this.rasterTileStore,
       });
+      // Genesis records this document's canonical hash, so the first capture
+      // can reuse it rather than hashing the document again.
+      this.rememberDocument(genesis.revisionId, document);
       return this.finishAttach(genesis, branch, false, issues);
     }
 
@@ -322,6 +326,7 @@ export class EditorHistorySession {
         branchName: nextRecoveryBranchName(branches),
         rasterTileStore: this.rasterTileStore,
       });
+      this.rememberDocument(genesis.revisionId, document);
       return this.finishAttach(genesis, fresh, true, issues);
     }
     const { branch, head } = verified;
@@ -329,6 +334,9 @@ export class EditorHistorySession {
     // Reconcile the working document against the recorded head.
     const workingHash = canonicalHistoryHash(document);
     if (workingHash === head.canonicalDocumentHash) {
+      // Verified equal to the head's recorded digest, so the first capture can
+      // reuse that digest instead of hashing this document again.
+      this.rememberDocument(head.revisionId, document);
       return this.finishAttach(head, branch, false, issues);
     }
     const reconciliation = await this.captureRevisionFor(
@@ -381,7 +389,12 @@ export class EditorHistorySession {
       if (before === after) return null;
       const head = await this.store.getRevision(this.documentId, this.headRevisionId);
       if (!head) return null;
-      const plan = await this.planExactCapture(before, after);
+      // When `before` is the very document object this session recorded (or
+      // verified on load) for the head revision, the head's stored digest is
+      // its canonical hash: re-deriving it would hash every raster byte again.
+      const knownBaseHash =
+        this.documentCache.get(head.revisionId) === before ? head.canonicalDocumentHash : undefined;
+      const plan = await this.planExactCapture(before, after, knownBaseHash);
       if (!plan) return null;
       const revision = await this.commitCapture(
         before,
@@ -414,7 +427,7 @@ export class EditorHistorySession {
     issues: HistoryIssue[],
   ): Promise<RevisionRecord | null> {
     const parentDocument = await this.loadCachedDocument(parent.revisionId, parent);
-    const plan = await this.planExactCapture(parentDocument, after);
+    const plan = await this.planExactCapture(parentDocument, after, parent.canonicalDocumentHash);
     if (!plan) return null;
     return this.commitCapture(parentDocument, after, parent, branch, plan, options, origin, issues);
   }
@@ -423,13 +436,17 @@ export class EditorHistorySession {
   private async planExactCapture(
     before: Document,
     after: Document,
+    knownBaseHash?: string,
   ): Promise<{
     transactionId: string;
     diff: ReturnType<typeof diffDocuments>;
     changes: ReturnType<typeof diffDocuments>['changes'];
     raster: RasterDeltaCapture;
   } | null> {
-    const diff = diffDocuments(before, after, { epsilonPolicy: 'exact' });
+    const diff = diffDocuments(before, after, {
+      epsilonPolicy: 'exact',
+      baseHash: knownBaseHash,
+    });
     if (!diff.changed) return null;
     const transactionId = mintHistoryId('tx');
     const raster = await captureRasterTileDeltas(before, after, transactionId, {
@@ -518,11 +535,19 @@ export class EditorHistorySession {
     // Exact-capture invariant: prove the stored operations recreate the
     // canonical target *before* they are appended or made reachable.
     const replayed = await applyStoredOperationsAsync(before, stored, this.rasterTileStore);
-    const replayedHash = canonicalHistoryHash(replayed);
-    if (replayedHash !== diff.targetHash) {
-      const message = `capture replay mismatch: expected ${diff.targetHash}, got ${replayedHash}`;
-      issues?.push({ severity: 'error', code: 'history.capture-hash-mismatch', message });
-      throw new Error(message);
+    // `diff.targetHash` is the canonical hash of `after`. A replay that is
+    // structurally identical to `after` therefore reproduces it exactly, which
+    // is the same claim the hash comparison makes, proven without hashing the
+    // document a third time. Anything not provably identical (a different
+    // transport shape, for example) still goes through the hash comparison.
+    // `nextId` is the one field the canonical history hash excludes.
+    if (!strictlyIdentical(replayed, after, { ignoreRootKeys: ['nextId'] })) {
+      const replayedHash = canonicalHistoryHash(replayed);
+      if (replayedHash !== diff.targetHash) {
+        const message = `capture replay mismatch: expected ${diff.targetHash}, got ${replayedHash}`;
+        issues?.push({ severity: 'error', code: 'history.capture-hash-mismatch', message });
+        throw new Error(message);
+      }
     }
 
     const position = await this.store.appendOperations(this.documentId, stored);

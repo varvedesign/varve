@@ -148,6 +148,7 @@ export {
   HISTORY_DB_VERSION,
   openHistoryDb,
 } from './store-idb';
+export { type StrictIdentityOptions, strictlyIdentical } from './strictIdentity';
 export type {
   BranchRef,
   CheckpointRef,
