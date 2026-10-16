@@ -1,6 +1,6 @@
 # ADR-0244: Agent control command service
 
-- **Status:** Accepted (core implemented; transports and live editor bridge in progress)
+- **Status:** Accepted (core, local transports, live authority and parity gate implemented; the connected transport and the editor-side port are not)
 - **Date:** 2026-10-15
 
 ## Context
@@ -62,10 +62,18 @@ on `0aa316bca`:
   Unicode) is rejected at the same boundary the GUI would use.
 - New UI features should expose a command through the catalog; the manifest
   check fails CI when a mutation route has no mapping and no recorded reason.
-- Until the live authority lands, connected mode does not exist; an adapter
-  asked to connect must fail, never fall back to an empty headless session.
+- Connected mode is a session over one document, not a pointer to "the active
+  document". A client that attaches to a replaced document is refused rather
+  than retargeted, and an editor that cannot keep a monotonic revision is
+  reported as breaking its contract instead of appearing to work.
+- Parity is measured against the action ids the editor dispatches (334 today),
+  not menu rows. 197 of them are recorded debt with a dated expiry; the number
+  is in the report so it cannot be implied away.
 - Two mutation vocabularies coexist (UI `updateDoc` and catalog commands)
   until UI code migrates; parity is verified by tests, not by shared routing.
+- Until the connected transport lands, connected mode does not exist; an
+  adapter asked to connect must fail, never fall back to an empty headless
+  session.
 
 ## Migration impact
 

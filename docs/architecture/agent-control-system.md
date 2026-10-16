@@ -26,8 +26,12 @@ This document describes the contract and marks what exists. A claim here is
 | JSON-RPC 2.0 control protocol over a local socket (`varve serve`) | Implemented, verified with a raw client on Linux |
 | stdio MCP server (`varve mcp`), headless and attached modes | Implemented, verified with a raw client and the v1 and v2 SDK clients |
 | Streamable HTTP MCP transport | Not implemented (deliberate; see below) |
-| Live editor authority, desktop listener, approvals, Settings surface | Planned |
-| Page, component, text-run, effect, export, capture, motion commands | Not started; tracked in the parity manifest as gaps |
+| **Live authority, host, per-client principals, pause/revoke** | **Implemented (`@varve/automation/live`), unit-tested against a real control connection** |
+| **Parity manifest and its gate** | **Implemented: 334 real action ids measured, 14 commands recorded, 197 unmapped with a dated backlog** |
+| **Editor-side `LiveEditorPort` over the canonical `updateDoc` path** | Not implemented; the port contract exists and is tested, but nothing in `packages/editor` mounts it |
+| **Desktop listener (OS transport for connected mode)** | Not implemented. No `@varve/automation` import exists in `packages/editor`, `apps/desktop` or `apps/desktop/src-tauri` |
+| Approvals, Agent settings surface | Planned; `ApprovalRequest` has no production supplier |
+| Page, component, text-run, effect, export, capture, motion commands | Not started; counted in the parity manifest as the unmapped backlog |
 
 ## Layers
 
@@ -335,6 +339,92 @@ adds Origin and Host validation, DNS-rebinding exposure, token audience binding
 and session semantics that this system does not yet need. It stays out until a
 client workflow requires it.
 
+## Connected sessions
+
+Headless mode owns its document in memory. Connected mode does not: the editor
+owns the document, the undo stack and the revision, and the authority is a view
+of that state which installs a commit through the editor's own mutation path.
+That is why the two modes share the executor, the receipts, the ledger and the
+rollback rules — a command cannot mean one thing to an agent and another to a
+person.
+
+```
+editor (owns document, revision, undo)
+   |  LiveEditorPort: info / revision / document / status / install   (synchronous)
+   v
+LiveAuthority  (mode: "connected", one instance per document session)
+   v
+Executor  →  ControlConnection  →  AutomationHost  →  transport
+```
+
+### The editor contract
+
+`LiveEditorPort` is deliberately small and every method is synchronous. The
+editor's own mutations are synchronous, and a check-then-install pair that could
+be interleaved with a keystroke or an in-flight IME composition is not a
+precondition, it is a race. The port must:
+
+- report a **monotonic revision** that increases on every committed change,
+  including edits the person made;
+- **refuse** an install whose `baseRevision` has moved;
+- have advanced its revision before reporting success.
+
+An editor that installs a document without advancing its revision is reported as
+`INVARIANT_VIOLATION`, not as success: the client did nothing wrong and must not
+be told to re-attach, and a later request must not be misled into believing it
+is looking at fresh state. That distinction is why `CommitResult`'s unavailable
+variant carries an explicit code instead of leaving the executor to guess.
+
+### One authority per document session
+
+The editor constructs an authority when a document session opens and disposes it
+when that session ends, so `generation` never changes underneath a client —
+`generation` answers "is the session I planned against the one I am still talking
+to?". If the document is closed, replaced, or Save-As'd away, later requests are
+refused and the session is never retargeted. There is no silent fallback to an
+empty document and no picking of a different instance.
+
+## Automation host and policy
+
+`AutomationHost` is what a transport accepts connections into. It owns the parts
+that must not depend on which transport it was:
+
+- **One principal per connection.** A credential identifies the client, not the
+  connection, so two agents on one document get distinct principal ids and a
+  receipt always names its writer. Revocation and attribution are per
+  connection.
+- **A bounded connection count**, because a local listener is still a resource a
+  broken client can exhaust.
+- **Pause, resume and revoke.** "Stop automation" refuses new commits and jobs
+  while reads and agent-scoped view changes keep working, so a blocked client
+  can still see *why* it is blocked. Pausing never undoes committed work.
+  Revoking one client closes only that client's connections.
+
+Policy is enforced through `ExecutionPolicy` at the executor's single gate. It
+can only refuse — it cannot grant — and it is never reachable from a request.
+
+## Parity manifest
+
+`packages/automation/parity/agent-parity.json` links every action the editor can
+dispatch (`createActionHandlers` really returns 334 ids) to either a semantic
+command or a recorded reason it is not one. The gate in
+`packages/editor/src/automation/__tests__/agentParity.test.ts` fails on a new
+unclassified route, a classified action that no longer exists, a reviewed action
+mapped to a command the catalog does not register, a registered command that is
+unrecorded, an "implemented" command with no existing test file or no
+preconditions, and an expired backlog.
+
+Two things the manifest states rather than implies:
+
+- `commands[].uiSurfaces` is informational. Only the `reviewed` map is enforced.
+  Inspector edits reach the document by a direct call and have no dispatcher
+  action id, so they can never appear in `reviewed`.
+- The unmapped backlog carries one expiry. Debt that is not dated becomes
+  permanent by default.
+
+Readable form: [`docs/audits/agent-parity-coverage-2026-10-15.md`](../audits/agent-parity-coverage-2026-10-15.md).
+`pnpm audit:agent-parity` fails when that report is stale.
+
 ## What a command is not
 
 It is not a generic `set(anyPath)`, not `eval`, and not a shell. The generic
@@ -343,6 +433,21 @@ catalog, with the same validation and authorization as a named command.
 
 ## Known parity gaps (recorded, not hidden)
 
+- **Connected mode has no transport.** The live authority, the host, the policy
+  and the rollback rules exist and are tested, but nothing outside
+  `@varve/automation` constructs them: there is no `@varve/automation` import in
+  `packages/editor`, in `apps/desktop`, or in `apps/desktop/src-tauri`. There is
+  no listener in the desktop app, so nothing can attach to the running
+  application and `varve doctor` and `varve_session` say so. The editor-side
+  `LiveEditorPort` implementation and the OS socket are the remaining work.
+- The editor also cannot be mutated by automation through any other path: the
+  command catalog is not reachable from the UI, and the UI is not reachable from
+  the catalog.
+- **197 of the 334 dispatchable editor actions have no semantic command.** They
+  are counted, bucketed and dated in the parity manifest rather than described
+  as covered. The largest families are typography, layout/alignment, vector
+  geometry, masking, masters/pages, area selection, image/raster, motion,
+  logo/variants and presentation.
 - The editor's opacity setter also feeds motion auto-keyframing while a
   timeline is playing. `varve.node.set` writes a static value and does not
   record keyframes.
@@ -352,8 +457,12 @@ catalog, with the same validation and authorization as a named command.
   active page's content root; the live editor may use its active surface and
   reports it in the receipt.
 - Gesture replay, pressure strokes, text runs, components, pages, export and
-  capture commands are not implemented.
+  capture commands are not implemented. A drag's intermediate samples cannot be
+  reproduced by a committed-result command, and no bounded gesture-replay
+  contract exists yet.
+- Clicking, selection, camera and tool changes are not commands. A request
+  cannot take over the user's screen, and no agent-scoped view command exists,
+  so `view`-class authorization is declared but unused.
 - `varve.document.save` exists in headless sessions through the CLI and MCP
-  adapters. There is no connected (live editor) runtime yet, so nothing can
-  attach to the running desktop application; `varve doctor` and `varve_session`
-  say so.
+  adapters, but not under `varve exec`/`varve batch`, which attach no external
+  handler.
