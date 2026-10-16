@@ -27,6 +27,7 @@ import {
   wrapTextInCallout,
 } from '@varve/scene';
 import { managedColorKey } from '@varve/shared';
+import { isVerticalWritingMode } from '@varve/shared/verticalText';
 import {
   Button,
   Icon,
@@ -806,6 +807,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             <FieldRow label="Content">
               {richTextEnabled && textNodes.length === 1 ? (
                 <RichTextSpanEditor
+                  vertical={isVerticalWritingMode(textNodes[0]!.writingMode)}
                   richText={
                     textNodes[0]!.richText ?? {
                       paragraphs: [{ runs: [{ text: textNodes[0]!.text }] }],

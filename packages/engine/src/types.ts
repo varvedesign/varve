@@ -948,6 +948,8 @@ export interface ShapedRun {
   descent: number;
   /** Preferred line-box height in px for rich-text runs, when specified. */
   lineHeight?: number;
+  /** Authored tate-chu-yoko policy: combine this run horizontally in vertical flow. */
+  textCombineUpright?: boolean;
 }
 
 /**

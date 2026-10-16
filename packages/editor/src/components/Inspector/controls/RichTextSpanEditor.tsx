@@ -19,6 +19,11 @@ import { InspectorColorPopover } from './InspectorColorPopover';
 export interface RichTextSpanEditorProps {
   richText: RichText;
   onChange: (rich: RichText) => void;
+  /**
+   * True when the host node flows vertically: exposes the tate-chu-yoko
+   * (horizontal-in-vertical) combine toggle for the selected range.
+   */
+  vertical?: boolean;
 }
 
 const EMPTY_FORMAT: CharacterFormat = {};
@@ -64,7 +69,11 @@ function runKey(run: TextRun, i: number): string {
   return `${i}:${run.text}`;
 }
 
-export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorProps) {
+export function RichTextSpanEditor({
+  richText,
+  onChange,
+  vertical = false,
+}: RichTextSpanEditorProps) {
   const editor = useEditor();
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -144,6 +153,12 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
       ? characterFormatValue(richText, range, 'fontStyle')
       : { value: undefined, mixed: false };
   }, [richText, editor.state.selectionRange]);
+  const combineState = useMemo(() => {
+    const range = editor.state.selectionRange;
+    return range && vertical
+      ? characterFormatValue(richText, range, 'textCombineUpright')
+      : { value: undefined, mixed: false };
+  }, [richText, editor.state.selectionRange, vertical]);
 
   return (
     <div className="rich-span-editor">
@@ -218,6 +233,21 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
         >
           I
         </button>
+        {vertical && (
+          <button
+            type="button"
+            aria-label="Combine selection horizontally in vertical text (tate-chu-yoko)"
+            aria-pressed={combineState.value === true && !combineState.mixed}
+            data-mixed={combineState.mixed ? 'true' : undefined}
+            className="rich-span-editor__btn rich-span-editor__btn--combine"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              applyFormat({ textCombineUpright: !(combineState.value === true) });
+            }}
+          >
+            縦中横
+          </button>
+        )}
         <InspectorColorPopover
           label="Text color"
           value={selectionColor ?? DEFAULT_COLOR}

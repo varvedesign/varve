@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import type { RichText } from '@varve/scene';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { RichSelection, RichText } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { EditorProvider } from '../../../../context';
+import { EditorProvider, useEditor } from '../../../../context';
 import { RichTextSpanEditor } from '../RichTextSpanEditor';
 
 afterEach(cleanup);
@@ -57,5 +57,47 @@ describe('RichTextSpanEditor', () => {
     const result = onChange.mock.calls[0]![0] as RichText;
     expect(result.paragraphs[0]!.runs).toHaveLength(1);
     expect(result.paragraphs[0]!.runs[0]!.text).toBe('Hello');
+  });
+
+  it('exposes the tate-chu-yoko combine toggle only for vertical nodes', () => {
+    const rich: RichText = { paragraphs: [{ runs: [{ text: '12' }] }] };
+    renderEditor(<RichTextSpanEditor richText={rich} onChange={() => {}} vertical />);
+    expect(screen.getByRole('button', { name: /combine selection horizontally/i })).toBeTruthy();
+    cleanup();
+    renderEditor(<RichTextSpanEditor richText={rich} onChange={() => {}} />);
+    expect(screen.queryByRole('button', { name: /combine selection horizontally/i })).toBeNull();
+  });
+
+  it('toggles textCombineUpright on the selected range from the combine button', () => {
+    const rich: RichText = {
+      paragraphs: [{ runs: [{ text: '12', format: { textCombineUpright: true } }] }],
+    };
+    const onChange = vi.fn();
+    let setRange: ((range: RichSelection) => void) | undefined;
+    const Probe = () => {
+      const editor = useEditor();
+      setRange = editor.setSelectionRange;
+      return null;
+    };
+    render(
+      <EditorProvider>
+        <RichTextSpanEditor richText={rich} onChange={onChange} vertical />
+        <Probe />
+      </EditorProvider>,
+    );
+
+    act(() => {
+      setRange?.({
+        start: { paragraphIndex: 0, offset: 0 },
+        end: { paragraphIndex: 0, offset: 2 },
+      });
+    });
+
+    const combine = screen.getByRole('button', { name: /combine selection horizontally/i });
+    expect(combine.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.mouseDown(combine);
+    expect(onChange).toHaveBeenCalled();
+    const result = onChange.mock.calls[0]![0] as RichText;
+    expect(result.paragraphs[0]!.runs[0]!.format?.textCombineUpright).toBe(false);
   });
 });

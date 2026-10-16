@@ -81,12 +81,17 @@ function paintCluster(
   y: number,
   orientation: 'upright' | 'sideways',
   drawText: (cluster: string) => void,
-  combined = false,
+  /**
+   * Tate-chu-yoko: draw the merged span horizontally, scaled to its measured
+   * one-em fit, instead of applying the cluster orientation. The scale comes
+   * from the layout snapshot; there is no fixed shrink factor here.
+   */
+  combinedScale?: number,
 ): void {
   target.save();
   target.translate(x, y);
-  if (orientation === 'sideways') target.rotate(Math.PI / 2);
-  if (combined) target.scale(0.72, 0.72);
+  if (combinedScale != null) target.scale(combinedScale, combinedScale);
+  else if (orientation === 'sideways') target.rotate(Math.PI / 2);
   drawText(cluster);
   target.restore();
 }
@@ -165,7 +170,7 @@ export function paintVerticalCanonicalRichText(
           p.y + offset.y + glyph.y + glyph.yOffset,
           glyph.orientation ?? 'sideways',
           (value) => target.fillText(value, 0, 0),
-          format.textCombineUpright === true,
+          glyph.combinedScale,
         );
         target.fillStyle = originalFillStyle;
       }

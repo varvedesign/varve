@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { itemizeParagraph } from './text/paragraphs';
 import {
   buildTextLayoutSnapshot,
   hitTestTextLayout,
+  layoutText,
   selectionRects,
   TextLayoutSnapshotCache,
 } from './textLayoutSnapshot';
@@ -160,5 +162,117 @@ describe('TextLayoutSnapshot', () => {
     });
     expect(horizontal.identity.writingMode).not.toBe(vertical.identity.writingMode);
     expect(horizontal.identity.textOrientation).toBe('mixed');
+  });
+});
+
+describe('vertical tate-chu-yoko combined cells', () => {
+  const layoutVertical = (text: string, combine: boolean) => {
+    const run: ShapedRun = {
+      fontFamily: 'Test Sans',
+      fontSize: 16,
+      fontWeight: 400,
+      fontStyle: 'normal',
+      direction: 'ltr',
+      level: 0,
+      script: 'latn',
+      textCombineUpright: combine || undefined,
+      glyphs: [...text].map((_, index) => ({
+        glyphId: index + 1,
+        xAdvance: 10,
+        yAdvance: 0,
+        xOffset: 0,
+        yOffset: 0,
+        clusterUtf16: index,
+      })),
+      width: text.length * 10,
+      ascent: 12,
+      descent: 4,
+    };
+    return layoutText({
+      text,
+      paragraphs: [
+        {
+          paragraph: itemizeParagraph({ index: 0, start: 0, end: text.length, text }),
+          runs: [run],
+        },
+      ],
+      maxWidth: 64,
+      lineHeight: 16,
+      writingMode: 'vertical-rl',
+      textOrientation: 'mixed',
+    });
+  };
+
+  it('merges a combined digit pair into one measured one-em cell', () => {
+    const snapshot = layoutVertical('12', true);
+    expect(snapshot.lines).toHaveLength(1);
+    expect(snapshot.lines[0]?.height).toBe(16);
+    const glyphs = snapshot.lines[0]?.runs[0]?.glyphs ?? [];
+    expect(glyphs).toHaveLength(1);
+    expect(glyphs[0]).toMatchObject({
+      clusterUtf16: 0,
+      sourceEnd: 2,
+      orientation: 'upright',
+      // Two 10px digits scaled to fit the 16px cell.
+      combinedScale: 0.8,
+    });
+    // Ligature-style caret policy: stops at the span edges only.
+    const stopOffsets = new Set(snapshot.caretStops.map((stop) => stop.offset));
+    expect(stopOffsets.has(0)).toBe(true);
+    expect(stopOffsets.has(2)).toBe(true);
+    expect(stopOffsets.has(1)).toBe(false);
+  });
+
+  it('keeps unflagged digits as separate upright cells', () => {
+    const snapshot = layoutVertical('12', false);
+    const glyphs = snapshot.lines[0]?.runs[0]?.glyphs ?? [];
+    expect(glyphs).toHaveLength(2);
+    expect(snapshot.lines[0]?.height).toBe(32);
+    expect(glyphs[0]?.combinedScale).toBeUndefined();
+  });
+
+  it('caps combined runs at four clusters and wraps the remainder', () => {
+    const snapshot = layoutVertical('12345', true);
+    const glyphs = snapshot.lines[0]?.runs[0]?.glyphs ?? [];
+    expect(glyphs).toHaveLength(2);
+    expect(glyphs[0]?.clusterUtf16).toBe(0);
+    expect(glyphs[0]?.sourceEnd).toBe(4);
+    expect(glyphs[1]?.clusterUtf16).toBe(4);
+    expect(glyphs[1]?.sourceEnd).toBe(5);
+    expect(snapshot.lines[0]?.height).toBe(32);
+  });
+
+  it('never combines in horizontal writing mode', () => {
+    const run: ShapedRun = {
+      fontFamily: 'Test Sans',
+      fontSize: 16,
+      fontWeight: 400,
+      fontStyle: 'normal',
+      direction: 'ltr',
+      level: 0,
+      script: 'latn',
+      textCombineUpright: true,
+      glyphs: [
+        { glyphId: 1, xAdvance: 10, yAdvance: 0, xOffset: 0, yOffset: 0, clusterUtf16: 0 },
+        { glyphId: 2, xAdvance: 10, yAdvance: 0, xOffset: 0, yOffset: 0, clusterUtf16: 1 },
+      ],
+      width: 20,
+      ascent: 12,
+      descent: 4,
+    };
+    const snapshot = layoutText({
+      text: '12',
+      paragraphs: [
+        {
+          paragraph: itemizeParagraph({ index: 0, start: 0, end: 2, text: '12' }),
+          runs: [run],
+        },
+      ],
+      maxWidth: 64,
+      lineHeight: 16,
+    });
+    const glyphs = snapshot.lines[0]?.runs[0]?.glyphs ?? [];
+    expect(glyphs).toHaveLength(2);
+    expect(glyphs[0]?.combinedScale).toBeUndefined();
   });
 });

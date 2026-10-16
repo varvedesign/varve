@@ -61,6 +61,13 @@ export interface PositionedGlyph extends ShapedGlyph {
   verticalAdvance?: number;
   /** UAX #50/CSS orientation used by the vertical painter. */
   orientation?: 'upright' | 'sideways';
+  /**
+   * Present when this glyph is one merged tate-chu-yoko (horizontal-in-
+   * vertical) cell: the painter draws the whole source span horizontally,
+   * scaled by this measured factor to fit the one-em cell, instead of
+   * applying the cluster orientation.
+   */
+  combinedScale?: number;
 }
 
 export interface TextLayoutRun {
@@ -773,6 +780,63 @@ interface VerticalClusterRecord {
   end: number;
   records: readonly GlyphRecord[];
   advance: number;
+  /** Set when consecutive combined clusters were merged into this one cell. */
+  combined?: true;
+}
+
+/**
+ * Tate-chu-yoko is authored for digit pairs; cap the merge so a misapplied
+ * long run cannot collapse an entire sentence into one cell.
+ */
+const MAX_COMBINED_CLUSTERS = 4;
+
+/** The single shared run when every record in the cell opts into combining, else null. */
+function combinedCellRun(cluster: VerticalClusterRecord): ShapedRun | null {
+  const first = cluster.records[0];
+  if (!first?.run.textCombineUpright) return null;
+  const run = first.run;
+  return cluster.records.every((record) => record.run === run) ? run : null;
+}
+
+/** Coalesce consecutive tate-chu-yoko clusters into single one-em cells. */
+function mergeCombinedClusters(
+  clusters: readonly VerticalClusterRecord[],
+): VerticalClusterRecord[] {
+  const out: VerticalClusterRecord[] = [];
+  let index = 0;
+  while (index < clusters.length) {
+    const run = combinedCellRun(clusters[index]!);
+    if (!run) {
+      out.push(clusters[index]!);
+      index += 1;
+      continue;
+    }
+    let end = index + 1;
+    while (
+      end < clusters.length &&
+      end - index < MAX_COMBINED_CLUSTERS &&
+      combinedCellRun(clusters[end]!) === run &&
+      clusters[end]!.start === clusters[end - 1]!.end
+    ) {
+      end += 1;
+    }
+    if (end - index === 1) {
+      out.push(clusters[index]!);
+      index += 1;
+      continue;
+    }
+    const merged = clusters.slice(index, end);
+    out.push({
+      text: merged.map((cluster) => cluster.text).join(''),
+      start: merged[0]!.start,
+      end: merged[merged.length - 1]!.end,
+      records: merged.flatMap((cluster) => cluster.records),
+      advance: merged.reduce((max, cluster) => Math.max(max, cluster.advance), 0),
+      combined: true,
+    });
+    index = end;
+  }
+  return out;
 }
 
 /** Position logical grapheme clusters into vertical columns. */
@@ -826,7 +890,9 @@ function layoutVerticalParagraphLines(
     boundaryIndex++;
   }
 
-  if (clusters.length === 0) {
+  const cells = mergeCombinedClusters(clusters);
+
+  if (cells.length === 0) {
     const width = Math.max(lineHeightOverride ?? 16, 1);
     return [
       {
@@ -846,7 +912,7 @@ function layoutVerticalParagraphLines(
 
   const columnWidth = Math.max(
     lineHeightOverride ?? 0,
-    ...clusters.flatMap((cluster) =>
+    ...cells.flatMap((cluster) =>
       cluster.records.map((record) => record.run.lineHeight ?? record.run.fontSize * 1.2),
     ),
     1,
@@ -859,7 +925,7 @@ function layoutVerticalParagraphLines(
     current = [];
     currentHeight = 0;
   };
-  for (const cluster of clusters) {
+  for (const cluster of cells) {
     if (maxInline > 0 && current.length > 0 && currentHeight + cluster.advance > maxInline) {
       flush();
     }
@@ -875,26 +941,46 @@ function layoutVerticalParagraphLines(
       writingMode === 'vertical-rl'
         ? (columns.length - index - 1) * columnWidth
         : index * columnWidth;
-    const first = column[0]!;
-    const last = column[column.length - 1]!;
-    const lineRecords = column.flatMap((cluster) => cluster.records);
     const inlineOffsetByCluster = new Map<number, number>();
     let inlineOffset = 0;
     for (const cluster of column) {
       inlineOffsetByCluster.set(cluster.start, inlineOffset);
       inlineOffset += cluster.advance;
     }
-    const groups: Array<{ sourceRun: ShapedRun; records: GlyphRecord[] }> = [];
-    for (const record of lineRecords) {
-      const previous = groups[groups.length - 1];
-      if (previous?.sourceRun === record.run) previous.records.push(record);
-      else groups.push({ sourceRun: record.run, records: [record] });
-    }
-    const lineRuns: TextLayoutRun[] = [];
-    const positioned: PositionedGlyph[] = [];
-    for (const group of groups) {
-      const glyphs = group.records.map((record) => {
-        const cluster = sourceMap.text.slice(record.clusterStart, record.clusterEnd);
+    const first = column[0]!;
+    const last = column[column.length - 1]!;
+    // One glyph group per cell; a combined (tate-chu-yoko) cell emits a
+    // single glyph spanning its merged source range.
+    const groups: Array<{ sourceRun: ShapedRun; glyphs: PositionedGlyph[] }> = [];
+    for (const cluster of column) {
+      if (cluster.records.length === 0) continue;
+      const cellInlineOffset = inlineOffsetByCluster.get(cluster.start) ?? 0;
+      if (cluster.combined) {
+        const measuredWidth = cluster.records.reduce(
+          (sum, record) => sum + Math.abs(record.glyph.xAdvance),
+          0,
+        );
+        const base = cluster.records[0]!;
+        groups.push({
+          sourceRun: base.run,
+          glyphs: [
+            {
+              ...base.glyph,
+              clusterUtf16: paragraph.sourceStart + cluster.start,
+              sourceEnd: paragraph.sourceStart + cluster.end,
+              x: x + columnWidth / 2 + base.glyph.xOffset,
+              y: cellInlineOffset + cluster.advance / 2,
+              verticalAdvance: cluster.advance,
+              xAdvance: cluster.advance,
+              orientation: 'upright',
+              combinedScale: measuredWidth > 0 ? Math.min(1, cluster.advance / measuredWidth) : 1,
+            },
+          ],
+        });
+        continue;
+      }
+      const glyphs = cluster.records.map((record) => {
+        const clusterText = sourceMap.text.slice(record.clusterStart, record.clusterEnd);
         const fontSize = record.run.fontSize;
         const glyph: PositionedGlyph = {
           ...record.glyph,
@@ -905,12 +991,20 @@ function layoutVerticalParagraphLines(
             (inlineOffsetByCluster.get(record.clusterStart) ?? 0) +
             Math.max(fontSize, Math.abs(record.glyph.yAdvance)) / 2,
           verticalAdvance: Math.max(fontSize, Math.abs(record.glyph.yAdvance)),
-          orientation: verticalOrientationForCluster(cluster, textOrientation),
+          orientation: verticalOrientationForCluster(clusterText, textOrientation),
         };
         return glyph;
       });
-      const sourceStart = Math.min(...glyphs.map((glyph) => glyph.clusterUtf16));
-      const sourceEnd = Math.max(...glyphs.map((glyph) => glyph.sourceEnd));
+      const output = { sourceRun: cluster.records[0]!.run, glyphs };
+      const previous = groups[groups.length - 1];
+      if (previous?.sourceRun === output.sourceRun) previous.glyphs.push(...glyphs);
+      else groups.push(output);
+    }
+    const lineRuns: TextLayoutRun[] = [];
+    const positioned: PositionedGlyph[] = [];
+    for (const group of groups) {
+      const sourceStart = Math.min(...group.glyphs.map((glyph) => glyph.clusterUtf16));
+      const sourceEnd = Math.max(...group.glyphs.map((glyph) => glyph.sourceEnd));
       lineRuns.push({
         sourceStart,
         sourceEnd,
@@ -918,10 +1012,10 @@ function layoutVerticalParagraphLines(
         width: columnWidth,
         direction: group.sourceRun.direction,
         level: group.sourceRun.level,
-        glyphs,
+        glyphs: group.glyphs,
         sourceRun: group.sourceRun,
       });
-      positioned.push(...glyphs);
+      positioned.push(...group.glyphs);
     }
     return {
       paragraphIndex: paragraph.index,

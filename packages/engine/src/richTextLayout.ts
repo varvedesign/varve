@@ -141,7 +141,11 @@ function shapeParagraph(
         for (const run of runs) {
           shaped.push(
             cloneRunWithOffset(
-              { ...run, lineHeight },
+              {
+                ...run,
+                lineHeight,
+                textCombineUpright: format.textCombineUpright === true || undefined,
+              },
               cursor,
               scriptCodeToTag(scripted.script),
               scripted.level,
