@@ -8,7 +8,25 @@ const ORIGIN = s.object({
   transport: s.string({ maxBytes: 32 }),
 });
 
-const LIST_INPUT = s.object({ limit: s.integer({ min: 1, max: 200, default: 20 }) });
+/**
+ * Transactions scanned when a caller asks which one touched an entity. The
+ * ledger retains 200, so scanning that many means a subject filter sees
+ * everything still reachable for rollback rather than an arbitrary prefix.
+ */
+const SCAN_LIMIT = 200;
+
+/** Per-transaction id lists a receipt-sized answer will carry. */
+const MAX_IDS_PER_TRANSACTION = 500;
+
+const LIST_INPUT = s.object({
+  limit: s.integer({ min: 1, max: 200, default: 20 }),
+  /**
+   * Only transactions that created, changed or deleted this node/page id.
+   * Without it an agent that lost its receipt has no way to find the
+   * transaction it must roll back.
+   */
+  subject: s.optional(s.string({ maxBytes: 160, minLength: 1 })),
+});
 
 const TRANSACTION = s.object({
   transactionId: s.string({ maxBytes: 64 }),
@@ -19,6 +37,15 @@ const TRANSACTION = s.object({
   createdCount: s.integer({ min: 0 }),
   changedCount: s.integer({ min: 0 }),
   deletedCount: s.integer({ min: 0 }),
+  created: s.optional(s.array(s.string({ maxBytes: 160 }), { maxItems: MAX_IDS_PER_TRANSACTION })),
+  changed: s.optional(s.array(s.string({ maxBytes: 160 }), { maxItems: MAX_IDS_PER_TRANSACTION })),
+  deleted: s.optional(s.array(s.string({ maxBytes: 160 }), { maxItems: MAX_IDS_PER_TRANSACTION })),
+  /**
+   * True when this transaction touched more ids than the lists carry, so the
+   * counts are the whole truth and the lists are a bounded sample. Explicit
+   * rather than a silent truncation.
+   */
+  idsOmitted: s.optional(s.boolean()),
   revertsTransactionId: s.optional(s.string({ maxBytes: 64 })),
 });
 
@@ -46,11 +73,23 @@ export const historyList = defineCommand({
   runtimes: ['headless', 'connected'],
   input: LIST_INPUT,
   output: LIST_OUTPUT,
-  examples: [{ title: 'Last ten', args: { limit: 10 } }],
+  examples: [
+    { title: 'Last ten', args: { limit: 10 } },
+    { title: 'Who changed this layer', args: { subject: 'n17' } },
+  ],
   inspect(authority, args: Infer<typeof LIST_INPUT>): ListOutput {
+    const scanned = authority.listTransactions(SCAN_LIMIT);
+    const selected = args.subject
+      ? scanned.filter(
+          (entry) =>
+            entry.created.includes(args.subject as string) ||
+            entry.changed.includes(args.subject as string) ||
+            entry.deleted.includes(args.subject as string),
+        )
+      : scanned;
     return {
       revision: authority.getRevision(),
-      transactions: authority.listTransactions(args.limit).map((entry) => ({
+      transactions: selected.slice(0, args.limit).map((entry) => ({
         transactionId: entry.transactionId,
         revision: entry.revision,
         label: entry.label,
@@ -64,11 +103,25 @@ export const historyList = defineCommand({
         createdCount: entry.created.length,
         changedCount: entry.changed.length,
         deletedCount: entry.deleted.length,
+        ...boundedIds(entry),
         ...(entry.revertsTransactionId ? { revertsTransactionId: entry.revertsTransactionId } : {}),
       })),
     };
   },
 });
+
+function boundedIds(entry: {
+  created: string[];
+  changed: string[];
+  deleted: string[];
+}): Record<string, string[] | boolean> {
+  const omitted =
+    entry.created.length > MAX_IDS_PER_TRANSACTION ||
+    entry.changed.length > MAX_IDS_PER_TRANSACTION ||
+    entry.deleted.length > MAX_IDS_PER_TRANSACTION;
+  if (omitted) return { idsOmitted: true };
+  return { created: entry.created, changed: entry.changed, deleted: entry.deleted };
+}
 
 export const historyRollback = defineCommand({
   id: 'varve.history.rollback',

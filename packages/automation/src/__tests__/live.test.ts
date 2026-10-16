@@ -331,6 +331,38 @@ describe('live authority', () => {
     expect(receipt.error?.code).toBe('INVALID_ARGUMENT');
     expect(editor.installs).toBe(0);
   });
+
+  it('reports the ids a transaction touched, so an agent can find its own work again', async () => {
+    const session = liveSetup();
+    const create = await session.run('varve.node.create', rect());
+    const nodeId = create.created[0] as string;
+    const history = await session.run('varve.history.list');
+    const entry = (history.output as { transactions: { created?: string[] }[] }).transactions[0];
+    // Without these an agent that lost its receipt can see that something
+    // happened but cannot name the transaction to roll back.
+    expect(entry?.created).toEqual([nodeId]);
+  });
+
+  it('filters history by subject to answer "who changed this layer"', async () => {
+    const session = liveSetup();
+    const first = await session.run('varve.node.create', rect({ name: 'Kept' }));
+    const second = await session.run('varve.node.create', rect({ name: 'Noise' }));
+    const kept = first.created[0] as string;
+    const noise = second.created[0] as string;
+
+    const filtered = await session.run('varve.history.list', { subject: kept });
+    const rows = (filtered.output as { transactions: { created?: string[] }[] }).transactions;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.created).toEqual([kept]);
+
+    const unrelated = await session.run('varve.history.list', { subject: 'does-not-exist' });
+    expect((unrelated.output as { transactions: unknown[] }).transactions).toHaveLength(0);
+    // The noise node is still reported when asked for directly.
+    const direct = await session.run('varve.history.list', { subject: noise });
+    const directRows = (direct.output as { transactions: { created?: string[] }[] }).transactions;
+    expect(directRows).toHaveLength(1);
+    expect(directRows[0]?.created).toEqual([noise]);
+  });
 });
 
 describe('automation host', () => {
