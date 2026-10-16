@@ -271,6 +271,11 @@ for desktop; they are not yet re-verified on the Duet.
   badge, document health badge) keeps its 36px/28px bar heights but grows every control
   to a 24px minimum hit box under `@media (pointer: coarse), (any-pointer:
   coarse)`.
+- On-canvas geometry targets carry touch-aware screen-space tolerances: path
+  anchors/handles accept a 24 CSS px touch radius (8/7 px for mouse and pen;
+  `TOUCH_NODE_EDIT_TOLERANCES`) and Page tool resize corners accept 24 CSS px
+  for touch (10 px otherwise). Authored geometry never moves when its hit
+  target grows; see `docs/architecture/curve-node-editing.md`.
 - Automated check: `tests/e2e/interaction/chromeos-device-matrix.spec.ts`
   (`primary chrome meets the 24 CSS px target floor`) measures every button in
   the menubar, status bar, floating toolbar, and FAB cluster at 800x1280 with
