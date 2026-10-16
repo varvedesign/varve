@@ -62,12 +62,25 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
       </section>
 
       <section class="feature-section">
+        <h2>Verifying output before press</h2>
+        <p>
+          Varve's open validation gate drives veraPDF and reads the verdict from the
+          validator's machine-readable report, failing closed when a report is missing or
+          unreadable instead of trusting a clean process exit. Its scope is PDF/A and PDF/UA;
+          it deliberately refuses PDF/X requests rather than issue a badge the validator cannot
+          support. Varve's PDF/X export is covered by its own test suite, and for regulated
+          press work you should still confirm the proof in your print provider's preflight
+          tooling.
+        </p>
+      </section>
+
+      <section class="feature-section">
         <h2>Still in progress</h2>
         <p>
           Varve does not yet perform authoritative painted-coverage preflight for artwork that
           stops at trim. For press-critical work, leave the guides visible and inspect the final
-          PDF/X proof. Multi-page PDF execution and full printer-mark preview remain separate
-          roadmap items.
+          PDF/X proof. Multi-page PDF execution, full printer-mark preview, and archival PDF/A
+          conformance remain separate roadmap items.
         </p>
       </section>
 
