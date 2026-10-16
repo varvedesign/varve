@@ -59,7 +59,7 @@ function gradientShapeNode(gradientType: 'linear' | 'angular' | 'diamond' = 'lin
         blendMode: 'normal' as const,
         visible: true,
         gradient: {
-          type: gradientType as const,
+          type: gradientType,
           stops: [
             { position: 0, color: base.fill },
             { position: 1, color: base.fill },
