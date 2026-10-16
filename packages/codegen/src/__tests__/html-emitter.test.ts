@@ -36,6 +36,8 @@ describe('exportIrToHtml', () => {
           { id: 'middle', size: '2fr' },
           { id: 'right', size: '1fr' },
         ],
+        rowGap: 18,
+        columnGap: 12,
       },
     });
     const docWithNodes = {
@@ -47,6 +49,8 @@ describe('exportIrToHtml', () => {
     const result = exportIrToHtml(sceneToIR(docWithNodes));
 
     expect(result.css).toContain('grid-template-columns: 1fr 2fr 1fr;');
+    expect(result.css).toContain('row-gap: 18px;');
+    expect(result.css).toContain('column-gap: 12px;');
     expect(result.css).toContain('grid-column: 2 / span 2;');
     expect(result.css).toContain('grid-row: 1;');
   });

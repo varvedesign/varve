@@ -138,6 +138,10 @@ function layoutToCss(layout: LayoutSpec, unit: string, base: number): Record<str
     props.display = 'grid';
     if (layout.gridTemplateColumns) props['grid-template-columns'] = layout.gridTemplateColumns;
     if (layout.gridTemplateRows) props['grid-template-rows'] = layout.gridTemplateRows;
+    const rowGap = Math.max(0, layout.gap.top, layout.gap.bottom);
+    const columnGap = Math.max(0, layout.gap.left, layout.gap.right);
+    if (rowGap > 0) props['row-gap'] = sizeValue(rowGap, unit, base);
+    if (columnGap > 0) props['column-gap'] = sizeValue(columnGap, unit, base);
   }
   if (layout.gridPlacement) {
     const { column, row, columnSpan, rowSpan } = layout.gridPlacement;
