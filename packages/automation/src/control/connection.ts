@@ -11,7 +11,7 @@
 import type { IdRng } from '@varve/scene';
 import type { DocumentAuthority } from '../authority';
 import type { CommandEffect } from '../catalog';
-import type { Executor, ExecutorContext, ExternalHandler } from '../executor';
+import type { ExecutionPolicy, Executor, ExecutorContext, ExternalHandler } from '../executor';
 import type { Principal } from '../principal';
 import { type Infer, s, validateUnknown } from '../schema';
 import { encodeError, encodeResult, parseFrame, RPC_ERROR, type RpcRequest } from './jsonrpc';
@@ -43,6 +43,12 @@ export interface ControlServerConfig {
   executor: Executor;
   authority: DocumentAuthority;
   externals?: Readonly<Record<string, ExternalHandler>>;
+  /**
+   * Host policy for this connection: refuses effects the session is currently
+   * not permitted to run (automation paused, client revoked). Supplied by the
+   * transport's host, never by request data, and it can only refuse.
+   */
+  policy?: ExecutionPolicy;
   /** Map a presented credential to a principal, or `null` to refuse it. */
   authenticate(
     credential: string,
@@ -258,6 +264,7 @@ export class ControlConnection {
       principal: this.principal as Principal,
       authority: this.config.authority,
       ...(this.config.externals ? { externals: this.config.externals } : {}),
+      ...(this.config.policy ? { policy: this.config.policy } : {}),
       ...(this.config.rng ? { rng: this.config.rng } : {}),
     };
   }

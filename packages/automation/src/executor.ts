@@ -17,7 +17,7 @@
 import type { Document, IdRng } from '@varve/scene';
 import { sha256Utf8 } from '@varve/scene';
 import type { CommitPlan, DocumentAuthority, Origin } from './authority';
-import type { Command, CommandCatalog, CommandContext } from './catalog';
+import type { Command, CommandCatalog, CommandContext, CommandEffect } from './catalog';
 import { touchedBetween } from './diff';
 import { CommandRejection, type ErrorCode, type ErrorInfo, errorInfo } from './errors';
 import { IdempotencyStore } from './idempotency';
@@ -143,6 +143,20 @@ export interface ObservedReceipt {
   kind: 'single' | 'batch';
 }
 
+/**
+ * Host policy for the effects this session currently refuses.
+ *
+ * "Stop automation" must block new commits without closing the editor and
+ * without making the client blind: reads and agent-scoped view changes keep
+ * working, so a paused client can still see *why* it is paused. The policy is
+ * supplied by the trusted host, is never reachable from a request, and cannot
+ * grant anything — it can only refuse.
+ */
+export interface ExecutionPolicy {
+  /** A readable reason to refuse this effect, or `null` to allow it. */
+  blockReason(effect: CommandEffect): string | null;
+}
+
 export interface ExecutorContext {
   principal: Principal;
   authority: DocumentAuthority;
@@ -153,6 +167,8 @@ export interface ExecutorContext {
    * call.
    */
   approval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
+  /** Host policy: refuse effects the session is currently not permitted to run. */
+  policy?: ExecutionPolicy;
   /** Handlers for `external` commands, keyed by command id. */
   externals?: Readonly<Record<string, ExternalHandler>>;
   /** Default parent for node creation; connected mode supplies the active surface. */
@@ -598,7 +614,7 @@ export class Executor {
           command.id,
           version,
           committed.reason === 'unavailable'
-            ? errorInfo('TARGET_MISMATCH', { message: committed.message })
+            ? errorInfo(committed.code ?? 'TARGET_MISMATCH', { message: committed.message })
             : staleRevision(revisionBefore, committed.currentRevision),
         );
       }
@@ -1106,6 +1122,14 @@ export class Executor {
       return errorInfo(availability.code, {
         message: availability.message,
         ...(availability.hint ? { hint: availability.hint } : {}),
+      });
+    }
+    const blocked = ctx.policy?.blockReason(command.effect) ?? null;
+    if (blocked !== null) {
+      return errorInfo('UNAVAILABLE', {
+        message: `${command.id} is blocked: ${blocked}`,
+        hint: 'the person running Varve controls this; it is re-enabled in Automation settings',
+        details: { effect: command.effect },
       });
     }
     const info = ctx.authority.info();

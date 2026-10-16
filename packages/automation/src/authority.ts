@@ -57,8 +57,21 @@ export interface CommitInput {
 export type CommitResult =
   | { ok: true; revision: number; transactionId: string }
   | { ok: false; reason: 'revision-conflict'; currentRevision: number }
-  /** The pinned document is no longer reachable (tab closed, document replaced). */
-  | { ok: false; reason: 'unavailable'; message: string };
+  /**
+   * The pinned document is no longer reachable (tab closed, document replaced),
+   * or the authority could not apply a valid plan.
+   *
+   * `code` lets the authority name the refusal instead of leaving the executor
+   * to guess from `reason`: "you are addressing a different document" and "this
+   * session is gone" are different problems with different recoveries. It
+   * defaults to `TARGET_MISMATCH` for authorities that predate it.
+   */
+  | {
+      ok: false;
+      reason: 'unavailable';
+      message: string;
+      code?: 'TARGET_MISMATCH' | 'UNAVAILABLE' | 'INVARIANT_VIOLATION';
+    };
 
 export type RollbackResult =
   | { ok: true; revision: number; transactionId: string; restored: string[] }
