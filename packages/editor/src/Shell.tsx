@@ -100,7 +100,6 @@ import { useFileImport } from './importing/useFileImport';
 import { type LayersDnDHandle, LayersPanel } from './LayersPanel';
 import { ContextualHelpPanel, resetOnboarding, useEditorHelp, WhatIsThis } from './onboard';
 import { StatusBar } from './StatusBar';
-import { nodeLocalBounds } from './scene/world';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import {
@@ -1157,7 +1156,10 @@ function ShellInner({
           {/* Recovery dialog + termination lifecycle (unsaved-work guard) */}
           <LifecycleProvider onBackToHome={onBackToHome} />
 
-          {/* Prototype presenter (fullscreen preview) */}
+          {/* Prototype presenter (fullscreen preview). Screen geometry is owned
+              by PrototypeScreenView, which derives active regions from the same
+              raster the image came from — the presenter is not given a second
+              hit-test path. */}
           <PrototypePresenter
             isOpen={editor.state.isPresenting}
             onClose={editor.stopPresentation}
@@ -1167,17 +1169,13 @@ function ShellInner({
             onEvent={editor.handlePrototypeEvent}
             prototypeDocument={editor.state.document}
             overlayStack={editor.state.prototypeRuntime?.state.overlayStack ?? []}
-            hitTestNode={(world) => {
-              const hit = editor.hitTestNode(world);
-              return hit ? { nodeId: hit.nodeId } : null;
-            }}
-            getNodeBounds={(nodeId) => {
-              const node = editor.state.document.nodes[nodeId];
-              if (!node) return null;
-              return nodeLocalBounds(node, editor.state.document);
-            }}
+            historyDepth={editor.prototypeHistoryDepth}
+            onBack={editor.prototypeGoBack}
+            showHotspots={editor.prototypeShowHotspots}
+            onToggleHotspots={editor.togglePrototypeHotspots}
             activeTransition={editor.prototypeTransition}
             onClearTransition={editor.clearPrototypeTransition}
+            onRestart={editor.restartPrototype}
           />
 
           {/* Contextual help side panel (F1) */}

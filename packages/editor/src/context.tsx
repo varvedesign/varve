@@ -297,7 +297,6 @@ import {
   scopeForTargets,
   serializeDocument as serializeSceneDocument,
   setActivePage as setActivePageDoc,
-  setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
   setDocumentBitDepth as setDocumentBitDepthDoc,
   setDocumentBlendEvaluationSpace as setDocumentBlendEvaluationSpaceDoc,
@@ -2604,9 +2603,14 @@ const PROTO_NOOP: import('./context/PrototypeContext').PrototypeContextValue = {
   setPrototypeVariable: () => {},
   startPresentation: () => {},
   stopPresentation: () => {},
+  restartPrototype: () => {},
   getPrototypeScreens: () => [],
   prototypeCurrentScreen: '',
   navigatePrototypeTo: () => {},
+  prototypeHistoryDepth: 0,
+  prototypeGoBack: () => {},
+  prototypeShowHotspots: false,
+  togglePrototypeHotspots: () => {},
   prototypeTransition: null,
   clearPrototypeTransition: () => {},
   selectedInteractionId: null,
@@ -3470,6 +3474,10 @@ export function EditorProvider({
         smRuntimeRef.current = next;
         const nextTimeline = getCurrentStateTimelineId(next);
         if (nextTimeline && nextTimeline !== prevTimeline) {
+          // Editor-state only. This used to also call `updateDoc`, which wrote
+          // `activeTimelineId` into the canonical document on every frame of a
+          // state-machine transition while the viewer was open — the same class
+          // of defect as the other prototype write-throughs.
           patch({
             motion: {
               ...stateRef.current.motion,
@@ -3477,7 +3485,6 @@ export function EditorProvider({
               currentTime: 0,
             },
           });
-          updateDoc((d) => setActiveTimelineDoc(d, nextTimeline));
         }
       }
       rafId = requestAnimationFrame(tick);
@@ -11193,7 +11200,6 @@ export function EditorProvider({
                     state={state}
                     setState={setState}
                     stateRef={stateRef}
-                    updateDoc={updateDoc}
                     prototypeRuntimeRef={prototypeRuntimeRef}
                     smRuntimeRef={smRuntimeRef}
                     playTimeline={motionValue?.playTimeline}

@@ -197,7 +197,14 @@ describe('PrototypePresenter', () => {
     expect(container.querySelector('.device-frame--phone')).toBeTruthy();
   });
 
-  it('forwards pointer events to onEvent handler', () => {
+  /**
+   * Contract correction. This test previously asserted that a bare
+   * `pointerdown` forwarded to `onEvent` — i.e. it encoded the defect that a
+   * press with no completed gesture activates a region. Activation now happens
+   * on the completed click, and only when the point is inside a region that
+   * actually carries an interaction.
+   */
+  it('activates a screen region on a completed press, not on pointerdown', () => {
     const onEvent = vi.fn();
     const doc = {
       id: 'd1',
@@ -223,12 +230,25 @@ describe('PrototypePresenter', () => {
           children: [],
           w: 375,
           h: 812,
+          clipContent: true,
         },
       },
       components: {},
       nextId: 1,
+      interactions: {
+        s1: [
+          {
+            id: 'ix-home',
+            nodeId: 's1',
+            name: 'Home tap',
+            trigger: { kind: 'onClick' },
+            actions: [{ kind: 'goBack' }],
+            enabled: true,
+          },
+        ],
+      },
     };
-    const { container } = render(
+    render(
       <PrototypePresenter
         isOpen={true}
         onClose={() => {}}
@@ -237,14 +257,16 @@ describe('PrototypePresenter', () => {
         onNavigate={() => {}}
         onEvent={onEvent}
         prototypeDocument={doc as unknown as import('@varve/scene').Document}
-        hitTestNode={() => ({ nodeId: 's1' })}
-        getNodeBounds={() => ({ x: 0, y: 0, w: 375, h: 812 })}
       />,
     );
-    const screen = container.querySelector('.prototype-screen-view');
-    expect(screen).toBeTruthy();
-    if (screen) fireEvent.pointerDown(screen);
-    expect(onEvent).toHaveBeenCalled();
+    const view = document.querySelector('.prototype-screen-view');
+    expect(view).toBeTruthy();
+    if (!view) return;
+    fireEvent.pointerDown(view, { clientX: 100, clientY: 100, pointerId: 1, button: 0 });
+    expect(onEvent).not.toHaveBeenCalled();
+    fireEvent.pointerUp(view, { clientX: 100, clientY: 100, pointerId: 1, button: 0 });
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    expect(onEvent.mock.calls[0]?.[0]).toMatchObject({ type: 'click', nodeId: 's1' });
   });
 
   it('shows navigation buttons', () => {

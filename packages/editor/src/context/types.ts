@@ -1440,6 +1440,16 @@ export interface EditorContextValue {
   getPrototypeScreens: () => Array<{ id: string; name: string }>;
   prototypeCurrentScreen: string;
   navigatePrototypeTo: (screenId: string) => void;
+  /** Depth of the running session's authored navigation history (0 = nowhere back). */
+  prototypeHistoryDepth: number;
+  /** Walk the running session's authored history back one step. */
+  prototypeGoBack: () => void;
+  /** Whether the prototype viewer draws active-region hints. */
+  prototypeShowHotspots: boolean;
+  /** Toggle the prototype viewer's active-region hints. */
+  togglePrototypeHotspots: () => void;
+  /** Restart the running flow at its entry point. */
+  restartPrototype: () => void;
 
   // State machines
   getStateMachines: () => import('@varve/scene').StateMachine[];

@@ -1,5 +1,21 @@
+/**
+ * PrototypePresenter — the run-time viewer for an authored prototype.
+ *
+ * Responsibilities are deliberately narrow: it owns the viewer chrome (screen
+ * identity, exit, and the authored-history back control) and it composes the
+ * transition. It does **not** own screen geometry — `PrototypeScreenView`
+ * derives active regions from the same raster the image came from, so an
+ * interpolated layer and its active region cannot drift apart.
+ *
+ * Keyboard contract: Escape exits the viewer. Arrow keys are *inspection*
+ * (previous/next screen in flow order) and are therefore suppressed while a
+ * screen control has focus, so pressing Enter/Space on an active region cannot
+ * also advance the flow. Authored back/forward is a separate control that
+ * walks the runtime's own history.
+ */
 import { prefersReducedMotion } from '@varve/prototype';
 import type { Document, NodeId } from '@varve/scene';
+import { nodeWorldBounds } from '@varve/scene';
 import { Icon } from '@varve/ui';
 import { type CSSProperties, useCallback, useEffect, useMemo } from 'react';
 import { computeSmartAnimateHotspotOverrides } from '../../motion/smartAnimateBridge';
@@ -21,8 +37,6 @@ interface PrototypePresenterProps {
   /** Document for screen rendering (optional — falls back to placeholder). */
   prototypeDocument?: Document;
   overlayStack?: string[];
-  hitTestNode?: (world: { x: number; y: number }) => { nodeId: NodeId } | null;
-  getNodeBounds?: (nodeId: NodeId) => { x: number; y: number; w: number; h: number } | null;
   activeTransition?: ActivePrototypeTransition | null;
   onClearTransition?: () => void;
   deviceConfig?: {
@@ -34,8 +48,23 @@ interface PrototypePresenterProps {
     showNotch?: boolean;
     showHomeIndicator?: boolean;
   };
+  /** Authored navigation history depth; 0 hides the back control. */
+  historyDepth?: number;
+  onBack?: () => void;
+  /** Draw the active region boxes (audience hints). */
+  showHotspots?: boolean;
+  onToggleHotspots?: () => void;
+  /** Restart the flow at its entry point. */
+  onRestart?: () => void;
   debugConsole?: unknown;
   onScreenshot?: () => void;
+}
+
+/** True when a key event came from a control that handles its own activation. */
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.closest('[data-prototype-hotspot], button, a, input, textarea, select')) return true;
+  return target.isContentEditable;
 }
 
 export function PrototypePresenter({
@@ -48,10 +77,13 @@ export function PrototypePresenter({
   deviceConfig,
   prototypeDocument,
   overlayStack = [],
-  hitTestNode,
-  getNodeBounds,
   activeTransition = null,
   onClearTransition,
+  historyDepth = 0,
+  onBack,
+  showHotspots = false,
+  onToggleHotspots,
+  onRestart,
 }: PrototypePresenterProps) {
   const transitionProgress = usePrototypeTransition(activeTransition ?? null);
 
@@ -75,7 +107,12 @@ export function PrototypePresenter({
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
-      } else if (e.key === 'ArrowRight' && currentIndex < screens.length - 1) {
+        return;
+      }
+      // A focused control owns Enter/Space and the arrow keys it defines; the
+      // viewer must not consume an activation as a flow step.
+      if (isInteractiveTarget(e.target)) return;
+      if (e.key === 'ArrowRight' && currentIndex < screens.length - 1) {
         const next = screens[currentIndex + 1];
         if (next) onNavigate(next.id);
       } else if (e.key === 'ArrowLeft' && currentIndex > 0) {
@@ -93,6 +130,19 @@ export function PrototypePresenter({
     }
   }, [isOpen, handleKeyDown]);
 
+  /**
+   * Composed scene bounds for a layer. Used only for Smart Animate hotspot
+   * interpolation, which runs in scene space and is mapped by the screen view
+   * exactly like the static regions are.
+   */
+  const getSceneBounds = useCallback(
+    (nodeId: NodeId): { x: number; y: number; w: number; h: number } | null => {
+      if (!prototypeDocument) return null;
+      return nodeWorldBounds(prototypeDocument, nodeId) ?? null;
+    },
+    [prototypeDocument],
+  );
+
   if (!isOpen) return null;
 
   const smartHotspotOverrides =
@@ -102,15 +152,14 @@ export function PrototypePresenter({
     activeTransition.transition.kind === 'smartAnimate' &&
     activeTransition.layerMatches &&
     activeTransition.smartAnimateValues &&
-    prototypeDocument &&
-    getNodeBounds
+    prototypeDocument
       ? computeSmartAnimateHotspotOverrides(
           prototypeDocument,
           activeTransition.layerMatches,
-          activeTransition.smartAnimateValues!,
+          activeTransition.smartAnimateValues,
           transitionProgress,
           activeTransition.transition.easing ?? { kind: 'ease' },
-          getNodeBounds,
+          getSceneBounds,
         )
       : null;
 
@@ -119,7 +168,7 @@ export function PrototypePresenter({
     style?: CSSProperties,
     hotspotOverrides?: PrototypeScreenViewProps['hotspotOverrides'],
   ) => {
-    if (!prototypeDocument || !hitTestNode || !getNodeBounds) {
+    if (!prototypeDocument) {
       const name = screens.find((s) => s.id === screenId)?.name ?? 'Unknown';
       return (
         <div className="prototype-presenter__screen" style={style}>
@@ -133,9 +182,8 @@ export function PrototypePresenter({
           document={prototypeDocument}
           screenId={screenId}
           overlayStack={overlayStack}
-          hitTestNode={hitTestNode}
-          getNodeBounds={getNodeBounds}
           hotspotOverrides={hotspotOverrides}
+          showHotspots={showHotspots}
           onEvent={(ev) => onEvent(ev)}
         />
       </div>
@@ -179,13 +227,12 @@ export function PrototypePresenter({
           smartHotspotOverrides?.to,
         )}
       </div>
-    ) : prototypeDocument && hitTestNode && getNodeBounds && currentScreenId ? (
+    ) : prototypeDocument && currentScreenId ? (
       <PrototypeScreenView
         document={prototypeDocument}
         screenId={currentScreenId}
         overlayStack={overlayStack}
-        hitTestNode={hitTestNode}
-        getNodeBounds={getNodeBounds}
+        showHotspots={showHotspots}
         onEvent={(ev) => onEvent(ev)}
       />
     ) : (
@@ -214,7 +261,7 @@ export function PrototypePresenter({
       className="prototype-presenter"
       role="dialog"
       aria-modal="true"
-      aria-label="Prototype Preview"
+      aria-label="Prototype preview"
     >
       <div className="prototype-presenter__toolbar">
         <span className="prototype-presenter__screen-name">
@@ -223,6 +270,27 @@ export function PrototypePresenter({
         <span className="prototype-presenter__counter">
           {currentIndex + 1} / {screens.length}
         </span>
+        {onRestart && (
+          <button
+            type="button"
+            className="prototype-presenter__nav-btn"
+            onClick={onRestart}
+            aria-label="Restart flow"
+          >
+            <Icon name="RotateCcw" size={20} />
+          </button>
+        )}
+        {onBack && (
+          <button
+            type="button"
+            className="prototype-presenter__nav-btn"
+            disabled={historyDepth === 0}
+            onClick={onBack}
+            aria-label="Back"
+          >
+            <Icon name="ArrowLeft" size={20} />
+          </button>
+        )}
         <button
           type="button"
           className="prototype-presenter__nav-btn"
@@ -247,6 +315,17 @@ export function PrototypePresenter({
         >
           <Icon name="ChevronRight" size={24} />
         </button>
+        {onToggleHotspots && (
+          <button
+            type="button"
+            className="prototype-presenter__nav-btn"
+            aria-pressed={showHotspots}
+            onClick={onToggleHotspots}
+            aria-label="Show interactive areas"
+          >
+            <Icon name="MousePointerClick" size={20} />
+          </button>
+        )}
         <button
           type="button"
           className="prototype-presenter__exit-btn"
