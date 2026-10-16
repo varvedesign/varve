@@ -105,4 +105,46 @@ describe('TabletBackDismiss', () => {
     expect(pushState).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it('dismisses a legacy raw dialog through its cancel event, not a synthetic Escape', async () => {
+    render(<TabletBackDismiss />);
+    vi.spyOn(history, 'back').mockImplementation(() => undefined);
+    const keydown = vi.fn();
+    document.addEventListener('keydown', keydown);
+    const dialog = document.createElement('dialog');
+    document.body.appendChild(dialog);
+    dialog.showModal();
+    await act(async () => Promise.resolve());
+    expect(history.state?.[OVERLAY_GUARD_FLAG]).toBe(true);
+    const cancelListener = vi.fn();
+    dialog.addEventListener('cancel', cancelListener);
+
+    act(() => window.dispatchEvent(new PopStateEvent('popstate')));
+
+    // jsdom does not dispatch the `close` event on programmatic close; the
+    // removed `open` attribute is the observable contract here.
+    expect(cancelListener).toHaveBeenCalledOnce();
+    expect(dialog.open).toBe(false);
+    expect(keydown).not.toHaveBeenCalled();
+    document.removeEventListener('keydown', keydown);
+    dialog.remove();
+  });
+
+  it('lets a legacy raw dialog claim Back by preventing its cancel event', async () => {
+    render(<TabletBackDismiss />);
+    vi.spyOn(history, 'back').mockImplementation(() => undefined);
+    const dialog = document.createElement('dialog');
+    document.body.appendChild(dialog);
+    dialog.showModal();
+    await act(async () => Promise.resolve());
+    dialog.addEventListener('cancel', (event) => event.preventDefault());
+
+    act(() => window.dispatchEvent(new PopStateEvent('popstate')));
+
+    expect(dialog.open).toBe(true);
+    // The dialog claimed the gesture, so the guard is re-pushed for the next
+    // Back instead of letting the traversal leave the document.
+    expect(history.state?.[OVERLAY_GUARD_FLAG]).toBe(true);
+    dialog.remove();
+  });
 });

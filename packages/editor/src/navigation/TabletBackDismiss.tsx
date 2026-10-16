@@ -18,7 +18,7 @@
  *
  * Layers: registered overlays (menus, popovers, context menus, selects) via
  * the shared registry, plus app dialogs with an explicit Back handler. Legacy
- * raw dialogs retain Escape fallback behavior.
+ * raw dialogs are dismissed through their native `cancel` event contract.
  *
  * Deep links listen to `popstate` too; `deepLinkHandler` skips entries marked
  * by the history state or the shared event-ownership marker.
@@ -58,16 +58,14 @@ function hasDismissableLayer(ownerDocument: Document): boolean {
 function dismissDialog(ownerDocument: Document, dialog: HTMLDialogElement): boolean {
   if (dialog.dataset.backDismiss === 'false') return false;
   if (dialog.dataset.backDismiss === 'true') return requestBackDismiss(dialog);
-  const active = ownerDocument.activeElement;
-  const target = active && dialog.contains(active) ? active : dialog;
-  const KeyboardEventConstructor = ownerDocument.defaultView?.KeyboardEvent ?? KeyboardEvent;
-  target.dispatchEvent(
-    new KeyboardEventConstructor('keydown', {
-      key: 'Escape',
-      bubbles: true,
-      cancelable: true,
-    }),
-  );
+  // Emulate the platform Escape contract for a raw dialog: fire its native
+  // `cancel` event and close it only when no handler claimed the event. A
+  // synthetic Escape *keydown* cannot trigger a dialog's default close and
+  // would leak into document-level shortcut handlers on its way up.
+  const EventConstructor = ownerDocument.defaultView?.Event ?? Event;
+  const cancel = new EventConstructor('cancel', { bubbles: false, cancelable: true });
+  dialog.dispatchEvent(cancel);
+  if (!cancel.defaultPrevented) dialog.close();
   return true;
 }
 
