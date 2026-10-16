@@ -22,6 +22,13 @@ import {
   type WritingMode,
 } from '@varve/shared/verticalText';
 import { type BreakUnit, graphemeBreakUnits, segmentBreakUnits } from './text/lineBreak';
+import {
+  buildLineBreakSequence,
+  codePointIndexAt,
+  isDictionarySegmentedBoundary,
+  isProhibitedBreak,
+  type LineBreakSequence,
+} from './text/lineBreakProhibition';
 import type { ItemizedParagraph } from './text/paragraphs';
 import { itemizeParagraph, splitParagraphs } from './text/paragraphs';
 import { lineVisualRuns } from './text/visualOrder';
@@ -209,6 +216,14 @@ interface LayoutUnit {
   unit: BreakUnit;
   records: readonly GlyphRecord[];
   width: number;
+  /**
+   * This unit is one grapheme of a word too long for the line, produced by the
+   * emergency split in `buildLayoutUnits`. UAX #14 joins alphabetics (LB28), so
+   * honoring prohibition inside such a run would prevent the word from ever
+   * wrapping; the emergency split is exactly UAX #14's documented "no suitable
+   * break opportunity" case, so prohibition yields there.
+   */
+  emergencySplit?: boolean;
 }
 
 interface RawLine {
@@ -507,14 +522,90 @@ function buildLayoutUnits(
           1,
           ...pieces.map((piece) => {
             pieceCursor = nextAttachCursor(attach, pieceCursor, piece.start);
-            return makeLayoutUnit(piece, attach, pieceCursor);
+            return makeLayoutUnit(piece, attach, pieceCursor, true);
           }),
         );
         i += pieces.length - 1;
       }
     }
   }
-  return units;
+  return mergeUnbreakableUnits(units, paragraph.text);
+}
+
+/**
+ * Fold adjacent units that UAX #14 prohibits a line break between into single
+ * units, so the greedy fill can never place a break at a reserved position.
+ *
+ * Doing this here rather than testing prohibition inside `wrapLines` keeps the
+ * wrap loop unchanged and gives JLREQ's push-out (追い出し) behaviour for free:
+ * `。` travels with the character before it, `（` with the character after it,
+ * and no line ever overhangs its measure. It also covers the rules that exist
+ * to keep a *unit* intact rather than to protect a line edge — numbers
+ * (LB25), `person(s)` (LB30), Hangul syllable blocks (LB26/LB27), Brahmic
+ * orthographic syllables (LB28a) and emoji modifier sequences (LB30b) — which
+ * would otherwise be broken apart by the fill loop.
+ *
+ * Boundaries next to a whitespace unit are left alone. LB7 does prohibit a
+ * break before a space, but the fill loop already refuses to break there, and
+ * folding the space into the preceding word would start charging trailing
+ * spaces against the line measure — the behaviour this pipeline deliberately
+ * lets overflow and trims at paint time.
+ *
+ * Emergency grapheme splits are exempt: they exist precisely because a word
+ * had no break opportunity inside it and the line would otherwise overflow, so
+ * re-merging them would restore the overflow they were created to remove.
+ */
+function mergeUnbreakableUnits(units: readonly LayoutUnit[], text: string): LayoutUnit[] {
+  if (units.length < 2) return [...units];
+  // Built on first use: a paragraph whose unit boundaries all sit next to
+  // whitespace (ordinary space-separated text) can never merge, so the common
+  // case pays nothing for the class table.
+  let sequence: LineBreakSequence | null = null;
+  const merged: LayoutUnit[] = [];
+  for (const unit of units) {
+    const previous = merged[merged.length - 1];
+    if (
+      previous &&
+      !previous.unit.isWhitespace &&
+      !unit.unit.isWhitespace &&
+      !(previous.emergencySplit && unit.emergencySplit)
+    ) {
+      sequence ??= buildLineBreakSequence(text);
+      if (
+        !isDictionarySegmentedBoundary(sequence, unit.unit.start) &&
+        isBreakProhibitedAt(sequence, unit.unit.start)
+      ) {
+        merged[merged.length - 1] = {
+          unit: {
+            start: previous.unit.start,
+            end: unit.unit.end,
+            text: text.slice(previous.unit.start, unit.unit.end),
+            isWhitespace: false,
+            isWord: previous.unit.isWord || unit.unit.isWord,
+            isBreakable: previous.unit.isBreakable,
+          },
+          records: [...previous.records, ...unit.records],
+          width: previous.width + unit.width,
+        };
+        continue;
+      }
+    }
+    merged.push(unit);
+  }
+  return merged;
+}
+
+/**
+ * Whether UAX #14 prohibits a line break immediately before the unit starting
+ * at `utf16Offset`. An offset that is not a code point boundary, or a
+ * paragraph whose classes are empty, leaves the position breakable so the
+ * engine never loses the ability to wrap.
+ */
+function isBreakProhibitedAt(sequence: LineBreakSequence, utf16Offset: number): boolean {
+  if (sequence.classes.length === 0) return false;
+  const codePointIndex = codePointIndexAt(sequence, utf16Offset);
+  if (codePointIndex === null) return false;
+  return isProhibitedBreak(sequence, codePointIndex);
 }
 
 function attachCursorOf(
@@ -559,6 +650,7 @@ function makeLayoutUnit(
   unit: BreakUnit,
   attach: Array<{ start: number; records: readonly GlyphRecord[] }>,
   attachCursor: number,
+  emergencySplit = false,
 ): LayoutUnit {
   const records: GlyphRecord[] = [];
   for (let i = attachCursor; i < attach.length; i++) {
@@ -567,7 +659,7 @@ function makeLayoutUnit(
     records.push(...entry.records);
   }
   const width = records.reduce((sum, record) => sum + Math.max(0, record.glyph.xAdvance), 0);
-  return { unit, records, width };
+  return emergencySplit ? { unit, records, width, emergencySplit } : { unit, records, width };
 }
 
 /**
@@ -577,6 +669,17 @@ function makeLayoutUnit(
  * and are trimmed at paint time). A word that does not fit starts a new line.
  * The paragraph's logical order is preserved: visual reordering happens per
  * line afterwards.
+ *
+ * Positions the UAX #14 prohibition rules reserve are not break opportunities
+ * at all: `buildLayoutUnits` has already merged those neighbours into one
+ * unit, so a Japanese line can no longer begin with `。` `、` `」` or a small
+ * kana, nor end with `「` or `（`. That realises JLREQ's line-start
+ * prohibition (行頭禁則) and line-end prohibition (行末禁則) as push-out
+ * (追い出し): the offending character migrates to the next line together with
+ * the character it belongs to. It needs no overhang past the measure, so a
+ * text frame never paints glyphs outside its box and never clips a character
+ * away. Hanging punctuation (ぶら下げ) is deliberately not implemented; see
+ * `docs/architecture/text-pipeline.md`.
  *
  * `lineWidths` narrows specific lines (contour/balloon wrapping). The overall
  * `maxWidth` remains the hard cap; lines past the end of the profile reuse its

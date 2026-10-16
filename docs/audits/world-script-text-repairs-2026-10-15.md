@@ -30,6 +30,32 @@ SHA → root cause → repair → regression coverage. Research accessed
 | 3 | (No single external report; CSS Writing Modes + UAX #50 conformance) Vertical-mixed rendering of Western punctuation in vertical Japanese is rotated, not upright, in every conforming browser/renderer | `verticalOrientationForCluster` guessed with script/category regexes: ALL `\p{P}\p{S}` clusters stood upright (ASCII `! ( ) , - . : ?`, quotes, dashes), fullwidth digits fell to sideways, unlisted emoji defaults mishandled | No Unicode `Vertical_Orientation` data; category proxies diverge from UAX #50 on exactly the characters vertical Japanese mixes with kana | Pinned UCD 16.0.0 `VerticalOrientation.txt` compiled to a range table by `scripts/generate-vertical-orientation.mjs` (`verticalOrientationData.ts`, 872 ranges, `@missing: R` default plus the header's unassigned-default-U ranges); clusters resolve U/R/Tu/Tr with documented browser-practice layers (U+FE0F and Extended_Pictographic upright; U+FE00/U+FE01 switch Tu/Tr bases) | `verticalText.test.ts` pins table outcomes: CJK punct upright, ASCII punct/digits rotated, fullwidth digits upright, Tu/Tr fallbacks, PUA upright, mathematical alphanumerics rotated, emoji/ZWJ/flag/keycap upright, VS1/VS2 overrides |
 | 4 | (JLREQ/CSS `text-combine-upright` contract; Figma ships no vertical text at all, Affinity declines it — vertical Japanese is a differentiator where faking it is the known complaint) Tate-chu-yoko rendered as each digit upright in its own full-height cell at a fixed 0.72 paint scale | `textCombineUpright` was consulted only at paint time (`verticalTextReplay.ts` scaled every flagged cluster 0.72); layout still stacked the digits vertically; no authoring UI existed | Paint-only proxy: no layout concept of a combined inline cell and no measured fit | Layout merges consecutive combined runs (same `ShapedRun`, bounded at 4 clusters) into one one-em cell emitting a single positioned glyph; paint draws the whole span horizontally scaled by `cellAdvance / measuredSpanWidth` (capped at 1). Caret stops use the ligature policy (span edges only). New combine toggle in the rich span editor, shown when the host node flows vertically | `textLayoutSnapshot.test.ts`: merged pair → one glyph, one-em column height, measured 0.8 scale for 2×10px digits in a 16px cell; unflagged digits stay per-cell; 5-cluster runs wrap at the cap; horizontal mode never combines. `RichTextSpanEditor.test.tsx`: toggle visibility is vertical-only and applies `textCombineUpright` through the character-format path |
 | 5 | EffectCraft #839: transparent render silently becomes opaque (alpha=1 everywhere) | Varve's raster export already defaulted to transparency with an explicit matte policy and warnings — the contract existed but had no end-to-end regression | No automated assertion that exported PNGs actually carry alpha | `tests/e2e/export/png-alpha.spec.ts` downloads a real PNG export of an ellipse and asserts corner alpha 0 and ink alpha 255 through pngjs | The spec itself; runs in the browser E2E lane |
+| 6 | (CSS Writing Modes `sideways` metric contract; vertical audit 2026-09-08 decision 3: "sideways rotates coherent horizontal runs while retaining horizontal shaping metrics") Rotated Latin in vertical text painted cluster-by-cluster in one-em cells | Each sideways cluster drew its own `fillText` after rotate, destroying kerning and spacing every character a full em apart | No run-level concept in the vertical painter; layout had no sideways advance model | Layout flows sideways cells at their shaped horizontal advances; the painters coalesce consecutive sideways cells of a run into one rotated draw (groups break at upright cells, combined cells, format boundaries in rich text, and source non-contiguity). Stroke painter sets its font per run instead of per line | `textLayoutSnapshot.test.ts` pins sideways advances (10px cell for a 10px-advance glyph, 26px mixed column); `replay.test.ts` pins one coalesced `fillText("AB")` per sideways run, per-cluster splits around an upright cell, and unchanged lone-cluster strokes |
+| 7 | (Brief §13 "Varve-native, SVG, font and combined-feature fixtures" lane) No Varve-native robustness corpus existed; the only text E2Es were single-string visual checks | One-off specs exercised one multilingual string each; no manifest, no digest, no per-input machine-readable results | No corpus harness | `tests/e2e/fixtures/text-corpus/manifest.json` (14 entries: Latin/combining, Greek/Cyrillic, Arabic/Hebrew bidi with isolates and mirroring, Devanagari conjuncts, Thai breaking, Japanese horizontal + vertical + tate-chu-yoko, regional CJK, emoji ZWJ/flag/keycap, NBSP/ZWSP) driven by `tests/e2e/canvas/text-corpus.spec.ts` through real application entry points (`loadDocument` → `createTextNodeAt` → `updateNode` → live compositor raster → `serializeDocument` → reopen → exact source equality), writing `reports/text-corpus/results.json` with the manifest SHA-256 digest and explicit attempted/completed/failed counts | The spec fails on any non-completed entry; the report is the reproducible evidence artifact |
+| 8 | (JLREQ §3.1.7/§3.1.8 行頭禁則・行末禁則; UAX #14 rev 53 = Unicode 16.0.0) A Japanese line could begin with `。` `、` `」` `！` `？` `ー` or a small kana, and could end with `「` or `（` | `segmentBreakUnits` glued *all* punctuation to the preceding word, so an opening bracket could end a line while a closing one could not start it; `canBreakBefore` was dead code and `wrapLines` never consulted `isBreakable`, so no "must not break here" concept existed at all | No line-break class data and no prohibition rules; Japanese breaking rested entirely on `Intl.Segmenter` word boundaries, which is not a typesetting model | Pinned UCD 16.0.0 `LineBreak.txt` + `EastAsianWidth.txt` + `UnicodeData.txt` + `emoji-data.txt` compiled by `scripts/generate-line-break-data.mjs` into `text/lineBreakClassesData.ts` (3,589 ranges); `text/lineBreakProhibition.ts` implements the UAX #14 §6 prohibition rules with LB1/LB9/LB10 resolution; `buildLayoutUnits` merges units that must not be separated so the greedy fill cannot place a break at a reserved position (push-out, 追い出し). Also keeps `1,234.56` / `$7,890` (LB25), `person(s)` (LB30), Hangul blocks (LB26/27), Brahmic syllables (LB28a) and emoji modifier runs (LB30b) intact | `text/lineBreakProhibition.test.ts` commits the official 3 MB `LineBreakTest-16.0.0.txt` oracle and asserts UAX14-C1's second subcondition position by position: **0 of 24,799 prohibited positions allowed — 100.00% soundness across 35,717 positions**. `textLayoutSnapshot.kinsoku.test.ts` pins all 37 line-start-prohibited and 11 line-end-prohibited characters across five measures, offset and caret preservation, and the preserved behaviours (Latin words, emergency word split, over-long CJK, numbers, brackets, Thai/Lao/Khmer measure containment) |
+| 9 | (Brief §7 "implement missing required paths or preserve their source/appearance with an explicit capability warning rather than flatten silently"; JLREQ §3.3 ruby) Ruby/furigana is authored with no way to learn it will not be drawn | Ruby is fully authored — `RichText.ruby` in the schema, range rebasing in `comicWorkflow.ts`, an "Add ruby" / "Clear ruby" Inspector row — but **no code in `packages/engine` reads it**, so a reading is invisible on canvas, in thumbnails and in every export, with nothing said | `LayoutTextInput`/`LayoutParagraphInput` carry only `text`, `paragraph` and pre-shaped `runs`; the canonical snapshot has no annotation input, so positioning ruby needs a shaping pass for the annotation text that the contract does not currently accept | `TypographySection` now derives the stored annotation count and shows a `role="status"` capability warning stating that the readings are stored but never rendered | `TypographySection.test.tsx`: silent when there is no ruby; warns for one reading with the announcement role and the "never rendered" wording; counts across multiple selected nodes. Rendering itself stays unimplemented and is listed under "Explicitly not claimed" |
+
+### Tailoring findings worth carrying forward
+
+- **South East Asian scripts need the UAX #14 §8 tailoring.** LB1 resolves the
+  `SA` class (Thai, Lao, Khmer, Myanmar) to `AL` for implementations without
+  dictionary analysis, and LB28 then holds an entire `SA` run together. Applied
+  naively on top of Varve's `Intl.Segmenter` word boundaries, a 39-code-point
+  Thai sentence collapsed from 7 lines into 2 runs of roughly 140px under a
+  70px measure — a **regression this cycle introduced and then removed**. The
+  merge pass now leaves dictionary-segmented boundaries breakable, and
+  `textLayoutSnapshot.kinsoku.test.ts` pins the measure containment for Thai,
+  Lao and Khmer. Any future rule work must re-run that test.
+- **`Emergency split` exemption.** LB28 joins alphabetics, so re-merging the
+  grapheme pieces of an over-long word would destroy the wrap the split exists
+  to provide. Emergency splits are marked and exempt from merging.
+- **Differential evidence.** Before finalising, every line-breaking case in the
+  corpus was laid out through both the new module and `git show HEAD:` of it
+  (copied in as a baseline, then removed), at measures 40/70/110/160/240. Texts
+  with no prohibition opportunity were byte-identical; the only texts that
+  moved were the ones whose diff is documented above. Reproduce with
+  `git show <base>:packages/engine/src/textLayoutSnapshot.ts`, the cases in
+  the note above, and the widths listed.
 
 ## Explicitly not claimed
 
@@ -37,21 +63,106 @@ SHA → root cause → repair → regression coverage. Research accessed
   regex extraction (literal strings, `re` rects) with honest approximation
   warnings; there is no native PDF import renderer. Building the
   mature-interpreter route is a standalone project with its own corpus work;
-  nothing in this cycle improves or masks it.
+  nothing in this cycle improves or masks it. The pdf.js-derived 983-file
+  corpus was not reproduced: no Varve PDF renderer exists to point it at,
+  and counting directory entries would manufacture a denominator.
 - **Color-font rendering (COLR/CBDT/sbix/SVG tables).** Tables are detected
   and refused for outlining, but no Varve-controlled color-glyph rasterizer
   exists; emoji appearance rides the platform font. The fallback chain above
   makes that ride robust, not self-contained.
-- **Sideways-run coalescing.** Vertical sideways (Latin/digit) runs still
-  paint cluster-by-cluster in one-em cells; coherent rotated runs with
-  shaped advances (CSS `sideways` metric behavior) remain open, tracked in
-  the text-pipeline doc.
 - **IME qualification.** Editing rides the native textarea with CSS
   writing-mode; composition start/update/end is delegated. No physical IME
   hardware claim is made; record platform-specific IME defects separately.
 - **Vertical caret/selection wiring.** Engine vertical caret stops and
   selection rects exist and are unit-tested at the engine level; the editor
   editing surface still delegates pointer/caret to the textarea.
+- **Corpus coverage limits.** The Varve-native corpus covers the browser
+  (Chromium) application path only — it does not exercise packaged desktop
+  builds, native shaping, or the PDF import/export lanes, and its
+  `results.json` states its own denominators. Physical IME, native Windows/
+  macOS matrices, and a PDF-interpreter corpus remain unqualified.
+- **Ruby and emphasis marks are not laid out or drawn (diagnosed, warned, not
+  fixed).** Ruby is authored end to end — schema, range rebasing, Inspector
+  controls — and consumed by nothing in `packages/engine`, so a reading never
+  appears on canvas, in a thumbnail or in an export. This cycle makes that
+  visible with an Inspector capability warning (entry 9) and does not implement
+  rendering: doing so needs a shaping pass for the annotation text, a
+  positioned-run kind in the snapshot, paint in the horizontal and vertical
+  replays, and export handling. Emphasis marks (圏点) have no schema, UI or
+  layout path at all, so there is nothing to flatten silently today — but any
+  document that acquires them needs the same treatment.
+- **Hanging punctuation (ぶら下げ).** Line-start prohibition is realised by
+  push-out (追い出し): `。` and `、` move to the next line with the character
+  before them, so no line overhangs its measure. JLREQ documents hanging as an
+  aesthetic alternative, not a requirement; the reason for choosing push-out is
+  that an overhanging character would be painted outside a text frame's box or
+  clipped away, which is worse than a slightly shorter line.
+- **No native or packaged-build validation of the line-break stage.** The
+  conformance result is a pure-data result over the committed oracle plus the
+  browser-path layout tests. The Rust/`rustybuzz` shaping backend and packaged
+  desktop builds were not exercised, and no independent renderer was used as an
+  oracle for line breaking.
+- **`SA` combining marks are approximated.** LB1 resolves `SA` to `CM` only for
+  General_Category `Mn`/`Mc`; `lineBreakClasses.ts` resolves the whole `SA`
+  class to `AL`, because `RawLineBreakClassOf` does not carry General_Category.
+  The segmentation keeps `SA` marks inside a grapheme, so no break opportunity
+  is created before one — but this is a documented approximation, not the
+  literal LB1 rule, and it is the reason the `SA` tailoring above exists.
+
+## Capability matrix
+
+What is actually demonstrated, per workflow. "Verified here" means the check was
+re-run on the base SHA of this cycle's line-break work and passed; "carried"
+means the ledger entry above names the regression that covers it and it was not
+re-run this cycle. Nothing below is inferred from an exported type, a
+successfully initialised dependency, or a past audit.
+
+| Workflow | Where it runs | Status | Evidence / limit |
+| --- | --- | --- | --- |
+| Latin extended + combining marks | canvas layout, save/reopen | Verified here | corpus entry `latin-combining`; `textLayoutSnapshot.test.ts` |
+| Greek, Cyrillic | canvas layout, save/reopen | Verified here | corpus entry `greek-cyrillic`; shaping tests |
+| Arabic / Persian bidi (digits, punctuation, URLs, diacritics) | canvas layout, save/reopen | Verified here | corpus entries `arabic-mixed`, `bidi-mirroring`; `unicode/bidiConformance.test.ts`. Contextual joining rides the Canvas2D measurement bridge — **the `harfbuzzjs`/`rustybuzz` backends were not exercised this cycle** |
+| Hebrew + isolates and mirroring | canvas layout, save/reopen | Verified here | corpus entry `hebrew-isolates` |
+| Devanagari + conjuncts | canvas layout, save/reopen | Verified here | corpus entry `devanagari-conjuncts`; glyph form depends on the resolved platform font and was not visually reviewed by a language-competent reader |
+| Thai / Lao / Khmer line breaking | dictionary segmentation + prohibition | Verified here | corpus entry `thai-breaking`; measure-containment test in `textLayoutSnapshot.kinsoku.test.ts`. No native-speaker review of break quality |
+| Japanese horizontal | canvas layout, save/reopen | Verified here | corpus entry `japanese-horizontal` |
+| Japanese vertical (`vertical-rl`, mixed) | canvas layout | Carried (entry 3) | pinned UAX #50 orientation table; `verticalText.test.ts` |
+| Tate-chu-yoko | layout + authoring control | Carried (entry 4) | merged combined cell with measured fit; `RichTextSpanEditor.test.tsx` |
+| Line-start / line-end prohibition (行頭禁則・行末禁則) | paragraph layout | Verified here | 100.00% soundness vs the committed UAX #14 oracle; 37 + 11 characters pinned across five measures |
+| Hanging punctuation (ぶら下げ) | — | **Not implemented** | push-out used instead; see "Explicitly not claimed" |
+| Ruby / furigana | authored only | **Diagnosed defect, warning only** | schema + UI + rebasing exist; nothing renders; entry 9 |
+| Emphasis marks (圏点) | — | **Absent** | no schema, UI or layout path |
+| Regional CJK glyph forms | platform font | **Unverified** | coverage is testable, glyph-form suitability is not; no language-competent review |
+| Emoji sequences (ZWJ, flags, keycaps, modifiers) | source preservation + platform font | Verified here (source) / carried (paint) | corpus entry `emoji-sequences`; `withEmojiFallback` (entry 1). **No Varve-controlled COLR/CBDT/sbix/SVG rasterizer** |
+| PNG export transparency | node raster export | Carried (entry 5) | `tests/e2e/export/png-alpha.spec.ts`; `pngjs` resolution from `packages/engine` confirmed. The E2E itself was not re-run this cycle |
+| PDF import | web app | **Not a renderer** | raw-byte regex extraction with approximation warnings |
+| PDF / SVG export of authored text | export lanes | Not validated this cycle | outside this slice's scope |
+| Packaged native builds, physical IME | — | Not qualified | see "Explicitly not claimed" |
+
+### Verification status of the ledger entries above
+
+| Entry | Re-run this cycle | Result |
+| --- | --- | --- |
+| 1 (emoji fallback families) | `shaping.test.ts` | 120 tests across entries 1/3/4/6 passed |
+| 2 (bidi isolation on metadata) | `LayersRow.test.tsx` | passed (56 tests across entries 2/4) |
+| 3 (UAX #50 orientation) | `verticalText.test.ts` | passed |
+| 4 (tate-chu-yoko) | `textLayoutSnapshot.test.ts`, `RichTextSpanEditor.test.tsx` | passed |
+| 5 (PNG alpha) | dependency resolution only | `pngjs@7.0.0` resolves from `packages/engine` exactly as the spec resolves it; the E2E was not re-run |
+| 6 (sideways run coalescing) | `replay.test.ts`, `textLayoutSnapshot.test.ts` | passed |
+| 7 (Varve-native corpus) | not re-run | `reports/text-corpus/results.json` records 14/14 completed, 0 failed, but that artifact predates this cycle. The spec now writes to a run-isolated directory (see below) |
+| 8 (UAX #14 prohibition) | `textLayoutSnapshot.kinsoku.test.ts`, `text/lineBreakProhibition.test.ts` | 100.00% oracle soundness; all prohibition and preserved-behaviour tests passed |
+| 9 (ruby capability warning) | `TypographySection.test.tsx` | 17 tests passed including the three new ones |
+
+### Concurrent-writer isolation
+
+`tests/e2e/canvas/text-corpus.spec.ts` wrote a fixed
+`reports/text-corpus/results.json`. `playwright.config.ts` derives
+`VARVE_E2E_OUTPUT_DIR` from PID and port specifically so "a concurrent agent's
+`playwright-report` is never clobbered", and a fixed path defeated that: two
+corpus runs, or a corpus run and any other lane writing the same name, would
+overwrite each other's evidence. The spec now writes
+`reports/text-corpus/<VARVE_E2E_OUTPUT_DIR>/results.json` and logs the exact
+path, so a run's artifact is both isolated and findable.
 
 ## Upstream reference values (not Varve results)
 

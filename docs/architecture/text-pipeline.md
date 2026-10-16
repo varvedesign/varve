@@ -229,6 +229,46 @@ the snapshot pipeline is built on:
   runtime provides it). Units never split an extended grapheme cluster; NBSP is
   whitespace but explicitly non-breaking (`isBreakable`); over-long words are
   re-broken at grapheme boundaries.
+* `lineBreakClasses.ts` / `lineBreakProhibition.ts` — the UAX #14 stage.
+  `lineBreakClasses.ts` is the read side of
+  `scripts/generate-line-break-data.mjs`, which compiles the pinned UCD 16.0.0
+  `LineBreak.txt`, `EastAsianWidth.txt`, `UnicodeData.txt` and `emoji-data.txt`
+  into range tables (`lineBreakClassesData.ts`). It exposes the raw class, the
+  LB1 resolution (`AI`/`SG`/`XX`/`SA` → `AL`, `CJ` → `NS`), `$EastAsian`,
+  `[\p{Extended_Pictographic}&\p{Cn}]`, and `resolveLineBreakClasses`, which
+  applies LB9 (a combining mark or ZWJ joins its base and later rules ignore
+  it) and LB10 (a mark with no base is an ordinary `AL`).
+  `lineBreakProhibition.ts` implements UAX #14 §6's prohibition rules and
+  answers one question — `isProhibitedBreak(sequence, index)`. The official
+  `LineBreakTest-16.0.0.txt` oracle is committed beside the table (3 MB) and
+  `text/lineBreakProhibition.test.ts` asserts UAX14-C1's second subcondition
+  position by position: **no break opportunity is produced at any of the
+  24,799 positions the rules call a non-break.** The first subcondition — that
+  *every* allowed break opportunity is produced — is deliberately not claimed:
+  word segmentation still decides where Latin breaks may fall, so this stage
+  prohibits at least as much as UAX #14 requires and never less. That tailoring
+  is disclosed here as UAX14-C1 asks.
+* `textLayoutSnapshot.ts` → `buildLayoutUnits` → `mergeUnbreakableUnits` — the
+  prohibition stage. Neighbouring units that UAX #14 forbids separating are
+  folded into one unit before wrapping, so the greedy fill cannot place a break
+  at a reserved position. This gives JLREQ's line-start prohibition (行頭禁則)
+  and line-end prohibition (行末禁則) as push-out (追い出し): a line never
+  begins with `。` `、` `」` `）` `！` `？` `・` `ー` or a small kana, and never
+  ends with `「` `（` `『` `【` `〈`. The offending character migrates to the next
+  line together with the character it belongs to, so no line overhangs its
+  measure and a text frame never paints outside its box or clips a hung
+  character. **Hanging punctuation (ぶら下げ) is deliberately not implemented**;
+  push-out is a JLREQ-recognised alternative, not a silent degradation.
+  The same pass keeps numbers (`1,234.56`, `$7,890` — LB25), bracketed suffixes
+  (`person(s)` — LB30), Hangul syllable blocks (LB26/LB27), Brahmic
+  orthographic syllables (LB28a) and emoji modifier sequences (LB30b) intact.
+  Two deliberate exemptions: emergency grapheme splits of an over-long word are
+  never re-merged (LB28 joins alphabetics, so re-merging would restore the
+  overflow the split exists to remove), and boundaries from dictionary
+  segmentation of `SA` scripts are left breakable — LB1's `SA` → `AL` plus
+  LB28 would otherwise hold an entire Thai, Lao or Khmer sentence together and
+  let every line run past the measure (measured: a 39-code-point Thai sentence
+  collapsed from 7 lines into 2 runs of ~140px under a 70px measure).
 * `visualOrder.ts` — `lineVisualRuns` derives each wrapped line's visual run
   sequence with UAX #9 X8/L2 applied to the line's character slice (bidi-js
   `getReorderedIndices` with L1.4 trailing-whitespace reset), so RTL lines
@@ -310,17 +350,24 @@ the whole span horizontally scaled by the measured ratio of the cell to
 the span's shaped width — never a fixed shrink factor. Caret stops keep
 the ligature policy: stops at the span edges, none inside. The rich span
 editor exposes a combine toggle when the host node flows vertically.
-Canvas font shorthands append the platform color-emoji families after the
+Sideways clusters (rotated Latin, digits, Western punctuation) flow at
+their shaped horizontal advances — the CSS `sideways` metric contract —
+and paint as coherent rotated runs, one draw per consecutive same-format
+group, so rotated words keep their kerning and natural rhythm. Canvas
+font shorthands append the platform color-emoji families after the
 primary family (`withEmojiFallback`), so emoji resolve through an explicit
 candidate instead of tofu on minimal Linux font configurations while text
 glyphs keep the primary face.
 
-Known open items: sideways (rotated Latin/digit) runs still paint
-cluster-by-cluster in one-em cells rather than as coherent shaped runs
-with CSS `sideways` metrics; vertical caret stops and selection rects are
+Known open items: vertical caret stops and selection rects are
 engine-tested but the editing surface still delegates pointer/caret to the
 native textarea; color-font tables are detected but not rendered by a
-Varve-controlled rasterizer. See
+Varve-controlled rasterizer; Hanging punctuation (ぶら下げ) is not implemented
+— line-start prohibition is realised by push-out, so `。` and `、` move to the
+next line rather than overhanging the measure; ruby (ルビ) and emphasis marks
+(圏点) have no layout path, and no document schema carries them, so there is
+nothing to flatten silently today — a document that acquires them needs a
+capability warning rather than silent loss. See
 [the October 2026 repairs ledger](../audits/world-script-text-repairs-2026-10-15.md)
 for the evidence behind each repair and the explicit not-claimed list.
 
@@ -332,7 +379,9 @@ registry](https://learn.microsoft.com/en-us/typography/opentype/spec/featurelist
 [HarfBuzz cluster guidance](https://harfbuzz.github.io/clusters.html),
 [Unicode grapheme rules](https://www.unicode.org/reports/tr29/),
 [Unicode bidirectional algorithm](https://www.unicode.org/reports/tr9/),
-[Unicode line breaking](https://www.unicode.org/reports/tr14/),
+[Unicode line breaking](https://www.unicode.org/reports/tr14/tr14-53.html)
+(revision 53, Unicode 16.0.0 — matched to the pinned data rather than the
+latest revision),
 [CSS Fonts 4](https://www.w3.org/TR/css-fonts-4/),
 [SVG 2 text](https://www.w3.org/TR/SVG2/text.html), and the
 [WHATWG Canvas 2D specification](https://html.spec.whatwg.org/multipage/canvas.html).
