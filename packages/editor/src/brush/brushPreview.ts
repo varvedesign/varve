@@ -14,8 +14,8 @@
 import type { BrushPreset } from '@varve/scene';
 import {
   appendStrokePoints,
+  beginRasterTileDraft,
   beginStroke,
-  compositeDabOnNode,
   createStrokeOpacityAccumulator,
   makeRasterLayerNode,
   strokePoint,
@@ -147,14 +147,15 @@ export function renderBrushPreview(
   }
 
   const color = previewInkRgba(options.ink ?? DEFAULT_INK);
-  let layer = makeRasterLayerNode('brush-preview', { width, height });
   const opacity =
     preset.accumulation === 'stroke-opacity'
       ? createStrokeOpacityAccumulator(TILE_SIZE * TILE_SIZE, TILE_SIZE * TILE_SIZE * 16)
       : null;
+  const draft = beginRasterTileDraft(makeRasterLayerNode('brush-preview', { width, height }));
   for (const dab of dabs) {
-    layer = compositeDabOnNode(layer, dab, color, opacity ? { strokeOpacity: opacity } : false);
+    draft.compositeDab(dab, color, opacity ? { strokeOpacity: opacity } : false);
   }
+  const layer = draft.commit();
   for (const [key, tile] of layer.tiles) {
     const [col, row] = key.split(':').map(Number);
     const image = ctx.createImageData(TILE_SIZE, TILE_SIZE);
