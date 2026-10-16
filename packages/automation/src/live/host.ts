@@ -289,7 +289,7 @@ export class AutomationHost {
   }
 
   /** Forget a revocation so the same client id can be admitted again. */
-  unforgive(principalId: string): void {
+  clearRevocation(principalId: string): void {
     this.revoked.delete(principalId);
     this.emit();
   }
@@ -347,6 +347,12 @@ export class AutomationHost {
     return principal;
   }
 
+  /**
+   * The policy closes over the connection id and resolves the principal lazily:
+   * a `ControlConnection` needs its policy at construction, but the principal
+   * only exists once `session.hello` is accepted, and a principal a connection
+   * has not yet earned must not be able to block it retroactively.
+   */
   private policyFor(connectionId: () => string): ExecutionPolicy {
     return {
       blockReason: (effect: CommandEffect): string | null => {
