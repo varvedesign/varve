@@ -48,7 +48,7 @@ describe('SettingsProvider.updateSection', () => {
     );
     fireEvent.click(screen.getByText('two quick changes to one section'));
     expect(screen.getByTestId('seen').textContent).toBe(
-      'edit|true|false|' + loadSettings().collab.displayName,
+      `edit|true|false|${loadSettings().collab.displayName}`,
     );
     const stored = loadSettings().automation;
     expect(stored.grants).toBe('edit');
