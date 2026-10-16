@@ -313,3 +313,86 @@ that was adding the node's own translation to it.
   not modified.
 - The four worker reports have not been integrated (see §4).
 
+
+## 7. Slice D (part 1) — Compose target and honest labels
+
+Commit pending on `master`, 9 files.
+
+### 7.1 Delivered
+
+- **`packages/codegen/src/compose.ts`** — Android Jetpack Compose (Kotlin)
+  emitter through the shared contracts: `composeTargetGaps`, a `GeneratedBundle`
+  emitter, and a single-string adapter over it.
+  - Units follow the documented Android mapping: **dp** for lengths, **sp** for
+    type.
+  - A clickable root gets `sizeIn(minWidth = 48.dp, minHeight = 48.dp)`
+    *before* `.clickable`, because the documented minimum touch target is 48dp
+    and Compose grows the target outside the composable's bounds.
+  - `contentDescription` is emitted **only** when the clickable has no text
+    descendant, because `clickable` already merges a descendant label.
+  - Token aliases are preserved: a fill bound to a design token emits a
+    reference into a generated `Tokens` object rather than a flattened colour
+    copy, so the alias survives into the target with one place to change.
+  - `$` is escaped in Kotlin string literals. This matters more than it looks:
+    Kotlin treats `$` as template interpolation, so an unescaped sigil in an
+    authored layer name either fails to compile or silently substitutes an
+    identifier. The backslash is escaped first so no `\$` can be re-formed.
+  - Shapes with no Compose primitive (polygon, star, arrow, line, free path),
+    non-shadow effects, horizontal shadow offsets and rotation are reported as
+    gaps with fallbacks rather than approximated silently.
+  - A nested tap interaction is **not** given an inert handler: only the root
+    receives `onClick`, and the nested case is reported with a fallback. This is
+    the §11 rule that unsupported interactions are listed, not replaced by an
+    inert click handler behind a success badge.
+- **Registry**: `GeneratedFileLanguage` gained `kotlin` with
+  `text/x-kotlin`; `CodeExportFormat` gained `compose` with its gap function;
+  `packages/codegen/src/index.ts` exports the target.
+- **`BundleDiagnostic.fallback`** is now a first-class optional field, matching
+  `TargetGap.fallback`. Six diagnostic sites in the new emitter previously
+  smuggled a fallback through an object spread plus a cast; a diagnostic that
+  only reports a limitation is half a handoff, so the actionable half is typed.
+- **Reachability**: the Compose target appears in **both** code panels
+  (`CodeGenView` and `CodePanel`), and `syntax.ts` loads Prism's Kotlin grammar
+  so the output is highlighted as Kotlin rather than falling through to CSS.
+- **Label correction**: `CodePanel` labelled its `css` target "HTML/CSS" while
+  calling `exportNodeToCss`, which emits a stylesheet with no markup. Both the
+  tab label and the readiness copy ("can be exported as native HTML/CSS") are
+  now "CSS". `CodeGenView` already had this right; the two panels disagreed.
+
+### 7.2 Pinned toolchain and its provenance
+
+`COMPOSE_TOOLCHAIN` pins Compose UI **1.12.1**, Compose BOM **2026.09.00**,
+Kotlin **2.2.0**, minSdk **23**. Provenance: the Compose UI releases page states
+stable 1.12.1 and that the 1.13.0-beta01 line targets Kotlin 2.2; the compiler
+page pairs Kotlin 2.4.10 with the Compose Compiler Gradle plugin and recommends
+the latest BOM. **Stable 1.12.1's own minimum Kotlin is not stated on that
+page**, so the Kotlin pin is a declared choice, not a documented floor. The
+minSdk choice is disclosed in the bundle's own setup steps, because the official
+pages contradict each other (setup says API 21+, the 1.10.0-alpha01 notes record
+the move from 21 to 23).
+
+### 7.3 Verification tier — emitted and statically checked, **not compiled**
+
+`kotlinc`, Gradle and the Android SDK are all absent from this machine, and no
+Kotlin image is cached for the container engine that is present. Pulling one is a
+network/spend decision that was not authorised, so it was not taken. Nothing in
+this increment is claimed as compiled or rendered; the bundle says so in its own
+diagnostics and setup steps.
+
+What the tests do assert: escaping of `$`, backslash-before-quote ordering,
+newline/tab escaping, keyword-safe identifiers, dp/sp formatting, `0xAARRGGBB`
+colours, the 48dp modifier order, the semantics-merging rule, the absence of an
+inert nested handler, gap reporting for non-primitive shapes, and a resolvable
+file (every `Tokens.` reference has a `Tokens.kt`).
+
+**Remaining for a real Compose guarantee:** a compile check with a JDK + Kotlin
+toolchain, and a rendered comparison. Both are unverified.
+
+### 7.4 Still open in slice D
+
+`CodePanel` and `CodeGenView` still keep separate target lists and separate
+generation switches. This increment makes them *agree* on labels and adds the
+new target to both, but it does not yet collapse them onto one registry — the
+duplication that allowed the mislabel to exist is reduced, not removed.
+`exportIrToHtml` is not yet exposed as an HTML target, so the CSS target remains
+a stylesheet fragment and says so.

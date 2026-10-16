@@ -8,6 +8,7 @@
  */
 
 import type { Document, SceneNode } from '@varve/scene';
+import { composeTargetGaps } from './compose';
 import { cssTargetGaps } from './css';
 import { cssModulesTargetGaps } from './css-modules';
 import { flutterTargetGaps } from './flutter';
@@ -24,6 +25,7 @@ export type CodeExportFormat =
   | 'react-tailwind'
   | 'flutter'
   | 'swiftui'
+  | 'compose'
   | 'svg'
   | 'svg-component'
   | 'vue'
@@ -47,6 +49,7 @@ const GAP_FNS: Record<CodeExportFormat, GapFn> = {
   'react-tailwind': tailwindTargetGaps,
   flutter: flutterTargetGaps,
   swiftui: swiftuiTargetGaps,
+  compose: composeTargetGaps,
   svg: svgTargetGaps,
   'svg-component': svgTargetGaps,
   vue: () => [],

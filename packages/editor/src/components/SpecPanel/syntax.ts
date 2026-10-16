@@ -3,6 +3,7 @@ import 'prismjs/components/prism-css.min.js';
 import 'prismjs/components/prism-jsx.min.js';
 import 'prismjs/components/prism-dart.min.js';
 import 'prismjs/components/prism-swift.min.js';
+import 'prismjs/components/prism-kotlin.min.js';
 import 'prismjs/components/prism-markup.min.js';
 
 const LANG_MAP: Record<string, string> = {
@@ -13,12 +14,14 @@ const LANG_MAP: Record<string, string> = {
   svg: 'markup',
   flutter: 'dart',
   swiftui: 'swift',
+  compose: 'kotlin',
   // File languages (multi-file results highlight per file).
   tsx: 'jsx',
   jsx: 'jsx',
   html: 'markup',
   dart: 'dart',
   swift: 'swift',
+  kotlin: 'kotlin',
 };
 
 export function highlight(code: string, target: string): string {

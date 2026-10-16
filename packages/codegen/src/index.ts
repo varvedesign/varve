@@ -39,6 +39,19 @@ export {
   dataUrlToBytes,
   resolveBundleAssets,
 } from './bundle-assets';
+export type { ComposeExportOptions } from './compose';
+// Android Jetpack Compose (Kotlin)
+export {
+  argbColor,
+  COMPOSE_TOOLCHAIN,
+  composeTargetGaps,
+  dp,
+  exportNodeToCompose,
+  exportNodeToComposeBundle,
+  kotlinIdentifier,
+  kotlinString,
+  sp,
+} from './compose';
 export {
   collectCssRules,
   cssDeclarationsForNode,

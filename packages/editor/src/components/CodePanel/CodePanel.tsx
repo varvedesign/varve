@@ -14,6 +14,7 @@ import {
   type AuditFinding,
   analyseDocument,
   type DesignAuditReport,
+  exportNodeToComposeBundle,
   exportNodeToCss,
   exportNodeToReact,
   exportNodeToSvelte,
@@ -43,16 +44,25 @@ const PRIMARY_TABS: Tab<PrimaryTab>[] = [
   { value: 'readiness', label: 'Readiness' },
 ];
 
-type CodeTarget = 'css' | 'react' | 'tailwind' | 'vue' | 'svelte' | 'web-component' | 'svg';
+type CodeTarget =
+  | 'css'
+  | 'react'
+  | 'tailwind'
+  | 'vue'
+  | 'svelte'
+  | 'web-component'
+  | 'svg'
+  | 'kotlin';
 
 const CODE_TABS: Tab<CodeTarget>[] = [
-  { value: 'css', label: 'HTML/CSS' },
+  { value: 'css', label: 'CSS' },
   { value: 'react', label: 'React' },
   { value: 'tailwind', label: 'Tailwind React' },
   { value: 'vue', label: 'Vue' },
   { value: 'svelte', label: 'Svelte' },
   { value: 'web-component', label: 'Web Component' },
   { value: 'svg', label: 'SVG' },
+  { value: 'kotlin', label: 'Compose' },
 ];
 
 type PreviewSize = 'mobile' | 'tablet' | 'desktop';
@@ -105,6 +115,11 @@ function generateCode(node: SceneNode, doc: Document, target: CodeTarget): strin
       return exportNodeToWebComponent(node, doc);
     case 'svg':
       return exportNodeToSvg(node, doc);
+    case 'kotlin':
+      // The Compose target is a multi-file component: the bundle's entry file is
+      // the only string this single-string adapter can carry, so the panel's
+      // deliverable note states that the bundle is the contract.
+      return exportNodeToComposeBundle(node, doc).files.find((file) => file.entry)?.contents ?? '';
   }
 }
 
@@ -124,6 +139,8 @@ function getCodeLanguage(target: CodeTarget): string {
       return 'markup';
     case 'svg':
       return 'markup';
+    case 'kotlin':
+      return 'kotlin';
   }
 }
 
@@ -166,6 +183,7 @@ function CodegenTab({ doc, selection }: CodePanelProps) {
       svelte: 'svelte',
       'web-component': 'js',
       svg: 'svg',
+      kotlin: 'kt',
     };
     const ext = extMap[activeTarget];
     const filename = activeNode ? buildFilename(activeNode.name, ext) : `export.${ext}`;
@@ -362,13 +380,14 @@ function AuditTab({ doc }: { doc: Document }) {
 /* ─────────────────────────────────────── */
 
 const READINESS_FORMATS: { value: CodeTarget; label: string }[] = [
-  { value: 'css', label: 'HTML/CSS' },
+  { value: 'css', label: 'CSS' },
   { value: 'react', label: 'React' },
   { value: 'tailwind', label: 'Tailwind React' },
   { value: 'vue', label: 'Vue' },
   { value: 'svelte', label: 'Svelte' },
   { value: 'web-component', label: 'Web Component' },
   { value: 'svg', label: 'SVG' },
+  { value: 'kotlin', label: 'Compose' },
 ];
 
 const FORMAT_TO_CODEEXPORT: Record<CodeTarget, import('@varve/codegen').CodeExportFormat> = {
@@ -379,6 +398,7 @@ const FORMAT_TO_CODEEXPORT: Record<CodeTarget, import('@varve/codegen').CodeExpo
   svelte: 'css',
   'web-component': 'css',
   svg: 'svg',
+  kotlin: 'compose',
 };
 
 function ReadinessTab({ doc, selection }: CodePanelProps) {
@@ -423,7 +443,7 @@ function ReadinessTab({ doc, selection }: CodePanelProps) {
             />
             <span>
               {readiness.ready
-                ? 'All selected nodes can be exported as native HTML/CSS.'
+                ? 'All selected nodes can be exported as native CSS.'
                 : `${readiness.issues.length} issue${readiness.issues.length !== 1 ? 's' : ''} found.`}
             </span>
           </div>

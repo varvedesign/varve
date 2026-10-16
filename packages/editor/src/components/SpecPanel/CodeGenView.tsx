@@ -17,6 +17,7 @@
 
 import {
   type BundleDiagnostic,
+  exportNodeToComposeBundle,
   exportNodeToCss,
   exportNodeToCssModulesBundle,
   exportNodeToFlutter,
@@ -33,7 +34,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { computeLineDiff } from './codeDiff';
 import { highlight } from './syntax';
 
-type CodeTarget = 'svg' | 'css' | 'tailwind' | 'modules' | 'flutter' | 'swiftui';
+type CodeTarget = 'svg' | 'css' | 'tailwind' | 'modules' | 'flutter' | 'swiftui' | 'compose';
 
 const CODE_TABS: readonly Tab<CodeTarget>[] = [
   { value: 'svg', label: 'SVG' },
@@ -42,6 +43,7 @@ const CODE_TABS: readonly Tab<CodeTarget>[] = [
   { value: 'modules', label: 'Modules' },
   { value: 'flutter', label: 'Flutter' },
   { value: 'swiftui', label: 'SwiftUI' },
+  { value: 'compose', label: 'Compose' },
 ] as const;
 
 /** What the user is actually looking at, stated plainly. */
@@ -72,6 +74,7 @@ const FILE_LANGUAGE: Record<GeneratedFileLanguage, string> = {
   json: 'json',
   dart: 'dart',
   swift: 'swift',
+  kotlin: 'kotlin',
   vue: 'html',
   svelte: 'html',
   text: 'text',
@@ -170,6 +173,15 @@ function generateOutput(
         diagnostics: [],
         note: 'A SwiftUI view expression. Paste it into a View body — it is not a runnable app.',
       };
+    case 'compose': {
+      const bundle = exportNodeToComposeBundle(node, doc, { variableStore });
+      return {
+        deliverable: 'component',
+        files: bundle.files,
+        diagnostics: bundle.diagnostics,
+        note: 'An Android Jetpack Compose composable. Emitted and statically checked only — no Kotlin compiler ran on it, so the first build is the check.',
+      };
+    }
   }
 }
 
