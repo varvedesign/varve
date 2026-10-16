@@ -30,6 +30,16 @@ export type Outcome =
   /** A declared retry could not be reconciled; verify state before retrying. */
   | 'unknown';
 
+/** Result of persisting a committed edit; absent fields mean "not saved". */
+export interface DurableInfo {
+  saved: boolean;
+  /** Destination actually written. */
+  path?: string;
+  bytes?: number;
+  /** SHA-256 of the bytes written. */
+  contentHash?: string;
+}
+
 export interface TargetInfo {
   mode: 'headless' | 'connected';
   instanceId: string;
@@ -59,9 +69,9 @@ export interface Receipt {
   defaulted: string[];
   transactionId?: string;
   error?: ErrorInfo;
-  idempotency?: { key: string; replayed: boolean };
+  idempotency?: { key: string; replayed: boolean; argsHash: string };
   /** Mutation committed is not the same as saved: file persistence is separate. */
-  durable: { saved: boolean };
+  durable: DurableInfo;
 }
 
 export interface BatchStepReceipt {
@@ -85,5 +95,5 @@ export interface BatchReceipt {
   deleted: string[];
   idMap: Record<string, string>;
   error?: ErrorInfo;
-  durable: { saved: boolean };
+  durable: DurableInfo;
 }

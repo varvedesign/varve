@@ -264,6 +264,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@varve/automation':
+        specifier: workspace:*
+        version: link:../automation
       '@varve/history':
         specifier: workspace:*
         version: link:../history

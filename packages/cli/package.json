@@ -16,14 +16,21 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "cd ../.. && vitest run packages/cli"
+    "test": "cd ../.. && vitest run packages/cli",
+    "build:bundle": "node scripts/build-bundle.mjs"
   },
   "dependencies": {
+    "@varve/automation": "workspace:*",
     "@varve/history": "workspace:*",
     "@varve/scene": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "^0.28.2"
   },
-  "license": "FSL-1.1-MIT"
+  "license": "FSL-1.1-MIT",
+  "files": [
+    "bin",
+    "dist",
+    "src"
+  ]
 }

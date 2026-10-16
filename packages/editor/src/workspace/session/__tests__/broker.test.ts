@@ -176,6 +176,18 @@ describe('protocol: envelope validation', () => {
     if (!result.ok) expect(result.reason).toContain('too large');
   });
 
+  it('counts UTF-8 bytes, so multilingual payloads cannot exceed the cap unnoticed', () => {
+    // 100,000 CJK characters are 100,000 UTF-16 units (under the cap by
+    // length) but 300,000 UTF-8 bytes (over the 256 KiB cap).
+    const cjk = envelope({ payload: { text: '日'.repeat(100_000) } });
+    const result = validateEnvelope(cjk, context);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('too large');
+    expect(validateEnvelope(envelope({ payload: { text: '日'.repeat(10_000) } }), context).ok).toBe(
+      true,
+    );
+  });
+
   it('rejects non-serializable payloads', () => {
     const cyclic: Record<string, unknown> = {};
     cyclic.self = cyclic;

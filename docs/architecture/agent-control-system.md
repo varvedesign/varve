@@ -20,7 +20,9 @@ This document describes the contract and marks what exists. A claim here is
 | Strict schemas, catalog, executor, receipts, idempotency | Implemented (`@varve/automation`), unit-tested |
 | Headless document authority, attributed rollback | Implemented, unit-tested |
 | `document.*`, `node.*`, `history.*` commands | Implemented (document structure and typed properties) |
-| CLI exec/describe/batch over a document file | Planned (next slice) |
+| CLI `commands`, `describe`, `exec`, `batch`, `inspect`, `doctor` over a document file | Implemented (`@varve/cli`), verified through a real subprocess against the packaged bundle |
+| Self-contained CLI bundle, no runtime esbuild | Implemented (`build:bundle`); installers/sidecar packaging not done |
+| Strict JSON input (duplicate keys, `__proto__`, overflow, depth, bytes) | Implemented |
 | JSON-RPC control protocol, stdio MCP server | Planned |
 | Live editor authority, desktop listener, approvals, Settings surface | Planned |
 | Page, component, text-run, effect, export, capture, motion commands | Not started; tracked in the parity manifest as gaps |
@@ -186,6 +188,56 @@ listed and nothing is changed. It never pops the last N edits.
 - Same-user malware with the account's own permissions is outside what a local
   token or socket permission can stop; this system reduces accidental and
   cross-origin exposure, it is not a sandbox.
+
+## Command line
+
+`varve commands`, `describe`, `exec`, `batch`, `inspect` and `doctor` are the
+headless adapter. They open a document file (or `--new <name>`) in an isolated
+session, run the command through the executor, and print the receipt.
+
+- stdout carries the result: human text, or exactly one JSON document with
+  `--json`. Warnings and diagnostics go to stderr.
+- Arguments come from `--args-json`, `--args-file` or `--args-stdin`, parsed
+  strictly (no duplicate keys, no `__proto__`, bounded size and depth), so shell
+  quoting is never in the data path. Option parsing knows each command's
+  options: values may start with `-`, `--` ends options, unknown options are
+  errors with a suggestion.
+- **Nothing is saved unless `--in-place` or `--out` is given**, and the receipt
+  says `durable.saved: false` otherwise.
+- Exit codes: `0` ok, `1` request refused, `2` usage error, `3` file error or
+  path not allowed, `4` unknown outcome of a retry, `5` conflict (document,
+  revision or lock). Existing document commands keep their own codes.
+
+### File safety
+
+Every read and write goes through one gateway.
+
+- Policy is applied to the canonical path (symlinks resolved) with a path
+  relation test, not a string prefix: `VARVE_READ_ROOTS`, `VARVE_WRITE_ROOTS`
+  or `--read-root` / `--write-root`. Roots are installation or invocation
+  policy, never something a request declares.
+- Writes are temp file, fsync, atomic rename; `--out` never replaces an
+  existing file without `--overwrite` and never the source document
+  (`--in-place` is the deliberate form).
+- `--in-place` is compare-and-swap against the bytes that were loaded and
+  takes a lock file beside the document. An existing lock is never removed.
+- Symlinked targets and hard-linked documents are refused.
+- A result is encoded and decoded again before it is written; a document the
+  codec cannot read back is never written.
+- Limit: the check-then-rename sequence is atomic only against cooperating
+  writers that honor the lock. Case-insensitive volumes rely on the platform's
+  canonical casing.
+
+### Retry recovery across processes
+
+An `--in-place` run with `--idempotency-key` records a receipt journal beside
+the document (`<doc>.varve-journal.json`, bounded, 24 hours). `pending` is
+written before the document is replaced and `committed` after. A retry
+(`--attempt 2`) replays a committed receipt; reconciles a `pending` one against
+the file's bytes (equal to the after-hash: landed, replay; equal to the
+before-hash: not landed, execute; anything else: unknown outcome, exit 4).
+Runs with `--out` have no journal: re-running regenerates the result file
+with new ids.
 
 ## What a command is not
 

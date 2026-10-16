@@ -25,6 +25,8 @@ import { type DocumentDiff, diffDocuments, mergeDocuments } from '@varve/history
 import type { Document } from '@varve/scene';
 import { canonicalHash, canonicalizeDocument, DocumentCodec } from '@varve/scene';
 import { buildReviewBundle } from './review';
+import { AUTOMATION_COMMANDS, runAutomationCommand } from './run/commands';
+import { processIo } from './run/io';
 
 export interface CliError extends Error {
   exitCode: number;
@@ -349,6 +351,19 @@ export function main(argv: string[]): number {
   }
 }
 
+/**
+ * Entry point for every command. Automation commands (commands, describe,
+ * exec, batch, inspect, doctor) are asynchronous and use their own strict
+ * option parser; the original document tooling keeps its synchronous path.
+ */
+export async function mainAsync(argv: string[]): Promise<number> {
+  const name = argv[0];
+  if (name !== undefined && AUTOMATION_COMMANDS.has(name)) {
+    return runAutomationCommand(processIo(), argv);
+  }
+  return main(argv);
+}
+
 function requireArg(args: string[], index: number, usage: string): string {
   const value = args[index];
   if (value === undefined) throw cliError(`missing argument — usage: varve ${usage}`, 2);
@@ -386,7 +401,25 @@ usage:
   varve git-setup [--apply]                  print (or apply) git integration config
   varve help                                 show this help
 
-exit codes: 0 clean, 1 conflicted merge, 2 error
+automation (headless; every command is validated and returns a receipt):
+  varve commands [--search q] [--effect read|mutate] [--domain d] [--json]
+                                             list or search the command catalog
+  varve describe <command> [--json]          schema, permission and examples
+  varve exec <command> (--file <doc> | --new <name>) [--args-json <json> |
+        --args-file <path> | --args-stdin] [--in-place | --out <path>
+        [--overwrite]] [--idempotency-key <k> [--attempt <n>]]
+        [--expect-revision <n>] [--document-id <id>] [--dry-run] [--json]
+  varve batch (--file <doc> | --new <name>) --steps-file <path|-> [--mode
+        atomic|partial] [--on-error stop|continue] [save options as exec]
+  varve inspect --file <doc> [--depth <n>] [--json]
+  varve doctor [--json]                      environment, catalog and path policy
+
+  Changes are NOT saved unless --in-place or --out is given. File policy:
+  VARVE_READ_ROOTS / VARVE_WRITE_ROOTS (or --read-root / --write-root).
+
+exit codes: 0 clean, 1 conflicted merge (legacy) or request refused,
+  2 usage/error, 3 file error, 4 unknown outcome of a retry,
+  5 conflict (document or revision changed)
 `;
 
 // Run only when executed directly (not when imported by tests or other
@@ -401,5 +434,15 @@ function isDirectRun(): boolean {
 }
 
 if (isDirectRun()) {
-  process.exit(main(process.argv.slice(2)));
+  // Set the exit code instead of calling process.exit so buffered stdout
+  // (large receipts piped to another process) is flushed before exit.
+  mainAsync(process.argv.slice(2)).then(
+    (code) => {
+      process.exitCode = code;
+    },
+    (error: unknown) => {
+      process.stderr.write(`varve: ${error instanceof Error ? error.message : String(error)}\n`);
+      process.exitCode = 2;
+    },
+  );
 }

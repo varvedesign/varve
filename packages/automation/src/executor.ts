@@ -216,7 +216,7 @@ export class Executor {
     if (replay.kind === 'replay') {
       return {
         ...(replay.receipt as Receipt),
-        idempotency: { key: request.idempotencyKey as string, replayed: true },
+        idempotency: { key: request.idempotencyKey as string, replayed: true, argsHash },
       };
     }
     if (replay.kind === 'error') {
@@ -277,7 +277,10 @@ export class Executor {
           receipt: reverted,
           storedAt: (ctx.now ?? Date.now)(),
         });
-        return { ...reverted, idempotency: { key: request.idempotencyKey, replayed: false } };
+        return {
+          ...reverted,
+          idempotency: { key: request.idempotencyKey, replayed: false, argsHash },
+        };
       }
       return reverted;
     }
@@ -378,7 +381,10 @@ export class Executor {
         receipt,
         storedAt: (ctx.now ?? Date.now)(),
       });
-      receipt = { ...receipt, idempotency: { key: request.idempotencyKey, replayed: false } };
+      receipt = {
+        ...receipt,
+        idempotency: { key: request.idempotencyKey, replayed: false, argsHash },
+      };
     }
     return receipt;
   }
@@ -1172,10 +1178,16 @@ function withStep(info: ErrorInfo, step: number): ErrorInfo {
 }
 
 function internalError(error: unknown): ErrorInfo {
-  // Details are deliberately generic: a stack trace or file path is not an API.
+  // A short message is kept because "internal error" alone is not actionable
+  // (for example an invalid ordering key in the document). Stack traces are
+  // never returned, and the text is bounded.
+  const detail =
+    error instanceof Error
+      ? `${error.name}: ${error.message}`.replace(/\s+/g, ' ').slice(0, 200)
+      : '';
   const code: ErrorCode = 'INTERNAL';
   return errorInfo(code, {
-    message: `internal error while executing the command${error instanceof Error ? `: ${error.name}` : ''}`,
+    message: `internal error while executing the command${detail ? ` (${detail})` : ''}`,
     hint: 'the document was not changed; report this with the receipt id',
   });
 }

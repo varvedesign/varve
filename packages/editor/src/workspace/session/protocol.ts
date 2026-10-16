@@ -241,14 +241,44 @@ function isNonNegativeInteger(value: unknown): boolean {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
-/** Serialized size of a payload — bounded (ADR-0023). */
+/**
+ * Serialized size of a payload in UTF-8 **bytes** — bounded (ADR-0023).
+ *
+ * `String.length` counts UTF-16 code units, which under-reports CJK text by
+ * 3x and astral text by 2x, so a cap expressed in bytes was never enforced
+ * for multilingual content.
+ */
 export function payloadByteSize(payload: unknown): number {
   try {
     const json = JSON.stringify(payload);
-    return json === undefined ? 0 : json.length;
+    return json === undefined ? 0 : utf8ByteLength(json);
   } catch {
     return Number.POSITIVE_INFINITY;
   }
+}
+
+/** UTF-8 length without allocating the encoded buffer. */
+function utf8ByteLength(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i++) {
+    const unit = text.charCodeAt(i);
+    if (unit < 0x80) {
+      bytes += 1;
+    } else if (unit < 0x800) {
+      bytes += 2;
+    } else if (unit >= 0xd800 && unit <= 0xdbff && i + 1 < text.length) {
+      const next = text.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        bytes += 4;
+        i += 1;
+      } else {
+        bytes += 3;
+      }
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
 }
 
 /**

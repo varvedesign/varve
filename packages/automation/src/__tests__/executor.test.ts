@@ -387,7 +387,8 @@ describe('L12 idempotency and honest retries', () => {
     expect(first.outcome).toBe('applied');
     expect(retry.outcome).toBe('applied');
     expect(retry.created).toEqual(first.created);
-    expect(retry.idempotency).toEqual({ key: 'k-1', replayed: true });
+    expect(retry.idempotency).toMatchObject({ key: 'k-1', replayed: true });
+    expect(retry.idempotency?.argsHash).toBe(first.idempotency?.argsHash);
     expect(Object.values(s1.doc().nodes).filter((n) => n.kind === 'shape')).toHaveLength(1);
     expect(s1.authority.getRevision()).toBe(1);
   });
