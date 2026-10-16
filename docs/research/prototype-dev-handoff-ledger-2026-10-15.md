@@ -122,4 +122,194 @@ batch merge PR [#591](https://github.com/storytold/figcraft/pull/591)
 3. **Authorship of the figcraft seed batch cannot be established from API metadata.** The bodies are machine-structured with a pinned SHA, a complete integration test and a "Triage assessment" block; relay markers are absent. I record them as useful *specification material* and explicitly **not** as independent user-reported evidence of Varve defects.
 4. **No official vendor resolution exists in any of the three Figma forum threads.** All three are closed for replies, two with zero or one reply, and no Figma staff answer appears. No fix status can be asserted for any of them. Attachments were deliberately **not** downloaded, so their contents are unverified.
 5. **Items marked title-level** (#416, #443, #604, #613, #1584, #2006) have metadata only; reproduction quality and authorship are recorded as unverified rather than inferred.
-6. **Primary-source revalidation (R1–R8)** is recorded separately and only for the pages actually retrieved; pages that were login-walled, empty or unreachable are listed there as unretrieved rather than substituted from memory.
+6. **Primary-source revalidation (R1–R8)**: see §3. Pages that were login-walled, empty or unreachable are listed as unretrieved rather than substituted from memory.
+
+## 3. Primary-source revalidation (R1–R8), accessed 2026-10-15
+
+Only what was actually retrieved is recorded. Facts that changed an
+implementation decision are marked **(decision)**.
+
+| Source | What it actually says | Effect |
+|---|---|---|
+| [Figma — Guide to prototyping](https://help.figma.com/hc/en-us/articles/360040314193-Guide-to-prototyping-in-Figma) | Duration is selectable **1 ms – 10000 ms**; a destination **must be a top-level frame, not an object within a frame**; a frame may belong to several flows but has one starting point. | **(decision)** Transition duration bounds and destination validation. Confirms §5's "not every nested frame is a navigable top-level screen". |
+| [Figma — Connect your prototype](https://help.figma.com/hc/en-us/articles/360040315773-Connect-your-prototype) | Interaction = trigger + action; details expose **Add action** for more actions on one trigger. Cardinality per object: **any number** of Keyboard/Gamepad, On drag, When video hits; **one of each** On click/tap, While hovering, While pressing, Mouse enter, Mouse leave, Mouse down/up, After delay. On click/tap cannot combine with While hovering. | **(decision)** Grounds the §6 requirement to expose conflicts with reasons. |
+| [Figma — Triggers](https://help.figma.com/hc/en-us/articles/360040035834-Prototype-triggers) | Documented triggers: On click/tap, On drag, While hovering, While pressing, Keyboard/Gamepad, Mouse enter, Mouse leave, Mouse down, Mouse up, After delay, When video hits, When video ends. While hovering/pressing return to the original frame on release. "Mouse move inside/outside" were renamed Mouse enter/leave on **2023-11-16** and can no longer be created. | Declared trigger matrix; note Varve's `onMediaQuery`/`onLoad` are beyond the documented set. |
+| [Figma — Actions](https://help.figma.com/hc/en-us/articles/360040035874-Prototype-actions) | Navigate to, Back, Set variable, Set variable mode, Conditional, Scroll to, Open link, Open overlay, Close overlay, Swap overlay, Change to (variant switching), video/time actions. Scroll to is the one destination allowed inside the same frame. | Declared action matrix. **Change to** (component state) is absent from Varve's `ActionKind`. |
+| [Figma — Multiple actions and conditionals](https://help.figma.com/hc/en-us/articles/15253220891799-Multiple-actions-and-conditionals) | "Every prototype interaction has a trigger and one or more actions"; **unlimited** actions per trigger; "Actions run in the order in which they're listed, from top to bottom"; multiple animations run **sequentially**. | **(decision)** Ordered action execution and visible ordering. |
+| [Figma — Scroll and overflow behaviour](https://help.figma.com/hc/en-us/articles/360039818734-Prototype-scroll-and-overflow-behavior) | Overflow: No scrolling / Horizontal / Vertical / Both. Per-object Position: Scroll with parent / **Fixed** / **Sticky**. Fixed objects are moved above other layers and cannot sit under scrolling layers; Sticky is bounded by its direct parent. **Preserve scroll position** vs **Reset scroll position** is a per-frame setting and "a type of prototype state management". | **(decision)** Scroll reset is authored per frame, not a global policy; fixed/sticky have paint-order consequences. |
+| [Figma — Create overlays](https://help.figma.com/hc/en-us/articles/360039818254-Create-overlays-in-your-prototypes) | Overlay settings are applied **to the overlay itself, not the connection**, so they are reusable: Position relative to the original frame (seven presets or manual), **Close when clicking outside**, background colour+opacity, transition. **Swap overlay** keeps existing settings, "you can't set a different position for the new overlay", and **is not recorded in prototype history**, so Back returns to the previous screen. Nesting/stacking is **not documented** here. | **(decision)** Divergence recorded: Varve stores position/closeOnBackdrop on the action and discarded them at runtime. Swap-overlay Back semantics pinned. |
+| [Figma — Smart animate](https://help.figma.com/hc/en-us/articles/360039818874-Smart-animate-layers-between-frames) | Matching takes into account **both the layer's name and where it sits in the hierarchy**. Interpolates Scale, Position, Opacity, Rotation, Fill. Unmatched destination layers **dissolve in**; unchanged properties are not animated; unsupported cases (drop/inner shadow, layer-to-shape, non-identical texture/noise) fall back to **dissolve**. Overlays do not support Smart animate except swap-between-overlays with matching layers; matched **fixed** layers get no transition. Text-content differences are **not addressed**. | **(decision)** Varve's `matchLayersByName` is **weaker than the primary source** (name only, no hierarchy position) — a defect against §8's "names alone are ambiguous". |
+| [Penpot — Prototyping](https://help.penpot.app/user-guide/prototyping-testing/prototyping/) | Triggers: On click, Mouse enter, Mouse leave, After delay (delay only on boards). Actions: Navigate to, Open overlay, Toggle overlay, Close overlay, Previous screen, Open URL. Overlay presets or **Manual** placement, "Close when clicking outside", background overlay black 20%, and a **"relative to"** field opening the overlay relative to the triggering element. Animations: Dissolve, Slide, Push. **Fix when scrolling** lives in Constraints. | Confirms overlay reference-space as an explicit authored choice (the Figma forum overlay-in-slide report is the same axis). |
+| [Penpot — Testing view mode](https://help.penpot.app/user-guide/prototyping-testing/testing-view-mode/) | Only boards and their contents are shown; arrow-key/button navigation; **interaction cue** setting (always / on click / don't show); zoom; fullscreen; inspect mode; share link with per-link permissions. No statement about scroll preservation. | **(decision)** Hotspot-hints control and the distinction between prototype-view, inspect and share permissions. |
+| [Figma — Dev Mode](https://help.figma.com/hc/en-us/articles/15023124644247-Guide-to-Dev-Mode-in-Figma) | Inspect shows layout/spacing, properties "as a list or as code", colours, applied prototype interactions, styles/variables, assets, exports. "You can select the language and units to view **in the canvas and generated code**." | **(decision)** Units are one setting affecting canvas and code, not two independent ones. |
+| [Figma — Code snippets in Dev Mode](https://help.figma.com/hc/en-us/articles/15023202277399-Use-code-snippets-in-Dev-Mode) | Languages: CSS (Web), SwiftUI/UIKit (iOS), **Compose**/XML (Android). Unit scale is configured via Inspect → "Set unit scale…": **a root font size for CSS rems** or a scale factor for iOS points. Documented units — CSS: `px`, `rem` ("1rem = 16px by default"); iOS: px, pt; **Android: px, dp, sp**. | **(decision)** §9's typed unit model is exactly px / rem (+ root font size) / pt / dp / sp. Compose is a first-class documented target. |
+| [Figma — Measurements and annotations](https://help.figma.com/hc/en-us/articles/20774752502935-Add-measurements-and-annotate-designs) | Shift-M measurement is **persistent, visible and shareable**; the Alt-hover measurement "can't be saved and shared". Annotations attach text or layer properties and "stay up-to-date and accurate" when the design changes; preset categories Development/Interaction/Accessibility/Content; visible in Dev Mode by default, hideable. The article says **nothing about exports**. | **(decision)** §10's split between live bound readouts and frozen captured values. Export exclusion is **NOT ESTABLISHED** by the primary source — Varve's policy is therefore stated as its own, not as parity. |
+| [Penpot — Dev tools](https://help.penpot.app/user-guide/dev-tools/) | Inspect mode in View mode and Workspace; distances to layers and board edges on hover; per-property copy; Copy as CSS / Copy as CSS (nested); Code tab gives markup (SVG, HTML) and styles (CSS only); export presets. **No unit system or rem-base setting is documented.** | Varve's unit model is ahead of Penpot's; do not treat Penpot as the bar. |
+| [React — rendering lists](https://react.dev/learn/rendering-lists) | Elements produced by `map()` need keys; unique among siblings, reusable across arrays; "**Keys must not change… Don't generate them while rendering**"; index-as-key breaks on reorder and React uses the index when no key is given. | **(decision)** Generated React uses stable node-derived keys, never indices. |
+| [React — preserving and resetting state](https://react.dev/learn/preserving-and-resetting-state) | State is kept while the same component renders at the same position; discarded when removed or when a **different component type** occupies that position (which resets the subtree); `key` is a positional identity override, "not just for lists". | **(decision)** §12's "preserve local interactive state per instance" requires stable keys, not remounting. |
+| [React — purity rules](https://react.dev/reference/rules/components-and-hooks-must-be-pure) | Must be idempotent and side-effect-free in render; no `new Date()`/`Math.random()` in render; props/state/hook arguments immutable after passing; local mutation is fine. | **(decision)** Generated code must not call time/random during render. |
+| [SwiftUI — accessibilityReduceMotion](https://developer.apple.com/documentation/swiftui/environmentvalues/accessibilityreducemotion) | `var accessibilityReduceMotion: Bool`; "If this property's value is true, UI should avoid large animations, especially those that simulate the third dimension." Availability iOS/tvOS 13, macOS 10.15, visionOS 1, watchOS 6. | **(caveat)** The HTML page is an **empty JS shell**; this came from Apple's own documentation data endpoint for the same symbol. Recorded as retrieved-by-alternate-path. |
+| [Compose — semantics](https://developer.android.com/develop/ui/compose/accessibility/semantics) · [api-defaults](https://developer.android.com/develop/ui/compose/accessibility/api-defaults) · [merging](https://developer.android.com/develop/ui/compose/accessibility/merging-clearing) · [testing](https://developer.android.com/develop/ui/compose/testing/semantics) | Standard composables carry built-in semantics; **48dp** minimum touch target, applied by Material components only when they can receive user actions, and Compose **expands the touch target outside the composable's bounds** (use `sizeIn` to avoid overlap); `clickable`/`toggleable` **merge descendants' semantics by default**; `clearAndSetSemantics {}` removes an element and its descendants from the tree; tests assert through semantics. | **(decision)** Compose emitter must emit `sizeIn(minWidth = 48.dp, minHeight = 48.dp)` on generated controls and must not add a redundant `contentDescription` where a text label already merges. |
+| [Compose UI releases](https://developer.android.com/jetpack/androidx/releases/compose-ui) · [compiler](https://developer.android.com/develop/ui/compose/compiler) · [setup](https://developer.android.com/develop/ui/compose/setup) | Page header: **Stable 1.12.1**, Beta 1.13.0-beta01 (2026-10-07); 1.13.0-beta01 notes say libraries target **Kotlin 2.2** and require kotlinc 2.2. Compiler page examples use Kotlin **2.4.10** with "this version matches your Kotlin version" and BOM **2026.09.00**. Setup says minimum API level **21 or higher**; 1.10.0-alpha01 notes record moving the default minSdk from **21 to 23**. | **(decision + gap)** Pin Compose 1.12.1 with BOM 2026.09.00 and the Compose Compiler Gradle plugin. **Stable 1.12.1's own minimum Kotlin is NOT ESTABLISHED**, and minSdk is **contradictory (21 vs 23)** in the official pages — a generated project must declare its choice and say it was not derived from an unambiguous source. |
+| [MDN — iframe](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe) | An empty `sandbox` applies **all** restrictions; without `allow-same-origin` the resource is a **special origin that always fails same-origin checks**. `allow-same-origin` **without** `allow-scripts` still lets a same-origin parent reach the iframe's DOM. "**strongly discouraged to use both allow-scripts and allow-same-origin**" because the embedded document can then remove the sandbox attribute. Sandboxing is useless if the content can be opened outside the frame. | **(decision)** Preview isolation must be a sandboxed frame **without** `allow-same-origin`, so the preview is an opaque origin that cannot reach the editor origin or Tauri IPC. |
+| [MDN — CSP sandbox](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/sandbox) | Same value vocabulary as the attribute; a **document directive**, not supported in `<meta>` or Report-Only. | **(decision)** The sandbox directive must be delivered as a header, not a meta tag. |
+| [MDN — Same-origin policy](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Same-origin_policy) | Origin = scheme/host/port; cross-origin **writes** and **embedding** are typically allowed, **reads** typically disallowed but leaked by embedding; `document.domain` relaxation is deprecated. | Scopes what a preview can and cannot be trusted with. |
+
+### 3.1 Not retrieved from primary sources
+
+- Figma's stance on whether annotations appear in exports — **not stated** in the retrieved article.
+- Figma overlay nesting/stacking — **not stated** in the retrieved article.
+- Compose stable 1.12.1's minimum Kotlin version; and the minSdk contradiction above.
+- The SwiftUI page's own HTML (retrieved via Apple's documentation data endpoint instead).
+
+## 4. Delegated recon runs and retained evidence
+
+Two `workflow` MCP runs of `opencode-v2` workers were executed. No worker had
+write access (`mode: "plan"`, read-only), no nested agents or workflows were
+launched, and no worker touched the tree.
+
+| Run | Vertex | Workers | Cost | Evidence |
+|---|---|---|---|---|
+| `mvaewz1n-ui9wr2` | `opencode-v2/opencode-go/deepseek-v4.1-flash`, `plan`, `effort: high`, 4 calls, concurrency 2, 0 retries | `recon:prototype-runtime`, `recon:devmode-codegen`, `recon:annotations-persistence`, `recon:preview-security` | US$0.192 | Result 54 745 B at `workflow://runs/mvaewz1n-ui9wr2/result`; script at `/home/kevina/.local/share/opencode/workflow-mcp/runs/projects/varve-450b1e5bf073/runs/mvaewz1n-ui9wr2.script.js` |
+
+Each worker reported `Findings` / `Contract map` / `Not determined` sections as
+requested. **These findings are commissioned but not yet integrated into
+implementation** — they are the input to the remaining slices below, and their
+`path:line` anchors were taken against working-tree content that has since moved
+(this pass landed one commit), so each anchor must be re-read before use.
+
+Also completed: an external-research subagent that produced the tracker sweep in
+§1 and the primary-source table in §3.
+
+## 5. Remaining dependency-ordered work
+
+Delivered in this pass: **slice A**, below. Ordered by dependency; each item
+names the evidence that would close it.
+
+1. **A — Prototype activation and session isolation.** *Delivered and verified.*
+   See §6.
+2. **B — Dev Mode measurement and unit soundness.** Axis-correct percentage
+   reference; rotated-AABB versus layout box; typed px/rem/pt/dp/sp with a
+   configured root font size applied only to numeric lengths; the FigCraft #454
+   contract (`Tile 24px` unchanged) as a regression. Closes §9.
+3. **C — Durable annotations.** A canonical model in `packages/scene`, stable
+   IDs, node-relative anchors, orphan detection on anchor deletion, undo
+   integration, one remap point for duplicate/paste, exclusion from artwork,
+   prototype and generated output. Closes §10.
+4. **D — One codegen path, honest labels, Compose.** Collapse `CodePanel` and
+   `CodeGenView` onto the `GeneratedBundle` contract; correct the `css` target's
+   "HTML/CSS" label; add Kotlin/Compose through every registry point the devmode
+   worker enumerated, emitting resources, semantics, `sizeIn` touch targets and
+   a declared verification tier. Closes §11–§12.
+5. **E — Reachable authoring and presentation.** Un-gate the `prototype-flow`
+   section (`sectionRegistry.ts` gates it on `prototypeMode`, which has no UI
+   toggle); connection authoring; the viewer's flow selector, fit/actual,
+   fullscreen with a windowed fallback, and hotspot-hint control. **Gated:** the
+   new drawn affordances require the AGENTS.md online-research pass and route
+   approval before implementation.
+6. **F — Preview isolation and adversarial input hardening.** Sandbox without
+   `allow-same-origin`, CSP `sandbox` as a header, path/name/escaping safety, and
+   the sink inventory from the preview-security worker. Closes §13.
+
+Cross-cutting, not yet started: trigger/action conflict rules with reasons (§6),
+overlay placement/backdrop/reference space at runtime (§7), delayed-action
+execution (see §6.2), scroll preserve/reset as an authored per-frame setting
+(§7), and the ten-fixture acceptance corpus (§15).
+
+## 6. Slice A — delivered
+
+Commit `4a32fbfc0` on `master` (16 files, +1973/−188, 4 new).
+
+### 6.1 Root cause
+
+Hotspot geometry and the screen raster were two independent derivations of one
+geometry. `PrototypeScreenView` placed a hotspot from
+`node.transform[4..5] + nodeLocalBounds(node)` — the node's own parent-space
+translation plus its *local* rect, with no ancestor composition — while the image
+came from `generateThumbnail` with `fit: 'fill'`, whose `computeScale` returns
+`1`, so the raster was 1 scene-unit-per-pixel of the *content bounds* and was then
+stretched into the frame box by `object-fit: fill`. A click was resolved by
+passing *element-relative CSS pixels* to `editor.hitTestNode`, which documents and
+implements **world** coordinates and additionally folded in the editor's `zoom`
+and isolation state, running a document-wide hit test over hidden screens and
+other pages. Activation fired on `pointerdown`, so a cancelled drag or a scroll
+gesture navigated, and a focusable `<button>` was emitted for every enumerated
+immediate child whether or not it had an interaction.
+
+### 6.2 Additional defects found while reading the runtime (not yet repaired)
+
+These are recorded because they are in the same feature and were confirmed by
+reading code; they are **not** fixed by slice A:
+
+- **Delayed actions never run.** `applyActionResult` accepts a `delay`, and when
+  given one it discards the `ActionResult` and pushes a placeholder
+  `interactionId: 'delayed'`. `processInteractions` never passes the action's own
+  `delay`, and the presentation poll calls `processDelays` and **discards its
+  return value**. `afterDelay` triggers expect a `timeout` event that no caller
+  produces. The whole delayed-action path is unwired.
+- **Overlay placement and backdrop are dropped at runtime.** `ActionResult`
+  carries `position` and `closeOnBackdrop` (and the Figma primary source says
+  overlay settings belong to the overlay), but `applyActionResult` stores only the
+  target id in a flat array. `dismiss` clears the *whole* stack rather than the
+  top overlay.
+- **`scrollTo` ignores its target.** It always writes `{x: 0, y: offset ?? 0}`,
+  only when `containerId` is present, and discards `behavior`; scroll positions
+  are never reset on navigation.
+- **`onScroll` triggers match any scroll** — `matchTrigger` returns `true` for
+  every `onScroll` interaction regardless of `targetId`, `amount` or
+  `visibility`, so one node's scroll fires every scroll interaction in the
+  document. `onKeyPress` likewise ignores `nodeId`.
+- **Ordering, coercion and bounds.** `processInteractions` returns results in
+  document-map order with no priority concept and no per-tick bound; condition
+  evaluation returns `false` silently for an unknown variable and mixes strict
+  `===` equality with `Number()` coercion; `setVariable` with an `expression`
+  builds a variable table containing only the target variable and silently
+  yields `0` on failure.
+- **Wall-clock timing.** Trigger debounce and pending delays use `Date.now()`.
+  §7 asks for a monotonic clock.
+- **`PrototypePlayer.tsx` is dead** — exported, referenced nowhere.
+
+### 6.3 Verified
+
+Commands actually run, all at commit `6cae5f7a5`+working tree / `4a32fbfc0`:
+
+| Command | Result |
+|---|---|
+| `npx vitest run --project node packages/prototype` | **262 passed** (16 files), includes the new 17-test `screenGeometry.test.ts` |
+| `npx vitest run --project jsdom packages/editor/src/components/Prototype packages/editor/src/motion/smartAnimateBridge.test.ts packages/editor/src/__tests__/prototypeMode.test.tsx` | **67 passed** (9 files) |
+| `tsc --noEmit` in `packages/prototype` and `packages/editor` | **clean** |
+| `biome check` over the 16 touched files | **clean** |
+| `scripts/audit-emoji.mjs` | clean (5 415 files) |
+| `scripts/audit-docs.mjs` | clean (1 149 docs, 822 links, 181 ADRs) |
+| `pnpm --filter @varve/ui audit:tokens` | **all 324 pairs pass across 3 themes** |
+| `audit-token-usage.mjs` | clean (602 custom properties) |
+| pre-commit checkpoint (`.githooks/pre-commit`) | passed; 52 focused tests in the hook |
+
+**Red→green evidence.** `PrototypeScreenView.test.tsx` was written first and ran
+**9/9 failing** against the pre-repair implementation; after the repair the full
+Prototype suite is 55/55. Two pre-existing tests encoded the defect and were
+rewritten as contract corrections, stated explicitly in the commit: the
+`PrototypePresenter` test asserted that a bare `pointerdown` forwarded to
+`onEvent`, and `smartAnimateBridge.test.ts` supplied a *local* rect to a helper
+that was adding the node's own translation to it.
+
+### 6.4 Not verified / skipped
+
+- **Browser E2E was not run.** The planner escalates to a full gate on causes that
+  belong to other contributors' changes (`pnpm-lock.yaml`, `scripts/quality/*`,
+  a toolchain/dependency upgrade), not to this slice. The escalation is therefore
+  recorded, not satisfied: `FULL-SUITE ESCALATION: YES` with reason
+  "workspace/toolchain/validation-infrastructure change". No `pnpm verify:full`
+  was run and no release certification is claimed.
+- **No browser or native rendering was inspected.** The geometry is verified by
+  unit and component tests only; `tests/e2e/prototype/prototype-clickthrough.spec.ts`
+  drives no hotspot, overlay, scroll target or transition, so it provides no
+  coverage either way. A rendered-pixel check that the drawn region matches the
+  painted artwork at several scroll offsets, fit modes and fractional DPR remains
+  to be written.
+- **`packages/codegen` does not typecheck**, on account of
+  `packages/codegen/src/svgTextLayout.ts`, which is **untracked** in the working
+  tree (another contributor's in-progress file, present in no commit). It was
+  not modified.
+- The four worker reports have not been integrated (see §4).
+
