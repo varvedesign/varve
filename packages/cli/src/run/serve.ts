@@ -139,9 +139,10 @@ export async function runInstances(io: Io, argv: string[]): Promise<ExitCode> {
     };
     if (a.flags.has('verify') && entry.alive) {
       // Prove the endpoint answers and identifies itself, using its own credential file.
+      let client: ControlClient | null = null;
       try {
         const token = readFileSync(entry.record.tokenFile, 'utf8').trim();
-        const client = new ControlClient(await connectEndpoint(entry.record.endpoint, 2000), {
+        client = new ControlClient(await connectEndpoint(entry.record.endpoint, 2000), {
           requestTimeoutMs: 3000,
         });
         const hello = await client.hello(token, { name: 'varve instances' });
@@ -150,9 +151,14 @@ export async function runInstances(io: Io, argv: string[]): Promise<ExitCode> {
           instanceId: hello.session.instanceId,
           documentId: hello.session.documentId,
         };
-        client.close();
       } catch (error) {
         row.verified = { error: error instanceof Error ? error.message : String(error) };
+      } finally {
+        // Always release the socket. A handshake that fails or times out used to
+        // leave it open, and an open socket keeps the whole process alive: an
+        // unresponsive endpoint made `varve instances --verify` hang forever
+        // instead of reporting that it did not answer.
+        client?.close();
       }
     }
     rows.push(row);
