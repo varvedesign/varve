@@ -102,7 +102,7 @@ const MAX_INLINE_SRC = 256;
  * roughly 450 KB of JSON) push ordinary layers over the entry budget. This
  * covers the key string, the record and the pointer.
  */
-export const TILE_REFERENCE_BYTES = 96;
+const TILE_REFERENCE_BYTES = 96;
 
 /** Stand-in written in place of a tile payload so its bytes are never walked. */
 const TILE_PAYLOAD_MARKER = '~';
@@ -281,6 +281,59 @@ export function cacheContentParts(en: EngineNode): SubHashReport {
   }
   if (en.richText) {
     parts.push(`rt:${JSON.stringify(en.richText)}`);
+    sub.text = true;
+  }
+  // Text-shaping inputs the IR builder reads but that were absent from this
+  // key. `computeInvalidationPlan` invalidates a node whenever its object
+  // identity changes, so a per-node edit is already covered before this hash is
+  // consulted; the hash exists to catch content drift for nodes that were *not*
+  // explicitly invalidated, and it could not do that for any of these. They are
+  // all scalars or small maps, so the extra cost is negligible against a whole
+  // node rebuild, and over-hashing only ever costs a rebuild — under-hashing
+  // serves a stale item.
+  if (en.tracking !== undefined) {
+    // Typographic tracking in 1/1000 em, added between glyphs: a different
+    // advance per cluster, so the whole laid-out run moves.
+    parts.push(`trk:${en.tracking}`);
+    sub.text = true;
+  }
+  if (en.direction) {
+    parts.push(`dir:${en.direction}`);
+    sub.text = true;
+  }
+  if (en.language) {
+    parts.push(`lng:${en.language}`);
+    sub.text = true;
+  }
+  if (en.kerningMode) {
+    parts.push(`km:${en.kerningMode}`);
+    sub.text = true;
+  }
+  if (en.writingMode) {
+    parts.push(`wm:${en.writingMode}`);
+    sub.text = true;
+  }
+  if (en.textOrientation) {
+    parts.push(`tor:${en.textOrientation}`);
+    sub.text = true;
+  }
+  if (en.glyphAdjustments) {
+    parts.push(`ga:${JSON.stringify(en.glyphAdjustments)}`);
+    sub.text = true;
+  }
+  if (en.pairAdjustments) {
+    parts.push(`pa:${JSON.stringify(en.pairAdjustments)}`);
+    sub.text = true;
+  }
+  if (en.textWrapShape) {
+    parts.push(`tws:${JSON.stringify(en.textWrapShape)}`);
+    sub.text = true;
+  }
+  if (en.fontReference) {
+    // Font identity. The resolved family is hashed above, but two references can
+    // resolve to different faces (weight/width/italic axis, a variable instance,
+    // a fallback chain), so the reference itself belongs in the key.
+    parts.push(`fr:${JSON.stringify(en.fontReference)}`);
     sub.text = true;
   }
 

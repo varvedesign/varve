@@ -692,6 +692,61 @@ describe('SubtreeIrCache', () => {
     });
   });
 
+  // Ten text-shaping inputs the IR builder reads were absent from the content
+  // key: `replay.ts` turns `tracking` into per-cluster advance, applies
+  // `glyphAdjustments`/`pairAdjustments` to glyph positions, keys shaping off
+  // `direction`/`language`, switches layout on `writingMode`/`textOrientation`,
+  // selects a face through `fontReference` and wraps against `textWrapShape`.
+  //
+  // A node edit is invalidated by object identity before this hash is consulted
+  // (`computeInvalidationPlan` compares node references), so no stale frame was
+  // demonstrated. The hash is the documented defence-in-depth layer for nodes
+  // that were *not* explicitly invalidated, and it could not catch drift in any
+  // of these; the test pins that it now can.
+  describe('text-shaping inputs are part of the content key', () => {
+    const base = makeNode({ kind: 'text', text: 'Hello' });
+
+    const changes: Array<[string, Partial<EngineNode>]> = [
+      ['tracking', { tracking: 25 }],
+      ['direction', { direction: 'rtl' }],
+      ['language', { language: 'ar' }],
+      ['kerningMode', { kerningMode: 'none' }],
+      ['writingMode', { writingMode: 'vertical-rl' }],
+      ['textOrientation', { textOrientation: 'upright' }],
+      [
+        'glyphAdjustments',
+        {
+          glyphAdjustments: { 1: { dx: 2, dy: 0, advance: 1, rotation: 0, scaleX: 1, scaleY: 1 } },
+        },
+      ],
+      ['pairAdjustments', { pairAdjustments: { 0: 4 } }],
+      ['textWrapShape', { textWrapShape: 'ellipse' }],
+      ['fontReference', { fontReference: { artifactHash: 'a'.repeat(64) } }],
+    ];
+
+    it.each(changes)('%s changes the content hash', (_name, patch) => {
+      const identity = [1, 0, 0, 1, 0, 0] as const;
+      const beforeParts = report(base);
+      const afterParts = report({ ...base, ...patch } as EngineNode);
+      expect(afterParts.join('|')).not.toBe(beforeParts.join('|'));
+      expect(SubtreeIrCache.nodeHash('n1', identity, '', afterParts)).not.toBe(
+        SubtreeIrCache.nodeHash('n1', identity, '', beforeParts),
+      );
+    });
+
+    it('is unchanged when a text node is hashed twice with the same content', () => {
+      const identity = [1, 0, 0, 1, 0, 0] as const;
+      const a = SubtreeIrCache.nodeHash('n1', identity, '', report(base));
+      const b = SubtreeIrCache.nodeHash('n1', identity, '', report(base));
+      expect(a).toBe(b);
+    });
+
+    it('does not mark the sub-hash buckets for non-text nodes', () => {
+      const { sub } = cacheContentParts(makeNode({ kind: 'rect' }));
+      expect(sub.text).toBe(false);
+    });
+  });
+
   // A raster layer's tile payloads are references to the document's immutable
   // buffers, so estimateItemBytes must neither walk them (O(raster bytes) per
   // store, and roughly 450 KB of JSON for a 64 KB tile) nor charge them to a
