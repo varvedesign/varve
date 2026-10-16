@@ -2,31 +2,41 @@
 /**
  * Generate line-breaking data from the pinned Unicode Character Database.
  *
- * Usage:
+ * Usage — all five inputs, in this order:
  *   curl -o /tmp/LineBreak.txt \
  *     https://www.unicode.org/Public/16.0.0/ucd/LineBreak.txt
+ *   curl -o /tmp/LineBreakTest.txt \
+ *     https://www.unicode.org/Public/16.0.0/ucd/auxiliary/LineBreakTest.txt
  *   curl -o /tmp/EastAsianWidth.txt \
  *     https://www.unicode.org/Public/16.0.0/ucd/EastAsianWidth.txt
  *   curl -o /tmp/UnicodeData.txt \
  *     https://www.unicode.org/Public/16.0.0/ucd/UnicodeData.txt
- *   curl -o /tmp/LineBreakTest.txt \
- *     https://www.unicode.org/Public/16.0.0/ucd/auxiliary/LineBreakTest.txt
- *   node scripts/generate-line-break-data.mjs /tmp/LineBreak.txt /tmp/LineBreakTest.txt /tmp/EastAsianWidth.txt /tmp/UnicodeData.txt
+ *   curl -o /tmp/emoji-data.txt \
+ *     https://www.unicode.org/Public/16.0.0/ucd/emoji/emoji-data.txt
+ *   node scripts/generate-line-break-data.mjs \
+ *     /tmp/LineBreak.txt /tmp/LineBreakTest.txt /tmp/EastAsianWidth.txt \
+ *     /tmp/UnicodeData.txt /tmp/emoji-data.txt
  *
- * Emits two committed modules:
+ * Emits, and copies in:
  *
  *   packages/engine/src/text/lineBreakClassesData.ts
- *     Line_Break property ranges (UAX #14), the runtime table.
+ *     Line_Break ranges (UAX #14), `$EastAsian` (EAW in F/W/H), the
+ *     General_Category Pi/Pf members of class QU that LB15a/LB15b need, and
+ *     `Extended_Pictographic ∩ Cn` for LB30b. Also records the oracle's
+ *     SHA-256 and line count.
  *
- *   packages/engine/src/text/__fixtures__/lineBreakProhibitionData.ts
- *     A compact conformance fixture derived from the official
- *     LineBreakTest.txt: the resolved-class pairs that the oracle treats as
- *     unconditionally prohibited (never a break opportunity). The full oracle
- *     is 3 MB and is not committed; this fixture records the source file's
- *     SHA-256 and the derivation's denominators so the check is reproducible.
+ *   packages/engine/src/text/__fixtures__/LineBreakTest-16.0.0.txt
+ *     The full official oracle, copied verbatim so the conformance test runs
+ *     unconditionally instead of skipping when a download is missing. It is
+ *     ~3 MB; that cost is accepted because it is the only thing that makes the
+ *     conformance claim reproducible, and a derived digest alone would not let
+ *     a failure name the rule it broke.
  *
- * The version pin is shared by both outputs so the class table and the
- * conformance fixture can never describe different UCD releases.
+ * The UCD version is read from LineBreak.txt and every other input's version
+ * header is checked against it, so the class table and the conformance oracle
+ * can never describe different releases. Output is deterministic: rerunning
+ * over the same inputs produces byte-identical files, including the line
+ * wrapping the repo formatter would apply.
  */
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';

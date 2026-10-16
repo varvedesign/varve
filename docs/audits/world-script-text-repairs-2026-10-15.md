@@ -32,7 +32,7 @@ SHA → root cause → repair → regression coverage. Research accessed
 | 5 | EffectCraft #839: transparent render silently becomes opaque (alpha=1 everywhere) | Varve's raster export already defaulted to transparency with an explicit matte policy and warnings — the contract existed but had no end-to-end regression | No automated assertion that exported PNGs actually carry alpha | `tests/e2e/export/png-alpha.spec.ts` downloads a real PNG export of an ellipse and asserts corner alpha 0 and ink alpha 255 through pngjs | The spec itself; runs in the browser E2E lane |
 | 6 | (CSS Writing Modes `sideways` metric contract; vertical audit 2026-09-08 decision 3: "sideways rotates coherent horizontal runs while retaining horizontal shaping metrics") Rotated Latin in vertical text painted cluster-by-cluster in one-em cells | Each sideways cluster drew its own `fillText` after rotate, destroying kerning and spacing every character a full em apart | No run-level concept in the vertical painter; layout had no sideways advance model | Layout flows sideways cells at their shaped horizontal advances; the painters coalesce consecutive sideways cells of a run into one rotated draw (groups break at upright cells, combined cells, format boundaries in rich text, and source non-contiguity). Stroke painter sets its font per run instead of per line | `textLayoutSnapshot.test.ts` pins sideways advances (10px cell for a 10px-advance glyph, 26px mixed column); `replay.test.ts` pins one coalesced `fillText("AB")` per sideways run, per-cluster splits around an upright cell, and unchanged lone-cluster strokes |
 | 7 | (Brief §13 "Varve-native, SVG, font and combined-feature fixtures" lane) No Varve-native robustness corpus existed; the only text E2Es were single-string visual checks | One-off specs exercised one multilingual string each; no manifest, no digest, no per-input machine-readable results | No corpus harness | `tests/e2e/fixtures/text-corpus/manifest.json` (14 entries: Latin/combining, Greek/Cyrillic, Arabic/Hebrew bidi with isolates and mirroring, Devanagari conjuncts, Thai breaking, Japanese horizontal + vertical + tate-chu-yoko, regional CJK, emoji ZWJ/flag/keycap, NBSP/ZWSP) driven by `tests/e2e/canvas/text-corpus.spec.ts` through real application entry points (`loadDocument` → `createTextNodeAt` → `updateNode` → live compositor raster → `serializeDocument` → reopen → exact source equality), writing `reports/text-corpus/results.json` with the manifest SHA-256 digest and explicit attempted/completed/failed counts | The spec fails on any non-completed entry; the report is the reproducible evidence artifact |
-| 8 | (JLREQ §3.1.7/§3.1.8 行頭禁則・行末禁則; UAX #14 rev 53 = Unicode 16.0.0) A Japanese line could begin with `。` `、` `」` `！` `？` `ー` or a small kana, and could end with `「` or `（` | `segmentBreakUnits` glued *all* punctuation to the preceding word, so an opening bracket could end a line while a closing one could not start it; `canBreakBefore` was dead code and `wrapLines` never consulted `isBreakable`, so no "must not break here" concept existed at all | No line-break class data and no prohibition rules; Japanese breaking rested entirely on `Intl.Segmenter` word boundaries, which is not a typesetting model | Pinned UCD 16.0.0 `LineBreak.txt` + `EastAsianWidth.txt` + `UnicodeData.txt` + `emoji-data.txt` compiled by `scripts/generate-line-break-data.mjs` into `text/lineBreakClassesData.ts` (3,589 ranges); `text/lineBreakProhibition.ts` implements the UAX #14 §6 prohibition rules with LB1/LB9/LB10 resolution; `buildLayoutUnits` merges units that must not be separated so the greedy fill cannot place a break at a reserved position (push-out, 追い出し). Also keeps `1,234.56` / `$7,890` (LB25), `person(s)` (LB30), Hangul blocks (LB26/27), Brahmic syllables (LB28a) and emoji modifier runs (LB30b) intact | `text/lineBreakProhibition.test.ts` commits the official 3 MB `LineBreakTest-16.0.0.txt` oracle and asserts UAX14-C1's second subcondition position by position: **0 of 24,799 prohibited positions allowed — 100.00% soundness across 35,717 positions**. `textLayoutSnapshot.kinsoku.test.ts` pins all 37 line-start-prohibited and 11 line-end-prohibited characters across five measures, offset and caret preservation, and the preserved behaviours (Latin words, emergency word split, over-long CJK, numbers, brackets, Thai/Lao/Khmer measure containment) |
+| 8 | (JLREQ §3.1.7/§3.1.8 行頭禁則・行末禁則; UAX #14 rev 53 = Unicode 16.0.0) A Japanese line could begin with `。` `、` `」` `！` `？` `ー` or a small kana, and could end with `「` or `（` | `segmentBreakUnits` glued *all* punctuation to the preceding word, so an opening bracket could end a line while a closing one could not start it; `canBreakBefore` was dead code and `wrapLines` never consulted `isBreakable`, so no "must not break here" concept existed at all | No line-break class data and no prohibition rules; Japanese breaking rested entirely on `Intl.Segmenter` word boundaries, which is not a typesetting model | Pinned UCD 16.0.0 `LineBreak.txt` + `EastAsianWidth.txt` + `UnicodeData.txt` + `emoji-data.txt` compiled by `scripts/generate-line-break-data.mjs` into `text/lineBreakClassesData.ts` (3,589 ranges); `text/lineBreakProhibition.ts` implements the UAX #14 §6 prohibition rules with LB1/LB9/LB10 resolution; `buildLayoutUnits` merges units that must not be separated so the greedy fill cannot place a break at a reserved position (push-out, 追い出し). Also keeps `1,234.56` / `$7,890` (LB25), `person(s)` (LB30), Hangul blocks (LB26/27), Brahmic syllables (LB28a) and emoji modifier runs (LB30b) intact | `text/lineBreakProhibition.test.ts` commits the official 3 MB `LineBreakTest-16.0.0.txt` oracle and asserts UAX14-C1's second subcondition position by position: **0 of 24,799 prohibited positions allowed — 100.00% soundness across 35,717 positions**. `textLayoutSnapshot.kinsoku.test.ts` pins all 37 line-start-prohibited and 11 line-end-prohibited characters across five measures, offset and caret preservation, and the preserved behaviours (Latin words, emergency word split, over-long CJK, numbers, brackets, Thai/Lao/Khmer measure containment). Vertical writing is covered by the same rules through a column-level retreat pass. `lineBreakProhibition.test.ts` also proves `isLineEdgeProhibitedBreak` is a subset of `isProhibitedBreak` over the whole oracle, which is what licenses the edge-only regrouping inside an emergency split |
 | 9 | (Brief §7 "implement missing required paths or preserve their source/appearance with an explicit capability warning rather than flatten silently"; JLREQ §3.3 ruby) Ruby/furigana is authored with no way to learn it will not be drawn | Ruby is fully authored — `RichText.ruby` in the schema, range rebasing in `comicWorkflow.ts`, an "Add ruby" / "Clear ruby" Inspector row — but **no code in `packages/engine` reads it**, so a reading is invisible on canvas, in thumbnails and in every export, with nothing said | `LayoutTextInput`/`LayoutParagraphInput` carry only `text`, `paragraph` and pre-shaped `runs`; the canonical snapshot has no annotation input, so positioning ruby needs a shaping pass for the annotation text that the contract does not currently accept | `TypographySection` now derives the stored annotation count and shows a `role="status"` capability warning stating that the readings are stored but never rendered | `TypographySection.test.tsx`: silent when there is no ruby; warns for one reading with the announcement role and the "never rendered" wording; counts across multiple selected nodes. Rendering itself stays unimplemented and is listed under "Explicitly not claimed" |
 
 ### Tailoring findings worth carrying forward
@@ -42,13 +42,23 @@ SHA → root cause → repair → regression coverage. Research accessed
   dictionary analysis, and LB28 then holds an entire `SA` run together. Applied
   naively on top of Varve's `Intl.Segmenter` word boundaries, a 39-code-point
   Thai sentence collapsed from 7 lines into 2 runs of roughly 140px under a
-  70px measure — a **regression this cycle introduced and then removed**. The
-  merge pass now leaves dictionary-segmented boundaries breakable, and
-  `textLayoutSnapshot.kinsoku.test.ts` pins the measure containment for Thai,
-  Lao and Khmer. Any future rule work must re-run that test.
-- **`Emergency split` exemption.** LB28 joins alphabetics, so re-merging the
-  grapheme pieces of an over-long word would destroy the wrap the split exists
-  to provide. Emergency splits are marked and exempt from merging.
+  70px measure. The merge pass now leaves dictionary-segmented boundaries
+  breakable, and `textLayoutSnapshot.kinsoku.test.ts` pins measure containment
+  for Thai, Lao and Khmer. The same tailoring had to be applied a second time in
+  `mergeEmergencyPieces`, where its absence reintroduced the identical 70px
+  overflow — the strengthened tests caught it. Any future rule work must re-run
+  those tests.
+- **A word-internal prohibition must yield to the emergency split; a line-edge
+  prohibition must not.** Regrouping all prohibited pairs inside an over-long
+  word rebuilds the original unit, so the word stops wrapping (`epsilon`
+  occupies one 70px line at a 60px measure). Regrouping none of them lets an
+  over-long `1234。` strand its full stop at a line start. `mergeEmergencyPieces`
+  therefore regroups only line-edge rules, via `isLineEdgeProhibitedBreak`, whose
+  subset relation to `isProhibitedBreak` is proven over the whole oracle.
+- **Indivisible runs overhang rather than break.** `$7,890` is glued by LB25 and
+  is 60px at this metric; in a 50px box it is kept whole and the line overhangs.
+  There is no layout that both fits and preserves the token, so prohibition wins
+  over the measure. `textLayoutSnapshot.kinsoku.test.ts` pins this explicitly.
 - **Differential evidence.** Before finalising, every line-breaking case in the
   corpus was laid out through both the new module and `git show HEAD:` of it
   (copied in as a baseline, then removed), at measures 40/70/110/160/240. Texts
@@ -56,6 +66,38 @@ SHA → root cause → repair → regression coverage. Research accessed
   moved were the ones whose diff is documented above. Reproduce with
   `git show <base>:packages/engine/src/textLayoutSnapshot.ts`, the cases in
   the note above, and the widths listed.
+
+### Independent review outcomes
+
+An independent review of the first version of this change (commit `95f41c133`)
+found two defects the author's own tests had missed, both of which had been
+described in documentation as working:
+
+1. **Vertical writing had no prohibition at all.** `layoutText` dispatches to
+   `layoutVerticalText`, whose column fill was purely advance-based; the
+   `it.each` protection never reached it. The vertical test added in that commit
+   was also **vacuous** — its input contained neither `「` nor `、`, and with the
+   test's own metric the column boundaries happened to fall where no assertion
+   could be falsified. Vertical Japanese is the JLREQ case this work exists for,
+   so this was the most serious finding. Fixed: the column fill now applies
+   prohibition by retreating the trailing unbreakable cluster group, and the
+   test uses an input that deliberately places `「` at a column end and `。`
+   `、` `」` at column starts across four measures.
+2. **A merged run could exceed the measure**, contradicting the documentation's
+   absolute claim. Re-measured rather than argued about: `$7,890` at 50px, and
+   `1234。` emergency-split into a line starting with `。`. Fixed as described
+   above, with the documentation corrected to state the real property
+   ("prohibition never splits a pair the rules keep together; an indivisible run
+   overhangs") instead of the overstated one.
+
+The review also flagged three lower-severity issues, all now corrected: the
+generator's module docstring described a compact derived fixture the script no
+longer emits (it writes the full 3 MB oracle) and omitted the `emoji-data.txt`
+download from its usage block; the line-start `it.each` cases for `\p{P}`
+characters would pass without the new code because `segmentBreakUnits` already
+glues them, and the test now asserts the positive push-out property
+(`に（参照）`) as well; and an unused `resolveClass` helper plus a stale
+`prohibitedBreakBefore` reference in a docstring.
 
 ## Explicitly not claimed
 

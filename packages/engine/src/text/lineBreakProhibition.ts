@@ -148,6 +148,59 @@ const WORD_INITIAL_CONTEXT: ReadonlySet<LineBreakClass> = new Set([
 ]);
 
 /**
+ * Classes that may not begin a line — JLREQ's 行頭禁則 as UAX #14 expresses it:
+ * `CL`/`CP` closing punctuation, `EX` and `IS` dividing and numeric
+ * punctuation, `SY` solidus, `NS` non-starters (small kana, prolonged sound
+ * mark, iteration marks), `BA` and `HY` hyphens, `IN` ellipses.
+ */
+const LINE_START_BLOCKED: ReadonlySet<LineBreakClass> = new Set([
+  'CL',
+  'CP',
+  'EX',
+  'IS',
+  'SY',
+  'NS',
+  'BA',
+  'HY',
+  'IN',
+]);
+
+/**
+ * Classes that may not end a line — JLREQ's 行末禁則: `OP` opening punctuation,
+ * plus `GL` which prohibits a break after itself.
+ */
+const LINE_END_BLOCKED: ReadonlySet<LineBreakClass> = new Set(['OP', 'GL']);
+
+/**
+ * Whether a break at `index` is prohibited *because it would put a protected
+ * character at a line edge*, as opposed to the rules that exist to keep a
+ * token internally intact (LB23–LB30: numbers, Hangul blocks, Brahmic
+ * syllables, alphabetics, emoji sequences).
+ *
+ * The distinction matters in exactly one place: the emergency grapheme split
+ * of a word too long for the measure. Breaking inside such a word is the
+ * documented emergency, so a word-internal rule must yield there — otherwise
+ * an over-long Latin word is never split and its line overflows (measured:
+ * `epsilon` needs the split to wrap at all). A line-edge rule must *not* yield,
+ * because a line beginning with `。` is a visible typesetting fault whatever
+ * the measure.
+ *
+ * This is a deliberate subset of {@link isProhibitedBreak}, and
+ * `lineBreakProhibition.test.ts` proves that over the whole oracle: nothing is
+ * reported here that the full rules do not also prohibit.
+ */
+export function isLineEdgeProhibitedBreak(sequence: LineBreakSequence, index: number): boolean {
+  const { classes, inherited } = sequence;
+  if (index <= 0 || index >= classes.length) return false;
+  const after = classes[index]!;
+  if (LINE_START_BLOCKED.has(after)) return true;
+  let previous = index - 1;
+  while (previous >= 0 && inherited[previous]) previous--;
+  if (previous < 0) return false;
+  return LINE_END_BLOCKED.has(classes[previous]!);
+}
+
+/**
  * Whether UAX #14 prohibits a line break between `classes[index - 1]` and
  * `classes[index]`. `index === 0` is the start-of-text position (LB2, never a
  * break); `index >= length` is the end (LB3, always a break).

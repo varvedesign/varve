@@ -255,20 +255,34 @@ the snapshot pipeline is built on:
   and line-end prohibition (行末禁則) as push-out (追い出し): a line never
   begins with `。` `、` `」` `）` `！` `？` `・` `ー` or a small kana, and never
   ends with `「` `（` `『` `【` `〈`. The offending character migrates to the next
-  line together with the character it belongs to, so no line overhangs its
-  measure and a text frame never paints outside its box or clips a hung
-  character. **Hanging punctuation (ぶら下げ) is deliberately not implemented**;
-  push-out is a JLREQ-recognised alternative, not a silent degradation.
+  line together with the character it belongs to. **Hanging punctuation
+  (ぶら下げ) is deliberately not implemented**; push-out is a JLREQ-recognised
+  alternative, not a silent degradation.
+  *Vertical writing* obeys the same rules: `layoutVerticalParagraphLines` fills
+  a column cluster by cluster and applies prohibition by retreating the
+  trailing cluster group that must not be separated, so a column does not end
+  with `「` and the next does not begin with `。` either.
   The same pass keeps numbers (`1,234.56`, `$7,890` — LB25), bracketed suffixes
   (`person(s)` — LB30), Hangul syllable blocks (LB26/LB27), Brahmic
   orthographic syllables (LB28a) and emoji modifier sequences (LB30b) intact.
-  Two deliberate exemptions: emergency grapheme splits of an over-long word are
-  never re-merged (LB28 joins alphabetics, so re-merging would restore the
-  overflow the split exists to remove), and boundaries from dictionary
-  segmentation of `SA` scripts are left breakable — LB1's `SA` → `AL` plus
-  LB28 would otherwise hold an entire Thai, Lao or Khmer sentence together and
-  let every line run past the measure (measured: a 39-code-point Thai sentence
-  collapsed from 7 lines into 2 runs of ~140px under a 70px measure).
+  Three deliberate exemptions, each measured rather than assumed:
+  1. **Emergency grapheme splits** of an over-long word are never re-merged:
+     a word-internal rule has to yield there or the word stops wrapping
+     (`epsilon` would occupy one 70 px line at a 60 px measure). The line-EDGE
+     rules still apply inside such a word — `mergeEmergencyPieces` regroups
+     only those, so an over-long `1234。` does not strand its full stop at a
+     line start. `isLineEdgeProhibitedBreak` is a proven subset of
+     `isProhibitedBreak` (checked over the whole oracle).
+  2. **Dictionary-segmented `SA` scripts** keep their segmentation boundaries
+     breakable. LB1's `SA` → `AL` plus LB28 would otherwise hold an entire
+     Thai, Lao or Khmer sentence together (measured: a 39-code-point Thai
+     sentence collapsed from 7 lines into 2 runs of ~140 px under a 70 px
+     measure).
+  3. **A run the rules make indivisible is never broken to fit.** Prohibition
+     takes precedence over the measure: `$7,890` at a 50 px measure is kept
+     whole and the line overhangs. That is the same situation as a single glyph
+     wider than its box — there is no layout that both fits and preserves the
+     token — and it is pinned by a test rather than left implicit.
 * `visualOrder.ts` — `lineVisualRuns` derives each wrapped line's visual run
   sequence with UAX #9 X8/L2 applied to the line's character slice (bidi-js
   `getReorderedIndices` with L1.4 trailing-whitespace reset), so RTL lines

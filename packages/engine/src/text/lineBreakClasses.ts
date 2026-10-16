@@ -5,8 +5,8 @@
  * turns the generated range tables into per-code-point lookups and applies the
  * class resolution the algorithm requires before any rule is evaluated.
  *
- * `prohibitedBreakBefore` in `lineBreakProhibition.ts` is the predicate the
- * layout engine consumes; this file only answers "what class is this".
+ * `isProhibitedBreak` in `lineBreakProhibition.ts` is the predicate the layout
+ * engine consumes; this file only answers "what class is this".
  */
 import {
   EAST_ASIAN_WIDE_RANGES,

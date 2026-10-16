@@ -3,7 +3,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { LINE_BREAK_ORACLE, LINE_BREAK_UCD_VERSION, rawLineBreakClassOf } from './lineBreakClasses';
-import { buildLineBreakSequence, isProhibitedBreak } from './lineBreakProhibition';
+import {
+  buildLineBreakSequence,
+  isLineEdgeProhibitedBreak,
+  isProhibitedBreak,
+} from './lineBreakProhibition';
 
 const ORACLE_PATH = join(__dirname, '__fixtures__', `LineBreakTest-${LINE_BREAK_UCD_VERSION}.txt`);
 
@@ -89,6 +93,26 @@ describe('UAX #14 line break prohibition conformance', () => {
         ),
       `${violations.length} of ${prohibitedPositions} prohibited positions allowed (of ${positions} total)`,
     ).toEqual([]);
+  });
+
+  it('never reports a line-edge prohibition the full rules do not also prohibit', () => {
+    // `isLineEdgeProhibitedBreak` is a deliberate SUBSET of `isProhibitedBreak`,
+    // used only where a word-internal prohibition must yield to the emergency
+    // grapheme split. This proves the subset relation over the whole oracle, so
+    // the narrower predicate can never license an illegal break on its own.
+    const mismatches: string[] = [];
+    for (const testCase of cases) {
+      const text = String.fromCodePoint(...testCase.codePoints);
+      const sequence = buildLineBreakSequence(text);
+      for (let index = 1; index < testCase.codePoints.length; index++) {
+        if (isLineEdgeProhibitedBreak(sequence, index) && !isProhibitedBreak(sequence, index)) {
+          mismatches.push(
+            `line ${testCase.line} pos ${index}: edge predicate prohibits, full rules allow`,
+          );
+        }
+      }
+    }
+    expect(mismatches.slice(0, 20)).toEqual([]);
   });
 
   it('resolves every code point in the oracle to a known class', () => {

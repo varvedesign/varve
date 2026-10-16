@@ -270,19 +270,61 @@ describe('prohibition does not disturb the behaviour it was added beside', () =>
   });
 
   it('wraps vertical Japanese without stranding punctuation at a column head', () => {
-    const text = 'この文書は『重要な資料』に（参照）されています。';
-    const snapshot = buildTextLayoutSnapshot(text, makeShaping(text), {
-      maxWidth: 50,
-      sourceRevision: 'doc:1',
-      fontRevision: 'font:1',
-      writingMode: 'vertical-rl',
-      textOrientation: 'mixed',
-    });
-    for (const line of snapshot.lines.map((line) => text.slice(line.sourceStart, line.sourceEnd))) {
-      expect(line.startsWith('。')).toBe(false);
-      expect(line.startsWith('、')).toBe(false);
-      expect(line.endsWith('「')).toBe(false);
-      expect(line.endsWith('（')).toBe(false);
+    // The input must contain characters the prohibition actually protects, and
+    // the measure must put those characters at a column boundary — otherwise
+    // the assertions hold whether or not any prohibition exists. `「` sits at
+    // the column end (line-end prohibition) and `、`/`。` at a column start
+    // (line-start prohibition).
+    const text = 'この文書は「重要な、資料」に（参照）されています。';
+    for (const maxWidth of [32, 48, 64, 96]) {
+      const snapshot = buildTextLayoutSnapshot(text, makeShaping(text), {
+        maxWidth,
+        sourceRevision: 'doc:1',
+        fontRevision: 'font:1',
+        writingMode: 'vertical-rl',
+        textOrientation: 'mixed',
+      });
+      const columns = snapshot.lines.map((line) => text.slice(line.sourceStart, line.sourceEnd));
+      expect(columns.length, `vertical at ${maxWidth}px did not wrap`).toBeGreaterThan(1);
+      for (const column of columns.slice(1)) {
+        expect(column.startsWith('。'), `column [${column}] starts with 。`).toBe(false);
+        expect(column.startsWith('、'), `column [${column}] starts with 、`).toBe(false);
+        expect(column.startsWith('」'), `column [${column}] starts with 」`).toBe(false);
+      }
+      for (const column of columns.slice(0, -1)) {
+        expect(column.endsWith('「'), `column [${column}] ends with 「`).toBe(false);
+        expect(column.endsWith('（'), `column [${column}] ends with （`).toBe(false);
+      }
     }
+  });
+
+  it('keeps a prohibited character off a line start even when its word must be split', () => {
+    // `1234。` is a single glued unit wider than the measure, so the emergency
+    // grapheme split runs — and it must regroup the pieces rather than let the
+    // full stop begin a line.
+    const text = '1234。5678';
+    for (const maxWidth of [30, 40, 50]) {
+      const texts = lineTexts(layout(text, maxWidth), text);
+      expect(texts.join(''), `at ${maxWidth}px`).toBe(text);
+      for (const line of texts.slice(1)) {
+        expect(line.startsWith('。'), `line [${line}] at ${maxWidth}px starts with 。`).toBe(false);
+      }
+    }
+  });
+
+  it('lets an indivisible token overflow rather than breaking it, and keeps every character', () => {
+    // `$7,890` is glued by LB25 (PR × NU chain) and is 60px at this metric. In a
+    // 50px box there is no layout that both fits and preserves the token, so the
+    // engine keeps the token whole and the line overhangs. Pinning this makes the
+    // trade-off explicit: prohibition wins over the measure.
+    const text = 'total $7,890 end';
+    const texts = lineTexts(layout(text, 50), text);
+    expect(texts.join('')).toBe(text);
+    expect(
+      texts.some((line) => line.includes('$7,890')),
+      JSON.stringify(texts),
+    ).toBe(true);
+    // The token is kept whole rather than split after the currency sign.
+    expect(texts.some((line) => line.endsWith('$'))).toBe(false);
   });
 });
