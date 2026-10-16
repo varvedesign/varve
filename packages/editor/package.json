@@ -23,6 +23,7 @@
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.9",
     "@varve/ai": "workspace:*",
+    "@varve/automation": "workspace:*",
     "@varve/codegen": "workspace:*",
     "@varve/collab": "workspace:*",
     "@varve/compositor": "workspace:*",
@@ -31,6 +32,7 @@
     "@varve/help": "workspace:*",
     "@varve/history": "workspace:*",
     "@varve/import": "workspace:*",
+    "@varve/layout": "workspace:*",
     "@varve/platform": "workspace:*",
     "@varve/prototype": "workspace:*",
     "@varve/scene": "workspace:*",
@@ -39,8 +41,7 @@
     "@varve/ui": "workspace:*",
     "fflate": "^0.8.3",
     "prismjs": "^1.30.0",
-    "wawoff2": "^2.0.1",
-    "@varve/layout": "workspace:*"
+    "wawoff2": "^2.0.1"
   },
   "devDependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -331,6 +331,9 @@ importers:
       '@varve/ai':
         specifier: workspace:*
         version: link:../ai
+      '@varve/automation':
+        specifier: workspace:*
+        version: link:../automation
       '@varve/codegen':
         specifier: workspace:*
         version: link:../codegen
