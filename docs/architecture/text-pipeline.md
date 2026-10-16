@@ -259,88 +259,39 @@ the snapshot pipeline is built on:
   (ぶら下げ) is deliberately not implemented**; push-out is a JLREQ-recognised
   alternative, not a silent degradation.
   *Vertical writing* obeys the same rules: `layoutVerticalParagraphLines` fills
-  a column cluster by cluster and applies prohibition by retreating the
-  trailing cluster group that must not be separated, so a column does not end
-  with `「` and the next does not begin with `。` either.
+  a column cluster by cluster and applies prohibition by retreating the trailing
+  cluster group that must not be separated, so a column does not end with `「`
+  and the next does not begin with `。` either. When every boundary in the
+  column is prohibited the incoming cluster joins the whole column and the
+  column overhangs, bounded by `INDIVISIBLE_OVERHANG_LIMIT` times the measure.
   The same pass keeps numbers (`1,234.56`, `$7,890` — LB25), bracketed suffixes
   (`person(s)` — LB30), Hangul syllable blocks (LB26/LB27), Brahmic
   orthographic syllables (LB28a) and emoji modifier sequences (LB30b) intact.
-  Three deliberate exemptions, each measured rather than assumed:
-  1. **Emergency grapheme splits** of an over-long word are never re-merged:
-     a word-internal rule has to yield there or the word stops wrapping
-     (`epsilon` would occupy one 70 px line at a 60 px measure). The line-EDGE
-     rules still apply inside such a word — `mergeEmergencyPieces` regroups
-     only those, so an over-long `1234。` does not strand its full stop at a
-     line start. `isLineEdgeProhibitedBreak` is a proven subset of
-     `isProhibitedBreak` (checked over the whole oracle).
+  Three deliberate properties, each measured rather than assumed:
+  1. **A unit wider than the measure is split at grapheme boundaries**
+     (`splitOverMeasureUnits`), because otherwise a run with no legal break
+     anywhere produced a single line: twelve non-starters measured 120 px in a
+     40 px box, and a thousand would measure 10 000 px. The split is bounded by
+     what the rules may cost:
+     - a **line-edge** rule may push a group one grapheme past the measure, so
+       `1234。` keeps its full stop off a line start and a long run of `ー`/`…`/`。`
+       wraps into lines of at most measure + one grapheme;
+     - a **token-internal** rule never exceeds the measure, so `abcd` in a 25 px
+       box still splits `ab`/`cd` exactly as it did before this pass existed.
+     A token wider than the measure with no arrangement that fits — `$7,890`
+     (60 px) in a 50 px box — is therefore broken near its end rather than
+     overflowing; where the measure allows, LB25 keeps it whole.
   2. **Dictionary-segmented `SA` scripts** keep their segmentation boundaries
      breakable. LB1's `SA` → `AL` plus LB28 would otherwise hold an entire
      Thai, Lao or Khmer sentence together (measured: a 39-code-point Thai
      sentence collapsed from 7 lines into 2 runs of ~140 px under a 70 px
      measure).
-  3. **A run the rules make indivisible is never broken to fit.** Prohibition
-     takes precedence over the measure: `$7,890` at a 50 px measure is kept
-     whole and the line overhangs. That is the same situation as a single glyph
-     wider than its box — there is no layout that both fits and preserves the
-     token — and it is pinned by a test rather than left implicit.
-* `visualOrder.ts` — `lineVisualRuns` derives each wrapped line's visual run
-  sequence with UAX #9 X8/L2 applied to the line's character slice (bidi-js
-  `getReorderedIndices` with L1.4 trailing-whitespace reset), so RTL lines
-  reverse correctly after wrapping instead of using paragraph-level order.
-* `textLayoutSnapshot.ts` — `layoutText(input)` is the canonical entry:
-  paragraph itemization → word-level wrapping → per-line visual ordering →
-  positioned glyph runs (glyphs are consumed in the visual order the shaping
-  backend emits; the pen always advances left-to-right) → cluster-safe caret
-  stops (snapped to extended grapheme boundaries so a shaper's per-character
-  clusters can never create illegal insertion points) → hit testing and
-  selection rectangles. `buildTextLayoutSnapshot` remains the single-paragraph
-  compatibility wrapper.
-* `shaping.ts` — `shapeParagraphRuns` is the logical-order Canvas2D-measurement
-  bridge into `layoutText` (`glyphId` 0, no contextual joining); the
-  harfbuzz-wasm and rustybuzz-native backends fill the same contract.
-
-The paragraph pipeline is deterministic, source-preserving, and covered by the
-multilingual regression corpus in `text/fixtures.ts` (Arabic joining/lam-alef/
-harakat fixtures, Devanagari conjuncts, Thai vowels and tone marks, mixed
-LTR/RTL sentences, isolates, mirroring, emoji ZWJ, NBSP) plus conformance tests
-in `unicode/bidiConformance.test.ts`.
-
-Property testing (`text/unicodeLayout.fuzz.test.ts`) drives the pipeline with
-random Unicode — combining-mark runs, emoji ZWJ chains, BiDi controls,
-isolates, NBSP/ZWSP, multi-paragraph text — and asserts termination, finite
-coordinates, source-mapped cluster bounds, exact paragraph tiling, caret stops
-on grapheme boundaries, in-bounds selection rects, and determinism. It has
-already caught and fixed three real defects: dropped trailing whitespace
-breaking caret coverage, script itemization splitting Arabic harakat from
-their base, and ICU-reported grapheme boundaries for degenerate ZWJ chains.
-
-The application-level browser check in
-`tests/e2e/canvas/text-multilingual-visual.spec.ts` complements the primitive
-replay screenshots. It creates text through the real editor tool, renders the
-mixed-script string through the desktop compositor, fits the selection, and
-captures the canvas for human review. This catches editor-state, camera,
-selection-overlay, and compositor defects that engine-only screenshots cannot.
-
-Line-level visual ordering is implemented locally in `reorderLineIndices`
-(UAX #9 L1.4 + L2 restricted to the line) instead of calling bidi-js
-`getReorderedIndices` per line, which allocates a full-paragraph index array
-per call (measured ~4 ms/line at 10k characters). Parity with bidi-js is
-pinned by `unicode/lineReorderParity.test.ts`, including an exhaustive sweep
-of all 65,536 BMP code points in trailing positions. Note: bidi-js's L1.4
-reset is only correct for ranges starting at index 0 — its `getReorderSegments`
-writes `lineLevels[i]` instead of `lineLevels[i - lineStart]`, so sub-range
-reorders silently skip the reset; the local implementation applies the reset
-correctly and the parity reference replicates bidi-js's intended semantics.
-
-Timing baseline (`text/layout.bench.test.ts`, min-of-7 on a 2026 developer
-workstation): 100 chars ≈ 1 ms, 1,000 chars ≈ 6–16 ms, 10,000 chars
-≈ 76–103 ms across Latin/Arabic/mixed; the per-line reorder change alone took
-10k-character RTL layout from ~2.1 s to ~0.2 s.
-
-`FontRegistry.revision` is a monotone process-local invalidation token. The
-shaping cache accepts it, face identity, OpenType features, variation axes,
-width, and layout mode in its key and bounds both entries and estimated bytes;
-callers must supply the revision when requesting font-dependent geometry.
+  3. **An unsatisfiable configuration breaks a rule.** When a single character
+     fills a column and two prohibited neighbours must stay together, no
+     arrangement inside the measure satisfies every rule — `あああ。」` at a
+     one-cell measure is the example, and the engine takes the emergency break
+     (UAX #14 §3) rather than growing the column without limit. The tests use
+     the measures where the rules *can* be satisfied.
 
 ## Vertical writing and tate-chu-yoko
 

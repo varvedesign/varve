@@ -33,6 +33,8 @@ import {
 
 /** A paragraph prepared for line break decisions. */
 export interface LineBreakSequence {
+  /** The paragraph text the classes describe, kept for slicing composites. */
+  text: string;
   /** Effective classes, one per code point (LB1 and LB9 applied). */
   classes: readonly LineBreakClass[];
   /** LB1-resolved classes without LB9 substitution (LB8a reads ZWJ here). */
@@ -63,7 +65,7 @@ export function buildLineBreakSequence(text: string): LineBreakSequence {
     offset += character.length;
   }
   utf16Starts.push(text.length);
-  return { classes, rawClasses, inherited, dictionarySegmented, codePoints, utf16Starts };
+  return { text, classes, rawClasses, inherited, dictionarySegmented, codePoints, utf16Starts };
 }
 
 /**
@@ -190,14 +192,19 @@ const LINE_END_BLOCKED: ReadonlySet<LineBreakClass> = new Set(['OP', 'GL']);
  * reported here that the full rules do not also prohibit.
  */
 export function isLineEdgeProhibitedBreak(sequence: LineBreakSequence, index: number): boolean {
-  const { classes, inherited } = sequence;
+  const { classes, codePoints, inherited } = sequence;
   if (index <= 0 || index >= classes.length) return false;
   const after = classes[index]!;
   if (LINE_START_BLOCKED.has(after)) return true;
   let previous = index - 1;
   while (previous >= 0 && inherited[previous]) previous--;
   if (previous < 0) return false;
-  return LINE_END_BLOCKED.has(classes[previous]!);
+  if (LINE_END_BLOCKED.has(classes[previous]!)) return true;
+  // LB19 — an unresolved *initial* quote may not end a line either. A final
+  // quote legitimately may, and both share the `QU` class, so the General
+  // Category subset decides it. Without this an emergency split can end a line
+  // with `“` / `‘` while the ordinary path correctly refuses to.
+  return classes[previous] === 'QU' && !FINAL_QUOTE_CODE_POINTS.has(codePoints[previous] ?? -1);
 }
 
 /**

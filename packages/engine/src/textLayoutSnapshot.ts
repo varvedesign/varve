@@ -217,14 +217,6 @@ interface LayoutUnit {
   unit: BreakUnit;
   records: readonly GlyphRecord[];
   width: number;
-  /**
-   * This unit is one grapheme of a word too long for the line, produced by the
-   * emergency split in `buildLayoutUnits`. UAX #14 joins alphabetics (LB28), so
-   * honoring prohibition inside such a run would prevent the word from ever
-   * wrapping; the emergency split is exactly UAX #14's documented "no suitable
-   * break opportunity" case, so prohibition yields there.
-   */
-  emergencySplit?: boolean;
 }
 
 interface RawLine {
@@ -486,8 +478,24 @@ function recordsByCluster(records: readonly GlyphRecord[]): Map<number, GlyphRec
 }
 
 /**
- * Segment the paragraph into width-annotated break units. Over-long words are
- * re-broken at grapheme boundaries so a single unbreakable word still wraps.
+ * Segment the paragraph into width-annotated break units.
+ *
+ * Three stages, in this order:
+ *
+ *  1. `segmentBreakUnits` — word/whitespace units.
+ *  2. `mergeUnbreakableUnits` — fold neighbours UAX #14 forbids separating, so
+ *     the fill cannot break at a reserved position.
+ *  3. `splitOverMeasureUnits` — any unit wider than the measure is broken at
+ *     grapheme boundaries, folding a grapheme on only while the line-edge rules
+ *     allow it *and* the group still fits. A run with no legal break anywhere
+ *     ("ーーーーーーーーーーーー" is twelve non-starters) therefore still wraps
+ *     instead of producing a single 10 000px line — the emergency break of
+ *     UAX #14 §3. Token-internal rules yield inside this split, which is the
+ *     same trade-off; the merge above is what keeps them intact whenever the
+ *     token fits.
+ *
+ * Splitting last is deliberate: it means a composite the merge built can still
+ * be broken, which the earlier order (split words, then merge) could not do.
  */
 function buildLayoutUnits(
   paragraph: ItemizedParagraph,
@@ -507,81 +515,124 @@ function buildLayoutUnits(
     }
     units.push(makeLayoutUnit(unit, attach, attachCursor));
   }
-  if (maxWidth > 0 && records.length > 0) {
-    for (let i = 0; i < units.length; i++) {
-      const unit = units[i]!;
-      if (unit.width > maxWidth && unit.unit.isWord && unit.records.length > 1) {
-        const pieces = graphemeBreakUnits(
-          unit.unit.start,
-          unit.unit.end,
-          paragraph.text,
-          sourceMap,
-        );
-        // The pieces stay breakable so an over-long word can still wrap, but a
-        // pair the prohibition rules must not separate is kept together inside
-        // the piece list: splitting `1234。` and then letting `。` start a line
-        // would reintroduce the very violation this pass exists to prevent.
-        const grouped = mergeEmergencyPieces(pieces, paragraph.text);
-        let pieceCursor = attachCursorOf(attach, grouped[0]!.start);
-        units.splice(
-          i,
-          1,
-          ...grouped.map((piece) => {
-            pieceCursor = nextAttachCursor(attach, pieceCursor, piece.start);
-            return makeLayoutUnit(piece, attach, pieceCursor, true);
-          }),
-        );
-        i += grouped.length - 1;
-      }
-    }
-  }
-  return mergeUnbreakableUnits(units, paragraph.text);
+  // One class pass per paragraph, shared by the merge and the split, and built
+  // only if either actually needs it: ordinary space-separated text has no
+  // merge candidate and nothing over the measure, so it pays nothing.
+  let sequence: LineBreakSequence | null = null;
+  const classTable = (): LineBreakSequence => (sequence ??= buildLineBreakSequence(paragraph.text));
+  const merged = mergeUnbreakableUnits(units, classTable);
+  if (maxWidth <= 0 || records.length === 0) return merged;
+  return splitOverMeasureUnits(merged, paragraph, sourceMap, attach, classTable, maxWidth);
 }
 
 /**
- * Fold grapheme pieces of an over-long word where UAX #14 prohibits the break
- * between them.
- *
- * The pieces exist to let a word wrap, so they stay individually breakable —
- * but a prohibited pair inside the word is a real violation, not a wrap
- * trade-off: without this, `1234。` at a narrow measure is split into `1234`
- * and `。`, and the full stop begins a line.
- *
- * Only the line-EDGE rules regroup here. The word-internal rules have to
- * yield, because breaking inside this word is the emergency the split exists
- * for: regrouping them rebuilds the original unit and the word stops wrapping
- * (measured: `epsilon` then occupies one 70px line at a 60px measure). See
- * `isLineEdgeProhibitedBreak`.
- *
- * The South East Asian tailoring applies here exactly as it does in
- * `mergeUnbreakableUnits`: LB1 resolves `SA` to `AL` and LB28 then joins every
- * grapheme, so the segmentation boundary must survive regardless (measured:
- * Thai lines of 70px inside a 40px measure).
+ * How far past its measure a vertical column may reach while it keeps a
+ * prohibited cluster with the run before it. Expressed as a multiple of the
+ * measure, so a narrow column and a wide page behave alike. Horizontal text
+ * needs no equivalent allowance: there the merge keeps prohibited neighbours in
+ * one unit, and `splitOverMeasureUnits` breaks it only when it exceeds the
+ * measure outright.
  */
-function mergeEmergencyPieces(pieces: readonly BreakUnit[], text: string): BreakUnit[] {
-  if (pieces.length < 2) return [...pieces];
-  const sequence = buildLineBreakSequence(text);
-  const grouped: BreakUnit[] = [];
-  for (const piece of pieces) {
-    const previous = grouped[grouped.length - 1];
-    if (
-      previous &&
-      !isDictionarySegmentedBoundary(sequence, piece.start) &&
-      isLineEdgeProhibitedAt(sequence, piece.start)
-    ) {
-      grouped[grouped.length - 1] = {
-        start: previous.start,
-        end: piece.end,
-        text: text.slice(previous.start, piece.end),
-        isWhitespace: false,
-        isWord: true,
-        isBreakable: false,
-      };
+const INDIVISIBLE_OVERHANG_LIMIT = 2;
+
+/**
+ * Break every unit wider than the measure at grapheme boundaries.
+ *
+ * Two rules decide a fold, and they differ in what they may cost:
+ *
+ *  - a **line-edge** rule may push the group one grapheme past the measure, so
+ *    `。` never begins a line and a run of non-starters still wraps into
+ *    bounded lines instead of one unbounded one;
+ *  - a **token-internal** rule never exceeds the measure, so `abcd` in a 25px
+ *    box still splits `ab`/`cd` exactly as it did before this pass existed.
+ *
+ * Whatever the folding cannot keep together becomes an emergency break — the
+ * case this path exists for.
+ */
+function splitOverMeasureUnits(
+  units: readonly LayoutUnit[],
+  paragraph: ItemizedParagraph,
+  sourceMap: UnicodeIndexMap,
+  attach: Array<{ start: number; records: readonly GlyphRecord[] }>,
+  classTable: () => LineBreakSequence,
+  maxWidth: number,
+): LayoutUnit[] {
+  const result: LayoutUnit[] = [];
+  for (const unit of units) {
+    if (unit.width <= maxWidth) {
+      result.push(unit);
       continue;
     }
-    grouped.push(piece);
+    const pieces = graphemeBreakUnits(unit.unit.start, unit.unit.end, paragraph.text, sourceMap);
+    if (pieces.length < 2) {
+      result.push(unit);
+      continue;
+    }
+    const sequence = classTable();
+    let cursor = attachCursorOf(attach, pieces[0]!.start);
+    let groupStart = pieces[0]!.start;
+    let groupEnd = pieces[0]!.end;
+    let groupRecords: GlyphRecord[] = [];
+    let groupWidth = 0;
+    let started = false;
+    for (const piece of pieces) {
+      while (cursor < attach.length && attach[cursor]!.start < piece.start) cursor++;
+      const pieceRecords: GlyphRecord[] = [];
+      while (cursor < attach.length && attach[cursor]!.start < piece.end) {
+        pieceRecords.push(...attach[cursor]!.records);
+        cursor++;
+      }
+      const pieceWidth = pieceRecords.reduce(
+        (sum, record) => sum + Math.max(0, record.glyph.xAdvance),
+        0,
+      );
+      const withinMeasure = groupWidth + pieceWidth <= maxWidth;
+      // An edge rule may cost one grapheme of overhang; an internal rule may
+      // not, or an over-long word would overflow instead of wrapping.
+      const edgeMayOverhang =
+        isLineEdgeProhibitedAt(sequence, piece.start) && groupWidth <= maxWidth;
+      const keepTogether =
+        started && isBreakProhibitedAt(sequence, piece.start) && (withinMeasure || edgeMayOverhang);
+      if (started && !keepTogether) {
+        result.push(
+          makeGroupedUnit(groupStart, groupEnd, paragraph.text, groupRecords, groupWidth),
+        );
+        groupStart = piece.start;
+        groupRecords = [];
+        groupWidth = 0;
+      }
+      groupEnd = piece.end;
+      groupRecords.push(...pieceRecords);
+      groupWidth += pieceWidth;
+      started = true;
+    }
+    if (started) {
+      result.push(makeGroupedUnit(groupStart, groupEnd, paragraph.text, groupRecords, groupWidth));
+    }
   }
-  return grouped;
+  return result;
+}
+
+/** A unit built from a run of graphemes that the split decided to keep together. */
+function makeGroupedUnit(
+  start: number,
+  end: number,
+  text: string,
+  records: readonly GlyphRecord[],
+  width: number,
+): LayoutUnit {
+  return {
+    unit: {
+      start,
+      end,
+      text: text.slice(start, end),
+      isWhitespace: false,
+      isWord: true,
+      isBreakable: false,
+    },
+    records,
+    width,
+  };
 }
 
 /**
@@ -607,22 +658,16 @@ function mergeEmergencyPieces(pieces: readonly BreakUnit[], text: string): Break
  * had no break opportunity inside it and the line would otherwise overflow, so
  * re-merging them would restore the overflow they were created to remove.
  */
-function mergeUnbreakableUnits(units: readonly LayoutUnit[], text: string): LayoutUnit[] {
+function mergeUnbreakableUnits(
+  units: readonly LayoutUnit[],
+  classTable: () => LineBreakSequence,
+): LayoutUnit[] {
   if (units.length < 2) return [...units];
-  // Built on first use: a paragraph whose unit boundaries all sit next to
-  // whitespace (ordinary space-separated text) can never merge, so the common
-  // case pays nothing for the class table.
-  let sequence: LineBreakSequence | null = null;
   const merged: LayoutUnit[] = [];
   for (const unit of units) {
     const previous = merged[merged.length - 1];
-    if (
-      previous &&
-      !previous.unit.isWhitespace &&
-      !unit.unit.isWhitespace &&
-      !(previous.emergencySplit && unit.emergencySplit)
-    ) {
-      sequence ??= buildLineBreakSequence(text);
+    if (previous && !previous.unit.isWhitespace && !unit.unit.isWhitespace) {
+      const sequence = classTable();
       if (
         !isDictionarySegmentedBoundary(sequence, unit.unit.start) &&
         isBreakProhibitedAt(sequence, unit.unit.start)
@@ -631,7 +676,7 @@ function mergeUnbreakableUnits(units: readonly LayoutUnit[], text: string): Layo
           unit: {
             start: previous.unit.start,
             end: unit.unit.end,
-            text: text.slice(previous.unit.start, unit.unit.end),
+            text: sequence.text.slice(previous.unit.start, unit.unit.end),
             isWhitespace: false,
             isWord: previous.unit.isWord || unit.unit.isWord,
             isBreakable: previous.unit.isBreakable,
@@ -681,15 +726,6 @@ function attachCursorOf(
   return cursor;
 }
 
-function nextAttachCursor(
-  attach: Array<{ start: number; records: readonly GlyphRecord[] }>,
-  cursor: number,
-  start: number,
-): number {
-  while (cursor < attach.length && attach[cursor]!.start < start) cursor++;
-  return cursor;
-}
-
 /** Records attached per grapheme start, in source order (shared across units). */
 function graphemeAttachList(
   sourceMap: UnicodeIndexMap,
@@ -714,7 +750,6 @@ function makeLayoutUnit(
   unit: BreakUnit,
   attach: Array<{ start: number; records: readonly GlyphRecord[] }>,
   attachCursor: number,
-  emergencySplit = false,
 ): LayoutUnit {
   const records: GlyphRecord[] = [];
   for (let i = attachCursor; i < attach.length; i++) {
@@ -723,7 +758,7 @@ function makeLayoutUnit(
     records.push(...entry.records);
   }
   const width = records.reduce((sum, record) => sum + Math.max(0, record.glyph.xAdvance), 0);
-  return emergencySplit ? { unit, records, width, emergencySplit } : { unit, records, width };
+  return { unit, records, width };
 }
 
 /**
@@ -1125,28 +1160,39 @@ function layoutVerticalParagraphLines(
   // land between a cluster and a predecessor it must not be separated from,
   // that trailing group moves to the next column with the incoming cluster
   // instead of the incoming cluster leaving it stranded.
-  const sequence = buildLineBreakSequence(paragraph.text);
+  //
+  // When *every* boundary in the column is prohibited (`cut === 0`), retreating
+  // part of it is not possible, so the incoming cluster joins the whole column
+  // and the column overhangs — bounded by the same overhang limit the
+  // horizontal path uses. Without that branch the cluster was flushed into a
+  // column of its own, which put a prohibited character at a column start:
+  // `あああ。」` at a two-cell measure produced a column reading just `」`.
+  let classTable: LineBreakSequence | null = null;
+  const overhangLimit = maxInline > 0 ? maxInline * INDIVISIBLE_OVERHANG_LIMIT : 0;
   for (const cluster of cells) {
     if (maxInline > 0 && current.length > 0 && currentHeight + cluster.advance > maxInline) {
       let moved: VerticalClusterRecord[] = [];
       let movedHeight = 0;
-      if (isBreakProhibitedAt(sequence, cluster.start)) {
+      let keepWholeColumn = false;
+      classTable ??= buildLineBreakSequence(paragraph.text);
+      if (isBreakProhibitedAt(classTable, cluster.start)) {
         let cut = current.length - 1;
-        while (cut > 0 && isBreakProhibitedAt(sequence, current[cut]!.start)) cut--;
+        while (cut > 0 && isBreakProhibitedAt(classTable, current[cut]!.start)) cut--;
         if (cut > 0) {
           moved = current.slice(cut);
           movedHeight = moved.reduce((sum, entry) => sum + entry.advance, 0);
           current = current.slice(0, cut);
           currentHeight -= movedHeight;
+        } else {
+          keepWholeColumn = currentHeight + cluster.advance <= overhangLimit;
         }
       }
-      // `cut === 0` leaves the whole column unbreakable: fall through to a
-      // plain break rather than growing the column without limit. That is the
-      // documented emergency mode, and it cannot loop because `moved` is empty.
-      flush();
-      if (moved.length > 0) {
-        current = moved;
-        currentHeight = movedHeight;
+      if (!keepWholeColumn) {
+        flush();
+        if (moved.length > 0) {
+          current = moved;
+          currentHeight = movedHeight;
+        }
       }
     }
     current.push(cluster);
