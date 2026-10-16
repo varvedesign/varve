@@ -331,9 +331,6 @@ importers:
       '@varve/ai':
         specifier: workspace:*
         version: link:../ai
-      '@varve/automation':
-        specifier: workspace:*
-        version: link:../automation
       '@varve/codegen':
         specifier: workspace:*
         version: link:../codegen
@@ -389,6 +386,9 @@ importers:
         specifier: ^2.0.1
         version: 2.0.1
     devDependencies:
+      '@varve/automation':
+        specifier: workspace:*
+        version: link:../automation
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

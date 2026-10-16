@@ -23,7 +23,6 @@
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.9",
     "@varve/ai": "workspace:*",
-    "@varve/automation": "workspace:*",
     "@varve/codegen": "workspace:*",
     "@varve/collab": "workspace:*",
     "@varve/compositor": "workspace:*",
@@ -49,6 +48,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@tauri-apps/api": "^2.11.1",
     "@types/prismjs": "^1.26.6",
+    "@varve/automation": "workspace:*",
     "@webgpu/types": "^0.1.71"
   },
   "license": "FSL-1.1-MIT"
