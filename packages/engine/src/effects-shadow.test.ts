@@ -17,7 +17,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getImageCache, resetImageCache } from './imageCache';
 import type { ReplayTarget } from './replay';
 import { replayIr } from './replay';
-import { applyAlphaSpread, buildInnerGlowImage, itemNeedsAlphaShadow } from './shadowSource';
+import {
+  applyAlphaSpread,
+  buildInnerGlowImage,
+  buildOuterGlowImage,
+  itemNeedsAlphaShadow,
+} from './shadowSource';
 import type { FillIR, RenderItem } from './types';
 
 interface RecorderProxy {
@@ -276,6 +281,36 @@ describe('alpha-aware drop shadow', () => {
     );
     expect(gradient.data[4]).toBeGreaterThan(0);
     expect(gradient.data[6]).toBeGreaterThan(0);
+  });
+
+  it('builds outside glow only from blurred coverage beyond the source alpha', () => {
+    const source = new ImageData(
+      new Uint8ClampedArray([255, 255, 255, 255, 255, 255, 255, 0, 255, 255, 255, 0]),
+      3,
+      1,
+    );
+    const softBlur = new ImageData(
+      new Uint8ClampedArray([255, 255, 255, 255, 255, 255, 255, 128, 255, 255, 255, 0]),
+      3,
+      1,
+    );
+    const widerBlur = new ImageData(
+      new Uint8ClampedArray([255, 255, 255, 255, 255, 255, 255, 192, 255, 255, 255, 64]),
+      3,
+      1,
+    );
+    const color = { space: 'rgb', r: 255, g: 32, b: 16, a: 255 } as const;
+    const glow = buildOuterGlowImage(source, softBlur, color, 0, 'linear');
+    const strongerGlow = buildOuterGlowImage(source, widerBlur, color, 0, 'linear');
+    const chokedGlow = buildOuterGlowImage(source, softBlur, color, 0.25, 'linear');
+
+    expect(glow.data[3]).toBe(0);
+    expect(glow.data[7]).toBe(128);
+    expect(glow.data[11]).toBe(0);
+    expect(strongerGlow.data[7]).toBeGreaterThan(glow.data[7]!);
+    expect(strongerGlow.data[11]).toBeGreaterThan(glow.data[11]!);
+    expect(chokedGlow.data[7]).toBeLessThan(glow.data[7]!);
+    expect(chokedGlow.data[3]).toBe(0);
   });
 
   it('dilates and erodes alpha for spread instead of changing blur', () => {
