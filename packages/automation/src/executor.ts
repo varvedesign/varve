@@ -29,7 +29,7 @@ import type { Command, CommandCatalog, CommandContext, CommandEffect } from './c
 import { touchedBetween } from './diff';
 import { CommandRejection, type ErrorCode, type ErrorInfo, errorInfo } from './errors';
 import { IdempotencyStore } from './idempotency';
-import type { Principal } from './principal';
+import { idempotencyScope, type Principal } from './principal';
 import type {
   BatchReceipt,
   BatchStepReceipt,
@@ -468,7 +468,7 @@ export class Executor {
       if (request.idempotencyKey) {
         this.idempotency.record({
           key: request.idempotencyKey,
-          principalId: ctx.principal.id,
+          principalId: idempotencyScope(ctx.principal),
           documentId: info.documentId,
           operation: command.id,
           argsHash,
@@ -526,7 +526,7 @@ export class Executor {
       if (request.idempotencyKey) {
         this.idempotency.record({
           key: request.idempotencyKey,
-          principalId: ctx.principal.id,
+          principalId: idempotencyScope(ctx.principal),
           documentId: info.documentId,
           operation: command.id,
           argsHash,
@@ -646,7 +646,7 @@ export class Executor {
     if (request.idempotencyKey && !request.dryRun) {
       this.idempotency.record({
         key: request.idempotencyKey,
-        principalId: ctx.principal.id,
+        principalId: idempotencyScope(ctx.principal),
         documentId: info.documentId,
         operation: command.id,
         argsHash,
@@ -802,7 +802,7 @@ export class Executor {
     if (batch.idempotencyKey && !batch.dryRun) {
       this.idempotency.record({
         key: batch.idempotencyKey,
-        principalId: ctx.principal.id,
+        principalId: idempotencyScope(ctx.principal),
         documentId: info.documentId,
         operation: 'batch',
         argsHash,
@@ -1198,7 +1198,7 @@ export class Executor {
     | { kind: 'replay'; receipt: Receipt | BatchReceipt }
     | { kind: 'error'; error: ErrorInfo; outcome: Outcome } {
     if (key === undefined) return { kind: 'proceed' };
-    const entry = this.idempotency.lookup(ctx.principal.id, documentId, key);
+    const entry = this.idempotency.lookup(idempotencyScope(ctx.principal), documentId, key);
     if (entry) {
       if (entry.argsHash !== argsHash || entry.operation !== operation) {
         return {

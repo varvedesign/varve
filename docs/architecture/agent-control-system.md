@@ -35,6 +35,7 @@ This document describes the contract and marks what exists. A claim here is
 | Approvals and the Agent access settings surface | Implemented: the controller supplies approvals (bound to exact args, target and revision, rechecked at commit) and `Settings > Agent Access` shows pending approvals, connected clients (disconnect), pause/resume, an activity list and the attach command. Tested against the real `EditorProvider` and controller; visual and keyboard review in a running window not done |
 | **`varve.document.save` in a live window** | Implemented. Writes only where the person already chose for the document (the editor's own Save, with its disk-changed and destination checks); a never-saved, download-only or browser-handle document, or any caller-chosen path, is refused and nothing is written. Needs the `export` permission, which `edit` does not imply. Tested against the real provider with an instrumented platform; **not run against a real file system through the desktop app** |
 | **`varve.capture.node`** | Implemented for a live window: one node as a PNG from the export pipeline, with size, the document rectangle it covers, the revision rendered, whether every font and image had settled, and the renderer. Needs the `capture` permission. Tested with an injected renderer in jsdom; the real pixel pipeline is covered only where stated in the verification record |
+| **Rust endpoint, relay and independent clients** | Verified with a real Rust process: `varve instances --verify`, an independent MCP client (SDK v2) attached by instance id with its edit landing in the document, an oversize frame and invalid UTF-8 answered in the protocol's own words while other clients keep working, a wrong credential, two clients independent of each other, a lost reply recovered by retry on a new connection (exactly one edit), and the instance directory removed when the application goes. The relay is the production `createFrameRelay`, fed the payloads the Tauri adapter emits. **Not covered:** Tauri's event system, the webview and a window |
 | **`varve config mcp`** | Implemented, read-only: prints MCP client configuration with the absolute interpreter and launcher paths. Verified by launching what it printed from a path with spaces and an empty `PATH` with an independent client |
 | Page, component, text-run, effect, export-to-file, motion commands | Not started; counted in the parity manifest as the unmapped backlog |
 
@@ -151,7 +152,16 @@ unlocked on its own. Enforced in the executor path for every adapter.
 ## Idempotency and retries
 
 - A key is separate from any transport request id and is scoped to
-  **principal and document**.
+  **client and document**. A connection's principal id is minted per connection
+  so a receipt names which connection wrote it; the *client* is the credential
+  it presented plus the name it declared, and that survives a reconnect. The
+  scope has to follow the client because the reason to retry is a lost reply, and
+  the retry arrives on a new connection: with per-connection scoping a client
+  that reconnected was told `OUTCOME_UNKNOWN` about work that had in fact been
+  done (found by running a real client against the Rust endpoint). Clients with
+  different names, or different credentials, never share a scope. Holders of the
+  same credential and name do, which is acceptable because the credential is the
+  trust boundary and they already share the same permissions.
 - The canonical argument hash is bound to the key: reuse with different
   arguments is `IDEMPOTENCY_MISMATCH`.
 - A repeated key with the same arguments replays the stored receipt without
@@ -160,8 +170,11 @@ unlocked on its own. Enforced in the executor path for every adapter.
   arrived, evicted, or the session restarted), the result is `unknown` /
   `OUTCOME_UNKNOWN` and nothing runs. The caller reconciles from the document
   revision and history.
-- Retention is bounded (entries and age). This is not durable exactly-once
-  execution and does not claim to be.
+- Retention is bounded by entries, age and **encoded size** (a receipt that
+  carries an image would otherwise make 1,024 retained entries gigabytes). A
+  receipt larger than the whole budget is not retained, and a declared retry then
+  reports an unknown outcome. This is not durable exactly-once execution and does
+  not claim to be.
 
 ## Batches
 

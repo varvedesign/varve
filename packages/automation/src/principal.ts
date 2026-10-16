@@ -41,6 +41,23 @@ export interface Principal {
   label: string;
   transport: TransportKind;
   grants: readonly AuthorizationClass[];
+  /**
+   * Identity of the client behind this connection that survives a reconnect.
+   *
+   * `id` is minted per connection so a receipt always names which connection
+   * wrote it. That is the wrong scope for a retry: the main reason to retry is
+   * a lost reply, and the retry arrives on a new connection. Idempotency is
+   * therefore scoped to this value when it exists. The host derives it from the
+   * credential the client presented and the name it declared, so two clients
+   * with different names never share a scope, while one client that reconnects
+   * keeps its own.
+   */
+  clientId?: string;
+}
+
+/** The scope idempotency keys live in: the client when known, else the connection. */
+export function idempotencyScope(principal: Principal): string {
+  return principal.clientId ?? principal.id;
 }
 
 export function hasGrant(principal: Principal, required: AuthorizationClass): boolean {

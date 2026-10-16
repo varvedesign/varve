@@ -395,6 +395,9 @@ export class AutomationHost {
       label: admission.label,
       transport: admission.transport ?? 'ipc',
       grants: admission.grants,
+      // Stable across reconnects, so a retry after a lost reply finds the
+      // original result instead of being told the outcome is unknown.
+      clientId: `${clientKey}:${client.name}`,
     };
     this.connections.get(connectionId)?.admit(principal, client, clientKey);
     this.emit();
