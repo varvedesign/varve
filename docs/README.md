@@ -284,6 +284,7 @@ pass report in
 | Doc | Purpose |
 |-----|---------|
 | `architecture/overview.md` | Current repository topology, runtime boundaries, data flow, and change-routing guide |
+| `architecture/object-repeats.md` | Source-preserving repeat recipes, bounds, and integration status |
 | `architecture/render-pipeline.md` | Canvas rendering pipeline |
 | `architecture/gpu-acceleration.md` | GPU layers, WebGPU scene path admission, device-loss recovery, capability matrix, and truthful status contract |
 | `architecture/adaptive-render-residency.md` | Adaptive visibility, residency, raster representation, fidelity, and budget policy |

@@ -31,6 +31,7 @@ import type {
   AnimatedAssetMetadata,
   MediaFillSettings,
   PatternArrangement,
+  Point,
   RasterColorEncoding,
   OpenTypeFeatureMap as SharedOpenTypeFeatureMap,
   TextWrapShape,
@@ -1779,6 +1780,13 @@ export interface GroupNode extends NodeBase {
   /** Child node ids in paint order. */
   children: NodeId[];
   /**
+   * Live object repeat. The group's children remain the single authored
+   * source; renderers derive bounded instances from this recipe. A missing
+   * value means an ordinary group. This is intentionally separate from
+   * PatternFill, which repeats paint rather than scene objects.
+   */
+  objectRepeat?: ObjectRepeat;
+  /**
    * When true, the group composites as an isolated group (backdrop is
    * transparent black). Default false (non-isolated = pass-through behavior
    * for normal blend mode). Per W3C isolated group behavior §8.3:
@@ -1821,6 +1829,36 @@ export interface GroupNode extends NodeBase {
   /** Parametric comic callout recipe; geometry and text remain ordinary nodes. */
   callout?: CalloutRecipe;
 }
+
+/** Bounded, source-preserving object repetition for a group subtree. */
+export type ObjectRepeat =
+  | {
+      type: 'grid';
+      /** Total number of instances along each axis, including the source. */
+      columns: number;
+      rows: number;
+      /** Local-space distance between corresponding source origins. */
+      spacingX: number;
+      spacingY: number;
+    }
+  | {
+      type: 'radial';
+      /** Total instances including the source; clamped to 512. */
+      copies: number;
+      /** Rotation center in group-local coordinates. */
+      center: Point;
+      /** Angle from the source to the final instance, in degrees. */
+      sweep: number;
+    }
+  | {
+      type: 'mirror';
+      /** Mirror across the local vertical axis. */
+      horizontal: boolean;
+      /** Mirror across the local horizontal axis. */
+      vertical: boolean;
+      /** Reflection center in group-local coordinates. */
+      center: Point;
+    };
 
 export type CalloutFitPolicy = 'fit-balloon' | 'reflow' | 'overflow';
 

@@ -15,7 +15,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the current document schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.33');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.34');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
 
@@ -45,12 +45,43 @@ describe('Document Versioning', () => {
 
     const migrated = migrateDocument(legacy) as Document | null;
 
-    expect(migrated?.formatVersion).toBe('2.33');
+    expect(migrated?.formatVersion).toBe('2.34');
     expect(migrated?.patternDefinitions).toEqual({});
     expect(migrated?.nodes['shape-node']?.fills?.[0]).toMatchObject({
       type: 'pattern',
       pattern: { tileSrc: 'tile-node', spacing: 3, rotation: 12 },
     });
+  });
+
+  it('migrates v2.33 groups without dropping authored object-repeat data', () => {
+    const repeat = {
+      type: 'grid',
+      columns: 4,
+      rows: 3,
+      spacingX: 48,
+      spacingY: 52,
+    };
+    const migrated = migrateDocument({
+      formatVersion: '2.33',
+      id: 'repeat-document',
+      name: 'Repeat',
+      rootChildren: ['source-group'],
+      nodes: {
+        'source-group': {
+          id: 'source-group',
+          kind: 'group',
+          children: [],
+          objectRepeat: repeat,
+        },
+      },
+    });
+
+    expect(migrated?.formatVersion).toBe('2.34');
+    const migratedGroup = (migrated as Document | null)?.nodes['source-group'];
+    expect(migratedGroup?.kind).toBe('group');
+    if (migratedGroup?.kind === 'group') {
+      expect(migratedGroup.objectRepeat).toEqual(repeat);
+    }
   });
 
   it('removes the hidden base stroke from v2.32 pointed callout tails', () => {
@@ -90,7 +121,7 @@ describe('Document Versioning', () => {
       tailValue && typeof tailValue === 'object' && !Array.isArray(tailValue)
         ? (tailValue as Record<string, unknown>)
         : undefined;
-    expect(migrated?.formatVersion).toBe('2.33');
+    expect(migrated?.formatVersion).toBe('2.34');
     expect(tail?.kind).toBe('path');
     expect(tail?.closed).toBe(false);
     expect(tail?.points).toEqual([{ ...left, y: 77 }, tip, { ...right, y: 77 }]);
