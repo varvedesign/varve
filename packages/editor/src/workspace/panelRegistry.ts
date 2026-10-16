@@ -136,7 +136,21 @@ export interface PanelDefinition {
   dockable: boolean;
 
   minimumSize: PanelSize;
+  /**
+   * Size the panel opens at in a fresh layout, and the widest the shell keeps
+   * it when the host has room to spare. Without it a rail would grow with the
+   * window (`resolveDockTreeGeometry` has no other ceiling than the split
+   * ratio), so a 2560px window painted a 563px Layers rail against a 288px
+   * contract while the canvas lost the difference.
+   */
   preferredSize?: PanelSize;
+  /**
+   * Largest size the user may drag the panel to. Bounds explicit resize
+   * intent, which `preferredSize` deliberately does not: a user is allowed to
+   * make a rail bigger than its opening size, just not unbounded.
+   * Defaults to twice `preferredSize` (see `dockPanelSizing.ts`).
+   */
+  maximumSize?: PanelSize;
 
   loadPolicy: PanelLoadPolicy;
   inactivePolicy: PanelInactivePolicy;
@@ -225,6 +239,29 @@ export function validatePanelDefinition(def: PanelDefinition): string[] {
   }
   if (!Number.isFinite(def.minimumSize.height) || def.minimumSize.height <= 0) {
     violations.push('minimumSize.height must be a positive finite number');
+  }
+  for (const [field, size] of [
+    ['preferredSize', def.preferredSize],
+    ['maximumSize', def.maximumSize],
+  ] as const) {
+    if (!size) continue;
+    if (!Number.isFinite(size.width) || size.width <= 0) {
+      violations.push(`${field}.width must be a positive finite number`);
+    }
+    if (!Number.isFinite(size.height) || size.height <= 0) {
+      violations.push(`${field}.height must be a positive finite number`);
+    }
+    if (size.width < def.minimumSize.width || size.height < def.minimumSize.height) {
+      violations.push(`${field} must not be smaller than minimumSize`);
+    }
+  }
+  if (
+    def.preferredSize &&
+    def.maximumSize &&
+    (def.maximumSize.width < def.preferredSize.width ||
+      def.maximumSize.height < def.preferredSize.height)
+  ) {
+    violations.push('maximumSize must not be smaller than preferredSize');
   }
   if (def.allowedHosts.length === 0) violations.push('allowedHosts must be non-empty');
   if (def.detachable && !def.dockable) violations.push('detachable panels must be dockable');

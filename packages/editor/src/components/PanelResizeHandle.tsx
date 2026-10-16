@@ -13,20 +13,46 @@
 import { ResizableHandle, Tooltip } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import { loadSettings, updateSettings } from '../settings';
+import { panelWidthLimits } from '../workspace/panelWidthLimits';
 
+/**
+ * Usable width range of a side panel, read from the panel registry.
+ *
+ * The registry is the single authority for a panel's declared range: the
+ * desktop dock sizes the same panels from `preferredSize`/`maximumSize`
+ * (`workspace/dock/dockPanelSizing.ts`), and this compact grid tier sizes them
+ * from `workspace/panelWidthLimits.ts`. Keeping two hand-written copies is what
+ * let the two tiers disagree about the same panel. The literals below are only
+ * a fallback for the window between module evaluation and
+ * `registerBuiltinPanels()`.
+ */
+const FALLBACK_LIMITS: Record<'layers' | 'inspector', { min: number; max: number }> = {
+  layers: { min: 180, max: 576 },
+  inspector: { min: 240, max: 640 },
+};
+
+export function panelLimits(side: 'layers' | 'inspector'): { min: number; max: number } {
+  return panelWidthLimits(side) ?? FALLBACK_LIMITS[side];
+}
+
+/** Snapshot of the built-in range. Prefer `panelLimits()` at call time. */
 export const PANEL_LIMITS = {
-  layers: { min: 180, max: 480 },
-  inspector: { min: 240, max: 600 },
+  get layers() {
+    return panelLimits('layers');
+  },
+  get inspector() {
+    return panelLimits('inspector');
+  },
 } as const;
 
 /** Minimum width the canvas column keeps; panels are clamped so the canvas
  *  never falls below this (WCAG 1.4.10 reflow / usability). */
 export const CANVAS_MIN_WIDTH = 320;
 
-export type PanelSide = keyof typeof PANEL_LIMITS;
+export type PanelSide = 'layers' | 'inspector';
 
 export function clampPanelWidth(side: PanelSide, width: number): number {
-  const { min, max } = PANEL_LIMITS[side];
+  const { min, max } = panelLimits(side);
   return Math.min(max, Math.max(min, Math.round(width)));
 }
 

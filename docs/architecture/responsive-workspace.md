@@ -104,6 +104,65 @@ The same containment is what keeps the rail honest under **text enlargement**
 root text size the rail's content painted over the document title instead of
 staying inside its own box.
 
+## Panel sizing authority
+
+One authority sizes a docked panel, and it is the panel registry
+(`workspace/panelRegistry.ts` + `workspace/dock/dockPanelSizing.ts`):
+
+- `minimumSize` — the usable floor. Never allocated below it while the host
+  can satisfy it.
+- `preferredSize` — the size a panel **opens** at, and the widest the shell
+  keeps it while the user has not resized that split. Surplus width goes to the
+  canvas, not to the rails: without this a window's width decided rail width,
+  and a 2560px window painted a 563px Layers rail against a declared 288px
+  contract while the artwork paid the difference.
+- `maximumSize` — the largest size an explicit resize may reach. A user *is*
+  allowed to make a rail wider than it opens at; they are not allowed to make
+  it unbounded. Undeclared means twice `preferredSize`, which is the built-in
+  policy: layers 576, inspector 640 — 640 being the wide rail the inspector
+  specs already exercise (240 min / 320 default / 640 wide).
+
+The rule for a built-in split is therefore
+`min(ratio-derived size, preferredSize)`, bounded below by `minimumSize` and,
+once the user has moved the splitter, above by `maximumSize`. Both ends are
+covered by `dockGeometry.test.ts` (900×600 keeps the ratio allocation;
+2560×1440 returns the declared preferred sizes).
+
+`maximumSize` is enforced **where growth costs the canvas** — that is, when the
+split's other pane is the unbounded subtree holding the canvas. In a split
+between two bounded panels the host may legitimately be wider than both maxima
+together (a bottom row at a wide window), so the stored ratio — the user's own
+arrangement of that region — decides; forcing a bound there could only stretch
+one pane or leave a gap in the shell. `dockGeometry.test.ts` pins both
+behaviours.
+
+Consequences worth keeping in mind:
+
+- The pane allocation is still a **ratio** in the saved tree. A drag stays a
+  share of the window; only the opening size and the ceiling come from the
+  registry. Do not "fix" a drag by writing a preferred size over the user's
+  ratio.
+- The splitter's keyboard range (`aria-valuemin`/`aria-valuemax`, Home/End) is
+  computed from the same feasible interval as the pointer range, so the two
+  reach the same pane sizes — no announced bound is a dead zone. Each splitter
+  is named after the pane it sizes, points `aria-controls` at that pane's
+  container when one exists, and **Enter returns a built-in split to its
+  default** (creation ratio *and* the preferred-size opening state) — the
+  affordance the retired legacy handle exposed as "double-click resets".
+  Escape cancels an in-flight drag.
+- The compact grid tier (`<= 899px`) reads the same registry through
+  `panelLimits()` in `components/PanelResizeHandle.tsx`. Do not reintroduce a
+  second list of panel widths: the two tiers already drifted once, and the
+  desktop dock's inline `width` wins over the grid's `--sidebar-width`, which is
+  why a persisted `panel.leftPanelWidth` had no effect on desktop.
+- **Touched-ness is state, not a guess.** `DockNode.ratioTouched` is set by
+  `setSplitRatio` (its only writer) and cleared by `resetSplitRatio`, so a
+  resize that happens to land on a split's creation ratio — the default
+  window's first `ArrowRight` does — still counts as the user's intent. Do not
+  re-derive "untouched" from the ratio value: the user's own input can
+  reproduce it, and the repository's `dock-layout-geometry` spec caught exactly
+  that when it was inferred.
+
 ## Text enlargement (WCAG 2.2 SC 1.4.4)
 
 Interface type is rem-based and interface geometry is px-based (`tokens/`), so a
@@ -203,7 +262,7 @@ widths, and keep navigation as an overlay.
 
 | Condition | Supplementary panels (inspector, library, logo) | Layers |
 |---|---|---|
-| `<= 899px` + portrait | Inspector is a 25–36dvh nonmodal lower pane; Resources remains a 40–80dvh modal sheet | Left side drawer |
+| `<= 899px` + portrait | Inspector, Resources and Logo all present as a bottom sheet with the same box: `height: min(72dvh, 560px)` (measured 560px = 66dvh at 390×844, 55dvh at 768×1024), capped by `calc(100dvh − safe-area-top − 24px)`. The Inspector sheet is nonmodal; Resources is modal | Left side drawer |
 | `<= 899px` + landscape | Right side drawer | Left side drawer |
 | `> 899px`, desktop presentation | Docked column (unchanged) | Docked column |
 | `> 899px`, tablet presentation | Reserved Inspector rail | Dismissible left side drawer |

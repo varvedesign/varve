@@ -15,6 +15,7 @@
 import { ResizableHandle, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import { panelWidthLimits } from '../../workspace/panelWidthLimits';
 import {
   subscribeWorkspaceLayoutApplied,
   subscribeWorkspaceReset,
@@ -27,7 +28,20 @@ import {
   updateWorkspacePreferences,
 } from '../../workspace/workspaceStore';
 
-export const LIBRARY_PANEL_LIMITS = { min: 240, max: 600 } as const;
+/**
+ * Usable width range of the Resources panel, read from the panel registry so it
+ * cannot drift from the range the desktop dock enforces for the same panel
+ * (`workspace/panelWidthLimits.ts`). The literal is only a pre-registration
+ * fallback.
+ */
+export const LIBRARY_PANEL_LIMITS = {
+  get min() {
+    return panelWidthLimits('library')?.min ?? 220;
+  },
+  get max() {
+    return panelWidthLimits('library')?.max ?? 600;
+  },
+} as const;
 
 const DEFAULT_LIBRARY_WIDTH = 300;
 

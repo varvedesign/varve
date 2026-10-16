@@ -51,6 +51,22 @@ export interface DockFloatingGroup {
 
 export type DockSplitDirection = 'row' | 'column';
 
+/**
+ * Height of the chrome a docked panel draws above its own content (the panel
+ * strip with its title and move control). Panel minimum/preferred/maximum
+ * heights are contracts about the *body*, so anything resolving a panel's box
+ * on the block axis must add this — the same way `getDockNodeMinimumSize` and
+ * `getDockNodeMaximumSize` do.
+ *
+ * These live here (a data module with no imports) rather than in `dockOps`
+ * because `dockPanelSizing` needs them too, and `dockOps` already imports
+ * `dockPanelSizing`. `dockOps` re-exports both for its existing importers.
+ */
+export const DOCK_PANEL_CHROME_HEIGHT = 32;
+
+/** Extra strip a tab group draws above the active panel's body. */
+export const DOCK_TAB_STRIP_MIN_HEIGHT = 32;
+
 export type DockNode =
   | {
       kind: 'split';
@@ -58,6 +74,16 @@ export type DockNode =
       direction: DockSplitDirection;
       /** First pane share, in (0, 1); second pane takes 1 - ratio. */
       ratio: number;
+      /**
+       * Set once the user has resized this split.
+       *
+       * A built-in split that nobody has touched opens at the pane's declared
+       * `preferredSize` instead of its ratio (`dockPanelSizing.ts`). That must
+       * be real state, not a guess: a nudge that lands exactly on the creation
+       * ratio — the default window's first `ArrowRight` does — would otherwise
+       * look "untouched" and the keypress would be silently swallowed.
+       */
+      ratioTouched?: boolean;
       first: DockNode;
       second: DockNode;
     }

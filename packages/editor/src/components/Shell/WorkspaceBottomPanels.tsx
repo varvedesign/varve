@@ -237,7 +237,10 @@ export function WorkspaceBottomPanels({
           data-testid={`dock-splitter-${splitter.nodeId}`}
           style={splitter.style}
           role="separator"
-          aria-label="Resize dock panels"
+          aria-label={splitter.accessibleName}
+          {...(splitter.controlledElementId
+            ? { 'aria-controls': splitter.controlledElementId }
+            : {})}
           aria-orientation={splitter.orientation}
           aria-valuemin={Math.round(splitter.minRatio * 100)}
           aria-valuemax={Math.round(splitter.maxRatio * 100)}
