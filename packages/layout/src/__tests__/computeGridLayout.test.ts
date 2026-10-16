@@ -132,6 +132,33 @@ describe('parseGridTracks', () => {
 // ── computeGridLayout ────────────────────────────────────────────────────────
 
 describe('computeGridLayout', () => {
+  it('resolves intrinsic auto contributions before distributing fr space', () => {
+    const doc = addNode(
+      addNode(makeDoc(), 'a', {
+        shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 30 },
+        gridPlacement: { gridColumnStart: 1, gridColumnEnd: 2, gridRowStart: 1, gridRowEnd: 2 },
+      }),
+      'b',
+    );
+    doc.nodes.b!.gridPlacement = {
+      gridColumnStart: 2,
+      gridColumnEnd: 3,
+      gridRowStart: 1,
+      gridRowEnd: 2,
+    };
+    const style = makeLayoutStyle({
+      layoutSemanticsVersion: 2,
+      gridTemplateColumns: 'auto 1fr',
+      gridTemplateRows: '1fr',
+    });
+
+    const result = computeGridLayout(doc, 'parent', 300, 80, style, ['a', 'b']);
+    expect(result.map(({ x, w }) => [x, w])).toEqual([
+      [0, 100],
+      [100, 200],
+    ]);
+  });
+
   it('preserves the current geometry when explicit placements collide or exceed limits', () => {
     const collisionDoc = addNode(
       addNode(makeDoc(), 'a', {

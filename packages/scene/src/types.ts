@@ -2000,6 +2000,8 @@ export type FlexDirection = 'row' | 'column' | 'rowReverse' | 'columnReverse';
 
 export interface LayoutStyle {
   mode: LayoutMode;
+  /** Optional versioned layout semantics. Missing values preserve legacy document behavior. */
+  layoutSemanticsVersion?: 1 | 2;
   direction: FlexDirection;
   gap: number;
   wrap: boolean;

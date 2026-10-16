@@ -38,9 +38,11 @@ from fixed-on-scroll. Hug measures content; it is not a one-time resize action.
 5. Grid tracks support fixed px, `auto`, `fr`, and bounded fixed-count
    `repeat()`. Invalid, non-finite, nested, or unsupported syntax is rejected
    with a diagnostic; `minmax()`, auto-fit/auto-fill, percentages, and masonry
-   are unsupported until implemented end to end. Intrinsic and spanning
-   contributions resolve before fractional tracks. Implicit tracks repeat the
-   final authored track definition, not its prior resolved pixel size.
+   are unsupported until implemented end to end. `layoutSemanticsVersion: 2`
+   resolves intrinsic and spanning contributions before fractional tracks and
+   repeats the final authored definition for implicit tracks. Missing or `1`
+   preserves legacy resolution, including repeating the prior resolved pixel
+   size, so older artwork does not shift silently.
 6. Grid placements reserve full spans. Explicit collisions fail with a
    diagnostic unless the placement explicitly opts into overlap. Dense packing
    is opt-in and does not change reading or keyboard order. Deleting a track
@@ -69,6 +71,7 @@ from fixed-on-scroll. Hug measures content; it is not a one-time resize action.
 | 230px wrapped row; four Fill items with 100px minimum; 10px item gap | Two items per line; each resolves to 110px |
 | Same wrapped row with 24px row gap and 10px column gap | Second line begins 44px below the first; item spacing remains 10px |
 | 300px grid; `auto 1fr`; first track intrinsic demand 100px | Tracks resolve to 100px and 200px |
+| Legacy grid without a semantics version; existing implicit-track geometry | Existing resolved pixel-size repetition is preserved |
 | Child x=60, width=40, parent width 200 → 300; `centerOffset` | Child x becomes 110; its -20px center offset is retained |
 | Center constraint on an older file | Existing proportional behavior remains unchanged |
 | One child in Between/Around/Evenly; zero, spare, or negative free space | Results are deterministic, non-negative for auto spacing, and preserve explicit signed gaps only |

@@ -119,39 +119,82 @@ function childSize(n: SceneNode, includeBorders = false): { w: number; h: number
   return measureNodeSize(n, includeBorders);
 }
 
-function resolveAutoTracks(
-  tracks: number[],
-  children: SceneNode[],
-  cellMapping: number[],
-  isColumn: boolean,
-  includeBorders: boolean,
-): number[] {
-  return tracks.map((size, idx) => {
-    if (size !== -1) return size;
-
-    const childIndices = cellMapping
-      .map((cellIdx, childIdx) => (cellIdx === idx ? childIdx : -1))
-      .filter((c) => c >= 0);
-
-    if (childIndices.length === 0) return 0;
-
-    let maxSize = 0;
-    for (const ci of childIndices) {
-      if (children[ci]) {
-        const sz = childSize(children[ci], includeBorders);
-        maxSize = Math.max(maxSize, isColumn ? sz.h : sz.w);
-      }
-    }
-    return maxSize || 100;
-  });
-}
-
 interface CellAssignment {
   childIndex: number;
   col: number;
   row: number;
   colSpan: number;
   rowSpan: number;
+}
+
+function resolveGridTrackSizes(
+  definitions: TrackSize[],
+  children: SceneNode[],
+  assignments: CellAssignment[],
+  available: number,
+  gap: number,
+  isColumn: boolean,
+  includeBorders: boolean,
+): number[] {
+  const sizes = definitions.map((track) => (track.kind === 'px' ? track.value : 0));
+  const flexibleKinds = new Set<TrackSize['kind']>(['auto', 'fr']);
+
+  // Intrinsic single-cell contributions establish track bases before any `fr`
+  // space is distributed. A span contributes its unmet demand across flexible
+  // tracks in that span without changing fixed pixel tracks.
+  for (const assignment of assignments) {
+    const child = children[assignment.childIndex];
+    if (!child) continue;
+    const intrinsic = childSize(child, includeBorders);
+    const demand = isColumn ? intrinsic.w : intrinsic.h;
+    const start = isColumn ? assignment.col : assignment.row;
+    const span = isColumn ? assignment.colSpan : assignment.rowSpan;
+    const indices = Array.from({ length: span }, (_, offset) => start + offset);
+    const eligible = indices.filter((index) => flexibleKinds.has(definitions[index]?.kind ?? 'px'));
+    if (eligible.length === 0) continue;
+    const current = indices.reduce((sum, index) => sum + (sizes[index] ?? 0), 0) + (span - 1) * gap;
+    const deficit = Math.max(0, demand - current);
+    if (deficit === 0) continue;
+    const share = deficit / eligible.length;
+    for (const index of eligible) sizes[index] = (sizes[index] ?? 0) + share;
+  }
+
+  const frTotal = definitions.reduce(
+    (sum, track) => sum + (track.kind === 'fr' ? track.value : 0),
+    0,
+  );
+  if (frTotal > 0) {
+    const gaps = Math.max(0, definitions.length - 1) * gap;
+    const baseTotal = sizes.reduce((sum, size) => sum + size, 0);
+    const free = Math.max(0, available - gaps - baseTotal);
+    for (let index = 0; index < definitions.length; index++) {
+      const track = definitions[index]!;
+      if (track.kind === 'fr') sizes[index] = (sizes[index] ?? 0) + (free * track.value) / frTotal;
+    }
+  }
+
+  return sizes;
+}
+
+function resolveLegacyAutoTracks(
+  tracks: number[],
+  children: SceneNode[],
+  assignments: CellAssignment[],
+  isColumn: boolean,
+  includeBorders: boolean,
+): number[] {
+  return tracks.map((size, index) => {
+    if (size !== -1) return size;
+    let maxSize = 0;
+    for (const assignment of assignments) {
+      if ((isColumn ? assignment.col : assignment.row) !== index) continue;
+      const child = children[assignment.childIndex];
+      if (!child) continue;
+      const intrinsic = childSize(child, includeBorders);
+      maxSize = Math.max(maxSize, isColumn ? intrinsic.w : intrinsic.h);
+    }
+    return maxSize || 100;
+  });
 }
 
 /**
@@ -187,11 +230,11 @@ export function computeGridLayout(
   ) {
     return [];
   }
-  const cols = parseGridTracks(layoutStyle.gridTemplateColumns ?? '', availW, columnGap);
-  const rows = parseGridTracks(layoutStyle.gridTemplateRows ?? '', availH, rowGap);
-
-  const explicitCols = cols.length > 0 ? cols : [-1];
-  const explicitRows = rows.length > 0 ? rows : [availH];
+  const colDefinitions = parsedColumns.tracks;
+  const rowDefinitions = parsedRows.tracks;
+  const explicitCols: TrackSize[] = colDefinitions.length > 0 ? colDefinitions : [{ kind: 'auto' }];
+  const explicitRows: TrackSize[] =
+    rowDefinitions.length > 0 ? rowDefinitions : [{ kind: 'px', value: availH }];
 
   const childNodes = children
     .map((cid) => doc.nodes[cid])
@@ -351,44 +394,69 @@ export function computeGridLayout(
   }
   if (maxCol > MAX_GRID_TRACKS || maxRow > MAX_GRID_TRACKS) return [];
 
-  const resolvedCols: number[] = [];
+  const usesIntrinsicTracks = layoutStyle.layoutSemanticsVersion === 2;
+  const resolvedCols: TrackSize[] = [];
   for (let c = 0; c < maxCol; c++) {
     if (c < explicitCols.length) {
-      resolvedCols.push(explicitCols[c] ?? 100);
+      resolvedCols.push(explicitCols[c] ?? { kind: 'auto' });
     } else {
-      resolvedCols.push(explicitCols[explicitCols.length - 1] ?? 100);
+      resolvedCols.push(colDefinitions[colDefinitions.length - 1] ?? { kind: 'auto' });
     }
   }
 
-  const resolvedRows: number[] = [];
+  const resolvedRows: TrackSize[] = [];
   for (let r = 0; r < maxRow; r++) {
     if (r < explicitRows.length) {
-      resolvedRows.push(explicitRows[r] ?? 100);
+      resolvedRows.push(explicitRows[r] ?? { kind: 'auto' });
     } else {
-      resolvedRows.push(explicitRows[explicitRows.length - 1] ?? 100);
+      resolvedRows.push(rowDefinitions[rowDefinitions.length - 1] ?? { kind: 'auto' });
     }
   }
 
-  const columnMap: number[] = [];
-  const rowMap: number[] = [];
-  for (const a of assignments) {
-    columnMap[a.childIndex] = a.col;
-    rowMap[a.childIndex] = a.row;
+  const includeBorders = layoutStyle.includeBordersInLayout === true;
+  let resolvedColSizes: number[];
+  let resolvedRowSizes: number[];
+  if (usesIntrinsicTracks) {
+    resolvedColSizes = resolveGridTrackSizes(
+      resolvedCols,
+      childNodes,
+      assignments,
+      availW,
+      columnGap,
+      true,
+      includeBorders,
+    );
+    resolvedRowSizes = resolveGridTrackSizes(
+      resolvedRows,
+      childNodes,
+      assignments,
+      availH,
+      rowGap,
+      false,
+      includeBorders,
+    );
+  } else {
+    const legacyCols = parseGridTracks(layoutStyle.gridTemplateColumns ?? '', availW, columnGap);
+    const legacyRows = parseGridTracks(layoutStyle.gridTemplateRows ?? '', availH, rowGap);
+    const colSizes = legacyCols.length > 0 ? legacyCols : [-1];
+    const rowSizes = legacyRows.length > 0 ? legacyRows : [availH];
+    while (colSizes.length < maxCol) colSizes.push(colSizes[colSizes.length - 1] ?? 100);
+    while (rowSizes.length < maxRow) rowSizes.push(rowSizes[rowSizes.length - 1] ?? 100);
+    resolvedColSizes = resolveLegacyAutoTracks(
+      colSizes,
+      childNodes,
+      assignments,
+      true,
+      includeBorders,
+    );
+    resolvedRowSizes = resolveLegacyAutoTracks(
+      rowSizes,
+      childNodes,
+      assignments,
+      false,
+      includeBorders,
+    );
   }
-  const resolvedColSizes = resolveAutoTracks(
-    resolvedCols,
-    childNodes,
-    columnMap,
-    false,
-    layoutStyle.includeBordersInLayout === true,
-  );
-  const resolvedRowSizes = resolveAutoTracks(
-    resolvedRows,
-    childNodes,
-    rowMap,
-    true,
-    layoutStyle.includeBordersInLayout === true,
-  );
 
   const colPositions: number[] = [pl];
   for (let c = 0; c < resolvedColSizes.length; c++) {
