@@ -296,6 +296,19 @@ impl RoomStore {
         if upto_seq > current {
             return Err(RoomStoreError::SnapshotAheadOfJournal);
         }
+        // A snapshot BEHIND the stored baseline would leave a baseline older
+        // than the journal range already truncated from it. Refuse instead of
+        // silently moving every future joiner backwards.
+        let stored: Option<i64> = tx
+            .query_row(
+                "SELECT seq FROM snapshots WHERE room_id = ?1",
+                params![room_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if stored.is_some_and(|seq| upto_seq < seq) {
+            return Err(RoomStoreError::SnapshotBehindBaseline);
+        }
         tx.execute(
             "UPDATE snapshots SET seq = ?2, document_json = ?3, created_at = ?4 WHERE room_id = ?1",
             params![room_id, upto_seq, document_json, now],
@@ -366,6 +379,8 @@ pub enum AppendOutcome {
 
 #[derive(Debug)]
 pub enum RoomStoreError {
+    /// A snapshot older than the stored baseline was refused.
+    SnapshotBehindBaseline,
     Sqlite(rusqlite::Error),
     SequenceExhausted,
     SnapshotAheadOfJournal,
@@ -384,6 +399,9 @@ impl std::fmt::Display for RoomStoreError {
             RoomStoreError::SequenceExhausted => write!(f, "room sequence exhausted"),
             RoomStoreError::SnapshotAheadOfJournal => {
                 write!(f, "snapshot seq is ahead of the journal head")
+            }
+            RoomStoreError::SnapshotBehindBaseline => {
+                write!(f, "snapshot seq is behind the stored baseline")
             }
         }
     }
@@ -425,6 +443,31 @@ mod tests {
         assert_eq!(first, AppendOutcome::Appended { seq: 1 });
         assert_eq!(retry, AppendOutcome::Replayed { seq: 1 }); // never duplicated
         assert_eq!(store.current_seq("r1").unwrap(), 1);
+    }
+
+    #[test]
+    fn compaction_refuses_a_snapshot_behind_the_stored_baseline() {
+        // Moving the baseline backwards would leave it older than the journal
+        // range already truncated from it, and every future joiner would
+        // bootstrap from a document the room has moved past.
+        let store = RoomStore::in_memory().expect("store");
+        store.create_room("r1", "doc", 1).expect("room");
+        for seq in 0..3 {
+            store
+                .append_operation("r1", &format!("op-{seq}"), "actor", "{}", 1)
+                .expect("append");
+        }
+        store
+            .compact_with_snapshot("r1", 3, "{\"at\":3}", 1)
+            .expect("forward compaction");
+        assert!(matches!(
+            store.compact_with_snapshot("r1", 1, "{\"at\":1}", 1),
+            Err(RoomStoreError::SnapshotBehindBaseline)
+        ));
+        // The stored baseline is untouched by the refusal.
+        let baseline = store.baseline("r1").expect("baseline").expect("some");
+        assert_eq!(baseline.seq, 3);
+        assert_eq!(baseline.document_json, "{\"at\":3}");
     }
 
     #[test]

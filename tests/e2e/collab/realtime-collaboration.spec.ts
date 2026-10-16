@@ -141,6 +141,31 @@ async function joinViaShareDialog(page: Page, role: 'owner' | 'editor'): Promise
     .waitFor({ timeout: 15000 });
 }
 
+/**
+ * Host a room from this page's own document through the Share dialog, and
+ * return the room id (the invite link carries the owner token).
+ */
+async function hostFromApp(
+  page: Page,
+  serverBase: string,
+): Promise<{ roomId: string; inviteLink: string }> {
+  await page.getByRole('button', { name: 'Share', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  // The dialog opens on Join when there is no session; hosting lives behind
+  // the Host tab.
+  await dialog.getByRole('tab', { name: 'Host' }).click();
+  await dialog.locator('#collab-share-server').fill(serverBase);
+  await dialog.locator('#collab-share-admin').fill('e2e-admin');
+  await dialog.getByRole('button', { name: 'Host on this server' }).click();
+  const link = dialog.locator('#collab-share-invite');
+  await link.waitFor({ timeout: 20000 });
+  const inviteLink = await link.inputValue();
+  const roomId = /room=([^&]+)/.exec(inviteLink)?.[1] ?? '';
+  expect(roomId).not.toBe('');
+  await dialog.getByRole('button', { name: 'Start sharing now' }).click();
+  return { roomId, inviteLink };
+}
+
 async function drawRectangle(page: Page): Promise<void> {
   await page.keyboard.press('r');
   await dragOnCanvas(page, 150, 150, 350, 300);
@@ -236,10 +261,13 @@ test('two participants edit live with selective undo and cursor chat', async ({ 
   await pageB.keyboard.press('ArrowRight');
   await pageB.waitForTimeout(600);
 
-  // Cursor chat: A opens the composer and broadcasts a draft; B sees the
-  // live bubble, then the finalized message.
+  // Cursor chat: A opens the composer and TYPES (one input event per key, the
+  // path a real user takes). B sees the live draft, and after Enter B sees the
+  // finalized message with its full text — the draft flood must not have
+  // consumed the finalized message's rate-limit budget.
   await pageA.keyboard.press('/');
-  await pageA.locator('#collab-chat-input').fill('hello from A');
+  const chatText = 'hello from A, typed key by key';
+  await pageA.locator('#collab-chat-input').pressSequentially(chatText, { delay: 30 });
   await expect(
     pageB
       .locator('.collab-presence-layer__bubble__text, .collab-presence-layer__bubble-text')
@@ -248,6 +276,16 @@ test('two participants edit live with selective undo and cursor chat', async ({ 
     timeout: 10000,
   });
   await pageA.locator('#collab-chat-input').press('Enter');
+  await expect
+    .poll(
+      async () =>
+        (await pageB
+          .locator('.collab-presence-layer__bubble__text, .collab-presence-layer__bubble-text')
+          .allTextContents()
+          .catch(() => [] as string[])) ?? [],
+      { timeout: 15000 },
+    )
+    .toContain(chatText);
   await pageA.screenshot({ path: 'reports/collab-e2e/01-live-session.png' });
   await pageB.screenshot({ path: 'reports/collab-e2e/02-live-session-peer.png' });
 
@@ -296,11 +334,43 @@ test('an image import crosses to the other participant without killing the sessi
   expect(await editorStillMounted(pageA)).toBe(true);
   expect(await editorStillMounted(pageB)).toBe(true);
 
-  await joinViaShareDialog(pageA, 'owner');
-  await joinViaShareDialog(pageB, 'editor');
+  // A hosts the room from its own document through the real dialog path, so
+  // the baseline is a document the app produced (the admin API + a hand-written
+  // JSON seed produced a baseline that did not match either client).
+  const hosted = await hostFromApp(pageA, `http://127.0.0.1:${serverPort}`);
+  await expect(pageA.locator('.collab-header-control__status')).toContainText('Live', {
+    timeout: 15000,
+  });
+
+  // B joins the hosted room as the editor invited by A.
+  const invite = await fetch(
+    `http://127.0.0.1:${serverPort}/admin/rooms/${hosted.roomId}/invites`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-varve-admin-token': 'e2e-admin' },
+      body: JSON.stringify({ role: 'editor' }),
+    },
+  );
+  expect(invite.status).toBe(201);
+  const editorInvite = ((await invite.json()) as { inviteToken: string }).inviteToken;
+  await pageB.getByRole('button', { name: 'Share', exact: true }).click();
+  const joinDialog = pageB.getByRole('dialog');
+  await joinDialog.getByRole('tab', { name: 'Join' }).click();
+  await joinDialog.locator('#collab-join-server').fill(`http://127.0.0.1:${serverPort}`);
+  await joinDialog.locator('#collab-join-room').fill(hosted.roomId);
+  await joinDialog.locator('#collab-join-token').fill(editorInvite);
+  await joinDialog.getByRole('button', { name: 'Join session' }).click();
+  await pageB
+    .locator('.collab-header-control__status')
+    .filter({ hasText: 'Live' })
+    .waitFor({ timeout: 15000 });
   expect(await editorStillMounted(pageA)).toBe(true);
   expect(await editorStillMounted(pageB)).toBe(true);
 
+  // Both clients now hold the same document: B sees A's baseline content.
+  await expect
+    .poll(async () => pageB.getByRole('treeitem').count(), { timeout: 30000 })
+    .toBeGreaterThan(0);
   const layersBefore = await pageB.getByRole('treeitem').count();
 
   // A real multi-megabyte PNG: larger than an inline operation frame

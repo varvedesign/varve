@@ -275,9 +275,12 @@ this deployment as end-to-end encrypted.
 | Snapshot upload | 64 MB | Out-of-bounds frames are refused. Owner-only. |
 | Chat messages | 280 characters | Longer frames are refused; the client also enforces `maxlength`. |
 | Selection broadcast | 200 node ids | Larger frames are refused. |
-| Chat rate | 0.5/s, burst 5 | Excess messages are dropped silently by design (presence is lossy). |
+| Finalized chat rate | 0.5/s, burst 5 | A refused message is reported to its author (`chat-rate-limited`); no message a person pressed Enter on is dropped silently. |
+| Chat DRAFTS | 20/s, burst 40 | Separate bucket, so live-typing drafts can never consume the finalized-message budget. Drafts stay lossy by design. |
 | Operation rate | 30/s, burst 60 | Excess operations are rejected with a visible reason; the local edit is kept as pending work. |
 | Idle socket | 15 minutes without a frame | The socket is closed and the departure announced, releasing the participant slot. Clients send a 30-second `ping` heartbeat, so a participant who is only watching is not reaped. |
+| Outbound queue | 256 frames per connection | A peer that stops reading is ended with a reason and can reconnect; the host never buffers operations without limit for one stalled client. |
+| Text bounds | Characters, not bytes (chat 280, label 120, names 60) | Both sides count characters, so a multi-byte message is never refused after the client accepted it. |
 
 Overload is per connection and per room. The host never blocks a whole room on
 one slow participant: each participant has its own outbound queue, and a

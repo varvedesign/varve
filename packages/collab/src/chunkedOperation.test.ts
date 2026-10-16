@@ -82,7 +82,7 @@ function engineWith(transport: CollabTransport): CollabSyncEngine {
     displayName: 'Tester',
     clientId: 'client-1',
     handlers: {
-      applySnapshot: () => {},
+      applySnapshot: () => true,
       applyRemoteOperation: () => {},
       onRoster: () => {},
       onCursor: () => {},
@@ -205,7 +205,7 @@ describe('CollabSyncEngine operation framing', () => {
       displayName: 'Tester',
       clientId: 'client-1',
       handlers: {
-        applySnapshot: () => {},
+        applySnapshot: () => true,
         applyRemoteOperation: () => {},
         onRoster: () => {},
         onCursor: () => {},

@@ -81,8 +81,15 @@ export interface CollabNotice {
 }
 
 export interface CollabEngineHandlers {
-  /** Replace the whole document from the authoritative snapshot. */
-  applySnapshot(documentJson: string, uptoSeq: number): void;
+  /**
+   * Replace the whole document from the authoritative snapshot.
+   *
+   * Return `false` when the snapshot cannot be loaded at all. The engine then
+   * refuses the session instead of continuing into a room whose baseline this
+   * client does not share — which would fail validation on every incoming
+   * operation and resynchronize forever.
+   */
+  applySnapshot(documentJson: string, uptoSeq: number): boolean;
   /** Apply one remote capture (never the local participant's own). */
   applyRemoteOperation(op: RoomOperation): void;
   /** Presence and roster changes (already TTL-filtered). */
@@ -151,6 +158,13 @@ export function changeConflictKeys(change: CapturedChange): string[] {
   return keys;
 }
 
+/** Conflict keys for every change an operation carries. */
+export function operationConflictKeys(op: RoomOperation): string[] {
+  const keys: string[] = [];
+  for (const change of op.capture.changes) keys.push(...changeConflictKeys(change));
+  return keys;
+}
+
 export class CollabSyncEngine {
   status: CollabStatus = 'idle';
   actorId: string | null = null;
@@ -166,6 +180,8 @@ export class CollabSyncEngine {
   private reconnectHandle: unknown = null;
   private presenceTimer: unknown = null;
   private heartbeatHandle: unknown = null;
+  private chatDraftTimer: unknown = null;
+  private pendingChatDraft: { messageId: string; text: string } | null = null;
   private readonly cursors = new Map<string, { cursor: CursorPresence; at: number }>();
   private readonly selections = new Map<string, { selection: SelectionPresence; at: number }>();
   private readonly viewports = new Map<string, { viewport: ViewportPresence; at: number }>();
@@ -327,15 +343,56 @@ export class CollabSyncEngine {
     }, 1000 / PROTOCOL_LIMITS.presenceHz);
   }
 
-  sendChat(text: string, messageId: string): boolean {
-    const trimmed = text.slice(0, PROTOCOL_LIMITS.maxChatLength);
-    if (this.status !== 'live' || trimmed.trim().length === 0) return false;
-    return (
-      this.transport?.send({
-        type: 'chat',
-        message: { messageId, actorId: this.actorId ?? '', text: trimmed },
-      }) ?? false
-    );
+  /**
+   * Publish a cursor-chat frame.
+   *
+   * Draft updates are coalesced: a keystroke must not cost a frame, and the
+   * host rate-limits finalized messages, so spending that budget on drafts
+   * would silently drop the message the author actually sent. A finalized
+   * frame (including an empty one that withdraws the draft) is sent
+   * immediately, and any un-sent draft is cancelled first so it can never be
+   * relayed after it (which would re-open the bubble with stale text).
+   */
+  sendChat(text: string, messageId: string, composing: boolean): boolean {
+    if (this.status !== 'live') return false;
+    const bounded = text.slice(0, PROTOCOL_LIMITS.maxChatLength);
+    if (!composing) {
+      if (this.chatDraftTimer !== null) {
+        this.timers.clearTimeout(this.chatDraftTimer);
+        this.chatDraftTimer = null;
+      }
+      this.pendingChatDraft = null;
+      return (
+        this.transport?.send({
+          type: 'chat',
+          message: {
+            messageId,
+            actorId: this.actorId ?? '',
+            text: bounded,
+            composing: false,
+          },
+        }) ?? false
+      );
+    }
+    if (bounded.length === 0) return false;
+    this.pendingChatDraft = { messageId, text: bounded };
+    if (this.chatDraftTimer !== null) return true;
+    this.chatDraftTimer = this.timers.setTimeout(() => {
+      this.chatDraftTimer = null;
+      const draft = this.pendingChatDraft;
+      if (draft && this.status === 'live') {
+        this.transport?.send({
+          type: 'chat',
+          message: {
+            messageId: draft.messageId,
+            actorId: this.actorId ?? '',
+            text: draft.text,
+            composing: true,
+          },
+        });
+      }
+    }, 1000 / PROTOCOL_LIMITS.chatDraftHz);
+    return true;
   }
 
   /** True when the op is ours and still unacknowledged. */
@@ -408,6 +465,18 @@ export class CollabSyncEngine {
     return journaled;
   }
 
+  /**
+   * Re-send every unacknowledged operation. Idempotent by `clientOpId`, so a
+   * resend of one the host already journaled is re-acknowledged rather than
+   * applied twice. Used by both the join handshake and a mid-session snapshot.
+   */
+  private resendPending(): void {
+    for (const pending of this.pending.values()) {
+      this.sendOperation(pending.op);
+      pending.sentAt = this.nowMs();
+    }
+  }
+
   /** Ask the host to replay everything after our last applied sequence. */
   resync(): void {
     if (this.status === 'live' || this.status === 'syncing') {
@@ -466,6 +535,7 @@ export class CollabSyncEngine {
     this.transport = transport;
     transport.onOpen(() => {
       if (this.leaving || this.endedReason) return;
+      if (transport !== this.transport) return; // superseded socket
       transport.send({
         type: 'hello',
         protocol: COLLAB_PROTOCOL_VERSION,
@@ -474,8 +544,16 @@ export class CollabSyncEngine {
         displayName: this.options.displayName,
       });
     });
-    transport.onFrame((data) => this.handleFrame(data));
-    transport.onDisconnect(() => this.handleDisconnect());
+    transport.onFrame((data) => {
+      // A superseded socket must not feed the engine: two live sockets would
+      // double-apply snapshots and presence.
+      if (transport !== this.transport) return;
+      this.handleFrame(data);
+    });
+    transport.onDisconnect(() => {
+      if (transport !== this.transport) return; // late close of an old socket
+      this.handleDisconnect();
+    });
     transport.connect();
   }
 
@@ -488,6 +566,7 @@ export class CollabSyncEngine {
       this.setStatus('ended');
       return;
     }
+    if (this.reconnectHandle !== null) return; // a reconnect is already queued
     // Exponential backoff with jitter: background-tab timer throttling
     // must not turn a dropped socket into a reconnect storm (tldraw#7670).
     this.reconnectAttempt += 1;
@@ -528,20 +607,30 @@ export class CollabSyncEngine {
         this.appliedSeq = message.snapshot.uptoSeq;
         this.reconnectAttempt = 0;
         this.setStatus('syncing');
-        this.options.handlers.applySnapshot(
+        const loaded = this.options.handlers.applySnapshot(
           message.snapshot.documentJson,
           message.snapshot.uptoSeq,
         );
+        if (!loaded) {
+          // The room's document is unusable for this client: end the session
+          // visibly rather than joining a room we cannot apply.
+          this.endedReason = 'The room document could not be loaded.';
+          this.pending.clear();
+          this.teardownTransport();
+          this.setStatus('ended');
+          this.options.handlers.onNotice({
+            code: 'protocol-error',
+            message: 'The room document could not be loaded, so the session was not joined.',
+          });
+          break;
+        }
         // The snapshot replaced the document: unacknowledged local work is
         // re-applied on top of it and then re-sent (idempotent by clientOpId).
         this.reapplyPendingCaptures();
         this.options.handlers.onRoster(message.participants);
         this.setStatus('live');
         this.startHeartbeat();
-        for (const pending of this.pending.values()) {
-          this.sendOperation(pending.op);
-          pending.sentAt = this.nowMs();
-        }
+        this.resendPending();
         break;
       }
       case 'operation': {
@@ -549,6 +638,10 @@ export class CollabSyncEngine {
         break;
       }
       case 'operation-accepted': {
+        // The watermark this advances is what makes an operation ordered
+        // BEFORE my own accepted change unappliable: `applyRoomOperation`
+        // refuses anything at or below `appliedSeq`, so a late replay of an
+        // earlier contribution can never overwrite my later value.
         this.pending.delete(message.clientOpId);
         this.appliedIds.add(message.clientOpId);
         this.appliedSeq = Math.max(this.appliedSeq, message.seq);
@@ -585,11 +678,20 @@ export class CollabSyncEngine {
         // change that appears here is already ordered, so it is settled and
         // blocks nothing; a change that does not appear will be ordered after
         // everything in this replay and therefore keeps its local value.
+        //
+        // Blocking is per ENTRY. My own settled change at a HIGHER sequence
+        // than an incoming change means mine is the room's later value, so
+        // that incoming change must be discarded: applying it and then
+        // skipping my own op as "already applied" would leave this client on
+        // the other participant's value while the room holds mine, forever.
         const journaled = this.settleJournaled(message.operations);
-        for (const clientOpId of journaled) this.pending.delete(clientOpId);
-        const blocked = this.blockedKeys(journaled);
         for (const entry of message.operations) {
-          this.applyRoomOperation(entry.seq, entry.op, blocked);
+          if (!journaled.has(entry.op.clientOpId)) continue;
+          this.pending.delete(entry.op.clientOpId);
+        }
+        const unsettled = this.blockedKeys(journaled);
+        for (const entry of message.operations) {
+          this.applyRoomOperation(entry.seq, entry.op, unsettled);
         }
         this.appliedSeq = Math.max(this.appliedSeq, message.seq);
         this.options.handlers.onNotice({
@@ -600,16 +702,25 @@ export class CollabSyncEngine {
       }
       case 'snapshot': {
         this.appliedSeq = message.snapshot.uptoSeq;
-        this.options.handlers.applySnapshot(
-          message.snapshot.documentJson,
-          message.snapshot.uptoSeq,
-        );
-        // Same as `welcome`: the snapshot does not contain unacknowledged
-        // local work, so it is re-applied until the host orders it.
+        if (
+          !this.options.handlers.applySnapshot(
+            message.snapshot.documentJson,
+            message.snapshot.uptoSeq,
+          )
+        ) {
+          this.options.handlers.onNotice({
+            code: 'protocol-error',
+            message: 'The room document could not be loaded; asking the host for a fresh baseline.',
+          });
+          this.transport?.send({ type: 'sync-request', fromSeq: this.appliedSeq });
+          break;
+        }
+        // Same as `welcome`: a snapshot cannot contain unacknowledged local
+        // work, so it is re-applied on top and re-sent. The host cannot tell
+        // us whether it already had it, so the operation stays pending until
+        // it is acknowledged (idempotent by clientOpId).
         this.reapplyPendingCaptures();
-        // A snapshot proves every pending operation is either inside it or
-        // still un-ordered; drop the ones the host already had? It cannot
-        // tell us, so pending operations stay pending and are re-sent.
+        this.resendPending();
         this.options.handlers.onNotice({
           code: 'resynced',
           message: 'Document resynchronized from snapshot.',
@@ -706,7 +817,6 @@ export class CollabSyncEngine {
         break;
     }
   }
-
   private applyRoomOperation(
     seq: number,
     op: RoomOperation,
@@ -784,6 +894,11 @@ export class CollabSyncEngine {
       this.timers.clearTimeout(this.presenceTimer);
       this.presenceTimer = null;
     }
+    if (this.chatDraftTimer !== null) {
+      this.timers.clearTimeout(this.chatDraftTimer);
+      this.chatDraftTimer = null;
+    }
+    this.pendingChatDraft = null;
     if (this.viewportTimer !== null) {
       this.timers.clearTimeout(this.viewportTimer);
       this.viewportTimer = null;

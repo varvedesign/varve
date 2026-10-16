@@ -277,9 +277,11 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
       registerBuiltinOperations();
       const validated = validatePayload('document.transaction-capture', capture);
       if (!validated.ok) {
+        // Name the rule that refused it: a bare "failed validation" leaves the
+        // reason (and therefore the fix) invisible in the field.
         pushNotice({
           code: 'protocol-error',
-          message: 'A received change failed validation; resynchronizing.',
+          message: `A received change failed validation (${validated.errors.join('; ')}); resynchronizing.`,
         });
         engineRef.current?.resync();
         return;
@@ -495,13 +497,17 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
           applySnapshot: (documentJson) => {
             const decoded = DocumentCodec.decode(documentJson);
             if (!decoded.ok) {
+              // Refusing here is the point: joining a room whose baseline this
+              // client cannot load would fail validation on every incoming
+              // operation and resynchronize forever.
               pushNotice({
                 code: 'protocol-error',
                 message: 'The room snapshot could not be decoded.',
               });
-              return;
+              return false;
             }
             editor.applyCollabTransaction(decoded.document, 'Joined session');
+            return true;
           },
           applyRemoteOperation: (op) => {
             applyRemoteCapture(op.capture, op.label);
@@ -557,6 +563,8 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
           onChat: (message: ChatMessage) => {
             const participant = engineRef.current?.participantFor(message.actorId);
             if (message.text.length === 0) {
+              // The author withdrew the draft (Escape, or leaving the field):
+              // drop the bubble everywhere it was shown.
               setChat((current) =>
                 current.filter((bubble) => bubble.messageId !== message.messageId),
               );
@@ -571,7 +579,9 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
                 colorIndex: participant?.colorIndex ?? 0,
                 text: message.text,
                 at: Date.now(),
-                composing: true,
+                // A finalized message keeps the short TTL; only a live draft
+                // gets the longer composing window.
+                composing: message.composing,
               },
             ]);
           },
@@ -668,16 +678,12 @@ export function CollabSessionProvider({ children }: { children: ReactNode }) {
     const engine = engineRef.current;
     if (!engine) return;
     composingMessageIdRef.current = composing ? messageId : null;
-    engine.sendChat(text, messageId);
-    if (!composing && text.trim().length > 0) {
-      // Finalize locally so the author sees their own bubble with its TTL.
-      setChat((current) =>
-        current.map((bubble) =>
-          bubble.messageId === messageId ? { ...bubble, composing: false, at: Date.now() } : bubble,
-        ),
-      );
-    }
-    if (!composing && text.trim().length === 0) {
+    engine.sendChat(text, messageId, composing);
+    // The author does not get a local bubble: bubbles are anchored to a
+    // REMOTE cursor, and the author's own text is already visible in the
+    // composer. A finalized message is simply withdrawn from local state (its
+    // bubble, if the peer sees it, belongs to the peer's cursor).
+    if (!composing) {
       setChat((current) => current.filter((bubble) => bubble.messageId !== messageId));
     }
   }, []);

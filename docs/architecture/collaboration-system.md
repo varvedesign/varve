@@ -28,6 +28,14 @@ CRDT:
   capture through the operation registry and validate it on arrival. A
   capture that fails validation triggers a visible resynchronization, never
   silent loss.
+- **The baseline must be a document the app produced.** A room's baseline is
+  whatever the creator uploaded (the desktop Share dialog sends
+  `serializeDocument()`); the host cannot validate design semantics, so a
+  hand-written or minimal JSON accepted by the admin API yields a room whose
+  document does not match any client. Every subsequent operation then fails the
+  receiving client's validation and it resynchronizes in a loop. Operators
+  creating rooms with `curl` must therefore post a real document, and a client
+  that cannot load the baseline must say so instead of joining anyway.
 - **Bootstrap**: joining sends a `welcome` with the baseline snapshot; the
   host immediately follows with a `sync` replay of the journal after the
   snapshot. An owner client periodically uploads a fresh snapshot; the
@@ -43,12 +51,22 @@ CRDT:
   catch-up replay settles this definitively — a pending change that appears in
   the replay is already ordered and blocks nothing, and a bootstrap snapshot
   (which cannot contain unacknowledged work) has those captures re-applied on
-  top before they are re-sent. Without the rule the local value is silently
-  replaced and never restored, because own operations are not echoed back.
-- **Liveness.** The host closes a socket that has sent nothing for its idle
-  window (15 minutes by default) and announces the departure, so a crashed tab
-  cannot hold one of a room's ten slots; clients send a 30-second `ping`
-  heartbeat so a quiet observer is never reaped.
+  top and re-sent. Without the rule the local value is silently replaced and
+  never restored, because own operations are not echoed back.
+  The complementary direction is the **applied-sequence watermark**: an
+  acknowledgement for my own change moves the watermark to that sequence, and
+  nothing at or below it is ever applied again. An operation ordered *before*
+  my accepted change therefore cannot overwrite my later value, which is what
+  makes the rule complete in both directions (`syncConflict.test.ts` pins
+  both, and both were checked against a mutated engine).
+- **Liveness and backpressure.** The host closes a socket that has sent
+  nothing for its idle window (15 minutes by default) and announces the
+  departure, so a crashed tab cannot hold one of a room's ten slots; clients
+  send a 30-second `ping` heartbeat so a quiet observer is never reaped. Each
+  connection's outbound queue is bounded (256 frames): a peer that stops
+  reading is ended with a reason instead of letting the host buffer operations
+  (each up to 64 MB, relayed to every peer) without limit. An ended session is
+  told why and can reconnect, resynchronizing from the journal.
 - **Durability**: an operation is ACKED only after its journal insert has
   committed (WAL, `synchronous=FULL`). Clients keep unacked operations
   pending across reconnects and re-send them once; the host deduplicates
@@ -85,8 +103,13 @@ Three identities, deliberately not interchangeable:
 
 Display names are cosmetic and unverified. Authorization lives entirely in
 the invite token, which the host validates on every mutation — revocation is
-re-checked at the host per operation, and revoking an invite closes its live
-sockets immediately (revocation is an event, not a flag).
+re-checked at the host per operation, and revoking an invite **ends** its live
+sessions: the session loop watches a per-connection termination channel, so the
+socket is closed rather than merely told to leave (a hostile client would
+otherwise keep an authenticated socket that can still read the journal, inject
+presence, or move the baseline). Presence, chat and `sync-request` re-check the
+invite on a 5-second TTL, mutations and snapshot uploads check immediately, and
+a revoked owner's `snapshot-upload` is refused with a visible reason.
 
 ## Selective undo (release-blocking contract)
 
@@ -178,9 +201,14 @@ document, dirty state, or history.
   hit-testing, selection, or focus; remote deletion prunes local dangling
   ids.
 - **Cursor chat**: `/` opens the composer (only when no text control holds
-  focus). Drafts broadcast live under one message id and are visible while you
-  type; Enter sends; Escape or leaving the field clears the draft locally and
-  remotely, so a half-typed message is never sent implicitly. **Enter during an
+  focus, and it ignores ARIA text surfaces — `textbox`, `combobox`,
+  `spinbutton` — as well as native inputs). Drafts are coalesced client-side
+  (4/s) and the host gives them their **own** rate-limit bucket, so a draft
+  flood can never spend the budget of the message the author pressed Enter on:
+  a finalized message is sent immediately, bypassing the draft timer. Enter
+  sends; Escape or leaving the field sends an empty final frame, which
+  withdraws the draft on every participant (`text: ""`); a message the host
+  refuses for rate reasons is reported, never silently dropped. **Enter during an
   IME composition does not send** — that key belongs to the candidate list — and
   key events that report a composition only through `keyCode` 229 are treated
   the same way. 280-character bound, ~6 s TTL after finalization, plain text
@@ -242,10 +270,18 @@ page origin that will open the socket (see below).
   host rejects viewer mutations.
 - Wire limits enforced before parsing: 2 MB inline operation frames, 64 MB
   reassembled chunked operations, 256 KB per chunk, 64 MB snapshots,
-  280-char chat, 200-id selections, 20k-change captures; per-connection
-  token buckets for operations and chat; 10 participants per room; finite
-  rooms per server. An oversized frame that does not declare a multi-frame
-  kind closes the connection instead of being buffered.
+  280-character chat, 200-id selections, 20k-change captures; per-connection
+  token buckets for operations, finalized chat, and chat drafts separately;
+  10 participants per room; finite rooms per server. An oversized frame that
+  does not declare a multi-frame kind closes the connection instead of being
+  buffered. **Text bounds count characters, not bytes**, on both sides: the
+  client bounds UTF-16 code units and the host bounds code points, so the host
+  can never refuse a message the client accepted (a 94-character Japanese
+  message is 282 bytes, which a byte bound would have rejected silently). A
+  frame that fails validation is refused **by name** when it carries an
+  operation (`operation-rejected` with its `clientOpId`), because an
+  unattributed refusal leaves that operation pending forever — re-sent on every
+  reconnect while blocking conflicting remote changes for its keys.
 - The host cannot validate design semantics. Receiving clients validate
   every capture through the operation registry; failures resynchronize.
   A malicious editor participant can send structurally valid garbage that

@@ -24,7 +24,7 @@ use axum::Router;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use serde_json::json;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
 use crate::protocol::{
     capture_payload_like, is_large_capable_frame, ClientMessage, CursorFrame, JournalEntry,
@@ -83,7 +83,10 @@ pub struct RoomHost {
 struct ParticipantEntry {
     info: ParticipantInfo,
     token_hash: String,
-    outgoing: mpsc::UnboundedSender<ServerMessage>,
+    outgoing: mpsc::Sender<ServerMessage>,
+    /// Host-initiated end of this connection (revocation, backpressure).
+    /// Carries the reason the peer is told.
+    terminate: watch::Sender<Option<String>>,
 }
 
 #[derive(Default)]
@@ -100,10 +103,69 @@ struct Session {
     display_name: String,
 }
 
+/// Cached answer to "is this session's invite still valid?".
+///
+/// Revocation must be re-checked at the host, but a presence stream is high
+/// frequency: the store is asked at most once per VALIDITY_TTL, which bounds
+/// how long a revoked session can keep talking to a few seconds. Mutations
+/// (`handle_operation`) and snapshot uploads always check immediately.
+struct ValidityCache {
+    checked_at: Option<SystemTime>,
+    valid: bool,
+}
+
+impl ValidityCache {
+    fn new() -> Self {
+        Self {
+            checked_at: None,
+            valid: true,
+        }
+    }
+
+    /// Returns false the moment the invite is known to be revoked or expired.
+    fn valid(&mut self, host: &Arc<RoomHost>, session: &Session) -> bool {
+        let fresh = self
+            .checked_at
+            .is_some_and(|at| at.elapsed().unwrap_or(Duration::MAX) < VALIDITY_TTL);
+        if fresh {
+            return self.valid;
+        }
+        let store = lock(&host.store);
+        let still_valid = store
+            .invite_is_still_valid(&session.token_hash, now_ms())
+            .unwrap_or(false);
+        drop(store);
+        self.checked_at = Some(SystemTime::now());
+        self.valid = still_valid;
+        still_valid
+    }
+}
+
+/// Mutable per-connection session state.
+///
+/// Bundled so the frame handler keeps a readable signature; every field is
+/// connection-local and dropped with the session.
+struct SessionState {
+    limiter: RateLimiter,
+    upload: Option<PendingUpload>,
+    validity: ValidityCache,
+}
+
+impl SessionState {
+    fn new() -> Self {
+        Self {
+            limiter: RateLimiter::new(),
+            upload: None,
+            validity: ValidityCache::new(),
+        }
+    }
+}
+
 /// Per-connection token bucket (operations + chat; presence is relay-best-effort).
 struct RateLimiter {
     op_tokens: f64,
     chat_tokens: f64,
+    chat_draft_tokens: f64,
     last: SystemTime,
 }
 
@@ -123,19 +185,32 @@ struct PendingUpload {
 
 const OPS_PER_SECOND: f64 = 30.0;
 const OPS_BURST: f64 = 60.0;
+/// Finalized chat messages: the authored messages a human sends.
 const CHAT_PER_SECOND: f64 = 0.5;
 const CHAT_BURST: f64 = 5.0;
+/// Chat DRAFTS: lossy, client-coalesced live typing. A separate, generous
+/// bucket because one frame per keystroke must never spend the budget that
+/// belongs to the message the author actually sent.
+const CHAT_DRAFT_PER_SECOND: f64 = 20.0;
+const CHAT_DRAFT_BURST: f64 = 40.0;
+/// Outbound queue bound per connection. A peer that cannot keep up is
+/// disconnected with a reason instead of letting the host buffer without
+/// limit (each accepted operation can be 64 MB and is relayed to every peer).
+const OUTBOUND_QUEUE_CAPACITY: usize = 256;
+/// How long a revocation check is trusted before re-reading the store.
+const VALIDITY_TTL: Duration = Duration::from_secs(5);
 
 impl RateLimiter {
     fn new() -> Self {
         Self {
             op_tokens: OPS_BURST,
             chat_tokens: CHAT_BURST,
+            chat_draft_tokens: CHAT_DRAFT_BURST,
             last: SystemTime::now(),
         }
     }
 
-    fn take(&mut self, chat: bool) -> bool {
+    fn refill(&mut self) {
         let now = SystemTime::now();
         let elapsed = now
             .duration_since(self.last)
@@ -144,6 +219,12 @@ impl RateLimiter {
         self.last = now;
         self.op_tokens = (self.op_tokens + elapsed * OPS_PER_SECOND).min(OPS_BURST);
         self.chat_tokens = (self.chat_tokens + elapsed * CHAT_PER_SECOND).min(CHAT_BURST);
+        self.chat_draft_tokens = (self.chat_draft_tokens + elapsed * CHAT_DRAFT_PER_SECOND)
+            .min(CHAT_DRAFT_BURST);
+    }
+
+    fn take(&mut self, chat: bool) -> bool {
+        self.refill();
         if chat {
             if self.chat_tokens >= 1.0 {
                 self.chat_tokens -= 1.0;
@@ -153,6 +234,18 @@ impl RateLimiter {
             }
         } else if self.op_tokens >= 1.0 {
             self.op_tokens -= 1.0;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Draft frames have their own bucket, so they can never consume the
+    /// finalized-message budget.
+    fn take_draft(&mut self) -> bool {
+        self.refill();
+        if self.chat_draft_tokens >= 1.0 {
+            self.chat_draft_tokens -= 1.0;
             true
         } else {
             false
@@ -191,12 +284,12 @@ impl RoomHost {
             return Err(RoomStoreError::SnapshotAheadOfJournal); // size guard
         }
         {
-            let rooms = self.rooms.lock().expect("room map poisoned");
+            let rooms = lock(&self.rooms);
             if rooms.len() >= self.config.max_rooms {
                 return Err(RoomStoreError::SequenceExhausted); // capacity guard
             }
         }
-        let store = self.store.lock().expect("store poisoned");
+        let store = lock(&self.store);
         if store.room_count()? as usize >= self.config.max_rooms {
             return Err(RoomStoreError::SequenceExhausted);
         }
@@ -225,7 +318,7 @@ impl RoomHost {
         role: ParticipantRole,
         expires_at: i64,
     ) -> Result<String, RoomStoreError> {
-        let store = self.store.lock().expect("store poisoned");
+        let store = lock(&self.store);
         if !store.room_exists(room_id)? {
             return Err(RoomStoreError::Sqlite(rusqlite::Error::QueryReturnedNoRows));
         }
@@ -239,12 +332,12 @@ impl RoomHost {
     /// convenience.
     pub fn admin_revoke_invite(&self, token_hash_value: &str) -> Result<bool, RoomStoreError> {
         {
-            let store = self.store.lock().expect("store poisoned");
+            let store = lock(&self.store);
             if !store.revoke_invite(token_hash_value)? {
                 return Ok(false);
             }
         }
-        let mut rooms = self.rooms.lock().expect("room map poisoned");
+        let mut rooms = lock(&self.rooms);
         for room in rooms.values_mut() {
             let actors: Vec<String> = room
                 .participants
@@ -255,9 +348,21 @@ impl RoomHost {
             for actor in actors {
                 let entry = room.participants.remove(&actor);
                 if let Some(entry) = entry {
-                    let _ = entry.outgoing.send(ServerMessage::RoomEnded {
-                        reason: "Your access was revoked".to_string(),
-                    });
+                    // Ending the SESSION, not merely asking it to leave: the
+                    // session loop watches this channel and closes the socket.
+                    // A cooperative client also acts on the room-ended frame; a
+                    // hostile one must not keep a live authenticated socket that
+                    // can still read the journal, inject presence, or upload a
+                    // snapshot.
+                    let _ = entry
+                        .terminate
+                        .send(Some("Your access was revoked".to_string()));
+                    deliver_to(
+                        &entry,
+                        ServerMessage::RoomEnded {
+                            reason: "Your access was revoked".to_string(),
+                        },
+                    );
                 }
             }
         }
@@ -267,7 +372,7 @@ impl RoomHost {
     /// Admin API: end a room and disconnect everyone.
     pub fn admin_end_room(&self, room_id: &str) -> Result<bool, RoomStoreError> {
         let existed = {
-            let store = self.store.lock().expect("store poisoned");
+            let store = lock(&self.store);
             let existed = store.room_exists(room_id)?;
             if existed {
                 store.delete_room(room_id)?;
@@ -277,12 +382,18 @@ impl RoomHost {
         if !existed {
             return Ok(false);
         }
-        let mut rooms = self.rooms.lock().expect("room map poisoned");
+        let mut rooms = lock(&self.rooms);
         if let Some(room) = rooms.remove(room_id) {
             for (_, entry) in room.participants {
-                let _ = entry.outgoing.send(ServerMessage::RoomEnded {
-                    reason: "The session was ended by the host".to_string(),
-                });
+                let _ = entry
+                    .terminate
+                    .send(Some("The session was ended by the host".to_string()));
+                deliver_to(
+                    &entry,
+                    ServerMessage::RoomEnded {
+                        reason: "The session was ended by the host".to_string(),
+                    },
+                );
             }
         }
         Ok(true)
@@ -560,16 +671,52 @@ enum Registration {
     RoomFull,
 }
 
+/// Take a host lock, recovering from poisoning.
+///
+/// Every lock here guards shared bookkeeping, not invariants a panic could
+/// corrupt mid-write, and a poisoned lock must not turn one panic into a host
+/// that panics on every later frame for every room.
+fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Deliver a frame to one connection's outbound queue.
+///
+/// The queue is bounded: a peer whose socket has stalled is ended with a
+/// reason (it reconnects and resyncs from the journal) rather than letting the
+/// host queue operations without limit. Returns false when the peer is gone or
+/// was ended here.
+fn deliver(
+    outgoing: &mpsc::Sender<ServerMessage>,
+    terminate: &watch::Sender<Option<String>>,
+    message: ServerMessage,
+) -> bool {
+    match outgoing.try_send(message) {
+        Ok(()) => true,
+        Err(mpsc::error::TrySendError::Full(_)) => {
+            let _ = terminate.send(Some("Your connection fell behind and was closed.".to_string()));
+            false
+        }
+        Err(mpsc::error::TrySendError::Closed(_)) => false,
+    }
+}
+
+/// Deliver to a registered participant (looked up by the room map).
+fn deliver_to(entry: &ParticipantEntry, message: ServerMessage) -> bool {
+    deliver(&entry.outgoing, &entry.terminate, message)
+}
+
 /// Synchronous registration: takes every lock it needs and returns before
 /// any await, so guards can never be held across the session's async paths.
 fn register_participant(
     host: &Arc<RoomHost>,
     session: &Session,
     hello: &ClientMessage,
-    outgoing: mpsc::UnboundedSender<ServerMessage>,
+    outgoing: mpsc::Sender<ServerMessage>,
+    terminate: watch::Sender<Option<String>>,
 ) -> Registration {
-    let mut rooms = host.rooms.lock().expect("room map poisoned");
-    let store = host.store.lock().expect("store poisoned");
+    let mut rooms = lock(&host.rooms);
+    let store = lock(&host.store);
     let live_count: usize = rooms.values().map(|room| room.participants.len()).sum();
     if live_count >= host.config.max_rooms * MAX_PARTICIPANTS {
         return Registration::ServerFull;
@@ -598,6 +745,7 @@ fn register_participant(
             },
             token_hash: session.token_hash.clone(),
             outgoing,
+            terminate,
         },
     );
     let baseline = store.baseline(&session.room_id).ok().flatten();
@@ -616,7 +764,11 @@ fn register_participant(
 
 async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
     let (mut sink, mut stream) = socket.split();
-    let (outgoing_tx, mut outgoing_rx) = mpsc::unbounded_channel::<ServerMessage>();
+    // Bounded: a stalled peer is ended rather than letting the host queue
+    // operations (each up to 64 MB, relayed to every peer) without limit.
+    let (outgoing_tx, mut outgoing_rx) = mpsc::channel::<ServerMessage>(OUTBOUND_QUEUE_CAPACITY);
+    // Host-initiated termination: revocation, backpressure, a room ending.
+    let (terminate_tx, mut terminate_rx) = watch::channel::<Option<String>>(None);
 
     // First frame must be hello within the idle timeout.
     let hello = tokio::time::timeout(
@@ -650,7 +802,7 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
     // Authenticate: hash lookup, expiry, revocation, room existence.
     let digest = token_hash(token);
     let auth = {
-        let store = host.store.lock().expect("store poisoned");
+        let store = lock(&host.store);
         store.resolve_invite(&digest, now_ms())
     };
     let invite = match auth {
@@ -676,7 +828,13 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
         actor_id: format!("actor-{}", &mint_token()[..12]),
         display_name: display_name_of(&client_message),
     };
-    let registration = register_participant(&host, &session, &client_message, outgoing_tx.clone());
+    let registration = register_participant(
+        &host,
+        &session,
+        &client_message,
+        outgoing_tx.clone(),
+        terminate_tx.clone(),
+    );
     let (baseline, current_seq, participants) = match registration {
         Registration::Ok {
             baseline,
@@ -689,7 +847,7 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
             } else {
                 ("room-full", "This session is at the participant limit.")
             };
-            let _ = outgoing_tx.send(ServerMessage::Error {
+            let _ = outgoing_tx.try_send(ServerMessage::Error {
                 code: code.to_string(),
                 message: reason.to_string(),
                 fatal: true,
@@ -706,7 +864,7 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
 
     // Welcome: the baseline snapshot; the journal replay follows as sync.
     let snapshot_seq = baseline.as_ref().map(|b| b.seq).unwrap_or(0);
-    let _ = outgoing_tx.send(ServerMessage::Welcome {
+    let _ = deliver(&outgoing_tx, &terminate_tx, ServerMessage::Welcome {
         protocol: 1,
         room_seq: current_seq,
         actor_id: session.actor_id.clone(),
@@ -722,10 +880,10 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
     });
     if current_seq > snapshot_seq {
         if let Ok(entries) = {
-            let store = host.store.lock().expect("store poisoned");
+            let store = lock(&host.store);
             store.journal_range(&room_id, snapshot_seq, current_seq)
         } {
-            let _ = outgoing_tx.send(ServerMessage::Sync {
+            let _ = deliver(&outgoing_tx, &terminate_tx, ServerMessage::Sync {
                 from_seq: snapshot_seq,
                 seq: current_seq,
                 operations: entries
@@ -742,7 +900,7 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
 
     // Announce the join to other participants.
     {
-        let rooms = host.rooms.lock().expect("room map poisoned");
+        let rooms = lock(&host.rooms);
         if let Some(room) = rooms.get(&room_id) {
             let info = room
                 .participants
@@ -751,7 +909,7 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
             if let Some(info) = info {
                 for (actor, entry) in &room.participants {
                     if actor != &session.actor_id {
-                        let _ = entry.outgoing.send(ServerMessage::ParticipantJoined {
+                        deliver_to(entry, ServerMessage::ParticipantJoined {
                             participant: info.clone(),
                         });
                     }
@@ -777,13 +935,28 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
     // participant slot is released (a crashed tab must not hold a place in a
     // 10-participant room forever). Live clients send a `ping` heartbeat, so
     // a quiet-but-healthy participant is never reaped.
-    let mut limiter = RateLimiter::new();
-    let mut upload: Option<PendingUpload> = None;
+    let mut state = SessionState::new();
     let idle = Duration::from_millis(host.config.idle_timeout_ms);
+    let mut end_reason: Option<String> = None;
     loop {
-        let next = match tokio::time::timeout(idle, stream.next()).await {
-            Ok(next) => next,
-            Err(_) => break,
+        // A revocation or a stalled outbound queue ends the session HERE, on
+        // the socket, not merely in the client's UI.
+        if terminate_rx.has_changed().unwrap_or(false) {
+            end_reason = terminate_rx.borrow_and_update().clone();
+            break;
+        }
+        let next = tokio::select! {
+            biased;
+            changed = terminate_rx.changed() => {
+                if changed.is_ok() {
+                    end_reason = terminate_rx.borrow_and_update().clone();
+                }
+                break;
+            }
+            next = tokio::time::timeout(idle, stream.next()) => match next {
+                Ok(next) => next,
+                Err(_) => break,
+            },
         };
         let Some(frame) = next else { break };
         let Ok(message) = frame else { break };
@@ -793,9 +966,9 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
                     &host,
                     &session,
                     text.as_bytes(),
-                    &mut limiter,
-                    &mut upload,
+                    &mut state,
                     &outgoing_tx,
+                    &terminate_tx,
                 )
                 .is_break()
                 {
@@ -807,9 +980,9 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
                     &host,
                     &session,
                     &bytes,
-                    &mut limiter,
-                    &mut upload,
+                    &mut state,
                     &outgoing_tx,
+                    &terminate_tx,
                 )
                 .is_break()
                 {
@@ -823,23 +996,37 @@ async fn run_session(host: Arc<RoomHost>, room_id: String, socket: WebSocket) {
 
     // Deregister and announce departure.
     {
-        let mut rooms = host.rooms.lock().expect("room map poisoned");
+        let mut rooms = lock(&host.rooms);
         if let Some(room) = rooms.get_mut(&room_id) {
             room.participants.remove(&session.actor_id);
             for entry in room.participants.values() {
-                let _ = entry.outgoing.send(ServerMessage::ParticipantLeft {
+                deliver_to(entry, ServerMessage::ParticipantLeft {
                     actor_id: session.actor_id.clone(),
                     reason: "disconnect".to_string(),
                 });
             }
         }
     }
-    outgoing_tx
-        .send(ServerMessage::RoomEnded {
-            reason: "__stop__".to_string(),
-        })
-        .ok();
-    outbound.abort();
+    // Orderly end: report the reason when there is one (revocation,
+    // backpressure), then drop the sender so the pump drains what is queued and
+    // ends, which drops the socket and closes the connection normally. No
+    // internal sentinel can leak into the UI, and no abort races the final
+    // write.
+    if let Some(reason) = end_reason {
+        let _ = deliver(
+            &outgoing_tx,
+            &terminate_tx,
+            ServerMessage::RoomEnded { reason },
+        );
+    }
+    drop(outgoing_tx);
+    if tokio::time::timeout(Duration::from_secs(2), outbound)
+        .await
+        .is_err()
+    {
+        // A peer that stopped reading must not pin this task; the socket is
+        // closed either way.
+    }
 }
 
 /// Apply one authenticated, structurally bounded operation: role check,
@@ -850,11 +1037,12 @@ fn handle_operation(
     session: &Session,
     mut op: RoomOperation,
     limiter: &mut RateLimiter,
-    outgoing: &mpsc::UnboundedSender<ServerMessage>,
+    outgoing: &mpsc::Sender<ServerMessage>,
+    terminate: &watch::Sender<Option<String>>,
 ) {
     // Roles: viewers cannot mutate. The hidden-edit-button rule.
     if session.role == ParticipantRole::Viewer {
-        let _ = outgoing.send(ServerMessage::OperationRejected {
+        deliver(outgoing, terminate, ServerMessage::OperationRejected {
             client_op_id: op.client_op_id.clone(),
             reason: "You have view-only access to this session.".to_string(),
             fatal: false,
@@ -862,7 +1050,7 @@ fn handle_operation(
         return;
     }
     if !limiter.take(false) {
-        let _ = outgoing.send(ServerMessage::OperationRejected {
+        deliver(outgoing, terminate, ServerMessage::OperationRejected {
             client_op_id: op.client_op_id.clone(),
             reason: "Sending changes too quickly.".to_string(),
             fatal: false,
@@ -874,7 +1062,7 @@ fn handle_operation(
     // Checked arithmetic (FigCraft #309 class).
     op.actor_id = session.actor_id.clone();
     if op.based_on_seq < 0 || !capture_payload_like(&op.capture) {
-        let _ = outgoing.send(ServerMessage::OperationRejected {
+        deliver(outgoing, terminate, ServerMessage::OperationRejected {
             client_op_id: op.client_op_id.clone(),
             reason: "Operation payload failed structural validation.".to_string(),
             fatal: true,
@@ -893,7 +1081,7 @@ fn handle_operation(
         StoreError(String),
     }
     let outcome = {
-        let store = host.store.lock().expect("store poisoned");
+        let store = lock(&host.store);
         // Revocation is re-checked at the authoritative host for every
         // mutation (Penpot #12155 lesson).
         let still_valid = store.invite_is_still_valid(&session.token_hash, now);
@@ -919,16 +1107,16 @@ fn handle_operation(
     match outcome {
         OpOutcome::Appended(seq) => {
             host.operation_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = outgoing.send(ServerMessage::OperationAccepted {
+            deliver(outgoing, terminate, ServerMessage::OperationAccepted {
                 client_op_id: op.client_op_id.clone(),
                 seq,
             });
             // Relay to every other live participant.
-            let rooms = host.rooms.lock().expect("room map poisoned");
+            let rooms = lock(&host.rooms);
             if let Some(room) = rooms.get(&session.room_id) {
                 for (actor, entry) in &room.participants {
                     if actor != &session.actor_id {
-                        let _ = entry.outgoing.send(ServerMessage::Operation {
+                        deliver_to(entry, ServerMessage::Operation {
                             seq,
                             op: op.clone(),
                         });
@@ -938,13 +1126,13 @@ fn handle_operation(
         }
         OpOutcome::Replayed(seq) => {
             // Idempotent retry: re-ack with the stored sequence only.
-            let _ = outgoing.send(ServerMessage::OperationAccepted {
+            deliver(outgoing, terminate, ServerMessage::OperationAccepted {
                 client_op_id: op.client_op_id.clone(),
                 seq,
             });
         }
         OpOutcome::Revoked => {
-            let _ = outgoing.send(ServerMessage::OperationRejected {
+            deliver(outgoing, terminate, ServerMessage::OperationRejected {
                 client_op_id: op.client_op_id.clone(),
                 reason: "You no longer have access to this session.".to_string(),
                 fatal: true,
@@ -953,13 +1141,561 @@ fn handle_operation(
         OpOutcome::StoreError(error) => {
             // The change was NOT acked: the client keeps it as pending local
             // work and may retry after reconnecting.
-            let _ = outgoing.send(ServerMessage::Error {
+            deliver(outgoing, terminate, ServerMessage::Error {
                 code: "store-error".to_string(),
                 message: format!("The session host could not persist the change: {error}"),
                 fatal: false,
             });
         }
     }
+}
+
+fn display_name_of(message: &ClientMessage) -> String {
+    if let ClientMessage::Hello { display_name, .. } = message {
+        let trimmed = display_name.trim();
+        if trimmed.is_empty() {
+            return "Guest".to_string();
+        }
+        return trimmed.chars().take(60).collect();
+    }
+    "Guest".to_string()
+}
+
+fn client_id_of(message: &ClientMessage) -> String {
+    if let ClientMessage::Hello { client_id, .. } = message {
+        return client_id.clone();
+    }
+    String::new()
+}
+
+/// The `clientOpId` of an operation-shaped frame, without trusting the rest.
+fn operation_id_of(raw: &[u8]) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_slice(raw).ok()?;
+    let op = value.get("op")?;
+    let id = op.get("clientOpId")?.as_str()?;
+    if id.is_empty() || id.len() > 128 {
+        return None;
+    }
+    Some(id.to_string())
+}
+
+/// Refuse a frame, attributing it to its operation when one is known.
+///
+/// An unattributed refusal is a livelock: the operation stays pending on the
+/// sender, is re-sent on every reconnect, and keeps blocking conflicting
+/// remote changes for its keys. `operation-rejected` is the shape the client
+/// already knows how to settle.
+fn reject_frame(
+    raw: &[u8],
+    client_op_id: Option<String>,
+    reason: &str,
+    outgoing: &mpsc::Sender<ServerMessage>,
+    terminate: &watch::Sender<Option<String>>,
+) {
+    let message = match client_op_id.or_else(|| operation_id_of(raw)) {
+        Some(client_op_id) => ServerMessage::OperationRejected {
+            client_op_id,
+            reason: reason.to_string(),
+            fatal: false,
+        },
+        None => ServerMessage::Error {
+            code: "bad-frame".to_string(),
+            message: reason.to_string(),
+            fatal: false,
+        },
+    };
+    deliver(outgoing, terminate, message);
+}
+
+/// Handle one authenticated client frame. Returns ControlFlow-like break.
+fn handle_client_frame(
+    host: &Arc<RoomHost>,
+    session: &Session,
+    raw: &[u8],
+    state: &mut SessionState,
+    outgoing: &mpsc::Sender<ServerMessage>,
+    terminate: &watch::Sender<Option<String>>,
+) -> std::ops::ControlFlow<()> {
+    // Size ceilings before parsing; oversized frames must identify as a
+    // multi-frame kind (chunked operation, snapshot upload) or the socket
+    // is closed — an unknown oversized frame is a memory-exhaustion probe.
+    if raw.len() > MAX_OPERATION_FRAME_BYTES && !is_large_capable_frame(raw) {
+        return std::ops::ControlFlow::Break(());
+    }
+    if raw.len() > MAX_SNAPSHOT_UPLOAD_BYTES {
+        return std::ops::ControlFlow::Break(());
+    }
+    let Ok(message) = serde_json::from_slice::<ClientMessage>(raw) else {
+        // Attribute the refusal when the frame names an operation: an
+        // unattributable error leaves that operation pending forever, so the
+        // client re-sends it on every reconnect and it keeps blocking
+        // conflicting remote changes.
+        reject_frame(raw, None, "Frame failed protocol validation.", outgoing, terminate);
+        return std::ops::ControlFlow::Continue(());
+    };
+    if message.validate().is_err() {
+        let client_op_id = match &message {
+            ClientMessage::Operation { op } => Some(op.client_op_id.clone()),
+            _ => operation_id_of(raw),
+        };
+        reject_frame(raw, client_op_id, "Frame out of bounds.", outgoing, terminate);
+        return std::ops::ControlFlow::Continue(());
+    }
+    match message {
+        ClientMessage::Hello { .. } => {
+            // A second hello on one socket is a protocol error.
+            std::ops::ControlFlow::Break(())
+        }
+        ClientMessage::Operation { op } => {
+            handle_operation(host, session, op, &mut state.limiter, outgoing, terminate);
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::OperationBegin {
+            upload_id,
+            total_bytes,
+            chunk_count,
+            digest,
+        } => {
+            if state.upload.is_some() {
+                deliver(outgoing, terminate, ServerMessage::OperationUploadRejected {
+                    upload_id,
+                    reason: "Another upload is already in progress.".to_string(),
+                });
+                return std::ops::ControlFlow::Continue(());
+            }
+            state.upload = Some(PendingUpload {
+                upload_id,
+                total_bytes: total_bytes as usize,
+                chunk_count: chunk_count as usize,
+                digest: digest.to_ascii_lowercase(),
+                buffer: String::with_capacity((total_bytes as usize).min(1 << 20)),
+                next_index: 0,
+                received_bytes: 0,
+            });
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::OperationChunk {
+            upload_id,
+            index,
+            data,
+        } => {
+            let mut reject: Option<String> = None;
+            match state.upload.as_mut() {
+                None => reject = Some("No upload is in progress.".to_string()),
+                Some(pending) if pending.upload_id != upload_id => {
+                    reject = Some("Chunk for an unknown state.upload.".to_string());
+                }
+                Some(pending) if index as usize != pending.next_index => {
+                    reject = Some("Chunks arrived out of order.".to_string());
+                }
+                Some(pending) => {
+                    let chunk_bytes = data.len();
+                    if pending.received_bytes + chunk_bytes > pending.total_bytes
+                        || pending.buffer.len() + chunk_bytes > MAX_CHUNKED_OPERATION_BYTES
+                    {
+                        reject = Some("Upload exceeds its declared size.".to_string());
+                    } else {
+                        pending.buffer.push_str(&data);
+                        pending.received_bytes += chunk_bytes;
+                        pending.next_index += 1;
+                    }
+                }
+            }
+            if let Some(reason) = reject {
+                // Fail closed: the buffer is discarded, the operation stays
+                // pending on the client, and the client may retry.
+                let upload_id = state.upload.take().map(|p| p.upload_id).unwrap_or(upload_id);
+                deliver(outgoing, terminate, ServerMessage::OperationUploadRejected {
+                    upload_id,
+                    reason,
+                });
+            }
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::OperationEnd { upload_id } => {
+            let Some(pending) = state.upload.take() else {
+                deliver(outgoing, terminate, ServerMessage::OperationUploadRejected {
+                    upload_id,
+                    reason: "No upload is in progress.".to_string(),
+                });
+                return std::ops::ControlFlow::Continue(());
+            };
+            if pending.upload_id != upload_id {
+                deliver(outgoing, terminate, ServerMessage::OperationUploadRejected {
+                    upload_id,
+                    reason: "Upload id mismatch.".to_string(),
+                });
+                return std::ops::ControlFlow::Continue(());
+            }
+            let mut reject_reason: Option<String> = None;
+            if pending.next_index != pending.chunk_count {
+                reject_reason = Some("Upload ended before every chunk arrived.".to_string());
+            } else if pending.buffer.len() != pending.total_bytes {
+                reject_reason = Some("Upload length did not match its declaration.".to_string());
+            } else if crate::protocol::digest_hex(pending.buffer.as_bytes()) != pending.digest {
+                // Integrity: the reassembled frame must hash to what the
+                // client declared. WebSocket framing already protects the
+                // bytes in transit; this catches truncation, interleaving
+                // bugs, and a hostile frame that does not match its claim.
+                reject_reason = Some("Upload digest did not match.".to_string());
+            }
+            if let Some(reason) = reject_reason {
+                deliver(outgoing, terminate, ServerMessage::OperationUploadRejected {
+                    upload_id,
+                    reason,
+                });
+                return std::ops::ControlFlow::Continue(());
+            }
+            // The reassembled frame is validated exactly like an inline one:
+            // chunking changes framing, never semantics.
+            let parsed = serde_json::from_str::<ClientMessage>(&pending.buffer);
+            match parsed {
+                Ok(message @ ClientMessage::Operation { .. }) => {
+                    if message.validate().is_err() {
+                        let client_op_id = match &message {
+                            ClientMessage::Operation { op } => Some(op.client_op_id.clone()),
+                            _ => None,
+                        };
+                        reject_frame(
+                            pending.buffer.as_bytes(),
+                            client_op_id,
+                            "Reassembled operation is out of bounds.",
+                            outgoing,
+                            terminate,
+                        );
+                        return std::ops::ControlFlow::Continue(());
+                    }
+                    if let ClientMessage::Operation { op } = message {
+                        handle_operation(host, session, op, &mut state.limiter, outgoing, terminate);
+                    }
+                }
+                _ => {
+                    deliver(outgoing, terminate, ServerMessage::OperationUploadRejected {
+                        upload_id,
+                        // Only operation frames may be uploaded in chunks: a
+                        // chunked hello would defeat the hello-once rule and a
+                        // chunked snapshot upload the owner gate's shape.
+                        reason: "A chunked upload must reassemble to a valid operation."
+                            .to_string(),
+                    });
+                }
+            }
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::Cursor { page_id, x, y } => {
+            if !state.validity.valid(host, session) {
+                return std::ops::ControlFlow::Break(());
+            }
+            let frame = CursorFrame { page_id, x, y };
+            let rooms = lock(&host.rooms);
+            if let Some(room) = rooms.get(&session.room_id) {
+                for (actor, entry) in &room.participants {
+                    if actor != &session.actor_id {
+                        deliver_to(entry, ServerMessage::PresenceCursor {
+                            actor_id: session.actor_id.clone(),
+                            cursor: frame.clone(),
+                        });
+                    }
+                }
+            }
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::Viewport {
+            page_id,
+            center_x,
+            center_y,
+            zoom,
+            spotlighting,
+        } => {
+            if !state.validity.valid(host, session) {
+                return std::ops::ControlFlow::Break(());
+            }
+            if !zoom.is_finite() || zoom <= 0.0 {
+                return std::ops::ControlFlow::Continue(());
+            }
+            let frame = ViewportFrame {
+                page_id,
+                center_x,
+                center_y,
+                zoom,
+                spotlighting,
+            };
+            let rooms = lock(&host.rooms);
+            if let Some(room) = rooms.get(&session.room_id) {
+                for (actor, entry) in &room.participants {
+                    if actor != &session.actor_id {
+                        deliver_to(entry, ServerMessage::PresenceViewport {
+                            actor_id: session.actor_id.clone(),
+                            viewport: frame.clone(),
+                        });
+                    }
+                }
+            }
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::Selection { page_id, node_ids } => {
+            if !state.validity.valid(host, session) {
+                return std::ops::ControlFlow::Break(());
+            }
+            if node_ids.len() > MAX_SELECTION_IDS {
+                return std::ops::ControlFlow::Continue(());
+            }
+            let frame = SelectionFrame { page_id, node_ids };
+            let rooms = lock(&host.rooms);
+            if let Some(room) = rooms.get(&session.room_id) {
+                for (actor, entry) in &room.participants {
+                    if actor != &session.actor_id {
+                        deliver_to(entry, ServerMessage::PresenceSelection {
+                            actor_id: session.actor_id.clone(),
+                            selection: frame.clone(),
+                        });
+                    }
+                }
+            }
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::Chat { message } => {
+            if !state.validity.valid(host, session) {
+                return std::ops::ControlFlow::Break(());
+            }
+            // Drafts and finalized messages have separate budgets, so a draft
+            // burst can never spend the message the author actually sent. A
+            // refused FINAL message is reported: silently dropping the message
+            // a person pressed Enter on is the worst possible outcome.
+            let allowed = if message.composing {
+                state.limiter.take_draft()
+            } else if state.limiter.take(true) {
+                true
+            } else {
+                let _ = deliver(
+                    outgoing,
+                    terminate,
+                    ServerMessage::Error {
+                        code: "chat-rate-limited".to_string(),
+                        message: "That message was not sent: the room is receiving chat too quickly.".to_string(),
+                        fatal: false,
+                    },
+                );
+                false
+            };
+            if !allowed {
+                return std::ops::ControlFlow::Continue(());
+            }
+            if message.text.chars().count() > MAX_CHAT_LENGTH {
+                return std::ops::ControlFlow::Continue(());
+            }
+            let rooms = lock(&host.rooms);
+            if let Some(room) = rooms.get(&session.room_id) {
+                for (actor, entry) in &room.participants {
+                    if actor != &session.actor_id {
+                        deliver_to(entry, ServerMessage::Chat {
+                            message: crate::protocol::ChatMessageFrame {
+                                message_id: message.message_id.clone(),
+                                actor_id: session.actor_id.clone(),
+                                text: message.text.clone(),
+                                composing: message.composing,
+                            },
+                        });
+                    }
+                }
+            }
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::SyncRequest { from_seq } => {
+            if !state.validity.valid(host, session) {
+                return std::ops::ControlFlow::Break(());
+            }
+            let store = lock(&host.store);
+            let baseline = store.baseline(&session.room_id).ok().flatten();
+            let current = store.current_seq(&session.room_id).unwrap_or(0);
+            let from = from_seq.max(baseline.as_ref().map(|b| b.seq).unwrap_or(0));
+            if from_seq < from {
+                // The requested range was compacted away: send the snapshot.
+                if let Some(baseline) = baseline {
+                    deliver(outgoing, terminate, ServerMessage::Snapshot {
+                        snapshot: RoomSnapshot {
+                            upto_seq: baseline.seq,
+                            document_json: baseline.document_json,
+                        },
+                    });
+                }
+            }
+            if let Ok(entries) = store.journal_range(&session.room_id, from, current) {
+                deliver(outgoing, terminate, ServerMessage::Sync {
+                    from_seq: from,
+                    seq: current,
+                    operations: entries
+                        .into_iter()
+                        .filter_map(|(seq, payload)| {
+                            serde_json::from_str::<RoomOperation>(&payload)
+                                .ok()
+                                .map(|op| JournalEntry { seq, op })
+                        })
+                        .collect(),
+                });
+            }
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::SnapshotUpload {
+            upto_seq,
+            document_json,
+        } => {
+            // Snapshots replace the baseline every future joiner bootstraps
+            // from, so this is a mutation like any other: the role is checked
+            // AND the invite is re-checked against the store (a revoked owner
+            // must not be able to move the baseline), and a refusal is visible
+            // rather than a silent no-op.
+            if session.role != ParticipantRole::Owner {
+                let _ = deliver(
+                    outgoing,
+                    terminate,
+                    ServerMessage::Error {
+                        code: "snapshot-refused".to_string(),
+                        message: "Only the room owner may upload a snapshot.".to_string(),
+                        fatal: false,
+                    },
+                );
+                return std::ops::ControlFlow::Continue(());
+            }
+            let now = now_ms();
+            let store = lock(&host.store);
+            let still_valid = store
+                .invite_is_still_valid(&session.token_hash, now)
+                .unwrap_or(false);
+            if !still_valid {
+                let _ = deliver(
+                    outgoing,
+                    terminate,
+                    ServerMessage::Error {
+                        code: "snapshot-refused".to_string(),
+                        message: "Your access to this session ends with your invite.".to_string(),
+                        fatal: true,
+                    },
+                );
+                return std::ops::ControlFlow::Break(());
+            }
+            match store.compact_with_snapshot(&session.room_id, upto_seq, &document_json, now) {
+                Ok(()) => {}
+                Err(error) => {
+                    let _ = deliver(
+                        outgoing,
+                        terminate,
+                        ServerMessage::Error {
+                            code: "snapshot-refused".to_string(),
+                            message: format!("The snapshot was not stored: {error}"),
+                            fatal: false,
+                        },
+                    );
+                }
+            }
+            std::ops::ControlFlow::Continue(())
+        }
+        ClientMessage::Leave => std::ops::ControlFlow::Break(()),
+        ClientMessage::Ping => {
+            deliver(outgoing, terminate, ServerMessage::Pong);
+            std::ops::ControlFlow::Continue(())
+        }
+    }
+}
+
+/// Validate a requested bind against the exposure policy. A non-loopback
+/// bind is an explicit decision (`--expose`) and requires an admin token.
+fn validate_bind(host: &RoomHost, bind: SocketAddr) -> Result<(), std::io::Error> {
+    if !bind.ip().is_loopback() && !host.config.allow_non_loopback {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "refusing to bind a non-loopback address without explicit exposure (--expose)",
+        ));
+    }
+    if !bind.ip().is_loopback() && host.config.admin_token.is_none() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "a non-loopback bind requires an explicit admin token",
+        ));
+    }
+    Ok(())
+}
+
+/// Spawn the accept loop for an already-bound listener onto `handle`.
+fn spawn_accept_loop(
+    host: Arc<RoomHost>,
+    listener: tokio::net::TcpListener,
+    shutdown: tokio::sync::watch::Receiver<bool>,
+    handle: &tokio::runtime::Handle,
+) {
+    let app = router(host);
+    let mut shutdown_rx = shutdown;
+    handle.spawn(async move {
+        let _ = axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .with_graceful_shutdown(async move {
+            let _ = shutdown_rx.wait_for(|stop| *stop).await;
+        })
+        .await;
+    });
+}
+
+/// Bind and serve on a runtime handle supplied by the caller.
+///
+/// This is the entry point for embedders that are ALREADY inside an async
+/// runtime — the Tauri app-hosted desktop path. `serve` awaits
+/// `TcpListener::bind`, and `Runtime::block_on` panics when called from
+/// inside a runtime ("Cannot start a runtime from within a runtime"), so an
+/// async command cannot use it. Here the listener is bound with
+/// `std::net::TcpListener` (which needs no runtime), the bound address is
+/// returned immediately for building invite URLs, and only the accept loop
+/// is spawned onto the caller's runtime.
+///
+/// Returns the bound address (use port 0 for an OS-assigned port).
+pub fn serve_with_handle(
+    host: Arc<RoomHost>,
+    bind: SocketAddr,
+    shutdown: tokio::sync::watch::Receiver<bool>,
+    handle: &tokio::runtime::Handle,
+) -> Result<SocketAddr, std::io::Error> {
+    validate_bind(&host, bind)?;
+    let std_listener = std::net::TcpListener::bind(bind)?;
+    std_listener.set_nonblocking(true)?;
+    let address = std_listener.local_addr()?;
+    let listener = tokio::net::TcpListener::from_std(std_listener)?;
+    spawn_accept_loop(host, listener, shutdown, handle);
+    Ok(address)
+}
+
+/// `serve_with_handle` against the current thread's runtime. Errors when no
+/// runtime is entered on this thread rather than panicking.
+pub fn serve_on_current_runtime(
+    host: Arc<RoomHost>,
+    bind: SocketAddr,
+    shutdown: tokio::sync::watch::Receiver<bool>,
+) -> Result<SocketAddr, std::io::Error> {
+    let handle = tokio::runtime::Handle::try_current().map_err(|_| {
+        std::io::Error::other(
+            "serve_on_current_runtime requires an entered async runtime",
+        )
+    })?;
+    serve_with_handle(host, bind, shutdown, &handle)
+}
+
+/// Run the host's HTTP+WS server until shutdown is signalled. Returns the
+/// bound address (use port 0 for an OS-assigned port in app-hosted mode).
+/// Awaits the bind, so this is for callers that are NOT already inside a
+/// runtime; embedders inside one use `serve_on_current_runtime`.
+pub async fn serve(
+    host: Arc<RoomHost>,
+    bind: SocketAddr,
+    shutdown: tokio::sync::watch::Receiver<bool>,
+) -> Result<SocketAddr, std::io::Error> {
+    validate_bind(&host, bind)?;
+    let listener = tokio::net::TcpListener::bind(bind).await?;
+    let address = listener.local_addr()?;
+    // The server runs on a spawned task so the caller gets the bound
+    // address immediately (app-hosted mode needs it to build invite URLs).
+    let handle = tokio::runtime::Handle::current();
+    spawn_accept_loop(host, listener, shutdown, &handle);
+    Ok(address)
 }
 
 #[cfg(test)]
@@ -1078,427 +1814,4 @@ mod tests {
         assert!(!is_loopback_host("localhost.evil.example"));
         assert!(!is_loopback_host("evil.example:1420"));
     }
-}
-
-fn display_name_of(message: &ClientMessage) -> String {
-    if let ClientMessage::Hello { display_name, .. } = message {
-        let trimmed = display_name.trim();
-        if trimmed.is_empty() {
-            return "Guest".to_string();
-        }
-        return trimmed.chars().take(60).collect();
-    }
-    "Guest".to_string()
-}
-
-fn client_id_of(message: &ClientMessage) -> String {
-    if let ClientMessage::Hello { client_id, .. } = message {
-        return client_id.clone();
-    }
-    String::new()
-}
-
-/// Handle one authenticated client frame. Returns ControlFlow-like break.
-fn handle_client_frame(
-    host: &Arc<RoomHost>,
-    session: &Session,
-    raw: &[u8],
-    limiter: &mut RateLimiter,
-    upload: &mut Option<PendingUpload>,
-    outgoing: &mpsc::UnboundedSender<ServerMessage>,
-) -> std::ops::ControlFlow<()> {
-    // Size ceilings before parsing; oversized frames must identify as a
-    // multi-frame kind (chunked operation, snapshot upload) or the socket
-    // is closed — an unknown oversized frame is a memory-exhaustion probe.
-    if raw.len() > MAX_OPERATION_FRAME_BYTES && !is_large_capable_frame(raw) {
-        return std::ops::ControlFlow::Break(());
-    }
-    if raw.len() > MAX_SNAPSHOT_UPLOAD_BYTES {
-        return std::ops::ControlFlow::Break(());
-    }
-    let Ok(message) = serde_json::from_slice::<ClientMessage>(raw) else {
-        let _ = outgoing.send(ServerMessage::Error {
-            code: "bad-frame".to_string(),
-            message: "Frame failed protocol validation.".to_string(),
-            fatal: false,
-        });
-        return std::ops::ControlFlow::Continue(());
-    };
-    if message.validate().is_err() {
-        let _ = outgoing.send(ServerMessage::Error {
-            code: "bad-frame".to_string(),
-            message: "Frame out of bounds.".to_string(),
-            fatal: false,
-        });
-        return std::ops::ControlFlow::Continue(());
-    }
-    match message {
-        ClientMessage::Hello { .. } => {
-            // A second hello on one socket is a protocol error.
-            std::ops::ControlFlow::Break(())
-        }
-        ClientMessage::Operation { op } => {
-            handle_operation(host, session, op, limiter, outgoing);
-            std::ops::ControlFlow::Continue(())
-        }
-        ClientMessage::OperationBegin {
-            upload_id,
-            total_bytes,
-            chunk_count,
-            digest,
-        } => {
-            if upload.is_some() {
-                let _ = outgoing.send(ServerMessage::OperationUploadRejected {
-                    upload_id,
-                    reason: "Another upload is already in progress.".to_string(),
-                });
-                return std::ops::ControlFlow::Continue(());
-            }
-            *upload = Some(PendingUpload {
-                upload_id,
-                total_bytes: total_bytes as usize,
-                chunk_count: chunk_count as usize,
-                digest: digest.to_ascii_lowercase(),
-                buffer: String::with_capacity((total_bytes as usize).min(1 << 20)),
-                next_index: 0,
-                received_bytes: 0,
-            });
-            std::ops::ControlFlow::Continue(())
-        }
-        ClientMessage::OperationChunk {
-            upload_id,
-            index,
-            data,
-        } => {
-            let mut reject: Option<String> = None;
-            match upload.as_mut() {
-                None => reject = Some("No upload is in progress.".to_string()),
-                Some(pending) if pending.upload_id != upload_id => {
-                    reject = Some("Chunk for an unknown upload.".to_string());
-                }
-                Some(pending) if index as usize != pending.next_index => {
-                    reject = Some("Chunks arrived out of order.".to_string());
-                }
-                Some(pending) => {
-                    let chunk_bytes = data.len();
-                    if pending.received_bytes + chunk_bytes > pending.total_bytes
-                        || pending.buffer.len() + chunk_bytes > MAX_CHUNKED_OPERATION_BYTES
-                    {
-                        reject = Some("Upload exceeds its declared size.".to_string());
-                    } else {
-                        pending.buffer.push_str(&data);
-                        pending.received_bytes += chunk_bytes;
-                        pending.next_index += 1;
-                    }
-                }
-            }
-            if let Some(reason) = reject {
-                // Fail closed: the buffer is discarded, the operation stays
-                // pending on the client, and the client may retry.
-                let upload_id = upload.take().map(|p| p.upload_id).unwrap_or(upload_id);
-                let _ = outgoing.send(ServerMessage::OperationUploadRejected {
-                    upload_id,
-                    reason,
-                });
-            }
-            std::ops::ControlFlow::Continue(())
-        }
-        ClientMessage::OperationEnd { upload_id } => {
-            let Some(pending) = upload.take() else {
-                let _ = outgoing.send(ServerMessage::OperationUploadRejected {
-                    upload_id,
-                    reason: "No upload is in progress.".to_string(),
-                });
-                return std::ops::ControlFlow::Continue(());
-            };
-            if pending.upload_id != upload_id {
-                let _ = outgoing.send(ServerMessage::OperationUploadRejected {
-                    upload_id,
-                    reason: "Upload id mismatch.".to_string(),
-                });
-                return std::ops::ControlFlow::Continue(());
-            }
-            let mut reject_reason: Option<String> = None;
-            if pending.next_index != pending.chunk_count {
-                reject_reason = Some("Upload ended before every chunk arrived.".to_string());
-            } else if pending.buffer.len() != pending.total_bytes {
-                reject_reason = Some("Upload length did not match its declaration.".to_string());
-            } else if crate::protocol::digest_hex(pending.buffer.as_bytes()) != pending.digest {
-                // Integrity: the reassembled frame must hash to what the
-                // client declared. WebSocket framing already protects the
-                // bytes in transit; this catches truncation, interleaving
-                // bugs, and a hostile frame that does not match its claim.
-                reject_reason = Some("Upload digest did not match.".to_string());
-            }
-            if let Some(reason) = reject_reason {
-                let _ = outgoing.send(ServerMessage::OperationUploadRejected {
-                    upload_id,
-                    reason,
-                });
-                return std::ops::ControlFlow::Continue(());
-            }
-            // The reassembled frame is validated exactly like an inline one:
-            // chunking changes framing, never semantics.
-            let parsed = serde_json::from_str::<ClientMessage>(&pending.buffer);
-            match parsed {
-                Ok(message @ ClientMessage::Operation { .. }) => {
-                    if message.validate().is_err() {
-                        let _ = outgoing.send(ServerMessage::Error {
-                            code: "bad-frame".to_string(),
-                            message: "Reassembled operation is out of bounds.".to_string(),
-                            fatal: false,
-                        });
-                        return std::ops::ControlFlow::Continue(());
-                    }
-                    if let ClientMessage::Operation { op } = message {
-                        handle_operation(host, session, op, limiter, outgoing);
-                    }
-                }
-                _ => {
-                    let _ = outgoing.send(ServerMessage::OperationUploadRejected {
-                        upload_id,
-                        // Only operation frames may be uploaded in chunks: a
-                        // chunked hello would defeat the hello-once rule and a
-                        // chunked snapshot upload the owner gate's shape.
-                        reason: "A chunked upload must reassemble to a valid operation."
-                            .to_string(),
-                    });
-                }
-            }
-            std::ops::ControlFlow::Continue(())
-        }
-        ClientMessage::Cursor { page_id, x, y } => {
-            let frame = CursorFrame { page_id, x, y };
-            let rooms = host.rooms.lock().expect("room map poisoned");
-            if let Some(room) = rooms.get(&session.room_id) {
-                for (actor, entry) in &room.participants {
-                    if actor != &session.actor_id {
-                        let _ = entry.outgoing.send(ServerMessage::PresenceCursor {
-                            actor_id: session.actor_id.clone(),
-                            cursor: frame.clone(),
-                        });
-                    }
-                }
-            }
-            std::ops::ControlFlow::Continue(())
-        }
-        ClientMessage::Viewport {
-            page_id,
-            center_x,
-            center_y,
-            zoom,
-            spotlighting,
-        } => {
-            if !zoom.is_finite() || zoom <= 0.0 {
-                return std::ops::ControlFlow::Continue(());
-            }
-            let frame = ViewportFrame {
-                page_id,
-                center_x,
-                center_y,
-                zoom,
-                spotlighting,
-            };
-            let rooms = host.rooms.lock().expect("room map poisoned");
-            if let Some(room) = rooms.get(&session.room_id) {
-                for (actor, entry) in &room.participants {
-                    if actor != &session.actor_id {
-                        let _ = entry.outgoing.send(ServerMessage::PresenceViewport {
-                            actor_id: session.actor_id.clone(),
-                            viewport: frame.clone(),
-                        });
-                    }
-                }
-            }
-            std::ops::ControlFlow::Continue(())
-        }
-        ClientMessage::Selection { page_id, node_ids } => {
-            if node_ids.len() > MAX_SELECTION_IDS {
-                return std::ops::ControlFlow::Continue(());
-            }
-            let frame = SelectionFrame { page_id, node_ids };
-            let rooms = host.rooms.lock().expect("room map poisoned");
-            if let Some(room) = rooms.get(&session.room_id) {
-                for (actor, entry) in &room.participants {
-                    if actor != &session.actor_id {
-                        let _ = entry.outgoing.send(ServerMessage::PresenceSelection {
-                            actor_id: session.actor_id.clone(),
-                            selection: frame.clone(),
-                        });
-                    }
-                }
-            }
-            std::ops::ControlFlow::Continue(())
-        }
-        ClientMessage::Chat { message } => {
-            if !limiter.take(true) || message.text.len() > MAX_CHAT_LENGTH {
-                return std::ops::ControlFlow::Continue(());
-            }
-            let rooms = host.rooms.lock().expect("room map poisoned");
-            if let Some(room) = rooms.get(&session.room_id) {
-                for (actor, entry) in &room.participants {
-                    if actor != &session.actor_id {
-                        let _ = entry.outgoing.send(ServerMessage::Chat {
-                            message: crate::protocol::ChatMessageFrame {
-                                message_id: message.message_id.clone(),
-                                actor_id: session.actor_id.clone(),
-                                text: message.text.clone(),
-                            },
-                        });
-                    }
-                }
-            }
-            std::ops::ControlFlow::Continue(())
-        }
-        ClientMessage::SyncRequest { from_seq } => {
-            let store = host.store.lock().expect("store poisoned");
-            let baseline = store.baseline(&session.room_id).ok().flatten();
-            let current = store.current_seq(&session.room_id).unwrap_or(0);
-            let from = from_seq.max(baseline.as_ref().map(|b| b.seq).unwrap_or(0));
-            if from_seq < from {
-                // The requested range was compacted away: send the snapshot.
-                if let Some(baseline) = baseline {
-                    let _ = outgoing.send(ServerMessage::Snapshot {
-                        snapshot: RoomSnapshot {
-                            upto_seq: baseline.seq,
-                            document_json: baseline.document_json,
-                        },
-                    });
-                }
-            }
-            if let Ok(entries) = store.journal_range(&session.room_id, from, current) {
-                let _ = outgoing.send(ServerMessage::Sync {
-                    from_seq: from,
-                    seq: current,
-                    operations: entries
-                        .into_iter()
-                        .filter_map(|(seq, payload)| {
-                            serde_json::from_str::<RoomOperation>(&payload)
-                                .ok()
-                                .map(|op| JournalEntry { seq, op })
-                        })
-                        .collect(),
-                });
-            }
-            std::ops::ControlFlow::Continue(())
-        }
-        ClientMessage::SnapshotUpload {
-            upto_seq,
-            document_json,
-        } => {
-            if session.role != ParticipantRole::Owner {
-                return std::ops::ControlFlow::Continue(());
-            }
-            let store = host.store.lock().expect("store poisoned");
-            let _ =
-                store.compact_with_snapshot(&session.room_id, upto_seq, &document_json, now_ms());
-            std::ops::ControlFlow::Continue(())
-        }
-        ClientMessage::Leave => std::ops::ControlFlow::Break(()),
-        ClientMessage::Ping => {
-            let _ = outgoing.send(ServerMessage::Pong);
-            std::ops::ControlFlow::Continue(())
-        }
-    }
-}
-
-/// Validate a requested bind against the exposure policy. A non-loopback
-/// bind is an explicit decision (`--expose`) and requires an admin token.
-fn validate_bind(host: &RoomHost, bind: SocketAddr) -> Result<(), std::io::Error> {
-    if !bind.ip().is_loopback() && !host.config.allow_non_loopback {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::PermissionDenied,
-            "refusing to bind a non-loopback address without explicit exposure (--expose)",
-        ));
-    }
-    if !bind.ip().is_loopback() && host.config.admin_token.is_none() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::PermissionDenied,
-            "a non-loopback bind requires an explicit admin token",
-        ));
-    }
-    Ok(())
-}
-
-/// Spawn the accept loop for an already-bound listener onto `handle`.
-fn spawn_accept_loop(
-    host: Arc<RoomHost>,
-    listener: tokio::net::TcpListener,
-    shutdown: tokio::sync::watch::Receiver<bool>,
-    handle: &tokio::runtime::Handle,
-) {
-    let app = router(host);
-    let mut shutdown_rx = shutdown;
-    handle.spawn(async move {
-        let _ = axum::serve(
-            listener,
-            app.into_make_service_with_connect_info::<SocketAddr>(),
-        )
-        .with_graceful_shutdown(async move {
-            let _ = shutdown_rx.wait_for(|stop| *stop).await;
-        })
-        .await;
-    });
-}
-
-/// Bind and serve on a runtime handle supplied by the caller.
-///
-/// This is the entry point for embedders that are ALREADY inside an async
-/// runtime — the Tauri app-hosted desktop path. `serve` awaits
-/// `TcpListener::bind`, and `Runtime::block_on` panics when called from
-/// inside a runtime ("Cannot start a runtime from within a runtime"), so an
-/// async command cannot use it. Here the listener is bound with
-/// `std::net::TcpListener` (which needs no runtime), the bound address is
-/// returned immediately for building invite URLs, and only the accept loop
-/// is spawned onto the caller's runtime.
-///
-/// Returns the bound address (use port 0 for an OS-assigned port).
-pub fn serve_with_handle(
-    host: Arc<RoomHost>,
-    bind: SocketAddr,
-    shutdown: tokio::sync::watch::Receiver<bool>,
-    handle: &tokio::runtime::Handle,
-) -> Result<SocketAddr, std::io::Error> {
-    validate_bind(&host, bind)?;
-    let std_listener = std::net::TcpListener::bind(bind)?;
-    std_listener.set_nonblocking(true)?;
-    let address = std_listener.local_addr()?;
-    let listener = tokio::net::TcpListener::from_std(std_listener)?;
-    spawn_accept_loop(host, listener, shutdown, handle);
-    Ok(address)
-}
-
-/// `serve_with_handle` against the current thread's runtime. Errors when no
-/// runtime is entered on this thread rather than panicking.
-pub fn serve_on_current_runtime(
-    host: Arc<RoomHost>,
-    bind: SocketAddr,
-    shutdown: tokio::sync::watch::Receiver<bool>,
-) -> Result<SocketAddr, std::io::Error> {
-    let handle = tokio::runtime::Handle::try_current().map_err(|_| {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "serve_on_current_runtime requires an entered async runtime",
-        )
-    })?;
-    serve_with_handle(host, bind, shutdown, &handle)
-}
-
-/// Run the host's HTTP+WS server until shutdown is signalled. Returns the
-/// bound address (use port 0 for an OS-assigned port in app-hosted mode).
-/// Awaits the bind, so this is for callers that are NOT already inside a
-/// runtime; embedders inside one use `serve_on_current_runtime`.
-pub async fn serve(
-    host: Arc<RoomHost>,
-    bind: SocketAddr,
-    shutdown: tokio::sync::watch::Receiver<bool>,
-) -> Result<SocketAddr, std::io::Error> {
-    validate_bind(&host, bind)?;
-    let listener = tokio::net::TcpListener::bind(bind).await?;
-    let address = listener.local_addr()?;
-    // The server runs on a spawned task so the caller gets the bound
-    // address immediately (app-hosted mode needs it to build invite URLs).
-    let handle = tokio::runtime::Handle::current();
-    spawn_accept_loop(host, listener, shutdown, &handle);
-    Ok(address)
 }
