@@ -41,6 +41,7 @@ import { LayoutChildSection } from './sections/LayoutChildSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { MaskSection } from './sections/MaskSection';
 import { MockupsSection } from './sections/MockupsSection';
+import { ObjectRepeatSection } from './sections/ObjectRepeatSection';
 import { PaintLibrarySection } from './sections/PaintLibrarySection';
 import { PaletteSection } from './sections/PaletteSection';
 import { PanelLayoutsSection } from './sections/PanelLayoutsSection';
@@ -100,6 +101,12 @@ const SINGLE_MEMBERS: CompositionMember[] = [
   {
     id: 'boolean',
     render: ({ node }) => <BooleanSection node={node as GroupNode} />,
+  },
+  {
+    id: 'object-repeat',
+    render: ({ node }) => (
+      <ObjectRepeatSection node={node as GroupNode} sectionId="object-repeat" />
+    ),
   },
   { id: 'mask', render: ({ nodes }) => <MaskSection nodes={nodes} /> },
   {

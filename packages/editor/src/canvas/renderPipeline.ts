@@ -36,6 +36,7 @@ import {
   isContainer,
   isWarpedContainer,
   type NodeId,
+  objectRepeatWorldTransforms,
   resolveAdjustmentScope,
   resolveAllStyles,
   resolveEditorSceneScope,
@@ -70,7 +71,6 @@ import {
   type RenderWorkerHost,
   sceneCanUseWorkerRenderer,
   sceneNeedsMainThreadTypography,
-  sceneNeedsStructuralCompositing,
   sceneNodeToEngineNode,
   workerBitmapDelta,
 } from '../render/canvasRenderAdapter';
@@ -96,6 +96,7 @@ import {
 } from '../render/perspectiveImage';
 import { resolveRendererAttribution } from '../render/rendererAttribution';
 import { observeCanvasRenderRevision } from '../render/renderRevision';
+import { sceneHasObjectRepeats, sceneNeedsStructuralCompositing } from '../render/sceneCompositing';
 import { alphaBounds } from '../render/surfaceBounds';
 import {
   documentTreatmentSpaceForCapture,
@@ -123,6 +124,23 @@ import {
 } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { canCullDescendantsWithContainerBounds } from './containerCulling';
+
+function hasObjectRepeatAncestor(
+  doc: Document,
+  nodeId: NodeId,
+  parentIndex: ReadonlyMap<NodeId, NodeId>,
+): boolean {
+  const visited = new Set<NodeId>([nodeId]);
+  let parentId = parentIndex.get(nodeId);
+  while (parentId && !visited.has(parentId)) {
+    visited.add(parentId);
+    const parent = doc.nodes[parentId];
+    if (parent?.kind === 'group' && parent.objectRepeat) return true;
+    parentId = parentIndex.get(parentId);
+  }
+  return false;
+}
+
 import { computeDirtyPruneDecision, rectsIntersectAny } from './dirtyQuery';
 import {
   type DirtyRegionRecorder,
@@ -1034,7 +1052,12 @@ export function renderContent(deps: RenderContentDeps): void {
       const visualBounds = worldBounds ? expandRect(worldBounds, padding) : null;
       nodeWork.visibilityTested++;
       if (padding > 0) nodeWork.effectExpanded++;
-      if (visualBounds && !inViewport(visualBounds)) {
+      let isRepeatedSource = false;
+      if (!hasMasterProjection && sceneHasObjectRepeats(doc)) {
+        parentIndex ??= committedParentIndex(doc);
+        isRepeatedSource = hasObjectRepeatAncestor(doc, id, parentIndex);
+      }
+      if (!isRepeatedSource && visualBounds && !inViewport(visualBounds)) {
         nodeWork.rejectedByViewport++;
         continue;
       }
@@ -1042,7 +1065,12 @@ export function renderContent(deps: RenderContentDeps): void {
       // render bounds miss every merged dirty rect is rejected outright —
       // the per-rect clip means its pixels cannot change, so replaying it
       // is pure waste (this was the measured 40-89% of replayed nodes).
-      if (dirtyWorldRects && visualBounds && !rectsIntersectAny(visualBounds, dirtyWorldRects)) {
+      if (
+        !isRepeatedSource &&
+        dirtyWorldRects &&
+        visualBounds &&
+        !rectsIntersectAny(visualBounds, dirtyWorldRects)
+      ) {
         nodeWork.prunableByDirty++;
         nodeWork.rejectedByDirty++;
         continue;
@@ -1495,10 +1523,24 @@ export function renderContent(deps: RenderContentDeps): void {
       targetCtx: CanvasRenderingContext2D,
       instancePrefix?: string,
       masterPlacement?: MasterOffset,
+      skipObjectRepeat = false,
     ): void {
       if (replaySet && !replayForceAll && !replaySet.has(nodeId)) return;
       const n = doc.nodes[nodeId];
       if (!n || n.visible === false) return;
+      if (n.kind === 'group' && n.objectRepeat && !skipObjectRepeat) {
+        const instances = objectRepeatWorldTransforms(
+          n.objectRepeat,
+          instanceWorldTransform(nodeId, masterPlacement),
+        );
+        for (const transform of instances) {
+          targetCtx.save();
+          targetCtx.transform(...transform);
+          replaySubtreeToCtx(nodeId, targetCtx, instancePrefix, masterPlacement, true);
+          targetCtx.restore();
+        }
+        return;
+      }
       const item = irByRenderKey.get(instanceKey(nodeId, instancePrefix));
 
       const mask = 'mask' in n && n.mask && n.mask.visible ? n.mask : null;

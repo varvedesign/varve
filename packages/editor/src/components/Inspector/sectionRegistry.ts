@@ -36,6 +36,7 @@ export type SectionId =
   | 'appearance'
   | 'mask'
   | 'boolean'
+  | 'object-repeat'
   | 'selection-colors'
   | 'fills'
   | 'paint-library'
@@ -351,6 +352,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
       const node = ctx.selectedNodes[0];
       return isSingleSelection(ctx) && node !== undefined && isLiveBooleanNode(node);
     },
+  },
+  {
+    id: 'object-repeat',
+    title: 'Live repeat',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 96,
+    category: 'geometry',
+    isAvailable: (ctx) => isSingleSelection(ctx) && ctx.selectedNodes[0]?.kind === 'group',
   },
   {
     id: 'selection-colors',

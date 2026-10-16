@@ -423,6 +423,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Warp modifier stack is a shape-level appearance property edited per selection.',
   },
+  'object-repeat': {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'occasional',
+    complexity: 'moderate',
+    status: 'incomplete',
+    rationale:
+      'Source-linked group repeats have numeric controls; canvas handles and release/expand are still pending.',
+  },
   mockups: {
     surface: 'prototype',
     scope: 'selection',

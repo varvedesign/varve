@@ -42,6 +42,7 @@ import {
   effectivePaintOrder,
   effectPadding,
   isLiveBooleanNode,
+  objectRepeatWorldTransforms,
   resolveAdjustmentScope,
 } from '@varve/scene';
 import { managedColorToRgba, tryInvertAffine } from '@varve/shared';
@@ -428,10 +429,20 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
     }
   };
 
-  const replayNode = (nodeId: NodeId, target: SceneContext): void => {
+  const replayNode = (nodeId: NodeId, target: SceneContext, skipObjectRepeat = false): void => {
     const node = input.document.nodes[nodeId];
     if (!node || node.visible === false) return;
     const item = itemById.get(nodeId);
+    if (node.kind === 'group' && node.objectRepeat && !skipObjectRepeat) {
+      const groupWorld = nodeWorldTransform(input.document, nodeId);
+      for (const transform of objectRepeatWorldTransforms(node.objectRepeat, groupWorld)) {
+        target.save();
+        target.transform(...transform);
+        replayNode(nodeId, target, true);
+        target.restore();
+      }
+      return;
+    }
 
     // `flattenSceneToEngine` resolves live Boolean groups to one render item
     // under the group's id. Structural replay must make the same substitution

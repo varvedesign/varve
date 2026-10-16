@@ -7,6 +7,17 @@ import { hasActiveSmartFilters, isInIsolatedSubtree } from '@varve/scene';
 
 let _prevDoc: Document | null = null;
 let _prevResult = false;
+let _repeatDoc: Document | null = null;
+let _hasRepeats = false;
+
+export function sceneHasObjectRepeats(doc: Document): boolean {
+  if (_repeatDoc === doc) return _hasRepeats;
+  _repeatDoc = doc;
+  _hasRepeats = Object.values(doc.nodes).some(
+    (node) => node?.kind === 'group' && node.objectRepeat !== undefined,
+  );
+  return _hasRepeats;
+}
 
 /**
  * Single-entry memo keyed by committed document identity. These scans run on
@@ -71,6 +82,7 @@ function computeNeedsStructuralCompositing(doc: Document): boolean {
       return true;
     }
     if (node.kind === 'group') {
+      if (node.objectRepeat && node.children.length > 0) return true;
       const hasVisibleEffects = node.effects.some((effect) => effect.visible);
       const needsFlatten =
         node.isolated === true ||

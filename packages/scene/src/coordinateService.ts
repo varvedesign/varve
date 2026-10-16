@@ -27,6 +27,7 @@ import type { Affine, Point, Rect } from '@varve/shared';
 import {
   transformRect as affineTransformRect,
   applyAffine,
+  identity,
   multiplyAffine,
   rotateDeg,
   tryInvertAffine,
@@ -35,6 +36,7 @@ import type { Document } from './document';
 import { buildParentIndexMap, getParent } from './document';
 import { composeWorldTransform } from './document-utils';
 import { nodeLocalBounds } from './nodeBounds';
+import { objectRepeatWorldTransforms } from './objectRepeat';
 import { resolvePagePlacement, resolveSpreadPlacement } from './pasteboardLayout';
 import type { NodeId, SceneNode } from './types';
 
@@ -78,17 +80,24 @@ export function groupWorldBounds(
   const node = doc.nodes[groupId];
   if (node?.kind !== 'group') return null;
   let union: Rect | null = null;
+  const groupWorld = nodeWorldTransform(doc, groupId, parentIndex);
+  const repeatWorld = node.objectRepeat
+    ? objectRepeatWorldTransforms(node.objectRepeat, groupWorld)
+    : [identity];
   for (const childId of node.children) {
     const b = nodeWorldBounds(doc, childId, parentIndex);
     if (!b) continue;
-    if (!union) {
-      union = { x: b.x, y: b.y, w: b.w, h: b.h };
-    } else {
-      const minX = Math.min(union.x, b.x);
-      const minY = Math.min(union.y, b.y);
-      const maxX = Math.max(union.x + union.w, b.x + b.w);
-      const maxY = Math.max(union.y + union.h, b.y + b.h);
-      union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    for (const transform of repeatWorld) {
+      const instance = affineTransformRect(transform, b);
+      if (!union) {
+        union = instance;
+      } else {
+        const minX = Math.min(union.x, instance.x);
+        const minY = Math.min(union.y, instance.y);
+        const maxX = Math.max(union.x + union.w, instance.x + instance.w);
+        const maxY = Math.max(union.y + union.h, instance.y + instance.h);
+        union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+      }
     }
   }
   return union;

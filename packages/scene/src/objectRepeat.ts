@@ -1,5 +1,5 @@
 import type { Affine, Point } from '@varve/shared';
-import { identity, multiplyAffine, rotateDeg, translate } from '@varve/shared';
+import { identity, multiplyAffine, rotateDeg, translate, tryInvertAffine } from '@varve/shared';
 import type { ObjectRepeat } from './types';
 
 /** Hard safety budget shared by rendering, export, and interactive editing. */
@@ -60,4 +60,17 @@ export function objectRepeatTransforms(repeat: ObjectRepeat): Affine[] {
   if (vertical) result.push(around(center, [1, 0, 0, -1, 0, 0]));
   if (horizontal && vertical) result.push(around(center, [-1, 0, 0, -1, 0, 0]));
   return result;
+}
+
+/**
+ * Lift source-local repeat transforms into world space while preserving the
+ * group's authored world transform. Returns the source-only identity for a
+ * singular group transform, where a local repeat cannot be projected safely.
+ */
+export function objectRepeatWorldTransforms(repeat: ObjectRepeat, groupWorld: Affine): Affine[] {
+  const inverse = tryInvertAffine(groupWorld);
+  if (!inverse) return [identity];
+  return objectRepeatTransforms(repeat).map((local) =>
+    multiplyAffine(groupWorld, multiplyAffine(local, inverse)),
+  );
 }

@@ -39,14 +39,17 @@ import {
   isWarpedContainer,
   multipageNodeInstances,
   nodeLocalBoundsSource,
+  objectRepeatWorldTransforms,
   resolveNodePaints,
   warpsOnNode,
 } from '@varve/scene';
 import {
   cubicBezierClosestPoint,
   managedColorToRgba,
+  multiplyAffine,
   pathPointToBezier,
   pointToSegmentDistSq,
+  transformRect,
   tryInvertAffine,
 } from '@varve/shared';
 import { resolvePlacedLiveBoolean } from '../scene/liveBooleanGeometry';
@@ -362,18 +365,29 @@ export class HitTestEngine {
         }
         const groupNode = n as import('@varve/scene').GroupNode;
         if (groupNode.children) {
-          for (const childId of groupNode.children) {
-            const child = this.doc.nodes[childId];
-            if (
-              !child ||
-              (!this.policy.includeLocked && child.locked) ||
-              (!this.policy.includeHidden && child.visible === false)
-            )
-              continue;
-            if (this.hitTestSingleChild(childId, child, world, entry.masterPlacement)) {
-              isHit = true;
-              break;
+          const repeatWorld = groupNode.objectRepeat
+            ? objectRepeatWorldTransforms(
+                groupNode.objectRepeat,
+                this.worldTransform(entry.nodeId, entry.masterPlacement),
+              )
+            : [undefined];
+          for (const transform of repeatWorld) {
+            for (const childId of groupNode.children) {
+              const child = this.doc.nodes[childId];
+              if (
+                !child ||
+                (!this.policy.includeLocked && child.locked) ||
+                (!this.policy.includeHidden && child.visible === false)
+              )
+                continue;
+              if (
+                this.hitTestSingleChild(childId, child, world, entry.masterPlacement, transform)
+              ) {
+                isHit = true;
+                break;
+              }
             }
+            if (isHit) break;
           }
         }
       }
@@ -527,17 +541,22 @@ export class HitTestEngine {
     child: SceneNode,
     world: { x: number; y: number },
     masterPlacement?: MasterOffset,
+    repeatWorld?: import('@varve/shared').Affine,
   ): boolean {
     if (child.kind === 'shape') {
-      const childWorld = this.worldTransform(childId, masterPlacement);
+      const childBaseWorld = this.worldTransform(childId, masterPlacement);
+      const childWorld = repeatWorld ? multiplyAffine(repeatWorld, childBaseWorld) : childBaseWorld;
       const childInv = invertAffine(childWorld);
       const childLocal = applyAffine(childInv, [world.x, world.y]);
       const childShape = hitGeometry(child, this.doc);
       if (shapeContains(childShape, childLocal)) return true;
 
       if (this.toleranceWorld > 0) {
-        const childBounds = this.worldBounds(childId, masterPlacement);
-        if (childBounds) {
+        const childBaseBounds = this.worldBounds(childId, masterPlacement);
+        if (childBaseBounds) {
+          const childBounds = repeatWorld
+            ? transformRect(repeatWorld, childBaseBounds)
+            : childBaseBounds;
           const expanded = {
             x: childBounds.x - this.toleranceWorld,
             y: childBounds.y - this.toleranceWorld,
@@ -548,8 +567,11 @@ export class HitTestEngine {
         }
       }
     } else {
-      const childBounds = this.worldBounds(childId, masterPlacement);
-      if (childBounds) {
+      const childBaseBounds = this.worldBounds(childId, masterPlacement);
+      if (childBaseBounds) {
+        const childBounds = repeatWorld
+          ? transformRect(repeatWorld, childBaseBounds)
+          : childBaseBounds;
         const expanded = {
           x: childBounds.x - this.toleranceWorld,
           y: childBounds.y - this.toleranceWorld,

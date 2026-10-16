@@ -65,6 +65,7 @@ export function makeGroupNode(
       | 'isolated'
       | 'effects'
       | 'boolean'
+      | 'objectRepeat'
     >
   > = {},
 ): GroupNode {
@@ -84,6 +85,7 @@ export function makeGroupNode(
     children: opts.children ?? [],
     isolated: opts.isolated,
     effects: opts.effects ?? [],
+    ...(opts.objectRepeat ? { objectRepeat: opts.objectRepeat } : {}),
     ...(opts.boolean ? { boolean: opts.boolean } : {}),
   };
 }
