@@ -246,8 +246,11 @@ One implementation (`crates/varve-room`), two deployment shapes:
   (loopback by default). `--expose` is the explicit non-loopback decision
   and REQUIRES an explicit admin token. Run ONE process per data directory
   (the single-owner rule). TLS termination belongs to a reverse proxy.
-- **Role-scoped invites are minted and revoked from the app**: the Share
-  dialog creates editor or viewer links (`collab_room_invite` on the embedded
+- **Role-scoped invites are minted and revoked from the app**: the invite
+  controls live in a section that is present whether or not a session is live —
+  a host invites people *while* sharing, so gating them behind the Host tab (as
+  the first version did) made them unreachable exactly when they were needed.
+  The dialog creates editor or viewer links (`collab_room_invite` on the embedded
   host, the admin API for a user-run server), lists the links it created, and
   revokes one by token (`collab_room_revoke`; the self-hosted path sends the
   token's SHA-256, which is all the server stores). Before this the app could
