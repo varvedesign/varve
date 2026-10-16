@@ -327,3 +327,42 @@ export class ShowDirector {
 export function defaultTransitionDuration(): number {
   return PRESENTATION_DEFAULT_TRANSITION_MS;
 }
+
+/**
+ * The authoritative show clock. Elapsed presentation time in ms with pause
+ * support; every director call and every rendered sample reads this one
+ * clock, so pausing can never desynchronize transition, build, and timer
+ * views of the show.
+ */
+export class ShowClock {
+  private origin = 0;
+  private pausedAt: number | null = null;
+  private pausedTotal = 0;
+
+  start(now: number): void {
+    this.origin = now;
+    this.pausedAt = null;
+    this.pausedTotal = 0;
+  }
+
+  now(): number {
+    const raw =
+      this.pausedAt !== null ? this.pausedAt - this.origin : performance.now() - this.origin;
+    return Math.max(0, raw - this.pausedTotal);
+  }
+
+  pause(): void {
+    if (this.pausedAt === null) this.pausedAt = performance.now();
+  }
+
+  resume(): void {
+    if (this.pausedAt !== null) {
+      this.pausedTotal += performance.now() - this.pausedAt;
+      this.pausedAt = null;
+    }
+  }
+
+  get paused(): boolean {
+    return this.pausedAt !== null;
+  }
+}

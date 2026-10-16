@@ -23,6 +23,7 @@ export interface BuildNodeOverride {
   opacity?: number;
   transform?: Affine;
   text?: string;
+  richText?: EngineSceneNode['richText'];
 }
 
 export interface BuildEffectContext {
@@ -75,12 +76,13 @@ function paragraphsOf(node: EngineSceneNode): string[] {
 /**
  * Patches a text node's logical paragraph content so pending by-paragraph
  * steps stay hidden. The visible prefix is chosen in reading order, so a
- * one-line rewrap never changes which click reveals which paragraph.
+ * one-line rewrap never changes which click reveals which paragraph. Both
+ * representations are patched because the renderer prefers rich text.
  */
 export function patchTextForHiddenParagraphs(
   node: EngineSceneNode,
   hidden: Array<{ from: number; to: number }>,
-): { text?: string } {
+): { text?: string; richText?: EngineSceneNode['richText'] } {
   if (hidden.length === 0) return {};
   const paragraphs = paragraphsOf(node);
   if (paragraphs.length === 0) return {};
@@ -91,10 +93,15 @@ export function patchTextForHiddenParagraphs(
     }
   }
   if (hiddenSet.size === 0) return {};
-  const visible = paragraphs.filter((_, index) => !hiddenSet.has(index));
-  // Rich text keeps its paragraph objects; the plain-text override is only a
-  // fallback for unstyled nodes and stays honest about the hidden ranges.
-  return { text: visible.join('\n') };
+  const keep = <T>(items: readonly T[]): T[] => items.filter((_, index) => !hiddenSet.has(index));
+  const patch: { text?: string; richText?: EngineSceneNode['richText'] } = {
+    text: keep(paragraphs).join('\n'),
+  };
+  const rich = node.richText;
+  if (rich && Array.isArray(rich.paragraphs)) {
+    patch.richText = { ...rich, paragraphs: keep(rich.paragraphs) };
+  }
+  return patch;
 }
 
 /**

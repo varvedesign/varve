@@ -3,14 +3,17 @@ import type { Platform } from '@varve/platform';
 import {
   type Document,
   type PresentationDeck,
+  type PresentationTransition,
   type ResolvedPresentationSlide,
   resolvePresentationSlides,
+  resolveSlideTransition,
 } from '@varve/scene';
 import { sanitizeFileName } from '@varve/scene/export';
 import { Button, Dialog } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { saveExportBytes } from '../../exportSaveAdapter';
+import { PresentationStage, type StageBitmap } from './PresentationStage';
 import { capturePresentationFrame, decodePresentationFrame } from './presentationCapture';
 import {
   PRESENTATION_EXPORT_EVENT,
@@ -20,6 +23,13 @@ import {
 } from './presentationCommands';
 import { resolvePresentationDeliveryScope } from './presentationDeliveryScope';
 import { makePresentationPngArchive, PresentationPdfBuilder } from './presentationFormats';
+import { SlideLiveRenderer } from './show/showStage';
+import {
+  computeBuildSchedule,
+  type ScheduleInput,
+  ShowClock,
+  ShowDirector,
+} from './show/showTiming';
 import './presentationDelivery.css';
 
 type DeliveryMode = 'preview' | 'export';
@@ -44,6 +54,7 @@ interface PresentationDeliveryLayerProps {
 }
 
 const PREVIEW_CACHE_LIMIT = 6;
+const BITMAP_CACHE_LIMIT = 6;
 const MAX_ARCHIVE_BYTES = 512 * 1024 * 1024;
 
 function errorMessage(error: unknown): string {
@@ -71,6 +82,12 @@ function ensureSnapshotCurrent(
   }
 }
 
+function prefersReducedMotion(): boolean {
+  return typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+}
+
 export function PresentationDeliveryLayer({ platform, getEngine }: PresentationDeliveryLayerProps) {
   const editor = useEditor();
   const editorRef = useRef(editor);
@@ -78,14 +95,19 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
   const engineRef = useRef<Promise<Engine> | null>(null);
   const activeExportRef = useRef<AbortController | null>(null);
   const previewCacheRef = useRef(new Map<string, string>());
+  const bitmapsRef = useRef(new Map<string, StageBitmap>());
+  const directorRef = useRef<ShowDirector | null>(null);
+  const clockRef = useRef(new ShowClock());
+  const rendererRef = useRef<SlideLiveRenderer | null>(null);
   const [request, setRequest] = useState<DeliverySnapshot | null>(null);
   const [slideIndex, setSlideIndex] = useState(0);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [bitmapsVersion, setBitmapsVersion] = useState(0);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [outputWarnings, setOutputWarnings] = useState<string[]>([]);
+  const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
 
   const getEngineOnce = useCallback(() => {
     if (getEngine) return getEngine();
@@ -112,12 +134,26 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
         ...deliveryScope,
         ...(startEntryId ? { startEntryId } : {}),
       };
+      const startIndex = currentSlideIndex(snapshot);
+      if (mode === 'preview' && snapshot.slides.length > 0) {
+        const reduced = prefersReducedMotion();
+        const inputs: ScheduleInput[] = snapshot.slides.map((slide) => ({
+          transition: resolveSlideTransition(snapshot.deck, slide.entry),
+          schedule: computeBuildSchedule(slide.entry.builds ?? []),
+        }));
+        directorRef.current = new ShowDirector(inputs, { reducedMotion: reduced });
+        clockRef.current.start(performance.now());
+        directorRef.current.enter(startIndex, clockRef.current.now());
+      } else {
+        directorRef.current = null;
+      }
+      setReducedMotion(prefersReducedMotion());
       setRequest(snapshot);
-      setSlideIndex(currentSlideIndex(snapshot));
+      setSlideIndex(startIndex);
       setError(null);
       setProgress('');
       setOutputWarnings([]);
-      setImageUrl(null);
+      setBitmapsVersion((version) => version + 1);
     },
     [],
   );
@@ -144,6 +180,24 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
     };
   }, [openDelivery]);
 
+  // The live renderer resolves with the engine; until then the stage shows
+  // static captures only, so opening the deck never waits on engine startup.
+  useEffect(() => {
+    if (request?.mode !== 'preview') return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const engine = await getEngineOnce();
+        if (!cancelled) rendererRef.current = new SlideLiveRenderer(engine);
+      } catch {
+        if (!cancelled) rendererRef.current = null;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getEngineOnce, request]);
+
   // Report playback state so the canonical "Present" command is a truthful
   // toggle across every entry point (menubar, palette, shortcut, navigator).
   useEffect(() => {
@@ -163,53 +217,49 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
   const closeDelivery = useCallback(() => {
     activeExportRef.current?.abort();
     setRequest(null);
-    setImageUrl(null);
+    directorRef.current = null;
+    bitmapsRef.current.clear();
     setError(null);
     setProgress('');
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
   }, []);
 
+  /**
+   * Static captures feed the stage: the current slide immediately, then the
+   * neighbors, so the next advance never waits on a first render (the
+   * advance-latency failure mode reported against other tools).
+   */
   useEffect(() => {
     if (request?.mode !== 'preview') return;
     if (request.slides.length === 0) {
-      setImageUrl(null);
       setLoadingPreview(false);
       setError(null);
       return;
     }
     const current = request.slides[slideIndex];
     if (!current?.frame) {
-      setImageUrl(null);
       setLoadingPreview(false);
       setError('This slide no longer has valid frame artwork. Return to Slides to repair it.');
       return;
     }
-    const cacheKey = `${request.documentId}:${request.revision}:${request.deckId}:${current.entry.id}`;
-    const cached = previewCacheRef.current.get(cacheKey);
-    if (cached) {
-      previewCacheRef.current.delete(cacheKey);
-      previewCacheRef.current.set(cacheKey, cached);
-      setImageUrl(cached);
-      setLoadingPreview(false);
-      setError(null);
-      return;
-    }
     const controller = new AbortController();
-    setLoadingPreview(true);
-    setImageUrl(null);
-    setError(null);
-    void (async () => {
-      try {
+    const ensureBitmap = async (index: number): Promise<StageBitmap | null> => {
+      const slide = request.slides[index];
+      if (!slide?.frame) return null;
+      const existing = bitmapsRef.current.get(slide.entry.id);
+      if (existing) return existing;
+      const cacheKey = `${request.documentId}:${request.revision}:${request.deckId}:${slide.entry.id}`;
+      let url = previewCacheRef.current.get(cacheKey) ?? null;
+      if (!url) {
         ensureSnapshotCurrent(request, editorRef.current.state);
         const engine = await getEngineOnce();
         const captured = await capturePresentationFrame(
           request.document,
-          current.entry,
+          slide.entry,
           engine,
           controller.signal,
         );
-        ensureSnapshotCurrent(request, editorRef.current.state);
-        const url = URL.createObjectURL(captured.blob);
+        url = URL.createObjectURL(captured.blob);
         previewCacheRef.current.set(cacheKey, url);
         while (previewCacheRef.current.size > PREVIEW_CACHE_LIMIT) {
           const oldest = previewCacheRef.current.keys().next().value as string | undefined;
@@ -217,12 +267,48 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
           URL.revokeObjectURL(previewCacheRef.current.get(oldest)!);
           previewCacheRef.current.delete(oldest);
         }
-        setImageUrl(url);
-        setOutputWarnings(captured.warnings);
+      }
+      const image = new Image();
+      image.src = url;
+      await image.decode();
+      const bitmap: StageBitmap = {
+        image,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+        src: url,
+      };
+      bitmapsRef.current.set(slide.entry.id, bitmap);
+      while (bitmapsRef.current.size > BITMAP_CACHE_LIMIT) {
+        const oldest = bitmapsRef.current.keys().next().value as string | undefined;
+        if (!oldest) break;
+        bitmapsRef.current.delete(oldest);
+      }
+      return bitmap;
+    };
+    setLoadingPreview(!bitmapsRef.current.has(current.entry.id));
+    setError(null);
+    void (async () => {
+      try {
+        ensureSnapshotCurrent(request, editorRef.current.state);
+        await ensureBitmap(slideIndex);
+        if (controller.signal.aborted) return;
+        setBitmapsVersion((version) => version + 1);
+        setLoadingPreview(false);
+        setOutputWarnings([]);
+        // Prefetch neighbors so advance and rewind are instant.
+        for (const neighbor of [slideIndex + 1, slideIndex - 1]) {
+          if (neighbor < 0 || neighbor >= request.slides.length) continue;
+          if (controller.signal.aborted) return;
+          try {
+            await ensureBitmap(neighbor);
+          } catch {
+            // Neighbor prefetch failures surface when the slide is shown.
+          }
+        }
+        setBitmapsVersion((version) => version + 1);
       } catch (captureError) {
         if (!controller.signal.aborted) setError(errorMessage(captureError));
-      } finally {
-        if (!controller.signal.aborted) setLoadingPreview(false);
+        setLoadingPreview(false);
       }
     })();
     return () => controller.abort();
@@ -319,28 +405,43 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
   }, []);
 
   /**
-   * Advance/rewind without wrapping past the ends.
+   * Deterministic advance/rewind through the show director.
    *
-   * A silent wrap from the last slide back to the first is indistinguishable
-   * from a missed keypress: the presenter cannot tell whether the deck ended or
-   * the input was dropped. The boundary is announced instead, and the explicit
-   * "Start from beginning" control remains the way back to slide one.
+   * One click does exactly one thing: complete a running transition, complete
+   * a running build effect, start the next build group, or change slides.
+   * Rewind and jumps land fully built. Reaching either end announces the
+   * boundary instead of wrapping silently.
    */
   const stepSlide = useCallback(
     (delta: 1 | -1) => {
-      if (!request || request.slides.length === 0) return;
-      setSlideIndex((index) => {
-        const next = index + delta;
-        if (next < 0) {
-          editorRef.current.announce('Start of presentation');
-          return index;
-        }
-        if (next >= request.slides.length) {
+      const director = directorRef.current;
+      if (!request || request.slides.length === 0 || !director) return;
+      if (delta === 1) {
+        const result = director.advance(clockRef.current.now());
+        if (result === 'advanced-slide') {
+          setSlideIndex(director.slideIndex);
+        } else if (result === 'boundary') {
           editorRef.current.announce('End of presentation');
-          return index;
         }
-        return next;
-      });
+        return;
+      }
+      if (director.slideIndex > 0) {
+        director.previous(clockRef.current.now());
+        setSlideIndex(director.slideIndex);
+      } else {
+        editorRef.current.announce('Start of presentation');
+      }
+    },
+    [request],
+  );
+
+  const jumpToSlide = useCallback(
+    (index: number) => {
+      const director = directorRef.current;
+      if (!request || !director) return;
+      if (index < 0 || index >= request.slides.length) return;
+      director.goto(index, clockRef.current.now());
+      setSlideIndex(index);
     },
     [request],
   );
@@ -375,13 +476,13 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
         stepSlide(-1);
       } else if (event.key === 'Home') {
         event.preventDefault();
-        setSlideIndex(0);
+        jumpToSlide(0);
       } else if (event.key === 'End' && request?.slides.length) {
         event.preventDefault();
-        setSlideIndex(request.slides.length - 1);
+        jumpToSlide(request.slides.length - 1);
       }
     },
-    [closeDelivery, request, stepSlide],
+    [closeDelivery, jumpToSlide, request, stepSlide],
   );
 
   const enterFullscreen = useCallback(async () => {
@@ -394,7 +495,10 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
     }
   }, []);
 
-  const currentSlide = request?.slides[slideIndex];
+  const director = request?.mode === 'preview' ? directorRef.current : null;
+  const resolvedTransitions: PresentationTransition[] = request
+    ? request.slides.map((slide) => resolveSlideTransition(request.deck, slide.entry))
+    : [];
   const blockingSlides = request?.deliveryErrors ?? [];
 
   return (
@@ -424,27 +528,34 @@ export function PresentationDeliveryLayer({ platform, getEngine }: PresentationD
               tabIndex={-1}
               data-autofocus
             >
-              {loadingPreview && <p role="status">Preparing slide…</p>}
-              {imageUrl && currentSlide && (
-                <img
-                  src={imageUrl}
-                  alt={currentSlide.entry.altText ?? currentSlide.entry.title}
-                  className="presentation-audience__image"
+              {director && request.slides.length > 0 ? (
+                <PresentationStage
+                  document={request.document}
+                  revision={request.revision}
+                  slides={request.slides}
+                  transitions={resolvedTransitions}
+                  director={director}
+                  clock={clockRef.current}
+                  renderer={rendererRef.current}
+                  bitmaps={bitmapsRef.current}
+                  bitmapsVersion={bitmapsVersion}
+                  reducedMotion={reducedMotion}
                 />
-              )}
+              ) : null}
+              {loadingPreview && <p role="status">Preparing slide…</p>}
               {error && (
                 <p className="presentation-audience__error" role="alert">
                   {error}
                 </p>
               )}
-              {!loadingPreview && !imageUrl && !error && request.slides.length === 0 && (
+              {!loadingPreview && !error && request.slides.length === 0 && (
                 <p role="status">
                   No slides are included. Include a slide in the Slides panel to start.
                 </p>
               )}
             </section>
             <div className="presentation-audience__controls">
-              <Button size="sm" variant="ghost" onClick={() => setSlideIndex(0)}>
+              <Button size="sm" variant="ghost" onClick={() => jumpToSlide(0)}>
                 Start from beginning
               </Button>
               <Button
