@@ -45,6 +45,15 @@ export {
   type StepCompensation,
 } from './selectiveUndo';
 export {
+  type CollabEngineHandlers,
+  type CollabEngineOptions,
+  type CollabNotice,
+  type CollabStatus,
+  CollabSyncEngine,
+  type CollabTimers,
+  type CollabTransport,
+} from './syncEngine';
+export {
   applySplice,
   clusters,
   type MergeIncomingOptions,
@@ -53,6 +62,7 @@ export {
   spliceBetween,
   type TextSplice,
 } from './textSplice';
+export { WebSocketCollabTransport } from './webSocketTransport';
 
 // ── Collab user / cursor types ────────────────────────────────────
 
