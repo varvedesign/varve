@@ -19,6 +19,7 @@ members = [
     "crates/varve-wasm",
     "crates/varve-generative-helper",
     "crates/varve-accel",
+    "crates/varve-room",
 ]
 
 # Keep the production helper on the pinned diffusion-rs 0.1.20 API while
