@@ -176,6 +176,7 @@ successfully initialised dependency, or a past audit.
 | Emphasis marks (圏点) | — | **Absent** | no schema, UI or layout path |
 | Regional CJK glyph forms | platform font | **Unverified** | coverage is testable, glyph-form suitability is not; no language-competent review |
 | Emoji sequences (ZWJ, flags, keycaps, modifiers) | source preservation + platform font | Verified here (source) / carried (paint) | corpus entry `emoji-sequences`; `withEmojiFallback` (entry 1). **No Varve-controlled COLR/CBDT/sbix/SVG rasterizer** |
+| Varve-native text corpus (14 entries, browser path) | headless Chromium via real app entry points | Verified here | 14/14 completed, 0 failed, source preserved; `reports/text-corpus/run-706581-1447/results.json` |
 | PNG export transparency | node raster export | Carried (entry 5) | `tests/e2e/export/png-alpha.spec.ts`; `pngjs` resolution from `packages/engine` confirmed. The E2E itself was not re-run this cycle |
 | PDF import | web app | **Not a renderer** | raw-byte regex extraction with approximation warnings |
 | PDF / SVG export of authored text | export lanes | Not validated this cycle | outside this slice's scope |
@@ -191,7 +192,7 @@ successfully initialised dependency, or a past audit.
 | 4 (tate-chu-yoko) | `textLayoutSnapshot.test.ts`, `RichTextSpanEditor.test.tsx` | passed |
 | 5 (PNG alpha) | dependency resolution only | `pngjs@7.0.0` resolves from `packages/engine` exactly as the spec resolves it; the E2E was not re-run |
 | 6 (sideways run coalescing) | `replay.test.ts`, `textLayoutSnapshot.test.ts` | passed |
-| 7 (Varve-native corpus) | **not re-run — blocked on the shared heavy-task lease** | `reports/text-corpus/results.json` records 14/14 completed, 0 failed, but that artifact predates this cycle. Three attempts this cycle failed to obtain the lease: two hit the wait deadline (600 s, then 1800 s) with another agent's Playwright lane holding it, and one obtained it after ~32 min but died in `tests/e2e/global-setup.ts:99` waiting 180 s for `.editor-shell` — a cold-Vite-boot budget the config itself documents as ~100 s, exceeded under a load average of ~35. **No corpus code executed**, so this is an environment result, not a corpus result. The spec and manifest are typechecked (`tsc -p tests/e2e/tsconfig.json`) and lint-clean; their E2E run remains unverified this cycle. Reproduce with `VARVE_E2E_PORT=1447 node scripts/quality/heavy-lease.mjs "corpus" -- npx playwright test tests/e2e/canvas/text-corpus.spec.ts --project=chromium --workers=1` on an unloaded machine |
+| 7 (Varve-native corpus) | **re-run, passed** | `reports/text-corpus/run-706581-1447/results.json`: 14 attempted / 14 completed / 0 failed, `textPreserved: true` for every entry, manifest digest `6cdbfbf6e9f68ad34b9a16439dbfcfedfc50a8b8cb20f7f6d3583d74a0285dd`, 5.2 min wall clock. Reaching it took four attempts: two lease wait deadlines (600 s, 1800 s) with another agent's Playwright lane holding the shared lease, one run that obtained the lease after ~32 min and died in `tests/e2e/global-setup.ts:99` waiting 180 s for `.editor-shell` (the cold-Vite-boot budget the config documents as ~100 s, exceeded at load average ~35), then a success. The run's own path carries the run id, which is the isolation fix below working |
 | 8 (UAX #14 prohibition) | `textLayoutSnapshot.kinsoku.test.ts`, `text/lineBreakProhibition.test.ts` | 100.00% oracle soundness; all prohibition and preserved-behaviour tests passed |
 | 9 (ruby capability warning) | `TypographySection.test.tsx` | 17 tests passed including the three new ones |
 
@@ -204,7 +205,9 @@ successfully initialised dependency, or a past audit.
 corpus runs, or a corpus run and any other lane writing the same name, would
 overwrite each other's evidence. The spec now writes
 `reports/text-corpus/<VARVE_E2E_OUTPUT_DIR>/results.json` and logs the exact
-path, so a run's artifact is both isolated and findable.
+path, so a run's artifact is both isolated and findable. The successful run
+above wrote to `run-706581-1447/` — the PID and port — while other agents held
+the same repository, which is the fix demonstrated rather than asserted.
 
 ## Upstream reference values (not Varve results)
 
