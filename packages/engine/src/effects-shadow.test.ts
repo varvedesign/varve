@@ -303,6 +303,12 @@ describe('alpha-aware drop shadow', () => {
     const glow = buildOuterGlowImage(source, softBlur, color, 0, 'linear');
     const strongerGlow = buildOuterGlowImage(source, widerBlur, color, 0, 'linear');
     const chokedGlow = buildOuterGlowImage(source, softBlur, color, 0.25, 'linear');
+    const gradientGlow = buildOuterGlowImage(source, widerBlur, color, 0, 'linear', {
+      stops: [
+        { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+        { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+      ],
+    });
 
     expect(glow.data[3]).toBe(0);
     expect(glow.data[7]).toBe(128);
@@ -311,6 +317,8 @@ describe('alpha-aware drop shadow', () => {
     expect(strongerGlow.data[11]).toBeGreaterThan(glow.data[11]!);
     expect(chokedGlow.data[7]).toBeLessThan(glow.data[7]!);
     expect(chokedGlow.data[3]).toBe(0);
+    expect(gradientGlow.data[6]).toBeGreaterThan(gradientGlow.data[4]!);
+    expect(gradientGlow.data[8]).toBeGreaterThan(gradientGlow.data[10]!);
   });
 
   it('dilates and erodes alpha for spread instead of changing blur', () => {

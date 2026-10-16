@@ -41,8 +41,10 @@ kept separate from reproduced causes.
   unbounded render work. The Varve regressions above target those mechanisms
   without asserting they are current Varve defects.
 - The outer-glow alpha regression in `packages/engine/src/effects-shadow.test.ts`
-  is a Varve contract check derived from the requested brief. EffectCraft
-  #941/#1599 concern A/B midpoint controls on flat-luminance subjects; they are
-  not evidence of an outer-glow defect and should not be used to claim one.
+  is a Varve contract check derived from the requested brief. A separate
+  gradient-stop assertion checks that different blurred-alpha positions produce
+  different outer-glow pixels. EffectCraft #941/#1599 concern its A/B midpoint
+  control on flat-luminance subjects; Varve does not expose that same parameter,
+  so these checks do not claim to reproduce or resolve that exact defect.
 - Product documentation establishes intended interaction semantics, not proof
   of output fidelity. Verify each target format in its own consumer.
