@@ -141,6 +141,132 @@ else
 fi
 rm -rf "$STUB_DIR"
 
+# ── validate-pdf.sh conformance-gate behaviour ─────────────────────────────
+echo "== validate-pdf.sh conformance gate =="
+# Grounded in veraPDF's documented contract: built-in standards are chosen
+# with --flavour, and the verdict is the report's isCompliant attribute —
+# never the process exit code. The stub lets us prove a validator that exits
+# 0 with a noncompliant report cannot produce a green badge.
+VALIDATE_PDF="$ROOT/scripts/validate-pdf.sh"
+STUB_VERAPDF_DIR="$(mktemp -d)"
+FIXTURE_DIR="$(mktemp -d)"
+STUB_ARGS="$STUB_VERAPDF_DIR/args.txt"
+export STUB_ARGS
+printf '%%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%%%EOF\n' > "$FIXTURE_DIR/sample.pdf"
+
+make_verapdf_stub() {
+  local report="$1" exit_code="$2"
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'printf "%%s\\n" "$@" > "$STUB_ARGS"\n'
+    printf 'if [ "${1:-}" = "--version" ]; then echo "veraPDF stub 1.0"; exit 0; fi\n'
+    printf 'cat <<'"'"'STUBREPORT'"'"'\n%s\nSTUBREPORT\n' "$report"
+    printf 'exit %s\n' "$exit_code"
+  } > "$STUB_VERAPDF_DIR/verapdf"
+  chmod +x "$STUB_VERAPDF_DIR/verapdf"
+}
+
+run_validate() {
+  # Extra args after the fixture; stdout/stderr merged.
+  PATH="$STUB_VERAPDF_DIR:$PATH" bash "$VALIDATE_PDF" "$@" 2>&1
+}
+
+COMPLIANT_REPORT='<report><validationReport isCompliant="true"><details/></validationReport></report>'
+NONCOMPLIANT_REPORT='<report><validationReport isCompliant="false"><details/></validationReport></report>'
+
+# The false-green killer: validator exits 0, report says noncompliant.
+make_verapdf_stub "$NONCOMPLIANT_REPORT" 0
+OUT=$(run_validate "$FIXTURE_DIR/sample.pdf" 1b --no-evidence); RC=$?
+assert_eq "noncompliant report with exit 0 still fails" "$RC" "2"
+if echo "$OUT" | grep -q "isCompliant=false"; then
+  ok "failure message cites the report verdict"
+else
+  bad "failure message should cite the report verdict (got: $OUT)"
+fi
+
+# Compliant report exits 0.
+make_verapdf_stub "$COMPLIANT_REPORT" 0
+OUT=$(run_validate "$FIXTURE_DIR/sample.pdf" 1b --no-evidence); RC=$?
+assert_eq "compliant report passes" "$RC" "0"
+
+# Exit 0 with an unreadable (non-MRR) report fails closed.
+make_verapdf_stub "hello, I am not a report" 0
+OUT=$(run_validate "$FIXTURE_DIR/sample.pdf" 1b --no-evidence); RC=$?
+assert_eq "missing compliance attribute fails closed" "$RC" "2"
+
+# Empty report fails closed.
+make_verapdf_stub "" 0
+OUT=$(run_validate "$FIXTURE_DIR/sample.pdf" 1b --no-evidence); RC=$?
+assert_eq "empty report fails closed" "$RC" "2"
+
+# Validator crash (exit 1, no report) is a validation failure, not a pass.
+make_verapdf_stub "" 1
+OUT=$(run_validate "$FIXTURE_DIR/sample.pdf" 1b --no-evidence); RC=$?
+assert_eq "validator crash fails closed" "$RC" "2"
+
+# PDF/X is refused: veraPDF cannot validate it, so no badge may be emitted.
+make_verapdf_stub "$COMPLIANT_REPORT" 0
+for p in x1a x4; do
+  OUT=$(run_validate "$FIXTURE_DIR/sample.pdf" "$p" --no-evidence); RC=$?
+  assert_eq "PDF/X profile $p refused" "$RC" "3"
+done
+OUT=$(run_validate "$FIXTURE_DIR/sample.pdf" x1a --no-evidence)
+if echo "$OUT" | grep -q "outside veraPDF"; then
+  ok "PDF/X refusal explains the scope limit"
+else
+  bad "PDF/X refusal should explain scope (got: $OUT)"
+fi
+
+# Invocation contract: --flavour carries the standard, aliases expand,
+# machine-readable format is requested. --profile must never appear.
+make_verapdf_stub "$COMPLIANT_REPORT" 0
+run_validate "$FIXTURE_DIR/sample.pdf" a2b --no-evidence >/dev/null
+if grep -qx -- "--flavour" "$STUB_ARGS" && grep -qx "2b" "$STUB_ARGS" \
+  && grep -qx -- "--format" "$STUB_ARGS" && grep -qx "xml" "$STUB_ARGS"; then
+  ok "a2b alias invokes veraPDF with --flavour 2b --format xml"
+else
+  bad "invocation should be --flavour 2b --format xml (got: $(cat "$STUB_ARGS" 2>/dev/null))"
+fi
+if grep -qx -- "--profile" "$STUB_ARGS"; then
+  bad "invocation must not pass standard names via --profile"
+else
+  ok "invocation does not misuse --profile"
+fi
+
+# Missing validator.
+OUT=$(PATH="/usr/bin:/bin" VERAPDF_CMD="verapdf-definitely-missing" bash "$VALIDATE_PDF" "$FIXTURE_DIR/sample.pdf" 2>&1); RC=$?
+assert_eq "missing veraPDF exits 1" "$RC" "1"
+if echo "$OUT" | grep -q "veraPDF not found"; then
+  ok "missing validator prints install hint"
+else
+  bad "missing validator should print install hint (got: $OUT)"
+fi
+
+# Missing input file.
+make_verapdf_stub "$COMPLIANT_REPORT" 0
+OUT=$(run_validate "$FIXTURE_DIR/absent.pdf" --no-evidence); RC=$?
+assert_eq "absent input exits 2" "$RC" "2"
+
+# Evidence archive: report + summary with input hash and verdict.
+EVID_DIR="$(mktemp -d)"
+make_verapdf_stub "$COMPLIANT_REPORT" 0
+OUT=$(VARVE_PDF_VALIDATION_EVIDENCE_DIR="$EVID_DIR" run_validate "$FIXTURE_DIR/sample.pdf" 1b); RC=$?
+assert_eq "evidence-enabled run passes" "$RC" "0"
+if [ -f "$EVID_DIR/sample.pdf.1b."*.report.xml ] && [ -f "$EVID_DIR/sample.pdf.1b."*.summary.txt ]; then
+  ok "evidence report and summary archived"
+else
+  bad "evidence files missing in $EVID_DIR (got: $OUT)"
+fi
+if grep -q "input_sha256:" "$EVID_DIR"/sample.pdf.1b.*.summary.txt 2>/dev/null \
+  && grep -q "verdict: compliant" "$EVID_DIR"/sample.pdf.1b.*.summary.txt 2>/dev/null \
+  && grep -q "flavour: 1b" "$EVID_DIR"/sample.pdf.1b.*.summary.txt 2>/dev/null; then
+  ok "evidence summary records hash, verdict, flavour"
+else
+  bad "evidence summary should record hash, verdict, flavour"
+fi
+
+rm -rf "$STUB_VERAPDF_DIR" "$FIXTURE_DIR" "$EVID_DIR"
+
 # ── shell syntax of every CI-relevant shell script ──────────────────────────
 echo "== shell syntax (bash -n) =="
 for f in "$CI_LOCAL" "$INSTALL_CI" \
