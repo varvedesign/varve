@@ -593,6 +593,63 @@ Checked while auditing the key and **not** a gap: document-level soft proofing
 proof toggle is part of the render revision, so no IR invalidation is needed),
 and visibility, clip/mask and blend fields (already covered).
 
+## Worker-bitmap reprojection is for camera changes only (2026-10-16)
+
+The render path may put the last worker bitmap on screen to smooth *camera*
+movement, before the worker's fresh frame arrives. That is a loan against a
+frame that is on its way, and it is only valid while the bitmap still describes
+the current **document**.
+
+The branch used to be chosen from the camera delta alone:
+
+```ts
+const delta = workerBitmapDelta(wb.camera, current, vp, dpr);
+if (delta) { compositeRasterLayer(wb.bitmap, delta) }   // skips the fresh replay
+else       { drawVectorItems(proofedIr, ...) }
+```
+
+`workerBitmapDelta` returns an affine whenever the two camera transforms differ,
+*including the identity* when they do not (it returns `null` only for a singular
+previous transform). So an unchanged camera produced a truthy `[1,0,0,1,0,0]`,
+the pre-edit bitmap was composited, and the fresh IR replay was skipped. A brush
+stroke changes the document and leaves the camera alone, so this was the normal
+painting case, not an edge case: the ink was committed while the canvas kept the
+previous revision's pixels. Captured frame record for the stroke:
+
+```
+docVersion 2, renderPath worker-cached, redrawReason geometry-change,
+wasDirty true, partialRedraw true, dirtyRects 5,
+engineNodeComputes 1, replayMs 0.1ms
+```
+
+Five dirty rects covering the new ink, filled from the old bitmap with no
+replay. `reprojectableWorkerDelta(docIsCurrent, delta)` now returns the delta
+only when the bitmap was rendered for the current document, so a document change
+falls through to the authoritative vector replay. Camera smoothing is unchanged.
+
+It only became frequently observable once worker replies started arriving sooner
+(the raster tile transport work), because the branch is reachable only when a
+bitmap exists at the moment of a document change.
+
+### Cross-renderer display rounding (declared, measured)
+
+The same-state oracle asserts exact equality whenever both compared surfaces
+were painted by the *same* renderer. It is not exact across renderers: the render
+worker draws into an `OffscreenCanvas` while an authoritative redraw runs on the
+main-thread canvas, so a raster layer at a fractional device offset
+(`panX: -295.5` in the captured run) is resampled by each and they round
+differently. Measured: 845 of 409,266 pixels (0.2%) with `maxChannelDelta: 1`,
+bounded to the stroke's own box.
+
+That is the "justified local tolerance" the project allows between backends, and
+it is deliberately not allowed to reach authored output — tile bytes and the
+canonical document hash are verified exactly by their own tests. The oracle
+therefore bounds a cross-renderer comparison at ±1 and a small fraction of the
+surface and reports the measured numbers, while a same-renderer comparison stays
+exact. A stale frame (the class the oracle exists to catch: a blank canvas where
+a stroke should be) exceeds that bound by orders of magnitude, and coarser
+differences still fail.
+
 ## Known Gaps
 
 - **CI never exercises the real WebGPU rendering path (2026-07-11).** `.github/workflows/ci.yml`'s `rust`/`js` matrix runs on GitHub-hosted `ubuntu-latest`/`macos-latest`/`windows-latest` — none provide real GPU hardware. `packages/compositor/src/webgpu/golden.test.ts`'s `native WebGPU path renders without error` test self-skips via `it.skipIf(navigator.gpu === undefined)`, which is always true in Vitest/jsdom. The `e2e` job runs real Chromium via Playwright, but GitHub-hosted runners give headless Chromium no GPU passthrough either — at best it falls back to a software rasterizer (the same class of adapter Task 16 / ADR-0003 now declines at the app level), so even E2E doesn't validate the hardware-accelerated path. "Tests pass" and "E2E passes" should not be read as "the WebGPU path works on real hardware." See `docs/architecture/webgpu-manual-verification.md` for the manual check to run before relying on this path in a release. Resolving this properly (a GPU-enabled CI runner) is an infra/cost decision, not made here.
