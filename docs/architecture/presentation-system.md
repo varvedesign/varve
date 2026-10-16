@@ -5,6 +5,26 @@ same scene, editing tools, history, and persistence are used for general Design
 work and slide authoring. Deck membership does not alter frame ownership, page
 placement, paint order, or canvas coordinates.
 
+## Implementation status — 2026-10-16
+
+Since the 2026-09-29 preview, delivery is no longer a static image swap.
+Slide entries and decks carry authored transitions (fade, slide, push, wipe,
+morph) with exact fractional durations and ordered object builds (entrance,
+exit, emphasis, and by-paragraph steps), edited in the Slides panel and played
+by a deterministic show director. Delivery renders on canvas: static phases
+draw the shared capture, transitions composite captures, and morph plus build
+phases render live through the engine with per-node overrides. A presenter
+console shows private notes, elapsed and per-slide timers, the next slide,
+build progress, and pause/resume — and mounts only in presenter view, so the
+audience DOM never carries notes. Handouts impose slides onto A4/Letter
+pages (1/2/3/4/6/9-up, ruled note lines for the classic 3-up, real page-number
+text) as an explicitly raster output. Eight original built-in themes
+materialize as document variables plus heading/body text styles (fonts are an
+explicit opt-in that respects local style overrides), and the built-in layout
+catalog is eleven sources. PPTX interoperability has a feasibility assessment
+and phased plan (docs/research/pptx-fidelity-assessment-2026-10-16.md);
+Varve still does not read or write `.pptx`.
+
 ## Implementation status — 2026-09-29
 
 The current source-build preview implements the versioned deck metadata,
@@ -42,10 +62,11 @@ geometry. Text and rich runs, target fills, effects, image-fill crop intent,
 notes, identities, and unmatched artwork stay on the slide. Managed geometry
 baselines preserve local overrides. Source edits are detected against the
 captured geometry and must be explicitly refreshed before reapplication.
-Removing a layout source preserves its materialized slide artwork. Seven
+Removing a layout source preserves its materialized slide artwork. Eleven
 original sources are generated as ordinary editable frames on the dedicated
 `Presentation Layouts` Design Canvas: title/section, body, image/text,
-comparison, evidence, process, and conclusion. They use placeholder text,
+comparison, evidence, process, conclusion, title-only, two content columns,
+picture with caption, and blank. They use placeholder text,
 native vector geometry, and the bundled default artwork font, so source
 creation needs no network or external stock asset. The author can also register
 any ordinary non-slide frame as a layout source. Every mapped object reports
@@ -176,11 +197,14 @@ the currently resolved colour into the node and removes the binding — the same
 contract `unlinkStyleFromNode` keeps for text styles — so appearance is
 identical while the object stops following the brand.
 
-Typography is not applied yet: `PresentationTheme.textStyles` stays
-schema-ready, and the text-style resolver retains font references, paragraph
-spacing, vertical alignment, and zero-valued style properties, but a per-role
-text style changes font metrics and therefore reflow, which needs its own
-review. Theme fragments and layout-source IDs also still need to join the
+Typography is available as an explicit opt-in: built-in presets materialize
+heading/body text styles, and `presentation.theme.apply` accepts
+`applyFonts` only when the author asks for it, because role typography
+reflows text. The style pass follows the same local-override rule as colour:
+a node carrying a foreign text style keeps it; nodes carrying no style or a
+theme-owned one follow the theme's roles. Family variety beyond the bundled
+artwork family needs licensed typefaces (see the PPTX assessment's packaging
+note) and is not faked with unavailable system fonts. Theme fragments and layout-source IDs also still need to join the
 existing cross-document clipboard resource maps; paste must retain local
 artwork without creating deck membership.
 
@@ -201,6 +225,41 @@ scale uniformly and centre, while Stretch scales each axis independently and
 says so before anything commits. Frame transforms are never touched, so canvas
 positions are unchanged, and an anisotropic conversion round-trips exactly with
 its inverse.
+
+## Transitions, builds, and the show director
+
+Authored motion lives on the metadata: `PresentationSlideEntry.transition`
+(the transition into that slide), `PresentationDeck.defaultTransition`, and
+`PresentationSlideEntry.builds` (ordered steps with click/with/after-previous
+triggers, delays, exact fractional durations, and optional by-paragraph
+ranges). Metadata schema version 2 accepts version 1 envelopes on load.
+
+Playback is a pure director: one monotonic show clock; slide transitions and
+build click-groups are sampled from elapsed time, never accumulated deltas. A
+click during a transition completes only the transition; while a build plays
+it completes only that effect; the first non-click group is automatic and
+starts exactly once when the transition ends. Fractional durations are never
+rounded on any path — a 333.5 ms transition lasts 333.5 ms everywhere.
+Reduced motion keeps the logical sequence with immediate effects and a cut
+transition, and never rewrites authored timings.
+
+Morph correspondence matches only exact, unique, same-kind names; ambiguous
+or cross-kind names match nothing, unmatched arrivals fade in at their final
+geometry, unmatched departures fade out in place, and matched pairs
+interpolate decomposed affines with shortest-arc rotation so nothing spins
+the long way or crosses a singular matrix. By-paragraph builds patch logical
+paragraph ranges in reading order, so a one-line rewrap never splits a build.
+
+## Presenter console
+
+Presenter view is a role of the delivery surface, not a second editor: the
+current slide's notes (read-only), elapsed and per-slide timers on the shared
+show clock, the next slide's prefetched preview, build progress, and
+pause/resume. The console mounts only while presenter view is active;
+switching to the audience surface removes notes from the DOM entirely, and
+entering fullscreen forces the audience surface. A separate OS presenter
+window (per-monitor choice) remains future work; the browser-window path is
+documented in the PPTX assessment's delivery notes rather than simulated.
 
 ## Rendering and delivery
 
@@ -224,6 +283,11 @@ Initial delivery outputs are:
 - One compressed multipage raster screen PDF, with one page per included slide
   and explicit pixel-to-point mapping for mixed slide sizes.
 - One ordered PNG archive whose filenames encode stable sequence positions.
+- One handout PDF that imposes the same raster slides onto A4 or Letter paper
+  (1/2/3/4/6/9-up, optional ruled note-taking lines, slide numbers, and
+  footer text as real base-14 text). Handout slides stay raster; the
+  appearance-only disclosure applies to them unchanged. Vector slide export
+  through the native print pipeline remains a separate, not-yet-wired step.
 
 The export captures one document revision, processes slides sequentially under
 the existing resource budget, and reports success only after the save adapter
@@ -241,6 +305,10 @@ and missing slide alt descriptions. Font availability, image readiness,
 contrast, output support, and detailed readability remain future checks.
 Titles, language, alt text, and reading order are stored separately from paint
 order.
+
+PPTX interoperability is scoped by
+[`docs/research/pptx-fidelity-assessment-2026-10-16.md`](../research/pptx-fidelity-assessment-2026-10-16.md):
+phased, disclosed per part class, and not started.
 
 The regression matrix in
 [`docs/audits/presentation-workflow-defects-2026-09-29.md`](../audits/presentation-workflow-defects-2026-09-29.md)

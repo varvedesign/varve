@@ -1106,10 +1106,18 @@ Invariants:
 5. PPTX interoperability stays deferred until its own feasibility and fidelity
    assessment.
 
-Open work: typography theming (`theme.textStyles`), formatting (non-geometry)
-inheritance and reset, cross-document layout/theme clipboard mapping, and
-image/mask/effect export fidelity cases. PPTX remains deferred until its own
-feasibility and fidelity assessment.
+Open work: formatting (non-geometry) inheritance and reset, cross-document
+layout/theme clipboard mapping, image/mask/effect export fidelity cases, a
+separate OS presenter window, and vector slide PDF via `varve-print`.
+Typography theming exists as an explicit `applyFonts` opt-in over built-in
+theme presets. Authored slide transitions and builds (presentation metadata
+schema 2) play in delivery through a deterministic show director
+(`packages/editor/src/components/Presentation/show/`); morph matches only
+unique same-kind names and fades unmatched objects in place. Handout export
+imposes raster slides via `packages/scene/src/presentation/handouts.ts`.
+PPTX: the blanket deferral is replaced by the phased assessment in
+`docs/research/pptx-fidelity-assessment-2026-10-16.md`; Varve still does not
+read or write `.pptx`, and must not claim to until those phases verify.
 
 ## Collaboration System
 
