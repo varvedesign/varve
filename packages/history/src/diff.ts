@@ -52,6 +52,7 @@ export type DiffEntityKind =
   | 'guide'
   | 'swatch'
   | 'iconAsset'
+  | 'annotation'
   | 'font'
   | 'spotColor'
   | 'spotLibrary';
@@ -145,6 +146,9 @@ const TOP_LEVEL_COLLECTIONS: Record<string, CollectionSpec> = {
   styles: { entityType: 'style' },
   masters: { entityType: 'master' },
   iconAssets: { entityType: 'iconAsset' },
+  // Keyed by annotation id, so one annotation edit is one entity change rather
+  // than a whole-document replacement.
+  annotations: { entityType: 'annotation' },
   assets: { entityType: 'asset' },
   stateMachines: { entityType: 'stateMachine' },
   pages: { entityType: 'page', ordered: true },
@@ -709,6 +713,8 @@ function entityLabel(entityType: DiffEntityKind): string {
       return 'Spot library';
     case 'font':
       return 'Font';
+    case 'annotation':
+      return 'Annotation';
     case 'document':
       return 'Document';
   }

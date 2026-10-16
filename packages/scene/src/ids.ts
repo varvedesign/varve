@@ -25,6 +25,7 @@ export const ID_PREFIXES = {
   textStyle: 'ts',
   effectStyle: 'es',
   layoutStyle: 'ls',
+  annotation: 'an',
 } as const;
 
 export type IdNamespace = keyof typeof ID_PREFIXES;

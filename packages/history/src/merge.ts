@@ -877,6 +877,8 @@ function entityKindLabel(entityType: DiffEntityKind): string {
       return 'Spot library';
     case 'font':
       return 'Font';
+    case 'annotation':
+      return 'Annotation';
     case 'document':
       return 'Document';
   }

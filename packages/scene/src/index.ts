@@ -9,6 +9,8 @@
 export * from './adjustmentNormalization';
 export * from './adjustmentScope';
 export * from './adjustments';
+// Design annotations — canonical, durable handoff notes.
+export * from './annotations';
 export * from './assets';
 export * from './auditAdapter';
 export * from './auditEngine';
@@ -117,6 +119,7 @@ export * from './motion-types';
 export * from './newDocument';
 export * from './nodeBounds';
 export * from './nodeChanges';
+export * from './nodeResize';
 export * from './operations';
 export * from './pageLayout';
 export * from './pageNumbering';
