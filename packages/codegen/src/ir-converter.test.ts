@@ -26,8 +26,9 @@ describe('sceneToIR', () => {
     expect(ir.metadata.documentId).toBe(doc.id);
     expect(ir.metadata.name).toBe('Test Document');
     expect(ir.rootIds).toHaveLength(1);
-    // IR converter processes children recursively, so we should have at least the root node
-    expect(Object.keys(ir.nodes)).toHaveLength(1);
+    // The flat node index registers every converted node, not just roots —
+    // consumers address nodes by id (previously children were unreachable).
+    expect(Object.keys(ir.nodes)).toHaveLength(2);
   });
 
   it('infers semantic roles from node names', () => {

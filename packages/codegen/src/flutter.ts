@@ -204,9 +204,93 @@ function emitShape(node: SceneNode, depth: number, opts?: FlutterExportOptions):
   return `${ind}Positioned(\n${ind}  left: ${pos.x},\n${ind}  top: ${pos.y},\n${ind}  child: ${rotatedChild(node, containerBlock(node, ind, 2, opts), depth + 1)},\n${ind})`;
 }
 
+/** FontWeight name for a numeric weight (clamped to the w100-w900 scale). */
+function flutterFontWeight(weight: number): string {
+  const clamped = Math.max(100, Math.min(900, Math.round(weight / 100) * 100));
+  return `FontWeight.w${clamped}`;
+}
+
+/**
+ * TextStyle parameters for one rich-text run: only properties that differ
+ * from the text node's own style (TextSpan styles merge onto the parent).
+ */
+function flutterRunStyle(
+  format: import('@varve/scene').CharacterFormat | undefined,
+  node: TextNode,
+): string[] {
+  if (!format) return [];
+  const parts: string[] = [];
+  if (format.fontFamily && format.fontFamily !== node.fontFamily) {
+    parts.push(`fontFamily: ${dartString(format.fontFamily)}`);
+  }
+  if (format.fontSize !== undefined && format.fontSize !== node.fontSize) {
+    parts.push(`fontSize: ${format.fontSize}`);
+  }
+  if (format.fontWeight !== undefined && format.fontWeight !== node.fontWeight) {
+    parts.push(`fontWeight: ${flutterFontWeight(format.fontWeight)}`);
+  }
+  if (format.fontStyle === 'italic') parts.push('fontStyle: FontStyle.italic');
+  if (format.color) {
+    const hex = colorToHex(format.color as never);
+    // Flutter colors are packed ARGB — an opaque 6-digit RGB needs the FF
+    // alpha byte or every run renders fully transparent.
+    parts.push(`color: Color(0xFF${hex.slice(1)})`);
+  }
+  if (format.lineHeight !== undefined && format.lineHeight !== node.lineHeight) {
+    parts.push(`height: ${format.lineHeight}`);
+  }
+  if (format.letterSpacing !== undefined && format.letterSpacing !== (node.letterSpacing ?? 0)) {
+    parts.push(`letterSpacing: ${format.letterSpacing}`);
+  }
+  if (format.textDecoration === 'underline') parts.push('decoration: TextDecoration.underline');
+  else if (format.textDecoration === 'line-through') {
+    parts.push('decoration: TextDecoration.lineThrough');
+  }
+  return parts;
+}
+
 function emitText(node: TextNode, depth: number, opts?: FlutterExportOptions): string {
   if (rasterFor(node, opts)) return emitRasterImage(node, depth, opts);
   const ind = '  '.repeat(depth);
+  const paragraphs = node.richText?.paragraphs;
+
+  if (paragraphs && paragraphs.length > 0) {
+    // One TextSpan per run (deltas carry their own TextStyle, which merges
+    // onto the base style); paragraph boundaries are newline spans so the
+    // child list stays a single selectable Text.
+    const spans: string[] = [];
+    paragraphs.forEach((p, pIndex) => {
+      if (pIndex > 0) {
+        spans.push(`${ind}    const TextSpan(text: '\\n'),`);
+      }
+      const runs = (p.runs ?? []).filter((run) => run.text.length > 0);
+      for (const run of runs) {
+        const styleParts = flutterRunStyle(run.format, node);
+        const styleArg =
+          styleParts.length > 0
+            ? `style: TextStyle(\n${ind}      ${styleParts.join(`,\n${ind}      `)},\n${ind}    ),`
+            : '';
+        spans.push(
+          `${ind}    TextSpan(text: ${dartString(run.text)}${styleArg ? `, ${styleArg}` : ''}),`,
+        );
+      }
+    });
+    const rich = [
+      `${ind}Text.rich(`,
+      `${ind}  TextSpan(`,
+      `${ind}    children: [`,
+      spans.join('\n'),
+      `${ind}    ],`,
+      `${ind}  ),`,
+      `${ind}  style: TextStyle(`,
+      `${ind}    fontSize: ${node.fontSize ?? 16},`,
+      `${ind}    color: ${colorValue(node, opts)},`,
+      `${ind}  ),`,
+      `${ind})`,
+    ].join('\n');
+    return rotatedChild(node, rich, depth);
+  }
+
   const text = [
     `${ind}Text(`,
     `${ind}  ${dartString(node.text ?? '')},`,

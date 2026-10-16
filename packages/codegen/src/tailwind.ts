@@ -106,6 +106,47 @@ function twFillLayers(node: SceneNode): TwPaintLayer[] {
   return layers;
 }
 
+/**
+ * Tailwind utilities for one rich-text run, emitting only properties that
+ * differ from the text node's own typography — the wrapper already carries
+ * the node style, so identical runs contribute no classes.
+ */
+function runClassesDelta(
+  format: import('@varve/scene').CharacterFormat | undefined,
+  node: import('@varve/scene').TextNode,
+): string[] {
+  if (!format) return [];
+  const classes: string[] = [];
+  if (format.fontFamily && format.fontFamily !== node.fontFamily) {
+    classes.push(`font-['${format.fontFamily.replace(/ /g, '_')}']`);
+  }
+  if (format.fontSize !== undefined && format.fontSize !== node.fontSize) {
+    classes.push(`text-[${format.fontSize}px]`);
+  }
+  if (format.fontWeight !== undefined && format.fontWeight !== node.fontWeight) {
+    classes.push(`font-[${format.fontWeight}]`);
+  }
+  if (format.fontStyle === 'italic') classes.push('italic');
+  if (format.color) {
+    const runHex = hexOf(format.color as { r?: number; g?: number; b?: number });
+    const nodeHex = hexOf(node.fill as { r?: number; g?: number; b?: number });
+    // Identical color is the node default; the wrapper already carries it.
+    if (runHex !== nodeHex) classes.push(`text-[${runHex}]`);
+  }
+  if (format.lineHeight !== undefined && format.lineHeight !== node.lineHeight) {
+    classes.push(`leading-[${format.lineHeight}]`);
+  }
+  if (format.letterSpacing !== undefined && format.letterSpacing !== (node.letterSpacing ?? 0)) {
+    classes.push(`tracking-[${format.letterSpacing}px]`);
+  }
+  if (format.textCase === 'uppercase') classes.push('uppercase');
+  else if (format.textCase === 'lowercase') classes.push('lowercase');
+  else if (format.textCase === 'capitalize') classes.push('capitalize');
+  if (format.textDecoration === 'underline') classes.push('underline');
+  else if (format.textDecoration === 'line-through') classes.push('line-through');
+  return classes;
+}
+
 /** Combined box-shadow arbitrary value, inset entries included. */
 function twShadowValue(effects: SceneNode['effects']): string | null {
   const parts = (effects ?? [])
@@ -678,7 +719,41 @@ export function exportNodeToTailwind(
     if (current.kind === 'text') {
       // A JSX expression container escapes its own contents, so the design
       // text is encoded exactly once — no `&amp;` visible in the output.
-      return `${pad}<span className="${classStr}">{${JSON.stringify(current.text ?? '')}}</span>`;
+      const tn = current as import('@varve/scene').TextNode;
+      if (tn.textAlign && tn.textAlign !== 'left') {
+        b.classes.push(`text-${tn.textAlign}`);
+      }
+      const dir =
+        tn.direction === 'rtl' ? ' dir="rtl"' : tn.direction === 'ltr' ? ' dir="ltr"' : '';
+      const paragraphs = tn.richText?.paragraphs;
+      if (paragraphs && paragraphs.length > 0) {
+        // Paragraph structure becomes real elements; a deliberate blank
+        // paragraph renders as <p><br /></p> so the empty line survives.
+        const pHtml = paragraphs
+          .map((p) => {
+            const pCls: string[] = [];
+            if (p.format?.textAlign === 'center') pCls.push('text-center');
+            else if (p.format?.textAlign === 'right') pCls.push('text-right');
+            else if (p.format?.textAlign === 'justify') pCls.push('text-justify');
+            const pDir = p.format?.direction === 'rtl' ? ' dir="rtl"' : '';
+            const cls = pCls.length > 0 ? ` className="${pCls.join(' ')}"` : '';
+            const visibleRuns = (p.runs ?? []).filter((run) => run.text.length > 0);
+            if (visibleRuns.length === 0) return `${pad}  <p${cls}${pDir}><br /></p>`;
+            const inner = visibleRuns
+              .map((run) => {
+                const runCls = runClassesDelta(run.format, tn);
+                const text = JSON.stringify(run.text);
+                return runCls.length > 0
+                  ? `<span className="${runCls.join(' ')}">{${text}}</span>`
+                  : `{${text}}`;
+              })
+              .join('');
+            return `${pad}  <p${cls}${pDir}>${inner}</p>`;
+          })
+          .join('\n');
+        return `${pad}<div className="${classStr}"${dir}>\n${pHtml}\n${pad}</div>`;
+      }
+      return `${pad}<span className="${classStr}"${dir}>{${JSON.stringify(tn.text ?? '')}}</span>`;
     }
 
     const children =

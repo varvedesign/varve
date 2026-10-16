@@ -34,14 +34,12 @@ export interface SwiftUIExportOptions {
 }
 
 function swiftString(text: string): string {
-  // Swift extended-escaping is overkill here; a plain escaped literal keeps
-  // the output readable. Backslash, quote, and the interpolation syntax are
-  // the only characters that can change the meaning of the literal.
+  // Escaping the backslash first is what makes everything else safe: after
+  // it, no `\(` interpolation sequence can form, so parens, dollars, and
+  // braces pass through as plain characters.
   return `"${text
     .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"')
-    .replace(/\$/g, '\\$')
-    .replace(/\(/g, '\\(')
     .replace(/\n/g, '\\n')
     .replace(/\r/g, '\\r')
     .replace(/\t/g, '\\t')}"`;
@@ -157,6 +155,54 @@ function emitShape(node: SceneNode, depth: number, opts?: SwiftUIExportOptions):
   return `${ind}${shapeExpr}\n${ind}  .frame(width: ${pos.w}, height: ${pos.h})\n${ind}  .position(x: ${pos.x + pos.w / 2}, y: ${pos.y + pos.h / 2})${shadow ? `\n${ind}  ${shadow}` : ''}`;
 }
 
+/** SwiftUI Font.Weight name for a numeric CSS weight. */
+function swiftFontWeight(weight: number): string {
+  const names: Record<number, string> = {
+    100: '.thin',
+    200: '.extraLight',
+    300: '.light',
+    400: '.regular',
+    500: '.medium',
+    600: '.semibold',
+    700: '.bold',
+    800: '.heavy',
+    900: '.black',
+  };
+  const clamped = Math.max(100, Math.min(900, Math.round(weight / 100) * 100));
+  return names[clamped] ?? '.regular';
+}
+
+/**
+ * Per-run modifiers that differ from the text node's own typography. The
+ * concatenated `Text`'s trailing `.font`/`.foregroundColor` provide the
+ * base; run modifiers win where present.
+ */
+function swiftRunModifiers(
+  format: import('@varve/scene').CharacterFormat | undefined,
+  node: TextNode,
+): string {
+  if (!format) return '';
+  let mods = '';
+  if (format.fontWeight !== undefined && format.fontWeight !== node.fontWeight) {
+    mods += `.fontWeight(${swiftFontWeight(format.fontWeight)})`;
+  }
+  if (format.fontStyle === 'italic') mods += '.italic()';
+  if (format.color) {
+    const [r, g, b, a] = managedColorToRgba(format.color as never);
+    const [nr, ng, nb, na] = managedColorToRgba(node.fill as never);
+    // Identical ink is the node default; the trailing base modifier carries it.
+    if (r !== nr || g !== ng || b !== nb || a !== na) {
+      mods += `.foregroundColor(Color(red: ${(r / 255).toFixed(3)}, green: ${(g / 255).toFixed(3)}, blue: ${(b / 255).toFixed(3)}, opacity: ${(a / 255).toFixed(3)}))`;
+    }
+  }
+  if (format.fontSize !== undefined && format.fontSize !== node.fontSize) {
+    mods += `.font(.system(size: ${format.fontSize}))`;
+  }
+  if (format.textDecoration === 'underline') mods += '.underline()';
+  else if (format.textDecoration === 'line-through') mods += '.strikethrough()';
+  return mods;
+}
+
 function emitText(node: TextNode, depth: number, opts?: SwiftUIExportOptions): string {
   const ind = '  '.repeat(depth);
   const raster = rasterFor(node, opts);
@@ -164,6 +210,25 @@ function emitText(node: TextNode, depth: number, opts?: SwiftUIExportOptions): s
     const pos = computeNodePos(node);
     return `${ind}${rasterImageExpr(node, opts)}\n${ind}  .frame(width: ${pos.w}, height: ${pos.h})\n${ind}  .position(x: ${pos.x + pos.w / 2}, y: ${pos.y + pos.h / 2})`;
   }
+
+  const paragraphs = node.richText?.paragraphs;
+  if (paragraphs && paragraphs.length > 0) {
+    // SwiftUI concatenates styled Text values with `+`; each run carries
+    // only its deltas, and paragraph boundaries are newline parts so the
+    // result is one selectable Text view.
+    const parts: string[] = [];
+    paragraphs.forEach((p, pIndex) => {
+      if (pIndex > 0) parts.push(`Text("\\n")`);
+      const runs = (p.runs ?? []).filter((run) => run.text.length > 0);
+      for (const run of runs) {
+        parts.push(`Text(${swiftString(run.text)})${swiftRunModifiers(run.format, node)}`);
+      }
+    });
+    const shadow = shadowModifiers(node);
+    const concatenated = parts.join(' +\n   ');
+    return `${ind}(${concatenated})\n${ind}  .font(.system(size: ${node.fontSize ?? 16}))\n${ind}  .foregroundColor(${colorValue(node, opts)})${shadow ? `\n${ind}  ${shadow}` : ''}`;
+  }
+
   const shadow = shadowModifiers(node);
   return `${ind}Text(${swiftString(node.text ?? '')})\n${ind}  .font(.system(size: ${node.fontSize ?? 16}))\n${ind}  .foregroundColor(${colorValue(node, opts)})${shadow ? `\n${ind}  ${shadow}` : ''}`;
 }

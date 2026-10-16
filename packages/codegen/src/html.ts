@@ -13,6 +13,7 @@
  */
 
 import { openTypeFeaturesToCss } from '@varve/shared';
+import { escapeHtml, richTextToHtml, sizeValue } from './html-text';
 import type {
   AppearanceSpec,
   FidelityWarning,
@@ -39,20 +40,6 @@ export interface HtmlExportOptions {
   reducedMotion?: boolean;
   /** Indent string. Default '  '. */
   indent?: string;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function sizeValue(px: number, unit: string, base: number): string {
-  if (unit === 'rem' && base > 0) return `${(px / base).toFixed(3)}rem`;
-  return `${px}px`;
 }
 
 function colorValue(fill: FillSpec): string {
@@ -301,6 +288,8 @@ function typographyToCss(typo: TypographySpec, unit: string, base: number): Reco
   }
   props['font-size'] = sizeValue(typo.fontSize, unit, base);
   props['font-weight'] = String(typo.fontWeight);
+  if (typo.fontStyle && typo.fontStyle !== 'normal') props['font-style'] = typo.fontStyle;
+  if (typo.color) props.color = typo.color;
 
   if (typo.lineHeight && typo.lineHeight !== 1.4) {
     props['line-height'] = String(typo.lineHeight);
@@ -470,7 +459,7 @@ export function exportIrToHtml(
     // Content
     let content = '';
     if (node.content.type === 'text' && node.content.text) {
-      content = escapeHtml(node.content.text.value);
+      content = richTextToHtml(node.content.text, node.appearance.typography, unit, base);
     } else if (node.content.type === 'image' && node.content.image) {
       const img = node.content.image;
       const alt = img.alt ? ` alt="${escapeHtml(img.alt)}"` : ' role="presentation"';
