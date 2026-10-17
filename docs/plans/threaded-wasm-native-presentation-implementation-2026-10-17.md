@@ -85,3 +85,31 @@ Focused checks on 2026-10-17 confirmed:
   commits mean no reset, branch rewrite, push, or blanket staging is safe.
   Any integration beyond local `master` requires a separately reviewed,
   scoped change set and exact remote-base reconciliation.
+
+## Progress from the 2026-10-17 review
+
+- `311791fed` adds the standalone Wayland GLArea spike, OS-level captures, and
+  its initial qualified audit.
+- `9bd42310c` adds window-only crops and text copies of the run logs, updates
+  ADR-0244 and the native-render guide with the measured outcome, and records
+  the implementation checkpoints here.
+- `233b98964` fixes the spike's `--interactive` status message. The isolated
+  crate passes `cargo fmt --check`, `cargo check --locked`, and
+  `cargo build --locked`; a launch prints the real-pointer instruction and
+  creates a GL 4.6 context. The running desktop automation surface did not
+  expose a native window target, so no manual pointer click was performed.
+- The committed Wayland/XWayland captures were inspected at window scale. They
+  show native pixels through transparent WebView regions and HTML chrome above
+  the GL area. One capture also shows the documented color-phase mismatch
+  under partial damage. This is compositing evidence for the standalone spike,
+  not an editor-frame or Tauri integration result.
+- `pnpm verify:affected --since 0024e633b` passes its scoped plan: touched-file
+  format/lint were skipped because no Biome-compatible files changed;
+  `audit:emoji` and `audit:docs` passed (1168 docs, 854 links, 182 ADRs).
+  `pnpm verify:commit` also passed for both scoped commits. The broader dirty
+  worktree planner still reports a full-suite escalation from other staged or
+  uncommitted workspace/toolchain and validation-infrastructure changes; those
+  were kept out of these commits.
+- The marketing copy cross-check found no false native-presenter or threaded
+  WASM claim, so the website was not changed. Recheck if a product capability
+  later passes its runtime and visual acceptance gate.
