@@ -10,7 +10,7 @@ import {
   reorderGridTrack,
   resizeGridTrack,
 } from '@varve/layout';
-import type { Document, GridTrack, LayoutStyle } from '@varve/scene';
+import type { Document, GridItemPlacement, GridTrack, LayoutStyle } from '@varve/scene';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import './GridTrackEditor.css';
@@ -97,7 +97,14 @@ export function GridTrackEditor({ frameId, layoutStyle, document }: GridTrackEdi
   }
 
   function moveTrack(axis: GridTrackAxis, trackId: string, targetIndex: number) {
-    const next = reorderGridTrack(stableStyle, axis, frameId, trackId, targetIndex);
+    const frame = document.nodes[frameId];
+    const placements =
+      frame?.kind === 'frame'
+        ? frame.children
+            .map((childId) => document.nodes[childId]?.gridPlacement)
+            .filter((placement): placement is GridItemPlacement => placement != null)
+        : [];
+    const next = reorderGridTrack(stableStyle, axis, frameId, trackId, targetIndex, placements);
     if (next) commit(next);
   }
 
