@@ -318,10 +318,16 @@ The stage is additive and opt-in:
 1. **Text is not rendered natively.** The largest coverage gap; see ADR-0244
    open item 1 for the planned approach and the rejected alternative.
 2. **Strokes are not rendered natively.** Refused, never dropped.
-3. **`Primitive::Path.contours` is not lowered.** An IR contract gap that must
-   be closed before admission widens.
-4. **No native presentation on any platform.** Linux/Wayland is the hardest
-   case and is blocked on an unproven mechanism; see ADR-0244.
+3. **Compound contours are now lowered.** The Rust IR carries `contours` and
+   the shared path helpers preserve compound fill semantics through admission;
+   the compatibility and regression coverage are recorded in the
+   `feat(ir): carry compound-path contours through the Rust IR and native
+   admission` change.
+4. **No application-integrated native presenter.** The GTK `Overlay` +
+   `GLArea` mechanism has passed a Wayland compositing spike, but real-pointer
+   DOM input and the Tauri/Wry parent-chain behavior remain unverified. No
+   native presenter is integrated on any platform; see ADR-0244 and the
+   [Wayland spike evidence](../audits/wayland-glayer-spike-2026-10-16.md).
 5. **MSAA 4× is expensive on integrated GPUs** for heavy frames.
 6. **No Canvas2D baseline measurement**, so no performance claim.
 7. **`Primitive::Path` requires at least 2 points** and contours below 3

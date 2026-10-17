@@ -1,0 +1,13 @@
+[gl] context ready: GL 4.6
+[env] WAYLAND_DISPLAY=Some("wayland-0") DISPLAY=Some(":0") GDK_BACKEND=Some("wayland")
+[gl] frame 1 rendered
+[auto] GDK click on webview-centre at (450,320)
+[auto] simulate_click(webview-centre) -> false
+[auto] GDK click on webview-header at (450,130)
+[auto] simulate_click(webview-header) -> false
+[auto] GDK click on glarea-outside-webview at (40,600)
+[auto] simulate_click(glarea) -> false
+[auto] resizing window to (1120,760)
+[auto] GDK click on webview-after-resize at (450,320)
+[auto] simulate_click(webview-after-resize) -> false
+[summary] webviewDom={"clicks":0,"moves":0}

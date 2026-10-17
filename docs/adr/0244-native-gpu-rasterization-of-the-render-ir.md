@@ -155,21 +155,25 @@ WebGPU at all (`ENABLE_WEBGPU` is `PRIVATE OFF` and no GTK/WPE option enables
 it), so the browser GPU path is unavailable there too. The ADR records this as a
 **platform limitation with a named spike**, not as a design preference:
 
-- **Linux:** a `gtk::Overlay` + `gtk::GLArea` spike (wry ships
-  `examples/gtk_opengl.rs`, which is not X11-gated) to establish whether a
-  native surface composites above or below a `WebKitWebView` on Wayland, and
-  whether input routing survives. A `wl_subsurface` handed to wgpu-Vulkan is the
-  fallback experiment; wgpu-hal passes the `wl_surface` pointer through
-  unchanged, so a sub-surface is technically acceptable, but input region,
-  z-order, and frame-callback pacing are unverified.
+- **Linux:** the `gtk::Overlay` + `gtk::GLArea` spike ran on native Wayland.
+  It proves GL pixels below a transparent `WebKitWebView` with OS-level
+  captures; the exact result, including a partial-damage frame-clock mismatch,
+  is in [`wayland-glayer-spike-2026-10-16.md`](../audits/wayland-glayer-spike-2026-10-16.md).
+  Its synthetic input does not prove real-pointer DOM clicks, and the spike
+  excludes `tauri-runtime-wry`, so it does not establish Tauri integration.
+  `wl_subsurface` to wgpu-Vulkan remains unrun; input region, z-order, and
+  frame-callback pacing are unverified.
 - **macOS:** a `CAMetalLayer` at `zPosition = -1000` with a transparent webview,
   per the two independent shipped implementations found in the research.
 - **Windows:** an owned child HWND with its own swapchain, per the
   Steam-overlay invariants (size after the window is real, click-through,
   transparent clear, present at vsync).
 
-Until one of those is implemented **and measured**, native presentation is
-unverified and must not be claimed.
+The GLArea spike establishes a Wayland compositing mechanism, but no
+application-integrated native presenter has been implemented or measured.
+Native on-screen presentation therefore remains unverified as a Varve product
+capability and must not be claimed. The macOS and Windows experiments above,
+and the Wayland Vulkan subsurface experiment, remain unrun.
 
 ## Consequences
 

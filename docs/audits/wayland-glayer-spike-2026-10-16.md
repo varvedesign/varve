@@ -27,13 +27,16 @@ ADR-0244, "Why not the alternatives":
 
 ## Result 1 — compositing: PASS (native Wayland, OS-level capture)
 
-Captures are full-screen grabs by KDE `spectacle` while the spike ran, not
-in-process screenshots — browser-internal capture cannot see native layers.
+Captures were made by KDE `spectacle` while the spike ran, not in-process
+screenshots — browser-internal capture cannot see native layers. The committed
+PNG files are crops of the spike window from those OS-level captures; their
+pixels were not retouched.
 
-![initial](../screenshots/wayland-spike/wayland-native-initial.png)
+![initial](../screenshots/wayland-spike/wayland-native-initial-window.png)
 
 - The **native GLArea** fills the window with its animated colour sweep and the
-  fixed orange triangle (`wayland-native-initial.png`, `wayland-native-later-frame.png`).
+  fixed orange triangle (`wayland-native-initial-window.png`,
+  `wayland-native-later-frame-window.png`).
 - The **webview's opaque header** ("WEBVIEW SURFACE — HTML is above native GL")
   and **footer** (DOM counters) render **above** the GL pixels.
 - The webview's **transparent centre** shows the GL content **through it** — the
@@ -62,13 +65,13 @@ GTK-level mechanism itself survives.
 
 | Evidence | Result |
 |---|---|
-| Full auto sequence (3 webview clicks, 1 GLArea click, resize, 4th click) on native Wayland | **Completed, exit 0, no abort, three consecutive runs** (`wayland-native-run.log`) |
-| Same on XWayland (`GDK_BACKEND=x11`, where `gdk_test_simulate_button` works via XTest) | **Completed, exit 0, no abort** (`xwayland-run.log`) |
+| Full auto sequence (3 webview clicks, 1 GLArea click, resize, 4th click) on native Wayland | **Completed, exit 0, no abort, three consecutive runs** (`wayland-native-run.txt`) |
+| Same on XWayland (`GDK_BACKEND=x11`, where `gdk_test_simulate_button` works via XTest) | **Completed, exit 0, no abort** (`xwayland-run.txt`) |
 | Synthesized events accepted by GDK | `true` for every click on both backends |
 | Events reaching the web page | `pointermove` counters increment through the full stack (`moves: 7` on XWayland) — WebKit's input pipeline runs under the overlay stack |
 | DOM `click` counters | **Never incremented** from synthesized events, on any run |
 | GTK widget-level `button-press-event` handlers | Never fired from synthesized events, on any run |
-| Resize | Window resized to 1120×760; GLArea reallocated; webview recentred via the wry-style `move_` dance (`xwayland-post-resize.png`) |
+| Resize | Window resized to 1120×760; GLArea reallocated; webview recentred via the wry-style `move_` dance (`xwayland-post-resize-window.png`) |
 
 **Reading:** the crash class is absent — no click path aborts or corrupts
 anything. But `gdk_test_simulate_button`-driven clicks are **not** sufficient
@@ -99,7 +102,18 @@ therefore classified inconclusive**, and the honest statement is narrower:
   named failure to reproduce before claiming Tauri compatibility.
 - Screenshots were taken with KDE `spectacle` (compositor capture); WebKitGTK
   content in them is the real web process output, GL content is the real GL
-  context — neither layer is simulated.
+  context — neither layer is simulated. The checked-in crops retain the whole
+  spike window and omit unrelated desktop content.
+
+## Product and website claim check
+
+The current product and docs pages were checked against this spike and the
+threading audit. They already say that desktop GPU raster/effect work is
+offscreen, Canvas2D remains the display path, the public GitHub Pages demo
+cannot use shared-memory WASM, and preview resolution can be reduced under
+frame pressure. No marketing claim currently treats this GLArea compositing
+test as a delivered Varve feature, so changing marketing copy would overstate
+the evidence rather than improve its accuracy.
 
 ## Verdict
 
