@@ -36,7 +36,7 @@ export function unusedExportArgv(project) {
 /** File descriptors preserve complete CLI output even when it calls process.exit.
  * The shared supervisor owns timeout/cancellation/descendant cleanup. No npx,
  * shell interpolation, hidden stderr or non-zero-to-empty-success conversion. */
-export async function runUnusedExportCommand(argv, { cwd, timeoutMs = 60_000 } = {}) {
+export async function runUnusedExportCommand(argv, { cwd, timeoutMs = 180_000 } = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'varve-unused-exports-'));
   const stdoutPath = join(directory, 'stdout');
   const stderrPath = join(directory, 'stderr');
