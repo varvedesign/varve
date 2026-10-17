@@ -177,13 +177,15 @@ remain diagnostic until the revised layout and real editor interactions pass.
 
 The under-WebView revision was relaunched on native Wayland with isolated XDG
 directories. Its Tauri log confirms `GLArea context realized in Tauri window`
-and records GLArea as the base child. KWin listed the Varve window, but ChatGPT
-remained the active window. `spectacle --activewindow` therefore captured
-ChatGPT; a direct KWin `CaptureWindow` request was rejected with
-`Error.NoAuthorized`. That image is not Varve evidence and was not committed.
-Focus was not forcibly moved away from the user's ChatGPT session. The new
-child order has runtime construction evidence, but still lacks a valid OS-level
-visual capture and editor-canvas/input acceptance.
+and records GLArea as the base child. KWin initially kept ChatGPT active and
+rejected this process's direct `CaptureWindow` request with
+`Error.NoAuthorized`; no focus change was forced. After the user brought Varve
+forward, an OS-level active-window capture was inspected at full size. The home
+screen remained intact and the marker was hidden behind the opaque page
+background, confirming no overdraw on that view. This capture contains a
+user-local Recent document card and was not committed. The native child order
+has runtime and home-view visual evidence, but actual native document pixels,
+editor-canvas alignment, and editor input remain unverified.
 
 The visibility constraint is now explicit: GTK documents that
 `GtkOverlay.add_overlay` stacks an overlay child above the main child, while

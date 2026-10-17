@@ -350,11 +350,14 @@ jointly (the capability-shape extension and this plan are examples).
   refinement, not a native-presentation pass.
 - The revised Tauri probe was relaunched on native Wayland with isolated XDG
   paths; its log confirms the GLArea context realized and the new base/overlay
-  order attached. KWin listed Varve, while ChatGPT stayed active. Spectacle's
-  active-window shot was ChatGPT and KWin denied this process's direct
-  per-window screenshot request, so neither is valid Varve visual evidence.
-  Focus was left unchanged, and only the Tauri run owned by this task was
-  stopped. A compositor-level capture of the editor canvas remains open.
+  order attached. The user brought Varve forward, and an OS-level capture of
+  the home view was inspected: the diagnostic marker no longer covers app UI
+  and is hidden behind the opaque page background. The capture includes a
+  user-local Recent document card, so it was not added to the repository. This
+  confirms the layer-order fix on the home view only; native document pixels,
+  editor-canvas alignment, and input remain open. The earlier ChatGPT capture
+  and KWin `Error.NoAuthorized` response are not counted as Varve visual
+  evidence. The Tauri run remains open for the requested editor-canvas check.
 - Staged validation for this five-file diagnostic slice selected seven lanes
   and escalated to the full gate because the native platform integration is a
   shared contract boundary. Format/lint were not applicable; `audit:emoji`
