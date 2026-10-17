@@ -403,7 +403,13 @@ test.describe('full-editor visual compositing', () => {
   test('keeps a real poster fixture group fresh across an independent edit', async ({
     page,
   }, testInfo) => {
-    await page.addInitScript(() => localStorage.setItem('varve.renderWorker', 'off'));
+    await page.addInitScript(() => {
+      localStorage.setItem('varve.renderWorker', 'off');
+      localStorage.setItem(
+        'varve-editor-settings',
+        JSON.stringify({ render: { memoryBudget: 'low' } }),
+      );
+    });
     await navigateToCleanEditor(page, '?perf=1');
     const contentCanvas = page.locator(CANVAS);
     if ((await contentCanvas.count()) === 0) {
@@ -456,6 +462,7 @@ test.describe('full-editor visual compositing', () => {
     const warm = await compositionCacheDiagnostics(page);
     expect(warm?.hits).toBeGreaterThan(0);
     expect(warm?.avoidedShapeLeaves).toBeGreaterThanOrEqual(3);
+    expect(warm?.budgetBytes).toBeLessThanOrEqual(8 * 1024 * 1024);
 
     const cachedHash = await canvasPixelHash(page);
     const cachedCapture = await contentCanvas.screenshot();

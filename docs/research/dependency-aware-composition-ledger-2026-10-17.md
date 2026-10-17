@@ -82,7 +82,7 @@ The real-editor Chromium case draws a twelve-shape group, warms it, edits an
 independent shape, and asserts that retained hits/avoided shape leaves increase.
 It disables the cache, forces a fresh full composition, and verifies an exact
 full-canvas pixel-hash match. Seven replay-stage samples measured 0.3 ms median
-warm versus 1.0 ms median cache-bypassed in that run. Captures:
+warm versus 1.4 ms median cache-bypassed in that run. Captures:
 [`cached`](../screenshots/dependency-aware-composition/cached.png) and
 [`cache-bypassed`](../screenshots/dependency-aware-composition/cache-bypassed.png).
 The matching methodology, raw samples, exact command, and limitations are in
