@@ -265,3 +265,51 @@ external-resource behavior plus a real WebKitGTK capability check.
   #1808 failed-downcast abort is gone (`downcast(...).ok()?`), while the fixed
   parent depth can still disable undecorated resize handling after
   reparenting. The spike ledger was corrected in commit `8b8afd33f`.
+
+## Progress from the parallel implementation session (2026-10-17, later)
+
+Recorded by the session that landed the runtime half; the two sessions shared
+one worktree and one master branch throughout, and several files were finished
+jointly (the capability-shape extension and this plan are examples).
+
+- `20695bd53` — threaded pool runtime: `varve-wasm` `threads` feature
+  (`init_thread_pool`, `threaded_worker_probe` recording distinct rayon worker
+  indices, `wasm_threads_abi`), `just wasm-build-threads` (nightly,
+  `CARGO_UNSTABLE_BUILD_STD`; stable linking fails with
+  `--shared-memory is disallowed by std ...`, reproduced), the dedicated pool
+  worker + `ThreadedTraceHost` (capability-gated, single-flight init,
+  cancel-discard semantics, retire-and-rebuild after timeout/crash, queue
+  bound), and `threadedWasmTraceProvider` joined to the dispatch chain.
+  NOTE: this commit also absorbed another session's already-staged
+  retained-composition files because `git commit` (without pathspecs) commits
+  the whole index; the mixed content is green (52 staged tests ran in the
+  checkpoint) but the commit message understates its scope. Later commits use
+  the pathspec form.
+- `11c5bda33` + `6826ef2f1` — the required threaded lane. First attempt proved
+  a measurement fact: response headers injected on route-fulfilled pages do
+  NOT confer cross-origin isolation (the recorded probe evidence
+  `reports/inference-platform/facts-4633.json` shows `crossOriginIsolated:
+  false` through every earlier "isolated" probe run — which likely explains
+  the historical numThreads=2 hang). The consolidated lane navigates to a
+  served page under the dev server's real `VARVE_CROSS_ORIGIN_ISOLATION=1`
+  and passes: pool ready, `verifiedWorkers: 2`, threaded trace byte-identical
+  to the unshared path. `threaded-trace-pool.spec.ts` was retired in favor of
+  the checkpoint's `threaded-trace-runtime.spec.ts` (fixed the same way).
+- `cfed37e6a` — MSAA + Canvas2D baseline: `create_with_sample_count`, the 1×
+  no-resolve fix (previously panicked), a 1× device test, `VARVE_BENCH_SAMPLES`
+  sweep and `--emit-corpus`; findings: 2× MSAA unsupported on RADV Renoir
+  (1×/4× only), 1× saves ~10–35 % per frame, quality cost concentrated on
+  stencil-path edges (analytic SDF shapes keep in-shader AA). The baseline
+  harness measured Canvas2D warm p50 5.4 ms (600) / 59.2 ms (10k) against
+  native 12.9/106.8 ms at 4×; the paired report with the corrected, stricter
+  reading is `docs/perf/native-raster-baseline-2026-10-17.md`.
+- ADR-0244 updated: contours closed (`0024e633b`), MSAA closed, spike A
+  verdict recorded, threaded-WASM section added (landed jointly through
+  `06a444303`). Spike B is recorded unrun with its priority lowered by spike
+  A's compositing pass; spike C and Windows remain unverified — no Apple
+  hardware on this host.
+- Website `docs/performance.astro` now describes threaded tracing truthfully:
+  it requires BOTH the optional artifact and isolation headers; the public
+  demo has neither and stays single-threaded. The canvas feature page's
+  existing claims were checked and needed no change (Canvas2D is still the
+  only present surface; nothing shipped here changes a user-visible claim).
