@@ -98,6 +98,7 @@ dated backlog, are in
 | A change was refused with `REVISION_CONFLICT` | The document moved after the agent looked. Read again and re-plan. |
 | A change was refused with `CONFLICT` and `retryable` | You were in the middle of a drag or text edit. It succeeds on retry once you finish. |
 | Save says nothing was written | The document has no chosen destination, or the file changed on disk. Save once yourself from the File menu. |
+| `varve instances` lists nothing while the window says Running | The application and the CLI must look in the same runtime directory. Both use `$VARVE_RUNTIME_DIR`, then `$XDG_RUNTIME_DIR/varve`, then `~/.varve/run` (never `/tmp`). If you set one variable for one of them, set it for both. |
 | A stale endpoint is listed | `varve instances --verify` marks which are alive. A dead one is only a leftover directory; nothing is listening. |
 | The attach command stopped working after you opened another document | Expected: the credential was replaced. Copy the command again. |
 

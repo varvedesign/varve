@@ -19,7 +19,6 @@ import {
   readFileSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 export const INSTANCE_SCHEMA = 'varve.instance/1';
@@ -43,7 +42,19 @@ function uid(): number | null {
   return typeof process.getuid === 'function' ? process.getuid() : null;
 }
 
-/** The per-user runtime directory, created with owner-only permissions. */
+/**
+ * The per-user runtime directory, created with owner-only permissions.
+ *
+ * `$VARVE_RUNTIME_DIR`, then `$XDG_RUNTIME_DIR/varve`, then `<home>/.varve/run`.
+ * This is a contract with the desktop application, which decides the same thing
+ * in Rust (`runtime_directory` in `varve-automation-host`): discovery only works
+ * when both sides look in the same place, and a fallback that differs shows up
+ * as "no instances" on exactly the platforms that have no XDG_RUNTIME_DIR.
+ *
+ * A shared temporary directory is never the fallback. Any user can create a
+ * directory there, and a runtime directory its owner does not control is one
+ * that can read the credential.
+ */
 export function runtimeDirectory(env: Record<string, string | undefined>): string {
   const explicit = env.VARVE_RUNTIME_DIR;
   const xdg = env.XDG_RUNTIME_DIR;
@@ -52,9 +63,19 @@ export function runtimeDirectory(env: Record<string, string | undefined>): strin
       ? explicit
       : xdg?.startsWith('/')
         ? join(xdg, 'varve')
-        : join(tmpdir(), `varve-${uid() ?? 'user'}`);
+        : join(homeDirectory(env), '.varve', 'run');
   ensurePrivateDirectory(base);
   return base;
+}
+
+function homeDirectory(env: Record<string, string | undefined>): string {
+  for (const key of ['HOME', 'USERPROFILE'] as const) {
+    const value = env[key];
+    if (value && value.length > 0) return value;
+  }
+  throw new Error(
+    'no HOME or USERPROFILE; set VARVE_RUNTIME_DIR to choose a runtime directory explicitly',
+  );
 }
 
 /** Create (or verify) a directory only the current user can enter. */
