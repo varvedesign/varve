@@ -25,8 +25,8 @@ project.
 - List records report 32,680 notes across 5,667 issues. Discussion notes
   are being retrieved through GitLab GraphQL `Issue.notes` connections;
   thread review remains incomplete until the fetch and count reconciliation
-  finish. At `2026-10-17T10:17:13Z`, 805 issue threads and 12,556 total note
-  records (5,528 non-system comments) were cached. The fetcher is resumable and
+  finish. At `2026-10-17T10:24:25Z`, 921 issue threads and 14,364 total note
+  records (6,216 non-system comments) were cached. The fetcher is resumable and
   persists notes per IID in the external cache. Seven aliases per request
   succeeded below the observed complexity limit; eight scored 201 and failed
   the API's 200 ceiling. `user_notes_count` counts non-system comments; the
@@ -63,6 +63,16 @@ project.
 5. Built a one-row-per-issue ledger with source metadata and explicit pending
    screening, thread, evidence, engineering and visual status. Added a
    resumable GraphQL notes fetcher and started comment retrieval.
+6. Screened issue bodies #6398 (save-time memory growth), #6380 (PDF text loss),
+   #6477 (extension path rewriting) and linked #1313. Varve uses embedded,
+   content-addressed image assets and strips repeated per-fill payloads, so
+   #6398 is only an adjacent memory-risk hypothesis pending measurement. The
+   #6380 PDF attachment returned HTTP 403; #6398's attached archive warns it
+   can lock up the system and was not downloaded or executed.
+7. Screened body #2800, a second historical Inkscape report of memory retained
+   per save with a linked PNG. The reported archive was not downloaded. Current
+   body-screening total is 5 of 6,390; threads and linked fix history for these
+   candidates remain pending.
 
 ## Next operation
 
