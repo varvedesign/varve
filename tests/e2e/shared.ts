@@ -183,11 +183,17 @@ export async function navigateToEditor(
   // both interaction surfaces and a non-zero canvas before handing control to
   // the spec. This remains attached-state safe for responsive layouts, where
   // the layers panel may be collapsed but remains mounted.
+  //
+  // The canvas-ready waits use the same budget class as the goto above: cold
+  // first paint on a busy shared machine has been measured at ~76s and under
+  // multi-agent load at 90-200s, so 60s here was a latent startup flake that
+  // surfaced as rotation-mid-gesture and matrix failures with the app never
+  // becoming interactive.
   await page.locator('canvas.editor-canvas__content-layer').waitFor({
     state: 'visible',
-    timeout: 60000,
+    timeout: 180000,
   });
-  await page.locator('.layers-panel').waitFor({ state: 'attached', timeout: 60000 });
+  await page.locator('.layers-panel').waitFor({ state: 'attached', timeout: 180000 });
   await page.waitForFunction(
     () => {
       const canvas = document.querySelector(
@@ -197,7 +203,7 @@ export async function navigateToEditor(
       return canvas != null && canvas.clientWidth > 0 && canvas.clientHeight > 0 && layers != null;
     },
     undefined,
-    { timeout: 60000 },
+    { timeout: 180000 },
   );
   await page.waitForTimeout(250);
 }
