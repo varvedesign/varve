@@ -65,6 +65,17 @@ wasm-build-all: wasm-build wasm-build-colour
 wasm-size:
     ls -lh apps/desktop/public/wasm/varve_wasm_bg.wasm apps/desktop/public/wasm/varve_wasm_simd_bg.wasm apps/desktop/public/wasm/varve_colour_bg.wasm 2>/dev/null
 
+# Verify that the artifact labelled SIMD actually contains vector instructions
+# and that baseline artifacts contain none. Needs llvm-objdump (llvm-tools).
+# Exits 2 (UNVERIFIED) when the disassembler is unavailable; never a pass.
+verify-wasm-simd:
+    node scripts/quality/verify-wasm-simd.mjs
+
+# Baseline vs SIMD A/B on the exported engine work (Node/V8, byte-equality
+# checked). Use VARVE_WASM_DIR to point at an isolated build output.
+bench-wasm:
+    node scripts/quality/bench-wasm-artifacts.mjs
+
 wasm-check-colour:
     rustup target add wasm32-unknown-unknown
     cargo check --target wasm32-unknown-unknown -p varve-colour --features wasm

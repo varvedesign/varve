@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { _resetWasmCapabilitySnapshot, _resetWasmEngineForTests } from '@varve/engine';
 import { resetPlatformInfo } from '@varve/platform';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { _resetPlatformCapabilities } from '../canvas/adaptiveProfile';
@@ -15,6 +16,8 @@ afterEach(() => {
   Reflect.deleteProperty(navigator, 'storage');
   _resetPlatformCapabilities();
   _resetOffscreenCapability();
+  _resetWasmCapabilitySnapshot();
+  _resetWasmEngineForTests();
   resetPlatformInfo();
   vi.restoreAllMocks();
 });
@@ -58,6 +61,20 @@ describe('capability report', () => {
     expect(requestDevice).toHaveBeenCalledOnce();
     expect(destroy).toHaveBeenCalledOnce();
     expect(report.graphics.webgpu.deviceDestroyed).toBe(true);
+  });
+
+  it('validates the shipped WASM probes instead of reporting a constant', async () => {
+    // Regression: both probe modules were structurally malformed (a v128
+    // `splat` applied to a v128, and a memory section one byte too long), so
+    // every engine was reported as having no SIMD and no threads.
+    const report = await collectCapabilityReport();
+    expect(report.wasm.apiPresent).toBe(true);
+    expect(report.wasm.baselineValidated).toBe(true);
+    expect(report.wasm.simdValidated).toBe(true);
+    expect(report.wasm.threadsValidated).toBe(true);
+    // Capability is not attribution: nothing has been loaded in this test.
+    expect(report.wasm.activeArtifact).toBe('none');
+    expect(report.wasm.colourArtifact).toBe('none');
   });
 
   it('turns rejected probes into status values and never requests persistence', async () => {

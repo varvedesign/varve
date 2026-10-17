@@ -77,6 +77,54 @@ describe('resolveRenderPathDiagnostic', () => {
     expect(d.requestedBackend).toBe('worker-offscreen-canvas2d');
   });
 
+  it('reports capability and the artifact that actually loaded separately', () => {
+    const d = resolveRenderPathDiagnostic({
+      ...base,
+      wasm: {
+        apiPresent: true,
+        simdValidated: true,
+        threadsValidated: true,
+        sharedArrayBufferAvailable: false,
+        crossOriginIsolated: true,
+        threadsUsable: false,
+        engineArtifact: 'baseline',
+        engineArtifactUrl: '/wasm/varve_wasm_bg.wasm',
+        engineVersion: '0.5.0',
+        skipped: 'simd-not-preferred',
+        fallbacks: ['simd:instantiate:RuntimeError: invalid v128'],
+        colourArtifact: 'baseline',
+      },
+    });
+    // The engine validated SIMD, but the selected artifact is the baseline one.
+    // Capability must not be reported as acceleration.
+    expect(d.wasm.simdValidated).toBe(true);
+    expect(d.wasm.engineArtifact).toBe('baseline');
+    expect(d.wasm.fallbacks).toHaveLength(1);
+    expect(describeRenderPath(d)).toBe('webkit -> main-canvas2d (webkit-policy) wasm:baseline');
+  });
+
+  it('reports no artifact as none, never as SIMD', () => {
+    const d = resolveRenderPathDiagnostic({
+      ...base,
+      wasm: {
+        apiPresent: true,
+        simdValidated: false,
+        threadsValidated: false,
+        sharedArrayBufferAvailable: false,
+        crossOriginIsolated: false,
+        threadsUsable: false,
+        engineArtifact: 'none',
+        engineArtifactUrl: null,
+        engineVersion: null,
+        skipped: 'simd-unsupported',
+        fallbacks: [],
+        colourArtifact: 'none',
+      },
+    });
+    expect(d.wasm.engineArtifact).toBe('none');
+    expect(describeRenderPath(d)).toBe('webkit -> main-canvas2d (webkit-policy)');
+  });
+
   it('does not use the frozen WebKit token for gating', () => {
     // Recorded for provenance only. WebKitGTK reports 605.1.15 regardless of
     // the real library version, so any gate keyed on it would be a constant.

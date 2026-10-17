@@ -64,9 +64,38 @@ export interface RenderPathDiagnostic {
   /** Whether a render-worker host object currently exists. */
   workerHostCreated: boolean;
 
+  /** WASM acceleration: what this engine can do, and what it actually ran. */
+  wasm: WasmRuntimeDiagnostic;
+
   /** Frame attribution observed from the diagnostics ring (?perf=1 only). */
   observedWorkerFrames: number;
   observedMainThreadFrames: number;
+}
+
+/**
+ * Runtime WASM facts. `engineArtifact` is the artifact the loader selected for
+ * this session — `none` means the engine is still loading or the load failed,
+ * and `simdValidated` is the runtime probe, not the presence of a file.
+ *
+ * `threadsUsable` needs shared memory *and* a constructible `SharedArrayBuffer`
+ * *and* cross-origin isolation; on WebKitGTK 2.52 the buffer is unavailable
+ * even when the headers are correct, so a threaded artifact would not run.
+ */
+export interface WasmRuntimeDiagnostic {
+  apiPresent: boolean;
+  simdValidated: boolean;
+  threadsValidated: boolean;
+  sharedArrayBufferAvailable: boolean;
+  crossOriginIsolated: boolean;
+  threadsUsable: boolean;
+  engineArtifact: 'simd' | 'baseline' | 'none';
+  engineArtifactUrl: string | null;
+  engineVersion: string | null;
+  /** Candidates that were never attempted, and why. */
+  skipped: 'simd-unsupported' | 'simd-not-preferred' | null;
+  /** Failed attempts, already truncated and bounded by the loader. */
+  fallbacks: readonly string[];
+  colourArtifact: 'baseline' | 'none';
 }
 
 export interface RenderPathInputs {
@@ -80,7 +109,24 @@ export interface RenderPathInputs {
   workerHostCreated: boolean;
   /** Render paths of recent frames, newest last. */
   recentFramePaths: readonly string[];
+  /** WASM capability/attribution; omitted inputs report an unloaded engine. */
+  wasm?: Omit<WasmRuntimeDiagnostic, 'fallbacks'> & { fallbacks?: readonly string[] };
 }
+
+const UNKNOWN_WASM: WasmRuntimeDiagnostic = {
+  apiPresent: false,
+  simdValidated: false,
+  threadsValidated: false,
+  sharedArrayBufferAvailable: false,
+  crossOriginIsolated: false,
+  threadsUsable: false,
+  engineArtifact: 'none',
+  engineArtifactUrl: null,
+  engineVersion: null,
+  skipped: null,
+  fallbacks: [],
+  colourArtifact: 'none',
+};
 
 /**
  * Compose the current render-path picture. Pure: every input is supplied by
@@ -115,6 +161,7 @@ export function resolveRenderPathDiagnostic(inputs: RenderPathInputs): RenderPat
     engineVersionToken: inputs.engineVersionToken,
     offscreenCapability: inputs.offscreenCapability,
     workerHostCreated: inputs.workerHostCreated,
+    wasm: inputs.wasm ? { ...inputs.wasm, fallbacks: inputs.wasm.fallbacks ?? [] } : UNKNOWN_WASM,
     observedWorkerFrames: workerFrames,
     observedMainThreadFrames: mainFrames,
   };
@@ -126,5 +173,7 @@ export function resolveRenderPathDiagnostic(inputs: RenderPathInputs): RenderPat
  */
 export function describeRenderPath(d: RenderPathDiagnostic): string {
   const reason = d.fallbackReason === 'none' ? '' : ` (${d.fallbackReason})`;
-  return `${d.engine} -> ${d.actualBackend}${reason}`;
+  if (d.wasm.engineArtifact === 'none') return `${d.engine} -> ${d.actualBackend}${reason}`;
+  const simd = d.wasm.skipped === 'simd-unsupported' ? ' (simd-unsupported)' : '';
+  return `${d.engine} -> ${d.actualBackend}${reason} wasm:${d.wasm.engineArtifact}${simd}`;
 }

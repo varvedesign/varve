@@ -257,8 +257,13 @@ export type {
   SourceKind,
   TaskClassification,
 } from './colorization/types';
-export type { ColourEngine, ColourWasmModule } from './colour/colourLoader';
-export { createColourEngineFromModule, loadColourWasmModule } from './colour/colourLoader';
+export type { ColourEngine, ColourWasmAttribution, ColourWasmModule } from './colour/colourLoader';
+export {
+  _resetColourWasmForTests,
+  createColourEngineFromModule,
+  getColourWasmAttribution,
+  loadColourWasmModule,
+} from './colour/colourLoader';
 export {
   convertSrgbBufferToCmykWasm,
   getColourProfileInfo,
@@ -1424,6 +1429,18 @@ export {
 } from './retouch';
 export * from './richTextLayout';
 export type {
+  WasmArtifactKind,
+  WasmCapabilitySnapshot,
+  WasmRuntimeCapabilities,
+} from './runtimeCapabilities';
+export {
+  _resetWasmCapabilitySnapshot,
+  _setWasmCapabilitySnapshotForTests,
+  getWasmCapabilitySnapshot,
+  probeWasmCapability,
+  wasmArtifactCandidates,
+} from './runtimeCapabilities';
+export type {
   CandidateRankingCase,
   CandidateRankingEvaluation,
   CandidateRankingFeatures,
@@ -1750,7 +1767,19 @@ export type {
 } from './vision/types';
 export { VISION_CAPABILITIES, visionSourceKey } from './vision/types';
 export * from './warp';
-export type { WasmTraceModule } from './wasmLoader';
-export { loadWasmEngineModule, prewarmWasmEngine, tryLoadTraceWasm } from './wasmLoader';
+export type {
+  WasmArtifactAttempt,
+  WasmArtifactPreference,
+  WasmEngineAttribution,
+  WasmTraceModule,
+} from './wasmLoader';
+export {
+  _resetWasmEngineForTests,
+  getWasmEngineAttribution,
+  loadWasmEngineModule,
+  prewarmWasmEngine,
+  setWasmArtifactPreference,
+  tryLoadTraceWasm,
+} from './wasmLoader';
 export type { RelativeWhiteBalanceParams, WhiteBalanceEstimate } from './whiteBalance';
 export { applyRelativeWhiteBalance, estimateRelativeWhiteBalance } from './whiteBalance';

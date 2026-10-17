@@ -118,6 +118,27 @@ export function CapabilityReportPanel() {
               </dd>
             </div>
             <div>
+              <dt>WASM engine artifact</dt>
+              <dd>
+                {report.wasm.activeArtifact === 'none'
+                  ? 'not loaded'
+                  : `${report.wasm.activeArtifact}${
+                      report.wasm.activeArtifactVersion
+                        ? ` ${report.wasm.activeArtifactVersion}`
+                        : ''
+                    }`}
+                {report.wasm.skipped === 'simd-unsupported'
+                  ? ' (SIMD unsupported by this engine)'
+                  : report.wasm.skipped === 'simd-not-preferred'
+                    ? ' (baseline preferred)'
+                    : ''}
+              </dd>
+            </div>
+            <div>
+              <dt>Colour engine artifact</dt>
+              <dd>{report.wasm.colourArtifact === 'none' ? 'not loaded' : 'baseline'}</dd>
+            </div>
+            <div>
               <dt>Storage estimate</dt>
               <dd>{statusLabel(report.storage.estimateStatus)}</dd>
             </div>
