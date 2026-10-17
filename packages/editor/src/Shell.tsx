@@ -616,8 +616,14 @@ function ShellInner({
                 onGettingStarted={() => onboardingLayerRef.current?.openWelcome()}
                 onWhatsNew={() => editorHelp.setHelpCenterOpen(true)}
               />
-              <ContextControlBar />
-              <CollabHeaderControl onOpenShare={() => setCollabShareOpen(true)} />
+              {/* One row for the selection context and the collab entry point:
+               * as bare flex-column children each rendered full-width — the
+               * Share button painted as a viewport-wide strip under the
+               * toolbar (visible on every docked-panel viewport). */}
+              <div className="editor-shell__header-row">
+                <ContextControlBar />
+                <CollabHeaderControl onOpenShare={() => setCollabShareOpen(true)} />
+              </div>
             </header>
           )}
           <FloatingToolbar style={dockGeometry.toolbarStyle} />

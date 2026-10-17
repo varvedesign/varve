@@ -523,6 +523,23 @@ input[type="number"] {
   height: auto;
 }
 
+/* Second header row: selection context (left) and the collab entry point
+ * (right). Direct flex-column children stretch full width, which turned the
+ * Share button into a viewport-wide strip on every docked-panel viewport. */
+.editor-shell__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor-shell__header-row > .collab-header-control,
+.editor-shell__header-row > .varve-btn {
+  flex: 0 0 auto;
+}
+
 /* ── Vertical group rule (menubar family) ──
  * One recipe for the menubar's group boundaries: the home/menu divider, the
  * two zoom rules, and the workspace dock's overflow divider. Previously these
