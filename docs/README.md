@@ -12,6 +12,12 @@ written and are not updated retroactively. Current guidance lives in
 
 ## Entry points
 
+The ongoing Inkscape issue-corpus review and Varve improvement work is tracked
+in [`audits/inkscape/README.md`](audits/inkscape/README.md), with a per-issue
+ledger, preliminary evidence in
+[`audits/inkscape/findings.md`](audits/inkscape/findings.md), and resumable
+status in [`audits/inkscape/continuation.md`](audits/inkscape/continuation.md).
+
 The local application plugin API, trust boundary, and verification matrix are
 in [`architecture/plugin-system.md`](architecture/plugin-system.md). The
 current failure-mode evidence ledger is
