@@ -84,6 +84,16 @@ warm versus 1.0 ms median cache-bypassed in that run. Captures:
 The matching methodology, raw samples, exact command, and limitations are in
 [`docs/perf/dependency-aware-composition-2026-10-17.md`](../perf/dependency-aware-composition-2026-10-17.md).
 
+A second Chromium case imports the repository-owned poster fixture through the
+editor, groups its three curved bands at 70% opacity, and edits the independent
+multiply-blended Disc layer. The group still records retained hits after the
+edit, the full-canvas hash changes, and disabling retention plus forcing a full
+redraw yields the exact same hash as the cached result. It then edits one of the
+grouped bands, observes a cache miss, and again gets exact parity against a
+cache-bypassed redraw. This exercises a richer Varve document (including
+gradients, text, transparency, and an embedded image) but remains a project
+sample, not a customer design; no timing claim was taken.
+
 Independent code review found a canvas-aliasing hazard: the existing effect
 pipeline mutates group surfaces in place. Retention now excludes groups with
 any visible group effect, and the re-review found no stale-pixel/key collision
@@ -91,13 +101,14 @@ path inside that admitted boundary. Review also identified delayed release when
 the last document closes; a final-session close event now retires and zeroes
 that document's retained surfaces immediately, covered by a cache release test.
 
-This remains a narrow product validation: the fixture is drawn through the
-editor, not a real imported/customer document. No native WebView, export or
-thumbnail differential, delayed-resource race, multi-scale rotation sweep, or
-long-session memory-pressure soak was run. The current validation planner also
-escalated to a full gate because the shared checkout contains unrelated
-workspace/toolchain and validation-infrastructure changes; those unrelated
-files were preserved and not included in this task's source changes.
+This remains narrow product validation: one controlled drawing fixture and one
+repository-owned imported Varve sample. No customer design, standalone
+SVG/photo asset, native WebView, export or thumbnail differential,
+delayed-resource race, multi-scale rotation sweep, or long-session
+memory-pressure soak was run. The current validation planner also escalated to
+a full gate because the shared checkout contains unrelated workspace/toolchain
+and validation-infrastructure changes; those unrelated files were preserved
+and not included in this task's source changes.
 
 ## Implementation order and acceptance
 

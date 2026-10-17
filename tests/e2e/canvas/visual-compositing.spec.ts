@@ -400,6 +400,161 @@ test.describe('full-editor visual compositing', () => {
     console.log('composition-cache-residency', JSON.stringify({ firstWarm, afterIndependentEdit }));
   });
 
+  test('keeps a real poster fixture group fresh across an independent edit', async ({
+    page,
+  }, testInfo) => {
+    await page.addInitScript(() => localStorage.setItem('varve.renderWorker', 'off'));
+    await navigateToCleanEditor(page, '?perf=1');
+    const contentCanvas = page.locator(CANVAS);
+    if ((await contentCanvas.count()) === 0) {
+      await page.getByText('Untitled 1', { exact: true }).dblclick();
+    }
+    await contentCanvas.waitFor({ state: 'attached', timeout: 30000 });
+
+    // This repository-owned Varve document includes curved paths, transparency,
+    // gradient ground, typography, and a multiply-blended disc.
+    await page.setInputFiles('#file-open-input', 'scripts/screenshots/fixtures/poster.varve');
+    await expect(
+      page.locator('.editor-tabs__tab').filter({ hasText: 'poster.varve' }),
+    ).toBeVisible();
+    await page
+      .getByRole('button', { name: /fit all to viewport/i })
+      .first()
+      .click();
+    await waitForStableCanvas(page);
+
+    const layers = page.getByRole('treeitem');
+    const bands = [
+      layers.filter({ hasText: 'Layer — teal' }),
+      layers.filter({ hasText: 'Layer — sandstone' }),
+      layers.filter({ hasText: 'Layer — terracotta' }),
+    ];
+    for (const band of bands) await expect(band).toHaveCount(1);
+    await bands[0]!.click();
+    await bands[1]!.click({ modifiers: ['Control'] });
+    await bands[2]!.click({ modifiers: ['Control'] });
+    expect(await callEditor(page, 'groupSelected')).not.toBeNull();
+
+    const group = page
+      .getByRole('treeitem')
+      .filter({ hasText: /^Group\b/ })
+      .first();
+    await expect(group).toBeVisible();
+    await group.click();
+    expect(await callEditor(page, 'setSelectedOpacity', 0.7)).not.toBeNull();
+    await waitForStableCanvas(page);
+
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { resetDiagnostics: () => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.resetDiagnostics();
+    });
+    await forceAuthoritativeCanvasFrame(page);
+    const warm = await compositionCacheDiagnostics(page);
+    expect(warm?.hits).toBeGreaterThan(0);
+    expect(warm?.avoidedShapeLeaves).toBeGreaterThanOrEqual(3);
+
+    const cachedHash = await canvasPixelHash(page);
+    const cachedCapture = await contentCanvas.screenshot();
+    await testInfo.attach('poster-with-retained-group', {
+      body: cachedCapture,
+      contentType: 'image/png',
+    });
+
+    // The multiply-blended disc is outside the retained group. Its opacity
+    // changes the document while the three path dependencies remain stable.
+    const disc = page.getByRole('treeitem', { name: /^Disc, Vector ellipse/ });
+    await expect(disc).toHaveCount(1);
+    await disc.click();
+    expect(await callEditor(page, 'setSelectedOpacity', 0.72)).not.toBeNull();
+    await waitForStableCanvas(page);
+    await forceAuthoritativeCanvasFrame(page);
+    const afterIndependentEdit = await compositionCacheDiagnostics(page);
+    expect(afterIndependentEdit?.hits).toBeGreaterThan(warm?.hits ?? 0);
+    expect(afterIndependentEdit?.avoidedShapeLeaves).toBeGreaterThan(warm?.avoidedShapeLeaves ?? 0);
+    const editedCachedHash = await canvasPixelHash(page);
+    expect(editedCachedHash).not.toBe(cachedHash);
+
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { setEnabled: (enabled: boolean) => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.setEnabled(false);
+    });
+    await forceAuthoritativeCanvasFrame(page);
+    const bypassedHash = await canvasPixelHash(page);
+    const bypassedCapture = await contentCanvas.screenshot();
+    await testInfo.attach('poster-cache-bypassed-after-independent-edit', {
+      body: bypassedCapture,
+      contentType: 'image/png',
+    });
+    expect(bypassedHash).toBe(editedCachedHash);
+
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: {
+            compositionCache?: {
+              setEnabled: (enabled: boolean) => void;
+              resetDiagnostics: () => void;
+            };
+          };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.setEnabled(true);
+      cache?.resetDiagnostics();
+    });
+    await forceAuthoritativeCanvasFrame(page);
+    const repopulatedAfterBypass = await compositionCacheDiagnostics(page);
+    expect(repopulatedAfterBypass?.misses).toBeGreaterThan(0);
+    await forceAuthoritativeCanvasFrame(page);
+    const warmedAfterBypass = await compositionCacheDiagnostics(page);
+    expect(warmedAfterBypass?.hits).toBeGreaterThan(0);
+
+    // Editing a cached dependency must invalidate that group's retained pixels.
+    const groupedBand = page.getByRole('treeitem', { name: /^Layer — teal, Vector path/ });
+    await expect(groupedBand).toHaveCount(1);
+    await groupedBand.click();
+    expect(await callEditor(page, 'setSelectedOpacity', 0.6)).not.toBeNull();
+    await waitForStableCanvas(page);
+    await forceAuthoritativeCanvasFrame(page);
+    const afterGroupedChildEdit = await compositionCacheDiagnostics(page);
+    expect(afterGroupedChildEdit?.misses).toBeGreaterThan(warmedAfterBypass?.misses ?? 0);
+    const childEditedCachedHash = await canvasPixelHash(page);
+    expect(childEditedCachedHash).not.toBe(editedCachedHash);
+    const childEditedCachedCapture = await contentCanvas.screenshot({
+      path: 'docs/screenshots/dependency-aware-composition/poster-grouped-child-cached.png',
+    });
+    await testInfo.attach('poster-cache-enabled-after-grouped-child-edit', {
+      body: childEditedCachedCapture,
+      contentType: 'image/png',
+    });
+
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { setEnabled: (enabled: boolean) => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.setEnabled(false);
+    });
+    await forceAuthoritativeCanvasFrame(page);
+    const childEditedBypassedHash = await canvasPixelHash(page);
+    const childEditedBypassedCapture = await contentCanvas.screenshot({
+      path: 'docs/screenshots/dependency-aware-composition/poster-grouped-child-bypassed.png',
+    });
+    await testInfo.attach('poster-cache-bypassed-after-grouped-child-edit', {
+      body: childEditedBypassedCapture,
+      contentType: 'image/png',
+    });
+    expect(childEditedBypassedHash).toBe(childEditedCachedHash);
+  });
+
   test('clip mask is visible in the real canvas and layer hierarchy', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('varve.renderWorker', 'off'));
     await navigateToCleanEditor(page, '?perf=1');
