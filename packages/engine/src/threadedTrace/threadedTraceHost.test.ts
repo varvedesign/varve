@@ -182,6 +182,33 @@ describe('ThreadedTraceHost', () => {
     expect(init.threads).toBe(3);
   });
 
+  it('defaults to the validated two-worker pool even on a higher-core browser', async () => {
+    vi.stubGlobal('navigator', { hardwareConcurrency: 8 });
+    installFakeWorker();
+    const host = new ThreadedTraceHost();
+    const state = await host.ensureReady();
+    expect(state.phase).toBe('ready');
+    expect(state.threads).toBe(2);
+  });
+
+  it('rejects invalid dimensions and non-packed RGBA before copying or posting', async () => {
+    installFakeWorker();
+    const host = new ThreadedTraceHost();
+    await host.ensureReady();
+
+    await expect(host.trace(new Uint8Array(8), 0, 2, {})).rejects.toMatchObject({
+      kind: 'invalid-input',
+    });
+    await expect(host.trace(new Uint8Array(8), 2, 2, {})).rejects.toMatchObject({
+      kind: 'invalid-input',
+    });
+    expect(
+      getWorker().sent.some(
+        (entry) => (entry.message as { type: string }).type === 'varve-threaded-trace',
+      ),
+    ).toBe(false);
+  });
+
   it('survives an init crash as a state, not an exception', async () => {
     installFakeWorker();
     const host = new ThreadedTraceHost();
@@ -202,9 +229,9 @@ describe('ThreadedTraceHost', () => {
     await host.ensureReady();
     const worker = getWorker();
     worker.echoTraces = false;
-    const pixels = new Uint8Array(8);
+    const pixels = new Uint8Array(16);
     const controller = new AbortController();
-    const pending = host.trace(pixels, 2, 4, {}, controller.signal);
+    const pending = host.trace(pixels, 2, 2, {}, controller.signal);
     await vi.waitFor(() => {
       expect(
         worker.sent.some(
@@ -231,7 +258,7 @@ describe('ThreadedTraceHost', () => {
     const worker = getWorker();
     worker.echoTraces = false; // request never completes
 
-    const pending = host.trace(new Uint8Array(4), 2, 2, {});
+    const pending = host.trace(new Uint8Array(4), 1, 1, {});
     await expect(pending).rejects.toMatchObject({ kind: 'timeout' });
     expect(host.getState().phase).toBe('retired');
     expect(worker.terminated).toBe(true);
@@ -249,8 +276,8 @@ describe('ThreadedTraceHost', () => {
     const worker = getWorker();
     worker.echoTraces = false; // first trace stays in flight
 
-    const first = host.trace(new Uint8Array(4), 2, 2, {});
-    await expect(host.trace(new Uint8Array(4), 2, 2, {})).rejects.toMatchObject({
+    const first = host.trace(new Uint8Array(4), 1, 1, {});
+    await expect(host.trace(new Uint8Array(4), 1, 1, {})).rejects.toMatchObject({
       kind: 'backpressure',
     });
     const traceMessage = worker.sent.find(

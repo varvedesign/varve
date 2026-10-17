@@ -60,6 +60,7 @@ export interface ThreadedTraceHostConfig {
 export class ThreadedTraceError extends Error {
   readonly kind:
     | 'unavailable'
+    | 'invalid-input'
     | 'init-failed'
     | 'timeout'
     | 'worker-crashed'
@@ -75,14 +76,17 @@ export class ThreadedTraceError extends Error {
 
 const DEFAULTS: Required<Omit<ThreadedTraceHostConfig, 'baseUrl'>> & { baseUrl: string } = {
   baseUrl: '',
-  threads: Math.max(
-    2,
-    Math.min(4, typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2),
-  ),
+  // Two workers are the largest configuration currently verified across the
+  // isolated browser runtime. Higher hardwareConcurrency does not establish
+  // that the browser can provision a larger shared-memory Rayon pool.
+  threads: 2,
   initTimeoutMs: 60_000,
   requestTimeoutMs: 120_000,
   maxPending: 4,
 };
+
+const MAX_TRACE_PIXELS = 64 * 1024 * 1024;
+const MAX_PENDING_TRACE_BYTES = 128 * 1024 * 1024;
 
 interface PendingRequest {
   resolve: (value: string) => void;
@@ -99,6 +103,7 @@ export class ThreadedTraceHost {
   private queue: Array<() => void> = [];
   private busy = false;
   private pendingCount = 0;
+  private pendingTraceBytes = 0;
   private nextId = 1;
   private initPromise: Promise<ThreadedTraceState> | null = null;
   private state: ThreadedTraceState = { phase: 'idle' };
@@ -315,14 +320,36 @@ export class ThreadedTraceHost {
   ): Promise<string> {
     if (signal?.aborted)
       throw new ThreadedTraceError('cancelled', 'trace canceled before queueing');
+    const pixelCount = width * height;
+    if (
+      !Number.isSafeInteger(width) ||
+      !Number.isSafeInteger(height) ||
+      width <= 0 ||
+      height <= 0 ||
+      !Number.isSafeInteger(pixelCount) ||
+      pixelCount > MAX_TRACE_PIXELS ||
+      pixels.byteLength !== pixelCount * 4
+    ) {
+      throw new ThreadedTraceError(
+        'invalid-input',
+        `trace input must be tightly packed RGBA with dimensions from 1 to ${MAX_TRACE_PIXELS} pixels`,
+      );
+    }
     if (this.pendingCount >= this.config.maxPending) {
       throw new ThreadedTraceError('backpressure', `${this.pendingCount} traces already queued`);
+    }
+    if (this.pendingTraceBytes + pixels.byteLength > MAX_PENDING_TRACE_BYTES) {
+      throw new ThreadedTraceError(
+        'backpressure',
+        `trace input would exceed ${MAX_PENDING_TRACE_BYTES} queued bytes`,
+      );
     }
     // Copy: the caller keeps ownership of its buffer (ImageData-backed views
     // must stay usable); only the copy is transferred into the worker.
     const copy = pixels.slice();
     const id = this.nextId++;
     this.pendingCount += 1;
+    this.pendingTraceBytes += copy.byteLength;
     try {
       return await this.enqueue(async () => {
         if (signal?.aborted) {
@@ -357,6 +384,7 @@ export class ThreadedTraceHost {
       });
     } finally {
       this.pendingCount -= 1;
+      this.pendingTraceBytes -= copy.byteLength;
     }
   }
 
@@ -372,6 +400,9 @@ export class ThreadedTraceHost {
     this.worker = null;
     for (const [, pending] of this.pending) {
       clearTimeout(pending.timer);
+      if (pending.signal && pending.onAbort) {
+        pending.signal.removeEventListener('abort', pending.onAbort);
+      }
       pending.reject(
         new ThreadedTraceError('worker-crashed', 'pool retired with requests in flight'),
       );

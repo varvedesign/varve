@@ -1,6 +1,6 @@
 # WASM Backend Architecture
 
-**Updated:** 2026-07-08
+**Updated:** 2026-10-17
 
 ## Purpose
 
@@ -35,7 +35,8 @@ The host (`packages/engine/src/threadedTrace/`) creates a dedicated module
 worker, initializes Rayon there, verifies the artifact ABI and matching engine
 and trace versions, and falls back through the existing trace providers when
 isolation, shared-memory validation, the artifact, or worker startup is
-unavailable. It copies RGBA input before transferring it to the worker. A
+unavailable. It validates tightly packed RGBA dimensions up to 64 MP, copies
+input before transferring it, and caps queued trace buffers at 128 MiB. A
 running synchronous WASM trace cannot be cooperatively interrupted; cancellation
 terminates and retires the pool so a subsequent request starts with a fresh
 worker and module.
@@ -53,8 +54,13 @@ to scalar WASM. The first run timed out during Rayon bootstrap and exposed the
 raw-asset package-directory import; after the build-time URL rewrite, a fresh
 artifact build and browser run passed. This is browser evidence only, not
 Tauri/WebKitGTK or public-site evidence. The test attaches its measured result
-as `threaded-trace-runtime.json`. A successful Rust/WASM compile alone is not
-runtime evidence.
+as `threaded-trace-runtime.json`. A second isolated lane passed all three
+checks: two workers initialized and ran the tracer, its 3,692-byte JSON result
+was byte-identical to scalar WASM, and the unisolated page stayed unavailable.
+That runner reported `hardwareConcurrency=8`; its four-worker default attempt
+failed during worker initialization, while an explicit two-worker pool passed.
+The host now defaults conservatively to two; higher pool sizes remain
+unqualified. A successful Rust/WASM compile alone is not runtime evidence.
 
 Thread eligibility requires a valid threads-feature probe, constructible
 `SharedArrayBuffer`, and `crossOriginIsolated === true`. The desktop dev server
