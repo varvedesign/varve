@@ -8,8 +8,9 @@ called out as such below rather than claimed.
 **Branch / worktree:** `fix/drawing-tools-repair` in
 `/home/kevina/CodingProjects/varve-drawing-repair` (isolated worktree; the main
 checkout was dirty with other contributors' work).
-**Base commit:** `284ce7594` (master moved from `b1a34f747` → `284ce7594` →
-`0e7f263ab` while this work was in progress; see *Coordination*).
+**Base commit:** developed on `284ce7594`, rebased onto `b2575d8f3`
+(master moved `b1a34f747` → `284ce7594` → `0e7f263ab` → `b2575d8f3` while this
+work was in progress; see *Coordination*).
 
 ## 1. Scope
 
@@ -157,8 +158,11 @@ exactly on the drawn corner).
 only on geometric error. A light–heavy–light stroke is perfectly collinear, so
 RDP reduced it to its two endpoints and the fitter accepted one Bezier — every
 interior pressure sample, and therefore the stroke's only feature, was
-discarded. This is the transferable shape of the "line thickness doesn't
-decrease uniformly" class of report.
+discarded. Existing coverage (`vectorPressure.test.ts`) already protected a
+*curved* pressure stroke, where RDP keeps interior points for geometric reasons;
+the collinear case, where geometry has nothing to keep, was the gap. This is
+also the transferable shape of the "line thickness doesn't decrease uniformly"
+class of report.
 
 **Repair.** Both stages take an optional pressure tolerance
 (`PRESSURE_PROFILE_EPSILON = 0.02`, i.e. 2 % of nominal width):
@@ -343,9 +347,79 @@ hardware.
 
 ## 8. Validation record
 
-See the Agent Validation Report at the end of the session report. Exact
-commands, results and skips are recorded there so this document stays a
-description of behaviour rather than a claim of coverage.
+Base for the recorded runs: `b2575d8f3` (current `master` at the time of
+writing; the branch was developed on `284ce7594` and rebased onto the tip, whose
+only relevant change is a render-camera fix — no commit on `master` touched a
+path this work owns).
+
+| Check | Exact command | Result |
+|---|---|---|
+| Affected unit/tool tests | `npx vitest run --maxWorkers=2 packages/editor/src/render/__tests__/brushDispatch.test.ts packages/editor/src/tools/__tests__/{PenTool,PencilTool,PencilTool.quality,RefineMaskTool,brushStroke,fitting.corners,fitting.pressure,fitting,vectorPressure}.test.ts packages/editor/src/geometry/vectorOps.test.ts` | **11 files, 173 tests passed** |
+| Commit checkpoint (pre-commit hook, first commit) | `pnpm verify:commit` | 8 affected files, **137 tests passed**; format/lint/secret-scan/contacts/import-boundaries/E2E typecheck clean |
+| Editor package typecheck | `pnpm --filter @varve/editor exec tsc --noEmit -p tsconfig.json` | Clean for this work. One pre-existing error remains in `components/SpecPanel/CodeGenView.tsx:127` (in-flight codegen work; reproduced with this work's source changes stashed). |
+| E2E typecheck | `pnpm typecheck:e2e` | Clean (verified directly twice; the commit hook's 120 s bounded run timed out once under load and passed on retry) |
+| Browser regression | `node scripts/quality/heavy-lease.mjs "e2e: vector ink (rebased)" -- npx playwright test tests/e2e/canvas/vector-ink.spec.ts --project=chromium --workers=1` | **5/5 passed** (1.9 min); screenshots opened and inspected (§8.1) |
+| Docs gate | `node scripts/audit-docs.mjs` | clean (1155 docs, 829 links, 181 ADRs) |
+| Emoji gate | `node scripts/audit-emoji.mjs` | clean (5403 files) |
+| Editor jsdom lane (whole package) | `npx vitest run --project jsdom packages/editor` | 11 failures, triaged below — none caused by this work |
+
+### 8.1 Browser evidence inspected
+
+Each screenshot was opened, not merely saved. All four come from the passing
+rebased run.
+
+- `pencil-tap-dot.png` — a solid black round dot at the tap point with the
+  `4 × 4` badge and world coordinates; the zero-point invisible commit is gone.
+- `pencil-straight-stroke.png` — a 320 px horizontal dark bar with visibly
+  rounded end caps, `320 × 4` bounds. A stroke, drawn from a gesture with no
+  geometric feature at all.
+- `pen-drag-handle.png` — the committed two-anchor path arrives at the second
+  anchor along a curve that bows below the chord: the direction handle is real
+  and committed.
+- `pen-release-only-handle.png` — the synthetic release-only stream (no
+  qualifying `pointermove`) produces the same curved character, `337 × 113`
+  bounds. Before the fix this drag committed a straight corner-to-corner line.
+
+The dev server reported `[strata-engine] WASM engine failed to load … falling
+back to the pure-TS stub renderer` on every navigation. That is a pre-existing
+dev-server condition (the WASM artifact is not built for this route); the path
+replay exercised is the shared TypeScript replay, and the **native/WASM engine
+was not exercised by these browser runs**.
+
+### 8.2 Editor-lane failures triaged
+
+| Failure | Verdict |
+|---|---|
+| `FloatingToolbar.test.tsx` — "moves full brush configuration…" | **Pre-existing.** Reproduced with this work's source changes stashed. |
+| `exportService.test.ts` ×3 (component/stylesheet, filename stem, Tailwind target) | **Pre-existing/in-flight codegen work** (`bundle-assets` module is untracked at the base; the failing cases are the new multi-file export). Not touched here. |
+| `learning-system.test.tsx` tooltip, `FontBrowser.test.tsx` family search, `ShortcutPalette.test.tsx` ×8 | **Environment.** Each took 17–36 s in-lane; `ShortcutPalette` "renders dialog when open" passes in isolation (2.6 s). The lane ran while another agent's full editor lane held the heavy lease. |
+| `RefineMaskTool.test.ts` — pressure sensitivity | **Caused by this work**, and a legitimate fixture correction: coverage-paint pressure is a pen property, so the fixture now declares `pointerType: 'pen'`. Re-ran the file: 26/26 pass. |
+| `brushDispatch.test.ts` — "applies a batch that arrives after the handover…" | **Caused by this work's own new test**, which described an unreachable sequence (the host never migrates with a batch in flight). Rewritten to the reachable timeout → handover → late-response path; 17/17 pass. |
+
+### 8.3 Failing-before evidence
+
+Source changes were stashed (tests retained) and the new tests re-run against
+the base implementation:
+
+```
+fitting.corners.test.ts  smooth run:        expected 33 anchors, got 33 (limit 4)   FAIL
+fitting.corners.test.ts  straight run:      expected 2, got 41                      FAIL
+PenTool.test.ts          ink dot:           expected { w: 4, h: 4 } to be undefined FAIL
+PenTool.test.ts          release-only drag: expected handle [20, 0], got null       FAIL
+PenTool.test.ts          one-anchor close:  expected 0 closed commits, got 1        FAIL
+brushDispatch.test.ts    handover:          expected a sync batch, got none         FAIL
+brushDispatch.test.ts    dispatch count:    expected 8, got 13                     FAIL
+brushDispatch.test.ts    migration counter: expected 0, got undefined               FAIL
+```
+
+Restored, the same files pass (173 tests total on the rebased base). The
+pressure-policy, stabilizer and interpolation tests cannot be run against the
+base in the same way: they exercise exports the base does not have
+(`PRESSURE_PROFILE_EPSILON`, `MAX_INTERPOLATED_SEGMENT_POINTS`,
+`NOMINAL_COVERAGE_PRESSURE`), so pre-fix they fail at import rather than at an
+assertion. Their before/after is the tool-level behaviour asserted in
+`PencilTool.quality.test.ts` and `brushStroke.test.ts`.
+
 
 ## 9. Limits
 

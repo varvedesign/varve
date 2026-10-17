@@ -1,10 +1,11 @@
 # Drawing tools / vector ink repair ownership
 
 **Task:** `drawing-tools-repair-2026-10-16`
+**Date:** 2026-10-16
 **Branch/worktree:** `fix/drawing-tools-repair` in
 `/home/kevina/CodingProjects/varve-drawing-repair` (outside the repository so
 the workspace's `**/.worktrees/**` exclusion does not hide its test files).
-**Base commit:** `284ce7594`.
+**Base commit:** `284ce7594`, rebased onto `b2575d8f3`.
 
 ## Scope
 
