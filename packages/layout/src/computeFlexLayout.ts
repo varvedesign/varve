@@ -79,6 +79,61 @@ function crossNatural(size: Size, row: boolean): number {
   return row ? size.h : size.w;
 }
 
+/** Redistribute overflow released when a shrinkable item reaches its minimum. */
+function shrinkLineSizes(
+  children: SceneNode[],
+  sizes: Size[],
+  indices: number[],
+  axis: 'width' | 'height',
+  row: boolean,
+  available: number,
+  gap: number,
+): void {
+  let overflow =
+    indices.reduce((sum, index) => sum + primaryNatural(sizes[index]!, row), 0) +
+    Math.max(0, indices.length - 1) * gap -
+    available;
+  if (overflow <= 0) return;
+
+  const factors = new Map<number, number>();
+  const active = new Set<number>();
+  for (const index of indices) {
+    const raw = (children[index] as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink;
+    const factor = typeof raw === 'number' && Number.isFinite(raw) ? Math.max(0, raw) : 0;
+    const min = constraintsActive(children[index]!, axis) ? primaryMin(children[index]!, axis) : 0;
+    if (factor > 0 && primaryNatural(sizes[index]!, row) > min) {
+      factors.set(index, factor);
+      active.add(index);
+    }
+  }
+
+  // Each pass either finishes the remaining shrink or freezes at least one
+  // item at its lower bound, so work is bounded by the line length.
+  let guard = 0;
+  while (overflow > 0.001 && active.size > 0 && guard++ <= indices.length) {
+    const weightTotal = [...active].reduce((sum, index) => sum + factors.get(index)!, 0);
+    if (weightTotal <= 0) return;
+    const reductions: Array<{ index: number; amount: number; frozen: boolean }> = [];
+    let released = 0;
+    for (const index of active) {
+      const child = children[index]!;
+      const current = primaryNatural(sizes[index]!, row);
+      const min = constraintsActive(child, axis) ? primaryMin(child, axis) : 0;
+      const share = (overflow * factors.get(index)!) / weightTotal;
+      const amount = Math.min(share, Math.max(0, current - min));
+      reductions.push({ index, amount, frozen: amount + 0.001 < share });
+      released += amount;
+    }
+    for (const reduction of reductions) {
+      const size = sizes[reduction.index]!;
+      sizes[reduction.index] = withPrimary(size, primaryNatural(size, row) - reduction.amount, row);
+      if (reduction.frozen) active.delete(reduction.index);
+    }
+    overflow = Math.max(0, overflow - released);
+    if (reductions.every((reduction) => !reduction.frozen)) break;
+  }
+}
+
 /** Legacy nodes had no sizing field and expected min/max to clamp geometry.
  * Explicit Fixed mode is different: its authored bounds remain inactive. */
 function constraintsActive(child: SceneNode, axis: 'width' | 'height'): boolean {
@@ -274,39 +329,14 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
       row,
     );
     let lineTotal = 0;
-    let shrinkTotal = 0;
     for (let offset = 0; offset < line.indices.length; offset++) {
       const index = line.indices[offset]!;
-      const child = children[index]!;
       sizes[index] = resolved[offset]!;
       lineTotal += primaryNatural(resolved[offset]!, row);
-      shrinkTotal += Math.max(
-        0,
-        (child as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink ?? 0,
-      );
     }
     lineTotal += Math.max(0, line.indices.length - 1) * primaryGap;
-    const overflow = lineTotal - avail;
-    if (overflow > 0 && shrinkTotal > 0) {
-      for (const index of line.indices) {
-        const child = children[index]!;
-        const factor = Math.max(
-          0,
-          (child as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink ?? 0,
-        );
-        if (factor === 0) continue;
-        const size = sizes[index]!;
-        const current = primaryNatural(size, row);
-        const next = Math.max(
-          primaryMin(child, primaryAxis),
-          current - (overflow * factor) / shrinkTotal,
-        );
-        sizes[index] = withPrimary(
-          size,
-          constraintsActive(child, primaryAxis) ? clampAxis(next, child, primaryAxis) : next,
-          row,
-        );
-      }
+    if (lineTotal > avail) {
+      shrinkLineSizes(children, sizes, line.indices, primaryAxis, row, avail, primaryGap);
     }
     line.totalSize = Math.max(...line.indices.map((index) => crossNatural(sizes[index]!, row)), 0);
   }
