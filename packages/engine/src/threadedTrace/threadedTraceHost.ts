@@ -346,10 +346,11 @@ export class ThreadedTraceHost {
     }
     // Copy: the caller keeps ownership of its buffer (ImageData-backed views
     // must stay usable); only the copy is transferred into the worker.
+    const inputBytes = pixels.byteLength;
     const copy = pixels.slice();
     const id = this.nextId++;
     this.pendingCount += 1;
-    this.pendingTraceBytes += copy.byteLength;
+    this.pendingTraceBytes += inputBytes;
     try {
       return await this.enqueue(async () => {
         if (signal?.aborted) {
@@ -384,7 +385,7 @@ export class ThreadedTraceHost {
       });
     } finally {
       this.pendingCount -= 1;
-      this.pendingTraceBytes -= copy.byteLength;
+      this.pendingTraceBytes -= inputBytes;
     }
   }
 
@@ -496,8 +497,12 @@ export class ThreadedTraceHost {
       pending.signal.removeEventListener('abort', pending.onAbort);
     }
     this.pending.delete(message.id);
-    if (message.type === 'varve-threaded-result') pending.resolve(message.value);
-    else pending.reject(new ThreadedTraceError('worker-crashed', message.error));
+    if (message.type === 'varve-threaded-result') {
+      pending.resolve(message.value);
+      return;
+    }
+    pending.reject(new ThreadedTraceError('worker-crashed', message.error));
+    this.retire(`worker failed request ${message.id}: ${message.error}`);
   };
 }
 

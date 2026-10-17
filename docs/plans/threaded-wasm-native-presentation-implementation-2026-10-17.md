@@ -136,6 +136,13 @@ external-resource behavior plus a real WebKitGTK capability check.
   host suite passes 10 tests; engine typecheck, E2E typecheck, and Biome on the
   scoped files pass. The wider planner remains escalated because of unrelated
   shared-worktree changes.
+- Independent review of commits `20695bd53..73b7c7203` found two lifecycle
+  defects: the transferred `ArrayBuffer` detached before queued-byte accounting
+  subtracted its size, and a worker-reported trace failure left the host marked
+  ready. Both are fixed in the pending follow-up: retain the pre-transfer byte
+  count, retire the failed worker, and cover transfer detachment plus failure
+  recovery. The updated focused host suite passes 12 tests and engine
+  typecheck passes; the browser runtime lane is being rerun before checkpoint.
 - Tauri's documented custom-protocol COOP/COEP headers remove the earlier
   assumption that packaged isolation is structurally unavailable. No header
   was enabled: the browser acceptance result does not cover WebKitGTK, and the
@@ -144,11 +151,12 @@ external-resource behavior plus a real WebKitGTK capability check.
   commit checkpoint passed 15 host/dispatch tests including the retry). Engine
   typecheck, E2E typecheck, Biome, `audit:docs`, staged audit hooks, and the
   threaded artifact build passed. The final browser run attaches its measured
-  result to the Playwright test artifact. The latest wide worktree planner
-  selects 71 files (72 lanes) and reports `FULL-SUITE ESCALATION: YES`; its
-  broad affected suite has not run because the same worktree contains unrelated
-  pending workspace and platform edits.
-- Local `master` is now 128 commits ahead and 7 behind `origin/master`, with
+  result to the Playwright test artifact. `pnpm verify:affected` reports 73
+  changed files and requests a full gate; `pnpm verify:full` was attempted with
+  the required reason and refused because it requires a clean, committed master
+  candidate. Full validation remains incomplete until the concurrent edits
+  are reconciled.
+- Local `master` is now 129 commits ahead and 7 behind `origin/master`, with
   unrelated dirty status entries from other in-progress work. Do not push or merge the
   remote tip until those changes are reconciled and the exact outgoing commit
   set has been reviewed.

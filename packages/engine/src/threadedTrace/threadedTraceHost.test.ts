@@ -37,8 +37,11 @@ class FakePoolWorker {
   }
 
   postMessage(message: unknown, transfer: ArrayBuffer[] = []): void {
-    this.sent.push({ message, transfer });
-    const request = message as {
+    // Match structured-clone transfer semantics so tests catch detached-view
+    // bookkeeping mistakes that a plain object mock would miss.
+    const transferred = structuredClone(message, { transfer });
+    this.sent.push({ message: transferred, transfer });
+    const request = transferred as {
       type: string;
       id?: number;
       threads?: number;
@@ -207,6 +210,47 @@ describe('ThreadedTraceHost', () => {
         (entry) => (entry.message as { type: string }).type === 'varve-threaded-trace',
       ),
     ).toBe(false);
+  });
+
+  it('releases queued-byte budget after transferred input is detached', async () => {
+    installFakeWorker();
+    const host = new ThreadedTraceHost();
+    await host.ensureReady();
+
+    for (let index = 0; index < 5; index += 1) {
+      await expect(host.trace(new Uint8Array(4), 1, 1, {})).resolves.toContain('paths');
+    }
+    expect((host as unknown as { pendingTraceBytes: number }).pendingTraceBytes).toBe(0);
+  });
+
+  it('retires a pool after a worker-reported trace failure', async () => {
+    installFakeWorker();
+    const host = new ThreadedTraceHost();
+    await host.ensureReady();
+    getWorker().echoTraces = false;
+    const pending = host.trace(new Uint8Array(4), 1, 1, {});
+    await vi.waitFor(() => {
+      expect(
+        getWorker().sent.some(
+          (entry) => (entry.message as { type: string }).type === 'varve-threaded-trace',
+        ),
+      ).toBe(true);
+    });
+    const traceRequest = getWorker().sent.find(
+      (entry) => (entry.message as { type: string }).type === 'varve-threaded-trace',
+    )?.message as { id: number } | undefined;
+    if (!traceRequest) throw new Error('trace message was not posted');
+    getWorker().fire('message', {
+      data: {
+        type: 'varve-threaded-error',
+        id: traceRequest.id,
+        error: 'simulated WASM failure',
+      },
+    });
+
+    await expect(pending).rejects.toMatchObject({ kind: 'worker-crashed' });
+    expect(host.getState().phase).toBe('retired');
+    expect(getWorker().terminated).toBe(true);
   });
 
   it('survives an init crash as a state, not an exception', async () => {
