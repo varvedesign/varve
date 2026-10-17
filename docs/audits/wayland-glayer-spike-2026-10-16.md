@@ -56,12 +56,15 @@ blocker — recorded so it cannot be rediscovered as a bug later.
 
 ## Result 2 — input: no abort (three runs), delivery partially verified
 
-The wry/tauri failure class this question exists for is wry #1808: a
-`tauri-runtime-wry` handler assumes `webview → GtkBox → GtkWindow` and
-`.unwrap()`s the ancestor downcast inside a button-press handler, aborting the
-process on the first real click when an overlay reparents the webview. The
-spike deliberately excludes `tauri-runtime-wry`, so the test is whether the
-GTK-level mechanism itself survives.
+Wry #1808 reports that `tauri-runtime-wry` 2.11.2 assumed
+`webview → GtkBox → GtkWindow` and unwrapped the ancestor downcast inside a
+button-press handler, aborting when an overlay changed that chain. Varve's
+lockfile pins `tauri-runtime-wry` 2.12.1. Its checked-in crate source keeps the
+same fixed-depth lookup but returns `None` for a failed downcast, so the exact
+reported abort is not present in the pinned source. An inserted wrapper can
+still make undecorated edge-resize handling return early. This standalone
+spike excludes `tauri-runtime-wry`; only an integrated run can establish the
+actual behavior.
 
 | Evidence | Result |
 |---|---|
@@ -87,8 +90,9 @@ therefore classified inconclusive**, and the honest statement is narrower:
   click through this stack on native Wayland.
 - Remaining step: `./wayland-overlay-glayer --interactive` on a real session —
   the DOM counters in the footer are the acceptance signal — plus a
-  wry-integrated spike (`build_gtk` path) before any Tauri-level claim, because
-  #1808 lives in `tauri-runtime-wry`, which this spike excludes by design.
+  wry-integrated spike (`build_gtk` path) before any Tauri-level claim. That
+  must verify real input, window resize behavior, and whether a custom widget
+  ancestry affects undecorated edge-resize handling.
 
 ## Result 3 — what this spike does not claim
 
@@ -98,8 +102,9 @@ therefore classified inconclusive**, and the honest statement is narrower:
   `libGL`/`libEGL` entry points, the same loader strategy as wry's example.
 - It does not validate the Tauri runtime path (`tauri-runtime-wry` handlers,
   decorated/undecorated resize logic). A positive integration decision still
-  requires that spike; #1808 (open against tauri-runtime-wry 2.11.2) is the
-  named failure to reproduce before claiming Tauri compatibility.
+  requires that spike. Issue #1808 is open against 2.11.2; Varve's pinned
+  2.12.1 source no longer unwraps the failed downcast, but its fixed-depth
+  lookup can still disable resize handling after reparenting.
 - Screenshots were taken with KDE `spectacle` (compositor capture); WebKitGTK
   content in them is the real web process output, GL content is the real GL
   context — neither layer is simulated. The checked-in crops retain the whole
@@ -120,7 +125,7 @@ the evidence rather than improve its accuracy.
 | ADR-0244 spike question | Verdict |
 |---|---|
 | Does a native surface composite below a `WebKitWebView` on Wayland? | **PASS** — GL below, HTML above, transparency verified on native Wayland (and XWayland), OS-level captures committed |
-| Does input routing survive? | **Partially verified** — no abort on any click path (the #1808 class is absent at the GTK level); DOM-level click delivery from synthesized events inconclusive; real-pointer and wry-integrated verification remain open |
+| Does input routing survive? | **Inconclusive at the DOM level** — synthesized events do not prove real-pointer delivery; the standalone has no Wry handlers. The reported #1808 abort is absent from the pinned 2.12.1 source, but resize behavior under reparenting and real input still need an integrated run. |
 | Frame-clock consistency under partial damage | New caveat, documented above — an integration must keep the native layer and webview recomposites on one frame clock |
 
 Verdict for ADR-0244: the Linux "unproven mechanism" is now **proven at the

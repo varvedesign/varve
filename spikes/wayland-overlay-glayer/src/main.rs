@@ -140,7 +140,6 @@ fn main() {
     );
     application.connect_activate(move |app| activate(app, auto, interactive));
     // Empty argv: GTK's GOption parsing must not see our own flags.
-    // Empty argv: GTK's GOption parsing must not see our own flags.
     application.run_with_args(&Vec::<&str>::new());
 }
 
