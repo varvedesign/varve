@@ -78,7 +78,7 @@ on `0aa316bca`:
   than retargeted, and an editor that cannot keep a monotonic revision is
   reported as breaking its contract instead of appearing to work.
 - Parity is measured against the action ids the editor dispatches (334 today),
-  not menu rows. 197 of them are recorded debt with a dated expiry; the number
+  not menu rows. 195 of them are recorded debt (197 when this was accepted, before group and ungroup) with a dated expiry; the number
   is in the report so it cannot be implied away.
 - Two mutation vocabularies coexist (UI `updateDoc` and catalog commands)
   until UI code migrates; parity is verified by tests, not by shared routing.

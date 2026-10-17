@@ -80,8 +80,8 @@ Discover with `varve_search_commands` and `varve_describe_command`, then act wit
 `varve_query`, `varve_invoke` and `varve_batch`.
 
 - Read: document info, node list/get/find, transaction history.
-- Edit: create, set, move, resize, delete, reorder, reparent; roll back its own
-  changes by transaction id.
+- Edit: create, set, move, resize, delete, reorder, reparent, group, ungroup;
+  roll back its own changes by transaction id.
 - Save and capture, with their permissions, in an attached window.
 
 Everything else in the editor is not yet a command. The exact numbers, and the

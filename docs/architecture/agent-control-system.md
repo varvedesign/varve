@@ -149,6 +149,26 @@ A node is editable only if neither it nor any ancestor is locked. A locked node
 can be edited in the same call that unlocks it; a locked ancestor must be
 unlocked on its own. Enforced in the executor path for every adapter.
 
+## Grouping
+
+`varve.node.group` and `varve.node.ungroup` are the scene's own `groupNodes` and
+`ungroupNode`, the operations the editor's Group and Ungroup actions call, so the
+resulting document is the one the UI makes; a parity test runs both through the
+real editor and compares container, order, name and transforms. The commands add
+the decisions the scene operation leaves implicit. It answers an unsupported
+request by returning the document unchanged, which would reach an agent as a
+no-op with no reason, so each refusal is made up front and explained: fewer than
+two nodes, an unknown id, a locked node or locked ancestor, a page or master
+content root, nodes under different parents (with the hint to reparent first), a
+node that is not a group, and a live boolean shape, which the editor expands into
+a path instead of ungrouping.
+
+Alignment, distribution and duplication are the next arrange actions and are not
+commands yet. Alignment is rotation-aware and lives in the editor's world-transform
+stack, and duplication is a private function of the editor's provider; moving
+either into the shared scene package is an extraction from the hub file, which is
+its own change with its own parity tests, not part of this one.
+
 ## Idempotency and retries
 
 - A key is separate from any transport request id and is scoped to
@@ -602,7 +622,7 @@ catalog, with the same validation and authorization as a named command.
 - The editor also cannot be mutated by automation through any other path: the
   command catalog is not reachable from the UI, and the UI is not reachable from
   the catalog.
-- **197 of the 334 dispatchable editor actions have no semantic command.** They
+- **195 of the 334 dispatchable editor actions have no semantic command.** They
   are counted, bucketed and dated in the parity manifest rather than described
   as covered. The largest families are typography, layout/alignment, vector
   geometry, masking, masters/pages, area selection, image/raster, motion,

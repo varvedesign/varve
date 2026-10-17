@@ -9,12 +9,12 @@ readable form of the same numbers and carries no separate authority.
 
 | Measure | Count |
 |---|---|
-| Semantic commands registered | 15 |
-| Commands recorded in the manifest | 15 |
+| Semantic commands registered | 17 |
+| Commands recorded in the manifest | 17 |
 | Editor actions that can be dispatched | 334 |
-| Actions mapped to a command | 19 |
+| Actions mapped to a command | 21 |
 | Actions recorded as "not a semantic command" | 118 |
-| Actions with no command yet (backlog) | 197 |
+| Actions with no command yet (backlog) | 195 |
 
 The action count is the number of ids `createActionHandlers` really returns, so it
 counts parameterized tools and compound workflows as the separate routes they are. It
@@ -34,12 +34,14 @@ is not a menu-item count, and a command that covers several routes is counted on
 | `varve.node.delete` | implemented | `delete` | `packages/automation/src/__tests__/live.test.ts` |
 | `varve.node.find` | implemented | no action route; reached by direct call (`findReplace`, `detectDuplicates`, `selectAllWithSameFont`) | `packages/automation/src/__tests__/executor.test.ts` |
 | `varve.node.get` | implemented | no action route; reached by direct call (`openInspectorProperties`, `openInspectPanel`) | `packages/automation/src/__tests__/executor.test.ts` |
+| `varve.node.group` | implemented | `group` | `packages/automation/src/__tests__/structure.test.ts`<br>`packages/editor/src/automation/__tests__/liveEditorIntegration.test.tsx` |
 | `varve.node.list` | implemented | no action route; reached by direct call (`openDocumentPanel`) | `packages/automation/src/__tests__/executor.test.ts` |
 | `varve.node.move` | implemented | `nudgeDown`<br>`nudgeLeft`<br>`nudgeRight`<br>`nudgeUp` | `packages/automation/src/__tests__/executor.test.ts` |
 | `varve.node.reorder` | implemented | `bringForward`<br>`bringFront`<br>`sendBack`<br>`sendBackward` | `packages/automation/src/__tests__/executor.test.ts` |
-| `varve.node.reparent` | implemented | no action route; reached by direct call (`group`, `ungroup`, `enterFrame`) | `packages/automation/src/__tests__/executor.test.ts` |
+| `varve.node.reparent` | implemented | no action route; reached by direct call (`enterFrame`) | `packages/automation/src/__tests__/executor.test.ts` |
 | `varve.node.resize` | implemented | no action route; reached by direct call (`resizeImage`, `toolScale`) | `packages/automation/src/__tests__/executor.test.ts`<br>`packages/scene/src/nodeResize.test.ts` |
 | `varve.node.set` | implemented | no action route; reached by direct call (`openInspectorProperties`, `textBold`, `textItalic`, `textUnderline`, `textAlignLeft`) | `packages/automation/src/__tests__/live.test.ts` |
+| `varve.node.ungroup` | implemented | `ungroup` | `packages/automation/src/__tests__/structure.test.ts`<br>`packages/editor/src/automation/__tests__/liveEditorIntegration.test.tsx` |
 
 ## Recorded limits
 
@@ -59,18 +61,20 @@ is not a menu-item count, and a command that covers several routes is counted on
   - Cannot reproduce a drag-to-create gesture's intermediate samples; only the committed result.
 - `varve.node.find`
   - Reports ambiguity; it never coerces a name into an id.
+- `varve.node.group`
+  - Members must already share a parent; use varve.node.reparent first. The editor's Group action silently does nothing for mixed parents, the command refuses and says why.
 - `varve.node.move`
   - Align and distribute are not the same operation and are not covered by `by`.
 - `varve.node.reorder`
   - Reports a no-op at the boundary rather than clamping.
-- `varve.node.reparent`
-  - Group/ungroup are not the same operation; a dedicated group command does not exist yet.
 - `varve.node.resize`
   - Refuses kinds without a direct size instead of guessing one.
 - `varve.node.set`
   - Typed properties only (name, visible, locked, opacity, rotation, blendMode, fill, text, fontSize). No arbitrary property path.
   - Writes a static opacity; the editor's own setter also feeds motion auto-keyframing while a timeline plays.
   - Nodes with stacked fills reject a single `fill` rather than silently changing nothing.
+- `varve.node.ungroup`
+  - A live boolean group is refused: the editor expands it into a path, which is a different operation that has no command yet.
 
 ## Actions recorded as not being semantic commands
 
@@ -113,9 +117,9 @@ after which the gate fails until the debt is paid or the expiry is deliberately 
 
 The UI can do it and no semantic command exists yet. Each must end up as a command, an explicit notACommand reason, or a new dated entry.
 
-### Other document operations (65)
+### Other document operations (63)
 
-`applyComicWorkspaceLayout`, `applyWebtoonWorkspaceLayout`, `archiveBackup`, `archiveRestore`, `bindField`, `contentAwareFill`, `copy`, `copyAsPng`, `copyAsSvg`, `copyProperties`, `copyText`, `createTableFromClipboard`, `cut`, `deleteLastSavedAreaSelection`, `detectDuplicates`, `downloadSnapshot`, `duplicate`, `enterFrame`, `exportTableCsv`, `findReplace`, `fitSelectionToPlane`, `flipH`, `flipV`, `frequencySeparation`, `group`, `import`, `mergeSelected`, `mirrorDuplicateHorizontal`, `mirrorDuplicateVertical`, `newAdjustmentLayer`, `openInspectorProperties`, `openPrivacy`, `paste`, `pastePlainText`, `pasteProperties`, `pasteSvgMarkup`, `quickConvert`, `radialDuplicate`, `repeatDuplicate`, `repeatTransform`, `restoreFromSnapshot`, `restoreLastSavedAreaSelection`, `rulerModeArtboard`, `rulerModeGlobal`, `runAudit`, `saveAreaSelection`, `scanDebt`, `smartFilterInvert`, `stepBackward`, `stepForward`, `suggestNames`, `toggleAiFeatures`, `toggleBeforeAfterCompare`, `toggleFacingPages`, `toggleFindingsOverlay`, `toggleFindingsProviderContrast`, `toggleFindingsProviderDpiWarnings`, `toggleFindingsProviderVectorIssues`, `toggleMarqueeContainment`, `toggleOnionSkin`, `toolScale`, `transformSelectedPixels`, `transformSelectionBoundary`, `ungroup`, `unprojectSelectionFromPlane`
+`applyComicWorkspaceLayout`, `applyWebtoonWorkspaceLayout`, `archiveBackup`, `archiveRestore`, `bindField`, `contentAwareFill`, `copy`, `copyAsPng`, `copyAsSvg`, `copyProperties`, `copyText`, `createTableFromClipboard`, `cut`, `deleteLastSavedAreaSelection`, `detectDuplicates`, `downloadSnapshot`, `duplicate`, `enterFrame`, `exportTableCsv`, `findReplace`, `fitSelectionToPlane`, `flipH`, `flipV`, `frequencySeparation`, `import`, `mergeSelected`, `mirrorDuplicateHorizontal`, `mirrorDuplicateVertical`, `newAdjustmentLayer`, `openInspectorProperties`, `openPrivacy`, `paste`, `pastePlainText`, `pasteProperties`, `pasteSvgMarkup`, `quickConvert`, `radialDuplicate`, `repeatDuplicate`, `repeatTransform`, `restoreFromSnapshot`, `restoreLastSavedAreaSelection`, `rulerModeArtboard`, `rulerModeGlobal`, `runAudit`, `saveAreaSelection`, `scanDebt`, `smartFilterInvert`, `stepBackward`, `stepForward`, `suggestNames`, `toggleAiFeatures`, `toggleBeforeAfterCompare`, `toggleFacingPages`, `toggleFindingsOverlay`, `toggleFindingsProviderContrast`, `toggleFindingsProviderDpiWarnings`, `toggleFindingsProviderVectorIssues`, `toggleMarqueeContainment`, `toggleOnionSkin`, `toolScale`, `transformSelectedPixels`, `transformSelectionBoundary`, `unprojectSelectionFromPlane`
 
 ### Panels and view (31)
 

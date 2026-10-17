@@ -177,10 +177,39 @@
         "no cycle is created"
       ],
       "tests": ["packages/automation/src/__tests__/executor.test.ts"],
-      "limits": [
-        "Group/ungroup are not the same operation; a dedicated group command does not exist yet."
+      "uiSurfaces": ["enterFrame"]
+    },
+    "varve.node.group": {
+      "status": "implemented",
+      "gesture": ["layer-multi-select-group"],
+      "preconditions": [
+        "two or more nodes that exist, are not locked (or under a locked ancestor), and are not page or master content roots",
+        "all of them share one parent"
       ],
-      "uiSurfaces": ["group", "ungroup", "enterFrame"]
+      "tests": [
+        "packages/automation/src/__tests__/structure.test.ts",
+        "packages/editor/src/automation/__tests__/liveEditorIntegration.test.tsx"
+      ],
+      "limits": [
+        "Members must already share a parent; use varve.node.reparent first. The editor's Group action silently does nothing for mixed parents, the command refuses and says why."
+      ],
+      "uiSurfaces": ["group"]
+    },
+    "varve.node.ungroup": {
+      "status": "implemented",
+      "gesture": ["layer-ungroup"],
+      "preconditions": [
+        "the node is a group that is not a live boolean shape",
+        "neither the group nor any member is locked"
+      ],
+      "tests": [
+        "packages/automation/src/__tests__/structure.test.ts",
+        "packages/editor/src/automation/__tests__/liveEditorIntegration.test.tsx"
+      ],
+      "limits": [
+        "A live boolean group is refused: the editor expands it into a path, which is a different operation that has no command yet."
+      ],
+      "uiSurfaces": ["ungroup"]
     },
     "varve.node.resize": {
       "status": "implemented",
@@ -231,7 +260,9 @@
     "auditDocument": "varve.document.info",
     "auditPage": "varve.document.info",
     "auditSelection": "varve.document.info",
-    "save": "varve.document.save"
+    "save": "varve.document.save",
+    "group": "varve.node.group",
+    "ungroup": "varve.node.ungroup"
   },
   "notACommand": {
     "undo": "history-operation",
