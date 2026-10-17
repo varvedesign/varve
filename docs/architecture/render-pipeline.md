@@ -566,6 +566,51 @@ Because the IR now reads the document's buffer, **nothing in the IR path may
 write to `RasterTileIR.pixels`, and an upload must never transfer its
 `ArrayBuffer`** (that would detach the document's own storage).
 
+## Retained isolated-group source pixels (2026-10-17)
+
+The live Canvas2D path now retains the completed source canvas for a narrow
+class of isolated groups in
+`packages/editor/src/render/retainedGroupSurfaceCache.ts`. It admits only
+groups whose ordered children are visible shape leaves with resolved IR,
+solid/gradient fills, no masks, no per-item effects/filters, and no active
+proofing, warp, or master occurrence. Text, images, patterns, nested groups,
+unknown source dependencies, proofing, warp, master occurrences, and any group
+with a visible effect stay on the fresh replay path. This avoids retaining a
+canvas that a later effect stage can mutate in place. The cache therefore stores
+only effect-free source composition and preserves the existing structural-scene
+fallback.
+
+The key combines active document identity, immutable group/child/IR object
+identities, effective child order, resolved color configuration, world bounds,
+effect padding, and exact raster dimensions/scale. Recreating an equivalent IR
+object may miss; it cannot collide with a changed object by reusing a node ID.
+The retained artifact is the group's source pixels before parent opacity and
+blend are applied. Group opacity/blend are still applied at the current paint
+position on every hit. No backdrop pixels or backdrop effects are retained.
+
+The cache owns drawable HTML/Offscreen canvases and composites them on a hit;
+it is not an IR-only skip. The hard residency cap is 32 MiB with an 8 MiB
+single-surface ceiling. Oversized surfaces are composed normally but are not
+retained. Least-recently-used surfaces are released on eviction, when the
+active document changes or closes, when diagnostic bypass is enabled, and when
+the page closes. The developer-only `?perf=1` handle exposes hits, misses, bypasses,
+evictions, retained bytes, and shape-leaf/raster-pixel work skipped, separately
+from the IR cache. Its bypass clears owned surfaces and forces fresh subtree
+composition; export and thumbnail consumers do not use this cache.
+
+This is a conservative first boundary, not a general subtree cache. The
+controlled independent-edit workflow, exact same-backend pixel hash, and
+replay-stage samples are recorded in
+`docs/perf/dependency-aware-composition-2026-10-17.md`; that evidence does not
+establish gains for imported/customer documents or other devices. Moving a group
+changes its world-space IR and bounds, so it currently rerasterizes at the new
+placement. The cache does not change screen damage or widen partial-redraw/worker
+admission.
+
+The raster-layer cache separately rejects a requested backing surface when its
+minimum RGBA bytes exceed its configured budget, before creating a canvas;
+tile sparsity does not reduce that backing allocation.
+
 ## Cache-key coverage (2026-10-16)
 
 Two mechanisms keep a cached `RenderItem` from being reused for changed content,

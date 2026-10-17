@@ -55,7 +55,7 @@ async function waitForArtwork(page: import('@playwright/test').Page): Promise<vo
 async function forceAuthoritativeCanvasFrame(page: import('@playwright/test').Page): Promise<void> {
   const result = (await page.evaluate(async () => {
     const perf = (
-      window as Window & {
+      window as unknown as {
         __varvePerf?: { forceFullRedraw?: () => Promise<{ authoritative: boolean }> };
       }
     ).__varvePerf;
@@ -63,6 +63,64 @@ async function forceAuthoritativeCanvasFrame(page: import('@playwright/test').Pa
   })) as { authoritative: boolean } | null;
   expect(result, 'full-redraw oracle must be installed (?perf=1)').toBeTruthy();
   expect(result?.authoritative, 'oracle must commit a fresh full frame').toBe(true);
+}
+
+async function canvasPixelHash(page: import('@playwright/test').Page): Promise<number> {
+  return page.locator(CANVAS).evaluate((element) => {
+    const { data } = (element as HTMLCanvasElement)
+      .getContext('2d')!
+      .getImageData(
+        0,
+        0,
+        (element as HTMLCanvasElement).width,
+        (element as HTMLCanvasElement).height,
+      );
+    let hash = 2166136261;
+    for (let index = 0; index < data.length; index++) {
+      hash = Math.imul(hash ^ data[index]!, 16777619);
+    }
+    return hash >>> 0;
+  });
+}
+
+async function compositionCacheDiagnostics(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const cache = (
+      window as Window & {
+        __varvePerf?: {
+          compositionCache?: {
+            diagnostics: () => {
+              hits: number;
+              misses: number;
+              residentBytes: number;
+              budgetBytes: number;
+              avoidedShapeLeaves: number;
+            };
+            setEnabled: (enabled: boolean) => void;
+            resetDiagnostics: () => void;
+          };
+        };
+      }
+    ).__varvePerf?.compositionCache;
+    return cache?.diagnostics() ?? null;
+  });
+}
+
+async function forceRedrawReplayMs(page: import('@playwright/test').Page): Promise<number> {
+  const frame = await page.evaluate(async () => {
+    const perf = (
+      window as unknown as {
+        __varvePerf?: {
+          forceFullRedraw?: () => Promise<{ authoritative: boolean }>;
+          getLast?: () => { replayMs?: number } | null;
+        };
+      }
+    ).__varvePerf;
+    const result = await perf?.forceFullRedraw?.();
+    return result?.authoritative ? (perf?.getLast?.()?.replayMs ?? null) : null;
+  });
+  expect(frame, 'each sample must be an authoritative frame').not.toBeNull();
+  return frame as number;
 }
 
 /**
@@ -237,6 +295,109 @@ test.describe('full-editor visual compositing', () => {
     await expect(layersPanel).toHaveScreenshot('nested-groups-layer-tree.png', {
       maxDiffPixels: 180,
     });
+  });
+
+  test('reuses an independent isolated group and matches a cache-bypassed composition', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => localStorage.setItem('varve.renderWorker', 'off'));
+    await navigateToCleanEditor(page, '?perf=1');
+    const contentCanvas = page.locator(CANVAS);
+    if ((await contentCanvas.count()) === 0) {
+      // Some Home startup paths create the untitled document in Recent without
+      // entering it. Open that saved draft before driving real canvas input.
+      await page.getByText('Untitled 1', { exact: true }).dblclick();
+    }
+    await contentCanvas.waitFor({ state: 'attached', timeout: 30000 });
+    for (let index = 0; index < 12; index++) {
+      const col = index % 4;
+      const row = Math.floor(index / 4);
+      await createRect(page, 80 + col * 95, 85 + row * 90, 74, 66);
+    }
+    await createRect(page, 520, 390, 90, 80);
+    await expect(page.getByRole('treeitem')).toHaveCount(13, { timeout: 10000 });
+
+    const rows = page.getByRole('treeitem');
+    await rows.nth(0).click();
+    for (let index = 1; index < 12; index++) {
+      await rows.nth(index).click({ modifiers: ['Control'] });
+    }
+    expect(await callEditor(page, 'groupSelected')).not.toBeNull();
+    await page
+      .getByRole('treeitem')
+      .filter({ hasText: /^Group\b/ })
+      .first()
+      .click();
+    expect(await callEditor(page, 'setSelectedOpacity', 0.7)).not.toBeNull();
+    await waitForStableCanvas(page);
+
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { resetDiagnostics: () => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.resetDiagnostics();
+    });
+    await forceAuthoritativeCanvasFrame(page);
+    const firstWarm = await compositionCacheDiagnostics(page);
+    expect(
+      firstWarm?.hits,
+      'a repeated authoritative frame must use retained group pixels',
+    ).toBeGreaterThan(0);
+    expect(firstWarm?.avoidedShapeLeaves).toBeGreaterThan(0);
+    const cachedHash = await canvasPixelHash(page);
+
+    // Change the separate top-level shape. The isolated group's child IR and
+    // ordered dependency identities remain unchanged, so it should still hit.
+    await page
+      .getByRole('treeitem')
+      .filter({ hasText: /^Rectangle\b/ })
+      .first()
+      .click();
+    expect(await callEditor(page, 'setSelectedOpacity', 0.45)).not.toBeNull();
+    await waitForStableCanvas(page);
+    await forceAuthoritativeCanvasFrame(page);
+    const afterIndependentEdit = await compositionCacheDiagnostics(page);
+    expect(afterIndependentEdit?.hits).toBeGreaterThan(firstWarm?.hits ?? 0);
+    expect(afterIndependentEdit?.avoidedShapeLeaves).toBeGreaterThan(
+      firstWarm?.avoidedShapeLeaves ?? 0,
+    );
+    const independentEditHash = await canvasPixelHash(page);
+    const cachedReplaySamples: number[] = [];
+    for (let index = 0; index < 7; index++) {
+      cachedReplaySamples.push(await forceRedrawReplayMs(page));
+    }
+    await hideEditorChromeForCanvasCapture(page);
+    await page.locator(CANVAS).screenshot({ path: '/tmp/varve-composition-cache-hit.png' });
+
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { setEnabled: (enabled: boolean) => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.setEnabled(false);
+    });
+    const freshReplaySamples: number[] = [];
+    for (let index = 0; index < 7; index++) {
+      freshReplaySamples.push(await forceRedrawReplayMs(page));
+    }
+    const freshHash = await canvasPixelHash(page);
+    expect(freshHash, 'the retained source canvas must match uncached subtree composition').toBe(
+      independentEditHash,
+    );
+    expect(freshHash).not.toBe(cachedHash);
+    await page.locator(CANVAS).screenshot({ path: '/tmp/varve-composition-cache-fresh.png' });
+    await test.info().attach('composition-cache-replay-samples.json', {
+      body: Buffer.from(JSON.stringify({ cachedReplaySamples, freshReplaySamples }, null, 2)),
+      contentType: 'application/json',
+    });
+    console.log(
+      'composition-cache-replay-samples',
+      JSON.stringify({ cachedReplaySamples, freshReplaySamples }),
+    );
+    console.log('composition-cache-residency', JSON.stringify({ firstWarm, afterIndependentEdit }));
   });
 
   test('clip mask is visible in the real canvas and layer hierarchy', async ({ page }) => {

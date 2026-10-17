@@ -1557,6 +1557,17 @@ export type {
 export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
 export { warpTextToMesh } from './textWarpPipeline';
+export type {
+  ThreadedTraceHostConfig,
+  ThreadedTraceOptions,
+  ThreadedTraceState,
+} from './threadedTrace/threadedTraceHost';
+export {
+  getSharedThreadedTraceHost,
+  resetSharedThreadedTraceHost,
+  ThreadedTraceError,
+  ThreadedTraceHost,
+} from './threadedTrace/threadedTraceHost';
 export type { ThresholdLuminanceMode, ThresholdParams } from './threshold';
 export {
   applyThreshold,

@@ -9,6 +9,13 @@ license.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = []
+# Threaded artifact (threaded-WASM program). Built with nightly + `-Z
+# build-std` and shared-memory RUSTFLAGS by `just wasm-build-threads`; the
+# shipped simd/baseline artifacts never enable it.
+threads = ["dep:wasm-bindgen-rayon", "dep:rayon", "varve-trace/rayon"]
+
 [dependencies]
 varve-bridge = { path = "../varve-bridge" }
 varve-core = { path = "../varve-core" }
@@ -16,6 +23,8 @@ varve-engine = { path = "../varve-engine" }
 varve-trace = { path = "../varve-trace", features = ["wasm"] }
 varve-media = { path = "../varve-media" }
 wasm-bindgen = "0.2"
+wasm-bindgen-rayon = { version = "1.3", optional = true }
+rayon = { version = "1", optional = true }
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["Window", "Navigator"] }
 serde = { version = "1", features = ["derive"] }

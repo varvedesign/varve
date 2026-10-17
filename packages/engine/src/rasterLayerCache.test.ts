@@ -30,13 +30,16 @@ function tile(version: number, fill = 0): { pixels: number[]; version: number } 
 function installFakeCanvas(): {
   writes: Array<{ x: number; y: number; fill: number }>;
   clears: Array<{ x: number; y: number }>;
+  allocations: number;
 } {
   const writes: Array<{ x: number; y: number; fill: number }> = [];
   const clears: Array<{ x: number; y: number }> = [];
+  let allocations = 0;
   class FakeOffscreen {
     width = 0;
     height = 0;
     constructor(w: number, h: number) {
+      allocations++;
       this.width = w;
       this.height = h;
     }
@@ -53,7 +56,13 @@ function installFakeCanvas(): {
     }
   }
   (globalThis as unknown as { OffscreenCanvas: unknown }).OffscreenCanvas = FakeOffscreen;
-  return { writes, clears };
+  return {
+    writes,
+    clears,
+    get allocations() {
+      return allocations;
+    },
+  };
 }
 
 describe('planTileUploads', () => {
@@ -222,8 +231,20 @@ describe('RasterLayerCache', () => {
 
   it('holds no surfaces at all when the budget is zero', () => {
     const cache = new RasterLayerCache(0);
-    cache.acquire('a', 8, 4, { '0:0': tile(1, 10) }, TILE);
+    const result = cache.acquire('a', 8, 4, { '0:0': tile(1, 10) }, TILE);
+    expect(result).toBeNull();
+    expect(recorder.allocations).toBe(0);
     expect(cache.diagnostics.surfaces).toBe(0);
+    expect(cache.diagnostics.residentBytes).toBe(0);
+  });
+
+  it('does not allocate a surface larger than a positive byte budget', () => {
+    const cache = new RasterLayerCache(64);
+    const result = cache.acquire('oversized', 8, 4, { '0:0': tile(1, 10) }, TILE);
+    expect(result).toBeNull();
+    expect(recorder.allocations).toBe(0);
+    expect(cache.diagnostics.surfaces).toBe(0);
+    expect(cache.diagnostics.residentBytes).toBe(0);
   });
 
   it('exposes a shared instance that resets cleanly', () => {

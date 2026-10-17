@@ -128,7 +128,7 @@ export function expandReplayList(args: ExpandReplayListArgs): ExpandReplayListRe
   });
   const appended =
     expansion.appendIds.length > 0
-      ? appendReplayDependencies(args)
+      ? appendReplayDependencies({ ...args, appendIds: expansion.appendIds })
       : { nodeIds: [] as string[], flatNodes: [] as EngineNode[] };
   return {
     replaySet: expansion.replaySet,

@@ -62,6 +62,18 @@ wasm-build-colour:
 
 wasm-build-all: wasm-build wasm-build-colour
 
+# Threaded artifact (wasm-bindgen-rayon). Requires the nightly toolchain with
+# rust-src and the wasm32 target: the precompiled wasm32 std is built without
+# atomics, so `--shared-memory` linking fails on stable with
+# "std ... was not compiled with 'atomics' or 'bulk-memory' features"
+# (reproduced 2026-10-16); `-Z build-std` rebuilds it. Output lands in a
+# separate directory so the variants can never overwrite one another.
+wasm-build-threads:
+    python3 -c "import os; os.execv('/usr/bin/rustup', ['rustup', 'target', 'add', 'wasm32-unknown-unknown', '--toolchain', 'nightly'])"
+    cd crates/varve-wasm && RUSTFLAGS="-C target-feature=+atomics,+bulk-memory -C link-arg=--shared-memory -C link-arg=--max-memory=1073741824 -C link-arg=--import-memory -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base" CARGO_UNSTABLE_BUILD_STD="panic_abort,std" \
+      python3 -c "import os; os.execvpe('wasm-pack', ['wasm-pack', 'build', '--target', 'web', '--out-dir', '../../apps/desktop/public/wasm/threads', '--out-name', 'varve_wasm_threads', '--features', 'threads'], {**os.environ, 'RUSTUP_TOOLCHAIN': 'nightly'})"
+    ls -lh apps/desktop/public/wasm/threads/
+
 wasm-size:
     ls -lh apps/desktop/public/wasm/varve_wasm_bg.wasm apps/desktop/public/wasm/varve_wasm_simd_bg.wasm apps/desktop/public/wasm/varve_colour_bg.wasm 2>/dev/null
 

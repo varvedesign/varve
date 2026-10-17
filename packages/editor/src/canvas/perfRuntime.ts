@@ -61,6 +61,7 @@ import {
   probeOffscreenCapability,
 } from '../render/offscreenCapabilityProbe';
 import { describeRenderPath, resolveRenderPathDiagnostic } from '../render/renderPathDiagnostics';
+import { retainedGroupSurfaceCache } from '../render/retainedGroupSurfaceCache';
 import { resolveWorkerEligibility } from '../render/workerEligibility';
 import { getRegisteredWorkerHost } from '../render/workerHost';
 import {
@@ -517,6 +518,13 @@ function augmentPerfDiagnosticsHandle(): void {
     // on demand from the capability cache, the eligibility decision and the
     // observed frame ring — nothing is recorded per frame to support this.
     renderPath: () => buildRenderPathSnapshot(),
+    // Actual retained group source pixels (distinct from subtree IR reuse).
+    // The bypass clears owned surfaces and forces fresh subtree composition.
+    compositionCache: {
+      diagnostics: () => retainedGroupSurfaceCache.diagnostics,
+      setEnabled: (enabled: boolean) => retainedGroupSurfaceCache.setEnabled(enabled),
+      resetDiagnostics: () => retainedGroupSurfaceCache.resetDiagnostics(),
+    },
     // Run (or re-read) the verified OffscreenCanvas probe. Returns the cached
     // detail once resolved; safe to call repeatedly.
     probeOffscreen: () => probeOffscreenCapability(),

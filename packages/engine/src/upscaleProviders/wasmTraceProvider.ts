@@ -61,19 +61,24 @@ export const wasmTraceProvider: TraceProvider = {
             minPixels,
             foreground === 'light' ? 'light' : 'dark',
           );
-    const result: RasterTraceResult = JSON.parse(resultJson);
-    return {
-      width: result.width,
-      height: result.height,
-      paths: result.paths.map((p) => ({
-        ...p,
-        points: p.points.map((point) => ({ ...point })),
-        ...(p.holes ? { holes: p.holes.map((ring) => ring.map((point) => ({ ...point }))) } : {}),
-        curveFitted: p.curveFitted ?? false,
-        area: p.area,
-        bounds: p.bounds || { x: 0, y: 0, w: 0, h: 0 },
-      })),
-      omittedHoles: result.omittedHoles ?? 0,
-    };
+    return toRasterTraceResult(resultJson);
   },
 };
+
+/** Shared with threadedWasmTraceProvider: one JSON shape, one mapping. */
+export function toRasterTraceResult(resultJson: string): RasterTraceResult {
+  const result: RasterTraceResult = JSON.parse(resultJson);
+  return {
+    width: result.width,
+    height: result.height,
+    paths: result.paths.map((p) => ({
+      ...p,
+      points: p.points.map((point) => ({ ...point })),
+      ...(p.holes ? { holes: p.holes.map((ring) => ring.map((point) => ({ ...point }))) } : {}),
+      curveFitted: p.curveFitted ?? false,
+      area: p.area,
+      bounds: p.bounds || { x: 0, y: 0, w: 0, h: 0 },
+    })),
+    omittedHoles: result.omittedHoles ?? 0,
+  };
+}

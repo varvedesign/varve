@@ -30,6 +30,7 @@ describe('trace provider chain', () => {
     // dispatch, see traceDispatch.ts) — that ordering is not observable from
     // a jsdom test, so the gating contract is asserted separately below.
     expect(TRACE_PROVIDER_CHAIN.map((p) => p.id)).toEqual([
+      'wasm-threaded-trace',
       'worker-trace',
       'direct-trace',
       'wasm-trace',

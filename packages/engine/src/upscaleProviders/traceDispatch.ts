@@ -1,11 +1,13 @@
 import { isTauriRuntime as isTauri } from '@varve/platform';
 import type { RasterTraceOptions, RasterTraceResult } from '../rasterTrace';
+import { threadedWasmTraceProvider } from '../threadedTrace/threadedWasmTraceProvider';
 import { directTraceProvider } from './directTraceProvider';
 import { nativeTraceProvider } from './nativeTraceProvider';
 import type { TraceProvider } from './types';
 import { wasmTraceProvider } from './wasmTraceProvider';
 import { workerTraceProvider } from './workerTraceProvider';
 
+export { threadedWasmTraceProvider } from '../threadedTrace/threadedWasmTraceProvider';
 export { directTraceProvider } from './directTraceProvider';
 export { mapNativePathsToTraceResult } from './mapNativePaths';
 export { nativeTraceProvider } from './nativeTraceProvider';
@@ -18,8 +20,14 @@ export { wasmTraceProvider } from './wasmTraceProvider';
  * the worker/direct TS fallbacks run first.
  */
 export const TRACE_PROVIDER_CHAIN: TraceProvider[] = isTauri()
-  ? [nativeTraceProvider, workerTraceProvider, directTraceProvider, wasmTraceProvider]
-  : [workerTraceProvider, directTraceProvider, wasmTraceProvider];
+  ? [
+      nativeTraceProvider,
+      threadedWasmTraceProvider,
+      workerTraceProvider,
+      directTraceProvider,
+      wasmTraceProvider,
+    ]
+  : [threadedWasmTraceProvider, workerTraceProvider, directTraceProvider, wasmTraceProvider];
 
 export async function dispatchTrace(
   imageData: ImageData,

@@ -182,6 +182,11 @@ export class RasterLayerCache {
     tiles: Readonly<Record<string, RasterTileIR>>,
     tileSize: number,
   ): { surface: RasterLayerSurface; plan: TileUploadPlan } | null {
+    // The requested backing surface is the allocation's minimum cost: tile
+    // sparsity does not reduce the canvas backing store. Do not allocate it
+    // when it cannot fit by itself; the caller will use its uncached path.
+    if (width * height * 4 > this.budgetBytes) return null;
+
     let surface = this.surfaces.get(layerKey) ?? null;
     const plan = planTileUploads(surface, width, height, tiles);
 

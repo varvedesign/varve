@@ -228,6 +228,86 @@ pub fn wasm_trace_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
+// ── Threaded-pool bindings (threads feature only) ────────────────────────
+//
+// These exist only in the `varve_wasm_threads` artifact built by
+// `just wasm-build-threads` with nightly + shared memory. The simd/baseline
+// artifacts are single-threaded by construction; nothing here may leak into
+// their ABI. The pool is initialized from a dedicated worker (never the main
+// thread): `initThreadPool` blocks on atomics while workers bootstrap, which
+// browsers forbid on the main thread and a design app must not pay there.
+
+#[cfg(feature = "threads")]
+#[wasm_bindgen]
+pub fn init_thread_pool(num_threads: usize) -> js_sys::Promise {
+    wasm_bindgen_rayon::init_thread_pool(num_threads)
+}
+
+/// Direct evidence that the pool executes Varve work on multiple workers.
+/// Each Rayon task runs the real contour tracer against a deterministic
+/// bitmap fixture; no-op scheduling probes can report a pool as working even
+/// when useful tracing never reaches it. Returns worker IDs and result counts.
+#[cfg(feature = "threads")]
+#[wasm_bindgen]
+pub fn threaded_worker_probe(chunks: u32) -> String {
+    use rayon::prelude::*;
+    use std::collections::BTreeSet;
+    use varve_trace::TraceOptions;
+
+    let chunks = chunks.max(1) as usize;
+    const WIDTH: u32 = 192;
+    const HEIGHT: u32 = 192;
+    let mut pixels = vec![255_u8; (WIDTH * HEIGHT) as usize];
+    // Thirty-six separate, jagged foreground regions create enough contour
+    // work to exercise the same tracer used by the production WASM export.
+    for row in 0..6_u32 {
+        for col in 0..6_u32 {
+            let left = 8 + col * 29;
+            let top = 8 + row * 29;
+            for y in top..top + 18 {
+                for x in left..left + 18 {
+                    if (x + y + col * row) % 7 != 0 {
+                        pixels[(y * WIDTH + x) as usize] = 0;
+                    }
+                }
+            }
+        }
+    }
+    let options = TraceOptions {
+        min_pixels: 4,
+        ..TraceOptions::default()
+    };
+    let completed: Vec<(usize, usize)> = (0..chunks)
+        .into_par_iter()
+        .map(|_| {
+            let paths = varve_trace::trace_contours(&pixels, WIDTH, HEIGHT, &options);
+            (rayon::current_thread_index().unwrap_or(usize::MAX), paths.len())
+        })
+        .collect();
+    let seen: BTreeSet<usize> = completed.iter().map(|(worker, _)| *worker).collect();
+    serde_json::json!({
+        "workersUsed": seen.into_iter().collect::<Vec<_>>(),
+        "requestedChunks": chunks,
+        "tracesCompleted": completed.len(),
+        "pathsProduced": completed.iter().map(|(_, paths)| paths).sum::<usize>(),
+    })
+    .to_string()
+}
+
+/// ABI/version stamp the loader checks before scheduling work, so glue, wasm,
+/// and worker scripts cannot drift apart silently.
+#[cfg(feature = "threads")]
+#[wasm_bindgen]
+pub fn wasm_threads_abi() -> String {
+    // `wasm-bindgen` exposes no runtime version accessor; the glue itself
+    // carries the paired version and the loader checks the whole set.
+    serde_json::json!({
+        "engineVersion": env!("CARGO_PKG_VERSION"),
+        "abi": 1,
+    })
+    .to_string()
+}
+
 fn bezier_polygon_area(points: &[varve_trace::BezierPoint]) -> f64 {
     if points.len() < 3 {
         return 0.0;

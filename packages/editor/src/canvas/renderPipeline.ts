@@ -98,6 +98,7 @@ import {
 import { applyProofToFrame, ensureProofProvider } from '../render/proofProvider';
 import { resolveRendererAttribution } from '../render/rendererAttribution';
 import { observeCanvasRenderRevision } from '../render/renderRevision';
+import { retainedGroupSurfaceCache } from '../render/retainedGroupSurfaceCache';
 import { alphaBounds } from '../render/surfaceBounds';
 import {
   documentTreatmentSpaceForCapture,
@@ -709,6 +710,7 @@ export function renderContent(deps: RenderContentDeps): void {
     const ctxNN = ctx;
     const s = stateRef.current;
     const doc = documentHasSolo(s.document) ? applySoloToDocument(s.document) : s.document;
+    retainedGroupSurfaceCache.activateDocument(String(doc.id));
     _showOriginalBgNodeId = s.showOriginalBgNodeId ?? null;
 
     // Render resources are session-derived. Retain only sources owned by the
@@ -1699,6 +1701,80 @@ export function renderContent(deps: RenderContentDeps): void {
               0.01,
               Math.min(fitted.width / groupWidth, fitted.height / groupHeight),
             );
+            const groupX = minX - effectPadding;
+            const groupY = minY - effectPadding;
+            let retainedKey: string | null = null;
+            let retainedShapeLeaves = 0;
+            if (
+              !warpedContainer &&
+              !masterPlacement &&
+              !instancePrefix &&
+              !docProofConfig &&
+              visibleGroupEffects.length === 0 &&
+              !('mask' in n && n.mask)
+            ) {
+              const keyParts: (object | string | number)[] = [
+                String(doc.id),
+                n,
+                s.workspaceMode,
+                doc.activePageId ?? '',
+                doc.colorConfig ?? 'default-color-config',
+                replayColorOptions.blendEvaluationSpace,
+                ...instanceWorldTransform(n.id, masterPlacement),
+                minX,
+                minY,
+                groupWidth,
+                groupHeight,
+                fitted.width,
+                fitted.height,
+                renderScale,
+                effectPadding,
+              ];
+              let eligible = true;
+              for (const childId of effectivePaintOrder(doc, n)) {
+                const child = doc.nodes[childId];
+                const childItem = irByRenderKey.get(childId);
+                if (
+                  child?.kind !== 'shape' ||
+                  child.visible === false ||
+                  ('mask' in child && child.mask) ||
+                  !childItem ||
+                  childItem.primitive.kind === 'text' ||
+                  (childItem.effects?.length ?? 0) > 0 ||
+                  (childItem.filters?.length ?? 0) > 0 ||
+                  childItem.fills?.some((fill) => fill.type !== 'solid' && fill.type !== 'gradient')
+                ) {
+                  eligible = false;
+                  break;
+                }
+                keyParts.push(childId, child, childItem);
+                retainedShapeLeaves++;
+              }
+              if (eligible) retainedKey = retainedGroupSurfaceCache.key(keyParts);
+            }
+            const retained = retainedKey ? retainedGroupSurfaceCache.get(retainedKey) : null;
+            if (retained) {
+              const bm = n.blendMode ?? 'passThrough';
+              if (bm !== 'passThrough') {
+                targetCtx.globalCompositeOperation = mapBlendMode(bm) as GlobalCompositeOperation;
+              } else if (isIsolated) {
+                targetCtx.globalCompositeOperation = 'source-over';
+              }
+              targetCtx.globalAlpha = n.opacity ?? 1;
+              targetCtx.drawImage(
+                retained.canvas,
+                0,
+                0,
+                retained.canvas.width,
+                retained.canvas.height,
+                groupX,
+                groupY,
+                groupWidth,
+                groupHeight,
+              );
+              targetCtx.restore();
+              return;
+            }
             const gCanvas = new CompositeCanvas({
               width: groupWidth,
               height: groupHeight,
@@ -1745,9 +1821,14 @@ export function renderContent(deps: RenderContentDeps): void {
               }
             }
             gCtx.restore();
-
-            const groupX = minX - effectPadding;
-            const groupY = minY - effectPadding;
+            if (retainedKey && !retained) {
+              retainedGroupSurfaceCache.set(
+                retainedKey,
+                String(doc.id),
+                gCanvas.canvas,
+                retainedShapeLeaves,
+              );
+            }
             for (const effect of visibleGroupEffects) {
               if (effect.type === 'backgroundBlur' || effect.type === 'glassMaterial') {
                 compositeGroupBackdropEffect(
