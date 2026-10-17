@@ -71,6 +71,11 @@ does not advertise threaded tracing. The Tauri packaged webview and WebKitGTK
 must be measured independently; browser-tab COOP/COEP behavior is not proof of
 Tauri isolation support.
 
+Settings > Performance reports thread eligibility separately from the trace
+pool's runtime phase, configured worker count, and any observed worker IDs.
+Collecting this diagnostic reads the existing host state and does not start a
+pool or run work.
+
 Runtime selection (updated 2026-10-16): `wasmArtifactCandidates()` returns
 `['simd','baseline']` only after the engine validated a `v128` module
 (`WebAssembly.validate` on a 74-byte probe), otherwise `['baseline']` alone —

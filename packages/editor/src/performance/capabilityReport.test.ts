@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 
-import { _resetWasmCapabilitySnapshot, _resetWasmEngineForTests } from '@varve/engine';
+import {
+  _resetWasmCapabilitySnapshot,
+  _resetWasmEngineForTests,
+  getSharedThreadedTraceHost,
+  resetSharedThreadedTraceHost,
+} from '@varve/engine';
 import { resetPlatformInfo } from '@varve/platform';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { _resetPlatformCapabilities } from '../canvas/adaptiveProfile';
@@ -18,6 +23,7 @@ afterEach(() => {
   _resetOffscreenCapability();
   _resetWasmCapabilitySnapshot();
   _resetWasmEngineForTests();
+  resetSharedThreadedTraceHost();
   resetPlatformInfo();
   vi.restoreAllMocks();
 });
@@ -27,11 +33,17 @@ describe('capability report', () => {
     const report = await collectCapabilityReport();
     const serialized = serializeCapabilityReport(report);
 
-    expect(report.schemaVersion).toBe(1);
+    expect(report.schemaVersion).toBe(2);
     expect(report.files.fileInputFallback).toBe(true);
     expect(report.storage.indexedDbPresent).toBe(true);
     expect(report).not.toHaveProperty('userAgent');
     expect(report).not.toHaveProperty('document');
+    expect(report.threadedTracePool).toEqual({
+      phase: 'idle',
+      threads: null,
+      verifiedWorkers: null,
+      reason: null,
+    });
     expect(serialized).not.toContain(navigator.userAgent);
     expect(serialized).not.toContain('Varve Demo');
   });
@@ -75,6 +87,17 @@ describe('capability report', () => {
     // Capability is not attribution: nothing has been loaded in this test.
     expect(report.wasm.activeArtifact).toBe('none');
     expect(report.wasm.colourArtifact).toBe('none');
+  });
+
+  it('reports pool failure categories without exposing worker exception text', async () => {
+    getSharedThreadedTraceHost().retire('sensitive local path /tmp/private-worker-error');
+
+    const report = await collectCapabilityReport();
+    const serialized = serializeCapabilityReport(report);
+
+    expect(report.threadedTracePool.phase).toBe('retired');
+    expect(report.threadedTracePool.reason).toBe('worker-retired');
+    expect(serialized).not.toContain('/tmp/private-worker-error');
   });
 
   it('turns rejected probes into status values and never requests persistence', async () => {

@@ -156,10 +156,53 @@ external-resource behavior plus a real WebKitGTK capability check.
   the required reason and refused because it requires a clean, committed master
   candidate. Full validation remains incomplete until the concurrent edits
   are reconciled.
-- Local `master` is now 129 commits ahead and 7 behind `origin/master`, with
+- Local `master` is now 130 commits ahead and 7 behind `origin/master`, with
   unrelated dirty status entries from other in-progress work. Do not push or merge the
   remote tip until those changes are reconciled and the exact outgoing commit
   set has been reviewed.
+
+- The Settings capability report now reports the trace pool's runtime phase,
+  configured worker count, and verified-worker count without initializing the
+  pool. Its schema is version 2; failure reasons use an allowlist so worker
+  exception text and local paths are not serialized. The Performance panel
+  shows this status beside the existing WASM eligibility row.
+- Focused validation for this diagnostic passed: five capability-report unit
+  tests, Biome on the four scoped UI/test files, `pnpm audit:docs` (1168 docs,
+  856 links, 182 ADRs), `pnpm audit:emoji`, and `pnpm audit:tokens` (324 pairs
+  across three themes plus the usage scan). The Performance settings E2E passed
+  at 200% text size and captured dark, light, and high-contrast states. I
+  inspected the dark 200% capture: the new row wraps within the dialog and
+  remains legible. After correcting type errors in the shared
+  Canvas2D/native baseline spec, `pnpm typecheck:e2e` passes. The diagnostics
+  panel/editor typecheck also passed. `pnpm audit:radius` also
+  failed on ten legacy raw-radius consumers in presentation and SpecPanel CSS,
+  outside this slice.
+- Independent review of the threaded host and Settings diagnostic found no
+  remaining blocking defect. Review confirmed that diagnostics do not start
+  the pool and failure details remain privacy-safe. The browser capture is
+  evidence of layout rather than a pixel-baseline comparison.
+- Independent review of the shared Canvas2D/native baseline spec found that it
+  originally accumulated frames without a clear, emitted only two of six
+  benchmark cases, implied compositor timing from a detached canvas, and did
+  not reject blank output. It also found that native total time counted
+  lowering twice. The harness and corpus emitter now cover six matching cases,
+  clear and read back each measured replay, require at least 5% visible pixel
+  coverage, and describe the browser number as detached Canvas2D replay. The
+  native total now contains only one production `render` call; standalone
+  lowering is timed separately. Corpus emission, a one-frame browser smoke,
+  and corrected 60-frame runs passed for all six cases. The browser harness
+  clears and reads back the detached canvas; results and the full caveat are
+  recorded in `docs/perf/native-raster-baseline-2026-10-17.md`. An earlier
+  draw-only run is invalidated. These separate microbenchmarks do not support a
+  product speedup claim because normal editor replay does not read pixels back
+  and native output is not presented directly.
+- Latest `pnpm verify:plan` before the final report edits saw 79 shared-worktree
+  changes and selected 71 lanes, with `FULL-SUITE ESCALATION: YES` due
+  workspace/toolchain and validation-infrastructure changes plus a high-risk
+  dependency upgrade.
+  `pnpm verify:full` previously refused because the full gate requires a
+  clean, committed master candidate. The shared tree still contains unrelated
+  edits, so the full gate and remote integration remain incomplete.
 
 - `311791fed` adds the standalone Wayland GLArea spike, OS-level captures, and
   its initial qualified audit.

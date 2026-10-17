@@ -10,8 +10,10 @@
 
 import {
   getColourWasmAttribution,
+  getSharedThreadedTraceHost,
   getWasmCapabilitySnapshot,
   getWasmEngineAttribution,
+  type ThreadedTraceState,
 } from '@varve/engine';
 import { getPlatformInfo } from '@varve/platform';
 import { detectPlatformCapabilities, type PlatformCapabilities } from '../canvas/adaptiveProfile';
@@ -23,7 +25,7 @@ import { ensureWebGpuCapabilityProbe, type WebGpuCapabilityProbe } from './webGp
 
 export type { WebGpuCapabilityProbe } from './webGpuProbe';
 
-export const CAPABILITY_REPORT_SCHEMA_VERSION = 1 as const;
+export const CAPABILITY_REPORT_SCHEMA_VERSION = 2 as const;
 
 export type CapabilityProbeStatus = 'supported' | 'unavailable' | 'failed';
 
@@ -54,6 +56,13 @@ export interface WasmCapabilityProbe {
   fallbacks: readonly string[];
   /** The colour engine ships baseline-only (no v128 instructions measured). */
   colourArtifact: 'baseline' | 'none';
+}
+
+export interface ThreadPoolCapabilityProbe {
+  phase: ThreadedTraceState['phase'];
+  threads: number | null;
+  verifiedWorkers: number | null;
+  reason: 'thread-capability-unavailable' | 'worker-init-failed' | 'worker-retired' | null;
 }
 
 export interface StorageCapabilityProbe {
@@ -110,6 +119,8 @@ export interface CapabilityReport {
     >;
   };
   wasm: WasmCapabilityProbe;
+  /** Runtime trace-pool state; collecting the report does not initialize it. */
+  threadedTracePool: ThreadPoolCapabilityProbe;
   storage: StorageCapabilityProbe;
   files: FileCapabilityProbe;
 }
@@ -205,6 +216,24 @@ function probeWasm(): WasmCapabilityProbe {
       (attempt) => `${attempt.artifact}:${attempt.stage}:${attempt.reason}`,
     ),
     colourArtifact: getColourWasmAttribution().artifact,
+  };
+}
+
+function probeThreadedTracePool(): ThreadPoolCapabilityProbe {
+  const state = getSharedThreadedTraceHost().getState();
+  const threadsUsable = getWasmCapabilitySnapshot().wasm.threadsUsable;
+  return {
+    phase: state.phase,
+    threads: state.threads ?? null,
+    verifiedWorkers: state.verifiedWorkers ?? null,
+    reason:
+      state.phase === 'unavailable'
+        ? threadsUsable
+          ? 'worker-init-failed'
+          : 'thread-capability-unavailable'
+        : state.phase === 'retired'
+          ? 'worker-retired'
+          : null,
   };
 }
 
@@ -325,6 +354,7 @@ export async function collectCapabilityReport(): Promise<CapabilityReport> {
       offscreen: snapshotOffscreen(offscreen),
     },
     wasm,
+    threadedTracePool: probeThreadedTracePool(),
     storage,
     files: probeFiles(),
   };

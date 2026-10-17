@@ -10,6 +10,24 @@ function statusLabel(status: string): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+function threadPoolLabel(report: CapabilityReport): string {
+  const pool = report.threadedTracePool;
+  if (pool.phase === 'idle') return 'Not initialized';
+  if (pool.phase === 'initializing') return 'Initializing';
+  if (pool.phase === 'ready') {
+    const verified =
+      pool.verifiedWorkers === null
+        ? 'workload probe not run'
+        : `${pool.verifiedWorkers} workers verified`;
+    return `Initialized · ${pool.threads ?? 0} threads · ${verified}`;
+  }
+  if (pool.reason === 'thread-capability-unavailable')
+    return 'Unavailable · threaded WASM prerequisites are not met';
+  if (pool.reason === 'worker-init-failed') return 'Unavailable · worker could not start';
+  if (pool.reason === 'worker-retired') return 'Retired · retry on the next trace';
+  return statusLabel(pool.phase);
+}
+
 export function CapabilityReportPanel() {
   const [report, setReport] = useState<CapabilityReport | null>(null);
   const [collecting, setCollecting] = useState(false);
@@ -116,6 +134,10 @@ export function CapabilityReportPanel() {
                 {report.wasm.simdValidated ? 'yes' : 'no'} /{' '}
                 {report.wasm.threadsUsable ? 'usable' : 'unavailable'}
               </dd>
+            </div>
+            <div>
+              <dt>Threaded trace pool</dt>
+              <dd>{threadPoolLabel(report)}</dd>
             </div>
             <div>
               <dt>WASM engine artifact</dt>

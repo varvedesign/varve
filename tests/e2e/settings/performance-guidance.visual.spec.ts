@@ -24,6 +24,15 @@ test('performance guidance fits dark settings at 200% text size', async ({ page 
   await page.evaluate(() => {
     document.documentElement.style.setProperty('font-size', '200%', 'important');
   });
+  await settings.getByRole('button', { name: 'Collect capability report' }).click();
+  const threadPoolRow = settings.getByText('Threaded trace pool', { exact: true });
+  await expect(threadPoolRow).toBeVisible();
+  await expect(settings.getByText('Not initialized', { exact: true })).toBeVisible();
+  await threadPoolRow.scrollIntoViewIfNeeded();
+  await settings.screenshot({
+    path: testInfo.outputPath('threaded-trace-capability-dark-200-percent.png'),
+    animations: 'disabled',
+  });
   const guidance = settings.getByText(/Warm refinement targets are 500\s*ms for ordinary work/i);
   await expect(guidance).toBeVisible();
   await settings.getByRole('combobox', { name: 'Interactive preview quality' }).focus();
