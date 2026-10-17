@@ -253,11 +253,17 @@ undo, and revisiting each branch after switching in the History panel (the
 scenario item 2 above says was never reproduced end to end). It passes on the
 final code, 3 of 3. It has **not** been shown to fail against the pre-fix tile
 identity code, and the stroke-after-undo test does not assert that the second
-stroke shares a tile with the undone one. Writing it also surfaced a separate,
-unfixed timing defect, recorded in ADR-0241 Open items: undo pressed before
-persistent history has caught up with the first strokes of a freshly opened
-document can leave a wrong history. It reproduced only as the first (cold) case of
-a run and is suspected, not verified, to be the session attaching late.
+stroke shares a tile with the undone one. Writing it also surfaced a separate
+timing defect, diagnosed and fixed afterwards (ADR-0241 Open items, "Undo before
+persistent history has caught up"): undo pressed before persistent history had
+attached or recorded the first strokes appended a stray step and lost Redo, and
+a stroke committed before attach never reached history. Two causes, both
+reproduced in-process with a gated history store and fixed in the editor's
+history bridge; the earlier suspicion (a late attach) was right. Undo in that
+window still restores at once, and history now replays the step in order. The
+pixels that local step shows before attach were not always exact in browser runs
+(unresolved, ADR-0241 Open items); after attach the recorded history is what the
+canvas shows.
 
 Undo-to-first-correct-frame latency in the app is covered by
 `tests/e2e/paint/stroke-undo-responsiveness.spec.ts`, which measures

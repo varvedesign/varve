@@ -3611,9 +3611,13 @@ export function EditorProvider({
           // Persistent history (M7): route the committed transaction into the
           // revision store. Diffed against the begin-state document; empty
           // transactions are suppressed by the reference check above.
+          // Captured even while history is still attaching: the capture queue
+          // holds it behind attach, whereas leaving it to the document watcher
+          // would lose the gesture (the watcher skips every render of an open
+          // transaction, and the commit render changes no document).
           const before = txSnapshotRef.current;
           const persistentNow = persistentHistoryRef.current;
-          if (before && persistentNow?.attached) {
+          if (before && persistentNow) {
             historySkipRef.current = true;
             // Read selection from the finalized state in this updater. The
             // hook's render-time selection ref can still describe the prior
@@ -6580,7 +6584,7 @@ export function EditorProvider({
           // the branch head through the revision store. Falls back to the
           // in-memory stack for mutation paths not yet migrated.
           const persistent = persistentHistoryRef.current;
-          if (persistent?.attached && persistent.session?.canUndo) {
+          if (persistent?.ownsNavigation('undo')) {
             void persistent.undo();
             return;
           }
@@ -6593,6 +6597,7 @@ export function EditorProvider({
         redoSelStackRef.current = [...redoSelStackRef.current, state.selection];
         redoLabelsRef.current = [...redoLabelsRef.current, prevLabel ?? 'Undo'];
         const synced = editorGridFromDoc(prev);
+        persistentHistoryRef.current?.noteLocalNavigation('undo', prev);
         patch({
           document: prev,
           selection: prevSel ?? [],
@@ -6640,7 +6645,7 @@ export function EditorProvider({
         // Persistent history: redo returns to the most recently abandoned
         // child of the current head.
         const persistent = persistentHistoryRef.current;
-        if (persistent?.attached && persistent.session?.canRedo) {
+        if (persistent?.ownsNavigation('redo')) {
           void persistent.redo();
           return;
         }
@@ -6652,6 +6657,7 @@ export function EditorProvider({
         undoSelStackRef.current = [...undoSelStackRef.current, state.selection];
         undoLabelsRef.current = [...undoLabelsRef.current, nextLabel ?? 'Redo'];
         const synced = editorGridFromDoc(next);
+        persistentHistoryRef.current?.noteLocalNavigation('redo', next);
         patch({
           document: next,
           selection: nextSel ?? [],

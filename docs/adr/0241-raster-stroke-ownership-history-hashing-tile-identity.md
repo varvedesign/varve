@@ -293,25 +293,64 @@ that). `strictlyIdentical` is one-sided: `true` implies equal canonical bytes,
   a moved layer must contribute bounds covering both positions (fails with
   "expected 'full' to be 'partial'" without the fix), and a re-published layer
   with identical tile records is bounded to its own area instead of escalating.
-- **Undo shortly after opening a document, before history has caught up
-  (observed, not root-caused, not fixed).** In the editor, painting and then
-  pressing Ctrl+Z before persistent history has recorded the strokes sometimes
-  ended with a wrong history: the strokes and their layer were undone together, a
-  stray "Delete" step was appended, and Redo was lost. It reproduced as the
-  *first* case of a fresh dev-server run (cold module loading, load average ~8-12),
-  four of four times with a spec whose only wait was canvas stability, and not in
-  the warm cases that followed (correct at 1x, 4x and 8x CPU throttle and on four
-  further runs under both hash schemes). The first step after the first stroke was
-  labelled "Edit", the generic label a reconciliation capture gets, where a normal
-  capture says "Create"; that points at the persistent session attaching after
-  the first strokes rather than at a capture race, and in that window `context.tsx`
-  routes undo to the in-memory stack (`persistent.attached` and `canUndo` are
-  false). Real-browser capture latency in that state measured 0.4-2.1 s per
-  stroke against 10-30 ms for the same capture in isolation. None of this is
-  verified by instrumenting the app, it is not caused by D4 (identical under both
-  schemes), and the production-build window is unmeasured. The spec now waits for
-  the History panel step count before every navigation and asserts undo and redo
-  move the head without appending a step and leave Redo available.
+- **Undo before persistent history has caught up.** **Closed** (2026-10-17).
+  Persistent history attaches asynchronously after a document opens and records
+  each commit asynchronously after that. Painting and pressing Ctrl+Z inside
+  that window left a wrong history: a stray step (labelled "Delete" when the
+  restore removed the painted layer), Redo disabled, and, separately, strokes
+  painted before attach missing from history altogether. The earlier suspicion
+  (a late attach, not a capture race) was right, and there were two defects,
+  both reproduced deterministically through the real `EditorProvider` with a
+  history store whose `listBranches` or `commitRevision` is held open:
+  1. `commitTransaction` captured a transaction only when the session was
+     already attached. A gesture committed earlier was left to the document
+     watcher, which skips every render of an open transaction and whose commit
+     render changes no document, so a multi-render gesture (a stroke) was never
+     recorded. Genesis and the layer creation were listed; the stroke was not.
+     Now captured at commit whether or not history is attached: the capture
+     queue holds it behind attach and the watcher is told to skip the commit.
+  2. `undo`/`redo` routed to history only when the session reported a revision
+     to move to. While the session was not attached, or attached with its first
+     capture still uncommitted (it sits at genesis and reports nothing to undo),
+     the editor stepped from its local stack and told history nothing. The
+     document watcher then recorded the restored document as a new forward edit
+     on top of the pre-undo head, which discarded the redo path. Now such a
+     step is replayed into history instead: `noteLocalNavigation` keeps the
+     watcher quiet and queues the same undo or redo behind the captures history
+     still owes, so the lineage ends where the editor does and a later edit
+     branches from the right head. Undo still restores at once; it does not
+     wait for history. If the replayed step lands on a different document than
+     the editor shows, history, the hash-verified record, wins unless the user
+     has already edited on top of the local result; that is logged.
+  Regressions: `historyAttachWindow.test.tsx` drives the real `EditorProvider`
+  over a history store whose `listBranches` or `commitRevision` is held open and
+  covers an undo before attach, a multi-render gesture committed before attach,
+  and an undo while the first capture is in flight; each also runs
+  `validateHistory` over the store. All three failed before the change (the
+  gesture was absent from history; the undo left an extra step and no redo). With
+  only the commit-time capture reverted, the first two fail; with only the
+  replay reverted, the first and third fail. `usePersistentHistory.test.tsx`
+  covers the replay, the disagreement rule and the idle no-op.
+  `tests/e2e/canvas/undo-before-history-attached.spec.ts` repeats the first case
+  in a real browser with the history database's open held until the test
+  releases it: it passes with the fix and, with only the replay removed, fails at
+  its Redo assertion (Redo stays disabled), which is the reported symptom.
+  Not covered: a Ctrl+Z pressed while history is attached and idle but with
+  nothing to undo still falls back to the local stack and is recorded as an edit
+  (the mutation paths that bypass capture); and a second local step is replayed
+  on the assumption that local and recorded steps correspond one to one, which
+  the disagreement check detects but cannot repair if the user has edited since.
+  Observed, not root-caused: in gated browser runs the editor's local-stack undo
+  of one or two raster strokes did not always restore the exact pre-stroke
+  pixels (an empty layer remained after one stroke; in one run only the later of
+  two strokes remained). It behaved the same with the replay removed, so the
+  history bridge is not the cause. Whether the local entries for a paint gesture
+  or the retained raster surfaces are responsible was not determined: a
+  `?perf=1` diagnostic run was inconclusive because that mode draws debug
+  overlays onto the content canvas. The spec therefore does not compare the
+  canvas between Ctrl+Z and attach; after attach it asserts the canvas equals the
+  undone head exactly, and whether that exercised the disagreement correction or
+  the local step was already exact was not recorded.
 - `RasterLayerCache` keys surfaces by node id alone and
   `resetRasterLayerCache` has no production caller; a retired document's surfaces
   are only reclaimed by LRU eviction inside the 128 MiB budget. Identity

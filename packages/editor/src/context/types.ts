@@ -171,6 +171,19 @@ export interface PersistentHistoryApi {
     kind: string,
     selection: NodeId[],
   ) => void;
+  /**
+   * True when history, not the editor's local stacks, should take this step:
+   * attached and holding a revision to move to. False while it is still
+   * catching up, when the editor steps locally and reports it through
+   * `noteLocalNavigation`.
+   */
+  ownsNavigation: (direction: 'undo' | 'redo') => boolean;
+  /**
+   * Report a step the editor took from its local stacks, with `shown` now on
+   * screen. While history is behind it is replayed into history in capture
+   * order and kept out of the log as an edit; a no-op once history is current.
+   */
+  noteLocalNavigation: (direction: 'undo' | 'redo', shown: Document) => void;
   /** Persistent undo; returns true when a revision was loaded. */
   undo: () => Promise<boolean>;
   /** Persistent redo; returns true when a revision was loaded. */

@@ -132,6 +132,10 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   // IndexedDB capture is still pending. Keep the React bridge's captures and
   // history navigation in the same order as EditorHistorySession's queue.
   const captureQueueRef = useRef<Promise<void>>(Promise.resolve());
+  // Work history still owes the editor: an attach in flight, plus every queued
+  // capture and mirrored navigation. While it is non-zero history is behind the
+  // editor, and a step the editor takes locally has to be replayed into it.
+  const pendingRef = useRef(0);
   if (activeDocumentRef.current !== documentId) {
     activeDocumentRef.current = documentId;
     navigationGenerationRef.current += 1;
@@ -166,6 +170,8 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
       reconciled: false,
       version,
       capture: () => {},
+      ownsNavigation: () => false,
+      noteLocalNavigation: () => {},
       undo: async () => false,
       redo: async () => false,
       undoTo: async () => false,
@@ -256,6 +262,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
         throw err;
       });
     inflightAttachRef.current.set(documentId, tracked);
+    pendingRef.current += 1;
     // Do not leave a second rejected promise behind when attach fails. The
     // attach path below owns the visible failure state; a bare `.finally()`
     // mirrors its rejection and was surfacing recoverable history corruption
@@ -263,9 +270,11 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     void tracked.then(
       () => {
         inflightAttachRef.current.delete(documentId);
+        pendingRef.current -= 1;
       },
       () => {
         inflightAttachRef.current.delete(documentId);
+        pendingRef.current -= 1;
       },
     );
     void attachPromise
@@ -289,6 +298,19 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, stores]);
 
+  /** Run `run` after every earlier capture and navigation, counting it as pending. `run` must not throw. */
+  const enqueueOrdered = useCallback((run: () => Promise<void>): Promise<void> => {
+    pendingRef.current += 1;
+    const queued = captureQueueRef.current.then(run, run).finally(() => {
+      pendingRef.current -= 1;
+    });
+    captureQueueRef.current = queued.then(
+      () => undefined,
+      () => undefined,
+    );
+    return queued;
+  }, []);
+
   const enqueueCapture = useCallback(
     (
       before: Document,
@@ -296,8 +318,8 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
       selectionAtEdit: NodeId[],
       label: string,
       kind: string,
-    ): Promise<void> => {
-      const run = async () => {
+    ): Promise<void> =>
+      enqueueOrdered(async () => {
         try {
           await attachPromiseRef.current;
           const session = sessionRef.current;
@@ -308,15 +330,8 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
         } catch (err) {
           console.warn('[history] capture failed', err);
         }
-      };
-      const queued = captureQueueRef.current.then(run, run);
-      captureQueueRef.current = queued.then(
-        () => undefined,
-        () => undefined,
-      );
-      return queued;
-    },
-    [],
+      }),
+    [enqueueOrdered],
   );
 
   /**
@@ -400,6 +415,63 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
       bump();
     },
     [],
+  );
+
+  /**
+   * Whether history, not the editor's local stacks, takes this step: the session
+   * is attached and has a revision to move to. A session that is still catching
+   * up answers false, and the editor steps locally instead.
+   */
+  const ownsNavigation = useCallback((direction: 'undo' | 'redo'): boolean => {
+    const session = sessionRef.current;
+    if (!session?.attached) return false;
+    return direction === 'undo' ? session.canUndo : session.canRedo;
+  }, []);
+
+  /**
+   * The editor stepped from its local stacks and now shows `shown`, because
+   * history could not answer yet. History is behind, so it has not recorded the
+   * edits that step undid or redid, and the document watcher would record the
+   * step itself as a new edit and drop the redo path. Keep the watcher quiet and
+   * replay the same step into history behind the captures it still owes, in
+   * order, so the lineage ends where the editor does and a later edit branches
+   * from the right head. A no-op when history is up to date.
+   *
+   * The local step and the recorded one should land on the same document. If
+   * they do not, history is the hash-verified record: it wins, unless the user
+   * has already edited on top of the local result.
+   */
+  const noteLocalNavigation = useCallback(
+    (direction: 'undo' | 'redo', shown: Document): void => {
+      if (pendingRef.current === 0) return;
+      if (shown !== stateRef?.current.document) historySkipRef.current = true;
+      const generation = navigationGenerationRef.current;
+      void enqueueOrdered(async () => {
+        try {
+          await attachPromiseRef.current;
+          const session = sessionRef.current;
+          if (!session?.attached || generation !== navigationGenerationRef.current) return;
+          const result = await (direction === 'undo' ? session.undo() : session.redo());
+          if (!result) {
+            console.warn(`[history] a local ${direction} has no recorded counterpart`);
+            return;
+          }
+          bump();
+          if (
+            result.document === shown ||
+            canonicalHistoryHash(result.document) === canonicalHistoryHash(shown)
+          )
+            return;
+          console.warn(`[history] a local ${direction} and the recorded history disagree`);
+          if (restoreStateRef.current?.current.document === shown) {
+            applyLoadedRevision(result, session.canUndo, session.canRedo);
+          }
+        } catch (err) {
+          console.warn(`[history] could not replay a local ${direction}`, err);
+        }
+      });
+    },
+    [applyLoadedRevision, enqueueOrdered, historySkipRef, stateRef],
   );
 
   const capture = useCallback(
@@ -533,6 +605,8 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
     reconciled,
     version,
     capture,
+    ownsNavigation,
+    noteLocalNavigation,
     undo,
     redo,
     undoTo,

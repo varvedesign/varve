@@ -98,6 +98,29 @@ back to in-memory capture. Related edits should share one named
 The PageNav, PagesPanel, and layer-lock flows are covered by focused component
 tests and browser checks that assert this warning is absent.
 
+### Before history has caught up
+
+Attach is asynchronous and each capture is recorded after the commit that
+produced it, so the editor can run ahead of history, most visibly just after a
+document opens. Two rules keep the log faithful in that window:
+
+- A committed transaction is captured whether or not the session is attached
+  yet; the capture queue holds it behind attach. The document watcher cannot
+  stand in for it, because it skips every render of an open transaction and the
+  commit render changes no document.
+- Undo and redo go to history only when the session is attached and has a
+  revision to move to (`ownsNavigation`). Otherwise the editor steps from its
+  local stacks, which restores at once, and reports the step with
+  `noteLocalNavigation`: the watcher is told to ignore it and the same undo or
+  redo is queued behind the captures history still owes. The head therefore ends
+  where the editor does, the undone edit stays the redo target, and a later edit
+  branches from the right revision. If the replayed step lands on a different
+  document than the local one, the recorded history wins unless the user has
+  edited since; the disagreement is logged.
+
+A step taken while history is attached and idle, with nothing to undo, still
+falls back to the local stack and is recorded as an edit.
+
 ### Retention and recovery
 
 The tile store can contain harmless orphan blobs if a process fails after tile

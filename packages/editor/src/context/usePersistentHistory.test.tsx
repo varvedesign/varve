@@ -125,6 +125,135 @@ describe('persistent history session isolation', () => {
     }
   });
 
+  describe('a step the editor took locally while history was behind', () => {
+    const base = createDocument('Base', true);
+    const one = { ...base, name: 'One' };
+    const two = { ...base, name: 'Two' };
+
+    function stateOf(document: typeof base) {
+      return {
+        current: { document, dirty: false, revision: 0, sessions: [], activeId: 'tab' },
+      } as unknown as NonNullable<Parameters<typeof usePersistentHistory>[0]['stateRef']>;
+    }
+
+    /** History held at attach while two edits queue up behind it. */
+    function behindByTwoEdits(stateRef: ReturnType<typeof stateOf>) {
+      let finish!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      const originalAttach = EditorHistorySession.prototype.attach;
+      const attach = vi
+        .spyOn(EditorHistorySession.prototype, 'attach')
+        .mockImplementation(async function (this: EditorHistorySession, document) {
+          await pending;
+          return originalAttach.call(this, document);
+        });
+      const patch = vi.fn();
+      const historySkipRef = { current: false };
+      const view = renderHook(
+        ({ document }) =>
+          usePersistentHistory({
+            document,
+            selection: [],
+            patch,
+            inTransactionRef: { current: false },
+            historySkipRef,
+            stateRef,
+          }),
+        { initialProps: { document: base } },
+      );
+      return { ...view, attach, patch, historySkipRef, finish };
+    }
+
+    it('is replayed into history behind the captures it owes, and is not recorded as an edit', async () => {
+      const gated = behindByTwoEdits(stateOf(two));
+      try {
+        await waitFor(() => expect(gated.attach).toHaveBeenCalledOnce());
+        gated.rerender({ document: one });
+        gated.rerender({ document: two });
+
+        // The editor undid its last edit from the local stack.
+        act(() => gated.result.current.noteLocalNavigation('undo', one));
+        expect(gated.historySkipRef.current).toBe(true);
+
+        await act(async () => {
+          gated.finish();
+        });
+        await waitFor(() => expect(gated.result.current.attached).toBe(true));
+        const steps = await gated.result.current.steps();
+        // Genesis and the first edit: the head moved back, and the second edit
+        // is the redo target rather than the step before a new "undo" edit.
+        expect(steps).toHaveLength(2);
+        expect(gated.result.current.session?.canRedo).toBe(true);
+        expect(gated.patch).not.toHaveBeenCalled();
+      } finally {
+        gated.attach.mockRestore();
+      }
+    });
+
+    it.each([
+      ['unedited since', true, 1],
+      ['edited since', false, 0],
+    ] as const)(
+      'defers to the recorded history when they disagree and the user has %s',
+      async (_label, unedited, applied) => {
+        const elsewhere = { ...base, name: 'Elsewhere' };
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const gated = behindByTwoEdits(stateOf(unedited ? elsewhere : two));
+        try {
+          await waitFor(() => expect(gated.attach).toHaveBeenCalledOnce());
+          gated.rerender({ document: one });
+          gated.rerender({ document: two });
+
+          // The local step landed on a document history never recorded.
+          act(() => gated.result.current.noteLocalNavigation('undo', elsewhere));
+          await act(async () => {
+            gated.finish();
+          });
+          await waitFor(() => expect(gated.result.current.attached).toBe(true));
+          await gated.result.current.steps();
+
+          expect(warn).toHaveBeenCalledWith(expect.stringContaining('disagree'));
+          expect(gated.patch).toHaveBeenCalledTimes(applied);
+          if (applied) {
+            expect(gated.patch.mock.calls[0]?.[0].document.name).toBe('One');
+          }
+        } finally {
+          gated.attach.mockRestore();
+          warn.mockRestore();
+        }
+      },
+    );
+
+    it('does nothing once history is current', async () => {
+      const undo = vi.spyOn(EditorHistorySession.prototype, 'undo');
+      const historySkipRef = { current: false };
+      const { result } = renderHook(() =>
+        usePersistentHistory({
+          document: base,
+          selection: [],
+          patch: vi.fn(),
+          inTransactionRef: { current: false },
+          historySkipRef,
+          stateRef: stateOf(two),
+        }),
+      );
+      try {
+        await waitFor(() => expect(result.current.attached).toBe(true));
+        await result.current.steps();
+
+        act(() => result.current.noteLocalNavigation('undo', one));
+        await result.current.steps();
+
+        expect(historySkipRef.current).toBe(false);
+        expect(undo).not.toHaveBeenCalled();
+      } finally {
+        undo.mockRestore();
+      }
+    });
+  });
+
   it.each(['undo', 'redo', 'checkout', 'switchBranch'] as const)(
     'does not apply %s completed after switching documents',
     async (method) => {
