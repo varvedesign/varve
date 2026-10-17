@@ -82,6 +82,11 @@ export function hasPendingEdits(): boolean {
  * Drain every pending source and commit the resulting React update before
  * returning, so a later reader of the editor's authoritative state sees the
  * flushed model. Returns how many sources actually had work.
+ *
+ * A source that throws must not stop the drain or the caller: this runs in the
+ * save and quit paths, where writing the model we do have is strictly better
+ * than failing the save. The failure is surfaced in development only, because
+ * there is no user-facing surface that could act on it from here.
  */
 export function flushPendingEdits(): number {
   const targets = [...sources.values()].filter((source) => source.hasPending());
@@ -91,7 +96,16 @@ export function flushPendingEdits(): number {
       // Re-check inside the drain: an earlier source's flush can settle a
       // later one (both read the same document), and flushing an already
       // settled source would be a redundant model write.
-      if (source.hasPending()) source.flush();
+      if (!source.hasPending()) continue;
+      try {
+        source.flush();
+      } catch (error) {
+        process.env.NODE_ENV !== 'production' &&
+          console.warn(
+            `[pending-edits] ${source.id} failed to flush before an observation point`,
+            error,
+          );
+      }
     }
   });
   return targets.length;

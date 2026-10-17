@@ -113,4 +113,24 @@ describe('pending edit sources', () => {
     expect(flushPendingEdits()).toBe(2);
     expect(later.entry.flush).not.toHaveBeenCalled();
   });
+
+  it('keeps draining when one surface throws, because it runs on the save path', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const survivor = vi.fn();
+    try {
+      registerPendingEditSource({
+        id: 'broken',
+        hasPending: () => true,
+        flush: () => {
+          throw new Error('surface exploded');
+        },
+      });
+      registerPendingEditSource(source('survivor', survivor).entry);
+      expect(() => flushPendingEdits()).not.toThrow();
+      expect(survivor).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });
