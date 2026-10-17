@@ -245,11 +245,12 @@ struct Target {
     width: u32,
     height: u32,
     sample_count: u32,
-    /// Held so the MSAA texture outlives its view; the view is what the pass
-    /// binds.
-    _color: wgpu::Texture,
-    color_view: wgpu::TextureView,
-    /// Single-sample resolve destination, also the readback source.
+    /// MSAA colour attachment; `None` at sample count 1, where rendering goes
+    /// straight into `resolved` and no resolve step exists.
+    _color: Option<wgpu::Texture>,
+    color_view: Option<wgpu::TextureView>,
+    /// Single-sample resolve destination, also the readback source (and, at
+    /// sample count 1, the render target itself).
     resolved: wgpu::Texture,
     resolved_view: wgpu::TextureView,
     depth_stencil: wgpu::TextureView,
@@ -384,8 +385,19 @@ impl NativeRaster {
     /// usable. A shader/pipeline rejection surfaces as a named unavailable
     /// reason instead of a validation panic.
     pub fn create(preferred_device_id: Option<&str>) -> Result<Self, AccelError> {
+        Self::create_with_sample_count(preferred_device_id, None)
+    }
+
+    /// Create the stage with a forced MSAA sample count (MSAA-cost
+    /// experiments; ADR-0244 open item 5). The value is still probed against
+    /// the device: an unsupported forced count is a named error, never a
+    /// silent fallback to a different sample count than the caller asked for.
+    pub fn create_with_sample_count(
+        preferred_device_id: Option<&str>,
+        forced_sample_count: Option<u32>,
+    ) -> Result<Self, AccelError> {
         let gpu = GpuCompute::create(preferred_device_id)?;
-        Self::from_compute(gpu).map_err(|error| match error {
+        Self::from_compute_with_sample_count(gpu, forced_sample_count).map_err(|error| match error {
             RenderError::ShaderFailed(detail) | RenderError::OutOfBudget(detail) => {
                 AccelError::Unavailable(
                     crate::capability::UnavailableReason::UnsupportedOperator,
@@ -396,8 +408,26 @@ impl NativeRaster {
         })
     }
 
-    fn from_compute(gpu: GpuCompute) -> Result<Self, RenderError> {
-        let sample_count = probe_sample_count(gpu.device());
+    fn from_compute_with_sample_count(
+        gpu: GpuCompute,
+        forced_sample_count: Option<u32>,
+    ) -> Result<Self, RenderError> {
+        let sample_count = match forced_sample_count {
+            Some(forced) => {
+                if !matches!(forced, 1 | 2 | 4 | 8 | 16) || forced == 0 {
+                    return Err(RenderError::OutOfBudget(format!(
+                        "forced sample count {forced} is not a power-of-two MSAA count"
+                    )));
+                }
+                if !sample_count_supported(gpu.device(), forced) {
+                    return Err(RenderError::OutOfBudget(format!(
+                        "forced sample count {forced} unsupported on this adapter"
+                    )));
+                }
+                forced
+            }
+            None => probe_sample_count(gpu.device()),
+        };
         let stencil_format = probe_stencil_format(gpu.device())?;
 
         let shape_module = create_module(gpu.device(), "varve-native-shape", SHAPE_WGSL)?;
@@ -664,17 +694,22 @@ impl NativeRaster {
             height,
             depth_or_array_layers: 1,
         };
-        let color = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("varve-native-color-msaa"),
-            size,
-            mip_level_count: 1,
-            sample_count: self.sample_count,
-            dimension: wgpu::TextureDimension::D2,
-            format: TARGET_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        });
-        let color_view = color.create_view(&wgpu::TextureViewDescriptor::default());
+        let (color, color_view) = if self.sample_count > 1 {
+            let color = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("varve-native-color-msaa"),
+                size,
+                mip_level_count: 1,
+                sample_count: self.sample_count,
+                dimension: wgpu::TextureDimension::D2,
+                format: TARGET_FORMAT,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            });
+            let view = color.create_view(&wgpu::TextureViewDescriptor::default());
+            (Some(color), Some(view))
+        } else {
+            (None, None)
+        };
         let resolved = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("varve-native-color-resolved"),
             size,
@@ -804,9 +839,15 @@ impl NativeRaster {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("varve-native-frame-pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &target.color_view,
+                    // At sample count 1 there is no resolve step: the
+                    // readback texture is the render target.
+                    view: target.color_view.as_ref().unwrap_or(&target.resolved_view),
                     depth_slice: None,
-                    resolve_target: Some(&target.resolved_view),
+                    resolve_target: if self.sample_count > 1 {
+                        Some(&target.resolved_view)
+                    } else {
+                        None
+                    },
                     ops: wgpu::Operations {
                         // The full-frame clear is what makes target reuse safe.
                         load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
@@ -1029,26 +1070,34 @@ impl NativeRaster {
 /// render target at. Capability is established by attempting it, not asserted.
 fn probe_sample_count(device: &wgpu::Device) -> u32 {
     for count in SAMPLE_COUNT_CANDIDATES {
-        let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let _probe = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("varve-native-msaa-probe"),
-            size: wgpu::Extent3d {
-                width: 4,
-                height: 4,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: count,
-            dimension: wgpu::TextureDimension::D2,
-            format: TARGET_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        });
-        if pollster::block_on(scope.pop()).is_none() {
+        if sample_count_supported(device, count) {
             return count;
         }
     }
     1
+}
+
+/// A 4x4 render-attachment allocation is the smallest honest probe: it asks
+/// the device, not the feature table.
+fn sample_count_supported(device: &wgpu::Device, count: u32) -> bool {
+    let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let probe = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("varve-native-msaa-probe"),
+        size: wgpu::Extent3d {
+            width: 4,
+            height: 4,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: count,
+        dimension: wgpu::TextureDimension::D2,
+        format: TARGET_FORMAT,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    });
+    let supported = pollster::block_on(scope.pop()).is_none();
+    drop(probe);
+    supported
 }
 
 /// Probe a stencil render-attachment format the same way.

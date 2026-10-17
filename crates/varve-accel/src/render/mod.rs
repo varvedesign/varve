@@ -44,8 +44,17 @@ pub struct NativeRenderStage {
 impl NativeRenderStage {
     /// Create the stage, or report precisely why no hardware device is usable.
     pub fn create(preferred_device_id: Option<&str>) -> Result<Self, crate::discovery::AccelError> {
+        Self::create_with_sample_count(preferred_device_id, None)
+    }
+
+    /// Create the stage with a forced MSAA sample count (ADR-0244 open item
+    /// 5); an unsupported count on this adapter is a named error.
+    pub fn create_with_sample_count(
+        preferred_device_id: Option<&str>,
+        forced_sample_count: Option<u32>,
+    ) -> Result<Self, crate::discovery::AccelError> {
         Ok(Self {
-            raster: NativeRaster::create(preferred_device_id)?,
+            raster: NativeRaster::create_with_sample_count(preferred_device_id, forced_sample_count)?,
             health: RenderHealth::default(),
         })
     }

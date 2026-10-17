@@ -349,6 +349,57 @@ fn contours_rings_render_hole_and_island_like_the_replay_resolves_them() {
 }
 
 #[test]
+fn a_sample_count_one_stage_renders_analytic_and_path_fills_correctly() {
+    // The 1x MSAA variant (ADR-0244 open item 5) has no resolve step: the
+    // readback texture IS the render target. Prove both coverage paths on it.
+    let Some(_) = stage() else { return };
+    let mut stage = match NativeRenderStage::create_with_sample_count(None, Some(1)) {
+        Ok(stage) => stage,
+        Err(error) => panic!("1x stage must build when 4x probes fine: {error}"),
+    };
+    assert_eq!(stage.sample_count(), 1);
+
+    // Analytic coverage (rect) plus a stencil-and-cover path fill in one
+    // frame, the exact combination the resolve-path change touches.
+    let frame = stage
+        .render(
+            &[
+                rect(0.0, 0.0, 64.0, 48.0, rgb(10.0, 10.0, 10.0, 255.0)),
+                solid(
+                    Primitive::Path {
+                        points: points(&[(16.0, 12.0), (48.0, 12.0), (48.0, 36.0), (16.0, 36.0)]),
+                        closed: true,
+                        tolerance: 0.25,
+                        contours: Vec::new(),
+                        holes: Vec::new(),
+                        fill_rule: Some("nonzero".to_string()),
+                    },
+                    rgb(255.0, 255.0, 255.0, 255.0),
+                ),
+            ],
+            identity(),
+            WIDTH,
+            HEIGHT,
+        )
+        .expect("rasterize at 1x");
+    assert_eq!(
+        pixel(&frame, 8, 8),
+        [10, 10, 10, 255],
+        "the rect background must fill through the no-resolve path"
+    );
+    assert_eq!(
+        pixel(&frame, 32, 24),
+        [255, 255, 255, 255],
+        "the path fill must cover its interior at 1x"
+    );
+    assert_eq!(
+        pixel(&frame, 4, 4),
+        [10, 10, 10, 255],
+        "outside the path the rect colour stands"
+    );
+}
+
+#[test]
 fn a_reused_target_never_shows_the_previous_frame() {
     // The stale-pixel class: a cached surface that is not fully rewritten for
     // the current frame. The stage clears colour and stencil at the start of

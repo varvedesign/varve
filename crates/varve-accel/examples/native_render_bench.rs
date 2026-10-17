@@ -10,10 +10,14 @@
 //! Optional environment:
 //!   VARVE_BENCH_FRAMES (default 60)  measured frames per case
 //!   VARVE_BENCH_DEVICE           preferred adapter id
+//!   VARVE_BENCH_SAMPLES          comma list of forced MSAA counts
+//!                                (e.g. "4,2,1"); default probes the device
+//!   --emit-corpus <dir>          write the deterministic corpora as JSON so
+//!                                the Canvas2D baseline replays the same IR
 
 use std::time::Instant;
 
-use varve_accel::render::{lower_frame, NativeRenderStage};
+use varve_accel::render::{NativeRenderStage, lower_frame};
 use varve_core::{BlendMode, EngineColor, PathPoint};
 use varve_engine::{Primitive, RenderItem};
 
@@ -159,25 +163,62 @@ impl Samples {
     }
 }
 
+fn emit_corpus(dir: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    for (width, height, count) in [
+        (1600u32, 1000u32, 600usize),
+        (1600, 1000, 10_000),
+        (2560, 1600, 600),
+        (2560, 1600, 10_000),
+        (3200, 2000, 600),
+        (3200, 2000, 10_000),
+    ] {
+        let items = corpus(count, width as f64 * 0.9, height as f64 * 0.9, 0x5eed);
+        let name = format!("corpus-{width}x{height}-{count}.json");
+        let document = serde_json::json!({
+            "width": width,
+            "height": height,
+            "view": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            "items": items,
+        });
+        let path = dir.join(name);
+        std::fs::write(&path, serde_json::to_vec(&document).expect("corpus json"))?;
+        println!("emitted {}", path.display());
+    }
+    Ok(())
+}
+
 fn main() {
+    let mut args = std::env::args().skip(1);
+    let mut emit_corpus_dir: Option<std::path::PathBuf> = None;
+    while let Some(arg) = args.next() {
+        if arg == "--emit-corpus" {
+            emit_corpus_dir = args.next().map(std::path::PathBuf::from);
+        }
+    }
+    if let Some(dir) = emit_corpus_dir {
+        if let Err(error) = emit_corpus(&dir) {
+            eprintln!("corpus emission failed: {error}");
+            std::process::exit(2);
+        }
+        return;
+    }
+
     let frames: usize = std::env::var("VARVE_BENCH_FRAMES")
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(60);
     let preferred = std::env::var("VARVE_BENCH_DEVICE").ok();
-
-    let mut stage = match NativeRenderStage::create(preferred.as_deref()) {
-        Ok(stage) => stage,
-        Err(error) => {
-            eprintln!("native raster stage unavailable: {error}");
-            std::process::exit(2);
-        }
-    };
+    let forced_samples: Vec<Option<u32>> =
+        match std::env::var("VARVE_BENCH_SAMPLES").ok().as_deref() {
+            Some(list) if !list.is_empty() => list
+                .split(',')
+                .map(|value| value.trim().parse::<u32>().ok())
+                .collect(),
+            _ => vec![None],
+        };
 
     println!("Varve native raster benchmark");
-    println!("  device      : {}", stage.device_name());
-    println!("  backend     : {}", stage.backend());
-    println!("  msaa samples: {}", stage.sample_count());
     println!("  frames/case : {frames}");
     println!(
         "  host        : {} / {}",
@@ -186,91 +227,120 @@ fn main() {
     );
     println!();
 
-    let cases: [(u32, u32, usize); 6] = [
-        (1600, 1000, 600),
-        (1600, 1000, 10_000),
-        (2560, 1600, 600),
-        (2560, 1600, 10_000),
-        (3200, 2000, 600),
-        (3200, 2000, 10_000),
-    ];
-
-    println!(
-        "{:>10} {:>8} {:>8} {:>7} {:>9} {:>10} {:>9} {:>9} {:>9} {:>7}",
-        "size",
-        "items",
-        "lower",
-        "encode",
-        "transfer",
-        "straighten",
-        "tot p50",
-        "tot p95",
-        "tot max",
-        "px MB"
-    );
-
-    for (width, height, count) in cases {
-        let items = corpus(count, width as f64 * 0.9, height as f64 * 0.9, 0x5eed);
-        let view = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
-
-        // Admission first: an unlowerable corpus would make the timing a
-        // measurement of the refusal path.
-        let plan = lower_frame(&items, view);
-        if !plan.is_presentable() {
-            println!(
-                "{width:>10}x{height:<6} {count:>8}  not presentable: {}",
-                plan.report.summary()
-            );
-            continue;
-        }
-
-        // Warm-up: first frame pays pipeline and target creation.
-        let _ = stage
-            .render(&items, view, width, height)
-            .expect("warm-up frame");
-
-        let mut lower = Samples::new();
-        let mut encode = Samples::new();
-        let mut transfer = Samples::new();
-        let mut straighten = Samples::new();
-        let mut total = Samples::new();
-
-        for _ in 0..frames {
-            let started = Instant::now();
-            let _plan = lower_frame(&items, view);
-            lower.push(started.elapsed().as_secs_f64() * 1000.0);
-
-            let frame = stage
-                .render(&items, view, width, height)
-                .expect("benchmark frame");
-            encode.push(frame.encode_ms);
-            transfer.push(frame.transfer_ms);
-            straighten.push(frame.straighten_ms);
-            total.push(started.elapsed().as_secs_f64() * 1000.0);
-            debug_assert_eq!(frame.pixels.len(), (width * height * 4) as usize);
-        }
+    for forced in forced_samples {
+        let mut stage = match NativeRenderStage::create_with_sample_count(
+            preferred.as_deref(),
+            forced,
+        ) {
+            Ok(stage) => stage,
+            Err(error) => {
+                match forced {
+                    Some(count) => println!(
+                        "msaa {count}x: unavailable ({error}); no numbers claimed for this count"
+                    ),
+                    None => {
+                        eprintln!("native raster stage unavailable: {error}");
+                        std::process::exit(2);
+                    }
+                }
+                continue;
+            }
+        };
 
         println!(
-            "{:>10} {:>8} {:>8.2} {:>7.2} {:>9.2} {:>10.2} {:>9.2} {:>9.2} {:>9.2} {:>7.1}",
-            format!("{width}x{height}"),
-            count,
-            lower.percentile(0.5),
-            encode.percentile(0.5),
-            transfer.percentile(0.5),
-            straighten.percentile(0.5),
-            total.percentile(0.5),
-            total.percentile(0.95),
-            total.percentile(1.0),
-            (width * height * 4) as f64 / 1_048_576.0,
+            "device {} backend {} msaa {}x",
+            stage.device_name(),
+            stage.backend(),
+            stage.sample_count()
+        );
+
+        let cases: [(u32, u32, usize); 6] = [
+            (1600, 1000, 600),
+            (1600, 1000, 10_000),
+            (2560, 1600, 600),
+            (2560, 1600, 10_000),
+            (3200, 2000, 600),
+            (3200, 2000, 10_000),
+        ];
+
+        println!(
+            "{:>10} {:>8} {:>8} {:>7} {:>9} {:>10} {:>9} {:>9} {:>9} {:>7}",
+            "size",
+            "items",
+            "lower",
+            "encode",
+            "transfer",
+            "straighten",
+            "tot p50",
+            "tot p95",
+            "tot max",
+            "px MB"
+        );
+
+        for (width, height, count) in cases {
+            let items = corpus(count, width as f64 * 0.9, height as f64 * 0.9, 0x5eed);
+            let view = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+
+            // Admission first: an unlowerable corpus would make the timing a
+            // measurement of the refusal path.
+            let plan = lower_frame(&items, view);
+            if !plan.is_presentable() {
+                println!(
+                    "{width:>10}x{height:<6} {count:>8}  not presentable: {}",
+                    plan.report.summary()
+                );
+                continue;
+            }
+
+            // Warm-up: first frame pays pipeline and target creation.
+            let _ = stage
+                .render(&items, view, width, height)
+                .expect("warm-up frame");
+
+            let mut lower = Samples::new();
+            let mut encode = Samples::new();
+            let mut transfer = Samples::new();
+            let mut straighten = Samples::new();
+            let mut total = Samples::new();
+
+            for _ in 0..frames {
+                let started = Instant::now();
+                let _plan = lower_frame(&items, view);
+                lower.push(started.elapsed().as_secs_f64() * 1000.0);
+
+                let frame = stage
+                    .render(&items, view, width, height)
+                    .expect("benchmark frame");
+                encode.push(frame.encode_ms);
+                transfer.push(frame.transfer_ms);
+                straighten.push(frame.straighten_ms);
+                total.push(started.elapsed().as_secs_f64() * 1000.0);
+                debug_assert_eq!(frame.pixels.len(), (width * height * 4) as usize);
+            }
+
+            println!(
+                "{:>10} {:>8} {:>8.2} {:>7.2} {:>9.2} {:>10.2} {:>9.2} {:>9.2} {:>9.2} {:>7.1}",
+                format!("{width}x{height}"),
+                count,
+                lower.percentile(0.5),
+                encode.percentile(0.5),
+                transfer.percentile(0.5),
+                straighten.percentile(0.5),
+                total.percentile(0.5),
+                total.percentile(0.95),
+                total.percentile(1.0),
+                (width * height * 4) as f64 / 1_048_576.0,
+            );
+        }
+
+        println!();
+        println!(
+            "health: paused={} consecutive_failures={}",
+            stage.health().paused,
+            stage.health().consecutive_failures
         );
     }
 
-    println!();
-    println!(
-        "health: paused={} consecutive_failures={}",
-        stage.health().paused,
-        stage.health().consecutive_failures
-    );
     println!(
         "note: 'lower' is IR -> draw plan; 'encode' is command recording + submit; \
          'transfer' is GPU sync + padded row copy; 'straighten' is the \
