@@ -537,6 +537,32 @@ describe('automation host', () => {
     expect(admitted.result?.principal?.id).toBeTruthy();
   });
 
+  it('tells a listener when a connection closes, however it closes, exactly once', async () => {
+    const { host } = await hostSetup();
+    const opened = host.open({ transport: 'ipc' });
+    if (!opened.ok) throw new Error('could not open');
+    let heard = 0;
+    const stop = opened.connection.onClose(() => {
+      heard += 1;
+    });
+    opened.connection.close();
+    opened.connection.close();
+    expect(heard).toBe(1);
+    stop();
+
+    // A listener added after the fact is not called for an event that is over,
+    // and one that unsubscribed hears nothing.
+    const second = host.open({ transport: 'ipc' });
+    if (!second.ok) throw new Error('could not open');
+    let late = 0;
+    const off = second.connection.onClose(() => {
+      late += 1;
+    });
+    off();
+    second.connection.close();
+    expect(late).toBe(0);
+  });
+
   it('caps concurrent connections rather than accepting an unbounded number', async () => {
     const { host } = await hostSetup({ maxConnections: 2 });
     expect(host.open({ transport: 'ipc' }).ok).toBe(true);

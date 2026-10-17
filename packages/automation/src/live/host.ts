@@ -139,6 +139,12 @@ export interface HostConnection {
   onHelloTimeout(): string | null;
   summary(): ConnectionSummary;
   close(): void;
+  /**
+   * Hear that this connection closed, whoever closed it (a person revoked the
+   * client, automation stopped, the protocol ended the session). Called once; a
+   * listener added after the close is never called. Returns an unsubscribe.
+   */
+  onClose(listener: () => void): () => void;
 }
 
 class HostConnectionImpl implements HostConnection {
@@ -149,6 +155,7 @@ class HostConnectionImpl implements HostConnection {
   private client: { name: string; version?: string } | null = null;
   private readonly transport: TransportKind;
   private closed = false;
+  private readonly closeListeners = new Set<() => void>();
 
   constructor(
     connectionId: string,
@@ -216,6 +223,23 @@ class HostConnectionImpl implements HostConnection {
     this.closed = true;
     this.inner.close();
     this.onClosed(this);
+    const listeners = [...this.closeListeners];
+    this.closeListeners.clear();
+    for (const listener of listeners) {
+      try {
+        listener();
+      } catch {
+        // A listener must never stop the connection from closing.
+      }
+    }
+  }
+
+  onClose(listener: () => void): () => void {
+    if (this.closed) return () => undefined;
+    this.closeListeners.add(listener);
+    return () => {
+      this.closeListeners.delete(listener);
+    };
   }
 }
 

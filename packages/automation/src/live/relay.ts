@@ -50,7 +50,23 @@ export interface FrameRelayCore {
   readonly open: number;
 }
 
-export function createFrameRelay(host: ConnectionAcceptor): FrameRelayCore {
+export interface FrameRelayOptions {
+  /**
+   * Ask the transport to close a connection the *host* ended on its own: a
+   * person revoked the client, say. The transport owns the socket and cannot see
+   * the host's decision, so without this the socket (and its place under the
+   * transport's connection cap) outlives a session the window already dropped,
+   * until the peer next speaks. Not called when the relay is the one closing
+   * (the peer left, the protocol ended the session, the relay is stopping): the
+   * transport knows about those.
+   */
+  closeTransport?(connectionId: string): void;
+}
+
+export function createFrameRelay(
+  host: ConnectionAcceptor,
+  options: FrameRelayOptions = {},
+): FrameRelayCore {
   const connections = new Map<string, HostConnection>();
 
   const connectionFor = (connectionId: string): HostConnection | null => {
@@ -58,13 +74,22 @@ export function createFrameRelay(host: ConnectionAcceptor): FrameRelayCore {
     if (existing) return existing;
     const opened = host.open({ transport: 'ipc' });
     if (!opened.ok) return null;
-    connections.set(connectionId, opened.connection);
-    return opened.connection;
+    const connection = opened.connection;
+    connections.set(connectionId, connection);
+    // Still registered when it closes means nobody here closed it: the host did.
+    connection.onClose(() => {
+      if (connections.get(connectionId) !== connection) return;
+      connections.delete(connectionId);
+      options.closeTransport?.(connectionId);
+    });
+    return connection;
   };
 
   const forget = (connectionId: string): void => {
-    connections.get(connectionId)?.close();
+    const connection = connections.get(connectionId);
+    // Unregister first, so closing it is not mistaken for a host decision.
     connections.delete(connectionId);
+    connection?.close();
   };
 
   return {
@@ -95,8 +120,9 @@ export function createFrameRelay(host: ConnectionAcceptor): FrameRelayCore {
     },
 
     closeAll() {
-      for (const connection of connections.values()) connection.close();
+      const all = [...connections.values()];
       connections.clear();
+      for (const connection of all) connection.close();
     },
 
     get open() {

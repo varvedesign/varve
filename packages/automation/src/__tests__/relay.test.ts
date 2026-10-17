@@ -5,7 +5,7 @@ import { Executor } from '../executor';
 import { HeadlessAuthority } from '../headless';
 import { AutomationHost, createFrameRelay } from '../live';
 
-function setup(maxConnections = 4) {
+function setup(maxConnections = 4, closeTransport?: (connectionId: string) => void) {
   const authority = new HeadlessAuthority({ document: createDocument('Relay'), instanceId: 'r' });
   const host = new AutomationHost({
     authority,
@@ -17,7 +17,7 @@ function setup(maxConnections = 4) {
         : null,
     maxConnections,
   });
-  const relay = createFrameRelay(host);
+  const relay = createFrameRelay(host, closeTransport ? { closeTransport } : {});
   const hello = JSON.stringify({
     jsonrpc: '2.0',
     id: 0,
@@ -109,5 +109,46 @@ describe('createFrameRelay', () => {
     expect(t.relay.open).toBe(0);
     t.relay.closed('never-seen');
     expect(t.relay.open).toBe(0);
+  });
+
+  describe('when the host ends a session itself', () => {
+    it('asks the transport to close that connection, once', async () => {
+      const closed: string[] = [];
+      const t = setup(4, (id) => closed.push(id));
+      const answer = await t.relay.frame('c1', t.hello);
+      const principalId = JSON.parse(answer.frame as string).result.principal.id as string;
+      await t.relay.frame('c2', t.hello);
+
+      // A person disconnects one agent. The relay learns from the host, not from
+      // the socket, so the socket has to be told.
+      expect(t.host.revoke(principalId)).toBe(1);
+      expect(closed).toEqual(['c1']);
+      expect(t.relay.open).toBe(1);
+      // The other session is untouched.
+      expect(JSON.parse((await t.relay.frame('c2', t.info)).frame as string).result.outcome).toBe(
+        'ok',
+      );
+    });
+
+    it('does not ask for a close the transport already knows about', async () => {
+      const closed: string[] = [];
+      const t = setup(4, (id) => closed.push(id));
+      await t.relay.frame('c1', t.hello);
+      t.relay.closed('c1'); // the peer left
+      await t.relay.frame('c2', t.info); // no hello: the protocol ends it
+      await t.relay.frame('c3', t.hello);
+      t.relay.closeAll(); // the endpoint is going away
+      expect(closed).toEqual([]);
+      expect(t.relay.open).toBe(0);
+    });
+
+    it('does not ask again when the transport reports what it was asked to do', async () => {
+      const closed: string[] = [];
+      const t = setup(4, (id) => closed.push(id));
+      const answer = await t.relay.frame('c1', t.hello);
+      t.host.revoke(JSON.parse(answer.frame as string).result.principal.id as string);
+      t.relay.closed('c1'); // Rust's confirmation that the socket is gone
+      expect(closed).toEqual(['c1']);
+    });
   });
 });
