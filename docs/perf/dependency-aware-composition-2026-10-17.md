@@ -71,7 +71,10 @@ cached pixels exactly match a forced full redraw after disabling the cache. It
 then edits the grouped teal band, asserts the changed dependency misses the old
 retained surface, and compares the child-edited cached result with another
 cache-bypassed full redraw. It attaches before/after canvas captures to the
-Playwright result.
+Playwright result. It also exports the selected teal band as PNG before and
+immediately after changing that same band's opacity. The export dimensions
+remain stable while decoded RGBA pixels change, exercising the actual Export
+inspector path against the latest edited document state.
 
 Command:
 
@@ -85,7 +88,8 @@ node scripts/quality/heavy-lease.mjs "e2e: real poster retained-group parity aft
 The expanded test passed in Chromium (33.6 seconds for the test; 58.4 seconds
 including runner startup and lease wait on the first expanded run, and 42.6
 seconds on the visual-artifact run; the low-preference rerun passed in 39.3
-seconds). This is a richer imported Varve fixture
+seconds; the selected-child export freshness rerun passed in 25.7 seconds,
+51.7 seconds including runner startup). This is a richer imported Varve fixture
 with paths, transparency, text, gradients, and a multiply blend; it is still a
 repository-owned sample, not a customer file. The
 visually inspected output pair is [`cached`](../screenshots/dependency-aware-composition/poster-grouped-child-cached.png)
@@ -101,9 +105,11 @@ also now declines a backing canvas whose RGBA dimensions cannot fit its budget
 before allocating it. This is not a full memory-pressure soak: browser/GPU
 residency and transient effect allocations were not measured.
 
-No customer design, standalone SVG/photo asset, native WebView, export parity,
-thumbnail freshness, font/image completion race, rotated scale sweep, or
-long-session pressure run was completed. The cache deliberately excludes the
-relevant external-resource cases; those remain on fresh replay. These tests do
-not establish broad responsiveness gains or validate every dependency family
-in the supplied brief.
+No customer design, standalone SVG/photo asset, native WebView, whole-document
+cache-versus-export parity, thumbnail freshness, font/image completion race,
+rotated scale sweep, or long-session pressure run was completed. The selected
+child PNG check proves that one immediate export reflects that edited node; it
+does not cover export while resources are resolving or concurrent edits during
+encoding. The cache deliberately excludes the relevant external-resource
+cases; those remain on fresh replay. These tests do not establish broad
+responsiveness gains or validate every dependency family in the supplied brief.

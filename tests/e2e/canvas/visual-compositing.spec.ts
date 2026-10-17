@@ -6,12 +6,45 @@
  * opacity, and structural clipping cannot regress while the primitive replay
  * snapshots remain green.
  */
+
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { dropImageOnCanvas } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
 import { dragOnCanvas } from '../shared';
 
 const CANVAS = 'canvas.editor-canvas__content-layer';
+const requireFromEngine = createRequire(join(process.cwd(), 'packages', 'engine', 'package.json'));
+const { PNG } = requireFromEngine('pngjs') as {
+  PNG: { sync: { read(input: Buffer): { width: number; height: number; data: Buffer } } };
+};
+
+async function exportCurrentPng(
+  page: import('@playwright/test').Page,
+): Promise<{ width: number; height: number; data: Buffer }> {
+  const exportTab = page.locator('[role="tablist"] button[role="tab"]', { hasText: /^export$/i });
+  if (await exportTab.isVisible().catch(() => false)) {
+    await exportTab.click();
+  } else {
+    await page.getByRole('button', { name: /^More inspector tabs/ }).click();
+    await page
+      .getByRole('menu', { name: 'More inspector tabs' })
+      .getByRole('menuitem', { name: 'Export', exact: true })
+      .click();
+  }
+  await page
+    .locator('.spec-export__group')
+    .getByRole('radio', { name: 'PNG', exact: true })
+    .click();
+  const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
+  await page.getByRole('button', { name: /download/i }).click();
+  const download = await downloadPromise;
+  const path = await download.path();
+  if (!path) throw new Error('PNG export did not produce a file');
+  const { readFile } = await import('node:fs/promises');
+  return PNG.sync.read(await readFile(path));
+}
 
 async function createRect(
   page: import('@playwright/test').Page,
@@ -527,8 +560,13 @@ test.describe('full-editor visual compositing', () => {
     const groupedBand = page.getByRole('treeitem', { name: /^Layer — teal, Vector path/ });
     await expect(groupedBand).toHaveCount(1);
     await groupedBand.click();
+    const exportBeforeGroupedChildEdit = await exportCurrentPng(page);
     expect(await callEditor(page, 'setSelectedOpacity', 0.6)).not.toBeNull();
     await waitForStableCanvas(page);
+    const exportAfterGroupedChildEdit = await exportCurrentPng(page);
+    expect(exportAfterGroupedChildEdit.width).toBe(exportBeforeGroupedChildEdit.width);
+    expect(exportAfterGroupedChildEdit.height).toBe(exportBeforeGroupedChildEdit.height);
+    expect(exportAfterGroupedChildEdit.data.equals(exportBeforeGroupedChildEdit.data)).toBe(false);
     await forceAuthoritativeCanvasFrame(page);
     const afterGroupedChildEdit = await compositionCacheDiagnostics(page);
     expect(afterGroupedChildEdit?.misses).toBeGreaterThan(warmedAfterBypass?.misses ?? 0);

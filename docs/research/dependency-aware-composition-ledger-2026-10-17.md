@@ -96,7 +96,10 @@ redraw yields the exact same hash as the cached result. It then edits one of the
 grouped bands, observes a cache miss, and again gets exact parity against a
 cache-bypassed redraw. This exercises a richer Varve document (including
 gradients, text, transparency, and a multiply blend) but remains a project
-sample, not a customer design; no timing claim was taken.
+sample, not a customer design; no timing claim was taken. The same workflow
+exports the selected teal band as PNG before and immediately after changing
+that band's opacity. The PNG dimensions remain fixed and decoded RGBA pixels
+change, confirming this selected-layer export observes the latest edit.
 
 Independent code review found a canvas-aliasing hazard: the existing effect
 pipeline mutates group surfaces in place. Retention now excludes groups with
@@ -124,7 +127,9 @@ reads the live retained group cache. This avoids sharing the editor's camera
 scale or stale live surfaces, but it does not yet prove that every async export
 or thumbnail operation publishes the intended revision if callers mutate a
 document snapshot in place. Varve's copy-on-write contract is the current
-assumption; delayed-resource and immediate-export differentials remain open.
+assumption. The selected-layer immediate PNG export is now exercised through
+the Export inspector, but whole-document cache-versus-export parity and
+delayed-resource/concurrent-edit export differentials remain open.
 
 The minimap has a separate approximate geometry/canvas path, and adjustment
 histograms have a small document-identity cache; neither consumes retained
