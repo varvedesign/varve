@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Document } from '../../document';
 import { createDocument, makeFrameNode } from '../../document';
+import { PRESENTATION_SCHEMA_VERSION } from '../../presentation/types';
 import { registerBuiltinOperations } from '../bootstrap';
 import { applyOperation, hasOperation, preconditionFailure, validatePayload } from '../registry';
 import { createTransactionSession } from '../transaction';
@@ -280,7 +281,7 @@ describe('presentation operations', () => {
     document = {
       ...document,
       presentation: {
-        schemaVersion: 1,
+        schemaVersion: PRESENTATION_SCHEMA_VERSION,
         layouts: [],
         themes: [],
         decks: [
