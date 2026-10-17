@@ -120,6 +120,28 @@ frame pressure. No marketing claim currently treats this GLArea compositing
 test as a delivered Varve feature, so changing marketing copy would overstate
 the evidence rather than improve its accuracy.
 
+## Follow-up — orderly shutdown (2026-10-17)
+
+The auto-readback path now closes its GTK window after collecting the webview
+summary instead of calling `process::exit`. This runs the normal GLArea
+`unrealize` handler, which deletes its GL program and VAO. Shader setup also
+checks compile and link status and cleans up partial objects on failure; it
+reports an error instead of panicking. The isolated spike passes
+`cargo fmt --check` and `cargo check --locked`.
+
+Both backend lifecycle runs exited successfully and logged
+`[gl] unrealized; GL resources deleted`:
+
+- [XWayland follow-up log](../screenshots/wayland-spike/clean-shutdown-xwayland-2026-10-17.txt):
+  GL 4.6 rendered; GDK accepted synthesized clicks, but the web page's click
+  count stayed zero. This remains inconclusive for real pointer routing.
+- [Native Wayland follow-up log](../screenshots/wayland-spike/clean-shutdown-wayland-2026-10-17.txt):
+  GL 4.6 rendered; GDK rejected synthesized clicks as expected. This is
+  lifecycle evidence only, not input evidence.
+
+These reruns qualify shutdown and resource cleanup in the standalone spike.
+They do not expand the original compositing verdict or validate Tauri/Wry.
+
 ## Verdict
 
 | ADR-0244 spike question | Verdict |

@@ -216,11 +216,12 @@ external-resource behavior plus a real WebKitGTK capability check.
   expose a native window target, so no manual pointer click was performed.
 - The independent final spike review found no evidence-scope overclaim. It
   noted a low-priority cleanup gap: the automatic screenshot/readback branches
-  call `process::exit`, bypassing GTK shutdown and the GL `unrealize` cleanup
-  handler. The OS reclaims the standalone process resources, so captures remain
-  valid; an orderly shutdown should be added before treating this as reusable
-  production integration. Shader compilation/link failure cleanup is also not
-  hardened in this test spike.
+  called `process::exit`, bypassing GTK shutdown and the GL `unrealize` cleanup
+  handler. This is fixed: both native Wayland and XWayland auto runs exit 0 and
+  log GL resource deletion. Shader compilation/link failures now clean partial
+  GL objects and report an error instead of panicking. Evidence is recorded in
+  `docs/audits/wayland-glayer-spike-2026-10-16.md` and its linked run logs. The
+  spike remains standalone and does not validate Tauri/Wry integration.
 - The committed Wayland/XWayland captures were inspected at window scale. They
   show native pixels through transparent WebView regions and HTML chrome above
   the GL area. One capture also shows the documented color-phase mismatch

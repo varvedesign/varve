@@ -171,8 +171,21 @@ fn activate(app: &gtk::Application, auto: bool, interactive: bool) {
             let gl = unsafe { glow::Context::from_loader_function(load_gl_symbol) };
             let version = gl.version();
             eprintln!("[gl] context ready: GL {}.{}", version.major, version.minor);
-            let program = compile_program(&gl);
-            let vao = unsafe { gl.create_vertex_array().expect("create VAO") };
+            let program = match compile_program(&gl) {
+                Ok(program) => program,
+                Err(error) => {
+                    eprintln!("[gl] shader setup FAILED: {error}");
+                    return;
+                }
+            };
+            let vao = match unsafe { gl.create_vertex_array() } {
+                Ok(vao) => vao,
+                Err(error) => {
+                    unsafe { gl.delete_program(program) };
+                    eprintln!("[gl] VAO setup FAILED: {error}");
+                    return;
+                }
+            };
             *gl_state.borrow_mut() = Some(GlState { gl, program, vao });
         });
     }
@@ -292,24 +305,58 @@ const FRAGMENT: &str = r#"#version 330 core
 out vec4 color;
 void main() { color = vec4(1.0, 0.45, 0.05, 1.0); }"#;
 
-fn compile_program(gl: &glow::Context) -> glow::Program {
+fn compile_program(gl: &glow::Context) -> Result<glow::Program, String> {
     unsafe {
-        let program = gl.create_program().expect("create program");
-        let vs = gl.create_shader(glow::VERTEX_SHADER).expect("create vs");
+        let vs = gl
+            .create_shader(glow::VERTEX_SHADER)
+            .map_err(|error| format!("create vertex shader: {error}"))?;
         gl.shader_source(vs, VERTEX);
         gl.compile_shader(vs);
-        let fs = gl.create_shader(glow::FRAGMENT_SHADER).expect("create fs");
+        if !gl.get_shader_compile_status(vs) {
+            let error = gl.get_shader_info_log(vs);
+            gl.delete_shader(vs);
+            return Err(format!("vertex shader compilation failed: {error}"));
+        }
+
+        let fs = match gl.create_shader(glow::FRAGMENT_SHADER) {
+            Ok(shader) => shader,
+            Err(error) => {
+                gl.delete_shader(vs);
+                return Err(format!("create fragment shader: {error}"));
+            }
+        };
         gl.shader_source(fs, FRAGMENT);
         gl.compile_shader(fs);
+        if !gl.get_shader_compile_status(fs) {
+            let error = gl.get_shader_info_log(fs);
+            gl.delete_shader(fs);
+            gl.delete_shader(vs);
+            return Err(format!("fragment shader compilation failed: {error}"));
+        }
+
+        let program = match gl.create_program() {
+            Ok(program) => program,
+            Err(error) => {
+                gl.delete_shader(fs);
+                gl.delete_shader(vs);
+                return Err(format!("create program: {error}"));
+            }
+        };
         gl.attach_shader(program, vs);
         gl.attach_shader(program, fs);
         gl.link_program(program);
-        assert!(gl.get_program_link_status(program), "link failed");
+        if !gl.get_program_link_status(program) {
+            let error = gl.get_program_info_log(program);
+            gl.delete_program(program);
+            gl.delete_shader(fs);
+            gl.delete_shader(vs);
+            return Err(format!("program link failed: {error}"));
+        }
         gl.detach_shader(program, vs);
         gl.detach_shader(program, fs);
         gl.delete_shader(vs);
         gl.delete_shader(fs);
-        program
+        Ok(program)
     }
 }
 
@@ -413,6 +460,7 @@ fn run_step(
             // The DOM counters are the web process's own receipt of the
             // clicks; read them back so the summary is independent of the GDK
             // signal handlers.
+            let window = window.clone();
             webview.run_javascript(
                 "JSON.stringify(window.__spike || {error: 'no spike state'})",
                 None::<&gio::Cancellable>,
@@ -424,12 +472,12 @@ fn run_step(
                             .unwrap_or_else(|| "<unreadable>".into());
                         eprintln!("[summary] webviewDom={dom}");
                         write_summary(&dom);
-                        std::process::exit(0);
+                        window.close();
                     }
                     Err(error) => {
                         eprintln!("[summary] JS readback failed: {error}");
                         write_summary("{\"jsReadback\":\"failed\"}");
-                        std::process::exit(0);
+                        window.close();
                     }
                 },
             );

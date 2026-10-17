@@ -1,0 +1,17 @@
+Standalone GTK Overlay + GLArea follow-up — native Wayland orderly shutdown
+Date: 2026-10-17
+Command:
+  GDK_BACKEND=wayland SPIKE_SUMMARY_PATH=/tmp/varve-spike-clean-shutdown-wayland.json \
+    cargo run --locked --manifest-path spikes/wayland-overlay-glayer/Cargo.toml -- --auto
+Environment:
+  WAYLAND_DISPLAY=wayland-0
+  DISPLAY=:0
+  GDK_BACKEND=wayland
+Result: process exit 0
+Observed:
+  [gl] context ready: GL 4.6
+  [gl] frame 1 rendered
+  Four synthesized click attempts rejected by GDK (expected on native Wayland)
+  [summary] webviewDom={"clicks":0,"moves":0}
+  [gl] unrealized; GL resources deleted
+Scope: native-Wayland GL realization and orderly cleanup; no input-routing claim.

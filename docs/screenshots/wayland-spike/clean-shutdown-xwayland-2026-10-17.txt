@@ -1,0 +1,17 @@
+Standalone GTK Overlay + GLArea follow-up — XWayland orderly shutdown
+Date: 2026-10-17
+Command:
+  SPIKE_SUMMARY_PATH=/tmp/varve-spike-clean-shutdown.json \
+    cargo run --locked --manifest-path spikes/wayland-overlay-glayer/Cargo.toml -- --auto
+Environment:
+  WAYLAND_DISPLAY=wayland-0
+  DISPLAY=:0
+  GDK_BACKEND=x11
+Result: process exit 0
+Observed:
+  [gl] context ready: GL 4.6
+  [gl] frame 1 rendered
+  Four synthesized click attempts accepted by GDK; DOM click count remained 0
+  [summary] webviewDom={"clicks":0,"moves":4}
+  [gl] unrealized; GL resources deleted
+Scope: lifecycle/cleanup evidence only; synthesized input does not establish real-pointer DOM delivery.
