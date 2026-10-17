@@ -81,6 +81,16 @@ per case, warm, RADV Renoir, MSAA 4x, deterministic mixed corpus:
 
 Reading it:
 
+**The numbers are load-sensitive and the table above is one run.** A second run
+on the same machine under lighter load (13 GiB in use instead of 17 GiB)
+measured 13.4 ms / 117 ms / 27.5 ms / 118 ms / 26.8 ms / 123 ms for the same
+six cases in the same order — the 600-item cases improve by 20 %, the
+10 000-item cases do not, which is consistent with the GPU-bound reading. Treat
+the shape of the table as the finding (transport and GPU completion dominate,
+command recording does not) and the absolute milliseconds as a single-machine
+data point, not a budget.
+
+
 - **Rasterization is nearly free.** 0.04–0.76 ms of command recording; the GPU
   work is inside `transfer`, which blocks on completion.
 - **The bridge dominates.** At 1600×1000 the whole frame costs 16.7 ms, of which
