@@ -49,7 +49,9 @@ observable to tests/diagnostics.
 1. **Evidence and baseline.** Review the issue ledger and primary platform
    sources; preserve baseline TS screenshots and runtime. Reproduce any
    export-alpha or MIME concern in a real browser before deciding whether it
-   belongs in this feature.
+   belongs in this feature. **Complete:** Chromium reproduced opaque pixels in
+   background-free PNG and false-positive AVIF support with a PNG blob; both
+   are fixed and covered by browser pixel/MIME regressions.
 2. **Versioned binary boundary.** Export the current Rust kernels through a
    coarse binary WASM call; validate ABI, kind, dimensions, exact byte length,
    output length, ownership, and failure typing. Build baseline and SIMD
@@ -98,9 +100,30 @@ observable to tests/diagnostics.
   [`wasm-raster-kernel-evidence-2026-10-17.md`](../research/wasm-raster-kernel-evidence-2026-10-17.md).
 - [x] Baseline Rust/WASM target compile for `varve-effects`.
 - [x] Baseline adjustment-preview browser E2E and three-theme screenshots.
-- [ ] Select module packaging after measuring baseline artifact size.
-- [ ] Implement and validate the versioned browser WASM route.
-- [ ] Reproduce or exclude the source-only export concerns.
-- [ ] Measure end-to-end latency/memory and inspect post-change visuals.
-- [ ] Update canonical docs/site content, independent review, scoped commits,
+- [x] Measure the baseline raw WASM module (1,565,551 bytes) before adding
+  kernels; build output currently produces baseline/SIMD modules of 1,279,844 /
+  1,290,936 bytes.
+- [x] Add the versioned browser ABI and owned in-place kernel entry point; the
+  request is capped at 64 KiB, 16,384 px per axis, and 4,194,304 pixels.
+- [x] Implement the lazy worker provider, actual-provider reporting, CPU
+  fallback, admission bounds, and worker termination on active cancellation.
+- [x] Compare all 20 Rust fixture cases to the live TS kernels. The 18
+  non-bloom cases are byte-exact after fixing Bayer dither with
+  `paletteMode: "none"`. Current Bloom differs from TS by up to 5/7 bytes
+  despite frozen fixture bounds of 3; Bloom is kept on TS. Palette Snap is
+  also kept on TS because WASM was slower at the 256×256 cap.
+- [x] Record warm direct-kernel diagnostics for the 112×72 sample and 256×256
+  cap. On Node 22, VHS was 3.9/24.6 ms WASM vs 18.0/46.7 ms TS, and RGB Split
+  was 2.6/14.3 ms vs 6.9/32.7 ms. Cold module init was about 33 ms. These
+  timings exclude browser worker messaging, capture, and UI, so they do not
+  support a general speed claim.
+- [x] Complete and visually inspect the final WASM/CPU fallback browser E2E in
+  light, dark, and high-contrast themes. The fallback and WASM samples are
+  visually equivalent within observed screenshot rasterization noise.
+- [x] Reproduce and fix the source-only export concerns (PNG alpha and AVIF
+  MIME mismatch reproduced and covered in Chromium).
+- [x] Update canonical effect architecture docs and public performance guidance;
+  the feature marketing page remains unchanged because this bounded inspector
+  sample has no measured general performance benefit to advertise.
+- [ ] Review final browser latency/memory limitations, perform code review, scoped commits,
   and remote integration status.

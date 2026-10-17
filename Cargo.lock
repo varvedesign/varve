@@ -3566,6 +3566,7 @@ dependencies = [
  "serde_json",
  "varve-bridge",
  "varve-core",
+ "varve-effects",
  "varve-engine",
  "varve-media",
  "varve-trace",

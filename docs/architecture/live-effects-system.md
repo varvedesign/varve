@@ -134,10 +134,36 @@ identity against current state before accepting the returned pixels.
 The runner reserves three RGBA buffers in the shared derived-work ledger
 before it invokes the source-capture callback. It transfers one exact-size
 buffer to one module worker at a time and keeps only the newest queued request
-for each preview owner. Cancelling a caller rejects its promise promptly but
-retains the memory lease until the worker answers or a five-second response
-backstop terminates it. A missing or blocked worker is reported before source
-capture; callers keep the canonical replay path active.
+for each preview owner. The worker lazily loads the baseline or SIMD
+`varve-wasm` artifact and checks the versioned effect ABI, effect name, pixel
+format, dimensions, pixel count, and exact byte length before calling a Rust
+kernel. The boundary is single-threaded and accepts straight-alpha RGBA8
+sRGB; it does not request cross-origin isolation. If loading, ABI validation,
+or a kernel call fails, the worker runs the canonical TypeScript CPU provider
+and reports which provider returned the pixels. Cancelling active work
+terminates the synchronous worker; the memory lease remains held until worker
+termination is observed by the runner and the next preview can create a fresh
+worker. A worker that does not respond is retired by the five-second
+backstop.
+
+The preview allowlist follows both output parity and measured kernel cost.
+Bloom stays on TypeScript: a direct comparison found the current Rust result
+5–7 channel values from the current TS reference on the two bloom fixtures,
+outside their frozen tolerance. Palette Snap stays on TypeScript because the
+WASM call was slower at the 256×256 source cap. Ordered dither and the
+`paletteMode: "none"` no-op also stay on TypeScript; error-diffusion dither is
+eligible. A 20-fixture direct runtime comparison was byte-exact for the 18
+non-bloom fixtures after correcting Rust's Bayer/no-palette branch order.
+These are fixture results, not proof for every parameter combination.
+
+On the available Node 22.23.2 host, warm WASM kernel medians at 112×72 and
+256×256 were lower than direct TypeScript medians for the admitted expensive
+kernels (for example VHS: 3.9/24.6 ms vs 18.0/46.7 ms; RGB Split:
+2.6/14.3 ms vs 6.9/32.7 ms). These are single-process kernel diagnostics,
+including JSON/buffer boundary cost for WASM but excluding module startup,
+worker messaging, and canvas capture. Cold module initialization was about
+33 ms; baseline and SIMD artifacts were 1.28 MB and 1.29 MB. No general
+browser speed claim follows from these local measurements.
 
 This lane is an opt-in substrate, not the default editor render path. The
 Adjustment panel's live-effect rows now pass the already-computed upstream
@@ -151,10 +177,11 @@ kernel sample. Source bytes are copied only after the shared runner admits the
 request; identities include the document, adjustment, source object, and
 parameters so an obsolete response is discarded.
 
-This improves feedback in the selected adjustment inspector; it does not
-replace the selected artwork's canvas preview or move effect replay off the
-CanvasArea synchronous path. It does not wire the lane into Effect Studio
-treatments/comparison, thumbnails/minimap, animation, or export. It does not
+The optional WASM provider currently improves only the derived sample in the
+selected adjustment inspector; it does not replace the selected artwork's
+canvas preview or move effect replay off the CanvasArea synchronous path. It
+does not wire the lane into Effect Studio treatments/comparison,
+thumbnails/minimap, animation, or export. It does not
 cache returned surfaces because the current consumer API has no release
 callback proving that the caller dropped its reference. A Chromium E2E checks
 that a real upstream source reaches the worker preview at desktop and narrow
