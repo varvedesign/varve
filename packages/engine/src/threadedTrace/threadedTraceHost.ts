@@ -438,25 +438,36 @@ export class ThreadedTraceHost {
     }
     const id = 'id' in message && typeof message.id === 'number' ? message.id : this.nextId++;
     return new Promise<string>((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const settle = (error: ThreadedTraceError) => {
+        const pending = this.pending.get(id);
         this.pending.delete(id);
+        if (pending) {
+          clearTimeout(pending.timer);
+          if (pending.signal && pending.onAbort) {
+            pending.signal.removeEventListener('abort', pending.onAbort);
+          }
+        }
+        reject(error);
+      };
+      const timer = setTimeout(() => {
         // A timed-out request may still be RUNNING (sync wasm cannot be
         // interrupted). The only safe response is retiring the whole pool so
-        // stale results can never be adopted and memory is reclaimed.
+        // stale results can never be adopted and memory is reclaimed. Settle
+        // BEFORE retiring: retire() rejects whatever is still pending, and
+        // this request's specific error must win that race.
+        settle(new ThreadedTraceError('timeout', `request ${id} timed out`));
         this.retire(`request ${id} exceeded ${this.config.requestTimeoutMs}ms`);
-        reject(new ThreadedTraceError('timeout', `request ${id} timed out`));
       }, this.config.requestTimeoutMs);
       this.pending.set(id, { resolve, reject, timer });
       if (signal) {
         const onAbort = () => {
           if (!this.pending.has(id)) return;
-          clearTimeout(timer);
-          this.pending.delete(id);
           // The export is synchronous; an abort message cannot interrupt it.
           // Terminate its owner to stop the call and discard the pool's shared
           // memory before any later request initializes a clean instance.
+          // Settle first so the cancellation is the rejection the caller sees.
+          settle(new ThreadedTraceError('cancelled', 'threaded trace canceled'));
           this.retire(`request ${id} canceled`);
-          reject(new ThreadedTraceError('cancelled', 'threaded trace canceled'));
         };
         const pending = this.pending.get(id);
         if (pending) {
@@ -468,9 +479,7 @@ export class ThreadedTraceHost {
       try {
         worker.postMessage(message, transfer);
       } catch (error) {
-        clearTimeout(timer);
-        this.pending.delete(id);
-        reject(
+        settle(
           new ThreadedTraceError(
             'worker-crashed',
             error instanceof Error ? error.message : 'postMessage failed',

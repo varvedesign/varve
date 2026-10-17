@@ -242,40 +242,40 @@ impl Shape {
                 holes,
                 fill_rule,
             } => {
-                if points.is_empty() && contours.is_empty() {
+                // Mirrors `shapeContains` in packages/engine/src/geometry.ts:
+                // closed paths fill-test through the resolved compound rings
+                // (an open path with contours stroke-tests its primary
+                // points only), and a closed path whose rings are all
+                // degenerate never hits.
+                if !*closed {
+                    for i in 0..points.len().saturating_sub(1) {
+                        let a = Point::new(points[i].x, points[i].y);
+                        let b = Point::new(points[i + 1].x, points[i + 1].y);
+                        let line = Line::new(a, b);
+                        if point_to_segment_dist_sq(line, pt) <= tolerance * tolerance {
+                            return true;
+                        }
+                    }
                     return false;
                 }
                 let rings = compound_path_rings(points, contours, holes);
-                let primary_open = contours.is_empty() && !*closed;
-                if !primary_open && rings.iter().any(|r| r.len() >= 3) {
-                    let fill_evenodd = compound_path_fill_rule(
-                        fill_rule.as_deref(),
-                        contours.len(),
-                        holes.len(),
-                    ) == PathFillRule::EvenOdd;
-                    let mut crossings = 0u32;
-                    let mut winding = 0i32;
-                    for ring in &rings {
-                        accumulate_polygon_hit(ring, pt, &mut crossings, &mut winding);
-                    }
-                    if fill_evenodd {
-                        crossings % 2 == 1
-                    } else {
-                        winding != 0
-                    }
+                if !rings.iter().any(|r| r.len() >= 3) {
+                    return false;
+                }
+                let fill_evenodd = compound_path_fill_rule(
+                    fill_rule.as_deref(),
+                    contours.len(),
+                    holes.len(),
+                ) == PathFillRule::EvenOdd;
+                let mut crossings = 0u32;
+                let mut winding = 0i32;
+                for ring in &rings {
+                    accumulate_polygon_hit(ring, pt, &mut crossings, &mut winding);
+                }
+                if fill_evenodd {
+                    crossings % 2 == 1
                 } else {
-                    // Open path: hit if within tolerance of any segment.
-                    for ring in &rings {
-                        for i in 0..ring.len().saturating_sub(1) {
-                            let a = Point::new(ring[i].x, ring[i].y);
-                            let b = Point::new(ring[i + 1].x, ring[i + 1].y);
-                            let line = Line::new(a, b);
-                            if point_to_segment_dist_sq(line, pt) <= tolerance * tolerance {
-                                return true;
-                            }
-                        }
-                    }
-                    false
+                    winding != 0
                 }
             }
             Shape::Table(_) => false,

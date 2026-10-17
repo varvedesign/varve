@@ -211,10 +211,21 @@ fn main() {
     let preferred = std::env::var("VARVE_BENCH_DEVICE").ok();
     let forced_samples: Vec<Option<u32>> =
         match std::env::var("VARVE_BENCH_SAMPLES").ok().as_deref() {
-            Some(list) if !list.is_empty() => list
-                .split(',')
-                .map(|value| value.trim().parse::<u32>().ok())
-                .collect(),
+            Some(list) if !list.is_empty() => {
+                let mut counts = Vec::new();
+                for value in list.split(',') {
+                    match value.trim().parse::<u32>() {
+                        Ok(count) => counts.push(Some(count)),
+                        Err(_) => {
+                            eprintln!(
+                                "VARVE_BENCH_SAMPLES entry {value:?} is not a sample count"
+                            );
+                            std::process::exit(2);
+                        }
+                    }
+                }
+                counts
+            }
             _ => vec![None],
         };
 

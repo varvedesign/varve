@@ -414,7 +414,7 @@ impl NativeRaster {
     ) -> Result<Self, RenderError> {
         let sample_count = match forced_sample_count {
             Some(forced) => {
-                if !matches!(forced, 1 | 2 | 4 | 8 | 16) || forced == 0 {
+                if !matches!(forced, 1 | 2 | 4 | 8 | 16) {
                     return Err(RenderError::OutOfBudget(format!(
                         "forced sample count {forced} is not a power-of-two MSAA count"
                     )));

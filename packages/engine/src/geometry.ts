@@ -440,7 +440,10 @@ export function shapeContains(shape: Shape, p: Point): boolean {
               ? 'evenodd'
               : 'nonzero');
         const holes = shape.contours?.length ? shape.contours.slice(1) : shape.holes;
-        return pointInBezierPath(shape.points, p, fillRule, holes);
+        // Authored contours supersede `points` for the primary ring, matching
+        // `pathRings` and the native hit test (compound_path_rings).
+        const primary = shape.contours?.length ? (shape.contours[0] ?? shape.points) : shape.points;
+        return pointInBezierPath(primary, p, fillRule, holes);
       }
       return pathSegmentDistSq(shape.points, p) <= shape.tolerance * shape.tolerance;
   }

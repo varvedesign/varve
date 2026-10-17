@@ -662,7 +662,9 @@ fn lower_item(item: &RenderItem) -> Result<Lowered, RejectReason> {
         }
         Primitive::Path {
             points,
-            closed,
+            // The authored `closed` flag does not reach a fill: every fill
+            // ring closes (see the loop below), matching `paintPathFill`.
+            closed: _,
             tolerance,
             contours,
             holes,
@@ -676,12 +678,13 @@ fn lower_item(item: &RenderItem) -> Result<Lowered, RejectReason> {
                 return Err(RejectReason::EmptyGeometry);
             }
             let mut flattened_rings = Vec::with_capacity(rings.len());
-            for (index, ring) in rings.iter().enumerate() {
-                // The replay's `paintPathFill` traces every ring closed; the
-                // legacy primary ring keeps its authored `closed` flag for
-                // open-path documents that only ever had one ring.
-                let ring_closed = !contours.is_empty() || *closed || index > 0;
-                let flattened = flatten_contour(ring, ring_closed, *tolerance);
+            for ring in rings.iter() {
+                // A fill closes every ring, and the replay's closing segment
+                // is a bezier through the end handles (strokeReplay's
+                // tracePathSegment with closed=true), so the flattened ring
+                // must include the last->first closing curve, never a straight
+                // chord stand-in.
+                let flattened = flatten_contour(ring, true, *tolerance);
                 if flattened.len() >= 3 {
                     flattened_rings.push(flattened);
                 }
