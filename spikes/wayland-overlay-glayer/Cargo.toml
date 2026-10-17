@@ -1,0 +1,21 @@
+[package]
+name = "wayland-overlay-glayer"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "ADR-0244 spike A: gtk::Overlay + gtk::GLArea compositing under a transparent WebKitGTK webview"
+
+# Deliberately NOT a workspace member (see /Cargo.toml): this spike exists to
+# answer a platform question on real hardware and must never ship or gate CI.
+
+[workspace]
+
+[dependencies]
+gtk = "0.18"
+webkit2gtk = { version = "2.0.2", features = ["v2_38"] }
+gio = "0.18"
+glow = "0.16"
+libloading = "0.8"
+
+[package.metadata.notes]
+question = "Can native GL pixels composite below a WebKitWebView on Wayland, and does input routing survive?"
