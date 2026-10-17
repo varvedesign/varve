@@ -270,8 +270,37 @@ describe('AgentAccessSection', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Allow changes again' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect and block' }));
     await waitFor(() => expect(opened.connection.shouldClose).toBe(true));
     await waitFor(() => expect(screen.getByText('No agent is connected.')).toBeTruthy());
+
+    // The block is visible, says who it applies to, and can be undone from here.
+    const blocked = await screen.findByRole('region', { name: 'Access blocked' });
+    expect(blocked.textContent).toContain('same access key');
+    expect(blocked.textContent).toContain('all of them');
+    const reconnect = async () => {
+      const again = controller.openConnection('ipc');
+      if (!again.ok) throw new Error(again.message);
+      const line = await again.connection.handleLine(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'session.hello',
+          params: {
+            credential: 'secret',
+            client: { name: 'section-test', version: '1' },
+            protocolVersions: ['varve.control/1'],
+          },
+        }),
+      );
+      return JSON.parse(line as string) as Record<string, any>;
+    };
+    expect((await reconnect()).error?.message).toBe('credential refused');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Allow access again' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Access blocked' })).toBeNull(),
+    );
+    expect((await reconnect()).result?.principal?.id).toBeTruthy();
   });
 });

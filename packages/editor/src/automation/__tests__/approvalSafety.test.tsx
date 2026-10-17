@@ -210,4 +210,55 @@ describe('approvals cannot be replayed, redirected or kept', () => {
     expect(result === null || result.result.outcome !== 'applied').toBe(true);
     expect(shapes()).toBe(0);
   });
+
+  it('pausing withdraws what is waiting, so answering the prompt later cannot apply it', async () => {
+    await setup();
+    const c = await connect();
+    const pending = create(c, 1, 1);
+    await waitFor(() => expect(ctrl().status().pendingApprovals).toHaveLength(1));
+    const id = ctrl().status().pendingApprovals[0]?.receiptId as string;
+
+    ctrl().pause();
+    expect(ctrl().status().pendingApprovals).toHaveLength(0);
+    expect(ctrl().decide(id, { approved: true })).toBe(false);
+    const result = await pending;
+    expect(result?.result.outcome).toBe('rejected');
+    expect(result?.result.error.message).toContain('paused');
+    expect(shapes()).toBe(0);
+  });
+
+  it('disconnecting an agent withdraws only what that agent was waiting to do', async () => {
+    await setup();
+    const doomed = await connect();
+    const kept = await connect();
+    const doomedWork = create(doomed, 1, 1);
+    const keptWork = create(kept, 1, 2);
+    await waitFor(() => expect(ctrl().status().pendingApprovals).toHaveLength(2));
+
+    const pendingFor = (label: string) =>
+      ctrl()
+        .status()
+        .pendingApprovals.filter((a) => a.principal.id === label);
+    const principals = ctrl()
+      .status()
+      .host?.connections.map((c) => c.principalId) as string[];
+    const doomedId = principals[0] as string;
+    const doomedHeld = ctrl()
+      .status()
+      .pendingApprovals.find((a) => a.principal.id === doomedId);
+    expect(doomedHeld).toBeDefined();
+
+    expect(ctrl().revoke(doomedId)).toBe(1);
+    expect(pendingFor(doomedId)).toHaveLength(0);
+    expect(ctrl().decide(doomedHeld?.receiptId as string, { approved: true })).toBe(false);
+    expect((await doomedWork)?.result.outcome).toBe('rejected');
+    expect(shapes()).toBe(0);
+
+    // The other agent's request is untouched and still needs its own decision.
+    expect(ctrl().status().pendingApprovals).toHaveLength(1);
+    const keptId = ctrl().status().pendingApprovals[0]?.receiptId as string;
+    expect(ctrl().decide(keptId, { approved: true })).toBe(true);
+    expect((await keptWork)?.result.outcome).toBe('applied');
+    expect(shapes()).toBe(1);
+  });
 });

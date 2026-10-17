@@ -21,6 +21,7 @@ export interface AutomationView {
   pause(): void;
   resume(): void;
   revoke(principalId: string): void;
+  allowAgain(): void;
   decide(receiptId: string, decision: ApprovalDecision): void;
 }
 
@@ -54,6 +55,9 @@ export function useAutomationStatus(): AutomationView {
     resume: useCallback(() => peekAutomationController()?.resume(), []),
     revoke: useCallback((principalId: string) => {
       peekAutomationController()?.revoke(principalId);
+    }, []),
+    allowAgain: useCallback(() => {
+      peekAutomationController()?.allowAgain();
     }, []),
     decide: useCallback((receiptId: string, decision: ApprovalDecision) => {
       peekAutomationController()?.decide(receiptId, decision);

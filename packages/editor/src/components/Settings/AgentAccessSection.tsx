@@ -225,6 +225,21 @@ export function AgentAccessSection() {
         </section>
       ) : null}
 
+      {host && host.revoked.length > 0 ? (
+        <section className="agent-access__panel" aria-label="Access blocked">
+          <h4 className="agent-access__heading">Access blocked</h4>
+          <p className="agent-access__muted">
+            New connections are refused. Every agent attached to this window uses the same access
+            key, so the block applies to all of them until you allow access again.
+          </p>
+          <div className="agent-access__actions">
+            <Button variant="secondary" size="sm" onClick={view.allowAgain}>
+              Allow access again
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
       {host ? (
         <section className="agent-access__panel" aria-label="Connected agents">
           <h4 className="agent-access__heading">Connected agents</h4>
@@ -248,7 +263,7 @@ export function AgentAccessSection() {
                         if (connection.principalId) view.revoke(connection.principalId);
                       }}
                     >
-                      Disconnect
+                      Disconnect and block
                     </Button>
                   </div>
                 </li>

@@ -145,6 +145,9 @@ export class AutomationController {
 
   pause(reason = 'automation was paused by the person using Varve'): void {
     this.runtime?.host.pause(reason);
+    // Whatever is waiting on a person was gated before the pause. Leaving it
+    // answerable would make "pause" a label that the next click undoes.
+    this.withdrawPending(() => true, reason);
     this.emit();
   }
 
@@ -153,11 +156,48 @@ export class AutomationController {
     this.emit();
   }
 
-  /** Disconnect one client and refuse it until the person re-admits it. */
+  /**
+   * Lift every block, so the credential is accepted again.
+   *
+   * There is one credential per window, so there is one block per window: this
+   * is the person's way back from "Disconnect and block", not a per-agent grant.
+   */
+  allowAgain(): number {
+    const host = this.runtime?.host;
+    if (!host) return 0;
+    let lifted = 0;
+    for (const key of host.revokedClients()) {
+      if (host.clearRevocation(key)) lifted += 1;
+    }
+    this.emit();
+    return lifted;
+  }
+
+  /**
+   * Disconnect one client and refuse its credential until the person allows it
+   * again. Every client of this window shares that credential, so this blocks
+   * new connections from all of them.
+   */
   revoke(principalId: string): number {
     const closed = this.runtime?.host.revoke(principalId) ?? 0;
+    // A client the person has just cut off must not be able to land what it was
+    // waiting to do. Other clients' held requests are not theirs to lose.
+    this.withdrawPending(
+      (request) => request.principal.id === principalId,
+      'that client was disconnected by the person using Varve',
+    );
     this.emit();
     return closed;
+  }
+
+  /** Refuse every held change matching `which`, so each caller gets an answer. */
+  private withdrawPending(which: (request: ApprovalRequest) => boolean, reason: string): void {
+    for (const [receiptId, held] of [...this.pending]) {
+      if (!which(held.request)) continue;
+      clearTimeout(held.timer);
+      this.pending.delete(receiptId);
+      held.resolve({ approved: false, reason });
+    }
   }
 
   /** Approve or refuse one held change. Only the host UI reaches this. */
@@ -282,11 +322,7 @@ export class AutomationController {
     live.host.stopAccepting();
     live.host.closeAll();
     // A held change belongs to a session that no longer exists.
-    for (const [id, held] of [...this.pending]) {
-      clearTimeout(held.timer);
-      this.pending.delete(id);
-      held.resolve({ approved: false, reason: 'the document session ended' });
-    }
+    this.withdrawPending(() => true, 'the document session ended');
     this.emit();
   }
 

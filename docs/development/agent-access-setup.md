@@ -45,8 +45,12 @@ window exits with an error; it does not open an empty document instead.
    five minutes.
 
 **Pause changes** blocks new changes and saves while reads keep working, so a
-paused agent can still see why. **Disconnect** closes one client. Turning the
-main switch off disconnects everyone. None of these undo what was already done.
+paused agent can still see why, and it withdraws anything already waiting for your
+approval. **Disconnect and block** closes one client and refuses the access key it
+used. Every agent attached to a window shares that one key, so the block applies to
+all of them until you choose **Allow access again**; it also withdraws that client's
+waiting requests. Turning the main switch off disconnects everyone and issues a new
+key. None of these undo what was already done.
 
 ## Register it in a client
 

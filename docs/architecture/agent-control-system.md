@@ -518,7 +518,7 @@ The surface shows what the controller knows and nothing it should not: state in
 words (not colour alone), the attach command (`varve mcp --instance <id>`;
 the credential stays in an owner-only file and is never displayed), pending
 approvals with the command, target document, revision and a bounded view of the
-arguments, connected clients with Disconnect, Pause/Allow changes, and a
+arguments, connected clients with Disconnect and block (the credential is shared by every client of a window, so the block applies to all of them until Allow access again), Pause/Allow changes (both withdraw anything still waiting for approval), and a
 bounded activity list (200 entries, no arguments). Argument text is shown as
 plain text, never interpreted.
 
