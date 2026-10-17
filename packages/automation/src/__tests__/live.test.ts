@@ -512,6 +512,31 @@ describe('automation host', () => {
     expect(stillWorks.result.outcome).toBe('applied');
   });
 
+  it('refuses every client that presents a revoked credential, and says so in its status', async () => {
+    // One window issues one credential, so every client of that window presents
+    // it. Revoking "one agent" therefore blocks the credential, and a second
+    // agent reconnecting with it is refused as well. That is the honest behaviour
+    // of a shared secret, and a surface has to say it rather than imply a
+    // per-agent switch that does not exist.
+    const { open, hello, host } = await hostSetup();
+    const first = open();
+    const firstSession = await hello(first);
+    expect(host.status().revoked).toEqual([]);
+
+    host.revoke(firstSession.result.principal.id as string);
+    const blockedKey = host.revokedClients()[0] as string;
+    expect(host.status().revoked).toEqual([blockedKey]);
+
+    const other = open();
+    const refused = await hello(other);
+    expect(refused.error?.message).toBe('credential refused');
+
+    host.clearRevocation(blockedKey);
+    expect(host.status().revoked).toEqual([]);
+    const admitted = await hello(open());
+    expect(admitted.result?.principal?.id).toBeTruthy();
+  });
+
   it('caps concurrent connections rather than accepting an unbounded number', async () => {
     const { host } = await hostSetup({ maxConnections: 2 });
     expect(host.open({ transport: 'ipc' }).ok).toBe(true);

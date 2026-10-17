@@ -795,6 +795,37 @@ describe('approval, observation and availability', () => {
     expect(Object.values(s1.doc().nodes).filter((n) => n.kind === 'shape')).toHaveLength(0);
   });
 
+  it('does not apply an approval given after automation was paused', async () => {
+    // "Stop automation" has to mean what it says for work already in flight: a
+    // change that was waiting when the person paused must not land because they
+    // answered the prompt afterwards.
+    const s1 = makeSession();
+    let paused = false;
+    s1.ctx.policy = {
+      blockReason: (effect) =>
+        paused && effect !== 'read' && effect !== 'view' ? 'automation is paused' : null,
+    };
+    s1.ctx.approval = async () => {
+      paused = true;
+      return { approved: true };
+    };
+    const r = await s1.run('varve.node.create', rectArgs);
+    expect(r.outcome).toBe('rejected');
+    expect(r.error?.code).toBe('UNAVAILABLE');
+    expect(r.error?.message).toContain('while waiting for approval');
+    expect(r.error?.message).toContain('automation is paused');
+    expect(s1.authority.getRevision()).toBe(0);
+    expect(Object.values(s1.doc().nodes).filter((n) => n.kind === 'shape')).toHaveLength(0);
+  });
+
+  it('applies an approved change normally when nothing paused it', async () => {
+    const s1 = makeSession();
+    s1.ctx.policy = { blockReason: () => null };
+    s1.ctx.approval = async () => ({ approved: true });
+    const r = await s1.run('varve.node.create', rectArgs);
+    expect(r.outcome).toBe('applied');
+  });
+
   it('treats a failing approval callback as a refusal', async () => {
     const s1 = makeSession();
     s1.ctx.approval = async () => {

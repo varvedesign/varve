@@ -310,6 +310,17 @@ export class Executor {
     if (availability && !availability.ok) {
       return errorInfo(availability.code, { message: availability.message });
     }
+    // The gate ran before the wait. A person who paused automation while this
+    // request was held has withdrawn the permission it was gated on, and
+    // answering the prompt afterwards must not quietly put it back.
+    const blocked = ctx.policy?.blockReason(command.effect) ?? null;
+    if (blocked !== null) {
+      return errorInfo('UNAVAILABLE', {
+        message: `${command.id} was blocked while waiting for approval: ${blocked}; nothing was changed`,
+        hint: 'the person running Varve controls this; it is re-enabled in Automation settings',
+        details: { effect: command.effect },
+      });
+    }
     const now = ctx.authority.getRevision();
     if (now !== revision) {
       return errorInfo('REVISION_CONFLICT', {

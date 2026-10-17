@@ -110,6 +110,11 @@ export interface HostStatus {
   pausedReason: string | null;
   maxConnections: number;
   connections: ConnectionSummary[];
+  /**
+   * Credentials currently refused, as the pseudonyms `clientKey` carries. One
+   * window issues one credential, so a block applies to every client holding it.
+   */
+  revoked: string[];
 }
 
 export type HostOpenResult =
@@ -355,6 +360,7 @@ export class AutomationHost {
       pausedReason: this.pausedReason,
       maxConnections: this.maxConnections,
       connections: [...this.connections.values()].map((connection) => connection.summary()),
+      revoked: [...this.revoked],
     };
   }
 
