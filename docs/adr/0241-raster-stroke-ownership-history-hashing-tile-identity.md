@@ -344,13 +344,21 @@ that). `strictlyIdentical` is one-sided: `true` implies equal canonical bytes,
   of one or two raster strokes did not always restore the exact pre-stroke
   pixels (an empty layer remained after one stroke; in one run only the later of
   two strokes remained). It behaved the same with the replay removed, so the
-  history bridge is not the cause. Whether the local entries for a paint gesture
-  or the retained raster surfaces are responsible was not determined: a
-  `?perf=1` diagnostic run was inconclusive because that mode draws debug
-  overlays onto the content canvas. The spec therefore does not compare the
-  canvas between Ctrl+Z and attach; after attach it asserts the canvas equals the
-  undone head exactly, and whether that exercised the disagreement correction or
-  the local step was already exact was not recorded.
+  history bridge is not the cause. A candidate is the stale-frame defect that
+  `tests/e2e/paint/stroke-undo-responsiveness.spec.ts` documents at its first
+  assertion: a committed stroke whose worker bitmap lacks the stroke is
+  presented as current. That spec's first test failed 5 of 5 with this change
+  and 5 of 5 with `context.tsx`, `usePersistentHistory.ts` and `types.ts` at the
+  previous commit, with the same message, so this change neither caused nor
+  cured it. Whether the pixels seen after a local undo are that defect was not
+  established: a `?perf=1` diagnostic run was inconclusive because that mode
+  draws debug overlays onto the content canvas, and the one forced full redraw
+  it compared differed from the frame on screen by at most one colour level over
+  a few hundred antialiased pixels, which is not a stale frame. The spec
+  therefore does not compare the canvas between Ctrl+Z and attach; after attach
+  it asserts the canvas equals the undone head exactly, and whether that
+  exercised the disagreement correction or the local step was already exact was
+  not recorded.
 - `RasterLayerCache` keys surfaces by node id alone and
   `resetRasterLayerCache` has no production caller; a retired document's surfaces
   are only reclaimed by LRU eviction inside the 128 MiB budget. Identity
