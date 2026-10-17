@@ -317,7 +317,7 @@ describe('PenTool', () => {
     expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
   });
 
-  it('single click without commit creates a dot (placeholder)', () => {
+  it('single click then finish commits an ink dot, not a default 4x4 shape', () => {
     const tool = new PenTool();
     const ctx = makeCtx();
     tool.onActivate?.(ctx);
@@ -326,7 +326,16 @@ describe('PenTool', () => {
     tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
     tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
-    expect(ctx.createShapeAt).toHaveBeenCalledWith({ x: 100, y: 100 }, { w: 4, h: 4 });
+    const mock = vi.mocked(ctx.createShapeAt);
+    expect(mock).toHaveBeenCalledTimes(1);
+    const call = mock.mock.calls[0]!;
+    expect(call[0]).toEqual({ x: 100, y: 100 });
+    expect(call[1]).toBeUndefined();
+    // Two coincident anchors on the path branch: the ink stroke paints a dot.
+    // `{ w: 4, h: 4 }` built a zero-point path for the pen tool, so a single
+    // click left an invisible node and no mark at all.
+    expect(call[3]).toHaveLength(2);
+    expect(call[4]).toBe(false);
   });
 
   it('closes path when clicking near first point', () => {
@@ -879,5 +888,120 @@ describe('PenTool', () => {
 
     // Should have added a point to the existing path via updateNode
     expect(ctx.updateNode).toHaveBeenCalled();
+  });
+
+  /**
+   * Direction handles, and the event stream that may or may not deliver them.
+   *
+   * A browser promises that a pointerup carries the release position; it does
+   * NOT promise a qualifying pointermove between pointerdown and pointerup.
+   * A fast flick, a coalesced frame, or a busy main thread can deliver the
+   * whole displacement in the release event. Reading handles from moves only
+   * silently degrades that drag into a corner point.
+   */
+  describe('direction handles', () => {
+    function commitTwoAnchors(
+      first: { down: [number, number]; release: [number, number]; moves: Array<[number, number]> },
+      second: [number, number],
+    ): Array<{
+      x: number;
+      y: number;
+      handleIn: [number, number] | null;
+      handleOut: [number, number] | null;
+    }> {
+      const tool = new PenTool();
+      const ctx = makeCtx();
+      tool.onActivate?.(ctx);
+
+      tool.onPointerDown?.(makePointerEvent(first.down[0], first.down[1]), ctx);
+      for (const [mx, my] of first.moves) {
+        tool.onPointerMove?.(makePointerEvent(mx, my), ctx);
+      }
+      tool.onPointerUp?.(makePointerEvent(first.release[0], first.release[1]), ctx);
+
+      vi.advanceTimersByTime(500);
+      tool.onPointerDown?.(makePointerEvent(second[0], second[1]), ctx);
+      tool.onPointerUp?.(makePointerEvent(second[0], second[1]), ctx);
+      tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+      const call = vi.mocked(ctx.createShapeAt).mock.calls[0];
+      return (call?.[3] ?? []) as Array<{
+        x: number;
+        y: number;
+        handleIn: [number, number] | null;
+        handleOut: [number, number] | null;
+      }>;
+    }
+
+    it('creates handles from pointermove samples', () => {
+      const anchors = commitTwoAnchors(
+        {
+          down: [100, 100],
+          release: [160, 100],
+          moves: [
+            [120, 100],
+            [140, 100],
+            [160, 100],
+          ],
+        },
+        [300, 100],
+      );
+      expect(anchors[0]?.handleOut).not.toBeNull();
+      expect(anchors[0]?.handleIn).not.toBeNull();
+      // Symmetric by default, pointing along the drag.
+      expect(anchors[0]!.handleOut![0]).toBeGreaterThan(0);
+      expect(anchors[0]!.handleIn![0]).toBeLessThan(0);
+    });
+
+    it('creates the same handles when the drag is only reported by pointerup', () => {
+      const withMoves = commitTwoAnchors(
+        {
+          down: [100, 100],
+          release: [160, 100],
+          moves: [
+            [120, 100],
+            [140, 100],
+            [160, 100],
+          ],
+        },
+        [300, 100],
+      );
+      const releaseOnly = commitTwoAnchors(
+        { down: [100, 100], release: [160, 100], moves: [] },
+        [300, 100],
+      );
+
+      expect(releaseOnly[0]?.handleOut).toEqual(withMoves[0]?.handleOut);
+      expect(releaseOnly[0]?.handleIn).toEqual(withMoves[0]?.handleIn);
+    });
+
+    it('still makes a corner point when the pointer never left the anchor', () => {
+      const anchors = commitTwoAnchors(
+        { down: [100, 100], release: [101, 100], moves: [] },
+        [300, 100],
+      );
+      expect(anchors[0]?.handleOut).toBeNull();
+      expect(anchors[0]?.handleIn).toBeNull();
+    });
+
+    it('does not close a path that has only one anchor', () => {
+      const tool = new PenTool();
+      const ctx = makeCtx();
+      tool.onActivate?.(ctx);
+
+      tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+      tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
+      vi.advanceTimersByTime(500);
+      // Clicking back onto the lone anchor is not a valid close: a closed path
+      // needs an actual ring, and committing one here produced degenerate
+      // one-anchor geometry.
+      tool.onPointerDown?.(makePointerEvent(101, 101), ctx);
+      tool.onPointerUp?.(makePointerEvent(101, 101), ctx);
+
+      const closedCommits = vi
+        .mocked(ctx.createShapeAt)
+        .mock.calls.filter((call) => call[4] === true);
+      expect(closedCommits).toHaveLength(0);
+    });
   });
 });

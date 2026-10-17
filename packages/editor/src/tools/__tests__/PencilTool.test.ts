@@ -142,14 +142,27 @@ describe('PencilTool', () => {
     expect(window.requestAnimationFrame).toHaveBeenCalled();
   });
 
-  it('onPointerUp with <2 points creates a rect shape', () => {
+  it('onPointerUp with <2 points commits an ink dot, not a default 4x4 shape', () => {
     const tool = new PencilTool();
     const ctx = makeCtx();
 
     tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
     tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
 
-    expect(ctx.createShapeAt).toHaveBeenCalledWith({ x: 100, y: 100 }, { w: 4, h: 4 });
+    // A tap can no longer produce `{ w: 4, h: 4 }`: for the pencil tool that
+    // size built a *zero-point* path, so the tap left an invisible node in the
+    // layer list and no visible mark. It now commits through the path branch
+    // with two coincident anchors, which the ink stroke's round cap paints.
+    const mock = vi.mocked(ctx.createShapeAt);
+    expect(mock).toHaveBeenCalledTimes(1);
+    const call = mock.mock.calls[0]!;
+    expect(call[0]).toEqual({ x: 100, y: 100 });
+    expect(call[1]).toBeUndefined();
+    expect(call[4]).toBe(false);
+    const anchors = call[3];
+    expect(anchors).toHaveLength(2);
+    expect(anchors?.[0]).toMatchObject({ x: 100, y: 100, pressure: 0.5 });
+    expect(anchors?.[1]).toMatchObject({ x: 100, y: 100 });
   });
 
   it('onPointerUp with 2+ points creates a path with simplified points', () => {

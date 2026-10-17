@@ -33,6 +33,14 @@ export interface BezierSegment {
   p3: Point2D;
 }
 
+/** Optional fidelity controls for {@link fitPathToBeziers}. */
+export interface FitPathOptions {
+  /** Maximum accepted geometric error, in the caller's length unit. */
+  maxError?: number;
+  /** Pressure deviation that earns an extra anchor; 0 disables the check. */
+  pressureEpsilon?: number;
+}
+
 /**
  * PathPoint output matching the scene model: anchor point with optional
  * incoming and outgoing bezier handles (relative to the point).
@@ -48,37 +56,102 @@ export interface FitPathPoint {
 /** Corner angle threshold in radians. Angle < threshold = corner. */
 const CORNER_ANGLE_THRESHOLD = (30 * Math.PI) / 180;
 
-/** Maximum Bezier fitting error before splitting. */
+/** Maximum Bezier fitting error before splitting, in the caller's length unit. */
 const BEZIER_FIT_TOLERANCE = 2.5;
 
 /** Maximum recursion depth for Bezier fitting. */
 const BEZIER_MAX_DEPTH = 8;
 
 /**
+ * Smallest change in normalised stylus pressure worth a path anchor when the
+ * caller asks for pressure-aware simplification.
+ *
+ * The vector rasteriser maps pressure to stroke width through
+ * `pressureScale()` (a 0.5 sample is nominal width, 1 is double), so 0.02 of
+ * pressure is 2 % of nominal width — below the visible threshold of an
+ * antialiased edge on a 1 px nib, and above sensor noise on reported hardware.
+ * A genuine light–heavy–light excursion moves pressure far more than this, so
+ * the extremum survives while a straight ramp still collapses to its endpoints.
+ */
+export const PRESSURE_PROFILE_EPSILON = 0.02;
+
+/** Pressure of a sample, or null when the sample carries no pressure data. */
+function pressureOf(point: Point2D): number | null {
+  const pressure = point.pressure;
+  return typeof pressure === 'number' && Number.isFinite(pressure) ? pressure : null;
+}
+
+/**
+ * Normalised position of `pt` projected onto the chord `a → b`, clamped to the
+ * segment. Shared by the geometric and pressure-profile deviation measures so
+ * both are evaluated at the same parameter.
+ */
+function projectionParam(pt: Point2D, a: Point2D, b: Point2D): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return 0;
+  return Math.max(0, Math.min(1, ((pt.x - a.x) * dx + (pt.y - a.y) * dy) / lenSq));
+}
+
+/**
  * Ramer-Douglas-Peucker simplification.
  * Returns a subset of points that approximate the original within `epsilon`.
+ *
+ * `pressureEpsilon` adds a second retention criterion so variable-width
+ * strokes do not lose their profile. Pure geometric RDP is blind to pressure:
+ * a straight light–heavy–light stroke is perfectly collinear, so every interior
+ * sample is dropped and with it the pressure extremum that *is* the artwork.
+ * When set, a sample is also retained if its pressure deviates from the linear
+ * interpolation of the interval endpoints by more than `pressureEpsilon`.
+ *
+ * The geometric bound is unchanged: whenever the geometric maximum exceeds
+ * `epsilon` the split still happens at the geometric argmax, so the classic
+ * RDP guarantee holds. The pressure criterion only ever adds splits.
  */
-export function simplifyPoints(points: Point2D[], epsilon: number): Point2D[] {
+export function simplifyPoints(points: Point2D[], epsilon: number, pressureEpsilon = 0): Point2D[] {
   if (points.length <= 2) return [...points];
 
   let dmax = 0;
   let idx = 0;
+  let pmax = 0;
+  let pidx = 0;
+
+  const p0 = points[0];
+  const pN = points[points.length - 1];
+  const p0Pressure = p0 ? pressureOf(p0) : null;
+  const pNPressure = pN ? pressureOf(pN) : null;
+  const trackPressure = pressureEpsilon > 0 && p0Pressure !== null && pNPressure !== null;
 
   for (let i = 1; i < points.length - 1; i++) {
     const pi = points[i];
-    const p0 = points[0];
-    const pN = points[points.length - 1];
     if (!pi || !p0 || !pN) continue;
+    const t = projectionParam(pi, p0, pN);
     const d = perpendicularDist(pi, p0, pN);
     if (d > dmax) {
       idx = i;
       dmax = d;
     }
+    if (trackPressure) {
+      const pressure = pressureOf(pi);
+      if (pressure !== null) {
+        const reference = p0Pressure + (pNPressure - p0Pressure) * t;
+        const deviation = Math.abs(pressure - reference);
+        if (deviation > pmax) {
+          pmax = deviation;
+          pidx = i;
+        }
+      }
+    }
   }
 
-  if (dmax > epsilon) {
-    const left = simplifyPoints(points.slice(0, idx + 1), epsilon);
-    const right = simplifyPoints(points.slice(idx), epsilon);
+  const splitAtGeometry = dmax > epsilon && idx > 0 && idx < points.length - 1;
+  const splitAtPressure = !splitAtGeometry && trackPressure && pmax > pressureEpsilon;
+  const splitIndex = splitAtGeometry ? idx : splitAtPressure ? pidx : -1;
+
+  if (splitIndex > 0 && splitIndex < points.length - 1) {
+    const left = simplifyPoints(points.slice(0, splitIndex + 1), epsilon, pressureEpsilon);
+    const right = simplifyPoints(points.slice(splitIndex), epsilon, pressureEpsilon);
     return [...left.slice(0, -1), ...right];
   }
 
@@ -93,7 +166,7 @@ function perpendicularDist(pt: Point2D, a: Point2D, b: Point2D): number {
   const dy = b.y - a.y;
   const lenSq = dx * dx + dy * dy;
   if (lenSq === 0) return Math.sqrt((pt.x - a.x) ** 2 + (pt.y - a.y) ** 2);
-  const t = Math.max(0, Math.min(1, ((pt.x - a.x) * dx + (pt.y - a.y) * dy) / lenSq));
+  const t = projectionParam(pt, a, b);
   const projX = a.x + t * dx;
   const projY = a.y + t * dy;
   return Math.sqrt((pt.x - projX) ** 2 + (pt.y - projY) ** 2);
@@ -120,6 +193,36 @@ export function fitBezierCurve(
   }
 
   return fitSchneider(points, maxError);
+}
+
+/**
+ * Largest deviation of an interior sample's pressure from the linear profile
+ * between the interval endpoints, evaluated at the sample's chord-length
+ * parameter. Returns the worst sample so a fit can split there.
+ */
+function pressureProfileDeviation(
+  points: Point2D[],
+  u: number[],
+): { deviation: number; index: number } {
+  const n = points.length;
+  const first = pressureOf(points[0]!);
+  const last = pressureOf(points[n - 1]!);
+  if (first === null || last === null) return { deviation: 0, index: 0 };
+
+  let deviation = 0;
+  let index = 0;
+  for (let i = 1; i < n - 1; i++) {
+    const pressure = pressureOf(points[i]!);
+    if (pressure === null) continue;
+    const t = u[i] ?? 0;
+    const reference = first + (last - first) * t;
+    const delta = Math.abs(pressure - reference);
+    if (delta > deviation) {
+      deviation = delta;
+      index = i;
+    }
+  }
+  return { deviation, index };
 }
 
 function fitSchneider(
@@ -264,13 +367,23 @@ function computeTangent(points: Point2D[], idx: number): [number, number] {
 }
 
 /**
- * Detect if the angle between two vectors is a sharp corner.
- * Uses the dot product to find the angle.
+ * Detect if a sharp corner separates two segment directions.
+ *
+ * `v1` is the incoming direction and `v2` the outgoing direction, both
+ * normalised, so the angle *between them* is the turn the stroke makes: 0 for
+ * a straight continuation, π/2 for a right angle. A corner is a turn LARGER
+ * than the threshold.
+ *
+ * The comparison was previously inverted (`angle < threshold`), which flagged
+ * every straight continuation as a corner — fragmenting smooth runs into one
+ * Bezier per retained sample — while real right-angle corners were fitted with
+ * smooth symmetric handles and rounded off. Both halves of that inversion are
+ * covered by `fitting.corners.test.ts`.
  */
 function isCorner(v1x: number, v1y: number, v2x: number, v2y: number): boolean {
   const dot = v1x * v2x + v1y * v2y;
-  const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
-  return angle < CORNER_ANGLE_THRESHOLD;
+  const turn = Math.acos(Math.max(-1, Math.min(1, dot)));
+  return turn > CORNER_ANGLE_THRESHOLD;
 }
 
 /**
@@ -280,8 +393,20 @@ function isCorner(v1x: number, v1y: number, v2x: number, v2y: number): boolean {
  * After RDP simplification, this fits Bezier curves to the remaining
  * polyline. Corner points (sharp angles) get null handles.
  * Smooth curves get proper handleIn/handleOut.
+ *
+ * `maxError` is in the caller's length unit (world units for a drawing tool),
+ * so a zoom-aware caller can hold the on-screen fitting error constant instead
+ * of accepting a fixed world-space error that grows with zoom.
+ *
+ * `pressureEpsilon` forces an extra anchor where the pressure profile departs
+ * from the linear interpolation of the segment endpoints. Without it, an
+ * accepted Bezier replaces every interior sample, and a straight stroke whose
+ * only feature is its width profile would be committed as two flat anchors.
  */
-export function fitPathToBeziers(points: Point2D[]): FitPathPoint[] {
+export function fitPathToBeziers(points: Point2D[], options: FitPathOptions = {}): FitPathPoint[] {
+  const maxError = options.maxError ?? BEZIER_FIT_TOLERANCE;
+  const pressureEpsilon = options.pressureEpsilon ?? 0;
+
   if (points.length < 2) {
     return points.map((p) => ({
       x: p.x,
@@ -317,7 +442,7 @@ export function fitPathToBeziers(points: Point2D[]): FitPathPoint[] {
     if (i === points.length || cornerMask[i]) {
       const segPoints = points.slice(segStart, i + (i < points.length ? 1 : 0));
       if (segPoints.length >= 2) {
-        const segments = fitSegmentRecursive(segPoints, BEZIER_FIT_TOLERANCE, 0);
+        const segments = fitSegmentRecursive(segPoints, maxError, 0, pressureEpsilon);
         for (let s = 0; s < segments.length; s++) {
           const seg = segments[s]!;
           const p0 = seg.p0;
@@ -360,7 +485,12 @@ export function fitPathToBeziers(points: Point2D[]): FitPathPoint[] {
   return result;
 }
 
-function fitSegmentRecursive(points: Point2D[], maxError: number, depth: number): BezierSegment[] {
+function fitSegmentRecursive(
+  points: Point2D[],
+  maxError: number,
+  depth: number,
+  pressureEpsilon: number,
+): BezierSegment[] {
   if (depth >= BEZIER_MAX_DEPTH || points.length <= 2) {
     // Terminal case: just return a linear segment
     const p0 = points[0]!;
@@ -377,6 +507,27 @@ function fitSegmentRecursive(points: Point2D[], maxError: number, depth: number)
 
   const fit = fitSchneider(points, maxError);
   if (!fit || fit.error <= maxError) {
+    // Geometry alone would accept this segment. Check that doing so does not
+    // discard a pressure extremum before committing to a single curve.
+    if (pressureEpsilon > 0 && points.length > 2) {
+      const u = chordLengthParams(points);
+      const profile = pressureProfileDeviation(points, u);
+      if (profile.deviation > pressureEpsilon && profile.index > 0) {
+        const left = fitSegmentRecursive(
+          points.slice(0, profile.index + 1),
+          maxError,
+          depth + 1,
+          pressureEpsilon,
+        );
+        const right = fitSegmentRecursive(
+          points.slice(profile.index),
+          maxError,
+          depth + 1,
+          pressureEpsilon,
+        );
+        return [...left, ...right];
+      }
+    }
     return fit
       ? [fit.segment]
       : [
@@ -394,7 +545,27 @@ function fitSegmentRecursive(points: Point2D[], maxError: number, depth: number)
     return [fit.segment];
   }
 
-  const left = fitSegmentRecursive(points.slice(0, splitIdx + 1), maxError, depth + 1);
-  const right = fitSegmentRecursive(points.slice(splitIdx), maxError, depth + 1);
+  const left = fitSegmentRecursive(
+    points.slice(0, splitIdx + 1),
+    maxError,
+    depth + 1,
+    pressureEpsilon,
+  );
+  const right = fitSegmentRecursive(points.slice(splitIdx), maxError, depth + 1, pressureEpsilon);
   return [...left, ...right];
+}
+
+/** Normalised chord-length parameter for each point, as the fitter uses. */
+function chordLengthParams(points: Point2D[]): number[] {
+  const n = points.length;
+  const u: number[] = new Array(n);
+  u[0] = 0;
+  for (let i = 1; i < n; i++) {
+    const prev = points[i - 1]!;
+    const curr = points[i]!;
+    u[i] = u[i - 1]! + Math.sqrt((curr.x - prev.x) ** 2 + (curr.y - prev.y) ** 2);
+  }
+  const total = u[n - 1]! || 1;
+  for (let i = 0; i < n; i++) u[i] = u[i]! / total;
+  return u;
 }

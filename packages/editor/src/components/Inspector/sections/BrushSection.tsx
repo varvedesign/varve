@@ -28,7 +28,7 @@ import { NumberField } from '../controls/NumberField';
 import type { SectionId } from '../sectionRegistry';
 
 interface BrushSectionProps {
-  tool: 'paint' | 'eraser' | 'pencil' | 'smudge';
+  tool: 'paint' | 'eraser' | 'pencil' | 'smudge' | 'pen';
   sectionId?: SectionId;
 }
 
@@ -41,10 +41,20 @@ export function BrushSection({ tool, sectionId }: BrushSectionProps) {
   const { state, setBrushSetting, setForegroundColor } = useEditor();
   const isEraser = tool === 'eraser';
   const isPencil = tool === 'pencil';
+  const isPen = tool === 'pen';
   const isSmudge = tool === 'smudge';
+  const isVectorInk = isPencil || isPen;
   const { brushSettings } = state;
 
-  const heading = isPencil ? 'Pencil' : isEraser ? 'Eraser' : isSmudge ? 'Smudge' : 'Brush';
+  const heading = isPencil
+    ? 'Pencil'
+    : isPen
+      ? 'Pen'
+      : isEraser
+        ? 'Eraser'
+        : isSmudge
+          ? 'Smudge'
+          : 'Brush';
   const foregroundHex = rgbToHex(
     state.foregroundColor[0],
     state.foregroundColor[1],
@@ -79,22 +89,40 @@ export function BrushSection({ tool, sectionId }: BrushSectionProps) {
     [setBrushSetting],
   );
 
-  // The pencil tool draws vector strokes: preset/radius/opacity/flow/hardness/
-  // spacing are raster-brush concepts that don't apply. Only stroke
-  // stabilization (smoothing) carries over — it drives PencilTool's stabilizer.
-  if (isPencil) {
+  // Vector ink tools create editable geometry, so a preset, hardness, spacing,
+  // flow or accumulation would have nothing to apply to. What they do have is a
+  // width — the same shared Size field every brush uses, read by `createShapeAt`
+  // as the committed stroke weight — and, for the Pencil, the stabilizer.
+  if (isVectorInk) {
     return (
       <DisclosureSection title={heading} sectionId={sectionId}>
         <NumberField
-          label="Stabilization"
-          value={Math.round(brushSettings.smoothing * 100)}
-          min={0}
-          max={100}
+          label="Size"
+          value={brushSettings.radius}
+          min={1}
+          max={500}
           step={1}
           shiftStep={10}
-          unit="%"
-          onChange={(v) => setBrushSetting('smoothing', v / 100)}
+          unit="px"
+          onChange={(v) => setBrushSetting('radius', v)}
         />
+        {isPencil && (
+          <NumberField
+            label="Stabilization"
+            value={Math.round(brushSettings.smoothing * 100)}
+            min={0}
+            max={100}
+            step={1}
+            shiftStep={10}
+            unit="%"
+            onChange={(v) => setBrushSetting('smoothing', v / 100)}
+          />
+        )}
+        <p className="insp-panel__empty-hint" role="note">
+          {isPen
+            ? 'Drag from an anchor to pull its direction handles. Colour comes from the foreground swatch.'
+            : 'Draw with the pointer. Size sets the committed stroke width; colour comes from the foreground swatch.'}
+        </p>
       </DisclosureSection>
     );
   }

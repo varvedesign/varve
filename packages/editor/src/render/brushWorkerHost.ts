@@ -45,6 +45,10 @@ export interface BrushDispatchStats {
   staleResponsesDropped: number;
   syncFallbacks: number;
   workerTimeouts: number;
+  /** Strokes handed to the main thread with their replay prefix still whole. */
+  syncMigrations: number;
+  /** Times the retained replay prefix was cut short; expected to stay 0. */
+  replayTruncations: number;
   maxQueuedPoints: number;
   lastWorkerComputeMs: number;
   lastRoundTripMs: number;
@@ -56,8 +60,13 @@ const MAX_CONSECUTIVE_FAILURES = 3;
 const BATCH_TIMEOUT_MS = 1_500;
 /**
  * Upper bound on retained replay points (~80s of continuous 240 Hz input).
- * Past this a mid-stroke fallback restarts spacing rather than growing without
- * limit; strokes that long are already far outside normal use.
+ *
+ * The retained points are what a mid-stroke handover to the main thread replays
+ * to rebuild the stroke engine at exactly the right spacing, arc length and
+ * jitter. That rebuild is only exact while the retained prefix is *complete*,
+ * so the cap is not a "stop remembering, hope for the best" limit: a stroke
+ * that would cross it moves to the main thread first, while its prefix is
+ * still whole. See `migrateToSync` for why.
  */
 const REPLAY_POINT_CAP = 20_000;
 
@@ -102,6 +111,8 @@ export class BrushWorkerHost {
     staleResponsesDropped: 0,
     syncFallbacks: 0,
     workerTimeouts: 0,
+    syncMigrations: 0,
+    replayTruncations: 0,
     maxQueuedPoints: 0,
     lastWorkerComputeMs: 0,
     lastRoundTripMs: 0,
@@ -247,7 +258,56 @@ export class BrushWorkerHost {
     // One message in flight at a time. Everything arriving meanwhile merges
     // into the next batch, so the queue is bounded but lossless.
     if (stroke.inFlightSeq !== null) return;
+    // Hand the stroke to the main thread *before* dispatching a batch that
+    // would push the retained prefix past the replay cap. Waiting until the
+    // cap is hit and then recovering later from a truncated prefix is what
+    // silently restarted spacing and jitter mid-stroke.
+    if (this.wouldExceedReplayCap(stroke, stroke.queued)) {
+      this.migrateToSync(stroke, stroke.queued.splice(0));
+      return;
+    }
     this.dispatchToWorker(stroke, stroke.queued.splice(0), false);
+  }
+
+  /** True when retaining this batch would leave an incomplete replay prefix. */
+  private wouldExceedReplayCap(stroke: ActiveStroke, points: readonly StrokePoint[]): boolean {
+    if (stroke.replayTruncated) return true;
+    return (
+      stroke.confirmedPoints.length + stroke.inFlightPoints.length + points.length >
+      REPLAY_POINT_CAP
+    );
+  }
+
+  /**
+   * Continue this stroke on the main thread, keeping its engine state exact.
+   *
+   * This runs only with no batch in flight, so the retained confirmed prefix is
+   * complete and replaying it through a fresh engine reproduces the spacing
+   * carry, arc length and jitter the worker had reached. The worker's copy is
+   * cancelled and its late responses are dropped by the sequence check, so the
+   * pending points are applied exactly once.
+   */
+  private migrateToSync(
+    stroke: ActiveStroke,
+    pending: StrokePoint[],
+    includeInFlight = false,
+  ): void {
+    stroke.syncOnly = true;
+    this.stats.syncMigrations++;
+    if (stroke.inFlightTimer) clearTimeout(stroke.inFlightTimer);
+    stroke.inFlightTimer = null;
+    stroke.inFlightSeq = null;
+    const points = includeInFlight ? [...stroke.inFlightPoints, ...pending] : pending;
+    stroke.inFlightPoints = [];
+    // A dead worker makes this a no-op; a live one stops spending CPU on
+    // results nobody will apply.
+    this.post({
+      type: 'cancelStroke',
+      strokeId: stroke.strokeId,
+      generation: stroke.generation,
+    });
+    this.runSync(stroke, points, stroke.ending);
+    if (stroke.ending) this.finishStroke(stroke);
   }
 
   private dispatchFinal(stroke: ActiveStroke): void {
@@ -255,6 +315,10 @@ export class BrushWorkerHost {
     if (stroke.syncOnly || !this.isUsingWorker) {
       this.runSync(stroke, points, true);
       this.finishStroke(stroke);
+      return;
+    }
+    if (this.wouldExceedReplayCap(stroke, points)) {
+      this.migrateToSync(stroke, points);
       return;
     }
     this.dispatchToWorker(stroke, points, true);
@@ -334,8 +398,24 @@ export class BrushWorkerHost {
 
   private recordConfirmed(stroke: ActiveStroke, points: readonly StrokePoint[]): void {
     if (stroke.replayTruncated) return;
+    // Once a stroke runs on the main thread it never returns to the worker, so
+    // there is nothing left to rebuild and retaining its input would grow
+    // without bound for the rest of the gesture.
+    if (stroke.syncOnly) return;
     if (stroke.confirmedPoints.length + points.length > REPLAY_POINT_CAP) {
+      // Unreachable through the dispatch paths: `pump` and `dispatchFinal`
+      // migrate the stroke to the main thread before a batch can take the
+      // retained prefix past the cap. If a future caller does reach it, the
+      // retained prefix is now incomplete, so a later rebuild cannot restore
+      // exact spacing — report that instead of producing a quietly different
+      // stroke and calling the handover seamless.
       stroke.replayTruncated = true;
+      this.stats.replayTruncations++;
+      if (typeof console !== 'undefined') {
+        console.warn(
+          '[paint] stroke replay window exceeded; a later main-thread handover may not reproduce exact spacing',
+        );
+      }
       return;
     }
     stroke.confirmedPoints.push(...points);
@@ -426,14 +506,7 @@ export class BrushWorkerHost {
     // Any stroke still open finishes on the main thread rather than stalling.
     for (const stroke of [...this.strokes.values()]) {
       if (stroke.syncOnly) continue;
-      stroke.syncOnly = true;
-      if (stroke.inFlightTimer) clearTimeout(stroke.inFlightTimer);
-      stroke.inFlightTimer = null;
-      stroke.inFlightSeq = null;
-      const pending = [...stroke.inFlightPoints, ...stroke.queued.splice(0)];
-      stroke.inFlightPoints = [];
-      this.runSync(stroke, pending, stroke.ending);
-      if (stroke.ending) this.finishStroke(stroke);
+      this.migrateToSync(stroke, stroke.queued.splice(0), true);
     }
     if (typeof console !== 'undefined') console.warn(`[paint] ${reason}; using main thread`);
   }

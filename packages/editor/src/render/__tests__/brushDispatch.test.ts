@@ -322,4 +322,135 @@ describe('brush dispatch', () => {
     const aDabs = bothBatches.filter((x) => x.strokeId === 'a').flatMap((x) => x.dabs);
     expect(aDabs).toEqual(soloBatches.flatMap((x) => x.dabs));
   });
+
+  /**
+   * Long strokes and the replay window.
+   *
+   * A mid-stroke handover to the main thread rebuilds the stroke by replaying
+   * the confirmed prefix into a fresh engine. That is exact only while the
+   * prefix is complete. The regression this covers: the host used to keep
+   * dispatching to the worker past its retention cap and silently drop the
+   * overflow, so a later fallback rebuilt the engine from a prefix that ended
+   * mid-stroke — the new dabs got the wrong arc-length carry and jitter offset,
+   * producing a visible discontinuity that no unit test of `strokeEngine`
+   * would ever see.
+   */
+  describe('replay window', () => {
+    /** 0.01 px steps: many samples, little arc, so the dab engine stays cheap. */
+    const dense = (from: number, to: number) => line(from, to, 0.01);
+    const CAP = 20_000;
+    const BATCH = 2_500;
+
+    it('hands a stroke over to the main thread while its prefix is still whole', () => {
+      const points = dense(0, 300);
+      expect(points.length).toBeGreaterThan(CAP);
+      const p = preset();
+      const worker = new FakeWorker();
+      const host = new BrushWorkerHost(worker as unknown as Worker);
+      const batches = collect(host);
+
+      host.beginStroke('s', 1, p, 4242);
+      for (let i = 0; i < points.length; i += BATCH) {
+        host.appendPoints('s', 1, points.slice(i, i + BATCH));
+        worker.flush();
+      }
+      host.endStroke('s', 1);
+      while (worker.flush() > 0) {
+        /* drain */
+      }
+
+      const dabs = batches.flatMap((b) => b.dabs);
+      expect(dabs).toEqual(runWholeStroke(p, points, 4242).dabs);
+      expect(batches.some((b) => b.source === 'sync')).toBe(true);
+      expect(host.getStats().syncMigrations).toBeGreaterThan(0);
+      // The prefix was never cut short, and no failure was needed to recover.
+      expect(host.getStats().replayTruncations).toBe(0);
+      expect(host.getStats().workerTimeouts).toBe(0);
+    });
+
+    it('stops dispatching to the worker once the retained prefix is full', () => {
+      const points = dense(0, 300);
+      const worker = new FakeWorker();
+      const host = new BrushWorkerHost(worker as unknown as Worker);
+      collect(host);
+
+      host.beginStroke('s', 1, preset(), 7);
+      for (let i = 0; i < points.length; i += BATCH) {
+        host.appendPoints('s', 1, points.slice(i, i + BATCH));
+        worker.flush();
+      }
+      const dispatchedAtMigration = worker.received.filter((c) => c.type === 'appendPoints').length;
+      host.endStroke('s', 1);
+      while (worker.flush() > 0) {
+        /* drain */
+      }
+
+      // 8 batches fit inside the 20 000-point window; the 9th is the one that
+      // would have truncated it, so it must never be dispatched.
+      expect(dispatchedAtMigration).toBe(8);
+      expect(worker.received.filter((c) => c.type === 'appendPoints')).toHaveLength(8);
+      expect(worker.received.some((c) => c.type === 'cancelStroke')).toBe(true);
+    });
+
+    it('stays exact when the worker stalls on the last batch that fits the window', () => {
+      const points = dense(0, 300);
+      const p = preset();
+      const worker = new FakeWorker();
+      worker.manual = true;
+      const host = new BrushWorkerHost(worker as unknown as Worker);
+      const batches = collect(host);
+
+      host.beginStroke('s', 1, p, 99);
+      // Fill the window to its edge, answering each batch normally.
+      for (let i = 0; i < CAP; i += BATCH) {
+        host.appendPoints('s', 1, points.slice(i, i + BATCH));
+        while (worker.flush() > 0) {
+          /* drain */
+        }
+      }
+      // The next batch is the one at the boundary; hold the response until the
+      // batch budget expires so the stroke recovers through the failure path.
+      host.appendPoints('s', 1, points.slice(CAP, CAP + BATCH));
+      vi.advanceTimersByTime(5_000);
+      host.appendPoints('s', 1, points.slice(CAP + BATCH));
+      host.endStroke('s', 1);
+      while (worker.flush() > 0) {
+        /* drain */
+      }
+
+      expect(batches.flatMap((b) => b.dabs)).toEqual(runWholeStroke(p, points, 99).dabs);
+      expect(host.getStats().replayTruncations).toBe(0);
+    });
+
+    it('drops a worker response that arrives after the handover', () => {
+      const points = dense(0, 120);
+      const p = preset();
+      const worker = new FakeWorker();
+      worker.manual = true;
+      const host = new BrushWorkerHost(worker as unknown as Worker);
+      const batches = collect(host);
+
+      host.beginStroke('s', 1, p, 5);
+      host.appendPoints('s', 1, points.slice(0, BATCH));
+      worker.flush();
+      // Second batch is dispatched but held at the worker until the per-batch
+      // budget expires, which hands the stroke to the main thread.
+      host.appendPoints('s', 1, points.slice(BATCH, BATCH * 2));
+      vi.advanceTimersByTime(5_000);
+      const staleBefore = host.getStats().staleResponsesDropped;
+      // The worker's answer for that batch now lands too late.
+      while (worker.flush() > 0) {
+        /* drain */
+      }
+      host.appendPoints('s', 1, points.slice(BATCH * 2));
+      host.endStroke('s', 1);
+      while (worker.flush() > 0) {
+        /* drain */
+      }
+
+      expect(host.getStats().staleResponsesDropped).toBeGreaterThan(staleBefore);
+      // Applied exactly once, despite being computed twice.
+      expect(batches.flatMap((b) => b.dabs)).toEqual(runWholeStroke(p, points, 5).dabs);
+    });
+  });
 });

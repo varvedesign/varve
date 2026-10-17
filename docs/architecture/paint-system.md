@@ -1,7 +1,7 @@
 # Paint System
 
 **Status:** Implemented; see Limitations for what is not
-**Updated:** 2026-09-29
+**Updated:** 2026-10-16
 
 ## Scope
 
@@ -32,8 +32,20 @@ The output target is deliberately explicit:
 - `Paint` and `Eraser` create or modify raster-layer pixels.
 - `Smudge` modifies existing raster-layer pixels.
 - `Pencil` creates editable vector path geometry.
+- `Pen` creates editable cubic path geometry with direction handles.
 - `Paint` is the painting interaction; document paints/fills remain styling
   entities and are not used as a name for raster tool state.
+
+Vector ink tools commit a **stroke and a transparent fill**, never a fill alone.
+`createShapeAt`'s path branch gives `pen`/`pencil` nodes an explicit stroke
+(width = twice the shared Size value, colour = the foreground swatch, round cap
+and join) and a fully transparent fill. Without that, the node carried
+`strokes: []` plus the default opaque fill, and the fill pass closes every ring
+it is given — so an open straight stroke was a zero-area polygon that rendered
+nothing, and a curved one rendered as a filled blob instead of ink. Both tools
+expose the same shared Size field (the Pen's tool options show Size only); the
+Pencil additionally shows its stabilizer.
+
 
 ## Raster layer targeting and persistence
 
@@ -204,6 +216,57 @@ the reconstructor, spacing carry, arc length and `BrushRng` state. Therefore a
 wrong prediction is disposable and the committed result remains invariant to
 whether predictions were supported.
 
+### Vector ink: Pencil and Pen
+
+The vector path tools reuse the input and transaction infrastructure, but their
+geometry rules are their own; `tools/fitting.ts` is the only place that turns
+captured samples into a Bezier path.
+
+- **A tap is a mark.** One contact commits a two-anchor zero-length open path
+  through the same branch as a stroke, so it inherits the ink stroke, the
+  resolved parent and the captured pressure, and the round cap paints the dot.
+  A one-contact commit must never produce a path with no anchors, and the Pen
+  will not close a path that has fewer than two anchors.
+- **Corners are turns, not straights.** `isCorner` compares the angle *between*
+  consecutive segment directions against 30°; a turn larger than that splits
+  the run into independent curves. Comparing the complement instead (the
+  previous behaviour) split every smooth run at each retained sample while
+  smoothing real corners.
+- **Geometry and width are separate contracts.** RDP retains a sample when it
+  deviates geometrically from the chord *or* when its pressure deviates from
+  the linear interpolation of the interval endpoints by more than
+  `PRESSURE_PROFILE_EPSILON` (2 % of nominal width). The geometric split still
+  happens at the geometric argmax, so the classic RDP bound is intact. The
+  Bezier fitter applies the same pressure test before collapsing a run, because
+  an accepted curve would otherwise discard the retained peak.
+- **One on-screen error budget.** Simplification (`2 / zoom` world units) and
+  the Bezier fit use the same per-gesture budget, so committed error is ~2
+  screen px at any zoom rather than a fixed world-space error that grows with
+  the camera.
+- **Stabilization Off means identity.** Strength 0 bypasses the one-euro filter
+  entirely; above 0 the cutoff falls as strength rises. The terminal sample is
+  never filtered: a lag filter may shape the interior of a stroke, but
+  committing the lagged position ends the stroke short of the release point.
+- **Frame sampling is not input.** The animation-frame sampler re-samples the
+  latest pointer position so a slow frame cannot lose it, but a sample whose
+  position *and* pressure are unchanged is rejected — otherwise a running
+  stabilizer drifts on elapsed time and deposits marks the user never drew.
+  Committed geometry must not depend on frame rate.
+- **Pen handles come from the release too.** Browsers do not guarantee a
+  qualifying `pointermove` between `pointerdown` and `pointerup`, so the handle
+  computation runs for both; a release at the anchor still produces a corner.
+
+### Coverage-paint pressure
+
+The coverage tools (refine mask, trimap, selection paint) map pressure to
+**deposit opacity**, not tip width, so their nominal sample is full strength
+rather than the raster brush's 0.5. That difference is deliberate. The parts
+that must agree with the rest of the editor do: the user's pressure preference
+is honoured, a legitimately light pen reading is not inflated by a floor, a
+mouse deposits the same amount whatever value the browser reports, and a zero
+is treated as a real zero only after observed capability has shown the device
+reporting more than one distinct pressure value.
+
 Wet media and the retouch tools attach to the same compositor rather than
 running beside it:
 
@@ -246,6 +309,21 @@ never discarded: at most one message is in flight, so the queue is bounded at
 one merged batch regardless of input rate, while every sample the user made
 still reaches the canvas. Dropping obsolete *preview* computation and dropping
 *stroke content* are different things; only the former is ever done.
+
+### The replay window is a handover boundary, not a silent truncation
+
+A mid-stroke fallback rebuilds the stroke by replaying the points the host has
+confirmed into a fresh engine, which is exact only while that prefix is
+**complete**. The host retains up to 20 000 points (`REPLAY_POINT_CAP`); before
+dispatching a batch that would cross that limit it moves the stroke to the main
+thread instead (`migrateToSync`), so the rebuild happens with a whole prefix and
+spacing, arc length and jitter continue exactly. The worker's copy is cancelled
+and any late response is dropped by the existing `(strokeId, generation, seq)`
+check, so each confirmed batch is applied once. Once a stroke runs on the main
+thread it stops retaining input at all, which keeps a very long gesture bounded
+rather than growing a replay buffer it can never use. The defensive truncation
+path still exists, but it reports (`replayTruncations`) and warns instead of
+quietly changing the stroke.
 
 ### A stalled worker degrades, it does not disable
 
@@ -587,10 +665,20 @@ draining so fast the trail died before it left the shape it started in.
 
 - No testing has been done on real stylus hardware. Pressure and tilt behaviour
   is covered by synthetic pointer tests only, and should be reported as such.
-- The Brush Browser and Brush Editor are covered by component tests in jsdom;
-  they have not been inspected in the running desktop app. The paint *engine*
-  has been visually inspected through the fixtures above.
+  In particular the Pencil's pressure-profile retention and the coverage tools'
+  zero-pressure policy are verified against synthetic readings, not against a
+  device.
+- The Pen handle path is verified with a synthetic release-only pointer
+  sequence. Whether a given platform actually delivers that event shape was not
+  measured; the fix removes the dependency on it.
 - No production stylus calibration UI exists. The default linear pressure path
   is deterministic; device/user response curves, activation thresholds and
   saturation should be introduced as a persisted profile layer rather than
-  baked into document history.
+  baked into document history. The coverage-paint tools do not apply the
+  user's pressure curve at all (their pressure maps to opacity); applying it
+  there is a policy decision, not an oversight to patch silently.
+- Vector ink exposes Size (and the Pencil's stabilizer) in tool options, but
+  stroke opacity/dash/join/cap are still edited through the general shape
+  inspector. The shared Size field was the honest minimum that made the
+  committed stroke correct and adjustable; it is not a finished vector-ink
+  style editor.

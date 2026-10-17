@@ -4822,7 +4822,40 @@ export function EditorProvider({
                 closed: pathClosed ?? false,
                 tolerance: 3,
               };
-              node = makeShapeNode(id, shape, { name: 'Node', transform });
+              // Freehand and Pen paths are ink: they show as a stroke and never
+              // as a fill. Without an explicit stroke these nodes carried
+              // `strokes: []` plus the default opaque fill, so an open path was
+              // closed and flood-filled by the renderer and a tap produced a
+              // zero-point, invisible node. Other tools that reach this branch
+              // (the isometric-plane ellipse) keep the normal fill behaviour.
+              const isVectorInk = activeTool === 'pen' || activeTool === 'pencil';
+              const inkStroke = isVectorInk
+                ? {
+                    strokes: [
+                      {
+                        color: {
+                          space: 'rgb' as const,
+                          r: s.foregroundColor[0],
+                          g: s.foregroundColor[1],
+                          b: s.foregroundColor[2],
+                          a: s.foregroundColor[3],
+                        },
+                        // The shared Size control is a radius (the Inspector
+                        // previews a 2r circle), so the ink is 2r wide.
+                        weight: Math.max(1, Math.min(1000, s.brushSettings.radius * 2)),
+                        align: 'center' as const,
+                        dashPattern: [],
+                        dashOffset: 0,
+                        cap: 'round' as const,
+                        join: 'round' as const,
+                        miterLimit: 4,
+                        visible: true,
+                      },
+                    ],
+                    fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
+                  }
+                : {};
+              node = makeShapeNode(id, shape, { name: 'Node', transform, ...inkStroke });
             } else {
               const shape: Shape = size
                 ? buildShapeWithSize(activeTool, size)

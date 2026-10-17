@@ -161,7 +161,10 @@ export class PenTool extends BaseTool {
       const first = this.points[0];
       if (!first) throw new Error('first point not found');
       const dist = Math.sqrt((world.x - first.x) ** 2 + (world.y - first.y) ** 2);
-      if (dist < 8 / ctx.zoom) {
+      // Closing needs two anchors. Clicking back onto a lone anchor would
+      // otherwise commit a one-anchor closed path, which is degenerate
+      // geometry that no renderer can show and no editor can open.
+      if (this.points.length >= 2 && dist < 8 / ctx.zoom) {
         this.commitPath(ctx, true);
         ctx.announce('Path closed');
         return { consumed: true };
@@ -200,44 +203,8 @@ export class PenTool extends BaseTool {
   override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
     if (this.activePointerId !== null && this.activePointerId !== e.pointerId) return;
     if (this.penState === PenState.Dragging && this.dragStartCanvas) {
-      const lastIdx = this.points.length - 1;
-      if (lastIdx < 0) return;
-      const pt = this.points[lastIdx];
-      if (!pt) return;
-
       const world = ctx.canvasToWorld(e.clientX, e.clientY);
-      const dragDx = e.clientX - this.dragStartCanvas.x;
-      const dragDy = e.clientY - this.dragStartCanvas.y;
-      const dragDist = Math.sqrt(dragDx * dragDx + dragDy * dragDy);
-
-      if (dragDist >= HANDLE_DRAG_THRESHOLD) {
-        const handleDx = world.x - pt.x;
-        const handleDy = world.y - pt.y;
-        const handleLen = Math.sqrt(handleDx * handleDx + handleDy * handleDy);
-        const outLen = handleLen / 3;
-
-        if (handleLen > 0) {
-          let nx = handleDx / handleLen;
-          let ny = handleDy / handleLen;
-          if (e.shiftKey) {
-            // Shift-constrain handle direction to 45° increments
-            const angle = Math.round(Math.atan2(ny, nx) / (Math.PI / 4)) * (Math.PI / 4);
-            nx = Math.cos(angle);
-            ny = Math.sin(angle);
-          }
-          pt.handleOut = { x: nx * outLen, y: ny * outLen };
-          if (e.altKey) {
-            // Alt-drag: break symmetry — handleIn retains its previous value
-            // (if null, stays null → one-sided/corner handle)
-          } else {
-            pt.handleIn = { x: -nx * outLen, y: -ny * outLen };
-          }
-        }
-      } else {
-        pt.handleIn = null;
-        pt.handleOut = null;
-      }
-
+      this.applyHandleDrag(world, { x: e.clientX, y: e.clientY }, e.shiftKey, e.altKey);
       this.syncDraft(ctx, world);
       return;
     }
@@ -253,12 +220,68 @@ export class PenTool extends BaseTool {
     }
   }
 
+  /**
+   * Turn a drag from the just-placed anchor into its direction handles.
+   *
+   * Called for every pointermove *and* for pointerup. A browser does not
+   * promise a qualifying pointermove between pointerdown and pointerup — a
+   * fast flick, a coalesced frame, or a busy main thread can deliver the
+   * whole displacement in the release event. Reading handles from moves only
+   * silently turns that drag into a corner point, which is exactly the
+   * "Pen does not create direction handles" failure artists report.
+   */
+  private applyHandleDrag(
+    world: { x: number; y: number },
+    canvas: { x: number; y: number },
+    shiftKey: boolean,
+    altKey: boolean,
+  ): void {
+    const lastIdx = this.points.length - 1;
+    if (lastIdx < 0 || !this.dragStartCanvas) return;
+    const pt = this.points[lastIdx];
+    if (!pt) return;
+
+    const dragDx = canvas.x - this.dragStartCanvas.x;
+    const dragDy = canvas.y - this.dragStartCanvas.y;
+    const dragDist = Math.sqrt(dragDx * dragDx + dragDy * dragDy);
+
+    if (dragDist >= HANDLE_DRAG_THRESHOLD) {
+      const handleDx = world.x - pt.x;
+      const handleDy = world.y - pt.y;
+      const handleLen = Math.sqrt(handleDx * handleDx + handleDy * handleDy);
+      const outLen = handleLen / 3;
+
+      if (handleLen > 0) {
+        let nx = handleDx / handleLen;
+        let ny = handleDy / handleLen;
+        if (shiftKey) {
+          // Shift-constrain handle direction to 45° increments
+          const angle = Math.round(Math.atan2(ny, nx) / (Math.PI / 4)) * (Math.PI / 4);
+          nx = Math.cos(angle);
+          ny = Math.sin(angle);
+        }
+        pt.handleOut = { x: nx * outLen, y: ny * outLen };
+        if (altKey) {
+          // Alt-drag: break symmetry — handleIn retains its previous value
+          // (if null, stays null → one-sided/corner handle)
+        } else {
+          pt.handleIn = { x: -nx * outLen, y: -ny * outLen };
+        }
+      }
+    } else {
+      pt.handleIn = null;
+      pt.handleOut = null;
+    }
+  }
+
   override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
     if (this.activePointerId !== e.pointerId) return;
     if (this.penState === PenState.Dragging) {
+      const world = ctx.canvasToWorld(e.clientX, e.clientY);
+      this.applyHandleDrag(world, { x: e.clientX, y: e.clientY }, e.shiftKey, e.altKey);
       this.penState = PenState.Placing;
       this.dragStartCanvas = null;
-      this.syncDraft(ctx, ctx.canvasToWorld(e.clientX, e.clientY));
+      this.syncDraft(ctx, world);
     }
     this.releaseActivePointer(ctx);
   }
@@ -391,7 +414,17 @@ export class PenTool extends BaseTool {
       if (this.points.length < 2 && !closed) {
         const pt = this.points[0];
         if (!pt) throw new Error('point not found');
-        ctx.createShapeAt({ x: pt.x, y: pt.y }, { w: 4, h: 4 });
+        // A single click is a one-contact point, not a 4x4 default shape. It
+        // goes through the path branch so it inherits the ink stroke and the
+        // containing frame; the round cap paints the dot.
+        const anchor = { x: pt.x, y: pt.y, handleIn: null, handleOut: null };
+        ctx.createShapeAt(
+          { x: pt.x, y: pt.y },
+          undefined,
+          undefined,
+          [{ ...anchor }, { ...anchor }],
+          false,
+        );
       } else if (this.points.length >= 2 || closed) {
         const first = this.points[0];
         if (!first) throw new Error('first point not found');

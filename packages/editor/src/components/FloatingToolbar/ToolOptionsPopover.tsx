@@ -45,7 +45,7 @@ const LiquifyOptionsPanel = lazy(() =>
   })),
 );
 
-const BRUSH_TOOLS = new Set<ToolId>(['paint', 'eraser', 'pencil', 'smudge']);
+const BRUSH_TOOLS = new Set<ToolId>(['paint', 'eraser', 'pencil', 'smudge', 'pen']);
 const MARQUEE_TOOLS = new Set<ToolId>(['marquee', 'ellipseMarquee', 'pixelLasso']);
 const MAGIC_WAND_TOOLS = new Set<ToolId>(['magicWand']);
 const RETOUCH_TOOLS = new Set<ToolId>([
@@ -511,14 +511,14 @@ export function ToolOptionsPopover() {
             {BRUSH_TOOLS.has(state.tool) && (
               <>
                 <BrushSection
-                  tool={state.tool as 'paint' | 'eraser' | 'pencil' | 'smudge'}
+                  tool={state.tool as 'paint' | 'eraser' | 'pencil' | 'smudge' | 'pen'}
                   sectionId="brush-settings"
                 />
                 {state.tool === 'paint' && <PaintLayerRecoveryAction />}
                 {state.tool === 'paint' && <ClippedPaintLayerAction />}
-                {/* The pencil draws vector strokes, so raster brush presets
-                    have nothing to apply to. */}
-                {state.tool !== 'pencil' && <BrushLibraryPanel />}
+                {/* Vector ink tools draw editable geometry, so raster brush
+                    presets and the brush library have nothing to apply. */}
+                {state.tool !== 'pencil' && state.tool !== 'pen' && <BrushLibraryPanel />}
               </>
             )}
             {MARQUEE_TOOLS.has(state.tool) && (

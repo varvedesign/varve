@@ -378,8 +378,18 @@ describe('RefineMaskTool', () => {
     (tool as any).nodeId = 'img-1';
     const ctx = makeMinimalCtx();
 
+    // Pressure is a pen property: coverage tools deposit nominally for a mouse
+    // or an unknown pointer type, so the fixture must declare the pen that a
+    // real pressure-sensitive gesture comes from.
     tool.onPointerDown(
-      { altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.1 } as any,
+      {
+        altKey: false,
+        clientX: 25,
+        clientY: 25,
+        pointerId: 1,
+        pointerType: 'pen',
+        pressure: 0.1,
+      } as any,
       ctx,
     );
     const lowPressureAvg = averageMaskValue(maskData);
@@ -387,7 +397,14 @@ describe('RefineMaskTool', () => {
     const maskData2 = createWhiteMaskImageData();
     (tool as any).maskData = maskData2;
     tool.onPointerDown(
-      { altKey: false, clientX: 25, clientY: 25, pointerId: 2, pressure: 1.0 } as any,
+      {
+        altKey: false,
+        clientX: 25,
+        clientY: 25,
+        pointerId: 2,
+        pointerType: 'pen',
+        pressure: 1.0,
+      } as any,
       ctx,
     );
     const highPressureAvg = averageMaskValue(maskData2);
