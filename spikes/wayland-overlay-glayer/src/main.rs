@@ -36,10 +36,10 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use glow::HasContext as _;
-use webkit2gtk::WebViewExt;
 use gtk::gdk;
 use gtk::glib;
 use gtk::prelude::*;
+use webkit2gtk::WebViewExt;
 
 // gtk-rs 0.18 does not bind the gtk+/gdk test utils; libgdk-3 exports
 // `gdk_test_simulate_button` directly and is always linked by the gtk crate.
@@ -144,7 +144,7 @@ fn main() {
     application.run_with_args(&Vec::<&str>::new());
 }
 
-fn activate(app: &gtk::Application, auto: bool, _interactive: bool) {
+fn activate(app: &gtk::Application, auto: bool, interactive: bool) {
     let window = gtk::Window::new(gtk::WindowType::Toplevel);
     window.set_title("varve spike A: gtk::Overlay + GLArea");
     window.set_default_size(900, 640);
@@ -169,9 +169,7 @@ fn activate(app: &gtk::Application, auto: bool, _interactive: bool) {
                 eprintln!("[gl] context creation FAILED: {error}");
                 return;
             }
-            let gl = unsafe {
-                glow::Context::from_loader_function(load_gl_symbol)
-            };
+            let gl = unsafe { glow::Context::from_loader_function(load_gl_symbol) };
             let version = gl.version();
             eprintln!("[gl] context ready: GL {}.{}", version.major, version.minor);
             let program = compile_program(&gl);
@@ -278,8 +276,10 @@ fn activate(app: &gtk::Application, auto: bool, _interactive: bool) {
 
     if auto {
         run_auto_sequence(&window, &webview, &gl_area);
+    } else if interactive {
+        eprintln!("[interactive] use the real pointer; DOM counters show delivered clicks");
     } else {
-        eprintln!("[auto] passive mode: rendering only (use --auto or --interactive)");
+        eprintln!("[idle] rendering only (use --auto for synthesized input or --interactive for manual input)");
     }
 }
 
@@ -332,9 +332,7 @@ fn load_gl_symbol(name: &str) -> *const std::os::raw::c_void {
     });
     let cstr = CString::new(name).expect("symbol name");
     for library in libraries {
-        if let Ok(symbol) =
-            unsafe { library.get::<*const std::os::raw::c_void>(cstr.as_bytes()) }
-        {
+        if let Ok(symbol) = unsafe { library.get::<*const std::os::raw::c_void>(cstr.as_bytes()) } {
             return *symbol;
         }
     }
@@ -362,18 +360,17 @@ enum Step {
     Finish,
 }
 
-fn run_auto_sequence(
-    window: &gtk::Window,
-    webview: &webkit2gtk::WebView,
-    gl_area: &gtk::GLArea,
-) {
+fn run_auto_sequence(window: &gtk::Window, webview: &webkit2gtk::WebView, gl_area: &gtk::GLArea) {
     let evidence = Rc::new(RefCell::new(Evidence::default()));
     let steps: Vec<(u64, Step)> = vec![
         (1500, Step::ClickWebview(450.0, 320.0, "webview-centre")),
         (2500, Step::ClickWebview(450.0, 130.0, "webview-header")),
         (3500, Step::ClickGlArea(40.0, 600.0)),
         (4500, Step::Resize),
-        (5500, Step::ClickWebview(450.0, 320.0, "webview-after-resize")),
+        (
+            5500,
+            Step::ClickWebview(450.0, 320.0, "webview-after-resize"),
+        ),
         (6500, Step::Finish),
     ];
     for (delay_ms, step) in steps {
@@ -442,11 +439,9 @@ fn run_step(
 }
 
 fn write_summary(dom_json: &str) {
-    let summary = format!(
-        "{{\"status\":\"completed\",\"dom\":{dom_json}}}"
-    );
-    let path = std::env::var("SPIKE_SUMMARY_PATH")
-        .unwrap_or_else(|_| "/tmp/spike-summary.json".into());
+    let summary = format!("{{\"status\":\"completed\",\"dom\":{dom_json}}}");
+    let path =
+        std::env::var("SPIKE_SUMMARY_PATH").unwrap_or_else(|_| "/tmp/spike-summary.json".into());
     if let Err(error) = std::fs::write(&path, summary) {
         eprintln!("[summary] write to {path} failed: {error}");
     }
