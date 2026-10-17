@@ -214,6 +214,38 @@ describe('computeDocumentDirtyRegion', () => {
     }
   });
 
+  it('dirties the dab world position when the layer sits at a non-zero transform', () => {
+    // Tile keys are grid coordinates in the layer's own space. Contributing them
+    // verbatim made the dirty rect land at the *local* position instead of where
+    // the layer actually is — so the painted pixels were never repainted and the
+    // stroke stayed invisible until a full redraw. A raster layer is parented to
+    // the frame it was painted into, and painting at a non-96 PPI scale gives it
+    // a non-unit transform, so this is the ordinary case.
+    const base = createDocument('RasterOffset', true);
+    const layer = {
+      ...makeRasterLayerNode('raster', { width: 512, height: 512 }),
+      transform: [1, 0, 0, 1, 300, 200] as const,
+    };
+    const before = addNode(base, layer);
+    const preset = defaultBrushPreset('test', 'Test');
+    const dabs = generateDabs([strokePoint(100, 100), strokePoint(150, 100)], preset);
+    let rasterNode = before.nodes.raster! as import('@varve/scene').RasterLayerNode;
+    for (const dab of dabs) {
+      rasterNode = compositeDabOnNode(rasterNode, dab, [0, 0, 0, 255]);
+    }
+    const after = { ...before, nodes: { ...before.nodes, raster: rasterNode } };
+
+    const result = computeDocumentDirtyRegion(before, after);
+    expect(result.kind).toBe('partial');
+    if (result.kind !== 'partial') throw new Error('unreachable');
+    // The dab is at local (100,100); the layer is translated by (300,200), so
+    // the dirtied region must cover world (400,300).
+    expect(result.bounds.x).toBeLessThanOrEqual(400);
+    expect(result.bounds.y).toBeLessThanOrEqual(300);
+    expect(result.bounds.x + result.bounds.w).toBeGreaterThan(400);
+    expect(result.bounds.y + result.bounds.h).toBeGreaterThan(300);
+  });
+
   it('reports partial when a tile keeps its version number but holds different pixels', () => {
     // Two histories can reach the same per-tile version with different content
     // (a divergent branch, or an undo followed by another stroke). Equal

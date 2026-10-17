@@ -2438,6 +2438,16 @@ export function renderContent(deps: RenderContentDeps): void {
             // dirty rects over pixels from the old revision.
             surfaceIsAuthoritative = false;
           } else {
+            // The camera must be re-applied before this replay. Line 2398 set
+            // the context to the identity transform so the bitmap could be
+            // composited 1:1 in device pixels, and `drawVectorItems` applies
+            // only each item's world transform — the camera/DPR mapping
+            // normally comes from `applyCam`, which `openFullRedraw` and the
+            // partial-clip helpers call. Without this the document would be
+            // replayed at 1 world unit = 1 device pixel anchored at the origin:
+            // wrong scale and position, and inside a partial clip a scrambled
+            // band exactly where the edit is.
+            applyCam(ctxNN);
             compositorRef.current?.drawVectorItems(
               proofedIr,
               replayColorOptions,
