@@ -1,0 +1,32 @@
+{
+  "source": "https://gitlab.com/inkscape/inkscape/-/issues",
+  "cutoff_created_at_utc": "2026-10-17T10:03:35Z",
+  "crawl_started_at_utc": "2026-10-17T10:05:41Z",
+  "crawl_completed_at_utc": "2026-10-17T10:08:41Z",
+  "source_issue_ndjson_sha256": "f1e9f6be7cc3eaa8a7381b510bf89cad23858717e84dd6468126d81a80720d43",
+  "issue_count": 6390,
+  "unique_iid_count": 6390,
+  "state_counts": {
+    "closed": 4278,
+    "opened": 2112
+  },
+  "created_date_range": ["2018-11-19T04:00:40.971Z", "2026-10-16T19:11:04.135Z"],
+  "nonempty_descriptions": 6387,
+  "description_characters": 13078966,
+  "reported_notes_total": 32680,
+  "issues_with_reported_notes": 5667,
+  "retrieved_notes": 12556,
+  "coverage": {
+    "body_screening": "pending for all issues",
+    "discussion_review": "retrieval in progress: 5528 of 32680 non-system comments; content review pending",
+    "linked_evidence_review": "pending",
+    "varve_mapping": "pending",
+    "engineering_disposition": "pending",
+    "visual_validation": "pending"
+  },
+  "ledger_rows": 6390,
+  "retrieved_user_notes": 5528,
+  "retrieved_issue_discussions": 805,
+  "discussion_snapshot_at_utc": "2026-10-17T10:17:13Z",
+  "discussion_review_status": "retrieval in progress; content review pending"
+}
