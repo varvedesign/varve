@@ -380,3 +380,124 @@ describe('connected session over the real editor', () => {
     );
   });
 });
+
+describe('structure commands match the editor’s own actions', () => {
+  type Doc = Editor['state']['document'];
+
+  /** Where a node sits: its container, the container's full child order, its own transform. */
+  function placement(doc: Doc, id: string) {
+    const holder = Object.values(doc.nodes).find(
+      (n) => 'children' in n && (n as { children: string[] }).children.includes(id),
+    ) as { id: string; children: string[] } | undefined;
+    const node = doc.nodes[id] as unknown as { transform?: number[]; name?: string; kind: string };
+    return {
+      container: holder?.id ?? null,
+      order: holder?.children ?? doc.rootChildren,
+      transform: node.transform,
+      kind: node.kind,
+      name: node.name,
+    };
+  }
+
+  async function twoRects() {
+    await mount();
+    await enable();
+    const { connection } = await connect();
+    const a = (await execute(connection, 1, 'varve.node.create', rect))?.result
+      .created[0] as string;
+    const b = (await execute(connection, 2, 'varve.node.create', { ...rect, x: 100 }))?.result
+      .created[0] as string;
+    await waitFor(() => expect(live().state.document.nodes[b]).toBeDefined());
+    return { connection, a, b };
+  }
+
+  const newGroupId = (doc: Doc, before: Doc): string =>
+    Object.keys(doc.nodes).find((id) => !before.nodes[id] && doc.nodes[id]?.kind === 'group') ?? '';
+
+  it('groups the way the Group action does', async () => {
+    const { connection, a, b } = await twoRects();
+    const base = live().state.document;
+
+    const grouped = await execute(connection, 3, 'varve.node.group', { nodeIds: [a, b] });
+    expect(grouped?.result.outcome).toBe('applied');
+    const commandGroup = grouped?.result.created[0] as string;
+    await waitFor(() => expect(live().state.document.nodes[commandGroup]).toBeDefined());
+    const viaCommand = {
+      group: placement(live().state.document, commandGroup),
+      a: placement(live().state.document, a),
+      b: placement(live().state.document, b),
+      members: (live().state.document.nodes[commandGroup] as { children: string[] }).children,
+    };
+
+    // One undo removes exactly the agent's change, as for every other command.
+    act(() => {
+      live().undo();
+    });
+    await waitFor(() => expect(live().state.document.nodes[commandGroup]).toBeUndefined());
+
+    act(() => {
+      live().setSelectionRefs([a, b]);
+    });
+    act(() => {
+      live().groupSelected();
+    });
+    await waitFor(() => expect(newGroupId(live().state.document, base)).not.toBe(''));
+    const uiGroup = newGroupId(live().state.document, base);
+    const viaUi = {
+      group: placement(live().state.document, uiGroup),
+      a: placement(live().state.document, a),
+      b: placement(live().state.document, b),
+      members: (live().state.document.nodes[uiGroup] as { children: string[] }).children,
+    };
+
+    // Same name, same place in the same container, same members in the same
+    // order, same transforms. Only the new group's id may differ, so it is
+    // masked wherever it appears.
+    const norm = (p: ReturnType<typeof placement>, gid: string) => ({
+      ...p,
+      container: p.container === gid ? '<group>' : p.container,
+      order: p.order.map((x) => (x === gid ? '<group>' : x)),
+    });
+    expect(norm(viaCommand.group, commandGroup)).toEqual(norm(viaUi.group, uiGroup));
+    expect(norm(viaCommand.a, commandGroup)).toEqual(norm(viaUi.a, uiGroup));
+    expect(norm(viaCommand.b, commandGroup)).toEqual(norm(viaUi.b, uiGroup));
+    expect(viaCommand.members).toEqual(viaUi.members);
+  });
+
+  it('ungroups the way the Ungroup action does', async () => {
+    const { connection, a, b } = await twoRects();
+    const base = live().state.document;
+    const grouped = await execute(connection, 3, 'varve.node.group', { nodeIds: [a, b] });
+    const groupId = grouped?.result.created[0] as string;
+    await waitFor(() => expect(live().state.document.nodes[groupId]).toBeDefined());
+    expect(newGroupId(live().state.document, base)).toBe(groupId);
+    const grouped$ = live().state.document;
+
+    const ungrouped = await execute(connection, 4, 'varve.node.ungroup', { nodeId: groupId });
+    expect(ungrouped?.result.outcome).toBe('applied');
+    await waitFor(() => expect(live().state.document.nodes[groupId]).toBeUndefined());
+    const viaCommand = {
+      a: placement(live().state.document, a),
+      b: placement(live().state.document, b),
+    };
+
+    act(() => {
+      live().undo();
+    });
+    await waitFor(() => expect(live().state.document.nodes[groupId]).toBeDefined());
+    expect(live().state.document.nodes[groupId]).toEqual(grouped$.nodes[groupId]);
+
+    act(() => {
+      live().setSelectionRefs([groupId]);
+    });
+    act(() => {
+      live().ungroupSelected();
+    });
+    await waitFor(() => expect(live().state.document.nodes[groupId]).toBeUndefined());
+    const viaUi = {
+      a: placement(live().state.document, a),
+      b: placement(live().state.document, b),
+    };
+    expect(viaCommand).toEqual(viaUi);
+  });
+});
