@@ -69,7 +69,9 @@ unsafe fn attach(webview: &webkit2gtk::WebView) -> Result<(), String> {
     let overlay = gtk::Overlay::new();
     let gl_area = gtk::GLArea::new();
     gl_area.set_has_alpha(true);
-    gl_area.set_auto_render(true);
+    // The diagnostic frame is static. A frame sender must call `queue_render`
+    // after replacing its stored pixels; never repaint continuously while idle.
+    gl_area.set_auto_render(false);
     gl_area.set_hexpand(true);
     gl_area.set_vexpand(true);
     gl_area.set_size_request(1, 1);
