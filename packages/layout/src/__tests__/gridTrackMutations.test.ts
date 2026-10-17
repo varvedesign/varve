@@ -95,6 +95,17 @@ describe('grid track mutations', () => {
     expect(added?.gridColumnTracks?.map(({ size }) => size)).toEqual(['auto', '2fr', '120px']);
   });
 
+  it('refuses a reorder that separates the identities covered by a span', () => {
+    const threeTracks: LayoutStyle = { ...style, gridTemplateColumns: '1fr 1fr 1fr' };
+    const tracks = initializeGridTracks(threeTracks, 'columns', 'frame')!;
+    const span = [{ gridColumnStartTrackId: tracks[1]!.id, gridColumnSpan: 2 }];
+
+    expect(reorderGridTrack(threeTracks, 'columns', 'frame', tracks[2]!.id, 1, span)).toBeNull();
+    expect(
+      reorderGridTrack(threeTracks, 'columns', 'frame', tracks[0]!.id, 2, span)?.gridColumnTracks,
+    ).toEqual([tracks[1], tracks[2], tracks[0]]);
+  });
+
   it('previews removal and rehomes anchored content without changing the source document', () => {
     const doc = makeDocument();
     const preview = previewRemoveGridTrack(doc, 'frame', 'columns', 'grid-frame-column-2');

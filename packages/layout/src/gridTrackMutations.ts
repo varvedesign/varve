@@ -124,6 +124,7 @@ export function reorderGridTrack(
   frameId: NodeId,
   trackId: string,
   targetIndex: number,
+  placements: GridItemPlacement[] = [],
 ): LayoutStyle | null {
   const current = initializeGridTracks(style, axis, frameId);
   const from = current?.findIndex((track) => track.id === trackId) ?? -1;
@@ -133,6 +134,37 @@ export function reorderGridTrack(
   const [track] = next.splice(from, 1);
   if (!track) return null;
   next.splice(to, 0, track);
+
+  // A start-track identity plus a span length represents one contiguous set
+  // of tracks. Refuse reorders that would change the members of that set.
+  const startKey = axis === 'columns' ? 'gridColumnStart' : 'gridRowStart';
+  const endKey = axis === 'columns' ? 'gridColumnEnd' : 'gridRowEnd';
+  const idKey = axis === 'columns' ? 'gridColumnStartTrackId' : 'gridRowStartTrackId';
+  const spanKey = axis === 'columns' ? 'gridColumnSpan' : 'gridRowSpan';
+  const positions = new Map(next.map((item, index) => [item.id, index]));
+  for (const placement of placements) {
+    const startId = placement[idKey];
+    const hasAxisPlacement =
+      startId != null || placement[startKey] != null || placement[endKey] != null;
+    if (!hasAxisPlacement) continue;
+    const originalStart = startId
+      ? current.findIndex((item) => item.id === startId)
+      : Math.max(0, (placement[startKey] ?? 1) - 1);
+    if (originalStart < 0 || originalStart >= current.length) return null;
+    const span =
+      placement[spanKey] ??
+      Math.max(1, (placement[endKey] ?? originalStart + 2) - (originalStart + 1));
+    if (!Number.isSafeInteger(span) || span < 1 || originalStart + span > current.length)
+      return null;
+    const members = current.slice(originalStart, originalStart + span).map((item) => item.id);
+    const movedStart = positions.get(members[0]!);
+    if (
+      movedStart == null ||
+      members.some((member, offset) => positions.get(member) !== movedStart + offset)
+    ) {
+      return null;
+    }
+  }
   return withTracks(style, axis, next);
 }
 

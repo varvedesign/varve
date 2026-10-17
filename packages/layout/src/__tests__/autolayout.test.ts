@@ -373,6 +373,31 @@ describe('computeFlexLayout', () => {
     expect(results.map((result) => result.w)).toEqual([60, 60]);
   });
 
+  it('redistributes shrink when an item reaches its minimum', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 100;
+    const first = makeChild('first', 0, 0, 80, 40);
+    first.minWidth = 70;
+    Object.assign(first, { layoutStyle: { shrink: 1 } });
+    const second = makeChild('second', 0, 0, 80, 40);
+    Object.assign(second, { layoutStyle: { shrink: 1 } });
+
+    const results = computeFlexLayout(frame, [first, second]);
+
+    expect(results.map(({ x, w }) => [x, w])).toEqual([
+      [0, 70],
+      [70, 30],
+    ]);
+  });
+
   it('aligns a capped cross-axis fill item using its final size', () => {
     const frame = makeFrame({
       mode: 'flex',
