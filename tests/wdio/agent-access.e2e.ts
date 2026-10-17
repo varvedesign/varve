@@ -155,6 +155,28 @@ async function clickText(
   );
 }
 
+async function clickButton(label: string): Promise<void> {
+  await browser.tauri.execute((_tauri: unknown, wanted: string) => {
+    const button = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === wanted,
+    );
+    (button as HTMLElement | undefined)?.click();
+  }, label);
+}
+
+function helloLine(token: string, name: string): string {
+  return JSON.stringify({
+    jsonrpc: '2.0',
+    id: 'h',
+    method: 'session.hello',
+    params: {
+      credential: token,
+      client: { name, version: '1' },
+      protocolVersions: ['varve.control/1'],
+    },
+  });
+}
+
 /**
  * The test application's profile survives between runs, and the harness ends it
  * abruptly, so the next launch can offer to recover documents. A person would
@@ -481,6 +503,81 @@ describe('Tauri Desktop: agent access over a real endpoint', function () {
     const refused = await client.next();
     expect(refused.result.outcome).toBe('rejected');
     expect(refused.result.error.message).toContain('paused');
+  });
+
+  it('withdraws a change that was waiting for approval when the person pauses', async () => {
+    // Pause is still on from the previous test. Lift it, hold a request, then
+    // pause again: the prompt must go away rather than stay clickable.
+    await clickButton('Allow changes again');
+    await browser.waitUntil(async () => !(await statusText()).includes('Paused'), {
+      timeout: 10_000,
+    });
+    client.send(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'command.execute',
+        params: {
+          command: 'varve.node.create',
+          args: { kind: 'rect', x: 300, y: 20, width: 40, height: 40 },
+        },
+      }),
+    );
+    const approve = await browser.$('button=Approve');
+    await approve.waitForDisplayed({ timeout: 20_000 });
+
+    await clickButton('Pause changes');
+    const withdrawn = await client.next();
+    expect(withdrawn.result.outcome).toBe('rejected');
+    expect(withdrawn.result.error.message).toContain('paused');
+    await browser.waitUntil(async () => !(await (await browser.$('button=Approve')).isExisting()), {
+      timeout: 10_000,
+      timeoutMsg: 'the prompt for a withdrawn change is still on screen',
+    });
+  });
+
+  it('Disconnect and block refuses the shared key to everyone until it is allowed again', async () => {
+    const row = listInstances()[0] as InstanceRow;
+    const token = tokenFor(row);
+
+    await clickButton('Disconnect and block');
+    await browser.waitUntil(async () => client.closed, {
+      timeout: 10_000,
+      timeoutMsg: 'the blocked client was not disconnected',
+    });
+
+    // Every client of this window presents the same key, so a different client
+    // is refused too. The window says so instead of implying a per-agent switch.
+    const other = await RawClient.connect(row.endpoint);
+    other.send(helloLine(token, 'someone-else'));
+    const refused = await other.next();
+    expect(refused.error.message).toBe('credential refused');
+    other.destroy();
+
+    const blocked = await browser.$('[aria-label="Access blocked"]');
+    await blocked.waitForDisplayed({ timeout: 10_000 });
+    expect(await blocked.getText()).toContain('same access key');
+    // The dialog scrolls; bring the block into the picture before taking it.
+    await browser.tauri.execute(() => {
+      document.querySelector('[aria-label="Access blocked"]')?.scrollIntoView({ block: 'center' });
+    });
+    await browser.pause(500); // let the scroll paint before the picture is taken
+    await browser.saveScreenshot(join(artifacts, 'native-access-blocked.png'));
+
+    await clickButton('Allow access again');
+    await browser.waitUntil(
+      async () => !(await (await browser.$('[aria-label="Access blocked"]')).isExisting()),
+      {
+        timeout: 10_000,
+        timeoutMsg: 'the block is still shown after it was lifted',
+      },
+    );
+
+    client.destroy();
+    client = await RawClient.connect(row.endpoint);
+    client.send(helloLine(token, 'native-test'));
+    const again = await client.next();
+    expect(again.result.session.mode).toBe('connected');
   });
 
   it('turning it off closes the client and removes the endpoint', async () => {

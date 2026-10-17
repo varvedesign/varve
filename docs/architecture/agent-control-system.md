@@ -545,8 +545,8 @@ plain text, never interpreted.
 ## What the launched app found
 
 Running the feature in the real desktop application, rather than reasoning about
-it, found four defects that no unit, integration or browser test had caught. All
-four are fixed, each with a test that fails against the old behaviour:
+it, found five defects that no unit, integration or browser test had caught. All
+five are fixed, each with a test that fails against the old behaviour:
 
 1. **Enabling never completed.** The `automation_apply_policy` command called
    `block_on` from inside an `async` command already running on the runtime. That
@@ -564,6 +564,14 @@ four are fixed, each with a test that fails against the old behaviour:
 4. **Settings changes could be lost.** `updateSection` built its next state from a
    stale closure, so two changes before a render lost the first. This affected
    every Settings section, not only this one.
+5. **"Disconnect and block" left the socket open.** The window dropped the agent
+   from its list, but the application owns the protocol and Rust owns the sockets,
+   and Rust only learned a session was over when the peer next sent something. An
+   idle blocked agent kept its socket, and its place under the connection cap,
+   while the window said it was gone. The host can now be asked to close a live
+   connection (`close_connection`, `automation_close_connection`), cancelling even a
+   connection that is waiting on the application for a held request, and the relay
+   asks for it whenever the host, not the transport, ended the session.
 
 Two of the five failures seen while writing the native test were the test's own
 state (a profile that survives between runs, and a recovery prompt left by
@@ -615,7 +623,10 @@ catalog, with the same validation and authorization as a named command.
   driven through its embedded WebDriver (`tests/wdio/agent-access.e2e.ts`, WebKitGTK
   under Xvfb): the setting starts a real endpoint, a separate client process attaches
   to the open document, a held change is approved with a real click, a capture
-  returns native pixels, and switching it off removes the endpoint. macOS (WKWebView)
+  returns native pixels, pausing withdraws a change that was waiting for approval,
+  "Disconnect and block" closes the blocked client's socket and refuses the shared
+  key to every client until "Allow access again", and switching it off removes the
+  endpoint. macOS (WKWebView)
   and Windows (WebView2) have not been run; Windows has no transport at all.
 - **Windows has no transport.** `Transport::for_this_platform()` reports the gap
   and the endpoint refuses to start there with a clear error.

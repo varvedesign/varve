@@ -120,7 +120,9 @@ Verified on Linux in the launched desktop application (WebKitGTK under Xvfb): th
 setting starts a real endpoint; `varve instances --verify` and a separate client
 process attach to the open document; a change is held, approved with a real click
 and appears in the Layers panel; a capture returns native pixels in the requested
-colour; pausing refuses changes; and switching off removes the endpoint. To rerun
+colour; pausing refuses changes and withdraws any change still waiting for you;
+"Disconnect and block" closes that agent's connection at the socket and refuses the
+window's access key until you allow it again; and switching off removes the endpoint. To rerun
 it, build the debug app with the WebDriver feature and use an isolated profile
 (the full command is in the header of `tests/wdio/agent-access.e2e.ts`).
 
