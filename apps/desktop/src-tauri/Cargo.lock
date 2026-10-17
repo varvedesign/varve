@@ -6804,7 +6804,9 @@ dependencies = [
  "pollster",
  "serde",
  "serde_json",
+ "varve-core",
  "varve-effects",
+ "varve-engine",
  "wgpu",
 ]
 

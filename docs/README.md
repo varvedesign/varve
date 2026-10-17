@@ -282,6 +282,7 @@ TLS, limits, troubleshooting). The decision record is
 | `adr/0241-raster-stroke-ownership-history-hashing-tile-identity.md` | Stroke-scoped exclusive tile ownership, cheaper history capture with an unchanged hash value, and runtime tile content identity instead of version equality |
 | `adr/0242-document-authority-and-interchange.md` | One document authority per kind with preservation adapters; separate identity axes; derived structure never owns edits; honest output claims |
 | `adr/0243-realtime-collaboration.md` | Authoritative semantic-operation rooms (no CRDT), per-participant compensating undo, one host implementation for app-hosted and self-hosted shapes, presence/chat/spotlight as a lossy lane |
+| `adr/0244-native-gpu-rasterization-of-the-render-ir.md` | Native GPU rasterization of the render IR: analytic shapes plus stencil-and-cover paths over the existing IR contract, measured readback bridge, explicit per-item admission, and Canvas2D as the only present surface |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |
