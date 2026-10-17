@@ -19,7 +19,7 @@ import {
   readFileSync,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 export const INSTANCE_SCHEMA = 'varve.instance/1';
 
@@ -92,6 +92,39 @@ export function ensurePrivateDirectory(path: string): void {
     }
     if ((stat.mode & 0o077) !== 0) chmodSync(path, 0o700);
   }
+}
+
+/**
+ * Read a credential file, refusing anything but a plain, owner-only file.
+ *
+ * This is the client's half of a rule the application already enforces on its
+ * side (`read_secret`): the path may come from an instance record, the contents
+ * are sent to a socket as the credential, and a client that reads whatever the
+ * path names would hand over any file a record pointed at, through a symlink or
+ * a path that climbs out of the instance directory.
+ *
+ * When `insideDir` is given (the path came from a record), the file must sit
+ * directly in that record's own directory. An explicit path the person typed is
+ * theirs to choose and is held to the file checks only.
+ */
+export function readCredentialFile(path: string, options: { insideDir?: string } = {}): string {
+  if (options.insideDir !== undefined && dirname(resolve(path)) !== resolve(options.insideDir)) {
+    throw new Error(`${path} is not inside the instance directory ${options.insideDir}`);
+  }
+  const stat = lstatSync(path);
+  if (stat.isSymbolicLink() || !stat.isFile()) {
+    throw new Error(`${path} is not a plain file`);
+  }
+  if (process.platform !== 'win32') {
+    const owner = uid();
+    if (owner !== null && stat.uid !== owner) {
+      throw new Error(`${path} is owned by another user`);
+    }
+    if ((stat.mode & 0o077) !== 0) {
+      throw new Error(`${path} is readable by other users; run "chmod 600" on it`);
+    }
+  }
+  return readFileSync(path, 'utf8').trim();
 }
 
 export interface CreatedInstance {

@@ -11,7 +11,6 @@
  *
  * stdout carries protocol messages only. Everything else goes to stderr.
  */
-import { readFileSync } from 'node:fs';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { ControlConnection } from '@varve/automation';
 import {
@@ -20,7 +19,7 @@ import {
   type HelloResult,
   loopbackTransport,
 } from '../control/client';
-import { discoverInstances } from '../control/instance';
+import { discoverInstances, readCredentialFile } from '../control/instance';
 import { createVarveMcpServer } from '../mcp/server';
 import { parseRunArgs, UsageError } from './args';
 import type { Io } from './commands';
@@ -71,6 +70,7 @@ export async function runMcp(io: Io, argv: string[]): Promise<ExitCode> {
     };
     let endpoint = a.value('connect');
     let tokenFile = a.value('token-file');
+    let recordDir: string | undefined;
     if (endpoint === undefined) {
       const wanted = a.value('instance') as string;
       const match = discoverInstances(env).find((i) => i.record.instanceId === wanted && i.alive);
@@ -79,12 +79,18 @@ export async function runMcp(io: Io, argv: string[]): Promise<ExitCode> {
         return EXIT.IO;
       }
       endpoint = match.record.endpoint;
-      tokenFile = tokenFile ?? match.record.tokenFile;
+      if (tokenFile === undefined) {
+        tokenFile = match.record.tokenFile;
+        recordDir = match.dir;
+      }
     }
     if (tokenFile === undefined) throw new UsageError('--connect needs --token-file <path>');
     let token: string;
     try {
-      token = readFileSync(tokenFile, 'utf8').trim();
+      token = readCredentialFile(
+        tokenFile,
+        recordDir === undefined ? {} : { insideDir: recordDir },
+      );
     } catch (error) {
       io.err(`varve mcp: cannot read credential file ${tokenFile}: ${(error as Error).message}\n`);
       return EXIT.IO;

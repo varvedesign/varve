@@ -8,6 +8,7 @@
  */
 import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -869,7 +870,7 @@ describe('MCP attach mode never falls back to a headless document', () => {
 
   it('exits with an error when the endpoint is unreachable, without opening a document', async () => {
     const tokenFile = join(root, 'dead-token');
-    writeFileSync(tokenFile, 'x');
+    writeFileSync(tokenFile, 'x', { mode: 0o600 });
     const result = spawnSync(
       process.execPath,
       [bundle, 'mcp', '--connect', join(root, 'no-such.sock'), '--token-file', tokenFile],
@@ -877,6 +878,23 @@ describe('MCP attach mode never falls back to a headless document', () => {
     );
     expect(result.status).toBe(3);
     expect(result.stderr).toContain('Not falling back');
+    expect(result.stdout).toBe('');
+  });
+
+  it('refuses a credential file other users can read, and says how to fix it', async () => {
+    const tokenFile = join(root, 'lax-token');
+    writeFileSync(tokenFile, 'x', { mode: 0o644 });
+    chmodSync(tokenFile, 0o644);
+    const result = spawnSync(
+      process.execPath,
+      [bundle, 'mcp', '--connect', join(root, 'no-such.sock'), '--token-file', tokenFile],
+      { encoding: 'utf8', env: { PATH: '' }, input: '' },
+    );
+    expect(result.status).toBe(3);
+    expect(result.stderr).toContain('readable by other users');
+    expect(result.stderr).toContain('chmod 600');
+    // It stopped before connecting anywhere or reading the file's contents.
+    expect(result.stderr).not.toContain('Not falling back');
     expect(result.stdout).toBe('');
   });
 

@@ -7,7 +7,7 @@
  * for `--in-place`, and the socket directory and credential file are
  * owner-only. A client must present the credential in `session.hello`.
  */
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import { CONTROL_PROTOCOL } from '@varve/automation';
 import { ControlClient, connectEndpoint } from '../control/client';
 import {
@@ -15,6 +15,7 @@ import {
   discoverInstances,
   INSTANCE_SCHEMA,
   type InstanceRecord,
+  readCredentialFile,
 } from '../control/instance';
 import { startControlServer } from '../control/server';
 import { parseRunArgs, UsageError } from './args';
@@ -141,7 +142,7 @@ export async function runInstances(io: Io, argv: string[]): Promise<ExitCode> {
       // Prove the endpoint answers and identifies itself, using its own credential file.
       let client: ControlClient | null = null;
       try {
-        const token = readFileSync(entry.record.tokenFile, 'utf8').trim();
+        const token = readCredentialFile(entry.record.tokenFile, { insideDir: entry.dir });
         client = new ControlClient(await connectEndpoint(entry.record.endpoint, 2000), {
           requestTimeoutMs: 3000,
         });
