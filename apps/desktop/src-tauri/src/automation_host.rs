@@ -389,6 +389,22 @@ pub async fn automation_status() -> Result<serde_json::Value, String> {
     }
 }
 
+/// Close one live connection on the application's behalf.
+///
+/// The webview owns the protocol and cannot see sockets, so when it ends a
+/// session itself (a person disconnects an agent) it has to ask for the socket
+/// to be closed. Otherwise the socket, and its place under the connection cap,
+/// outlive a session the window has already dropped. Returns whether a live
+/// connection by that id was found; an id that is already gone is not an error.
+#[tauri::command]
+pub async fn automation_close_connection(connection_id: String) -> Result<bool, String> {
+    let guard = state().lock().await;
+    Ok(guard
+        .as_ref()
+        .map(|hosted| hosted.host.close_connection(&connection_id))
+        .unwrap_or(false))
+}
+
 /// The webview's answer to one relayed frame.
 ///
 /// `frame` is the line to write back; `None` closes without writing, which is

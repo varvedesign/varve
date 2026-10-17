@@ -127,7 +127,15 @@ export interface RelayHandle {
  */
 export async function attachDesktopRelay(host: ConnectionAcceptor): Promise<RelayHandle> {
   const { invoke, listen } = await tauriModules();
-  const relay = createFrameRelay(host);
+  // A session the window itself ends (a person disconnects an agent) has to be
+  // closed at the socket too: Rust owns the socket and cannot see that decision.
+  const relay = createFrameRelay(host, {
+    closeTransport: (connectionId) => {
+      void invoke('automation_close_connection', { connectionId }).catch(() => {
+        // The endpoint is already gone; so is the socket.
+      });
+    },
+  });
 
   const answer = async (requestId: string, frame: string | null, closeAfter: boolean) => {
     try {

@@ -5879,6 +5879,7 @@ pub fn run() {
             automation_host::automation_apply_policy,
             automation_host::automation_status,
             automation_host::automation_reply,
+            automation_host::automation_close_connection,
             automation_host::automation_stop,
             collab_host::collab_host_start,
             collab_host::collab_host_status,

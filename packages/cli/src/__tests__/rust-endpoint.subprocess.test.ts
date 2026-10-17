@@ -133,7 +133,11 @@ async function startRustHost(instanceId = 'rust-xproc'): Promise<RustHost> {
         ? { grants: ['read', 'edit'], label: request.client.name, kind: 'agent' }
         : null,
   });
-  const relay = createFrameRelay(host);
+  // Declared before the relay needs it; assigned once the child exists.
+  let askRustToClose: (connectionId: string) => void = () => undefined;
+  const relay = createFrameRelay(host, {
+    closeTransport: (connectionId) => askRustToClose(connectionId),
+  });
 
   const child = spawn(harness as string, [runtimeDir], {
     env: { ...process.env, VARVE_TEST_INSTANCE: instanceId },
@@ -142,6 +146,10 @@ async function startRustHost(instanceId = 'rust-xproc'): Promise<RustHost> {
   spawned.push(child);
   child.stdout.setEncoding('utf8');
   child.stderr.setEncoding('utf8');
+  // The same request the desktop bridge makes with `automation_close_connection`.
+  askRustToClose = (connectionId) => {
+    child.stdin.write(`${JSON.stringify({ kind: 'close', connectionId })}\n`);
+  };
   let stderr = '';
   child.stderr.on('data', (chunk: string) => {
     stderr += chunk;
@@ -467,6 +475,32 @@ suite('a real Rust endpoint, the production relay and independent clients', () =
     expect(retried.result.idempotency).toMatchObject({ replayed: true });
     expect(Object.keys(host.authority.getDocument().nodes).length).toBe(before + 1);
     second.destroy();
+  }, 60_000);
+
+  it('closes the socket of an idle client the person disconnects', async () => {
+    host = await startRustHost();
+    const idle = await RawClient.connect(host.endpoint);
+    idle.send(helloFrame(host.token, 'idle-agent'));
+    const hello = await idle.next();
+    const principalId = hello.result.principal.id as string;
+    const bystander = await RawClient.connect(host.endpoint);
+    bystander.send(helloFrame(host.token, 'bystander'));
+    await bystander.next();
+
+    // The person clicks "Disconnect and block". The client sends nothing more.
+    expect(host.appHost.revoke(principalId)).toBe(1);
+
+    const deadline = Date.now() + 10_000;
+    while (!idle.closed && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
+    expect(idle.closed, 'the blocked client\u2019s socket was left open').toBe(true);
+    // It is not just closed in the window's list: the socket's slot is free too.
+    const live = () => host?.appHost.status().connections.filter((c) => c.state !== 'closed');
+    expect(live()).toHaveLength(1);
+    // The other client was not touched.
+    expect(bystander.closed).toBe(false);
+    bystander.send(executeFrame(2, 'varve.document.info', {}));
+    expect((await bystander.next()).result.outcome).toBe('ok');
+    bystander.destroy();
   }, 60_000);
 
   it('forgets a client that simply disconnects, so short-lived clients never fill the host', async () => {
