@@ -59,8 +59,10 @@ public-query complexity ceiling of 200 was observed: eight issue aliases
 scored 201; seven aliases succeeded. The resumable fetcher therefore batches
 seven issues, follows note cursors when a thread exceeds 100 notes, records
 per-IID JSON in the external cache, retries transient failures, and checks
-the final non-system note total against each issue-list record. The downloader
-does not mark discussion content as reviewed.
+the final non-system note total against each issue-list record. Offline tests
+for cursor pagination, resume, and system-note reconciliation run with
+`python3 -m unittest scripts/research/inkscape/test_fetch_discussions.py`. The
+downloader does not mark discussion content as reviewed.
 
 Records created after cutoff A belong in the follow-on queue after the full
 baseline inventory is frozen. Page retrieval is not an atomic historical

@@ -89,7 +89,8 @@ def main() -> None:
         "requests": 0,
     }
     manifest.setdefault("retrieved_user_notes", 0)
-    issues = [json.loads(line) for line in args.ledger.open()]
+    with args.ledger.open(encoding="utf-8") as ledger_file:
+        issues = [json.loads(line) for line in ledger_file]
     pending = [issue["iid"] for issue in issues if issue["reported_note_count"] > 0 and str(issue["iid"]) not in manifest["completed_iids"]]
     if args.limit is not None:
         pending = pending[: args.limit]
