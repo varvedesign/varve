@@ -5,11 +5,12 @@ Status: current-state documentation (2026-10-16). Companion to ADR-0244,
 [native-acceleration.md](native-acceleration.md), and the external research
 ledger at [`../research/native-gpu-canvas-research-2026-10-16.md`](../research/native-gpu-canvas-research-2026-10-16.md).
 
-`crates/varve-accel/src/render` rasterizes the render IR on the GPU. It is a
-**rasterizer**, not a presentation path: its output reaches the window through
-the existing Canvas2D present surface. Everything below is written to keep that
-distinction from eroding, because "the GPU drew it" and "the GPU put it on
-screen" are different claims and only the first one is true here.
+`crates/varve-accel/src/render` can rasterize render IR on the GPU. The desktop
+command returns admitted frames as straight-alpha RGBA8 over Tauri IPC, but the
+current editor render path does not call that command or display those pixels.
+This is an offscreen raster stage, not a delivered editor renderer or native
+presentation path. "The GPU drew it" and "the GPU put it on screen" are
+different claims; only the first capability exists in the current code.
 
 ---
 
@@ -27,19 +28,24 @@ flattenSceneToEngine + build_render_ir             (unchanged, shared)
         ├──────────────► replayIr / replayStructuredScene  ──► Canvas2D present surface
         │                 (authoritative, always available)
         │
-        └──────────────► lower_frame ──► NativePlan ──► wgpu raster ──► RGBA8
-                          (admission)                    │
+        └──────────────► native_raster_frame command
+                          (not called by editor)          │
                                                          ▼
-                                              straight-alpha bytes
-                                                         │
-                                                         ▼
-                                        drawn on the same Canvas2D surface
+                                    lower_frame ──► NativePlan ──► wgpu
+                                      (admission)                  │
+                                                                  ▼
+                                                        straight-alpha RGBA8
+                                                        returned over IPC;
+                                                        no display consumer
 ```
 
 The native stage never mutates the document, history, selection, camera, or any
 editor cache. `NativePlan` is a derived projection with an explicit admission
-verdict; nothing downstream can observe it except the rasterizer and the
-diagnostics.
+verdict. The command and TypeScript client expose this stage, but repository
+call-site search finds no editor consumer of `nativeRasterFrame` or
+`nativeRasterPlan`; the client tests pin policy helpers, not an active renderer
+handoff. A future presenter must establish a real frame consumer and preserve
+the authoritative replay before presentation claims can change.
 
 ## 2. Contract
 
