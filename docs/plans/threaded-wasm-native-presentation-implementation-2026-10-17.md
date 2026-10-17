@@ -313,3 +313,35 @@ jointly (the capability-shape extension and this plan are examples).
   demo has neither and stays single-threaded. The canvas feature page's
   existing claims were checked and needed no change (Canvas2D is still the
   only present surface; nothing shipped here changes a user-visible claim).
+- The actual Tauri/Wry integration probe is now attached to the existing
+  `WebKitWebView` when `VARVE_NATIVE_PRESENTATION_SPIKE=1`. On native Wayland,
+  its alpha-enabled `GtkGLArea` realized and its teal diagnostic marker
+  composited over the real Varve home UI; the active-window capture is
+  `docs/screenshots/wayland-spike/tauri-host-overlay-2026-10-17.png`. This
+  proves actual-host GL compositing only. It draws no document frame and does
+  not disable Canvas2D replay.
+- Input remains inconclusive: the overlay reports pass-through enabled, but
+  virtual-pointer attempts produced only GTK toplevel button events, with no
+  visible home-screen action. Review found the first widget signal tracer had
+  not enabled `BUTTON_PRESS_MASK`; the corrected build launched, but the
+  follow-up Wayland uinput probe stalled before a button attempt because its
+  XQueryPointer position did not track the pointer. A physical pointer,
+  editor-canvas interaction, pointer capture, keyboard/focus, and resize run
+  remain required before this reparenting path is eligible for production.
+  Details are recorded in
+  [`docs/audits/wayland-glayer-spike-2026-10-16.md`](../audits/wayland-glayer-spike-2026-10-16.md).
+- No website copy changed for this probe: existing rendering/performance
+  pages still correctly state Canvas2D is the display surface. Advertising
+  native presentation based on a diagnostic marker would be inaccurate.
+- Staged validation for this five-file diagnostic slice selected seven lanes
+  and escalated to the full gate because the native platform integration is a
+  shared contract boundary. Format/lint were not applicable; `audit:emoji`
+  and `audit:docs` passed. Desktop TypeScript failed before the package unit
+  and desktop-native lanes on clean, out-of-scope
+  `packages/editor/src/collab/CollabSurfaces.tsx:450`: a `SceneNode` with
+  readonly `Affine` was cast to a mutable `number[]` transform. The task slice
+  does not modify this file. Rust `cargo fmt --check` and
+  `cargo check --locked --manifest-path apps/desktop/src-tauri/Cargo.toml`
+  passed for the Tauri probe; the check reported an unrelated unused
+  `closed` binding in the dirty `varve-accel` work. The full-gate checkpoint
+  and the remaining staged lanes are still outstanding.

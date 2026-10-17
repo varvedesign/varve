@@ -142,12 +142,45 @@ Both backend lifecycle runs exited successfully and logged
 These reruns qualify shutdown and resource cleanup in the standalone spike.
 They do not expand the original compositing verdict or validate Tauri/Wry.
 
+## Follow-up — actual Tauri/Wry host, diagnostic layer only (2026-10-17)
+
+An opt-in probe was then attached to Varve's real Tauri window with
+`VARVE_NATIVE_PRESENTATION_SPIKE=1`. It reparented the existing Wry
+`WebKitWebView` into a `GtkOverlay` and placed an alpha-enabled `GtkGLArea`
+above it. The probe draws a centered teal marker; it does not consume document
+IR or replace the document canvas.
+
+![Tauri host with diagnostic GL marker](../screenshots/wayland-spike/tauri-host-overlay-2026-10-17.png)
+
+| Check | Evidence | Result |
+|---|---|---|
+| Actual Wry host can create the GL context | Tauri log: `GLArea context realized in Tauri window` | **Pass** |
+| Native alpha layer composites over live Varve home UI | OS-level active-window capture above | **Pass** — host compositing only |
+| Overlay GTK pass-through property | Tauri log: `GLArea overlay pass-through property: true` | **Pass** — property state only |
+| Input reaches the WebView and UI responds | Earlier virtual-pointer attempts produced GTK toplevel button events but no observable home-screen action. The first widget signal tracer omitted GTK's button event mask; it cannot support a conclusion about WebView delivery. | **Inconclusive** — pointer injection is not a physical-pointer acceptance run |
+| Document frame is presented by the native layer | Probe renders only its marker; no document IR transport or canvas replay suppression | **Not tested** |
+
+The probe preserves `WebView → GtkOverlay → GtkWindow`, matching the pinned
+Wry runtime's expected ancestor depth. This avoids the known fixed-depth
+downcast abort mechanism in the 2.12.1 source, but does not establish that
+undecorated resize handling, pointer capture, keyboard focus, or full editor
+interaction survives reparenting. The detached Tauri probe module is gated by
+an environment variable and should remain diagnostic until a real pointer and
+editor interaction run pass.
+
+The opt-in widget tracer now adds `BUTTON_PRESS_MASK` before attaching its
+WebView and GLArea signal handlers. The corrected build launched, but the
+follow-up uinput probe could not correlate pointer movement with XQueryPointer
+on this Wayland session and was stopped before a button attempt. The corrected
+signal handlers therefore still have no input result; earlier missing signal
+logs remain non-evidence for delivery.
+
 ## Verdict
 
 | ADR-0244 spike question | Verdict |
 |---|---|
 | Does a native surface composite below a `WebKitWebView` on Wayland? | **PASS** — GL below, HTML above, transparency verified on native Wayland (and XWayland), OS-level captures committed |
-| Does input routing survive? | **Inconclusive at the DOM level** — synthesized events do not prove real-pointer delivery; the standalone has no Wry handlers. The reported #1808 abort is absent from the pinned 2.12.1 source, but resize behavior under reparenting and real input still need an integrated run. |
+| Does input routing survive? | **Inconclusive** — the standalone has no Wry handlers; earlier virtual-pointer attempts at the Tauri host observed toplevel events but no visible UI action. The corrected widget tracer launched, but the follow-up pointer injector stalled before a button attempt. Real-pointer routing and editor interactions remain unverified. |
 | Frame-clock consistency under partial damage | New caveat, documented above — an integration must keep the native layer and webview recomposites on one frame clock |
 
 Verdict for ADR-0244: the Linux "unproven mechanism" is now **proven at the

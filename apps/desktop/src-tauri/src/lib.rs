@@ -10,6 +10,8 @@ mod collab_host;
 mod lifecycle;
 mod logs;
 mod menu;
+#[cfg(target_os = "linux")]
+mod native_presenter;
 mod native_raster;
 mod print;
 mod renderer;
@@ -5551,6 +5553,11 @@ pub fn run() {
             // OS file-association intake (.varve / .strata "Open With").
             app.manage(file_open::PendingFileOpens::default());
             file_open::register_startup_args(app.handle());
+
+            #[cfg(target_os = "linux")]
+            if let Some(window) = app.get_webview_window("main") {
+                native_presenter::attach_if_requested(&window);
+            }
 
             // Touchpad pinch on WebKitGTK. WebKitGTK performs NO pinch zoom of
             // its own — the GTK3 API has no ZoomGestureController (verified
