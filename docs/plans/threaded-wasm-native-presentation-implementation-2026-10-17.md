@@ -341,6 +341,13 @@ jointly (the capability-shape extension and this plan are examples).
   latter has compiled with `cargo check --locked`; visual and pointer/input
   validation remain open. No ChatGPT desktop process or other agent process
   was stopped during this work.
+- Focused review of the GTK 3.24 overlay API and WebKitGTK background API
+  confirmed the revised child order puts the WebView above the GLArea, but the
+  desktop page paints an opaque body background. Therefore the GL underlay is
+  expected to be hidden behind home UI; visual acceptance must target a real
+  editor canvas region and a valid frame. The constraint and primary API
+  references are recorded in the Wayland spike audit. This is an evidence
+  refinement, not a native-presentation pass.
 - Staged validation for this five-file diagnostic slice selected seven lanes
   and escalated to the full gate because the native platform integration is a
   shared contract boundary. Format/lint were not applicable; `audit:emoji`

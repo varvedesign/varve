@@ -175,6 +175,19 @@ pointer capture, keyboard focus, and full editor interaction remain unverified.
 The detached Tauri probe module is gated by an environment variable and should
 remain diagnostic until the revised layout and real editor interactions pass.
 
+The visibility constraint is now explicit: GTK documents that
+`GtkOverlay.add_overlay` stacks an overlay child above the main child, while
+the main child is drawn at the bottom ([GTK 3.24 API](https://docs.gtk.org/gtk3/method.Overlay.add_overlay.html),
+[stack ordering](https://docs.gtk.org/gtk3/method.Overlay.reorder_overlay.html)).
+WebKitGTK's transparent background is only visible where the page itself does
+not paint an opaque background ([WebKitGTK API](https://webkitgtk.org/reference/webkit2gtk/stable/method.WebView.set_background_color.html)).
+Varve's desktop `body` currently paints `var(--color-surface-app)` in
+`apps/desktop/src/global.css`, so the underlay is expected to be hidden behind
+ordinary app chrome and the home screen. A useful integration visual must open
+an editor and verify the canvas region, frame bounds, and transparent
+surrounding areas; a hidden marker on the home screen is not evidence that the
+native frame is either correct or broken.
+
 The opt-in widget tracer now adds `BUTTON_PRESS_MASK` before attaching its
 WebView and GLArea signal handlers. The corrected build launched, but the
 follow-up uinput probe could not correlate pointer movement with XQueryPointer
