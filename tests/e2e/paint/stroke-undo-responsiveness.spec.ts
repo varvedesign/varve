@@ -443,6 +443,13 @@ async function expectOracleEquality(page: import('@playwright/test').Page, label
   const afterPath = last?.actualDrawingPath ?? null;
   if (after === before) return;
 
+  // A missing identity must not fall into the tolerant branch: the exact-vs-
+  // bounded decision is only meaningful when both sides named their renderer.
+  expect(
+    beforePath,
+    `${label}: the pre-oracle frame must report which renderer painted it`,
+  ).not.toBeNull();
+
   const diff = await measureSurfaceDiff(page);
   if (beforePath === afterPath) {
     // Same renderer: this is a real stale-pixel failure, and it is reported
