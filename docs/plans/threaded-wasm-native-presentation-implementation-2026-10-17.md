@@ -49,11 +49,19 @@ Focused checks on 2026-10-17 confirmed:
    contour field repair; still check serialization directions, fill rules,
    nested islands, self-intersections, save/reopen, and real compound SVG
    visuals against the prompt's matrix.
-2. **Threaded WASM.** Not implemented for Varve scene work. The current stable
-   toolchain and WebKitGTK constraints are documented; investigate an isolated
-   worker/pool build only after profiling identifies a valuable target and the
-   deployment/runtime matrix is proven. Keep unshared worker fallback and
-   inference behavior independent.
+2. **Threaded WASM.** The current uncommitted worktree contains a separate
+   nightly artifact recipe, a `wasm-bindgen-rayon` pool initializer, and a
+   traced-contour path compiled with Rayon. `just wasm-build-threads` completed
+   on this host and emitted a 1.2 MB artifact under the ignored
+   `apps/desktop/public/wasm/threads/` directory. This is compile evidence
+   only: there is no application loader/worker integration or initialized
+   multi-worker workload proof. The generated worker helper resolves assets
+   relative to its module URL, while the existing loader imports glue from a
+   `blob:` URL; that loader cannot be reused without a worker-asset design.
+   The no-op worker probe also does not guarantee that its work is distributed
+   across multiple workers. Keep unshared fallback and inference behavior
+   independent, and add a required multi-worker trace acceptance lane before
+   enabling the artifact.
 3. **Native presentation.** Spike A is compositing-level evidence only. Next
    gate is real-pointer input plus the actual Wry/Tauri path. Spike B
    (`wl_subsurface` to Vulkan) and Spike C (macOS `CAMetalLayer`) remain
@@ -113,3 +121,14 @@ Focused checks on 2026-10-17 confirmed:
 - The marketing copy cross-check found no false native-presenter or threaded
   WASM claim, so the website was not changed. Recheck if a product capability
   later passes its runtime and visual acceptance gate.
+- `just wasm-build-threads` completed against the current uncommitted threaded
+  scaffold on 2026-10-17. It emitted separate JS glue, a Rayon worker helper,
+  and a shared-memory WASM binary; no browser worker was started and no trace
+  call was run. The generated files are ignored build output, not committed
+  product assets. Review of the generated worker helper found its relative
+  module URL is incompatible with the current `wasmLoader.ts` blob import,
+  which fetches generated glue text and imports it from a `blob:` URL.
+- A scoped review of the pinned `tauri-runtime-wry` 2.12.1 source found the
+  #1808 failed-downcast abort is gone (`downcast(...).ok()?`), while the fixed
+  parent depth can still disable undecorated resize handling after
+  reparenting. The spike ledger was corrected in commit `8b8afd33f`.
