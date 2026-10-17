@@ -7,7 +7,9 @@
 //!    rejected.** A client that sends a gigabyte without a newline must cost
 //!    constant memory, not the size of its message.
 //! 2. **Framing resumes at the next newline.** One bad frame does not desynchronise
-//!    the stream, so the client gets one clear error instead of a dead socket.
+//!    the stream, so a caller that wants to keep a connection after an error can.
+//!    The host does not: it reports the error and closes, because a peer that
+//!    sent an oversize or malformed frame is not one to keep talking to.
 //!
 //! Bytes are decoded only at a line boundary, so a multi-byte character split
 //! across two writes reassembles instead of turning into an error. That case is
@@ -28,6 +30,8 @@ pub enum FrameEvent {
 #[derive(Debug)]
 pub struct LineFramer {
     limit: usize,
+    /// The limit that takes over as soon as the first complete line is emitted.
+    after_first_line: Option<usize>,
     buffer: Vec<u8>,
     /// True while skipping the remainder of an oversize line.
     discarding: bool,
@@ -37,8 +41,23 @@ impl LineFramer {
     pub fn new(limit: usize) -> Self {
         Self {
             limit,
+            after_first_line: None,
             buffer: Vec::new(),
             discarding: false,
+        }
+    }
+
+    /// A framer with a tight limit for the first line and a wider one after it.
+    ///
+    /// The switch happens inside `push`, the moment the first line is complete,
+    /// not when the caller next looks. A client may write its handshake and its
+    /// first request in one packet, and the bytes of that request are already in
+    /// this call: judging them by the handshake limit would close a connection
+    /// that has just authenticated correctly.
+    pub fn staged(first_line_limit: usize, then_limit: usize) -> Self {
+        Self {
+            after_first_line: Some(then_limit),
+            ..Self::new(first_line_limit)
         }
     }
 
@@ -48,6 +67,7 @@ impl LineFramer {
     /// rather than completing under the old, more permissive allowance.
     pub fn set_limit(&mut self, limit: usize) {
         self.limit = limit;
+        self.after_first_line = None;
     }
 
     pub fn limit(&self) -> usize {
@@ -77,7 +97,12 @@ impl LineFramer {
                     continue;
                 }
                 match std::str::from_utf8(&line) {
-                    Ok(text) => out.push(FrameEvent::Line(text.to_string())),
+                    Ok(text) => {
+                        out.push(FrameEvent::Line(text.to_string()));
+                        if let Some(next) = self.after_first_line.take() {
+                            self.limit = next;
+                        }
+                    }
                     Err(_) => out.push(FrameEvent::InvalidUtf8),
                 }
                 continue;
@@ -117,6 +142,39 @@ mod tests {
                 FrameEvent::Line("{\"a\":1}".into()),
                 FrameEvent::Line("{\"b\":2}".into()),
             ]
+        );
+    }
+
+    #[test]
+    fn a_staged_limit_rises_inside_the_chunk_that_carries_the_first_line() {
+        // A client may write its handshake and its first request in one packet.
+        let mut framer = LineFramer::staged(16, 4096);
+        let mut out = Vec::new();
+        let mut chunk = b"hello\n".to_vec();
+        chunk.extend(std::iter::repeat_n(b'x', 200));
+        chunk.push(b'\n');
+        framer.push(&chunk, &mut out);
+        assert_eq!(out.len(), 2, "{out:?}");
+        assert!(matches!(&out[1], FrameEvent::Line(line) if line.len() == 200));
+    }
+
+    #[test]
+    fn a_staged_framer_still_holds_the_first_line_to_the_first_limit() {
+        let mut framer = LineFramer::staged(16, 4096);
+        let mut out = Vec::new();
+        framer.push(&[b'x'; 40], &mut out);
+        assert_eq!(out, vec![FrameEvent::Oversize]);
+    }
+
+    #[test]
+    fn a_staged_framer_holds_later_lines_to_the_later_limit() {
+        let mut framer = LineFramer::staged(16, 32);
+        let mut out = Vec::new();
+        framer.push(b"hello\n", &mut out);
+        framer.push(&[b'y'; 40], &mut out);
+        assert_eq!(
+            out,
+            vec![FrameEvent::Line("hello".into()), FrameEvent::Oversize]
         );
     }
 

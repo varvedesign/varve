@@ -593,3 +593,59 @@ async fn reports_each_connection_exactly_once_and_frees_its_slot() {
     );
     let _ = harness.host.shutdown().await;
 }
+
+#[tokio::test]
+async fn a_request_sent_with_the_handshake_gets_the_post_handshake_limit() {
+    // A client may write its handshake and its first request in one packet. The
+    // handshake limit exists for the unauthenticated stage; whatever shares the
+    // packet with a complete handshake line is judged by the limit that applies
+    // once that line is in, not closed for exceeding the earlier one.
+    let mut tight = limits();
+    tight.max_hello_bytes = 64;
+    tight.max_frame_bytes = 64 * 1024;
+    let harness = Harness::start(
+        vec![
+            RelayOutcome::Reply("{\"n\":1}".into()),
+            RelayOutcome::Reply("{\"n\":2}".into()),
+        ],
+        tight,
+    )
+    .await;
+    let (mut reader, mut writer) = harness.connect().await;
+    let big = "x".repeat(10_000);
+    writer
+        .write_all(format!("hello\n{big}\n").as_bytes())
+        .await
+        .unwrap();
+    let mut first = String::new();
+    reader.read_line(&mut first).await.unwrap();
+    let mut second = String::new();
+    reader.read_line(&mut second).await.unwrap();
+    assert_eq!(first.trim_end(), "{\"n\":1}");
+    assert_eq!(second.trim_end(), "{\"n\":2}");
+    assert_eq!(harness.relay.frames()[1].1.len(), 10_000);
+    let _ = harness.host.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_peer_that_stops_reading_cannot_hold_a_connection_slot() {
+    // The reply is far larger than a socket buffer and the peer never reads it.
+    // Without a write deadline the connection waits forever, and with a small
+    // connection cap a handful of such peers turn real clients away.
+    let mut stalled = limits();
+    stalled.write_timeout = Duration::from_millis(300);
+    stalled.max_connections = 1;
+    let harness = Harness::start_with(
+        TestRelay::with_big_reply(8 * 1024 * 1024),
+        stalled,
+        "stalled",
+    )
+    .await;
+    let (_reader, mut writer) = harness.connect().await;
+    write_line(&mut writer, "hello").await;
+
+    let closed = wait_for_closed(&harness.relay, 1).await;
+    assert_eq!(closed, vec!["c1".to_string()]);
+    assert_eq!(harness.host.open_connections(), 0);
+    let _ = harness.host.shutdown().await;
+}

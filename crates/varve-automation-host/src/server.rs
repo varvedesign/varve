@@ -50,6 +50,10 @@ pub struct HostLimits {
     pub max_connections: usize,
     /// Largest reply the transport will write back.
     pub max_response_bytes: usize,
+    /// How long one reply may take to write. A peer that stops reading would
+    /// otherwise hold its connection slot, and with a small cap a few of them
+    /// turn real clients away.
+    pub write_timeout: Duration,
 }
 
 impl Default for HostLimits {
@@ -60,6 +64,7 @@ impl Default for HostLimits {
             hello_timeout: Duration::from_secs(5),
             max_connections: 8,
             max_response_bytes: 16 * 1024 * 1024,
+            write_timeout: Duration::from_secs(30),
         }
     }
 }
@@ -256,7 +261,7 @@ async fn serve_connection(
     limits: HostLimits,
 ) {
     let (mut reader, mut writer) = stream.into_split();
-    let mut framer = LineFramer::new(limits.max_hello_bytes);
+    let mut framer = LineFramer::staged(limits.max_hello_bytes, limits.max_frame_bytes);
     let mut buffer = vec![0u8; 8192];
     let mut greeted = false;
     let deadline = tokio::time::Instant::now() + limits.hello_timeout;
@@ -289,12 +294,10 @@ async fn serve_connection(
         for event in events {
             match event {
                 FrameEvent::Line(line) => {
-                    if !greeted {
-                        // The handshake frame is in; the wider limit applies
-                        // from the next byte.
-                        greeted = true;
-                        framer.set_limit(limits.max_frame_bytes);
-                    }
+                    // The framer widens its own limit the moment this first line
+                    // is complete, so anything that arrived in the same packet
+                    // was already judged by the wider one.
+                    greeted = true;
                     match relay.deliver(id.clone(), line).await {
                         RelayOutcome::Reply(response) => {
                             if !write_bounded(&mut writer, &response, &limits, &relay, &id).await {
@@ -390,9 +393,20 @@ async fn write_frame(
             "response exceeds the transport limit",
         ));
     }
-    writer.write_all(frame.as_bytes()).await?;
-    writer.write_all(b"\n").await?;
-    writer.flush().await
+    // One deadline for the whole reply. A peer that stops reading must not hold
+    // the connection (and its slot) forever; closing is the only honest answer.
+    let write = async {
+        writer.write_all(frame.as_bytes()).await?;
+        writer.write_all(b"\n").await?;
+        writer.flush().await
+    };
+    match tokio::time::timeout(limits.write_timeout, write).await {
+        Ok(result) => result,
+        Err(_) => Err(io::Error::new(
+            io::ErrorKind::TimedOut,
+            "the peer did not read its reply in time",
+        )),
+    }
 }
 
 fn now_iso8601() -> String {
