@@ -86,8 +86,8 @@ The expanded test passed in Chromium (33.6 seconds for the test; 58.4 seconds
 including runner startup and lease wait on the first expanded run, and 42.6
 seconds on the visual-artifact run; the low-preference rerun passed in 39.3
 seconds). This is a richer imported Varve fixture
-with paths, transparency, text, gradients, a multiply blend, and an embedded
-image; it is still a repository-owned sample, not a customer file. The
+with paths, transparency, text, gradients, and a multiply blend; it is still a
+repository-owned sample, not a customer file. The
 visually inspected output pair is [`cached`](../screenshots/dependency-aware-composition/poster-grouped-child-cached.png)
 and [`cache-bypassed`](../screenshots/dependency-aware-composition/poster-grouped-child-bypassed.png).
 No timing claim was taken from these runs. The twelve-shape controlled fixture

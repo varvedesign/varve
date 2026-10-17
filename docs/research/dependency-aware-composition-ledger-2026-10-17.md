@@ -95,7 +95,7 @@ edit, the full-canvas hash changes, and disabling retention plus forcing a full
 redraw yields the exact same hash as the cached result. It then edits one of the
 grouped bands, observes a cache miss, and again gets exact parity against a
 cache-bypassed redraw. This exercises a richer Varve document (including
-gradients, text, transparency, and an embedded image) but remains a project
+gradients, text, transparency, and a multiply blend) but remains a project
 sample, not a customer design; no timing claim was taken.
 
 Independent code review found a canvas-aliasing hazard: the existing effect
