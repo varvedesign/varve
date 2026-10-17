@@ -30,6 +30,7 @@ import {
 } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { useEditor } from '../context';
+import { registerPendingEditSource } from '../context/pendingEdits';
 import { nodeLocalBounds } from '../scene/world';
 
 export interface TextEditOverlayHandle {
@@ -266,6 +267,29 @@ export function TextEditOverlay({
     },
     [commitBurst, flushPendingText, onCommit],
   );
+
+  /**
+   * Publish the buffered draft while this session can still hold one, so a
+   * save, close, or quit observed from outside this component captures the
+   * text the user can see. `pendingTextRef` is exactly the unapplied window:
+   * already-applied text is in the document, and an open burst transaction
+   * only groups history, so neither needs draining here (see
+   * `context/pendingEdits.ts` for the evidence and the contract).
+   */
+  useEffect(() => {
+    return registerPendingEditSource({
+      id: 'text-edit-overlay',
+      hasPending: () => !committedRef.current && pendingTextRef.current !== null,
+      flush: () => {
+        flushPendingText();
+        // A save should see a settled transaction, the same drain
+        // `prepareFormatting` performs. Composition stays open: its text is
+        // provisional until `compositionend`, and ending the burst underneath
+        // it would let the composition's own commit join a closed transaction.
+        if (!composingRef.current) commitBurst();
+      },
+    });
+  }, [commitBurst, flushPendingText]);
 
   useImperativeHandle(
     commitRef,
