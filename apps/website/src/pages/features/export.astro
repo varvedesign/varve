@@ -69,11 +69,13 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
           <li><strong>Streamlined Inspector Export Tab:</strong> Quick-add presets (<code>+ PNG 1x</code>, <code>+ PNG 2x</code>, <code>+ SVG</code>), color-coded format badges, live preflight diagnostics, and one-click quick export</li>
           <li><strong>Two-Column Batch Export Workspace:</strong> Master-detail queue management with real-time filename search, format filters (PNG, SVG, PDF), interactive template token chips (<code>+{'{name}'}</code>, <code>+{'{suffix}'}</code>), and simulated folder tree preview</li>
           <li><strong>Quick Convert:</strong> Convert local PNG, JPEG, WebP, AVIF, GIF, BMP, and first-IFD TIFF assets to PNG, JPEG, WebP, or AVIF with visible alpha, animation, metadata, and runtime-codec boundaries</li>
-          <li><strong>SVG export:</strong> SVG output for supported shapes, paths, text, and transforms; unsupported effects and semantics use the documented fallback or appear in the export report</li>
-          <li><strong>React/Tailwind:</strong> Export to React components with Tailwind CSS utility classes</li>
+          <li><strong>SVG export:</strong> SVG output for supported shapes, paths, text, and transforms; unsupported effects and semantics use the documented fallback or appear in the export report. Text is placed from the same measured layout the canvas renders with, so wrapped line breaks match the editor</li>
+          <li><strong>React/Tailwind:</strong> Export to React components with Tailwind CSS utility classes — complete literal class strings, verified against Tailwind's real compiler</li>
           <li><strong>React/CSS-Modules:</strong> Export to React components with CSS Modules</li>
-          <li><strong>Flutter:</strong> Export to Flutter/Dart code</li>
-          <li><strong>SwiftUI:</strong> Export to SwiftUI code</li>
+          <li><strong>HTML:</strong> A standalone page with semantic elements and one stylesheet, renderable in the panel's sandboxed preview</li>
+          <li><strong>Portable bundles:</strong> Code exports ship as self-contained bundles with content-addressed asset files and a regeneration manifest; edited generated files are flagged on re-export instead of silently overwritten</li>
+          <li><strong>Flutter:</strong> Export to Flutter/Dart code (emitted and reviewed; not yet compiled by the Flutter SDK in our verification gates)</li>
+          <li><strong>SwiftUI:</strong> Export to SwiftUI code (emitted and reviewed; not yet compiled by Apple SDKs in our verification gates)</li>
           <li><strong>PDF export:</strong> PDF/X-1a and PDF/X-4 support with CMYK, bleed, crop marks, color bars</li>
           <li><strong>Design-time bleed:</strong> Page-level bleed values, trim/bleed overlays, and PDF/X page-box parity</li>
           <li><strong>Print production:</strong> Bleed config, safe area, slug, swatches, spot colors</li>
@@ -116,6 +118,8 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
             <li>Source-build raster exports support 1x, 2x, 3x, custom scale, and PPI settings; oversized output may be reduced with a warning to stay within memory limits</li>
             <li>Print bleed and trim guides are available in the canvas; exported trim and bleed geometry remains the final authority</li>
             <li>Source-build timeline export supports CSS, Lottie, and SVG; video requires a supported WebCodecs runtime. Interactive HTML prototype generation exists as a code API and is not exposed in the app export dialog</li>
+          <li>Code previews render the two targets a browser can show directly (SVG and HTML) inside a locked sandbox; framework targets are download-and-build by design</li>
+          <li>Flutter and SwiftUI bundles have not passed native-toolchain compilation gates; the export report labels them emitted, not verified</li>
           </ul>
         </div>
       </section>

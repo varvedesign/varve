@@ -104,27 +104,46 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Code Generation</h2>
         <p>
-          Varve can generate production-ready code from your designs. All generated code is standalone and doesn't require any Varve runtime.
+          Varve generates standalone code from your designs — no Varve runtime is required to use
+          the output. Effects a target cannot represent natively are rasterized from the same
+          render pipeline the canvas uses (never placeholder output); anything that had to be
+          approximated appears in the export report. The full contract, per-target capability
+          matrix, and verification status live in the code-export architecture document.
         </p>
 
-        <h3>React + Tailwind CSS</h3>
+        <h3>SVG, HTML, CSS</h3>
         <p>
-          Generate a React component using Tailwind CSS utility classes. The output uses semantic class names, responsive layout, and preserves all styling from your design. Each frame becomes a styled container, shapes become divs with proper styling, and text elements become HTML with typography classes.
+          SVG text is placed from the same measured layout engine the canvas renders with, so
+          wrapped line breaks match the editor; right-to-left runs and styled rich text carry
+          through. The HTML target produces a standalone semantic page with one stylesheet — the
+          same bytes the code panel's sandboxed preview renders. The CSS target emits one rule per
+          layer, including native lowering for inset shadows, conic gradients, layered fills, and
+          blur where the design's semantics match.
         </p>
 
-        <h3>CSS Modules</h3>
+        <h3>React + Tailwind / CSS Modules</h3>
         <p>
-          Standard CSS output with BEM-inspired class naming and modular style sheets. Includes all color values as CSS custom properties where token bindings are detected.
+          React bundles carry complete literal utility classes (no runtime class assembly, so
+          Tailwind's compiler sees everything), styled text runs, and pre-rendered assets for
+          content the target cannot paint. The web profile is verified in a clean consumer
+          project: type-checked with TypeScript and production-built through Tailwind's real CSS
+          generation.
         </p>
 
-        <h3>Flutter</h3>
+        <h3>Flutter / SwiftUI</h3>
         <p>
-          Generate a Flutter widget tree using Container, Positioned, Text, and Stack widgets. Frames with flex layout become Row/Column widgets. Frames with absolute positioning use Stack + Positioned. The output uses proper Flutter idioms (EdgeInsets, BorderRadius, Colors, TextStyle) and respects token bindings.
+          Widget output with layout stacks, gradients, shadows, image fills, and rich text. These
+          targets are emitted and reviewed but have not been compiled by their native SDKs in
+          Varve's verification gates — the export report labels them accordingly.
         </p>
 
-        <h3>SwiftUI</h3>
+        <h3>Bundles, assets, and regeneration</h3>
         <p>
-          Generate SwiftUI views using ZStack, HStack, VStack, Text, and Rectangle/ Circle shapes. Frames become containers with the appropriate stack type. Dimensions use CGFloat, colors use Color, and typography uses Font/Text styling. Token bindings generate Color and Font references.
+          Multi-file code exports are self-contained: code files plus content-addressed files
+          under assets/, described by a manifest of content hashes. The manifest is what lets a
+          future re-export tell unchanged generated files apart from files you have edited —
+          edited files become explicit conflicts, handwritten files are preserved, and nothing is
+          removed without your decision.
         </p>
       </section>
 

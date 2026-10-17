@@ -65,14 +65,29 @@ test.describe('tablet text editing', () => {
 
     await toolbar.getByRole('button', { name: 'Select', exact: true }).first().tap();
 
-    // Two quick taps in one spot: Chromium synthesizes the double-tap as a
-    // dblclick, which is the same entry SelectTool serves to a desktop
-    // double-click. The edit surface must reopen carrying the committed text.
-    await page.touchscreen.tap(textX, textY);
-    await page.touchscreen.tap(textX, textY);
-
-    const reopened = page.getByRole('textbox', { name: /editing text/i });
-    await expect(reopened).toBeVisible({ timeout: 15_000 });
+    // Two quick taps on the node's body (not its origin anchor: a tap-created
+    // text node's bounds start at the anchor and the pixel-exact origin is a
+    // hit-test boundary). Chromium synthesizes the double-tap as a dblclick,
+    // which is the same entry SelectTool serves to a desktop double-click.
+    // The double-click window is an OS timing constant: on a loaded machine
+    // two protocol round-trips can land outside it and no dblclick fires, so
+    // retry the pair before concluding the edit path is broken. The assertion
+    // itself is unchanged - the edit surface must reopen with the committed
+    // text.
+    const bodyX = textX + 40;
+    const bodyY = textY + 12;
+    let reopened = page.getByRole('textbox', { name: /editing text/i });
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await page.touchscreen.tap(bodyX, bodyY);
+      await page.touchscreen.tap(bodyX, bodyY);
+      try {
+        await reopened.waitFor({ state: 'visible', timeout: 4_000 });
+        break;
+      } catch {
+        reopened = page.getByRole('textbox', { name: /editing text/i });
+      }
+    }
+    await expect(reopened).toBeVisible({ timeout: 5_000 });
     await expect(reopened).toHaveValue('Double tap me');
     await page.keyboard.press('Escape');
   });
