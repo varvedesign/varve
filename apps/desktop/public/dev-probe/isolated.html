@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>varve dev probe (isolated when the server sends COOP/COEP)</title>
+  </head>
+  <body>
+    <!--
+      Minimal served page for gated browser probes that must run under real
+      cross-origin isolation. The isolation headers come from the dev server
+      (VARVE_CROSS_ORIGIN_ISOLATION=1 in vite.config), not from this file:
+      response headers injected on route-fulfilled pages do not confer
+      isolation (measured 2026-10-17; see ADR-0244 threaded-WASM section).
+      Probes attach their own module script via page.addInitScript or drive
+      imports from /@fs URLs in page.evaluate.
+    -->
+  </body>
+</html>

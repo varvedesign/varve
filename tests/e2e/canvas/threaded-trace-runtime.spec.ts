@@ -15,18 +15,12 @@ test.describe('threaded WASM contour tracing', () => {
     page,
   }, testInfo) => {
     test.setTimeout(180_000);
-    await page.route('**/threaded-trace-probe.html', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'text/html',
-        headers: {
-          'Cross-Origin-Opener-Policy': 'same-origin',
-          'Cross-Origin-Embedder-Policy': 'require-corp',
-        },
-        body: '<!doctype html><html><head><title>threaded trace probe</title></head><body></body></html>',
-      }),
-    );
-    await page.goto('/threaded-trace-probe.html');
+    // Navigate to a genuinely SERVED page: the dev server (with
+    // VARVE_CROSS_ORIGIN_ISOLATION=1) sends the isolation headers. Headers
+    // injected on a route-fulfilled response do not confer isolation — that
+    // was measured (crossOriginIsolated stayed false), which is why this
+    // lane previously could not have passed as a fulfilled page.
+    await page.goto('/dev-probe/isolated.html');
     expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
 
     const result = await page.evaluate(

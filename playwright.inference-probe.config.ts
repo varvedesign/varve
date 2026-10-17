@@ -33,7 +33,7 @@ export default defineConfig({
     {
       name: 'chromium',
       testMatch:
-        /(?:threaded-wasm-probe|discovery-preprocess-parity|threaded-trace-pool|canvas2d-native-baseline)\.spec\.ts/,
+        /(?:threaded-wasm-probe|discovery-preprocess-parity|threaded-trace-runtime|canvas2d-native-baseline)\.spec\.ts/,
     },
   ],
   webServer: {
