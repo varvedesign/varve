@@ -627,9 +627,38 @@ replay. `reprojectableWorkerDelta(docIsCurrent, delta)` now returns the delta
 only when the bitmap was rendered for the current document, so a document change
 falls through to the authoritative vector replay. Camera smoothing is unchanged.
 
+**The fallback replay must run under the camera.** The bitmap branches set the
+context to the identity transform so the bitmap can be composited 1:1 in device
+pixels. `drawVectorItems` applies only each item's world transform — the camera
+and DPR mapping comes from `applyCam`, which `openFullRedraw` and the partial
+clip helpers call. So a replay that follows the bitmap branches without
+re-applying the camera draws the document at one world unit per device pixel,
+anchored at the origin: wrong scale, wrong position, and inside a partial clip a
+scrambled band exactly where the edit is. This was latent because the old branch
+was almost unreachable; sending document changes down it made it the common path,
+so `applyCam(ctxNN)` now precedes that replay.
+
 It only became frequently observable once worker replies started arriving sooner
 (the raster tile transport work), because the branch is reachable only when a
 bitmap exists at the moment of a document change.
+
+### Tile dirty rects are local, and must be mapped to world
+
+A tile key is a grid coordinate in the layer's own space: `col * TILE_SIZE`,
+`row * TILE_SIZE`. Contributing that rect straight into the world-space dirty
+region puts it where the layer *would* be if it had an identity transform. That
+is wrong whenever the layer does not: a raster layer is parented to the frame it
+was painted into, and painting at a non-96 PPI scale gives it a non-unit
+transform. The symptom is a stroke that never appears — the dirtied region is
+recomputed, just in the wrong place, so the painted pixels are never repainted
+until a full redraw. `rasterPlacementUnchanged` does not establish the identity
+transform; it only proves the node record did not change. Tile rects are mapped
+through `nodeWorldTransform` with `transformRect`, and the helper is named
+`rasterTileLocalBounds` so the coordinate space cannot be misread.
+
+Regression: a dab at local (100,100) on a layer translated by (300,200) must
+dirty world (400,300); with the local rect the region ended at 256 and the ink's
+own area was absent.
 
 ### Cross-renderer display rounding (declared, measured)
 
