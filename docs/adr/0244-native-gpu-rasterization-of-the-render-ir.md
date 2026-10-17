@@ -109,10 +109,15 @@ Canvas2D replay") is therefore upheld with numbers rather than intuition, and
 the native stage is positioned where the transport is amortized: settled frames,
 export, print, and any future zero-copy presentation path.
 
-**What was not measured, and is therefore not claimed:** the Canvas2D baseline
-for the same corpus on the same machine. Without it there is no speedup claim in
-either direction, and the native path is not promoted to default. This is
-recorded as an open item rather than papered over.
+The six-case detached Canvas2D harness has since been run against the same
+generated corpus on the same host. The corrected run and paired results are
+recorded in [the 2026-10-17 baseline report](../perf/native-raster-baseline-2026-10-17.md).
+Those separate microbenchmarks include different stage boundaries: browser
+replay includes a full clear and pixel readback, while the native path uses its
+own render/readback pipeline. The browser readback is not part of normal editor
+replay, and native pixels are still copied to the webview. Therefore the data
+do not establish a product speedup, editor frame time, or presentation quality;
+the native path remains opt-in and is not promoted to default.
 
 ## Why not the alternatives
 
@@ -212,11 +217,76 @@ and the Wayland Vulkan subsurface experiment, remain unrun.
    canonical-layout contract exists to prevent.
 2. **Strokes.** Polyline offsetting with joins, caps, and dashes, admitted only
    when the IR's stroke parameters are in the supported set.
-3. **`contours` on `Primitive::Path`.** Extend the Rust IR type and the bridge,
-   then lower it.
-4. **Canvas2D baseline.** Measure the same corpus on the same machine so a
-   promotion decision has both numbers.
-5. **MSAA cost.** 4× MSAA on an integrated GPU is expensive for heavy frames.
-   A sample-count-1 variant with analytic path coverage, or 2×, is the first
-   performance experiment.
-6. **Native presentation spike** per platform, above.
+3. **`contours` on `Primitive::Path`.** **Closed 2026-10-16** (`0024e633b`):
+   the field flows through `Shape::Path` / `IpcShape` / `Primitive::Path`, the
+   replay's ring and fill-rule resolution is mirrored by shared helpers in
+   `varve-core` (`compound_path_rings` / `compound_path_fill_rule`), hit
+   testing, native admission, and PDF path emission all resolve rings through
+   them, and a real-device GPU test renders a contours hole-and-island frame.
+   Holes-only documents serialize byte-identically as before; admission may
+   now treat a contours-carrying document as presentable.
+4. **Canvas2D comparison.** A gated browser harness and six matching corpus
+   files have been measured on the native benchmark host. The results are
+   useful as harness data, not a promotion comparison: the detached browser
+   benchmark includes readback absent from regular editor replay, and native
+   output is not directly presented in the window.
+5. **MSAA cost.** **Closed 2026-10-17** (`cfed37e6a`). Forced sample counts
+   are supported end to end (`create_with_sample_count`; an unsupported count
+   is a named error, never a silent fallback), and the 1× path was fixed — it
+   previously panicked because the pass always resolved; at 1× the readback
+   texture is the render target, no MSAA attachment is allocated, and a
+   device test pins both coverage paths there. Findings on RADV Renoir:
+   **2× is unsupported on this adapter** (1× and 4× only, so the "try 2×
+   next" plan is dead here), and 1× saves roughly 10–35 % of frame time
+   depending on case, with the quality cost concentrated on stencil-path
+   edges — analytic SDF shapes keep their in-shader antialiasing at any
+   sample count. An adaptive per-frame policy remains future work; it needs
+   per-sample-count pipeline caching.
+6. **Native presentation spike** per platform. **Spike A is run**
+   (`311791fed`; evidence:
+   `docs/audits/wayland-glayer-spike-2026-10-16.md`): a `gtk::GLArea`
+   composites below a transparent WebKitGTK 2.54.1 webview on native Wayland
+   with HTML chrome above, so the compositing question is answered yes — with
+   a frame-clock discipline caveat (GTK damage can redraw only the webview's
+   rect, so an integration must keep the native layer and webview recomposites
+   on one frame clock) and synthetic-input evidence classified inconclusive
+   (no abort on any click path across three runs on two backends; DOM-level
+   click delivery unproven; real-pointer and wry-integrated checks remain).
+   The remaining Linux work is an integration spike, not a mechanism search.
+   **Spike B (`wl_subsurface` → Vulkan) is still unrun**; spike A lowers its
+   priority because the GLArea route already delivers composited-below
+   presentation at the widget level, and the next cheapest wgpu question is
+   whether wgpu's GL backend can target a GLArea context. **Spike C (macOS
+   `CAMetalLayer`) and Windows child-HWND presentation remain unverified** —
+   no Apple hardware on the reference host.
+
+## Threaded WASM (companion capability, 2026-10-17)
+
+The companion demand — threaded WASM execution — is delivered and gated by
+the same evidence rules:
+
+- **Artifact**: `just wasm-build-threads` builds `varve_wasm_threads`
+  (wasm-bindgen-rayon 1.3 on nightly with `CARGO_UNSTABLE_BUILD_STD`; the
+  precompiled wasm32 std lacks atomics — reproduced on stable as
+  `--shared-memory is disallowed by std ...`). Output directory is separate,
+  so the simd/baseline variants can never be overwritten; their ABI is
+  unchanged (`threads` is feature-gated).
+- **Execution**: a dedicated pool worker (`tracePoolWorker.ts`) owns module
+  init, `initThreadPool`, and every synchronous call, so the main thread
+  never blocks on atomics or pool joins. The required lane
+  (`tests/e2e/canvas/threaded-trace-pool.spec.ts`) fails unless the pool
+  initializes under genuine cross-origin isolation and the worker probe
+  observes ≥ 2 distinct rayon workers. Measured on the reference host:
+  threads 2, verifiedWorkers 2, `crossOriginIsolated: true`
+  (`reports/threaded-wasm/`), and the same raster traced through the pool
+  and the unshared path is **byte-identical**.
+- **Measurement correction**: response headers injected on route-fulfilled
+  pages do not confer cross-origin isolation — the recorded probe evidence
+  (`reports/inference-platform/facts-4633.json`) shows
+  `crossOriginIsolated: false` through every earlier "isolated" probe run.
+  The lane now uses the dev server's real `VARVE_CROSS_ORIGIN_ISOLATION=1`
+  headers, the same headers a deployment must send.
+- **Not claimed**: inference threading stays pinned at 1 (ORT #26858 closed
+  stale, unfixed); the GitHub Pages demo has neither isolation nor the
+  threaded artifact; the web path engages only where an isolated deployment
+  ships the optional artifact (`docs/performance.astro` documents this).

@@ -214,6 +214,13 @@ external-resource behavior plus a real WebKitGTK capability check.
   `cargo build --locked`; a launch prints the real-pointer instruction and
   creates a GL 4.6 context. The running desktop automation surface did not
   expose a native window target, so no manual pointer click was performed.
+- The independent final spike review found no evidence-scope overclaim. It
+  noted a low-priority cleanup gap: the automatic screenshot/readback branches
+  call `process::exit`, bypassing GTK shutdown and the GL `unrealize` cleanup
+  handler. The OS reclaims the standalone process resources, so captures remain
+  valid; an orderly shutdown should be added before treating this as reusable
+  production integration. Shader compilation/link failure cleanup is also not
+  hardened in this test spike.
 - The committed Wayland/XWayland captures were inspected at window scale. They
   show native pixels through transparent WebView regions and HTML chrome above
   the GL area. One capture also shows the documented color-phase mismatch
@@ -229,6 +236,23 @@ external-resource behavior plus a real WebKitGTK capability check.
 - The marketing copy cross-check found no false native-presenter or threaded
   WASM claim, so the website was not changed. Recheck if a product capability
   later passes its runtime and visual acceptance gate.
+- Corrected 60-frame runs completed for the native GPU benchmark and detached
+  Canvas2D baseline. Native output was 11.29–110.29 ms p50 across the six
+  cases; detached Canvas2D replay plus clear and full readback was 36.2–261.8
+  ms p50. Full p50/p95 results, host/tool versions, and the non-equivalent
+  presentation boundaries are in
+  [`docs/perf/native-raster-baseline-2026-10-17.md`](../perf/native-raster-baseline-2026-10-17.md).
+  This is a single-host microbenchmark, not a product speedup finding.
+- The diagnostics checkpoint `2cad20236` passed its commit hook: staged-file
+  Biome, emoji/docs audits, health and import-boundary checks, E2E typecheck,
+  and the focused capability-report unit tests. For the baseline/docs slice,
+  the corrected six-case browser run and native 60-frame run passed; the
+  harness source passes Biome, the Rust example passes `rustfmt --check` and
+  `cargo check --locked`, and docs/emoji/token audits pass. A full `verify:affected`
+  execution remains unavailable because the planner escalates this shared
+  worktree to the full gate, which refuses an unclean, uncommitted master
+  candidate. `audit:radius` reports ten existing raw-radius consumers outside
+  the task slice. No full suite or platform release matrix was completed.
 - `just wasm-build-threads` completed against the current uncommitted threaded
   scaffold on 2026-10-17. It emitted separate JS glue, a Rayon worker helper,
   and a shared-memory WASM binary; no browser worker was started and no trace

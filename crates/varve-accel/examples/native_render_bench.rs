@@ -304,10 +304,13 @@ fn main() {
             let mut total = Samples::new();
 
             for _ in 0..frames {
-                let started = Instant::now();
+                let lower_started = Instant::now();
                 let _plan = lower_frame(&items, view);
-                lower.push(started.elapsed().as_secs_f64() * 1000.0);
+                lower.push(lower_started.elapsed().as_secs_f64() * 1000.0);
 
+                // `render` performs the lowering used by the production call;
+                // keep the standalone lowering sample outside this interval.
+                let started = Instant::now();
                 let frame = stage
                     .render(&items, view, width, height)
                     .expect("benchmark frame");

@@ -20,8 +20,9 @@ import { expect, test } from '@playwright/test';
  *
  * Native-side numbers for the same corpus come from `native_render_bench`.
  * Both sides must record host load, frames, and the same six cases. This
- * harness measures Canvas2D replay plus a full clear on a detached canvas;
- * it does not measure compositor presentation or end-to-end editor frame time.
+ * harness measures Canvas2D replay, full clear, and full-frame readback on a
+ * detached canvas; it does not measure compositor presentation or end-to-end
+ * editor frame time.
  */
 
 const gate = process.env.VARVE_CANVAS2D_BASELINE;
@@ -46,6 +47,7 @@ interface CaseResult {
   warmP95Ms: number;
   warmMaxMs: number;
   nonTransparentPixels: number;
+  visiblePixelRatio: number;
 }
 
 test.skip(!gate, 'set VARVE_CANVAS2D_BASELINE=<corpus dir> to run the Canvas2D baseline');
@@ -91,28 +93,34 @@ test('Canvas2D replay of the native bench corpus', async ({ page }) => {
         const ctx = canvas.getContext('2d', { alpha: true });
         if (!ctx) throw new Error('no 2d context');
         const items: readonly unknown[] = ir;
-        const replayFrame = (): void => {
+        const replayFrame = (): ImageData => {
           ctx.clearRect(0, 0, width, height);
           engine.replayIr(ctx, items);
+          // Force Canvas2D to materialize the complete frame inside the timed
+          // region instead of measuring command submission alone.
+          return ctx.getImageData(0, 0, width, height);
         };
 
         // Cold: the first replay pays any lazy replay-side setup.
         const coldStart = performance.now();
-        replayFrame();
+        let frame = replayFrame();
         const coldFirstFrameMs = performance.now() - coldStart;
 
         const samples: number[] = [];
         for (let index = 0; index < frames; index += 1) {
           const started = performance.now();
-          replayFrame();
+          frame = replayFrame();
           samples.push(performance.now() - started);
         }
-        const pixels = ctx.getImageData(0, 0, width, height).data;
+        const pixels = frame.data;
         let nonTransparentPixels = 0;
         for (let index = 3; index < pixels.length; index += 4) {
           if (pixels[index] !== 0) nonTransparentPixels += 1;
         }
-        if (nonTransparentPixels === 0) throw new Error('replay produced a blank frame');
+        const visiblePixelRatio = nonTransparentPixels / (width * height);
+        if (visiblePixelRatio < 0.05) {
+          throw new Error(`replay coverage too low: ${(visiblePixelRatio * 100).toFixed(2)}%`);
+        }
         samples.sort((a, b) => a - b);
         const percentile = (p: number): number => {
           const index = Math.min(samples.length - 1, Math.round((samples.length - 1) * p));
@@ -128,6 +136,7 @@ test('Canvas2D replay of the native bench corpus', async ({ page }) => {
           warmP95Ms: percentile(0.95),
           warmMaxMs: max,
           nonTransparentPixels,
+          visiblePixelRatio,
         };
       },
       {
@@ -148,12 +157,18 @@ test('Canvas2D replay of the native bench corpus', async ({ page }) => {
 
   for (const result of results) {
     expect(result.warmP50Ms).toBeGreaterThan(0);
-    expect(result.nonTransparentPixels).toBeGreaterThan(0);
+    expect(result.visiblePixelRatio).toBeGreaterThanOrEqual(0.05);
   }
 
   const report = {
-    host: { os: process.platform, framesPerCase: FRAMES },
-    note: 'Canvas2D replay plus clear on a detached canvas; no compositor-present timing. Native numbers from native_render_bench use the same corpus and machine. Both are single-run, host-load-sensitive.',
+    host: {
+      os: process.platform,
+      arch: process.arch,
+      node: process.version,
+      browser: page.context().browser()?.version() ?? 'unknown',
+      framesPerCase: FRAMES,
+    },
+    note: 'Canvas2D replay plus clear and full-frame readback on a detached canvas; no compositor-present timing. Native numbers from native_render_bench use the same corpus and machine. Both are single-run, host-load-sensitive.',
     cases: results,
   };
   const dir = path.join(repoRoot, 'reports', 'native-raster-baseline');

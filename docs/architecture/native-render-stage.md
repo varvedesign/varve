@@ -277,8 +277,13 @@ Vulkan, Wayland, MSAA 4×, warm, 60 frames per case):
 - Heavy frames are GPU-bound: ~83–92 ms of completion at 10 000 items on this
   integrated part, independent of resolution.
 
-The transport is why this is not the interactive path, and the absence of a
-Canvas2D baseline is why no speedup is claimed in either direction.
+The updated six-case comparison is recorded in
+[native-raster-baseline-2026-10-17.md](../perf/native-raster-baseline-2026-10-17.md).
+It measures detached Canvas2D replay plus clear/readback beside native render
+and readback, in separate runs. The browser readback is absent from normal
+editor replay, and native pixels are still copied to the webview. These numbers
+do not establish editor frame time, compositor presentation, or a product
+speedup in either direction.
 
 ## 8. Reproducing
 
@@ -298,6 +303,24 @@ npx vitest run --project jsdom packages/editor/src/render/nativeRasterClient.tes
 
 `VARVE_BENCH_FRAMES` (default 60) and `VARVE_BENCH_DEVICE` (preferred adapter id)
 adjust the benchmark.
+
+The Canvas2D baseline harness is opt-in and reports replay, a full clear, and
+full-frame pixel readback on a detached canvas; it does not measure compositor
+presentation or editor frame time. Emit all six datasets and run the same frame count:
+
+```bash
+cargo run --release -p varve-accel --example native_render_bench -- \
+  --emit-corpus /tmp/varve-baseline
+VARVE_BENCH_FRAMES=60 cargo run --release -p varve-accel --example native_render_bench
+VARVE_CANVAS2D_BASELINE=/tmp/varve-baseline VARVE_BASELINE_FRAMES=60 \
+  node scripts/quality/heavy-lease.mjs 'e2e: Canvas2D native-raster baseline' -- \
+  npx playwright test tests/e2e/perf/canvas2d-native-baseline.spec.ts \
+    --config playwright.inference-probe.config.ts --project=chromium --workers=1
+```
+
+These are separate single runs. Record machine load and toolchain alongside
+both outputs. The Canvas2D timing does not establish what the compositor will
+present, so this microbenchmark alone cannot support a speedup claim.
 
 ## 9. Rollback
 
@@ -329,6 +352,10 @@ The stage is additive and opt-in:
    native presenter is integrated on any platform; see ADR-0244 and the
    [Wayland spike evidence](../audits/wayland-glayer-spike-2026-10-16.md).
 5. **MSAA 4× is expensive on integrated GPUs** for heavy frames.
-6. **No Canvas2D baseline measurement**, so no performance claim.
+6. **No presentation-level Canvas2D comparison exists.** The opt-in
+   same-corpus microbenchmarks are recorded in
+   [the baseline report](../perf/native-raster-baseline-2026-10-17.md), but the
+   detached canvas readback is not the editor's normal replay path and native
+   output is not presented directly. No product speedup claim is supported.
 7. **`Primitive::Path` requires at least 2 points** and contours below 3
    flattened points are refused rather than drawn as a degenerate sliver.
