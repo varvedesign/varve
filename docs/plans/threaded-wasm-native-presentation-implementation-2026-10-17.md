@@ -318,8 +318,11 @@ jointly (the capability-shape extension and this plan are examples).
   its alpha-enabled `GtkGLArea` realized and its teal diagnostic marker
   composited over the real Varve home UI; the active-window capture is
   `docs/screenshots/wayland-spike/tauri-host-overlay-2026-10-17.png`. This
-  proves actual-host GL compositing only. It draws no document frame and does
-  not disable Canvas2D replay.
+  proves actual-host GL compositing only, and visually exposed a bad layer
+  order: the diagnostic marker covers home-screen content. The current source
+  changes the GLArea to the base child with WebView in the foreground, but
+  this correction still needs an in-app visual run. It draws no document frame
+  and does not disable Canvas2D replay.
 - Input remains inconclusive: the overlay reports pass-through enabled, but
   virtual-pointer attempts produced only GTK toplevel button events, with no
   visible home-screen action. Review found the first widget signal tracer had
@@ -333,6 +336,11 @@ jointly (the capability-shape extension and this plan are examples).
 - No website copy changed for this probe: existing rendering/performance
   pages still correctly state Canvas2D is the display surface. Advertising
   native presentation based on a diagnostic marker would be inaccurate.
+- The committed Tauri screenshot is specifically evidence for the old
+  top-layer diagnostic layout, not for the current under-WebView source. The
+  latter has compiled with `cargo check --locked`; visual and pointer/input
+  validation remain open. No ChatGPT desktop process or other agent process
+  was stopped during this work.
 - Staged validation for this five-file diagnostic slice selected seven lanes
   and escalated to the full gate because the native platform integration is a
   shared contract boundary. Format/lint were not applicable; `audit:emoji`
@@ -340,7 +348,9 @@ jointly (the capability-shape extension and this plan are examples).
   and desktop-native lanes on clean, out-of-scope
   `packages/editor/src/collab/CollabSurfaces.tsx:450`: a `SceneNode` with
   readonly `Affine` was cast to a mutable `number[]` transform. The task slice
-  does not modify this file. Rust `cargo fmt --check` and
+  does not modify this file. The affected-plan rerun after the under-WebView
+  change reproduced the same error after 157.4 seconds; it stopped before the
+  desktop package unit and native lanes. Rust `cargo fmt --check` and
   `cargo check --locked --manifest-path apps/desktop/src-tauri/Cargo.toml`
   passed for the Tauri probe; the check reported an unrelated unused
   `closed` binding in the dirty `varve-accel` work. The full-gate checkpoint

@@ -145,28 +145,35 @@ They do not expand the original compositing verdict or validate Tauri/Wry.
 ## Follow-up — actual Tauri/Wry host, diagnostic layer only (2026-10-17)
 
 An opt-in probe was then attached to Varve's real Tauri window with
-`VARVE_NATIVE_PRESENTATION_SPIKE=1`. It reparented the existing Wry
-`WebKitWebView` into a `GtkOverlay` and placed an alpha-enabled `GtkGLArea`
+`VARVE_NATIVE_PRESENTATION_SPIKE=1`. Its first layout reparented the existing
+Wry `WebKitWebView` into a `GtkOverlay` and placed an alpha-enabled `GtkGLArea`
 above it. The probe draws a centered teal marker; it does not consume document
-IR or replace the document canvas.
+IR or replace the document canvas. The capture below records that initial
+layout, where the marker visibly covers home-screen content. It is diagnostic
+evidence of host compositing, and also evidence that this layer order is not
+acceptable for the app.
 
 ![Tauri host with diagnostic GL marker](../screenshots/wayland-spike/tauri-host-overlay-2026-10-17.png)
 
 | Check | Evidence | Result |
 |---|---|---|
 | Actual Wry host can create the GL context | Tauri log: `GLArea context realized in Tauri window` | **Pass** |
-| Native alpha layer composites over live Varve home UI | OS-level active-window capture above | **Pass** — host compositing only |
-| Overlay GTK pass-through property | Tauri log: `GLArea overlay pass-through property: true` | **Pass** — property state only |
+| Native alpha layer composites over live Varve home UI | OS-level active-window capture above | **Pass** — host compositing only; the diagnostic marker obscures UI |
+| Overlay GTK pass-through property | Tauri log: `GLArea overlay pass-through property: true` | **Pass** — property state only, for the superseded top-layer layout |
 | Input reaches the WebView and UI responds | Earlier virtual-pointer attempts produced GTK toplevel button events but no observable home-screen action. The first widget signal tracer omitted GTK's button event mask; it cannot support a conclusion about WebView delivery. | **Inconclusive** — pointer injection is not a physical-pointer acceptance run |
 | Document frame is presented by the native layer | Probe renders only its marker; no document IR transport or canvas replay suppression | **Not tested** |
 
 The probe preserves `WebView → GtkOverlay → GtkWindow`, matching the pinned
-Wry runtime's expected ancestor depth. This avoids the known fixed-depth
-downcast abort mechanism in the 2.12.1 source, but does not establish that
-undecorated resize handling, pointer capture, keyboard focus, or full editor
-interaction survives reparenting. The detached Tauri probe module is gated by
-an environment variable and should remain diagnostic until a real pointer and
-editor interaction run pass.
+Wry runtime's expected ancestor depth. After visual inspection showed that the
+GL marker covered home-screen content, the current probe source was changed to
+make the `GLArea` the base child and the WebView the foreground child. That
+under-WebView layout has not yet been relaunched or visually validated; the
+capture and pass-through-property row above refer to the earlier, superseded
+top-layer arrangement. The revised ancestry still avoids the known
+fixed-depth downcast abort mechanism in the 2.12.1 source, but resize handling,
+pointer capture, keyboard focus, and full editor interaction remain unverified.
+The detached Tauri probe module is gated by an environment variable and should
+remain diagnostic until the revised layout and real editor interactions pass.
 
 The opt-in widget tracer now adds `BUTTON_PRESS_MASK` before attaching its
 WebView and GLArea signal handlers. The corrected build launched, but the

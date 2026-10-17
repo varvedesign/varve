@@ -10,9 +10,9 @@ use webkit2gtk::{SettingsExt, WebViewExt};
 
 const ENABLE_ENV: &str = "VARVE_NATIVE_PRESENTATION_SPIKE";
 
-/// Attach a transparent native layer over the real Wry WebView when explicitly
-/// requested for a local integration run. The WebView remains the base child;
-/// the GTK overlay passes pointer events through to it.
+/// Attach a transparent native layer beneath the real Wry WebView when explicitly
+/// requested for a local integration run. The GLArea is the native base child
+/// and the real Wry WebView sits above it, preserving the normal UI/input stack.
 pub fn attach_if_requested(window: &WebviewWindow) {
     if std::env::var(ENABLE_ENV).as_deref() != Ok("1") {
         return;
@@ -27,7 +27,7 @@ pub fn attach_if_requested(window: &WebviewWindow) {
         match unsafe { attach(&webview) } {
             Ok(()) => crate::logs::log_line(
                 "native-presenter",
-                "Tauri/Wry GTK overlay attached; diagnostic marker active; pointer pass-through enabled",
+                "Tauri/Wry GTK overlay attached; native diagnostic layer is beneath the WebView",
             ),
             Err(error) => crate::logs::log_line(
                 "native-presenter",
@@ -78,10 +78,8 @@ unsafe fn attach(webview: &webkit2gtk::WebView) -> Result<(), String> {
     // Adding a widget before removing its old parent leaves the overlay empty.
     parent_box.remove(&webview_widget);
     window.remove(&parent_box);
-    overlay.add(&webview_widget);
-    overlay.add_overlay(&gl_area);
-    overlay.set_overlay_pass_through(&gl_area, true);
-    let pass_through = overlay.is_overlay_pass_through(&gl_area);
+    overlay.add(&gl_area);
+    overlay.add_overlay(&webview_widget);
 
     gl_area.connect_realize(|area| {
         area.make_current();
@@ -133,16 +131,16 @@ unsafe fn attach(webview: &webkit2gtk::WebView) -> Result<(), String> {
         });
     }
 
-    // Preserve Wry's expected two-parent lookup: WebView -> GtkOverlay ->
-    // GtkWindow. In particular, this keeps the pinned undecorated-resize
-    // handler's ancestor depth intact.
+    // Keep Wry's expected two-parent lookup: WebView -> GtkOverlay -> GtkWindow.
+    // The WebView is the overlay child so DOM UI and pointer input stay above
+    // the native base surface.
     window.add(&overlay);
     overlay.show_all();
     window.present();
     gl_area.queue_render();
     crate::logs::log_line(
         "native-presenter",
-        &format!("GLArea overlay pass-through property: {pass_through}"),
+        "native GLArea is the GtkOverlay base child; WebView is the foreground child",
     );
     Ok(())
 }
@@ -152,7 +150,7 @@ fn render_diagnostic_marker(width: i32, height: i32) {
         return;
     }
 
-    // The host compositor combines this transparent GLArea over the real
+    // The host compositor combines this transparent GLArea underneath the real
     // editor WebView. Scissored clears make a fully native marker without
     // introducing a shader, texture, or fake WebView-side pixels.
     unsafe {
