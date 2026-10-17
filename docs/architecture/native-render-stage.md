@@ -102,7 +102,7 @@ Evidence classes: **unit** (`cargo test -p varve-accel --lib`), **device**
 | Text, tables, raster layers | — | Refused (`unsupported-primitive`) | unit + device |
 | Images, patterns | — | Refused (`unsupported-paint`) | unit |
 | Blend modes, group isolation, masks, effects, filters | — | Refused | unit |
-| `Primitive::Path.contours` | — | **Open contract gap**: the Rust IR type has no `contours` field, so a document using it would render differently. Do not widen admission until it is lowered. | — |
+| `Primitive::Path.contours` | Compound path fills, including holes and nested islands | **Contract closed; native lowering qualified**: engine IR and IPC preserve `contours`; shared path helpers resolve rings/fill rules for native admission. Serialization, bridge, and GPU hole/island regressions cover the path. This is raster evidence only; it does not prove on-screen native presentation. | engine + bridge unit tests; GPU device test |
 | Native presentation (any platform) | — | **Not implemented, not claimed** | — |
 
 Diagnostics at runtime carry the same information: `AdmissionReport.reasons`,
