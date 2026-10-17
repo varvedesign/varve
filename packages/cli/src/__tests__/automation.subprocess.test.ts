@@ -692,6 +692,48 @@ describe('batch and inspect', () => {
   });
 });
 
+describe('hostile document text', () => {
+  const HOSTILE_DOC = '\u001b[2J\u001b]0;pwned\u0007Quarterly';
+  const HOSTILE_LAYER = '\u001b[31mOK\u001b[0m\r\u202egnp';
+
+  function hostileDoc(dir: string): string {
+    let doc = { ...createDocument(HOSTILE_DOC, { flat: true }), id: 'hostile-doc' };
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'h0_aaaa0000',
+        { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+        { name: HOSTILE_LAYER },
+      ),
+    );
+    const path = join(dir, 'hostile.varve');
+    writeFileSync(path, DocumentCodec.encode({ ...doc, nextId: 2 }), 'utf8');
+    return path;
+  }
+
+  it('does not let a document or layer name drive the terminal in text output', () => {
+    const doc = hostileDoc(workDir());
+    const text = varve(['inspect', '--file', doc]);
+    expect(text.status).toBe(0);
+    // Nothing a terminal would act on reaches stdout...
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: asserting their absence
+    expect(text.stdout).not.toMatch(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u202a-\u202e]/);
+    // ...and the person can still see what the name was.
+    expect(text.stdout).toContain('\\u001b[2J');
+    expect(text.stdout).toContain('Quarterly');
+    expect(text.stdout).toContain('\\u202egnp');
+  });
+
+  it('keeps the exact name in JSON output', () => {
+    const doc = hostileDoc(workDir());
+    const r = varve(['inspect', '--file', doc, '--json']);
+    expect(r.status).toBe(0);
+    const parsed = r.json<{ document: { name: string }; tree: Array<{ name: string }> }>();
+    expect(parsed.document.name).toBe(HOSTILE_DOC);
+    expect(parsed.tree[0]?.name).toBe(HOSTILE_LAYER);
+  });
+});
+
 describe('doctor and legacy commands', () => {
   it('reports honestly that connected mode is unavailable', () => {
     const r = varve(['doctor', '--json']);

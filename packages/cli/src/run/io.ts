@@ -2,14 +2,18 @@
  * Process-backed `Io` for the automation commands.
  */
 import type { Io } from './commands';
+import { printable } from './printable';
 
 export function processIo(): Io {
   return {
+    // Everything the person's terminal receives passes through `printable`:
+    // document-derived text reaches both streams, and JSON output is unchanged
+    // in meaning because the escape it writes is the JSON escape.
     out: (text) => {
-      process.stdout.write(text);
+      process.stdout.write(printable(text));
     },
     err: (text) => {
-      process.stderr.write(text);
+      process.stderr.write(printable(text));
     },
     env: process.env,
     async readStdin(maxBytes) {
