@@ -138,6 +138,10 @@ pub enum Primitive {
         points: Vec<PathPoint>,
         closed: bool,
         tolerance: f64,
+        /// Canonical compound-path rings (outer first); supersedes
+        /// `points` + `holes` when non-empty, mirroring the TS replay.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        contours: Vec<Vec<PathPoint>>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         holes: Vec<Vec<PathPoint>>,
         #[serde(default, skip_serializing_if = "Option::is_none", rename = "fillRule")]
@@ -306,12 +310,14 @@ fn primitive_of(shape: &Shape, corner_radius: Option<&serde_json::Value>) -> Pri
             points,
             closed,
             tolerance,
+            contours,
             holes,
             fill_rule,
         } => Primitive::Path {
             points: points.clone(),
             closed: *closed,
             tolerance: *tolerance,
+            contours: contours.clone(),
             holes: holes.clone(),
             fill_rule: fill_rule.clone(),
         },
@@ -813,5 +819,59 @@ mod tests {
         assert_eq!(wire["primitive"]["kind"], "table");
         assert_eq!(wire["primitive"]["w"], 300.0);
         assert_eq!(wire["primitive"]["cells"][0]["w"], 150.0);
+    }
+
+    #[test]
+    fn compound_path_contours_flow_through_the_ir() {
+        // The IR is the wire the replay consumes: a contours path must reach
+        // it with every ring, and a holes-only path must serialize exactly as
+        // before (skipped empty field, no wire drift).
+        let ring = |points: &[(f64, f64)]| -> Vec<PathPoint> {
+            points
+                .iter()
+                .map(|p| PathPoint {
+                    x: p.0,
+                    y: p.1,
+                    handle_in: None,
+                    handle_out: None,
+                    mode: None,
+                })
+                .collect()
+        };
+        let mut node = rect_node(1, 0.0, 0.0, 40.0, 40.0);
+        node.shape = Shape::Path {
+            points: Vec::new(),
+            closed: true,
+            tolerance: 4.0,
+            contours: vec![
+                ring(&[(0.0, 0.0), (40.0, 0.0), (40.0, 40.0), (0.0, 40.0)]),
+                ring(&[(10.0, 10.0), (30.0, 10.0), (30.0, 30.0), (10.0, 30.0)]),
+            ],
+            holes: Vec::new(),
+            fill_rule: None,
+        };
+        let ir = build_render_ir(&[node.clone()]);
+        let wire = serde_json::to_value(&ir[0]).expect("serialize IR");
+        assert_eq!(wire["primitive"]["kind"], "path");
+        assert_eq!(
+            wire["primitive"]["contours"].as_array().map(Vec::len),
+            Some(2),
+            "both rings must reach the replay wire"
+        );
+        assert!(wire["primitive"].get("holes").is_none());
+
+        // Legacy holes-only documents keep their previous wire shape.
+        node.shape = Shape::Path {
+            points: ring(&[(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0)]),
+            closed: true,
+            tolerance: 4.0,
+            contours: Vec::new(),
+            holes: vec![ring(&[(5.0, 5.0), (15.0, 5.0), (15.0, 15.0), (5.0, 15.0)])],
+            fill_rule: None,
+        };
+        let ir = build_render_ir(&[node]);
+        let wire = serde_json::to_value(&ir[0]).expect("serialize IR");
+        assert!(wire["primitive"].get("contours").is_none());
+        assert_eq!(wire["primitive"]["holes"].as_array().map(Vec::len), Some(1));
     }
 }

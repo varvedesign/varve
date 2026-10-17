@@ -28,6 +28,8 @@ pub use scene::{
     get_parent, hit_test, walk_nodes, BlendMode, ChannelOffset, CmykFallback, CropRect, Effect,
     EngineColor, FillIR, GradientFill, GradientStop, NodeId, SceneNode, Stroke,
 };
-pub use shape::{PathPoint, Shape};
+pub use shape::{
+    compound_path_fill_rule, compound_path_rings, PathFillRule, PathPoint, Shape,
+};
 
 pub use kurbo::{Affine, Circle, Ellipse, Line, Point, Rect, Vec2};

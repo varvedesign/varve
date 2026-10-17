@@ -61,11 +61,17 @@ pub enum Shape {
         #[serde(rename = "arrowheadSize")]
         arrowhead_size: f64,
     },
-    /// Bezier path (open or closed). Optional `holes` + `fill_rule` for compound fills.
+    /// Bezier path (open or closed). Compound fills carry `contours` (canonical,
+    /// authored outer-first) and/or legacy `holes`, plus an optional `fill_rule`.
     Path {
         points: Vec<PathPoint>,
         closed: bool,
         tolerance: f64,
+        /// Canonical compound-path rings in authored order (outer first).
+        /// Mirrors TS `Primitive.path.contours`; when non-empty it supersedes
+        /// `points` + `holes` exactly like `pathRings` in the TS replay.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        contours: Vec<Vec<PathPoint>>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         holes: Vec<Vec<PathPoint>>,
         #[serde(default, skip_serializing_if = "Option::is_none", rename = "fillRule")]
@@ -137,6 +143,56 @@ pub enum Shape {
     Table(serde_json::Value),
 }
 
+/// Fill rule for a compound-path fill, mirroring TS `FillRule`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PathFillRule {
+    NonZero,
+    EvenOdd,
+}
+
+/// Draw rings for a compound path, mirroring `pathRings` in
+/// `packages/engine/src/pathCompound.ts`: authored `contours` win when
+/// non-empty; otherwise the primary ring plus legacy `holes`. Rings with
+/// fewer than two points are dropped, exactly like the TS filter.
+pub fn compound_path_rings<'a>(
+    points: &'a [PathPoint],
+    contours: &'a [Vec<PathPoint>],
+    holes: &'a [Vec<PathPoint>],
+) -> Vec<&'a [PathPoint]> {
+    if !contours.is_empty() {
+        return contours
+            .iter()
+            .map(Vec::as_slice)
+            .filter(|r| r.len() >= 2)
+            .collect();
+    }
+    let mut rings = vec![points];
+    rings.extend(holes.iter().map(Vec::as_slice));
+    rings.into_iter().filter(|r| r.len() >= 2).collect()
+}
+
+/// Fill rule for a compound path, mirroring `pathFillRule` in
+/// `packages/engine/src/pathCompound.ts`: an explicit rule wins; a
+/// multi-contour path or a holes-carrying path defaults to even-odd;
+/// everything else is non-zero.
+pub fn compound_path_fill_rule(
+    explicit: Option<&str>,
+    contour_count: usize,
+    hole_count: usize,
+) -> PathFillRule {
+    if let Some(rule) = explicit {
+        if rule.eq_ignore_ascii_case("evenodd") {
+            return PathFillRule::EvenOdd;
+        }
+        return PathFillRule::NonZero;
+    }
+    if contour_count > 1 || hole_count > 0 {
+        PathFillRule::EvenOdd
+    } else {
+        PathFillRule::NonZero
+    }
+}
+
 impl Shape {
     /// Does this shape contain `pt` (in local space)?
     pub fn contains(&self, pt: Point) -> bool {
@@ -182,22 +238,25 @@ impl Shape {
                 points,
                 closed,
                 tolerance,
+                contours,
                 holes,
                 fill_rule,
             } => {
-                if points.is_empty() {
+                if points.is_empty() && contours.is_empty() {
                     return false;
                 }
-                if *closed && points.len() >= 3 {
-                    let fill_evenodd = fill_rule
-                        .as_deref()
-                        .map(|r| r.eq_ignore_ascii_case("evenodd"))
-                        .unwrap_or(!holes.is_empty());
+                let rings = compound_path_rings(points, contours, holes);
+                let primary_open = contours.is_empty() && !*closed;
+                if !primary_open && rings.iter().any(|r| r.len() >= 3) {
+                    let fill_evenodd = compound_path_fill_rule(
+                        fill_rule.as_deref(),
+                        contours.len(),
+                        holes.len(),
+                    ) == PathFillRule::EvenOdd;
                     let mut crossings = 0u32;
                     let mut winding = 0i32;
-                    accumulate_polygon_hit(points, pt, &mut crossings, &mut winding);
-                    for hole in holes {
-                        accumulate_polygon_hit(hole, pt, &mut crossings, &mut winding);
+                    for ring in &rings {
+                        accumulate_polygon_hit(ring, pt, &mut crossings, &mut winding);
                     }
                     if fill_evenodd {
                         crossings % 2 == 1
@@ -206,12 +265,14 @@ impl Shape {
                     }
                 } else {
                     // Open path: hit if within tolerance of any segment.
-                    for i in 0..points.len().saturating_sub(1) {
-                        let a = Point::new(points[i].x, points[i].y);
-                        let b = Point::new(points[i + 1].x, points[i + 1].y);
-                        let line = Line::new(a, b);
-                        if point_to_segment_dist_sq(line, pt) <= tolerance * tolerance {
-                            return true;
+                    for ring in &rings {
+                        for i in 0..ring.len().saturating_sub(1) {
+                            let a = Point::new(ring[i].x, ring[i].y);
+                            let b = Point::new(ring[i + 1].x, ring[i + 1].y);
+                            let line = Line::new(a, b);
+                            if point_to_segment_dist_sq(line, pt) <= tolerance * tolerance {
+                                return true;
+                            }
                         }
                     }
                     false
@@ -342,5 +403,134 @@ mod tests {
         assert!(l.contains(Point::new(5.0, 1.5)));
         assert!(!l.contains(Point::new(5.0, 2.5)));
         assert!(l.contains(Point::new(-1.0, 1.0))); // projects onto endpoint
+    }
+
+    fn ring(points: &[(f64, f64)]) -> Vec<PathPoint> {
+        points
+            .iter()
+            .map(|(x, y)| PathPoint {
+                x: *x,
+                y: *y,
+                handle_in: None,
+                handle_out: None,
+                mode: None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn compound_rings_prefer_contours_and_mirror_the_ts_filter() {
+        let points = ring(&[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]);
+        let contours = vec![
+            ring(&[(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0)]),
+            ring(&[(4.0, 4.0), (8.0, 4.0), (8.0, 8.0)]),
+            ring(&[(30.0, 30.0)]), // degenerate: dropped like the TS filter
+        ];
+        let holes = vec![ring(&[(99.0, 99.0), (100.0, 99.0), (100.0, 100.0)])];
+        let rings = compound_path_rings(&points, &contours, &holes);
+        assert_eq!(rings.len(), 2, "contours win; degenerate ring filtered");
+        assert_eq!(rings[0].len(), 4);
+        assert_eq!(rings[1].len(), 3);
+        assert!(
+            !rings.iter().any(|r| r[0].x == 99.0),
+            "holes must be ignored when contours are present"
+        );
+
+        let legacy = compound_path_rings(&points, &[], &holes);
+        assert_eq!(legacy.len(), 2, "holes remain the legacy fallback");
+    }
+
+    #[test]
+    fn compound_fill_rule_matches_the_replay_derivation() {
+        assert_eq!(
+            compound_path_fill_rule(Some("nonzero"), 2, 0),
+            PathFillRule::NonZero,
+            "an explicit rule always wins"
+        );
+        assert_eq!(
+            compound_path_fill_rule(None, 2, 0),
+            PathFillRule::EvenOdd,
+            "multi-contour without a rule is even-odd"
+        );
+        assert_eq!(
+            compound_path_fill_rule(None, 0, 1),
+            PathFillRule::EvenOdd,
+            "holes without a rule stay even-odd (legacy behaviour)"
+        );
+        assert_eq!(
+            compound_path_fill_rule(None, 1, 0),
+            PathFillRule::NonZero,
+            "single contour defaults to non-zero"
+        );
+    }
+
+    #[test]
+    fn hit_test_honors_contours_rings() {
+        // Outer square with a hole and an island inside the hole, all through
+        // `contours` — the boolean-result shape this contract exists for.
+        let shape = Shape::Path {
+            points: Vec::new(),
+            closed: true,
+            tolerance: 1.0,
+            contours: vec![
+                ring(&[(0.0, 0.0), (40.0, 0.0), (40.0, 40.0), (0.0, 40.0)]),
+                ring(&[(10.0, 10.0), (30.0, 10.0), (30.0, 30.0), (10.0, 30.0)]),
+                ring(&[(15.0, 15.0), (25.0, 15.0), (25.0, 25.0), (15.0, 25.0)]),
+            ],
+            holes: Vec::new(),
+            fill_rule: None,
+        };
+        assert!(shape.contains(Point::new(5.0, 20.0)), "outer band hits");
+        assert!(
+            !shape.contains(Point::new(12.0, 20.0)),
+            "hole misses (evenodd default for multi-contour)"
+        );
+        assert!(shape.contains(Point::new(20.0, 20.0)), "island hits");
+        assert!(
+            !shape.contains(Point::new(-1.0, 20.0)),
+            "outside the outer ring misses"
+        );
+    }
+
+    #[test]
+    fn path_json_roundtrips_contours() {
+        // Core `Shape` is externally tagged (the `kind`-tagged wire format
+        // lives in varve-bridge's IpcShape, tested there); this pins the
+        // field-level contract: contours deserialize and re-serialize, and an
+        // absent holes field is not invented.
+        let json = r#"{"Path": {
+            "points": [],
+            "closed": true,
+            "tolerance": 4,
+            "contours": [
+                [{"x":0,"y":0,"handleIn":null,"handleOut":null},
+                 {"x":40,"y":0,"handleIn":null,"handleOut":null},
+                 {"x":40,"y":40,"handleIn":null,"handleOut":null}],
+                [{"x":10,"y":10,"handleIn":null,"handleOut":null},
+                 {"x":30,"y":10,"handleIn":null,"handleOut":null},
+                 {"x":30,"y":30,"handleIn":null,"handleOut":null}]
+            ],
+            "fillRule": "evenodd"
+        }}"#;
+        let shape: Shape = serde_json::from_str(json).expect("contours deserialize");
+        let Shape::Path { contours, .. } = &shape else {
+            panic!("expected a path");
+        };
+        assert_eq!(contours.len(), 2, "contours survive the wire");
+        assert!(
+            !json_wire_has_field(&shape, "holes"),
+            "holes stay absent when only contours were sent"
+        );
+
+        // And the serialized form keeps them for the next consumer.
+        let wire = serde_json::to_string(&shape).expect("serialize");
+        assert!(wire.contains("\"contours\":["));
+    }
+
+    fn json_wire_has_field(shape: &Shape, field: &str) -> bool {
+        serde_json::to_value(shape)
+            .ok()
+            .and_then(|v| v.get(field).is_some().then_some(()))
+            .is_some()
     }
 }

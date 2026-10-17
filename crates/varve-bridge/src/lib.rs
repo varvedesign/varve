@@ -64,6 +64,8 @@ pub enum IpcShape {
         closed: bool,
         tolerance: f64,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        contours: Vec<Vec<PathPoint>>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
         holes: Vec<Vec<PathPoint>>,
         #[serde(default, skip_serializing_if = "Option::is_none", rename = "fillRule")]
         fill_rule: Option<String>,
@@ -387,12 +389,14 @@ impl IpcShape {
                 points,
                 closed,
                 tolerance,
+                contours,
                 holes,
                 fill_rule,
             } => Shape::Path {
                 points,
                 closed,
                 tolerance,
+                contours,
                 holes,
                 fill_rule,
             },
@@ -1067,5 +1071,43 @@ mod pattern_repeat_wire_tests {
             assert!(!object.contains_key(absent), "{absent} should be omitted");
         }
         assert_eq!(object["spacing"], 6.0);
+    }
+
+    #[test]
+    fn compound_path_contours_survive_the_wire() {
+        // What the editor emits for a boolean result: `contours` present,
+        // `holes` absent. Before the contours contract this deserialized with
+        // the rings silently dropped.
+        let json = serde_json::json!([{
+            "id": "n2",
+            "name": "Boolean",
+            "transform": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            "shape": {
+                "kind": "path",
+                "points": [],
+                "closed": true,
+                "tolerance": 4.0,
+                "contours": [
+                    [{"x": 0.0, "y": 0.0, "handleIn": null, "handleOut": null},
+                     {"x": 40.0, "y": 0.0, "handleIn": null, "handleOut": null},
+                     {"x": 40.0, "y": 40.0, "handleIn": null, "handleOut": null}],
+                    [{"x": 10.0, "y": 10.0, "handleIn": null, "handleOut": null},
+                     {"x": 30.0, "y": 10.0, "handleIn": null, "handleOut": null},
+                     {"x": 30.0, "y": 30.0, "handleIn": null, "handleOut": null}]
+                ],
+                "fillRule": "evenodd"
+            },
+            "fill": { "space": "rgb", "r": 0.0, "g": 0.0, "b": 0.0, "a": 255.0 }
+        }]);
+        let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize");
+        let scene = convert_engine_nodes(nodes);
+        let Shape::Path {
+            contours, holes, ..
+        } = &scene[0].shape
+        else {
+            panic!("expected a path shape");
+        };
+        assert_eq!(contours.len(), 2, "contours reach the engine");
+        assert!(holes.is_empty());
     }
 }

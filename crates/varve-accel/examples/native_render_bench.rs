@@ -125,6 +125,7 @@ fn corpus(count: usize, width: f64, height: f64, seed: u64) -> Vec<RenderItem> {
                     ],
                     closed: true,
                     tolerance: 0.25,
+                    contours: Vec::new(),
                     holes: Vec::new(),
                     fill_rule: Some("nonzero".to_string()),
                 },

@@ -318,6 +318,7 @@ mod tests {
             points: path_points(&[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]),
             closed: true,
             tolerance: 0.25,
+            contours: Vec::new(),
             holes: Vec::new(),
             fill_rule: Some("nonzero".to_string()),
         });
@@ -542,6 +543,7 @@ mod tests {
             points: path_points(&[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]),
             closed: true,
             tolerance: 0.25,
+            contours: Vec::new(),
             holes: Vec::new(),
             fill_rule: Some("nonzero".to_string()),
         });
@@ -591,6 +593,7 @@ mod tests {
             points: path_points(&[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]),
             closed: true,
             tolerance: 0.25,
+            contours: Vec::new(),
             holes: Vec::new(),
             fill_rule: Some("evenodd".to_string()),
         });
@@ -602,11 +605,12 @@ mod tests {
     }
 
     #[test]
-    fn contours_and_holes_both_contribute_to_the_fan() {
+    fn holes_contribute_to_the_fan() {
         let item = solid_item(Primitive::Path {
             points: path_points(&[(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0)]),
             closed: true,
             tolerance: 0.25,
+            contours: Vec::new(),
             holes: vec![path_points(&[
                 (5.0, 5.0),
                 (15.0, 5.0),
@@ -629,6 +633,74 @@ mod tests {
             }
             _ => panic!("expected a fill op"),
         }
+    }
+
+    #[test]
+    fn contours_supersede_points_and_holes_like_the_replay_resolves_them() {
+        // A boolean-result shape: `points` is empty and the rings live in
+        // `contours`. Before the contours contract this frame was refused as
+        // empty geometry; the replay rendered it fine.
+        let item = solid_item(Primitive::Path {
+            points: Vec::new(),
+            closed: true,
+            tolerance: 0.25,
+            contours: vec![
+                path_points(&[(0.0, 0.0), (40.0, 0.0), (40.0, 40.0), (0.0, 40.0)]),
+                path_points(&[(10.0, 10.0), (30.0, 10.0), (30.0, 30.0), (10.0, 30.0)]),
+            ],
+            holes: Vec::new(),
+            fill_rule: None,
+        });
+        let plan = lower_frame(&[item], identity());
+        assert!(plan.report.complete(), "{}", plan.report.summary());
+        // Two rings x (4 vertices, 6 indices) + one cover quad.
+        assert_eq!(plan.vertices.len(), 12);
+        match plan.ops[0] {
+            DrawOp::Fill { even_odd, .. } => {
+                // No explicit rule; two contours derive even-odd exactly like
+                // `pathFillRule` in the replay.
+                assert!(even_odd);
+            }
+            _ => panic!("expected a fill op"),
+        }
+    }
+
+    #[test]
+    fn explicit_fill_rule_wins_over_the_contours_derivation() {
+        let item = solid_item(Primitive::Path {
+            points: Vec::new(),
+            closed: true,
+            tolerance: 0.25,
+            contours: vec![
+                path_points(&[(0.0, 0.0), (40.0, 0.0), (40.0, 40.0), (0.0, 40.0)]),
+                path_points(&[(10.0, 10.0), (30.0, 10.0), (30.0, 30.0), (10.0, 30.0)]),
+            ],
+            holes: Vec::new(),
+            fill_rule: Some("nonzero".to_string()),
+        });
+        let plan = lower_frame(&[item], identity());
+        match plan.ops[0] {
+            DrawOp::Fill { even_odd, .. } => assert!(!even_odd),
+            _ => panic!("expected a fill op"),
+        }
+    }
+
+    #[test]
+    fn a_degenerate_contour_ring_is_filtered_not_fatal() {
+        let item = solid_item(Primitive::Path {
+            points: Vec::new(),
+            closed: true,
+            tolerance: 0.25,
+            contours: vec![
+                path_points(&[(0.0, 0.0), (40.0, 0.0), (40.0, 40.0), (0.0, 40.0)]),
+                path_points(&[(5.0, 5.0)]), // below the two-point floor
+            ],
+            holes: Vec::new(),
+            fill_rule: Some("evenodd".to_string()),
+        });
+        let plan = lower_frame(&[item], identity());
+        assert!(plan.report.complete(), "{}", plan.report.summary());
+        assert_eq!(plan.vertices.len(), 8, "only the valid ring lowers");
     }
 
     #[test]

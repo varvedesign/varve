@@ -38,7 +38,10 @@ use std::collections::HashMap;
 
 use ab_glyph::Font as AbGlyphFont;
 use lopdf::{dictionary, Document, Object, ObjectId, Stream};
-use varve_core::{Effect, EngineColor, FillIR, GradientStop, SceneNode, Shape};
+use varve_core::{
+    compound_path_fill_rule, compound_path_rings, Effect, EngineColor, FillIR, GradientStop,
+    PathFillRule, SceneNode, Shape,
+};
 
 use crate::subset::{
     collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission,
@@ -333,16 +336,21 @@ fn shape_path_operators(node: &SceneNode, page_height: f64) -> Vec<u8> {
         Shape::Path {
             points,
             closed,
+            contours,
             holes,
             ..
         } => {
-            if points.is_empty() {
+            // Same ring resolution as the TS replay: authored `contours`
+            // supersede `points` + `holes` when non-empty.
+            let rings = compound_path_rings(points, contours, holes);
+            if rings.is_empty() {
                 return Vec::new();
             }
             let mut buf = Vec::new();
-            append_path_ring(&mut buf, points, *closed, page_height, x_off, y_off);
-            for hole in holes {
-                append_path_ring(&mut buf, hole, true, page_height, x_off, y_off);
+            let primary_closed = !contours.is_empty() || *closed;
+            append_path_ring(&mut buf, rings[0], primary_closed, page_height, x_off, y_off);
+            for ring in rings.iter().skip(1) {
+                append_path_ring(&mut buf, ring, true, page_height, x_off, y_off);
             }
             buf
         }
@@ -408,11 +416,12 @@ fn append_path_ring(
 fn path_uses_even_odd_fill(node: &SceneNode) -> bool {
     match &node.shape {
         Shape::Path {
-            holes, fill_rule, ..
-        } => fill_rule
-            .as_deref()
-            .map(|rule| rule.eq_ignore_ascii_case("evenodd"))
-            .unwrap_or(!holes.is_empty()),
+            contours,
+            holes,
+            fill_rule,
+            ..
+        } => compound_path_fill_rule(fill_rule.as_deref(), contours.len(), holes.len())
+            == PathFillRule::EvenOdd,
         _ => false,
     }
 }
@@ -637,14 +646,32 @@ fn shape_local_bounds(node: &SceneNode) -> (f64, f64, f64, f64) {
             (from[0] - to[0]).abs(),
             (from[1] - to[1]).abs(),
         ),
-        Shape::Path { points, .. } => {
-            if points.is_empty() {
+        Shape::Path {
+            points,
+            contours,
+            holes,
+            ..
+        } => {
+            // Bounds span every draw ring: a compound path's `points` can be
+            // empty while `contours` carries the geometry.
+            let rings = compound_path_rings(points, contours, holes);
+            let mut min_x = f64::INFINITY;
+            let mut max_x = f64::NEG_INFINITY;
+            let mut min_y = f64::INFINITY;
+            let mut max_y = f64::NEG_INFINITY;
+            let mut seen = false;
+            for ring in &rings {
+                for p in ring.iter() {
+                    seen = true;
+                    min_x = min_x.min(p.x);
+                    max_x = max_x.max(p.x);
+                    min_y = min_y.min(p.y);
+                    max_y = max_y.max(p.y);
+                }
+            }
+            if !seen {
                 return (0.0, 0.0, 0.0, 0.0);
             }
-            let min_x = points.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
-            let max_x = points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
-            let min_y = points.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
-            let max_y = points.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
             (min_x, min_y, max_x - min_x, max_y - min_y)
         }
         Shape::Text { x, y, w, h, .. } => (*x, *y, *w, *h),
@@ -3975,6 +4002,7 @@ mod tests {
                 ],
                 closed: false,
                 tolerance: 1.0,
+                contours: Vec::new(),
                 holes: vec![],
                 fill_rule: None,
             },
@@ -4046,6 +4074,7 @@ mod tests {
             points: ring(0.0, 0.0, 100.0),
             closed: true,
             tolerance: 1.0,
+            contours: Vec::new(),
             holes: vec![ring(25.0, 25.0, 50.0)],
             fill_rule: Some("evenodd".into()),
         };
@@ -4070,6 +4099,7 @@ mod tests {
                 points: vec![],
                 closed: false,
                 tolerance: 1.0,
+                contours: Vec::new(),
                 holes: vec![],
                 fill_rule: None,
             },

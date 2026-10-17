@@ -12,7 +12,9 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use varve_core::{EngineColor, PathPoint};
+use varve_core::{
+    compound_path_fill_rule, compound_path_rings, EngineColor, PathFillRule, PathPoint,
+};
 use varve_engine::{Primitive, RenderItem};
 
 /// Shape families the analytic stage can reproduce.
@@ -662,28 +664,38 @@ fn lower_item(item: &RenderItem) -> Result<Lowered, RejectReason> {
             points,
             closed,
             tolerance,
+            contours,
             holes,
             fill_rule,
             ..
         } => {
-            if points.len() < 2 {
+            // Ring resolution mirrors `pathRings` in the TS replay: authored
+            // `contours` supersede `points` + `holes` when non-empty.
+            let rings = compound_path_rings(points, contours, holes);
+            if rings.is_empty() {
                 return Err(RejectReason::EmptyGeometry);
             }
-            let mut contours = Vec::with_capacity(holes.len() + 1);
-            let main = flatten_contour(points, *closed, *tolerance);
-            if main.len() < 3 {
-                return Err(RejectReason::EmptyGeometry);
-            }
-            contours.push(main);
-            for hole in holes {
-                let flattened = flatten_contour(hole, true, *tolerance);
+            let mut flattened_rings = Vec::with_capacity(rings.len());
+            for (index, ring) in rings.iter().enumerate() {
+                // The replay's `paintPathFill` traces every ring closed; the
+                // legacy primary ring keeps its authored `closed` flag for
+                // open-path documents that only ever had one ring.
+                let ring_closed = !contours.is_empty() || *closed || index > 0;
+                let flattened = flatten_contour(ring, ring_closed, *tolerance);
                 if flattened.len() >= 3 {
-                    contours.push(flattened);
+                    flattened_rings.push(flattened);
                 }
             }
-            let even_odd = matches!(fill_rule.as_deref(), Some("evenodd"));
+            if flattened_rings.is_empty() {
+                return Err(RejectReason::EmptyGeometry);
+            }
+            let even_odd = compound_path_fill_rule(
+                fill_rule.as_deref(),
+                contours.len(),
+                holes.len(),
+            ) == PathFillRule::EvenOdd;
             Ok(Lowered::Fill {
-                contours,
+                contours: flattened_rings,
                 even_odd,
                 color,
             })

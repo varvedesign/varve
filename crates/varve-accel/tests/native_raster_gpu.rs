@@ -85,6 +85,7 @@ fn path(list: &[(f64, f64)], rule: &str, color: EngineColor) -> RenderItem {
             points: points(list),
             closed: true,
             tolerance: 0.25,
+            contours: Vec::new(),
             holes: Vec::new(),
             fill_rule: Some(rule.to_string()),
         },
@@ -275,6 +276,7 @@ fn even_odd_and_nonzero_disagree_on_a_double_wound_square() {
                 points: points(&outer),
                 closed: true,
                 tolerance: 0.25,
+                contours: Vec::new(),
                 holes: vec![points(&inner)],
                 fill_rule: Some(rule.to_string()),
             },
@@ -303,6 +305,46 @@ fn even_odd_and_nonzero_disagree_on_a_double_wound_square() {
         pixel(&even_odd, 12, 24),
         [255, 255, 255, 255],
         "the ring between the two squares stays painted"
+    );
+}
+
+#[test]
+fn contours_rings_render_hole_and_island_like_the_replay_resolves_them() {
+    let Some(mut stage) = stage() else { return };
+    // The boolean-result shape: `points` is empty, rings live in `contours`
+    // (outer, hole, island) with no explicit fill rule — the derivation must
+    // produce even-odd exactly like `pathFillRule` in the replay.
+    let outer = [(4.0, 4.0), (60.0, 4.0), (60.0, 44.0), (4.0, 44.0)];
+    let hole = [(20.0, 16.0), (44.0, 16.0), (44.0, 32.0), (20.0, 32.0)];
+    let island = [(28.0, 21.0), (36.0, 21.0), (36.0, 27.0), (28.0, 27.0)];
+    let frame = stage
+        .render(
+            &[solid(
+                Primitive::Path {
+                    points: Vec::new(),
+                    closed: true,
+                    tolerance: 0.25,
+                    contours: vec![points(&outer), points(&hole), points(&island)],
+                    holes: Vec::new(),
+                    fill_rule: None,
+                },
+                rgb(255.0, 255.0, 255.0, 255.0),
+            )],
+            identity(),
+            WIDTH,
+            HEIGHT,
+        )
+        .expect("rasterize");
+    assert_eq!(
+        pixel(&frame, 12, 24),
+        [255, 255, 255, 255],
+        "the ring between outer and hole stays painted"
+    );
+    assert_eq!(pixel(&frame, 24, 24), [0, 0, 0, 0], "the hole punches out");
+    assert_eq!(
+        pixel(&frame, 32, 24),
+        [255, 255, 255, 255],
+        "the island inside the hole paints once"
     );
 }
 
