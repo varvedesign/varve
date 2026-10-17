@@ -348,6 +348,13 @@ jointly (the capability-shape extension and this plan are examples).
   editor canvas region and a valid frame. The constraint and primary API
   references are recorded in the Wayland spike audit. This is an evidence
   refinement, not a native-presentation pass.
+- The revised Tauri probe was relaunched on native Wayland with isolated XDG
+  paths; its log confirms the GLArea context realized and the new base/overlay
+  order attached. KWin listed Varve, while ChatGPT stayed active. Spectacle's
+  active-window shot was ChatGPT and KWin denied this process's direct
+  per-window screenshot request, so neither is valid Varve visual evidence.
+  Focus was left unchanged, and only the Tauri run owned by this task was
+  stopped. A compositor-level capture of the editor canvas remains open.
 - Staged validation for this five-file diagnostic slice selected seven lanes
   and escalated to the full gate because the native platform integration is a
   shared contract boundary. Format/lint were not applicable; `audit:emoji`

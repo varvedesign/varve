@@ -175,6 +175,16 @@ pointer capture, keyboard focus, and full editor interaction remain unverified.
 The detached Tauri probe module is gated by an environment variable and should
 remain diagnostic until the revised layout and real editor interactions pass.
 
+The under-WebView revision was relaunched on native Wayland with isolated XDG
+directories. Its Tauri log confirms `GLArea context realized in Tauri window`
+and records GLArea as the base child. KWin listed the Varve window, but ChatGPT
+remained the active window. `spectacle --activewindow` therefore captured
+ChatGPT; a direct KWin `CaptureWindow` request was rejected with
+`Error.NoAuthorized`. That image is not Varve evidence and was not committed.
+Focus was not forcibly moved away from the user's ChatGPT session. The new
+child order has runtime construction evidence, but still lacks a valid OS-level
+visual capture and editor-canvas/input acceptance.
+
 The visibility constraint is now explicit: GTK documents that
 `GtkOverlay.add_overlay` stacks an overlay child above the main child, while
 the main child is drawn at the bottom ([GTK 3.24 API](https://docs.gtk.org/gtk3/method.Overlay.add_overlay.html),
