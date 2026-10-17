@@ -130,7 +130,9 @@ export function buildBundleAssets(assets: Record<string, RasterAsset>): {
   failedNodeIds: string[];
 } {
   const byContent = new Map<string, BundleAsset>();
-  const pathsByNode: Record<string, string> = {};
+  // Node IDs are arbitrary document strings, so avoid Object.prototype keys
+  // such as "__proto__" changing the lookup object's behavior.
+  const pathsByNode: Record<string, string> = Object.create(null);
   const failedNodeIds: string[] = [];
 
   for (const [nodeId, raster] of Object.entries(assets)) {

@@ -63,6 +63,16 @@ describe('bundle asset contract', () => {
     }
   });
 
+  it('preserves asset paths for node IDs that match Object prototype keys', () => {
+    const assets = Object.fromEntries([['__proto__', fakeRaster('__proto__', 'proto-bytes')]]);
+    const result = buildBundleAssets(assets);
+
+    expect(Object.hasOwn(result.pathsByNode, '__proto__')).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(result.pathsByNode, '__proto__')?.value).toMatch(
+      /^assets\/[0-9a-f]{16}\.png$/,
+    );
+  });
+
   it('reports undecodable assets as failures instead of emitting dangling files', () => {
     const { assets, pathsByNode, failedNodeIds } = buildBundleAssets({
       broken: {
