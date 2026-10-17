@@ -180,8 +180,8 @@ test.describe('Vector ink rendering', () => {
     // all, so this is exactly the case the old fill-only path erased.
     await page.mouse.move(box.x + fromX, box.y + lineY);
     await page.mouse.down();
-    for (let x = fromX + 20; x <= toX; x += 20) {
-      await page.mouse.move(box.x + x, box.y + lineY);
+    for (let step = 1; step <= 6; step++) {
+      await page.mouse.move(box.x + fromX + ((toX - fromX) * step) / 6, box.y + lineY);
     }
     await page.mouse.up();
 
@@ -219,8 +219,8 @@ test.describe('Vector ink rendering', () => {
 
     await page.mouse.move(box.x + fromX, box.y + lineY);
     await page.mouse.down();
-    for (let x = fromX + 24; x <= toX; x += 24) {
-      await page.mouse.move(box.x + x, box.y + lineY);
+    for (let step = 1; step <= 6; step++) {
+      await page.mouse.move(box.x + fromX + ((toX - fromX) * step) / 6, box.y + lineY);
     }
     await page.mouse.up();
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10_000 });
