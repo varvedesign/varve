@@ -33,6 +33,29 @@ shipped without linked merge/release evidence.
 
 The supplied brief also points to [Squoosh #1012](https://github.com/GoogleChromeLabs/squoosh/issues/1012), a historical batch-memory report. It is useful background for bounding in-flight jobs, not evidence of a current Varve defect or a current Squoosh limitation.
 
+## Varve reproductions during implementation
+
+- The browser export probe rendered a blank 2×2 PNG through `renderRaster` with
+  no `background` option, decoded the resulting blob, and read back alpha
+  `[255, 255, 255, 255]`. The PNG path had created an `alpha: false` canvas
+  because only explicit `null` enabled alpha, despite skipping a matte for
+  PNG. The fix keeps alpha enabled for PNG, including when the background is
+  omitted; the browser regression expects four zero-alpha pixels.
+- In the same Chromium probe, WebP returned `image/webp`, while AVIF was
+  reported supported but the canvas silently returned `image/png`. The format
+  probe now checks the actual `toDataURL` MIME, and export rejects a blob whose
+  MIME differs from the requested format. The browser regression accepts
+  runtime-specific unsupported AVIF only when it is reported unsupported and
+  export fails explicitly.
+- Direct Rust/WASM-to-current-TS fixture comparison found Bayer dither with
+  `paletteMode: "none"` modified pixels in Rust although the TS reference is
+  an identity operation. The frozen `dither-bayer` fixture was stale; its
+  expected bytes now match its input, and the Rust kernel checks no-palette
+  mode before dispatching Bayer/blue-noise. The regression covers this case.
+- The two Bloom fixtures still show current Rust/TS drift (maximum channel
+  deltas 5 and 7 versus the frozen fixture bound of 3), so the preview worker
+  uses the TS reference for Bloom pending a dedicated parity repair.
+
 ## Technical constraints verified for this work
 
 - [WebAssembly.Memory.grow](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/grow) can detach cached non-shared JS views. Any caller that retains views across a grow must refresh them.
