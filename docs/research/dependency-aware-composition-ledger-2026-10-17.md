@@ -65,8 +65,12 @@ external image/pattern resources, text, per-item effects/filters, visible group
 effects, proofing, warp, and master occurrences. Visible-effect groups remain
 on fresh composition so later in-place effect stages cannot mutate a retained
 source canvas. Export and thumbnail paths remain fresh.
-The retained cap is 32 MiB total and 8 MiB per canvas; active-document changes
-or closing a document retire its surfaces.
+The retained cap follows the existing memory preference (8 MiB low, 32 MiB
+balanced, 64 MiB high), with an 8 MiB per-canvas ceiling. Runtime quality
+reduction can lower it further; browser device-memory hints cap it at 8 MiB on
+4 GiB profiles and 4 MiB on 2 GiB profiles. A lower cap immediately releases
+least-recently-used canvases. These device-memory values are coarse capacity
+hints, not live OS pressure measurements.
 
 Two source-audit defects are corrected: `expandReplayList` now builds appended
 IR from its expanded dependency IDs, and `RasterLayerCache.acquire` declines an
@@ -109,6 +113,28 @@ memory-pressure soak was run. The current validation planner also escalated to
 a full gate because the shared checkout contains unrelated workspace/toolchain
 and validation-infrastructure changes; those unrelated files were preserved
 and not included in this task's source changes.
+
+### Other render consumers inspected
+
+The retained group cache is used by the live Canvas2D editor path only.
+`composeFlattenedExportSnapshot` in `packages/editor/src/export/compositor.ts`
+and `renderDocThumbnail` in `packages/editor/src/thumbnail/thumbnailService.ts`
+build independent output from their supplied document/resource state; neither
+reads the live retained group cache. This avoids sharing the editor's camera
+scale or stale live surfaces, but it does not yet prove that every async export
+or thumbnail operation publishes the intended revision if callers mutate a
+document snapshot in place. Varve's copy-on-write contract is the current
+assumption; delayed-resource and immediate-export differentials remain open.
+
+The minimap has a separate approximate geometry/canvas path, and adjustment
+histograms have a small document-identity cache; neither consumes retained
+group pixels. Their freshness and invalidation behavior were source-audited,
+not comprehensively pixel-tested here. Presentation's frame preparation has an
+in-flight promise keyed by frame ID and a stage freshness check keyed by
+document ID; its `prepare`/`isPrepared` methods had no active call sites in the
+inspected flow. This is a dormant source-level concern, not a reproduced stale
+presentation bug. These consumers need targeted user-flow tests before any
+cross-consumer cache unification or broad invalidation change.
 
 ## Implementation order and acceptance
 

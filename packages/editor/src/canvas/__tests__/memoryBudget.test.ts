@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MEMORY_BUDGETS, getAdaptiveCacheLimits, getMemoryBudgets } from '../memoryBudget';
+import {
+  DEFAULT_MEMORY_BUDGETS,
+  getAdaptiveCacheLimits,
+  getMemoryBudgets,
+  resolvePressureBudgets,
+} from '../memoryBudget';
 
 describe('memoryBudget', () => {
   it('returns the default budgets when no preference is given', () => {
@@ -14,6 +19,7 @@ describe('memoryBudget', () => {
   it('low tightens the IR cache, backdrop cache, and transform cache', () => {
     const budgets = getMemoryBudgets('low');
     expect(budgets.subtreeIrCacheBytes).toBe(10 * 1024 * 1024);
+    expect(budgets.retainedGroupSurfaceBytes).toBe(8 * 1024 * 1024);
     expect(budgets.backdropCacheEntries).toBe(5);
     expect(budgets.transformCacheEntries).toBe(2000);
     expect(budgets.gradientCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.gradientCacheEntries);
@@ -31,6 +37,9 @@ describe('memoryBudget', () => {
   it('medium only widens the IR cache relative to the default', () => {
     const budgets = getMemoryBudgets('medium');
     expect(budgets.subtreeIrCacheBytes).toBe(25 * 1024 * 1024);
+    expect(budgets.retainedGroupSurfaceBytes).toBe(
+      DEFAULT_MEMORY_BUDGETS.retainedGroupSurfaceBytes,
+    );
     expect(budgets.transformCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.transformCacheEntries);
     expect(budgets.backdropCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.backdropCacheEntries);
     expect(budgets.imageCacheBytes).toBe(DEFAULT_MEMORY_BUDGETS.imageCacheBytes);
@@ -39,6 +48,7 @@ describe('memoryBudget', () => {
   it('high widens the IR and decoded-image caches beyond the default', () => {
     const budgets = getMemoryBudgets('high');
     expect(budgets.subtreeIrCacheBytes).toBe(200 * 1024 * 1024);
+    expect(budgets.retainedGroupSurfaceBytes).toBe(64 * 1024 * 1024);
     expect(budgets.transformCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.transformCacheEntries);
     expect(budgets.imageCacheBytes).toBe(512 * 1024 * 1024);
   });
@@ -48,6 +58,8 @@ describe('memoryBudget', () => {
     const medium = getMemoryBudgets('medium');
     const high = getMemoryBudgets('high');
     expect(low.subtreeIrCacheBytes).toBeLessThan(medium.subtreeIrCacheBytes);
+    expect(low.retainedGroupSurfaceBytes).toBeLessThan(medium.retainedGroupSurfaceBytes);
+    expect(medium.retainedGroupSurfaceBytes).toBeLessThan(high.retainedGroupSurfaceBytes);
     expect(medium.subtreeIrCacheBytes).toBeLessThan(DEFAULT_MEMORY_BUDGETS.subtreeIrCacheBytes);
     expect(DEFAULT_MEMORY_BUDGETS.subtreeIrCacheBytes).toBeLessThan(high.subtreeIrCacheBytes);
     expect(low.imageCacheBytes).toBeLessThan(medium.imageCacheBytes);
@@ -59,10 +71,12 @@ describe('memoryBudget', () => {
 
     expect(getAdaptiveCacheLimits(budgets, 0.25)).toEqual({
       subtreeIrCacheBytes: 2.5 * 1024 * 1024,
+      retainedGroupSurfaceBytes: 2 * 1024 * 1024,
       engineNodeMemoEntries: 1000,
     });
     expect(getAdaptiveCacheLimits(budgets, 1)).toEqual({
       subtreeIrCacheBytes: budgets.subtreeIrCacheBytes,
+      retainedGroupSurfaceBytes: budgets.retainedGroupSurfaceBytes,
       engineNodeMemoEntries: budgets.engineNodeMemoEntries,
     });
   });
@@ -71,7 +85,16 @@ describe('memoryBudget', () => {
     const budgets = getMemoryBudgets('low');
     expect(getAdaptiveCacheLimits(budgets, 2)).toEqual({
       subtreeIrCacheBytes: budgets.subtreeIrCacheBytes,
+      retainedGroupSurfaceBytes: budgets.retainedGroupSurfaceBytes,
       engineNodeMemoEntries: budgets.engineNodeMemoEntries,
     });
+  });
+
+  it('uses tighter retained-group surface budgets for low-memory device profiles', () => {
+    expect(resolvePressureBudgets('2gb').retainedGroupSurfaceBytes).toBe(4 * 1024 * 1024);
+    expect(resolvePressureBudgets('4gb').retainedGroupSurfaceBytes).toBe(8 * 1024 * 1024);
+    const high = getMemoryBudgets('high');
+    expect(getAdaptiveCacheLimits(high, 1, '2gb').retainedGroupSurfaceBytes).toBe(4 * 1024 * 1024);
+    expect(getAdaptiveCacheLimits(high, 1, '4gb').retainedGroupSurfaceBytes).toBe(8 * 1024 * 1024);
   });
 });

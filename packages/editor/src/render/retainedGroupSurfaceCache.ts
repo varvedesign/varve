@@ -10,6 +10,7 @@
 
 export const RETAINED_GROUP_SURFACE_BUDGET_BYTES = 32 * 1024 * 1024;
 const MAX_SURFACE_BYTES = 8 * 1024 * 1024;
+const MAX_TOTAL_BUDGET_BYTES = 64 * 1024 * 1024;
 
 export interface RetainedGroupSurface {
   canvas: HTMLCanvasElement | OffscreenCanvas;
@@ -40,7 +41,14 @@ export class RetainedGroupSurfaceCache {
   private avoidedRasterPixels = 0;
   private enabled = true;
 
-  constructor(private budgetBytes = RETAINED_GROUP_SURFACE_BUDGET_BYTES) {}
+  private budgetBytes: number;
+
+  constructor(budgetBytes = RETAINED_GROUP_SURFACE_BUDGET_BYTES) {
+    this.budgetBytes =
+      Number.isFinite(budgetBytes) && budgetBytes >= 0
+        ? Math.min(Math.floor(budgetBytes), MAX_TOTAL_BUDGET_BYTES)
+        : RETAINED_GROUP_SURFACE_BUDGET_BYTES;
+  }
 
   key(parts: readonly (object | string | number)[]): string | null {
     const encoded: string[] = [];
@@ -114,6 +122,12 @@ export class RetainedGroupSurfaceCache {
     }
     this.entries.clear();
     this.bytes = 0;
+  }
+
+  setBudgetBytes(budgetBytes: number): void {
+    if (!Number.isFinite(budgetBytes) || budgetBytes < 0) return;
+    this.budgetBytes = Math.min(Math.floor(budgetBytes), MAX_TOTAL_BUDGET_BYTES);
+    while (this.bytes > this.budgetBytes) this.evictOldest();
   }
 
   activateDocument(documentId: string): void {

@@ -12,7 +12,11 @@ renderers do not read this cache. Other scenes use existing replay.
 The cache is keyed by active document, immutable group/child/IR object identity,
 child order, workspace/page/color state, world transform and bounds, and exact
 raster scale/dimensions. It owns real HTML/Offscreen canvases, caps one surface
-at 8 MiB and total residency at 32 MiB, and evicts least-recently-used entries.
+at 8 MiB and total residency according to the render memory preset (8 MiB low,
+32 MiB balanced, 64 MiB high), and evicts least-recently-used entries. Runtime
+quality multipliers can reduce the cap; 4 GiB and 2 GiB device-memory profiles
+cap it at 8 MiB and 4 MiB, respectively. A cap reduction immediately evicts
+least-recently-used entries.
 Changing or closing the active document retires its retained group surfaces. An
 entry too large for its cap is replayed but not retained.
 
@@ -58,8 +62,9 @@ they were also opened and visually inspected at full viewport size.
 
 The `keeps a real poster fixture group fresh across an independent edit` case
 opens the repository-owned `scripts/screenshots/fixtures/poster.varve` through
-the editor's file input. It groups three overlapping curved bands, sets group
-opacity to 70%, warms retained composition, then changes the opacity of the
+the editor's file input with the low memory preference active. It groups three
+overlapping curved bands, sets group opacity to 70%, warms retained composition,
+asserts the reported retained-surface cap is at most 8 MiB, then changes the opacity of the
 separate multiply-blended Disc layer. The test asserts that the group still
 hits after that independent edit, that the full canvas changes, and that the
 cached pixels exactly match a forced full redraw after disabling the cache. It
@@ -79,7 +84,8 @@ node scripts/quality/heavy-lease.mjs "e2e: real poster retained-group parity aft
 
 The expanded test passed in Chromium (33.6 seconds for the test; 58.4 seconds
 including runner startup and lease wait on the first expanded run, and 42.6
-seconds on the visual-artifact run). This is a richer imported Varve fixture
+seconds on the visual-artifact run; the low-preference rerun passed in 39.3
+seconds). This is a richer imported Varve fixture
 with paths, transparency, text, gradients, a multiply blend, and an embedded
 image; it is still a repository-owned sample, not a customer file. The
 visually inspected output pair is [`cached`](../screenshots/dependency-aware-composition/poster-grouped-child-cached.png)

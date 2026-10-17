@@ -47,6 +47,40 @@ describe('RetainedGroupSurfaceCache', () => {
     expect(cache.diagnostics.evictions).toBe(1);
   });
 
+  it('evicts least-recently-used surfaces immediately when the budget shrinks', () => {
+    const cache = new RetainedGroupSurfaceCache(512);
+    const first = cache.key(['first'])!;
+    const second = cache.key(['second'])!;
+    const firstSurface = surface(8, 8);
+    const secondSurface = surface(8, 8);
+    cache.set(first, 'doc', firstSurface, 1);
+    cache.set(second, 'doc', secondSurface, 1);
+    cache.get(first);
+
+    cache.setBudgetBytes(256);
+
+    expect(cache.diagnostics).toMatchObject({ budgetBytes: 256, residentBytes: 256, entries: 1 });
+    expect(cache.get(first)).not.toBeNull();
+    expect(cache.get(second)).toBeNull();
+    expect(cache.diagnostics.evictions).toBe(1);
+    expect(firstSurface).toMatchObject({ width: 8, height: 8 });
+    expect(secondSurface).toMatchObject({ width: 0, height: 0 });
+  });
+
+  it('clamps oversized and ignores invalid runtime budget updates', () => {
+    const cache = new RetainedGroupSurfaceCache(128);
+
+    cache.setBudgetBytes(Number.POSITIVE_INFINITY);
+    cache.setBudgetBytes(Number.NaN);
+    cache.setBudgetBytes(-1);
+    expect(cache.diagnostics.budgetBytes).toBe(128);
+    cache.setBudgetBytes(128 * 1024 * 1024);
+    expect(cache.diagnostics.budgetBytes).toBe(64 * 1024 * 1024);
+    expect(new RetainedGroupSurfaceCache(128 * 1024 * 1024).diagnostics.budgetBytes).toBe(
+      64 * 1024 * 1024,
+    );
+  });
+
   it('rejects oversized surfaces and retires surfaces when the active document changes', () => {
     const cache = new RetainedGroupSurfaceCache(512);
     const tooLarge = cache.key(['large'])!;

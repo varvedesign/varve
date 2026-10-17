@@ -589,10 +589,13 @@ blend are applied. Group opacity/blend are still applied at the current paint
 position on every hit. No backdrop pixels or backdrop effects are retained.
 
 The cache owns drawable HTML/Offscreen canvases and composites them on a hit;
-it is not an IR-only skip. The hard residency cap is 32 MiB with an 8 MiB
-single-surface ceiling. Oversized surfaces are composed normally but are not
-retained. Least-recently-used surfaces are released on eviction, when the
-active document changes or closes, when diagnostic bypass is enabled, and when
+it is not an IR-only skip. The configured total cap follows the existing render
+memory preset: 8 MiB (low), 32 MiB (balanced), or 64 MiB (high), with an 8 MiB
+single-surface ceiling. A runtime cache-quality multiplier can lower that cap;
+the 4 GiB and 2 GiB device-memory profiles further cap it at 8 MiB and 4 MiB.
+Reducing the cap immediately evicts least-recently-used surfaces. Oversized
+surfaces are composed normally but are not retained. Surfaces are also released
+when the active document changes or closes, when diagnostic bypass is enabled, and when
 the page closes. The developer-only `?perf=1` handle exposes hits, misses, bypasses,
 evictions, retained bytes, and shape-leaf/raster-pixel work skipped, separately
 from the IR cache. Its bypass clears owned surfaces and forces fresh subtree

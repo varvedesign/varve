@@ -134,9 +134,10 @@ export function PerformanceSettingsTab() {
         />
       </SettingsFieldRow>
       <p className="settings-hint">
-        Controls how much memory the canvas render cache may retain. Lower budgets reduce memory use
-        on constrained devices at the cost of more redraw work on large documents. Takes effect for
-        newly opened documents.
+        Controls how much memory the canvas render cache may retain. The retained group surface
+        cache uses 8 MiB (low), 32 MiB (balanced), or 64 MiB (high); device pressure can lower those
+        limits. Lower budgets use less memory at the cost of more redraw work on large documents.
+        Takes effect for newly opened documents.
       </p>
 
       <SettingsFieldRow label="Interactive preview quality">

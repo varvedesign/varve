@@ -915,6 +915,12 @@ export function renderContent(deps: RenderContentDeps): void {
     // One profile per frame (pre-loop) so pruning, worker and paint agree.
     const profile = computeProfile(getAverageFrameTime(), getOverBudgetCount(), entries.length);
     const cacheMultiplier = profile.cacheMultiplier;
+    const adaptiveCacheLimits = getAdaptiveCacheLimits(
+      budgets,
+      cacheMultiplier,
+      resolveRuntimePressureProfile(),
+    );
+    retainedGroupSurfaceCache.setBudgetBytes(adaptiveCacheLimits.retainedGroupSurfaceBytes);
     // Active warp handles update nonlinear path geometry on every pointer
     // sample. Keep those frames on the main-thread renderer: Chromium's
     // OffscreenCanvas worker and the authoritative main-thread replay differed
@@ -2566,7 +2572,6 @@ export function renderContent(deps: RenderContentDeps): void {
     compositorFrameOpen = false;
     // Recompute both limits on every tier so recovery restores the user's
     // configured budget. The preset remains a ceiling even in quality mode.
-    const adaptiveCacheLimits = getAdaptiveCacheLimits(budgets, cacheMultiplier);
     subtreeIrCacheRef.current.setSoftBudget(adaptiveCacheLimits.subtreeIrCacheBytes);
     engineNodeMemoRef.current.setMaxEntries(adaptiveCacheLimits.engineNodeMemoEntries);
     // Redraw attribution: why is this frame being drawn at all, and (when a

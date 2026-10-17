@@ -8,6 +8,7 @@
 
 export interface MemoryBudgets {
   subtreeIrCacheBytes: number;
+  retainedGroupSurfaceBytes: number;
   transformCacheEntries: number;
   backdropCacheEntries: number;
   gradientCacheEntries: number;
@@ -21,6 +22,7 @@ export interface MemoryBudgets {
 
 export const DEFAULT_MEMORY_BUDGETS: MemoryBudgets = {
   subtreeIrCacheBytes: 50 * 1024 * 1024,
+  retainedGroupSurfaceBytes: 32 * 1024 * 1024,
   transformCacheEntries: 10000,
   backdropCacheEntries: 20,
   gradientCacheEntries: 200,
@@ -33,6 +35,7 @@ export const DEFAULT_MEMORY_BUDGETS: MemoryBudgets = {
 
 export interface AdaptiveCacheLimits {
   subtreeIrCacheBytes: number;
+  retainedGroupSurfaceBytes: number;
   engineNodeMemoEntries: number;
 }
 
@@ -44,6 +47,7 @@ export interface AdaptiveCacheLimits {
 export function getAdaptiveCacheLimits(
   budgets: MemoryBudgets,
   cacheMultiplier: number,
+  pressureProfile: PressureProfile = 'normal',
 ): AdaptiveCacheLimits {
   const finiteMultiplier = Number.isFinite(cacheMultiplier) ? cacheMultiplier : 1;
   const boundedMultiplier = Math.min(1, Math.max(0, finiteMultiplier));
@@ -51,6 +55,12 @@ export function getAdaptiveCacheLimits(
     subtreeIrCacheBytes: Math.max(
       1024 * 1024,
       Math.round(budgets.subtreeIrCacheBytes * boundedMultiplier),
+    ),
+    retainedGroupSurfaceBytes: Math.min(
+      Math.round(budgets.retainedGroupSurfaceBytes * boundedMultiplier),
+      pressureProfile === 'normal'
+        ? budgets.retainedGroupSurfaceBytes
+        : resolvePressureBudgets(pressureProfile).retainedGroupSurfaceBytes,
     ),
     engineNodeMemoEntries: Math.max(
       1,
@@ -66,6 +76,7 @@ export function getMemoryBudgets(memoryBudget?: 'low' | 'medium' | 'high'): Memo
       return {
         ...DEFAULT_MEMORY_BUDGETS,
         subtreeIrCacheBytes: 10 * 1024 * 1024,
+        retainedGroupSurfaceBytes: 8 * 1024 * 1024,
         backdropCacheEntries: 5,
         transformCacheEntries: 2000,
         engineNodeMemoEntries: 4000,
@@ -81,6 +92,7 @@ export function getMemoryBudgets(memoryBudget?: 'low' | 'medium' | 'high'): Memo
       return {
         ...DEFAULT_MEMORY_BUDGETS,
         subtreeIrCacheBytes: 200 * 1024 * 1024,
+        retainedGroupSurfaceBytes: 64 * 1024 * 1024,
         imageCacheBytes: 512 * 1024 * 1024,
       };
     default:
@@ -103,6 +115,7 @@ export function resolvePressureBudgets(profile: PressureProfile): MemoryBudgets 
       return {
         ...DEFAULT_MEMORY_BUDGETS,
         subtreeIrCacheBytes: 8 * 1024 * 1024,
+        retainedGroupSurfaceBytes: 4 * 1024 * 1024,
         workerBitmapBytes: 32 * 1024 * 1024,
         imageCacheBytes: 32 * 1024 * 1024,
         backdropCacheEntries: 3,
@@ -115,6 +128,7 @@ export function resolvePressureBudgets(profile: PressureProfile): MemoryBudgets 
       return {
         ...DEFAULT_MEMORY_BUDGETS,
         subtreeIrCacheBytes: 16 * 1024 * 1024,
+        retainedGroupSurfaceBytes: 8 * 1024 * 1024,
         workerBitmapBytes: 64 * 1024 * 1024,
         imageCacheBytes: 64 * 1024 * 1024,
         backdropCacheEntries: 5,
