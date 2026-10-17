@@ -386,7 +386,7 @@ function collectFidelityWarnings(node: SceneNode, _doc: Document): FidelityWarni
 
 // ── IR Construction ────────────────────────────────────────────────────────────
 
-function buildIR(doc: Document): IRDocument {
+function buildIR(doc: Document, rootIdOverride?: readonly string[]): IRDocument {
   const analysis = analyzeSceneForDesignIR(doc);
   const tokens = inferTokenLibrary(doc);
   const nodes: Record<string, SemanticNode> = {};
@@ -394,7 +394,9 @@ function buildIR(doc: Document): IRDocument {
   const fidelityWarnings: FidelityWarning[] = [];
   const htmlHints: Record<string, HtmlElementHint> = {};
 
-  const allRoots = documentSceneRootIds(doc);
+  // A caller-scoped root list (e.g. one selected subtree) narrows the
+  // conversion; document roots remain the default.
+  const allRoots = rootIdOverride ?? documentSceneRootIds(doc);
 
   for (const rootId of allRoots) {
     const context = {
@@ -537,8 +539,8 @@ function validateIR(ir: IRDocument): { valid: boolean; errors: string[]; warning
 
 // ── Public API ─────────────────────────────────────────────────────────────────
 
-export function sceneToIR(doc: Document): IRDocument {
-  const ir = buildIR(doc);
+export function sceneToIR(doc: Document, opts?: { rootIds?: readonly string[] }): IRDocument {
+  const ir = buildIR(doc, opts?.rootIds);
   const validation = validateIR(ir);
   if (!validation.valid) console.warn('IR validation errors:', validation.errors);
   if (validation.warnings.length > 0) console.warn('IR validation warnings:', validation.warnings);
