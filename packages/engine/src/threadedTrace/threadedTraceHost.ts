@@ -127,12 +127,23 @@ export class ThreadedTraceHost {
    */
   ensureReady(): Promise<ThreadedTraceState> {
     if (this.initPromise) return this.initPromise;
-    this.initPromise = this.initialize().catch((error: unknown) => {
-      const detail = error instanceof Error ? error.message : String(error);
-      this.setState({ phase: 'unavailable', reason: detail });
-      return this.state;
-    });
-    return this.initPromise;
+    let attempt: Promise<ThreadedTraceState>;
+    attempt = this.initialize()
+      .catch((error: unknown) => {
+        const detail = error instanceof Error ? error.message : String(error);
+        this.setState({ phase: 'unavailable', reason: detail });
+        return this.state;
+      })
+      .then((state) => {
+        // Share one in-flight initialization, but allow a later user request
+        // to retry after transient startup failures or a missing capability.
+        if (state.phase !== 'ready' && this.initPromise === attempt) {
+          this.initPromise = null;
+        }
+        return state;
+      });
+    this.initPromise = attempt;
+    return attempt;
   }
 
   private setState(state: ThreadedTraceState): void {

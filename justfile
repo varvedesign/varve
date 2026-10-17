@@ -72,6 +72,7 @@ wasm-build-threads:
     python3 -c "import os; os.execv('/usr/bin/rustup', ['rustup', 'target', 'add', 'wasm32-unknown-unknown', '--toolchain', 'nightly'])"
     cd crates/varve-wasm && RUSTFLAGS="-C target-feature=+atomics,+bulk-memory -C link-arg=--shared-memory -C link-arg=--max-memory=1073741824 -C link-arg=--import-memory -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base" CARGO_UNSTABLE_BUILD_STD="panic_abort,std" \
       python3 -c "import os; os.execvpe('wasm-pack', ['wasm-pack', 'build', '--target', 'web', '--out-dir', '../../apps/desktop/public/wasm/threads', '--out-name', 'varve_wasm_threads', '--features', 'threads'], {**os.environ, 'RUSTUP_TOOLCHAIN': 'nightly'})"
+    node scripts/patch-wasm-rayon-worker.mjs
     ls -lh apps/desktop/public/wasm/threads/
 
 wasm-size:

@@ -190,6 +190,10 @@ describe('ThreadedTraceHost', () => {
     const state = await pending;
     expect(state.phase).toBe('unavailable');
     expect(state.reason).toContain('simulated init failure');
+
+    const recovered = await host.ensureReady();
+    expect(recovered.phase).toBe('ready');
+    expect(FakePoolWorker.instances).toHaveLength(2);
   });
 
   it('copies pixel buffers and discards results for aborted requests', async () => {

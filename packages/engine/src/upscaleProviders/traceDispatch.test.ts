@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  *
  * Desktop builds must prefer the native engine (it is the production path:
  * full option support, cancellation, progress, centerline). Web builds use
- * worker → direct → wasm and must report centerline as unavailable instead
+ * threaded WASM → worker → direct → scalar WASM and must report centerline as unavailable instead
  * of silently emitting filled silhouettes.
  *
  * The first import of the dispatch graph transforms ~10s of modules in the
@@ -49,12 +49,16 @@ describe('trace dispatch', () => {
   );
 
   it(
-    'uses worker/direct/wasm order on web',
+    'prefers eligible threaded WASM before worker/direct/scalar fallbacks on web',
     async () => {
       setKind('web');
       const { TRACE_PROVIDER_CHAIN } = await loadDispatch();
-      expect(TRACE_PROVIDER_CHAIN[0]?.id).toBe('worker-trace');
-      expect(TRACE_PROVIDER_CHAIN[1]?.id).toBe('direct-trace');
+      expect(TRACE_PROVIDER_CHAIN.map((provider) => provider.id)).toEqual([
+        'wasm-threaded-trace',
+        'worker-trace',
+        'direct-trace',
+        'wasm-trace',
+      ]);
       expect(TRACE_PROVIDER_CHAIN.some((p) => p.id === 'native-trace')).toBe(false);
     },
     TIMEOUT,
