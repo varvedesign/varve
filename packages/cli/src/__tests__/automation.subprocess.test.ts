@@ -692,6 +692,98 @@ describe('batch and inspect', () => {
   });
 });
 
+describe('structure commands in the packaged CLI', () => {
+  it('lists, describes, groups and ungroups', () => {
+    const listed = varve(['commands', '--json']).json<{ commands: Array<{ id: string }> }>();
+    expect(listed.commands.map((c) => c.id)).toEqual(
+      expect.arrayContaining(['varve.node.group', 'varve.node.ungroup']),
+    );
+    const described = varve(['describe', 'varve.node.group']);
+    expect(described.status).toBe(0);
+    expect(described.stdout).toContain('nodeIds');
+
+    const dir = workDir();
+    const doc = flatDoc(dir, 'pair.varve', 2);
+    const grouped = join(dir, 'grouped.varve');
+    const g = varve([
+      'exec',
+      'varve.node.group',
+      '--file',
+      doc,
+      '--args-json',
+      JSON.stringify({ nodeIds: ['n0_aaaa0000', 'n1_aaaa0001'], name: 'Pair' }),
+      '--out',
+      grouped,
+      '--json',
+    ]);
+    expect(g.status).toBe(0);
+    const receipt = g.json<{ outcome: string; created: string[] }>();
+    expect(receipt.outcome).toBe('applied');
+    expect(receipt.created).toHaveLength(1);
+
+    const inspected = varve(['inspect', '--file', grouped]);
+    expect(inspected.stdout).toContain('Pair');
+
+    const ungrouped = varve([
+      'exec',
+      'varve.node.ungroup',
+      '--file',
+      grouped,
+      '--args-json',
+      JSON.stringify({ nodeId: receipt.created[0] }),
+      '--in-place',
+      '--json',
+    ]);
+    expect(ungrouped.status).toBe(0);
+    expect(ungrouped.json<{ outcome: string }>().outcome).toBe('applied');
+    expect(varve(['inspect', '--file', grouped]).stdout).not.toContain('Pair');
+  });
+
+  it('refuses mixed parents with the reason, and leaves the file alone', () => {
+    const dir = workDir();
+    const doc = flatDoc(dir, 'mixed.varve', 2);
+    const before = readFileSync(doc);
+    const frame = varve([
+      'exec',
+      'varve.node.create',
+      '--file',
+      doc,
+      '--args-json',
+      JSON.stringify({ kind: 'frame', x: 0, y: 0, width: 100, height: 100 }),
+      '--in-place',
+      '--json',
+    ]);
+    const frameId = frame.json<{ created: string[] }>().created[0];
+    varve([
+      'exec',
+      'varve.node.reparent',
+      '--file',
+      doc,
+      '--args-json',
+      JSON.stringify({ nodeId: 'n0_aaaa0000', parentId: frameId }),
+      '--in-place',
+      '--json',
+    ]);
+    const mid = readFileSync(doc);
+    expect(mid.equals(before)).toBe(false);
+    const r = varve([
+      'exec',
+      'varve.node.group',
+      '--file',
+      doc,
+      '--args-json',
+      JSON.stringify({ nodeIds: ['n0_aaaa0000', 'n1_aaaa0001'] }),
+      '--in-place',
+      '--json',
+    ]);
+    expect(r.status).toBe(1);
+    expect(r.json<{ error: { code: string; hint: string } }>().error.hint).toContain(
+      'varve.node.reparent',
+    );
+    expect(readFileSync(doc).equals(mid)).toBe(true);
+  });
+});
+
 describe('hostile document text', () => {
   const HOSTILE_DOC = '\u001b[2J\u001b]0;pwned\u0007Quarterly';
   const HOSTILE_LAYER = '\u001b[31mOK\u001b[0m\r\u202egnp';
