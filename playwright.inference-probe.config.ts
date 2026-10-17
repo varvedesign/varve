@@ -32,11 +32,18 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testMatch: /(?:threaded-wasm-probe|discovery-preprocess-parity)\.spec\.ts/,
+      testMatch:
+        /(?:threaded-wasm-probe|discovery-preprocess-parity|threaded-trace-pool)\.spec\.ts/,
     },
   ],
   webServer: {
-    command: `pnpm --filter @varve/desktop exec vite --port ${e2ePort}`,
+    // Real isolation headers from the dev server (vite.config honours
+    // VARVE_CROSS_ORIGIN_ISOLATION). Response-header injection on
+    // route-fulfilled pages does NOT confer cross-origin isolation — the
+    // recorded probe evidence (reports/inference-platform/facts-4633.json)
+    // shows crossOriginIsolated stayed false — so the gated probe specs run
+    // against a genuinely isolated origin instead.
+    command: `VARVE_CROSS_ORIGIN_ISOLATION=1 pnpm --filter @varve/desktop exec vite --port ${e2ePort}`,
     url: `http://localhost:${e2ePort}`,
     reuseExistingServer: false,
     timeout: 180_000,
