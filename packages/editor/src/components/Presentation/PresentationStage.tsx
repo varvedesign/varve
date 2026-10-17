@@ -149,11 +149,16 @@ export function PresentationStage({
       const transition = sample.transition;
       const anyActiveBuild = sample.builds.some((build) => build.state === 'active');
       const hasPendingBuilds = sample.builds.some((build) => build.state === 'pending');
+      // Canvas dimensions ride in the key: resizing a canvas blanks it, so
+      // the settled branch must repaint after a resize even with no state
+      // change.
       const stabilityKey = reducedMotion
-        ? `rm:${sample.slideIndex}:${sample.phase}:${sample.startedGroups}`
-        : `${sample.slideIndex}:${sample.phase}:${sample.startedGroups}:${anyActiveBuild ? 'a' : 's'}:${
-            transition ? Math.round(transition.progress * 500) : 'x'
-          }:${Math.round((sample.builds.find((b) => b.state === 'active')?.progress ?? 0) * 500)}`;
+        ? `rm:${canvas.width}x${canvas.height}:${sample.slideIndex}:${sample.phase}:${sample.startedGroups}`
+        : `${canvas.width}x${canvas.height}:${sample.slideIndex}:${sample.phase}:${sample.startedGroups}:${
+            anyActiveBuild ? 'a' : 's'
+          }:${transition ? Math.round(transition.progress * 500) : 'x'}:${Math.round(
+            (sample.builds.find((b) => b.state === 'active')?.progress ?? 0) * 500,
+          )}`;
 
       if (transition && slide && nextSlide) {
         const e = transitionEase(transitions[sample.slideIndex]?.easing, transition.progress);

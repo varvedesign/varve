@@ -5,6 +5,22 @@ export {
 } from './collectImageBitmaps';
 export { setCompositorDiagnostics } from './compositorDiagnosticsStore';
 export { startCanvasCompositor } from './compositorLifecycle';
+export {
+  decodeRasterResponse,
+  describeAdmission,
+  isNativeRasterAvailable,
+  type NativeRasterAdmission,
+  type NativeRasterDiagnostics,
+  type NativeRasterHealth,
+  type NativeRasterOutcome,
+  type NativeRasterRejectReason,
+  nativeRasterFrame,
+  nativeRasterPlan,
+  nativeRasterRetry,
+  nativeRasterStatus,
+  shouldPresentNativeFrame,
+  toImageData,
+} from './nativeRasterClient';
 export { type BitmapBudgetState, RenderBitmapBudget } from './renderBitmapBudget';
 export {
   sceneCanUseWorkerRenderer,

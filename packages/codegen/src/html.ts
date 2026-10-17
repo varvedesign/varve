@@ -363,6 +363,11 @@ export function exportIrToHtml(
   const htmlParts: string[] = [];
   const assets: string[] = [];
   const usedClasses = new Map<string, number>();
+  // Emitted class per IR node id — the only source media queries may use.
+  // Re-deriving names from node names diverges the moment the dedupe
+  // suffixes a collision, and a selector that matches nothing silently
+  // disables the responsive override.
+  const classByNodeId = new Map<string, string>();
 
   // ── CSS Reset ──────────────────────────────────────────────────────────────
   if (opts.includeReset !== false) {
@@ -405,6 +410,7 @@ export function exportIrToHtml(
     let idx = 2;
     while (usedClasses.has(className)) className = `${baseName}-${idx++}`;
     usedClasses.set(className, 1);
+    classByNodeId.set(node.id, className);
 
     const tag = ir.htmlHints[node.id] || 'div';
     const nodeCss: Record<string, string> = {};
@@ -546,7 +552,8 @@ ${htmlParts.join('\n')}
       for (const [_nodeId, node] of Object.entries(ir.nodes)) {
         const ri = node.responsiveInference;
         if (ri && ri.breakpoint >= bp.minWidth && ri.confidence > 0.5 && ri.layoutChanges) {
-          const cls = makeClassName(node.name || node.kind);
+          const cls = classByNodeId.get(_nodeId);
+          if (!cls) continue;
           mqLines.push(`  .${cls} {`);
           if (ri.layoutChanges.wrap) mqLines.push(`    flex-wrap: wrap;`);
           if (ri.layoutChanges.direction)

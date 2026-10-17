@@ -282,7 +282,8 @@ TLS, limits, troubleshooting). The decision record is
 | `adr/0241-raster-stroke-ownership-history-hashing-tile-identity.md` | Stroke-scoped exclusive tile ownership, cheaper history capture with an unchanged hash value, and runtime tile content identity instead of version equality |
 | `adr/0242-document-authority-and-interchange.md` | One document authority per kind with preservation adapters; separate identity axes; derived structure never owns edits; honest output claims |
 | `adr/0243-realtime-collaboration.md` | Authoritative semantic-operation rooms (no CRDT), per-participant compensating undo, one host implementation for app-hosted and self-hosted shapes, presence/chat/spotlight as a lossy lane |
-| `adr/0244-agent-control-command-service.md` | Agent control: strict command contracts, one executor, shared document authority, receipts, idempotency and attributed rollback (see `architecture/agent-control-system.md`) |
+| `adr/0244-native-gpu-rasterization-of-the-render-ir.md` | Native GPU rasterization of the render IR: analytic shapes plus stencil-and-cover paths over the existing IR contract, measured readback bridge, explicit per-item admission, and Canvas2D as the only present surface |
+| `adr/0245-agent-control-command-service.md` | Agent control: strict command contracts, one executor, shared document authority, receipts, idempotency and attributed rollback (see `architecture/agent-control-system.md`) |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |
@@ -303,7 +304,7 @@ TLS, limits, troubleshooting). The decision record is
 | `architecture/wasm-backends.md` | WASM backend architecture |
 | `architecture/motion-system.md` | Motion/animation architecture |
 | `architecture/presentation-system.md` | Frame-referenced decks, layout roles, notes, audience preview, and multi-page delivery |
-| `architecture/agent-control-system.md` | Agent control contract: strict commands, executor pipeline, receipts, idempotency, attributed rollback (ADR-0244) |
+| `architecture/agent-control-system.md` | Agent control contract: strict commands, executor pipeline, receipts, idempotency, attributed rollback (ADR-0245) |
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |
 | `architecture/text-on-path.md` | Text-on-path data, rendering, editing, export, and fidelity limits |
 | `architecture/clipboard-system.md` | System clipboard ownership, fragment fidelity, representation negotiation, placement, and Cut safety |

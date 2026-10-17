@@ -1,4 +1,4 @@
-//! App-hosted automation control endpoint (ADR-0244).
+//! App-hosted automation control endpoint (ADR-0245).
 //!
 //! The desktop app is the only place connected mode can exist: a webview cannot
 //! open a listener, so the socket lives in Rust and the *protocol* lives in the

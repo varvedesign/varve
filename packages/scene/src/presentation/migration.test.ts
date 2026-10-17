@@ -3,6 +3,7 @@ import { canonicalHistoryHash, canonicalizeDocument } from '../canonical';
 import { createDocument } from '../document';
 import { DocumentCodec } from '../documentCodec';
 import { migrateDocument } from '../version';
+import { PRESENTATION_SCHEMA_VERSION } from './types';
 
 describe('presentation persistence and migration', () => {
   it('migrates v2.30 presentation metadata without losing order or recovery notes', () => {
@@ -15,7 +16,7 @@ describe('presentation persistence and migration', () => {
       components: {},
       nextId: 1,
       presentation: {
-        schemaVersion: 1 as const,
+        schemaVersion: PRESENTATION_SCHEMA_VERSION,
         decks: [
           {
             id: 'deck',
@@ -56,7 +57,7 @@ describe('presentation persistence and migration', () => {
     const document = {
       ...createDocument('Pitch', true),
       presentation: {
-        schemaVersion: 1 as const,
+        schemaVersion: PRESENTATION_SCHEMA_VERSION,
         layouts: [],
         themes: [],
         decks: [
@@ -89,7 +90,7 @@ describe('presentation persistence and migration', () => {
     const document = {
       ...createDocument('Pitch', true),
       presentation: {
-        schemaVersion: 1 as const,
+        schemaVersion: PRESENTATION_SCHEMA_VERSION,
         layouts: [],
         themes: [],
         decks: [

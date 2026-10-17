@@ -1,4 +1,4 @@
-//! Local control-endpoint host for Varve automation (ADR-0244).
+//! Local control-endpoint host for Varve automation (ADR-0245).
 //!
 //! The application owns the protocol; this crate owns the endpoint. See
 //! [`relay`] for why that split exists and [`server`] for what the transport

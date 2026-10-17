@@ -11,6 +11,7 @@ mod collab_host;
 mod lifecycle;
 mod logs;
 mod menu;
+mod native_raster;
 mod print;
 mod renderer;
 mod updates;
@@ -5544,6 +5545,7 @@ pub fn run() {
             app.manage(native_shutdown);
             app.manage(UpscaleCancelState::new());
             app.manage(std::sync::Arc::new(acceleration::AccelerationState::new()));
+            app.manage(std::sync::Arc::new(native_raster::NativeRasterState::new()));
             app.manage(LamaCancelState::new());
             app.manage(TraceCancelState::new());
             app.manage(lifecycle::LifecycleGuard::new());
@@ -5891,6 +5893,9 @@ pub fn run() {
             acceleration::native_acceleration_status,
             acceleration::native_gpu_self_test,
             acceleration::native_set_inference_provider,
+            native_raster::native_raster_frame,
+            native_raster::native_raster_status,
+            native_raster::native_raster_retry,
             crash::crash_write_report,
             crash::crash_list_reports,
             crash::crash_read_report,

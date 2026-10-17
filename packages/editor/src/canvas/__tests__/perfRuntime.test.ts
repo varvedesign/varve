@@ -1,9 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { _resetWasmCapabilitySnapshot, _setWasmCapabilitySnapshotForTests } from '@varve/engine';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetProfile } from '../adaptiveProfile';
 import { getFrameCount, getLastFrame, resetDiagnostics } from '../drawDiagnostics';
 import { resetFrameTimings } from '../frameBudget';
 import {
   beginFrame,
+  buildRenderPathSnapshot,
   endFrame,
   initCanvasPerf,
   renderPerfHud,
@@ -20,6 +22,10 @@ describe('perfRuntime', () => {
     resetProfile();
     setPerfHudEnabled(false);
     enableSnapMetrics(false);
+  });
+
+  afterEach(() => {
+    _resetWasmCapabilitySnapshot();
   });
 
   it('initCanvasPerf runs without error', () => {
@@ -119,6 +125,33 @@ describe('perfRuntime', () => {
     renderPerfHud(fakeCtx, 800);
 
     expect(fillText).not.toHaveBeenCalled();
+  });
+
+  it('render-path snapshot reports WASM capability and the artifact that ran', () => {
+    _setWasmCapabilitySnapshotForTests({
+      wasm: {
+        apiPresent: true,
+        baselineValidated: true,
+        simdValidated: true,
+        threadsValidated: true,
+        sharedArrayBufferAvailable: false,
+        crossOriginIsolated: false,
+        threadsUsable: false,
+      },
+      workerPresent: true,
+      offscreenCanvasPresent: true,
+      secureContext: true,
+    });
+
+    const snapshot = buildRenderPathSnapshot();
+
+    // Capability is true; nothing has loaded, so the artifact is `none`. The
+    // report must never turn capability into an acceleration claim.
+    expect(snapshot.wasm.simdValidated).toBe(true);
+    expect(snapshot.wasm.threadsUsable).toBe(false);
+    expect(snapshot.wasm.engineArtifact).toBe('none');
+    expect(snapshot.wasm.colourArtifact).toBe('none');
+    expect(snapshot.summary).toContain('->');
   });
 
   it('resolveMemoryBudgets returns tiered presets matching memoryBudget.ts', () => {

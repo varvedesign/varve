@@ -9,6 +9,11 @@
  */
 
 import {
+  getColourWasmAttribution,
+  getWasmCapabilitySnapshot,
+  getWasmEngineAttribution,
+} from '@varve/engine';
+import {
   getPyramidResidency,
   getPyramidScheduler,
   isRasterPyramidEnabled,
@@ -309,6 +314,13 @@ export function buildRenderPathSnapshot(): ReturnType<typeof resolveRenderPathDi
 } {
   const caps = detectPlatformCapabilities();
   const eligibility = resolveWorkerEligibility(caps);
+  // Capability and attribution are pull-based like everything else here: the
+  // probe is cached, and attribution is whatever the loader recorded. A
+  // diagnostics surface therefore cannot report SIMD from the mere presence of
+  // a SIMD file — `engineArtifact` is what the engine actually instantiated.
+  const wasmCaps = getWasmCapabilitySnapshot().wasm;
+  const engineAttribution = getWasmEngineAttribution();
+  const colourAttribution = getColourWasmAttribution();
   const diagnostic = resolveRenderPathDiagnostic({
     engine: caps.engine,
     engineVersionToken: caps.webKitVersion,
@@ -319,6 +331,22 @@ export function buildRenderPathSnapshot(): ReturnType<typeof resolveRenderPathDi
     eligibility,
     workerHostCreated: getRegisteredWorkerHost() !== null,
     recentFramePaths: getRecentFrames(120).map((f) => f.renderPath),
+    wasm: {
+      apiPresent: wasmCaps.apiPresent,
+      simdValidated: wasmCaps.simdValidated,
+      threadsValidated: wasmCaps.threadsValidated,
+      sharedArrayBufferAvailable: wasmCaps.sharedArrayBufferAvailable,
+      crossOriginIsolated: wasmCaps.crossOriginIsolated,
+      threadsUsable: wasmCaps.threadsUsable,
+      engineArtifact: engineAttribution.artifact,
+      engineArtifactUrl: engineAttribution.activeUrl,
+      engineVersion: engineAttribution.version,
+      skipped: engineAttribution.skipped,
+      fallbacks: engineAttribution.fallbacks.map(
+        (attempt) => `${attempt.artifact}:${attempt.stage}:${attempt.reason}`,
+      ),
+      colourArtifact: colourAttribution.artifact,
+    },
   });
   return { ...diagnostic, summary: describeRenderPath(diagnostic) };
 }

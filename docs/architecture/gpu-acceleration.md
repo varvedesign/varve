@@ -19,6 +19,7 @@ Canvas2D remains the default renderer and authoritative fallback.
 | Layer | What it is | State |
 |---|---|---|
 | Display rendering | How the webview presents pixels (browser-composited Canvas2D/WebGPU under the hood) | Not inferred, not claimed. Status text never equates a backend name with hardware execution |
+| Native scene rasterization | `varve_accel::render` rasterizes the render IR on the GPU, offscreen, and returns pixels for the existing Canvas2D present surface | Implemented and qualified for an admitted content set; **not** presentation. See ADR-0244 and [native-render-stage.md](native-render-stage.md) |
 | Scene GPU paths | `WebGPUBackend` and experimental `WebGL2Backend` in `packages/compositor`, rendering admitted content offscreen and compositing onto the Canvas2D present surface | Both are opt-in; Canvas2D is the default. WebGPU admits selected solid rectangles/ovals; WebGL2 admits a narrower set of device-pixel-aligned rectangles and simple stretched images. Unsupported content falls back to Canvas2D. |
 | GPU compute effects | `GpuEffectRunner` + nine WGSL kernels (bloom, caustics, CRT, VHS, light shafts, lens flare, light leak, palette snap, RGB split) behind the live-effect provider chain | Implemented and tested in isolation; **no application consumer yet** — but measured 3–64× faster than CPU end-to-end on this host (see §5) |
 | Native acceleration | `varve-accel` wgpu compute with truthful capability stages (discovered → runtime-loadable → device-usable → execution-verified) | Per ADR-0237; consumer is the (unwired) effect chain; see [native-acceleration.md](native-acceleration.md) |
@@ -257,12 +258,16 @@ controlled studies; confirmed causes marked.
   resource-soak, and paired native performance gates pass on a specific
   hardware profile. The qualification contract is in
   [`../perf/webgl2-qualification.md`](../perf/webgl2-qualification.md).
-- **No native scene presentation.** Native computation (wgpu kernels) can
-  win for bounded raster work; native presentation adds surface embedding,
-  DPI, input alignment, and packaging costs across three webviews. Full-frame
-  readback + IPC would not beat in-process Canvas2D replay for scene
-  rendering. Per ADR-0237, native acceleration stays compute-only with
-  truthful capability stages.
+- **Native scene rasterization yes; native presentation no (ADR-0244,
+  2026-10-16).** The earlier "full-frame readback + IPC would not beat
+  in-process Canvas2D replay" reasoning is now measured rather than asserted:
+  rasterization itself costs 0.04–0.76 ms, while moving the result into the
+  webview costs 14.7 ms at 1600×1000 and 39 ms at 3200×2000 on the reference
+  machine. That is why the native stage is a rasterizer that feeds the
+  existing Canvas2D present surface, and why native presentation is recorded
+  as a platform problem — unsolved on Linux/Wayland — rather than as a design
+  preference. No speedup claim is made in either direction, because the
+  Canvas2D baseline for the same corpus has not been measured.
 - **Fail-closed admission over GPU-coverage counters.** A wider GPU path is
   not a win if it changes pixels. Admission widens only when the pipeline
   reproduces the Canvas2D result (fills-stack solids and ellipses qualified

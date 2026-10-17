@@ -863,6 +863,10 @@ describe('withStubFallback resilience', () => {
             kind: 'rasterLayer',
             transform: [1, 0, 0, 1, 0, 0],
             fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+            // Real geometry, so the stub can answer: a shape-less node is
+            // skipped by the reference hit test, and asserting only "not the
+            // sentinel" would pass on null and prove nothing about the answer.
+            shape: { kind: 'rect', x: 0, y: 0, w: 128, h: 128 },
             rasterLayerData: {
               width: 128,
               height: 128,
@@ -877,7 +881,9 @@ describe('withStubFallback resilience', () => {
 
     expect(primary.hitTest).not.toHaveBeenCalled();
     // `999` is the sentinel above: it would mean the wire backend answered.
-    expect(idx).not.toBe(999);
+    // The stub must give the reference answer for the node that contains the
+    // point, not merely decline to answer.
+    expect(idx).toBe(0);
   });
 
   it('still consults the wire backend for a scene with no raster payload', async () => {

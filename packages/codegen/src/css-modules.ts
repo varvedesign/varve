@@ -11,6 +11,7 @@
  */
 
 import type { Document as SceneDocument, SceneNode } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
 import { resolveBundleAssets } from './bundle-assets';
 import { type CssExportOptions, collectCssRules, cssTargetGaps } from './css';
 import { styleKeyAccess, toComponentName, toFileStem } from './naming';
@@ -83,13 +84,15 @@ function runStyleObject(
     style.fontWeight = String(format.fontWeight);
   if (format.fontStyle === 'italic') style.fontStyle = 'italic';
   if (format.color) {
-    const c = format.color as { r?: number; g?: number; b?: number };
-    const n = node.fill as { r?: number; g?: number; b?: number };
-    const differs = c.r !== undefined && (c.r !== n.r || c.g !== n.g || c.b !== n.b);
-    if (differs) {
-      style.color = `#${[c.r, c.g, c.b]
-        .map((v) => (v ?? 0).toString(16).padStart(2, '0'))
-        .join('')}`;
+    // The full RGBA participates: alpha-only differences still need the
+    // run-level declaration.
+    const [r, g, b, a] = managedColorToRgba(format.color as never);
+    const [nr, ng, nb, na] = managedColorToRgba(node.fill as never);
+    if (r !== nr || g !== ng || b !== nb || a !== na) {
+      style.color =
+        a >= 255
+          ? `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`
+          : `rgba(${r},${g},${b},${(a / 255).toFixed(3)})`;
     }
   }
   if (format.lineHeight !== undefined && format.lineHeight !== node.lineHeight)

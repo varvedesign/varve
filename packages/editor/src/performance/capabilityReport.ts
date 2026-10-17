@@ -8,6 +8,11 @@
  * never leave this module.
  */
 
+import {
+  getColourWasmAttribution,
+  getWasmCapabilitySnapshot,
+  getWasmEngineAttribution,
+} from '@varve/engine';
 import { getPlatformInfo } from '@varve/platform';
 import { detectPlatformCapabilities, type PlatformCapabilities } from '../canvas/adaptiveProfile';
 import {
@@ -36,6 +41,19 @@ export interface WasmCapabilityProbe {
   simdValidated: boolean;
   threadsValidated: boolean;
   threadsUsable: boolean;
+  /**
+   * Artifact the loader actually instantiated this session. `none` means it is
+   * still loading, or every candidate failed (see `fallbacks`). A SIMD file on
+   * disk does not make this `simd`.
+   */
+  activeArtifact: 'simd' | 'baseline' | 'none';
+  activeArtifactVersion: string | null;
+  /** Candidate that was intentionally not attempted. */
+  skipped: 'simd-unsupported' | 'simd-not-preferred' | null;
+  /** Bounded structural failure reasons; no stack traces. */
+  fallbacks: readonly string[];
+  /** The colour engine ships baseline-only (no v128 instructions measured). */
+  colourArtifact: 'baseline' | 'none';
 }
 
 export interface StorageCapabilityProbe {
@@ -95,15 +113,6 @@ export interface CapabilityReport {
   storage: StorageCapabilityProbe;
   files: FileCapabilityProbe;
 }
-
-const WASM_SIMD_PROBE = new Uint8Array([
-  0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15,
-  253, 15, 11,
-]);
-
-// A one-page shared memory declaration is enough to validate the threads
-// feature without starting a worker or allocating a meaningful buffer.
-const WASM_THREADS_PROBE = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 5, 5, 1, 3, 1, 1]);
 
 function finiteNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
@@ -178,30 +187,24 @@ function probeWebGl(): WebGlCapabilityProbe {
   }
 }
 
-function validateWasm(bytes: Uint8Array): boolean {
-  if (typeof WebAssembly === 'undefined' || !hasFunction(WebAssembly.validate)) return false;
-  try {
-    return WebAssembly.validate(bytes as unknown as BufferSource);
-  } catch {
-    return false;
-  }
-}
-
 function probeWasm(): WasmCapabilityProbe {
-  const apiPresent = typeof WebAssembly !== 'undefined' && hasFunction(WebAssembly.validate);
-  const baselineValidated = apiPresent
-    ? validateWasm(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]))
-    : false;
-  const simdValidated = apiPresent ? validateWasm(WASM_SIMD_PROBE) : false;
-  const threadsValidated = apiPresent ? validateWasm(WASM_THREADS_PROBE) : false;
-  const crossOriginIsolated = Boolean(getWindowRecord().crossOriginIsolated);
+  // One probe implementation for the loader and the report, so the report can
+  // never describe a capability the loader did not use (and vice versa).
+  const wasm = getWasmCapabilitySnapshot().wasm;
+  const engine = getWasmEngineAttribution();
   return {
-    apiPresent,
-    baselineValidated,
-    simdValidated,
-    threadsValidated,
-    threadsUsable:
-      threadsValidated && typeof SharedArrayBuffer !== 'undefined' && crossOriginIsolated,
+    apiPresent: wasm.apiPresent,
+    baselineValidated: wasm.baselineValidated,
+    simdValidated: wasm.simdValidated,
+    threadsValidated: wasm.threadsValidated,
+    threadsUsable: wasm.threadsUsable,
+    activeArtifact: engine.artifact,
+    activeArtifactVersion: engine.version,
+    skipped: engine.skipped,
+    fallbacks: engine.fallbacks.map(
+      (attempt) => `${attempt.artifact}:${attempt.stage}:${attempt.reason}`,
+    ),
+    colourArtifact: getColourWasmAttribution().artifact,
   };
 }
 

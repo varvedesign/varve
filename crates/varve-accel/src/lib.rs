@@ -17,6 +17,12 @@ pub mod discovery;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod effects;
 
+/// Native scene rasterization of the render IR. This is *rasterization*, not
+/// presentation: the pixels it produces reach the window through the existing
+/// Canvas2D present surface. See ADR-0244.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod render;
+
 pub use capability::{
     AccelStage, AcceleratorDevice, ComputeCapabilities, CpuCapabilities, DeviceKind,
     EffectiveBackend, InferenceCapabilities, InferenceProviderStatus, NativeAccelerationReport,

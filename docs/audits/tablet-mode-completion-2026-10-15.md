@@ -53,7 +53,13 @@ geometry, serialized document state, and chip text were asserted alongside.
 
 ## 3. Run log
 
-Appended below as the validation runs complete.
+| Run | Scope | Result |
+|---|---|---|
+| Matrix (lease-held) | 40 tests incl. the twist test | 35 pass in-run; twist ✓, pen/pinch/back-gesture ✓; 5 failures (boundary drift, portrait sheet, drawers, rotation boot) all passed on isolated rerun — mid-run Vite reloads from concurrent sessions editing the watched tree |
+| Attribution rerun | the 5 failed + rotation | 4/6 pass clean; rotation-mid-gesture failed at *boot* (shared.ts waits < the documented ~76s cold-paint ceiling) — budget raised to 180s; double-tap failed on input timing |
+| Tablet family | keyboardless, editing-controls, poster, hybrid, low-end, text-editing | 7/8 in-run; every failure a load artifact at machine load ~24 (unrelated poster flow timed out on the same canvas-ready wait); double-tap verified separately |
+| Double-tap verification | instrumented standalone run at the exact test viewport | dblclick synthesis confirmed for touch and mouse; feature opens the editor; the in-suite failures were the OS double-click window closing between protocol round-trips under load |
+| Final confirmation | poster + text-editing pair (the ordering that failed) | **4/4 passed in 4.1m** — rotation ✓ (180s budget), double-tap ✓ |
 
 ## 4. Device-only handoff (unchanged, unclaimed)
 

@@ -1,3 +1,5 @@
+import { getWasmCapabilitySnapshot } from '../runtimeCapabilities';
+
 export interface ColourWasmModule {
   wasm_rgb_to_cmyk(r: number, g: number, b: number): Uint8Array;
   wasm_cmyk_to_rgb(c: number, m: number, y: number, k: number): Uint8Array;
@@ -28,19 +30,87 @@ export interface ColourWasmModule {
 let cachedModule: ColourWasmModule | null = null;
 let initPromise: Promise<void> | null = null;
 
+/**
+ * Which colour artifact serves this session. The colour engine is built
+ * baseline-only: the shipped `varve_colour_bg.wasm` contains no `v128`
+ * instructions (verified by `just verify-wasm-simd`), so there is no SIMD
+ * artifact to prefer and none is claimed.
+ */
+export interface ColourWasmAttribution {
+  artifact: 'baseline' | 'none';
+  activeUrl: string | null;
+  simdValidated: boolean;
+  simdArtifact: 'not-shipped';
+  fallbacks: readonly WasmArtifactFailure[];
+}
+
+export interface WasmArtifactFailure {
+  url: string;
+  stage: 'head' | 'glue' | 'instantiate';
+  reason: string;
+}
+
+const MAX_FALLBACKS = 4;
+const MAX_REASON_CHARS = 180;
+
+let attribution: ColourWasmAttribution = {
+  artifact: 'none',
+  activeUrl: null,
+  simdValidated: false,
+  simdArtifact: 'not-shipped',
+  fallbacks: [],
+};
+
+export function getColourWasmAttribution(): ColourWasmAttribution {
+  return { ...attribution, simdValidated: getWasmCapabilitySnapshot().wasm.simdValidated };
+}
+
+/** Test seam: clear the load cache and attribution. */
+export function _resetColourWasmForTests(): void {
+  cachedModule = null;
+  initPromise = null;
+  attribution = {
+    artifact: 'none',
+    activeUrl: null,
+    simdValidated: false,
+    simdArtifact: 'not-shipped',
+    fallbacks: [],
+  };
+}
+
+function truncateReason(reason: string): string {
+  const singleLine = reason.replace(/\s+/g, ' ').trim();
+  return singleLine.length > MAX_REASON_CHARS
+    ? `${singleLine.slice(0, MAX_REASON_CHARS)}…`
+    : singleLine;
+}
+
+function reasonOf(error: unknown): string {
+  if (error instanceof Error) return truncateReason(error.message || error.name);
+  return truncateReason(String(error));
+}
+
 const WASM_CANDIDATES = ['/wasm/varve_colour_bg.wasm'];
 
 function wasmUrlToJsUrl(wasmUrl: string): string {
   return wasmUrl.replace('_bg.wasm', '.js');
 }
 
-async function tryLoadCandidate(wasmUrl: string): Promise<ColourWasmModule | null> {
+async function tryLoadCandidate(
+  wasmUrl: string,
+): Promise<{ mod: ColourWasmModule | null; failure: WasmArtifactFailure | null }> {
+  let stage: WasmArtifactFailure['stage'] = 'head';
   try {
     const headResp = await fetch(wasmUrl, { method: 'HEAD' });
-    if (!headResp.ok) return null;
+    if (!headResp.ok) {
+      return { mod: null, failure: { url: wasmUrl, stage, reason: `HTTP ${headResp.status}` } };
+    }
+    stage = 'glue';
     const jsUrl = wasmUrlToJsUrl(wasmUrl);
     const jsResp = await fetch(jsUrl);
-    if (!jsResp.ok) return null;
+    if (!jsResp.ok) {
+      return { mod: null, failure: { url: wasmUrl, stage, reason: `HTTP ${jsResp.status}` } };
+    }
     const jsCode = await jsResp.text();
     const blob = new Blob([jsCode], { type: 'text/javascript' });
     const blobUrl = URL.createObjectURL(blob);
@@ -48,15 +118,16 @@ async function tryLoadCandidate(wasmUrl: string): Promise<ColourWasmModule | nul
       const mod = (await import(/* @vite-ignore */ blobUrl)) as {
         default: (init: { module_or_path: Promise<ArrayBuffer> }) => Promise<ColourWasmModule>;
       };
+      stage = 'instantiate';
       const module = await mod.default({
         module_or_path: fetch(wasmUrl).then((r) => r.arrayBuffer()),
       });
-      return module as unknown as ColourWasmModule;
+      return { mod: module as unknown as ColourWasmModule, failure: null };
     } finally {
       URL.revokeObjectURL(blobUrl);
     }
-  } catch {
-    return null;
+  } catch (error) {
+    return { mod: null, failure: { url: wasmUrl, stage, reason: reasonOf(error) } };
   }
 }
 
@@ -64,12 +135,24 @@ export async function loadColourWasmModule(): Promise<ColourWasmModule | null> {
   if (cachedModule) return cachedModule;
   if (!initPromise) {
     initPromise = (async () => {
+      const fallbacks: WasmArtifactFailure[] = [];
+      attribution = {
+        artifact: 'none',
+        activeUrl: null,
+        simdValidated: getWasmCapabilitySnapshot().wasm.simdValidated,
+        simdArtifact: 'not-shipped',
+        fallbacks,
+      };
       for (const candidate of WASM_CANDIDATES) {
-        const mod = await tryLoadCandidate(candidate);
-        if (mod) {
-          cachedModule = mod;
-          return;
+        const { mod, failure } = await tryLoadCandidate(candidate);
+        if (failure) {
+          if (fallbacks.length < MAX_FALLBACKS) fallbacks.push(failure);
+          continue;
         }
+        if (!mod) continue;
+        cachedModule = mod;
+        attribution = { ...attribution, artifact: 'baseline', activeUrl: candidate, fallbacks };
+        return;
       }
     })();
   }

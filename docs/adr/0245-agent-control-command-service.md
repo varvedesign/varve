@@ -1,4 +1,4 @@
-# ADR-0244: Agent control command service
+# ADR-0245: Agent control command service
 
 - **Status:** Accepted (core, local transports, live authority, endpoint transport, editor port, settings surface and parity gate implemented; the wiring from the setting to the endpoint is verified in the launched desktop app on Linux only)
 - **Date:** 2026-10-15

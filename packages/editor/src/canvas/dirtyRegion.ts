@@ -17,8 +17,10 @@ import {
   TILE_SIZE,
   warpsOnNode,
 } from '@varve/scene';
-import type { Rect } from '@varve/shared';
+import type { Affine, Rect } from '@varve/shared';
+import { transformRect } from '@varve/shared';
 import { committedParentIndex } from '../scene/parentIndexCache';
+import { nodeWorldTransform } from '../scene/world';
 import { PAGE_LABEL_BAND } from './pageDecorations';
 import { nodeVisualWorldBounds } from './visualBounds';
 
@@ -100,7 +102,12 @@ function unionBounds(left: Rect | null, right: Rect): Rect {
   return { x, y, w: maxX - x, h: maxY - y };
 }
 
-function rasterTileWorldBounds(tileKey: string): Rect {
+/**
+ * A tile's rectangle in the layer's OWN space: tile keys are grid coordinates,
+ * not world positions. Callers must map this through the node's world transform
+ * before contributing it as a dirty rect.
+ */
+function rasterTileLocalBounds(tileKey: string): Rect {
   const { col, row } = parseTileKey(tileKey);
   return {
     x: col * TILE_SIZE,
@@ -172,7 +179,11 @@ export function pagePlacementChanged(previous: Document, next: Document): boolea
   return changedPageBounds(previous, next).length > 0;
 }
 
-function changedRasterTileBounds(before: RasterLayerNode, after: RasterLayerNode): Rect[] {
+function changedRasterTileBounds(
+  before: RasterLayerNode,
+  after: RasterLayerNode,
+  worldTransform: Affine,
+): Rect[] {
   const rects: Rect[] = [];
   const allKeys = new Set<string>([...before.tiles.keys(), ...after.tiles.keys()]);
   for (const key of allKeys) {
@@ -185,7 +196,7 @@ function changedRasterTileBounds(before: RasterLayerNode, after: RasterLayerNode
     if (bTile && aTile && bTile.pixels === aTile.pixels && bTile.version === aTile.version) {
       continue;
     }
-    rects.push(rasterTileWorldBounds(key));
+    rects.push(transformRect(worldTransform, rasterTileLocalBounds(key)));
   }
   return rects;
 }
@@ -420,7 +431,12 @@ function evaluateDocumentDirtyRegion(
       const rAfter = after as RasterLayerNode | undefined;
 
       if (rBefore && rAfter) {
-        const tileRects = changedRasterTileBounds(rBefore, rAfter);
+        nextParents ??= nextParentIndex ?? committedParentIndex(next);
+        const tileRects = changedRasterTileBounds(
+          rBefore,
+          rAfter,
+          nodeWorldTransform(next, id, nextParents),
+        );
         // Tile keys are grid coordinates in the layer's own space, so a tight
         // per-tile rect is only meaningful while the layer's placement and
         // appearance are unchanged. Otherwise fall through to the generic path

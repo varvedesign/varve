@@ -1,6 +1,6 @@
 [package]
 name = "varve-automation-host"
-description = "Local control-endpoint host for Varve automation: owner-only endpoint directory, per-instance credential, bounded line framing, and a relay trait so the application keeps the protocol (ADR-0244)."
+description = "Local control-endpoint host for Varve automation: owner-only endpoint directory, per-instance credential, bounded line framing, and a relay trait so the application keeps the protocol (ADR-0245)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

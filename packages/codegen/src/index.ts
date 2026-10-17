@@ -22,6 +22,7 @@ import {
   pathTextSvgContent,
   pathTextSvgDef,
   pathTextSvgId,
+  setSvgExportTextMeasurer,
   svgPatternFillForNode,
   svgRect,
 } from './svg';
@@ -927,6 +928,10 @@ export function exportDocumentToSvgAdvanced(
   options: SvgExportOptions,
   boundsOverride?: { x: number; y: number; w: number; h: number },
 ): string {
+  // Document-level emission does not accept a measurer today; make that
+  // explicit instead of leaking whatever a previous exportNodeToSvg call
+  // left in the module-scoped provider.
+  setSvgExportTextMeasurer(null);
   const bounds = boundsOverride ?? computeDocumentBounds(doc);
   const nl = options.minify ? '' : '\n';
   const visibleRootIds = documentExportRootIds(doc);

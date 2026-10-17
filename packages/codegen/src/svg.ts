@@ -61,6 +61,11 @@ import { emitMeasuredTextContent, type SvgTextMeasurer } from './svgTextLayout';
  */
 let svgExportTextMeasurer: SvgTextMeasurer | null = null;
 
+/** Set (or clear) the font-metrics provider for the next SVG export. */
+export function setSvgExportTextMeasurer(measurer: SvgTextMeasurer | null): void {
+  svgExportTextMeasurer = measurer;
+}
+
 export { svgPatternFillForNode } from './svg-patterns';
 
 import {

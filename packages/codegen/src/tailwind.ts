@@ -128,10 +128,15 @@ function runClassesDelta(
   }
   if (format.fontStyle === 'italic') classes.push('italic');
   if (format.color) {
-    const runHex = hexOf(format.color as { r?: number; g?: number; b?: number });
-    const nodeHex = hexOf(node.fill as { r?: number; g?: number; b?: number });
-    // Identical color is the node default; the wrapper already carries it.
-    if (runHex !== nodeHex) classes.push(`text-[${runHex}]`);
+    // The full RGBA participates: a run differing from the node fill only
+    // in opacity still needs its own utility.
+    const runRgba = managedColorToRgba(format.color as never);
+    const nodeRgba = managedColorToRgba(node.fill as never);
+    if (runRgba.some((v, i) => v !== nodeRgba[i])) {
+      const [r, g, b, a] = runRgba;
+      const value = a >= 255 ? hexOf({ r, g, b }) : `rgba(${r},${g},${b},${(a / 255).toFixed(3)})`;
+      classes.push(`text-[${value}]`);
+    }
   }
   if (format.lineHeight !== undefined && format.lineHeight !== node.lineHeight) {
     classes.push(`leading-[${format.lineHeight}]`);

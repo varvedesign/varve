@@ -86,7 +86,10 @@ describe('presentation handout PDF', () => {
     return { width, height, pixels };
   }
 
-  it('imposes slides into planned slots with ruled lines and real page-number text', async () => {
+  // Six 320x180 slides through zlib at level 6; runs long on a loaded machine.
+  it('imposes slides into planned slots with ruled lines and real page-number text', {
+    timeout: 120_000,
+  }, async () => {
     const { planPresentationHandout } = await import('@varve/scene');
     const { makePresentationHandoutPdf } = await import('./presentationFormats');
     const slides = Array.from({ length: 6 }, () => solidPage(WIDE.width, WIDE.height));

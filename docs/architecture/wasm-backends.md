@@ -26,7 +26,7 @@ Desktop keeps the **native wedge** (ADR-0001): document state in unbounded nativ
 |---|---|---|
 | `varve_wasm_simd_bg.wasm` | `+simd128`, wasm-opt -O3 | **Preferred** — SIMD-capable browsers |
 | `varve_wasm_bg.wasm` | baseline, wasm-opt -O3 | Fallback when SIMD artifact absent |
-| `varve_engine_threads.wasm` | `+atomics,+bulk-memory` | Web with COOP/COEP only (deferred) |
+| `varve_engine_threads.wasm` | `+atomics,+bulk-memory` | Not buildable on stable (needs nightly `-Z build-std`); WebKitGTK 2.52 has no `SharedArrayBuffer` even with COOP/COEP (deferred) |
 
 **Threading reality check (2026-07-11):** nothing in this repo uses `SharedArrayBuffer`,
 `rayon`, or `wasm-bindgen-rayon` today — the `simd128` variant above is single-threaded
@@ -37,18 +37,36 @@ picks up `varve_engine_threads.wasm` needs to verify Tauri's webview shell actua
 satisfies `SharedArrayBuffer` availability before relying on it; the COOP/COEP mental
 model is browser-tab-shaped and doesn't necessarily map 1:1 onto a Tauri webview.
 
-Runtime selection: `loadWasmEngineModule()` tries SIMD variant first (HEAD probe),
-then baseline. `prewarmWasmEngine()` instantiates during idle via `requestIdleCallback`.
+Runtime selection (updated 2026-10-16): `wasmArtifactCandidates()` returns
+`['simd','baseline']` only after the engine validated a `v128` module
+(`WebAssembly.validate` on a 74-byte probe), otherwise `['baseline']` alone —
+the SIMD binary is never fetched, instantiated or reported on an engine that
+cannot run it. `getWasmEngineAttribution()` reports which artifact actually
+loaded, its version, the candidate that was skipped, and the bounded
+stage/reason of each failed attempt (`head` / `glue` / `instantiate`).
+`setWasmArtifactPreference('baseline')` forces the baseline artifact for A/B.
+`prewarmWasmEngine()` instantiates during idle via `requestIdleCallback`.
+Diagnostics: Settings > Performance > Platform capability report, and
+`window.__varvePerf.renderPath()` under `?perf=1`.
 
 **What the SIMD artifact does not do (verified 2026-10-16):** `varve-wasm`
 exports only IR build, hit test, contour trace and media probe, with a JSON
 string boundary for IR and hit test. It contains no raster pixel kernels, and
-`varve-effects` is not a dependency of `varve-wasm`. `+simd128` is a blanket
-`RUSTFLAGS` value; whether LLVM vectorized any of that code has not been
-inspected. The CPU raster kernels (blur, compositing) are TypeScript. rayon
-appears in the WASM dependency tree through `varve-trace` but nothing runs
-threaded there. (The native desktop effect kernels are different: they take
-bounded row-band threads, see `live-effects-system.md` and ADR-0241 D6.)
+`varve-effects` is not a dependency of `varve-wasm`. The CPU raster kernels
+(blur, compositing) are TypeScript. rayon appears in the WASM dependency tree
+through `varve-trace` but nothing runs threaded there. (The native desktop
+effect kernels are different: they take bounded row-band threads, see
+`live-effects-system.md` and ADR-0241 D6.)
+
+**The SIMD artifact is vectorized but not measurably faster (verified
+2026-10-16):** `just verify-wasm-simd` disassembles the shipped binaries —
+baseline 0 vector instructions, SIMD 6,126, colour 0 — so `+simd128` did
+produce real `v128` code. `just bench-wasm` then runs both on the exported work
+with interleaved A/B and byte-equality checks: IR JSON and trace output are
+identical, and latency is 0.97x-1.08x across 200/600/2000 nodes (i.e. no gain;
+the serde JSON boundary dominates). No SIMD acceleration is claimed for canvas
+rendering, and no SIMD colour artifact is built. Full numbers, method and limits:
+`docs/perf/2026-10-16-wasm-simd-capability.md`.
 
 ## API Boundary
 
