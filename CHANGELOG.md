@@ -12,6 +12,7 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+
 ### Added
 
 - **Text frame background and border** — Give text its own optional backing fill
@@ -59,6 +60,30 @@ update, not for someone reading the commit log.
 - Desktop `zip` 9.0.4 (RUSTSEC-2026-0367 through 0369) via the vendored
   updater crate pin.
 - Vite and TLS advisory patches from 2026-10-20.
+
+### Fixed
+
+- **PDF import now reads real documents.** Content streams are decoded
+  (zlib `FlateDecode`, ASCIIHex, ASCII85) and tokenized instead of being
+  pattern-matched, so a compressed PDF — which is nearly every PDF — imports
+  its text. Text position comes from the text matrix composed with the CTM and
+  is mapped into page space, so it lands where the page puts it instead of
+  mirrored from the bottom; `/Rotate` and inherited page boxes are applied.
+- **PDF text survives encoding.** Character codes resolve through the font's
+  `/ToUnicode` CMap, or the declared base encoding (WinAnsi/MacRoman) plus
+  `/Differences`, and string escapes and hex strings are parsed. Accented and
+  non-Latin text is no longer dropped or replaced.
+- **Word gaps in `TJ` arrays are preserved**, so words are no longer welded
+  together, and inline image bytes are skipped as opaque data rather than
+  re-read as page content.
+- **Each PDF page imports as its own Varve page**, bounded at 50, with page
+  order taken from the `/Kids` tree.
+- **PDF import reports what it did not import.** Images, form XObjects,
+  curves, strokes, gradients, CMYK and pattern paints, and composite-font runs
+  with no encoding are counted and named in Import Results; a page whose
+  content could not be decoded is reported as unread instead of appearing as
+  an empty page.
+
 
 ## [0.5.1] - 2026-10-15
 
