@@ -480,7 +480,14 @@ describe('ExportService', () => {
       });
 
       expect(report.failureCount).toBe(0);
-      expect(written.map((file) => file.name)).toEqual(['Card.tsx', 'Card.module.css']);
+      // The regeneration manifest rides along as its own file (commit
+      // point of a future re-export).
+      expect(written.map((file) => file.name)).toEqual([
+        'Card.tsx',
+        'Card.module.css',
+        'Card.json',
+      ]);
+      expect(written[2]!.body).toContain('"generator": "@varve/codegen"');
       // The TSX must not contain the stylesheet payload.
       expect(written[0]!.body).toContain('import styles from');
       expect(written[0]!.body).not.toContain('position: absolute');
@@ -488,7 +495,7 @@ describe('ExportService', () => {
       expect(written[1]!.body).toContain('position: absolute');
       // The child survives the export.
       expect(written[1]!.body).toContain('.badge');
-      expect(report.files[0]?.additionalFiles).toEqual(['Card.module.css']);
+      expect(report.files[0]?.additionalFiles).toEqual(['Card.module.css', 'Card.json']);
     });
 
     it('keeps both generated files sharing the job filename stem', async () => {
@@ -501,7 +508,9 @@ describe('ExportService', () => {
         },
       });
 
-      const stems = names.map((name) => name.replace(/\.module\.css$/, '').replace(/\.tsx$/, ''));
+      const stems = names
+        .filter((name) => !name.endsWith('.json'))
+        .map((name) => name.replace(/\.module\.css$/, '').replace(/\.tsx$/, ''));
       expect(new Set(stems).size).toBe(1);
     });
 
@@ -515,7 +524,8 @@ describe('ExportService', () => {
         },
       });
 
-      expect(written).toHaveLength(1);
+      // The component plus the regeneration manifest.
+      expect(written).toHaveLength(2);
       expect(written[0]).toContain('export function Card()');
       expect(written[0]).toContain('<>');
       // Children survive: the badge is a nested absolutely-positioned div.
