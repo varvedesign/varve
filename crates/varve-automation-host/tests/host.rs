@@ -31,6 +31,8 @@ struct TestRelay {
     delivered: AtomicUsize,
     answer_transport_errors: bool,
     closed: Mutex<Vec<String>>,
+    /// Never answer a delivered frame: the application is waiting on a person.
+    hold_forever: bool,
 }
 
 impl TestRelay {
@@ -49,6 +51,13 @@ impl TestRelay {
                 "z".repeat(bytes)
             ))]),
             answer_transport_errors: true,
+            ..Default::default()
+        })
+    }
+
+    fn holding_forever() -> Arc<Self> {
+        Arc::new(Self {
+            hold_forever: true,
             ..Default::default()
         })
     }
@@ -76,6 +85,9 @@ impl FrameRelay for TestRelay {
             .lock()
             .unwrap()
             .push((connection.as_str().to_string(), frame));
+        if self.hold_forever {
+            return futures_util::future::pending::<RelayOutcome>().boxed();
+        }
         let replies = self.replies.lock().unwrap();
         let outcome = replies
             .get(index)
@@ -647,5 +659,96 @@ async fn a_peer_that_stops_reading_cannot_hold_a_connection_slot() {
     let closed = wait_for_closed(&harness.relay, 1).await;
     assert_eq!(closed, vec!["c1".to_string()]);
     assert_eq!(harness.host.open_connections(), 0);
+    let _ = harness.host.shutdown().await;
+}
+
+#[tokio::test]
+async fn the_application_can_close_a_connection_that_is_sitting_idle() {
+    // A person disconnects an agent that is not sending anything. The window
+    // cannot see sockets, so it has to be able to ask for this one to be closed;
+    // otherwise the socket and its slot outlive the session the window dropped.
+    let harness = Harness::start(vec![RelayOutcome::Reply("{\"ok\":true}".into())], limits()).await;
+    let (mut reader, mut writer) = harness.connect().await;
+    write_line(&mut writer, "hello").await;
+    let mut reply = String::new();
+    reader.read_line(&mut reply).await.unwrap();
+
+    assert!(harness.host.close_connection("c1"));
+    // The peer sees the end of the stream without having sent a thing.
+    let mut rest = String::new();
+    let read = tokio::time::timeout(Duration::from_secs(3), reader.read_line(&mut rest))
+        .await
+        .expect("the connection was closed in time")
+        .unwrap();
+    assert_eq!(read, 0);
+    assert_eq!(
+        wait_for_closed(&harness.relay, 1).await,
+        vec!["c1".to_string()]
+    );
+    assert_eq!(harness.host.open_connections(), 0);
+
+    assert!(!harness.host.close_connection("c1"), "already gone");
+    assert!(!harness.host.close_connection("c99"), "never existed");
+    let _ = harness.host.shutdown().await;
+}
+
+#[tokio::test]
+async fn closing_a_connection_ends_one_that_is_waiting_on_the_application() {
+    // The agent has a request in flight that the application is holding for a
+    // person. Disconnecting it must not wait for that decision.
+    let harness = Harness::start_with(TestRelay::holding_forever(), limits(), "held").await;
+    let (mut reader, mut writer) = harness.connect().await;
+    write_line(&mut writer, "hello").await;
+    // Wait until the frame has reached the application and is being held.
+    for _ in 0..200 {
+        if !harness.relay.frames().is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert_eq!(harness.relay.frames().len(), 1);
+
+    assert!(harness.host.close_connection("c1"));
+    let mut rest = String::new();
+    let read = tokio::time::timeout(Duration::from_secs(3), reader.read_line(&mut rest))
+        .await
+        .expect("the held connection was closed in time")
+        .unwrap();
+    assert_eq!(read, 0);
+    assert_eq!(
+        wait_for_closed(&harness.relay, 1).await,
+        vec!["c1".to_string()]
+    );
+    assert_eq!(harness.host.open_connections(), 0);
+    let _ = harness.host.shutdown().await;
+}
+
+#[tokio::test]
+async fn closing_one_connection_leaves_the_others_alone() {
+    let harness = Harness::start(vec![RelayOutcome::Reply("{\"ok\":true}".into())], limits()).await;
+    let (mut keep_reader, mut keep_writer) = harness.connect().await;
+    write_line(&mut keep_writer, "hello").await;
+    let mut line = String::new();
+    keep_reader.read_line(&mut line).await.unwrap();
+    let (_other_reader, mut other_writer) = harness.connect().await;
+    write_line(&mut other_writer, "hello").await;
+    for _ in 0..200 {
+        if harness.relay.frames().len() == 2 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    assert!(harness.host.close_connection("c2"));
+    assert_eq!(
+        wait_for_closed(&harness.relay, 1).await,
+        vec!["c2".to_string()]
+    );
+    // c1 still works.
+    write_line(&mut keep_writer, "again").await;
+    let mut again = String::new();
+    keep_reader.read_line(&mut again).await.unwrap();
+    assert_eq!(again.trim_end(), "{\"ok\":true}");
+    assert_eq!(harness.host.open_connections(), 1);
     let _ = harness.host.shutdown().await;
 }

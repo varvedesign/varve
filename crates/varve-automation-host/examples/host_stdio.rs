@@ -200,6 +200,15 @@ async fn main() {
         let Ok(value) = serde_json::from_str::<serde_json::Value>(&line) else {
             continue;
         };
+        // The application ended a session on its own (a person disconnected an
+        // agent): close that socket, as the desktop app's
+        // `automation_close_connection` command does.
+        if value.get("kind").and_then(|k| k.as_str()) == Some("close") {
+            if let Some(id) = value.get("connectionId").and_then(|c| c.as_str()) {
+                host.close_connection(id);
+            }
+            continue;
+        }
         let Some(request_id) = value.get("requestId").and_then(|r| r.as_str()) else {
             continue;
         };

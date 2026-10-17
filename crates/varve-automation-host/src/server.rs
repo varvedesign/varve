@@ -13,10 +13,11 @@
 //! idempotency and receipts are the application's. A transport that decided any
 //! of those would be a second place for the security rules to be wrong.
 
+use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -94,7 +95,11 @@ pub struct RunningHost {
     stop: watch::Sender<bool>,
     task: Mutex<Option<tokio::task::JoinHandle<()>>>,
     active: Arc<AtomicUsize>,
+    closers: Closers,
 }
+
+/// A way to end each live connection from outside its own task, by id.
+type Closers = Arc<StdMutex<HashMap<String, watch::Sender<bool>>>>;
 
 impl RunningHost {
     pub fn endpoint(&self) -> &Path {
@@ -112,6 +117,24 @@ impl RunningHost {
 
     pub fn open_connections(&self) -> usize {
         self.active.load(Ordering::SeqCst)
+    }
+
+    /// Close one live connection, whatever it is doing.
+    ///
+    /// The application cannot see sockets, so when it ends a session itself (a
+    /// person disconnects an agent) it has to be able to say so here. Without
+    /// this the socket, and its slot under the connection cap, outlive a session
+    /// the window has already dropped, until the peer next speaks. The
+    /// connection's task is cancelled where it stands, including while it is
+    /// waiting on the application for a reply, so a held request does not delay
+    /// it. The application is told the connection ended, as for any other close.
+    ///
+    /// Returns whether a live connection by that id was found.
+    pub fn close_connection(&self, id: &str) -> bool {
+        match self.closers.lock().expect("connection registry").get(id) {
+            Some(signal) => signal.send(true).is_ok(),
+            None => false,
+        }
     }
 
     /// Stop accepting, close live connections, and remove the endpoint.
@@ -165,13 +188,24 @@ pub async fn start(config: HostConfig) -> io::Result<RunningHost> {
 
     let (stop, stop_rx) = watch::channel(false);
     let active = Arc::new(AtomicUsize::new(0));
+    let closers: Closers = Arc::new(StdMutex::new(HashMap::new()));
     let relay = Arc::clone(&config.relay);
     let limits = config.limits.clone();
     let active_for_loop = Arc::clone(&active);
+    let closers_for_loop = Arc::clone(&closers);
     let directory = created.dir.clone();
 
     let task = tokio::spawn(async move {
-        accept_loop(listener, relay, limits, active_for_loop, stop_rx, directory).await;
+        accept_loop(
+            listener,
+            relay,
+            limits,
+            active_for_loop,
+            closers_for_loop,
+            stop_rx,
+            directory,
+        )
+        .await;
     });
 
     Ok(RunningHost {
@@ -179,6 +213,7 @@ pub async fn start(config: HostConfig) -> io::Result<RunningHost> {
         stop,
         task: Mutex::new(Some(task)),
         active,
+        closers,
     })
 }
 
@@ -214,6 +249,7 @@ async fn accept_loop(
     relay: Arc<dyn FrameRelay>,
     limits: HostLimits,
     active: Arc<AtomicUsize>,
+    closers: Closers,
     mut stop: watch::Receiver<bool>,
     directory: PathBuf,
 ) {
@@ -236,8 +272,20 @@ async fn accept_loop(
                 let limits = limits.clone();
                 let active = Arc::clone(&active);
                 active.fetch_add(1, Ordering::SeqCst);
+                let (close_tx, mut close_rx) = watch::channel(false);
+                closers
+                    .lock()
+                    .expect("connection registry")
+                    .insert(id.as_str().to_string(), close_tx);
+                let closers = Arc::clone(&closers);
                 connections.spawn(async move {
-                    serve_connection(stream, id.clone(), Arc::clone(&relay), limits).await;
+                    tokio::select! {
+                        _ = serve_connection(stream, id.clone(), Arc::clone(&relay), limits) => {}
+                        // The application ended this session. Dropping the serve
+                        // future drops the socket, so the peer sees the stream end.
+                        _ = close_rx.changed() => {}
+                    }
+                    closers.lock().expect("connection registry").remove(id.as_str());
                     // However it ended, tell the application: it holds a session
                     // for this connection and cannot otherwise tell it is gone.
                     relay.connection_closed(id);
