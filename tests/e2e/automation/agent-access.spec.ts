@@ -304,7 +304,7 @@ test.describe('real pixels and the real save path', () => {
     await expect(approvals).toBeVisible();
     await expect(approvals).toContainText('wants to run');
     await expect(approvals).toContainText(/Create/);
-    // Connected-agent list names the client and offers Disconnect.
+    // Connected-agent list names the client and offers Disconnect and block.
     const clients = page.getByRole('region', { name: 'Connected agents' });
     await expect(clients).toContainText('playwright');
     await expect(page.getByRole('status', { name: 'Agent access status' })).toBeVisible();
