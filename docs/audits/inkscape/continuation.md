@@ -33,8 +33,9 @@ Inkscape’s canonical tracker.
   are being re-fetched through GitLab GraphQL `Issue.notes` connections. The
   previous temporary cache snapshot at `2026-10-17T10:24:25Z` recorded 921
   issue threads and 14,364 total note records (6,216 non-system comments), but
-  that cache is gone and those records are historical counts only. Durable-cache retrieval is active; at `2026-10-18T11:46:06Z` it had reconciled
-  3,633 of 32,692 non-system comments across 319 issue threads. The live manifest
+  that cache is gone and those records are historical counts only. Durable-cache retrieval is active; at `2026-10-18T13:11:45Z` it had retrieved 12,235 of 32,692 non-system
+  comments across 1,931 issue threads. This newer snapshot counts cached notes;
+  substantive content review covers only the threads listed in the ledger. The live manifest
   is authoritative between checkpoints. The fetcher is resumable and
   persists notes per IID in the external cache. Seven aliases per request
   succeeded below the observed complexity limit; eight scored 201 and failed
@@ -198,3 +199,5 @@ Continue reconciling all 32,692 reported non-system comments, then screen the
 remaining bodies and discussions for high-impact candidate failure classes. Keep system notes for
 linked events and state history. Do not mark an issue reviewed based only on
 its title, labels, or downloaded body.
+
+22. Reviewed the complete cached discussions for #670, #685, #694, #712, and #721. #685 was fixed upstream in MR !1299; #694 received a partial transform/mask fix in MR !5000; #712 is duplicate evidence for #252/#694. #670 traces to Cairo banded raster output; #721 is version-dependent background-filter behavior. Linked attachments remain uninspected. The live note-fetch snapshot at 2026-10-18T13:11:45Z had 12,235/32,692 user notes across 1,931 threads; content review is much narrower.
