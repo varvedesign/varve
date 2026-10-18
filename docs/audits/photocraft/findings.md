@@ -15,9 +15,11 @@ symptom. Their complete discussions are reviewed: #5752 links follow-up #5753
 and the bot separates angle normalization from non-finite acceptance; #6424
 links #5752, #4201, and #4181. Those leads are being reconciled before closing
 the recursive evidence frontier. #1101 concerns the opposite direction—
-serialization of a non-finite value—and its commenter supplied a failing
-engine round-trip test; that is adjacent evidence, not proof of the same root
-cause. Bot links do not establish equivalence.
+serialization of a non-finite adjustment value—and its commenter supplied a
+failing engine round-trip test. Varve's existing adjustment normalization
+replaces the invalid parameter before encode; a new encode/decode regression
+covers that report. It is classified separately as covered behavior, not proof
+of the #6862 root cause. Bot links do not establish equivalence.
 
 **Varve applicability and reproduction.** Varve previously accepted JSON
 `1e309` as JavaScript `Infinity` during `DocumentCodec.decode`; a focused

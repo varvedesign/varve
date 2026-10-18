@@ -139,8 +139,8 @@ the current website review found no matching claim that needs correction.
 ## 2026-10-18 disposition checkpoint
 
 All 3,275 cutoff-A issue rows now have an explicit Varve disposition or an
-explicit unresolved decision: 227 candidates, 2 fixed items, 198 analogues,
-452 partial matches, 26 already-covered behaviors, 80 trackers, 78 adjacent
+explicit unresolved decision: 226 candidates, 2 fixed items, 198 analogues,
+452 partial matches, 27 already-covered behaviors, 80 trackers, 78 adjacent
 QA/design leads, 2,208 reports with no Varve match established, and 4 issues
 that remain `unclear`. Those four are not completed dispositions; each has a
 specific reason the available source evidence does not yet support a confident
@@ -152,7 +152,7 @@ scope were manually resolved. Thirteen of the 17 previously unclear issues
 were resolved after their linked evidence and Varve paths were inspected.
 
 The status counts distinguish source comparison from engineering completion.
-The 227 candidates still require Varve reproduction or a product decision;
+The 226 candidates still require Varve reproduction or a product decision;
 the 452 partial matches and 78 adjacent leads are not automatically defects.
 The issue source pass and row-level Varve comparison do not complete the
 recursive link frontier or review of the source repository's PR discussions.
@@ -184,3 +184,8 @@ also motivate profiling Varve's bounded synchronous Transform Pixels path; no
 stall has yet been reproduced at its admitted size. PR #1427, #4218, #5590,
 and #6800 were reviewed as separate mitigations and performance evidence. The
 marketing site makes no large-document performance promise to revise.
+
+PhotoCraft #1101's NaN adjustment save/load case is covered by Varve's existing
+adjustment normalization. A new `DocumentCodec.encode` → decode regression
+confirms the invalid value becomes a finite default and the document reopens;
+the issue is counted as covered, not as a newly fixed Varve defect.

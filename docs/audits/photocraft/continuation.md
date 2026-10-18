@@ -66,7 +66,9 @@ Last updated: 2026-10-18. Status: active and incomplete.
   `a4aca5e53` (bounded variable-width stroke expansion), `7d3e0bc87` (linear,
   pattern-preserving dash fallback), and `0e21e9a89` (cap unproductive dash
   traversal), and `13a3f67b6` (Clone Stamp modifier fallback and gradient lock
-  guard). The independent read-only review found no actionable findings in
+  guard), `d5b396986` (pending crop session regression and visual evidence), and
+  `37c6458cd` (#1015 source comparison and partial disposition). The independent
+  read-only review found no actionable findings in
   those editor changes. The real-browser crop session regression is now added:
   the complete crop pointer spec passes 14/14, including New-tab cancellation,
   crop commit, cancel, undo and redo. The new-tab case confirms the pending
@@ -85,7 +87,10 @@ Last updated: 2026-10-18. Status: active and incomplete.
   Pixels commit is bounded but remains unprofiled at the admitted limit.
   Upstream PRs #1427, #4218, #5590, and #6800 were read as separate fallback,
   cancellable-transform, Warp, and speed improvements. No website performance
-  claim needs a change. The ledger is now 227 candidates / 452 partial matches.
+  claim needs a change. Issue #1101 is also confirmed covered: adjustment
+  normalization repairs a NaN exposure value before serialization, and the new
+  DocumentCodec save/decode regression passes (15 tests in the focused file).
+  The ledger is now 226 candidates / 452 partial matches / 27 covered.
   Safe integration to `master` remains outstanding. A clean-snapshot merge
   preview succeeded, but the real dirty master checkout rejected the merge
   because unrelated local edits and untracked files overlap paths touched by

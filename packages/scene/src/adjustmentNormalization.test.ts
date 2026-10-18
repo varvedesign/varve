@@ -1,9 +1,34 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeAdjustmentStack } from './adjustmentNormalization';
-import { createDocument, makeAdjustmentNode } from './document';
+import { addNode, createDocument, makeAdjustmentNode } from './document';
 import { DocumentCodec } from './documentCodec';
 
 describe('adjustment normalization', () => {
+  it('keeps a non-finite adjustment value reopenable after save', () => {
+    const node = {
+      ...makeAdjustmentNode('adjustment', 'levels', {
+        channel: 'rgb',
+        inputBlack: 0,
+        inputWhite: 255,
+        gamma: 1,
+        outputBlack: 0,
+        outputWhite: 255,
+      }),
+      adjustments: [{ kind: 'exposure', value: Number.NaN, offset: 0, gammaCorrection: 1 }],
+    } as ReturnType<typeof makeAdjustmentNode>;
+    const doc = addNode(createDocument('Non-finite adjustment', true), node);
+
+    const saved = DocumentCodec.encode(doc);
+    const result = DocumentCodec.decode(saved);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const adjustment = result.document.nodes.adjustment;
+    expect(adjustment?.kind).toBe('adjustment');
+    if (adjustment?.kind !== 'adjustment') return;
+    expect(adjustment.adjustments?.[0]).toMatchObject({ kind: 'exposure', value: 0 });
+  });
+
   it.each(['dither', 'paletteSnap'])('round-trips authored %s palettes and seeds', (kind) => {
     const colors = [
       [13, 27, 219],
