@@ -1,6 +1,6 @@
 # Photocraft review continuation
 
-Last updated: 2026-10-17. Status: active and incomplete.
+Last updated: 2026-10-18. Status: active and incomplete.
 
 ## Source boundary
 
@@ -8,13 +8,13 @@ Last updated: 2026-10-17. Status: active and incomplete.
 - First frozen cutoff: 2026-10-17 10:08:14 UTC; crawl interval 10:07:24–10:08:14 UTC.
 - Frozen set: 3,275 issues and 3,683 PR records over 70 fully paginated REST
   pages; 4,900 issue-comment count reported by the issue records.
-- First crawl cache and checksums: see `README.md`; raw body/comment responses
-  live only under `/tmp/codex/photocraft-2026-10-17/`.
+- First crawl cache and checksums: see `README.md`; raw issue/comment responses
+  live only under the task cache paths recorded there.
 - All 3,275 issue comment endpoints were subsequently retrieved through every
   page from 10:29:00–10:31:14 UTC; 0 request failures. The retrieval cache is
-  at `/home/kevina/.cache/codex/photocraft-2026-10-17/comments/`. Retrieval is
-  complete, but comment review is not. One post-A comment (#6400 at 10:18:44)
-  was found and is queued for B reconciliation.
+  at `/home/kevina/.cache/codex/photocraft-2026-10-17/comments/`. Bodies and
+  discussions for the frozen A set have now been read; the post-A #6400 comment
+  was reviewed with cutoff B.
 - Latest observed update at crawl: 2026-10-17 09:59:48 UTC.
 - Second declared cutoff B: 2026-10-17 10:33:10 UTC, observed over 70 pages
   from 10:32:24–10:33:10 UTC. It contains 3,278 issues and 3,686 PRs; cutoff A
@@ -29,13 +29,16 @@ Last updated: 2026-10-17. Status: active and incomplete.
 
 ## Progress snapshot
 
-- Issue bodies assessed: #6862, #5752, #6424, #1101, #6423, seed mismatches,
-  and #6596–#6615/#6617 (21 issues); the rest of the frozen rows remain
-  unreviewed.
-- Full issue discussions: #6862, #5752, #6424, #1101, the five cutoff-B delta
-  threads, and all 37 comments across #6596–#6615/#6617 are read. Other comment
-  coverage is not complete. #6863 diff/files inspected; PR discussion and
-  release status still require review.
+- Issue bodies and discussions: all 3,275 cutoff-A issue rows and their
+  complete retrieved comment pages have been read; all five cutoff-B changed
+  or new issue records (#6392, #6400, #6962, #6964, #6965) have also been
+  reviewed. The JSONL issue ledger reflects this. Relevance classification and
+  linked evidence are still open; completion here means the source issue text
+  and comments were reviewed, not that every linked artifact was resolved.
+- Pull requests: the 3,683 A records and three B additions are inventoried,
+  but descriptions/discussions have not been comprehensively reviewed. PR
+  #6863 changed files were inspected; its full discussion and release status
+  remain open.
 - Link frontier: #6863; #5752; #6424; #1101; #6423's related link(s); #6392's
   #3641 / SolidCraft evidence; #6962's #2850/#2339/#2687; #6964's #3384/#6669;
   and all relevant links not yet enumerated from the corpus.
@@ -43,7 +46,12 @@ Last updated: 2026-10-17. Status: active and incomplete.
   docs, unit tests, and Playwright visual test are implemented. The focused
   editor/scene run passed 111 tests; codegen passed 16 tests. The real Inspector
   Playwright test passed, and screenshots are retained under `evidence/`.
-  Full affected validation and independent review are pending. A code-review
+  A clean-SHA full local gate passed typechecks, architecture, health, CI
+  tooling, and WASM lanes, but the Vitest lane ended with 2, out-of-scope
+  failures: the screenshot-policy test found six existing literals in other
+  specs, and the presentation demo fixture is stale. It reported 1,992 passing
+  test files / 22,905 passing tests. The exact details are in Validation below.
+  A code-review
   finding for `__proto__` node IDs was fixed in a separate codegen commit. Prerequisite
   commits restored `packages/scene/src/nodeResize.ts` and
   `packages/codegen/src/bundle-assets.ts`, both already imported/exported by
@@ -75,11 +83,12 @@ Last updated: 2026-10-17. Status: active and incomplete.
 - Save/recovery review (#6596–#6617): Varve already has external-change guards,
   session dedupe, IndexedDB recovery, and collision-aware export names. Strong
   candidates still need focused confirmation: same-target session ownership
-  (#6597), native read-only replacement and metadata/hardlink behavior
-  (#6600/#6602/#6603), stale temp files (#6604), dangling symlink replacement
+  (#6597), metadata/hardlink behavior (#6602/#6603), stale temp files (#6604),
+  dangling symlink replacement
   (#6605), large-document save memory (#6607), and malformed-setting field
-  normalization (#6611). See findings as this work is split into batches; a
-  separate research pass is still checking these paths before implementation.
+  normalization (#6611). Batch B fixes the read-only replacement defect
+  (#6600) and preserves writable target modes; see F-002. Other candidates are
+  still being investigated before implementation.
 
 ## Branch and next actions
 
@@ -88,16 +97,16 @@ Last updated: 2026-10-17. Status: active and incomplete.
 - Base: local `master` `1109bf5962091fb00aa34198876d1812327d808b`.
 - Prerequisite commit: `98dec72b5` (cherry-picked repair of the missing
   `nodeResize.ts` module).
-- Next: run the escalated local full gate with an explicit reason because the
-  document serialization boundary changed. The targeted Playwright check ran
-  through the heavy-task lease and its screenshots were inspected. Review the
-  final diff with the requested review-agent workflow, repair findings, commit
-  coherent batches, then refresh branch/remote state and integrate only through
-  the repository's approved mechanism.
-- Research next: reconcile cutoff B, assess every issue's body before deciding
-  relevance, review every comment page and relevant linked evidence recursively,
-  then implement each applicable, feasible finding in coherent validated
-  batches. Do not treat this first fix or the ledger itself as completion.
+- Next: finish the F-002 diff review, run the docs audit, commit the coherent
+  save-safety batch, and run the planner-required full local gate at that exact
+  SHA. Then continue Varve applicability checks for the remaining filesystem,
+  recovery, and rendering leads. Recheck the live remote/worktree state before
+  choosing an integration path; do not bring unrelated local master commits
+  into this branch.
+- Research next: classify issue relevance and recursively inspect linked
+  evidence for applicable leads; review PR descriptions/discussions where they
+  connect to a finding. The source text review is complete for the two issue
+  cutoffs, but this does not complete the broader task.
 
 ## Validation record
 
@@ -123,5 +132,25 @@ Last updated: 2026-10-17. Status: active and incomplete.
   a real `commonGitDirectory({ cwd })` adapter bug in the full-gate fixture.
   The adapter now binds to the requested repository root. Its existing
   full-gate fixture test and operation-history test pass, and the independent
-  reviewer reported no findings. A clean-candidate full-gate retry remains
-  pending after this validation-tooling repair.
+  reviewer reported no findings. A subsequent clean-SHA retry at
+  `31bdc72e78d28b02d6450979b4fee6696f2e1800` passed formatting/lint, emoji and
+  health audits, architecture audit, all 20 workspace typechecks plus E2E
+  typecheck, CI tooling tests, and baseline/SIMD/colour WASM browser artifacts.
+  Vitest completed with 1,992 test files passed, 14 skipped, and two failures;
+  22,905 tests passed and 17 skipped. `tests/quality/e2e-evidence-output.test.ts`
+  found six hard-coded screenshot destinations in existing specs
+  `vertical-text-orientation.spec.ts` and `visual-compositing.spec.ts`;
+  `apps/website/src/test/demoDocuments.test.ts` found the committed
+  `presentation.varve` fixture stale. These failures were observed at the
+  clean SHA before F-002 and are not attributed to F-001.
+- For F-002, `pnpm verify:plan` selected format/lint, emoji, desktop JS
+  typecheck/unit, and desktop-native lanes, then escalated to full suite because
+  the touched native boundary is classified as shared contract surface.
+  `pnpm verify:affected` reported the escalation and did not run its lanes.
+  The first native test compile exhausted the host filesystem; its generated
+  target and Cargo lockfile churn were removed/restored. Retrying with a
+  task-specific `/tmp` target and debug info disabled passed all three
+  `atomic_write_` tests. Rustfmt passed for the touched `lib.rs` with child
+  modules excluded; repository-wide `cargo fmt --check` reports existing drift
+  in untouched `collab_host.rs` and `lifecycle.rs`. The exact-SHA full gate for
+  F-002 is still required.

@@ -87,6 +87,12 @@ platform adapter, never in a separator replacement helper.
   oversized values before `PathBuf::join`.
 - Atomic writes use an app-generated sibling temporary name and do not convert
   the target filename through `to_string_lossy()`.
+- Atomic replacement refuses an existing read-only target and preserves its
+  existing permissions for a writable target. This matters on Unix, where
+  replacing a file only requires write access to its parent directory; the
+  file's own read-only bit would otherwise be bypassed by rename. A target
+  metadata inspection error aborts the write instead of being treated as a
+  missing file.
 - Replacement uses the host-native atomic replace operation: `rename` on
   platforms where it replaces a destination, and Windows `MoveFileExW` with
   replace/write-through flags where plain rename would fail on an existing

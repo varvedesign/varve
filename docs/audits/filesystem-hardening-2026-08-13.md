@@ -10,7 +10,8 @@ Canonical contract: `docs/architecture/filesystem-boundary.md`.
 
 - `write_file_atomic` + `replace_file`: `create_new` staging, `sync_all`,
   sibling-temp atomic replacement with Windows `MoveFileExW` and
-  `MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH`.
+  `MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH`; it now refuses an
+  existing read-only target and preserves permissions on writable targets.
 - `resolve_user_path` / `resolve_user_path_approved`: canonicalize + lexical
   `.`/`..` rejection + symlink-escape tests.
 - `validate_storage_key` / `validate_portable_relative_path`: storage keys
@@ -56,6 +57,12 @@ Platform-resolved, never derived by the frontend, never beside the
 executable, never in the mounted AppImage/app bundle.
 
 ## Remaining limitations
+
+- Atomic replacement still creates a new filesystem object. Saving over a
+  hard-linked file therefore does not update its sibling links, and extended
+  attributes, ACLs, ownership, creation time, and platform-specific metadata
+  are not preserved. These behaviors need an explicit cross-platform policy
+  and tests before promising metadata identity across saves.
 
 - `home_read_text_file_approved` / `home_write_text_file_approved` trust the
   native dialog as the authority: any absolute path a compromised renderer

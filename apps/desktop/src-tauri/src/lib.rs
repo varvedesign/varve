@@ -1,4 +1,5 @@
 mod acceleration;
+mod collab_host;
 mod crash;
 mod file_open;
 mod filesystem;
@@ -6,7 +7,6 @@ mod font;
 mod font_storage;
 mod generative_qualification;
 mod generative_resources;
-mod collab_host;
 mod lifecycle;
 mod logs;
 mod menu;
@@ -280,6 +280,27 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create directory {}: {e}", parent.display()))?;
     }
+    // Replacing a file only requires write access to its parent directory on
+    // Unix. Honor the file's own read-only bit before staging a replacement,
+    // so an atomic rename cannot silently overwrite a file the user marked
+    // read-only. Preserve the existing permissions on successful replacement
+    // as the temporary file otherwise inherits only the process umask.
+    let existing_permissions = match std::fs::metadata(path) {
+        Ok(metadata) => {
+            let permissions = metadata.permissions();
+            if permissions.readonly() {
+                return Err(format!("Target file is read-only: {}", path.display()));
+            }
+            Some(permissions)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => {
+            return Err(format!(
+                "Failed to inspect target file {}: {error}",
+                path.display()
+            ));
+        }
+    };
     // The temporary name is app-generated, so it does not need to round-trip
     // the target's native filename through UTF-8.  This keeps non-UTF-8 Unix
     // filenames native and avoids using lossy text for path identity.
@@ -292,6 +313,10 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
             .map_err(|e| format!("Failed to create temp file {}: {e}", tmp.display()))?;
         file.write_all(data)
             .map_err(|e| format!("Failed to write temp file: {e}"))?;
+        if let Some(permissions) = existing_permissions {
+            file.set_permissions(permissions)
+                .map_err(|e| format!("Failed to preserve target file permissions: {e}"))?;
+        }
         file.sync_all()
             .map_err(|e| format!("Failed to flush temp file: {e}"))?;
         drop(file);
@@ -7550,6 +7575,52 @@ mod tests {
         assert_eq!(
             leftovers, 0,
             "successful writes should consume their staging file"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_refuses_read_only_targets_without_changing_the_original() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = std::env::temp_dir().join(format!("varve_atomic_readonly_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        std::fs::write(&target, b"original").expect("write initial content");
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o444))
+            .expect("make target read-only");
+
+        let result = write_file_atomic(&target, b"replacement");
+
+        assert!(result.is_err(), "a read-only file must not be replaced");
+        assert_eq!(std::fs::read(&target).expect("read original"), b"original");
+        let _ = std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o644));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_preserves_existing_file_mode() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+        let dir = std::env::temp_dir().join(format!("varve_atomic_mode_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        std::fs::write(&target, b"original").expect("write initial content");
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o640))
+            .expect("set target mode");
+
+        write_file_atomic(&target, b"replacement").expect("replace target");
+
+        assert_eq!(
+            std::fs::read(&target).expect("read replacement"),
+            b"replacement"
+        );
+        assert_eq!(
+            std::fs::metadata(&target).expect("stat replacement").mode() & 0o777,
+            0o640,
+            "atomic replacement must preserve the target mode"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

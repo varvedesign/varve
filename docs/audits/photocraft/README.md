@@ -1,7 +1,8 @@
 # Photocraft issue review
 
-Status: active, incomplete. This is a durable source inventory and engineering
-ledger, not a claim that the Photocraft issue archive has been fully reviewed.
+Status: active, incomplete. Issue bodies and discussion pages are reviewed for
+the frozen cutoffs; relevance classification, recursive linked-evidence review,
+pull-request discussion review, and Varve engineering remain in progress.
 
 ## Source identity and scope
 
@@ -25,9 +26,7 @@ had a count mismatch because #6400 gained a comment after cutoff A. Per-issue
 retrieval times, page counts, count-at-A, post-cutoff comment URLs, and hashes
 of the normalized discussion caches are recorded in the inventory. Raw
 responses are outside the repository at
-`/home/kevina/.cache/codex/photocraft-2026-10-17/comments/`; retrieval is not
-the same as human review, and every body/discussion remains marked unreviewed
-until assessed.
+`/home/kevina/.cache/codex/photocraft-2026-10-17/comments/`.
 
 The frozen inventory contains 6,958 unique records across 70 pages: 3,275
 issues (1,553 open, including 12 reopened; 1,722 closed) and 3,683 pull
@@ -35,8 +34,10 @@ requests. Issue records report 4,900 comments in aggregate. These counts are
 for the response snapshot, not an atomic database snapshot. Pull requests are
 retained in raw cache and separated from the issue-only machine-readable
 inventory. The issue inventory stores body hashes and source metadata, not
-third-party issue text. Every issue body, comment page, and linked artifact is
-still marked unreviewed unless explicitly listed in a finding below.
+third-party issue text. The ledger marks all 3,275 cutoff-A issue bodies and
+discussions complete; the five cutoff-B changed/new issue records are also
+marked complete. Relevance and recursive linked evidence remain separate
+open review fields.
 Pull requests have a separate machine-readable inventory so they are not
 counted as issues; their descriptions and discussions also remain unreviewed
 unless explicitly listed.

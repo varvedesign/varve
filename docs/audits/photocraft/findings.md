@@ -60,6 +60,41 @@ accessible validation message and the model value remains 375.
 correctness fix and does not alter a public product claim. Architecture and
 Inspector behavior docs are updated in this batch.
 
+## F-002 — Atomic replacement could overwrite read-only files and change their mode
+
+**Sources.** PhotoCraft's filesystem tracking issue [#6617](https://github.com/storytold/photocraft/issues/6617)
+links the concrete read-only-save reproduction [#6600](https://github.com/storytold/photocraft/issues/6600).
+The report demonstrates that on Linux/macOS a same-directory rename can replace
+a `chmod 444` document because the operation checks directory permissions,
+not the destination file's write bits. The tracking issue also separates
+hard-link breakage (#6602), metadata loss (#6603), orphaned staging files
+(#6604), and dangling-symlink replacement (#6605); those are independent
+behaviors and are not claimed as fixed here.
+
+**Varve applicability and reproduction.** `write_file_atomic` used sibling-temp
+replacement without checking the destination's `readonly()` state. On Unix,
+this permits replacing a read-only file when the parent directory is writable.
+The staging file also inherited only the process umask, so replacement could
+change the prior mode (for example, a 0600 document becoming 0644).
+
+**Batch B implementation.** Refuse a read-only destination before creating a
+staging file; fail closed if target metadata cannot be inspected; and copy
+the existing permissions to the staged file before syncing and replacing it.
+Regression tests assert that the original bytes survive a read-only write
+attempt and that a writable 0640 file remains 0640. Atomic replacement and
+same-filesystem staging remain intact.
+
+**Engineering status:** focused Linux native tests passed (3 tests covering
+replacement, read-only refusal, and mode preservation). Full-gate validation
+for this batch remains pending because the impact planner escalated. Code
+review and final integration are pending. **Research status:** #6617 and the
+full discussions for #6600–#6605 were reviewed; related same-path and recovery
+issues remain under Varve applicability review.
+
+**Website impact:** no public claim describes filesystem permission or metadata
+preservation, and this fix does not add a new marketed capability; no website
+copy change is warranted before release.
+
 ## Source seeds that did not match the requested repository
 
 The attachment's seed links use `storytold/pdfcraft`. In the requested
