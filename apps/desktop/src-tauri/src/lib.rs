@@ -403,6 +403,16 @@ fn process_is_running(pid: u32) -> bool {
 ///
 /// Pattern already proven for ONNX model download (line ~279-354).
 fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
+    if let Ok(metadata) = std::fs::symlink_metadata(path) {
+        if metadata.file_type().is_symlink() {
+            std::fs::canonicalize(path).map_err(|error| {
+                format!(
+                    "Cannot save through symbolic link {}: target path does not exist or cannot be resolved: {error}",
+                    path.display()
+                )
+            })?;
+        }
+    }
     let Some(parent) = path.parent() else {
         return Err("Invalid path: no parent directory".to_string());
     };
@@ -7850,6 +7860,59 @@ mod tests {
         assert_eq!(
             std::fs::read(&link_target).expect("read symlink target"),
             b"keep"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_through_live_symlink_preserves_the_link() {
+        use std::os::unix::fs::symlink;
+
+        let dir = std::env::temp_dir().join(format!("varve_atomic_live_symlink_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("target.varve");
+        let link = dir.join("alias.varve");
+        std::fs::write(&target, b"old").expect("write initial content");
+        symlink(&target, &link).expect("create symlink");
+
+        let resolved = resolve_user_path(link.to_str().expect("UTF-8 test path"))
+            .expect("resolve selected symlink destination");
+        write_file_atomic(&resolved, b"new").expect("save through live symlink");
+
+        assert!(std::fs::symlink_metadata(&link)
+            .expect("inspect saved symlink")
+            .file_type()
+            .is_symlink());
+        assert_eq!(std::fs::read(&target).expect("read target"), b"new");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_refuses_dangling_symlink_without_replacing_it() {
+        use std::os::unix::fs::symlink;
+
+        let dir =
+            std::env::temp_dir().join(format!("varve_atomic_dangling_symlink_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let link = dir.join("alias.varve");
+        let missing_target = dir.join("missing/dir/target.varve");
+        symlink("missing/dir/target.varve", &link).expect("create dangling symlink");
+
+        let error = write_file_atomic(&link, b"new").expect_err("refuse unresolved target");
+
+        assert!(
+            error.contains("symbolic link") && error.contains("target"),
+            "error should explain that the symbolic-link target is unavailable: {error}"
+        );
+        assert!(std::fs::symlink_metadata(&link)
+            .expect("inspect dangling symlink")
+            .file_type()
+            .is_symlink());
+        assert!(
+            !missing_target.exists(),
+            "missing target directories stay absent"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

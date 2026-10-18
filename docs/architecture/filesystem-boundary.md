@@ -97,6 +97,11 @@ platform adapter, never in a separator replacement helper.
   platforms where it replaces a destination, and Windows `MoveFileExW` with
   replace/write-through flags where plain rename would fail on an existing
   file.
+- Approved user-selected file paths resolve existing file-level symbolic
+  links before replacement, so the target is updated and the link remains. A
+  dangling or otherwise unresolved link fails with an error instead of being
+  replaced by a regular file. App-managed atomic writes keep their separate
+  path policy and reject unresolved symbolic-link targets.
 - Before a native save when at least five minutes have passed since the last
   sweep of that directory in this process, Varve makes a
   best-effort sweep of regular `.varve-write-<pid>-<token>.tmp` files whose

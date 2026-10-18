@@ -203,6 +203,48 @@ only bounded cleanup; it is not evidence that Varve's target is corrupted.
 claims that native staging artifacts are automatically removed. No marketing
 edit is justified for this internal cleanup behavior.
 
+## F-005 — Atomic save can replace a symbolic link
+
+**Source.** PhotoCraft [#6605](https://github.com/storytold/photocraft/issues/6605)
+reproduces saving through `link.psd` when it points to a missing relative
+target. The current file becomes a regular file and the link is lost. The issue
+accepts either writing through the link target or reporting that its target
+folder is unavailable. Its bot comment links #6426; that report concerns
+automation-root path containment and does not share this document-save
+behavior. It was reviewed and classified as unrelated.
+
+**Varve applicability and reproduction.** `write_file_atomic` atomically
+renames a sibling over the provided path. For an existing symlink, the rename
+replaced the link itself; for a dangling symlink, target metadata appeared
+missing and the same replacement happened. The regression first reproduced
+both cases: a live link disappeared instead of updating its target, and a
+dangling link was silently replaced while the target path stayed absent.
+
+**Decision and acceptance.** Resolve a file-level symlink before choosing the
+staging directory and replacement path. Saving through a live link updates the
+canonical target and preserves the link. If the link target cannot be
+resolved, fail with a clear error while keeping the link and not creating
+missing target directories. Keep atomic replacement for the resolved target.
+
+**Batch E implementation.** Approved user-selected native paths resolve an
+existing file-level symlink before atomic replacement. The shared atomic writer
+refuses an unresolved symlink with an actionable error, while app-managed
+writes keep their own path policy. Two Unix regressions cover preserving a
+live link through the approved resolver and refusing a relative dangling link
+without changing it or creating its target directories. The full focused suite has seven passing
+`atomic_write_` tests; broad verification remains required for the accumulated
+branch.
+
+**Comparable-app report checked.** Inkscape
+[#9776](https://gitlab.com/inkscape/inbox/-/issues/9776) describes users whose
+linked image paths break after reopening documents stored in a symlinked
+folder. It is adjacent path-resolution evidence, not the same atomic-rename
+failure or proof that Varve shares Inkscape's reported behavior.
+
+**Website impact:** this is native filesystem path handling, not a released
+capability claim. Reviewed save, recovery, and local-first pages; no marketing
+edit is justified.
+
 ## Source seeds that did not match the requested repository
 
 The attachment's seed links use `storytold/pdfcraft`. In the requested

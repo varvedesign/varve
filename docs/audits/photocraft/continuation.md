@@ -88,12 +88,13 @@ Last updated: 2026-10-18. Status: active and incomplete.
   now guards Save, Save As, and Save a Copy against another open session's
   destination, with native file-identity and browser handle-entry comparisons
   plus focused regressions.
-  Remaining candidates include metadata/hardlink behavior (#6602/#6603), stale temp files (#6604),
-  dangling symlink replacement
-  (#6605), large-document save memory (#6607), and malformed-setting field
-  normalization (#6611). Batch B fixes the read-only replacement defect
-  (#6600) and preserves writable target modes; see F-002. Other candidates are
-  still being investigated before implementation.
+  F-004 (#6604) now removes confirmed-dead PID-tagged staging files and old
+  legacy temps; F-005 (#6605) preserves live symlinks and refuses unresolved
+  dangling links. Their native focused tests pass, but broad verification is
+  pending. Remaining candidates include metadata/hardlink behavior (#6602/#6603),
+  large-document save memory (#6607), and malformed-setting field normalization
+  (#6611). Batch B fixes the read-only replacement defect (#6600) and preserves
+  writable target modes; see F-002. Other candidates remain under investigation.
 
 ## Current full-gate checkpoint (2026-10-18)
 
@@ -116,23 +117,26 @@ Last updated: 2026-10-18. Status: active and incomplete.
   planner-required full gate is **not complete**. Do not describe this SHA as
   fully validated or integrated. Retry `pnpm verify:full --local --resume`
   only after the live owner exits and the lease becomes available.
-- F-004 / PhotoCraft #6604 is implemented in the current uncommitted working
-  tree: new native staging files carry their writer PID and are swept once
-  that process is confirmed gone; legacy timestamp-only files require 24 hours
-  of age. Sweeps are throttled to once every five minutes per directory and
-  cleanup errors do not fail saves. A minimal Windows API target probe passed;
-  the full desktop cross-check could not build `ring` because this Linux host
-  has no MSVC-compatible C compiler, so native Windows behavior is unverified.
-  Focused native tests pass, including retention of a Unix PID that is outside
-  the host's `pid_t` range. The read-only final review found and fixed that
-  out-of-range-PID safety case. This newer code is not covered by either full-gate
-  receipt above. Keep #6602 hard-link semantics and #6603
-  xattr/ACL preservation as separate findings; do not imply that either is
-  fixed by read-only/mode preservation or F-004.
+- F-004 / PhotoCraft #6604 is committed as `77fcb00f2`; follow-up review fix
+  `ba074e2e7` retains temp files with unrepresentable Unix PIDs. New native
+  staging names carry the writer PID and are swept once that process is
+  confirmed gone; legacy timestamp-only files require 24 hours. Sweeps are
+  throttled to once every five minutes per directory, and cleanup errors do not
+  fail saves. The minimal Windows API target probe passed; full native Windows
+  compilation remains unverified because this Linux host lacks an MSVC-compatible
+  C compiler. F-005 / #6605 is implemented in the current working tree; its
+  seven focused native `atomic_write_` tests pass. Neither finding is covered by
+  the older full-gate receipts above. Keep #6602 hard-link semantics and #6603
+  xattr/ACL preservation separate; neither is fixed by read-only/mode
+  preservation, F-004, or F-005.
 - PhotoCraft #6604's linked #3489 and #203 source bodies and the #3489 comment
   were reviewed from the cutoff cache. The live Inkscape #260 report was also
   checked as a distinct crash-time data-loss complaint; it reinforces keeping
   atomic replacement while handling leftovers separately.
+- PhotoCraft #6605 and its #6426 bot link were reviewed; #6426 concerns
+  automation-root containment and is unrelated to document saving. Inkscape
+  #9776 is adjacent symlinked-folder asset-path evidence, not the same
+  atomic-rename failure.
 
 ## Branch and next actions
 
@@ -141,11 +145,12 @@ Last updated: 2026-10-18. Status: active and incomplete.
 - Base: local `master` `1109bf5962091fb00aa34198876d1812327d808b`.
 - Prerequisite commit: `98dec72b5` (cherry-picked repair of the missing
   `nodeResize.ts` module).
-- Next: perform the separate code-review pass for F-004, finish its commit
-  checkpoint, capture F-003's dedicated save-error visual evidence, and retry
-  the planner-required exact-SHA full gate once the shared lease is available.
-  Continue Varve applicability checks for filesystem, recovery, and rendering
-  leads. Recheck the live remote/worktree state before choosing an integration
+- Next: complete the defect-first review and focused validation for F-005;
+  capture and inspect F-003's save-error screenshot after the live editor
+  Vitest lease releases (the first visual attempt timed out in the lease queue,
+  before Chromium launched); then run the planner-required broad gate on the
+  current candidate. Continue Varve applicability checks for filesystem,
+  recovery, and rendering leads. Recheck the live remote/worktree state before choosing an integration
   path; do not bring unrelated local master commits into this branch.
 - Research next: classify issue relevance and recursively inspect linked
   evidence for applicable leads; review PR descriptions/discussions where they
@@ -237,3 +242,18 @@ Last updated: 2026-10-18. Status: active and incomplete.
   selected seven lanes but escalated; `pnpm verify:affected` reported that
   escalation without running its lanes. Full-gate validation for this newer
   SHA remains outstanding.
+- F-005 / PhotoCraft #6605 red/green: before the fix,
+  `atomic_write_refuses_dangling_symlink_without_replacing_it` failed because
+  the link was replaced, and `atomic_write_through_live_symlink_preserves_the_link`
+  failed because the live link disappeared. After canonicalizing symlink paths
+  before atomic replacement, both pass; the focused `atomic_write_` suite now
+  passes 7 tests. This is Unix-only regression coverage; Windows/macOS symlink
+  behavior and the broad planner-required gate remain unverified. Website review
+  found no claim that needs changing.
+- F-003 visual work: the Save-flow E2E now hovers the failed-save status,
+  asserts the quota error tooltip, and captures `evidence/save-failed-status.png`.
+  `pnpm typecheck:e2e` passed. The first `pnpm verify:affected` attempt reached
+  the visual lane but its lease wrapper timed out after 600 seconds waiting for
+  an editor Vitest owner; Chromium did not launch and no screenshot was
+  produced. The E2E source is still uncommitted. Retry only after the live owner
+  exits and inspect the generated image before committing it.
