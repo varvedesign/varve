@@ -883,5 +883,19 @@ its title, labels, or downloaded body.
     The inspected 1280x720 screenshot shows 0 layers inserted, the warning, and
     an empty object panel; this run used the TypeScript renderer fallback
     because WASM did not load. #1739 was already reviewed and is not counted
-    again. The
-    review ledger and summary now record 949 reviewed threads.
+    again. The review ledger and summary now record 949 reviewed threads.
+    Validation: `pnpm verify:plan` selected 43 lanes with no full-suite
+    escalation. `pnpm verify:affected` passed formatting, lint, docs/emoji
+    audits, E2E typechecking, and the importer/codegen/scene/editor typechecks,
+    then stopped at the existing desktop error
+    `packages/editor/src/collab/CollabSurfaces.tsx:450` (readonly `Affine`
+    cast to mutable `number[]`). A second affected run was terminated with
+    SIGTERM during `typecheck:e2e`; a direct `pnpm typecheck:e2e` then passed.
+    The commit checkpoint and direct SVG unit suite passed (39 tests), as did
+    the focused lease-wrapped Chromium import E2E. `pnpm audit:tokens` passed
+    all 324 pairs across three themes and the usage scan; docs and emoji audits
+    passed again. The mobile export marketing capture passed at 390x844 with no
+    horizontal overflow. Full suite, Rust, native GUI, and benchmark lanes were
+    not run because the planner did not escalate and no Rust/native code or
+    render hot path changed. Commit `10501e3b2` records the importer fix and
+    Inkscape evidence.
