@@ -4,6 +4,50 @@ This page records evidence reviewed so far. A body-screened report is not a
 confirmed Varve defect. Discussion review and linked implementation history
 remain pending unless stated otherwise in the issue ledger.
 
+## Screening update: issues #1201–2400
+
+The 1,200-ID body sweep fully read 1,165 descriptions. Thirty-two IDs were
+already screened, two cached descriptions were unavailable (#1489 and #1503),
+and #2207 remains partial because its 99,250-character test transcript was
+truncated mid-output. Empty cached descriptions #1289 and #1595 were counted
+as screened. No discussion comments, attachments, or linked merge requests
+were reviewed in this sweep. These are historical reports and regression
+prompts, not evidence that Varve has the same defects:
+
+- [#2069](https://gitlab.com/inkscape/inkscape/-/issues/2069) reports batch
+  PNG export overwriting same-named files from another document without a
+  collision warning. This is a data-loss safety case for multi-file export.
+- [#2229](https://gitlab.com/inkscape/inkscape/-/issues/2229) reports SVG2
+  flowed text disappearing on save after editing. [#2378](https://gitlab.com/inkscape/inkscape/-/issues/2378)
+  reports a custom attribute on an inner text span being accepted in the UI but
+  omitted on save. Neither report's attachment or follow-up was inspected;
+  they motivate save/reopen assertions for content and metadata Varve supports.
+- [#2171](https://gitlab.com/inkscape/inkscape/-/issues/2171) reports
+  cross-document paste changing group geometry when documents use different
+  scales. [#2304](https://gitlab.com/inkscape/inkscape/-/issues/2304) reports
+  SVG clipboard import ungrouping content and dropping foreign-app metadata.
+  The source data and comments were not inspected, so only the general
+  transform and structure-preservation cases transfer as test prompts.
+- [#2128](https://gitlab.com/inkscape/inkscape/-/issues/2128) reports
+  zoom- and raster-resolution-dependent appearance. [#2118](https://gitlab.com/inkscape/inkscape/-/issues/2118)
+  and [#2123](https://gitlab.com/inkscape/inkscape/-/issues/2123) report
+  images inside patterns exported at the wrong coordinates. These prompt
+  camera-independent render hashes and export-resolution comparisons; the
+  sample files were not fetched.
+- [#2348](https://gitlab.com/inkscape/inkscape/-/issues/2348),
+  [#2349](https://gitlab.com/inkscape/inkscape/-/issues/2349), and
+  [#2350](https://gitlab.com/inkscape/inkscape/-/issues/2350) report startup
+  stalls when recent-file history points to disconnected locations. The
+  reports implicate probing unrelated GTK recent-file entries, a platform
+  integration detail; no matching Varve mechanism has been established.
+- [#2039](https://gitlab.com/inkscape/inkscape/-/issues/2039) was later
+  marked duplicate of [#773](https://gitlab.com/inkscape/inkscape/-/issues/773),
+  a historical stale-background-cache report for filter effects. The cached
+  issue notes say Inkscape 1.0 changed layer blend modes from filters to CSS
+  blend modes. In Varve, visible group blending selects structural compositing,
+  which bypasses partial redraw. This is a source-inspection no-change finding,
+  not a reproduced visual result; the issue's SVG attachment was not opened.
+
 ## Screening update: issues #3751–3900
 
 The full descriptions for all 149 available nonempty issue bodies in this
