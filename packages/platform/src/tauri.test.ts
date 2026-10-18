@@ -287,10 +287,17 @@ describe('createTauriPlatform', () => {
     expect(filters[0]?.extensions).toEqual(['varve']);
   });
 
-  it('chooses one export folder and writes safe relative files beneath it', async () => {
+  it('chooses one export folder, resolves a group, and writes files individually', async () => {
     const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
       if (cmd === 'plugin:dialog|open') return '/tmp/exports';
-      if (cmd === 'write_binary_file_to_folder') return '/tmp/exports/icons/logo.svg';
+      if (cmd === 'prepare_export_folder_group')
+        return { status: 'ready', relativePaths: ['icons/logo.svg'] };
+      if (cmd === 'write_binary_file_to_folder')
+        return {
+          relativePath: 'icons/logo.svg',
+          status: 'written',
+          path: '/tmp/exports/icons/logo.svg',
+        };
       return null;
     });
     globalWithTauri.__TAURI__ = {
@@ -300,23 +307,36 @@ describe('createTauriPlatform', () => {
 
     const platform = createTauriPlatform();
     expect(await platform.chooseExportFolder()).toBe('/tmp/exports');
-    const path = await platform.writeBinaryFileToFolder(
+    const plan = await platform.prepareExportFolderGroup(
       '/tmp/exports',
-      'icons/logo.svg',
+      ['icons/logo.svg'],
+      'keep-both',
+    );
+    const result = await platform.writeBinaryFileToFolder(
+      '/tmp/exports',
+      plan.relativePaths[0]!,
       new Uint8Array([1, 2, 3]),
+      'keep-both',
     );
 
-    expect(path).toBe('/tmp/exports/icons/logo.svg');
+    expect(plan).toEqual({ status: 'ready', relativePaths: ['icons/logo.svg'] });
+    expect(result).toMatchObject({ status: 'written', path: '/tmp/exports/icons/logo.svg' });
     expect(invoke).toHaveBeenCalledWith('plugin:dialog|open', {
       options: { directory: true, multiple: false },
+    });
+    expect(invoke).toHaveBeenCalledWith('prepare_export_folder_group', {
+      folder: '/tmp/exports',
+      relativePaths: ['icons/logo.svg'],
+      conflictPolicy: 'keep-both',
     });
     expect(invoke).toHaveBeenCalledWith('write_binary_file_to_folder', {
       folder: '/tmp/exports',
       relativePath: 'icons/logo.svg',
       data: expect.any(ArrayBuffer),
+      conflictPolicy: 'keep-both',
     });
     await expect(
-      platform.writeBinaryFileToFolder('/tmp/exports', '../escape.svg', new Uint8Array()),
+      platform.prepareExportFolderGroup('/tmp/exports', ['../escape.svg'], 'keep-both'),
     ).rejects.toThrow('safe relative path');
   });
 });

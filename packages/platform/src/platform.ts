@@ -326,8 +326,19 @@ export interface Platform {
   ): Promise<string | null>;
   /** Choose one directory for a multi-file export. Unsupported runtimes return null. */
   chooseExportFolder(): Promise<string | null>;
-  /** Atomically write a safe relative export path under a previously chosen folder. */
-  writeBinaryFileToFolder(folder: string, relativePath: string, data: Uint8Array): Promise<string>;
+  /** Resolve conflicts for one deliverable group before sending file bytes. */
+  prepareExportFolderGroup(
+    folder: string,
+    relativePaths: string[],
+    conflictPolicy: 'keep-both' | 'replace' | 'skip',
+  ): Promise<FolderExportGroupPlan>;
+  /** Write one safe path under the selected folder without exceeding one-file IPC payloads. */
+  writeBinaryFileToFolder(
+    folder: string,
+    relativePath: string,
+    data: Uint8Array,
+    conflictPolicy: 'keep-both' | 'replace' | 'skip',
+  ): Promise<FolderExportResult>;
   revealInFileManager(path: string): Promise<void>;
   fileManagerLabel(): string;
 
@@ -353,6 +364,18 @@ export interface Platform {
   printPdf(data: Uint8Array, jobTitle: string, options: PrintJobOptions): Promise<PrintJobResult>;
   /** Cancel a previously submitted print job. */
   cancelPrintJob(printerName: string, jobId: number): Promise<string>;
+}
+
+export interface FolderExportGroupPlan {
+  status: 'ready' | 'skipped';
+  relativePaths: string[];
+}
+
+export interface FolderExportResult {
+  relativePath: string;
+  status: 'written' | 'skipped' | 'failed';
+  path?: string;
+  error?: string;
 }
 
 /** A clipboard representation exchanged through a native platform bridge. */

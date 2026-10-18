@@ -116,6 +116,41 @@ narrowest path to a correct file, and it must agree with the batch workspace:
 
 ## Batch export
 
+### Existing files in desktop folder exports
+
+The batch dialog's `conflictPolicy` applies to the outputs of each export job
+when the user selects a desktop destination folder. It is separate from the
+export plan's `rename` policy, which resolves collisions among names generated
+inside the current batch and does not inspect files already on disk.
+
+The native `prepare_export_folder_group` command resolves all relative paths
+for one logical deliverable before its bytes are sent. Files are then written
+individually through `write_binary_file_to_folder`, keeping IPC payloads bounded
+to one output file at a time. `keep-both` writes to the planned relative paths
+when they are free; if any path already exists, it creates a unique `Exports N`
+subfolder and places the complete group there so companion files and their
+relative imports remain together. `replace` atomically replaces each target.
+`skip` leaves the whole group unchanged when any target exists during planning.
+Each output also refuses to replace a path claimed after planning; because
+another process can create a path between per-file writes, that race can leave
+some earlier outputs written and later outputs skipped. Every output returns
+its actual path and a written, skipped, or failed result. The export
+report distinguishes fully successful, partially written, skipped, and failed
+jobs; it must not label an intentionally skipped group as a failed write.
+Retry incomplete reruns the whole logical job under the currently selected
+conflict policy. With `keep-both`, any already-written member can cause the
+retry to land in the next `Exports N` folder, preserving the old partial group
+and avoiding an overwrite; the user can reveal the prior output to inspect or
+remove it.
+
+Keep-both publication uses a same-directory temporary file and an atomic
+hard-link that refuses to replace a name claimed after the initial check. If a
+destination changes during the write, that output is reported failed rather
+than overwritten. Individual files are atomic; a disk or permission failure
+can still leave a multi-file group partially written, which the report
+identifies per output. Browser ZIP export retains its separate archive-entry
+deduplication behavior and does not expose native folder conflict choices.
+
 The export dialog shows resolved pixel dimensions before execution. Its
 temporary “Override raster outputs” control applies one PPI to the selected
 raster jobs for that run only. It does not alter saved per-node presets or

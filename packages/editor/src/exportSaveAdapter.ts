@@ -9,7 +9,7 @@ import type { Platform } from '@varve/platform';
 import type { ExportFormat, ExportJob } from '@varve/scene';
 import { sanitizeSegment } from '@varve/scene/export';
 import { zipSync } from 'fflate';
-import type { ExportRunContext } from './exportService';
+import type { ExportOutputResult, ExportRunContext } from './exportService';
 
 const FORMAT_EXTENSIONS: Partial<Record<ExportFormat, string>> = {
   avif: '.avif',
@@ -135,12 +135,62 @@ export function createExportSaveFile(platform?: Platform): ExportRunContext['sav
   };
 }
 
-export function createExportFolderSaveFile(
+export function createExportFolderSaveFiles(
   platform: Platform,
   folder: string,
-): NonNullable<ExportRunContext['saveFile']> {
-  return async (fileName, bytes) => {
-    return await platform.writeBinaryFileToFolder(folder, safeArchiveEntryPath(fileName), bytes);
+  conflictPolicy: NonNullable<import('@varve/scene').ExportBatch['conflictPolicy']>,
+): NonNullable<ExportRunContext['saveFiles']> {
+  return async (files) => {
+    const plan = await platform.prepareExportFolderGroup(
+      folder,
+      files.map((file) => safeArchiveEntryPath(file.fileName)),
+      conflictPolicy,
+    );
+    if (plan.status === 'skipped') {
+      return files.map((file) => ({ fileName: file.fileName, status: 'skipped' as const }));
+    }
+    if (plan.relativePaths.length !== files.length) {
+      throw new Error('Native export plan did not resolve every output path');
+    }
+    const results: ExportOutputResult[] = [];
+    for (const [index, file] of files.entries()) {
+      const relativePath = plan.relativePaths[index];
+      if (!relativePath) {
+        results.push({
+          fileName: file.fileName,
+          status: 'failed',
+          error: 'Missing native output path',
+        });
+        continue;
+      }
+      try {
+        const result = await platform.writeBinaryFileToFolder(
+          folder,
+          relativePath,
+          file.bytes,
+          conflictPolicy,
+        );
+        results.push({
+          fileName: file.fileName,
+          status:
+            result.status === 'written'
+              ? 'success'
+              : result.status === 'skipped'
+                ? 'skipped'
+                : 'failed',
+          ...(result.path ? { savedPath: result.path } : {}),
+          ...(result.error ? { error: result.error } : {}),
+          ...(result.status === 'written' ? { byteCount: file.bytes.byteLength } : {}),
+        });
+      } catch (error) {
+        results.push({
+          fileName: file.fileName,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    return results;
   };
 }
 

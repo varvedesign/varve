@@ -63,6 +63,55 @@ describe('ExportService', () => {
     expect(new TextDecoder().decode(bytes as Uint8Array)).toContain('<svg');
   });
 
+  it('reports a skipped existing export without counting it as a failure', async () => {
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Logo' });
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+    const report = await ExportService.run(svgBatch(), {
+      document: doc,
+      saveFiles: async (outputs) =>
+        outputs.map((output) => ({ fileName: output.fileName, status: 'skipped' as const })),
+    });
+
+    expect(report.successCount).toBe(0);
+    expect(report.failureCount).toBe(0);
+    expect(report.files[0]).toMatchObject({
+      status: 'skipped',
+      outputResults: [{ fileName: 'Logo.svg', status: 'skipped' }],
+    });
+  });
+
+  it('reports partial multi-file writes with each output outcome', async () => {
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Logo' });
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+    const batch = svgBatch();
+    batch.jobs[0]!.format = 'react-cssmodules';
+    batch.jobs[0]!.fileName = 'Logo.tsx';
+    const report = await ExportService.run(batch, {
+      document: doc,
+      saveFiles: async (outputs) => [
+        {
+          fileName: outputs[0]!.fileName,
+          status: 'success',
+          savedPath: '/exports/Exports 2/Logo.tsx',
+          byteCount: outputs[0]!.bytes.byteLength,
+        },
+        { fileName: 'Logo.module.css', status: 'skipped' },
+      ],
+    });
+
+    expect(report.successCount).toBe(0);
+    expect(report.failureCount).toBe(0);
+    expect(report.partialCount).toBe(1);
+    expect(report.files[0]).toMatchObject({
+      status: 'partial',
+      savedPath: '/exports/Exports 2/Logo.tsx',
+      outputResults: [
+        { fileName: 'Logo.tsx', status: 'success' },
+        { fileName: 'Logo.module.css', status: 'skipped' },
+      ],
+    });
+  });
+
   it('exports a supported pattern fill as a reusable SVG paint server', async () => {
     const tile =
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL8tgAAAABJRU5ErkJggg==';

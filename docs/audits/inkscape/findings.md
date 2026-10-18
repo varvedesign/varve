@@ -395,10 +395,21 @@ clutter repeated export workflows. Varve already renames collisions inside one
 batch and disambiguates duplicate ZIP entries in the browser. Its desktop
 folder writer, however,
 passes resolved relative paths to an atomic native write that replaces an
-existing destination without a batch-level conflict check. This is a current,
-reproducible product gap: offer one conflict choice for the whole batch (keep
-both with suffixes, skip existing outputs, or replace them) before writing.
-Do not make either automatic rename or overwrite an invisible policy.
+existing destination without a batch-level conflict check. This was a current,
+reproducible product gap. Varve now offers Keep both, Replace, and Skip existing
+for desktop folder exports. Keep both puts a conflicting logical output group
+into a new `Exports N` folder, retaining companion filenames and their relative
+references; Skip leaves the entire group unchanged if any member conflicts;
+Replace uses the existing atomic replacement writer. The native writer refuses
+no-replace races rather than silently clobbering a file, and the report records
+per-output paths and partial outcomes, including a path claimed by another
+process after planning. Browser ZIP delivery remains separate.
+These choices address both observed failure classes: automatic copy clutter and
+unexpected overwrite. A disk or permission error can still leave a partial
+multi-file group, which is reported per output rather than presented as a full
+success. Retry incomplete reruns that logical job using the current conflict
+choice; Keep both can place the retry in a fresh `Exports N` folder so the
+earlier partial copy remains inspectable and untouched.
 [Inkscape #2069](https://gitlab.com/inkscape/inkscape/-/issues/2069),
 [later overwrite request #7494](https://gitlab.com/inkscape/inbox/-/issues/7494),
 [later overwrite request #6983](https://gitlab.com/inkscape/inbox/-/issues/6983),

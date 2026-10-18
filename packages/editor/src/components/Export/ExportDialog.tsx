@@ -266,6 +266,7 @@ function buildBatchForExport(
   template: string,
   folderRule: ExportBatch['folderRule'],
   destination: string | null,
+  conflictPolicy: ExportBatch['conflictPolicy'],
   printSettings: PrintOptions,
   document: Document | undefined,
   resolutionOverride: number | null,
@@ -313,6 +314,7 @@ function buildBatchForExport(
     destinationFolder: destination,
     filenameTemplate: template,
     folderRule,
+    conflictPolicy,
   };
 }
 
@@ -365,6 +367,8 @@ export function ExportDialog({
     return '';
   }, [template]);
   const [folderRule, setFolderRule] = useState<ExportBatch['folderRule']>('flat');
+  const [conflictPolicy, setConflictPolicy] =
+    useState<NonNullable<ExportBatch['conflictPolicy']>>('keep-both');
   const [resolutionOverride, setResolutionOverride] = useState<number | null>(null);
   const [destinationLabel, setDestinationLabel] = useState('');
   const [announceMsg, setAnnounceMsg] = useState('');
@@ -459,6 +463,7 @@ export function ExportDialog({
         template,
         folderRule,
         destinationLabel || null,
+        conflictPolicy,
         printSettings,
         document,
         resolutionOverride,
@@ -468,6 +473,7 @@ export function ExportDialog({
       template,
       folderRule,
       destinationLabel,
+      conflictPolicy,
       printSettings,
       document,
       resolutionOverride,
@@ -619,28 +625,40 @@ export function ExportDialog({
           onApplyBackgroundRemoval?.(prepared.sourceNode.id, prepared);
       }
       if (report) {
+        const partialCount =
+          report.partialCount ?? report.files.filter((file) => file.status === 'partial').length;
+        const skippedCount =
+          report.skippedCount ?? report.files.filter((file) => file.status === 'skipped').length;
         setSuccessEmphasisActive(
           !controller.signal.aborted &&
             report.totalJobs > 0 &&
             report.failureCount === 0 &&
+            partialCount === 0 &&
+            skippedCount === 0 &&
             report.successCount === report.totalJobs,
         );
         setLastReport(report);
-        setProgress({ done: report.successCount, errors: report.failureCount });
+        setProgress({
+          done: report.successCount + partialCount + skippedCount + report.failureCount,
+          errors: report.failureCount + partialCount,
+        });
         if (controller.signal.aborted) {
           setAnnounceMsg('Export cancelled');
-        } else if (report.failureCount > 0) {
+        } else if (report.failureCount > 0 || partialCount > 0) {
+          const deliveredCount = report.successCount + partialCount + skippedCount;
           setAnnounceMsg(
-            report.successCount > 0
-              ? `Export partially complete: ${report.successCount} exported, ${report.failureCount} failed`
-              : `Export failed: ${report.failureCount} of ${report.totalJobs} files failed`,
+            deliveredCount === 0
+              ? `Export failed: ${report.failureCount} of ${report.totalJobs} files failed`
+              : `Export partially complete: ${report.successCount} exported, ${partialCount} partial, ${report.failureCount} failed${skippedCount > 0 ? `, ${skippedCount} skipped` : ''}`,
           );
         } else {
           const preflightNote =
             report.findings && report.findings.length > 0
               ? ` (${report.findings.filter((f) => f.severity === 'warning').length} warning${report.findings.filter((f) => f.severity === 'warning').length === 1 ? '' : 's'} from preflight)`
               : '';
-          setAnnounceMsg(`Export complete: ${report.successCount} files exported${preflightNote}`);
+          setAnnounceMsg(
+            `Export complete: ${report.successCount} files exported${skippedCount > 0 ? `, ${skippedCount} skipped` : ''}${preflightNote}`,
+          );
         }
       } else if (!controller.signal.aborted) {
         setProgress({ done: selectedJobs.length, errors: 0 });
@@ -676,14 +694,16 @@ export function ExportDialog({
     includeAiDisclosure,
   ]);
 
-  const handleRetryFailed = useCallback(() => {
-    const failedJobs = exportBatch.jobs.filter((job) =>
+  const handleRetryIncomplete = useCallback(() => {
+    const incompleteJobs = exportBatch.jobs.filter((job) =>
       lastReport?.files.some(
         (file) =>
-          file.status === 'failed' && file.nodeId === job.nodeId && file.fileName === job.fileName,
+          (file.status === 'failed' || file.status === 'partial') &&
+          file.nodeId === job.nodeId &&
+          file.fileName === job.fileName,
       ),
     );
-    if (failedJobs.length === 0) return;
+    if (incompleteJobs.length === 0) return;
     setLastReport(null);
     setSuccessEmphasisActive(false);
     void (async () => {
@@ -694,7 +714,7 @@ export function ExportDialog({
       const controller = new AbortController();
       batchAbortRef.current = controller;
       try {
-        const retryBatch = { ...exportBatch, jobs: failedJobs };
+        const retryBatch = { ...exportBatch, jobs: incompleteJobs };
         const report = await onExport(
           retryBatch,
           controller.signal,
@@ -706,20 +726,29 @@ export function ExportDialog({
           { includeAiDisclosure },
         );
         if (report) {
+          const partialCount =
+            report.partialCount ?? report.files.filter((file) => file.status === 'partial').length;
+          const skippedCount =
+            report.skippedCount ?? report.files.filter((file) => file.status === 'skipped').length;
           setSuccessEmphasisActive(
             !controller.signal.aborted &&
               report.totalJobs > 0 &&
               report.failureCount === 0 &&
+              partialCount === 0 &&
+              skippedCount === 0 &&
               report.successCount === report.totalJobs,
           );
           setLastReport(report);
-          setProgress({ done: report.successCount, errors: report.failureCount });
+          setProgress({
+            done: report.successCount + partialCount + skippedCount + report.failureCount,
+            errors: report.failureCount + partialCount,
+          });
           setAnnounceMsg(
             controller.signal.aborted
               ? 'Export cancelled'
-              : report.failureCount > 0
-                ? `Retry partial: ${report.successCount} exported, ${report.failureCount} still failed`
-                : `Retry complete: ${report.successCount} files exported`,
+              : report.failureCount > 0 || partialCount > 0
+                ? `Retry partial: ${report.successCount} exported, ${partialCount} partial, ${report.failureCount} still failed${skippedCount > 0 ? `, ${skippedCount} skipped` : ''}`
+                : `Retry complete: ${report.successCount} files exported${skippedCount > 0 ? `, ${skippedCount} skipped` : ''}`,
           );
         }
       } catch (err) {
@@ -1043,6 +1072,8 @@ export function ExportDialog({
                   jobs={jobs}
                   onTemplateChange={setTemplate}
                   onFolderRuleChange={setFolderRule}
+                  conflictPolicy={conflictPolicy}
+                  onConflictPolicyChange={setConflictPolicy}
                   templateError={templateError}
                   onSelectDestination={() => void handleSelectDestination()}
                   destinationLabel={destinationLabel}
@@ -1296,7 +1327,7 @@ export function ExportDialog({
               <ExportResultsList
                 files={lastReport.files}
                 successEmphasisActive={successEmphasisActive}
-                onRetryFailed={handleRetryFailed}
+                onRetryIncomplete={handleRetryIncomplete}
                 onRevealOutput={onRevealOutput}
                 revealOutputLabel={revealOutputLabel}
               />

@@ -53,7 +53,7 @@ export interface ExportFileReport {
   fileName: string;
   format: ExportFormat;
   nodeId: string;
-  status: 'success' | 'failed';
+  status: 'success' | 'partial' | 'skipped' | 'failed';
   mimeType: string;
   byteCount: number;
   durationMs: number;
@@ -66,8 +66,18 @@ export interface ExportFileReport {
    * `fileName`/`savedPath`.
    */
   additionalFiles?: string[];
+  /** Per-output outcomes for multi-file jobs and existing-file skips. */
+  outputResults?: ExportOutputResult[];
   /** Typed raster resource failures (missing/corrupt/CORS/...) from preflight. */
   resourceFailures?: import('./export/resourceReadiness').FailedResource[];
+}
+
+export interface ExportOutputResult {
+  fileName: string;
+  status: 'success' | 'skipped' | 'failed';
+  savedPath?: string;
+  error?: string;
+  byteCount?: number;
 }
 
 export interface ExportReport {
@@ -77,6 +87,8 @@ export interface ExportReport {
   totalJobs: number;
   successCount: number;
   failureCount: number;
+  partialCount?: number;
+  skippedCount?: number;
   files: ExportFileReport[];
   /** Preflight findings computed before execution (informational surfacing). */
   findings?: ExportFinding[];
@@ -106,7 +118,12 @@ export interface ExportRunContext {
     bytes: Uint8Array,
     mimeType: string,
     job: ExportJob,
-  ) => Promise<string | null | undefined>;
+  ) => Promise<string | null | undefined | { status: 'skipped' }>;
+  /** Writes a complete generated deliverable as one conflict-resolution group. */
+  saveFiles?: (
+    files: Array<{ fileName: string; bytes: Uint8Array; mimeType: string }>,
+    job: ExportJob,
+  ) => Promise<ExportOutputResult[] | undefined>;
   /** Receives actual executor transitions; never synthesized from elapsed time. */
   onProgress?: (event: ExportProgressEvent) => void;
   /** Embed AI disclosure metadata when the document has generative edits. Defaults to true. */
@@ -709,17 +726,38 @@ export const ExportService = {
                 index === 0 ? { ...file, fileName: job.fileName } : file,
               )
             : [{ fileName: job.fileName, bytes: rendered.bytes, mimeType: rendered.mimeType }];
-        let saved: string | null | undefined;
+        let outputResults: NonNullable<ExportFileReport['outputResults']> = [];
         try {
-          for (const [index, output] of outputs.entries()) {
-            const written = await context.saveFile?.(
-              output.fileName,
-              output.bytes,
-              output.mimeType,
-              job,
-            );
-            if (context.saveFile && written === null) throw abortError();
-            if (index === 0) saved = written;
+          if (context.saveFiles) {
+            outputResults =
+              (await context.saveFiles(
+                outputs.map((output) => ({
+                  fileName: output.fileName,
+                  bytes: output.bytes,
+                  mimeType: output.mimeType,
+                })),
+                job,
+              )) ?? [];
+          } else {
+            for (const output of outputs) {
+              const written = await context.saveFile?.(
+                output.fileName,
+                output.bytes,
+                output.mimeType,
+                job,
+              );
+              if (context.saveFile && written === null) throw abortError();
+              outputResults.push(
+                written && typeof written === 'object'
+                  ? { fileName: output.fileName, status: 'skipped' }
+                  : {
+                      fileName: output.fileName,
+                      status: 'success',
+                      ...(typeof written === 'string' ? { savedPath: written } : {}),
+                      byteCount: output.bytes.byteLength,
+                    },
+              );
+            }
           }
         } catch (err) {
           // Permission denial (browser save dialog blocked) must not read as
@@ -731,15 +769,26 @@ export const ExportService = {
           }
           throw err;
         }
+        const writtenOutputs = outputResults.filter((result) => result.status === 'success');
+        const skippedOutputs = outputResults.filter((result) => result.status === 'skipped');
+        const failedOutputs = outputResults.filter((result) => result.status === 'failed');
+        const status =
+          writtenOutputs.length === 0
+            ? failedOutputs.length > 0
+              ? 'failed'
+              : 'skipped'
+            : skippedOutputs.length > 0 || failedOutputs.length > 0
+              ? 'partial'
+              : 'success';
         files.push({
           fileName: job.fileName,
           format: job.format,
           nodeId: job.nodeId,
-          status: 'success',
+          status,
           mimeType: rendered.mimeType,
-          byteCount: outputs.reduce((total, output) => total + output.bytes.byteLength, 0),
+          byteCount: writtenOutputs.reduce((total, output) => total + (output.byteCount ?? 0), 0),
           durationMs: performance.now() - jobStarted,
-          savedPath: typeof saved === 'string' ? saved : undefined,
+          savedPath: writtenOutputs.find((output) => output.savedPath)?.savedPath,
           warnings: [
             ...rendered.warnings,
             ...(rendered.diagnostics ?? [])
@@ -749,12 +798,14 @@ export const ExportService = {
           ...(rendered.files && rendered.files.length > 1
             ? { additionalFiles: rendered.files.slice(1).map((file) => file.fileName) }
             : {}),
+          ...(outputResults.length > 0 ? { outputResults } : {}),
           ...(rendered.resourceFailures && rendered.resourceFailures.length > 0
             ? { resourceFailures: rendered.resourceFailures }
             : {}),
         });
         completedJobs += 1;
-        emit('completed', job.fileName);
+        if (status === 'partial' || status === 'failed') failedJobs += 1;
+        emit(status === 'failed' ? 'failed' : 'completed', job.fileName);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') throw err;
         files.push({
@@ -775,7 +826,9 @@ export const ExportService = {
 
     const completedAt = Date.now();
     const successCount = files.filter((f) => f.status === 'success').length;
-    const failureCount = files.length - successCount;
+    const failureCount = files.filter((f) => f.status === 'failed').length;
+    const partialCount = files.filter((f) => f.status === 'partial').length;
+    const skippedCount = files.filter((f) => f.status === 'skipped').length;
 
     return {
       startedAt,
@@ -784,6 +837,8 @@ export const ExportService = {
       totalJobs: batch.jobs.length,
       successCount,
       failureCount,
+      partialCount,
+      skippedCount,
       files,
       findings,
     };

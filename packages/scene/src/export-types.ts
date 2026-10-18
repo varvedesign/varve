@@ -137,7 +137,11 @@ export interface ExportBatch {
   destinationFolder: string | null;
   filenameTemplate: string;
   folderRule: 'flat' | 'by-preset' | 'by-node';
+  /** How desktop folder exports handle names that already exist on disk. */
+  conflictPolicy?: ExportConflictPolicy;
 }
+
+export type ExportConflictPolicy = 'keep-both' | 'replace' | 'skip';
 
 export interface ExportSettings {
   defaultScale: ExportScale;

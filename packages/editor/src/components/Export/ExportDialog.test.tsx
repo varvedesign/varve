@@ -88,6 +88,7 @@ describe('ExportDialog', () => {
     await waitFor(() => expect(onExport).toHaveBeenCalledOnce());
     const batch = onExport.mock.calls[0]?.[0] as { jobs: Array<{ fileName: string }> };
     expect(batch.jobs[0]?.fileName).toBe('png/Rectangle 1-200.png');
+    expect(batch).toHaveProperty('conflictPolicy', 'keep-both');
   });
 
   it('includes AI disclosure by default and can turn it off', async () => {
@@ -627,7 +628,7 @@ describe('ExportDialog', () => {
     expect(jobs[0]?.print).toMatchObject({ bleedMm: expect.any(Number) });
   });
 
-  it('renders per-file results and retries only failed outputs', async () => {
+  it('renders per-file results and retries incomplete output groups', async () => {
     let firstBatch: unknown;
     const onExport = vi.fn(async (batch: unknown) => {
       if (onExport.mock.calls.length === 1) firstBatch = batch;
@@ -641,18 +642,22 @@ describe('ExportDialog', () => {
           durationMs: 1,
           totalJobs: 1,
           successCount: 0,
-          failureCount: 1,
+          failureCount: 0,
+          partialCount: 1,
           files: [
             {
               fileName: job.fileName,
               format: 'png' as const,
               nodeId: job.nodeId,
-              status: 'failed' as const,
+              status: 'partial' as const,
               mimeType: 'application/octet-stream',
-              byteCount: 0,
+              byteCount: 5,
               durationMs: 5,
-              error: 'Engine not ready',
               warnings: [],
+              outputResults: [
+                { fileName: job.fileName, status: 'success' as const, byteCount: 5 },
+                { fileName: 'companion.svg', status: 'failed' as const, error: 'Disk full' },
+              ],
             },
           ],
         };
@@ -684,9 +689,14 @@ describe('ExportDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
     await waitFor(() => expect(onExport).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByText('Engine not ready')).toBeInTheDocument());
+    await waitFor(() => {
+      const outputList = screen.getByRole('list', { name: 'Output file statuses' });
+      expect(outputList.textContent).toContain('companion.svg');
+      expect(outputList.textContent).toContain('failed');
+      expect(outputList.textContent).toContain('Disk full');
+    });
 
-    fireEvent.click(screen.getByRole('button', { name: /Retry failed \(1\)/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Retry incomplete \(1\)/ }));
     await waitFor(() => expect(onExport).toHaveBeenCalledTimes(2));
     const retryCall = onExport.mock.calls[1];
     if (!retryCall) throw new Error('Expected a retry export call');

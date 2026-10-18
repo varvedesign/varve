@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DestinationPicker } from './DestinationPicker';
 
 afterEach(cleanup);
@@ -27,9 +27,11 @@ describe('DestinationPicker', () => {
       <DestinationPicker
         template="{name}{suffix}.{ext}"
         folderRule="flat"
+        conflictPolicy="keep-both"
         jobs={[makeJob()]}
         onTemplateChange={() => {}}
         onFolderRuleChange={() => {}}
+        onConflictPolicyChange={() => {}}
         onSelectDestination={() => {}}
         destinationLabel=""
       />,
@@ -43,9 +45,11 @@ describe('DestinationPicker', () => {
       <DestinationPicker
         template="{name}.{ext}"
         folderRule="flat"
+        conflictPolicy="keep-both"
         jobs={[]}
         onTemplateChange={() => {}}
         onFolderRuleChange={() => {}}
+        onConflictPolicyChange={() => {}}
         onSelectDestination={() => {}}
         destinationLabel=""
       />,
@@ -58,9 +62,11 @@ describe('DestinationPicker', () => {
       <DestinationPicker
         template="{name}.{ext}"
         folderRule="flat"
+        conflictPolicy="keep-both"
         jobs={[]}
         onTemplateChange={() => {}}
         onFolderRuleChange={() => {}}
+        onConflictPolicyChange={() => {}}
         onSelectDestination={() => {}}
         destinationLabel="/exports"
       />,
@@ -73,9 +79,11 @@ describe('DestinationPicker', () => {
       <DestinationPicker
         template="{name}.{ext}"
         folderRule="flat"
+        conflictPolicy="keep-both"
         jobs={[]}
         onTemplateChange={() => {}}
         onFolderRuleChange={() => {}}
+        onConflictPolicyChange={() => {}}
         onSelectDestination={() => {}}
         destinationLabel=""
       />,
@@ -85,14 +93,43 @@ describe('DestinationPicker', () => {
     expect(screen.getByText('By node')).toBeTruthy();
   });
 
+  it('defaults to keeping both and lets users choose replace or skip', () => {
+    const onConflictPolicyChange = vi.fn();
+    render(
+      <DestinationPicker
+        template="{name}.{ext}"
+        folderRule="flat"
+        conflictPolicy="keep-both"
+        jobs={[]}
+        onTemplateChange={() => {}}
+        onFolderRuleChange={() => {}}
+        onConflictPolicyChange={onConflictPolicyChange}
+        onSelectDestination={() => {}}
+        destinationLabel="/exports"
+      />,
+    );
+
+    expect(screen.getByRole('group', { name: 'Existing files' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Keep both' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }));
+    expect(onConflictPolicyChange).toHaveBeenCalledWith('replace');
+    fireEvent.click(screen.getByRole('button', { name: 'Skip existing' }));
+    expect(onConflictPolicyChange).toHaveBeenCalledWith('skip');
+  });
+
   it('explains archive delivery when direct folder selection is unavailable', () => {
     render(
       <DestinationPicker
         template="{name}.{ext}"
         folderRule="flat"
+        conflictPolicy="keep-both"
         jobs={[]}
         onTemplateChange={() => {}}
         onFolderRuleChange={() => {}}
+        onConflictPolicyChange={() => {}}
         onSelectDestination={() => {}}
         destinationLabel=""
         folderSelectionAvailable={false}

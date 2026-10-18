@@ -314,6 +314,69 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
     Ok(())
 }
 
+/// Publish a complete temporary file at a target only when that name is still
+/// free. A same-directory hard link is atomic and fails with AlreadyExists
+/// instead of replacing a file created after the caller's initial check.
+fn write_file_atomic_no_replace(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
+    let Some(parent) = path.parent() else {
+        return Err("Invalid path: no parent directory".to_string());
+    };
+    if !parent.exists() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directory {}: {e}", parent.display()))?;
+    }
+    let tmp = parent.join(format!(".varve-write-{}.tmp", uuid()));
+    let result = (|| -> Result<(), String> {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)
+            .map_err(|e| format!("Failed to create temp file {}: {e}", tmp.display()))?;
+        file.write_all(data)
+            .map_err(|e| format!("Failed to write temp file: {e}"))?;
+        file.sync_all()
+            .map_err(|e| format!("Failed to flush temp file: {e}"))?;
+        drop(file);
+        std::fs::hard_link(&tmp, path).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                "A destination file appeared during export; no existing file was replaced. Review the folder and retry"
+                    .into()
+            } else {
+                format!("Failed to publish export without replacing an existing file: {e}")
+            }
+        })?;
+        let _ = std::fs::remove_file(&tmp);
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result?;
+    #[cfg(unix)]
+    if let Ok(dir) = std::fs::File::open(parent) {
+        let _ = dir.sync_all();
+    }
+    Ok(())
+}
+
+/// Reserve a unique sibling directory for an entire deliverable group. Keeping
+/// sibling files together preserves relative imports in generated code bundles.
+fn create_export_conflict_directory(root: &std::path::Path) -> Result<std::path::PathBuf, String> {
+    for suffix in 2..=100_000 {
+        let candidate = root.join(format!("Exports {suffix}"));
+        match std::fs::create_dir(&candidate) {
+            Ok(()) => return Ok(candidate),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(format!(
+                    "Could not create a folder to keep both export groups: {error}"
+                ));
+            }
+        }
+    }
+    Err("No available folder name for keeping both export groups".into())
+}
+
 /// Canonicalize an untrusted path exactly like `resolve_user_path`, but
 /// WITHOUT the home/temp scope restriction.
 ///
@@ -387,34 +450,137 @@ fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
     write_file_atomic(&resolved, &data)
 }
 
-/// Write an export below a directory the user selected in the native folder
-/// dialog. The relative path is a portable export-plan path, not a native
-/// path; it is validated component-by-component before native joining.
-#[tauri::command]
-fn write_binary_file_to_folder(
-    folder: String,
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FolderExportResult {
     relative_path: String,
-    data: Vec<u8>,
-) -> Result<String, String> {
-    let components = filesystem::validate_portable_relative_path(&relative_path)
-        .map_err(|error| error.message)?;
+    status: &'static str,
+    path: Option<String>,
+    error: Option<String>,
+}
 
-    let root = resolve_user_path_approved(&folder)?;
-    if !root.is_dir() {
-        return Err("Export destination is not a directory".into());
-    }
-    let mut target = root.clone();
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FolderExportGroupPlan {
+    status: &'static str,
+    relative_paths: Vec<String>,
+}
+
+fn resolve_export_target(
+    root: &std::path::Path,
+    relative_path: &str,
+) -> Result<std::path::PathBuf, String> {
+    let components = filesystem::validate_portable_relative_path(relative_path)
+        .map_err(|error| error.message)?;
+    let mut target = root.to_path_buf();
     for component in components {
         target.push(component);
     }
     let resolved = resolve_user_path_approved(target.to_str().ok_or_else(|| {
         "Export path cannot be represented by the desktop IPC boundary".to_string()
     })?)?;
-    if !resolved.starts_with(&root) {
+    if !resolved.starts_with(root) {
         return Err("Export path escapes the selected directory".into());
     }
-    write_file_atomic(&resolved, &data)?;
-    Ok(filesystem::display_path(&resolved))
+    Ok(resolved)
+}
+
+/// Resolve a logical export group before its output bytes are sent over IPC.
+/// This keeps companion paths together without buffering an entire bundle in
+/// one native invocation.
+#[tauri::command]
+fn prepare_export_folder_group(
+    folder: String,
+    relative_paths: Vec<String>,
+    conflict_policy: String,
+) -> Result<FolderExportGroupPlan, String> {
+    if !matches!(conflict_policy.as_str(), "keep-both" | "replace" | "skip") {
+        return Err("Unsupported export conflict policy".into());
+    }
+    let root = resolve_user_path_approved(&folder)?;
+    if !root.is_dir() {
+        return Err("Export destination is not a directory".into());
+    }
+    let mut seen_paths = HashSet::new();
+    let mut targets = Vec::with_capacity(relative_paths.len());
+    for relative_path in &relative_paths {
+        if !seen_paths.insert(relative_path.to_lowercase()) {
+            return Err("Export group contains duplicate output paths".into());
+        }
+        targets.push(resolve_export_target(&root, relative_path)?);
+    }
+
+    if conflict_policy == "skip" && targets.iter().any(|target| target.exists()) {
+        return Ok(FolderExportGroupPlan {
+            status: "skipped",
+            relative_paths,
+        });
+    }
+
+    let resolved_paths = if conflict_policy == "keep-both" && targets.iter().any(|p| p.exists()) {
+        let write_root = create_export_conflict_directory(&root)?;
+        let folder_name = write_root
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .ok_or_else(|| "Export conflict folder name is not valid UTF-8".to_string())?;
+        relative_paths
+            .iter()
+            .map(|path| format!("{folder_name}/{path}"))
+            .collect()
+    } else {
+        relative_paths
+    };
+    Ok(FolderExportGroupPlan {
+        status: "ready",
+        relative_paths: resolved_paths,
+    })
+}
+
+/// Write one output beneath the chosen folder. Replace is explicit; Keep both
+/// and Skip never overwrite, even if another process claims the path after the
+/// group plan was prepared.
+#[tauri::command]
+fn write_binary_file_to_folder(
+    folder: String,
+    relative_path: String,
+    data: Vec<u8>,
+    conflict_policy: String,
+) -> Result<FolderExportResult, String> {
+    if !matches!(conflict_policy.as_str(), "keep-both" | "replace" | "skip") {
+        return Err("Unsupported export conflict policy".into());
+    }
+    let root = resolve_user_path_approved(&folder)?;
+    if !root.is_dir() {
+        return Err("Export destination is not a directory".into());
+    }
+    let target = resolve_export_target(&root, &relative_path)?;
+    if conflict_policy == "skip" && target.exists() {
+        return Ok(FolderExportResult {
+            relative_path,
+            status: "skipped",
+            path: Some(filesystem::display_path(&target)),
+            error: None,
+        });
+    }
+    let result = if conflict_policy == "replace" {
+        write_file_atomic(&target, &data)
+    } else {
+        write_file_atomic_no_replace(&target, &data)
+    };
+    match result {
+        Ok(()) => Ok(FolderExportResult {
+            relative_path,
+            status: "written",
+            path: Some(filesystem::display_path(&target)),
+            error: None,
+        }),
+        Err(error) => Ok(FolderExportResult {
+            relative_path,
+            status: "failed",
+            path: None,
+            error: Some(error),
+        }),
+    }
 }
 
 // ── Native clipboard ────────────────────────────────────────────────────
@@ -5969,6 +6135,7 @@ pub fn run() {
             home_read_text_file_approved,
             home_write_text_file_approved,
             write_binary_file,
+            prepare_export_folder_group,
             write_binary_file_to_folder,
             read_dropped_file,
             read_clipboard_image_png,
@@ -7539,6 +7706,119 @@ mod tests {
     }
 
     #[test]
+    fn export_keep_both_places_a_conflicting_output_group_in_one_new_folder() {
+        let dir = std::env::temp_dir().join(format!("varve_export_keep_both_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create export directory");
+        std::fs::write(dir.join("Card.tsx"), b"old component").expect("seed collision");
+
+        let plan = prepare_export_folder_group(
+            dir.to_string_lossy().into_owned(),
+            vec!["Card.tsx".into(), "Card.module.css".into()],
+            "keep-both".into(),
+        )
+        .expect("group plan succeeds");
+
+        assert_eq!(
+            std::fs::read(dir.join("Card.tsx")).unwrap(),
+            b"old component"
+        );
+        assert_eq!(plan.status, "ready");
+        assert_eq!(
+            plan.relative_paths,
+            vec!["Exports 2/Card.tsx", "Exports 2/Card.module.css"]
+        );
+        let component = write_binary_file_to_folder(
+            dir.to_string_lossy().into_owned(),
+            plan.relative_paths[0].clone(),
+            b"new component".to_vec(),
+            "keep-both".into(),
+        )
+        .expect("write component");
+        let stylesheet = write_binary_file_to_folder(
+            dir.to_string_lossy().into_owned(),
+            plan.relative_paths[1].clone(),
+            b".card {}".to_vec(),
+            "keep-both".into(),
+        )
+        .expect("write stylesheet");
+        assert_eq!(component.status, "written");
+        assert_eq!(stylesheet.status, "written");
+        assert_eq!(
+            std::fs::read(dir.join("Exports 2/Card.tsx")).unwrap(),
+            b"new component"
+        );
+        assert_eq!(
+            std::fs::read(dir.join("Exports 2/Card.module.css")).unwrap(),
+            b".card {}"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn export_skip_keeps_the_entire_output_group_unchanged_on_any_collision() {
+        let dir = std::env::temp_dir().join(format!("varve_export_skip_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create export directory");
+        std::fs::write(dir.join("existing.svg"), b"keep this").expect("seed collision");
+
+        let result = prepare_export_folder_group(
+            dir.to_string_lossy().into_owned(),
+            vec!["existing.svg".into(), "new.svg".into()],
+            "skip".into(),
+        )
+        .expect("skip is a successful policy outcome");
+
+        assert_eq!(result.status, "skipped");
+        assert_eq!(result.relative_paths, vec!["existing.svg", "new.svg"]);
+        assert_eq!(
+            std::fs::read(dir.join("existing.svg")).unwrap(),
+            b"keep this"
+        );
+        assert!(!dir.join("new.svg").exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn export_group_rejects_duplicate_portable_paths_before_creating_directories() {
+        let dir = std::env::temp_dir().join(format!("varve_export_duplicate_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create export directory");
+
+        let result = prepare_export_folder_group(
+            dir.to_string_lossy().into_owned(),
+            vec!["Card.svg".into(), "card.svg".into()],
+            "keep-both".into(),
+        );
+
+        assert!(matches!(result, Err(error) if error.contains("duplicate output paths")));
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn export_replace_replaces_only_the_requested_file() {
+        let dir = std::env::temp_dir().join(format!("varve_export_replace_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create export directory");
+        std::fs::write(dir.join("existing.svg"), b"old").expect("seed collision");
+
+        let plan = prepare_export_folder_group(
+            dir.to_string_lossy().into_owned(),
+            vec!["existing.svg".into()],
+            "replace".into(),
+        )
+        .expect("replace plan succeeds");
+        let result = write_binary_file_to_folder(
+            dir.to_string_lossy().into_owned(),
+            plan.relative_paths[0].clone(),
+            b"new".to_vec(),
+            "replace".into(),
+        )
+        .expect("replace succeeds");
+
+        assert_eq!(result.status, "written");
+        assert_eq!(std::fs::read(dir.join("existing.svg")).unwrap(), b"new");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn atomic_write_replaces_content_without_leaving_staging_files() {
         let dir = std::env::temp_dir().join(format!("varve_atomic_write_test_{}", uuid()));
         std::fs::create_dir_all(&dir).expect("create test dir");
@@ -7563,6 +7843,27 @@ mod tests {
             "successful writes should consume their staging file"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn atomic_no_replace_preserves_a_file_created_before_publish() {
+        let dir = std::env::temp_dir().join(format!("varve_no_replace_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("existing.svg");
+        std::fs::write(&target, b"original").expect("seed destination");
+
+        let error = write_file_atomic_no_replace(&target, b"replacement")
+            .expect_err("no-replace must refuse an existing name");
+
+        assert!(error.contains("no existing file was replaced"));
+        assert_eq!(std::fs::read(&target).expect("read original"), b"original");
+        let leftovers = std::fs::read_dir(&dir)
+            .expect("read test dir")
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
+            .count();
+        assert_eq!(leftovers, 0);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

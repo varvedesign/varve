@@ -16,7 +16,7 @@ import { useEditor } from '../../context';
 import { composeFlattenedExportSnapshot } from '../../export/compositor';
 import {
   createBufferedExportArchive,
-  createExportFolderSaveFile,
+  createExportFolderSaveFiles,
   createExportSaveFile,
   saveExportBytes,
 } from '../../exportSaveAdapter';
@@ -351,16 +351,21 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
         platform?.kind === 'web' &&
         (batch.jobs.length > 1 || batch.jobs.some((job) => isMultiFileExportFormat(job.format)));
       const archive = useBrowserArchive ? createBufferedExportArchive(platform) : null;
-      const folderSaveFile =
+      const folderSaveFiles =
         platform?.kind === 'tauri' && batch.destinationFolder
-          ? createExportFolderSaveFile(platform, batch.destinationFolder)
+          ? createExportFolderSaveFiles(
+              platform,
+              batch.destinationFolder,
+              batch.conflictPolicy ?? 'keep-both',
+            )
           : null;
       const report = await ExportService.run(
         batch,
         {
           document: preparedDocument ?? editor.state.document,
           engine,
-          saveFile: archive?.saveFile ?? folderSaveFile ?? saveExportFile,
+          saveFile: archive?.saveFile ?? saveExportFile,
+          ...(folderSaveFiles ? { saveFiles: folderSaveFiles } : {}),
           onProgress,
           includeAiDisclosure: options?.includeAiDisclosure,
         },
@@ -383,7 +388,8 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
       const analytics = getDesktopAnalytics();
       for (const file of report.files) {
         const analyticsFormat = mapExportFormat(file.format);
-        if (file.status === 'success') {
+        if (file.status === 'skipped') continue;
+        if (file.status === 'success' || file.status === 'partial') {
           analytics.track('export_completed', {
             format: analyticsFormat,
             durationBucket: durationBucket(file.durationMs),

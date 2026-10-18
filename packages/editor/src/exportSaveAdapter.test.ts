@@ -4,7 +4,7 @@ import { unzipSync } from 'fflate';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createBufferedExportArchive,
-  createExportFolderSaveFile,
+  createExportFolderSaveFiles,
   createExportSaveFile,
   extensionForExport,
 } from './exportSaveAdapter';
@@ -122,25 +122,84 @@ describe('export save adapter', () => {
     expect(saveBinaryFile).not.toHaveBeenCalled();
   });
 
-  it('writes desktop batch entries beneath one chosen folder', async () => {
-    const writeBinaryFileToFolder = vi.fn<Platform['writeBinaryFileToFolder']>(
-      async () => '/exports/Logo.svg',
+  it('writes a generated output group using the selected conflict policy', async () => {
+    const prepareExportFolderGroup = vi.fn<Platform['prepareExportFolderGroup']>(async () => ({
+      status: 'ready',
+      relativePaths: ['Exports 2/Card.tsx', 'Exports 2/Card.module.css'],
+    }));
+    const writeBinaryFileToFolder = vi
+      .fn<Platform['writeBinaryFileToFolder']>()
+      .mockImplementation(async (_folder, relativePath) => ({
+        relativePath,
+        status: 'written',
+        path: `/exports/${relativePath}`,
+      }));
+    const platform = {
+      kind: 'tauri',
+      prepareExportFolderGroup,
+      writeBinaryFileToFolder,
+    } as unknown as Platform;
+    const saveFiles = createExportFolderSaveFiles(platform, '/exports', 'keep-both');
+    const outputs = await saveFiles(
+      [
+        { fileName: 'Card.tsx', bytes: new Uint8Array([1]), mimeType: 'text/tsx' },
+        { fileName: 'Card.module.css', bytes: new Uint8Array([2]), mimeType: 'text/css' },
+      ],
+      job('react-cssmodules'),
     );
-    const platform = { kind: 'tauri', writeBinaryFileToFolder } as unknown as Platform;
-    const saveFile = createExportFolderSaveFile(platform, '/exports');
 
-    const saved = await saveFile(
-      '../Logo.svg',
-      new TextEncoder().encode('<svg />'),
-      'image/svg+xml',
-      job('svg'),
+    expect(prepareExportFolderGroup).toHaveBeenCalledOnce();
+    expect(prepareExportFolderGroup).toHaveBeenCalledWith(
+      '/exports',
+      ['Card.tsx', 'Card.module.css'],
+      'keep-both',
+    );
+    expect(writeBinaryFileToFolder).toHaveBeenCalledTimes(2);
+    expect(writeBinaryFileToFolder.mock.calls.map((call) => call[1])).toEqual([
+      'Exports 2/Card.tsx',
+      'Exports 2/Card.module.css',
+    ]);
+    expect(outputs).toEqual([
+      {
+        fileName: 'Card.tsx',
+        status: 'success',
+        savedPath: '/exports/Exports 2/Card.tsx',
+        byteCount: 1,
+      },
+      {
+        fileName: 'Card.module.css',
+        status: 'success',
+        savedPath: '/exports/Exports 2/Card.module.css',
+        byteCount: 1,
+      },
+    ]);
+  });
+
+  it('does not write any group member when the native plan skips a conflict', async () => {
+    const prepareExportFolderGroup = vi.fn<Platform['prepareExportFolderGroup']>(async () => ({
+      status: 'skipped',
+      relativePaths: ['Card.tsx', 'Card.module.css'],
+    }));
+    const writeBinaryFileToFolder = vi.fn<Platform['writeBinaryFileToFolder']>();
+    const platform = {
+      kind: 'tauri',
+      prepareExportFolderGroup,
+      writeBinaryFileToFolder,
+    } as unknown as Platform;
+    const saveFiles = createExportFolderSaveFiles(platform, '/exports', 'skip');
+
+    const results = await saveFiles(
+      [
+        { fileName: 'Card.tsx', bytes: new Uint8Array([1]), mimeType: 'text/tsx' },
+        { fileName: 'Card.module.css', bytes: new Uint8Array([2]), mimeType: 'text/css' },
+      ],
+      job('react-cssmodules'),
     );
 
-    expect(saved).toBe('/exports/Logo.svg');
-    expect(writeBinaryFileToFolder).toHaveBeenCalledOnce();
-    const [folder, relativePath, bytes] = writeBinaryFileToFolder.mock.calls[0]!;
-    expect(folder).toBe('/exports');
-    expect(relativePath).toBe('Logo.svg');
-    expect(ArrayBuffer.isView(bytes)).toBe(true);
+    expect(results).toEqual([
+      { fileName: 'Card.tsx', status: 'skipped' },
+      { fileName: 'Card.module.css', status: 'skipped' },
+    ]);
+    expect(writeBinaryFileToFolder).not.toHaveBeenCalled();
   });
 });

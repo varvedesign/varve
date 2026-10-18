@@ -12,6 +12,12 @@
   margin-bottom: var(--space-2);
 }
 
+.destination-picker__conflict {
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+}
+
 .destination-picker__label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);

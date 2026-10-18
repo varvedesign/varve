@@ -14,7 +14,14 @@
  *    works with `withGlobalTauri: true` without bundling the JS plugin.
  */
 
-import type { NativeClipboardItem, Platform, PrinterInfo, PrintJobResult } from './platform';
+import type {
+  FolderExportGroupPlan,
+  FolderExportResult,
+  NativeClipboardItem,
+  Platform,
+  PrinterInfo,
+  PrintJobResult,
+} from './platform';
 import {
   classifyTauriSaveError,
   contentHash,
@@ -786,10 +793,29 @@ export function createTauriPlatform(): Platform {
         return selected;
       });
     },
-    async writeBinaryFileToFolder(folder, relativePath, data) {
+    async prepareExportFolderGroup(folder, relativePaths, conflictPolicy) {
       // Export plans use the portable `/` separator. Native joining and
       // containment are performed by the Rust command after this cheap
       // intent check; this function never rewrites separators for a host OS.
+      for (const relativePath of relativePaths) {
+        if (
+          relativePath.length === 0 ||
+          relativePath.startsWith('/') ||
+          relativePath.startsWith('\\') ||
+          /^[a-zA-Z]:/.test(relativePath) ||
+          relativePath.includes('\\') ||
+          relativePath.split('/').some((part) => part.length === 0 || part === '.' || part === '..')
+        ) {
+          throw new Error('Export path must be a safe relative path');
+        }
+      }
+      return (await core().invoke('prepare_export_folder_group', {
+        folder,
+        relativePaths,
+        conflictPolicy,
+      })) as FolderExportGroupPlan;
+    },
+    async writeBinaryFileToFolder(folder, relativePath, data, conflictPolicy) {
       if (
         relativePath.length === 0 ||
         relativePath.startsWith('/') ||
@@ -804,7 +830,8 @@ export function createTauriPlatform(): Platform {
         folder,
         relativePath,
         data: arrayBufferForBytes(data),
-      })) as string;
+        conflictPolicy,
+      })) as FolderExportResult;
     },
 
     async listPrinters() {

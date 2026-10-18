@@ -1257,6 +1257,9 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       // handles are intentionally not represented as fake filesystem paths.
       return null;
     },
+    async prepareExportFolderGroup() {
+      throw new Error('Direct folder export is unavailable in this browser');
+    },
     async writeBinaryFileToFolder() {
       throw new Error('Direct folder export is unavailable in this browser');
     },

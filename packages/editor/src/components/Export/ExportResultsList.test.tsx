@@ -51,6 +51,30 @@ describe('ExportResultsList', () => {
     );
   });
 
+  it('shows partial and skipped output outcomes without calling skips failures', () => {
+    render(
+      <ExportResultsList
+        files={[
+          makeFile({
+            status: 'partial',
+            outputResults: [
+              { fileName: 'Card.tsx', status: 'success', savedPath: '/exports/Card.tsx' },
+              { fileName: 'Card.module.css', status: 'skipped' },
+            ],
+          }),
+          makeFile({ fileName: 'Logo.svg', nodeId: 'n2', status: 'skipped' }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('0 of 2 exported · 1 partial · 1 skipped')).toBeTruthy();
+    const outputList = screen.getByRole('list', { name: 'Output file statuses' });
+    expect(outputList.textContent).toContain('Card.tsx');
+    expect(outputList.textContent).toContain('Card.module.css');
+    expect(screen.getByText('Saved')).toBeTruthy();
+    expect(screen.getByText('Skipped existing files')).toBeTruthy();
+  });
+
   it('shows size and duration metadata for successful files', () => {
     render(<ExportResultsList files={[makeFile()]} />);
     expect(screen.getByText(/PNG \u00b7 50.0 KB \u00b7 120ms/i)).toBeTruthy();
@@ -68,25 +92,40 @@ describe('ExportResultsList', () => {
     );
   });
 
-  it('renders a retry action only when failures exist and a callback is provided', () => {
-    const onRetryFailed = vi.fn();
+  it('renders a retry action for failed or partially written jobs', () => {
+    const onRetryIncomplete = vi.fn();
     render(
       <ExportResultsList
         files={[
           makeFile(),
           makeFile({ fileName: 'bad.png', nodeId: 'n2', status: 'failed', error: 'boom' }),
+          makeFile({ fileName: 'partial.svg', nodeId: 'n3', status: 'partial' }),
         ]}
-        onRetryFailed={onRetryFailed}
+        onRetryIncomplete={onRetryIncomplete}
       />,
     );
-    const retry = screen.getByRole('button', { name: /retry failed \(1\)/i });
+    const retry = screen.getByRole('button', { name: /retry incomplete \(2\)/i });
     fireEvent.click(retry);
-    expect(onRetryFailed).toHaveBeenCalledOnce();
+    expect(onRetryIncomplete).toHaveBeenCalledOnce();
+    expect(retry).toHaveAttribute(
+      'title',
+      expect.stringContaining('current Existing files choice'),
+    );
+    expect(
+      screen.getByText(
+        /reruns the whole incomplete output group with the current Existing files choice/i,
+      ),
+    ).toBeTruthy();
   });
 
-  it('omits the retry action when nothing failed', () => {
-    render(<ExportResultsList files={[makeFile()]} onRetryFailed={vi.fn()} />);
-    expect(screen.queryByRole('button', { name: /retry failed/i })).toBeNull();
+  it('omits the retry action when every output completed or was intentionally skipped', () => {
+    render(
+      <ExportResultsList
+        files={[makeFile(), makeFile({ fileName: 'skip.svg', status: 'skipped' })]}
+        onRetryIncomplete={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /retry incomplete/i })).toBeNull();
   });
 
   it('does not render a retry button without a callback even on failure', () => {
@@ -95,7 +134,7 @@ describe('ExportResultsList', () => {
         files={[makeFile({ fileName: 'bad.png', nodeId: 'n2', status: 'failed', error: 'x' })]}
       />,
     );
-    expect(screen.queryByRole('button', { name: /retry failed/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /retry incomplete/i })).toBeNull();
   });
 
   it('reveals the first successfully saved output when the platform supports it', () => {

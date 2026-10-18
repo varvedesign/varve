@@ -13,9 +13,11 @@ import './DestinationPicker.css';
 export interface DestinationPickerProps {
   template: string;
   folderRule: ExportBatch['folderRule'];
+  conflictPolicy: NonNullable<ExportBatch['conflictPolicy']>;
   jobs: ExportJob[];
   onTemplateChange: (template: string) => void;
   onFolderRuleChange: (rule: ExportBatch['folderRule']) => void;
+  onConflictPolicyChange: (policy: NonNullable<ExportBatch['conflictPolicy']>) => void;
   onSelectDestination: () => void;
   destinationLabel: string;
   folderSelectionAvailable?: boolean;
@@ -29,6 +31,15 @@ const RULE_OPTIONS: { value: ExportBatch['folderRule']; label: string }[] = [
   { value: 'by-node', label: 'By node' },
 ];
 
+const CONFLICT_OPTIONS: {
+  value: NonNullable<ExportBatch['conflictPolicy']>;
+  label: string;
+}[] = [
+  { value: 'keep-both', label: 'Keep both' },
+  { value: 'replace', label: 'Replace' },
+  { value: 'skip', label: 'Skip existing' },
+];
+
 const SUGGESTED_TOKENS = [
   { token: '{name}', label: 'node name' },
   { token: '{suffix}', label: 'suffix' },
@@ -40,9 +51,11 @@ const SUGGESTED_TOKENS = [
 export function DestinationPicker({
   template,
   folderRule,
+  conflictPolicy,
   jobs,
   onTemplateChange,
   onFolderRuleChange,
+  onConflictPolicyChange,
   onSelectDestination,
   destinationLabel,
   folderSelectionAvailable = true,
@@ -163,6 +176,29 @@ export function DestinationPicker({
           ))}
         </div>
       </div>
+
+      {folderSelectionAvailable && (
+        <fieldset className="destination-picker__row destination-picker__conflict">
+          <legend className="destination-picker__label">Existing files</legend>
+          <div className="destination-picker__rules">
+            {CONFLICT_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`destination-picker__rule${conflictPolicy === option.value ? ' destination-picker__rule--active' : ''}`}
+                aria-pressed={conflictPolicy === option.value}
+                onClick={() => onConflictPolicyChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <span className="destination-picker__hints">
+            For selected folders: Keep both saves a conflicting group in a new subfolder, Replace
+            overwrites matches, and Skip leaves the whole group untouched if any match exists.
+          </span>
+        </fieldset>
+      )}
 
       {previews.length > 0 && (
         <div className="destination-picker__preview">
