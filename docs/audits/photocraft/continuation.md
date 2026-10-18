@@ -13,8 +13,10 @@ Last updated: 2026-10-18. Status: active and incomplete.
 - All 3,275 issue comment endpoints were subsequently retrieved through every
   page from 10:29:00–10:31:14 UTC; 0 request failures. The retrieval cache is
   at `/home/kevina/.cache/codex/photocraft-2026-10-17/comments/`. Retrieval and
-  source reading are complete; relevance classification, Varve verification,
-  and recursive link review remain incomplete.
+  source reading are complete. The row-level Varve comparison pass is complete
+  except for 4 explicitly `unclear` issues; those retain uncertainty reasons
+  instead of being counted as excluded. Recursive link review and relevant PR
+  discussion review remain incomplete.
 - Latest observed update at crawl: 2026-10-17 09:59:48 UTC.
 - Second declared cutoff B: 2026-10-17 10:33:10 UTC, observed over 70 pages
   from 10:32:24–10:33:10 UTC. It contains 3,278 issues and 3,686 PRs; cutoff A
@@ -43,9 +45,11 @@ Last updated: 2026-10-18. Status: active and incomplete.
   missing from the local delta/cache and was recovered from the live page; the
   other four full bodies were likewise recovered from live pages because the
   compact B cache stored only deltas. Their exact historical body bytes are
-  unavailable; post-B events were excluded. Row-level relevance classification
-  and recursive linked evidence remain in progress; “complete” here records
-  source reading, not completion of those separate reviews.
+  unavailable; post-B events were excluded. The cutoff-A issue inventory has
+  zero `unassessed` rows, 4 `unclear` rows, and 3,271 completed dispositions.
+  Cutoff-B delta review, recursive linked evidence, and relevant PR discussions
+  remain in progress; “complete” here records source reading, not completion of
+  those separate reviews.
 - Pull requests: the 3,683 A records and three B additions are inventoried,
   but descriptions/discussions have not been comprehensively reviewed. PR
   #6863 changed files were inspected; its full discussion and release status

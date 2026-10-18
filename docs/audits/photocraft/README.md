@@ -138,16 +138,32 @@ the current website review found no matching claim that needs correction.
 
 ## 2026-10-18 disposition checkpoint
 
-The inventory now records a row-level Varve disposition for 2,820 of the
-3,275 cutoff-A issue rows: 119 candidates, 1 fixed item, 142 analogues, 354
-partial matches, 20 already-covered behaviors, 62 trackers, 20 adjacent
-QA/design leads, and 2,102 reports with no Varve match established. The
-remaining 455 rows stay explicitly `unassessed`; they are not treated as
-irrelevant. The 3,275 bodies and cutoff-A discussions have been read, but this
-does not complete the relevance pass, linked-PR frontier, or PR inventory
-review.
+All 3,275 cutoff-A issue rows now have an explicit Varve disposition or an
+explicit unresolved decision: 232 candidates, 1 fixed item, 198 analogues,
+448 partial matches, 26 already-covered behaviors, 80 trackers, 78 adjacent
+QA/design leads, 2,208 reports with no Varve match established, and 4 issues
+that remain `unclear`. Those four are not completed dispositions; each has a
+specific reason the available source evidence does not yet support a confident
+Varve scope decision. The earlier 455-row unassessed gap now has per-issue
+Varve evidence paths, reviewed-discussion links, and a retained rationale.
+Nineteen issues in that range received independent overlapping reviews; the
+alternate labels are retained in the row-level ledger, and conflicts affecting
+scope were manually resolved. Thirteen of the 17 previously unclear issues
+were resolved after their linked evidence and Varve paths were inspected.
+
+The status counts distinguish source comparison from engineering completion.
+The 232 candidates still require Varve reproduction or a product decision;
+the 448 partial matches and 78 adjacent leads are not automatically defects.
+The issue source pass and row-level Varve comparison do not complete the
+recursive link frontier or review of the source repository's PR discussions.
 
 Disposition records add a concise rationale and distinguish the PhotoCraft
 issue state from Varve's engineering status. A PhotoCraft issue marked closed
 is not evidence that Varve has a matching fix. Cutoff-B deltas retain the
-separate limitations recorded above.
+separate limitations recorded above. Issue #2826 exposed a practical Linux
+input conflict: Cinnamon can capture Alt-click before Clone Stamp receives it.
+Varve now accepts Ctrl- or Command-click as an alternate clone-source gesture;
+the pointer path is awaiting its real-browser regression run. Issues #3076 and
+#3093 were separately checked against Varve's history and gradient workflows;
+#3076 has no matching history-pixel brush operation, while #3093 is an adjacent
+canvas-gradient lock bypass that is being fixed and tested.
