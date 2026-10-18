@@ -286,6 +286,55 @@ asset's document identity and must not silently replace an unresolved asset
 with a successful-looking placeholder. No site-copy or feature change is
 justified by the current evidence.
 
+## Failure reports from other design tools
+
+These first-hand complaints are comparison evidence, not proof that Varve
+shares the same defects. They help identify the output and editing workflows
+that should be checked before closing this audit.
+
+Penpot users report blurred or downsampled images in large-format PDF exports
+([#1899](https://github.com/penpot/penpot/issues/1899), still open in the
+reviewed issue history; [#7047](https://github.com/penpot/penpot/issues/7047),
+an image-resolution complaint tracked separately). Varve's native PDF image
+manifest preserves source image samples for supported image fills, while
+effect fallbacks rasterize through the live renderer and PDF/X uses a separate
+flattened print path. The UI's minimum-image-resolution setting is a preflight
+floor; it does not resample images. Validate one high-resolution placed image
+in standard PDF and PDF/X output, including an effect-rasterized case, before
+making a broad fidelity claim. No matching Varve defect is established.
+
+Penpot [#10208](https://github.com/penpot/penpot/issues/10208) reports a
+bold Work Sans substitution that made auto-width text wider and clipped the
+export; Penpot tracked the fix in [#10238](https://github.com/penpot/penpot/issues/10238),
+and the reporter confirmed it in Penpot 2.17.0. Varve's standard PDF and
+raster export wait for export fonts to become ready, and the native PDF/X path
+collects font data and rejects missing font records. Existing tests cover the
+readiness wait and missing-font data validation. This is an existing Varve
+protection to retain; it is not evidence that every external font will render
+with the same metrics in every viewer.
+
+Penpot [#10496](https://github.com/penpot/penpot/issues/10496) describes a
+save-validation failure after teams used a shared custom font and imported raw
+SVG content with dangling children. Penpot fixed it in [#10837](https://github.com/penpot/penpot/issues/10837),
+and the reporter later confirmed the problem no longer reproduced. Varve's
+SVG import and document persistence use different data structures, and no
+matching Varve failure was found in this review. Keep imported-SVG save/reopen
+round trips in the regression set when that area is changed; do not infer a
+Varve defect from the Penpot report alone.
+
+An Adobe Illustrator forum report describes QR artwork missing from a saved
+PDF while it remains visible in InDesign; replies point to a collapsed
+MediaBox/CropBox, and the thread also contains conflicting diagnoses. This is
+a useful reminder to inspect page boxes and open generated PDFs in an
+independent renderer alongside application screenshots. It does not establish
+a general Illustrator failure or a Varve bug.
+
+**Website impact:** these findings do not change a supported-format boundary,
+file-size limit, or measured fidelity result. Leave the marketing website
+unchanged until the targeted PDF artifacts are validated; then update only a
+specific claim if the evidence shows it is inaccurate or a fix adds a verified
+capability.
+
 ## Current disposition
 
 One native PDF manifest error-path guard has been prepared during the #5782
