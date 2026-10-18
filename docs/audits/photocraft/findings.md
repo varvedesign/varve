@@ -676,3 +676,26 @@ A row marked `unassessed` has no completed Varve relevance disposition. Do not
 infer irrelevance from labels, closed state, missing body, or bot-suggested
 relatedness. Record an exclusion reason and source pointer before changing a
 row's relevance disposition.
+
+## F-016 — Finite f64 geometry can narrow to non-finite WebGPU inputs
+
+**Source.** PhotoCraft #6424 reports `1e39` values becoming `f32` infinity in
+command parameters, then corrupting rendering and preventing save. Its issue
+and linked #5752/#4201/#4181 reports establish a repeated input-validation
+failure in that app; they do not establish a Varve defect.
+
+**Varve applicability.** Varve's persisted model and native bridge represent
+these values as `f64`, so the reported save-corruption path is not a direct
+match. Static source review did find an adjacent candidate in the opt-in
+experimental WebGPU renderer: `crates/varve-accel/src/render/plan.rs`
+validates rectangle coordinates and path positions as finite `f64`, then casts
+them to `f32` when building GPU records/vertices without checking the narrowed
+result. The renderer should reject such inputs synchronously so the compositor
+can use its authoritative Canvas2D fallback. This has not yet been reproduced
+against actual output, so it remains a candidate rather than a confirmed bug.
+
+**Next verification.** Add a focused admission regression using finite values
+above `f32::MAX`, confirm the item is rejected before any non-finite GPU buffer
+value is emitted, then compare the displayed surface with the Canvas2D
+full-redraw oracle. Run the crate's affected validation and visual test when
+native build headroom is available. No marketing claim needs revision.

@@ -183,7 +183,7 @@ Last updated: 2026-10-18. Status: active and incomplete.
   were reviewed; it remained open with one commit and no reviews at cutoff B.
   These f32 overflow reports are analogues to Varve's f64 model; Varve's
   non-finite-input guard addresses a separate JavaScript parsing boundary.
-- Link frontier: #6424; #1101; #6423's related link(s); #6392's
+- Link frontier: #6424 (adjacent WebGPU f64-to-f32 narrowing candidate); #1101; #6423's related link(s); #6392's
   #3641 / SolidCraft evidence; #6962's #2850/#2339/#2687; #6964's #3384/#6669;
   #2784's inspected video symptoms and remaining Varve workflow ambiguity; and all relevant
   links not yet enumerated from the corpus.
