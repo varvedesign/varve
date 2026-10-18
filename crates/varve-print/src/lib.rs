@@ -14,6 +14,7 @@
     clippy::derivable_impls
 )]
 
+pub mod blend;
 pub mod cmyk;
 pub mod icc;
 pub mod marks;
@@ -22,6 +23,8 @@ pub mod profiles;
 pub mod resources;
 pub mod shaper;
 pub mod subset;
+
+pub use blend::{blend_mode_label, needs_blend_graphics_state, pdf_blend_name, UnrepresentedBlend};
 
 /// Shared cross-platform test-font resolver. Kept non-`cfg(test)` so the
 /// desktop crate's test module can reuse the bundled fixture instead of
@@ -444,6 +447,12 @@ pub(crate) struct ImageRenderState<'a> {
     pub refs: Vec<(String, Object)>,
     /// Graphics state dictionaries for fill opacity (opacity -> GS name).
     gs_cache: HashMap<u32, String>,
+    /// Graphics state dictionaries for blend modes (PDF name -> GS name).
+    blend_gs_cache: HashMap<&'static str, String>,
+    /// False for formats that forbid live transparency (PDF/X-1a), where a
+    /// `/BM` entry would break the declared conformance. Blend modes are then
+    /// reported by `unrepresented_blend_modes` instead of written.
+    pub allow_blend_modes: bool,
 }
 
 impl<'a> ImageRenderState<'a> {
@@ -453,6 +462,8 @@ impl<'a> ImageRenderState<'a> {
             counter: 0,
             refs: Vec::new(),
             gs_cache: HashMap::new(),
+            blend_gs_cache: HashMap::new(),
+            allow_blend_modes: true,
         }
     }
 
@@ -471,6 +482,35 @@ impl<'a> ImageRenderState<'a> {
         self.refs.push((name.clone(), Object::Dictionary(gs)));
         self.gs_cache.insert(key, name.clone());
         name
+    }
+
+    /// Get-or-create an ExtGState dictionary for a PDF blend mode.
+    ///
+    /// Returns the GS name (e.g. "BMMultiply") to use with `gs` in the content
+    /// stream, or `None` when `mode` has no PDF representation — the caller
+    /// reports that instead of writing `Normal`, which would export a
+    /// different composition than the canvas shows. A blend ExtGState and an
+    /// opacity ExtGState stack: PDF applies the entries each one defines and
+    /// leaves every other graphics-state parameter untouched.
+    pub fn get_or_create_blend_gs(&mut self, mode: &varve_core::BlendMode) -> Option<String> {
+        if !self.allow_blend_modes {
+            return None;
+        }
+        let pdf_name = blend::pdf_blend_name(mode)?;
+        if pdf_name == "Normal" {
+            return None;
+        }
+        if let Some(name) = self.blend_gs_cache.get(pdf_name) {
+            return Some(name.clone());
+        }
+        let name = format!("BM{pdf_name}");
+        let gs = dictionary! {
+            "Type" => "ExtGState",
+            "BM" => Object::Name(pdf_name.as_bytes().to_vec()),
+        };
+        self.refs.push((name.clone(), Object::Dictionary(gs)));
+        self.blend_gs_cache.insert(pdf_name, name.clone());
+        Some(name)
     }
 }
 
@@ -1357,7 +1397,6 @@ fn render_fills(
                         y: fill_y,
                         scale: fill_scale,
                         fit: fill_fit,
-                        opacity,
                         alpha_mask,
                         crop,
                         rotation: fill_rotation,
@@ -1369,6 +1408,16 @@ fn render_fills(
                         match &mut image_state {
                             Some(state) => {
                                 buf.extend_from_slice(b"q\n");
+
+                                // Image fills have their own canvas blend mode,
+                                // independent of the node's blend state. Apply
+                                // it before painting either a regular image or
+                                // the perspective triangle mesh.
+                                if let Some(name) =
+                                    state.get_or_create_blend_gs(fill_blend_mode(fill))
+                                {
+                                    buf.extend(format!("/{name} gs\n").as_bytes());
+                                }
 
                                 // Every image fill is clipped to its object.
                                 // Rectangles use the complete object affine;
@@ -1503,7 +1552,7 @@ fn render_fills(
                                                             fill_rotation.unwrap_or(0.0),
                                                             *flip_h == Some(true),
                                                             *flip_v == Some(true),
-                                                            *opacity,
+                                                            effective_fill_alpha(node, fill),
                                                             &perspective.quad,
                                                             state,
                                                         );
@@ -1564,9 +1613,11 @@ fn render_fills(
                                                     }
 
                                                     // Apply per-fill opacity via ExtGState
-                                                    if *opacity < 1.0 {
+                                                    let fill_alpha =
+                                                        effective_fill_alpha(node, fill);
+                                                    if fill_alpha < 1.0 {
                                                         let gs_name = state
-                                                            .get_or_create_opacity_gs(*opacity);
+                                                            .get_or_create_opacity_gs(fill_alpha);
                                                         buf.extend(
                                                             format!("/{gs_name} gs\n").as_bytes(),
                                                         );
@@ -1620,9 +1671,10 @@ fn render_fills(
                                                 let sy = bh / PH as f64;
 
                                                 // Apply per-fill opacity via ExtGState
-                                                if *opacity < 1.0 {
+                                                let fill_alpha = effective_fill_alpha(node, fill);
+                                                if fill_alpha < 1.0 {
                                                     let gs_name =
-                                                        state.get_or_create_opacity_gs(*opacity);
+                                                        state.get_or_create_opacity_gs(fill_alpha);
                                                     buf.extend(
                                                         format!("/{gs_name} gs\n").as_bytes(),
                                                     );
@@ -1869,13 +1921,22 @@ fn render_fills(
                                         let (shape_x, shape_y, shape_w, shape_h) =
                                             shape_pdf_bounds(node, page_height);
                                         buf.extend_from_slice(b"q\n");
-                                        buf.extend(&path_ops);
-                                        buf.extend_from_slice(path_clip_operator(node));
-                                        if *opacity < 1.0 {
+                                        // Fill-scoped graphics state, exactly as
+                                        // the canvas applies per-fill alpha and
+                                        // blend for a pattern paint.
+                                        if let Some(name) = image_state
+                                            .get_or_create_blend_gs(fill_blend_mode(fill))
+                                        {
+                                            buf.extend(format!("/{name} gs\n").as_bytes());
+                                        }
+                                        let pattern_alpha = effective_fill_alpha(node, fill);
+                                        if pattern_alpha < 1.0 {
                                             let gs_name =
-                                                image_state.get_or_create_opacity_gs(*opacity);
+                                                image_state.get_or_create_opacity_gs(pattern_alpha);
                                             buf.extend(format!("/{gs_name} gs\n").as_bytes());
                                         }
+                                        buf.extend(&path_ops);
+                                        buf.extend_from_slice(path_clip_operator(node));
 
                                         // Tile the image across shape bounds
                                         let x_step = step_x;
@@ -1947,14 +2008,17 @@ fn render_fills(
                     }
                     FillIR::Solid { .. } => {
                         buf.extend_from_slice(b"q\n");
+                        // The canvas multiplies the fill's opacity by the
+                        // item's and applies the fill's blend mode in place of
+                        // the item's, so both belong to this fill's own state.
+                        // A graphics state only affects the operators that
+                        // follow it, so it must precede the paint.
+                        write_fill_graphics_state(&mut buf, &mut image_state, node, fill);
                         let color_str = fill_to_color_string(fill, use_cmyk, profile, lossy);
                         buf.extend(color_str.as_bytes());
                         buf.extend(b"\n");
                         buf.extend(&path_ops);
                         buf.extend_from_slice(path_fill_operator(node));
-                        if fill_opacity(fill) < 1.0 {
-                            buf.extend(format!("% opacity={:.3}\n", fill_opacity(fill)).as_bytes());
-                        }
                         buf.extend_from_slice(b"Q\n");
                     }
                     FillIR::Gradient {
@@ -1965,6 +2029,7 @@ fn render_fills(
                         ..
                     } => {
                         buf.extend_from_slice(b"q\n");
+                        write_fill_graphics_state(&mut buf, &mut image_state, node, fill);
                         let use_shading = stops.len() >= 2;
                         if use_shading {
                             if let Some(registry) = shading_registry.as_mut() {
@@ -1994,9 +2059,10 @@ fn render_fills(
                             buf.extend(&path_ops);
                             buf.extend_from_slice(path_fill_operator(node));
                         }
-                        if fill_opacity(fill) < 1.0 {
-                            buf.extend(format!("% opacity={:.3}\n", fill_opacity(fill)).as_bytes());
-                        }
+                        // The canvas multiplies the fill's opacity by the
+                        // item's and applies the fill's blend mode in place of
+                        // the item's, so both belong to this fill's own state.
+                        write_fill_graphics_state(&mut buf, &mut image_state, node, fill);
                         buf.extend_from_slice(b"Q\n");
                     }
                 }
@@ -2015,9 +2081,8 @@ fn render_fills(
     buf.extend(b"\n");
     buf.extend(&path_ops);
     buf.extend_from_slice(path_fill_operator(node));
-    if node.opacity < 1.0 {
-        buf.extend(format!("% opacity={:.3}\n", node.opacity).as_bytes());
-    }
+    // Node opacity and blend mode are applied once by `shape_to_pdf_content`
+    // for the whole node, which is the scope the canvas uses too.
     buf.extend_from_slice(b"Q\n");
     buf
 }
@@ -2369,13 +2434,16 @@ pub fn rgba_to_rgb(data: &[u8]) -> Vec<u8> {
 fn shape_to_pdf_content(
     node: &SceneNode,
     page_height: f64,
-    image_state: Option<&mut ImageRenderState>,
+    mut image_state: Option<&mut ImageRenderState>,
     manifest: Option<&resources::ExportManifest>,
     use_cmyk: bool,
     profile: Option<PrintProfile>,
 ) -> Vec<u8> {
     let mut buf = Vec::new();
     buf.extend_from_slice(b"q\n");
+    if let Some(state) = image_state.as_mut() {
+        write_node_graphics_state(&mut buf, state, node);
+    }
     let effects = render_effects(node, page_height, use_cmyk, profile);
     buf.extend(&effects);
     let fills = render_fills(
@@ -2510,6 +2578,131 @@ fn fill_opacity(fill: &FillIR) -> f64 {
         FillIR::Gradient { opacity, .. } => *opacity,
         FillIR::Image { opacity, .. } => *opacity,
         FillIR::Pattern { opacity, .. } => *opacity,
+    }
+}
+
+fn fill_blend_mode(fill: &FillIR) -> &varve_core::BlendMode {
+    match fill {
+        FillIR::Solid { blend_mode, .. } => blend_mode,
+        FillIR::Gradient { blend_mode, .. } => blend_mode,
+        FillIR::Image { blend_mode, .. } => blend_mode,
+        FillIR::Pattern { blend_mode, .. } => blend_mode,
+    }
+}
+
+/// True when the writer can reproduce `mode` for a target that may (`true`) or
+/// may not (`false`) carry live transparency.
+///
+/// One predicate, used both to decide what to write and to decide what to
+/// report, so the two can never disagree:
+///
+/// - `Normal` is the PDF page default.
+/// - `passThrough` is a group policy whose node-level effect is also `Normal`.
+/// - every other mode needs a `/BM` entry, which PDF/X-1a forbids because it
+///   does not permit live transparency.
+/// - `plusLighter` has a Canvas2D equivalent (`lighter`) but no PDF name, and
+///   `plusDarker` is a legacy mode with no Canvas2D equivalent either.
+pub fn blend_is_representable(mode: &varve_core::BlendMode, allow_blend_modes: bool) -> bool {
+    match blend::pdf_blend_name(mode) {
+        Some("Normal") => true,
+        None => matches!(mode, varve_core::BlendMode::PassThrough),
+        Some(_) => allow_blend_modes,
+    }
+}
+
+/// Every node in `nodes` whose paint the writer cannot reproduce faithfully: a
+/// node or a visible fill whose blend mode is not representable for a target
+/// with the given transparency capability.
+///
+/// Callers that must not ship a silently different composition — the PDF/X-1a
+/// route, where the format forbids transparency outright — use this to refuse
+/// or disclose instead of returning a page that looks like a successful
+/// export and composites differently from the canvas.
+pub fn unrepresented_blend_modes(
+    nodes: &[SceneNode],
+    allow_blend_modes: bool,
+) -> Vec<UnrepresentedBlend> {
+    let mut out = Vec::new();
+    for node in nodes {
+        if !blend_is_representable(&node.blend_mode, allow_blend_modes) {
+            out.push(UnrepresentedBlend {
+                node_name: node.name.clone(),
+                mode: blend::blend_mode_label(&node.blend_mode),
+            });
+        }
+        if let Some(fills) = &node.fills {
+            for fill in fills {
+                if !fill_visible(fill) {
+                    continue;
+                }
+                let mode = fill_blend_mode(fill);
+                if !blend_is_representable(mode, allow_blend_modes) {
+                    out.push(UnrepresentedBlend {
+                        node_name: node.name.clone(),
+                        mode: blend::blend_mode_label(mode),
+                    });
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Effective alpha of one fill, matching the canvas: the node's opacity
+/// multiplies the fill's own opacity (`packages/engine/src/replay.ts` sets
+/// `globalAlpha = itemAlpha * fill.opacity`). PDF `/ca` is a single value, so
+/// the product is what must be written — emitting both graphics states
+/// separately would leave only the inner one in effect and paint the fill
+/// twice as opaque as the canvas did.
+fn effective_fill_alpha(node: &SceneNode, fill: &FillIR) -> f64 {
+    (node.opacity.clamp(0.0, 1.0) * fill_opacity(fill).clamp(0.0, 1.0)).clamp(0.0, 1.0)
+}
+
+/// Write one fill's own graphics state (blend mode, then alpha) into `buf`.
+///
+/// Called inside the fill's own `q`/`Q`, so the state applies to that fill
+/// alone. The node-level state written by [`write_node_graphics_state`] stays
+/// in effect for the fills that do not override it, which is the same fallback
+/// the canvas uses (`fill.blendMode` wins, otherwise the item's mode).
+fn write_fill_graphics_state(
+    buf: &mut Vec<u8>,
+    image_state: &mut Option<&mut ImageRenderState>,
+    node: &SceneNode,
+    fill: &FillIR,
+) {
+    let Some(state) = image_state.as_mut() else {
+        return;
+    };
+    if let Some(name) = state.get_or_create_blend_gs(fill_blend_mode(fill)) {
+        buf.extend_from_slice(format!("/{name} gs\n").as_bytes());
+    }
+    let alpha = effective_fill_alpha(node, fill);
+    if alpha < 1.0 {
+        let name = state.get_or_create_opacity_gs(alpha);
+        buf.extend_from_slice(format!("/{name} gs\n").as_bytes());
+    }
+}
+
+/// Write the node-scoped graphics state (blend mode, then opacity) into `buf`.
+///
+/// The canvas applies a node's `opacity` and `blendMode` to everything the node
+/// paints — `globalAlpha` and `globalCompositeOperation` wrap the fills,
+/// strokes and effects of one render item (`packages/engine/src/replay.ts`) —
+/// so both entries are set once, inside the node's own `q`/`Q`. A mode with no
+/// PDF name writes nothing and is reported by [`unrepresented_blend_modes`]
+/// rather than being passed off as `Normal`.
+///
+/// Either writer that renders a node must call this: the vector-export loop in
+/// [`export_pdf`] and [`shape_to_pdf_content`] are separate code paths, and a
+/// node painted without its graphics state is exactly the defect this exists
+/// to prevent.
+fn write_node_graphics_state(buf: &mut Vec<u8>, state: &mut ImageRenderState, node: &SceneNode) {
+    if let Some(name) = state.get_or_create_blend_gs(&node.blend_mode) {
+        buf.extend_from_slice(format!("/{name} gs\n").as_bytes());
+    }
+    if node.opacity < 1.0 {
+        let name = state.get_or_create_opacity_gs(node.opacity);
+        buf.extend_from_slice(format!("/{name} gs\n").as_bytes());
     }
 }
 
@@ -3272,15 +3465,19 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
 
     let mut content = Vec::new();
     content.extend_from_slice(b"q\n");
-    // White background
-    if use_cmyk {
-        content.extend_from_slice(b"0 0 0 0 k\n");
-    } else {
-        content.extend_from_slice(b"1 1 1 rg\n");
-    }
-    content.extend_from_slice(
-        format!("0 0 {:.2} {:.2} re\nf\n", opts.page_width, opts.page_height).as_bytes(),
-    );
+    // The page keeps its neutral initial backdrop. Painting an opaque white
+    // rectangle here would make every blend mode composite with white instead
+    // of with the same backdrop the canvas uses, so a `Screen` or `Lighten`
+    // object over an unpainted area would come out white in the file while it
+    // shows its own colour on screen. Verified against poppler and
+    // Ghostscript: with nothing painted first, `Screen` over an empty area
+    // returns the source colour, which is what
+    // `packages/engine/src/blendConformance.ts` pins as the transparent-backdrop
+    // case. A document that wants paper paints the page-background nodes it
+    // already owns (`Document.pages[].backgrounds`), which are part of `nodes`.
+    //
+    // The document's own backdrop is whatever those nodes paint; a viewer
+    // still presents the unpainted page as white paper.
 
     // ── Font subsetting / embedding ─────────────────────────────────────
     let embedded_fonts: Vec<EmbeddedFontEntry> = if opts.subset_fonts && !opts.fonts.is_empty() {
@@ -3574,6 +3771,7 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             }
             // New pipeline: effects + fills + strokes
             content.extend_from_slice(b"q\n");
+            write_node_graphics_state(&mut content, &mut image_state, node);
             let effects = render_effects(node, opts.page_height, use_cmyk, opts.print_profile);
             content.extend(&effects);
             let fills = render_fills(
@@ -4282,9 +4480,28 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }]);
-        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_fills(
+            &node,
+            100.0,
+            false,
+            Some(&mut state),
+            None,
+            None,
+            None,
+            false,
+        );
         let s = String::from_utf8_lossy(&result);
-        assert!(s.contains("opacity=0.500"), "should emit opacity comment");
+        assert!(
+            s.contains("/GS500 gs"),
+            "a 0.5 solid fill must be painted through an ExtGState, not a comment: {s}"
+        );
+        assert_every_graphics_state_precedes_a_paint(&s);
+        assert!(
+            !s.contains("opacity="),
+            "opacity must not survive as a non-rendering PDF comment: {s}"
+        );
     }
 
     #[test]
@@ -4827,6 +5044,7 @@ mod tests {
     #[test]
     fn render_fills_image_perspective_subdivides_into_pdf_triangles() {
         let mut node = image_fill_node(1, 0.0, 0.0, 100.0, 80.0);
+        node.opacity = 0.5;
         node.fills = Some(vec![FillIR::Image {
             src: "perspective-src".into(),
             fit: "stretch".into(),
@@ -4835,8 +5053,8 @@ mod tests {
             scale: 1.0,
             image_width: Some(32.0),
             image_height: Some(32.0),
-            opacity: 0.8,
-            blend_mode: BlendMode::Normal,
+            opacity: 0.5,
+            blend_mode: BlendMode::Multiply,
             visible: true,
             alpha_mask: None,
             crop: None,
@@ -4876,8 +5094,12 @@ mod tests {
         );
         assert!(content.matches("cm").count() >= PERSPECTIVE_GRID * PERSPECTIVE_GRID * 2);
         assert!(
-            content.contains("/GS800 gs"),
-            "per-fill opacity should remain applied"
+            content.contains("/GS250 gs"),
+            "node and fill opacity should multiply for perspective image fills: {content}"
+        );
+        assert!(
+            content.contains("/BMMultiply gs"),
+            "image fill blend mode should be applied to the perspective mesh: {content}"
         );
         assert!(!content.contains("image fill not rendered"));
     }
@@ -6109,5 +6331,298 @@ mod tests {
                 assert_eq!(data[i], 255, "K channel must stay pure");
             }
         }
+    }
+
+    // ── Blend modes and opacity reach the page, or are reported ──────────
+    //
+    // The canvas paints a node's blend mode and opacity
+    // (`globalCompositeOperation` / `globalAlpha`), so the exported page has
+    // to carry them too. Before these tests the writer never read
+    // `blend_mode`, node opacity and solid-fill opacity were emitted as PDF
+    // comments, and every page started with an opaque white rectangle that
+    // blend modes then composited against.
+
+    /// Resources + content of the single page in `bytes`.
+    fn page_resources_and_content(bytes: &[u8]) -> (lopdf::Dictionary, String) {
+        let doc = Document::load_mem(bytes).expect("parse exported PDF");
+        let page_id = *doc.get_pages().values().next().expect("PDF has a page");
+        let page = doc.get_object(page_id).unwrap().as_dict().unwrap().clone();
+        let resources = page
+            .get(b"Resources")
+            .ok()
+            .and_then(|value| value.as_dict().ok())
+            .cloned()
+            .unwrap_or_default();
+        (
+            resources,
+            String::from_utf8_lossy(&doc.get_page_content(page_id)).into_owned(),
+        )
+    }
+
+    /// A PDF graphics state affects only the operators that follow it, so a
+    /// `gs` inside a `q`/`Q` block that paints nothing is silently inert.
+    ///
+    /// This is not hypothetical: the first version of the blend and fill-alpha
+    /// support emitted `/BM… gs` after the `f` of its own fill. Every
+    /// "the content contains the state" assertion passed, and poppler and
+    /// Ghostscript both rendered the unblended colour. Only rendering the file
+    /// caught it, so the ordering is asserted here from now on.
+    fn assert_every_graphics_state_precedes_a_paint(content: &str) {
+        // One entry per open `q` block: states selected in that block that no
+        // later paint in the same block has consumed.
+        let mut unresolved: Vec<Vec<&str>> = vec![Vec::new()];
+        for line in content.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            match line {
+                "q" => unresolved.push(Vec::new()),
+                "Q" => {
+                    let pending = unresolved.pop().unwrap_or_default();
+                    assert!(
+                        pending.is_empty(),
+                        "graphics state {pending:?} is selected in a block that never paints \
+                         with it, so it has no effect\n{content}"
+                    );
+                }
+                _ => {
+                    if line.ends_with(" gs") {
+                        unresolved.last_mut().expect("balanced q/Q").push(line);
+                    } else if is_paint_operator(line) {
+                        // A paint inside a nested `q` block inherits — and so
+                        // consumes — the state selected in every enclosing
+                        // block.
+                        for block in unresolved.iter_mut() {
+                            block.clear();
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            unresolved.iter().all(|block| block.is_empty()),
+            "unbalanced or inert graphics state\n{content}"
+        );
+    }
+
+    /// Painting operators that consume the current graphics state.
+    fn is_paint_operator(line: &str) -> bool {
+        line == "f"
+            || line == "F"
+            || line.starts_with("f*")
+            || line.starts_with("S")
+            || line.starts_with("B")
+            || line.ends_with(" sh")
+            || line.ends_with(" Do")
+            || line.ends_with(" Tj")
+            || line.ends_with(" TJ")
+            || line.ends_with("'")
+            || line.ends_with('"')
+    }
+
+    fn blend_state_names(resources: &lopdf::Dictionary) -> Vec<String> {
+        let Some(states) = resources
+            .get(b"ExtGState")
+            .ok()
+            .and_then(|value| value.as_dict().ok())
+        else {
+            return Vec::new();
+        };
+        states
+            .iter()
+            .filter_map(|(name, value)| {
+                let dict = value.as_dict().ok()?;
+                let blend = dict.get(b"BM").ok()?.as_name().ok()?;
+                Some(format!(
+                    "{}={}",
+                    String::from_utf8_lossy(name),
+                    String::from_utf8_lossy(blend)
+                ))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn blend_mode_is_written_as_pdf_graphics_state() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.blend_mode = BlendMode::Multiply;
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (resources, content) = page_resources_and_content(&bytes);
+        let states = blend_state_names(&resources);
+        assert_eq!(
+            states,
+            vec!["BMMultiply=Multiply".to_string()],
+            "a Multiply node must carry a /BM /Multiply graphics state: {states:?}"
+        );
+        assert!(
+            content.contains("/BMMultiply gs"),
+            "the node must select its blend state: {content}"
+        );
+        assert_every_graphics_state_precedes_a_paint(&content);
+    }
+
+    #[test]
+    fn normal_blend_mode_writes_no_blend_state() {
+        let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert!(
+            blend_state_names(&resources).is_empty(),
+            "Normal is the page default and needs no /BM entry"
+        );
+        assert!(
+            !content.contains(" gs\n"),
+            "no blend state selected: {content}"
+        );
+    }
+
+    #[test]
+    fn fill_blend_mode_overrides_the_node_blend_mode() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        let mut fill = solid_fill(0, 128, 255, 255, true);
+        if let FillIR::Solid { blend_mode, .. } = &mut fill {
+            *blend_mode = BlendMode::Screen;
+        }
+        node.fills = Some(vec![fill]);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert_eq!(
+            blend_state_names(&resources),
+            vec!["BMScreen=Screen".to_string()],
+            "a fill's own blend mode must be written"
+        );
+        assert!(content.contains("/BMScreen gs"));
+        assert_every_graphics_state_precedes_a_paint(&content);
+    }
+
+    #[test]
+    fn node_and_fill_opacity_multiply_like_the_canvas() {
+        // `replay.ts` paints with `globalAlpha = itemAlpha * fill.opacity`, and
+        // PDF `/ca` is a single value, so 0.5 * 0.5 must reach the page as
+        // 0.25 — writing two states would leave only the inner one in effect.
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.opacity = 0.5;
+        let mut fill = solid_fill(255, 0, 0, 255, true);
+        if let FillIR::Solid { opacity, .. } = &mut fill {
+            *opacity = 0.5;
+        }
+        node.fills = Some(vec![fill]);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (_, content) = page_resources_and_content(&bytes);
+        assert!(
+            content.contains("/GS500 gs") && content.contains("/GS250 gs"),
+            "node 0.5 selects GS500 and the fill resolves to 0.25 (GS250): {content}"
+        );
+        assert_every_graphics_state_precedes_a_paint(&content);
+        assert!(
+            !content.contains("opacity="),
+            "opacity must not survive as a non-rendering comment: {content}"
+        );
+    }
+
+    #[test]
+    fn node_opacity_is_applied_not_commented() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.opacity = 0.4;
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert!(
+            content.contains("/GS400 gs"),
+            "node opacity applied: {content}"
+        );
+        assert_every_graphics_state_precedes_a_paint(&content);
+        assert!(
+            resources
+                .get(b"ExtGState")
+                .ok()
+                .and_then(|value| value.as_dict().ok())
+                .is_some_and(|states| states.has(b"GS400")),
+            "the selected opacity state must resolve in the page resources"
+        );
+    }
+
+    #[test]
+    fn page_keeps_its_neutral_backdrop_instead_of_inventing_paper() {
+        // A white rectangle painted first becomes the backdrop every blend mode
+        // composites against, so `Screen` over an unpainted area would export
+        // white while the canvas shows the source colour. Verified against
+        // poppler and Ghostscript (see the module doc).
+        let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (_, content) = page_resources_and_content(&bytes);
+        assert!(
+            !content.contains("1.000 1.000 1.000 rg"),
+            "the exporter must not paint white paper the document does not contain: {content}"
+        );
+    }
+
+    #[test]
+    fn screen_over_an_unpainted_area_keeps_the_source_colour() {
+        // The page there is what a `Screen`-blended object composites with.
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.blend_mode = BlendMode::Screen;
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (_, content) = page_resources_and_content(&bytes);
+        assert!(content.contains("/BMScreen gs"));
+        assert_every_graphics_state_precedes_a_paint(&content);
+        assert!(
+            !content.contains("1.000 1.000 1.000 rg"),
+            "nothing may be painted under the blend: {content}"
+        );
+    }
+
+    #[test]
+    fn a_mode_without_a_pdf_name_is_reported_not_silently_normalised() {
+        let mut lighter = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        lighter.name = "Glow".into();
+        lighter.blend_mode = BlendMode::PlusLighter;
+        let mut fill_only = rect_node(2, 100.0, 0.0, 10.0, 10.0);
+        fill_only.name = "Tint".into();
+        let mut fill = solid_fill(0, 0, 0, 255, true);
+        if let FillIR::Solid { blend_mode, .. } = &mut fill {
+            *blend_mode = BlendMode::PlusDarker;
+        }
+        fill_only.fills = Some(vec![fill]);
+
+        let bytes = export_pdf(
+            &[lighter.clone(), fill_only.clone()],
+            &PdfOptions::default(),
+        )
+        .expect("pdf export");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert!(
+            blend_state_names(&resources).is_empty(),
+            "no /BM may be written for a mode PDF does not define"
+        );
+        assert!(!content.contains(" gs\n"), "{content}");
+
+        let reported = unrepresented_blend_modes(&[lighter, fill_only], true);
+        assert_eq!(
+            reported,
+            vec![
+                UnrepresentedBlend {
+                    node_name: "Glow".into(),
+                    mode: "Plus Lighter",
+                },
+                UnrepresentedBlend {
+                    node_name: "Tint".into(),
+                    mode: "Plus Darker",
+                },
+            ],
+            "the export must be able to name what it could not represent"
+        );
+    }
+
+    #[test]
+    fn representable_modes_are_never_reported_as_unrepresented() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.blend_mode = BlendMode::Luminosity;
+        let mut fill = solid_fill(0, 0, 0, 255, true);
+        if let FillIR::Solid { blend_mode, .. } = &mut fill {
+            *blend_mode = BlendMode::Overlay;
+        }
+        node.fills = Some(vec![fill]);
+        assert!(unrepresented_blend_modes(&[node], true).is_empty());
     }
 }
