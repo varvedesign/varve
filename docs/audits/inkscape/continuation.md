@@ -105,14 +105,37 @@ Inkscape’s canonical tracker.
     related evidence; post-cutoff Inbox #9599 is tracked separately.
 13. Added a Rust regression for over-budget raster-pattern expansion. Source
     review found tile pixels were converted and embedded before applying the
-    existing 100,000-instance cap; move the cap ahead of that allocation and
-    verify neighboring solid artwork remains in the PDF.
+    existing 100,000-instance cap; commit `9718be550` moves the guard before
+    source-pixel scanning/conversion and verifies neighboring solid artwork
+    remains in the PDF. Follow-up `a081b64b6` moves the advisory warning after
+    the PDF/X-1a transparency rejection so rejected fills do not emit a second,
+    irrelevant tile-count warning. The focused test and all 12 pattern tests
+    passed before the follow-up; the focused test is queued for a fresh PDF
+    render and visual inspection.
 14. Screened #1018's body. Its reported Cairo pattern surface scaled with zoom,
     causing multi-gigabyte RAM use and a black canvas; individual notes remain
     pending. Varve's pattern renderer uses decoded tiles and bounded instances,
     without the same zoom-scaled Cairo surface path.
 15. Current body-screening total is 27 of 6,392. Discussion and linked-source
     retrieval remain in progress.
+
+## Validation checkpoint: 2026-10-18
+
+- `pnpm audit:docs` and `pnpm audit:emoji` passed after the documentation edits.
+- `cargo test --manifest-path crates/varve-print/Cargo.toml pattern` passed:
+  12 tests, including alpha embedding, PDF/X behavior, and the new tile-cap
+  sibling-preservation regression.
+- `cargo fmt --manifest-path crates/varve-print/Cargo.toml -- --check` reports
+  two formatting differences at existing lines 348 and 420 in `lib.rs`; neither
+  overlaps commit `9718be550`'s diff. The added code has no reported formatter
+  changes.
+- Native PDF manifest parser unit test passed earlier in this worktree.
+  `pnpm verify:affected` reached `typecheck:e2e` and failed because
+  `packages/scene/src/index.ts` exports the absent `./nodeResize` module. The
+  E2E test and desktop UI screenshot are therefore not yet validated. No source
+  was copied from the other active worktree to mask this blocker.
+- Website impact review found no supported PDF claim or user guidance that the
+  current change needs to alter. Marketing site source remains unchanged.
 
 ## Next operation
 
