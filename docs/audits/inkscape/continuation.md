@@ -225,13 +225,30 @@ Inkscape’s canonical tracker.
     text orientation (#3885/#3886), and text-style serialization (#3899).
     These are historical reports with version/platform-specific caveats; no
     matching Varve defect has been reproduced.
+31. Individually screened 38 previously unreviewed bodies in IID 601–640;
+    #602 and #613 were already counted. No discussions or attachments were
+    reviewed. The total is 2,727 of 6,392. Candidates include PDF ligature and
+    SVG text-direction fidelity, undo and page-frame restoration, clipboard
+    isolation for shared path effects, SVG mask and layer-visibility
+    inheritance, and document metadata persistence. Most reports describe
+    older Inkscape versions; they define test categories rather than verified
+    Varve defects.
+32. Individually screened 34 newly available bodies in IID 641–680. The
+    unavailable descriptions were #643, #644 and #652; #651, #670 and #678
+    were already counted. No discussions or attachments were reviewed. The
+    total is now 2,761 of 6,392. Reports include pointer-release transactions,
+    clone and text-copy isolation, stroke-aware geometry entry, error handling
+    in CLI selection, large-raster tracing, undo/cancel behavior, and SVG
+    filter or mask fidelity. These remain body-only, mostly historical test
+    categories.
 
 ## Validation checkpoint: 2026-10-18
 
 - Latest `pnpm verify:affected` selected `format:touched`, `lint:touched`,
-  `audit:emoji`, `audit:docs`, and `typecheck:e2e`; the first four passed after
-  formatting the generated summary JSON. Typecheck failed on the pre-existing
-  `packages/scene/src/index.ts` export of absent `./nodeResize`.
+  `audit:emoji`, `audit:docs`, `typecheck:e2e`, and the exact PDF export E2E;
+  the first four passed after formatting the generated summary JSON. Typecheck
+  failed on the pre-existing `packages/scene/src/index.ts` export of absent
+  `./nodeResize`, so the dependent browser E2E did not start.
 - After adding the targeted #5983 raster-header regression, the selected
   `format:touched`, `lint:touched`, `audit:emoji`, and `audit:docs` lanes passed
   again. `typecheck:e2e` failed on the same missing module before the focused
