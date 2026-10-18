@@ -19,19 +19,19 @@
   },
   "relevance": [
     ["out-of-scope", 672],
-    ["applicable", 412],
-    ["not-a-varve-defect", 207],
+    ["applicable", 413],
+    ["not-a-varve-defect", 206],
     ["no-signal", 5]
   ],
   "disposition": [
     ["out-of-scope", 677],
-    ["screened-for-varve", 405],
-    ["already-handled", 207],
+    ["screened-for-varve", 406],
+    ["already-handled", 206],
     ["implemented", 7]
   ],
   "family": [
     ["out-of-scope", 653],
-    ["handled-class", 213],
+    ["handled-class", 212],
     ["text-edit-identity", 78],
     ["crash-robustness", 58],
     ["selection-interaction", 55],
@@ -41,7 +41,7 @@
     ["save-integrity", 32],
     ["platform-packaging", 24],
     ["perf-bounds", 22],
-    ["async-generation", 12],
+    ["async-generation", 13],
     ["export-fidelity", 9],
     ["accessibility", 5],
     ["dirty-state", 3]

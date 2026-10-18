@@ -267,9 +267,18 @@ interactions, accessibility/performance, then useful improvements.
   substitution is per run/character while preserving covered runs, or
   whole-node. `docs/architecture/text-pipeline.md` describes per-run shaping;
   this pass did not exercise a mixed-coverage string end to end.
-- **Screened neighbours** — [#6883](https://github.com/storytold/pdfcraft/issues/6883)
-  colour emoji rendering and #6846 (Persian ZWNJ) remain in the queue: both are
-  shaping questions rather than substitution-disclosure questions.
+- **Adjacent-repository evidence (outside this corpus)** — the similarly
+  numbered [PhotoCraft #6883](https://github.com/storytold/photocraft/issues/6883)
+  and [#6846](https://github.com/storytold/photocraft/issues/6846) report
+  platform-specific emoji glyph rendering. The Persian keyboard report is
+  [PhotoCraft #4073](https://github.com/storytold/photocraft/issues/4073):
+  macOS Shift+Space inserts an ordinary space instead of U+200C. These are not
+  PdfCraft issues, so they are not in this review queue. Static Varve review
+  found color-font outline limitations documented in `textOutlines.ts` and the
+  text-pipeline docs, while canvas rendering has platform emoji fallback; no
+  Varve rendering failure was reproduced. The Shift+Space report is an OS text
+  input path and no Varve reproduction was performed. Keep these as adjacent
+  research leads, not PdfCraft findings.
 
 ### 4.7 Render compositing against the wrong backdrop — **open, screened**
 
@@ -300,14 +309,27 @@ interactions, accessibility/performance, then useful improvements.
 ### 4.9 Async results applied to the wrong document — **screened**
 
 - **External evidence** — [#813](https://github.com/storytold/pdfcraft/issues/813)
-  (a cancelled password recovery changed the next document's save
-  destination), #167, #171, #1801 (OCR results applied without a generation
-  check), #1805.
+  reports recovery metadata from a cancelled password prompt being applied to
+  the next encrypted document and changing its Save destination. The issue
+  describes the cross-document overwrite as established by static proof; the
+  UI sequence was not executed, and its fix status was not verified. #167 is a
+  deterministic delayed-import wrong-document repro; #171 is a delayed startup
+  open that steals active focus; #1801 reports stale OCR page indices and
+  redacted text reappearing but explicitly says its evidence is static review
+  only; #1805 is a CLI/MCP output collision race.
 - **Transferable rule** — every async completion carries the document/session
   identity *and* the generation it started for, and drops the result with a
   visible reason when that target is gone.
-- **Varve surface** — import/export jobs, thumbnail scheduler,
-  background-removal and upscale workers, collab host.
+- **Varve surface** — imports, drops, paste, background-removal and
+  segmentation already capture destination identity and reject stale results;
+  see the named guards and tests in this section's source review. A distinct
+  possible focus race remains at `apps/desktop/src/App.tsx:236`: concurrent
+  Home opens can finish out of order because `handleOpenFile` has no latest
+  intent check after its awaits. This is a focus/activation concern; each open
+  receives its own tab, so wrong-document save or data loss is not established.
+  It has not been reproduced in Varve. PdfCraft #813's password-recovery flow
+  has no analogous Varve workflow identified. Treat the class as screened, not
+  as a confirmed Varve defect.
 
 ### 4.10 Success reported without durable acknowledgement — **screened**
 
