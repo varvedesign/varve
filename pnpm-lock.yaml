@@ -488,6 +488,9 @@ importers:
       '@varve/engine':
         specifier: workspace:*
         version: link:../engine
+      '@varve/layout':
+        specifier: workspace:*
+        version: link:../layout
       '@varve/scene':
         specifier: workspace:*
         version: link:../scene

@@ -1,4 +1,5 @@
 import { type Affine, multiplyAffine, type Shape } from '@varve/engine';
+import { parseGridTrackDefinitions } from '@varve/layout';
 import {
   createDocument,
   createEmbeddedAsset,
@@ -40,6 +41,7 @@ interface ConversionState {
   variableCollectionIds: Map<string, string>;
   styleSamples: Map<string, SceneNode>;
   interactions: Map<string, Array<Record<string, unknown>>>;
+  gridFallbackReasons: Map<string, string>;
   warnings: string[];
   unsupportedFeatures: string[];
   fonts: Set<string>;
@@ -369,6 +371,7 @@ function convertVectorRegions(
   parent: FigmaBounds | undefined,
   id: string,
   nodeFills: Fill[],
+  layoutParent?: FigmaSourceNode,
 ): SceneNode {
   const regionIds: string[] = [];
   for (const [index, geometry] of (source.geometryRegions ?? []).entries()) {
@@ -396,7 +399,7 @@ function convertVectorRegions(
     transform: affine(source, parent),
     effects: [],
   });
-  return applyCommon(state, group, source, parent, nodeFills);
+  return applyCommon(state, group, source, parent, nodeFills, layoutParent);
 }
 
 function sizing(value: string | undefined): 'fixed' | 'hug' | 'fill' | undefined {
@@ -423,18 +426,127 @@ function justify(value: string | undefined): LayoutStyle['justifyContent'] {
   return 'start';
 }
 
-function layoutStyle(node: FigmaSourceNode): LayoutStyle | undefined {
+const MAX_IMPORTED_GRID_TRACKS = 128;
+const MAX_IMPORTED_GRID_CHILDREN = 4096;
+const MAX_IMPORTED_GRID_CELLS = 262_144;
+
+function gridFallback(state: ConversionState, node: FigmaSourceNode, reason: string): undefined {
+  addUnsupported(state, `auto-layout grid on "${node.name}" (${reason})`);
+  addWarning(
+    state,
+    `Auto-layout grid on "${node.name}" was imported as fixed geometry because ${reason}; its original child positions are preserved.`,
+  );
+  return undefined;
+}
+
+function safeGridTemplate(
+  value: string | undefined,
+  count: number | undefined,
+): string | undefined {
+  const template =
+    value?.trim() ||
+    (Number.isSafeInteger(count) && count! > 0 && count! <= MAX_IMPORTED_GRID_TRACKS
+      ? `repeat(${count}, auto)`
+      : undefined);
+  if (!template) return undefined;
+  return parseGridTrackDefinitions(template) ? template : undefined;
+}
+
+function gridSourceFailure(node: FigmaSourceNode): string | undefined {
+  if (node.children.length > MAX_IMPORTED_GRID_CHILDREN)
+    return 'its child count exceeds the safe limit';
+  if (
+    (node.gridItemsPositioning !== undefined &&
+      node.gridItemsPositioning !== 'MANUAL' &&
+      node.gridItemsPositioning !== 'ROW_AUTO_FLOW') ||
+    (node.gridAutoTracks !== undefined &&
+      node.gridAutoTracks !== 'NONE' &&
+      node.gridAutoTracks !== 'ROWS')
+  )
+    return 'it uses an unsupported placement mode';
+  const columns = safeGridTemplate(node.gridColumnsSizing, node.gridColumnCount);
+  const rows = safeGridTemplate(
+    node.gridRowsSizing,
+    node.gridRowCount && node.gridRowCount > 0 ? node.gridRowCount : undefined,
+  );
+  if (!columns) return 'its column track sizing is unavailable or unsupported';
+  if (node.gridRowsSizing && !rows) return 'its row track sizing is unsupported';
+  if (
+    (node.gridColumnCount !== undefined &&
+      (!Number.isSafeInteger(node.gridColumnCount) ||
+        node.gridColumnCount < 1 ||
+        node.gridColumnCount > MAX_IMPORTED_GRID_TRACKS)) ||
+    (node.gridRowCount !== undefined &&
+      (!Number.isSafeInteger(node.gridRowCount) ||
+        node.gridRowCount < 0 ||
+        node.gridRowCount > MAX_IMPORTED_GRID_TRACKS))
+  )
+    return 'its authored track count is outside the supported range';
+  if (
+    [node.gridRowGap ?? 0, node.gridColumnGap ?? 0].some((gap) => !Number.isFinite(gap) || gap < 0)
+  )
+    return 'it uses an invalid row or column gap';
+  for (const child of node.children) {
+    if (child.layoutPositioning === 'ABSOLUTE' || child.visible === false) continue;
+    if (
+      (child.gridChildHorizontalAlign !== undefined && child.gridChildHorizontalAlign !== 'AUTO') ||
+      (child.gridChildVerticalAlign !== undefined && child.gridChildVerticalAlign !== 'AUTO')
+    )
+      return `child "${child.name}" uses a cell-alignment option Varve cannot represent yet`;
+  }
+  if (node.gridItemsPositioning !== 'ROW_AUTO_FLOW') {
+    const occupied = new Set<string>();
+    let placementWork = 0;
+    for (const child of node.children) {
+      if (child.layoutPositioning === 'ABSOLUTE' || child.visible === false) continue;
+      const column = child.gridColumnAnchorIndex ?? 0;
+      const row = child.gridRowAnchorIndex ?? 0;
+      const columnSpan = child.gridColumnSpan ?? 1;
+      const rowSpan = child.gridRowSpan ?? 1;
+      if (
+        ![column, row, columnSpan, rowSpan].every(Number.isSafeInteger) ||
+        column < 0 ||
+        row < 0 ||
+        column >= MAX_IMPORTED_GRID_TRACKS ||
+        row >= MAX_IMPORTED_GRID_TRACKS ||
+        columnSpan < 1 ||
+        rowSpan < 1 ||
+        columnSpan > MAX_IMPORTED_GRID_TRACKS ||
+        rowSpan > MAX_IMPORTED_GRID_TRACKS
+      )
+        return `child "${child.name}" has an invalid cell anchor or span`;
+      placementWork += columnSpan * rowSpan;
+      if (placementWork > MAX_IMPORTED_GRID_CELLS)
+        return 'its cell spans exceed the placement-work limit';
+      for (let r = row; r < row + rowSpan; r += 1) {
+        for (let c = column; c < column + columnSpan; c += 1) {
+          const key = `${r}:${c}`;
+          if (occupied.has(key)) return 'it contains overlapping manual cell placements';
+          occupied.add(key);
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+function layoutStyle(node: FigmaSourceNode, state: ConversionState): LayoutStyle | undefined {
   if (node.layoutMode === 'NONE') return undefined;
   if (node.layoutMode === 'GRID') {
-    const grid = node.layoutGrids?.find(
-      (entry) => entry.pattern === 'GRID' || entry.pattern === 'COLUMNS',
-    );
-    const count = Math.max(1, grid?.count ?? 1);
+    const failure = gridSourceFailure(node);
+    if (failure) return gridFallback(state, node, failure);
+    const columns = safeGridTemplate(node.gridColumnsSizing, node.gridColumnCount)!;
+    const rows =
+      safeGridTemplate(
+        node.gridRowsSizing,
+        node.gridRowCount && node.gridRowCount > 0 ? node.gridRowCount : undefined,
+      ) ?? 'auto';
     return {
       mode: 'grid',
+      layoutSemanticsVersion: 2,
       direction: 'row',
-      gap: Math.max(0, node.itemSpacing ?? 0),
-      wrap: true,
+      gap: node.gridColumnGap ?? 0,
+      wrap: false,
       padding: [
         node.paddingTop ?? 0,
         node.paddingRight ?? 0,
@@ -443,9 +555,10 @@ function layoutStyle(node: FigmaSourceNode): LayoutStyle | undefined {
       ],
       grow: 0,
       shrink: 0,
-      rowGap: Math.max(0, node.counterAxisSpacing ?? node.itemSpacing ?? 0),
-      columnGap: Math.max(0, node.itemSpacing ?? 0),
-      gridTemplateColumns: `repeat(${count}, 1fr)`,
+      rowGap: node.gridRowGap ?? 0,
+      columnGap: node.gridColumnGap ?? 0,
+      gridTemplateColumns: columns,
+      gridTemplateRows: rows ?? 'auto',
       gridAutoFlow: 'row',
     };
   }
@@ -563,12 +676,39 @@ function richText(node: FigmaSourceNode): TextNode['richText'] | undefined {
   return { paragraphs } as TextNode['richText'];
 }
 
+function gridPlacement(
+  source: FigmaSourceNode,
+  parent: FigmaSourceNode | undefined,
+  state: ConversionState,
+): SceneNode['gridPlacement'] {
+  if (
+    parent?.layoutMode !== 'GRID' ||
+    state.gridFallbackReasons.has(parent.sourceId) ||
+    parent.gridItemsPositioning === 'ROW_AUTO_FLOW' ||
+    source.layoutPositioning === 'ABSOLUTE'
+  )
+    return undefined;
+  const columnStart = (source.gridColumnAnchorIndex ?? 0) + 1;
+  const rowStart = (source.gridRowAnchorIndex ?? 0) + 1;
+  const columnSpan = source.gridColumnSpan ?? 1;
+  const rowSpan = source.gridRowSpan ?? 1;
+  return {
+    gridColumnStart: columnStart,
+    gridColumnEnd: columnStart + columnSpan,
+    gridColumnSpan: columnSpan,
+    gridRowStart: rowStart,
+    gridRowEnd: rowStart + rowSpan,
+    gridRowSpan: rowSpan,
+  };
+}
+
 function applyCommon<T extends SceneNode>(
   state: ConversionState,
   node: T,
   source: FigmaSourceNode,
   parent: FigmaBounds | undefined,
   nodeFills: Fill[],
+  layoutParent?: FigmaSourceNode,
 ): T {
   const firstSolid = nodeFills.find((entry) => entry.type === 'solid');
   const sourceStyle = source.styleRefs ? Object.values(source.styleRefs)[0] : undefined;
@@ -613,6 +753,7 @@ function applyCommon<T extends SceneNode>(
           : source.layoutAlign === 'MAX'
             ? 'end'
             : undefined,
+    gridPlacement: gridPlacement(source, layoutParent, state),
     styleId: sourceStyle ? state.styleIds.get(sourceStyle) : undefined,
     ...(typeof source.minWidth === 'number' &&
     Number.isFinite(source.minWidth) &&
@@ -644,6 +785,7 @@ function convertText(
   parent: FigmaBounds | undefined,
   id: string,
   nodeFills: Fill[],
+  layoutParent?: FigmaSourceNode,
 ): TextNode {
   const style = source.textStyle;
   const text = source.text ?? '';
@@ -676,13 +818,14 @@ function convertText(
     strokes: strokes(source),
     effects: effects(source, state),
   });
-  return applyCommon(state, { ...node, fills: nodeFills }, source, parent, nodeFills);
+  return applyCommon(state, { ...node, fills: nodeFills }, source, parent, nodeFills, layoutParent);
 }
 
 function convertNode(
   state: ConversionState,
   source: FigmaSourceNode,
   parent: FigmaBounds | undefined,
+  layoutParent?: FigmaSourceNode,
 ): string | undefined {
   if (source.type === 'SLICE') {
     addWarning(state, `Export slice "${source.name}" was preserved as metadata only`);
@@ -692,15 +835,19 @@ function convertNode(
   const id = state.sourceToVarve.get(source.sourceId) ?? allocate(state);
   state.sourceToVarve.set(source.sourceId, id);
   const nodeFills = fills(state, source);
+  if (source.layoutMode === 'GRID') {
+    const failure = gridSourceFailure(source);
+    if (failure) state.gridFallbackReasons.set(source.sourceId, failure);
+  }
   const childIds = source.children
-    .map((child) => convertNode(state, child, source.bounds))
+    .map((child) => convertNode(state, child, source.bounds, source))
     .filter((value): value is string => value !== undefined);
   const transform = affine(source, parent);
   let node: SceneNode;
   if (source.type === 'TEXT') {
-    node = convertText(state, source, parent, id, nodeFills);
+    node = convertText(state, source, parent, id, nodeFills, layoutParent);
   } else if (source.type === 'VECTOR' && (source.geometryRegions?.length ?? 0) > 1) {
-    node = convertVectorRegions(state, source, parent, id, nodeFills);
+    node = convertVectorRegions(state, source, parent, id, nodeFills, layoutParent);
   } else if (source.type === 'GROUP' || source.type === 'SECTION') {
     node = makeGroupNode(id, {
       name: source.name,
@@ -710,7 +857,7 @@ function convertNode(
     });
     if (source.type === 'SECTION')
       addWarning(state, `Section "${source.name}" is preserved as a non-renderable group`);
-    node = applyCommon(state, node, source, parent, nodeFills);
+    node = applyCommon(state, node, source, parent, nodeFills, layoutParent);
   } else if (
     source.type === 'FRAME' ||
     source.type === 'COMPONENT' ||
@@ -724,7 +871,7 @@ function convertNode(
       children: childIds,
       transform,
       clipContent: source.type === 'FRAME' ? source.clipsContent : undefined,
-      layoutStyle: layoutStyle(source),
+      layoutStyle: layoutStyle(source, state),
       strokes: strokes(source),
       effects: effects(source, state),
     });
@@ -741,7 +888,7 @@ function convertNode(
           .filter((entry) => typeof entry[1] === 'string' || typeof entry[1] === 'boolean'),
       );
     }
-    node = applyCommon(state, frame, source, parent, nodeFills);
+    node = applyCommon(state, frame, source, parent, nodeFills, layoutParent);
   } else if (source.children.length > 0) {
     // Preserve children for boolean operations and newer container-like node
     // types even when Varve has no specialized equivalent.
@@ -757,6 +904,7 @@ function convertNode(
       source,
       parent,
       nodeFills,
+      layoutParent,
     );
   } else {
     if (source.type === 'BOOLEAN_OPERATION')
@@ -780,7 +928,7 @@ function convertNode(
       strokes: strokes(source),
       effects: effects(source, state),
     });
-    node = applyCommon(state, shape, source, parent, nodeFills);
+    node = applyCommon(state, shape, source, parent, nodeFills, layoutParent);
   }
   if (childIds.length > 0 && (node.kind === 'frame' || node.kind === 'group')) {
     const maskSource = source.children.find((child) => child.isMask);
@@ -1238,6 +1386,7 @@ export function convertFigmaSource(source: FigmaSourceDocument): FigmaConversion
     variableCollectionIds: new Map(),
     styleSamples: new Map(),
     interactions: new Map(),
+    gridFallbackReasons: new Map(),
     warnings: [...source.warnings],
     unsupportedFeatures: [...source.unsupportedFeatures],
     fonts: new Set(),

@@ -62,6 +62,78 @@ function isGrowParticipant(child: SceneNode, axis: 'width' | 'height'): boolean 
   return axisSizing(child, axis) !== 'relative' && primaryGrowWeight(child, axis) > 0;
 }
 
+function primaryMin(child: SceneNode, axis: 'width' | 'height'): number {
+  const value = axis === 'width' ? child.minWidth : child.minHeight;
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function primaryNatural(size: Size, row: boolean): number {
+  return row ? size.w : size.h;
+}
+
+function withPrimary(size: Size, value: number, row: boolean): Size {
+  return row ? { ...size, w: value } : { ...size, h: value };
+}
+
+function crossNatural(size: Size, row: boolean): number {
+  return row ? size.h : size.w;
+}
+
+/** Redistribute overflow released when a shrinkable item reaches its minimum. */
+function shrinkLineSizes(
+  children: SceneNode[],
+  sizes: Size[],
+  indices: number[],
+  axis: 'width' | 'height',
+  row: boolean,
+  available: number,
+  gap: number,
+): void {
+  let overflow =
+    indices.reduce((sum, index) => sum + primaryNatural(sizes[index]!, row), 0) +
+    Math.max(0, indices.length - 1) * gap -
+    available;
+  if (overflow <= 0) return;
+
+  const factors = new Map<number, number>();
+  const active = new Set<number>();
+  for (const index of indices) {
+    const raw = (children[index] as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink;
+    const factor = typeof raw === 'number' && Number.isFinite(raw) ? Math.max(0, raw) : 0;
+    const min = constraintsActive(children[index]!, axis) ? primaryMin(children[index]!, axis) : 0;
+    if (factor > 0 && primaryNatural(sizes[index]!, row) > min) {
+      factors.set(index, factor);
+      active.add(index);
+    }
+  }
+
+  // Each pass either finishes the remaining shrink or freezes at least one
+  // item at its lower bound, so work is bounded by the line length.
+  let guard = 0;
+  while (overflow > 0.001 && active.size > 0 && guard++ <= indices.length) {
+    const weightTotal = [...active].reduce((sum, index) => sum + factors.get(index)!, 0);
+    if (weightTotal <= 0) return;
+    const reductions: Array<{ index: number; amount: number; frozen: boolean }> = [];
+    let released = 0;
+    for (const index of active) {
+      const child = children[index]!;
+      const current = primaryNatural(sizes[index]!, row);
+      const min = constraintsActive(child, axis) ? primaryMin(child, axis) : 0;
+      const share = (overflow * factors.get(index)!) / weightTotal;
+      const amount = Math.min(share, Math.max(0, current - min));
+      reductions.push({ index, amount, frozen: amount + 0.001 < share });
+      released += amount;
+    }
+    for (const reduction of reductions) {
+      const size = sizes[reduction.index]!;
+      sizes[reduction.index] = withPrimary(size, primaryNatural(size, row) - reduction.amount, row);
+      if (reduction.frozen) active.delete(reduction.index);
+    }
+    overflow = Math.max(0, overflow - released);
+    if (reductions.every((reduction) => !reduction.frozen)) break;
+  }
+}
+
 /** Legacy nodes had no sizing field and expected min/max to clamp geometry.
  * Explicit Fixed mode is different: its authored bounds remain inactive. */
 function constraintsActive(child: SceneNode, axis: 'width' | 'height'): boolean {
@@ -187,10 +259,11 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
   if (children.length === 0) return [];
 
   const [pt, pr, pb, pl] = style.padding;
-  const gap = style.gap;
   const row = isRow(style.direction);
   const rev = isReverse(style.direction);
   const wrap = style.wrap === true;
+  const primaryGap = row ? (style.columnGap ?? style.gap) : (style.rowGap ?? style.gap);
+  const crossGap = row ? (style.rowGap ?? style.gap) : (style.columnGap ?? style.gap);
 
   const frameW = frame.w ?? 400;
   const frameH = frame.h ?? 200;
@@ -206,68 +279,72 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
   const naturalSizes = footprints.map((footprint) =>
     style.includeBordersInLayout === true ? footprint.occupied : footprint.geometry,
   );
-  const sizes = resolvePrimarySizes(children, naturalSizes, primaryAxis, avail, gap, row);
-  const contentTotal = sizes.reduce((s, sz) => s + (row ? sz.w : sz.h), 0);
-  const gapsTotal = Math.max(0, children.length - 1) * gap;
-  const rawRemaining = avail - contentTotal - gapsTotal;
-
-  // ── Shrink when content overflows (legacy per-child shrink factor) ──
-  if (rawRemaining < 0) {
-    const shrinkTotal = children.reduce(
-      (s, n) => s + ((n as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink ?? 0),
-      0,
-    );
-    if (shrinkTotal > 0) {
-      const overflow = -rawRemaining;
-      for (let i = 0; i < sizes.length; i++) {
-        const sh = (children[i] as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink ?? 0;
-        if (sh <= 0) continue;
-        const perUnit = overflow / shrinkTotal;
-        const sz = sizes[i]!;
-        const next = row ? Math.max(0, sz.w - perUnit * sh) : Math.max(0, sz.h - perUnit * sh);
-        const constrained = constraintsActive(children[i]!, primaryAxis)
-          ? clampAxis(next, children[i]!, primaryAxis)
-          : next;
-        if (row) sizes[i] = { w: constrained, h: sz.h };
-        else sizes[i] = { w: sz.w, h: constrained };
-      }
-    }
-  }
-
-  // ── Layout with wrapping ─────────────────────────────────────
+  // Wrapping uses hypothetical bases, before flexible space is assigned. A
+  // Fill item contributes its minimum (or zero) here, then receives its share
+  // only after its line is known. Resolving Fill against the whole container
+  // first makes every child appear to fit and prevents line-local allocation.
   const lines: Array<{ indices: number[]; totalSize: number }> = [];
   let currentLine: number[] = [];
   let cursor = 0;
-  let lineSize = 0;
 
   const order = rev
     ? [...Array(children.length).keys()].reverse()
     : [...Array(children.length).keys()];
 
   for (const i of order) {
-    const sz = sizes[i]!;
-    const itemSize = row ? sz.w : sz.h;
+    const child = children[i]!;
+    const natural = naturalSizes[i]!;
+    const sizing = axisSizing(child, primaryAxis);
+    const itemSize =
+      sizing === 'fill' || isGrowParticipant(child, primaryAxis)
+        ? primaryMin(child, primaryAxis)
+        : primaryNatural(natural, row);
+    const itemGap = currentLine.length > 0 ? primaryGap : 0;
 
-    if (wrap && cursor + itemSize > avail && currentLine.length > 0) {
-      lines.push({ indices: currentLine, totalSize: lineSize });
+    if (wrap && cursor + itemGap + itemSize > avail && currentLine.length > 0) {
+      lines.push({ indices: currentLine, totalSize: 0 });
       currentLine = [];
       cursor = 0;
-      lineSize = 0;
     }
 
     currentLine.push(i);
-    cursor += itemSize + gap;
-    lineSize = Math.max(lineSize, row ? sz.h : sz.w);
+    cursor += (currentLine.length > 1 ? primaryGap : 0) + itemSize;
   }
   if (currentLine.length > 0) {
-    lines.push({ indices: currentLine, totalSize: lineSize });
+    lines.push({ indices: currentLine, totalSize: 0 });
+  }
+
+  // Resolve flexible sizes independently for each final line. A wrapped line
+  // gets the full available main-axis budget, as CSS flex lines do.
+  const sizes = new Array<Size>(children.length);
+  for (const line of lines) {
+    const lineChildren = line.indices.map((index) => children[index]!);
+    const lineNatural = line.indices.map((index) => naturalSizes[index]!);
+    const resolved = resolvePrimarySizes(
+      lineChildren,
+      lineNatural,
+      primaryAxis,
+      avail,
+      primaryGap,
+      row,
+    );
+    let lineTotal = 0;
+    for (let offset = 0; offset < line.indices.length; offset++) {
+      const index = line.indices[offset]!;
+      sizes[index] = resolved[offset]!;
+      lineTotal += primaryNatural(resolved[offset]!, row);
+    }
+    lineTotal += Math.max(0, line.indices.length - 1) * primaryGap;
+    if (lineTotal > avail) {
+      shrinkLineSizes(children, sizes, line.indices, primaryAxis, row, avail, primaryGap);
+    }
+    line.totalSize = Math.max(...line.indices.map((index) => crossNatural(sizes[index]!, row)), 0);
   }
 
   // ── Distribute lines along cross-axis, align items per line ─────
   const results: LayoutResult[] = [];
   const resultById = new Map<string, LayoutResult>();
   let crossCursor = row ? pt : pl;
-  const crossGap = gap;
 
   for (const line of lines) {
     let primaryCursor = row ? pl : pt;
@@ -338,7 +415,7 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
       };
       results.push(result);
       resultById.set(child.id, result);
-      primaryCursor += (row ? cw : ch) + gap;
+      primaryCursor += (row ? cw : ch) + primaryGap;
     }
 
     crossCursor += line.totalSize + crossGap;
@@ -357,7 +434,7 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
         (s, r) => s + (row ? (r.occupiedW ?? r.w) : (r.occupiedH ?? r.h)),
         0,
       );
-      const lineGaps = (lineResults.length - 1) * gap;
+      const lineGaps = (lineResults.length - 1) * primaryGap;
       const free = (row ? availW : availH) - totalSize - lineGaps;
 
       if (free <= 0) continue;

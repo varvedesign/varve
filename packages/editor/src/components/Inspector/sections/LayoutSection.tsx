@@ -12,6 +12,9 @@
  *
  * Research basis: Figma auto-layout panel; APG Disclosure, Radiogroup, Spinbutton.
  */
+
+import type { GridLayoutDiagnostic } from '@varve/layout';
+import { computeGridLayoutDetailed } from '@varve/layout';
 import type {
   FlexDirection,
   FrameNode,
@@ -31,6 +34,7 @@ import { NumberField } from '../controls/NumberField';
 
 import { commonValue, isMixed } from '../selection/selectionState';
 import { GridPlacementFields } from './GridPlacementFields';
+import { GridTrackEditor } from './GridTrackEditor';
 
 /* Alignment and justification are icon pickers: six abbreviated text segments
  * ("Spc/Ard/Evn") were unreadable, and six text options exceed the segmented
@@ -109,6 +113,17 @@ export function LayoutSection({ node }: { node: FrameNode }) {
     () => (!ls ? suggestAutoLayout(node, children, state.document) : null),
     [node, children, ls, state.document],
   );
+  const gridLayoutDiagnostic = useMemo(() => {
+    if (ls?.mode !== 'grid') return undefined;
+    return computeGridLayoutDetailed(
+      state.document,
+      node.id,
+      node.w,
+      node.h,
+      ls,
+      node.children ?? [],
+    ).diagnostic;
+  }, [ls, node.children, node.h, node.id, node.w, state.document]);
 
   function patch(partial: Partial<LayoutStyle>) {
     const base: LayoutStyle = ls ?? {
@@ -168,12 +183,22 @@ export function LayoutSection({ node }: { node: FrameNode }) {
               ]}
               onChange={(v) => {
                 if (v === 'none') setNodeLayout(node.id, undefined);
-                else patch({ mode: v as LayoutMode });
+                else
+                  patch({
+                    mode: v as LayoutMode,
+                    ...(v === 'grid' && ls?.mode !== 'grid' ? { layoutSemanticsVersion: 2 } : {}),
+                  });
               }}
             />
           </FieldRow>
           {ls && (
             <>
+              {gridLayoutDiagnostic && (
+                <p className="insp-hint insp-hint--error" role="status" aria-live="polite">
+                  {formatGridLayoutDiagnostic(gridLayoutDiagnostic)} Existing child positions were
+                  kept.
+                </p>
+              )}
               <FieldRow label="Direction">
                 <Select
                   label="Layout direction"
@@ -196,7 +221,12 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                       value={ls.gridTemplateColumns ?? ''}
                       placeholder="e.g., 1fr 1fr 1fr"
                       className="insp-select"
-                      onChange={(e) => patch({ gridTemplateColumns: e.target.value || undefined })}
+                      onChange={(e) =>
+                        patch({
+                          gridTemplateColumns: e.target.value || undefined,
+                          gridColumnTracks: undefined,
+                        })
+                      }
                       aria-label="Grid template columns"
                     />
                   </FieldRow>
@@ -207,7 +237,12 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                       value={ls.gridTemplateRows ?? ''}
                       placeholder="e.g., auto 1fr auto"
                       className="insp-select"
-                      onChange={(e) => patch({ gridTemplateRows: e.target.value || undefined })}
+                      onChange={(e) =>
+                        patch({
+                          gridTemplateRows: e.target.value || undefined,
+                          gridRowTracks: undefined,
+                        })
+                      }
                       aria-label="Grid template rows"
                     />
                   </FieldRow>
@@ -233,6 +268,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                     min={0}
                     onChange={(v) => patch({ rowGap: v })}
                   />
+                  <GridTrackEditor frameId={node.id} layoutStyle={ls} document={state.document} />
                   <NumberField
                     label="Col gap"
                     unit="px"
@@ -346,6 +382,33 @@ export function LayoutSection({ node }: { node: FrameNode }) {
       <LayoutGuidesSection node={node} />
     </>
   );
+}
+
+function formatGridLayoutDiagnostic(diagnostic: GridLayoutDiagnostic): string {
+  switch (diagnostic) {
+    case 'invalid-track-template':
+      return 'Grid tracks use unsupported or invalid syntax.';
+    case 'invalid-track-identities':
+      return 'Grid track identities do not match the track definitions.';
+    case 'invalid-grid-bounds':
+      return 'Grid dimensions or padding contain invalid values.';
+    case 'invalid-grid-gap':
+      return 'Grid gaps must be finite and non-negative.';
+    case 'too-many-grid-children':
+      return 'This grid exceeds the supported child limit.';
+    case 'invalid-cell-placement':
+      return 'A cell anchor or span is invalid or refers to a missing track.';
+    case 'placement-work-limit-exceeded':
+      return 'This grid placement exceeds the safe work limit.';
+    case 'colliding-cell-placements':
+      return 'Two or more grid items occupy the same cell.';
+    case 'track-limit-exceeded':
+      return 'This grid exceeds the supported track limit.';
+    case 'invalid-auto-flow':
+      return 'This grid uses an unsupported auto-flow mode.';
+    default:
+      return 'This grid could not be resolved.';
+  }
 }
 
 function LayoutGuidesSection({ node }: { node: FrameNode }) {

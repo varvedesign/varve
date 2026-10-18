@@ -10,7 +10,7 @@
  * - `computeFlexLayout` — row/column/reverse, wrap, gap, padding, align/
  *   justify, grow/shrink, fill/hug/fixed sizing (CSS flexbox model).
  * - `computeGridLayout` / `applyGridLayout` / `parseGridTracks` — explicit
- *   tracks (px/rem/%), auto-placement, placement overrides (CSS grid).
+ *   bounded px/fr/auto tracks, auto-placement, and placement overrides.
  * - `reflowLayoutChildren` — the single entry point that repositions (and,
  *   for fill/grow children, resizes) a frame's children against its current
  *   box after any frame-size change.
@@ -24,10 +24,26 @@
  */
 export type { LayoutResult } from './computeFlexLayout';
 export { computeFlexLayout } from './computeFlexLayout';
-export type { GridItem } from './computeGridLayout';
-export { applyGridLayout, computeGridLayout, parseGridTracks } from './computeGridLayout';
+export type { GridItem, GridLayoutDiagnostic, GridLayoutResult } from './computeGridLayout';
+export {
+  applyGridLayout,
+  computeGridLayout,
+  computeGridLayoutDetailed,
+  parseGridTrackDefinitions,
+  parseGridTracks,
+} from './computeGridLayout';
 export type { CycleCheckResult, LayoutCycleVerdict } from './cycleDetection';
 export { checkLayoutCycle } from './cycleDetection';
+export type { GridTrackAxis, GridTrackRehome, GridTrackRemovalPreview } from './gridTrackMutations';
+export {
+  anchorGridPlacements,
+  createGridTrack,
+  ensureGridTrackIdentities,
+  initializeGridTracks,
+  previewRemoveGridTrack,
+  reorderGridTrack,
+  resizeGridTrack,
+} from './gridTrackMutations';
 export { resolveIntrinsicSizes } from './intrinsicSize';
 export type { NodeFootprint, Size } from './measure';
 export {

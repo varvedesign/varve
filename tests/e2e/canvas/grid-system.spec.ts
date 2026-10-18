@@ -150,4 +150,80 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
     await expect(page.getByRole('dialog', { name: 'Guide Layouts' })).toBeVisible();
     await page.keyboard.press('Escape');
   });
+
+  test('previews grid track removal, cancels with Escape, then applies as one undo step', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(60000);
+    await navigateToEditor(page);
+    await page.keyboard.press('f');
+    await dragOnCanvas(page, 24, 24, 248, 168);
+    const frame = page.getByRole('treeitem').first();
+    await expect(frame).toBeVisible();
+    await frame.click();
+
+    const mode = page.getByRole('combobox', { name: 'Layout mode' });
+    await mode.click();
+    await page.getByRole('option', { name: 'Grid', exact: true }).click();
+
+    await page.getByRole('button', { name: 'Rectangle', exact: true }).click();
+    await dragOnCanvas(page, 60, 60, 132, 108);
+    const frameLayer = page.locator('[role="treeitem"][data-layer-type="frame"]').first();
+    await expect(page.getByRole('treeitem')).toHaveCount(2);
+    await frameLayer.click();
+
+    const addColumn = page.getByRole('button', { name: 'Add column', exact: true });
+    await addColumn.click();
+    await addColumn.click();
+    const columns = page.getByRole('textbox', { name: /^column \d+ size$/ });
+    await expect(columns).toHaveCount(2);
+    await page.screenshot({ path: testInfo.outputPath('grid-tracks-before-removal.png') });
+
+    const removeFirst = page.getByRole('button', { name: 'Remove column 1', exact: true });
+    await removeFirst.focus();
+    await page.keyboard.press('Enter');
+    const preview = page.getByRole('dialog', { name: 'Preview track removal' });
+    await expect(preview).toBeVisible();
+    await expect(preview).toBeFocused();
+    await expect(preview.getByText('Before', { exact: true })).toBeVisible();
+    await expect(preview.getByText('After', { exact: true })).toBeVisible();
+    await expect(preview.locator('.insp-grid-track-editor__preview-item')).toHaveCount(2);
+    const previewColumns = () =>
+      preview.locator('.insp-grid-track-editor__preview-pair').evaluate((element) => ({
+        viewport: window.innerWidth,
+        columns: getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length,
+      }));
+    await page.screenshot({ path: testInfo.outputPath('grid-track-removal-preview-wide.png') });
+    await page.setViewportSize({ width: 481, height: 844 });
+    await expect.poll(previewColumns).toEqual({ viewport: 481, columns: 2 });
+    await page.screenshot({ path: testInfo.outputPath('grid-track-removal-preview-481.png') });
+    await page.setViewportSize({ width: 480, height: 844 });
+    await expect.poll(previewColumns).toEqual({ viewport: 480, columns: 1 });
+    await page.screenshot({ path: testInfo.outputPath('grid-track-removal-preview-480.png') });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(previewColumns).toEqual({ viewport: 390, columns: 1 });
+    const dialogBounds = await preview.boundingBox();
+    expect(dialogBounds).not.toBeNull();
+    expect(dialogBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(dialogBounds!.x + dialogBounds!.width).toBeLessThanOrEqual(390);
+    await expect(preview.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
+    await expect(preview.getByRole('button', { name: 'Apply removal', exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('grid-track-removal-preview-mobile.png') });
+    await page.screenshot({ path: testInfo.outputPath('grid-track-removal-preview.png') });
+    await page.keyboard.press('Escape');
+    await expect(preview).toBeHidden();
+    await expect(page.locator('canvas.editor-canvas__content-layer')).toBeFocused();
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(columns).toHaveCount(2);
+    await removeFirst.focus();
+    await page.keyboard.press('Enter');
+    await expect(preview).toBeVisible();
+    await preview.getByRole('button', { name: 'Apply removal', exact: true }).click();
+    await expect(preview).toBeHidden();
+    await expect(columns).toHaveCount(1);
+    await page.keyboard.press('Control+z');
+    await expect(columns).toHaveCount(2);
+    await page.screenshot({ path: testInfo.outputPath('grid-tracks-after-single-undo.png') });
+  });
 });

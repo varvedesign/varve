@@ -1,0 +1,121 @@
+.insp-grid-track-editor {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.insp-grid-track-editor__axis {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.insp-grid-track-editor__axis > header,
+.insp-grid-track-editor__track,
+.insp-grid-track-editor__dialog footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.insp-grid-track-editor__axis > header {
+  justify-content: space-between;
+}
+
+.insp-grid-track-editor__axis button,
+.insp-grid-track-editor__dialog button {
+  min-height: 28px;
+  padding: 0 var(--space-2);
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+}
+
+.insp-grid-track-editor button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.insp-grid-track-editor__track {
+  min-width: 0;
+}
+
+.insp-grid-track-editor__index {
+  width: 1.5rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.insp-grid-track-editor__track input {
+  flex: 1 1 auto;
+  min-width: 3rem;
+  width: 4rem;
+  height: 28px;
+  padding: 0 var(--space-2);
+  color: var(--color-text-primary);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+}
+
+.insp-grid-track-editor__dialog[open] {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  z-index: var(--z-modal);
+  width: min(680px, calc(100vw - 2 * var(--space-4)));
+  max-height: min(80vh, 680px);
+  overflow: auto;
+  padding: var(--space-4);
+  color: var(--color-text-primary);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--elevation-shadow-overlay);
+  transform: translate(-50%, -50%);
+}
+
+.insp-grid-track-editor__preview-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-block: var(--space-3);
+}
+
+.insp-grid-track-editor__preview {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.insp-grid-track-editor__preview-frame {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-strong);
+}
+
+.insp-grid-track-editor__preview-item {
+  position: absolute;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--color-accent-default) 20%, transparent);
+  border: 1px solid var(--color-accent-default);
+}
+
+.insp-grid-track-editor__dialog footer {
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 480px) {
+  .insp-grid-track-editor__preview-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .insp-grid-track-editor__track > button[aria-label^="Remove"] {
+    padding-inline: var(--space-1);
+  }
+}
