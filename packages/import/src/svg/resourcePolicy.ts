@@ -93,6 +93,7 @@ const REPORTED_DROPPED_TAGS: Record<string, string> = {
   style: 'SVG <style> element (CSS rules are not applied)',
   filter: 'SVG <filter> effects',
   pattern: 'SVG <pattern> fills',
+  flowRoot: 'Inkscape flowed text (SVG 1.2 text layout is not imported)',
   animate: 'SVG animation',
   animateTransform: 'SVG animation',
   animateMotion: 'SVG animation',

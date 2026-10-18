@@ -3,17 +3,16 @@
 // svg/handlers/rect.ts etc.
 
 import type { Affine, PathPoint, Shape } from '@varve/engine';
-import type { Document, Fill, FrameNode, ManagedColor, SceneNode } from '@varve/scene';
+import type { Document, Fill, FrameNode, ManagedColor, Mask, SceneNode } from '@varve/scene';
 import {
-  addMask,
-  addNode,
+  canBeClipMaskSource,
   makeFrameNode,
   makeShapeNode,
   makeTextNode,
   nextNodeId,
   nodeLocalBounds,
 } from '@varve/scene';
-import { tryInvertAffine } from '@varve/shared';
+import { generateKeyBetween, tryInvertAffine } from '@varve/shared';
 import type { ImportOptions } from '../types';
 import { importSvgFilter } from './filter';
 import { droppedElementFeature, resolveSvgImageHref } from './resourcePolicy';
@@ -501,6 +500,45 @@ function gradientFillFromSvg(
   };
 }
 
+function parseSvgStrokeLength(value: string): number | null {
+  const trimmed = value.trim();
+  // SVG dash percentages depend on the active viewport's normalized diagonal;
+  // parseUnit deliberately accepts `%` for other legacy SVG lengths but does
+  // not have that viewport context.
+  if (trimmed.endsWith('%')) return null;
+  // SVG number grammar accepts signs and exponent notation. parseUnit is used
+  // by older SVG attributes and intentionally has a narrower grammar.
+  const match = trimmed.match(/^([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)(px|pt|mm|cm|in)?$/u);
+  if (!match) return null;
+  const number = Number(match[1]);
+  if (!Number.isFinite(number)) return null;
+  const unit = match[2]?.toLowerCase();
+  const factor =
+    unit === 'pt'
+      ? 96 / 72
+      : unit === 'mm'
+        ? 96 / 25.4
+        : unit === 'cm'
+          ? 96 / 2.54
+          : unit === 'in'
+            ? 96
+            : 1;
+  const result = number * factor;
+  return Number.isFinite(result) ? result : null;
+}
+
+function parseSvgDashArray(value: string, scale: number): number[] | null {
+  const trimmed = value.trim();
+  if (trimmed.toLowerCase() === 'none') return [];
+  const commaGroups = trimmed.split(',');
+  if (commaGroups.some((group) => group.trim().length === 0)) return null;
+  const lengths = commaGroups.flatMap((group) => group.trim().split(/\s+/u));
+  const pattern = lengths.map(parseSvgStrokeLength);
+  if (pattern.some((length) => length === null || length < 0)) return null;
+  const scaled = pattern.map((length) => length! * scale);
+  return scaled.every(Number.isFinite) ? scaled : null;
+}
+
 function applyStylesToNode(
   node: SceneNode,
   el: ParsedElement,
@@ -512,20 +550,30 @@ function applyStylesToNode(
   let fill = el.attrs.fill ?? el.attrs.style;
   let stroke = el.attrs.stroke;
   let strokeWidth = el.attrs['stroke-width'];
+  let strokeDashArray = el.attrs['stroke-dasharray'];
+  let strokeDashOffset = el.attrs['stroke-dashoffset'];
   let opacity = el.attrs.opacity;
   let fillOpacity = el.attrs['fill-opacity'];
   let strokeOpacity = el.attrs['stroke-opacity'];
   let filter = el.attrs.filter;
+  let shapeInside = el.attrs['shape-inside'];
 
   if (el.attrs.style) {
     const styles = parseCssStyle(el.attrs.style);
     fill = styles.fill ?? fill;
     stroke = styles.stroke ?? stroke;
     strokeWidth = styles['stroke-width'] ?? strokeWidth;
+    strokeDashArray = styles['stroke-dasharray'] ?? strokeDashArray;
+    strokeDashOffset = styles['stroke-dashoffset'] ?? strokeDashOffset;
     opacity = styles.opacity ?? opacity;
     fillOpacity = styles['fill-opacity'] ?? fillOpacity;
     strokeOpacity = styles['stroke-opacity'] ?? strokeOpacity;
     filter = styles.filter ?? filter;
+    shapeInside = styles['shape-inside'] ?? shapeInside;
+  }
+  if (el.tag === 'text' && shapeInside && shapeInside !== 'none') {
+    unsupported.push('SVG text flowed into a shape');
+    warnings.push('SVG text uses unsupported shape-inside flow layout');
   }
 
   let result = { ...node };
@@ -588,6 +636,19 @@ function applyStylesToNode(
     const parsedStrokeColor = parseSvgColor(stroke);
     const sw = strokeWidth ? parseFloat(strokeWidth) : 1;
     const strokeOpacityVal = strokeOpacity ? parseFloat(strokeOpacity) : 1;
+    const dashPattern = strokeDashArray ? parseSvgDashArray(strokeDashArray, scale) : [];
+    const parsedDashOffset = strokeDashOffset ? parseSvgStrokeLength(strokeDashOffset) : 0;
+    const scaledDashOffset = parsedDashOffset === null ? null : parsedDashOffset * scale;
+    const dashOffset =
+      scaledDashOffset !== null && Number.isFinite(scaledDashOffset) ? scaledDashOffset : null;
+    if (strokeDashArray && dashPattern === null) {
+      unsupported.push('SVG stroke-dasharray lengths');
+      warnings.push(`SVG stroke-dasharray on <${el.tag}> has unsupported or invalid lengths`);
+    }
+    if (strokeDashOffset && dashOffset === null) {
+      unsupported.push('SVG stroke-dashoffset length');
+      warnings.push(`SVG stroke-dashoffset on <${el.tag}> has an unsupported or invalid length`);
+    }
     if (parsedStrokeColor && parsedStrokeColor.space === 'rgb') {
       const strokeColor: ManagedColor = {
         space: 'rgb' as const,
@@ -603,8 +664,8 @@ function applyStylesToNode(
             color: strokeColor,
             weight: sw,
             align: 'center',
-            dashPattern: [],
-            dashOffset: 0,
+            dashPattern: dashPattern ?? [],
+            dashOffset: dashOffset ?? 0,
             cap: 'round',
             join: 'miter',
             miterLimit: 4,
@@ -629,6 +690,62 @@ export function reportUnsupportedElementFilter(
   warnings.push(`SVG filters on <${el.tag}> elements are not yet imported`);
 }
 
+function inheritSvgDashStyles(child: ParsedElement, parent: ParsedElement): ParsedElement {
+  const parentStyle = parseCssStyle(parent.attrs.style ?? '');
+  const childStyle = parseCssStyle(child.attrs.style ?? '');
+  const inherited: Record<string, string> = {};
+  for (const property of ['stroke-dasharray', 'stroke-dashoffset'] as const) {
+    const value = parentStyle[property] ?? parent.attrs[property];
+    if (
+      value !== undefined &&
+      child.attrs[property] === undefined &&
+      childStyle[property] === undefined
+    ) {
+      inherited[property] = value;
+    }
+  }
+  return Object.keys(inherited).length > 0
+    ? { ...child, attrs: { ...inherited, ...child.attrs } }
+    : child;
+}
+
+/** Add a parsed SVG node to the importer-owned document without cloning its full node map. */
+function addImportedNode(doc: Document, node: SceneNode): Document {
+  const index = doc.rootChildren.length;
+  const previousId = index > 0 ? doc.rootChildren[index - 1]! : null;
+  const previousOrder = previousId ? doc.nodes[previousId]?.order : null;
+  doc.nodes[node.id] = {
+    ...node,
+    index,
+    order: generateKeyBetween(previousOrder ?? null, null),
+  } as SceneNode;
+  doc.rootChildren.push(node.id);
+  return doc;
+}
+
+/** SVG mask sources are built from this import's newly-created acyclic nodes. */
+function attachImportedMask(
+  doc: Document,
+  containerId: string,
+  sourceId: string,
+  maskType: 'clip' | 'alpha' | 'luminance',
+  fillRule: 'evenodd' | 'nonzero',
+): Document {
+  const container = doc.nodes[containerId];
+  if (!container || !('children' in container) || !container.children.includes(sourceId))
+    return doc;
+  const source = doc.nodes[sourceId];
+  if (!source || source.kind === 'adjustment') return doc;
+  if (maskType === 'clip' && !canBeClipMaskSource(source)) return doc;
+  doc.nodes[containerId] = {
+    ...container,
+    mask: { type: maskType, sourceNodeId: sourceId, fillRule, visible: true } as Mask,
+  } as SceneNode;
+  return doc;
+}
+
+const MAX_SVG_MASK_REFERENCE_DEPTH = 64;
+
 function buildMaskSourceNode(
   defEl: ParsedElement,
   doc: Document,
@@ -637,12 +754,24 @@ function buildMaskSourceNode(
   opts: ImportOptions,
   warnings: string[],
   unsupported: string[],
+  activeMaskIds: Set<string>,
 ): { doc: Document; sourceId: string | null } {
   const childNodes: string[] = [];
+  const rootStart = doc.rootChildren.length;
   let d = doc;
 
   for (const child of defEl.children) {
-    const r = convertElement(child, d, defs, transforms, opts, warnings, unsupported);
+    const r = convertElement(
+      child,
+      d,
+      defs,
+      transforms,
+      opts,
+      warnings,
+      unsupported,
+      new Set(),
+      activeMaskIds,
+    );
     d = r.doc;
     childNodes.push(...r.ids);
   }
@@ -651,10 +780,9 @@ function buildMaskSourceNode(
     return { doc: d, sourceId: null };
   }
 
-  d = {
-    ...d,
-    rootChildren: d.rootChildren.filter((nid) => !childNodes.includes(nid)),
-  };
+  const sourceRoots = new Set(childNodes);
+  const appendedRoots = d.rootChildren.splice(rootStart);
+  d.rootChildren.push(...appendedRoots.filter((nid) => !sourceRoots.has(nid)));
 
   if (childNodes.length === 1) {
     return { doc: d, sourceId: childNodes[0]! };
@@ -675,7 +803,7 @@ function buildMaskSourceNode(
   for (const childId of childNodes) {
     adjustNodePosition(d, childId, -x, -y);
   }
-  d = { ...d, nodes: { ...d.nodes, [id]: groupNode as SceneNode } };
+  d.nodes[id] = groupNode as SceneNode;
   return { doc: d, sourceId: id };
 }
 
@@ -689,6 +817,7 @@ function applySvgClipOrMask(
   transforms: string[],
   warnings: string[],
   unsupported: string[],
+  activeMaskIds: Set<string>,
 ): Document {
   const { doc: d2, sourceId } = buildMaskSourceNode(
     defEl,
@@ -698,6 +827,7 @@ function applySvgClipOrMask(
     opts,
     warnings,
     unsupported,
+    activeMaskIds,
   );
   if (!sourceId) {
     warnings.push('clipPath/mask definition is empty — skipping');
@@ -707,22 +837,18 @@ function applySvgClipOrMask(
   const container = d2.nodes[containerId];
   if (!container) return d2;
   const children = 'children' in container ? container.children : undefined;
-  let d = d2;
+  const d = d2;
   if (children && !children.includes(sourceId)) {
-    d = {
-      ...d,
-      nodes: {
-        ...d.nodes,
-        [containerId]: { ...container, children: [sourceId, ...children] } as SceneNode,
-      },
-    };
+    d.nodes[containerId] = { ...container, children: [sourceId, ...children] } as SceneNode;
   }
 
-  d = addMask(d, containerId, sourceId, maskType, {
-    fillRule: defEl.attrs['clip-rule'] === 'evenodd' ? 'evenodd' : 'nonzero',
-  });
-
-  return d;
+  return attachImportedMask(
+    d,
+    containerId,
+    sourceId,
+    maskType,
+    defEl.attrs['clip-rule'] === 'evenodd' ? 'evenodd' : 'nonzero',
+  );
 }
 
 function applyGroupClipOrMask(
@@ -734,6 +860,7 @@ function applyGroupClipOrMask(
   opts: ImportOptions,
   warnings: string[],
   unsupported: string[],
+  activeMaskIds: Set<string>,
 ): Document {
   let d = doc;
 
@@ -741,17 +868,26 @@ function applyGroupClipOrMask(
   if (clipRef) {
     const clipDef = defs.get(clipRef);
     if (clipDef) {
-      d = applySvgClipOrMask(
-        d,
-        groupId,
-        clipDef,
-        'clip',
-        opts,
-        defs,
-        transforms,
-        warnings,
-        unsupported,
-      );
+      if (activeMaskIds.has(clipRef) || activeMaskIds.size >= MAX_SVG_MASK_REFERENCE_DEPTH) {
+        warnings.push(
+          `Circular or deeply nested clip-path reference detected for #${clipRef} — skipping`,
+        );
+      } else {
+        activeMaskIds.add(clipRef);
+        d = applySvgClipOrMask(
+          d,
+          groupId,
+          clipDef,
+          'clip',
+          opts,
+          defs,
+          transforms,
+          warnings,
+          unsupported,
+          activeMaskIds,
+        );
+        activeMaskIds.delete(clipRef);
+      }
     } else {
       warnings.push(`clip-path references unknown id: #${clipRef}`);
     }
@@ -761,18 +897,27 @@ function applyGroupClipOrMask(
   if (maskRef) {
     const maskDef = defs.get(maskRef);
     if (maskDef) {
-      const maskType = maskTypeFromElement(maskDef);
-      d = applySvgClipOrMask(
-        d,
-        groupId,
-        maskDef,
-        maskType,
-        opts,
-        defs,
-        transforms,
-        warnings,
-        unsupported,
-      );
+      if (activeMaskIds.has(maskRef) || activeMaskIds.size >= MAX_SVG_MASK_REFERENCE_DEPTH) {
+        warnings.push(
+          `Circular or deeply nested mask reference detected for #${maskRef} — skipping`,
+        );
+      } else {
+        activeMaskIds.add(maskRef);
+        const maskType = maskTypeFromElement(maskDef);
+        d = applySvgClipOrMask(
+          d,
+          groupId,
+          maskDef,
+          maskType,
+          opts,
+          defs,
+          transforms,
+          warnings,
+          unsupported,
+          activeMaskIds,
+        );
+        activeMaskIds.delete(maskRef);
+      }
     } else {
       warnings.push(`mask references unknown id: #${maskRef}`);
     }
@@ -790,6 +935,7 @@ function wrapNodeInMaskedGroup(
   opts: ImportOptions,
   warnings: string[],
   unsupported: string[],
+  activeMaskIds: Set<string>,
 ): { doc: Document; groupId: string } | null {
   const clipRef = parseUrlReference(el.attrs['clip-path'] ?? '');
   const maskRef = parseUrlReference(el.attrs.mask ?? '');
@@ -809,12 +955,24 @@ function wrapNodeInMaskedGroup(
     }),
     transform: [1, 0, 0, 1, bounds.x, bounds.y] as Affine,
   };
-  d = { ...d, nodes: { ...d.nodes, [groupId]: groupNode as SceneNode } };
-  d = {
-    ...d,
-    rootChildren: [...d.rootChildren.filter((nid) => nid !== nodeId), groupId],
-  };
-  d = applyGroupClipOrMask(d, groupId, el, defs, transforms, opts, warnings, unsupported);
+  d.nodes[groupId] = groupNode as SceneNode;
+  const rootIndex = d.rootChildren.length - 1;
+  if (d.rootChildren[rootIndex] === nodeId) d.rootChildren[rootIndex] = groupId;
+  else {
+    const targetIndex = d.rootChildren.indexOf(nodeId);
+    if (targetIndex >= 0) d.rootChildren[targetIndex] = groupId;
+  }
+  d = applyGroupClipOrMask(
+    d,
+    groupId,
+    el,
+    defs,
+    transforms,
+    opts,
+    warnings,
+    unsupported,
+    activeMaskIds,
+  );
   return { doc: d, groupId };
 }
 
@@ -827,6 +985,7 @@ export function convertElement(
   warnings: string[],
   unsupported: string[],
   visitedIds = new Set<string>(),
+  activeMaskIds = new Set<string>(),
 ): { doc: Document; ids: string[] } {
   const dropped = droppedElementFeature(el.tag);
   if (dropped) {
@@ -852,6 +1011,7 @@ export function convertElement(
         warnings,
         unsupported,
         visitedIds,
+        activeMaskIds,
       );
       doc = r.doc;
       ids.push(...r.ids);
@@ -867,9 +1027,10 @@ export function convertElement(
 
     let gDoc = doc;
     const gIds: string[] = [];
+    const groupRootStart = gDoc.rootChildren.length;
     for (const child of el.children) {
       const r = convertElement(
-        child,
+        inheritSvgDashStyles(child, el),
         gDoc,
         defs,
         transforms,
@@ -877,6 +1038,7 @@ export function convertElement(
         warnings,
         unsupported,
         visitedIds,
+        activeMaskIds,
       );
       gDoc = r.doc;
       gIds.push(...r.ids);
@@ -906,15 +1068,9 @@ export function convertElement(
       for (const childId of gIds) {
         const child = gDoc.nodes[childId];
         if (!child) continue;
-        gDoc = {
-          ...gDoc,
-          nodes: {
-            ...gDoc.nodes,
-            [childId]: {
-              ...child,
-              transform: multiplyAffine(groupInverse, child.transform),
-            } as SceneNode,
-          },
+        gDoc.nodes[childId] = {
+          ...child,
+          transform: multiplyAffine(groupInverse, child.transform),
         };
       }
 
@@ -931,12 +1087,21 @@ export function convertElement(
       for (const childId of gIds) {
         adjustNodePosition(gDoc, childId, -x, -y);
       }
-      gDoc = { ...gDoc, nodes: { ...gDoc.nodes, [id]: groupNode as SceneNode } };
-      gDoc = {
-        ...gDoc,
-        rootChildren: [...gDoc.rootChildren.filter((nid) => !gIds.includes(nid)), id],
-      };
-      gDoc = applyGroupClipOrMask(gDoc, id, el, defs, transforms, opts, warnings, unsupported);
+      gDoc.nodes[id] = groupNode as SceneNode;
+      const ownedRoots = new Set(gIds);
+      const appendedRoots = gDoc.rootChildren.splice(groupRootStart);
+      gDoc.rootChildren.push(...appendedRoots.filter((nodeId) => !ownedRoots.has(nodeId)), id);
+      gDoc = applyGroupClipOrMask(
+        gDoc,
+        id,
+        el,
+        defs,
+        transforms,
+        opts,
+        warnings,
+        unsupported,
+        activeMaskIds,
+      );
       ids.push(id);
       return { doc: gDoc, ids };
     }
@@ -967,10 +1132,15 @@ export function convertElement(
           warnings,
           unsupported,
           visitedIds,
+          activeMaskIds,
         );
         visitedIds.delete(refId);
         return { doc: r.doc, ids: r.ids };
       }
+    } else if (href?.trim()) {
+      unsupported.push('SVG <use> references to other documents (not fetched during import)');
+      warnings.push('SVG <use> reference to another document was not imported');
+      return { doc, ids };
     }
     warnings.push(`<use> references unknown id: ${href}`);
     return { doc, ids };
@@ -1014,7 +1184,7 @@ export function convertElement(
     const { id, doc: d2 } = nextNodeId(doc);
     const styled = applyStylesToNode(result.node, el, defs, opts.scale, warnings, unsupported);
     const node = { ...styled, id } as SceneNode;
-    doc = addNode(d2, node);
+    doc = addImportedNode(d2, node);
     ids.push(id);
 
     const clipRef = parseUrlReference(el.attrs['clip-path'] ?? '');
@@ -1029,6 +1199,7 @@ export function convertElement(
         opts,
         warnings,
         unsupported,
+        activeMaskIds,
       );
       if (wrapped) {
         doc = wrapped.doc;

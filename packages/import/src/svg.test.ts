@@ -1,9 +1,45 @@
 import { nodeWorldTransform } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { parseSvg } from './svg';
+import { hasLegacyInkscapeDpiRisk, LEGACY_INKSCAPE_DPI_WARNING } from './svg/legacyDpi';
 import { parsePathData, parseSingleElement } from './svg/shared';
 
 describe('parseSvg', () => {
+  it('reports possible 90-dpi sizing on old Inkscape SVG without changing imported geometry', () => {
+    const result = parseSvg(
+      '<svg xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" inkscape:version="0.48+devel r12217" width="90" height="90"><rect id="legacy-square" x="0" y="0" width="90" height="90" /></svg>',
+    );
+
+    expect(result.warnings).toContain(LEGACY_INKSCAPE_DPI_WARNING);
+    expect(result.document.canvasWidth).toBe(90);
+    const imported = Object.values(result.document.nodes).find(
+      (node) => node.name === 'legacy-square',
+    );
+    expect(imported?.kind).toBe('shape');
+    if (imported?.kind === 'shape' && imported.shape.kind === 'rect') {
+      expect(imported.shape.w).toBe(90);
+      expect(imported.shape.h).toBe(90);
+    } else {
+      throw new Error('Expected the legacy rectangle to remain an editable rectangle');
+    }
+  });
+
+  it.each([
+    ['modern version', '0.92.0', undefined, true],
+    ['explicit viewBox', '0.48', '0 0 90 90', true],
+    ['unsized document', '0.48', undefined, false],
+    ['non-Inkscape file', undefined, undefined, true],
+  ])('does not report legacy scale risk for %s', (_label, version, viewBox, hasSize) => {
+    expect(hasLegacyInkscapeDpiRisk(version, viewBox, hasSize)).toBe(false);
+  });
+
+  it.each(['', 'invalid', '0 0 90 0'])(
+    'reports legacy scale risk for unusable viewBox %s',
+    (viewBox) => {
+      expect(hasLegacyInkscapeDpiRisk('0.48', viewBox, true)).toBe(true);
+    },
+  );
+
   it('accepts XML declarations, BOMs, comments, repeated path tuples, and curves', () => {
     const parsed = parsePathData('M0 0 10 0 10 10 Q 5 15 0 10 T -10 0 A 5 5 0 0 1 0 0 Z', 1);
     expect(parsed.contours[0]?.points.length).toBeGreaterThan(5);
@@ -130,6 +166,123 @@ describe('parseSvg', () => {
     if (node?.kind !== 'shape') throw new Error('expected imported shape');
     expect(node.effects).toEqual([]);
     expect(result.unsupportedFeatures).toEqual(['SVG <filter> effects']);
+  });
+
+  it('imports SVG stroke dash lengths and offsets with physical units', () => {
+    const result = parseSvg(
+      `
+      <svg><path d="M 0 0 L 100 0" style="stroke:#c0392b;stroke-width:2;stroke-dasharray:0.4mm 4.6mm;stroke-dashoffset:-0.2mm" /></svg>
+    `,
+      { scale: 2 },
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+
+    expect(node?.kind).toBe('shape');
+    if (node?.kind !== 'shape') throw new Error('expected imported shape');
+    expect(node.strokes?.[0]?.dashPattern[0]).toBeCloseTo(0.4 * 3.7795 * 2);
+    expect(node.strokes?.[0]?.dashPattern[1]).toBeCloseTo(4.6 * 3.7795 * 2);
+    expect(node.strokes?.[0]?.dashOffset).toBeCloseTo(-0.2 * 3.7795 * 2);
+    expect(result.unsupportedFeatures ?? []).toEqual([]);
+  });
+
+  it('accepts signed and exponent SVG dash numbers', () => {
+    const result = parseSvg(
+      '<svg><path d="M0 0L20 0" stroke="red" stroke-dasharray="+1e2 .5e1" stroke-dashoffset="+2e0" /></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+
+    expect(node?.kind).toBe('shape');
+    if (node?.kind !== 'shape') throw new Error('expected imported shape');
+    expect(node.strokes?.[0]?.dashPattern).toEqual([100, 5]);
+    expect(node.strokes?.[0]?.dashOffset).toBe(2);
+    expect(result.unsupportedFeatures ?? []).toEqual([]);
+  });
+
+  it('inherits SVG dash styles from groups unless a child overrides them', () => {
+    const result = parseSvg(`
+      <svg><g style="stroke-dasharray:8 3;stroke-dashoffset:2">
+        <path d="M0 0L20 0" stroke="red" />
+        <path d="M0 4L20 4" stroke="red" stroke-dasharray="1 1" />
+        <g stroke-dasharray="6 2"><path d="M0 8L20 8" stroke="red" /></g>
+      </g></svg>
+    `);
+    const paths = Object.values(result.document.nodes).filter(
+      (node) => node.kind === 'shape' && node.shape.kind === 'path',
+    );
+
+    expect(paths).toHaveLength(3);
+    expect(paths.map((node) => node.kind === 'shape' && node.strokes?.[0]?.dashPattern)).toEqual([
+      [8, 3],
+      [1, 1],
+      [6, 2],
+    ]);
+    expect(paths[0]?.kind === 'shape' && paths[0].strokes?.[0]?.dashOffset).toBe(2);
+    expect(result.unsupportedFeatures ?? []).toEqual([]);
+  });
+
+  it('imports repeated clip paths without changing their scene structure', () => {
+    const result = parseSvg(`
+      <svg><defs><clipPath id="crop"><rect x="2" y="3" width="20" height="12" /></clipPath></defs>
+      <rect id="target" width="40" height="30" clip-path="url(#crop)" /></svg>
+    `);
+    const maskedFrame = Object.values(result.document.nodes).find(
+      (node) => node.kind === 'frame' && node.mask?.type === 'clip',
+    );
+
+    expect(result.nodeIds).toHaveLength(1);
+    expect(maskedFrame?.kind).toBe('frame');
+    if (maskedFrame?.kind !== 'frame') throw new Error('expected imported clip frame');
+    const sourceId = maskedFrame.mask?.sourceNodeId;
+    expect(sourceId).toBe(maskedFrame.children[0]);
+    expect(result.document.nodes[sourceId ?? '']?.kind).toBe('shape');
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('stops circular clip-path references while importing the remaining geometry', () => {
+    const result = parseSvg(`
+      <svg><defs><clipPath id="loop"><rect width="20" height="20" clip-path="url(#loop)" /></clipPath></defs>
+      <rect width="40" height="30" clip-path="url(#loop)" /></svg>
+    `);
+
+    expect(result.nodeIds).toHaveLength(1);
+    expect(Object.keys(result.document.nodes).length).toBeLessThan(10);
+    expect(result.warnings).toContain(
+      'Circular or deeply nested clip-path reference detected for #loop — skipping',
+    );
+  });
+
+  it.each(['4 -2', '1,,2', '1,', '9'.repeat(400)])(
+    'reports invalid SVG dash array "%s" instead of silently claiming fidelity',
+    (dashArray) => {
+      const result = parseSvg(
+        `<svg><path d="M 0 0 L 20 0" stroke="red" stroke-dasharray="${dashArray}" /></svg>`,
+      );
+      const node = result.document.nodes[result.nodeIds[0]!];
+
+      expect(node?.kind).toBe('shape');
+      if (node?.kind !== 'shape') throw new Error('expected imported shape');
+      expect(node.strokes?.[0]?.dashPattern).toEqual([]);
+      expect(result.unsupportedFeatures).toContain('SVG stroke-dasharray lengths');
+      expect(result.warnings).toContain(
+        'SVG stroke-dasharray on <path> has unsupported or invalid lengths',
+      );
+    },
+  );
+
+  it('reports percentage dash lengths until viewport-relative units are implemented', () => {
+    const result = parseSvg(
+      '<svg viewBox="0 0 120 32"><path d="M 0 0 L 100 0" stroke="red" stroke-dasharray="50% 10%" stroke-dashoffset="2%" /></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+
+    expect(node?.kind).toBe('shape');
+    if (node?.kind !== 'shape') throw new Error('expected imported shape');
+    expect(node.strokes?.[0]?.dashPattern).toEqual([]);
+    expect(node.strokes?.[0]?.dashOffset).toBe(0);
+    expect(result.unsupportedFeatures).toEqual([
+      'SVG stroke-dasharray lengths',
+      'SVG stroke-dashoffset length',
+    ]);
   });
 
   it('accepts an explicit user-space primitive unit declaration', () => {
@@ -299,6 +452,45 @@ describe('parseSvg', () => {
       expect(node.fontSize).toBe(16);
       expect(node.fontFamily).toBe('Arial');
     }
+  });
+
+  it('reports Inkscape SVG 1.2 flowed text instead of silently dropping it', () => {
+    const result = parseSvg(
+      '<svg xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"><flowRoot><flowRegion><rect width="80" height="30" /></flowRegion><flowPara>Keep this text visible to the user</flowPara></flowRoot></svg>',
+    );
+
+    expect(result.nodeIds).toEqual([]);
+    expect(result.unsupportedFeatures).toContain(
+      'Inkscape flowed text (SVG 1.2 text layout is not imported)',
+    );
+  });
+
+  it('reports unsupported text flowed through a shape-inside reference', () => {
+    const result = parseSvg(
+      '<svg><text x="12" y="24" style="shape-inside:url(#missing-frame)">Readable content</text></svg>',
+    );
+
+    expect(result.unsupportedFeatures).toContain('SVG text flowed into a shape');
+    expect(result.warnings).toContain('SVG text uses unsupported shape-inside flow layout');
+    expect(Object.values(result.document.nodes).some((node) => node.kind === 'text')).toBe(true);
+  });
+
+  it('preserves text nested in spans while avoiding text extraction for non-text subtrees', () => {
+    const parsed = parseSingleElement(
+      '<svg><defs><style>.shape { fill: red }</style></defs><text>Hello <tspan>Inkscape</tspan>!</text></svg>',
+    );
+
+    expect(parsed?.textContent).toBe('');
+    expect(parsed?.children[0]?.textContent).toBe('');
+    const textNode = parsed?.children[1];
+    expect(textNode?.textContent).toBe('Hello Inkscape!');
+
+    const result = parseSvg(
+      '<svg><defs><style>.shape { fill: red }</style></defs><text>Hello <tspan>Inkscape</tspan>!</text></svg>',
+    );
+    const imported = result.document.nodes[result.nodeIds[0]!];
+    expect(imported?.kind).toBe('text');
+    if (imported?.kind === 'text') expect(imported.text).toBe('Hello Inkscape!');
   });
 
   it('parses transform attribute (translate)', () => {

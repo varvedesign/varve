@@ -11,6 +11,7 @@ import { createDocument } from '@varve/scene';
 import { Gunzip } from 'fflate';
 import { registerParser } from './registry';
 import { convertElement, reportUnsupportedElementFilter } from './svg/elements';
+import { hasLegacyInkscapeDpiRisk, LEGACY_INKSCAPE_DPI_WARNING } from './svg/legacyDpi';
 import {
   collectDefs,
   composeTransforms,
@@ -40,6 +41,15 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
 
   const warnings: string[] = [];
   const unsupported: string[] = [];
+  if (
+    hasLegacyInkscapeDpiRisk(
+      root.attrs['inkscape:version'],
+      root.attrs.viewBox,
+      Boolean(root.attrs.width && root.attrs.height),
+    )
+  ) {
+    warnings.push(LEGACY_INKSCAPE_DPI_WARNING);
+  }
   let doc = createDocument('Imported SVG');
   const nodeIds: string[] = [];
 

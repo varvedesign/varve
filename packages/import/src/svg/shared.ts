@@ -868,8 +868,13 @@ function parseElement(
     }
 
     if (childInfo.type === 'close' && childInfo.tag === info.tag) {
-      const innerText = xml.slice(info.contentStart, childInfo.contentStart);
-      const textContent = extractText(innerText);
+      // Only SVG <text> uses ParsedElement.textContent. Scanning every closing
+      // element's full subtree repeatedly made style-heavy SVGs increasingly
+      // expensive to parse (for example, nested groups and <defs> blocks).
+      const textContent =
+        info.tag.toLowerCase() === 'text'
+          ? extractText(xml.slice(info.contentStart, childInfo.contentStart))
+          : '';
       return {
         el: { tag: info.tag, attrs: info.attrs, children, textContent },
         endPos: childInfo.contentStart,

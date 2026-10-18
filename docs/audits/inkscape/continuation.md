@@ -899,3 +899,286 @@ its title, labels, or downloaded body.
     not run because the planner did not escalate and no Rust/native code or
     render hot path changed. Commit `10501e3b2` records the importer fix and
     Inkscape evidence.
+
+68. Read all cached discussion records for IID 1741–1745: 69 records across
+    five threads (17 user comments and 52 system/history events). #1741 and
+    #1742 report Cairo/Poppler PDF gradient displacement; the original cases
+    were reported working in 1.3-dev after the internal importer rewrite, with
+    a residual soft-mask report split to inbox#8253. #1743 is the same LPE
+    clipboard/unit family as #1733, with fix evidence in MR !3479. #1744's text
+    gradients were partly improved by !5298 but #4295 still records a missing
+    text-gradient case. #1745's simple gradient displacement was reported
+    fixed after the rewrite. Varve deliberately reports and skips PDF gradients
+    rather than importing inaccurate paint; this is a documented scope limit,
+    not a regression. The File Formats guide now makes that partial-PDF behavior
+    explicit, with an E2E copy assertion and mobile overflow check awaiting the
+    website browser slot. The issue ledger and summary now record 954 reviewed
+    threads.
+
+69. Read all cached discussion records for IID 1746–1750: 43 records across
+    five threads (13 user comments and 30 system/history events), and followed
+    linked issue/MR evidence for the unit and legacy-SVG cases. #1746/#4547
+    are LPE parameter persistence defects with no Varve LPE equivalent. #1747
+    was a toolbar unit-tracker regression fixed upstream by !3665, with an
+    acknowledged remaining viewBox case; Varve's selector is specifically for
+    ruler units and is now labelled accordingly. Figma support reports about
+    confusion around ruler affordances informed the clarity review. #1748 is a
+    Win32 GTK theme issue fixed by a backport. #1749 exposes a real risk for
+    pre-0.92 SVGs without viewBox: Varve now warns about possible 90-dpi sizing
+    without changing coordinates. The upstream 425-byte sample has no artwork,
+    so a synthetic rectangle was used to assert retention. #1750's license
+    template issue is absent from Varve's About section. Website guidance and
+    importer/UI changes are implemented; focused validation and visual capture
+    are pending. The issue ledger and summary now record 959 reviewed threads.
+
+70. Read the cached discussion history for IID 1751–1755: 114 records across
+    four threads (61 user comments and 53 system/history events); #1751 had no
+    cached comments. #1751 is a Path Effect case outside Varve's live feature
+    set. #1752 reports font-family dropdown stalls/crashes with very large font
+    catalogs, but the cause and workarounds vary; Varve's selectors already
+    virtualize results, and no Varve reproduction supports another change.
+    #1753 exposes silent loss of Inkscape `flowRoot` text; Varve now reports
+    the unsupported feature and the File Formats guide states the limitation.
+    #1754's stdout artwork-pipe request is outside the current Varve CLI.
+    #1755 reports a 4.2 MB SVG that stalls in old Inkscape development builds;
+    Varve's parser had repeatedly scanned closing-element subtrees to extract
+    text data unused outside `<text>`. Extraction is now limited to `<text>`,
+    and a regression protects nested `<tspan>` content. The issue ledger now
+    records 964 reviewed discussions. Focused tests and visual import review
+    remain pending.
+
+71. Refreshed discussion retrieval status from the resumable GitLab GraphQL
+    cache after the latest fetch completed at 2026-10-18T18:05:33Z. All 5,669
+    note-bearing issues now have cached responses (75,404 total notes; 32,663
+    non-system/user notes versus 32,692 reported). No issue fetches failed,
+    but 32 per-issue counts still differ; reconciliation remains open. The
+    cache download is complete, while content review remains limited to 964
+    issue threads and must continue through the baseline.
+
+
+72. Read the cached discussions for IID 1761–1770: 133 records across ten
+    threads (74 user comments and 59 system/history events). #1761 GTK warning,
+    #1762 algorithm refactor, #1763 node-joining behavior, #1766 startup canvas
+    warning, #1767 SVG 1.2 autoflow text, #1768 filter-region handles, #1769
+    Perspective LPE, and #1770 group pop-out crash lack direct Varve feature
+    matches. #1765's negative dasharray hang is outside the current importer,
+    which does not read dasharray values. #1764's layers-panel jump maps to
+    existing virtualized-tree logic that avoids stealing scroll on layer-origin
+    selection, but an exact large-tree create/delete/reorder visual E2E remains
+    unrun. No new code change was selected from this batch. The reviewed-thread
+    count is now 974; discussion review across the 5,669-thread corpus remains
+    incomplete.
+
+
+73. Read the cached discussions for IID 1756–1760: 70 records across five
+    threads (21 user comments and 49 system/history events). #1756 has no
+    Varve clone/PDF-path match. #1757 external child-document `<use>` failures
+    prompted clearer refusal reporting in Varve, with docs and Import Results
+    E2E coverage added. #1758 is already covered by Varve's Unicode-safe
+    Find/Replace offsets and CJK/combining/emoji tests; #1759 requires a
+    representative SVG2 positioned-text fixture before applicability can be
+    established; #1760 has no Varve ellipse brush or LPE match. The reviewed
+    discussion count is now 979 threads.
+
+
+74. Read the cached discussions for IID 1771–1780: 106 records across ten
+    threads (48 user comments and 58 system/history events). #1771's
+    overlapping smooth-node geometry remains an unverified path-editing
+    candidate. #1772's Ctrl+Tab focus issue and #1780's fullscreen/control
+    state need real-app checks. #1773 is duplicate evidence for the already
+    virtualized large-font-list workflow. #1774–1776 and #1779 do not map to
+    Varve's LPE, extension-runner, or legacy Qt clipboard paths. #1777's
+    incomplete-cancelled-export class is covered in source by render-before-save,
+    abort checks and atomic native writes; exact UI cancellation remains an E2E
+    candidate. #1778 may expose lost SVG tspan line positioning because Varve
+    flattens nested text; obtain/inspect its fixture and verify in Varve before
+    selecting a fix. IID 1777 was already in the reviewed-IID inventory from earlier
+    related work, so this batch adds nine new reviewed issues; the count is now
+    988 of 5,669 note-bearing threads. The 32 note-count discrepancies remain
+    unresolved.
+
+75. Confirmed that `.github/workflows/website-deploy.yml` deploys on pushes to
+    `master` when `apps/website/**` changes, followed by a live smoke check. The
+    brief authorizes normal task merges and explicitly directs using that
+    authorization for automatic deployment where it applies. Website copy in
+    this branch will therefore publish through the established master workflow
+    as part of the authorized integration; no separate manual deploy is planned.
+
+
+76. Read IID 1781–1785: 50 cached records across four nonempty discussion
+    threads (16 user comments and 34 system/history events); #1782 has no notes.
+    #1781's zero-length path/gradient crash was fixed upstream in !2200; Varve
+    has non-finite and too-short path guards, but no analogous rendering defect
+    is established for finite coincident points. #1782's unconfirmed extreme
+    finite coordinate does not justify a new global coordinate cap. #1783 remains
+    an inconclusive repeated-gradient-handle performance candidate. #1784's
+    Cairo NaN guard corresponds to Varve's existing finite-geometry checks; the
+    later zoom/pan crash remains separately linked at #1800. #1785 has no Varve
+    UI-file match. No code change selected pending an actual Varve reproduction.
+    Nine newly reviewed issue IDs bring the corpus discussion count to 993/5,669.
+
+
+77. Followed #1784's linked crash-on-zoom/pan report recursively: Inkscape
+    #1800 (also filed as Inbox #3421). Read its body and all six cached records
+    (3 user comments, 3 system events); a later comment still reproduced the
+    lib2geom assertion in an Inkscape development build, confirming it is distinct
+    from the Cairo load-time fix. The original upload redirects to GitLab sign-in,
+    so no fixture was imported. Added #1800 to reviewed discussion coverage;
+    total is 994 of 5,669 threads.
+
+78. Validation planning for the current working tree selected 50 lanes / 49
+    commands and no full-suite escalation. `pnpm audit:docs`, `pnpm audit:emoji`,
+    and `pnpm audit:tokens` passed. The planner-selected `pnpm audit:radius`
+    failed on ten legacy radius consumers in unchanged presentation/spec-panel
+    editor CSS; none of the task changes touch radius declarations or those files.
+    Affected validation and browser/visual checks remain pending while other
+    worktrees use shared verification and Chromium resources.
+
+79. Read and reconciled IID 1786–1795. The durable cache contains 104 records
+    (31 user comments and 73 system/history events) for nine issues; #1787 has
+    no reported user comments and six system events checked from the GitLab
+    discussion response. #1786's cached 15 user comments match its ledger
+    count, resolving an earlier apparent count discrepancy. #1791 exposed a
+    concrete SVG import gap: the importer discarded `stroke-dasharray` and
+    `stroke-dashoffset`. Unit-aware import support is implemented; percentage
+    lengths are reported as unsupported until the viewport-relative diagonal is
+    resolved. Parser tests cover physical units, invalid negative values, and
+    percentages. Chromium File > Import now visually verifies a dotted stroke.
+    This is related to, but not the same as, Inkscape's Cairo PDF exporter bug.
+    Other reports were mapped to absent feature paths or existing save/import
+    safeguards; #1792 warp coordinates, #1787 Cut semantics, and #1795
+    persistent resize-lock behavior remain bounded validation leads. The
+    reviewed discussion count is 1,002 of 5,669 note-bearing threads; #1794 was already in the reviewed inventory, so this batch adds eight unique reviewed issues. The
+    IID 1801–1810 body sweep is a screening lead only; full discussions and
+    code mappings remain pending.
+
+80. Reviewed IID 1801–1810 discussions and linked upstream fixes. Eight
+    nonempty threads contain 87 cached records (43 user comments and 44
+    system/history events); #1805 and #1808 have zero reported comments and no
+    notes. #1801's WMF crash has no format match in Varve. #1802 duplicates
+    #872's old 90-to-96-dpi ruler migration issue, for which Varve now warns
+    without rewriting coordinates and labels the ruler control. #1803 text on
+    path and #1810 LPE node editing are unsupported features; #1804 symbol
+    search was fixed in upstream !2266; #1806 macOS lib2geom startup was fixed
+    in the build pipeline; #1809's stale CanvasItems indicator was fixed
+    upstream and does not match Varve's overlay architecture. #1807 led to an
+    actionable warning for unsupported SVG `shape-inside` flow while preserving
+    basic text content. The shared importer path also stopped treating CSS
+    generic font keywords as missing named fonts; unit coverage exists, while a
+    post-fix visual check of the retained text is pending. The linked historical
+    #776 could not be retrieved.
+    Eight unique issues raise content-reviewed discussion coverage to 1,010 of
+    5,669 note-bearing threads.
+
+81. Reviewed IID 1811–1820. Eight nonempty threads contain 91 cached records
+    (41 user comments and 50 system/history events); #1816 and #1818 have no
+    reported comments or notes. #1811 maps directly to Varve's group/frame
+    isolation: the StatusBar now displays the active isolated container's name,
+    with a real Enter/Escape E2E check. #1812–1813 map to the existing
+    camera-anchor preservation on viewport resize; maximize/fullscreen E2E is
+    still a validation lead. #1815's Ctrl-wheel zoom and Shift-wheel pan are
+    already supported. #1817's far-origin/high-zoom grid report was fixed
+    upstream; Varve uses zoom-adaptive spacing, a line cap, and floating-origin
+    projection. #1814 VSDX and #1816 GCode are unsupported formats, while
+    #1818–1820 are old macOS/GTK feature reports with no equivalent path.
+    Eight unique issues raise discussion coverage to 1,018 of 5,669 threads.
+
+## Execution checkpoint — 2026-10-18
+
+- Current task branch: `feat/inkscape-corpus`; task changes are still
+  uncommitted. Preserve unrelated dirty changes in the shared worktree; in
+  particular, do not stage `tests/e2e/export/native-pdf-contract.spec.ts`,
+  `packages/codegen/src/bundle-assets.ts`, or `packages/scene/src/nodeResize.ts`.
+- Independent source review found that SVG dash percentages were being read as
+  raw numbers and that the font resolver needed current CSS generic keywords.
+  Both findings are addressed. A final review is in progress. The current CSS
+  Fonts draft excludes `emoji` as a generic, so that name remains a normal
+  availability-checked family.
+- `pnpm --filter @varve/import test` passed 436 tests; after the percentage
+  guard, `packages/import/src/svg.test.ts` passed 54 tests. The font resolver
+  suite passed 47 tests after the generic-family corrections. Engine and editor
+  typechecks passed. `pnpm audit:docs` passed after the latest documentation
+  edits.
+- The Inkscape import visual suite ran 7/8 successfully; the one failure was a
+  test expectation that a fully supported SVG must show the partial-fidelity
+  results dialog. The successful-import flow now expects no such dialog and the
+  focused unit-dash E2E passes. Its screenshot was inspected and shows the
+  imported millimeter dash pattern as separate red marks after deselecting the
+  path.
+- The first combined text/group browser attempt failed in `global-setup.ts`
+  before either target test ran; its Create click timed out while a TypeScript
+  check was consuming CPU. No target assertion ran. The retry is queued through
+  the shared heavy-task lease behind other agents' verification. The generic
+  font prompt and nested-group status screenshots still need post-fix visual
+  inspection.
+- Latest `pnpm verify:plan` selected 52 lanes / 51 commands with no full-suite
+  escalation. `pnpm verify:affected` stopped at `audit:radius`: ten pre-existing
+  consumers in unchanged presentation/spec-panel CSS. Format/lint and emoji
+  audits passed before that failure. No changes touch those radius consumers.
+- Content-reviewed discussion coverage remains 1,018 / 5,669. Continue with
+  the pending post-fix visuals, independent review, and progressive commit;
+  then resume the next issue batch and recursive evidence reconciliation.
+
+## Resume update — 2026-10-18
+
+82. Reviewed IID 1821–1830: nine nonempty threads contain 100 cached records
+    (57 user comments and 43 system/history events); #1824 has zero reported
+    comments. #1823 maps to sticky snapping and now has a real pointer-drag
+    release regression; #1824 maps to the editable font-family combobox and
+    now has a click-then-type component regression. The tests still require
+    execution. #1826's 25k–50k repeated-clip report was reproduced as an
+    importer parsing bottleneck: the bounded synthetic case improved from
+    8.4 s at 1k objects to 2.7 s at 50k after importer indexing changes.
+    Uploaded issue archives remain unavailable, and real-app rendering and
+    interaction at 150k nodes remain unverified. #1827's overlapping-path report may
+    map to Shape Builder Divide but requires a real minimal reproduction.
+    Remaining issues in the range have no demonstrated matching Varve
+    workflow, or are historical platform/exporter reports. Total content
+    review is now 1,027 / 5,669 threads; 32 note-count discrepancies remain.
+
+83. Comparative complaint research for the current SVG/text batch is recorded
+    in `findings.md`: a 2026 Inkscape community thread describes difficulty
+    finding missing fonts after moving files to a new computer; another report
+    distinguishes PDF outlines from editable text; an Affinity forum report
+    describes dashed-stroke corner behavior changing in PDF export. These are
+    user-reported evidence, not proof of shared causes. The resulting changes
+    avoid false generic-font warnings, describe exact PDF import boundaries,
+    and validate parsed dashes in the rendered Varve canvas.
+
+## Current execution checkpoint — 2026-10-18, resumed
+
+- Current branch is `feat/inkscape-corpus`, HEAD `9b6ce1538`; the current
+  Inkscape batch and follow-up regressions are uncommitted. Continue excluding
+  unrelated `tests/e2e/export/native-pdf-contract.spec.ts`,
+  `packages/codegen/src/bundle-assets.ts`, and `packages/scene/src/nodeResize.ts`
+  from task commits. Do not close the ChatGPT app or interrupt other worktree
+  processes.
+- Targeted Chromium regressions passed for shape-inside text retention,
+  snap-release, Escape from group isolation, and 390px StatusBar reachability.
+  The shape-inside screenshot
+  confirms editable text remains visible and generic `sans-serif` has no false
+  missing-font warning; the isolation screenshot shows `Inside: Frame 1`, and
+  the snap-release screenshot shows the moved rectangle clear of its guide.
+  Website file-format and image-conversion E2Es passed after aligning the copy
+  assertion with the actual documentation wording. I inspected the desktop and
+  390px mobile full-page screenshots; the mobile page has no horizontal
+  overflow.
+- New source checks cover #1823's release-after-snap gesture and #1824's
+  replace-on-type font control. The importer parse benchmark for #1826 is
+  complete; real-app render, selection, deletion, and close behavior at 150k
+  nodes remain unverified. Overlapping-path Divide reproduction (#1827) is the
+  next investigation candidate after the current visual/commit batch.
+- Independent read-only final review found and led to fixes for malformed
+  repeated-comma dash lists and a three-cell row in the two-column external SVG
+  security table. The reviewer rechecked both fixes and the task-owned diff and
+  found no remaining actionable issue.
+- The previous `pnpm verify:affected` failed at `audit:radius` on ten unchanged
+  presentation/spec-panel radius consumers. On resume, `pnpm verify:plan`
+  selected 60 lanes at 82% repository test-file coverage (the other dirty
+  worktree paths widen the closure), with no full-suite escalation.
+  `pnpm audit:docs`, `pnpm audit:tokens`, and `pnpm audit:emoji` passed.
+  `pnpm --filter @varve/import typecheck`, the SVG importer suite (60 tests),
+  E2E typecheck, and focused browser checks passed. The latest
+  `pnpm verify:affected` again stopped at `audit:radius` on the same ten
+  unchanged presentation/spec-panel declarations before downstream lanes.
+  Full-suite escalation remains NO.

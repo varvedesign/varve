@@ -180,7 +180,7 @@ describe('ImportService', () => {
 
   it('reports validator-detected unsupported SVG features as partial fidelity', async () => {
     const svg =
-      '<svg width="10" height="10"><defs><filter id="blur"/></defs><clipPath id="c"/></svg>';
+      '<svg width="10" height="10"><defs><pattern id="paint"/></defs><clipPath id="c"/></svg>';
 
     const report = await ImportService.importFiles([
       { name: 'effects.svg', text: svg, size: svg.length, source: 'drop' },
@@ -190,10 +190,10 @@ describe('ImportService', () => {
     expect(report.partialCount).toBe(1);
     expect(report.files[0]?.status).toBe('partial');
     expect(report.files[0]?.unsupportedFeatures.map((f) => f.feature)).toEqual(
-      expect.arrayContaining(['SVG filters', 'SVG clip paths']),
+      expect.arrayContaining(['SVG patterns', 'SVG clip paths']),
     );
     expect(report.warnings.map((w) => w.message)).toEqual(
-      expect.arrayContaining(['SVG filters', 'SVG clip paths']),
+      expect.arrayContaining(['SVG patterns', 'SVG clip paths']),
     );
   });
 

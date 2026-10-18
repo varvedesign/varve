@@ -106,7 +106,10 @@ describe('SVG import active content', () => {
   it('refuses to follow an external <use> reference', () => {
     const result = parseSvg('<svg><use href="https://evil.example.com/x.svg#icon"/></svg>');
     expect(result.nodeIds).toEqual([]);
-    expect(result.warnings.join(' ')).toMatch(/references unknown id/);
+    expect(result.warnings).toContain('SVG <use> reference to another document was not imported');
+    expect(result.unsupportedFeatures).toContain(
+      'SVG <use> references to other documents (not fetched during import)',
+    );
   });
 
   it('terminates on a cyclic <use> instead of hanging', () => {

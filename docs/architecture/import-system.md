@@ -143,16 +143,25 @@ hold, but that is an inference and not a measurement.
 
 ## SVG fidelity
 
+Legacy Inkscape SVGs with an explicit page size, no `viewBox`, and an
+`inkscape:version` earlier than 0.92 may rely on the historical 90-dpi unit
+scale. The importer reports this possibility but does not rewrite the source
+coordinates: the legacy format does not reveal whether a numeric pixel size was
+intended as a fixed physical measurement. Verify the imported physical size
+before print, cutting, or other dimension-sensitive use. The warning is
+covered by a parser regression and the real File > Import flow.
+
 | Feature | Support | Degradation |
 |---|---|---|
 | `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `path` | Full | SVG `<path>` elements with fewer than two points or non-finite coordinates/handles are skipped with an import warning; they cannot form valid visible geometry |
 | Groups, nested transforms | Full | Flattened to a Varve frame with a composed affine; direct children are rebased into the frame once, preserving source order and avoiding repeated ancestor scale/rotation |
 | `viewBox`, `width`/`height`, units (px/pt/mm/cm/in) | Full | — |
-| Fill, stroke, opacity, fill-rule | Full | — |
+| Fill, stroke, opacity, fill-rule | Full | SVG `stroke-dasharray` and `stroke-dashoffset` preserve unitless, px, pt, mm, cm, and in lengths, including values inherited from groups; child values override group values. Invalid values and percentages are reported and fall back to solid because the importer does not resolve viewport-relative dash diagonals |
 | Linear/radial gradients | Supported | Warned as "may not render identically" |
 | `clipPath`, `mask` | Supported | Mapped to Varve clip/alpha/luminance masks |
-| `use` / `symbol` | Local refs only | Cyclic refs detected and skipped; external refs refused |
-| `text` | Basic | `text-anchor` honoured; missing fonts surface in the font dialog |
+| `use` / `symbol` | Local refs only | Cyclic refs detected and skipped; references to other documents are refused and reported |
+| `text` | Basic | `text-anchor` honoured; missing fonts surface in the font dialog; SVG `shape-inside` flow and Inkscape `flowRoot` layout are reported but not imported |
+| Inkscape SVG 1.2 `flowRoot` | Unsupported | Identified in `unsupportedFeatures` rather than silently skipped |
 | `image` (`data:`) | Full | Becomes a managed embedded asset |
 | `image` (remote) | **Refused** | Reported; see security below |
 | `filter` | One `<feDropShadow>` using `primitiveUnits="userSpaceOnUse"` (the SVG default) on a shape, text, or image becomes an editable drop-shadow effect; object-bounding-box units, filters on groups/root/`<use>`, and other filter graphs are unsupported | Reported, including unsupported units/attachment points, the SVG filter region, and the difference between SVG Gaussian `stdDeviation` and Varve's Canvas shadow blur |
@@ -163,6 +172,20 @@ hold, but that is an inference and not a measurement.
 Everything dropped is named in `ImportResult.unsupportedFeatures` and reaches
 the Import Results dialog. A silent drop reads identically to corrupt output,
 which is why the reporting matters as much as the parsing.
+
+SVG conversion adds nodes to an importer-owned scene document in place and
+attaches freshly constructed mask sources without rescanning the full document
+for cycles on each object. Circular or over-deep clip/mask reference chains are
+reported and skipped. A synthetic repeated-`clipPath` workload on Node 26
+parsed 1,000 / 10,000 / 50,000 clipped rectangles in 93 ms / 409 ms / 2.7 s
+respectively (50,000 objects produced 150,001 scene nodes). This measures SVG
+parsing only; it does not establish canvas render, selection, deletion, or
+document-close performance for a 150k-node scene.
+
+The XML parser extracts `textContent` only for SVG `<text>` elements. Other
+elements retain their parsed child tree without rescanning the complete
+subtree at each closing tag. This avoids repeated work on large, deeply nested
+documents while preserving nested `<tspan>` content used by text import.
 
 Two boundaries on that guarantee, stated explicitly:
 
@@ -199,6 +222,7 @@ carrying the referrer and any identifier in the query string.
 | href | Decision |
 |---|---|
 | `data:image/*` | Embedded as a managed asset |
+| SVG `<use>` to another document | Refused and reported; external SVGs are never fetched during import |
 | `http(s):`, `//host/...`, `/path`, `../path` | Refused, reported |
 | `javascript:`, `vbscript:`, `file:`, `data:text/html` | Refused, reported |
 
