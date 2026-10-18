@@ -129,8 +129,9 @@ Inkscape’s canonical tracker.
     fixture. #5983's linked 65,500×3,273 JPEG is below Varve's per-axis cap but
     has 214,381,500 pixels, above the 64 Mi-pixel pre-decode budget. A focused
     synthetic JPEG-header regression asserts rejection without downloading
-    the image; its run is pending and it does not reproduce Inkscape's later
-    zoom crash. #5878's Powerstroke path editing and #5976's marker
+    the image; all 6 focused raster-inspection tests passed. This does not
+    reproduce Inkscape's later zoom crash. #5878's Powerstroke path editing
+    and #5976's marker
     recoloring dialog have no direct Varve feature match. #1231's styled-stroke
     drag memory report may inform a bounded selection stress scenario. Their
     35 combined reported notes remain pending retrieval/review.
@@ -144,7 +145,14 @@ Inkscape’s canonical tracker.
     SVG behavior is uncertain, #1063 is Cairo-specific, and #1351 has no Varve
     feature equivalent. Linked samples remain uninspected and all 40 reported
     notes remain pending retrieval/review.
-20. Current body-screening total is 40 of 6,392. No new Varve defect is
+20. Screened #651 (embedded-raster selection freezes Inkscape's XML Editor),
+    #685 (overlapping text order differs between SVG canvas and PDF), #694
+    (transformed/clipped/blurred masks disappear from PDF), and #712 (low-res
+    masks and duplicate-mask objects disappear). #685, #694, and #712 remain
+    concrete PDF parity/resolution candidates, but their linked fixtures and
+    43 combined reported notes have not been reviewed. #651 has no equivalent
+    Varve feature.
+21. Current body-screening total is 44 of 6,392. No new Varve defect is
     established by these body-only reports.
 
 ## Validation checkpoint: 2026-10-18
