@@ -14,6 +14,7 @@ import { buildVerticalTextSnapshot, paintVerticalCanonicalTextStroke } from './v
 const MAX_VARIABLE_WIDTH_STROKE_SAMPLES = 65_536;
 const MAX_VARIABLE_WIDTH_DASH_RUNS = 16_384;
 const MAX_VARIABLE_WIDTH_DASH_PATTERN = 128;
+const MAX_VARIABLE_WIDTH_DASH_STEPS = 32_768;
 
 export interface StrokeReplayDependencies {
   traceOutline(target: ReplayTarget, primitive: RenderItem['primitive']): void;
@@ -252,6 +253,7 @@ function splitDashedWidthSamples(
   }
   const pattern =
     positivePattern.length % 2 === 1 ? [...positivePattern, ...positivePattern] : positivePattern;
+  if (!pattern.some((value, index) => index % 2 === 0 && value > 0)) return null;
   const totalPattern = pattern.reduce((sum, value) => sum + value, 0);
   if (totalPattern <= 0) return [{ samples, closed }];
 
@@ -296,6 +298,7 @@ function splitDashedWidthSamples(
     if (tailSamples.length > 1) runs.push({ samples: tailSamples, closed: false });
   };
   let distance = 0;
+  let dashSteps = 0;
   while (distance < totalLength - 0.0001) {
     const state = stateAt(distance);
     if (state.index % 2 === 0 && runs.length >= MAX_VARIABLE_WIDTH_DASH_RUNS) {
@@ -304,6 +307,8 @@ function splitDashedWidthSamples(
       appendSolidTail(distance);
       break;
     }
+    if (dashSteps >= MAX_VARIABLE_WIDTH_DASH_STEPS) return null;
+    dashSteps++;
     const end = Math.min(totalLength, distance + Math.max(state.remaining, 0.0001));
     if (state.index % 2 === 0 && end - distance > 0.0001) {
       const runSamples = [pointAtDistance(samples, distances, distance)];

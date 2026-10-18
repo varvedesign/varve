@@ -114,4 +114,22 @@ describe('variable-width stroke replay bounds', () => {
     expect(calls.traceOutline).toBe(1);
     expect(calls.dashLength).toBe(130);
   });
+
+  it('bounds dash patterns with no drawable on-runs', () => {
+    const calls = renderStroke([point(0, 0, 0.2), point(10, 0, 0.9)], [0, 0.00000001]);
+
+    expect(calls.fill).toBe(0);
+    expect(calls.stroke).toBe(1);
+    expect(calls.traceOutline).toBe(1);
+    expect(calls.dashLength).toBe(2);
+  });
+
+  it('falls back when tiny on/off intervals cannot produce bounded outline runs', () => {
+    const calls = renderStroke([point(0, 0, 0.2), point(10, 0, 0.9)], [0.00000001, 0.00000001]);
+
+    expect(calls.fill).toBe(0);
+    expect(calls.stroke).toBe(1);
+    expect(calls.traceOutline).toBe(1);
+    expect(calls.dashLength).toBe(2);
+  });
 });

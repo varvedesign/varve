@@ -15,11 +15,13 @@ Last updated: 2026-10-18. Status: active and incomplete.
   splitting rescanned the full sample list for every run and that patterns over
   128 entries lost their dash. Both are fixed: sample traversal now advances a
   shared cursor, distance lookup is logarithmic, and long patterns fall back to
-  native dashed centerline replay. The new regression first failed on the
-  solid-pattern behavior, then passed after the fix. Real-browser visual
-  validation remains required. The source fix in PhotoCraft PR #5204 was read;
-  it also covers large coordinates, which this Varve change does not fully
-  match. Website review found no affected marketing claim.
+  native dashed centerline replay. A second review caught a zero-width/tiny
+  dash loop that escaped the run cap; a 32,768-step cap now sends unproductive
+  patterns to native dashed replay. The focused regression failed before each
+  fix and passes now. Real-browser visual validation remains required. The
+  source fix in PhotoCraft PR #5204 was read; it also covers large coordinates,
+  which this Varve change does not fully match. Website review found no
+  affected marketing claim.
 - PhotoCraft #2826: Clone Stamp now accepts Ctrl/Command-click as an alternate
   source gesture alongside Alt-click, addressing the reported Cinnamon
   window-manager conflict. Focused unit coverage passes (8 tests), and
