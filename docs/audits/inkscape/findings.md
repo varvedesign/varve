@@ -513,3 +513,35 @@ These five descriptions raise body screening to 49 of 6,392. Their linked
 files and discussions remain pending where noted. The marketing site still has
 no relevant full-fidelity PDF claim to revise until a Varve reproduction is
 confirmed.
+
+## More export and import reports screened
+
+Six more issue descriptions were checked against Varve's current architecture:
+
+- [#204](https://gitlab.com/inkscape/inkscape/-/issues/204) reports an
+  out-of-memory import after adding two SVGs with 25 MB and 9 MB source images.
+  It lacks controlled dimensions or a Varve reproduction, so it remains an
+  aggregate image-memory test candidate.
+- [#255](https://gitlab.com/inkscape/inkscape/-/issues/255) attributes an old
+  PDF import crash to a later `libpoppler-glib8` package from external Linux
+  repositories. This points to dependency error handling, not a confirmed
+  format-level Varve defect.
+- [#698](https://gitlab.com/inkscape/inkscape/-/issues/698) reports black
+  crosses and a foggy color haze over masked red/orange artwork in Inkscape
+  0.92.3 PDF output. It is a useful mask/color parity fixture if the source SVG
+  becomes accessible.
+- [#814](https://gitlab.com/inkscape/inkscape/-/issues/814) reports a slight
+  raster-image position shift between equivalent SVG-to-PDF exports in
+  Inkscape 0.92.4. Its paired SVGs and PDFs have not been inspected.
+- [#952](https://gitlab.com/inkscape/inkscape/-/issues/952) reports underline
+  text decoration missing from old Inkscape PDF output. Check whether Varve's
+  rich-text model supports the same decoration before treating it as a direct
+  compatibility gap.
+- [#5971](https://gitlab.com/inkscape/inkscape/-/issues/5971) reports print
+  marks absent from a PDF made with Inkscape 1.4.2. Varve has explicit PDF/X
+  mark generation and Rust coverage; a rendered marked page is still the useful
+  visual check before making changes.
+
+Body screening is now 55 of 6,392. Comments and attached files for these six
+reports remain pending, so these are screening results rather than full issue
+reviews.
