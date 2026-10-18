@@ -132,12 +132,25 @@ Inkscape’s canonical tracker.
     recoloring dialog have no direct Varve feature match. #1231's styled-stroke
     drag memory report may inform a bounded selection stress scenario. Their
     35 combined reported notes remain pending retrieval/review.
-18. Current body-screening total is 35 of 6,392. The 3,633/32,692 comment
+18. Current body-screening total was 35 of 6,392. The 3,633/32,692 comment
     retrieval snapshot remains unchanged and incomplete.
+19. Screened #670 (dashed polygon stroke display/export parity), #721
+    (multiply blend omitted from PDF after blur rasterization), #894
+    (zero-length square-cap path differs from Firefox), #1063 (large Cairo
+    radial-gradient artifacts), and #1351 (Simplify live-path-effect editing
+    lag). #670 and #721 are useful visual output candidates; #894's expected
+    SVG behavior is uncertain, #1063 is Cairo-specific, and #1351 has no Varve
+    feature equivalent. Linked samples remain uninspected and all 40 reported
+    notes remain pending retrieval/review.
+20. Current body-screening total is 40 of 6,392. No new Varve defect is
+    established by these body-only reports.
 
 ## Validation checkpoint: 2026-10-18
 
-- `pnpm audit:docs` and `pnpm audit:emoji` passed after the documentation edits.
+- Latest `pnpm verify:affected` selected `format:touched`, `lint:touched`,
+  `audit:emoji`, `audit:docs`, and `typecheck:e2e`; the first four passed after
+  formatting the generated summary JSON. Typecheck failed on the pre-existing
+  `packages/scene/src/index.ts` export of absent `./nodeResize`.
 - `node scripts/quality/heavy-lease.mjs 'Inkscape PDF pattern export regressions' -- cargo test --manifest-path crates/varve-print/Cargo.toml pattern` passed: 12 tests, including alpha embedding, PDF/X behavior, and the new tile-cap sibling-preservation regression.
 - A fresh lease-wrapped run of `export_pdf_caps_pattern_tile_expansion_without_dropping_neighbor_content` passed (1 test); its generated PDF was rendered with `pdftoppm` and visually inspected. The PDF and PNG were written under `/tmp`, not the repository.
 - Read-only review of the committed code diff and pending E2E test found no actionable defects. The E2E UI test is waiting for the shared browser lease; typechecking fails first on a pre-existing missing `nodeResize` module in committed `master`.
