@@ -207,6 +207,50 @@ are body-only candidate tests, many from old releases:
   the page. This suggests a viewport-bounds test after document load; the
   issue is historical and no sample was inspected.
 
+## Screening update: issues #3601–3750
+
+The 147 available nonempty descriptions in this interval were read in full;
+#3650, #3661, and #3704 were missing from the cache. No discussions or
+attachments were reviewed. Representative body-only candidates:
+
+- [#3629](https://gitlab.com/inkscape/inkscape/-/issues/3629) reports Object
+  to Path silently unlinking a group clone, with no undo entry or dirty-state
+  prompt. This is a useful operation-atomicity and clone-integrity test; the
+  report is an old Inkscape beta and includes one uninspected fixture.
+- [#3635](https://gitlab.com/inkscape/inkscape/-/issues/3635) reports a
+  blurred clone disappearing from a later page in PDF export. This motivates
+  a multipage clone/filter export case; it dates from old 1.2/1.3 development
+  versions and the sample was not opened.
+- [#3655](https://gitlab.com/inkscape/inkscape/-/issues/3655) describes an
+  AddressSanitizer use-after-free while previewing a marker-bearing SVG in the
+  startup file dialog. The stack attributes it to marker teardown. This is a
+  lifecycle test prompt for any preview path, not evidence about Varve's
+  document-open path.
+- [#3667](https://gitlab.com/inkscape/inkscape/-/issues/3667) reports distinct
+  `<use>` elements resolving to the same shape when imported source IDs
+  collide. [#3705](https://gitlab.com/inkscape/inkscape/-/issues/3705) reports
+  duplicate-ID repair breaking references in undo history. Together they
+  suggest namespace/reference-graph tests; both are old, single-document
+  reports and their attached archives were not opened.
+- [#3672](https://gitlab.com/inkscape/inkscape/-/issues/3672) reports a crash
+  when selecting/copying or saving one complex Adobe XD SVG, with invalid
+  `<use>` warnings and a stack in reference collection. The detailed body was
+  read in chunks, but its attachment was not opened. Treat it as a malformed
+  or complex-input case, not a general import guarantee.
+- [#3682](https://gitlab.com/inkscape/inkscape/-/issues/3682) reports drawing
+  after selecting an earlier undo-history state crashing. Its body gives
+  repeat steps but no stack; this suggests checking history branch integrity.
+- [#3723](https://gitlab.com/inkscape/inkscape/-/issues/3723) reports severe
+  zoom/rotation slowdown for multipage PDF documents, with profiling pointing
+  to canvas group updates. This is a historical 1.3-dev performance prompt;
+  no timing reproduction was run.
+- [#3746](https://gitlab.com/inkscape/inkscape/-/issues/3746) reports Boolean
+  Difference dropping fill when SVG uses a presentation `fill` attribute
+  instead of CSS style. [#3748](https://gitlab.com/inkscape/inkscape/-/issues/3748)
+  reports PDF export applying raster EXIF orientation differently from the
+  source editor. They are useful SVG-attribute normalization and raster export
+  fidelity cases; neither was reproduced in Varve.
+
 ## Candidate: large raster save memory
 
 Inkscape [#6398](https://gitlab.com/inkscape/inkscape/-/issues/6398) reports

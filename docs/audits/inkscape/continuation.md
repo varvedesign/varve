@@ -213,9 +213,10 @@ Inkscape’s canonical tracker.
     30 unavailable descriptions were #4083, #4153, #4178, #4181–#4185,
     #4205–#4214, #4290, #4294, #4332, #4344, #4414–#4416, #4529–#4532,
     and #4743. Two bodies (#3975 and #4717) were already screened. No notes
-    or attachments were reviewed. Bodies #3601–#3900 remain pending full review; excerpt-based checks in that
-    segment are not counted. The overall count is 2,540 unique bodies of
-    6,392. Body-only candidate reports cover multipage PDF masks, clones and
+    or attachments were reviewed. At this checkpoint, bodies #3601–#3900
+    remained pending full review; those segments were later completed in
+    entries 30 and 35. The overall count at this checkpoint was 2,540 unique
+    bodies of 6,392. Body-only candidate reports cover multipage PDF masks, clones and
     bleed, page geometry, linked-image data integrity, document mutation, and
     export cancellation/crashes; no matching Varve defect is established.
 30. Individually screened all 149 available nonempty bodies in IID 3751–3900;
@@ -260,6 +261,13 @@ Inkscape’s canonical tracker.
     SVG/text/filter interoperability, save/undo integrity, copy isolation,
     and viewport/redraw correctness; these reports do not establish matching
     Varve defects.
+35. Individually read all 147 available nonempty descriptions in IID
+    3601–3750. Missing cache bodies: #3650, #3661, and #3704. No body in this
+    slice had been previously screened; no comments or attachments were
+    reviewed. The total is 4,163 of 6,392. Candidate reports include clone
+    and ID-reference integrity, multipage PDF export, filter/marker preview
+    lifecycle, and CLI versus GUI export behavior. These are historical
+    reports and do not establish current Varve defects.
 
 ## Validation checkpoint: 2026-10-18
 
