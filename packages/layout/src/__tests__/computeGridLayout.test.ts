@@ -8,6 +8,7 @@ import {
   computeGridLayoutDetailed,
   parseGridTracks,
 } from '../computeGridLayout';
+import { measureNodeSize } from '../measure';
 
 function makeDoc(overrides: Partial<Document> = {}): Document {
   const base = createDocument('test', true);
@@ -757,6 +758,34 @@ describe('applyGridLayout', () => {
       expect(result.shape.w).toBe(400);
       expect(result.shape.h).toBe(200);
     }
+  });
+
+  it('remeasures auto-height text after resolving its final grid column width', () => {
+    let doc = makeDoc();
+    doc = addNode(doc, 'copy', {
+      kind: 'text',
+      text: 'A sentence that wraps to several lines before the grid column grows.',
+      fontSize: 16,
+      fontFamily: 'Arial',
+      textResizing: 'autoHeight',
+      w: 60,
+      h: 80,
+      layoutSizingWidth: 'fill',
+      layoutSizingHeight: 'hug',
+    });
+    const text = doc.nodes.copy;
+    const style = makeLayoutStyle({
+      layoutSemanticsVersion: 2,
+      gridTemplateColumns: '1fr',
+      gridTemplateRows: 'auto',
+    });
+
+    const result = computeGridLayoutDetailed(doc, 'parent', 100, 300, style, ['copy']);
+
+    expect(result.diagnostic).toBeUndefined();
+    expect(result.items[0]?.w).toBe(100);
+    expect(result.items[0]?.h).toBeCloseTo(measureNodeSize({ ...text, w: 100 }).h);
+    expect(result.items[0]?.h).toBeLessThan(measureNodeSize(text).h);
   });
 
   it('returns doc unchanged when parent is not a frame', () => {

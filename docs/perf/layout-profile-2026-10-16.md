@@ -24,3 +24,19 @@ The observational profile passed in 26.7 seconds of test time. The existing budg
 ## Limits
 
 These numbers are one shared-machine sample, not a release budget or a 4 GiB memory qualification. Variance is visible in the 1k and 50k tails. The run does not measure edit-to-correct-frame p50/p95, browser/WASM canvas paint, cold app startup, deep 10k-node nesting, allocations, peak memory, or packaged Tauri. Those remain required before claiming end-to-end performance qualification. The compact browser E2E interactions separately passed wrap, Fill, undo, guide controls, and constrained parent resize; they measured workflow correctness, not frame latency.
+
+## Follow-up sample — 2026-10-18
+
+- Revision: follow-up solver review changes on `codex/layout-reliability` (uncommitted at measurement time).
+- Host/runtime: AMD Ryzen 3 5300U, 4 cores / 8 threads, Linux 7.2.9-1-cachyos x86_64, Node.js 22.23.2, Vitest 4.1.11.
+- Corpus source is unchanged (SHA-256 `04956c3842e4aadb9b61cb92eece7b50810692dffe94e53854c24acf30152442`). The unrelated `@varve/editor` unit suite remained active on the shared host during this sample; treat these as observational measurements under concurrent load, not a clean before/after comparison.
+
+| Corpus | First call | Warm p50 | Warm p95 |
+|---|---:|---:|---:|
+| Flat, 100 children | 5.28 ms | 0.86 ms | 1.04 ms |
+| Flat, 1,000 children | 27.85 ms | 6.81 ms | 11.71 ms |
+| Flat, 10,000 children | 73.02 ms | 78.93 ms | 116.01 ms |
+| Flat, 50,000 children | 439.54 ms | 356.01 ms | 408.61 ms |
+| Nested, 1,024 leaves | 321.57 ms | 255.67 ms | 904.17 ms |
+
+`reflow.bench.test.ts` also passed all five stable budget cases on this working tree. The warm nested p95 remains variable; this sample does not replace a controlled baseline run or qualify edit-to-correct-frame latency.
