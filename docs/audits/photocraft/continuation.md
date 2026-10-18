@@ -405,8 +405,26 @@ passed 7 tests and `cargo test -p varve-print node_opacity_is_applied_not_commen
 passed 1 test.
 
 The editor handoff is committed as `3da083f54e5f5bcff02105aac9237326e4cb6797`
-on `master`, after `5d7561f28`. The candidate documentation audit passed
-(1,140 docs, 814 links, 178 ADRs). Its final Layers-tree selection variant is
-queued for Chromium validation through the shared lease behind another
-worktree’s 36-minute Vitest run; the app and other worktree processes remain
-running. Exact-SHA CI and Website Deploy for this head are still in progress.
+on `master`, after `5d7561f28`. The final lease-wrapped Chromium run passed
+1/1 in 51.9 seconds, including buffered handoff and undo. Its screenshot was
+visually inspected at
+`/home/kevina/CodingProjects/varve/.worktrees/photocraft-hardening/test-results/run-682421-1527/save-text-target-switch-sw-5e2cc-ed-draft-and-preserves-undo-chromium/text-target-switch.png`;
+both text objects render, the selected first object shows the buffered draft,
+and the inspector reflects that text. `node scripts/audit-docs.mjs` passed
+(1,140 docs, 814 links, 178 ADRs), `node scripts/audit-emoji.mjs` passed
+(5,308 files), and `node scripts/quality/audit-radius.mjs` passed with zero
+legacy consumers. `cargo fmt --check`, `cargo clippy -p varve-print -- -D
+warnings`, the 7 focused blend-mode tests, and the opacity test all passed.
+The required architecture audit completed with 14 cycles (under the enforced
+17-cycle cap) and zero layer violations. Its instability and unused-export
+counts are report-only; the 76 unstable modules exceed the stored 55 reference,
+so that known architecture debt remains visible and no baseline was changed.
+
+The candidate plan selected 17 lanes with no full-suite escalation. Local
+`pnpm verify:affected` could not complete in the task worktree because Tier 0
+found an untracked formatter issue in another worktree; the integration clone
+has no complete JS dependency tree. Exact-SHA CI for `3da083f54` completed its
+preflight and is running the selected JS, Rust, and Playwright lanes. Website
+Deploy for `3da083f54` is running; the immediately preceding code head's site
+gates and deploy passed. Documentation-only follow-up `acdea6488` is on master
+and its exact-SHA CI is queued. No full workspace suite was run.
