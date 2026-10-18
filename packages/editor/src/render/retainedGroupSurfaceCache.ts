@@ -37,6 +37,15 @@ export type RetainedGroupBypassReason =
   | 'unsupported-surface-size'
   | 'surface-over-budget';
 
+export type RetainedGroupAdmissionBypassReason = Exclude<
+  RetainedGroupBypassReason,
+  | 'untracked-miss'
+  | 'nonresident-miss'
+  | 'dependency-key-changed'
+  | 'unsupported-surface-size'
+  | 'surface-over-budget'
+>;
+
 export interface RetainedGroupBypass {
   reason: RetainedGroupBypassReason;
   groupId?: string;
@@ -274,14 +283,7 @@ export class RetainedGroupSurfaceCache {
   }
 
   recordAdmissionBypass(
-    reason: Exclude<
-      RetainedGroupBypassReason,
-      | 'untracked-miss'
-      | 'nonresident-miss'
-      | 'dependency-key-changed'
-      | 'unsupported-surface-size'
-      | 'surface-over-budget'
-    >,
+    reason: RetainedGroupAdmissionBypassReason,
     groupId: string,
     dependencyPath: readonly string[],
     dependencyPathTruncated = false,

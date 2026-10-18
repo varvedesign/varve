@@ -234,7 +234,7 @@ describe('RetainedGroupSurfaceCache', () => {
       dependencyPath: [`${'x'.repeat(127)}…`],
     });
     expect(sizeBypass?.groupId?.length).toBeLessThanOrEqual(128);
-    expect(sizeBypass?.dependencyPath?.[0].length).toBeLessThanOrEqual(128);
+    expect(sizeBypass?.dependencyPath?.[0]?.length).toBeLessThanOrEqual(128);
     cache.recordAdmissionBypass('group-mask', hugeId, [hugeId]);
     expect(cache.diagnostics.detailed?.bypasses.at(-1)).toMatchObject({
       reason: 'group-mask',

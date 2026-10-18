@@ -100,7 +100,7 @@ import { resolveRendererAttribution } from '../render/rendererAttribution';
 import { observeCanvasRenderRevision } from '../render/renderRevision';
 import {
   RETAINED_GROUP_DIAGNOSTIC_PATH_LIMIT,
-  type RetainedGroupBypassReason,
+  type RetainedGroupAdmissionBypassReason,
   retainedGroupSurfaceCache,
 } from '../render/retainedGroupSurfaceCache';
 import { alphaBounds } from '../render/surfaceBounds';
@@ -286,7 +286,7 @@ function retainedGroupBoundaryBypassReason(input: {
   proofing: boolean;
   visibleEffects: boolean;
   groupMask: boolean;
-}): RetainedGroupBypassReason | null {
+}): RetainedGroupAdmissionBypassReason | null {
   if (input.warped) return 'warped-container';
   if (input.masterPlacement) return 'master-occurrence';
   if (input.instanceOccurrence) return 'instance-occurrence';
@@ -297,13 +297,12 @@ function retainedGroupBoundaryBypassReason(input: {
 }
 
 function retainedChildBypassReason(
-  child: SceneNode | undefined,
-  item: RenderItem | undefined,
-): RetainedGroupBypassReason | null {
-  if (child?.kind !== 'shape') return 'unsupported-child-kind';
+  child: SceneNode,
+  item: RenderItem,
+): RetainedGroupAdmissionBypassReason | null {
+  if (child.kind !== 'shape') return 'unsupported-child-kind';
   if (child.visible === false) return 'hidden-child';
   if ('mask' in child && child.mask) return 'child-mask';
-  if (!item) return 'unresolved-child-ir';
   if (item.primitive.kind === 'text') return 'text-child';
   if ((item.effects?.length ?? 0) > 0) return 'child-effects';
   if ((item.filters?.length ?? 0) > 0) return 'child-filters';
@@ -1795,7 +1794,17 @@ export function renderContent(deps: RenderContentDeps): void {
                   } else retainedDependencyPathTruncated = true;
                 }
                 const child = doc.nodes[childId];
+                if (!child) {
+                  eligible = false;
+                  if (detailedRetainedDiagnostics) retainedBypassReason = 'unresolved-child-ir';
+                  break;
+                }
                 const childItem = irByRenderKey.get(childId);
+                if (!childItem) {
+                  eligible = false;
+                  if (detailedRetainedDiagnostics) retainedBypassReason = 'unresolved-child-ir';
+                  break;
+                }
                 const childBypassReason = retainedChildBypassReason(child, childItem);
                 if (childBypassReason) {
                   eligible = false;
