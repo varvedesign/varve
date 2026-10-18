@@ -17,7 +17,7 @@
   "issues_with_reported_notes": 5669,
   "retrieved_notes": 28805,
   "coverage": {
-    "body_screening": "49 of 6392 bodies screened",
+    "body_screening": "55 of 6392 bodies screened",
     "discussion_review": "17 target threads reviewed; retrieval in progress: 12748 of 32692 non-system comments",
     "linked_evidence_review": "pending",
     "varve_mapping": "pending",
@@ -30,14 +30,15 @@
   "discussion_snapshot_at_utc": "2026-10-18T13:12:24Z",
   "discussion_review_status": "17 target threads content-reviewed; retrieval in progress: 12748 of 32692 non-system comments",
   "body_screening_counts": {
-    "pending": 6343,
-    "reviewed": 49
+    "pending": 6337,
+    "reviewed": 55
   },
   "reviewed_linked_issue_body_iids": [691, 1313, 5482, 6483],
   "reviewed_issue_body_iids": [
-    86, 112, 155, 203, 252, 260, 328, 481, 529, 543, 651, 670, 685, 691, 694, 712, 721, 894, 1018,
-    1063, 1231, 1313, 1351, 1573, 1739, 2190, 2800, 3580, 3975, 4717, 4924, 5482, 5539, 5624, 5696,
-    5782, 5878, 5976, 5983, 6143, 6220, 6242, 6298, 6323, 6380, 6398, 6407, 6477, 6483
+    86, 112, 155, 203, 204, 252, 255, 260, 328, 481, 529, 543, 651, 670, 685, 691, 694, 698, 712,
+    721, 814, 894, 952, 1018, 1063, 1231, 1313, 1351, 1573, 1739, 2190, 2800, 3580, 3975, 4717,
+    4924, 5482, 5539, 5624, 5696, 5782, 5878, 5971, 5976, 5983, 6143, 6220, 6242, 6298, 6323, 6380,
+    6398, 6407, 6477, 6483
   ],
   "inventory_note": "Initial 6,390-row snapshot omitted pre-cutoff work items 6482 and 6483; durable rehydration found and added both. The source_issue_ndjson_sha256 records only the initial snapshot.",
   "initial_source_issue_ndjson_sha256": "f1e9f6be7cc3eaa8a7381b510bf89cad23858717e84dd6468126d81a80720d43",

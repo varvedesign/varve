@@ -153,7 +153,7 @@ Inkscape’s canonical tracker.
     concrete PDF parity/resolution candidates. Their 18 user comments have
     since been reviewed, but linked fixtures remain uninspected. #651 has no
     equivalent Varve feature.
-21. Current body-screening total is 49 of 6,392. No new Varve defect is
+21. Current body-screening total was 44 of 6,392. No new Varve defect is
     established by these body-only reports.
 22. Reviewed the complete cached discussions for #670, #685, #694, #712, and
     #721. #685 was fixed upstream in MR !1299; #694 received a partial
@@ -167,6 +167,11 @@ Inkscape’s canonical tracker.
     and edge quality, nonzero viewBox-origin placement, and a Windows CLI-only
     failure, respectively. Linked fixtures and discussions remain pending;
     current body-screening total is 49 of 6,392.
+24. Screened #204, #255, #698, #814, #952, and #5971. They cover aggregate
+    image-import OOM, a dependency-specific Poppler crash, masked color shifts,
+    PDF image placement, text-decoration omission, and missing print marks.
+    These remain candidate classes pending comments, fixtures, or Varve output
+    comparison. Current body-screening total is 55 of 6,392.
 
 ## Validation checkpoint: 2026-10-18
 
