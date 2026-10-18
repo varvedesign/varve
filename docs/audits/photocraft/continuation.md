@@ -520,20 +520,26 @@ The prior two implementation commits are on remote `master` at
 - `2dfd85403` — record the PDF alpha evidence and watch `CHANGELOG.md` in
   Website Deploy.
 
-Exact-SHA CI on the integration branch passed in run `39147245997`. A master
-push of the same SHA triggered CI run `39150941272` and Website Deploy run
-`39150940960`; both are queued as of `2026-10-18T18:04:54Z`. Website quality
-gates passed, including E2E in both deployment modes. The Pages artifact build
-passed and its deploy job is queued. The live `/changelog/` route was visually
-inspected at desktop width before the deploy; it still showed the previous PDF
-wording then. Reload it after deployment and verify the Unreleased copy is
-visible. The ChatGPT app and other agents' processes remain untouched.
+Exact-SHA CI on the integration branch passed in run `39147245997`. The master
+push triggered CI run `39150941272` and Website Deploy run `39150940960`; the
+master CI passed all 39 jobs, and Website Deploy completed successfully with
+its live smoke check. The deployed `/changelog/` route was visually inspected
+at desktop width and showed the PDF transparency wording.
 
 ### New PDF Unicode reproduction and implementation
 
-Starting commit is `2dfd8540307e1f86a403c3f80a32f2312ff8a7b4`. Local branch
-`codex/pdf-unicode-cid-export` is based directly on that remote master SHA.
-Changes currently uncommitted in `/tmp/varve-photocraft-integration-ours`:
+Starting commit was `2dfd8540307e1f86a403c3f80a32f2312ff8a7b4`. The Unicode
+export batch is committed as `17e574d27bc6b9d2f4b559d1253b861a60e30789`
+(`fix(print): preserve Unicode glyphs in subset PDF exports`) and fast-forwarded
+to remote `master` through the normal pre-push checkpoint. Exact-SHA affected
+CI run `39159848356` passed: planner and pipeline validation plus selected
+Rust lanes on Windows, Ubuntu, and macOS. The push checkpoint passed history,
+format/lint, `varve-print` tests and clippy, docs/emoji audits and Cargo fmt.
+Master push triggered CI run `39161573299` and Website Deploy run
+`39161573285`; both are pending at this record update. Recheck them and inspect
+the deployed Unreleased changelog entry when Website Deploy completes.
+
+The batch changes:
 
 - Reproduced PdfCraft #3202's Polish text sample through Varve's PDF exporter
   with `subset_fonts=true`. The old Identity-H/CID-to-GID identity path emitted
@@ -573,32 +579,23 @@ export. No additional code finding was identified. Complex-script shaping,
 font-resolution availability, and searchable Unicode PDF text remain separate
 requirements, not claimed as solved here.
 
-Validation for the current uncommitted branch:
+Validation for commit `17e574d27`:
 
 ```text
 Changed scope: crates/varve-print; PDF text-platform docs; cutoff A/B ledgers, findings, frontier, continuation; Unreleased changelog; two Poppler evidence images.
 Validation plan: pnpm verify:plan selected 7 lanes; FULL-SUITE NO (Tier 0 format/lint/docs/emoji; Tier 2 varve-print test/clippy; Tier 3 desktop Rust test).
-Commands actually run: pnpm verify:plan; pnpm verify:affected; cargo fmt; cargo fmt --check; cargo test -p varve-print export_pdf_subsets_extended_latin_as_glyph_paths; cargo run -p varve-print --example unicode_text_probe -- /tmp/varve-unicode-cid-before; cargo run -p varve-print --example unicode_text_probe -- /tmp/varve-unicode-cid-after; Poppler pdftoppm/pdftotext/pdfinfo; node scripts/audit-docs.mjs; Python ledger-count and disposition reconciliation; git diff --check.
-Passed: the focused regression (1); before/after independent Poppler visual inspection and output metadata; post-fix extraction loss matches the documented outline tradeoff; format; touched-file format/lint; emoji audit; docs audit (1140 docs, 818 links, 178 ADRs); ledger and summary reconciliation; diff check.
-Skipped as unrelated: full workspace suites; website E2E and full visual suite were not selected by this code-only follow-up.
-Escalations: none. pnpm verify:affected stopped after its Tier 0 passes because rust-test:varve-print could not acquire the shared heavy lease within 600 seconds (live owner PID 696193, another agent's `pnpm exec vitest run packages/editor`). No tests ran under that lane; the lease owner was not stopped or altered. Clippy and desktop Rust tests did not run locally. Re-run affected validation after the existing lease clears; exact-SHA CI for the new commit is also required before integration.
-Full suite run: no.
-If yes, reason: n/a.
+Commands actually run: `pnpm verify:plan`; `pnpm verify:affected` (initially timed out waiting on another agent's lease); focused `cargo test -p varve-print export_pdf_subsets_extended_latin_as_glyph_paths`; Cargo example probes before and after; Poppler render/extraction/metadata inspection; `pnpm audit:docs`; Python ledger reconciliation; `git diff --check`; actual `git push` pre-push checkpoint; exact-SHA CI run `39159848356`.
+Passed: focused regression; before/after independent Poppler visual inspection and output metadata; post-fix extraction loss matches the documented outline tradeoff; format; changed-file lint; emoji and docs audits (1140 docs, 818 links, 178 ADRs); ledger reconciliation; local push checkpoint including 194 `varve-print` tests and clippy; selected exact-SHA Rust CI on Windows, Ubuntu and macOS; pipeline/security validation.
+Skipped as unrelated: full workspace suite and website E2E/full visual suite were not selected by the impact-aware planner for this Rust-only change.
+Escalations: a separately dispatched full manual CI workflow run encountered two Playwright screenshot failures in unrelated canvas/UI specs. Its parent master full run passed all 39 jobs, and exact-SHA affected CI for this change passed. The full manual run was outside the planner-selected scope and is recorded in the session evidence.
+Full suite run: no local full suite; one remote manual full-matrix diagnostic was run and failed on unrelated screenshots.
 ```
 
 ### Exact next steps
 
-1. Leave PID 696193 and its lease untouched. Re-run `pnpm verify:plan` and
-   `pnpm verify:affected` when the shared lease is released; do not bypass the
-   lease.
-2. Review the staged exact diff, commit this coherent Unicode export batch,
-   run `pnpm verify:push`, push only `codex/pdf-unicode-cid-export`, and wait
-   for exact-SHA CI.
-3. Finish master CI run `39150941272` and Website Deploy run `39150940960`;
-   reload the public changelog and inspect the deployed PDF copy.
-4. Confirm master has not advanced, integrate the new exact-SHA candidate by
-   normal fast-forward only after checks, then verify remote master.
-5. Continue cutoff-A and cutoff-B recursive evidence and engineering queue.
+1. Finish master CI run `39161573299` and Website Deploy run `39161573285`;
+   reload the public changelog and inspect the deployed Unicode limitation copy.
+2. Continue cutoff-A and cutoff-B recursive evidence and engineering queue.
    Cutoff A is 1,296 issues (30 full threads, 1,253 bodies, 13 title-only);
    cutoff B is 1,454 issues (37 still screened, 117 out of scope, 2 already
    handled, 2 implemented). The issue bodies are read, but relevant linked
