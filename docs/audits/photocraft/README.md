@@ -8,20 +8,23 @@ hardening Varve.
 |---|---|
 | `README.md` | This file: scope, method, cutoffs, status vocabulary, how to resume |
 | `findings.md` | Failure classes, their Varve verdicts, the implementation log, evidence limitations |
-| `issue-ledger.jsonl` | One record per corpus issue: source state, reading depth, class, relevance, disposition, Varve surface, rationale |
-| `issue-ledger.summary.json` | Counts that make coverage auditable |
+| `issue-ledger.jsonl` | Frozen cutoff A issue records and screening dispositions |
+| `issue-ledger-follow-on-b.jsonl` | Cutoff B new issue inventory; items remain queued until screened |
+| `issue-ledger-follow-on-b.summary.json` | Cutoff B inventory counts and review coverage |
+| `issue-ledger.summary.json` | Counts for frozen cutoff A |
 | `continuation.md` | Where the work stopped and the exact next operation |
 
 ## Cutoffs
 
 | Cutoff | Window (UTC) | Issue count | Notes |
 |---|---|---|---|
-| **Baseline (frozen)** | `2026-10-17T04:41:35Z` → `2026-10-17T04:42:17Z` | 1 296 issues (827 open / 469 closed) + 1 682 PRs | Full enumeration, reconciled against the search totals |
-| Second reconciliation | _pending_ | — | Must re-query and account for arrivals after the baseline |
+| **Cutoff A (frozen)** | `2026-10-17T04:41:35Z` → `2026-10-17T04:42:17Z` | 1 296 issues (827 open / 469 closed) + 1 682 PRs | Full enumeration, reconciled against the search totals |
+| **Cutoff B (frozen)** | `2026-10-18T12:28:21Z` → `2026-10-18T12:28:46Z` | 1 454 issues (936 open / 518 closed) + 1 795 PRs | Reconciled by pagination and issue search totals; 158 new issues queued separately; 40 existing issues changed state |
 
-Issues that arrive after a cutoff go into a **follow-on queue**; they do not
-move the frozen baseline, and the baseline is not re-opened for unrelated
-later edits.
+Issues created after cutoff A are recorded in the cutoff B follow-on ledger; they do not
+change the frozen A ledger. Cutoff B is the current source-reconciliation boundary,
+but its 158 new issues remain unscreened and are not counted as reviewed. Later
+arrivals go into a subsequent queue rather than moving either frozen boundary.
 
 ## Method
 

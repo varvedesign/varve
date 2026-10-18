@@ -1,0 +1,17 @@
+{
+  "cutoff": "B",
+  "repo": "storytold/pdfcraft",
+  "crawl_start_utc": "2026-10-18T12:28:21Z",
+  "crawl_end_utc": "2026-10-18T12:28:46Z",
+  "raw_api_sha256": "13e385871d051ce3a18734bcc8a3b1ebab875b2e749ae2cb9a2515c9ff29748a",
+  "new_issues_since_cutoff_a": 158,
+  "open": 149,
+  "closed": 9,
+  "body_reviewed": 0,
+  "thread_reviewed": 0,
+  "queued_for_review": 158,
+  "baseline_issue_ids_missing": 0,
+  "created_at_min": "2026-10-17T04:50:22Z",
+  "created_at_max": "2026-10-18T12:27:29Z",
+  "notes": "Counts are inventory only. No new issue body, comment thread, attachment, or linked PR has yet been reviewed."
+}
