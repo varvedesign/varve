@@ -31,6 +31,7 @@ pub const MAX_SHAPE_VERTICES: u32 = 24;
 /// the authoritative replay), never a device fault.
 pub const MAX_PLAN_ITEMS: usize = 200_000;
 pub const MAX_PLAN_VERTICES: usize = 4_000_000;
+const FILL_COVER_VERTICES: usize = 4;
 
 /// Why one IR item could not be admitted to the native stage.
 ///
@@ -446,6 +447,32 @@ pub(super) fn flatten_contour_with_budget(
     Some(out)
 }
 
+fn flatten_fill_contours_with_budget(
+    rings: &[&[PathPoint]],
+    tolerance: f64,
+    max_vertices: usize,
+) -> Result<Vec<Vec<[f64; 2]>>, RejectReason> {
+    let mut flattened_rings = Vec::with_capacity(rings.len());
+    // Reserve the cover quad added after contour fans so the full fill stays
+    // within the caller's frame vertex budget.
+    let mut remaining_vertices = max_vertices.saturating_sub(FILL_COVER_VERTICES);
+    for ring in rings {
+        // Closed flattening temporarily emits the first point again before
+        // dropping that duplicate, so allow one transient work vertex.
+        let flattening_budget = remaining_vertices.saturating_add(1);
+        let flattened = flatten_contour_with_budget(ring, true, tolerance, flattening_budget)
+            .ok_or(RejectReason::OutOfBudget)?;
+        remaining_vertices = remaining_vertices.saturating_sub(flattened.len());
+        if flattened.len() >= 3 {
+            flattened_rings.push(flattened);
+        }
+    }
+    if flattened_rings.is_empty() {
+        return Err(RejectReason::EmptyGeometry);
+    }
+    Ok(flattened_rings)
+}
+
 /// Reply from `lower_item`: either a drawable description or the reason the
 /// item stays on the authoritative replay.
 enum Lowered {
@@ -702,27 +729,10 @@ fn lower_item(item: &RenderItem, max_vertices: usize) -> Result<Lowered, RejectR
             if rings.is_empty() {
                 return Err(RejectReason::EmptyGeometry);
             }
-            let mut flattened_rings = Vec::with_capacity(rings.len());
-            let mut remaining_vertices = max_vertices;
-            for ring in rings.iter() {
-                // A fill closes every ring, and the replay's closing segment
-                // is a bezier through the end handles (strokeReplay's
-                // tracePathSegment with closed=true), so the flattened ring
-                // must include the last->first closing curve, never a straight
-                // chord stand-in.
-                let Some(flattened) =
-                    flatten_contour_with_budget(ring, true, *tolerance, remaining_vertices)
-                else {
-                    return Err(RejectReason::OutOfBudget);
-                };
-                remaining_vertices = remaining_vertices.saturating_sub(flattened.len());
-                if flattened.len() >= 3 {
-                    flattened_rings.push(flattened);
-                }
-            }
-            if flattened_rings.is_empty() {
-                return Err(RejectReason::EmptyGeometry);
-            }
+            // Filled paths include a four-vertex cover quad after contour
+            // fans; reserve it before admitting flattened contour vertices.
+            let flattened_rings =
+                flatten_fill_contours_with_budget(&rings, *tolerance, max_vertices)?;
             let even_odd =
                 compound_path_fill_rule(fill_rule.as_deref(), contours.len(), holes.len())
                     == PathFillRule::EvenOdd;
@@ -1009,4 +1019,32 @@ pub fn lower_frame(items: &[RenderItem], view: Affine) -> NativePlan {
 
     flush_run(&mut plan, &mut run_start, &mut run_len);
     plan
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::{flatten_fill_contours_with_budget, RejectReason};
+    use varve_core::PathPoint;
+
+    #[test]
+    fn fill_budget_includes_the_cover_quad() {
+        let ring = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]
+            .into_iter()
+            .map(|(x, y)| PathPoint {
+                x,
+                y,
+                handle_in: None,
+                handle_out: None,
+                mode: None,
+            })
+            .collect::<Vec<_>>();
+
+        let contours = flatten_fill_contours_with_budget(&[ring.as_slice()], 1.0, 8).unwrap();
+        let full_fill_vertices = contours.iter().map(Vec::len).sum::<usize>() + 4;
+        assert_eq!(full_fill_vertices, 8);
+        assert_eq!(
+            flatten_fill_contours_with_budget(&[ring.as_slice()], 1.0, 7),
+            Err(RejectReason::OutOfBudget)
+        );
+    }
 }

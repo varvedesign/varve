@@ -2,6 +2,39 @@
 
 Last updated: 2026-10-18. Status: active and incomplete.
 
+## Current engineering batch (2026-10-18)
+
+- PhotoCraft #5195/#5211: Varve native fill lowering now includes the emitted
+  cover quad in its vertex budget. Variable-width canvas stroke expansion uses
+  endpoint-only sampling for straight segments, caps outlines at 65,536
+  samples, caps dashed expansion at 16,384 on-runs with a pressure-aware solid
+  tail, and bounds pathological dash-pattern length. Focused engine unit tests
+  pass (2 tests); the native cover-quad regression passes (1 Rust test).
+  Engine package typecheck is pending. Real-browser visual validation of the
+  stroke fallback and tail is still required. The source fix in PhotoCraft PR
+  #5204 was read; it also covers large coordinates and native dash behavior,
+  which this Varve change does not fully match. Website review found no
+  affected marketing claim.
+- PhotoCraft #2826: Clone Stamp now accepts Ctrl/Command-click as an alternate
+  source gesture alongside Alt-click, addressing the reported Cinnamon
+  window-manager conflict. Focused unit coverage passed earlier in this batch;
+  `retouch-tools.spec.ts` browser execution and screenshot inspection remain
+  pending. Chromium can verify event handling in the app but cannot reproduce
+  Cinnamon's OS-level interception. No marketing copy change is indicated.
+- PhotoCraft #3093: locked selections hide gradient handles and the drag path
+  rechecks the latest lock state before mutation. A pointer regression covers
+  unlocked movement and lock-mid-drag behavior. Browser execution and visual
+  screenshot inspection are queued behind another live heavy-test lease.
+- `pnpm verify:plan` selected 46 lanes across editor/engine and transitive
+  dependents (78% of repo test files); full-suite escalation was NO. The
+  required `pnpm verify:affected` run stopped at the pre-existing
+  `audit:radius` failure: ten raw-radius consumers in untouched Presentation,
+  SpecPanel, and other files. It did pass touched-file format/lint and the
+  emoji audit before stopping. Run remaining affected compiler/unit/native
+  lanes where resources allow; do not report the affected closure as passed.
+- Progressive commits are still required for this batch after visual review.
+  Independent final review and safe integration to `master` remain outstanding.
+
 ## Source boundary
 
 - Repository: `storytold/photocraft`, issue tracker (not `storytold/pdfcraft`).
