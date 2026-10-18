@@ -20,8 +20,9 @@ Last updated: 2026-10-18 (session 4).
 
 - Worktree: `/home/kevina/CodingProjects/varve/.worktrees/photocraft-hardening`
 - Branch: `feat/photocraft-hardening`, based on `32de0c41c4e30defe14452f04e500a624ac2582b`.
-  Task commits: `3524d07ee` (text draft save integrity) and `f0c0ae563`
-  (PDF blend/transparency fidelity and release-aware website copy).
+  Task commits: `3524d07ee` (text draft save integrity), `f0c0ae563`
+  (PDF blend/transparency fidelity and release-aware website copy), and
+  `9a7e447eb` (frozen corpus records and findings).
 - The main checkout has unrelated in-flight edits. Do not stage, revert,
   reset, stash, or commit them.
 - `packages/codegen/src/bundle-assets.ts` and
@@ -51,6 +52,41 @@ Last updated: 2026-10-18 (session 4).
    transparency and unsupported-mode stops, PDF/X-4 blend/transparency
    output, shared authored-alpha checks, user guidance, and upcoming-release
    website copy. PDF/X standards conformance remains unverified.
+
+## Review record
+
+The `review-agent` workflow was applied as a distinct second-pass self-review;
+it does not permit delegating this read-only review, and no independent review
+was available for these local commits. The reviewer and implementer were the
+same agent; this is not represented as independent approval.
+
+- `3524d07ee`: checked registration cleanup and replacement, synchronous
+  draining before save revision capture and termination dirty-set decisions,
+  focused Save shortcut routing, IME draft visibility and transaction
+  lifetime, plus the tests for save, close, unload, and unmount.
+- `f0c0ae563`: checked the capability declarations against Rust's PDF blend
+  mappings and refusal boundary, shared preflight/export alpha handling,
+  error text and recovery choices, and that website copy labels the behavior
+  as next desktop release. Five generated PDFs were independently rendered
+  and sampled with Poppler; no PDF/X conformance claim is made.
+- `9a7e447eb`: recomputed ledger counts from JSONL (1,296 unique IDs; 827 open,
+  469 closed; 883 with comments; 25 threads; disposition counts match the
+  summary), checked cutoff/research-depth statements, and compiled and ran the
+  reproducible PDF probe. The broader issue/comment/attachment frontier is
+  still explicitly partial.
+
+## Agent Validation Report
+
+```text
+Changed scope: editor save/lifecycle/shortcut paths; PDF print/export/preflight; two website export pages; audit docs and PDF probe.
+Validation plan: initial pnpm verify:plan selected 54 lanes across 38 changed files; FULL-SUITE NO. A later residual-tree plan selected 41 lanes; FULL-SUITE NO.
+Commands actually run: pnpm verify:plan; pnpm verify:affected; pnpm audit:docs; pnpm audit:emoji; pnpm audit:tokens; pnpm audit:radius; targeted Biome; editor/scene/website typechecks; pnpm typecheck:e2e; lease-wrapped text E2E; focused Vitest export batch; cargo test -p varve-print; cargo fmt -p varve-print -- --check; cargo clippy -p varve-print -- -D warnings; cargo run -p varve-print --example blend_probe; cargo clippy -p varve-print --all-targets -- -D warnings; Poppler render and pixel sampling; local website-link status check; git diff --check.
+Passed: text/IME/lifecycle tests (49); text commit checkpoint (168); PDF focused batch (208/208 across five files); PDF commit checkpoint (83 across three files); text save/close E2E; editor, scene, website, and E2E typechecks; website Astro diagnostics (0 errors/warnings/hints); Rust print suite (188); Rust fmt/clippy; PDF probe compilation/run and five expected Poppler pixels; desktop/mobile website screenshots visually inspected; local page links (all served targets HTTP 200); docs/emoji/token audits; staged commit checks.
+Skipped as unrelated or unavailable: full Vitest/Cargo workspace suites, browser E2E and visual regression beyond the targeted text flow, native Tauri menu/GUI matrix, benchmarks, packaging/signing/release checks, formal PDF/X validator (not installed). Website Playwright screenshot launch lacked host libraries; inspected website screenshots were captured with system Firefox.
+Escalations: none. pnpm verify:affected stopped at touched-file format because the other-worktree packages/codegen/src/bundle-assets.ts is unformatted; it ran no affected test lanes. pnpm audit:radius reported ten existing consumers in Presentation and SpecPanel CSS outside this change.
+Full suite run: no.
+If yes, reason: n/a.
+```
 
 ## Validation evidence and gaps
 
@@ -82,24 +118,23 @@ Last updated: 2026-10-18 (session 4).
   `cargo clippy -p varve-print -- -D warnings` passed. Five PDF examples were
   rendered with Poppler and inspected; pixel samples and `pdfinfo` evidence
   are in `findings.md` §6.3. This is not PDF/X certification.
-- Both changed export pages were captured at desktop width and visually
-  inspected after the upcoming-release copy change. The page layout, current
-  feature screenshot, navigation, and explicit next-desktop-release wording
-  rendered correctly. Their evidence is in `evidence/website-export-*-desktop.png`.
-  Mobile-width screenshots remain queued behind other agents' live heavy
-  browser work. Playwright reported missing host browser libraries on later
-  launches; system packages were not changed. A headless system Firefox capture
-  is queued through the same shared lease.
+- Both changed export pages were captured and inspected at desktop and mobile
+  widths after the upcoming-release copy change. Desktop and 390×844 mobile
+  evidence is in `evidence/website-export-*.png`; the mobile text wraps cleanly
+  with no horizontal overflow. Local links from both pages returned HTTP 200.
+  `/try/` is built as a separate combined Pages deployment artifact and is
+  therefore absent from the local Astro dev server; this is documented in
+  `docs/release/website.md` and `.github/workflows/website-deploy.yml`.
+  Playwright Chromium reported missing host libraries on later launches; no
+  system packages were changed. The inspected mobile captures used isolated
+  headless system Firefox under the shared lease.
 - Editor, scene, website, and E2E TypeScript checks all passed after the
   current changes; Astro reported zero errors, warnings, or hints. Do not run
   the full suite; the planner did not escalate.
 
 ## Exact next steps
 
-1. Let the queued Firefox website screenshots run after other agents' live
-   heavy browser jobs. Inspect both mobile pages, click-check relevant links,
-   and retain the visual evidence.
-2. Complete a distinct second-pass self-review of the reproducible pixel
+1. Complete a distinct second-pass self-review of the reproducible pixel
    probe and corpus docs; the PDF fidelity/site diff already received one.
    Keep corpus tracking in a separate documentation commit. Do not include
    either unowned source file above.
