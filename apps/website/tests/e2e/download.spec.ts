@@ -540,7 +540,7 @@ test('install guidance is honest about Gatekeeper, SmartScreen, and checksums', 
     'AUR registration is currently closed',
   );
   await page.locator('#platform-tab-linux').click();
-  await expect(page.locator('#platform-linux')).toContainText('recommended default for Arch');
+  await expect(page.locator('#platform-linux')).toContainText('PKGBUILD recommended');
   await expect(page.locator('.release-info')).toContainText('October 9, 2026');
   await expect(page.locator('.release-info')).not.toContainText('2026-10-16');
   await expect(page.locator('.release-info')).not.toContainText('Released: 2026-10-16');
