@@ -668,8 +668,8 @@ Inkscape’s canonical tracker.
 ## Next operation
 
 Finish the mobile marketing-page visual review for #2069, then continue cached
-discussion review from IID 1711 and inspect the strongest related evidence from
-#1704, #1707, and #1712. Investigate #1551 sequential export state and #5960
+discussion review from IID 1716 and inspect the strongest related evidence from
+#1711, #1704, #1707, and #1712. Investigate #1551 sequential export state and #5960
 variable-font PDF fidelity after that. Keep research coverage separate from
 engineering status. #5939 and the #2069 export UI have desktop visual evidence;
 native Tauri rendering remains unverified. Reconcile all 32,692 reported
@@ -784,4 +784,18 @@ its title, labels, or downloaded body.
     dirty main checkout and nested `codex/inkscape-master-integration` worktree
     were inspected read-only and left untouched. No integration or remote merge
     has occurred. Next: finish the mobile visual check, then advance the
-    Inkscape discussion sweep from IID 1711.
+    Inkscape discussion sweep from IID 1716.
+
+62. Continued the Inkscape discussion review through IID 1715. Thirteen cached
+    threads in IID 1701–1715 were reviewed, covering 153 records (55 user notes,
+    98 system/history notes); IID 1705 and #1706 have zero reported comments
+    and no note cache and remain pending. The #1711 discussion identifies a
+    valid-SVG lead where an `<image>` embeds SVG whose `viewBox` appears after
+    the image dimensions; older builds crashed and later builds omitted the
+    image. It points to #800, MR !1391, SVG viewport rules, and related inbox
+    items; these sources and Varve's behavior remain to be checked before
+    classifying it. #1704 has later reports of duplicate text/paste failures
+    with SVG2 `inline-size` through Inkscape 1.4.2; #1707 has a 2026 MR trail
+    for non-ASCII guide labels; #1712 is a CLI path parsing issue; #1715 was
+    reported fixed upstream in 2026. None of those reports alone establishes a
+    Varve defect. The ledger and summary now record 927 reviewed threads.
