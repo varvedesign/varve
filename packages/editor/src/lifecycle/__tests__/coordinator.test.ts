@@ -8,6 +8,7 @@ function makeCoordinator(options: {
   onCommit?: (intent: TerminationIntent) => undefined | boolean | Promise<undefined | boolean>;
   onDiscardCommitted?: (docs: unknown[]) => void | Promise<void>;
   finalizers?: { runFor(): Promise<void> };
+  flushPendingEdits?: () => void;
 }) {
   const controls = createFakeApi(options.sessions);
   const harness = createDialogHarness();
@@ -27,11 +28,60 @@ function makeCoordinator(options: {
     onDiscardCommitted: discard,
     finalizers: options.finalizers,
     trace: () => undefined,
+    flushPendingEdits: options.flushPendingEdits,
   });
   return { controls, harness, marker, coordinator, commit, discard };
 }
 
 describe('TerminationCoordinator', () => {
+  it('drains buffered editor drafts before deriving the unsaved-work set', async () => {
+    // Evidence: storytold/pdfcraft #811 — quitting while an editor still holds
+    // buffered input decided "nothing unsaved" for work the user could see.
+    const order: string[] = [];
+    const { controls, harness, coordinator } = makeCoordinator({
+      sessions: [{ id: 'a', name: 'Untitled', dirty: false }],
+      flushPendingEdits: () => {
+        order.push('flush');
+        // The drain publishes the held-back edit, so the session is dirty by
+        // the time the scope is collected.
+        controls.setDirty('a', true);
+      },
+    });
+    const tx = coordinator.requestTermination('close-document');
+    expect(order).toEqual(['flush']);
+    const prompt = harness.last();
+    expect(prompt?.kind).toBe('unsaved');
+    harness.respond({ kind: 'proceed', choices: [{ sessionId: 'a', choice: 'discard' }] });
+    await tx;
+  });
+
+  it('drains buffered drafts before answering the unload warning', () => {
+    const order: string[] = [];
+    const { controls, coordinator } = makeCoordinator({
+      sessions: [{ id: 'a', name: 'Poster.varve', dirty: false }],
+      flushPendingEdits: () => {
+        order.push('flush');
+        controls.setDirty('a', true);
+      },
+    });
+    expect(coordinator.shouldWarnOnUnload()).toBe(true);
+    expect(order).toEqual(['flush']);
+  });
+
+  it('drains buffered drafts before the best-effort unload flush', () => {
+    const order: string[] = [];
+    const { controls, coordinator } = makeCoordinator({
+      sessions: [{ id: 'a', name: 'Poster.varve', dirty: false }],
+      flushPendingEdits: () => {
+        order.push('flush');
+        controls.setDirty('a', true);
+      },
+    });
+    coordinator.bestEffortFlush();
+    expect(order).toEqual(['flush']);
+    expect(controls.saveCalls).toEqual(['a']);
+  });
+
   it('commits a clean close-document immediately, without a dialog', async () => {
     const { controls, harness, coordinator, marker } = makeCoordinator({
       sessions: [{ id: 'a', name: 'Clean.varve', dirty: false, fileId: 'f1' }],

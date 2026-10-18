@@ -543,6 +543,14 @@ describe('Knife and Export Region shortcuts', () => {
 });
 
 describe('Inspector drawer Save ownership', () => {
+  it('delegates Save from the on-canvas text editor without delegating other shortcuts', () => {
+    document.body.innerHTML =
+      '<textarea id="target" aria-label="Editing text: Heading"></textarea>';
+    const target = document.getElementById('target');
+    expect(shouldIgnoreShortcutTarget(target)).toBe(true);
+    expect(shouldIgnoreSaveShortcutTarget(target)).toBe(false);
+  });
+
   it.each([
     '<button id="target">Effect Studio</button>',
     '<button><span id="target">Customize sections</span></button>',

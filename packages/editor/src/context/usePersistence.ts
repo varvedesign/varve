@@ -11,6 +11,7 @@ import { type Document, DocumentCodec, validateDocument } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
 import { useCallback, useRef } from 'react';
 import { createSaveCoordinator } from '../persistence/saveCoordinator';
+import { flushPendingEdits } from './pendingEdits';
 
 export {
   createPersistenceRevision,
@@ -101,6 +102,14 @@ export function usePersistence(
           issue: issue('unsupported', 'Persistence is unavailable in this mode.'),
         };
       }
+      // Drain buffered editor drafts BEFORE the revision is captured. A save
+      // can be requested from a keyboard shortcut or a native menu while a
+      // text session holds characters that have not reached the document yet
+      // (the overlay coalesces typing so a large document is not replayed per
+      // keystroke). Capturing first would write a file that is missing what
+      // the user can see while still clearing dirty state — the loss
+      // storytold/pdfcraft #811 and #166 describe.
+      flushPendingEdits();
       const revision = stateRef.current.document;
       // Captured BEFORE the 'saving' patch below: save-copy must restore the
       // previous status, not the transient 'saving' it just set.
