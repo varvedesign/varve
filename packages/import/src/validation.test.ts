@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { registerParser, resetRegistry } from './registry';
+import { createSvgParser } from './svg';
 import type { ImportParser } from './types';
 import { validateImport } from './validation';
 
@@ -77,6 +78,37 @@ describe('validateImport', () => {
     registerParser(parser);
     const result = await validateImport(new Uint8Array([0, 0, 0, 0, 0]), 'file.test');
     expect(result.warnings.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('uses SVG parser fidelity details instead of a blanket filter warning', async () => {
+    registerParser(createSvgParser());
+    const result = await validateImport(
+      '<svg><defs><filter id="s"><feDropShadow dx="1" dy="1" stdDeviation="1"/></filter></defs><rect width="20" height="10" filter="url(#s)"/></svg>',
+      'shadow.svg',
+    );
+
+    expect(result.unsupportedFeatures).toEqual([
+      'SVG filter clipping region',
+      'SVG feDropShadow blur semantics',
+    ]);
+    expect(result.warnings).not.toContain('SVG filters');
+  });
+
+  it('keeps SVG filter fidelity details when the filename extension mismatches', async () => {
+    registerParser(createSvgParser());
+    const result = await validateImport(
+      '<svg><defs><filter id="s"><feDropShadow dx="1" dy="1" stdDeviation="1"/></filter></defs><rect width="20" height="10" filter="url(#s)"/></svg>',
+      'shadow.png',
+    );
+
+    expect(result.format).toBe('svg');
+    expect(result.unsupportedFeatures).toEqual([
+      'SVG filter clipping region',
+      'SVG feDropShadow blur semantics',
+    ]);
+    expect(result.warnings).toContain(
+      'The filename extension .png does not match the detected SVG content; content detection was used.',
+    );
   });
 
   it('estimates node count from structure analysis', async () => {

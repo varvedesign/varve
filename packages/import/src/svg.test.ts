@@ -43,6 +43,145 @@ describe('parseSvg', () => {
     }
   });
 
+  it('imports a simple SVG feDropShadow alongside a gradient fill', () => {
+    const result = parseSvg(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="400" height="100" viewBox="0 0 400 100">
+        <defs>
+          <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="1" dy="1" stdDeviation="1" flood-opacity="0.3" />
+          </filter>
+          <linearGradient id="paint" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#000000" />
+            <stop offset="100%" stop-color="#2a2a2a" />
+          </linearGradient>
+        </defs>
+        <rect x="10" y="15" width="60" height="12"
+          fill="url(#paint)" filter="url(#shadow)" />
+      </svg>
+    `);
+
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('shape');
+    if (node?.kind !== 'shape') throw new Error('expected imported shape');
+    expect(node.fills?.[0]?.type).toBe('gradient');
+    expect(node.effects).toEqual([
+      expect.objectContaining({
+        type: 'dropShadow',
+        x: 1,
+        y: 1,
+        blur: 1,
+        spread: 0,
+        opacity: 0.3,
+        visible: true,
+      }),
+    ]);
+    expect(result.unsupportedFeatures).toEqual([
+      'SVG filter clipping region',
+      'SVG feDropShadow blur semantics',
+    ]);
+    expect(result.warnings).toContain(
+      'SVG filter #shadow was imported with unsupported fidelity details',
+    );
+  });
+
+  it('does not approximate an SVG drop shadow with unequal blur axes', () => {
+    const result = parseSvg(`
+      <svg><defs><filter id="shadow">
+        <feDropShadow dx="3" dy="4" stdDeviation="2 5" />
+      </filter></defs>
+      <rect width="20" height="10" filter="url(#shadow)" /></svg>
+    `);
+
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('shape');
+    if (node?.kind !== 'shape') throw new Error('expected imported shape');
+    expect(node.effects).toEqual([]);
+    expect(result.unsupportedFeatures).toEqual(['SVG <filter> effects']);
+  });
+
+  it('does not reinterpret object-bounding-box drop-shadow units as user-space units', () => {
+    const result = parseSvg(`
+      <svg><defs><filter id="shadow" primitiveUnits="objectBoundingBox">
+        <feDropShadow dx="0.1" dy="0.1" stdDeviation="0.05" />
+      </filter></defs>
+      <rect width="200" height="100" filter="url(#shadow)" /></svg>
+    `);
+
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('shape');
+    if (node?.kind !== 'shape') throw new Error('expected imported shape');
+    expect(node.effects).toEqual([]);
+    expect(result.unsupportedFeatures).toEqual(['SVG <filter> effects']);
+  });
+
+  it('accepts an explicit user-space primitive unit declaration', () => {
+    const result = parseSvg(
+      '<svg><defs><filter id="shadow" primitiveUnits="userSpaceOnUse"><feDropShadow dx="2" dy="3" stdDeviation="4" /></filter></defs><rect width="20" height="10" filter="url(#shadow)" /></svg>',
+    );
+
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('shape');
+    if (node?.kind !== 'shape') throw new Error('expected imported shape');
+    expect(node.effects).toEqual([expect.objectContaining({ type: 'dropShadow', x: 2, y: 3 })]);
+  });
+
+  it('uses SVG defaults when feDropShadow parameters are omitted', () => {
+    const result = parseSvg(
+      '<svg><defs><filter id="shadow"><feDropShadow /></filter></defs><rect width="20" height="10" filter="url(#shadow)" /></svg>',
+    );
+
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('shape');
+    if (node?.kind !== 'shape') throw new Error('expected imported shape');
+    expect(node.effects).toEqual([
+      expect.objectContaining({ type: 'dropShadow', x: 2, y: 2, blur: 2 }),
+    ]);
+  });
+
+  it('reports filters on groups instead of silently dropping them', () => {
+    const result = parseSvg(
+      '<svg><defs><filter id="shadow"><feDropShadow /></filter></defs><g style="filter: url(#shadow)"><rect width="20" height="10" /></g></svg>',
+    );
+
+    expect(result.unsupportedFeatures).toContain('SVG <filter> effects');
+    expect(result.warnings).toContain('SVG filters on <g> elements are not yet imported');
+  });
+
+  it('reports filters on SVG roots and use instances', () => {
+    const result = parseSvg(
+      '<svg filter="url(#shadow)"><defs><filter id="shadow"><feDropShadow /></filter><rect id="source" width="20" height="10" /></defs><use href="#source" filter="url(#shadow)" /></svg>',
+    );
+
+    expect(result.unsupportedFeatures).toContain('SVG <filter> effects');
+    expect(result.warnings).toContain('SVG filters on <svg> elements are not yet imported');
+    expect(result.warnings).toContain('SVG filters on <use> elements are not yet imported');
+  });
+
+  it('honors filter references and flood styles declared in inline style', () => {
+    const result = parseSvg(
+      '<svg><defs><filter id="shadow"><feDropShadow flood-color="#0000ff" flood-opacity="1" style="flood-color: #ff0000; flood-opacity: 0.25" /></filter></defs><rect width="20" height="10" style="filter: url(#shadow)" /></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('shape');
+    if (node?.kind !== 'shape') throw new Error('expected imported shape');
+    expect(node.effects?.[0]).toMatchObject({
+      type: 'dropShadow',
+      color: { space: 'rgb', r: 255, g: 0, b: 0 },
+      opacity: 0.25,
+    });
+  });
+
+  it('reports malformed drop-shadow parameters without creating an invisible effect', () => {
+    const result = parseSvg(
+      '<svg><defs><filter id="shadow"><feDropShadow flood-opacity="" /></filter></defs><rect width="20" height="10" filter="url(#shadow)" /></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(node?.kind).toBe('shape');
+    if (node?.kind !== 'shape') throw new Error('expected imported shape');
+    expect(node.effects).toEqual([]);
+    expect(result.unsupportedFeatures).toEqual(['SVG <filter> effects']);
+  });
+
   it('parses a circle element', () => {
     const result = parseSvg('<svg><circle cx="50" cy="50" r="40" fill="blue" /></svg>');
     expect(result.nodeIds.length).toBe(1);

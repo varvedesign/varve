@@ -10,7 +10,7 @@
 import { createDocument } from '@varve/scene';
 import { Gunzip } from 'fflate';
 import { registerParser } from './registry';
-import { convertElement } from './svg/elements';
+import { convertElement, reportUnsupportedElementFilter } from './svg/elements';
 import {
   collectDefs,
   composeTransforms,
@@ -112,6 +112,7 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
   }
 
   const defs = collectDefs(root);
+  reportUnsupportedElementFilter(root, warnings, unsupported);
 
   for (const child of root.children) {
     const { doc: d, ids } = convertElement(

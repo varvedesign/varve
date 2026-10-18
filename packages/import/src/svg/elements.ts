@@ -15,6 +15,7 @@ import {
 } from '@varve/scene';
 import { tryInvertAffine } from '@varve/shared';
 import type { ImportOptions } from '../types';
+import { importSvgFilter } from './filter';
 import { droppedElementFeature, resolveSvgImageHref } from './resourcePolicy';
 import {
   adjustNodePosition,
@@ -493,6 +494,7 @@ function applyStylesToNode(
   defs: Map<string, ParsedElement>,
   scale: number,
   warnings: string[],
+  unsupported: string[],
 ): SceneNode {
   let fill = el.attrs.fill ?? el.attrs.style;
   let stroke = el.attrs.stroke;
@@ -500,6 +502,7 @@ function applyStylesToNode(
   let opacity = el.attrs.opacity;
   let fillOpacity = el.attrs['fill-opacity'];
   let strokeOpacity = el.attrs['stroke-opacity'];
+  let filter = el.attrs.filter;
 
   if (el.attrs.style) {
     const styles = parseCssStyle(el.attrs.style);
@@ -509,9 +512,28 @@ function applyStylesToNode(
     opacity = styles.opacity ?? opacity;
     fillOpacity = styles['fill-opacity'] ?? fillOpacity;
     strokeOpacity = styles['stroke-opacity'] ?? strokeOpacity;
+    filter = styles.filter ?? filter;
   }
 
   let result = { ...node };
+
+  if (filter && filter !== 'none') {
+    const filterId = parseUrlReference(filter);
+    const filterDef = filterId ? defs.get(filterId) : undefined;
+    if (!filterId || filterDef?.tag !== 'filter') {
+      unsupported.push('SVG <filter> effects');
+    } else {
+      const imported = importSvgFilter(filterDef, scale);
+      result = {
+        ...result,
+        effects: [...(result.effects ?? []), ...imported.effects],
+      } as SceneNode;
+      unsupported.push(...imported.unsupportedFeatures);
+      if (imported.unsupportedFeatures.length > 0) {
+        warnings.push(`SVG filter #${filterId} was imported with unsupported fidelity details`);
+      }
+    }
+  }
 
   if (fill && fill !== 'none') {
     const gradientId = parseUrlReference(fill);
@@ -581,6 +603,17 @@ function applyStylesToNode(
   }
 
   return result;
+}
+
+export function reportUnsupportedElementFilter(
+  el: ParsedElement,
+  warnings: string[],
+  unsupported: string[],
+): void {
+  const filter = parseCssStyle(el.attrs.style ?? '').filter ?? el.attrs.filter;
+  if (!filter || filter === 'none') return;
+  unsupported.push('SVG <filter> effects');
+  warnings.push(`SVG filters on <${el.tag}> elements are not yet imported`);
 }
 
 function buildMaskSourceNode(
@@ -795,6 +828,7 @@ export function convertElement(
   if (el.tag === 'defs') return { doc, ids };
 
   if (el.tag === 'svg') {
+    reportUnsupportedElementFilter(el, warnings, unsupported);
     for (const child of el.children) {
       const r = convertElement(
         child,
@@ -816,6 +850,8 @@ export function convertElement(
   const transforms = transformAttr ? [...inheritedTransform, transformAttr] : inheritedTransform;
 
   if (el.tag === 'g') {
+    reportUnsupportedElementFilter(el, warnings, unsupported);
+
     let gDoc = doc;
     const gIds: string[] = [];
     for (const child of el.children) {
@@ -895,6 +931,7 @@ export function convertElement(
   }
 
   if (el.tag === 'use') {
+    reportUnsupportedElementFilter(el, warnings, unsupported);
     const href = el.attrs.href ?? el.attrs['xlink:href'];
     if (href?.startsWith('#')) {
       const refId = href.slice(1);
@@ -962,7 +999,7 @@ export function convertElement(
 
   if (result) {
     const { id, doc: d2 } = nextNodeId(doc);
-    const styled = applyStylesToNode(result.node, el, defs, opts.scale, warnings);
+    const styled = applyStylesToNode(result.node, el, defs, opts.scale, warnings, unsupported);
     const node = { ...styled, id } as SceneNode;
     doc = addNode(d2, node);
     ids.push(id);

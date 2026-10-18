@@ -174,9 +174,6 @@ export async function validateImport(
     if (str.includes('<pattern')) {
       unsupportedFeatures.push('SVG patterns');
     }
-    if (str.includes('filter=') || str.includes('<filter')) {
-      unsupportedFeatures.push('SVG filters');
-    }
     if (str.includes('<clipPath')) {
       unsupportedFeatures.push('SVG clip paths');
     }
@@ -244,10 +241,11 @@ export async function validateImport(
   }
 
   if (parser.canParse(data)) {
-    if (warnings.length === 0 && sizeBytes >= 4) {
+    if ((warnings.length === 0 || parser.format === 'svg') && sizeBytes >= 4) {
       // Try a quick parse for a more accurate node count
       try {
         const result = parser.parse(data);
+        unsupportedFeatures.push(...(result.unsupportedFeatures ?? []));
         // Use the larger of estimate and parse result
         const parsedCount = result.nodeIds.length;
         if (parsedCount > estimatedNodeCount) {

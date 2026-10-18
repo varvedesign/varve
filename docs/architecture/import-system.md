@@ -155,7 +155,8 @@ hold, but that is an inference and not a measurement.
 | `text` | Basic | `text-anchor` honoured; missing fonts surface in the font dialog |
 | `image` (`data:`) | Full | Becomes a managed embedded asset |
 | `image` (remote) | **Refused** | Reported; see security below |
-| `filter`, `pattern` | Dropped | Reported |
+| `filter` | One `<feDropShadow>` using `primitiveUnits="userSpaceOnUse"` (the SVG default) on a shape, text, or image becomes an editable drop-shadow effect; object-bounding-box units, filters on groups/root/`<use>`, and other filter graphs are unsupported | Reported, including unsupported units/attachment points, the SVG filter region, and the difference between SVG Gaussian `stdDeviation` and Varve's Canvas shadow blur |
+| `pattern` | Dropped | Reported |
 | `script`, `foreignObject`, `style` | Dropped | Reported |
 | Animation (`animate`, `set`, ...) | Dropped | Reported |
 
