@@ -255,13 +255,20 @@ hidden from the user's own file manager.
 ## Known follow-up slices
 
 The contract does not claim that every legacy document/import/export path has
-already migrated. The next slices must apply it to Save As transactions,
-external linked assets, archive extraction, symlink-aware cleanup, temporary
-ownership, and packaged-build tests on each supported OS. Those operations
-must preserve the same distinction between portable references, native paths,
-URLs, and display strings.
+already migrated. Remaining slices include external linked assets, archive
+extraction, symlink-aware cleanup, temporary ownership, and packaged-build
+tests on each supported OS. Those operations must preserve the same distinction
+between portable references, native paths, URLs, and display strings.
 
 ## Implemented since the contract (2026-08-13)
+
+- **Open-session save ownership.** Save, Save As, and Save a Copy check whether
+  another open document owns the destination before writing. Native desktop
+  paths use OS file identity, including aliases such as hard links; browser
+  file handles use the browser's underlying-entry comparison, and Varve
+  Library entries use stable IDs. An identity
+  inspection error aborts the save, so uncertainty cannot silently replace a
+  file another tab still owns.
 
 - **Native recent-file store.** `recent_files` table (schema v2) in the Home
   SQLite store with touch/list/patch/remove/clear commands. The frontend

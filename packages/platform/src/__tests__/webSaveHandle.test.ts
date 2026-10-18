@@ -8,7 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { contentHash } from '../pure';
-import { chooseWebSaveTarget, writeWebSaveTarget } from '../web-save';
+import { chooseWebSaveTarget, sameWebSaveHandle, writeWebSaveTarget } from '../web-save';
 
 interface FakeWritable {
   write: ReturnType<typeof vi.fn>;
@@ -24,6 +24,7 @@ function installFakePicker(initialText: string, name = 'Poster.varve') {
   const handle = {
     kind: 'file' as const,
     name,
+    isSameEntry: vi.fn(async () => true),
     getFile: vi.fn(async () => new File([state.text], name, { type: 'application/json' })),
     createWritable: vi.fn(async () => writable),
     queryPermission: vi.fn(async () => 'granted' as PermissionState),
@@ -99,5 +100,24 @@ describe('browser save-handle external-change guard', () => {
 
     const result = await writeWebSaveTarget(choice.target, '{"rev":2}');
     expect(result.kind).toBe('written');
+  });
+
+  it('detects separately stored handles that refer to the same browser file', async () => {
+    const { handle } = installFakePicker('same file');
+    const first = await chooseWebSaveTarget('First');
+    const second = await chooseWebSaveTarget('Second');
+    if (
+      first.kind !== 'target' ||
+      first.target.kind !== 'web-file-handle' ||
+      second.kind !== 'target' ||
+      second.target.kind !== 'web-file-handle'
+    ) {
+      throw new Error('expected browser file handles');
+    }
+
+    await expect(sameWebSaveHandle(first.target.handleId, second.target.handleId)).resolves.toBe(
+      true,
+    );
+    expect(handle.isSameEntry).toHaveBeenCalledTimes(1);
   });
 });

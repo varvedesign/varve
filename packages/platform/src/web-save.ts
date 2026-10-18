@@ -118,6 +118,16 @@ async function loadSaveHandle(handleId: string): Promise<FileSystemFileHandle | 
   return ephemeralHandles.get(handleId);
 }
 
+/** Compare persisted handles through the browser's underlying file identity. */
+export async function sameWebSaveHandle(handleIdA: string, handleIdB: string): Promise<boolean> {
+  if (handleIdA === handleIdB) return true;
+  const [left, right] = await Promise.all([loadSaveHandle(handleIdA), loadSaveHandle(handleIdB)]);
+  if (!left || !right || typeof left.isSameEntry !== 'function') {
+    throw new Error('Could not resolve browser file handles for identity comparison.');
+  }
+  return left.isSameEntry(right);
+}
+
 /** Trigger a browser snapshot download. Never reported as a persistent path. */
 function triggerDownload(filename: string, contents: string): void {
   const blob = new Blob([contents], { type: 'application/json' });

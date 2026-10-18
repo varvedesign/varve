@@ -313,6 +313,11 @@ export interface Platform {
   chooseDocumentSaveTarget(suggestedName: string): Promise<DocumentSaveTargetChoice>;
   /** Write `contents` to an already-resolved save target. */
   writeSaveTarget(target: SaveTarget, contents: string): Promise<WriteSaveResult>;
+  /** Compare two user-approved native paths by file identity (including
+   * aliases such as symlinks and hard links when the OS exposes that data). */
+  sameNativeFile(pathA: string, pathB: string): Promise<boolean>;
+  /** Compare two persisted browser file handles by underlying entry identity. */
+  sameWebFileHandle(handleIdA: string, handleIdB: string): Promise<boolean>;
   /** Read the current bytes of an external file target, for external-change
    *  detection before overwriting. The result distinguishes a missing path
    *  from a path that exists but cannot be read (permission, IO), so a save

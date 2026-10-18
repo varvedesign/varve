@@ -84,9 +84,11 @@ Last updated: 2026-10-18. Status: active and incomplete.
   [#5536](https://github.com/storytold/photocraft/issues/5536), and
   [#5933](https://github.com/storytold/photocraft/issues/5933).
 - Save/recovery review (#6596–#6617): Varve already has external-change guards,
-  session dedupe, IndexedDB recovery, and collision-aware export names. Strong
-  candidates still need focused confirmation: same-target session ownership
-  (#6597), metadata/hardlink behavior (#6602/#6603), stale temp files (#6604),
+  session dedupe, IndexedDB recovery, and collision-aware export names. F-003
+  now guards Save, Save As, and Save a Copy against another open session's
+  destination, with native file-identity and browser handle-entry comparisons
+  plus focused regressions.
+  Remaining candidates include metadata/hardlink behavior (#6602/#6603), stale temp files (#6604),
   dangling symlink replacement
   (#6605), large-document save memory (#6607), and malformed-setting field
   normalization (#6611). Batch B fixes the read-only replacement defect
@@ -100,12 +102,11 @@ Last updated: 2026-10-18. Status: active and incomplete.
 - Base: local `master` `1109bf5962091fb00aa34198876d1812327d808b`.
 - Prerequisite commit: `98dec72b5` (cherry-picked repair of the missing
   `nodeResize.ts` module).
-- Next: finish the F-002 diff review, run the docs audit, commit the coherent
-  save-safety batch, and run the planner-required full local gate at that exact
-  SHA. Then continue Varve applicability checks for the remaining filesystem,
-  recovery, and rendering leads. Recheck the live remote/worktree state before
-  choosing an integration path; do not bring unrelated local master commits
-  into this branch.
+- Next: finish review and commit F-003 as its own progressive batch, run the
+  planner-required full local gate at the F-003 SHA, and continue Varve
+  applicability checks for filesystem, recovery, and rendering leads. Recheck
+  the live remote/worktree state before choosing an integration path; do not
+  bring unrelated local master commits into this branch.
 - Research next: classify issue relevance and recursively inspect linked
   evidence for applicable leads; review PR descriptions/discussions where they
   connect to a finding. The source text review is complete for the two issue
@@ -168,3 +169,17 @@ Last updated: 2026-10-18. Status: active and incomplete.
   lease with `feather-sigma16` at 3.44s. Full-gate output and operation receipt
   are retained in local validation history; this does not certify hosted E2E,
   packaged builds, or native Windows/macOS matrices.
+
+- F-003 focused checks: `pnpm exec vitest run
+  packages/editor/src/context/__tests__/saveTargetCollision.test.tsx
+  packages/platform/src/__tests__/webSaveHandle.test.ts
+  packages/platform/src/tauri.test.ts --reporter=verbose` passed (26 tests).
+  `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+  same_approved_file_identity_ --lib` passed (2 tests), and rustfmt passed for
+  the touched native module. `pnpm audit:docs`, `pnpm audit:emoji`, and
+  `pnpm audit:tokens` passed. The final 46-lane plan escalates to full suite;
+  `pnpm verify:affected` reported that escalation without running lanes. The
+  exact-SHA full gate is pending. A standalone desktop typecheck also reported
+  a cast error in `packages/editor/src/collab/CollabSurfaces.tsx:450`; the full
+  gate must confirm whether it reproduces. An earlier editor check's fixture
+  literal errors were corrected and the focused tests now pass.

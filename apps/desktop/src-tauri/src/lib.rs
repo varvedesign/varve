@@ -5274,6 +5274,34 @@ fn home_write_text_file_approved(path: String, contents: String) -> Result<(), S
     write_file_atomic(&resolved, contents.as_bytes())
 }
 
+#[tauri::command]
+fn home_same_approved_file(path_a: String, path_b: String) -> Result<bool, String> {
+    same_approved_file_identity(&path_a, &path_b)
+}
+
+fn same_approved_file_identity(path_a: &str, path_b: &str) -> Result<bool, String> {
+    if path_a == path_b {
+        return Ok(true);
+    }
+    let left = resolve_user_path_approved(path_a)?;
+    let right = resolve_user_path_approved(path_b)?;
+    if left == right {
+        return Ok(true);
+    }
+    same_file::is_same_file(left, right).or_else(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            // A newly chosen Save As destination has no inode/file ID yet.
+            // It cannot alias an existing file unless its resolved path is
+            // equal (handled above); missing targets are a normal comparison.
+            Ok(false)
+        } else {
+            Err(format!(
+                "Could not compare save destination file identities: {error}"
+            ))
+        }
+    })
+}
+
 fn model_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     let dir = filesystem::AppDirectories::resolve(app)
         .map_err(|error| error.message)?
@@ -5982,6 +6010,7 @@ pub fn run() {
             home_write_text_file,
             home_read_text_file_approved,
             home_write_text_file_approved,
+            home_same_approved_file,
             write_binary_file,
             write_binary_file_to_folder,
             read_dropped_file,
@@ -7718,6 +7747,41 @@ mod tests {
         );
         assert!(resolve_user_path_approved("").is_err());
         assert!(resolve_user_path_approved("/tmp/foo\0bar").is_err());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn same_approved_file_identity_detects_hard_links() {
+        let dir = std::env::temp_dir().join(format!("varve_same_file_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let original = dir.join("original.varve");
+        let alias = dir.join("alias.varve");
+        std::fs::write(&original, "document").expect("create original");
+        std::fs::hard_link(&original, &alias).expect("create hard link");
+
+        assert!(same_approved_file_identity(
+            original.to_str().expect("utf8 original"),
+            alias.to_str().expect("utf8 alias"),
+        )
+        .expect("compare file identity"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn same_approved_file_identity_allows_a_new_destination() {
+        let dir = std::env::temp_dir().join(format!("varve_new_file_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let existing = dir.join("existing.varve");
+        let destination = dir.join("new.varve");
+        std::fs::write(&existing, "document").expect("create existing file");
+
+        assert!(!same_approved_file_identity(
+            existing.to_str().expect("utf8 existing"),
+            destination.to_str().expect("utf8 destination"),
+        )
+        .expect("compare missing destination"));
 
         let _ = std::fs::remove_dir_all(&dir);
     }

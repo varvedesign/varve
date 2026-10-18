@@ -287,6 +287,22 @@ describe('createTauriPlatform', () => {
     expect(filters[0]?.extensions).toEqual(['varve']);
   });
 
+  it('compares user-approved native paths through the file-identity command', async () => {
+    const invoke = vi.fn().mockResolvedValue(true);
+    globalWithTauri.__TAURI__ = {
+      core: { invoke },
+      event: { listen: async () => () => {} },
+    };
+
+    await expect(
+      createTauriPlatform().sameNativeFile('/docs/original.varve', '/docs/alias.varve'),
+    ).resolves.toBe(true);
+    expect(invoke).toHaveBeenCalledWith('home_same_approved_file', {
+      pathA: '/docs/original.varve',
+      pathB: '/docs/alias.varve',
+    });
+  });
+
   it('chooses one export folder and writes safe relative files beneath it', async () => {
     const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
       if (cmd === 'plugin:dialog|open') return '/tmp/exports';

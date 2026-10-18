@@ -98,6 +98,46 @@ issues remain under Varve applicability review.
 preservation, and this fix does not add a new marketed capability; no website
 copy change is warranted before release.
 
+## F-003 — Save destinations can belong to another open document
+
+**Sources.** PhotoCraft [#6597](https://github.com/storytold/photocraft/issues/6597)
+reports that Save As on one tab can replace another open tab's file, leaving the
+first tab looking saved while its in-memory contents are later lost. Its
+discussion says the guard covers Save, Save As, and Save a Copy. The source's
+linked [PR #6630](https://github.com/storytold/photocraft/pull/6630) handles
+duplicate opens and path identity; [PR #6632](https://github.com/storytold/photocraft/pull/6632)
+adds same-file comparison, including hard links on Unix. These are now merged
+upstream. PhotoCraft #6596 separately covers external edits, which Varve already
+checks for native saves with a content hash.
+
+**Varve applicability.** The editor previously wrote a selected target before
+checking whether another active session was bound to it. Exact-path open
+deduplication does not protect Save As when aliases or hard links identify the
+same file.
+
+**Batch C implementation.** Before native, browser-handle, or library writes,
+check the active session list for another owner. Native desktop paths compare
+through the `same-file` OS identity API; browser handles use
+`FileSystemFileHandle.isSameEntry`, and Varve Library destinations compare
+their stable IDs. Save, Save As, and Save a Copy all refuse
+the write with an actionable status message. If native identity inspection
+fails, the save fails closed. Tests cover Save As and Save a Copy refusing an
+aliased native target, Save refusing another session's native target, and a
+Rust check for hard links plus ordinary new destinations. The regression also
+found that Save a Copy cleared failure status after a refused write; failed
+copies now keep the error visible.
+
+**Engineering status:** implementation is present on the source-review branch;
+focused regressions pass. The planner-required exact-SHA full gate and final
+integration remain. See continuation for exact commands and results.
+**Research status:** #6597 and all its comments were reviewed, as were linked
+PRs #6630 and #6632; further linked issues and the broader PR census remain
+open.
+
+**Website impact:** no public claim describes multi-tab save collision handling;
+this correctness behavior does not change a marketed capability, so no website
+copy change is warranted before release.
+
 ## Source seeds that did not match the requested repository
 
 The attachment's seed links use `storytold/pdfcraft`. In the requested

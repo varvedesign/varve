@@ -49,6 +49,7 @@ arboard = { version = "3", features = ["wayland-data-control"] }
 tauri-plugin-fs = "2"
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 sha2 = "0.11"
+same-file = "1.0.6"
 ttf-parser = "0.25"
 base64 = "0.23"
 # WDIO testing plugins (debug-only, excluded from release builds)

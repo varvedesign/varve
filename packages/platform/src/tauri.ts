@@ -738,6 +738,16 @@ export function createTauriPlatform(): Platform {
       return { kind: 'written' };
     },
 
+    async sameNativeFile(pathA, pathB) {
+      return (await core().invoke('home_same_approved_file', {
+        pathA,
+        pathB,
+      })) as boolean;
+    },
+    async sameWebFileHandle(handleIdA, handleIdB) {
+      return handleIdA === handleIdB;
+    },
+
     async readDocumentText(path) {
       try {
         const text = (await core().invoke('home_read_text_file_approved', {

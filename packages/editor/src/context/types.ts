@@ -347,6 +347,7 @@ export interface SaveIssue {
     | 'disk-full'
     | 'read-only'
     | 'destination-missing'
+    | 'destination-in-use'
     | 'file-changed-externally'
     | 'serialization-failed'
     | 'filesystem-unavailable'

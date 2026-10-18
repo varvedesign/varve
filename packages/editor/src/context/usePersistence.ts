@@ -4,6 +4,7 @@ import {
   contentHash,
   displayNameFromPath,
   type Platform,
+  type SaveTarget,
   stripExtension,
   upsertPreservingMeta,
 } from '@varve/platform';
@@ -28,7 +29,13 @@ import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
 // LoadDocumentMeta lives in ./types alongside SessionMeta/SessionFileMeta:
 // types.ts is the leaf of this package's type graph, and declaring it here
 // would make types.ts depend back on this module (import cycle).
-import type { EditorState, LoadDocumentMeta, SaveIssue, SessionFileMeta } from './types';
+import type {
+  EditorState,
+  LoadDocumentMeta,
+  SaveIssue,
+  SessionFileMeta,
+  SessionMeta,
+} from './types';
 import { getCanvasViewport } from './viewportOps';
 
 export type { LoadDocumentMeta };
@@ -119,7 +126,9 @@ export function usePersistence(
         }
         if (intent === 'save-copy') {
           const outcome = await performSaveCopy(platform, stateRef, patch, revision);
-          patch({ saveState: prevSaveState, saveIssue: null });
+          if (outcome.status !== 'failed') {
+            patch({ saveState: prevSaveState, saveIssue: null });
+          }
           return outcome;
         }
         return await performSave(platform, stateRef, recoveryRef, patch, revision);
@@ -250,6 +259,17 @@ async function performSave(
     return chooseAndAdopt(platform, stateRef, recoveryRef, patch, revision, meta.name);
   }
 
+  const ownershipFailure = await rejectTargetOwnedByAnotherSession(
+    platform,
+    target,
+    s.sessions,
+    s.activeId,
+  );
+  if (ownershipFailure) {
+    patch({ saveState: 'error', saveIssue: ownershipFailure });
+    return { status: 'failed', issue: ownershipFailure };
+  }
+
   if (target.kind === 'download-only') {
     // Browser without the File System Access API: every Save produces a
     // fresh snapshot download. A download is not a persistent location, so
@@ -355,6 +375,16 @@ async function chooseAndAdopt(
   const target = choice.target;
   const s = stateRef.current;
   const meta = s.sessions.find((sess) => sess.id === s.activeId);
+  const ownershipFailure = await rejectTargetOwnedByAnotherSession(
+    platform,
+    target,
+    s.sessions,
+    s.activeId,
+  );
+  if (ownershipFailure) {
+    patch({ saveState: 'error', saveIssue: ownershipFailure });
+    return { status: 'failed', issue: ownershipFailure };
+  }
   const json = DocumentCodec.encode(s.document);
   const written = await platform.writeSaveTarget(target, json);
   if (written.kind !== 'written') {
@@ -433,12 +463,57 @@ async function performSaveCopy(
     });
   }
   if (choice.kind === 'failed') return writeFailure(patch, choice.error);
+  const ownershipFailure = await rejectTargetOwnedByAnotherSession(
+    platform,
+    choice.target,
+    s.sessions,
+    s.activeId,
+  );
+  if (ownershipFailure) {
+    patch({ saveState: 'error', saveIssue: ownershipFailure });
+    return { status: 'failed', issue: ownershipFailure };
+  }
   const written = await platform.writeSaveTarget(choice.target, json);
   if (written.kind !== 'written') return writeFailure(patch, written.error);
   // Deliberately no session mutation: the active document keeps its own
   // target, name, and dirty state. A successful copy never clears dirty.
   void revision;
   return { status: 'saved-copy' };
+}
+
+/** Refuse writes that would replace another open session's authoritative file. */
+async function rejectTargetOwnedByAnotherSession(
+  platform: Platform,
+  target: SaveTarget,
+  sessions: readonly SessionMeta[],
+  activeId: string,
+): Promise<SaveIssue | null> {
+  try {
+    for (const session of sessions) {
+      if (session.id === activeId) continue;
+      const other = saveTargetFromSession(session);
+      let same = false;
+      if (target.kind === 'native-file' && other.kind === 'native-file') {
+        same = await platform.sameNativeFile(target.path, other.path);
+      } else if (target.kind === 'web-file-handle' && other.kind === 'web-file-handle') {
+        same = await platform.sameWebFileHandle(target.handleId, other.handleId);
+      } else if (target.kind === 'app-storage' && other.kind === 'app-storage') {
+        same = target.fileId === other.fileId;
+      }
+      if (same) {
+        return issue(
+          'destination-in-use',
+          'This file is already open in another document. Save to a different location or close the other document first.',
+        );
+      }
+    }
+    return null;
+  } catch {
+    return issue(
+      'filesystem-unavailable',
+      'Varve could not check whether another open document uses this location. Choose a different location or try again.',
+    );
+  }
 }
 
 /**
