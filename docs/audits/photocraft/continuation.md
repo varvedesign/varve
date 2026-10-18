@@ -109,6 +109,15 @@ Last updated: 2026-10-18. Status: active and incomplete.
   by Varve's IndexedDB recovery manager; quota/storage-denial edges remain.
   These dispositions are recorded on the matching issue inventory rows.
   Website review found no matching public claims requiring a copy change.
+- Follow-up across tracker #6596–#6617: #6596 is covered by Varve's external
+  change guard, #6597 by F-003, and #6598 only partially because duplicate open
+  sessions remain possible while concurrent replacement is blocked. #6601's
+  lossy UTF-8 native path conversion is confirmed and needs an end-to-end path
+  contract; #6606's shared writer creates absent parent directories and needs
+  intent-specific policy. #6610 recent-file missing state is already handled.
+  #6612 needs an XDG/macOS storage-policy review before any recovery-root
+  migration. Linked-smart-object reports #6608/#6609 do not match Varve's
+  current embedded asset model. Export collisions #6613/#6614 remain to review.
 
 ## Current full-gate checkpoint (2026-10-18)
 

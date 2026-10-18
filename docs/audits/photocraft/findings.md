@@ -289,6 +289,36 @@ No marketing-site claim currently describes hard-link, metadata, save-memory,
 or crash-recovery behavior, so no website copy change is justified before an
 implemented and released improvement.
 
+## Remaining filesystem tracker dispositions (#6596–#6617)
+
+The tracker and adjacent reports were checked against the same Varve boundary:
+
+- #6596 is covered by Varve's external-change checks, while #6597 is covered
+  by F-003's cross-session destination guard. #6598 is only partial: a second
+  open may still create a second session, but the write guard prevents silent
+  concurrent replacement. Open-session deduplication remains a separate UX
+  decision.
+- #6601 is a confirmed native-path limitation. The desktop OS-open queue and
+  dialog path conversion use lossy UTF-8 before paths reach editor state. A
+  correct fix needs an end-to-end path identity contract or a deliberate early
+  refusal with a usable explanation; changing only the final writer would not
+  repair open, Save As, and recent-file behavior together.
+- #6606 matches `write_file_atomic`, which creates missing parent directories.
+  This may be useful for batch destinations, so a fix should distinguish
+  explicit document Save As from export and app-managed writes rather than
+  changing the shared helper indiscriminately.
+- #6610 is covered in Home: inaccessible desktop paths are marked missing and
+  open failures update recent-file state. #6612 remains a platform-policy
+  check: recovery currently uses Tauri's `app_local_data_dir`; verify Linux
+  XDG state semantics and macOS policy before changing the root, since moving
+  it also needs migration and crash-recovery compatibility.
+- #6608/#6609 describe linked smart objects and Photoshop external-link
+  records. Varve's image assets are document-owned/content-addressed and no
+  equivalent linked-smart-object workflow was found; these reports do not
+  establish a current Varve defect. #6617 is a tracking issue, not a separate
+  failure. The remaining export-name reports #6613/#6614 still need a
+  focused review of the corresponding Varve batch-export workflows.
+
 ## Source seeds that did not match the requested repository
 
 The attachment's seed links use `storytold/pdfcraft`. In the requested
