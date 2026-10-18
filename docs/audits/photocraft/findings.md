@@ -342,12 +342,18 @@ duplicate could replace a previous file depending on the configured sink.
 the folder and archive sinks, normalizes Unicode composition, reserves every
 output name before writing, and reports a duplicate as a failed job with an
 actionable rename message. A review regression found that `./Logo.svg` and
-`Logo.svg` otherwise reached the same sanitized path; the shared canonicalizer
-now catches both. It reserves before
+`Logo.svg` otherwise reached the same sanitized path. A second review found
+that `Logo.svg` and `logo.svg` collide on case-insensitive volumes. The service
+key now applies the same case-insensitive collision rule as Varve's filename
+resolver after shared path canonicalization. It reserves before
 the first write so a partially written multi-file export cannot be overwritten
 by a later job. A regression first failed because the sink received both writes,
 then passed after the guard. This complements the dialog's automatic renaming;
 it does not alter normal unique-name exports.
+The branch review also found that the browser ZIP accumulator inherited object
+keys such as `constructor`; it now stores entries in a prototype-free map and
+uses own-property checks, with a regression that verifies the archive keeps
+that exact filename.
 
 **Related feature scope.** Varve does not expose PhotoCraft's named-layer
 "Generate Image Assets" workflow, so #6614 is not a direct feature match. The

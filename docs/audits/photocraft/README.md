@@ -1,8 +1,9 @@
 # Photocraft issue review
 
-Status: active, incomplete. Issue bodies and discussion pages are reviewed for
-the frozen cutoffs; relevance classification, recursive linked-evidence review,
-pull-request discussion review, and Varve engineering remain in progress.
+Status: active, incomplete. Issue bodies and discussion pages are retrieved for
+the frozen cutoffs; full content review, relevance classification, recursive
+linked-evidence review, pull-request discussion review, and Varve engineering
+remain in progress.
 
 ## Source identity and scope
 
@@ -34,10 +35,18 @@ requests. Issue records report 4,900 comments in aggregate. These counts are
 for the response snapshot, not an atomic database snapshot. Pull requests are
 retained in raw cache and separated from the issue-only machine-readable
 inventory. The issue inventory stores body hashes and source metadata, not
-third-party issue text. The ledger marks all 3,275 cutoff-A issue bodies and
-discussions complete; the five cutoff-B changed/new issue records are also
-marked complete. Relevance and recursive linked evidence remain separate
-open review fields.
+third-party issue text. All 3,275 cutoff-A issue bodies and comment pages were
+retrieved and cached, but that is not the same as content review. The ledger's
+`body_review` and `discussion_review` fields now use `complete` only for issues
+whose content has actually been read and assessed; the remaining records are
+`pending`. At this checkpoint, 1,009 cutoff-A issues have complete content
+review: #1101–#2199 (491 issues, 899 comments) and #2203–#3298 (502 issues,
+776 comments), including 16 of the original 17 records.
+Review of #1–#1100 is underway and has not been marked complete because some
+batches need a spot-check; additional ranges are also in progress.
+The five cutoff-B changed/new issue records are retrieved and cached but remain
+pending content review. Relevance and recursive linked evidence are tracked
+separately; source review is still incomplete.
 Pull requests have a separate machine-readable inventory so they are not
 counted as issues; their descriptions and discussions also remain unreviewed
 unless explicitly listed.

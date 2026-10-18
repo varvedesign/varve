@@ -12,9 +12,8 @@ Last updated: 2026-10-18. Status: active and incomplete.
   live only under the task cache paths recorded there.
 - All 3,275 issue comment endpoints were subsequently retrieved through every
   page from 10:29:00–10:31:14 UTC; 0 request failures. The retrieval cache is
-  at `/home/kevina/.cache/codex/photocraft-2026-10-17/comments/`. Bodies and
-  discussions for the frozen A set have now been read; the post-A #6400 comment
-  was reviewed with cutoff B.
+  at `/home/kevina/.cache/codex/photocraft-2026-10-17/comments/`. Retrieval is
+  complete; content review is tracked separately and is still incomplete.
 - Latest observed update at crawl: 2026-10-17 09:59:48 UTC.
 - Second declared cutoff B: 2026-10-17 10:33:10 UTC, observed over 70 pages
   from 10:32:24–10:33:10 UTC. It contains 3,278 issues and 3,686 PRs; cutoff A
@@ -29,12 +28,16 @@ Last updated: 2026-10-18. Status: active and incomplete.
 
 ## Progress snapshot
 
-- Issue bodies and discussions: all 3,275 cutoff-A issue rows and their
-  complete retrieved comment pages have been read; all five cutoff-B changed
-  or new issue records (#6392, #6400, #6962, #6964, #6965) have also been
-  reviewed. The JSONL issue ledger reflects this. Relevance classification and
-  linked evidence are still open; completion here means the source issue text
-  and comments were reviewed, not that every linked artifact was resolved.
+- Issue content review: the retrieval crawl is complete, but the earlier
+  `complete` flags incorrectly reflected fetched responses rather than actual
+  reading. They have been corrected: at this checkpoint, 1,009 cutoff-A issue
+  bodies and discussions are verified complete in the ledger: #1101–#2199
+  (491 issues, 899 comments) and #2203–#3298 (502 issues, 776 comments).
+  The remaining 2,266 cutoff-A records and all five cutoff-B changed/new
+  records remain pending content review. Full reading is underway in
+  #1–#1100 and #3301–#5000. The #1–#1100 pass has reached #926 but still has
+  additional records to review and needs spot-checks of truncated batches.
+  Relevance classification and recursive linked evidence remain incomplete.
 - Pull requests: the 3,683 A records and three B additions are inventoried,
   but descriptions/discussions have not been comprehensively reviewed. PR
   #6863 changed files were inspected; its full discussion and release status
@@ -63,8 +66,31 @@ Last updated: 2026-10-18. Status: active and incomplete.
   `/tmp` tmpfs before its test could load.
 - Website: current public claims reviewed; no change justified for this
   unreleased correctness fix.
-- Issue range #5001–#6000: all 490 existing issue records reviewed; cached
-  comment counts match with no missing pages. #5195/#5211 warrant checking
+- Issue range #1101–#2199: full body/comment review is complete for 491 issue
+  records and 899 comments; reported comment counts match. High-signal
+  verification leads include multi-GB save responsiveness (#2017), ensuring
+  every browser export path reaches its download sink (#1700), truthful dirty
+  state after successful saves (#1547), and pointer-to-painted-frame latency
+  diagnostics (#1343). The reported recovery-startup blocker (#2070) does not
+  appear to transfer because Varve lists recovery asynchronously and restores
+  only after user action. The SMB durability report (#1336) has unverified
+  syscall attribution; treat it as a platform test lead. Installer completion
+  complaints (#2132/#2134) concern PhotoCraft's installer, not Varve website
+  copy. These are external reports, not confirmed Varve defects; no marketing
+  change is justified from this range.
+- Issue range #2203–#3298: full body/comment review is complete for 502 issue
+  records and 776 comments; reported comment counts match. Verification leads
+  include the camera-transform invariant for rotated overlays/guides (#2512,
+  #3233, #3277), stale output after async refusal/cache refresh (#2422), strict
+  automation validation before side effects (#2449, #2946), locked-layer and
+  preview/commit consistency (#2585, #3004, #3009, #3010), and destructive
+  target ambiguity across mask/layer commands (#2456–#2459 and related
+  reports). These are external reports to verify against Varve contracts, not
+  confirmed defects. Marketing complaints in this range do not justify a
+  Varve website change.
+- Issue range #5001–#6000: an earlier pass sampled technical candidates but
+  did not read every body and discussion, so this range remains pending.
+  #5195/#5211 warrant checking
   Canvas2D and vector-mask work budgets; #5373/#5092/#5115/#5702 are useful
   cross-document tool-state regression leads; #5706 is a cache invalidation
   lead; and #5657/#5752 reinforce numeric narrowing checks. These are leads,
@@ -125,8 +151,14 @@ Last updated: 2026-10-18. Status: active and incomplete.
   names from direct callers and generated multi-file outputs; its focused test
   is green and wider validation remains. Read-only review found and fixed a
   path-alias gap by sharing canonicalization with the folder/archive sinks; its
-  red/green regression is added. #6614's named-layer asset workflow is not
-  present in Varve.
+  red/green regression is added. Full branch review found a case-insensitive
+  path collision gap; the service key now matches Varve's case-insensitive
+  filename resolver and a focused regression is queued behind the active unit
+  lease. A second ZIP regression protects archive entries named `constructor`
+  from inherited object keys. The non-finite-value scanner was also reviewed
+  for large documents and now builds diagnostic paths only for nested objects
+  and offending numbers. #6614's named-layer asset workflow is not present in
+  Varve.
 
 ## Current full-gate checkpoint (2026-10-18)
 
@@ -177,6 +209,12 @@ Last updated: 2026-10-18. Status: active and incomplete.
 - Worktree: `.worktrees/photocraft-source-review`.
 - Branch: `codex/photocraft-source-review`.
 - Base: local `master` `1109bf5962091fb00aa34198876d1812327d808b`.
+- `gh repo view K-Arthur/varve` resolves to `varvedesign/varve`; its default
+  branch is `master`. A push to `master` that includes the changed editor,
+  platform, or scene packages matches `website-deploy.yml` and rebuilds/deploys
+  the Pages site, including its browser demo. No site source or marketing claim
+  change is currently justified; the website source and browser demo still need
+  final validation on the integrated candidate.
 - Prerequisite commit: `98dec72b5` (cherry-picked repair of the missing
   `nodeResize.ts` module).
 - Next: complete the branch-level defect-first review and broad validation;
@@ -186,10 +224,11 @@ Last updated: 2026-10-18. Status: active and incomplete.
   current candidate. Continue Varve applicability checks for filesystem,
   recovery, and rendering leads. Recheck the live remote/worktree state before choosing an integration
   path; do not bring unrelated local master commits into this branch.
-- Research next: classify issue relevance and recursively inspect linked
+- Research next: complete body/comment review for every remaining issue,
+  classify relevance, and recursively inspect linked
   evidence for applicable leads; review PR descriptions/discussions where they
-  connect to a finding. The source text review is complete for the two issue
-  cutoffs, but this does not complete the broader task.
+  connect to a finding. Endpoint retrieval is complete for the two issue
+  cutoffs; substantive source-text review is not.
 
 ## Validation record
 
