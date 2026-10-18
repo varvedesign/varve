@@ -74,7 +74,9 @@ error for an invalid supplied manifest on all four native PDF/PDF/X command
 paths. The parser consumes the owned JSON string so its base64 buffer can be
 released immediately after decoding. A Rust regression test covers the
 ordinary PDF command; the UI error is covered by a desktop-bridge E2E test.
-Visual and independent PDF-renderer validation remain pending.
+The Rust parser regression passes. The desktop error-state E2E remains
+pending because the worktree is missing `packages/scene/src/nodeResize.ts`;
+this does not validate or resolve the separate #5782 visual-export report.
 
 Comparable first-hand reports include [Illustrator users reporting missing
 artwork after PDF export](https://community.adobe.com/questions-652/adobe-illustrator-2025-images-not-exporting-as-pdf-815385)
@@ -144,8 +146,10 @@ currently body-only reports; discussion retrieval has not reached them. Their
 specific Cairo/vector-marker failure paths are not implemented by Varve's PDF
 exporter. Varve expands supported raster image tiles directly and enforces a
 100,000-tile ceiling. A regression has been added to exercise that ceiling and
-check that omitting an over-budget pattern preserves neighboring solid artwork. An
-independent rendered-PDF check of alpha-tile appearance remains desirable.
+check that omitting an over-budget pattern preserves neighboring solid
+artwork. A Poppler render of the over-budget regression was visually inspected:
+the pattern is omitted and neighboring artwork remains visible. An independent
+rendered-PDF check of alpha-tile appearance remains desirable.
 
 Additional discussion review found a useful split between transferable and
 product-specific failures:
