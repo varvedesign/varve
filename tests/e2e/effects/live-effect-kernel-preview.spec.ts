@@ -95,7 +95,9 @@ test.describe('live-effect kernel sample', () => {
     }
   });
 
-  test('uses CPU fallback when the cold WASM asset exceeds its load budget', async ({ page }) => {
+  test('uses CPU fallback when the cold WASM asset exceeds its load budget', async ({
+    page,
+  }, info) => {
     await navigateToEditorWithRetry(page);
     await page.setViewportSize({ width: 1280, height: 900 });
     expect(await createAdjustmentLayer(page, [DITHER_ADJUSTMENT])).toBe(true);
@@ -120,5 +122,17 @@ test.describe('live-effect kernel sample', () => {
     });
     await expect(preview).toHaveAttribute('data-preview-backend', 'cpu-effects');
     expect(delayedRequestSeen).toBe(true);
+    await expect(preview.getByRole('img')).toHaveAttribute(
+      'aria-label',
+      'Sample output for dither; not the selected artwork',
+    );
+    await preview.scrollIntoViewIfNeeded();
+    for (const theme of ['light', 'dark', 'high-contrast'] as const) {
+      await page.evaluate(
+        (value) => document.documentElement.setAttribute('data-theme', value),
+        theme,
+      );
+      await preview.screenshot({ path: info.outputPath(`kernel-sample-cpu-timeout-${theme}.png`) });
+    }
   });
 });

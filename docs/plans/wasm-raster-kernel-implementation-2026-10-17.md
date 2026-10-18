@@ -135,23 +135,26 @@ observable to tests/diagnostics.
 
 ### Validation status (2026-10-18, resumed after timeout fix)
 
-- The current `pnpm verify:plan` compares the complete four-commit branch
+- The current `pnpm verify:plan` compares the complete five-commit branch
   against `origin/master`: 20 files, affecting `@varve/website`, `@varve/editor`,
   `@varve/engine`, `varve-effects`, and `varve-wasm`. It selects 55 lanes and
   explicitly reports `FULL-SUITE ESCALATION: YES` for the cross-package
   Rust/WASM contract. Run triage for the selected Tiers 0–4 closure, then
   complete the exact-SHA full gate required by this escalation before merge.
-- The `pnpm verify:push --dry-run --since origin/master` checkpoint is ready
-  for four outgoing commits. It identifies local blocking lanes for the
-  affected JS/Rust packages, audits, Cargo formatting, website checks, and
-  model checks; hosted certification additionally covers the full workspace,
-  browser, visual, benchmark, and WASM lanes.
-- The existing three-theme screenshot captures show the WASM sample and the
-  unavailable-WASM CPU fallback with matching preview presentation in light,
-  dark, and high-contrast themes. They were captured before the cold-load
-  deadline correction. Re-run the browser case added with that correction and
-  inspect its fresh captures before treating the final timeout path as visually
-  verified.
+- The last `pnpm verify:push --dry-run --since origin/master`, before the
+  documentation checkpoint commit, was ready and identified local blocking
+  lanes for the affected JS/Rust packages, audits, Cargo formatting, website
+  checks, and model checks; hosted certification additionally covers the full
+  workspace, browser, visual, benchmark, and WASM lanes. Re-run against the
+  current six-commit branch before pushing.
+- The cold-load timeout browser case now passes in Chromium. The WASM preview
+  reported 691.1 ms end to end; the normal CPU fallback reported 672.8 ms; and
+  the delayed cold-WASM request completed through CPU in 43.4 s for the full
+  test including editor setup. All three cases asserted the actual backend.
+  Fresh WASM, CPU-unavailable-asset, and CPU-timeout captures were inspected in
+  light, dark, and high-contrast themes. The timeout captures show the same
+  sample and ready status, with readable contrast in each theme. Artifacts are
+  under ignored `test-results/run-1033713-1420/`.
 - The latest `pnpm verify:affected` passed touched format/lint, docs and emoji
   audits, the E2E TypeScript check, all affected package typechecks, and direct
   `wasmEffectsLoader` (2/2) and `wasmLoader` (6/6) tests.
@@ -202,10 +205,12 @@ observable to tests/diagnostics.
 - A manually queued batch covering the remaining planned package test
   directories reached its 600-second lease deadline while another worktree's
   affected editor package suite still owned the repository lease. It never
-  started and did not interrupt or reclaim that suite; downstream tests and the
-  timeout browser scenario remain outstanding.
-- A fresh read-only inspection confirmed that the unrelated editor-package
-  test lease (PID 696193, child Vitest PID 696564) is still active. Do not stop
-  or reclaim it. The ChatGPT Linux app (PID 3068) is also still active. The
-  timeout E2E, remaining affected closure, current planner's triage, exact-SHA
-  full gate, push/PR review, and merge are not yet complete.
+  started and did not interrupt or reclaim that suite. A later attempt at the
+  focused timeout spec also waited 600 seconds and timed out before launching.
+  After the editor suite exited naturally, `pnpm verify:affected` passed all
+  five selected lanes for the E2E change: format, lint, emoji audit, E2E
+  typecheck, and the browser spec (3/3 tests, including the timed-load fallback).
+- The unrelated editor-package lease is no longer running. No processes were
+  stopped or reclaimed, and the ChatGPT Linux app remained active. The broader
+  55-lane branch triage, exact-SHA full gate, outgoing push checkpoint, PR/CI
+  review, and merge remain incomplete.
