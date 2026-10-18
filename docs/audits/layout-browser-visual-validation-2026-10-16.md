@@ -23,6 +23,16 @@ The screenshots were opened and inspected. The compact dialog remains within 390
 - The interaction added two tracks, opened the removal preview by keyboard, checked dialog focus, canceled at 390px and verified focus returned to the visible canvas after the inspector hid, then reopened at 1280px and applied removal as one history entry before verifying one undo. It checked dialog bounds and the two-column/one-column preview breakpoint at widths 481, 480, 390, and 1280px.
 - Captured frames were inspected at 1280px, 481px, and 390px. The dialog remains inside the viewport, keeps Before/After geometry and both actions visible, and switches to a single preview column at 480px. The browser assertion also confirmed a single column at 390px. Exact rectangles, track definitions, and history outcome are asserted in the E2E test.
 
+### Follow-up: generated responsive grid export — 2026-10-18
+
+- `pnpm verify:plan` selected `format:touched`, `lint:touched`, `audit:emoji`, `typecheck:e2e`, and the single-file Chromium E2E; full-suite escalation was not selected for this test-only addition. `pnpm verify:affected` passed all five lanes.
+- `tests/e2e/export/responsive-grid-codegen.spec.ts` builds a small IR fixture, calls the production HTML emitter, embeds the emitted CSS, and renders it in Chromium at 1280×844 and 390×844. Both runs passed. Assertions check the grid width, document width, 1fr/2fr computed track ratio, child order, and right edge.
+- Both captures were opened and inspected. The desktop frame shows a broad two-track dashboard with pastel cards; the narrow frame keeps both tracks visible at the 1:2 ratio without horizontal overflow. Captures are retained below.
+
+![Generated responsive grid at 1280px](../screenshots/layout/responsive-grid-codegen-1280-2026-10-18.png)
+
+![Generated responsive grid at 390px](../screenshots/layout/responsive-grid-codegen-390-2026-10-18.png)
+
 ![Grid track removal preview at 1280px](../screenshots/layout/grid-track-removal-preview-wide-2026-10-18.png)
 
 ![Grid track removal preview at the 481px breakpoint](../screenshots/layout/grid-track-removal-preview-481-2026-10-18.png)
@@ -43,4 +53,4 @@ The screenshots were opened and inspected. The compact dialog remains within 390
 
 ## Limits
 
-These are browser interaction and visual checks, not the entire requested eight-document corpus. The runs do not cover native Tauri GUI capture, track-handle pointer previews, imported-component first edit, typography/resource loading, collaborative pressure, rotated snapping, independent responsive-code rendering, or edit-to-correct-frame latency. Those remain unverified; screenshots do not stand in for those cases.
+These browser checks cover a subset of the requested eight-document corpus. Generated grid CSS was rendered from an isolated IR fixture at two widths; full application exports and breakpoint-specific output remain unverified. The runs also do not cover native Tauri GUI capture, track-handle pointer previews, imported-component first edit, typography/resource loading, collaborative pressure, rotated snapping, or edit-to-correct-frame latency. Those remain unverified.
