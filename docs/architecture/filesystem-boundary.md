@@ -93,6 +93,13 @@ platform adapter, never in a separator replacement helper.
   file's own read-only bit would otherwise be bypassed by rename. A target
   metadata inspection error aborts the write instead of being treated as a
   missing file.
+- For an existing target on Unix, the sibling staging file is created with
+  mode `000` and receives the target's permissions before any document bytes
+  are written. If applying those permissions fails, the save aborts and the
+  empty staging file is removed. The full permission set is restored after
+  writing as well, since writes can clear Unix setuid/setgid bits. New files
+  retain `0666`-and-umask creation behavior. Windows ACLs and extended
+  attributes are separate metadata concerns.
 - Replacement uses the host-native atomic replace operation: `rename` on
   platforms where it replaces a destination, and Windows `MoveFileExW` with
   replace/write-through flags where plain rename would fail on an existing

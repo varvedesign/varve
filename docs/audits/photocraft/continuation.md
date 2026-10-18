@@ -291,3 +291,23 @@ Last updated: 2026-10-18. Status: active and incomplete.
   an editor Vitest owner; Chromium did not launch and no screenshot was
   produced. The E2E source is still uncommitted. Retry only after the live owner
   exits and inspect the generated image before committing it.
+
+- F-007 / PhotoCraft #4963 and linked PR #5077: read the complete issue and
+  current PR body/discussion. The source issue is a static security audit, not
+  a reproduced disclosure. Varve's native writer had a matching write-before-
+  permission sequence. The current change creates an existing-file staging
+  file with mode 000 on Unix, applies the target permissions before writing,
+  and aborts/cleans up with an explicit permission-setup error if this fails;
+  new-file 0666-and-umask behavior is kept. The empty-stage mode, final-mode,
+  and setgid restoration regressions passed in the 9-test `atomic_write_`
+  native group. The first cold debug build filled `/tmp`; retrying with debug
+  info and incremental compilation disabled passed. Windows ACL and xattr
+  preservation are not covered. Marketing site review found no
+  confidentiality/save claim to change.
+  `pnpm verify:plan` selects desktop-native, affected desktop tests/typecheck,
+  `pnpm verify:quick` passed touched-file format/lint, emoji/docs audits, and the
+  E2E typecheck, then queued the visual E2E behind the live shared editor unit
+  lease (owner PID 696193). `pnpm verify:affected` exits on the full-gate
+  escalation before running lanes. `pnpm --filter @varve/desktop typecheck`
+  reports the known untouched `CollabSurfaces.tsx:450` readonly `Affine` cast
+  diagnostic. No website copy change is justified.

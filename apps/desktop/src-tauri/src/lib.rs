@@ -402,6 +402,44 @@ fn process_is_running(pid: u32) -> bool {
 /// timestamp-only staging files are removed only after a day of inactivity.
 ///
 /// Pattern already proven for ONNX model download (line ~279-354).
+fn create_write_temporary(
+    path: &std::path::Path,
+    existing_permissions: Option<&std::fs::Permissions>,
+) -> Result<std::fs::File, String> {
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+
+        // Create an existing-file replacement with no access bits. Its exact
+        // target permissions are applied on the open handle before any bytes
+        // are written. For a new file, retain normal 0666-and-umask semantics.
+        let initial_mode = if existing_permissions.is_some() {
+            0o000
+        } else {
+            0o666
+        };
+        options.mode(initial_mode);
+    }
+    let file = options
+        .open(path)
+        .map_err(|error| format!("Failed to create temp file {}: {error}", path.display()))?;
+    if let Some(permissions) = existing_permissions {
+        #[cfg(unix)]
+        let initial_permissions = {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::Permissions::from_mode(permissions.mode() & 0o777)
+        };
+        #[cfg(not(unix))]
+        let initial_permissions = permissions.clone();
+        file.set_permissions(initial_permissions).map_err(|error| {
+            format!("Failed to establish target permissions on temp file: {error}")
+        })?;
+    }
+    Ok(file)
+}
+
 fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
     if let Ok(metadata) = std::fs::symlink_metadata(path) {
         if metadata.file_type().is_symlink() {
@@ -451,14 +489,12 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
         uuid()
     ));
     let result = (|| -> Result<(), String> {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&tmp)
-            .map_err(|e| format!("Failed to create temp file {}: {e}", tmp.display()))?;
+        let mut file = create_write_temporary(&tmp, existing_permissions.as_ref())?;
         file.write_all(data)
             .map_err(|e| format!("Failed to write temp file: {e}"))?;
         if let Some(permissions) = existing_permissions {
+            // Writing can clear Unix setuid/setgid bits. Restore the complete
+            // original permissions before publication, as the old writer did.
             file.set_permissions(permissions)
                 .map_err(|e| format!("Failed to preserve target file permissions: {e}"))?;
         }
@@ -7939,6 +7975,44 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn atomic_write_staging_file_starts_with_confidential_target_mode() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+        let dir = std::env::temp_dir().join(format!("varve_atomic_staging_mode_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        let staging = dir.join(".varve-write-test.tmp");
+        std::fs::write(&target, b"confidential original").expect("write initial content");
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o600))
+            .expect("restrict target mode");
+        let permissions = std::fs::metadata(&target)
+            .expect("inspect target")
+            .permissions();
+
+        let file = create_write_temporary(&staging, Some(&permissions))
+            .expect("create staging file with target mode");
+
+        assert_eq!(
+            std::fs::metadata(&staging)
+                .expect("inspect staging file")
+                .mode()
+                & 0o777,
+            0o600,
+            "staging file must be restrictive before the first write"
+        );
+        assert_eq!(
+            std::fs::metadata(&staging)
+                .expect("inspect staging file")
+                .len(),
+            0,
+            "permission is checked while the staging file is still empty"
+        );
+        drop(file);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn atomic_write_preserves_existing_file_mode() {
         use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
@@ -7959,6 +8033,28 @@ mod tests {
             std::fs::metadata(&target).expect("stat replacement").mode() & 0o777,
             0o640,
             "atomic replacement must preserve the target mode"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_restores_special_mode_bits_after_writing() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
+        let dir = std::env::temp_dir().join(format!("varve_atomic_special_mode_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        std::fs::write(&target, b"original").expect("write initial content");
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o2640))
+            .expect("set target mode with setgid bit");
+
+        write_file_atomic(&target, b"replacement").expect("replace target");
+
+        assert_eq!(
+            std::fs::metadata(&target).expect("stat replacement").mode() & 0o7777,
+            0o2640,
+            "atomic replacement must retain special mode bits"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

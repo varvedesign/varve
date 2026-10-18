@@ -357,6 +357,37 @@ outputs.
 **Website impact:** no marketing claim describes batch export overwrite
 behavior; no site copy change is justified.
 
+## F-007 — Atomic save staging files could expose bytes before mode restoration
+
+**Sources.** PhotoCraft [#4963](https://github.com/storytold/photocraft/issues/4963)
+is a static security audit finding, not a user-reported or runtime-reproduced
+disclosure. Its linked open [PR #5077](https://github.com/storytold/photocraft/pull/5077)
+proposes applying preserved permissions before the first write and failing if
+they cannot be retained. The issue discussion contains an author update and a
+bot cross-reference; neither establishes a reproduced exploit.
+
+**Varve applicability.** Review confirmed that `write_file_atomic` created its
+same-directory staging file with ordinary process-umask permissions, wrote all
+document bytes, and only then applied the existing target permissions. On Unix,
+for an existing restrictive target such as mode 0600, that leaves an interval
+where the staging file's mode can be broader. This is a static code-path
+confirmation; no cross-user disclosure experiment was performed, and exposure
+depends on directory and filesystem permissions.
+
+**Implementation.** On Unix, staging-file creation requests mode 000 for an
+existing target, then applies the target permissions on the open handle before
+writing any content. New files retain ordinary 0666-and-umask creation
+semantics. A permission-setting failure aborts before content is written, and
+the caller removes the empty staging file. After writing, the complete original
+permissions are restored before publication because writes can clear Unix
+setuid/setgid bits. Regressions check the empty staging mode, final rwx mode,
+and restoration of special mode bits. Windows ACL behavior and extended
+attributes remain separate platform/metadata work and are not claimed fixed
+here.
+
+**Website impact:** no public claim describes confidentiality or native save
+permission handling; no marketing copy change is warranted.
+
 ## Source seeds that did not match the requested repository
 
 The attachment's seed links use `storytold/pdfcraft`. In the requested
