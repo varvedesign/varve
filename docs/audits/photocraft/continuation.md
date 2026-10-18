@@ -115,8 +115,11 @@ Last updated: 2026-10-18. Status: active and incomplete.
   lossy UTF-8 native path conversion is confirmed and needs an end-to-end path
   contract; #6606's shared writer creates absent parent directories and needs
   intent-specific policy. #6610 recent-file missing state is already handled.
-  #6612 needs an XDG/macOS storage-policy review before any recovery-root
-  migration. Linked-smart-object reports #6608/#6609 do not match Varve's
+  #6612 is partial: Varve keeps recovery outside Linux config under Tauri's
+  XDG data root, while XDG state is the canonical state location. PhotoCraft
+  PR #6941 proposes a Linux migration and leaves macOS in Application Support;
+  assess migration safety before changing Varve. Linked-smart-object reports
+  #6608/#6609 do not match Varve's
   current embedded asset model. #6613 exposed a defense-in-depth gap: the
   dialog already renames duplicates, while ExportService now rejects duplicate
   names from direct callers and generated multi-file outputs; its focused test

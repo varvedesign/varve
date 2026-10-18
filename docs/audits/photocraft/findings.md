@@ -308,10 +308,14 @@ The tracker and adjacent reports were checked against the same Varve boundary:
   explicit document Save As from export and app-managed writes rather than
   changing the shared helper indiscriminately.
 - #6610 is covered in Home: inaccessible desktop paths are marked missing and
-  open failures update recent-file state. #6612 remains a platform-policy
-  check: recovery currently uses Tauri's `app_local_data_dir`; verify Linux
-  XDG state semantics and macOS policy before changing the root, since moving
-  it also needs migration and crash-recovery compatibility.
+  open failures update recent-file state. #6612 is partially covered: Varve's
+  recovery data is outside the Linux config directory, but Tauri's
+  `app_local_data_dir` resolves under XDG data, while the XDG specification
+  reserves `XDG_STATE_HOME` for state data. The report's config-sync failure is
+  therefore not the same Varve failure, but a migration to the canonical state
+  directory may still improve placement. Review PhotoCraft PR #6941's
+  migration and storage-denial policy before changing this boundary. On macOS,
+  keeping recovery under Application Support avoids purging it with Caches.
 - #6608/#6609 describe linked smart objects and Photoshop external-link
   records. Varve's image assets are document-owned/content-addressed and no
   equivalent linked-smart-object workflow was found; these reports do not
