@@ -439,6 +439,15 @@ needed or that the two products share a defect.
 - **Comparable-app complaints** — Penpot users report that placed images in
   PDF export are downsampled to their on-canvas 72-dpi size regardless of
   source pixels or export settings ([#7047](https://github.com/penpot/penpot/issues/7047)).
+  A current DesignCraft report describes the opposite tradeoff: a 4000 × 3000
+  JPEG placed in a 100 × 75 mm frame remains at 1019 ppi and about 9.5 MB even
+  with `compressImages: true`, with no target-PPI option
+  ([#1268](https://github.com/storytold/designcraft/issues/1268)). These are
+  distinct user needs: retain source detail for quality, while optionally
+  reducing excess resolution and file size when the delivery target calls for
+  it. A default downsample would reproduce Penpot's loss-of-detail complaint;
+  silently retaining large originals while labeling export compression would
+  reproduce DesignCraft's expectation mismatch.
   Illustrator users report a soft white box where a transparent PNG sits in a
   PDF/X-1a export ([Adobe Community](https://community.adobe.com/questions-652/soft-white-box-when-exporting-artwork-with-transparent-image-808510)).
   These reports do not prove a Varve defect; they reinforce that users need
@@ -448,6 +457,15 @@ needed or that the two products share a defect.
   ([Illustrator transparency guidance](https://helpx.adobe.com/illustrator/using/printing-saving-transparent-artwork.html)).
 - **Varve surface** — `crates/varve-print` (PDF/X, CMYK, ICC), code export,
   image export.
+- **Image-resolution evidence** — `packages/editor/src/export/printImageManifest.ts`
+  reads each decoded source at its natural pixel dimensions and sends those
+  dimensions with RGBA pixels; it does not downsample. The native PDF renderer
+  writes the manifest width/height into the image XObject; its focused
+  `render_fills_image_with_manifest_embeds_source_dimensions` test asserts
+  this for a 32 × 32 fixture. The manifest has a 192 MiB aggregate decoded-RGBA
+  cap, which protects memory but does not control effective PPI or optimize
+  output file size. This is source/test evidence for the transfer contract,
+  not a high-resolution end-to-end fidelity or file-size benchmark.
 - **Implemented slice** — PDF blend modes now use PDF ExtGState entries for
   representable node/fill modes. PDF/X-1a refuses unsupported blend modes in
   both preflight and the Rust/native export boundary, and refuses explicit
@@ -457,9 +475,11 @@ needed or that the two products share a defect.
   export feature page describe the same boundary.
 - **Remaining acceptance** — render representative generated PDFs through an
   independent viewer and compare measured pixels/structure; formally validate
-  PDF/X with a standards checker when available; verify image resolution and
-  all transparency/color cases. No PDF/X certification claim is made from the
-  present tests.
+  PDF/X with a standards checker when available; run a realistic high-resolution
+  image export and inspect effective PPI, image samples, and output size; verify
+  all transparency/color cases. A future size-optimization control should be
+  explicit, opt-in, and validated against a preserve-originals path. No PDF/X
+  certification claim is made from the present tests.
 
 ### 4.12 Unbounded per-operation work — **screened**
 
