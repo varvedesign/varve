@@ -121,8 +121,19 @@ Inkscape’s canonical tracker.
     historical mixed-font failure remains a useful cross-viewer test category.
     Varve's 6,400% zoom ceiling and raster surface budgets cover the scale of
     #3580's 15,000% bad-allocation report. Discussions remain pending.
-16. Current body-screening total is 30 of 6,392. Discussion and linked-source
+16. Current body-screening total was 30 of 6,392. Discussion and linked-source
     retrieval remain in progress.
+17. Screened #3975, #5983, #5878, #1231 and #5976. #3975/#3580 describe
+    Cairo failures at extreme zoom; Varve's zoom and raster budgets reduce the
+    same unbounded allocation class, but need a synthetic near-limit blur
+    fixture. #5983's 65,000-pixel JPEG is below Varve's 65,535 per-axis cap,
+    making a bounded synthetic import/zoom test worthwhile; its external image
+    was not downloaded. #5878's Powerstroke path editing and #5976's marker
+    recoloring dialog have no direct Varve feature match. #1231's styled-stroke
+    drag memory report may inform a bounded selection stress scenario. Their
+    35 combined reported notes remain pending retrieval/review.
+18. Current body-screening total is 35 of 6,392. The 3,633/32,692 comment
+    retrieval snapshot remains unchanged and incomplete.
 
 ## Validation checkpoint: 2026-10-18
 

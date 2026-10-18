@@ -211,6 +211,55 @@ Neither finding currently requires a code or marketing change. Recheck the
 save and raster-export pathways against updated reports before closing their
 broader issue groups.
 
+## Screened adjacent reports: zoom, import bounds, and editing cost
+
+Inkscape [#3975](https://gitlab.com/inkscape/inkscape/-/issues/3975) reports
+a Cairo crash when zooming to the corner of a 32,768-pixel blurred rectangle;
+the report explicitly relates it to [#3580](https://gitlab.com/inkscape/inkscape/-/issues/3580).
+Varve caps interactive zoom at 6,400% and raster surfaces at 16,384 pixels
+per side / 33,554,432 pixels per surface, which limits the same unbounded
+surface-growth class. Those limits do not prove that a large blurred object
+renders correctly near Varve's own ceilings. A generated, bounded blur fixture
+at the zoom/raster boundary is still a useful regression candidate; do not use
+the reported Cairo trace as evidence of a shared renderer bug.
+
+Inkscape [#5983](https://gitlab.com/inkscape/inkscape/-/issues/5983) reports a
+black display and crash while zooming around a linked JPEG 65,000 pixels wide
+in Inkscape 1.4.2 on macOS. Varve's raster header gate accepts dimensions up
+to 65,535 on an axis and caps images at 64 megapixels / 128 MiB encoded, so a
+65,000-pixel width is *inside* the per-axis limit. The area and byte limits
+may still reject particular files; the dimension limit alone is not protection
+against this case. The external Wikimedia image was not downloaded. A synthetic
+small-height 65,000-pixel-wide image can safely check import classification,
+decode behavior, and zooming without the untrusted attachment. The two issue
+notes and related import pipeline have not yet been reviewed, so this remains
+an open Varve risk hypothesis rather than a confirmed defect.
+
+Inkscape [#1231](https://gitlab.com/inkscape/inkscape/-/issues/1231) reports
+rapid memory growth while dragging roughly 200 rectangles after applying a
+Fill and Stroke style with a visible stroke; the default fill-only style and
+`stroke:none` reportedly avoid it. This is an old Windows/Inkscape 1.1-dev
+editing path, not a PDF or file-size issue. Varve's canvas has different
+selection and stroke rendering code, so it is a reasonable bounded stress
+scenario if the comment history identifies a transferable trigger. Its 15
+reported notes have not been retrieved yet.
+
+Inkscape [#5878](https://gitlab.com/inkscape/inkscape/-/issues/5878) reports
+memory exhaustion while manipulating a path with the Powerstroke live path
+effect and `CubicBezierJohan` smoothing. The backtrace enters path dash
+generation and outline/bounding-box work. Varve has no equivalent live-path-
+effect editing pipeline, so this is not a direct feature match. It can still
+inform a general stress test only if a Varve workflow reaches similarly
+unbounded outline generation; no such path has been established.
+
+Inkscape [#5976](https://gitlab.com/inkscape/inkscape/-/issues/5976) reports
+that resetting color in the Recolor Marker dialog crashes Inkscape. The body
+contains a long repeated Windows stack trace and one reported note. Varve has
+path endpoint arrowheads but no equivalent marker recoloring dialog or SVG
+marker workflow, so no direct implementation or marketing change follows from
+this report. The discussion remains pending, and the large body was screened
+without executing or rendering its embedded media.
+
 ## Not directly transferable: relative image paths in extensions
 
 Inkscape [#6477](https://gitlab.com/inkscape/inkscape/-/issues/6477) reports
