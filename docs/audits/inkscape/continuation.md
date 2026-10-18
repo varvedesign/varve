@@ -668,7 +668,7 @@ Inkscape’s canonical tracker.
 ## Next operation
 
 Finish the mobile marketing-page visual review for #2069, then continue cached
-discussion review from IID 1716 and inspect the strongest related evidence from
+discussion review from IID 1726 and inspect the strongest related evidence from
 #1711, #1704, #1707, and #1712. Investigate #1551 sequential export state and #5960
 variable-font PDF fidelity after that. Keep research coverage separate from
 engineering status. #5939 and the #2069 export UI have desktop visual evidence;
@@ -784,7 +784,8 @@ its title, labels, or downloaded body.
     dirty main checkout and nested `codex/inkscape-master-integration` worktree
     were inspected read-only and left untouched. No integration or remote merge
     has occurred. Next: finish the mobile visual check, then advance the
-    Inkscape discussion sweep from IID 1716.
+    Inkscape discussion sweep from IID 1726; revisit zero-comment IDs 1705,
+    1706, 1720, and 1722 if their note retrieval changes.
 
 62. Continued the Inkscape discussion review through IID 1715. Thirteen cached
     threads in IID 1701–1715 were reviewed, covering 153 records (55 user notes,
@@ -799,3 +800,24 @@ its title, labels, or downloaded body.
     for non-ASCII guide labels; #1712 is a CLI path parsing issue; #1715 was
     reported fixed upstream in 2026. None of those reports alone establishes a
     Varve defect. The ledger and summary now record 927 reviewed threads.
+
+63. Read all cached discussion records for IID 1716–1719: 32 records across
+    four threads (21 user notes, 11 system/history notes). #1717's unit and
+    zoom-mode discussion exposes the tradeoff between fine control and keeping
+    the toolbar within modest screen widths; later merged MRs !2367/!2368 are
+    linked evidence to inspect. #1719 describes SVG2 auto-flow text positioning
+    in PDF+LaTeX export and a possible upstream improvement in 1.5-dev. #1716
+    and #1718 concern labels/root-layer behavior. These are leads only; no Varve
+    reproduction or defect is established. IID 1720 has zero reported comments
+    and no note cache, so it remains pending. The ledger and summary now record
+    931 reviewed issue threads.
+
+64. Read cached discussion records for IID 1721, 1723, 1724, and 1725: 25
+    records across four threads (14 user comments, 11 system/history events).
+    IID 1722 has zero reported comments and no note cache and remains pending.
+    #1721 is an Inkscape extension packaging/dependency report (missing Python
+    `lxml`), #1723 concerns macOS file-dialog icon/localization behavior, #1724
+    was closed as a duplicate of #677, and #1725 has conflicting reports about
+    the macOS cycle-window shortcut and keyboard layout. These are platform- or
+    extension-specific leads, not evidence of a Varve defect. The review ledger
+    and summary now record 935 reviewed issue threads.
