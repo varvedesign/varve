@@ -1770,6 +1770,29 @@ fn render_fills(
                                     continue;
                                 }
 
+                                // Check the expansion budget before scanning, converting, or
+                                // embedding the tile. An over-budget pattern is omitted, so
+                                // processing its source pixels first would waste time and memory.
+                                let (shape_x, shape_y, shape_w, shape_h) =
+                                    shape_pdf_bounds(node, page_height);
+                                let estimated_tiles = ((shape_w + tile_w) / step_x).ceil()
+                                    * ((shape_h + tile_h) / step_y).ceil();
+                                if !estimated_tiles.is_finite() || estimated_tiles > 100_000.0 {
+                                    buf.extend_from_slice(
+                                        b"% WARNING: pattern tile estimate exceeds 100000; fill omitted instead of truncated\n",
+                                    );
+                                    buf.extend_from_slice(b"Q\n");
+                                    continue;
+                                } else if estimated_tiles > 1000.0 {
+                                    buf.extend(
+                                        format!(
+                                            "% WARNING: pattern tile estimate {:.0} exceeds 1000; consider a larger tile size\n",
+                                            estimated_tiles
+                                        )
+                                        .as_bytes(),
+                                    );
+                                }
+
                                 let source_has_alpha =
                                     matches!(&img.color_space, resources::ColorSpace::Rgb)
                                         && img.data.chunks_exact(4).any(|rgba| rgba[3] < 255);
@@ -1893,8 +1916,6 @@ fn render_fills(
                                         image_state.refs.push((name.clone(), obj_ref));
 
                                         // Clip to shape bounds
-                                        let (shape_x, shape_y, shape_w, shape_h) =
-                                            shape_pdf_bounds(node, page_height);
                                         buf.extend_from_slice(b"q\n");
                                         buf.extend(&path_ops);
                                         buf.extend_from_slice(path_clip_operator(node));
@@ -1907,23 +1928,6 @@ fn render_fills(
                                         // Tile the image across shape bounds
                                         let x_step = step_x;
                                         let y_step = step_y;
-                                        let estimated_tiles = ((shape_w + tile_w) / x_step).ceil()
-                                            * ((shape_h + tile_h) / y_step).ceil();
-                                        if !estimated_tiles.is_finite()
-                                            || estimated_tiles > 100_000.0
-                                        {
-                                            buf.extend_from_slice(
-                                                b"% WARNING: pattern tile estimate exceeds 100000; fill omitted instead of truncated\n",
-                                            );
-                                            buf.extend_from_slice(b"Q\n");
-                                            buf.extend_from_slice(b"Q\n");
-                                            continue;
-                                        } else if estimated_tiles > 1000.0 {
-                                            buf.extend(format!(
-                                                "% WARNING: pattern tile estimate {:.0} exceeds 1000; consider a larger tile size\n",
-                                                estimated_tiles
-                                            ).as_bytes());
-                                        }
 
                                         let mut y = shape_y;
                                         while y < shape_y + shape_h + tile_h {
@@ -4851,6 +4855,66 @@ mod tests {
         assert!(
             !content.contains("pattern tile not found"),
             "resolved pattern source must not take the missing-resource path"
+        );
+    }
+
+    #[test]
+    fn export_pdf_caps_pattern_tile_expansion_without_dropping_neighbor_content() {
+        let mut patterned = rect_node(1, 0.0, 0.0, 400.0, 400.0);
+        patterned.fills = Some(vec![FillIR::Pattern {
+            tile_src: "tiny-pattern-tile".into(),
+            spacing: 0.0,
+            rotation: 0.0,
+            image_width: Some(1.0),
+            image_height: Some(1.0),
+            gap_x: Some(0.0),
+            gap_y: Some(0.0),
+            arrangement: Some("grid".into()),
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
+            alignment: None,
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }]);
+        let neighboring_solid = rect_node(2, 420.0, 0.0, 10.0, 10.0);
+        let manifest = image_manifest("tiny-pattern-tile", 1, 1);
+        let opts = PdfOptions {
+            page_width: 440.0,
+            page_height: 420.0,
+            manifest: Some(manifest),
+            ..Default::default()
+        };
+
+        let bytes = export_pdf(&[patterned, neighboring_solid], &opts)
+            .expect("bounded pattern expansion should keep the PDF export valid");
+        let doc = Document::load_mem(&bytes).expect("parse standard PDF");
+        let page_id = *doc.get_pages().values().next().expect("PDF has a page");
+        let page_content = doc.get_page_content(page_id);
+        let content = String::from_utf8_lossy(&page_content);
+
+        assert!(
+            content.contains("pattern tile estimate exceeds 100000"),
+            "oversized tile expansion should be omitted with a clear warning: {content}"
+        );
+        assert!(
+            content.contains("0.224 0.816 0.776 rg") && content.contains("f\n"),
+            "omitting the expensive pattern must not drop neighboring solid content: {content}"
+        );
+        assert!(
+            !content.contains("/Pat0 Do"),
+            "an over-budget pattern must not emit repeated tile operations"
+        );
+        assert!(
+            !doc.objects.values().any(|object| matches!(
+                object,
+                Object::Stream(stream) if stream.dict.has(b"SMask")
+            )),
+            "the omitted pattern tile must be rejected before embedding its alpha image"
         );
     }
 
