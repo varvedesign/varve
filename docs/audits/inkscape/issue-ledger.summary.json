@@ -17,7 +17,7 @@
   "issues_with_reported_notes": 5669,
   "retrieved_notes": 7854,
   "coverage": {
-    "body_screening": "40 of 6392 bodies screened",
+    "body_screening": "44 of 6392 bodies screened",
     "discussion_review": "retrieval in progress: 3633 of 32692 non-system comments; content review pending",
     "linked_evidence_review": "pending",
     "varve_mapping": "pending",
@@ -30,16 +30,16 @@
   "discussion_snapshot_at_utc": "2026-10-18T11:46:06Z",
   "discussion_review_status": "retrieval in progress; content review pending",
   "body_screening_counts": {
-    "pending": 6352,
-    "reviewed": 40
+    "pending": 6348,
+    "reviewed": 44
   },
   "reviewed_linked_issue_body_iids": [691, 1313, 5482, 6483],
   "reviewed_issue_body_iids": [
-    86, 112, 155, 203, 252, 260, 328, 481, 529, 543, 670, 691, 721, 894, 1018, 1063, 1231, 1313,
-    1351, 1573, 1739, 2190, 2800, 3580, 3975, 4717, 4924, 5482, 5539, 5624, 5696, 5782, 5878, 5976,
-    5983, 6242, 6380, 6398, 6477, 6483
+    86, 112, 155, 203, 252, 260, 328, 481, 529, 543, 651, 670, 685, 691, 694, 712, 721, 894, 1018,
+    1063, 1231, 1313, 1351, 1573, 1739, 2190, 2800, 3580, 3975, 4717, 4924, 5482, 5539, 5624, 5696,
+    5782, 5878, 5976, 5983, 6242, 6380, 6398, 6477, 6483
   ],
   "inventory_note": "Initial 6,390-row snapshot omitted pre-cutoff work items 6482 and 6483; durable rehydration found and added both. The source_issue_ndjson_sha256 records only the initial snapshot.",
   "initial_source_issue_ndjson_sha256": "f1e9f6be7cc3eaa8a7381b510bf89cad23858717e84dd6468126d81a80720d43",
-  "varve_mapping": "PDF export, save integrity, raster sizing, interactive pattern resources, wide-raster import, and rendering compatibility candidates reviewed; several visual comparisons and save-memory measurements remain open"
+  "varve_mapping": "PDF export, save integrity, raster sizing/import bounds, interactive patterns, and rendering compatibility candidates reviewed; mask/bleed and cross-output visual comparisons remain open"
 }

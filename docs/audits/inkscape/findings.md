@@ -302,6 +302,30 @@ severe editing lag from its Simplify live-path effect, even after removing
 embedded images. Varve has no equivalent live-path-effect feature, so there is
 no direct implementation target.
 
+Other PDF reports reinforce the need for real output checks. Inkscape
+[#685](https://gitlab.com/inkscape/inkscape/-/issues/685) reports overlapping
+colored text in a different order on the canvas and in PDF; its reporter says
+the PDF agrees with the SVG text-order specification and other renderers. The
+linked sample was not downloaded. Varve routes text through the live compositor
+for standard PDF, so comparing the canvas and resulting PDF is a useful parity
+check, not a presumed defect.
+
+Inkscape [#694](https://gitlab.com/inkscape/inkscape/-/issues/694) reports
+masked artwork disappearing from PDF under a combination of transforms,
+clipping, and blur. [#712](https://gitlab.com/inkscape/inkscape/-/issues/712)
+reports masks rasterized at visibly low resolution, plus duplicate masked
+objects disappearing when they share a layer. These are old reports with
+linked SVG/PDF examples that remain uninspected. Varve also rasterizes masked
+subtrees for standard PDF, but has a different renderer and scene structure.
+Inspect output resolution and verify every masked sibling remains visible in
+generated PDFs before treating the failure class as closed. No matching Varve
+defect has been reproduced.
+
+Inkscape [#651](https://gitlab.com/inkscape/inkscape/-/issues/651) reports
+that selecting an embedded image in its XML Editor froze the whole application
+in a 2019 beta. Varve has no equivalent XML Editor selection workflow, so this
+does not map to a current product feature.
+
 ## Not directly transferable: relative image paths in extensions
 
 Inkscape [#6477](https://gitlab.com/inkscape/inkscape/-/issues/6477) reports
