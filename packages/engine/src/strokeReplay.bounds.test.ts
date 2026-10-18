@@ -8,7 +8,7 @@ function point(x: number, y: number, pressure: number): PathPoint {
 }
 
 function renderStroke(points: PathPoint[], dashPattern: number[]) {
-  const calls = { fill: 0, stroke: 0, lineTo: 0, traceOutline: 0 };
+  const calls = { fill: 0, stroke: 0, lineTo: 0, traceOutline: 0, dashLength: 0 };
   const target = {
     save() {},
     restore() {},
@@ -25,7 +25,9 @@ function renderStroke(points: PathPoint[], dashPattern: number[]) {
     stroke() {
       calls.stroke++;
     },
-    setLineDash() {},
+    setLineDash(pattern: number[]) {
+      calls.dashLength = pattern.length;
+    },
     strokeStyle: '',
     fillStyle: '',
     lineWidth: 1,
@@ -101,5 +103,15 @@ describe('variable-width stroke replay bounds', () => {
     expect(calls.stroke).toBe(0);
     expect(calls.traceOutline).toBe(0);
     expect(calls.lineTo).toBeLessThan(100_000);
+  });
+
+  it('preserves long authored dash patterns through the native path stroke', () => {
+    const pattern = Array.from({ length: 130 }, (_, index) => (index % 2 === 0 ? 2 : 3));
+    const calls = renderStroke([point(0, 0, 0.2), point(100, 0, 0.9)], pattern);
+
+    expect(calls.fill).toBe(0);
+    expect(calls.stroke).toBe(1);
+    expect(calls.traceOutline).toBe(1);
+    expect(calls.dashLength).toBe(130);
   });
 });

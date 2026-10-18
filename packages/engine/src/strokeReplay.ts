@@ -219,21 +219,24 @@ function pointAtDistance(
   if (distance <= 0) return samples[0]!;
   const total = distances[distances.length - 1] ?? 0;
   if (distance >= total) return samples[samples.length - 1]!;
-  for (let index = 1; index < distances.length; index++) {
-    const end = distances[index]!;
-    if (distance > end) continue;
-    const start = distances[index - 1]!;
-    const span = end - start;
-    const t = span > 0 ? (distance - start) / span : 0;
-    const previous = samples[index - 1]!;
-    const current = samples[index]!;
-    return {
-      x: previous.x + (current.x - previous.x) * t,
-      y: previous.y + (current.y - previous.y) * t,
-      width: previous.width + (current.width - previous.width) * t,
-    };
+  let low = 1;
+  let high = distances.length - 1;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (distances[middle]! < distance) low = middle + 1;
+    else high = middle;
   }
-  return samples[samples.length - 1]!;
+  const end = distances[low]!;
+  const start = distances[low - 1]!;
+  const span = end - start;
+  const t = span > 0 ? (distance - start) / span : 0;
+  const previous = samples[low - 1]!;
+  const current = samples[low]!;
+  return {
+    x: previous.x + (current.x - previous.x) * t,
+    y: previous.y + (current.y - previous.y) * t,
+    width: previous.width + (current.width - previous.width) * t,
+  };
 }
 
 function splitDashedWidthSamples(
@@ -242,7 +245,7 @@ function splitDashedWidthSamples(
   dashOffset: number,
   closed: boolean,
 ): Array<{ samples: WidthSample[]; closed: boolean }> | null {
-  if (dashPattern.length > MAX_VARIABLE_WIDTH_DASH_PATTERN) return [{ samples, closed }];
+  if (dashPattern.length > MAX_VARIABLE_WIDTH_DASH_PATTERN) return null;
   const positivePattern = dashPattern.filter((value) => Number.isFinite(value) && value >= 0);
   if (positivePattern.length === 0 || !positivePattern.some((value) => value > 0)) {
     return [{ samples, closed }];
@@ -280,10 +283,14 @@ function splitDashedWidthSamples(
   };
 
   const runs: Array<{ samples: WidthSample[]; closed: boolean }> = [];
+  let sampleCursor = 1;
   const appendSolidTail = (startDistance: number) => {
     const tailSamples = [pointAtDistance(samples, distances, startDistance)];
-    for (let index = 1; index < distances.length - 1; index++) {
-      if (distances[index]! > startDistance) tailSamples.push(samples[index]!);
+    while (sampleCursor < distances.length - 1 && distances[sampleCursor]! <= startDistance) {
+      sampleCursor++;
+    }
+    for (; sampleCursor < distances.length - 1; sampleCursor++) {
+      tailSamples.push(samples[sampleCursor]!);
     }
     tailSamples.push(pointAtDistance(samples, distances, totalLength));
     if (tailSamples.length > 1) runs.push({ samples: tailSamples, closed: false });
@@ -300,10 +307,12 @@ function splitDashedWidthSamples(
     const end = Math.min(totalLength, distance + Math.max(state.remaining, 0.0001));
     if (state.index % 2 === 0 && end - distance > 0.0001) {
       const runSamples = [pointAtDistance(samples, distances, distance)];
-      for (let index = 1; index < distances.length - 1; index++) {
-        if (distances[index]! > distance && distances[index]! < end) {
-          runSamples.push(samples[index]!);
-        }
+      while (sampleCursor < distances.length - 1 && distances[sampleCursor]! <= distance) {
+        sampleCursor++;
+      }
+      while (sampleCursor < distances.length - 1 && distances[sampleCursor]! < end) {
+        runSamples.push(samples[sampleCursor]!);
+        sampleCursor++;
       }
       runSamples.push(pointAtDistance(samples, distances, end));
       if (runSamples.length > 1) runs.push({ samples: runSamples, closed: false });

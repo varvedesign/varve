@@ -136,11 +136,12 @@ because linearly interpolated pressure keeps the expanded edges linear. Cubic
 segments use 12 subdivisions, and outline construction stops at 65,536
 samples. Dashed outlines stop after 16,384 on-runs and render the remaining
 centerline as one solid pressure-aware tail. Dash patterns longer than 128
-entries currently use one solid pressure-aware outline. If sample coordinates
-or accumulated lengths are non-finite, replay falls back to Canvas2D's native
-centerline stroke and dash handling, omitting pressure variation for that
-malformed or over-budget path. Ordinary non-pressure strokes continue to use
-Canvas2D and do not use these application-level expansion caps.
+entries fall back to Canvas2D's native centerline stroke and authored dash
+pattern, omitting pressure variation for that over-complex pattern. If sample
+coordinates or accumulated lengths are non-finite, the same native fallback
+omits pressure variation for that malformed path. Ordinary non-pressure
+strokes continue to use Canvas2D and do not use these application-level
+expansion caps.
 
 ## Render invariants (Session 45)
 
