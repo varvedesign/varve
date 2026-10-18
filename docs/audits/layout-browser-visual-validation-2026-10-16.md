@@ -16,6 +16,19 @@
 
 The screenshots were opened and inspected. The compact dialog remains within 390×844, has two-column margin controls, and preserves reachable Cancel/Apply buttons. The editor view shows visual guides in their own inspector section, separate from the layout solver. Auto-layout screenshots show children wrapping and a Fill child spanning the available row width.
 
+### Follow-up: responsive grid removal preview — 2026-10-18
+
+- Ran `TMPDIR=/home/kevina/.cache/varve-layout-tmp node scripts/quality/heavy-lease.mjs "e2e: grid track removal responsive preview" -- npx playwright test tests/e2e/canvas/grid-system.spec.ts --project=chromium --workers=1 --reporter=list --grep "previews grid track removal"` on `codex/layout-reliability` at `ed1cc260d` plus the uncommitted diagnostic and inspector follow-up. Result: **1 passed**.
+- The editor opened the baseline and SIMD WASM artifacts copied into this isolated worktree from the primary checkout; the run output contained no WASM fallback warning. These are generated artifacts and are not tracked by the feature branch.
+- The interaction added two tracks, opened the removal preview by keyboard, checked dialog focus, canceled at 390px and verified focus returned to the visible canvas after the inspector hid, then reopened at 1280px and applied removal as one history entry before verifying one undo. It checked dialog bounds and the two-column/one-column preview breakpoint at widths 481, 480, 390, and 1280px.
+- Captured frames were inspected at 1280px, 481px, and 390px. The dialog remains inside the viewport, keeps Before/After geometry and both actions visible, and switches to a single preview column at 480px. The browser assertion also confirmed a single column at 390px. Exact rectangles, track definitions, and history outcome are asserted in the E2E test.
+
+![Grid track removal preview at 1280px](../screenshots/layout/grid-track-removal-preview-wide-2026-10-18.png)
+
+![Grid track removal preview at the 481px breakpoint](../screenshots/layout/grid-track-removal-preview-481-2026-10-18.png)
+
+![Grid track removal preview at 390px](../screenshots/layout/grid-track-removal-preview-390-2026-10-18.png)
+
 ### Captures
 
 ![Wrapped flex children in the editor](../screenshots/layout/autolayout-wrap-2026-10-16.png)

@@ -2,7 +2,12 @@
 import type { Document, LayoutStyle } from '@varve/scene';
 import { createDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { applyGridLayout, computeGridLayout, parseGridTracks } from '../computeGridLayout';
+import {
+  applyGridLayout,
+  computeGridLayout,
+  computeGridLayoutDetailed,
+  parseGridTracks,
+} from '../computeGridLayout';
 
 function makeDoc(overrides: Partial<Document> = {}): Document {
   const base = createDocument('test', true);
@@ -179,6 +184,55 @@ describe('computeGridLayout', () => {
       gridPlacement: { gridColumnStart: 1, gridColumnEnd: 130, gridRowStart: 1, gridRowEnd: 2 },
     });
     expect(computeGridLayout(oversizedDoc, 'parent', 300, 200, style, ['a'])).toEqual([]);
+  });
+
+  it('reports why bounded grid placement was rejected without returning partial geometry', () => {
+    const collisionDoc = addNode(
+      addNode(makeDoc(), 'a', {
+        gridPlacement: { gridColumnStart: 1, gridColumnEnd: 2, gridRowStart: 1, gridRowEnd: 2 },
+      }),
+      'b',
+    );
+    collisionDoc.nodes.b!.gridPlacement = {
+      gridColumnStart: 1,
+      gridColumnEnd: 2,
+      gridRowStart: 1,
+      gridRowEnd: 2,
+    };
+    const colliding = computeGridLayoutDetailed(
+      collisionDoc,
+      'parent',
+      300,
+      200,
+      makeLayoutStyle(),
+      ['a', 'b'],
+    );
+    expect(colliding).toEqual({ items: [], diagnostic: 'colliding-cell-placements' });
+
+    const invalid = computeGridLayoutDetailed(
+      collisionDoc,
+      'parent',
+      300,
+      200,
+      makeLayoutStyle({ gridTemplateColumns: 'minmax(20px, 1fr)' }),
+      ['a'],
+    );
+    expect(invalid).toEqual({ items: [], diagnostic: 'invalid-track-template' });
+
+    const enormousTrack = `1${'0'.repeat(308)}px`;
+    const overflowDoc = addNode(addNode(makeDoc(), 'a'), 'b');
+    const overflow = computeGridLayoutDetailed(
+      overflowDoc,
+      'parent',
+      300,
+      200,
+      makeLayoutStyle({
+        layoutSemanticsVersion: 2,
+        gridTemplateColumns: `${enormousTrack} ${enormousTrack}`,
+      }),
+      ['a', 'b'],
+    );
+    expect(overflow).toEqual({ items: [], diagnostic: 'invalid-grid-bounds' });
   });
 
   it('places items in a simple 2x2 grid', () => {

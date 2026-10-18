@@ -21,6 +21,23 @@ export interface GridItem {
   occupiedH?: number;
 }
 
+export type GridLayoutDiagnostic =
+  | 'invalid-track-template'
+  | 'invalid-track-identities'
+  | 'invalid-grid-bounds'
+  | 'invalid-grid-gap'
+  | 'too-many-grid-children'
+  | 'invalid-cell-placement'
+  | 'placement-work-limit-exceeded'
+  | 'colliding-cell-placements'
+  | 'track-limit-exceeded'
+  | 'invalid-auto-flow';
+
+export interface GridLayoutResult {
+  items: GridItem[];
+  diagnostic?: GridLayoutDiagnostic;
+}
+
 type TrackSize = { kind: 'px'; value: number } | { kind: 'fr'; value: number } | { kind: 'auto' };
 
 const MAX_GRID_TRACKS = 128;
@@ -209,15 +226,15 @@ function resolveLegacyAutoTracks(
 /**
  * Compute CSS Grid layout for a container's children.
  */
-export function computeGridLayout(
+export function computeGridLayoutDetailed(
   doc: Document,
   _parentId: NodeId,
   parentW: number,
   parentH: number,
   layoutStyle: LayoutStyle,
   children: NodeId[],
-): GridItem[] {
-  if (children.length === 0) return [];
+): GridLayoutResult {
+  if (children.length === 0) return { items: [] };
 
   const [pt, pr, pb, pl] = layoutStyle.padding;
   const columnGap = layoutStyle.columnGap ?? layoutStyle.gap;
@@ -225,6 +242,15 @@ export function computeGridLayout(
   const availW = Math.max(0, parentW - pl - pr);
   const availH = Math.max(0, parentH - pt - pb);
   const gridAutoFlow = layoutStyle.gridAutoFlow ?? 'row';
+  if (!['row', 'column', 'rowDense', 'columnDense'].includes(gridAutoFlow)) {
+    return { items: [], diagnostic: 'invalid-auto-flow' };
+  }
+  if (![parentW, parentH, availW, availH, ...layoutStyle.padding].every(Number.isFinite)) {
+    return { items: [], diagnostic: 'invalid-grid-bounds' };
+  }
+  if (layoutStyle.padding.some((value) => value < 0)) {
+    return { items: [], diagnostic: 'invalid-grid-bounds' };
+  }
 
   const columnTemplate = layoutStyle.gridColumnTracks?.length
     ? layoutStyle.gridColumnTracks.map((track) => track.size).join(' ')
@@ -249,7 +275,23 @@ export function computeGridLayout(
     columnGap < 0 ||
     rowGap < 0
   ) {
-    return [];
+    return {
+      items: [],
+      diagnostic:
+        parsedColumns.error || parsedRows.error
+          ? 'invalid-track-template'
+          : columnTrackIds &&
+              (new Set(columnTrackIds).size !== columnTrackIds.length ||
+                columnTrackIds.length !== parsedColumns.tracks.length)
+            ? 'invalid-track-identities'
+            : rowTrackIds &&
+                (new Set(rowTrackIds).size !== rowTrackIds.length ||
+                  rowTrackIds.length !== parsedRows.tracks.length)
+              ? 'invalid-track-identities'
+              : children.length > MAX_GRID_CHILDREN
+                ? 'too-many-grid-children'
+                : 'invalid-grid-gap',
+    };
   }
   const colDefinitions = parsedColumns.tracks;
   const rowDefinitions = parsedRows.tracks;
@@ -291,7 +333,7 @@ export function computeGridLayout(
         (g.gridColumnStartTrackId != null && (colIdIndex == null || colIdIndex < 0)) ||
         (g.gridRowStartTrackId != null && (rowIdIndex == null || rowIdIndex < 0))
       ) {
-        return [];
+        return { items: [], diagnostic: 'invalid-cell-placement' };
       }
       const colStart = (colIdIndex ?? (g.gridColumnStart ?? 1) - 1) + 1;
       const rowStart = (rowIdIndex ?? (g.gridRowStart ?? 1) - 1) + 1;
@@ -312,7 +354,7 @@ export function computeGridLayout(
         colEnd > MAX_GRID_TRACKS + 1 ||
         rowEnd > MAX_GRID_TRACKS + 1
       ) {
-        return [];
+        return { items: [], diagnostic: 'invalid-cell-placement' };
       }
       explicitPlacements.push({
         childIndex: i,
@@ -330,7 +372,8 @@ export function computeGridLayout(
   const placementWork = explicitPlacements.reduce((sum, p) => {
     return sum + (p.colEnd - p.colStart) * (p.rowEnd - p.rowStart);
   }, 0);
-  if (placementWork > MAX_GRID_PLACEMENT_CELLS) return [];
+  if (placementWork > MAX_GRID_PLACEMENT_CELLS)
+    return { items: [], diagnostic: 'placement-work-limit-exceeded' };
 
   // Build grid placement matrix
   const usedCells = new Set<string>();
@@ -347,7 +390,7 @@ export function computeGridLayout(
     for (let c = cs; c < cs + colSpan; c++) {
       for (let r = rs; r < rs + rowSpan; r++) {
         const cell = `${c},${r}`;
-        if (usedCells.has(cell)) return [];
+        if (usedCells.has(cell)) return { items: [], diagnostic: 'colliding-cell-placements' };
         usedCells.add(cell);
       }
     }
@@ -363,7 +406,8 @@ export function computeGridLayout(
         let found = false;
         for (let c = 0; !found; c++) {
           for (let r = 0; r <= Math.max(row, explicitRows.length - 1); r++) {
-            if (++placementChecks > MAX_GRID_PLACEMENT_CELLS) return [];
+            if (++placementChecks > MAX_GRID_PLACEMENT_CELLS)
+              return { items: [], diagnostic: 'placement-work-limit-exceeded' };
             if (!usedCells.has(`${c},${r}`)) {
               col = c;
               row = r;
@@ -397,7 +441,8 @@ export function computeGridLayout(
         let found = false;
         for (let r = 0; !found; r++) {
           for (let c = 0; c <= Math.max(col, explicitCols.length - 1); c++) {
-            if (++placementChecks > MAX_GRID_PLACEMENT_CELLS) return [];
+            if (++placementChecks > MAX_GRID_PLACEMENT_CELLS)
+              return { items: [], diagnostic: 'placement-work-limit-exceeded' };
             if (!usedCells.has(`${c},${r}`)) {
               col = c;
               row = r;
@@ -431,7 +476,8 @@ export function computeGridLayout(
     maxCol = Math.max(maxCol, a.col + a.colSpan);
     maxRow = Math.max(maxRow, a.row + a.rowSpan);
   }
-  if (maxCol > MAX_GRID_TRACKS || maxRow > MAX_GRID_TRACKS) return [];
+  if (maxCol > MAX_GRID_TRACKS || maxRow > MAX_GRID_TRACKS)
+    return { items: [], diagnostic: 'track-limit-exceeded' };
 
   const usesIntrinsicTracks = layoutStyle.layoutSemanticsVersion === 2;
   const resolvedCols: TrackSize[] = [];
@@ -497,6 +543,12 @@ export function computeGridLayout(
     );
   }
 
+  if (
+    [...resolvedColSizes, ...resolvedRowSizes].some((size) => !Number.isFinite(size) || size < 0)
+  ) {
+    return { items: [], diagnostic: 'invalid-grid-bounds' };
+  }
+
   const colPositions: number[] = [pl];
   for (let c = 0; c < resolvedColSizes.length; c++) {
     const prev = colPositions[c] ?? 0;
@@ -507,6 +559,9 @@ export function computeGridLayout(
   for (let r = 0; r < resolvedRowSizes.length; r++) {
     const prev = rowPositions[r] ?? 0;
     rowPositions.push(prev + (resolvedRowSizes[r] ?? 0) + rowGap);
+  }
+  if ([...colPositions, ...rowPositions].some((position) => !Number.isFinite(position))) {
+    return { items: [], diagnostic: 'invalid-grid-bounds' };
   }
 
   const results: GridItem[] = [];
@@ -541,7 +596,26 @@ export function computeGridLayout(
     });
   }
 
-  return results;
+  if (
+    results.some((item) =>
+      [item.x, item.y, item.w, item.h].some((value) => !Number.isFinite(value) || value < 0),
+    )
+  ) {
+    return { items: [], diagnostic: 'invalid-grid-bounds' };
+  }
+  return { items: results };
+}
+
+/** Compute grid placements; invalid layouts return no geometry, preserving the scene result. */
+export function computeGridLayout(
+  doc: Document,
+  parentId: NodeId,
+  parentW: number,
+  parentH: number,
+  layoutStyle: LayoutStyle,
+  children: NodeId[],
+): GridItem[] {
+  return computeGridLayoutDetailed(doc, parentId, parentW, parentH, layoutStyle, children).items;
 }
 
 /**
@@ -557,7 +631,7 @@ export function applyGridLayout(doc: Document, parentId: NodeId): Document {
   const childIds = parent.children;
   if (childIds.length === 0) return doc;
 
-  const results = computeGridLayout(
+  const results = computeGridLayoutDetailed(
     doc,
     parentId,
     parent.w,
@@ -565,10 +639,10 @@ export function applyGridLayout(doc: Document, parentId: NodeId): Document {
     parent.layoutStyle,
     childIds,
   );
-  if (results.length === 0) return doc;
+  if (results.items.length === 0) return doc;
 
   const nodes = { ...doc.nodes };
-  for (const r of results) {
+  for (const r of results.items) {
     const child = nodes[r.id];
     if (child) {
       const current = measureNodeSize(child);

@@ -97,6 +97,32 @@ describe('LayoutSection per-node Width/Height sizing controls', () => {
     expect(screen.queryByText('Grid placement')).not.toBeInTheDocument();
   });
 
+  it('explains invalid grid definitions and confirms existing positions were retained', async () => {
+    const getCtx = setup();
+    getCtx().applyFramePreset({ name: 'Test Frame', w: 400, h: 300 });
+    await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
+    const frameId = getCtx().state.selection[0] as string;
+    getCtx().setNodeLayout(frameId, {
+      mode: 'grid',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      gridTemplateColumns: 'minmax(10px, 1fr)',
+      gridTemplateRows: '1fr',
+    });
+    getCtx().createTextNodeAt({ x: 20, y: 30 }, { w: 80, h: 24 }, frameId, 'kept');
+    getCtx().setSelection(frameId);
+
+    expect(
+      await screen.findByText(
+        'Grid tracks use unsupported or invalid syntax. Existing child positions were kept.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('setting both axes independently keeps them independent', async () => {
     const getCtx = setup();
     getCtx().applyFramePreset({ name: 'Test Frame', w: 400, h: 300 });

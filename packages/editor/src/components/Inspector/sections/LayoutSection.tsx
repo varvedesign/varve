@@ -12,6 +12,9 @@
  *
  * Research basis: Figma auto-layout panel; APG Disclosure, Radiogroup, Spinbutton.
  */
+
+import type { GridLayoutDiagnostic } from '@varve/layout';
+import { computeGridLayoutDetailed } from '@varve/layout';
 import type {
   FlexDirection,
   FrameNode,
@@ -110,6 +113,17 @@ export function LayoutSection({ node }: { node: FrameNode }) {
     () => (!ls ? suggestAutoLayout(node, children, state.document) : null),
     [node, children, ls, state.document],
   );
+  const gridLayoutDiagnostic = useMemo(() => {
+    if (ls?.mode !== 'grid') return undefined;
+    return computeGridLayoutDetailed(
+      state.document,
+      node.id,
+      node.w,
+      node.h,
+      ls,
+      node.children ?? [],
+    ).diagnostic;
+  }, [ls, node.children, node.h, node.id, node.w, state.document]);
 
   function patch(partial: Partial<LayoutStyle>) {
     const base: LayoutStyle = ls ?? {
@@ -179,6 +193,12 @@ export function LayoutSection({ node }: { node: FrameNode }) {
           </FieldRow>
           {ls && (
             <>
+              {gridLayoutDiagnostic && (
+                <p className="insp-hint insp-hint--error" role="status" aria-live="polite">
+                  {formatGridLayoutDiagnostic(gridLayoutDiagnostic)} Existing child positions were
+                  kept.
+                </p>
+              )}
               <FieldRow label="Direction">
                 <Select
                   label="Layout direction"
@@ -362,6 +382,33 @@ export function LayoutSection({ node }: { node: FrameNode }) {
       <LayoutGuidesSection node={node} />
     </>
   );
+}
+
+function formatGridLayoutDiagnostic(diagnostic: GridLayoutDiagnostic): string {
+  switch (diagnostic) {
+    case 'invalid-track-template':
+      return 'Grid tracks use unsupported or invalid syntax.';
+    case 'invalid-track-identities':
+      return 'Grid track identities do not match the track definitions.';
+    case 'invalid-grid-bounds':
+      return 'Grid dimensions or padding contain invalid values.';
+    case 'invalid-grid-gap':
+      return 'Grid gaps must be finite and non-negative.';
+    case 'too-many-grid-children':
+      return 'This grid exceeds the supported child limit.';
+    case 'invalid-cell-placement':
+      return 'A cell anchor or span is invalid or refers to a missing track.';
+    case 'placement-work-limit-exceeded':
+      return 'This grid placement exceeds the safe work limit.';
+    case 'colliding-cell-placements':
+      return 'Two or more grid items occupy the same cell.';
+    case 'track-limit-exceeded':
+      return 'This grid exceeds the supported track limit.';
+    case 'invalid-auto-flow':
+      return 'This grid uses an unsupported auto-flow mode.';
+    default:
+      return 'This grid could not be resolved.';
+  }
 }
 
 function LayoutGuidesSection({ node }: { node: FrameNode }) {

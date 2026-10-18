@@ -37,28 +37,33 @@ from fixed-on-scroll. Hug measures content; it is not a one-time resize action.
    distributed auto spacing never creates accidental negative gaps.
 5. Grid tracks support fixed px, `auto`, `fr`, and bounded fixed-count
    `repeat()`. Invalid, non-finite, nested, or unsupported syntax is rejected
-   with a diagnostic; `minmax()`, auto-fit/auto-fill, percentages, and masonry
-   are unsupported until implemented end to end. `layoutSemanticsVersion: 2`
+   by the parser; the solver retains materialized geometry and the inspector
+   explains the failed template. `minmax()`, auto-fit/auto-fill, percentages,
+   and masonry are unsupported until implemented end to end. `layoutSemanticsVersion: 2`
    resolves intrinsic and spanning contributions before fractional tracks and
    repeats the final authored definition for implicit tracks. Missing or `1`
    preserves legacy resolution, including repeating the prior resolved pixel
    size, so older artwork does not shift silently.
-6. Grid placements reserve full spans. Explicit collisions fail with a
-   diagnostic unless the placement explicitly opts into overlap. Dense packing
-   is opt-in and does not change reading or keyboard order. Deleting a track
-   previews deterministic rehoming and never deletes its artwork. A reorder that
-   would make a span discontinuous is refused until that span is edited.
+6. Grid placements reserve full spans. Explicit collisions invalidate the
+   computed placement set and the inspector reports the collision. There is no
+   overlap opt-in. Dense packing is opt-in and does not change reading or
+   keyboard order. Deleting a track previews deterministic rehoming and never
+   deletes its artwork. A reorder that would make a span discontinuous is
+   refused until that span is edited.
 7. Constraint `center` keeps its existing proportional behavior. Add
    `centerOffset` for a child whose center offset from the parent center remains
    constant. No existing document is silently converted.
-8. New persistent per-track identities live alongside the existing authored
-   template strings. The 2.33 → 2.34 migration creates deterministic identities
-   for existing tracks; subsequent reorder/insert/delete operations move the
-   identities with their definitions. Track/cell edits, constraints, and guide
-   edits use one existing document command/history transaction.
-9. Invalid or cyclic layouts keep their last materialized geometry. Diagnostics
-   are read-only and explain sizing basis, bounds, overflow, unsupported input,
-   or failed placement. They do not write history or dirty the document.
+8. Persistent per-track identities live alongside the authored template
+   strings. When the grid inspector opens, it derives deterministic IDs for
+   tracks that do not have them; the IDs persist when the user commits an edit.
+   There is no 2.33 → 2.34 migration. Subsequent reorder/insert/delete
+   operations move IDs with their definitions. Track/cell edits, constraints,
+   and guide edits use one existing document command/history transaction.
+9. Invalid layouts keep their last materialized geometry. The bounded grid
+   solver returns typed failure reasons and the layout inspector explains
+   invalid track syntax or identities, bounds, gaps, cell anchors, collisions,
+   and track/placement limits without mutating the document. Flex overflow and
+   nested layout-cycle feedback remain deferred.
 10. Supported importers preserve editable rules and cell anchors. If a source
     layout cannot be represented, import keeps its fixed geometry and reports
     the unsupported fields instead of attaching a partial live layout.
@@ -75,7 +80,7 @@ from fixed-on-scroll. Hug measures content; it is not a one-time resize action.
 | Child x=60, width=40, parent width 200 → 300; `centerOffset` | Child x becomes 110; its -20px center offset is retained |
 | Center constraint on an older file | Existing proportional behavior remains unchanged |
 | One child in Between/Around/Evenly; zero, spare, or negative free space | Results are deterministic, non-negative for auto spacing, and preserve explicit signed gaps only |
-| Invalid track input, colliding spans, oversized repeat/count/depth | No unbounded work or geometry overwrite; a bounded diagnostic is available |
+| Invalid track input, colliding spans, oversized repeat/count/depth | No unbounded work or geometry overwrite; the inspector reports the bounded grid failure |
 | Save/reopen, duplicate/detach, importer first edit, undo/redo | Authored sizing/track/anchor rules remain editable and the initiating edit is one undo entry |
 
 ## Consequences

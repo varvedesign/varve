@@ -11,7 +11,8 @@ import {
   resizeGridTrack,
 } from '@varve/layout';
 import type { Document, GridItemPlacement, GridTrack, LayoutStyle } from '@varve/scene';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor } from '../../../context';
 import './GridTrackEditor.css';
 
@@ -67,6 +68,9 @@ function PreviewGrid({
 
 export function GridTrackEditor({ frameId, layoutStyle, document }: GridTrackEditorProps) {
   const { setGridTrackLayout } = useEditor();
+  const editorRef = useRef<HTMLElement | null>(null);
+  const removalDialogRef = useRef<HTMLDialogElement | null>(null);
+  const removalTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<{
     axis: GridTrackAxis;
     preview: GridTrackRemovalPreview;
@@ -75,6 +79,31 @@ export function GridTrackEditor({ frameId, layoutStyle, document }: GridTrackEdi
     () => ensureGridTrackIdentities(layoutStyle, frameId) ?? layoutStyle,
     [layoutStyle, frameId],
   );
+  useEffect(() => {
+    if (pendingRemoval) {
+      removalDialogRef.current?.focus();
+    } else if (removalTriggerRef.current) {
+      const trigger = removalTriggerRef.current;
+      removalTriggerRef.current = null;
+      const bounds = trigger.getBoundingClientRect();
+      const intersectsViewport =
+        bounds.width > 0 &&
+        bounds.height > 0 &&
+        bounds.right > 0 &&
+        bounds.bottom > 0 &&
+        bounds.left < globalThis.innerWidth &&
+        bounds.top < globalThis.innerHeight;
+      if (trigger.isConnected && !trigger.disabled && intersectsViewport) {
+        trigger.focus();
+      } else {
+        const fallback = globalThis.document.querySelector<HTMLElement>(
+          '[data-dialog-focus-fallback], canvas.editor-canvas__content-layer',
+        );
+        if (fallback) fallback.focus();
+        else if (editorRef.current?.getClientRects().length) editorRef.current.focus();
+      }
+    }
+  }, [pendingRemoval]);
 
   function tracks(axis: GridTrackAxis): GridTrack[] {
     return initializeGridTracks(stableStyle, axis, frameId) ?? [];
@@ -153,9 +182,12 @@ export function GridTrackEditor({ frameId, layoutStyle, document }: GridTrackEdi
               type="button"
               aria-label={`Remove ${axisLabel(axis)} ${index + 1}`}
               disabled={list.length <= 1}
-              onClick={() => {
+              onClick={(event) => {
                 const preview = previewRemoveGridTrack(document, frameId, axis, track.id);
-                if (preview) setPendingRemoval({ axis, preview });
+                if (preview) {
+                  removalTriggerRef.current = event.currentTarget;
+                  setPendingRemoval({ axis, preview });
+                }
               }}
             >
               Remove
@@ -167,69 +199,78 @@ export function GridTrackEditor({ frameId, layoutStyle, document }: GridTrackEdi
   }
 
   return (
-    <section className="insp-grid-track-editor" aria-label="Editable grid tracks">
+    <section
+      ref={editorRef}
+      tabIndex={-1}
+      className="insp-grid-track-editor"
+      aria-label="Editable grid tracks"
+    >
       {renderAxis('columns')}
       {renderAxis('rows')}
-      {pendingRemoval && (
-        <dialog
-          open
-          className="insp-grid-track-editor__dialog"
-          aria-labelledby="grid-track-removal-title"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') setPendingRemoval(null);
-          }}
-        >
-          <h3 id="grid-track-removal-title">Preview track removal</h3>
-          {!pendingRemoval.preview.valid && (
-            <p role="alert">
-              This removal creates an invalid or colliding placement. Nothing was changed.
-            </p>
-          )}
-          <div className="insp-grid-track-editor__preview-pair">
-            <PreviewGrid doc={document} frameId={frameId} style={layoutStyle} label="Before" />
-            <PreviewGrid
-              doc={pendingRemoval.preview.resolvedDocument}
-              frameId={frameId}
-              style={pendingRemoval.preview.style}
-              label="After"
-            />
-          </div>
-          {pendingRemoval.preview.rehomes.length > 0 ? (
-            <ul>
-              {pendingRemoval.preview.rehomes.map((entry) => (
-                <li key={entry.nodeId}>
-                  {document.nodes[entry.nodeId]?.name ?? entry.nodeId}: cell placement will move to
-                  a surviving {axisLabel(pendingRemoval.axis)} track.
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>
-              Anchored content remains in the same cell. Flow content will reflow against the
-              remaining tracks.
-            </p>
-          )}
-          <footer>
-            <button type="button" onClick={() => setPendingRemoval(null)}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={!pendingRemoval.preview.valid}
-              onClick={() => {
-                setGridTrackLayout(
-                  frameId,
-                  pendingRemoval.preview.style,
-                  pendingRemoval.preview.placements,
-                );
-                setPendingRemoval(null);
-              }}
-            >
-              Apply removal
-            </button>
-          </footer>
-        </dialog>
-      )}
+      {pendingRemoval &&
+        createPortal(
+          <dialog
+            open
+            ref={removalDialogRef}
+            tabIndex={-1}
+            className="insp-grid-track-editor__dialog"
+            aria-labelledby="grid-track-removal-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setPendingRemoval(null);
+            }}
+          >
+            <h3 id="grid-track-removal-title">Preview track removal</h3>
+            {!pendingRemoval.preview.valid && (
+              <p role="alert">
+                This removal creates an invalid or colliding placement. Nothing was changed.
+              </p>
+            )}
+            <div className="insp-grid-track-editor__preview-pair">
+              <PreviewGrid doc={document} frameId={frameId} style={layoutStyle} label="Before" />
+              <PreviewGrid
+                doc={pendingRemoval.preview.resolvedDocument}
+                frameId={frameId}
+                style={pendingRemoval.preview.style}
+                label="After"
+              />
+            </div>
+            {pendingRemoval.preview.rehomes.length > 0 ? (
+              <ul>
+                {pendingRemoval.preview.rehomes.map((entry) => (
+                  <li key={entry.nodeId}>
+                    {document.nodes[entry.nodeId]?.name ?? entry.nodeId}: cell placement will move
+                    to a surviving {axisLabel(pendingRemoval.axis)} track.
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>
+                Anchored content remains in the same cell. Flow content will reflow against the
+                remaining tracks.
+              </p>
+            )}
+            <footer>
+              <button type="button" onClick={() => setPendingRemoval(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!pendingRemoval.preview.valid}
+                onClick={() => {
+                  setGridTrackLayout(
+                    frameId,
+                    pendingRemoval.preview.style,
+                    pendingRemoval.preview.placements,
+                  );
+                  setPendingRemoval(null);
+                }}
+              >
+                Apply removal
+              </button>
+            </footer>
+          </dialog>,
+          globalThis.document.body,
+        )}
     </section>
   );
 }

@@ -24,10 +24,11 @@
  */
 export type { LayoutResult } from './computeFlexLayout';
 export { computeFlexLayout } from './computeFlexLayout';
-export type { GridItem } from './computeGridLayout';
+export type { GridItem, GridLayoutDiagnostic, GridLayoutResult } from './computeGridLayout';
 export {
   applyGridLayout,
   computeGridLayout,
+  computeGridLayoutDetailed,
   parseGridTrackDefinitions,
   parseGridTracks,
 } from './computeGridLayout';
