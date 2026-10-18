@@ -71,6 +71,21 @@ function analyticsArchitecture(arch: string): 'x64' | 'arm64' | 'unknown' {
   return 'unknown';
 }
 
+function formatReleaseDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  // releaseDate is a calendar day (CHANGELOG, else America/Vancouver of the
+  // pipeline timestamp). Format it as UTC midnight so a date-only string does
+  // not shift with the viewer's local timezone.
+  const parsed = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return dateStr;
+  return parsed.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 function architectureLabel(arch: string): string {
   const normalized = arch.toLowerCase();
   if (normalized.includes('arm') || normalized.includes('aarch')) return 'ARM64';
@@ -773,7 +788,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
           <div class="release-info">
             <h3>This release</h3>
             <p><strong>Version:</strong> {release.version}</p>
-            <p><strong>Released:</strong> {release.releaseDate}</p>
+            <p><strong>Released:</strong> {formatReleaseDate(release.releaseDate)}</p>
             <p><strong>Channel:</strong> {channelLabel}</p>
             <p>
               <a href={release.releaseUrl} target="_blank" rel="noopener noreferrer">
