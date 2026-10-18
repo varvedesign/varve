@@ -1,9 +1,9 @@
 # Dependency-aware composition: evidence ledger — 2026-10-17
 
-Access date: 2026-10-17. External issue reports describe other products and are
-used as regression seeds, not as evidence that Varve has the same defect. The
-Varve entries below are source observations until a runtime or pixel oracle is
-recorded.
+Initial access date: 2026-10-17; focused status refresh: 2026-10-18. External
+issue reports describe other products and are used as regression seeds, not as
+evidence that Varve has the same defect. The Varve entries below are source
+observations until a runtime or pixel oracle is recorded.
 
 ## Current Varve evidence
 
@@ -44,6 +44,31 @@ References: [ADR-0193](../adr/0193-shared-canvas-rendering.md),
 | [Penpot #11302](https://github.com/penpot/penpot/issues/11302), closed as completed; [PR #11337](https://github.com/penpot/penpot/pull/11337) is the linked completion. | Rotated large text leaves fragments at other zooms. The issue is intermittent; the exact released fix was not source-audited in this review. | Warm multiple scales, transform/reset/undo, revisit zooms; inspect magnified text, thin strokes, and tile edges. |
 | [LightCraft #1058](https://github.com/storytold/lightcraft/issues/1058), proposal, no implementation linked at review. | Proposes separate cache producer versions to avoid unrelated global version churn. This is proposal evidence, not a confirmed user defect. | Keep cache producer identity scoped, but never let version granularity replace complete input dependencies. |
 | EffectCraft #1268, cited in the supplied brief. | The primary GitHub page timed out in the current research pass; the supplied brief says a 0.9.2 user reported about 11 GB of disk cache for a 12-second project and could not find the suggested control. Current status and details are unverified here. | Treat as a prompt-supplied budget/UI regression seed only; do not cite it as independently refreshed evidence. Do not add disk persistence by default. |
+
+### Focused status refresh — 2026-10-18
+
+- [EffectCraft #1492](https://github.com/storytold/effectcraft/issues/1492)
+  remains open with no maintainer diagnosis or linked fix visible in the issue.
+  The Windows 11 report is still a user-observed symptom, not a proven cache
+  invalidation mechanism.
+- [EffectCraft #595](https://github.com/storytold/effectcraft/issues/595)
+  remains open. The 1/3-resolution indicator issue is reported fixed by #645;
+  the cache-priority change in [#793](https://github.com/storytold/effectcraft/pull/793)
+  merged on Oct 12. A later comment in the thread still described a timing-
+  dependent playback stall under build load. A subsequent commit is referenced
+  in the issue, but its page could not be retrieved during this pass, so the
+  current state of that specific fix is unverified. The remaining report
+  reinforces that cache occupancy/hits do not establish responsiveness; its
+  playback scheduler is outside this composition-cache slice.
+- [PhotoCraft #6808](https://github.com/storytold/photocraft/issues/6808)
+  remains open and links the still-open [#6809 pull request](https://github.com/storytold/photocraft/pull/6809).
+  The PR explains the stale-frame source and reports two targeted regression
+  tests, but explicitly says no real PSD or in-app visual check was done and
+  shows no review. It remains a useful reproduction pattern, not a verified
+  shipped fix or evidence of a Varve defect.
+- [EffectCraft #1268](https://github.com/storytold/effectcraft/issues/1268)
+  again timed out while fetching. The cache-size claim and missing-control
+  complaint remain unverified beyond the supplied brief.
 
 ## Primary architecture references
 
