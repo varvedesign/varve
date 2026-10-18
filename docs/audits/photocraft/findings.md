@@ -586,6 +586,30 @@ by [ADR-0214](../../adr/0214-multi-resolution-tiled-pyramid.md)'s visual parity,
 memory, hot-path benchmark, and export-isolation
 requirements.
 
+## F-014 — GPU loss must produce a fresh authoritative frame
+
+**Source.** PhotoCraft [#478](https://github.com/storytold/photocraft/issues/478)
+reports that after controlled WebGPU device destruction or WebGL context loss,
+the editor display stayed stale or blank while export still reflected current
+document state. Its sole discussion comment repeats the result on a newer
+source revision and independently checked exported pixels and screenshots.
+The report explicitly does not claim permanent document loss or successful
+Firefox context restoration.
+
+**Varve comparison.** Varve's WebGPU and WebGL backends render GPU work to an
+offscreen surface while keeping the visible canvas on Canvas2D. The WebGPU
+loss handler drops GPU resources and requests a redraw; the editor clears
+retained worker/painted pixels on backing-store loss and routes recovery through
+the authoritative renderer. Successful GPU recovery also requests a new frame.
+Focused tests cover simulated WebGPU device loss, a surviving 2D presentation
+surface, and the editor lifecycle's loss-triggered redraw. This is covered by
+existing behavior; no production change was indicated. Actual browser-level
+device destruction followed by a pixel comparison is not separately covered
+end to end, so this disposition rests on source tracing plus focused tests.
+
+**Website impact.** No marketing claim promises GPU-loss behavior. No website
+copy change is indicated.
+
 ## Source seeds that did not match the requested repository
 
 The attachment's seed links use `storytold/pdfcraft`. In the requested

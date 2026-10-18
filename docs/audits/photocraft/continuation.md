@@ -90,7 +90,13 @@ Last updated: 2026-10-18. Status: active and incomplete.
   claim needs a change. Issue #1101 is also confirmed covered: adjustment
   normalization repairs a NaN exposure value before serialization, and the new
   DocumentCodec save/decode regression passes (15 tests in the focused file).
-  The ledger is now 226 candidates / 452 partial matches / 27 covered.
+  PhotoCraft #478's controlled device-loss report maps to existing Varve
+  behavior: the visible canvas is Canvas2D, loss requests an authoritative
+  redraw, and focused WebGPU/lifecycle tests cover the recovery path. The
+  browser suite does not yet destroy a real device and compare pixels, so this
+  is a source-traced covered disposition, not an end-to-end reproduction. No
+  marketing claim needs revision. The ledger is now 225 candidates / 452
+  partial matches / 28 covered.
   Safe integration to `master` remains outstanding. A clean-snapshot merge
   preview succeeded, but the real dirty master checkout rejected the merge
   because unrelated local edits and untracked files overlap paths touched by
