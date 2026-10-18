@@ -4,7 +4,7 @@
 //! Not part of the crate's maintained surface — see §6.3 in
 //! `docs/audits/photocraft/findings.md` for the recorded run.
 
-use varve_core::{Affine, BlendMode, EngineColor, FillIR, Rect, SceneNode, Shape};
+use varve_core::{Affine, BlendMode, EngineColor, FillIR, Rect, SceneNode, Shape, Stroke};
 use varve_print::resources::{ColorSpace, ExportManifest, ImageResource};
 use varve_print::{export_pdf, PdfOptions};
 
@@ -148,5 +148,86 @@ fn main() {
     let bytes = export_pdf(&[blue_low2, quarter], &opts).unwrap();
     std::fs::write(out_dir.join("multiplied-opacity.pdf"), bytes).unwrap();
 
-    println!("wrote 5 PDFs to {}", out_dir.display());
+    // 6. A Varve shape paints fill then stroke as separate canvas paints. Their
+    // overlap must preserve that same paint order in PDF (unlike an imported
+    // PDF's combined B/b operator, whose semantics are a single object).
+    let mut backdrop = rect(1, "gray backdrop", 0.0, 0.0, 200.0, 200.0);
+    solid(
+        &mut backdrop,
+        rgb(128.0, 128.0, 128.0),
+        1.0,
+        BlendMode::Normal,
+    );
+    let mut outlined = rect(
+        2,
+        "translucent red with blue stroke",
+        40.0,
+        40.0,
+        120.0,
+        120.0,
+    );
+    solid(&mut outlined, rgb(255.0, 0.0, 0.0), 0.5, BlendMode::Normal);
+    outlined.strokes = vec![Stroke {
+        color: EngineColor::Rgb {
+            r: 0.0,
+            g: 0.0,
+            b: 255.0,
+            a: 127.5,
+            bit_depth: None,
+            profile: None,
+        },
+        weight: 16.0,
+        ..Stroke::default()
+    }];
+    let bytes = export_pdf(&[backdrop.clone(), outlined], &opts).unwrap();
+    std::fs::write(out_dir.join("vector-fill-stroke-alpha.pdf"), bytes).unwrap();
+
+    // 7. A translucent raster pattern over a known backdrop checks that both
+    // the pattern's pixel alpha and the fill opacity survive PDF export.
+    let mut patterned = rect(2, "quarter-opacity pattern", 40.0, 40.0, 120.0, 120.0);
+    patterned.fills = Some(vec![FillIR::Pattern {
+        tile_src: "pattern-red".into(),
+        spacing: 0.0,
+        rotation: 0.0,
+        image_width: Some(16.0),
+        image_height: Some(16.0),
+        gap_x: Some(0.0),
+        gap_y: Some(0.0),
+        arrangement: Some("grid".into()),
+        row_shift: None,
+        column_shift: None,
+        mirror_x: None,
+        mirror_y: None,
+        offset_x: None,
+        offset_y: None,
+        alignment: None,
+        opacity: 0.25,
+        blend_mode: BlendMode::Normal,
+        visible: true,
+    }]);
+    let pattern_manifest = ExportManifest {
+        images: vec![ImageResource {
+            id: "pattern-red-image".into(),
+            src: Some("pattern-red".into()),
+            mime_type: "image/raw-rgba".into(),
+            width: 2,
+            height: 2,
+            data: [255, 0, 0, 255].repeat(4),
+            color_space: ColorSpace::Rgb,
+        }],
+        patterns: vec![],
+    };
+    let bytes = export_pdf(
+        &[backdrop, patterned],
+        &PdfOptions {
+            page_width: opts.page_width,
+            page_height: opts.page_height,
+            manifest: Some(pattern_manifest),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    std::fs::write(out_dir.join("pattern-opacity.pdf"), bytes).unwrap();
+
+    println!("wrote 7 PDFs to {}", out_dir.display());
 }

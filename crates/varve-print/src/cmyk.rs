@@ -1374,6 +1374,26 @@ mod tests {
     }
 
     #[test]
+    fn pdfx1a_refuses_translucent_stroke_color() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.name = "Translucent outline".into();
+        node.strokes.push(varve_core::Stroke {
+            color: varve_core::EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 255.0,
+                a: 128.0,
+                bit_depth: None,
+                profile: None,
+            },
+            ..Default::default()
+        });
+        let error = export_pdfx1a(&[node], &PdfOptions::default()).unwrap_err();
+        assert!(error.contains("Translucent outline"));
+        assert!(error.contains("PDF/X-4"));
+    }
+
+    #[test]
     fn pdfx1a_ignores_alpha_on_the_inactive_legacy_fill_when_stacked_fills_replace_it() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         let opaque_fill = node.fill.clone();

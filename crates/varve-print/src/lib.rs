@@ -2096,6 +2096,7 @@ fn render_strokes(
     page_height: f64,
     use_cmyk: bool,
     profile: Option<PrintProfile>,
+    mut image_state: Option<&mut ImageRenderState<'_>>,
 ) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
     if path_ops.is_empty() || node.strokes.is_empty() {
@@ -2108,6 +2109,19 @@ fn render_strokes(
             continue;
         }
         buf.extend_from_slice(b"q\n");
+
+        // PDF alpha is a graphics-state value rather than a component of the
+        // stroke colour. Match the canvas by multiplying the node opacity by
+        // the color alpha before setting the stroking alpha.
+        let stroke_alpha = (node.opacity.clamp(0.0, 1.0)
+            * (f64::from(engine_color_rgba(&stroke.color).3) / 255.0).clamp(0.0, 1.0))
+        .clamp(0.0, 1.0);
+        if stroke_alpha < 1.0 {
+            if let Some(state) = image_state.as_deref_mut() {
+                let name = state.get_or_create_opacity_gs(stroke_alpha);
+                buf.extend_from_slice(format!("/{name} gs\n").as_bytes());
+            }
+        }
 
         // Line width
         buf.extend(format!("{:.2} w\n", stroke.weight).as_bytes());
@@ -2453,14 +2467,14 @@ fn shape_to_pdf_content(
         node,
         page_height,
         use_cmyk,
-        image_state,
+        image_state.as_deref_mut(),
         manifest,
         profile,
         None,
         false,
     );
     buf.extend(&fills);
-    let strokes = render_strokes(node, page_height, use_cmyk, profile);
+    let strokes = render_strokes(node, page_height, use_cmyk, profile, image_state);
     buf.extend(&strokes);
     buf.extend_from_slice(b"Q\n");
     buf
@@ -3806,7 +3820,13 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                 opts.lossy,
             );
             content.extend(&fills);
-            let strokes = render_strokes(node, opts.page_height, use_cmyk, opts.print_profile);
+            let strokes = render_strokes(
+                node,
+                opts.page_height,
+                use_cmyk,
+                opts.print_profile,
+                Some(&mut image_state),
+            );
             content.extend(&strokes);
             content.extend_from_slice(b"Q\n");
         }
@@ -5612,10 +5632,42 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("5.00 w"), "should set line width to 5");
         assert!(s.contains("S\n"), "should stroke");
+    }
+
+    #[test]
+    fn render_strokes_preserves_stroke_color_alpha() {
+        let stroke = Stroke {
+            color: EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 255.0,
+                a: 127.5,
+                bit_depth: None,
+                profile: None,
+            },
+            visible: true,
+            ..Default::default()
+        };
+        let mut node = node_with_stroke(stroke);
+        node.opacity = 0.5;
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_strokes(&node, 100.0, false, None, Some(&mut state));
+        let content = String::from_utf8_lossy(&result);
+        assert!(
+            content.contains("/GS249 gs"),
+            "node opacity and near-50% stroke color alpha must multiply: {content}"
+        );
+        assert!(state.refs.iter().any(|(name, object)| {
+            name == "GS249"
+                && matches!(object, Object::Dictionary(gs)
+                    if gs.get(b"CA").ok().and_then(|alpha| alpha.as_float().ok())
+                        .is_some_and(|alpha| (alpha - 0.249).abs() < 0.001))
+        }));
     }
 
     #[test]
@@ -5626,7 +5678,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("1 J"), "round cap = 1");
     }
@@ -5639,7 +5691,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("2 j"), "bevel join = 2");
     }
@@ -5653,7 +5705,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("["), "dash pattern should have bracket");
         assert!(s.contains("d\n"), "should set dash");
@@ -5666,7 +5718,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         assert!(
             result.is_empty(),
             "invisible stroke should produce no output"
@@ -5676,7 +5728,7 @@ mod tests {
     #[test]
     fn render_strokes_empty() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         assert!(result.is_empty(), "no strokes should produce no output");
     }
 

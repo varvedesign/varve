@@ -19,6 +19,8 @@ update, not for someone reading the commit log.
 - **PDF export fidelity** — PDF export preserves PDF-supported blend modes. PDF/X-1a now stops with
   actionable guidance when artwork contains transparency or a blend mode it cannot represent;
   PDF/X-4 retains live transparency and supported blend modes.
+- **PDF stroke transparency** — Standard PDF and PDF/X-4 exports now preserve each stroke color's
+  alpha together with the node opacity. PDF/X-1a continues to stop when a stroke is translucent.
 
 ## [0.5.1] - 2026-10-15
 

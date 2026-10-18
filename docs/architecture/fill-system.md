@@ -398,10 +398,11 @@ original source containing the bytes is required for the old pixels to return.
   The desktop manifest builder resolves ordinary raster sources for standard
   PDF, PDF/X-1a, and PDF/X-4. `varve-print` tiles an axis-aligned grid with
   positive independent gaps. Standard PDF preserves tile alpha and fill
-  opacity; PDF/X-4 preserves alpha and opacity; PDF/X-1a converts opaque RGB
+  opacity, plus stroke color alpha multiplied by node opacity; PDF/X-4
+  preserves alpha and opacity; PDF/X-1a converts opaque RGB
   tile samples to CMYK. Standard PDF and PDF/X-4 write representable node/fill
   blend modes; PDF/X-1a stops when it cannot carry a blend mode or when visible
-  node/fill opacity or image/pattern alpha is present. The editor preflight and
+  node/fill/stroke opacity or image/pattern alpha is present. The editor preflight and
   Rust writer both enforce this, so direct native callers cannot silently get
   Normal compositing or dropped transparency. Flattening must include the full
   composite against its opaque background. Shifted arrangements, mirrors,
