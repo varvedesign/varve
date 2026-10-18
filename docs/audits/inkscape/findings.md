@@ -95,18 +95,19 @@ file-format and print-export pages after validation.
 ## Candidate: crashes during filter/clip PDF export
 
 Inkscape [#203](https://gitlab.com/inkscape/inkscape/-/issues/203) documents a
-confirmed crash while exporting filtered content with a clip path. The thread
-narrows the failure to the PDF exporter rasterizing a filtered item with a clip
-path; a maintainer identified a missing raster image as a likely intermediate
-state. The issue was traced to an opacity change, fixed in
-[MR 2907](https://gitlab.com/inkscape/inkscape/-/merge_requests/2907), and the
-reporter confirmed the minimal reproducer no longer crashed. The larger
-original file remained unverified because it exceeded the reporter's available
-memory.
+confirmed crash while exporting filtered content with a clip path. Maintainers
+traced the issue to PDF export rasterizing filtered clip paths even though SVG
+clip geometry should ignore filters. The fix
+[MR 2907](https://gitlab.com/inkscape/inkscape/-/merge_requests/2907), later
+cherry-picked in [MR 2923](https://gitlab.com/inkscape/inkscape/-/merge_requests/2923),
+stopped rasterizing those clip paths. The reporter confirmed the minimal
+reproducer no longer crashed; the larger original document remained unverified
+because it exceeded the reporter's available memory. Related reports #481 and
+#1573 were duplicate variants.
 
 Varve sends PDF subtrees with effects or masks through a live canvas raster
 fallback, so this is a relevant workflow to exercise. The Inkscape report does
-not establish that Varve shares its renderer or opacity bug, and no equivalent
+not establish that Varve shares Inkscape's Cairo failure, and no equivalent
 Varve crash has been reproduced. Keep the targeted export regression pending
 until a real document with a filtered clipped raster is exported and inspected.
 
@@ -114,16 +115,97 @@ Inkscape [#1739](https://gitlab.com/inkscape/inkscape/-/issues/1739) separately
 reports memory growth, crashes, or a missing fill for masked images inside SVG
 patterns. Its small embedded-image sample shows reported peak memory growing
 from roughly 104 MB at a 10×10 pattern to 1.3 GB at 128×128; a 150×150 case
-crashed and produced a zero-byte PDF. The issue body is screened, but its two
-comments and linked original sample remain pending review. Varve's print
-pipeline expands supported image tiles into PDF content and caps the estimated
-tile count, but does not implement SVG masks nested inside arbitrary SVG
-patterns. The described Inkscape mechanism is not yet shown to exist in Varve;
-measure the actual supported pattern path before proposing a code change.
+crashed and produced a zero-byte PDF. Its two comments and linked reports were
+reviewed; the original sample and attachments have not been downloaded.
+Varve's print pipeline expands supported image tiles into PDF content and caps
+the estimated tile count, but does not implement SVG masks nested inside
+arbitrary SVG patterns. The reported workaround converts the pattern to an
+object, which can change paint order.
+
+Inkscape [#1018](https://gitlab.com/inkscape/inkscape/-/issues/1018) reports
+multi-gigabyte memory growth and a black canvas when zooming into image-based
+patterns. Its description attributes the growth to a Cairo-renderer pattern
+surface that scales with the zoomed pattern tile, even when only a small part
+of the tile is visible. The issue body includes a summary of four comments but
+those individual notes have not been retrieved. Varve's interactive renderer
+uses a decoded image tile with bounded repeated instances; it does not allocate
+a Cairo-style tile bitmap proportional to zoom. This is a related resource
+class, not evidence of the same renderer defect. The still-open Inkscape Inbox
+[#9599](https://gitlab.com/inkscape/inbox/-/issues/9599) reports 30–40 GB RAM
+use for high-resolution images used as patterns and remains linked evidence.
+
+Other Inkscape issues describe crashes for patterns on both fill and stroke
+([#4924](https://gitlab.com/inkscape/inkscape/-/work_items/4924)), a patterned
+fill that leaves an unreadable PDF ([#5539](https://gitlab.com/inkscape/inkscape/-/work_items/5539)),
+swatch `gradientTransform` export failures ([#5624](https://gitlab.com/inkscape/inkscape/-/work_items/5624)),
+and missing corner markers after the CapyPDF merge
+([#5696](https://gitlab.com/inkscape/inkscape/-/work_items/5696)). These are
+currently body-only reports; discussion retrieval has not reached them. Their
+specific Cairo/vector-marker failure paths are not implemented by Varve's PDF
+exporter. Varve expands supported raster image tiles directly and enforces a
+100,000-tile ceiling. A regression has been added to exercise that ceiling and
+check that omitting an over-budget pattern preserves neighboring solid artwork. An
+independent rendered-PDF check of alpha-tile appearance remains desirable.
+
+Additional discussion review found a useful split between transferable and
+product-specific failures:
+
+- [#86](https://gitlab.com/inkscape/inkscape/-/issues/86) reports clipped
+  pattern PDF OOM and missing output. A later user said it no longer reproduced
+  on current Inkscape master; no specific fix for this issue was confirmed.
+- [#155](https://gitlab.com/inkscape/inkscape/-/issues/155) reports filtered
+  artwork clipped at the page edge instead of extending into PDF bleed. Varve's
+  filtered-PDF and PDF/X-with-bleed path still needs a real output comparison.
+- [#252](https://gitlab.com/inkscape/inkscape/-/issues/252) reports masked
+  artwork reduced to low-resolution raster output. MR 5000 improves some mask
+  cases but explicitly does not resolve all mask-export fidelity. Varve also
+  rasterizes masks for PDF; a detailed fixture needs visual inspection.
+- [#4717](https://gitlab.com/inkscape/inkscape/-/issues/4717) reports a Cairo
+  crash for a large mixed image/vector SVG. Varve applies decoded-image and
+  raster-surface budgets, but the exact failure mechanism is not shared.
+- [#529](https://gitlab.com/inkscape/inkscape/-/issues/529) was a historical
+  filter export issue that the reporter confirmed fixed. [#112](https://gitlab.com/inkscape/inkscape/-/issues/112)
+  concerns saving a georeferenced PDF imported from QGIS, a geospatial round-trip
+  outside Varve's current print contract. [#481](https://gitlab.com/inkscape/inkscape/-/issues/481)
+  and [#1573](https://gitlab.com/inkscape/inkscape/-/issues/1573) duplicate the
+  filtered-clip failure in #203. [#328](https://gitlab.com/inkscape/inkscape/-/issues/328)
+  has conflicting reproduction reports and no stable mechanism.
+
+None of these source reports alone proves a Varve defect. The bleed and mask
+fidelity cases remain the clearest candidates for real PDF visual tests; the
+others map to existing bounds or to features Varve does not claim to support.
 
 These reports reinforce the need to test export completion, output validity,
 and visual content on complex documents. They do not justify claims of shared
 causes, and they do not currently justify marketing copy changes.
+
+## Existing protections: interrupted saves and oversized raster output
+
+Inkscape [#260](https://gitlab.com/inkscape/inkscape/-/issues/260) is an
+unconfirmed historical report that a crash during save could truncate the
+original file. Its sole user comment links an inbox request for atomic export.
+Varve's native filesystem bridge already writes a sibling temporary file,
+flushes it, then replaces the target; the existing regression
+`atomic_write_replaces_content_without_leaving_staging_files` covers the
+successful replacement path. This source report does not establish a Varve
+data-loss defect. Crash/power-loss injection and browser-download semantics
+remain separate validation questions, not claims covered by that unit test.
+
+Inkscape [#543](https://gitlab.com/inkscape/inkscape/-/issues/543) records a
+blank or corrupted PNG near Cairo's 32,767-pixel axis limit, with later reports
+of zero-byte exports and a proposed alert. Varve already bounds raster
+surfaces to 16,384 pixels per axis and 33,554,432 pixels per surface, fits
+oversized export requests while preserving aspect ratio, and displays a
+warning that names the requested and fitted dimensions. Existing
+`rasterSurface.test.ts` cases cover area and axis constraints; export tests
+assert the scale-down warning. This is a directly relevant failure class with
+an existing defensive behavior, not a new Varve defect. The 16K/32M policy is
+an application allocation budget, not a claim about the maximum size supported
+by every browser or image format.
+
+Neither finding currently requires a code or marketing change. Recheck the
+save and raster-export pathways against updated reports before closing their
+broader issue groups.
 
 ## Not directly transferable: relative image paths in extensions
 
