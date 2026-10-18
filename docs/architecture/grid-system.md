@@ -26,7 +26,7 @@ Auto-layout grid semantics are versioned independently from visual guide
 geometry. Missing or version-1 layout semantics keep the legacy track sizing;
 version 2 resolves intrinsic and spanning contributions before fractional tracks.
 See the [auto-layout contract](auto-layout-system.md#dependable-layout-contract-2026-10-15)
-and [ADR-0244](../adr/0244-dependable-layout-contract.md).
+and [ADR-0245](../adr/0245-dependable-layout-contract.md).
 
 ## Coordinate and state contract
 
