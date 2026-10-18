@@ -196,6 +196,17 @@ Inkscape’s canonical tracker.
     and #3596 empty export failure. These are test categories, not established
     Varve defects.
 
+28. Individually screened 375 available bodies in IID 6001–6392. Ten were
+    already screened (#6031, #6132, #6143, #6220, #6242, #6243, #6284,
+    #6298, #6323, #6380); seven issue bodies were unavailable (#6025, #6038,
+    #6039, #6172, #6203, #6215, #6232). No discussions or attachments were
+    reviewed. Combined with four additional body screens and the #1668 thread
+    read directly in the cache, the ledger now records 1,672 of 6,392 bodies
+    and 45 target discussion threads reviewed. Current candidates include
+    PDF mask/pattern fidelity, PDF links and non-ASCII URLs, viewBox scaling,
+    HSL serialization, turbulence seams, and raster edge bleed. They remain
+    unconfirmed Varve test categories.
+
 ## Validation checkpoint: 2026-10-18
 
 - Latest `pnpm verify:affected` selected `format:touched`, `lint:touched`,
