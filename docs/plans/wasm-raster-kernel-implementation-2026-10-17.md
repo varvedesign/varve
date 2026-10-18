@@ -133,10 +133,25 @@ observable to tests/diagnostics.
 - [ ] Rerun affected checks, create scoped reviewable commit, pass the required
   outgoing/full-gate checks, and complete remote PR/review/merge integration.
 
-### Validation status (2026-10-18)
+### Validation status (2026-10-18, resumed after timeout fix)
 
-- The latest `pnpm verify:plan` selected 41 lanes and reported no full-suite
-  escalation for the seven pending files.
+- The current `pnpm verify:plan` compares the complete four-commit branch
+  against `origin/master`: 20 files, affecting `@varve/website`, `@varve/editor`,
+  `@varve/engine`, `varve-effects`, and `varve-wasm`. It selects 55 lanes and
+  explicitly reports `FULL-SUITE ESCALATION: YES` for the cross-package
+  Rust/WASM contract. Run triage for the selected Tiers 0–4 closure, then
+  complete the exact-SHA full gate required by this escalation before merge.
+- The `pnpm verify:push --dry-run --since origin/master` checkpoint is ready
+  for four outgoing commits. It identifies local blocking lanes for the
+  affected JS/Rust packages, audits, Cargo formatting, website checks, and
+  model checks; hosted certification additionally covers the full workspace,
+  browser, visual, benchmark, and WASM lanes.
+- The existing three-theme screenshot captures show the WASM sample and the
+  unavailable-WASM CPU fallback with matching preview presentation in light,
+  dark, and high-contrast themes. They were captured before the cold-load
+  deadline correction. Re-run the browser case added with that correction and
+  inspect its fresh captures before treating the final timeout path as visually
+  verified.
 - The latest `pnpm verify:affected` passed touched format/lint, docs and emoji
   audits, the E2E TypeScript check, all affected package typechecks, and direct
   `wasmEffectsLoader` (2/2) and `wasmLoader` (6/6) tests.
@@ -189,3 +204,8 @@ observable to tests/diagnostics.
   affected editor package suite still owned the repository lease. It never
   started and did not interrupt or reclaim that suite; downstream tests and the
   timeout browser scenario remain outstanding.
+- A fresh read-only inspection confirmed that the unrelated editor-package
+  test lease (PID 696193, child Vitest PID 696564) is still active. Do not stop
+  or reclaim it. The ChatGPT Linux app (PID 3068) is also still active. The
+  timeout E2E, remaining affected closure, current planner's triage, exact-SHA
+  full gate, push/PR review, and merge are not yet complete.
