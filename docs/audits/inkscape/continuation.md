@@ -88,12 +88,31 @@ Inkscape’s canonical tracker.
    a canvas raster PDF fallback; no same-cause Varve failure is established.
 9. Screened #1739's body: a masked image inside an SVG pattern reportedly
    caused high memory use, missing fill, and a crash with a zero-byte PDF.
-   Its two comments and linked original sample remain pending. Varve has a
-   bounded tile-count path, but an equivalent nested-SVG-mask pipeline has not
-   been established.
-10. Current body-screening total is 11 of 6,392. The website review found no
+   Both comments and linked reports #1018 and Inbox #9599 were reviewed; the
+   original sample remains pending. Varve has a bounded tile-count path, but
+   an equivalent nested-SVG-mask pipeline has not been established.
+10. Body-screening total was 11 of 6,392 at this checkpoint. The website review found no
    PDF capability claim that these source reports justify changing; recheck
    after export validation.
+11. Reviewed #260 and #543. Varve already has atomic native file replacement
+    and a bounded raster-export policy with scale-down warnings. Their issue
+    groups need separate crash/power-loss and native UI visual verification;
+    neither currently proves a new Varve defect.
+12. Screened #86, #112, #155, #252, #328, #481, #529, #1573, #4717, #4924,
+    #5539, #5624 and #5696. Threads confirm several duplicate or historically
+    fixed Cairo failures, while filtered bleed and mask-resolution fidelity
+    remain candidates for real Varve PDF output checks. #1018 is queued as
+    related evidence; post-cutoff Inbox #9599 is tracked separately.
+13. Added a Rust regression for over-budget raster-pattern expansion. Source
+    review found tile pixels were converted and embedded before applying the
+    existing 100,000-instance cap; move the cap ahead of that allocation and
+    verify neighboring solid artwork remains in the PDF.
+14. Screened #1018's body. Its reported Cairo pattern surface scaled with zoom,
+    causing multi-gigabyte RAM use and a black canvas; individual notes remain
+    pending. Varve's pattern renderer uses decoded tiles and bounded instances,
+    without the same zoom-scaled Cairo surface path.
+15. Current body-screening total is 27 of 6,392. Discussion and linked-source
+    retrieval remain in progress.
 
 ## Next operation
 
