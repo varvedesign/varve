@@ -4372,8 +4372,19 @@ fn export_node_pdf(
         fonts: pdf_opts.fonts,
         ..Default::default()
     };
-    print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
+    print_opts.manifest = parse_pdf_export_manifest(manifest_json)?;
     varve_print::export_pdf(&scene, &print_opts)
+}
+
+fn parse_pdf_export_manifest(
+    manifest_json: Option<String>,
+) -> Result<Option<varve_print::resources::ExportManifest>, String> {
+    manifest_json
+        .map(|json| {
+            serde_json::from_str(&json)
+                .map_err(|error| format!("PDF image manifest parse error: {error}"))
+        })
+        .transpose()
 }
 
 // ── PDF/X and text outlining commands ────────────────────
@@ -4500,7 +4511,7 @@ fn export_pdfx1a(
     let opts: PdfXOptions = serde_json::from_str(&options_json)
         .map_err(|e| format!("Options JSON parse error: {e}"))?;
     let mut print_opts = opts.to_pdf_options(page_height);
-    print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
+    print_opts.manifest = parse_pdf_export_manifest(manifest_json)?;
     if let Some(geo) = opts.marks_geometry() {
         varve_print::cmyk::export_pdfx1a_with_marks(&scene, &print_opts, &geo)
     } else {
@@ -4520,7 +4531,7 @@ fn export_pdfx4(
     let opts: PdfXOptions = serde_json::from_str(&options_json)
         .map_err(|e| format!("Options JSON parse error: {e}"))?;
     let mut print_opts = opts.to_pdf_options(page_height);
-    print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
+    print_opts.manifest = parse_pdf_export_manifest(manifest_json)?;
     if let Some(geo) = opts.marks_geometry() {
         varve_print::cmyk::export_pdfx4_with_marks(&scene, &print_opts, &geo)
     } else {
@@ -4574,7 +4585,7 @@ fn export_pdf_with_options(
     let opts: PdfXOptions = serde_json::from_str(&options_json)
         .map_err(|e| format!("Options JSON parse error: {e}"))?;
     let mut print_opts = opts.to_pdf_options(page_height);
-    print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
+    print_opts.manifest = parse_pdf_export_manifest(manifest_json)?;
 
     match opts.format.as_str() {
         "x1a" | "pdf-x1a" => varve_print::cmyk::export_pdfx1a(&scene, &print_opts),
@@ -7721,6 +7732,24 @@ mod tests {
     fn export_node_pdf_rejects_oversized_scene() {
         let err = export_node_pdf(oversized_node_list(), None, None).unwrap_err();
         assert!(err.contains("limit"), "expected a limit error, got: {err}");
+    }
+
+    #[test]
+    fn export_node_pdf_rejects_invalid_image_manifest_instead_of_silently_dropping_it() {
+        let nodes: Vec<IpcSceneNode> = serde_json::from_value(serde_json::json!([{
+            "id": "rect",
+            "name": "Rect",
+            "transform": [1, 0, 0, 1, 0, 0],
+            "shape": { "kind": "rect", "x": 0, "y": 0, "w": 10, "h": 10 },
+            "fill": [0, 0, 0, 255]
+        }]))
+        .expect("valid scene node");
+
+        let err = export_node_pdf(nodes, None, Some("{".to_owned())).unwrap_err();
+        assert!(
+            err.contains("PDF image manifest parse error"),
+            "expected a manifest error instead of a successful PDF with placeholders, got: {err}"
+        );
     }
 
     #[test]
