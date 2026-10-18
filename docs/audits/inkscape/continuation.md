@@ -732,3 +732,19 @@ issue reviewed based only on its title, labels, or downloaded body.
     sources are absent; temporary aliases expose existing codegen formatting
     and typecheck failures. Aliases were removed. No files from the main
     checkout or the other session were changed.
+
+60. Completed the read-only Inkscape discussion sweep for IID 1601–1700.
+    The cache contains 95 threads and all 1,666 records were read (801 user
+    notes, 865 system/history notes); 92 threads were newly reviewed, bringing
+    the reviewed set to 914. Three threads were already reviewed (#1644,
+    #1668, #1676). Five zero-comment threads lack a cache (#1603, #1648,
+    #1654, #1664, #1670) and remain pending. Counts reconcile for cached
+    threads in the range. The findings record candidate leads and historical
+    caveats: autosave retention (#1649), print/PDF fidelity (#1613, #1668,
+    #1676), PDF hit regions/crash (#1631, #1632), complex-SVG performance
+    (#1673), style reorder churn (#1653), and zoom/pan performance (#1614).
+    These reports do not establish Varve defects; attachments and linked MRs
+    were not fetched independently. Next: inspect Varve behavior for #2069's
+    existing-file export conflicts using the reviewed architecture notes, then
+    continue source discussion coverage. The user correction is authoritative:
+    this task's source corpus and scope are Inkscape.

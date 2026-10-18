@@ -1612,3 +1612,46 @@ exposes equivalent workflows. The bodies are version- and platform-specific;
 their linked fixtures, discussions, and current upstream status remain
 unreviewed. See the continuation record for exact body coverage and remaining
 gaps.
+
+## Discussion sweep: IID 1601–1700 (2026-10-18)
+
+A read-only sweep reviewed every cached note body and history event for the 95
+threads with note caches in this range: 801 user notes and 865 system/history
+notes (1,666 records). Three cached threads (#1644, #1668, and #1676) were
+already marked reviewed; 92 additional issue discussions are now recorded in
+the ledger. The five zero-comment threads without a note cache (#1603, #1648,
+#1654, #1664, #1670) remain pending rather than being inferred reviewed.
+Cached comment counts reconciled for the reviewed range. Most reports are
+historical (2020–21); linked merge requests and attachments were not fetched
+independently in this sweep, and none of these reports establishes a Varve
+defect.
+
+The strongest follow-up candidates are:
+
+- **Autosave retention and document identity (#1649):** the title and thread
+  raise rotation/overwrite ordering and per-document collision questions.
+  Inspect Varve's recovery/autosave naming and retention behavior before
+  mapping; no current Varve failure has been established.
+- **Print/PDF fidelity (#1613, #1668, #1676):** reports cover clipped or
+  transformed content, raster-mask export, and landscape page orientation.
+  They reinforce checking output geometry and clipping across print routes;
+  #1676 was reported resolved upstream in 1.1.2, which does not prove Varve
+  shares or avoids the issue.
+- **PDF interaction and malformed input (#1631, #1632):** hyperlink hit-region
+  behavior and a null-page crash are candidate checks for Varve's PDF routes.
+  Their exact failure mechanisms and present upstream status need source/fixture
+  follow-up before prioritization.
+- **Large SVG interaction performance (#1673):** a long-running report was
+  updated in 2026 with a 1.5-dev/Fedora note. This supports a bounded
+  reproduction with a realistic complex SVG before any optimization; the
+  report alone does not identify Varve's hot path.
+- **SVG edit churn and navigation performance (#1653, #1614):** style
+  reordering was reported to create noisy VCS diffs, while zoom/pan reports
+  describe broad platform-specific performance concerns. Treat them as
+  candidate interoperability/performance checks, not proof of a Varve
+  regression.
+
+This sweep adds no confirmed Varve defect or implementation-ready change.
+Continue by inspecting the referenced issue bodies, attachments, linked MRs,
+and current Varve contracts for the strongest candidates, while the wider
+corpus remains in progress.
