@@ -315,8 +315,10 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
 }
 
 /// Publish a complete temporary file at a target only when that name is still
-/// free. A same-directory hard link is atomic and fails with AlreadyExists
-/// instead of replacing a file created after the caller's initial check.
+/// free. A same-directory hard link is atomic on filesystems that support it.
+/// Some removable filesystems do not support hard links, so those use a
+/// create-new write at the destination: it still refuses to replace a raced
+/// file, though the in-progress bytes can be visible until the write finishes.
 fn write_file_atomic_no_replace(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
     let Some(parent) = path.parent() else {
         return Err("Invalid path: no parent directory".to_string());
@@ -337,14 +339,19 @@ fn write_file_atomic_no_replace(path: &std::path::Path, data: &[u8]) -> Result<(
         file.sync_all()
             .map_err(|e| format!("Failed to flush temp file: {e}"))?;
         drop(file);
-        std::fs::hard_link(&tmp, path).map_err(|e| {
-            if e.kind() == std::io::ErrorKind::AlreadyExists {
-                "A destination file appeared during export; no existing file was replaced. Review the folder and retry"
-                    .into()
-            } else {
-                format!("Failed to publish export without replacing an existing file: {e}")
+        match std::fs::hard_link(&tmp, path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                return Err("A destination file appeared during export; no existing file was replaced. Review the folder and retry".into());
             }
-        })?;
+            Err(link_error) => {
+                write_file_no_replace(path, data).map_err(|write_error| {
+                    format!(
+                        "Failed to publish export without replacing an existing file (hard link: {link_error}; create-new fallback: {write_error})"
+                    )
+                })?;
+            }
+        }
         let _ = std::fs::remove_file(&tmp);
         Ok(())
     })();
@@ -357,6 +364,29 @@ fn write_file_atomic_no_replace(path: &std::path::Path, data: &[u8]) -> Result<(
         let _ = dir.sync_all();
     }
     Ok(())
+}
+
+/// Write directly to a name that must not already exist. This is the
+/// compatibility path for filesystems that reject hard links. `create_new`
+/// preserves the no-overwrite guarantee, but unlike the staged hard-link path
+/// it does not make the completed bytes appear atomically.
+fn write_file_no_replace(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::AlreadyExists {
+                "A destination file appeared during export; no existing file was replaced"
+                    .to_string()
+            } else {
+                format!("Could not create destination without replacing an existing file: {error}")
+            }
+        })?;
+    file.write_all(data)
+        .map_err(|error| format!("Could not finish writing the destination file; partial output may remain: {error}"))?;
+    file.sync_all()
+        .map_err(|error| format!("Could not flush the destination file; partial output may remain: {error}"))
 }
 
 /// Reserve a unique sibling directory for an entire deliverable group. Keeping
@@ -577,7 +607,9 @@ fn write_binary_file_to_folder(
         Err(error) => Ok(FolderExportResult {
             relative_path,
             status: "failed",
-            path: None,
+            path: error
+                .contains("partial output may remain")
+                .then(|| filesystem::display_path(&target)),
             error: Some(error),
         }),
     }
@@ -7863,6 +7895,22 @@ mod tests {
             .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
             .count();
         assert_eq!(leftovers, 0);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn create_new_export_fallback_writes_and_preserves_existing_destination() {
+        let dir = std::env::temp_dir().join(format!("varve_create_new_export_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("output.svg");
+
+        write_file_no_replace(&target, b"first output").expect("create-new export succeeds");
+        assert_eq!(std::fs::read(&target).expect("read output"), b"first output");
+
+        let error = write_file_no_replace(&target, b"replacement")
+            .expect_err("create-new export must refuse an existing destination");
+        assert!(error.contains("no existing file was replaced"));
+        assert_eq!(std::fs::read(&target).expect("read original"), b"first output");
         let _ = std::fs::remove_dir_all(dir);
     }
 

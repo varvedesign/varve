@@ -143,16 +143,17 @@ retry to land in the next `Exports N` folder, preserving the old partial group
 and avoiding an overwrite; the user can reveal the prior output to inspect or
 remove it.
 
-Keep-both publication uses a same-directory temporary file and an atomic
-hard-link that refuses to replace a name claimed after the initial check. If a
-destination changes during the write, that output is reported failed rather
-than overwritten. Individual files are atomic; a disk or permission failure
-can still leave a multi-file group partially written, which the report
-identifies per output. Browser ZIP export retains its separate archive-entry
-deduplication behavior and does not expose native folder conflict choices.
-File systems that disallow hard links can reject `Keep both` even when the
-target name is free; the failed output includes the operating-system error so
-the user can choose another destination or use `Replace` when that is safe.
+Keep-both publication stages each file and atomically hard-links it into place
+when the destination file system supports hard links. On file systems that
+reject hard links, it falls back to a create-new write: that still refuses to
+replace a name claimed after planning, though the destination can be visible
+while its bytes are being written. Individual writes do not replace an
+existing file; a disk or permission failure can still leave a multi-file group
+partially written, which the report identifies per output. If a create-new
+fallback fails after creating its destination, the failed result includes the
+destination path because partial bytes may remain. Browser ZIP export
+retains its separate archive-entry deduplication behavior and does not expose
+native folder conflict choices.
 
 The export dialog shows resolved pixel dimensions before execution. Its
 temporary “Override raster outputs” control applies one PPI to the selected

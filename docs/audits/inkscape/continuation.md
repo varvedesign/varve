@@ -1147,12 +1147,15 @@ its title, labels, or downloaded body.
 
 ## Current execution checkpoint — 2026-10-18, resumed
 
-- Current branch is `feat/inkscape-corpus`, HEAD `d16362b1f`; the SVG importer
+- Current branch is `feat/inkscape-corpus`, HEAD `b5009d496`; the SVG importer
   increment is committed as `Improve SVG import fidelity and scaling`. Its
   required commit checkpoint passed (including 86 focused importer tests).
   `c89420aba` now commits the font/status-bar workflow and browser regressions;
-  its checkpoint passed (E2E typecheck and 77 focused unit tests). Desktop
-  export and marketing-site increments remain uncommitted. Continue excluding
+  its checkpoint passed (E2E typecheck and 77 focused unit tests). `b5009d496`
+  commits the marketing documentation and responsive website E2E; its required
+  docs/safety checkpoint passed. A targeted native create-new export fallback
+  regression passed (1 test; 142 filtered out), and the desktop export/docs
+  increment is ready for its own commit. Continue excluding
   unrelated `tests/e2e/export/native-pdf-contract.spec.ts`,
   `packages/codegen/src/bundle-assets.ts`, and `packages/scene/src/nodeResize.ts`
   from task commits. Do not close the ChatGPT app or interrupt other worktree
