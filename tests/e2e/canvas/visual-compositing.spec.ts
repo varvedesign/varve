@@ -11,6 +11,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { dropImageOnCanvas } from '../helpers/editor-helpers';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToCleanEditor } from '../helpers/nav';
 import { dragOnCanvas } from '../shared';
 
@@ -573,7 +574,7 @@ test.describe('full-editor visual compositing', () => {
     const childEditedCachedHash = await canvasPixelHash(page);
     expect(childEditedCachedHash).not.toBe(editedCachedHash);
     const childEditedCachedCapture = await contentCanvas.screenshot({
-      path: 'docs/screenshots/dependency-aware-composition/poster-grouped-child-cached.png',
+      path: evidencePath('dependency-aware-composition/poster-grouped-child-cached.png'),
     });
     await testInfo.attach('poster-cache-enabled-after-grouped-child-edit', {
       body: childEditedCachedCapture,
@@ -591,7 +592,7 @@ test.describe('full-editor visual compositing', () => {
     await forceAuthoritativeCanvasFrame(page);
     const childEditedBypassedHash = await canvasPixelHash(page);
     const childEditedBypassedCapture = await contentCanvas.screenshot({
-      path: 'docs/screenshots/dependency-aware-composition/poster-grouped-child-bypassed.png',
+      path: evidencePath('dependency-aware-composition/poster-grouped-child-bypassed.png'),
     });
     await testInfo.attach('poster-cache-bypassed-after-grouped-child-edit', {
       body: childEditedBypassedCapture,

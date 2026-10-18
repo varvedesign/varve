@@ -1,5 +1,5 @@
-import { mkdirSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { navigateToEditor } from '../shared';
 
 /**
@@ -18,14 +18,7 @@ import { navigateToEditor } from '../shared';
  * ink assertions only guard that the canvas actually painted.
  */
 test.describe('vertical text orientation and tate-chu-yoko', () => {
-  const screenshotDir = 'docs/screenshots/vertical-text';
-  test.beforeAll(() => {
-    mkdirSync(screenshotDir, { recursive: true });
-  });
-
-  test('vertical-rl mixed orientation rotates ASCII punctuation and digits', async ({
-    page,
-  }, testInfo) => {
+  test('vertical-rl mixed orientation rotates ASCII punctuation and digits', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await navigateToEditor(page);
 
@@ -50,11 +43,9 @@ test.describe('vertical text orientation and tate-chu-yoko', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
     await page.waitForTimeout(500);
 
-    const shot = testInfo.outputPath('vertical-orientation-mixed.png');
+    const shot = evidencePath('vertical-text/vertical-orientation-mixed.png');
     await canvas.screenshot({ path: shot });
-    await page.screenshot({
-      path: `docs/screenshots/vertical-text/vertical-orientation-mixed.png`,
-    });
+    await page.screenshot({ path: shot });
 
     const inkPixels = await canvas.evaluate((element) => {
       const target = element as HTMLCanvasElement;
@@ -70,7 +61,7 @@ test.describe('vertical text orientation and tate-chu-yoko', () => {
     expect(inkPixels).toBeGreaterThan(100);
   });
 
-  test('combine toggle lays a digit pair into one horizontal cell', async ({ page }, testInfo) => {
+  test('combine toggle lays a digit pair into one horizontal cell', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await navigateToEditor(page);
 
@@ -90,9 +81,9 @@ test.describe('vertical text orientation and tate-chu-yoko', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
     await page.waitForTimeout(400);
 
-    const beforeShot = testInfo.outputPath('tate-chuyoko-before.png');
+    const beforeShot = evidencePath('vertical-text/tate-chuyoko-before.png');
     await canvas.screenshot({ path: beforeShot });
-    await page.screenshot({ path: 'docs/screenshots/vertical-text/tate-chuyoko-before.png' });
+    await page.screenshot({ path: beforeShot });
 
     // Select "12" inside the rich span editor: enable rich text, then build
     // a DOM Range over the pair inside the contenteditable run so the
@@ -103,7 +94,7 @@ test.describe('vertical text orientation and tate-chu-yoko', () => {
     await expect(runSpan).toBeVisible({ timeout: 5000 });
     await page.evaluate(() => {
       const span = document.querySelector<HTMLElement>('.rich-span-editor__run');
-      if (!span || !span.firstChild) throw new Error('rich span editor has no run text');
+      if (!span?.firstChild) throw new Error('rich span editor has no run text');
       const text = span.textContent ?? '';
       const start = text.indexOf('12');
       if (start < 0) throw new Error(`no digit pair in run text: ${text}`);
@@ -127,9 +118,9 @@ test.describe('vertical text orientation and tate-chu-yoko', () => {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
 
-    const afterShot = testInfo.outputPath('tate-chuyoko-after.png');
+    const afterShot = evidencePath('vertical-text/tate-chuyoko-after.png');
     await canvas.screenshot({ path: afterShot });
-    await page.screenshot({ path: 'docs/screenshots/vertical-text/tate-chuyoko-after.png' });
+    await page.screenshot({ path: afterShot });
 
     const inkPixels = await canvas.evaluate((element) => {
       const target = element as HTMLCanvasElement;
