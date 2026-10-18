@@ -128,6 +128,41 @@ reports suggest test categories only:
   feature-specific behavior require an exact equivalent before prioritizing
   implementation work.
 
+## Screening update: issues #5791–6000
+
+One hundred ninety-eight available, nonempty descriptions were read in this
+range. Eleven previously screened bodies were excluded and #5956 has no body.
+No issue discussions or linked attachments were reviewed; the following are
+body-only examples that may inform focused tests:
+
+- [#5988](https://gitlab.com/inkscape/inkscape/-/issues/5988) reports
+  ungrouping thousands of objects freezing all windows for 5–10 minutes at
+  full CPU use. The issue body references a sample and Sysprof profile, neither
+  of which was opened. This supports measuring large-tree operations with a
+  bounded, generated document rather than assuming Varve shares the same cost.
+- [#5989](https://gitlab.com/inkscape/inkscape/-/issues/5989) reports Cmd+C/V
+  in toolbar numeric fields routing to the drawing on macOS. This is a
+  focus/shortcut integration case; the environment-specific report was not
+  reproduced.
+- [#5991](https://gitlab.com/inkscape/inkscape/-/issues/5991) reports a crash
+  loading an older SVG with Rotate Copies LPE. [#5995](https://gitlab.com/inkscape/inkscape/-/issues/5995)
+  reports selection or spraying crashing in nearest-time hit testing for
+  scaled ellipses. Their source files and histories were not reviewed; they
+  suggest load-time effect migration and degenerate/curved hit-test coverage.
+- [#5999](https://gitlab.com/inkscape/inkscape/-/issues/5999) reports the same
+  SVG importing with incorrect fills while opening it directly works, on
+  macOS 26. This is a useful distinction between document-open and import
+  paths, though the unusually specific environment needs confirmation.
+- [#5982](https://gitlab.com/inkscape/inkscape/-/issues/5982) reports
+  self-dropping a group in the Objects panel crashing in `fillBetweenMany` /
+  `toLayer`; #5814 describes a similar failure class. These are explicit
+  invalid-reparenting guards to test where Varve exposes drag-and-drop tree
+  operations.
+- [#5948](https://gitlab.com/inkscape/inkscape/-/issues/5948) reports a
+  regression in creating a gradient fading to transparency. The cause/fix
+  history remains pending, so it should be compared against the intended
+  gradient defaults before treating it as a product gap.
+
 ## Candidate: large raster save memory
 
 Inkscape [#6398](https://gitlab.com/inkscape/inkscape/-/issues/6398) reports
