@@ -15,20 +15,20 @@
   "description_characters": 13080370,
   "reported_notes_total": 32692,
   "issues_with_reported_notes": 5669,
-  "retrieved_notes": 27863,
+  "retrieved_notes": 28805,
   "coverage": {
     "body_screening": "44 of 6392 bodies screened",
-    "discussion_review": "17 target threads reviewed; retrieval in progress: 12235 of 32692 non-system comments",
+    "discussion_review": "17 target threads reviewed; retrieval in progress: 12748 of 32692 non-system comments",
     "linked_evidence_review": "pending",
     "varve_mapping": "pending",
     "engineering_disposition": "pending",
     "visual_validation": "pending"
   },
   "ledger_rows": 6392,
-  "retrieved_user_notes": 12235,
-  "retrieved_issue_discussions": 1931,
-  "discussion_snapshot_at_utc": "2026-10-18T13:11:45Z",
-  "discussion_review_status": "17 target threads content-reviewed; retrieval in progress: 12235 of 32692 non-system comments",
+  "retrieved_user_notes": 12748,
+  "retrieved_issue_discussions": 1994,
+  "discussion_snapshot_at_utc": "2026-10-18T13:12:24Z",
+  "discussion_review_status": "17 target threads content-reviewed; retrieval in progress: 12748 of 32692 non-system comments",
   "body_screening_counts": {
     "pending": 6348,
     "reviewed": 44

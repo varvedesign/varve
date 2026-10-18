@@ -155,6 +155,13 @@ Inkscape’s canonical tracker.
     Varve feature.
 21. Current body-screening total is 44 of 6,392. No new Varve defect is
     established by these body-only reports.
+22. Reviewed the complete cached discussions for #670, #685, #694, #712, and
+    #721. #685 was fixed upstream in MR !1299; #694 received a partial
+    transform/mask fix in MR !5000; #712 is duplicate evidence for #252/#694.
+    #670 traces to Cairo banded raster output; #721 is version-dependent
+    background-filter behavior. Linked attachments remain uninspected. The live
+    note-fetch snapshot at 2026-10-18T13:12:24Z had 12,748/32,692 user notes
+    across 1,994 threads; content review is much narrower.
 
 ## Validation checkpoint: 2026-10-18
 
@@ -174,8 +181,8 @@ Inkscape’s canonical tracker.
   `typecheck:e2e` failure. Do not reclaim the active lease.
 - `node scripts/quality/heavy-lease.mjs 'Inkscape PDF pattern export regressions' -- cargo test --manifest-path crates/varve-print/Cargo.toml pattern` passed: 12 tests, including alpha embedding, PDF/X behavior, and the new tile-cap sibling-preservation regression.
 - A fresh lease-wrapped run of `export_pdf_caps_pattern_tile_expansion_without_dropping_neighbor_content` passed (1 test); its generated PDF was rendered with `pdftoppm` and visually inspected. The PDF and PNG were written under `/tmp`, not the repository.
-- Read-only review of the committed code diff and pending E2E test found no
-  actionable defects. The UI regression remains staged but uncommitted because
+- Read-only review of the feature diff and pending E2E test found no
+  actionable defects. The UI regression remains unstaged and uncommitted because
   the repository's commit hook requires `typecheck:e2e`, which fails on the
   pre-existing missing `nodeResize` module in committed `master`.
 - `cargo fmt --manifest-path crates/varve-print/Cargo.toml -- --check` reports
@@ -196,8 +203,6 @@ Inkscape’s canonical tracker.
 ## Next operation
 
 Continue reconciling all 32,692 reported non-system comments, then screen the
-remaining bodies and discussions for high-impact candidate failure classes. Keep system notes for
-linked events and state history. Do not mark an issue reviewed based only on
-its title, labels, or downloaded body.
-
-22. Reviewed the complete cached discussions for #670, #685, #694, #712, and #721. #685 was fixed upstream in MR !1299; #694 received a partial transform/mask fix in MR !5000; #712 is duplicate evidence for #252/#694. #670 traces to Cairo banded raster output; #721 is version-dependent background-filter behavior. Linked attachments remain uninspected. The live note-fetch snapshot at 2026-10-18T13:11:45Z had 12,235/32,692 user notes across 1,931 threads; content review is much narrower.
+remaining bodies and discussions for high-impact candidate failure classes. Keep
+system notes for linked events and state history. Do not mark an issue reviewed
+based only on its title, labels, or downloaded body.

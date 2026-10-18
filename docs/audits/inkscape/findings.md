@@ -477,6 +477,6 @@ candidates:
 The linked SVG/PDF attachments have not been downloaded or executed. These
 thread outcomes refine the source claims; they do not establish matching Varve
 defects. The discussion downloader is still running. Its latest durable
-snapshot at `2026-10-18T13:11:45Z` had retrieved 12,235 of 32,692 reported
+snapshot at `2026-10-18T13:12:24Z` had retrieved 12,748 of 32,692 reported
 non-system comments across 1,931 issue threads. Retrieval coverage is not
 content-review coverage.
