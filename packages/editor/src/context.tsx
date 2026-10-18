@@ -391,6 +391,7 @@ import {
   toCamera,
 } from './canvas/cameraState';
 import {
+  canPreserveClipboardWorldPose,
   clipboardRichTextWarning,
   orderClipboardRoots,
   parseClipboardRichText,
@@ -8498,6 +8499,7 @@ export function EditorProvider({
           closure.fontManifest,
           frameGuideLayouts,
           closure.patternDefinitions,
+          snapshot.workspaceMode === 'print' ? snapshot.document.activePageId : undefined,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -8573,6 +8575,7 @@ export function EditorProvider({
           closure.fontManifest,
           frameGuideLayouts,
           closure.patternDefinitions,
+          snapshot.workspaceMode === 'print' ? sourceDocument.activePageId : undefined,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -8767,11 +8770,18 @@ export function EditorProvider({
 
         const preserveWorldPose =
           varveData !== null &&
-          varveData.sourceDocumentId === invocation.document.id &&
-          targetFrameId === null &&
-          preparedItems.every((item) => {
-            const anchors = item.worldAnchors;
-            return anchors ? item.rootIds.every((id) => isFiniteAffine(anchors[id])) : true;
+          canPreserveClipboardWorldPose({
+            sourceDocumentId: varveData.sourceDocumentId,
+            targetDocumentId: invocation.document.id,
+            sourcePageId: varveData.sourcePageId,
+            targetPageId:
+              invocation.workspaceMode === 'print' ? invocation.document.activePageId : undefined,
+            targetIsPublishingPage: isPublishingPageSurface(
+              invocation.document,
+              invocation.workspaceMode,
+            ),
+            targetFrameSelected: targetFrameId !== null,
+            items: preparedItems,
           });
         const committedPasteIds = commitPreparedFragment({
           route: 'paste',
