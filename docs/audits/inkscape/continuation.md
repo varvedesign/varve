@@ -631,23 +631,89 @@ Inkscape’s canonical tracker.
     A read-only code review of the #5939 SVG drop-shadow importer found no
     actionable code findings. The reviewer also confirmed that parser and
     validation tests cover the supported subset and unsupported cases, while
-    the real-editor rendering remains unverified until the queued E2E runs.
+    the real-editor rendering remains unverified because the E2E lease wait
+    expired before browser launch.
     The current `pnpm verify:plan` selects 22 lanes with no full-suite
     escalation. `pnpm verify:affected` passed touched format, lint, and emoji,
     then failed at the same 10 pre-existing radius-audit declarations in
     Presentation and SpecPanel CSS; later lanes were not run. The direct docs
     audit passed (1,169 docs, 867 links, 182 ADRs). `git diff --check HEAD`
-    passed. The visual E2E is still queued in lease session 53853 behind
-    another session's live editor Vitest PID 696193. The website server,
-    other sessions, and ChatGPT Linux app remain open; no process was stopped.
+    passed. The visual E2E lease session 53853 expired after 1,800 seconds
+    waiting behind another session's editor Vitest PID 696193; Chromium never
+    launched. Research and ledger updates were committed as `e6dba8c69`; the
+    #5939 importer code and application docs remain staged/unstaged for their
+    own verified change. The website server, other sessions, and ChatGPT Linux
+    app remain open; no process was stopped.
+
+    After the optional-effects null guard, the final read-only code review
+    reported no new findings. `pnpm typecheck:e2e` and
+    `pnpm --filter @varve/import typecheck` passed with a temporary symlink to
+    the existing main-checkout `nodeResize.ts`; the symlink was removed after
+    typechecking and restored only for the queued importer Vitest run. The
+    first import typecheck caught the optional `SceneNode.effects` access and
+    failed; the code now defaults missing effects to an empty array. A fresh
+    `pnpm verify:plan` still selects 22 lanes with no full-suite escalation.
+    The latest `pnpm verify:affected` passes touched format/lint and emoji,
+    then fails on the same unrelated radius-audit declarations; no downstream
+    lanes execute. Focused importer Vitest is queued behind PID 696193 with a
+    one-hour lease timeout.
+
+    A staged code-commit attempt ran the repository's normal commit checkpoint;
+    Biome, emoji, health, impact-config, E2E-interaction, secret, contacts,
+    docs, import-boundary checks passed, then its `typecheck:e2e` command hit
+    the hook's 120-second timeout while shared Vitest workers were active
+    (about 3,083 MiB available at launch). The hook correctly blocked the
+    commit; it was not bypassed. Retry after shared test load clears.
 
 ## Next operation
 
-Continue with real-app visual validation for the SVG importer, then implement
-the Inkscape #2069 desktop batch conflict choice and validate overwrite/skip/
-keep-both behavior before taking on the #5960 variable-font PDF candidate.
-Continue recursive linked-evidence and discussion review in parallel with
-implementation; keep research coverage separate from engineering status.
+Implement and validate the Inkscape #2069 desktop export collision choice, then
+investigate #1551 sequential export state and #5960 variable-font PDF fidelity.
+Continue linked-evidence and cached discussion review while keeping research
+coverage separate from engineering status. #5939 visual validation is complete
+for the Chromium TypeScript-renderer path; native Tauri remains unverified.
 Reconcile all 32,692 reported non-system comments before claiming broad discussion
 coverage. Keep system notes for linked events and state history. Do not mark an
 issue reviewed based only on its title, labels, or downloaded body.
+
+57. A fresh visual E2E attempt acquired the heavy-test lease and started
+    Chromium, but global setup timed out waiting for the editor's New button;
+    therefore the import path and screenshots were not reached. Vite's startup
+    log reported unresolved `./bundle-assets` imports from the main checkout's
+    untracked codegen source, in addition to the pre-existing scene export
+    bridge. Added a second temporary resolver for that main-checkout source
+    and queued a retry through the same lease. It is waiting behind another
+    session's three-import E2E run (PID 957377); no process was stopped. The
+    website server and ChatGPT Linux app remain open.
+
+
+58. The #5939 real-editor Playwright flow now passes (1 test) after three test
+    harness corrections: the Import Results dialog has two Close controls,
+    Escape while the Inspector owns focus does not deselect the canvas object,
+    and the Zoom label is shared with the Zoom tool. The test focuses the canvas
+    before Escape, asserts the selection dimension overlay is gone, and sets the
+    zoom through `#status-zoom`. The final run captured and visually inspected
+    the import report, editable Layer Effects panel, and full-window desktop
+    light (1280x720), mobile light (390x844), and mobile dark (390x844) states.
+    The shadow is visible and centered in all artwork screenshots without
+    clipping; the app layout remains legible at both widths. WASM did not load,
+    so the browser used the TypeScript fallback renderer; native Tauri rendering
+    is still unverified. Vite emitted only its expected WASM fallback warning.
+
+    `pnpm verify:plan` selected 37 lanes and no full-suite escalation.
+    `pnpm verify:affected` passed touched format/lint, emoji/docs audits, and
+    `typecheck:e2e`, then failed in the `@varve/desktop` TypeScript lane. A
+    temporary symlink to the main checkout's untracked `bundle-assets.ts`
+    removed the three missing-module diagnostics and the dependent implicit-any
+    diagnostic; the only remaining error is the unchanged cast at
+    `packages/editor/src/collab/CollabSurfaces.tsx:450` (readonly `Affine`
+    assigned to mutable `number[]`). This file is outside the task diff; no later
+    affected lanes ran. No full suite was selected.
+
+    The 1501-1600 discussion sweep reviewed 578 user comments across 85 cached
+    threads (1,305 total records); 81 newly reviewed threads were added to the
+    ledger, with 14 no-comment threads still pending and #1503 absent. Strong
+    follow-up leads are #1551 sequential export state leakage, #1523 bounded
+    pattern/PDF memory, #1526 mask-transform fidelity, and #1584 opacity print
+    boundaries. Findings preserve the historical-version and reproduction
+    caveats. The website page and app remain open; no other process was stopped.

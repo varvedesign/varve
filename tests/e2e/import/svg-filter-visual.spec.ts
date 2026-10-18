@@ -38,7 +38,7 @@ test('imports an editable Inkscape-style SVG drop shadow through the editor UI',
   await page.screenshot({ path: testInfo.outputPath('inkscape-svg-import-report.png') });
 
   await report.getByRole('button', { name: 'Reveal selection' }).click();
-  await report.getByRole('button', { name: 'Close' }).click();
+  await report.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.getByRole('treeitem', { name: 'shadow-card' })).toBeVisible();
   const effects = page.locator('.insp-disclosure').filter({ hasText: 'Layer Effects' });
   await effects.scrollIntoViewIfNeeded();
@@ -48,25 +48,28 @@ test('imports an editable Inkscape-style SVG drop shadow through the editor UI',
     effects.locator('.insp-effect-row').filter({ hasText: 'Drop Shadow' }),
   ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('inkscape-svg-drop-shadow-editable.png') });
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(500);
   const canvas = page.locator('canvas.editor-canvas__content-layer');
-  await canvas.screenshot({
+  await canvas.focus();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.selection-overlay__dim')).toHaveCount(0);
+  const zoom = page.locator('#status-zoom');
+  await zoom.fill('100');
+  await zoom.press('Enter');
+  await page.waitForTimeout(500);
+  await page.screenshot({
     path: testInfo.outputPath('inkscape-svg-drop-shadow-desktop-light.png'),
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await zoom.fill('100');
+  await zoom.press('Enter');
   await page.waitForTimeout(250);
-  await canvas.screenshot({
-    path: testInfo.outputPath('inkscape-svg-drop-shadow-mobile-light.png'),
-  });
+  await page.screenshot({ path: testInfo.outputPath('inkscape-svg-drop-shadow-mobile-light.png') });
 
   await page.evaluate(() => {
     localStorage.setItem('varve-theme', 'dark');
     document.documentElement.dataset.theme = 'dark';
   });
   await page.waitForTimeout(250);
-  await canvas.screenshot({
-    path: testInfo.outputPath('inkscape-svg-drop-shadow-mobile-dark.png'),
-  });
+  await page.screenshot({ path: testInfo.outputPath('inkscape-svg-drop-shadow-mobile-dark.png') });
 });

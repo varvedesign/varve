@@ -296,6 +296,69 @@ These discussion notes were read from the cached source; attachments and cited
 merge requests were not independently opened. They are competitor failure
 patterns and test ideas, not evidence that Varve has the same defects.
 
+## Discussion sweep leads: #1501–1600
+
+The cached review covered 85 threads with reported user comments: all 578
+reported comments were present and read, alongside 727 system/history notes
+(1,305 records total). Four threads were already reviewed; 81 additional
+threads are now recorded in the ledger. Fourteen issues had no reported user
+comments and remain pending review of any cached history events. Issue #1503
+is missing from the ledger and cache. Notes were retrieved October 18, 2026.
+The attachments and linked issues below were not independently opened.
+
+- [#1523](https://gitlab.com/inkscape/inkscape/-/issues/1523) reports
+  patterned SVGs printing blank fills or white seams on Windows. Users later
+  reported an original file consuming about 30 GB before crashing; the thread
+  links this to [#1018](https://gitlab.com/inkscape/inkscape/-/issues/1018),
+  where zoom-scaled Cairo pattern allocation was discussed, and also mentions
+  [#1491](https://gitlab.com/inkscape/inkscape/-/issues/1491). This is a
+  bounded PDF/export-memory and pattern-seam regression case for Varve, not
+  evidence of the same Cairo failure.
+- [#1524](https://gitlab.com/inkscape/inkscape/-/issues/1524) reports Windows
+  print memory spikes across older releases. Reproductions conflict: one
+  reduced case with two paths still used substantial memory, while another
+  user could not reproduce with a reduced file. A maintainer attributed the
+  issue to the Cairo/Win32 backend. Preserve the resource-boundary test idea,
+  while treating the historical trigger as uncertain.
+- [#1526](https://gitlab.com/inkscape/inkscape/-/issues/1526) reports clipped,
+  transformed, bitmap-masked hatching disappearing or becoming gradients in
+  SVG/PDF export; reimport also produced deeply nested clip/mask groups. The
+  discussion offers a mask/filter transform fidelity case and supports clear
+  unsupported-feature reporting. It does not establish current Varve behavior
+  or an upstream fix; [#694](https://gitlab.com/inkscape/inkscape/-/issues/694)
+  is linked history.
+- [#1551](https://gitlab.com/inkscape/inkscape/-/issues/1551) reports export
+  mode leaking between sequential export-page and export-drawing commands in
+  Inkscape 1.2-dev. The discussion identifies stale page-export state after a
+  document closes. This maps to Varve's multi-export/session state isolation;
+  reproduce the sequence before changing code.
+- [#1573](https://gitlab.com/inkscape/inkscape/-/issues/1573) is a duplicate
+  of [#203](https://gitlab.com/inkscape/inkscape/-/issues/203), a historical
+  crash with clipped image filters. The earlier finding recorded a fix for a
+  minimal case but no verification against the larger document; keep that
+  linked-document coverage open.
+- [#1584](https://gitlab.com/inkscape/inkscape/-/issues/1584) reports an
+  object at opacity 0.999 disappearing from a Windows print path while nearby
+  opacity values print. The workaround was a PDF save, not direct print.
+  Include opacity boundary values in print parity checks if the Varve path is
+  reproduced.
+- [#1589](https://gitlab.com/inkscape/inkscape/-/issues/1589) documents that
+  Inkscape's RGB16 export expanded 8-bit values rather than preserving source
+  precision, with later comments describing use for height maps. Verify output
+  bit depth and actual channel data before claiming precision; an 8-bit screen
+  preview cannot establish this.
+- [#1569](https://gitlab.com/inkscape/inkscape/-/issues/1569) concerns
+  Inkscape-specific object labels omitted from plain SVG. Users disagreed on
+  whether that was data loss because plain SVG does not define those labels.
+  The UX lesson is to explain format-specific losses at export time without
+  adding noisy warnings for every proprietary attribute. [#1553](https://gitlab.com/inkscape/inkscape/-/issues/1553)
+  is a duplicate report about a Cancel control that did not stop an extension.
+
+These are reported Inkscape behaviors from historical versions, not verified
+Varve defects. The strongest current-work leads are #2069's desktop export
+collision choice, the sequential export-state case in #1551, and targeted
+memory/output checks for #1523 and #1524.
+
 ## Persistence and batch export follow-up: #2229, #2378, and #2069
 
 The older reports produce different implementation decisions. Inkscape #2229
