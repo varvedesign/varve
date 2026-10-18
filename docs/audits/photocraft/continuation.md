@@ -338,3 +338,44 @@ workflows are the exact-SHA follow-up.
 VARVE_E2E_PORT=1527 node scripts/quality/heavy-lease.mjs "e2e: buffered text save and close" -- \
   bash -lc 'TMPDIR=/home/kevina/.cache/varve-photocraft-tmp npx playwright test tests/e2e/save/text-draft-save.spec.ts --project=chromium --workers=1 --reporter=list'
 ```
+
+## 2026-10-18: direct text-session handoff follow-up
+
+The first post-merge run of `tests/e2e/save/text-target-switch.spec.ts` exposed
+that clicking another text node while the Text tool was active created an
+empty layer instead of transferring the inline session. The Text tool now
+receives the overlay's active target and, only during an active text session,
+switches to a hit text node; ordinary Text-tool clicks on existing artwork
+still create point text, preserving the nearby-placement behavior users expect.
+Before handing off, it drains buffered input and closes any open text-creation
+transaction so the previous draft is durable in its own history step. The
+focused TextTool regression covers the handoff ordering and both click modes.
+The browser spec checks the second node's active editor, verifies the first
+buffered value after switching back, and confirms undo through the inspector's
+Text content field.
+
+The TextTool suite passed 7/7, editor and E2E typechecks passed, and changed
+TypeScript files passed Biome. The focused Chromium E2E passed after the
+final test update (1 test, including the buffered save, direct target handoff,
+undo, and inspector value assertion). Its post-switch screenshot was inspected
+at `/tmp/varve-photocraft-text-switch-visual-final-2026-10-18/save-text-target-switch-sw-5e2cc-ed-draft-and-preserves-undo-chromium/text-target-switch.png`;
+both text objects render with the expected content. `audit:docs` passed
+(1,162 docs, 833 links, 182 ADRs), `audit:emoji` passed, and `audit:tokens`
+passed all 324 pairs in three themes. `pnpm verify:affected` still stops in
+Tier 0 on the untracked `packages/codegen/src/bundle-assets.ts` formatter
+difference owned by concurrent work; neither it nor the other concurrent
+untracked `packages/scene/src/nodeResize.ts` was modified. The required
+architecture audit for the `CanvasArea` tool-context field was started, but
+its completion result was not captured while another worktree ran the same
+long audit; rerun it when that shared CPU-heavy audit finishes.
+
+Exact-SHA CI for master commit `0245c169aae97f10d5a88c32ffd201a317cf8d7c`
+passed. Website Deploy run `39136030071` for `daa308d1` failed four browser
+cases: one install-guidance assertion still prohibited the PKGBUILD guidance
+the page now correctly contains, and three visual captures used stale download
+page baselines. The failed-run screenshots were inspected; the current source
+baselines differ from the CI actual screenshots by 0.0053% (dark download)
+and 1.1241% (Linux guidance), both within the visual test's 2% threshold. The
+integration candidate now carries the corrected current-brand/release-date
+assertions and those two updated baselines; its next exact-SHA Website Deploy
+run is the final gate for this repair.
