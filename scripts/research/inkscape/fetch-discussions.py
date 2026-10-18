@@ -13,6 +13,7 @@ from pathlib import Path
 
 ENDPOINT = "https://gitlab.com/api/graphql"
 PROJECT = "inkscape/inkscape"
+DEFAULT_CACHE = Path.home() / ".cache" / "varve" / "inkscape-corpus-2026-10-17" / "notes"
 BATCH_SIZE = 7  # Eight aliases can exceed GitLab's public query complexity limit (200).
 NOTES_PER_ISSUE = 100
 
@@ -69,7 +70,7 @@ def atomic_json(path: Path, value: object) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ledger", type=Path, default=Path("docs/audits/inkscape/issue-ledger.jsonl"))
-    parser.add_argument("--cache", type=Path, default=Path("/tmp/inkscape-corpus-2026-10-17/notes"))
+    parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
     parser.add_argument("--delay", type=float, default=1.2, help="seconds between GraphQL requests")
     parser.add_argument("--limit", type=int, help="fetch only the first N pending issues (useful for a smoke check)")
     args = parser.parse_args()
