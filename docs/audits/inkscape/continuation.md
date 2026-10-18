@@ -150,10 +150,10 @@ Inkscape’s canonical tracker.
     #685 (overlapping text order differs between SVG canvas and PDF), #694
     (transformed/clipped/blurred masks disappear from PDF), and #712 (low-res
     masks and duplicate-mask objects disappear). #685, #694, and #712 remain
-    concrete PDF parity/resolution candidates, but their linked fixtures and
-    43 combined reported notes have not been reviewed. #651 has no equivalent
-    Varve feature.
-21. Current body-screening total is 44 of 6,392. No new Varve defect is
+    concrete PDF parity/resolution candidates. Their 18 user comments have
+    since been reviewed, but linked fixtures remain uninspected. #651 has no
+    equivalent Varve feature.
+21. Current body-screening total is 49 of 6,392. No new Varve defect is
     established by these body-only reports.
 22. Reviewed the complete cached discussions for #670, #685, #694, #712, and
     #721. #685 was fixed upstream in MR !1299; #694 received a partial
@@ -162,6 +162,11 @@ Inkscape’s canonical tracker.
     background-filter behavior. Linked attachments remain uninspected. The live
     note-fetch snapshot at 2026-10-18T13:12:24Z had 12,748/32,692 user notes
     across 1,994 threads; content review is much narrower.
+23. Screened bodies #6143, #6220, #6298, #6323, and #6407. They describe
+    PDF transparency import, recent missing-path export, clipped-text PDF size
+    and edge quality, nonzero viewBox-origin placement, and a Windows CLI-only
+    failure, respectively. Linked fixtures and discussions remain pending;
+    current body-screening total is 49 of 6,392.
 
 ## Validation checkpoint: 2026-10-18
 

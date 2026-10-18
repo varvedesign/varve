@@ -480,3 +480,36 @@ defects. The discussion downloader is still running. Its latest durable
 snapshot at `2026-10-18T13:12:24Z` had retrieved 12,748 of 32,692 reported
 non-system comments across 1,931 issue threads. Retrieval coverage is not
 content-review coverage.
+
+## Additional PDF import/export reports screened
+
+A further body-screening batch adds five candidates without treating their
+reports as confirmed Varve defects:
+
+- [#6143](https://gitlab.com/inkscape/inkscape/-/issues/6143) reports a
+  clipped object from an editable PDF becoming invisible after import unless a
+  large white rectangle is added behind the mask. The sample PDF remains
+  uninspected; this matters only where Varve's PDF import promises editable
+  transparency fidelity.
+- [#6220](https://gitlab.com/inkscape/inkscape/-/issues/6220) reports missing
+  paths and a background pattern in a recent Inkscape 1.5-dev PDF export. The
+  issue links the original SVG and PDF, but the fixture and upstream discussion
+  have not been checked.
+- [#6298](https://gitlab.com/inkscape/inkscape/-/issues/6298) reports a 1.1 MiB
+  glitched PDF for clipped/masked text, compared with 12 KiB outputs from
+  `rsvg-convert` and Typst `svg2pdf`; the reporter says the Typst output keeps
+  clip edges sharp. This is a strong Varve raster-fallback size/fidelity test
+  candidate, but Varve output has not been compared yet.
+- [#6323](https://gitlab.com/inkscape/inkscape/-/issues/6323) supplies a
+  minimal negative-origin `viewBox` that reportedly shifts content in one PDF
+  export route while PNG and Save/Save-a-Copy remain correct. This supports a
+  focused viewBox-origin export test.
+- [#6407](https://gitlab.com/inkscape/inkscape/-/issues/6407) reports a fatal
+  error only for a Windows CLI PDF export on one Inkscape 1.5-dev build; Save a
+  Copy and other formats work. Its fixture and discussion are still pending,
+  so the failure is not generalized to other PDF paths.
+
+These five descriptions raise body screening to 49 of 6,392. Their linked
+files and discussions remain pending where noted. The marketing site still has
+no relevant full-fidelity PDF claim to revise until a Varve reproduction is
+confirmed.
