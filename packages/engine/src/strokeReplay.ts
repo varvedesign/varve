@@ -11,6 +11,10 @@ import type { ReplayTarget } from './replayTypes';
 import type { EngineColor, FillIR, PathPoint, RenderItem, Stroke } from './types';
 import { buildVerticalTextSnapshot, paintVerticalCanonicalTextStroke } from './verticalTextReplay';
 
+const MAX_VARIABLE_WIDTH_STROKE_SAMPLES = 65_536;
+const MAX_VARIABLE_WIDTH_DASH_RUNS = 16_384;
+const MAX_VARIABLE_WIDTH_DASH_PATTERN = 128;
+
 export interface StrokeReplayDependencies {
   traceOutline(target: ReplayTarget, primitive: RenderItem['primitive']): void;
   primitiveBounds(primitive: RenderItem['primitive']): {
@@ -237,7 +241,8 @@ function splitDashedWidthSamples(
   dashPattern: number[],
   dashOffset: number,
   closed: boolean,
-): Array<{ samples: WidthSample[]; closed: boolean }> {
+): Array<{ samples: WidthSample[]; closed: boolean }> | null {
+  if (dashPattern.length > MAX_VARIABLE_WIDTH_DASH_PATTERN) return [{ samples, closed }];
   const positivePattern = dashPattern.filter((value) => Number.isFinite(value) && value >= 0);
   if (positivePattern.length === 0 || !positivePattern.some((value) => value > 0)) {
     return [{ samples, closed }];
@@ -258,6 +263,8 @@ function splitDashedWidthSamples(
   const totalLength = distances[distances.length - 1] ?? 0;
   if (totalLength <= 0) return [];
 
+  if (!Number.isFinite(totalLength)) return null;
+
   const phase = ((-dashOffset % totalPattern) + totalPattern) % totalPattern;
   const stateAt = (distance: number) => {
     let remainingPhase = (phase + distance) % totalPattern;
@@ -273,9 +280,23 @@ function splitDashedWidthSamples(
   };
 
   const runs: Array<{ samples: WidthSample[]; closed: boolean }> = [];
+  const appendSolidTail = (startDistance: number) => {
+    const tailSamples = [pointAtDistance(samples, distances, startDistance)];
+    for (let index = 1; index < distances.length - 1; index++) {
+      if (distances[index]! > startDistance) tailSamples.push(samples[index]!);
+    }
+    tailSamples.push(pointAtDistance(samples, distances, totalLength));
+    if (tailSamples.length > 1) runs.push({ samples: tailSamples, closed: false });
+  };
   let distance = 0;
   while (distance < totalLength - 0.0001) {
     const state = stateAt(distance);
+    if (state.index % 2 === 0 && runs.length >= MAX_VARIABLE_WIDTH_DASH_RUNS) {
+      // Preserve pressure and the remaining centerline if continuing the
+      // authored dash pattern would allocate an unbounded number of outlines.
+      appendSolidTail(distance);
+      break;
+    }
     const end = Math.min(totalLength, distance + Math.max(state.remaining, 0.0001));
     if (state.index % 2 === 0 && end - distance > 0.0001) {
       const runSamples = [pointAtDistance(samples, distances, distance)];
@@ -375,8 +396,9 @@ function paintVariableWidthPathStroke(
   _join: Stroke['join'],
   dashPattern: number[],
   dashOffset: number,
-): void {
-  if (points.length < 2) return;
+): boolean {
+  if (points.length < 2) return true;
+  if (!(Number.isFinite(points[0]!.x) && Number.isFinite(points[0]!.y))) return false;
   const samples: WidthSample[] = [
     {
       x: points[0]!.x,
@@ -393,9 +415,11 @@ function paintVariableWidthPathStroke(
     const cp2y = to.y + (to.handleIn?.[1] ?? 0);
     const pStart = from.pressure ?? 0.5;
     const pEnd = to.pressure ?? 0.5;
-    const steps = isBezier
-      ? 12
-      : Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 3));
+    // Straight-segment pressure is linearly interpolated, so intermediate
+    // samples are collinear and add no shape detail. Sampling by world-space
+    // distance made a long line allocate millions of redundant points.
+    const steps = isBezier ? 12 : 1;
+    if (samples.length + steps > MAX_VARIABLE_WIDTH_STROKE_SAMPLES) return false;
     for (let step = 1; step <= steps; step++) {
       const t = step / steps;
       const oneMinusT = 1 - t;
@@ -412,26 +436,43 @@ function paintVariableWidthPathStroke(
           t * t * t * to.y
         : from.y + (to.y - from.y) * t;
       const pressure = pStart + (pEnd - pStart) * t;
-      samples.push({ x, y, width: Math.max(0, baseWeight * pressureScale(pressure)) });
+      const width = Math.max(0, baseWeight * pressureScale(pressure));
+      if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(width))) return false;
+      samples.push({ x, y, width });
     }
+    return true;
   };
 
   for (let index = 1; index < points.length; index++) {
-    appendSegment(points[index - 1]!, points[index]!);
+    if (!appendSegment(points[index - 1]!, points[index]!)) return false;
   }
-  if (closed) appendSegment(points[points.length - 1]!, points[0]!);
-  if (samples.length < 2) return;
+  if (closed && !appendSegment(points[points.length - 1]!, points[0]!)) return false;
+  if (samples.length < 2) return true;
 
   const runs =
     dashPattern.length > 0
       ? splitDashedWidthSamples(samples, dashPattern, dashOffset, closed)
       : [{ samples, closed }];
+  if (!runs) return false;
   target.save();
   target.fillStyle = target.strokeStyle;
   target.beginPath();
   for (const run of runs) appendWidthOutline(target, run.samples, cap, run.closed);
   target.fill();
   target.restore();
+  return true;
+}
+
+function paintFallbackVariableWidthStroke(
+  target: ReplayTarget,
+  primitive: Extract<RenderItem['primitive'], { kind: 'path' }>,
+  deps: StrokeReplayDependencies,
+): void {
+  // Canvas2D keeps the authored centerline and dash pattern while omitting
+  // pressure variation for paths too complex to expand safely.
+  target.beginPath();
+  deps.traceOutline(target, primitive);
+  target.stroke();
 }
 function arrowheadSize(primitiveSize: number | undefined, strokeWeight: number): number {
   const fromWeight = Math.max(strokeWeight * 3, 4);
@@ -743,15 +784,21 @@ export function paintStroke(
         !primitive.closed &&
         ((stroke.arrowStart ?? 'none') !== 'none' || (stroke.arrowEnd ?? 'none') !== 'none');
       if (hasPathMarkers) target.lineCap = 'butt';
-      const pressures = primitive.points
-        .map((point) => point.pressure)
-        .filter(
-          (pressure): pressure is number => pressure !== undefined && Number.isFinite(pressure),
-        );
-      const hasPressureVariation =
-        pressures.length > 1 && Math.max(...pressures) - Math.min(...pressures) > Number.EPSILON;
+      let pressureCount = 0;
+      let minPressure = Number.POSITIVE_INFINITY;
+      let maxPressure = Number.NEGATIVE_INFINITY;
+      let firstPressure: number | undefined;
+      for (const point of primitive.points) {
+        const pressure = point.pressure;
+        if (pressure === undefined || !Number.isFinite(pressure)) continue;
+        firstPressure ??= pressure;
+        pressureCount++;
+        minPressure = Math.min(minPressure, pressure);
+        maxPressure = Math.max(maxPressure, pressure);
+      }
+      const hasPressureVariation = pressureCount > 1 && maxPressure - minPressure > Number.EPSILON;
       if (hasPressureVariation && stroke.weight > 0) {
-        paintVariableWidthPathStroke(
+        const painted = paintVariableWidthPathStroke(
           target,
           primitive.points,
           primitive.closed,
@@ -761,9 +808,10 @@ export function paintStroke(
           stroke.dashPattern,
           stroke.dashOffset,
         );
+        if (!painted) paintFallbackVariableWidthStroke(target, primitive, deps);
       } else {
-        if (pressures.length > 0 && Math.abs(pressures[0]! - 0.5) > 0.001) {
-          target.lineWidth = stroke.weight * pressureScale(pressures[0]!);
+        if (firstPressure !== undefined && Math.abs(firstPressure - 0.5) > 0.001) {
+          target.lineWidth = stroke.weight * pressureScale(firstPressure);
         }
         if (target.lineWidth > 0) {
           target.beginPath();

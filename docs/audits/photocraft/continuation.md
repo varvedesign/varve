@@ -10,8 +10,9 @@ Last updated: 2026-10-18. Status: active and incomplete.
   samples, caps dashed expansion at 16,384 on-runs with a pressure-aware solid
   tail, and bounds pathological dash-pattern length. Focused engine unit tests
   pass (2 tests); the native cover-quad regression passes (1 Rust test).
-  Engine package typecheck is pending. Real-browser visual validation of the
-  stroke fallback and tail is still required. The source fix in PhotoCraft PR
+  `pnpm --filter @varve/engine typecheck` passed, as did the focused engine
+  tests and Biome checks for the touched replay files. Real-browser visual
+  validation of the stroke fallback and tail is still required. The source fix in PhotoCraft PR
   #5204 was read; it also covers large coordinates and native dash behavior,
   which this Varve change does not fully match. Website review found no
   affected marketing claim.
@@ -32,8 +33,9 @@ Last updated: 2026-10-18. Status: active and incomplete.
   SpecPanel, and other files. It did pass touched-file format/lint and the
   emoji audit before stopping. Run remaining affected compiler/unit/native
   lanes where resources allow; do not report the affected closure as passed.
-- Progressive commits are still required for this batch after visual review.
-  Independent final review and safe integration to `master` remain outstanding.
+- Native cover-quad budget commit: `dd5120f28`. Remaining changes require
+  progressive commits after their evidence is complete. Independent final
+  review and safe integration to `master` remain outstanding.
 
 ## Source boundary
 
