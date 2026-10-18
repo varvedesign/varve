@@ -1814,7 +1814,12 @@ export function renderContent(deps: RenderContentDeps): void {
                 keyParts.push(childId, child, childItem);
                 retainedShapeLeaves++;
               }
-              if (eligible) retainedKey = retainedGroupSurfaceCache.key(keyParts);
+              if (eligible) {
+                retainedKey = retainedGroupSurfaceCache.key(keyParts);
+                if (!retainedKey && detailedRetainedDiagnostics) {
+                  retainedBypassReason = 'dependency-key-too-large';
+                }
+              }
             }
             if (retainedKey && detailedRetainedDiagnostics) {
               retainedGroupSurfaceCache.recordQuality({

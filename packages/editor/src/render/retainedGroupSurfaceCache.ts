@@ -9,6 +9,8 @@
  */
 
 export const RETAINED_GROUP_SURFACE_BUDGET_BYTES = 32 * 1024 * 1024;
+export const RETAINED_GROUP_MAX_ENTRIES = 512;
+export const RETAINED_GROUP_MAX_KEY_CHARACTERS = 16 * 1024;
 const MAX_SURFACE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_BUDGET_BYTES = 64 * 1024 * 1024;
 const MAX_DIAGNOSTIC_BYPASSES = 32;
@@ -20,6 +22,7 @@ export type RetainedGroupBypassReason =
   | 'untracked-miss'
   | 'nonresident-miss'
   | 'dependency-key-changed'
+  | 'dependency-key-too-large'
   | 'warped-container'
   | 'master-occurrence'
   | 'instance-occurrence'
@@ -124,12 +127,19 @@ export class RetainedGroupSurfaceCache {
   key(parts: readonly (object | string | number)[]): string | null {
     const startedAt = this.measurementNow();
     const encoded: string[] = [];
+    let encodedLength = 0;
     for (const part of parts) {
       const value = typeof part === 'object' ? String(this.identity(part)) : String(part);
       const tag = typeof part === 'object' ? 'o' : typeof part === 'number' ? 'n' : 's';
       // Length-prefix each token so arbitrary imported ids containing `|`
       // or tag-like text cannot alias a different dependency sequence.
+      const tokenLength = tag.length + String(value.length).length + 1 + value.length;
+      if (encodedLength + tokenLength > RETAINED_GROUP_MAX_KEY_CHARACTERS) {
+        this.recordDuration(startedAt, 'key');
+        return null;
+      }
       encoded.push(`${tag}${value.length}:${value}`);
+      encodedLength += tokenLength;
     }
     const key = encoded.join('');
     this.recordDuration(startedAt, 'key');
@@ -200,6 +210,19 @@ export class RetainedGroupSurfaceCache {
     },
   ): boolean {
     if (!this.enabled) return false;
+    if (key.length > RETAINED_GROUP_MAX_KEY_CHARACTERS) {
+      this.bypassCount++;
+      this.recordBypass({
+        reason: 'dependency-key-too-large',
+        ...(this.collectDetailedDiagnostics
+          ? { groupId: this.boundedDiagnosticId(context?.groupId) }
+          : {}),
+        ...(this.collectDetailedDiagnostics && context?.dependencyPath
+          ? this.boundedDependencyPath(context.dependencyPath, context.dependencyPathTruncated)
+          : {}),
+      });
+      return false;
+    }
     const width = canvas.width;
     const height = canvas.height;
     const bytes = width * height * 4;
@@ -235,7 +258,12 @@ export class RetainedGroupSurfaceCache {
       this.bytes -= previous.bytes;
       this.entries.delete(key);
     }
-    while (this.bytes + bytes > this.budgetBytes) this.evictOldest();
+    while (
+      this.entries.size >= RETAINED_GROUP_MAX_ENTRIES ||
+      this.bytes + bytes > this.budgetBytes
+    ) {
+      this.evictOldest();
+    }
     this.entries.set(key, { canvas, bytes, shapeLeaves, lastUsed: ++this.clock, documentId });
     this.bytes += bytes;
     if (context?.groupIdentity) {
