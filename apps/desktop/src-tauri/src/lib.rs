@@ -266,10 +266,138 @@ fn resolve_user_path(raw: &str) -> Result<std::path::PathBuf, String> {
     }
 }
 
+const STALE_WRITE_TEMP_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
+const WRITE_TEMP_SWEEP_INTERVAL: Duration = Duration::from_secs(5 * 60);
+
+static WRITE_TEMP_SWEEP_TIMES: LazyLock<Mutex<HashMap<std::path::PathBuf, Instant>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Remove old regular files that match the exact name shape generated below.
+/// This is best-effort: cleanup must never turn a valid save into a failure.
+fn sweep_stale_write_temporaries(parent: &std::path::Path) {
+    let dir_key = parent
+        .canonicalize()
+        .unwrap_or_else(|_| parent.to_path_buf());
+    let now_instant = Instant::now();
+    let should_sweep = match WRITE_TEMP_SWEEP_TIMES.lock() {
+        Ok(mut swept) => {
+            let overdue = swept.get(&dir_key).is_none_or(|last_swept| {
+                now_instant.duration_since(*last_swept) >= WRITE_TEMP_SWEEP_INTERVAL
+            });
+            if overdue {
+                swept.insert(dir_key.clone(), now_instant);
+            }
+            overdue
+        }
+        Err(_) => false,
+    };
+    if !should_sweep {
+        return;
+    }
+
+    let entries = match std::fs::read_dir(parent) {
+        Ok(entries) => entries,
+        Err(_) => {
+            if let Ok(mut swept) = WRITE_TEMP_SWEEP_TIMES.lock() {
+                swept.remove(&dir_key);
+            }
+            return;
+        }
+    };
+    let now = std::time::SystemTime::now();
+    for entry in entries.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if !file_type.is_file() {
+            continue;
+        }
+        let Some(owner_pid) = generated_write_temp_owner(&entry.file_name()) else {
+            continue;
+        };
+        let is_stale = match owner_pid {
+            Some(pid) => !process_is_running(pid),
+            None => entry
+                .metadata()
+                .and_then(|metadata| metadata.modified())
+                .ok()
+                .and_then(|modified| now.duration_since(modified).ok())
+                .is_some_and(|age| age >= STALE_WRITE_TEMP_MAX_AGE),
+        };
+        if is_stale {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
+fn generated_write_temp_owner(name: &std::ffi::OsStr) -> Option<Option<u32>> {
+    let Some(name) = name.to_str() else {
+        return None;
+    };
+    let Some(token) = name
+        .strip_prefix(".varve-write-")
+        .and_then(|name| name.strip_suffix(".tmp"))
+    else {
+        return None;
+    };
+    let mut parts = token.split('-');
+    let first = parts.next()?;
+    let second = parts.next()?;
+    let third = parts.next();
+    let is_hex = |part: &str| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_hexdigit());
+    match third {
+        Some(micros) if parts.next().is_none() => {
+            let pid = first.parse::<u32>().ok()?;
+            (pid > 0 && is_hex(second) && is_hex(micros)).then_some(Some(pid))
+        }
+        None if is_hex(first) && is_hex(second) => Some(None),
+        _ => None,
+    }
+}
+
+fn process_is_running(pid: u32) -> bool {
+    #[cfg(unix)]
+    {
+        let Ok(pid) = libc::pid_t::try_from(pid) else {
+            return false;
+        };
+        // Signal 0 only performs process existence and permission checks.
+        // Treat all errors except ESRCH as "possibly alive" to fail safely.
+        unsafe {
+            libc::kill(pid, 0) == 0
+                || std::io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
+        }
+    }
+    #[cfg(windows)]
+    unsafe {
+        use windows_sys::Win32::Foundation::{
+            CloseHandle, GetLastError, ERROR_INVALID_PARAMETER, STILL_ACTIVE,
+        };
+        use windows_sys::Win32::System::Threading::{
+            GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+        };
+
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if handle.is_null() {
+            return GetLastError() != ERROR_INVALID_PARAMETER;
+        }
+        let mut exit_code = 0;
+        let queried = GetExitCodeProcess(handle, &mut exit_code) != 0;
+        CloseHandle(handle);
+        !queried || exit_code == STILL_ACTIVE as u32
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = pid;
+        true
+    }
+}
+
 /// Write bytes to `path` atomically: write to a temporary sibling file,
 /// flush to disk (`sync_all`), then `rename` over the target. A crash
-/// mid-write leaves the original file intact; only the temp is abandoned
-/// (cleaned up by the OS or next successful write).
+/// mid-write leaves the original file intact; its orphaned sibling is removed
+/// after its owner process exits and the directory is saved again. Legacy
+/// timestamp-only staging files are removed only after a day of inactivity.
 ///
 /// Pattern already proven for ONNX model download (line ~279-354).
 fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
@@ -301,10 +429,15 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
             ));
         }
     };
+    sweep_stale_write_temporaries(parent);
     // The temporary name is app-generated, so it does not need to round-trip
     // the target's native filename through UTF-8.  This keeps non-UTF-8 Unix
     // filenames native and avoids using lossy text for path identity.
-    let tmp = parent.join(format!(".varve-write-{}.tmp", uuid()));
+    let tmp = parent.join(format!(
+        ".varve-write-{}-{}.tmp",
+        std::process::id(),
+        uuid()
+    ));
     let result = (|| -> Result<(), String> {
         let mut file = std::fs::OpenOptions::new()
             .write(true)
@@ -7604,6 +7737,107 @@ mod tests {
         assert_eq!(
             leftovers, 0,
             "successful writes should consume their staging file"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn atomic_write_removes_stale_staging_files_but_keeps_recent_ones() {
+        let dir = std::env::temp_dir().join(format!("varve_atomic_stale_temp_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        let stale = dir.join(".varve-write-1-1.tmp");
+        let dead_owner = dir.join(".varve-write-4294967295-4-4.tmp");
+        let recent_dead_owner = dir.join(".varve-write-4294967294-5-5.tmp");
+        let recent = dir.join(format!(".varve-write-{}-2-2.tmp", std::process::id()));
+        let active = dir.join(format!(".varve-write-{}-3-3.tmp", std::process::id()));
+        let unrelated = dir.join(".varve-write-user-file.tmp");
+        std::fs::write(&target, b"old").expect("write initial content");
+        std::fs::write(&stale, b"abandoned").expect("write abandoned staging file");
+        std::fs::write(&dead_owner, b"abandoned process staging file")
+            .expect("write dead-owner staging file");
+        std::fs::write(&recent_dead_owner, b"recent abandoned process staging file")
+            .expect("write recent dead-owner staging file");
+        std::fs::write(&recent, b"active").expect("write recent staging file");
+        std::fs::write(&active, b"active long save").expect("write active staging file");
+        std::fs::write(&unrelated, b"user file").expect("write unrelated file");
+        let stale_file = std::fs::OpenOptions::new()
+            .write(true)
+            .open(&stale)
+            .expect("open abandoned staging file");
+        stale_file
+            .set_times(std::fs::FileTimes::new().set_modified(std::time::SystemTime::UNIX_EPOCH))
+            .expect("age abandoned staging file");
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&dead_owner)
+            .expect("open dead-owner staging file")
+            .set_times(std::fs::FileTimes::new().set_modified(std::time::SystemTime::UNIX_EPOCH))
+            .expect("age dead-owner staging file");
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&active)
+            .expect("open active staging file")
+            .set_times(std::fs::FileTimes::new().set_modified(std::time::SystemTime::UNIX_EPOCH))
+            .expect("age active staging file");
+        let unrelated_file = std::fs::OpenOptions::new()
+            .write(true)
+            .open(&unrelated)
+            .expect("open unrelated file");
+        unrelated_file
+            .set_times(std::fs::FileTimes::new().set_modified(std::time::SystemTime::UNIX_EPOCH))
+            .expect("age unrelated file");
+
+        write_file_atomic(&target, b"new").expect("atomic write succeeds");
+
+        assert_eq!(std::fs::read(&target).expect("read final content"), b"new");
+        assert!(!stale.exists(), "an old Varve staging file is removed");
+        assert!(
+            !dead_owner.exists(),
+            "an old file with a dead owner is removed"
+        );
+        assert!(
+            !recent_dead_owner.exists(),
+            "a file with a dead owner is removed without an age delay"
+        );
+        assert!(recent.exists(), "a recent staging file is left alone");
+        assert!(
+            active.exists(),
+            "an old staging file with a live owner is left alone"
+        );
+        assert!(unrelated.exists(), "a non-generated filename is left alone");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_stale_sweep_leaves_symlinks_untouched() {
+        use std::os::unix::fs::symlink;
+
+        let dir = std::env::temp_dir().join(format!("varve_atomic_symlink_temp_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        let link_target = dir.join("link-target");
+        let link = dir.join(".varve-write-4294967295-3-3.tmp");
+        std::fs::write(&target, b"old").expect("write initial content");
+        std::fs::write(&link_target, b"keep").expect("write link target");
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&link_target)
+            .expect("open link target")
+            .set_times(std::fs::FileTimes::new().set_modified(std::time::SystemTime::UNIX_EPOCH))
+            .expect("age link target");
+        symlink(&link_target, &link).expect("create staging-shaped symlink");
+
+        write_file_atomic(&target, b"new").expect("atomic write succeeds");
+
+        assert!(std::fs::symlink_metadata(&link)
+            .expect("inspect symlink")
+            .file_type()
+            .is_symlink());
+        assert_eq!(
+            std::fs::read(&link_target).expect("read symlink target"),
+            b"keep"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -97,6 +97,13 @@ platform adapter, never in a separator replacement helper.
   platforms where it replaces a destination, and Windows `MoveFileExW` with
   replace/write-through flags where plain rename would fail on an existing
   file.
+- Before a native save when at least five minutes have passed since the last
+  sweep of that directory in this process, Varve makes a
+  best-effort sweep of regular `.varve-write-<pid>-<token>.tmp` files whose
+  owner process has exited. Legacy timestamp-only staging files are removed
+  only after 24 hours. Files with a live or unknown owner, symlinks, and names
+  outside Varve's generated pattern are left untouched. A read or cleanup
+  error never fails the requested save.
 - Font downloads and print spooling use unique staging files under the
   resolved application/temporary roots; they do not share a fixed process-wide
   temporary filename.

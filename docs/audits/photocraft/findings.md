@@ -138,6 +138,67 @@ open.
 this correctness behavior does not change a marketed capability, so no website
 copy change is warranted before release.
 
+## F-004 — Interrupted native saves can leave large hidden staging files
+
+**Sources.** PhotoCraft [#6604](https://github.com/storytold/photocraft/issues/6604)
+reports that killing the app during a large write leaves hidden sibling
+`*.pcsave.tmp` files in the user's document folder, with later saves and
+launches never removing them. Its bot link to [#3489](https://github.com/storytold/photocraft/issues/3489)
+was checked: that report describes orphaned autosave bundles and abandoned
+save temps, and proposes sweeping only old artifacts not belonging to an
+active process. The bot link to [#203](https://github.com/storytold/photocraft/issues/203)
+is adjacent: it documents the data-loss risk of in-place writes and the
+importance of retaining atomic replacement.
+
+**Varve applicability and reproduction.** `write_file_atomic` writes to a
+unique sibling `.varve-write-<timestamp>.tmp`, syncs it, then atomically
+replaces the target. Ordinary error returns remove the current staging file,
+but process termination bypasses that cleanup and there is no stale-temp sweep.
+The target remains protected, while abandoned bytes can accumulate in the
+same directory indefinitely. The regression seeded aged, recent, and
+non-generated names, performed a save, and verified only the stale generated
+regular file was removed; a Unix test verifies a staging-shaped symlink stays
+in place.
+
+**Decision and acceptance.** Throttle sweeps to one per destination directory
+every five minutes per process. New staging names include the writer PID;
+remove those only after the PID is confirmed exited, and retain files when
+process status is unknown. Legacy timestamp-only names are removed only after
+24 hours. In both cases, remove regular files only, and leave files with live
+or unknown owners, symlinks, and malformed lookalike names untouched. Treat
+directory enumeration and cleanup as best-effort so cleanup cannot make a valid save fail. Keep
+same-directory atomic replacement and existing destination bytes intact on
+write failure.
+
+**Batch D implementation.** Before writing the new staging file, the first
+save to a directory performs a best-effort sweep no more than once every five
+minutes in the process. New temp names carry their writer PID and are removed
+once that process is confirmed gone; legacy temp names require a 24-hour-old
+modification time. The sweep leaves live or uncertain owners, malformed
+lookalike names, and symlinks alone.
+Directory enumeration or unlink errors do not fail the save, and atomic
+replacement remains unchanged.
+
+**Engineering status:** implementation is present and the five focused native
+`atomic_write_` tests pass, including legacy stale-file removal, dead-owner
+cleanup, live-owner retention, lookalike-name retention, and symlink retention.
+Rustfmt, documentation, emoji, and token audits pass. The planner escalates to
+the full suite; its two attempts are recorded in the continuation report, and
+the full gate remains incomplete.
+**Research status:** #6604 body and comment, #3489 body and comment, and #203
+body were reviewed from the cutoff cache. No implementation or release claim
+from PhotoCraft is assumed to apply to Varve.
+
+**Comparable-app failure checked.** Inkscape [#260](https://gitlab.com/inkscape/inkscape/-/issues/260)
+reports a truncated, unusable document after a save-time crash and asks for
+write-then-replace atomic saving. That is a different failure from orphaned
+temp cleanup. It supports retaining Varve's atomic replacement while adding
+only bounded cleanup; it is not evidence that Varve's target is corrupted.
+
+**Website impact:** reviewed current save, recovery, and local-first pages; none
+claims that native staging artifacts are automatically removed. No marketing
+edit is justified for this internal cleanup behavior.
+
 ## Source seeds that did not match the requested repository
 
 The attachment's seed links use `storytold/pdfcraft`. In the requested

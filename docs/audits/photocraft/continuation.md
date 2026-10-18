@@ -95,6 +95,43 @@ Last updated: 2026-10-18. Status: active and incomplete.
   (#6600) and preserves writable target modes; see F-002. Other candidates are
   still being investigated before implementation.
 
+## Current full-gate checkpoint (2026-10-18)
+
+- Exact reviewed SHA: `025f61d63984fef3e63c47918f0fb73d489276e8`.
+- `pnpm verify:plan` escalated the 46-lane plan to the full suite because the
+  change crosses shared Platform and native file-identity contracts.
+- First exact-SHA `pnpm verify:full --local` run passed format/lint, emoji,
+  health, architecture (14 distinct cycles; zero layer violations), all 20
+  workspace typechecks plus E2E typecheck, CI tooling, and WASM browser
+  artifacts. Its JavaScript unit-test lane timed out after 600 seconds waiting
+  for the live JavaScript test lease owned by PID 605970 in another worktree.
+- The unchanged-SHA `pnpm verify:full --local --resume` retry passed
+  format/lint, emoji, health, architecture (same enforced results), and all
+  typechecks. It timed out after 600 seconds in the `CI tooling tests` lane;
+  the operation output identified the same occupied test lease. The owner was
+  still running Vitest (PID 608096) when checked, so this is a shared-resource
+  queue timeout, not a failing assertion result. Receipts are retained under
+  the repository's `.git/varve-validation/operations/` directory.
+- F-003 focused editor/web/native regressions remain passing, but the
+  planner-required full gate is **not complete**. Do not describe this SHA as
+  fully validated or integrated. Retry `pnpm verify:full --local --resume`
+  only after the live owner exits and the lease becomes available.
+- F-004 / PhotoCraft #6604 is implemented in the current uncommitted working
+  tree: new native staging files carry their writer PID and are swept once
+  that process is confirmed gone; legacy timestamp-only files require 24 hours
+  of age. Sweeps are throttled to once every five minutes per directory and
+  cleanup errors do not fail saves. A minimal Windows API target probe passed;
+  the full desktop cross-check could not build `ring` because this Linux host
+  has no MSVC-compatible C compiler, so native Windows behavior is unverified.
+  Focused native tests pass. This newer code is not covered by either full-gate
+  receipt above. Keep #6602 hard-link semantics and #6603
+  xattr/ACL preservation as separate findings; do not imply that either is
+  fixed by read-only/mode preservation or F-004.
+- PhotoCraft #6604's linked #3489 and #203 source bodies and the #3489 comment
+  were reviewed from the cutoff cache. The live Inkscape #260 report was also
+  checked as a distinct crash-time data-loss complaint; it reinforces keeping
+  atomic replacement while handling leftovers separately.
+
 ## Branch and next actions
 
 - Worktree: `.worktrees/photocraft-source-review`.
@@ -102,11 +139,12 @@ Last updated: 2026-10-18. Status: active and incomplete.
 - Base: local `master` `1109bf5962091fb00aa34198876d1812327d808b`.
 - Prerequisite commit: `98dec72b5` (cherry-picked repair of the missing
   `nodeResize.ts` module).
-- Next: finish review and commit F-003 as its own progressive batch, run the
-  planner-required full local gate at the F-003 SHA, and continue Varve
-  applicability checks for filesystem, recovery, and rendering leads. Recheck
-  the live remote/worktree state before choosing an integration path; do not
-  bring unrelated local master commits into this branch.
+- Next: perform the separate code-review pass for F-004, finish its commit
+  checkpoint, capture F-003's dedicated save-error visual evidence, and retry
+  the planner-required exact-SHA full gate once the shared lease is available.
+  Continue Varve applicability checks for filesystem, recovery, and rendering
+  leads. Recheck the live remote/worktree state before choosing an integration
+  path; do not bring unrelated local master commits into this branch.
 - Research next: classify issue relevance and recursively inspect linked
   evidence for applicable leads; review PR descriptions/discussions where they
   connect to a finding. The source text review is complete for the two issue
@@ -179,7 +217,21 @@ Last updated: 2026-10-18. Status: active and incomplete.
   the touched native module. `pnpm audit:docs`, `pnpm audit:emoji`, and
   `pnpm audit:tokens` passed. The final 46-lane plan escalates to full suite;
   `pnpm verify:affected` reported that escalation without running lanes. The
-  exact-SHA full gate is pending. A standalone desktop typecheck also reported
-  a cast error in `packages/editor/src/collab/CollabSurfaces.tsx:450`; the full
-  gate must confirm whether it reproduces. An earlier editor check's fixture
-  literal errors were corrected and the focused tests now pass.
+  exact-SHA gate and an unchanged-SHA resume both passed typechecks, but each
+  timed out after 600 seconds waiting for a live shared heavy-test lease; see
+  the current checkpoint above. The prior standalone desktop typecheck's
+  `CollabSurfaces.tsx:450` cast diagnostic did not recur in the full workspace
+  typecheck. An earlier editor check's fixture literal errors were corrected
+  and the focused tests now pass.
+- F-004 native red/green reproduction: before implementation,
+  `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+  atomic_write_removes_stale_staging_files_but_keeps_recent_ones --lib`
+  failed because the aged staging file remained. The implementation was then
+  tightened during review to retain old files whose writer PID is still live.
+  The latest five native tests cover stale legacy files, a dead PID, a live
+  PID, malformed names, and a stale symlink. `rustfmt --edition 2021 --check
+  --config skip_children=true apps/desktop/src-tauri/src/lib.rs`, `pnpm audit:docs`,
+  `pnpm audit:emoji`, and `pnpm audit:tokens` passed. The latest planner
+  selected seven lanes but escalated; `pnpm verify:affected` reported that
+  escalation without running its lanes. Full-gate validation for this newer
+  SHA remains outstanding.
