@@ -443,3 +443,40 @@ area limit. The reported zoom level is therefore unreachable in Varve; existing
 clamp and raster-budget checks cover the closest shared resource boundary. The
 issue's discussion history remains pending, and no matching Varve failure was
 identified.
+
+## Thread review: dashed strokes, filters, and transformed masks
+
+A targeted review of the cached discussions narrows several earlier body-only
+candidates:
+
+- [#670](https://gitlab.com/inkscape/inkscape/-/issues/670) is traced in its
+  notes to Cairo's banded raster export: dashed paths can disappear when a
+  64-pixel band contains neither dash endpoint, especially with round or bevel
+  joins. The thread includes a minimal SVG and a C reproducer, and reports
+  different results across output scales. Varve does not share that Cairo
+  implementation; keep it as a cross-output regression candidate rather than
+  assuming the same defect.
+- [#721](https://gitlab.com/inkscape/inkscape/-/issues/721) mixes background-
+  dependent filter primitives with blend modes. The notes distinguish those
+  older filters from CSS blend modes and report version-dependent results.
+  This is not evidence that every PDF blend effect is broken.
+- [#685](https://gitlab.com/inkscape/inkscape/-/issues/685) was reproduced on
+  older Inkscape builds and fixed by [MR !1299](https://gitlab.com/inkscape/inkscape/-/merge_requests/1299).
+  Keep overlapping text as a cross-output test category, but do not treat it as
+  an active Inkscape defect.
+- [#694](https://gitlab.com/inkscape/inkscape/-/issues/694) traces clipping and
+  degraded mask resolution to transform handling. [MR !5000](https://gitlab.com/inkscape/inkscape/-/merge_requests/5000)
+  landed a fix for those symptoms, while explicitly leaving other masked-item
+  PDF cases unresolved. Later notes identify filter-dependent mask failures as
+  a separate cause.
+- [#712](https://gitlab.com/inkscape/inkscape/-/issues/712) is duplicate
+  evidence: the low-resolution symptom was tracked under #252 and the
+  duplicate-mask disappearance under #694. The discussion attributes the
+  disappearance to transforms rather than duplicate-mask count.
+
+The linked SVG/PDF attachments have not been downloaded or executed. These
+thread outcomes refine the source claims; they do not establish matching Varve
+defects. The discussion downloader is still running. Its latest durable
+snapshot at `2026-10-18T13:11:45Z` had retrieved 12,235 of 32,692 reported
+non-system comments across 1,931 issue threads. Retrieval coverage is not
+content-review coverage.
