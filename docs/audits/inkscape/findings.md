@@ -545,3 +545,145 @@ Six more issue descriptions were checked against Varve's current architecture:
 Body screening is now 55 of 6,392. Comments and attached files for these six
 reports remain pending, so these are screening results rather than full issue
 reviews.
+
+## Recent font, bleed, and scale-limit complaints
+
+A recent-issue pass screened nine more reports and mapped them to concrete
+Varve boundaries:
+
+- [#5451](https://gitlab.com/inkscape/inkscape/-/issues/5451) says Adobe
+  Acrobat rejects a PDF with embedded fonts, while outlining the same text
+  makes it open. This supports cross-reader structural and visual checks for
+  font embedding; Acrobat is not available in this Linux validation run.
+- [#5527](https://gitlab.com/inkscape/inkscape/-/issues/5527) reports a crash
+  exporting a 32,000×16,000 raster page. Varve's 16,384-pixel side and 64 Mi
+  pixel surface budgets bound that 512-million-pixel request before allocation.
+  Verify the scale-down warning and boundary behavior when the raster workflow
+  is validated.
+- [#5661](https://gitlab.com/inkscape/inkscape/-/issues/5661) says page-tool
+  bleed settings do not reach the PDF's separate bleed box. Varve's PDF/X
+  `MarksGeometry` derives page boxes, but inspect a generated bleed export
+  before declaring that path visually and structurally covered.
+- [#5808](https://gitlab.com/inkscape/inkscape/-/issues/5808) reports text
+  omitted when an Inkscape 1.5-dev AppImage cannot load existing fonts. Varve
+  gathers requested font data and fails before export when required data is
+  unavailable; verify the user sees that explicit failure rather than a
+  successful PDF with missing text.
+- [#5893](https://gitlab.com/inkscape/inkscape/-/issues/5893) is a
+  CapyPDF-specific segfault on imported nested group/child transparency and
+  gradients. The shared risk category is resource nesting, but the backend is
+  different and no Varve regression is established.
+- [#6031](https://gitlab.com/inkscape/inkscape/-/issues/6031) reports invalid
+  PDFs with Hiragino fonts on macOS; this remains a targeted font-corpus case,
+  not evidence of a general Varve PDF failure.
+- [#6132](https://gitlab.com/inkscape/inkscape/-/issues/6132) reports legacy
+  SVG 1.2 `flowRoot` text omitted by CapyPDF but present in Cairo output. Varve
+  does not claim complete legacy flowed-text roundtripping.
+- [#6243](https://gitlab.com/inkscape/inkscape/-/issues/6243) reports a clipped
+  clone of a root-level group missing from a multi-page batch PDF while PNG
+  and Save Copy succeed. Keep it as a page/clone/clip export candidate if that
+  workflow is supported.
+- [#6284](https://gitlab.com/inkscape/inkscape/-/issues/6284) reports memory
+  exhaustion when two SVGs link to each other and one is cold-opened. It is not
+  a direct Varve match unless the importer starts resolving external SVG links.
+
+Body screening is now 64 of 6,392. Attachments and reported discussions remain
+pending for this batch; the notes above are not full issue resolutions.
+
+## Further Inkscape issue-corpus screening
+
+A bounded sweep extended coverage into three IID ranges. The 1,190 available
+issue descriptions in #2401–#3600 were individually screened; #2443, #2580,
+#2806, #2880, #2946, #3011, #3452, and #3558 were unavailable in the local
+cache. The other two IIDs in that range had already been screened. No cached
+comment threads were available for #2401–#3600, so the candidates below are
+body-only and remain unconfirmed against attachments or discussion history.
+The earlier #1–#1200 and #1201–#2400 passes were lexical triage followed by
+manual review of selected candidates; they are not represented as full manual
+reviews of those ranges.
+
+### Import, document integrity, and command-line contracts
+
+- [#3115](https://gitlab.com/inkscape/inkscape/-/issues/3115) describes a
+  missing linked-image placeholder overwriting authored dimensions, then
+  corrupting the image when it is relinked. This is a data-integrity test
+  category for any Varve flow that supports external links; Varve's
+  content-addressed embedded-image path may not share the mechanism.
+- [#265](https://gitlab.com/inkscape/inkscape/-/issues/265) reports invalid
+  PDF page selection causing crashes or empty output, while
+  [#270](https://gitlab.com/inkscape/inkscape/-/issues/270) reports CLI export
+  failures sometimes returning exit code zero. The shared product contract is
+  explicit failure and no published partial artifact for invalid requests.
+- [#1794](https://gitlab.com/inkscape/inkscape/-/issues/1794) documents
+  export-by-ID mutating the source document. Varve export should preserve the
+  open document snapshot; the report does not demonstrate a Varve defect.
+- [#526](https://gitlab.com/inkscape/inkscape/-/issues/526) and
+  [#804](https://gitlab.com/inkscape/inkscape/-/issues/804) describe absolute
+  local paths leaking through SVG metadata. Check portable-file metadata only
+  where Varve writes equivalent local paths.
+- [#1119](https://gitlab.com/inkscape/inkscape/-/issues/1119) reports a PDF
+  import expanding repeated glitter assets into very large files and high
+  memory use. The supplied file was not available for this review; generic
+  deduplication and bounded-import behavior are useful checks if PDF import is
+  supported.
+
+### PDF, raster, and multipage fidelity
+
+- [#602](https://gitlab.com/inkscape/inkscape/-/issues/602) reports stroked
+  text clipped in PDF despite correct canvas rendering. Cached discussion says
+  the report still reproduced on Inkscape development builds in 2022. This is
+  a strong text/stroke export regression category, not a confirmed Varve bug.
+- [#947](https://gitlab.com/inkscape/inkscape/-/issues/947) reports CLI PNG
+  export diverging from GUI export for an image clipped with
+  `clipPathUnits="objectBoundingBox"`; comments attribute it to coordinate
+  interpretation in one render path. Compare equivalent export paths if
+  Varve supports this SVG clip behavior.
+- [#1246](https://gitlab.com/inkscape/inkscape/-/issues/1246) describes a
+  large blurred export becoming black when allocation fails. Assert bounded
+  allocation and an honest error/degradation path for expensive raster export.
+- [#1491](https://gitlab.com/inkscape/inkscape/-/issues/1491) reports print
+  output losing a pattern that remains in Save-As PDF; the thread connects it
+  to [#1018](https://gitlab.com/inkscape/inkscape/-/issues/1018), where Cairo
+  rasterizes large pattern tiles at zoom-dependent resolution. Varve's capped
+  pattern tile path addresses a distinct implementation; its cap has a
+  visually reviewed regression test.
+- [#2704](https://gitlab.com/inkscape/inkscape/-/issues/2704) and
+  [#3239](https://gitlab.com/inkscape/inkscape/-/issues/3239) identify clipped
+  blend and filtered-mask PDF cases. They are candidate scenes for independent
+  PDF rendering and canvas comparison if the corresponding Varve features are
+  in scope.
+- [#2828](https://gitlab.com/inkscape/inkscape/-/issues/2828) reports
+  mask-heavy large-canvas PDF export exhausting memory. Varve has raster
+  surface bounds; peak memory and graceful handling of nested/cardinality-heavy
+  scenes remain the relevant validation questions.
+- [#3009](https://gitlab.com/inkscape/inkscape/-/issues/3009) reports thin
+  strokes changing under skew in vector printing. [#3214](https://gitlab.com/inkscape/inkscape/-/issues/3214)
+  reports filtered content and embedded images disappearing on later pages of
+  a multipage PDF. These are useful targeted visual fixtures only if the same
+  output features are supported.
+- [#3517](https://gitlab.com/inkscape/inkscape/-/issues/3517) reports
+  `preserveAspectRatio` raster edge leakage during PNG export;
+  [#3569](https://gitlab.com/inkscape/inkscape/-/issues/3569) reports hairline
+  seams between multipage PDF pages. Both need synthetic cross-renderer cases
+  before assigning any Varve cause.
+- [#3596](https://gitlab.com/inkscape/inkscape/-/issues/3596) reports an
+  empty drawing export crashing instead of returning a clear result. Test the
+  empty-document boundary if the corresponding export command is exposed.
+- [#558](https://gitlab.com/inkscape/inkscape/-/issues/558) is a historical
+  masked-image clone clipping report; the reporter later said it no longer
+  reproduced in Inkscape 1.4.2. Keep it as a regression shape, not a current
+  upstream defect claim. [#827](https://gitlab.com/inkscape/inkscape/-/issues/827)
+  was traced to and resolved through an upstream Cairo fix; it is an
+  interoperability corpus idea rather than evidence of a current Varve issue.
+
+### Adjacent renderer and resource cases
+
+The remaining manually selected reports include large-coordinate pattern
+phase (#2520), filter bounds under transforms (#2589, #2618), filtered
+clone/clip behavior (#2463), repeated image-heavy transforms (#2523), and
+repeated image relinking/import state (#3115). These map to stress or visual
+regression scenarios where Varve has an equivalent feature; Inkscape-specific
+GTK, extension, live-path-effect, arbitrary-marker, EPS/PS and packaging
+reports were not treated as Varve defects. The full-body lexical triage in
+#1–#1200 and #1201–#2400 is not counted as individual manual screening; the
+ledger records only descriptions that received a substantive read.
