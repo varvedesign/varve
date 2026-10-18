@@ -45,6 +45,89 @@ defects:
   Inkscape 1.1.2 report; use as a text style round-trip case, not evidence of a
   current Varve problem.
 
+## Screening update: issues #601–640
+
+Thirty-eight new full-description reads in this interval produced several
+useful test prompts. #602 and #613 were already counted. No discussion notes,
+attachments, or upstream fixes were inspected for this batch, and none of the
+reports below establishes a Varve defect:
+
+- [#593](https://gitlab.com/inkscape/inkscape/-/issues/593) and
+  [#616](https://gitlab.com/inkscape/inkscape/-/issues/616) describe PDF import
+  replacing ligature text with missing or replacement characters for some
+  source PDFs/fonts. The reports are historical and linked files were not
+  retrieved. They motivate targeted glyph-map coverage without assuming every
+  PDF text run can be preserved as editable text.
+- [#594](https://gitlab.com/inkscape/inkscape/-/issues/594) and
+  [#595](https://gitlab.com/inkscape/inkscape/-/issues/595) report RTL alignment
+  and Persian ZWNJ shaping differences. These are old-version reports; their
+  fixtures were not inspected. They are international text layout and shaping
+  regression categories.
+- [#608](https://gitlab.com/inkscape/inkscape/-/issues/608) says changing an
+  Offset LPE's units from 5 mm to inches changes the amount to 5 inches rather
+  than preserving the physical value. If Varve exposes unitful parameters,
+  conversions should preserve the represented quantity; the report is not a
+  direct match to a verified Varve feature.
+- [#610](https://gitlab.com/inkscape/inkscape/-/issues/610) reports undo after
+  editing B-spline/spiro paths dropping curve metadata until additional undo
+  and redo steps. This is a useful history-round-trip test for geometry that
+  stores more than its visible control points.
+- [#623](https://gitlab.com/inkscape/inkscape/-/issues/623) reports paste
+  operations on a path effect modifying its source and other copies, suggesting
+  shared mutable state. [#626](https://gitlab.com/inkscape/inkscape/-/issues/626)
+  separately reports a crash when copying a path with Attach Path LPE. Both
+  are historical and their sample files were not opened; test independent
+  copies and invalid linked references if a comparable Varve path-effect
+  workflow is exercised.
+- [#635](https://gitlab.com/inkscape/inkscape/-/issues/635) reports SVG mask
+  content rendering differently from GIMP, and [#636](https://gitlab.com/inkscape/inkscape/-/issues/636)
+  says moving an object out of a hidden layer can leave inherited `display:none`
+  in place. The external mask fixture was not opened; the layer report's
+  behavior should be compared against SVG/CSS inheritance rules before
+  treating it as a defect.
+- [#639](https://gitlab.com/inkscape/inkscape/-/issues/639) reports a document
+  license choice disappearing on save/reopen. It is a small but concrete
+  metadata persistence test, subject to checking the format's intended storage.
+
+## Screening update: issues #641–680
+
+Thirty-four previously uncounted bodies were read in this interval. #643,
+#644, and #652 were unavailable; #651, #670, and #678 were already screened.
+Discussion history, sample files, and linked fixes remain pending. These
+reports suggest test categories only:
+
+- [#641](https://gitlab.com/inkscape/inkscape/-/issues/641) reports a resize
+  drag ending over the palette changing fill color unexpectedly and interrupting
+  undo. Test that pointer release outside the canvas cannot trigger another
+  action and that one gesture remains one undoable transaction.
+- [#642](https://gitlab.com/inkscape/inkscape/-/issues/642) describes copied
+  SVG2 text with broken position/editing, where editing the duplicate can alter
+  the source. [#658](https://gitlab.com/inkscape/inkscape/-/issues/658) reports
+  copied content inheriting the wrong opacity from a partially transparent
+  layer. Together these are copy isolation and inherited-style round-trip
+  checks; the old report files were not inspected.
+- [#646](https://gitlab.com/inkscape/inkscape/-/issues/646) reports numeric
+  width/height entry producing incorrect geometry when thick strokes are not
+  scaled. This is a useful constraint test for whether the interface reports
+  path bounds or painted bounds; the original example was not opened.
+- [#647](https://gitlab.com/inkscape/inkscape/-/issues/647) reports clone
+  stroke-width changes when scaling the original and an unexpected style change
+  on the source. It motivates checking clone style isolation, but the source
+  file and discussion were not inspected.
+- [#650](https://gitlab.com/inkscape/inkscape/-/issues/650) describes a mixed
+  text selection showing one font and an averaged size, then failing to apply
+  the displayed font. This is a mixed-value inspector-state test, not evidence
+  of a Varve failure.
+- [#654](https://gitlab.com/inkscape/inkscape/-/issues/654) reports a crash
+  when combining CLI selection with verbs; [#656](https://gitlab.com/inkscape/inkscape/-/issues/656)
+  reports a Trace Bitmap crash on a large raster without clear size bounds.
+  Both are historical CLI/import robustness prompts; no reproducer was run.
+- [#667](https://gitlab.com/inkscape/inkscape/-/issues/667) reports spraying or
+  cloning an Attach Path effect breaking shared references. [#669](https://gitlab.com/inkscape/inkscape/-/issues/669)
+  reports Path Outset deleting some valid generated paths. Their age and
+  feature-specific behavior require an exact equivalent before prioritizing
+  implementation work.
+
 ## Candidate: large raster save memory
 
 Inkscape [#6398](https://gitlab.com/inkscape/inkscape/-/issues/6398) reports
