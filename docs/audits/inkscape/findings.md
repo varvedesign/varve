@@ -1710,3 +1710,43 @@ coverage count.
 These discussions also contain reports that were later corrected or traced to
 toolkit and desktop-environment behavior. They are evidence about where users
 lose trust, not proof that Varve shares the same implementation failure.
+
+## Discussion sweep: IID 1731–1735 (2026-10-18)
+
+All five cached discussions were reviewed (54 records: 27 user comments and 27
+system/history events). No exact Varve defect was established.
+
+- [#1731](https://gitlab.com/inkscape/inkscape/-/issues/1731) reports that a
+  two-scan Autotrace run generated hundreds of grouped paths. Varve's trace
+  pipeline flattens traced contours into one editable trace group, enforces a
+  100,000-path ceiling, and shows a path/point complexity estimate before
+  applying the result. The attached video and related inbox #4168 remain
+  uninspected; output size depends on source-image detail, so this is a
+  candidate stress case rather than a confirmed Varve performance problem.
+- [#1732](https://gitlab.com/inkscape/inkscape/-/issues/1732) asks for more
+  predictable PowerClip live-path-effect application and clipboard sourcing.
+  Later comments question the LPE design; the thread notes SVG has no direct
+  representation for this operation. Varve has no matching LPE feature.
+- [#1733](https://gitlab.com/inkscape/inkscape/-/issues/1733) reports stale
+  clipboard content and wrong scale when copying an Offset LPE between
+  documents. The thread separates focus/clipboard behavior from an Offset
+  implementation bug and says it was fixed in 1.1-dev by commit
+  `5928baa181cda4b51a51bd624b0806caec060dea`. Varve does not have live Offset
+  LPEs, so no direct mapping was found.
+- [#1734](https://gitlab.com/inkscape/inkscape/-/issues/1734) is specific to
+  the Ubuntu Snap: print preview could not launch Evince, and printing also
+  lacked host CUPS access. [MR !6947](https://gitlab.com/inkscape/inkscape/-/merge_requests/6947)
+  fixes the main branch; [MR !6951](https://gitlab.com/inkscape/inkscape/-/merge_requests/6951)
+  backports the print/preview fix to 1.4.x by packaging Evince and connecting
+  host printing. Varve does not distribute a Snap package, so the packaging
+  failure is not shared.
+- [#1735](https://gitlab.com/inkscape/inkscape/-/issues/1735) reports missing
+  drag/drop preview cues for macOS dockable panels, linked in the discussion to
+  GTK issue #410. Later notes say the docking system was rewritten for 1.1 and
+  a user believed the behavior had fixed itself. Varve's dock uses its own
+  React drop preview rather than GTK/GDL; no matching regression is established.
+
+The one actionable follow-up is to retain a high-detail, multi-scan raster as
+a trace complexity stress fixture if tracing performance is investigated.
+The existing path cap and pre-apply estimate already address unbounded output;
+do not change tracing behavior from this historical report alone.

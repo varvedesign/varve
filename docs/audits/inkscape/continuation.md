@@ -668,7 +668,7 @@ Inkscape’s canonical tracker.
 ## Next operation
 
 Finish the mobile marketing-page visual review for #2069, then continue cached
-discussion review from IID 1731 and inspect the strongest related evidence from
+discussion review from IID 1736 and inspect the strongest related evidence from
 #1711, #1704, #1707, and #1712. Investigate #1551 sequential export state and #5960
 variable-font PDF fidelity after that. Keep research coverage separate from
 engineering status. #5939 and the #2069 export UI have desktop visual evidence;
@@ -835,8 +835,10 @@ its title, labels, or downloaded body.
     #1730 minimal SVG path is a relevant robustness case: Varve previously
     substituted visible 10×10 placeholder geometry for paths with fewer than
     two points. It now skips those paths and reports a warning, with unit and
-    editor UI regression coverage. The import behavior is implemented but not
-    committed; final review and validation remain pending. The planner ran
+    editor UI regression coverage. Commit `91906aadc` contains the import fix,
+    its unit and editor UI regression coverage, and the related documentation.
+    Its commit checkpoint passed format/lint, audits, E2E typecheck, and the
+    focused 38-test SVG suite. The planner ran
     formatting, lint, docs/emoji audits,
     E2E typecheck, and importer/codegen/scene/editor typechecks successfully;
     the affected closure then stopped at the existing
@@ -849,3 +851,21 @@ its title, labels, or downloaded body.
     zero objects and the warning is legible, with no placeholder geometry.
     The export marketing page mobile screenshot is running through the lease
     and remains pending because another task currently owns the browser slot.
+
+66. Reviewed all 54 cached records for IID 1731–1735 (27 user comments and 27
+    system/history events), bringing discussion coverage to 945 threads. #1731
+    describes Autotrace producing hundreds of grouped paths from two scans;
+    Varve already flattens trace contours into one editable group, caps paths at
+    100,000, and estimates complexity before applying, so retain it as a stress
+    case without changing behavior from the report alone. #1732 and #1733 are
+    PowerClip/Offset LPE workflow reports; the latter was reported fixed in
+    Inkscape 1.1-dev and Varve has no equivalent LPE feature. #1734's Snap-only
+    print/preview failure was fixed by main MR !6947 and 1.4.x backport !6951
+    through Evince packaging and host CUPS access; Varve has no Snap package.
+    #1735 concerns GTK/GDL panel docking cues, later rewritten upstream; Varve
+    has its own React dock preview. No additional Varve defect was established.
+    The findings, issue rows, and summary now record the evidence and limits.
+    The mobile marketing screenshot is queued behind another task's active
+    browser lease (PID 1183056); a temporary Playwright harness targets the
+    task-owned Astro server and will be removed after capture. No app or other
+    task was closed or interrupted.
