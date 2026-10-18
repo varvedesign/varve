@@ -274,6 +274,26 @@ boundaries; `cargo test -p varve-print a_mode_without_a_pdf_name` passes both
 standard-PDF and PDF/X-4 regression cases, and `cargo fmt -p varve-print -- --check`
 passes.
 
+Follow-up Agent Validation Report: changed scope is the editor clipboard and
+text-edit/save lifecycle, scene/PDF export fidelity, Rust PDF writers, Astro
+marketing/export pages, and this audit record. After the native PDF review fix,
+`pnpm verify:plan` selected 38 lanes with no full-suite escalation. The latest
+`pnpm verify:affected` stopped at Tier 0 on the unowned
+`packages/codegen/src/bundle-assets.ts` format issue; downstream lanes did not
+run. Focused commands that passed: `pnpm --filter @varve/editor typecheck`,
+`pnpm typecheck:e2e`,
+`pnpm exec vitest run packages/editor/src/clipboard.test.ts packages/editor/src/context.import.test.tsx`
+(58 tests), `cargo test -p varve-print a_mode_without_a_pdf_name` (2 tests),
+`cargo fmt -p varve-print -- --check`, `pnpm audit:docs`, `pnpm audit:emoji`,
+`pnpm audit:tokens`, `pnpm exec biome check` on task-owned TypeScript files,
+and `git diff --check`. `pnpm audit:radius` was run and reported existing
+Presentation/SpecPanel legacy-radius consumers outside this change. The
+`text-target-switch.spec.ts` Playwright attempt timed out after the 600-second
+shared lease wait without starting; browser E2E and visual suite lanes were
+deferred. Website desktop/mobile screenshots and PDF render samples were
+visually inspected as recorded above. Full Vitest, full Playwright, Rust
+workspace tests, and full gate were not run; the planner did not escalate.
+
 1. When the shared heavy-test lease is available, rerun the targeted Thai text
    corpus E2E; the previous attempt expired without starting Playwright.
 2. Follow linked issues, PRs, attachments and source fixtures for cutoff-B
