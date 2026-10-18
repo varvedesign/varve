@@ -116,7 +116,12 @@ Inkscape’s canonical tracker.
     causing multi-gigabyte RAM use and a black canvas; individual notes remain
     pending. Varve's pattern renderer uses decoded tiles and bounded instances,
     without the same zoom-scaled Cairo surface path.
-15. Current body-screening total is 27 of 6,392. Discussion and linked-source
+15. Screened #6242, #2190 and #3580. Varve emits PDF 1.4 (standard) and 1.6
+    (PDF/X-4), so #6242's PDF 2.0 version trigger is not shared; #2190's
+    historical mixed-font failure remains a useful cross-viewer test category.
+    Varve's 6,400% zoom ceiling and raster surface budgets cover the scale of
+    #3580's 15,000% bad-allocation report. Discussions remain pending.
+16. Current body-screening total is 30 of 6,392. Discussion and linked-source
     retrieval remain in progress.
 
 ## Validation checkpoint: 2026-10-18
