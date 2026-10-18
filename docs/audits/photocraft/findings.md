@@ -316,8 +316,39 @@ The tracker and adjacent reports were checked against the same Varve boundary:
   records. Varve's image assets are document-owned/content-addressed and no
   equivalent linked-smart-object workflow was found; these reports do not
   establish a current Varve defect. #6617 is a tracking issue, not a separate
-  failure. The remaining export-name reports #6613/#6614 still need a
-  focused review of the corresponding Varve batch-export workflows.
+  failure. Export-name reports #6613/#6614 were checked against Varve's batch
+  export workflow; see F-006 and the issue ledger dispositions below.
+
+## F-006 — Duplicate batch export names can overwrite earlier outputs
+
+**Sources.** PhotoCraft [#6613](https://github.com/storytold/photocraft/issues/6613)
+reports that distinct artboards can sanitize to the same filename and the later
+export silently replaces the earlier one. #6614 reports the same failure class
+for generated image assets. These are distinct from the hard-link behavior in
+#6602: here the application itself issues two writes in one batch.
+
+**Varve applicability.** The Export dialog already runs job names through
+`applyExportBatchPaths` and the shared collision resolver, which renames
+colliding jobs. However, `ExportService.run` is also a public execution boundary
+and accepted duplicate filenames from direct callers; generated multi-file
+deliverables add further names after the dialog's job-level resolution. Such a
+duplicate could replace a previous file depending on the configured sink.
+
+**Implementation.** The service now normalizes output path separators and
+Unicode composition, reserves every output name before writing, and reports a
+duplicate as a failed job with an actionable rename message. It reserves before
+the first write so a partially written multi-file export cannot be overwritten
+by a later job. A regression first failed because the sink received both writes,
+then passed after the guard. This complements the dialog's automatic renaming;
+it does not alter normal unique-name exports.
+
+**Related feature scope.** Varve does not expose PhotoCraft's named-layer
+"Generate Image Assets" workflow, so #6614 is not a direct feature match. The
+service guard also covers any collision among declared multi-file bundle
+outputs.
+
+**Website impact:** no marketing claim describes batch export overwrite
+behavior; no site copy change is justified.
 
 ## Source seeds that did not match the requested repository
 

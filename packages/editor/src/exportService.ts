@@ -204,6 +204,11 @@ function jobStem(fileName: string): string {
   return dot > 0 ? base.slice(0, dot) : base;
 }
 
+/** Normalize an output's relative name for duplicate detection across hosts. */
+function outputNameKey(fileName: string): string {
+  return fileName.normalize('NFC').replaceAll('\\', '/');
+}
+
 function abortError(): Error {
   const err = new Error('Export aborted');
   err.name = 'AbortError';
@@ -668,6 +673,7 @@ export const ExportService = {
     const startedAt = Date.now();
     const perfStarted = performance.now();
     const files: ExportFileReport[] = [];
+    const reservedOutputNames = new Set<string>();
     let completedJobs = 0;
     let failedJobs = 0;
     const emit = (stage: ExportStage, currentFile?: string) => {
@@ -709,6 +715,19 @@ export const ExportService = {
                 index === 0 ? { ...file, fileName: job.fileName } : file,
               )
             : [{ fileName: job.fileName, bytes: rendered.bytes, mimeType: rendered.mimeType }];
+        const outputKeys = outputs.map((output) => outputNameKey(output.fileName));
+        const currentOutputNames = new Set<string>();
+        for (const [index, outputKey] of outputKeys.entries()) {
+          if (reservedOutputNames.has(outputKey) || currentOutputNames.has(outputKey)) {
+            throw new Error(
+              `Output filename "${outputs[index]?.fileName}" is already used by another output in this batch. Rename one export and try again.`,
+            );
+          }
+          currentOutputNames.add(outputKey);
+        }
+        // Reserve before writing. If a multi-file job partially writes and then
+        // fails, later jobs must not overwrite any of its earlier outputs.
+        for (const outputKey of currentOutputNames) reservedOutputNames.add(outputKey);
         let saved: string | null | undefined;
         try {
           for (const [index, output] of outputs.entries()) {

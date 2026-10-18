@@ -38,6 +38,44 @@ function svgBatch(nodeId = 'n1'): ExportBatch {
 }
 
 describe('ExportService', () => {
+  it('does not overwrite an earlier batch output with the same filename', async () => {
+    const first = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+      { name: 'First' },
+    );
+    const second = makeShapeNode(
+      'n2',
+      { kind: 'rect', x: 30, y: 0, w: 20, h: 10 },
+      { name: 'Second' },
+    );
+    const doc = {
+      ...createDocument('Doc', true),
+      rootChildren: ['n1', 'n2'],
+      nodes: { n1: first, n2: second },
+    };
+    const batch = {
+      ...svgBatch(),
+      jobs: [
+        { ...svgBatch().jobs[0]!, nodeId: 'n1', nodeName: 'First' },
+        { ...svgBatch().jobs[0]!, nodeId: 'n2', nodeName: 'Second' },
+      ],
+    };
+    const saved: string[] = [];
+
+    const report = await ExportService.run(batch, {
+      document: doc,
+      saveFile: async (fileName) => {
+        saved.push(fileName);
+        return `/exports/${fileName}`;
+      },
+    });
+
+    expect(saved).toEqual(['Logo.svg']);
+    expect(report.files.map((file) => file.status)).toEqual(['success', 'failed']);
+    expect(report.files[1]?.error).toContain('already used by another output');
+  });
+
   it('exports SVG jobs through the save sink and reports success', async () => {
     const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Logo' });
     const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };

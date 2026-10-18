@@ -117,7 +117,11 @@ Last updated: 2026-10-18. Status: active and incomplete.
   intent-specific policy. #6610 recent-file missing state is already handled.
   #6612 needs an XDG/macOS storage-policy review before any recovery-root
   migration. Linked-smart-object reports #6608/#6609 do not match Varve's
-  current embedded asset model. Export collisions #6613/#6614 remain to review.
+  current embedded asset model. #6613 exposed a defense-in-depth gap: the
+  dialog already renames duplicates, while ExportService now rejects duplicate
+  names from direct callers and generated multi-file outputs; its focused test
+  is green and wider validation remains. #6614's named-layer asset workflow is
+  not present in Varve.
 
 ## Current full-gate checkpoint (2026-10-18)
 
