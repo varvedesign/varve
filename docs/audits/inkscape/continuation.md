@@ -126,9 +126,11 @@ Inkscape’s canonical tracker.
 17. Screened #3975, #5983, #5878, #1231 and #5976. #3975/#3580 describe
     Cairo failures at extreme zoom; Varve's zoom and raster budgets reduce the
     same unbounded allocation class, but need a synthetic near-limit blur
-    fixture. #5983's 65,000-pixel JPEG is below Varve's 65,535 per-axis cap,
-    making a bounded synthetic import/zoom test worthwhile; its external image
-    was not downloaded. #5878's Powerstroke path editing and #5976's marker
+    fixture. #5983's linked 65,500×3,273 JPEG is below Varve's per-axis cap but
+    has 214,381,500 pixels, above the 64 Mi-pixel pre-decode budget. A focused
+    synthetic JPEG-header regression asserts rejection without downloading
+    the image; its run is pending and it does not reproduce Inkscape's later
+    zoom crash. #5878's Powerstroke path editing and #5976's marker
     recoloring dialog have no direct Varve feature match. #1231's styled-stroke
     drag memory report may inform a bounded selection stress scenario. Their
     35 combined reported notes remain pending retrieval/review.
@@ -151,6 +153,13 @@ Inkscape’s canonical tracker.
   `audit:emoji`, `audit:docs`, and `typecheck:e2e`; the first four passed after
   formatting the generated summary JSON. Typecheck failed on the pre-existing
   `packages/scene/src/index.ts` export of absent `./nodeResize`.
+- After adding the targeted #5983 raster-header regression, the selected
+  `format:touched`, `lint:touched`, `audit:emoji`, and `audit:docs` lanes passed
+  again. `typecheck:e2e` failed on the same missing module before the focused
+  import unit test could run. The exact raster unit test is waiting behind an
+  active shared Vitest lease. The PDF UI E2E lease wait expired at its 600s
+  deadline while that suite was still active; it did not launch Chromium and
+  produced no UI screenshot. Do not reclaim the active lease.
 - `node scripts/quality/heavy-lease.mjs 'Inkscape PDF pattern export regressions' -- cargo test --manifest-path crates/varve-print/Cargo.toml pattern` passed: 12 tests, including alpha embedding, PDF/X behavior, and the new tile-cap sibling-preservation regression.
 - A fresh lease-wrapped run of `export_pdf_caps_pattern_tile_expansion_without_dropping_neighbor_content` passed (1 test); its generated PDF was rendered with `pdftoppm` and visually inspected. The PDF and PNG were written under `/tmp`, not the repository.
 - Read-only review of the committed code diff and pending E2E test found no actionable defects. The E2E UI test is waiting for the shared browser lease; typechecking fails first on a pre-existing missing `nodeResize` module in committed `master`.
