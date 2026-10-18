@@ -138,9 +138,12 @@ for each preview owner. The worker lazily loads the baseline or SIMD
 `varve-wasm` artifact and checks the versioned effect ABI, effect name, pixel
 format, dimensions, pixel count, and exact byte length before calling a Rust
 kernel. The boundary is single-threaded and accepts straight-alpha RGBA8
-sRGB; it does not request cross-origin isolation. If loading, ABI validation,
-or a kernel call fails, the worker runs the canonical TypeScript CPU provider
-and reports which provider returned the pixels. Cancelling active work
+sRGB; it does not request cross-origin isolation. A cold module load has a
+1.5-second budget; if it misses that budget, the current preview immediately
+uses the canonical TypeScript CPU provider and aborts the pending asset fetch,
+so a later preview can retry. ABI validation or a kernel-call failure also
+uses the CPU provider. The worker reports which provider returned the pixels.
+Cancelling active work
 terminates the synchronous worker; the memory lease remains held until worker
 termination is observed by the runner and the next preview can create a fresh
 worker. A worker that does not respond is retired by the five-second

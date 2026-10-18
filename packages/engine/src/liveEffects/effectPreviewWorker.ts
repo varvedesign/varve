@@ -4,7 +4,11 @@ import type {
   EffectPreviewWorkerRequest,
   EffectPreviewWorkerResponse,
 } from './effectPreviewRunner';
-import { applyWasmEffect, canUseWasmEffect, tryLoadWasmEffects } from './wasmEffectsLoader';
+import {
+  applyWasmEffect,
+  canUseWasmEffect,
+  loadWasmEffectsBeforeDeadline,
+} from './wasmEffectsLoader';
 
 interface EffectWorkerScope {
   onmessage: ((event: MessageEvent<EffectPreviewWorkerRequest>) => void) | null;
@@ -64,7 +68,7 @@ async function runEffect(
   request: EffectPreviewWorkerRequest['request'],
   source: Uint8ClampedArray,
 ): Promise<{ readonly result: Uint8ClampedArray; readonly backend: EffectPreviewBackend }> {
-  const wasm = canUseWasmEffect(request) ? await tryLoadWasmEffects().catch(() => null) : null;
+  const wasm = canUseWasmEffect(request) ? await loadWasmEffectsBeforeDeadline() : null;
   if (wasm) {
     try {
       const output = applyWasmEffect(

@@ -125,5 +125,67 @@ observable to tests/diagnostics.
 - [x] Update canonical effect architecture docs and public performance guidance;
   the feature marketing page remains unchanged because this bounded inspector
   sample has no measured general performance benefit to advertise.
-- [ ] Review final browser latency/memory limitations, perform code review, scoped commits,
-  and remote integration status.
+- [x] Independent review caught that a cold/stalled WASM fetch could consume the
+  entire five-second worker response deadline before TS fallback. Add a 1.5s
+  load deadline, abort its pending fetch, and let the current preview use the
+  TS reference; a later preview may retry. Add an abort regression and document
+  the budget. Independent review confirmed the retry path.
+- [ ] Rerun affected checks, create scoped reviewable commit, pass the required
+  outgoing/full-gate checks, and complete remote PR/review/merge integration.
+
+### Validation status (2026-10-18)
+
+- The latest `pnpm verify:plan` selected 41 lanes and reported no full-suite
+  escalation for the seven pending files.
+- The latest `pnpm verify:affected` passed touched format/lint, docs and emoji
+  audits, the E2E TypeScript check, all affected package typechecks, and direct
+  `wasmEffectsLoader` (2/2) and `wasmLoader` (6/6) tests.
+- Its engine package lane reported 449 passed and 11 skipped, with three
+  time-bound failures while another worktree was running a local full gate:
+  selection refinement (18.24s vs 10s), mockup mesh at 1024 px (2.09s vs
+  1.4s), and a 512×512 diffusion-frame test (43.66s vs 30s). Isolated retries
+  later passed selection refinement (5.55s) and both mockup-warp cases
+  (199.8/624.7/3205.1 ms for 512/1024/2048 px). Shaping also passed (3/3).
+- A later capped-worker batch still overlapped other browser/native builds and
+  missed selection and diffusion timing ceilings, while mockup warp passed.
+  With the shared queue clear, the final one-file-at-a-time retries passed:
+  selection refinement in 8.16s; diffusion-frame restoration in 10.62s with
+  all 10 tests passing.
+- A subsequent full affected run with `VARVE_TEST_WORKERS=4` passed format,
+  lint, docs/emoji audits, E2E typecheck, every selected package typecheck, and
+  the direct loader tests. The engine lane reported 450 passed and 11 skipped;
+  shaping (594ms vs 500ms) and 2048px mesh warp (5561ms vs 4800ms) exceeded
+  timing ceilings while other worktree E2Es and tests were active. Selection
+  and diffusion passed in this run. Shaping and mockup warp also passed in
+  earlier isolated retries. The downstream lanes and targeted timeout browser
+  test remain pending because the affected runner stops on the failed engine
+  lane.
+- A combined retry including the diffusion-frame case waited behind other
+  agents' heavy-task leases for 600 seconds and never started. No other task or
+  lease was interrupted. The affected runner still must be repeated for the
+  complete selected closure; the targeted timeout E2E and post-timeout visual
+  captures also remain outstanding.
+- In the next validation window, isolated lease runs passed shaping (3/3,
+  185ms), mockup warp (2/2; 2048px mesh 1.52s), and diffusion-frame (10/10;
+  512×512 restoration 15.9s). Two subsequent full affected attempts again
+  showed only time-bound engine failures during concurrent worktree builds,
+  browser runs, Rust compilation, and Python tests. The one-worker attempt had
+  450 passed and 11 skipped, with shaping at 662ms and diffusion-frame over
+  30s. The four-worker attempt had 448 passed and 11 skipped, with shaping at
+  660ms, selection refinement at 18.6s, diffusion-frame over 30s, and 2048px
+  mesh warp at 4.93s. Each observed timing case passed when rerun alone through
+  the heavy-task lease. The later package lanes and timeout browser case have
+  not yet run in a complete passing affected closure.
+- A third `VARVE_TEST_WORKERS=4 pnpm verify:affected` attempt passed format/lint,
+  both docs/emoji audits, all selected typechecks (including the website Astro
+  check), and both direct loader test files. Its engine lane had 451 passed and
+  11 skipped; only selection refinement exceeded its limit (11.56s vs 10s)
+  while other worktrees ran simultaneous typechecks and tests. That case has
+  passed isolated retries in under 10 seconds. Downstream package and timeout
+  browser lanes remain outstanding because the affected runner stops on the
+  engine failure.
+- A manually queued batch covering the remaining planned package test
+  directories reached its 600-second lease deadline while another worktree's
+  affected editor package suite still owned the repository lease. It never
+  started and did not interrupt or reclaim that suite; downstream tests and the
+  timeout browser scenario remain outstanding.

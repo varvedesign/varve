@@ -7,6 +7,7 @@ const PIXEL_FORMAT = 'rgba8-straight-srgb';
 const MAX_REQUEST_BYTES = 64 * 1024;
 const MAX_DIMENSION = 16_384;
 const MAX_PIXELS = 4_194_304;
+export const WASM_EFFECT_LOAD_DEADLINE_MS = 1_500;
 const VERIFIED_PREVIEW_EFFECTS = new Set([
   'rgbSplit',
   'crt',
@@ -44,12 +45,40 @@ export function canUseWasmEffect(request: EffectDispatchRequest): boolean {
 }
 
 /** Loads the baseline/SIMD effect exports once, without requiring worker threads. */
-export function tryLoadWasmEffects(): Promise<WasmEffectsModule | null> {
-  effectsModulePromise ??= loadWasmEffectsUncached().then((module) => {
-    if (!module) effectsModulePromise = undefined;
-    return module;
-  });
+export function tryLoadWasmEffects(signal?: AbortSignal): Promise<WasmEffectsModule | null> {
+  if (signal?.aborted) return Promise.resolve(null);
+  if (!effectsModulePromise) {
+    const pending = loadWasmEffectsUncached(signal).then((module) => {
+      if (!module && effectsModulePromise === pending) effectsModulePromise = undefined;
+      return module;
+    });
+    effectsModulePromise = pending;
+  }
   return effectsModulePromise;
+}
+
+/**
+ * Keep a cold or stalled optional module from consuming the whole preview
+ * worker deadline. The current preview still completes through the CPU
+ * reference; aborting the shared load lets a later request retry.
+ */
+export async function loadWasmEffectsBeforeDeadline(
+  load: (signal: AbortSignal) => Promise<WasmEffectsModule | null> = tryLoadWasmEffects,
+  deadlineMs = WASM_EFFECT_LOAD_DEADLINE_MS,
+): Promise<WasmEffectsModule | null> {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const deadline = new Promise<null>((resolve) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        resolve(null);
+      }, deadlineMs);
+    });
+    return await Promise.race([load(controller.signal).catch(() => null), deadline]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
 }
 
 export function applyWasmEffect(
@@ -102,15 +131,15 @@ function validateWasmEffectRequest(
   }
 }
 
-async function loadWasmEffectsUncached(): Promise<WasmEffectsModule | null> {
+async function loadWasmEffectsUncached(signal?: AbortSignal): Promise<WasmEffectsModule | null> {
   const base = resolveAppAssetUrl('wasm/');
   for (const wasmUrl of [`${base}varve_wasm_simd_bg.wasm`, `${base}varve_wasm_bg.wasm`]) {
     let blobUrl: string | null = null;
     try {
-      const response = await fetchWasmAsset(wasmUrl, { method: 'HEAD' });
+      const response = await fetchWasmAsset(wasmUrl, { method: 'HEAD', signal });
       if (!response.ok) continue;
       const jsUrl = wasmUrl.replace('_bg.wasm', '.js').replace('_simd_bg.wasm', '_simd.js');
-      const jsSource = await fetchWasmAsset(jsUrl).then((asset) => asset.text());
+      const jsSource = await fetchWasmAsset(jsUrl, { signal }).then((asset) => asset.text());
       blobUrl = URL.createObjectURL(new Blob([jsSource], { type: 'text/javascript' }));
       const module = (await import(/* @vite-ignore */ blobUrl)) as WasmEffectsModule & {
         default: (options?: {
@@ -118,7 +147,7 @@ async function loadWasmEffectsUncached(): Promise<WasmEffectsModule | null> {
         }) => Promise<void>;
       };
       await module.default({
-        module_or_path: fetchWasmAsset(wasmUrl).then((asset) => asset.arrayBuffer()),
+        module_or_path: fetchWasmAsset(wasmUrl, { signal }).then((asset) => asset.arrayBuffer()),
       });
       const abiJson = module.wasm_effects_abi_json();
       if (abiJson.length > MAX_REQUEST_BYTES) continue;
@@ -136,6 +165,7 @@ async function loadWasmEffectsUncached(): Promise<WasmEffectsModule | null> {
     } finally {
       if (blobUrl) URL.revokeObjectURL(blobUrl);
     }
+    if (signal?.aborted) return null;
   }
   return null;
 }
