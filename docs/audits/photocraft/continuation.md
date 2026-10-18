@@ -34,12 +34,15 @@ Last updated: 2026-10-18 (session 5).
   (cutoff A corpus records/findings), `5b2c3a409` (mobile website evidence),
   `722315eda` (cutoff B inventory), `bd0c62933` (cutoff B review and Linux
   support guidance), `349cfcb2a` (cutoff B reconciliation), `11601d58e`
-  (corrected issue provenance), `57eccb6a2` (reconciled cutoff A totals), and
-  `de2c09ef6` (provenance review checkpoint).
+  (corrected issue provenance), `57eccb6a2` (reconciled cutoff A totals),
+  `de2c09ef6` (provenance review checkpoint), and `a79c0a239`
+  (integration/workflow state snapshot).
 - The main checkout has unrelated in-flight edits. Do not stage, revert,
   reset, stash, or commit them. The latest read-only workflow status showed the
-  task branch has no upstream configured; relative to local `master` it is 9
-  commits ahead and 33 behind. The main checkout remains dirty, and the
+  task branch has no upstream configured; at that check it had 9 commits
+  unique to the task branch and was 33 behind local `master`. Additional task
+  commits have since been added, so refresh this count before integration. The
+  main checkout remains dirty, and the
   codegen/scene source files are untracked there as well as in this task
   worktree. No merge or rebase is in progress. Do not merge into the main
   checkout until the source-owning work lands and candidate validation can run.
@@ -187,7 +190,7 @@ If yes, reason: n/a.
 Changed scope: PdfCraft #813 classification and rationale, adjacent PhotoCraft source links, async-open risk notes, cutoff A count summary.
 Validation plan: `pnpm verify:plan` selected 38 lanes, FULL-SUITE NO. Untracked, unowned codegen/scene files caused those packages to enter the closure.
 Commands actually run: `pnpm verify:plan`; `pnpm verify:affected`; `pnpm audit:docs`; `pnpm audit:emoji`; `pnpm exec biome check docs/audits/photocraft/issue-ledger.summary.json`; `git diff --check`; Python JSONL/summary reconciliation.
-Passed: docs audit (1162 docs, 833 links, 182 ADRs); emoji audit (5414 files); JSONL/summary counts and uniqueness; summary formatting; staged commit checkpoints for both commits.
+Passed: docs audit (1162 docs, 833 links, 182 ADRs); emoji audit (5414 files); JSONL/summary counts and uniqueness; summary formatting; staged commit checkpoints for all audit documentation commits in this follow-up sequence.
 Skipped as unrelated: package compilers, unit tests and E2E did not run because `pnpm verify:affected` stopped at Tier 0 on the unowned `packages/codegen/src/bundle-assets.ts` formatter error. The other unowned `packages/scene/src/nodeResize.ts` remains untracked too.
 Escalations: none. No full suite run. The possible Home-open focus race is documented but not reproduced or changed.
 Full suite run: no.
