@@ -1,6 +1,6 @@
 # Continuation record
 
-Last updated: 2026-10-18 (session 5).
+Last updated: 2026-10-18 (session 6).
 
 ## Frozen baseline
 
@@ -206,6 +206,68 @@ Skipped: affected compilers, unit tests and E2E did not run because `pnpm verify
 Review: distinct self-review confirmed the corrected ledger disposition agrees with §4.7 and summary counts. The in-flight untracked compositor E2E in the shared main checkout was not treated as evidence or modified.
 
 ## Exact next steps
+
+### Session 6 follow-up (2026-10-18)
+
+Current task HEAD before the new follow-up commit is
+`1134b82775da38d2cbb61b012430984b0d2c1b25`. Read-only seed reviews corrected
+the ledger and findings for PdfCraft #434 (partial stamp fix; old signature
+rationale unrelated), #2944 (merged EXIF fix and Varve import analogue), #787
+(canvas cross-page drag exists; Layers/cut-paste routes remain open), #2512
+(text-session design proposal; old signature rationale unrelated), and #2516
+(PdfCraft-only ordinal paragraph API; authored Varve text uses stable IDs but
+does not implement that API). #2022's PdfCraft fix is merged, while Varve still
+needs a direct target-switch browser regression. Summary totals were
+recomputed from all 1,296 ledger rows.
+
+Added `tests/e2e/save/text-target-switch.spec.ts` to edit one text node, switch
+to another before the buffered update window elapses, and verify the second
+node plus undo. The first visual run exposed an edge-click in the test
+coordinates; screenshot at
+`test-results/run-314314-1420/save-text-target-switch-sw-5e2cc-ed-draft-and-preserves-undo-chromium/test-failed-1.png`
+showed both created nodes intact and the first selected. Coordinates are now
+centered on the visible text bounds. That queued rerun expired before
+Playwright started. The current retry and shared-lease owner are recorded in
+the addendum below; do not reclaim other agents' leases.
+
+### Session 6 addendum — cross-page clipboard placement
+
+Follow-up source review of PdfCraft #787 found that Varve's existing
+same-document `worldAnchor` rule had no page provenance. Added clipboard v5
+`sourcePageId`; same-document pose reuse now requires matching source and
+destination page IDs. A missing source page ID in a legacy payload fails
+closed for paged documents and uses destination placement. The architecture
+contract is recorded in `docs/architecture/coordinate-system.md`. The ledger
+now distinguishes this tested paste route from the still unsupported
+Layers-tree route and multi-page selection.
+
+The new context regression covers page switching, destination parent and
+placement; together with the clipboard policy check, the focused editor batch
+passed 58 tests across `clipboard.test.ts` and `context.import.test.tsx`.
+`pnpm --filter @varve/editor typecheck` and `pnpm typecheck:e2e` both passed.
+The latest `pnpm verify:affected` stopped at Tier 0 on the unowned, untracked
+`packages/codegen/src/bundle-assets.ts` formatting issue; it did not run
+affected lanes. The earlier task-owned import-order issue in the context test
+was fixed. Do not modify the unowned `packages/codegen/src/bundle-assets.ts`
+or `packages/scene/src/nodeResize.ts` files.
+
+The latest text-target-switch Playwright attempt waited the full 600-second
+lease deadline behind the live JavaScript unit-test lease owned by PID 402161.
+Playwright never started and produced no screenshot. The queue timeout is not
+a passing regression result. Do not reclaim that lease or stop the ChatGPT
+Linux app or other agents' work. Website desktop/mobile screenshots and PDF
+render samples were visually inspected earlier in this task; this targeted
+text-switch visual check remains pending until the shared lease is free.
+
+Validation: `pnpm verify:plan` selected 42 lanes and no full-suite escalation;
+the affected run stopped at Tier 0 on the unowned format issue above.
+`pnpm audit:docs` passed (1,162 docs, 833 links, 182 ADRs), `pnpm audit:emoji`
+passed (5,415 files), `pnpm audit:tokens` passed all 324 pairs across 3 themes
+and the usage scan, the focused editor batch passed 58 tests, both typechecks
+passed, and Biome plus `git diff --check` passed. The directly invoked
+`pnpm audit:radius` reported existing legacy-radius consumers in Presentation
+and SpecPanel styles; none are in this task's changed files. No full suite was
+run.
 
 1. When the shared heavy-test lease is available, rerun the targeted Thai text
    corpus E2E; the previous attempt expired without starting Playwright.
