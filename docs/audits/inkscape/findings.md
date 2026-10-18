@@ -163,6 +163,50 @@ body-only examples that may inform focused tests:
   history remains pending, so it should be compared against the intended
   gradient defaults before treating it as a product gap.
 
+## Screening update: issues #1–1200
+
+The complete range contains 1,200 issue numbers. Of those, 1,057 previously
+unreviewed, cached, nonempty descriptions were read individually; 116 IDs had
+already been screened and 27 descriptions were unavailable in the cache. No
+discussion notes or attachments were reviewed in this sweep. The reports below
+are body-only candidate tests, many from old releases:
+
+- Export behavior is a recurring complaint. [#1022](https://gitlab.com/inkscape/inkscape/-/issues/1022)
+  says `--export-margin` updates attributes without changing SVG page bounds;
+  [#1024](https://gitlab.com/inkscape/inkscape/-/issues/1024) says
+  `--export-id-only` yields empty/non-resized output for some formats;
+  [#1056](https://gitlab.com/inkscape/inkscape/-/issues/1056) describes
+  `--export-area-drawing` not cropping EMF/WMF; and [#1135](https://gitlab.com/inkscape/inkscape/-/issues/1135)
+  reports export-height changing aspect ratio instead of deriving the other
+  dimension. [#1198](https://gitlab.com/inkscape/inkscape/-/issues/1198)
+  documents pixel-page dimensions rounded to whole PostScript points. These
+  reports justify checking option combinations and units per output format;
+  their version-specific histories and Cairo/backend limits remain unchecked.
+- [#761](https://gitlab.com/inkscape/inkscape/-/issues/761) reports overflowed
+  SVG2 text being removed from the saved file, with no way to restore it by
+  enlarging the frame. This is a concrete data-preservation case, though the
+  issue is an older feature-era report and its fixture was not opened.
+- [#1034](https://gitlab.com/inkscape/inkscape/-/issues/1034) reports copied
+  class-based SVG losing the associated CSS styling across documents;
+  [#1120](https://gitlab.com/inkscape/inkscape/-/issues/1120) reports Stroke to
+  Path orphaning clones that reference the original ID. These motivate testing
+  copy/import reference remapping and conversion integrity, but neither is a
+  confirmed Varve regression.
+- [#1130](https://gitlab.com/inkscape/inkscape/-/issues/1130) says undoing a
+  resize leaves a dashed line rendered solid although its SVG dash array stays
+  intact until save/reopen. This is a strong stale-render-versus-model
+  consistency test prompt, not evidence that Varve has the same cache defect.
+- [#1179](https://gitlab.com/inkscape/inkscape/-/issues/1179) reports
+  repeated no-op saves reversing XML attribute order and creating large diffs;
+  [#1180](https://gitlab.com/inkscape/inkscape/-/issues/1180) reports locked
+  guides reopening as unlocked. The former is source-control noise unless
+  serialization stability is promised; the latter is a more direct persistence
+  invariant. Both require format-contract review and save/reopen testing.
+- [#1200](https://gitlab.com/inkscape/inkscape/-/issues/1200) reports a
+  scrollbar range that excludes content after opening a document larger than
+  the page. This suggests a viewport-bounds test after document load; the
+  issue is historical and no sample was inspected.
+
 ## Candidate: large raster save memory
 
 Inkscape [#6398](https://gitlab.com/inkscape/inkscape/-/issues/6398) reports

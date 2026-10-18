@@ -180,9 +180,11 @@ Inkscape’s canonical tracker.
     output comparisons remain pending. This brought body-screening total to 64
     of 6,392.
 
-26. The #1–#1200 and #1201–#2400 ranges received full-text triage plus
-    manual review of selected high-signal issue bodies and cached discussions;
-    neither range is counted as fully manually screened. Selected reports add
+26. At this checkpoint, #1–#1200 and #1201–#2400 had received full-text
+    triage plus manual review of selected high-signal bodies and cached
+    discussions; neither range was counted as fully manually screened.
+    Subsequently, #1–#1200 was fully manually screened (entry 34).
+    #1201–#2400 remains partially reviewed. Selected reports add
     document-integrity, explicit export-error, stroked-text PDF, clip-path,
     filter/mask, and pattern-memory regression categories.
 27. Individually screened 1,190 available issue bodies in #2401–#3600. Eight
@@ -249,6 +251,15 @@ Inkscape’s canonical tracker.
     clipboard focus and object integrity, large-document tree-operation
     stalls, LPE load/undo crashes, geometry hit-testing, and import-versus-open
     fidelity differences.
+34. Completed individual full-description screening of IID 1–1200: 1,057
+    bodies were newly read, 116 already-reviewed IDs were excluded, and 27
+    descriptions were unavailable (#133, #146, #184–#187, #499, #532–#537,
+    #561, #566, #643–#644, #652, #776, #778, #899–#903, #931, #1004). The
+    total is 4,016 of 6,392 bodies. No notes or attachments were reviewed in
+    this sweep. Candidate categories include export-option fidelity,
+    SVG/text/filter interoperability, save/undo integrity, copy isolation,
+    and viewport/redraw correctness; these reports do not establish matching
+    Varve defects.
 
 ## Validation checkpoint: 2026-10-18
 
