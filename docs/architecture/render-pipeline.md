@@ -598,6 +598,12 @@ surfaces are composed normally but are not retained. Surfaces are released when
 their document closes, when diagnostic bypass is enabled, and when the page
 closes. Switching between open documents keeps their distinct surfaces under
 the same shared budget; LRU eviction removes older inactive products first. The
+cache also caps residency at 512 entries and rejects dependency keys over
+16,384 UTF-16 code units before joining/storing them. This bounds key strings to
+roughly 16 MiB at the entry cap; per-entry document-owner strings add at most
+another 16 MiB under the same key limit. Map/entry/canvas object overhead is
+additional. The reported byte budget measures RGBA backing stores, not
+JavaScript metadata. Groups over the key-size limit use fresh replay. The
 developer-only `?perf=1` handle exposes hits, misses, bypasses,
 evictions, retained bytes, and shape-leaf/raster-pixel work skipped, separately
 from the IR cache. Its bypass clears owned surfaces and forces fresh subtree

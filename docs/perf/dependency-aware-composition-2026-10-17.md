@@ -20,6 +20,13 @@ least-recently-used entries.
 Switching between still-open documents preserves their independently keyed
 surfaces under the shared LRU budget; closing a document retires its surfaces.
 An entry too large for its cap is replayed but not retained.
+Metadata residency is also bounded: at most 512 entries are retained, and a
+dependency key above 16,384 UTF-16 code units is rejected before it is joined
+or stored. These caps bound key-string storage to roughly 16 MiB at the entry
+limit; per-entry document-owner strings add at most another 16 MiB under the
+same key limit. Map/entry/canvas object overhead is additional and is not
+included in the reported RGBA byte budget. Groups exceeding the key cap use
+fresh replay.
 
 ## Browser comparison
 
@@ -150,8 +157,9 @@ fallback, not a broad zoom/DPR/rotation matrix or native WebView validation.
 
 ## Budget and current limits
 
-Unit coverage verifies LRU eviction, document retirement, diagnostic bypass,
-single-surface refusal, and hard byte-budget adherence. The raster-layer cache
+Unit coverage verifies LRU and metadata-entry eviction, overlong-key refusal,
+document retirement, diagnostic bypass, single-surface refusal, and hard
+raster-byte-budget adherence. The raster-layer cache
 also now declines a backing canvas whose RGBA dimensions cannot fit its budget
 before allocating it. This is not a full memory-pressure soak: browser/GPU
 residency and transient effect allocations were not measured.
