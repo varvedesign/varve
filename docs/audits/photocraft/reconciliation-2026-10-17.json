@@ -1,0 +1,101 @@
+{
+  "repository": "storytold/photocraft",
+  "cutoff_b_crawl_started_at_utc": "2026-10-17T10:32:24Z",
+  "cutoff_b_crawl_ended_at_utc": "2026-10-17T10:33:10Z",
+  "pages": 70,
+  "records_all": 6964,
+  "unique_issues": 3278,
+  "unique_pull_requests": 3686,
+  "open_issues": 1556,
+  "closed_issues": 1722,
+  "new_issues": [6962, 6964, 6965],
+  "removed_issues": [],
+  "changed_issues": [
+    {
+      "number": 6392,
+      "fields": ["body_sha256"],
+      "old_updated_at": "2026-10-16T22:37:19Z",
+      "new_updated_at": "2026-10-16T22:37:19Z",
+      "old_comments": 3,
+      "new_comments": 3
+    },
+    {
+      "number": 6400,
+      "fields": ["updated_at", "comments"],
+      "old_updated_at": "2026-10-16T11:09:35Z",
+      "new_updated_at": "2026-10-17T10:18:44Z",
+      "old_comments": 4,
+      "new_comments": 5
+    }
+  ],
+  "inventory_sha256": "aa0dfaa60f05ac64ed7787305ea7d7bd4697d47d37cee612786efd4b8d82908c",
+  "limitations": [
+    "The page crawl is not an atomic snapshot; per-page retrieval times and ETags are in inventory-b/page-*.json.",
+    "Comment content for all cutoff-A issues was retrieved through 10:31:14Z; the B refresh specifically re-fetched changed/new issue discussions."
+  ],
+  "body_delta_note": "Issue #6392 body bytes changed without updated_at changing; raw body remains in the external page cache. All other old issue bodies matched A.",
+  "discussion_b_refresh": {
+    "refetched_issue_numbers": [6392, 6400, 6962, 6964, 6965],
+    "comment_counts_match": true,
+    "cache_path": "/home/kevina/.cache/codex/photocraft-2026-10-17/comments-b"
+  },
+  "new_pull_requests": [6961, 6963, 6966],
+  "changed_pull_requests": [
+    {
+      "number": 1536,
+      "fields": ["body_sha256"]
+    },
+    {
+      "number": 4102,
+      "fields": ["body_sha256"]
+    },
+    {
+      "number": 4771,
+      "fields": ["updated_at", "comments"]
+    },
+    {
+      "number": 5009,
+      "fields": ["body_sha256"]
+    },
+    {
+      "number": 5386,
+      "fields": ["title", "updated_at", "comments", "body_sha256"]
+    },
+    {
+      "number": 5403,
+      "fields": ["body_sha256"]
+    },
+    {
+      "number": 5993,
+      "fields": ["updated_at"]
+    },
+    {
+      "number": 6001,
+      "fields": ["updated_at", "comments"]
+    },
+    {
+      "number": 6160,
+      "fields": ["updated_at"]
+    },
+    {
+      "number": 6472,
+      "fields": ["updated_at"]
+    },
+    {
+      "number": 6825,
+      "fields": ["updated_at"]
+    },
+    {
+      "number": 6871,
+      "fields": ["updated_at"]
+    },
+    {
+      "number": 6909,
+      "fields": ["updated_at"]
+    },
+    {
+      "number": 6913,
+      "fields": ["updated_at"]
+    }
+  ]
+}

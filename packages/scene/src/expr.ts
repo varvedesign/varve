@@ -231,5 +231,9 @@ export function evaluate(input: string, aliases: Record<string, number>): number
     throw new Error('Unexpected trailing tokens');
   }
 
+  if (!Number.isFinite(result)) {
+    throw new Error('Expression result must be finite');
+  }
+
   return result;
 }

@@ -7,6 +7,7 @@ import {
   FieldSizingContext,
   formatRestingValue,
   NumberField,
+  parseField,
   stripFloatResidue,
 } from './NumberField';
 
@@ -36,6 +37,11 @@ describe('formatRestingValue', () => {
 });
 
 describe('NumberField', () => {
+  it('does not accept an expression whose result overflows to infinity', () => {
+    const nearLimit = `1${'0'.repeat(308)}`;
+    expect(parseField(`${nearLimit} * 10`, {})).toBeNull();
+  });
+
   it('shows a rounded resting value without writing it back', () => {
     const onChange = vi.fn();
     render(<NumberField label="Width" value={270.40000000000003} onChange={onChange} />);

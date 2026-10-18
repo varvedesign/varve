@@ -134,6 +134,37 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function firstNonFiniteNumber(value: unknown): string | null {
+  const pending: Array<{ value: unknown; path: string }> = [{ value, path: '' }];
+  const visited = new WeakSet<object>();
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current) continue;
+    if (typeof current.value === 'number') {
+      if (!Number.isFinite(current.value)) return current.path || 'document';
+      continue;
+    }
+    if (current.value === null || typeof current.value !== 'object') continue;
+    if (visited.has(current.value)) continue;
+    visited.add(current.value);
+
+    if (Array.isArray(current.value)) {
+      for (let i = current.value.length - 1; i >= 0; i -= 1) {
+        pending.push({ value: current.value[i], path: `${current.path}[${i}]` });
+      }
+      continue;
+    }
+
+    for (const [key, child] of Object.entries(current.value)) {
+      const segment = /^[A-Za-z_$][\w$]*$/.test(key) ? `.${key}` : `[${JSON.stringify(key)}]`;
+      pending.push({ value: child, path: current.path ? `${current.path}${segment}` : key });
+    }
+  }
+
+  return null;
+}
+
 function validateShape(raw: Record<string, unknown>): string | null {
   if (typeof raw.id !== 'string') return 'Document id must be a string';
   if (typeof raw.name !== 'string') return 'Document name must be a string';
@@ -1687,6 +1718,16 @@ export const DocumentCodec = {
         ok: false,
         error: err instanceof Error ? err.message : 'Invalid JSON',
         warnings: [warning('document.invalid-json', 'Document JSON could not be parsed', 'error')],
+      };
+    }
+
+    const nonFinitePath = firstNonFiniteNumber(parsed);
+    if (nonFinitePath) {
+      const error = `Document contains a non-finite number at ${nonFinitePath}`;
+      return {
+        ok: false,
+        error,
+        warnings: [warning('document.non-finite-number', error, 'error', nonFinitePath)],
       };
     }
 

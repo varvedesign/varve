@@ -93,6 +93,11 @@ keyboard-editable numeric value. Use `displayScale={100}` when the document
 stores a normalized value but the UI speaks in percentage points. The slider
 continues to use the model range while the precision field uses the scaled range.
 
+Number fields that accept expressions reject non-finite results, including
+finite operands whose arithmetic overflows. The field shows an accessible error
+and retains its previous value; an invalid expression must not write infinity
+into the document.
+
 Comparison split handles and other visual scrubbers may remain slider-only when
 there is no stored parameter to edit. A parameter slider must not be slider-only
 merely because the panel is compact.

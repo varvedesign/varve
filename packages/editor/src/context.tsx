@@ -87,6 +87,33 @@ export function getBackupService(): BackupService | null {
   return backupServiceGetter?.() ?? null;
 }
 
+function decodeOpenFileDocument(json: string, name: string): Document | null {
+  try {
+    const decoded = DocumentCodec.decode(json);
+    if (!decoded.ok) {
+      toastHandler?.({
+        message: `Could not open “${name}”: ${decoded.error}`,
+        type: 'error',
+        duration: 8000,
+      });
+      return null;
+    }
+    const result = validateDocument(decoded.document);
+    if (!result.valid) {
+      console.warn('[Varve] openFile: validation warnings:', result.errors);
+    }
+    return resolveFontManifest(decoded.document);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'The document could not be decoded.';
+    toastHandler?.({
+      message: `Could not open “${name}”: ${detail}`,
+      type: 'error',
+      duration: 8000,
+    });
+    return null;
+  }
+}
+
 /**
  * Editor state context — shared across all shell surfaces.
  *
@@ -2704,13 +2731,15 @@ export function EditorProvider({
 }) {
   const [state, setState] = useState<EditorState>(() => {
     let name = initialDocumentName ?? 'Untitled';
+    let initialDocumentDecoded = initialDocumentJson === undefined;
     const initialDocument = createNewDocument({ documentName: name });
     let doc = initialDocument.ok
       ? initialDocument.result.document
       : createDocument(initialDocumentName ?? 'Untitled', true);
-    if (initialDocumentJson) {
+    if (initialDocumentJson !== undefined) {
       const decoded = DocumentCodec.decode(initialDocumentJson);
       if (decoded.ok) {
+        initialDocumentDecoded = true;
         doc = decoded.document;
         name = initialDocumentName ?? doc.name ?? 'Untitled';
       }
@@ -2750,9 +2779,9 @@ export function EditorProvider({
           id: INITIAL_SESSION_ID,
           name,
           dirty: false,
-          ...(initialFileId ? { fileId: initialFileId } : {}),
-          ...(initialFilePath ? { filePath: initialFilePath } : {}),
-          ...(initialLibraryStorage ? { libraryStorage: true } : {}),
+          ...(initialDocumentDecoded && initialFileId ? { fileId: initialFileId } : {}),
+          ...(initialDocumentDecoded && initialFilePath ? { filePath: initialFilePath } : {}),
+          ...(initialDocumentDecoded && initialLibraryStorage ? { libraryStorage: true } : {}),
         },
       ],
       activeId: INITIAL_SESSION_ID,
@@ -9451,28 +9480,11 @@ export function EditorProvider({
         libraryStorage?: boolean,
         binding?: OpenFileBinding,
       ) => {
-        // Parse up front; null/invalid json = fresh blank document (new file).
-        let doc: Document;
-        try {
-          if (json) {
-            const decoded = DocumentCodec.decode(json);
-            doc = decoded.ok ? decoded.document : createDocument(name || 'Untitled');
-          } else {
-            doc = createDocument(name || 'Untitled');
-          }
-          const result = validateDocument(doc);
-          if (!result.valid) {
-            if (typeof console !== 'undefined') {
-              console.warn('[Strata] openFile: validation warnings:', result.errors);
-            }
-          }
-          // Re-resolve fonts against this device's catalog, as loadDocument
-          // does — a document authored elsewhere arrives with a manifest
-          // pointing at fonts this machine may not have.
-          doc = resolveFontManifest(doc);
-        } catch {
-          doc = createDocument(name || 'Untitled');
-        }
+        // `null` is the new-file sentinel. A supplied but invalid file must
+        // never become a clean blank tab bound to the same destination.
+        const doc =
+          json === null ? createDocument(name || 'Untitled') : decodeOpenFileDocument(json, name);
+        if (!doc) return;
         interactionState.cancelCanvasInteraction(stateRef.current.activeId);
         setState((s) => {
           // Dedupe: if this file is already open in a tab, switch to it

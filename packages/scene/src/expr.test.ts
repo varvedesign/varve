@@ -17,6 +17,10 @@ describe('evaluate — aliases', () => {
   it('throws on unknown alias', () => expect(() => evaluate('{x}', {})).toThrow('Unknown alias'));
   it('throws on division by zero', () =>
     expect(() => evaluate('5 / 0', {})).toThrow('Division by zero'));
+  it('rejects expressions that overflow to a non-finite result', () => {
+    const nearLimit = `1${'0'.repeat(308)}`;
+    expect(() => evaluate(`${nearLimit} * 10`, {})).toThrow(/finite/i);
+  });
 });
 
 describe('evaluate — functions: min, max', () => {

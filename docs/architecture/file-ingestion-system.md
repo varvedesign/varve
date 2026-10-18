@@ -46,6 +46,12 @@ format-validation boundary.
 Feature code owns the actual parser, decoder, sanitizer, and persistence
 operation:
 
+- Native document Open treats decoding as a trust boundary. A JSON number that
+  overflows to a non-finite runtime value is rejected with a field path before
+  migration or normalization. A rejected open reports an error and leaves the
+  active document and destination binding untouched; bootstrap fallback state
+  is never bound to the rejected source file.
+
 - File-menu Open keeps its single-document controller and migration path.
 - File-menu Import and canvas placement keep `ImportService`, raster
   inspection, parser reports, cancellation, world-coordinate placement, and

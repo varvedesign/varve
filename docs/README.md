@@ -102,6 +102,7 @@ TLS, limits, troubleshooting). The decision record is
 | [research/design-tool-failure-modes-2026-10-02.md](research/design-tool-failure-modes-2026-10-02.md) | 2025–2026 pricing, lock-in, AI, telemetry, signing, accessibility, and licence-trust complaint research; claim-register guardrails |
 | [research/presentation-workflow-2026-09-29.md](research/presentation-workflow-2026-09-29.md) | Dated presentation-product evidence, Varve baseline audit, and implementation decisions |
 | [research/document-workflows-tracker-ledger-2026-10-15.md](research/document-workflows-tracker-ledger-2026-10-15.md) | figcraft/pdfcraft/deckcraft evidence ledger for document workflows, seed validation with negatives, and primary-source checks |
+| [audits/photocraft/README.md](audits/photocraft/README.md) | Active, incomplete inventory of the distinct `storytold/photocraft` issue corpus, findings, implementation batches, and continuation state |
 | [research/dependency-aware-composition-ledger-2026-10-17.md](research/dependency-aware-composition-ledger-2026-10-17.md) | Current cache/composition source audit, external rendering failure evidence, and validation plan |
 | [perf/dependency-aware-composition-2026-10-17.md](perf/dependency-aware-composition-2026-10-17.md) | Retained-group cache boundary, pixel-oracle evidence, bounded replay-stage timing comparison, and validation limits |
 | [audits/presentation-workflow-defects-2026-09-29.md](audits/presentation-workflow-defects-2026-09-29.md) | Reproduced Varve defects and presentation regression scenarios |

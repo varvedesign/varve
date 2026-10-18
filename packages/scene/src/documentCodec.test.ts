@@ -226,6 +226,26 @@ describe('DocumentCodec', () => {
     expect(result.warnings.some((w) => w.code === 'document.migrated')).toBe(true);
   });
 
+  it('refuses non-finite numbers at the document boundary with a field path', () => {
+    const doc = addNode(createDocument('Non-finite opacity', true), {
+      ...makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+      opacity: 1,
+    });
+    const json = DocumentCodec.encode(doc).replace(/("opacity":)\d+/, '$11e309');
+    const result = DocumentCodec.decode(json);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('nodes.shape.opacity');
+    expect(result.warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'document.non-finite-number',
+        severity: 'error',
+        path: 'nodes.shape.opacity',
+      }),
+    );
+  });
+
   it('rejects a document with a cyclic parent graph instead of hanging', () => {
     const cyclic = {
       id: 'doc-cycle',
