@@ -117,8 +117,8 @@ Last updated: 2026-10-18. Status: active and incomplete.
   gate because of the Cargo manifest change. Rustfmt and `git diff --check`
   passed; `pnpm audit:docs` and `pnpm audit:emoji` passed. The required full
   gate, affected JS/native lanes, and packaged visual checks have not run due
-  to insufficient disk headroom; no commit was made for this slice.
-  The ledger is now 222 candidates / 453 partial matches / 28 covered.
+  to insufficient disk headroom; no implementation commit for #1540 has been
+  made. Documentation-only evidence checkpoints are committed. The ledger is now 222 candidates / 453 partial matches / 28 covered.
   Safe integration to `master` remains outstanding. A clean-snapshot merge
   preview succeeded, but the real dirty master checkout rejected the merge
   because unrelated local edits and untracked files overlap paths touched by
@@ -148,8 +148,9 @@ Last updated: 2026-10-18. Status: active and incomplete.
   refreshed. Reconciliation details are in the audit JSON and delta JSONL.
 - Pull-request records are separately inventoried: 3,683 at A and 3,686 at B.
   Three new PRs were added at B; 14 existing PR records changed body or
-  metadata. All PR descriptions/discussions remain unreviewed except #6863,
-  whose changed files were inspected but whose discussion still needs review.
+  metadata. PR descriptions/discussions have not been comprehensively reviewed.
+  Reviewed linked exceptions include #2358/#3755, #3843/#5859/#6186,
+  #5753/#5831, and #6863; the remaining PR inventory is still unreviewed.
 
 ## Progress snapshot
 
