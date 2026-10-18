@@ -52,6 +52,26 @@ Last updated: 2026-10-17. Status: active and incomplete.
   `/tmp` tmpfs before its test could load.
 - Website: current public claims reviewed; no change justified for this
   unreleased correctness fix.
+- Issue range #5001–#6000: all 490 existing issue records reviewed; cached
+  comment counts match with no missing pages. #5195/#5211 warrant checking
+  Canvas2D and vector-mask work budgets; #5373/#5092/#5115/#5702 are useful
+  cross-document tool-state regression leads; #5706 is a cache invalidation
+  lead; and #5657/#5752 reinforce numeric narrowing checks. These are leads,
+  not confirmed Varve defects. #5982's metadata amplification does not match
+  Varve's bounded EXIF orientation reader. Marketing complaints #5536/#5933
+  concern PhotoCraft's trial wording and stale download version; they do not
+  justify a Varve website change. Sources: [#5195](https://github.com/storytold/photocraft/issues/5195),
+  [#5211](https://github.com/storytold/photocraft/issues/5211),
+  [#5373](https://github.com/storytold/photocraft/issues/5373),
+  [#5092](https://github.com/storytold/photocraft/issues/5092),
+  [#5115](https://github.com/storytold/photocraft/issues/5115),
+  [#5702](https://github.com/storytold/photocraft/issues/5702),
+  [#5706](https://github.com/storytold/photocraft/issues/5706),
+  [#5657](https://github.com/storytold/photocraft/issues/5657),
+  [#5752](https://github.com/storytold/photocraft/issues/5752),
+  [#5982](https://github.com/storytold/photocraft/issues/5982),
+  [#5536](https://github.com/storytold/photocraft/issues/5536), and
+  [#5933](https://github.com/storytold/photocraft/issues/5933).
 - Save/recovery review (#6596–#6617): Varve already has external-change guards,
   session dedupe, IndexedDB recovery, and collision-aware export names. Strong
   candidates still need focused confirmation: same-target session ownership
@@ -81,15 +101,27 @@ Last updated: 2026-10-17. Status: active and incomplete.
 
 ## Validation record
 
-- `pnpm verify:plan`: latest plan selected 47 lanes and
+- `pnpm verify:plan`: latest plan selected 45 lanes and
   `FULL-SUITE ESCALATION: YES` due to workspace/toolchain/validation-infrastructure
   scope. This is the stated reason for the escalation.
-- Latest focused run: 3 test files passed (107 tests); the editor provider file
-  hit `ENOSPC` while `/tmp` was full. Editor, scene, and E2E typechecks passed.
-  Rerun the full focused set with `TMPDIR` pointed to `.codex-tmp`.
+- Latest focused run: 4 editor/scene test files passed (111 tests), including
+  the final existing-file ID/path preservation assertions. The commit
+  checkpoint's `typecheck:e2e` initially exceeded its 120-second limit during
+  shared machine contention; the standalone retry passed, and the commit
+  checkpoint later passed as well.
 - Playwright passed (1 test, 1.9 minutes) through the heavy-task lease. Both
   screenshots were visually inspected. The renderer logged its existing WASM
   fallback to the pure-TS stub; the tested Inspector field remained operational.
-- `pnpm audit:docs` and `pnpm audit:emoji` passed. `pnpm audit:radius` failed
-  on pre-existing consumers in Presentation and SpecPanel CSS, none of which
-  are changed by this batch; run remaining selected audits independently.
+- `pnpm audit:docs`, `pnpm audit:emoji`, and `pnpm audit:tokens` passed.
+  `pnpm audit:radius` and `pnpm audit:spacing` reported existing debt in
+  untouched Presentation, SpecPanel, collaboration, FirstRunOverlay, and
+  website styles.
+- The first `pnpm verify:full --local` attempt scanned a Playwright transform
+  cache because `TMPDIR` was inside the workspace. Retried with a task-specific
+  temp directory outside the workspace: format/lint, emoji, health,
+  architecture, and all package/E2E typechecks passed; CI tooling tests exposed
+  a real `commonGitDirectory({ cwd })` adapter bug in the full-gate fixture.
+  The adapter now binds to the requested repository root. Its existing
+  full-gate fixture test and operation-history test pass, and the independent
+  reviewer reported no findings. A clean-candidate full-gate retry remains
+  pending after this validation-tooling repair.

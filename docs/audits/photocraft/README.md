@@ -79,3 +79,36 @@ released capability claim or user-facing marketing promise. Website source was
 reviewed for affected claims; no copy or asset edit is justified before the
 change is released. Revisit the site at release and update troubleshooting if
 this error becomes a documented support path.
+
+## Cross-app failure reports checked
+
+These reports help identify user-visible failure modes, but do not establish
+that Varve shares the defect. We use them as regression classes and verify
+Varve's own contract before making changes.
+
+- **A crash during save can leave a truncated file.** An Inkscape issue records
+  an incomplete, unusable document after a save-time crash and explicitly asks
+  for write-then-replace atomic saving ([Inkscape #260](https://gitlab.com/inkscape/inkscape/-/issues/260)).
+  This aligns with the current Photocraft durability leads (#4968 and #6600–#6605);
+  atomic-save edge cases are under direct Varve review.
+- **A save that never finishes or creates a zero-byte export traps users in
+  uncertainty.** A Photopea report describes a stuck saving banner, repeated
+  zero-byte files, a very large canvas, and fear of closing because hours of
+  work may be lost ([Photopea #5941](https://github.com/photopea/photopea/issues/5941)).
+  A separate report was resolved by clarifying that the user had selected an
+  empty folder ([Photopea #6512](https://github.com/photopea/photopea/issues/6512));
+  visible output validation and useful error messages matter as much as the
+  encoder itself.
+- **Recovery policy can surprise even when autosave exists.** Photopea's
+  discussion describes a project that had been saved before, then accumulated
+  unsaved work that did not restore after a browser-session loss
+  ([Photopea discussion #6270](https://github.com/photopea/photopea/discussions/6270)).
+  Krita's manual explains that a normal close removes its autosave and that
+  unsaved work then cannot be recovered ([Krita autosave guide](https://docs.krita.org/en/user_manual/autosave.html)).
+  Varve's recovery and close flows should be evaluated against the concrete
+  distinction between a never-saved document and new edits to a previously
+  saved document.
+
+These examples support internal reliability work and QA cases. They do not
+justify changing Varve's public marketing claims before an improvement ships;
+the current website review found no matching claim that needs correction.
