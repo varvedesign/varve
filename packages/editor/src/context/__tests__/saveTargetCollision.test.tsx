@@ -339,6 +339,43 @@ describe('save destination ownership', () => {
     );
   });
 
+  it('checks Save As ownership again after the destination picker returns', async () => {
+    const { platform, getEditor } = mountEditor();
+    let finishPicker!: (choice: {
+      kind: 'target';
+      target: { kind: 'native-file'; path: string };
+    }) => void;
+    platform.chooseDocumentSaveTarget = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finishPicker = resolve;
+        }),
+    );
+    act(() => {
+      getEditor().setTool('rect');
+      getEditor().createShapeAt({ x: 10, y: 10 }, { w: 100, h: 60 });
+    });
+
+    let savePromise!: Promise<boolean>;
+    act(() => {
+      savePromise = getEditor().saveAs();
+    });
+    await waitFor(() => expect(platform.chooseDocumentSaveTarget).toHaveBeenCalledOnce());
+
+    act(() => {
+      getEditor().loadDocument(DocumentCodec.encode(createDocument('Alias')), {
+        fileId: 'file-b',
+        filePath: '/docs/alias.varve',
+        newSession: true,
+      });
+    });
+    finishPicker({ kind: 'target', target: { kind: 'native-file', path: '/docs/alias.varve' } });
+    await act(async () => savePromise);
+
+    expect(platform.sameNativeFile).toHaveBeenCalledWith('/docs/alias.varve', '/docs/alias.varve');
+    expect(platform.writeSaveTarget).not.toHaveBeenCalled();
+  });
+
   it('Save refuses a native target owned by another open tab', async () => {
     const { platform, getEditor } = mountEditor();
     act(() => {

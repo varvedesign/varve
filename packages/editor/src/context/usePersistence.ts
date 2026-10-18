@@ -445,7 +445,7 @@ async function chooseAndAdopt(
   const ownershipFailure = await rejectTargetOwnedByAnotherSession(
     platform,
     target,
-    s.sessions,
+    stateRef.current.sessions,
     savedSessionId,
   );
   if (ownershipFailure) {
