@@ -4,35 +4,37 @@
   "crawl_started_at_utc": "2026-10-17T10:05:41Z",
   "crawl_completed_at_utc": "2026-10-17T10:08:41Z",
   "source_issue_ndjson_sha256": "f1e9f6be7cc3eaa8a7381b510bf89cad23858717e84dd6468126d81a80720d43",
-  "issue_count": 6390,
-  "unique_iid_count": 6390,
+  "issue_count": 6392,
+  "unique_iid_count": 6392,
   "state_counts": {
     "closed": 4278,
-    "opened": 2112
+    "opened": 2114
   },
   "created_date_range": ["2018-11-19T04:00:40.971Z", "2026-10-16T19:11:04.135Z"],
-  "nonempty_descriptions": 6387,
-  "description_characters": 13078966,
-  "reported_notes_total": 32680,
-  "issues_with_reported_notes": 5667,
-  "retrieved_notes": 14364,
+  "nonempty_descriptions": 6389,
+  "description_characters": 13080370,
+  "reported_notes_total": 32692,
+  "issues_with_reported_notes": 5669,
+  "retrieved_notes": 7854,
   "coverage": {
-    "body_screening": "5 of 6390 bodies screened",
-    "discussion_review": "retrieval in progress: 6216 of 32680 non-system comments; content review pending",
+    "body_screening": "6 of 6392 bodies screened",
+    "discussion_review": "retrieval in progress: 3633 of 32692 non-system comments; content review pending",
     "linked_evidence_review": "pending",
     "varve_mapping": "pending",
     "engineering_disposition": "pending",
     "visual_validation": "pending"
   },
-  "ledger_rows": 6390,
-  "retrieved_user_notes": 6216,
-  "retrieved_issue_discussions": 921,
-  "discussion_snapshot_at_utc": "2026-10-17T10:24:25Z",
+  "ledger_rows": 6392,
+  "retrieved_user_notes": 3633,
+  "retrieved_issue_discussions": 496,
+  "discussion_snapshot_at_utc": "2026-10-18T11:46:06Z",
   "discussion_review_status": "retrieval in progress; content review pending",
   "body_screening_counts": {
-    "pending": 6385,
-    "reviewed": 5
+    "pending": 6386,
+    "reviewed": 6
   },
   "reviewed_linked_issue_body_iids": [1313],
-  "reviewed_issue_body_iids": [1313, 2800, 6380, 6477, 6398]
+  "reviewed_issue_body_iids": [1313, 2800, 5782, 6380, 6398, 6477],
+  "inventory_note": "Initial 6,390-row snapshot omitted pre-cutoff work items 6482 and 6483; durable rehydration found and added both. The source_issue_ndjson_sha256 records only the initial snapshot.",
+  "initial_source_issue_ndjson_sha256": "f1e9f6be7cc3eaa8a7381b510bf89cad23858717e84dd6468126d81a80720d43"
 }
