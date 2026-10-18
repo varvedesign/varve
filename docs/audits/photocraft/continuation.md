@@ -339,6 +339,85 @@ VARVE_E2E_PORT=1527 node scripts/quality/heavy-lease.mjs "e2e: buffered text sav
   bash -lc 'TMPDIR=/home/kevina/.cache/varve-photocraft-tmp npx playwright test tests/e2e/save/text-draft-save.spec.ts --project=chromium --workers=1 --reporter=list'
 ```
 
+## 2026-10-18: authored PDF stroke alpha follow-up
+
+The recursive thread review for cutoff-B #3229 and #3176 is recorded in
+`findings.md` §4.24 and `link-frontier.jsonl`. The combined-PDF-operator issue
+does not map to Varve's partial PDF importer or its separate canvas fill/stroke
+paint contract. During the adjacent authored-output check, a real Varve scene
+export exposed a directly shared transparency defect: the PDF writer dropped
+`EngineColor` alpha for strokes. Commit `173d6d9f1` fixes this by writing
+`node.opacity × stroke.color.alpha` as the stroke graphics-state alpha. A
+separate regression confirms the product and PDF/X-1a refusal remains covered.
+
+The tracked Poppler renders were visually inspected:
+
+- `evidence/pdf-stroke-alpha-after.png`, SHA-256
+  `bbf202a52dd331fdccbe6fb782d4313cd4ddac3a53faf13983ab74040ae40d92`; at
+  72 dpi, inner stroke over red `(95,31,158)`, outer stroke over gray
+  `(64,64,191)`, fill `(191,63,63)`.
+- `evidence/pdf-pattern-opacity.png`, SHA-256
+  `27724baad0ca4116a1625a10febe4c96c773c716e80d58168fe3999f5cf9c241`; the
+  25% red raster pattern over gray sampled `(159,95,95)`, with untouched gray
+  outside.
+
+The reproducible exporter command was
+`cargo run -p varve-print --example blend_probe -- /tmp/varve-pdf-alpha-verification`;
+Poppler rendered the resulting PDFs with `pdftoppm -r 72`. The before-fix
+render was captured and inspected during the first run (opaque blue stroke),
+then the same inputs were rerendered after the fix. The post-fix captures above
+are retained; the pre-fix raster was not retained as a file.
+
+Validation for this slice:
+
+```text
+Changed scope: varve-print Rust exporter/tests/probe; fill-system architecture doc; changelog and website deploy path filter; PdfCraft audit records/evidence
+Validation plan: 13 files selected Tier 0 format/lint/emoji/docs, Tier 2 varve-print test/clippy, Tier 3 standalone desktop Rust tests; the workflow trigger change caused FULL-SUITE ESCALATION: YES (validation-infrastructure change).
+Commands actually run: cargo fmt --check; cargo test -p varve-print render_strokes_preserves_stroke_color_alpha (red before fix, green after); cargo test -p varve-print; cargo clippy -p varve-print -- -D warnings; node scripts/audit-docs.mjs; node scripts/audit-emoji.mjs; just validate-workflows; just pin-actions; git diff --check; Poppler `pdftoppm` renders and ImageMagick pixel samples.
+Passed: 193 varve-print tests; focused red→green regression; print-crate Clippy; formatting; docs audit (1,140 docs / 816 links / 178 ADRs); emoji audit (5,308 files); 13 workflow YAML/actionlint checks; all action pins.
+Skipped as unrelated: website functional tests and full canvas visual suite were not selected by the direct affected plan; website `/changelog` visual inspection is still due after its master deployment.
+Escalations: Full exact-SHA gate is required by the plan and remains to be run after the reviewed commit is pushed to a remote branch. `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` reached the Tauri build script but stopped because this integration clone lacks the ignored `onnxruntime-libs/**/*` bundle. The bundle exists in the active task worktree; it was not copied or modified. Its local build target was cleaned after failure (5.0 GiB reclaimed).
+Full suite run: no
+If yes, reason: —
+```
+
+`pnpm verify:plan` in the dependency-light integration clone began pnpm's
+workspace linking rather than reaching the planner; that command was stopped
+before completion. The same planner was run directly from the already
+provisioned task-worktree script against this exact tree. `pnpm verify:affected`
+was not run in this clone; its selected print-crate lanes were run directly,
+and the dependent desktop lane is blocked as described above. Do not treat the
+local push checkpoint or hosted full gate as passed yet.
+
+Website impact: `CHANGELOG.md` feeds `/changelog`, but Website Deploy did not
+watch that source file. Commit `173d6d9f1` adds it to the workflow path filter.
+The visible item is explicitly `Unreleased`; export-feature marketing copy
+needs no change. The master website build/deploy and visual inspection still
+need confirmation after integration.
+
+Integration state: local implementation commit `173d6d9f1` is on
+`codex/photocraft-hardening-integration`, based on master `d8adb3be1`; audit
+records/evidence reconciliation is not yet committed. Remote master still
+points to `d8adb3be1`. The exact-SHA CI on `3da083f54` remains in progress and
+the docs-only `d8adb3be1` CI remains pending; retain and poll these workflows.
+No full-gate, website deployment, or native UI export verification is claimed.
+
+Second-pass self-review (not independent): inspected the complete implementation
+diff and both production PDF builder call paths. The opacity resource is
+collected before page resources are assembled; PDF/X-1a still rejects visible
+stroke alpha; no hub, schema, or public UI boundary changed. No other actionable
+code finding was found. The direct exporter output is verified, but native UI
+export remains unverified because the local Tauri build lacks its ignored model
+bundle; exact-SHA hosted validation is still required.
+
+Next: commit the audit ledger/frontier reconciliation separately, publish the
+reviewed candidate branch to obtain the plan-required hosted exact-SHA full
+gate, and fast-forward the verified commits to master through the normal
+permitted path. Then inspect the deployed `/changelog` at desktop and mobile
+widths. Continue cutoff-A and cutoff-B recursive evidence and Varve-specific
+checks; 38 cutoff-B issues remain screened for Varve and the older cutoff-A
+queue is still open.
+
 ## 2026-10-18: direct text-session handoff follow-up
 
 The first post-merge run of `tests/e2e/save/text-target-switch.spec.ts` exposed

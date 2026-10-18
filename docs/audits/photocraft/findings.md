@@ -857,3 +857,49 @@ ledger rationales and narrowed one disposition:
 
 These findings came from source review only; they do not claim a fresh Varve
 reproduction for the unresolved routes.
+
+### 4.24 Follow-up: authored stroke alpha and PDF pattern reports
+
+The later comment on cutoff-B issue [#3229](https://github.com/storytold/pdfcraft/issues/3229)
+reports a current PdfCraft reproduction and ongoing work. Its primary defect is
+specific to reading one PDF `B`/`b` path operator or text rendering mode 2 as
+two compositing operations. Varve does not import arbitrary PDF content
+streams, and its authored scene contract paints fills and strokes as separate
+canvas paints, so that single-object knockout behavior is not a Varve feature
+gap. The issue's alpha example did, however, motivate a separate authored
+output check: Varve canvas stroke colors retain their alpha, while the Rust PDF
+stroke serializer previously emitted only RGB. A real scene export rendered
+through Poppler confirmed a fully opaque blue border before the fix. The
+writer now writes the product of node opacity and stroke-color alpha as PDF
+graphics-state alpha. After the fix, Poppler samples on the same output were
+`(95,31,158)` on the stroke over the red fill and `(64,64,191)` on the outer
+stroke over gray; the fill remained `(191,63,63)`. This addresses Varve's
+separate color-alpha defect, not PdfCraft's combined-operator bug.
+The inspected post-fix captures are [the vector fill/stroke export](evidence/pdf-stroke-alpha-after.png)
+and [the raster-pattern export](evidence/pdf-pattern-opacity.png); SHA-256
+values are recorded in the audit continuation checkpoint.
+
+Issue [#3176](https://github.com/storytold/pdfcraft/issues/3176) is likewise an
+imported-PDF pattern graphics-state timing problem. Its linked #2200 / PR #2132
+is a distinct soft-mask/shading fast-path fix; #2975 / PR #2977 concerns
+stencil-mask alpha; #2970 concerns page backdrop blend modes. Those branches
+were followed and kept separate. Varve's authored raster-pattern export uses
+an explicit opacity graphics state and embedded tile alpha. A synthetic
+Varve-exported red pattern at 25% opacity rendered over gray through Poppler
+to `(159,95,95)`; the saved visual was inspected. Existing `varve-print` tests
+also verify the opacity state and tile soft mask. The importer-specific
+`/ca`-after-`scn` and `/CA`-after-`SCN` failure is outside Varve's partial PDF
+import contract.
+
+Related issue [#1469](https://github.com/storytold/pdfcraft/issues/1469) and
+merged PR #1478 concern Type 3 glyphs, where text rendering mode 2 must not
+paint glyph procedures twice. The report and patch were inspected; that
+Type-3-only behavior does not apply to Varve's authored text-to-PDF path.
+Other followed edges are recorded in `link-frontier.jsonl`. The export feature
+page was reviewed; it makes no specific stroke-alpha or PDF transparency
+promise that this correction would require changing. The new `CHANGELOG.md`
+Unreleased entry is also the public `/changelog` source. Website Deploy did
+not previously watch that root source file, so its path filter now includes
+`CHANGELOG.md`; otherwise the public changelog would remain stale. No
+export-feature marketing claim changed. `docs/architecture/fill-system.md`
+now records the PDF and PDF/X stroke-alpha contract.

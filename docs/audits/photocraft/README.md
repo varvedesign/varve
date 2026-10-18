@@ -10,6 +10,7 @@ hardening Varve.
 | `findings.md` | Failure classes, their Varve verdicts, the implementation log, evidence limitations |
 | `issue-ledger.jsonl` | Frozen cutoff A issue records and screening dispositions |
 | `issue-ledger-follow-on-b.jsonl` | Cutoff B new issue inventory with per-issue review/disposition status |
+| `link-frontier.jsonl` | Deduplicated recursive evidence edges and their review dispositions |
 | `issue-ledger-follow-on-b.summary.json` | Cutoff B inventory counts and review coverage |
 | `issue-ledger.summary.json` | Counts for frozen cutoff A |
 | `continuation.md` | Where the work stopped and the exact next operation |
@@ -19,7 +20,7 @@ hardening Varve.
 | Cutoff | Window (UTC) | Issue count | Notes |
 |---|---|---|---|
 | **Cutoff A (frozen)** | `2026-10-17T04:41:35Z` → `2026-10-17T04:42:17Z` | 1 296 issues (827 open / 469 closed) + 1 682 PRs | Full enumeration, reconciled against the search totals |
-| **Cutoff B (frozen)** | `2026-10-18T12:28:21Z` → `2026-10-18T12:28:46Z` | 1 454 issues (936 open / 518 closed) + 1 795 PRs | Reconciled by pagination and issue search totals; all 158 new issue bodies and current comments screened (40 screened for Varve, 116 out of scope, 2 already handled); 40 existing issues changed state |
+| **Cutoff B (frozen)** | `2026-10-18T12:28:21Z` → `2026-10-18T12:28:46Z` | 1 454 issues (936 open / 518 closed) + 1 795 PRs | Reconciled by pagination and issue search totals; all 158 new issue bodies and current comments screened; after follow-up, 38 remain screened for Varve, 117 are out of scope, 2 already handled, and 1 has a linked Varve fix; 40 existing issues changed state |
 
 Issues created after cutoff A are recorded in the cutoff B follow-on ledger; they do not
 change the frozen A ledger. Cutoff B is the current source-reconciliation boundary.

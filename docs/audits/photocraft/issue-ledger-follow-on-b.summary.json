@@ -13,10 +13,17 @@
   "baseline_issue_ids_missing": 0,
   "created_at_min": "2026-10-17T04:50:22Z",
   "created_at_max": "2026-10-18T12:27:29Z",
-  "notes": "All 158 cutoff-B issues have full body and current-comment review. Current comments were fetched after the frozen issue inventory, so this is a source-versioned issue snapshot plus later discussion reads, not an atomic point-in-time snapshot. Attachments, source fixtures, linked PR implementations and all recursive evidence were not exhausted; see findings.md §§4.15–4.22 and continuation.md for remaining frontier. No new Varve defect is confirmed by this screen.",
+  "notes": "All 158 cutoff-B issues have full body and current-comment review. Follow-up classified the remaining recursive evidence for #3229 and #3176, and found a separate Varve stroke-alpha export defect while checking the shared transparency concern; see findings.md §4.24. Other attachments, linked implementations, and recursive evidence remain open where noted. Later comments are recorded separately and do not move the frozen cutoff.",
   "reviewed_dispositions": {
+    "screened-for-varve": 38,
+    "out-of-scope": 117,
+    "already-handled": 2,
+    "implemented": 1
+  },
+  "initial_screen_dispositions": {
     "screened-for-varve": 40,
     "out-of-scope": 116,
     "already-handled": 2
-  }
+  },
+  "follow_up_reviewed_utc": "2026-10-18T16:49:52Z"
 }
