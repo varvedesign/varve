@@ -4861,6 +4861,85 @@ mod tests {
     }
 
     #[test]
+    fn export_pdf_pattern_preserves_raster_row_orientation() {
+        let mut node = rect_node(1, 0.0, 0.0, 4.0, 4.0);
+        node.fills = Some(vec![FillIR::Pattern {
+            tile_src: "orientation-tile".into(),
+            spacing: 0.0,
+            rotation: 0.0,
+            image_width: Some(2.0),
+            image_height: Some(2.0),
+            gap_x: Some(0.0),
+            gap_y: Some(0.0),
+            arrangement: Some("grid".into()),
+            row_shift: None,
+            column_shift: None,
+            mirror_x: None,
+            mirror_y: None,
+            offset_x: None,
+            offset_y: None,
+            alignment: None,
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }]);
+        let mut manifest = image_manifest("orientation-tile", 2, 2);
+        // Distinct top and bottom rows make a vertical mirror visible.
+        manifest.images[0].data = vec![
+            255, 0, 0, 255, 0, 255, 0, 255, // top: red, green
+            0, 0, 255, 255, 255, 255, 255, 255, // bottom: blue, white
+        ];
+        let opts = PdfOptions {
+            page_width: 4.0,
+            page_height: 4.0,
+            manifest: Some(manifest),
+            ..Default::default()
+        };
+
+        let bytes = export_pdf(&[node], &opts).expect("PDF with an asymmetric pattern tile");
+        let doc = Document::load_mem(&bytes).expect("parse PDF");
+        let expected_rgb = [
+            255, 0, 0, 0, 255, 0, // top: red, green
+            0, 0, 255, 255, 255, 255, // bottom: blue, white
+        ];
+        assert!(
+            doc.objects.values().any(|object| match object {
+                Object::Stream(stream) => {
+                    let is_rgb_image = stream
+                        .dict
+                        .get(b"ColorSpace")
+                        .ok()
+                        .and_then(|value| value.as_name().ok())
+                        == Some(b"DeviceRGB");
+                    let is_2x2 = stream
+                        .dict
+                        .get(b"Width")
+                        .ok()
+                        .and_then(|value| value.as_i64().ok())
+                        == Some(2)
+                        && stream
+                            .dict
+                            .get(b"Height")
+                            .ok()
+                            .and_then(|value| value.as_i64().ok())
+                            == Some(2);
+                    is_rgb_image && is_2x2 && stream.content == expected_rgb
+                }
+                _ => false,
+            }),
+            "the embedded RGB image must keep the source tile's top-to-bottom row order"
+        );
+        let page_id = *doc.get_pages().values().next().expect("PDF has a page");
+        let page_content = doc.get_page_content(page_id);
+        let content = String::from_utf8_lossy(&page_content);
+
+        assert!(
+            content.contains("2.0000 0 0 2.0000 0.0000 0.0000 cm"),
+            "the visually verified PDF image transform must retain the raster tile's row order: {content}"
+        );
+    }
+
+    #[test]
     fn export_pdf_caps_pattern_tile_expansion_without_dropping_neighbor_content() {
         let mut patterned = rect_node(1, 0.0, 0.0, 400.0, 400.0);
         patterned.fills = Some(vec![FillIR::Pattern {
