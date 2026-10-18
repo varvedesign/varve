@@ -717,3 +717,18 @@ issue reviewed based only on its title, labels, or downloaded body.
     pattern/PDF memory, #1526 mask-transform fidelity, and #1584 opacity print
     boundaries. Findings preserve the historical-version and reproduction
     caveats. The website page and app remain open; no other process was stopped.
+
+59. Closed the #5939 visual review follow-up. The new canvas-pixel assertion
+    passed in the lease-wrapped Chromium import E2E: it finds the imported blue
+    shape and dark shadow pixels outside the shape bounds. I inspected the new
+    desktop-light and mobile-dark screenshots; both show the shadow centered
+    and visible. The browser still used the TypeScript fallback because WASM
+    did not load; native Tauri rendering remains unverified. The independent
+    read-only review found no actionable issues in the pixel assertion or
+    updated ledger. `pnpm verify:plan` selected the focused E2E plus docs, lint,
+    and E2E typecheck lanes, with no full-suite escalation. The direct E2E and
+    `git diff --check` passed. The affected gate was attempted earlier but
+    cannot complete in this isolated worktree: required untracked scene/codegen
+    sources are absent; temporary aliases expose existing codegen formatting
+    and typecheck failures. Aliases were removed. No files from the main
+    checkout or the other session were changed.

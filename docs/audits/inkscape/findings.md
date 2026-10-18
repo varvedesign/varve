@@ -27,9 +27,12 @@ mis-scaled shadow offsets. Unequal blur axes and unsupported primitive inputs
 are not approximated. The parser uses the SVG defaults when shadow parameters
 are omitted; this is covered separately from explicit-value cases. The parser
 tests cover a shadow with a gradient fill, anisotropic blur, object-bounding-box
-units, and defaulted offsets/blur. Actual app rendering still
-needs browser visual validation; no production claim of pixel-equivalent SVG
-filter support is made. Website copy was checked and contains no specific
+units, and defaulted offsets/blur. A Chromium web-editor E2E imports the effect,
+checks editable Layer Effects, asserts blue fill and shadow pixels on the canvas,
+and captures desktop/mobile light and dark screenshots. This exercised the
+TypeScript fallback renderer because WASM did not load; native Tauri rendering
+remains unverified. No production claim of pixel-equivalent SVG filter support
+is made. Website copy was checked and contains no specific
 claim about SVG filter import, so no marketing claim needs changing. The public
 File Formats guide now documents the supported single-primitive subset and its
 visible fidelity limits. [Filter Effects specification](https://www.w3.org/TR/filter-effects/)

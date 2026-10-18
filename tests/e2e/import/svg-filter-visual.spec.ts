@@ -11,6 +11,54 @@ const dropShadowSvg = `
   <rect id="shadow-card" x="38" y="28" width="118" height="84" rx="8" fill="#4f46e5" filter="url(#shadow)" />
 </svg>`;
 
+async function readRenderedShadow(page: import('@playwright/test').Page) {
+  return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
+    const surface = element as HTMLCanvasElement;
+    const context = surface.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('Content canvas does not expose a 2D context');
+    const { data, width, height } = context.getImageData(0, 0, surface.width, surface.height);
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+    let fillPixels = 0;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const offset = (y * width + x) * 4;
+        const red = data[offset] ?? 0;
+        const green = data[offset + 1] ?? 0;
+        const blue = data[offset + 2] ?? 0;
+        if (Math.abs(red - 79) <= 12 && Math.abs(green - 70) <= 12 && blue > 190) {
+          fillPixels += 1;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    }
+    let shadowPixels = 0;
+    if (maxX >= 0) {
+      const left = Math.max(0, minX - 50);
+      const top = Math.max(0, minY - 50);
+      const right = Math.min(width, maxX + 51);
+      const bottom = Math.min(height, maxY + 51);
+      for (let y = top; y < bottom; y += 1) {
+        for (let x = left; x < right; x += 1) {
+          if (x >= minX && x <= maxX && y >= minY && y <= maxY) continue;
+          const offset = (y * width + x) * 4;
+          const red = data[offset] ?? 0;
+          const green = data[offset + 1] ?? 0;
+          const blue = data[offset + 2] ?? 0;
+          const alpha = data[offset + 3] ?? 0;
+          if (alpha > 0 && red < 85 && green < 90 && blue < 115) shadowPixels += 1;
+        }
+      }
+    }
+    return { fillPixels, shadowPixels };
+  });
+}
+
 test('imports an editable Inkscape-style SVG drop shadow through the editor UI', async ({
   page,
 }, testInfo) => {
@@ -55,7 +103,10 @@ test('imports an editable Inkscape-style SVG drop shadow through the editor UI',
   const zoom = page.locator('#status-zoom');
   await zoom.fill('100');
   await zoom.press('Enter');
-  await page.waitForTimeout(500);
+  await expect.poll(async () => (await readRenderedShadow(page)).shadowPixels).toBeGreaterThan(10);
+  const renderedShadow = await readRenderedShadow(page);
+  expect(renderedShadow.fillPixels).toBeGreaterThan(100);
+  expect(renderedShadow.shadowPixels).toBeGreaterThan(10);
   await page.screenshot({
     path: testInfo.outputPath('inkscape-svg-drop-shadow-desktop-light.png'),
   });
