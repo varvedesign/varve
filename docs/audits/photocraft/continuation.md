@@ -13,15 +13,16 @@ Last updated: 2026-10-18 (session 6).
   reconciles to 1,454 issues (936 open / 518 closed) and 1,795 PRs; all A IDs
   remain present. The 158 new issue records are in
   `issue-ledger-follow-on-b.jsonl`, with bodies hashed but not included. All 158
-  bodies and current comment threads are now reviewed; the ledger records 40
-  screened-for-Varve, 116 out-of-scope, and 2 already handled, with zero queued.
+  bodies and current comment threads are now reviewed; after follow-up fixes,
+  the ledger records 37 screened-for-Varve, 117 out-of-scope, 2 already handled,
+  and 2 implemented, with zero unreviewed issue bodies/threads.
   Current comments were fetched after the issue inventory, so they do not form
   an atomic snapshot with the cutoff B issue records. Linked evidence, sample
   files and attachments remain open where noted in findings.md. Do not move
   cutoff A or B.
 - Scope mismatch: user resolved the brief’s conflicting links as PdfCraft
   (`storytold/pdfcraft`); `storytold/photocraft` is a separate repo. See README.
-- Cutoff A review depth was: 25 full issue threads, 1,258 full bodies, and 13
+- Cutoff A review depth is: 30 full issue threads, 1,253 full bodies, and 13
   empty-body title-only records. Relevant thread and attachment review is not
   complete; unresolved classes remain listed in `findings.md`.
 
@@ -507,3 +508,99 @@ preflight and is running the selected JS, Rust, and Playwright lanes. Website
 Deploy for `3da083f54` is running; the immediately preceding code head's site
 gates and deploy passed. Documentation-only follow-up `acdea6488` is on master
 and its exact-SHA CI is queued. No full workspace suite was run.
+
+## 2026-10-18 follow-up — Unicode PDF output and recursive text links
+
+### Integration state
+
+The prior two implementation commits are on remote `master` at
+`2dfd8540307e1f86a403c3f80a32f2312ff8a7b4`:
+
+- `173d6d9f1` — preserve authored stroke color alpha in PDF export.
+- `2dfd85403` — record the PDF alpha evidence and watch `CHANGELOG.md` in
+  Website Deploy.
+
+Exact-SHA CI on the integration branch passed in run `39147245997`. A master
+push of the same SHA triggered CI run `39150941272` and Website Deploy run
+`39150940960`; both are queued as of `2026-10-18T18:04:54Z`. Website quality
+gates passed, including E2E in both deployment modes. The Pages artifact build
+passed and its deploy job is queued. The live `/changelog/` route was visually
+inspected at desktop width before the deploy; it still showed the previous PDF
+wording then. Reload it after deployment and verify the Unreleased copy is
+visible. The ChatGPT app and other agents' processes remain untouched.
+
+### New PDF Unicode reproduction and implementation
+
+Starting commit is `2dfd8540307e1f86a403c3f80a32f2312ff8a7b4`. Local branch
+`codex/pdf-unicode-cid-export` is based directly on that remote master SHA.
+Changes currently uncommitted in `/tmp/varve-photocraft-integration-ours`:
+
+- Reproduced PdfCraft #3202's Polish text sample through Varve's PDF exporter
+  with `subset_fonts=true`. The old Identity-H/CID-to-GID identity path emitted
+  scalar values where glyph indices were required. Poppler rendered a blank
+  page; `pdftotext` returned unrelated Latin characters. The PDF 32000-1
+  `/CIDToGIDMap /Identity` definition is cited in findings §4.25.
+- Removed the unverified CIDFont output path. Non-WinAnsi text now uses Varve's
+  existing glyph-outline fallback. The same Poppler render shows
+  “Łódź: zażółć gęślą jaźń” correctly. `pdftotext` returns no text for the
+  outlined run; it is not searchable/copyable. Latin WinAnsi text remains on
+  the native searchable-text path. This does not implement editing existing
+  PDF text or satisfy Greek searchability.
+- Added `crates/varve-print/examples/unicode_text_probe.rs`, the regression
+  `export_pdf_subsets_extended_latin_as_glyph_paths`, before/after renders,
+  architecture/changelog wording, ledger updates and recursive frontier edges.
+  The feature page needs no claim change: it makes no Unicode text-searchability
+  promise. Evidence PNG hashes: before
+  `362d9f01dd025796e8bdfc1988df5952741d1872e6848e4792d2bbded6772da5`, after
+  `69c4904c6132374218c91b2298789c67dd6a5c04c485d2e6306335ec00062358`.
+- Followed #3202's #2918/#1835/#1821 references and #2918's #2101/#1869
+  references. Varve RTL visual ordering and logical caret hit-testing are
+  already covered by `paragraphLayout.test.ts`; the separate source PDF
+  annotation and CJK font-discovery tasks stay outside Varve's PDF editor
+  boundary. #1835's explicit Greek search/copy request remains open because
+  outlined glyphs are not searchable.
+
+### Review and validation
+
+Review-agent workflow applied as a distinct second-pass self-review; no
+qualified independent reviewer is available in this environment, so this is
+not independent approval. The review checked the exporter branch ordering,
+the limits of the glyph-outline fallback, deleted CID map construction, the
+WinAnsi-only ToUnicode path, regression assertions, generated PDF and Poppler
+renders, linked PR #3076's actual `/Differences` implementation and tests, and
+the boundary between PdfCraft's existing-PDF editor and Varve's authored-text
+export. No additional code finding was identified. Complex-script shaping,
+font-resolution availability, and searchable Unicode PDF text remain separate
+requirements, not claimed as solved here.
+
+Validation for the current uncommitted branch:
+
+```text
+Changed scope: crates/varve-print; PDF text-platform docs; cutoff A/B ledgers, findings, frontier, continuation; Unreleased changelog; two Poppler evidence images.
+Validation plan: pnpm verify:plan selected 7 lanes; FULL-SUITE NO (Tier 0 format/lint/docs/emoji; Tier 2 varve-print test/clippy; Tier 3 desktop Rust test).
+Commands actually run: pnpm verify:plan; pnpm verify:affected; cargo fmt; cargo fmt --check; cargo test -p varve-print export_pdf_subsets_extended_latin_as_glyph_paths; cargo run -p varve-print --example unicode_text_probe -- /tmp/varve-unicode-cid-before; cargo run -p varve-print --example unicode_text_probe -- /tmp/varve-unicode-cid-after; Poppler pdftoppm/pdftotext/pdfinfo; node scripts/audit-docs.mjs; Python ledger-count and disposition reconciliation; git diff --check.
+Passed: the focused regression (1); before/after independent Poppler visual inspection and output metadata; post-fix extraction loss matches the documented outline tradeoff; format; touched-file format/lint; emoji audit; docs audit (1140 docs, 818 links, 178 ADRs); ledger and summary reconciliation; diff check.
+Skipped as unrelated: full workspace suites; website E2E and full visual suite were not selected by this code-only follow-up.
+Escalations: none. pnpm verify:affected stopped after its Tier 0 passes because rust-test:varve-print could not acquire the shared heavy lease within 600 seconds (live owner PID 696193, another agent's `pnpm exec vitest run packages/editor`). No tests ran under that lane; the lease owner was not stopped or altered. Clippy and desktop Rust tests did not run locally. Re-run affected validation after the existing lease clears; exact-SHA CI for the new commit is also required before integration.
+Full suite run: no.
+If yes, reason: n/a.
+```
+
+### Exact next steps
+
+1. Leave PID 696193 and its lease untouched. Re-run `pnpm verify:plan` and
+   `pnpm verify:affected` when the shared lease is released; do not bypass the
+   lease.
+2. Review the staged exact diff, commit this coherent Unicode export batch,
+   run `pnpm verify:push`, push only `codex/pdf-unicode-cid-export`, and wait
+   for exact-SHA CI.
+3. Finish master CI run `39150941272` and Website Deploy run `39150940960`;
+   reload the public changelog and inspect the deployed PDF copy.
+4. Confirm master has not advanced, integrate the new exact-SHA candidate by
+   normal fast-forward only after checks, then verify remote master.
+5. Continue cutoff-A and cutoff-B recursive evidence and engineering queue.
+   Cutoff A is 1,296 issues (30 full threads, 1,253 bodies, 13 title-only);
+   cutoff B is 1,454 issues (37 still screened, 117 out of scope, 2 already
+   handled, 2 implemented). The issue bodies are read, but relevant linked
+   evidence, attachments and Varve workflows remain open as listed in
+   `findings.md` and `link-frontier.jsonl`.

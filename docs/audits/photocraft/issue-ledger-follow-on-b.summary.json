@@ -13,17 +13,17 @@
   "baseline_issue_ids_missing": 0,
   "created_at_min": "2026-10-17T04:50:22Z",
   "created_at_max": "2026-10-18T12:27:29Z",
-  "notes": "All 158 cutoff-B issues have full body and current-comment review. Follow-up classified the remaining recursive evidence for #3229 and #3176, and found a separate Varve stroke-alpha export defect while checking the shared transparency concern; see findings.md §4.24. Other attachments, linked implementations, and recursive evidence remain open where noted. Later comments are recorded separately and do not move the frozen cutoff.",
+  "notes": "All 158 cutoff-B issues have full body and current-comment review. Follow-up classified recursive evidence for #3229 and #3176, reproduced a separate Varve stroke-alpha defect (§4.24), and reproduced/fixed a broken Unicode CID path in subset-font PDF export from the Polish sample linked to #3202 (§4.25). Other attachments, linked implementations, and recursive evidence remain open where noted. Later comments are recorded separately and do not move the frozen cutoff.",
   "reviewed_dispositions": {
-    "screened-for-varve": 38,
+    "screened-for-varve": 37,
     "out-of-scope": 117,
     "already-handled": 2,
-    "implemented": 1
+    "implemented": 2
   },
   "initial_screen_dispositions": {
     "screened-for-varve": 40,
     "out-of-scope": 116,
     "already-handled": 2
   },
-  "follow_up_reviewed_utc": "2026-10-18T16:49:52Z"
+  "follow_up_reviewed_utc": "2026-10-18T17:52:55Z"
 }

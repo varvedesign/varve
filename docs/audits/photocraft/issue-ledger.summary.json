@@ -13,14 +13,14 @@
     "open": 827,
     "closed": 469,
     "with_comments": 883,
-    "reviewed_with_thread": 25,
-    "reviewed_with_body": 1258,
+    "reviewed_with_thread": 30,
+    "reviewed_with_body": 1253,
     "reviewed_title_only": 13
   },
   "relevance": [
     ["out-of-scope", 672],
-    ["applicable", 414],
-    ["not-a-varve-defect", 205],
+    ["applicable", 415],
+    ["not-a-varve-defect", 204],
     ["no-signal", 5]
   ],
   "disposition": [
@@ -30,13 +30,13 @@
     ["implemented", 7]
   ],
   "family": [
-    ["out-of-scope", 652],
-    ["handled-class", 211],
+    ["out-of-scope", 651],
+    ["handled-class", 210],
     ["text-edit-identity", 79],
     ["crash-robustness", 58],
     ["selection-interaction", 55],
     ["render-compositing", 50],
-    ["text-font-scripts", 49],
+    ["text-font-scripts", 51],
     ["import-parse", 34],
     ["save-integrity", 32],
     ["platform-packaging", 24],

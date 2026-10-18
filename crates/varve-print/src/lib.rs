@@ -69,8 +69,8 @@ pub struct PdfOptions {
     pub color_bar: bool,
     /// Print profile for CMYK conversion (None = RGB).
     pub print_profile: Option<PrintProfile>,
-    /// When true, subset each font to only the characters used in the document
-    /// and embed the subset font programs in the PDF (searchable text).
+    /// When true, subset and embed fonts for text runs representable by the
+    /// PDF writer's WinAnsi text path. Other Unicode runs are outlined.
     pub subset_fonts: bool,
     /// How to handle fonts whose OS/2 fsType restricts embedding.
     pub embedding_restriction_handling: EmbeddingRestriction,
@@ -2800,10 +2800,6 @@ struct EmbeddedFontEntry {
     family: String,
     /// Object ID of the font dictionary in the PDF document.
     dict_id: ObjectId,
-    /// Whether this font is embedded as a CIDFont2 (Identity-H) for
-    /// non-WinAnsi/CJK text. When true, the font dictionary uses
-    /// /Subtype /CIDFontType2 and a /CIDSystemInfo entry.
-    is_cid: bool,
 }
 
 /// Build a PDF TJ array string with per-glyph character hex codes.
@@ -2853,8 +2849,8 @@ pub fn requires_outline(text: &str) -> bool {
     text.chars().any(|c| (c as u32) > 0xFF)
 }
 
-/// Check whether text contains any character outside WinAnsi range
-/// (i.e., needs CID font or outline).
+/// Check whether text contains any character outside the PDF writer's
+/// WinAnsi text path (i.e., it needs the Unicode outline fallback).
 pub fn has_non_winansi(text: &str) -> bool {
     requires_outline(text)
 }
@@ -3076,145 +3072,12 @@ fn embed_font_program(
         res_name,
         family: family.to_string(),
         dict_id: font_dict_id,
-        is_cid: false,
     })
 }
 
-/// Embed a font program as a CIDFont2 (Type 0 font with Identity-H CMap).
-/// Used for non-WinAnsi text (CJK, Arabic, Hebrew, etc.) where the font
-/// cannot use WinAnsiEncoding but can be referenced by CID (character ID).
-fn embed_cid_font_program(
-    doc: &mut Document,
-    family: &str,
-    base_font: &str,
-    font_data: &[u8],
-    font_idx: usize,
-) -> Result<EmbeddedFontEntry, String> {
-    let metrics = read_font_metrics(font_data, 0);
-
-    // 1. Font program stream (FontFile2)
-    let font_stream_id = doc.new_object_id();
-    let font_stream = Stream::new(
-        dictionary! { "Length1" => font_data.len() as i64 },
-        font_data.to_vec(),
-    );
-    doc.objects
-        .insert(font_stream_id, Object::Stream(font_stream));
-
-    // 2. FontDescriptor
-    let descriptor_id = doc.new_object_id();
-    let font_name_bytes = base_font.as_bytes().to_vec();
-    let descriptor = dictionary! {
-        "Type" => "FontDescriptor",
-        "FontName" => Object::Name(font_name_bytes.clone()),
-        "Flags" => metrics.flags,
-        "FontBBox" => vec![
-            Object::Real(metrics.bbox[0] as f32),
-            Object::Real(metrics.bbox[1] as f32),
-            Object::Real(metrics.bbox[2] as f32),
-            Object::Real(metrics.bbox[3] as f32),
-        ],
-        "ItalicAngle" => metrics.italic_angle as i32,
-        "Ascent" => metrics.ascent as i32,
-        "Descent" => metrics.descent as i32,
-        "CapHeight" => metrics.cap_height as i32,
-        "StemV" => metrics.stem_v as i32,
-        "FontFile2" => Object::Reference(font_stream_id),
-    };
-    doc.objects
-        .insert(descriptor_id, Object::Dictionary(descriptor));
-
-    // 3. CIDSystemInfo
-    let cid_system_info_id = doc.new_object_id();
-    let cid_system_info = dictionary! {
-        "Registry" => Object::string_literal("Strata"),
-        "Ordering" => Object::string_literal("Identity"),
-        "Supplement" => 0,
-    };
-    doc.objects
-        .insert(cid_system_info_id, Object::Dictionary(cid_system_info));
-
-    // 4. CIDFont dictionary (CIDFontType2 for TrueType outlines)
-    let cid_font_dict_id = doc.new_object_id();
-    let tag = get_subset_tag(family);
-    let cid_base_font = format!("{}{}", tag, base_font);
-    let cid_font_dict = dictionary! {
-        "Type" => "Font",
-        "Subtype" => "CIDFontType2",
-        "BaseFont" => Object::Name(cid_base_font.as_bytes().to_vec()),
-        "CIDSystemInfo" => Object::Reference(cid_system_info_id),
-        "FontDescriptor" => Object::Reference(descriptor_id),
-        "DW" => 1000, // Default glyph width
-    };
-    doc.objects
-        .insert(cid_font_dict_id, Object::Dictionary(cid_font_dict));
-
-    // 5. CMap stream (Identity-H)
-    let cmap_id = doc.new_object_id();
-    let cmap_data = build_identity_h_cmap();
-    doc.objects.insert(
-        cmap_id,
-        Object::Stream(Stream::new(dictionary! {}, cmap_data)),
-    );
-
-    // 6. Type 0 font dictionary referencing CIDFont + CMap
-    let font_dict_id = doc.new_object_id();
-    let res_name = format!("F{}", font_idx + 1);
-    let font_dict = dictionary! {
-        "Type" => "Font",
-        "Subtype" => "Type0",
-        "BaseFont" => Object::Name(cid_base_font.as_bytes().to_vec()),
-        "Encoding" => Object::Reference(cmap_id),
-        "DescendantFonts" => vec![Object::Reference(cid_font_dict_id)],
-    };
-    doc.objects
-        .insert(font_dict_id, Object::Dictionary(font_dict));
-
-    // 7. ToUnicode CMap for text extraction
-    let to_unicode_id = doc.new_object_id();
-    let to_unicode_stream = build_to_unicode_cmap(font_data, 0);
-    doc.objects.insert(
-        to_unicode_id,
-        Object::Stream(Stream::new(dictionary! {}, to_unicode_stream)),
-    );
-    if let Object::Dictionary(dict) = doc.objects.get_mut(&font_dict_id).unwrap() {
-        dict.set("ToUnicode", Object::Reference(to_unicode_id));
-    }
-
-    Ok(EmbeddedFontEntry {
-        res_name,
-        family: family.to_string(),
-        dict_id: font_dict_id,
-        is_cid: true,
-    })
-}
-
-/// Build an Identity-H CMap stream for CIDFont keying.
-/// Maps 2-byte character codes directly to CIDs (identity mapping).
-fn build_identity_h_cmap() -> Vec<u8> {
-    let mut cmap = Vec::new();
-    cmap.extend_from_slice(b"/CIDInit /ProcSet findresource begin\n");
-    cmap.extend_from_slice(b"12 dict begin\n");
-    cmap.extend_from_slice(b"begincmap\n");
-    cmap.extend_from_slice(
-        b"/CIDSystemInfo << /Registry (Strata) /Ordering (Identity) /Supplement 0 >> def\n",
-    );
-    cmap.extend_from_slice(b"/CMapName /Strata-Identity def\n");
-    cmap.extend_from_slice(b"/CMapType 2 def\n");
-    cmap.extend_from_slice(b"1 begincodespacerange\n");
-    cmap.extend_from_slice(b"<0000> <FFFF>\n");
-    cmap.extend_from_slice(b"endcodespacerange\n");
-    cmap.extend_from_slice(b"1 beginbfrange\n");
-    cmap.extend_from_slice(b"<0000> <FFFF> <0000>\n");
-    cmap.extend_from_slice(b"endbfrange\n");
-    cmap.extend_from_slice(b"endcmap\n");
-    cmap.extend_from_slice(b"end\n");
-    cmap
-}
-
-/// Build a ToUnicode CMap stream for CIDFont-based text extraction.
-/// Maps character codes (0x00-0xFF for WinAnsi) to Unicode values
-/// using the font's cmap table.
+/// Build a ToUnicode CMap stream for the simple WinAnsi font path.
+/// Maps one-byte WinAnsi character codes to Unicode values using the
+/// embedded font's cmap table.
 fn build_to_unicode_cmap(font_data: &[u8], face_index: u32) -> Vec<u8> {
     // Build bfrange entries: character code → Unicode
     let mut ranges: Vec<(u8, u8, u32)> = Vec::new();
@@ -3591,16 +3454,6 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             // Embed as WinAnsi font for Latin text
             let entry = embed_font_program(&mut doc, family, &base_font, &subset_data, font_idx)?;
             entries.push(entry);
-
-            // Also embed as CID font for non-WinAnsi text (CJK, Arabic, etc.)
-            // if the family text contains non-Latin characters
-            let used_text = family_text.get(family).map(|s| s.as_str()).unwrap_or("");
-            if has_non_winansi(used_text) {
-                let cid_idx = entries.len() + font_idx;
-                let cid_entry =
-                    embed_cid_font_program(&mut doc, family, &base_font, &subset_data, cid_idx)?;
-                entries.push(cid_entry);
-            }
         }
 
         entries
@@ -3609,28 +3462,6 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
     };
 
     let do_outline = opts.outline_text && (opts.font_data.is_some() || !opts.fonts.is_empty());
-    // Build a map from family → font entry for quick lookup (also CID variants)
-    fn build_font_map(
-        entries: &[EmbeddedFontEntry],
-    ) -> (
-        std::collections::HashMap<String, &EmbeddedFontEntry>,
-        std::collections::HashMap<String, &EmbeddedFontEntry>,
-    ) {
-        let mut winansi_map = std::collections::HashMap::new();
-        let mut cid_map = std::collections::HashMap::new();
-        for ef in entries {
-            if ef.is_cid {
-                cid_map.entry(ef.family.clone()).or_insert(ef);
-            } else {
-                winansi_map.entry(ef.family.clone()).or_insert(ef);
-            }
-        }
-        (winansi_map, cid_map)
-    }
-    let (font_map, cid_font_map) = build_font_map(&embedded_fonts);
-    let _ = font_map;
-    let _ = cid_font_map;
-
     // ── Build content with image rendering support ──────────────────────
     let (image_refs, shading_registry) = {
         let mut image_state = ImageRenderState::new(&mut doc);
@@ -3680,9 +3511,7 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                 if !text.is_empty() && !embedded_fonts.is_empty() {
                     // Try WinAnsi font for Latin text
                     if !is_non_winansi && can_encode_win_ansi(text) {
-                        if let Some(ef) = embedded_fonts
-                            .iter()
-                            .find(|ef| ef.family == *font_family && !ef.is_cid)
+                        if let Some(ef) = embedded_fonts.iter().find(|ef| ef.family == *font_family)
                         {
                             let tx = node.transform.as_coeffs();
                             let x_off = tx[4];
@@ -3729,57 +3558,14 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                             continue;
                         }
                     }
-
-                    // Try CID font for non-WinAnsi text (CJK, Arabic, Hebrew, etc.)
-                    if is_non_winansi {
-                        if let Some(ef) = embedded_fonts
-                            .iter()
-                            .find(|ef| ef.family == *font_family && ef.is_cid)
-                        {
-                            let tx = node.transform.as_coeffs();
-                            let x_off = tx[4];
-                            let y_off = tx[5];
-
-                            let asc = font_ascender(
-                                opts.fonts
-                                    .iter()
-                                    .find(|(n, _)| n == font_family)
-                                    .map(|(_, d)| d.as_slice())
-                                    .unwrap_or_default(),
-                                *font_size,
-                            );
-
-                            let pdf_x = x + x_off;
-                            let pdf_y = opts.page_height - y - asc - y_off;
-
-                            // Emit as CID-keyed text with hex string encoding
-                            // Each character becomes a 2-byte hex CID
-                            let hex_cids: String = text
-                                .chars()
-                                .map(|c| format!("{:04X}", c as u32))
-                                .collect::<Vec<_>>()
-                                .join("");
-
-                            content.extend_from_slice(b"q\n");
-                            write_node_graphics_state(&mut content, &mut image_state, node);
-                            content.extend_from_slice(b"BT\n");
-                            content.extend(
-                                format!(
-                                    "/{} {} Tf\n1 0 0 1 {:.2} {:.2} Tm\n<{}> Tj\n",
-                                    ef.res_name, font_size, pdf_x, pdf_y, hex_cids
-                                )
-                                .as_bytes(),
-                            );
-                            content.extend_from_slice(b"ET\nQ\n");
-                            continue;
-                        }
-                    }
                 }
             }
 
-            // Try outline mode — or forced outline for non-WinAnsi text
-            // (Arabic, Hebrew, CJK cannot be encoded in WinAnsiEncoding and MUST
-            // be outlined even when opts.outline_text is false).
+            // Non-WinAnsi text is outlined even when opts.outline_text is
+            // false. The current PDF text writer has no verified Unicode to
+            // CID/GID mapping; emitting Unicode values as Identity-H CIDs
+            // paints missing or unrelated glyphs. Paths preserve appearance,
+            // while searchable text remains available for WinAnsi runs.
             if do_outline || shape_text(node).is_some_and(|t| !t.is_empty() && requires_outline(t))
             {
                 if let Shape::Text {
@@ -6228,6 +6014,39 @@ mod tests {
         assert!(
             s.contains('m') && s.contains('c'),
             "non-WinAnsi text should be outlined to path operators (m, c)"
+        );
+    }
+
+    #[test]
+    fn export_pdf_subsets_extended_latin_as_glyph_paths() {
+        // Unicode code points are not TrueType glyph IDs. Until the PDF writer
+        // has an explicit Unicode-to-CID-to-GID map, this text must retain its
+        // actual outlines rather than being emitted as Identity-H character
+        // codes that happen to equal Unicode values.
+        let font_data = test_font_data();
+        let nodes = vec![text_node(1, 10.0, 10.0, "Łódź: zażółć gęślą jaźń", 24.0)];
+        let opts = PdfOptions {
+            subset_fonts: true,
+            fonts: vec![("DejaVu Sans".into(), font_data)],
+            ..Default::default()
+        };
+
+        let bytes = export_pdf(&nodes, &opts).expect("extended Latin PDF");
+        let pdf = String::from_utf8_lossy(&bytes);
+        let (_, content) = page_resources_and_content(&bytes);
+        assert!(
+            !pdf.contains("/CIDFontType2") && !pdf.contains("/Identity-H"),
+            "extended Latin text must not use the unverified identity CID path"
+        );
+        assert!(
+            content
+                .lines()
+                .any(|line| matches!(line.trim(), "f" | "f*")),
+            "extended Latin text should retain filled glyph paths: {content}"
+        );
+        assert!(
+            !content.contains(" Tj\n") && !content.contains(" TJ\n"),
+            "the unsearchable fallback must be explicit outlines, not text operators"
         );
     }
 

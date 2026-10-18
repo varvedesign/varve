@@ -577,8 +577,9 @@ proof of Varve behavior.
   embedded/subsetted PDF fonts, which Varve does not support. #3224 concerns
   PDF comment hover/bookmark surfaces not present in Varve. #3202, #3196,
   #3167 and #3154 reach Varve's Unicode text, font packaging/selection and PDF
-  export boundaries and remain screened for focused coverage; no Varve failure
-  was reproduced. #3183 is ambiguous about whether the affected field is
+  export boundaries. #3202's shared Unicode export route now has a focused
+  reproduction and fix in §4.25; #3196, #3167 and #3154 remain screened for
+  focused coverage. #3183 is ambiguous about whether the affected field is
   search or document text. #3127 lacks sample text, font and expected Korean
   line break; existing Unicode layout tests are adjacent evidence, not
   reproduction.
@@ -903,3 +904,85 @@ not previously watch that root source file, so its path filter now includes
 `CHANGELOG.md`; otherwise the public changelog would remain stale. No
 export-feature marketing claim changed. `docs/architecture/fill-system.md`
 now records the PDF and PDF/X stroke-alpha contract.
+
+### 4.25 Follow-up: Unicode glyph mapping in subset-font PDF exports
+
+PdfCraft issue [#3202](https://github.com/storytold/pdfcraft/issues/3202)
+reports Polish diacritics rejected by its in-place Add Content editor. The
+issue's linked [PR #3076](https://github.com/storytold/pdfcraft/pull/3076)
+uses a per-text `/Encoding` `/Differences` table for its standard fonts; its
+reported tests cover save/reopen and extraction. That editing workflow remains
+outside Varve's product boundary. The Polish sample in the issue was still a
+useful Unicode PDF-export probe for Varve.
+
+With `subset_fonts=true`, Varve previously wrote each Unicode scalar directly
+as a two-byte Identity-H character code and relied on the default
+`/CIDToGIDMap /Identity`. That mapping makes the code equal the TrueType glyph
+index; Unicode scalar values generally are not glyph indices. Adobe's
+[ISO 32000-1 §9.7.4.2](https://developer.adobe.com/document-services/docs/assets/35e4369068f86065372c18787171a17e/PDF_ISO_32000-1.pdf)
+defines `/CIDToGIDMap /Identity` as the identity mapping between CIDs and
+glyph indices. The old PDF embedded a subset font but emitted no explicit
+Unicode-to-glyph map or valid multi-byte `ToUnicode` map.
+
+Reproduction: `cargo run -p varve-print --example unicode_text_probe --
+/tmp/varve-unicode-cid-before`, followed by Poppler `pdftoppm` and `pdftotext`.
+The rendered page was blank and extraction returned unrelated Latin characters
+instead of “Łódź: zażółć gęślą jaźń”. The writer now outlines text outside
+WinAnsi even when subset-font export is enabled. The same Poppler render shows
+the Polish text correctly; `pdftotext` returns no text because those glyphs
+are paths. This is an appearance fix with an explicit searchability limit,
+not a fix for editing existing PDF text. Latin WinAnsi text retains the
+embedded, searchable-text path.
+
+The before/after captures are [the broken identity-CID output](evidence/pdf-unicode-subset-before.png)
+and [the outlined Unicode output](evidence/pdf-unicode-subset-after.png),
+rendered at 120 dpi from a 595×120 pt page. Their SHA-256 values are recorded
+in the continuation checkpoint. `crates/varve-print/examples/unicode_text_probe.rs`
+and the regression test `export_pdf_subsets_extended_latin_as_glyph_paths`
+retain the deterministic probe. The export documentation and Unreleased
+changelog now state the outline/searchability tradeoff. The marketing feature
+page makes no Unicode text-searchability promise, so its copy needs no separate
+change.
+
+### 4.26 Recursive checks from Unicode text reports
+
+The “possibly related” and ticket-relay links from #3202 and #2918 were
+checked individually; a shared “Unicode” label was not treated as a common
+root cause.
+
+- [#2918](https://github.com/storytold/pdfcraft/issues/2918) reports Japanese
+  text accepted during typing but refused at commit by PdfCraft's
+  Windows-1252 limit. It also includes a separate rotated-text-box screenshot.
+  The bot links #1835, #2101 and #1869; these are distinct script, cursor and
+  page-rotation cases.
+- [#1835](https://github.com/storytold/pdfcraft/issues/1835) reports Greek
+  text either refused or saved as question marks, and explicitly expects
+  searchable/copyable output. Varve's missing-glyph UI only solves unavailable
+  glyph recovery; it does not satisfy that PDF searchability request. The
+  current Unicode outline fallback provides appearance but not text
+  extraction, so the stronger Greek requirement remains screened, not fixed.
+- [#1821](https://github.com/storytold/pdfcraft/issues/1821) reports Chinese
+  input rejected for an absent glyph and asks about installed-font discovery
+  and localized font names. Those are existing-PDF editing and font-discovery
+  needs not established by the Polish Latin sample. No CJK font or Unicode
+  text-searchability promise is inferred from this batch.
+- [#2101](https://github.com/storytold/pdfcraft/issues/2101) reports reversed
+  Hebrew/Arabic rendering and cursor hits at the wrong logical position in
+  PdfCraft's PDF text tools. Varve's shared editor uses bidi levels while
+  retaining logical source offsets; `paragraphLayout.test.ts` covers pure RTL
+  visual order, caret direction, hit testing and mixed-direction boundaries.
+  This shared text-layout class is already handled in Varve, while editing
+  text inside an existing PDF remains outside the product boundary.
+- [#1869](https://github.com/storytold/pdfcraft/issues/1869) concerns comments,
+  stamps and text boxes on rotated PDF pages. Its linked
+  [PR #1710](https://github.com/storytold/pdfcraft/pull/1710) is merged and
+  fixes text boxes on a page that is already rotated; the PR says it does not
+  reorient old annotations after a later rotation. Varve's export page rotation
+  is not that in-place PDF annotation workflow, so no matching feature or fix
+  is claimed.
+
+Issue threads and linked PR metadata were inspected; the attached screenshots
+were not downloaded. These recursive edges are recorded in
+`link-frontier.jsonl`. The exact PDF sample proving the Varve CID defect remains
+the independent Polish output in §4.25, not a claim that Greek, Arabic, or CJK
+exports are now searchable or fully shaped.
