@@ -2648,6 +2648,28 @@ pub fn unrepresented_blend_modes(
     out
 }
 
+/// Refuse direct PDF API calls when a scene contains a mode without a PDF
+/// equivalent. Editor preflight performs the same check for user-facing
+/// exports; keeping it here prevents library callers from silently getting
+/// Normal-composited artwork.
+pub(crate) fn assert_pdf_blends_are_representable(
+    nodes: &[SceneNode],
+    format_label: &str,
+) -> Result<(), String> {
+    let unsupported = unrepresented_blend_modes(nodes, true);
+    if unsupported.is_empty() {
+        return Ok(());
+    }
+    let details = unsupported
+        .iter()
+        .map(|entry| format!("'{}' ({})", entry.node_name, entry.mode))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Err(format!(
+        "{format_label} export stopped: these objects use blend modes PDF cannot carry: {details}. Flatten the complete composite against its background or export it as a raster image."
+    ))
+}
+
 /// Effective alpha of one fill, matching the canvas: the node's opacity
 /// multiplies the fill's own opacity (`packages/engine/src/replay.ts` sets
 /// `globalAlpha = itemAlpha * fill.opacity`). PDF `/ca` is a single value, so
@@ -3458,6 +3480,7 @@ fn render_rich_text_to_pdf(
 /// searchable text. The new pipeline respects stacked fills, strokes, and
 /// effects.
 pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, String> {
+    assert_pdf_blends_are_representable(nodes, "PDF")?;
     let mut doc = Document::new();
     let page_id = doc.new_object_id();
 
@@ -6585,17 +6608,16 @@ mod tests {
         }
         fill_only.fills = Some(vec![fill]);
 
-        let bytes = export_pdf(
+        let error = export_pdf(
             &[lighter.clone(), fill_only.clone()],
             &PdfOptions::default(),
         )
-        .expect("pdf export");
-        let (resources, content) = page_resources_and_content(&bytes);
-        assert!(
-            blend_state_names(&resources).is_empty(),
-            "no /BM may be written for a mode PDF does not define"
-        );
-        assert!(!content.contains(" gs\n"), "{content}");
+        .unwrap_err();
+        assert!(error.contains("PDF export stopped"));
+        assert!(error.contains("Glow"));
+        assert!(error.contains("Plus Lighter"));
+        assert!(error.contains("Tint"));
+        assert!(error.contains("Plus Darker"));
 
         let reported = unrepresented_blend_modes(&[lighter, fill_only], true);
         assert_eq!(
