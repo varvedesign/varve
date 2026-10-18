@@ -78,6 +78,14 @@ Last updated: 2026-10-18. Status: active and incomplete.
   existing development warning for `updateDoc` outside a transaction; the
   same browser run verified crop undo/redo. Direct file-open and tab-switch
   routes use the same session-sync branch but were not separately driven.
+  PhotoCraft #1015 is now source-compared as a partial match: its reported GPU
+  OOM-to-whole-document-CPU fallback does not exist in Varve's Canvas2D-first,
+  simple-shape-only GPU path. Its large-raster low-zoom cost does map to the
+  still-open, independently measured ADR-0214 pyramid; synchronous Transform
+  Pixels commit is bounded but remains unprofiled at the admitted limit.
+  Upstream PRs #1427, #4218, #5590, and #6800 were read as separate fallback,
+  cancellable-transform, Warp, and speed improvements. No website performance
+  claim needs a change. The ledger is now 227 candidates / 452 partial matches.
   Safe integration to `master` remains outstanding. A clean-snapshot merge
   preview succeeded, but the real dirty master checkout rejected the merge
   because unrelated local edits and untracked files overlap paths touched by

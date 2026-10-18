@@ -139,8 +139,8 @@ the current website review found no matching claim that needs correction.
 ## 2026-10-18 disposition checkpoint
 
 All 3,275 cutoff-A issue rows now have an explicit Varve disposition or an
-explicit unresolved decision: 228 candidates, 2 fixed items, 198 analogues,
-451 partial matches, 26 already-covered behaviors, 80 trackers, 78 adjacent
+explicit unresolved decision: 227 candidates, 2 fixed items, 198 analogues,
+452 partial matches, 26 already-covered behaviors, 80 trackers, 78 adjacent
 QA/design leads, 2,208 reports with no Varve match established, and 4 issues
 that remain `unclear`. Those four are not completed dispositions; each has a
 specific reason the available source evidence does not yet support a confident
@@ -152,8 +152,8 @@ scope were manually resolved. Thirteen of the 17 previously unclear issues
 were resolved after their linked evidence and Varve paths were inspected.
 
 The status counts distinguish source comparison from engineering completion.
-The 228 candidates still require Varve reproduction or a product decision;
-the 451 partial matches and 78 adjacent leads are not automatically defects.
+The 227 candidates still require Varve reproduction or a product decision;
+the 452 partial matches and 78 adjacent leads are not automatically defects.
 The issue source pass and row-level Varve comparison do not complete the
 recursive link frontier or review of the source repository's PR discussions.
 
@@ -169,9 +169,18 @@ leak is fixed by cancelling Crop mode on active document/session change. The
 full crop pointer spec passes 14/14 in Chromium, including the New-tab
 regression; its screenshot was inspected at
 `evidence/crop-cleared-on-new-tab.png`. PhotoCraft's merged PR #1957 and
-Krita's official crop manual was checked as comparative evidence; it leaves
+Krita's official crop manual were checked as comparative evidence; the manual leaves
 cross-image reuse of transient crop state unspecified. Issues #3076 and
 #3093 were separately checked against Varve's history and gradient workflows; #3076
 has no matching history-pixel brush operation, while #3093 is an adjacent
 canvas-gradient lock bypass now covered by a passing real-pointer regression.
 The lock-mid-drag screenshot is retained under `evidence/`.
+
+PhotoCraft #1015 was separately compared with Varve's renderer and raster
+performance records. Varve does not have the reported GPU-to-whole-document-
+CPU fallback, but its accepted paint-raster LOD milestone remains unimplemented
+despite the measured 2048² frame-budget trigger. The source's transform stalls
+also motivate profiling Varve's bounded synchronous Transform Pixels path; no
+stall has yet been reproduced at its admitted size. PR #1427, #4218, #5590,
+and #6800 were reviewed as separate mitigations and performance evidence. The
+marketing site makes no large-document performance promise to revise.

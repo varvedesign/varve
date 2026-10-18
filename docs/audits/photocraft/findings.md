@@ -542,6 +542,48 @@ not treated as part of this cross-document state fix.
 **Website impact:** no published claim describes cross-tab crop state. No
 marketing copy change is warranted.
 
+## F-013 — Large raster fallback and transform commits
+
+**Source.** PhotoCraft [#1015](https://github.com/storytold/photocraft/issues/1015)
+reports a measured full-document CPU redraw after GPU budget refusal, with
+60,000² documents taking about a minute and 300,000² documents not finishing
+in the snapshot harness. Follow-up comments separate that canvas fallback
+from two transform stalls: a 300–550 MP Free Transform commit and an 8,000×6,000
+Warp commit that froze the window for 6.9–9.3 seconds. The reported six-layer
+PSB sample set was a real microscopy stitch workflow. Upstream addressed
+distinct pieces: [PR #1427](https://github.com/storytold/photocraft/pull/1427)
+shows a notice after a slow CPU fallback completes, [PR #4218](https://github.com/storytold/photocraft/pull/4218)
+moves Free Transform into a cancellable background job with progress, and
+[open PR #5590](https://github.com/storytold/photocraft/pull/5590) applies
+that job pattern to Warp. The issue thread also records an ~2× mesh-warp speedup
+in [PR #6800](https://github.com/storytold/photocraft/pull/6800); that reduces
+runtime but does not itself make a synchronous commit responsive.
+
+**Varve applicability.** The same GPU fallback is not present: Canvas2D is
+Varve's authoritative renderer, while WebGPU currently admits only simple
+solid-shape batches. Varve does have a separately measured paint-raster cost:
+the accepted [ADR-0214](../../adr/0214-multi-resolution-tiled-pyramid.md) remains
+unimplemented, and the 2026-08-09 baseline exceeds a 16.7 ms frame at 2048²
+and allocates a 256 MiB intermediate at 8192². Photo-fill viewport decoding is
+also still an explicit gap in the
+[image lifecycle](../../architecture/image-lifecycle.md).
+These are adjacent LOD and memory issues, not a reproduction of PhotoCraft's
+GPU OOM fallback. Varve's Transform Pixels is capped to bounded source/target
+buffers; its resample and PNG encode still run synchronously, but no stall at
+the admitted size has been measured. Treat that as a profiling lead.
+
+**Disposition.** Partial match. The issue reinforces the existing measured
+raster-pyramid investment and identifies synchronous bounded pixel transforms
+as a benchmark candidate. It does not justify importing PhotoCraft's GPU
+budget recovery policy into Varve. The website contains no large-document
+performance promise that needs correction.
+
+**Validation status.** Source and architecture comparison only; no code change
+was made for this disposition. Any raster LOD implementation remains governed
+by [ADR-0214](../../adr/0214-multi-resolution-tiled-pyramid.md)'s visual parity,
+memory, hot-path benchmark, and export-isolation
+requirements.
+
 ## Source seeds that did not match the requested repository
 
 The attachment's seed links use `storytold/pdfcraft`. In the requested
