@@ -601,6 +601,19 @@ evictions, retained bytes, and shape-leaf/raster-pixel work skipped, separately
 from the IR cache. Its bypass clears owned surfaces and forces fresh subtree
 composition; export and thumbnail consumers do not use this cache.
 
+The detailed `?perf=1` snapshot keeps the latest 32 admission or identity
+change reasons with group-to-child paths capped at 32 nodes and 128 UTF-16 code
+units per ID, including size-rejection context. It keeps at most 128 fixed-size
+two-word diagnostic fingerprints to classify untracked, nonresident, and
+changed-key misses. Fingerprint collisions remain possible and can mislabel
+these diagnostic reasons; the fingerprints never participate in cache
+validity, which compares the complete key. A group is tracked as resident only
+after successful admission or a hit. The snapshot also reports average
+key-build, lookup, and source-composition time, plus the current DPR/raster
+quality generation and backing dimensions. This source product is Canvas2D,
+with no GPU device generation. Detailed path and timer collection is off unless
+the developer diagnostics are enabled.
+
 This is a conservative first boundary, not a general subtree cache. The
 controlled independent-edit workflow, exact same-backend pixel hash, and
 replay-stage samples are recorded in

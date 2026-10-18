@@ -98,7 +98,11 @@ import {
 import { applyProofToFrame, ensureProofProvider } from '../render/proofProvider';
 import { resolveRendererAttribution } from '../render/rendererAttribution';
 import { observeCanvasRenderRevision } from '../render/renderRevision';
-import { retainedGroupSurfaceCache } from '../render/retainedGroupSurfaceCache';
+import {
+  RETAINED_GROUP_DIAGNOSTIC_PATH_LIMIT,
+  type RetainedGroupBypassReason,
+  retainedGroupSurfaceCache,
+} from '../render/retainedGroupSurfaceCache';
 import { alphaBounds } from '../render/surfaceBounds';
 import {
   documentTreatmentSpaceForCapture,
@@ -273,6 +277,40 @@ function unionWorldBounds(left: Rect | null, right: Rect | null): Rect | null {
   const maxX = Math.max(left.x + left.w, right.x + right.w);
   const maxY = Math.max(left.y + left.h, right.y + right.h);
   return { x, y, w: maxX - x, h: maxY - y };
+}
+
+function retainedGroupBoundaryBypassReason(input: {
+  warped: boolean;
+  masterPlacement: boolean;
+  instanceOccurrence: boolean;
+  proofing: boolean;
+  visibleEffects: boolean;
+  groupMask: boolean;
+}): RetainedGroupBypassReason | null {
+  if (input.warped) return 'warped-container';
+  if (input.masterPlacement) return 'master-occurrence';
+  if (input.instanceOccurrence) return 'instance-occurrence';
+  if (input.proofing) return 'proofing';
+  if (input.visibleEffects) return 'visible-group-effects';
+  if (input.groupMask) return 'group-mask';
+  return null;
+}
+
+function retainedChildBypassReason(
+  child: SceneNode | undefined,
+  item: RenderItem | undefined,
+): RetainedGroupBypassReason | null {
+  if (child?.kind !== 'shape') return 'unsupported-child-kind';
+  if (child.visible === false) return 'hidden-child';
+  if ('mask' in child && child.mask) return 'child-mask';
+  if (!item) return 'unresolved-child-ir';
+  if (item.primitive.kind === 'text') return 'text-child';
+  if ((item.effects?.length ?? 0) > 0) return 'child-effects';
+  if ((item.filters?.length ?? 0) > 0) return 'child-filters';
+  if (item.fills?.some((fill) => fill.type !== 'solid' && fill.type !== 'gradient')) {
+    return 'unsupported-fill';
+  }
+  return null;
 }
 
 export function toEngineNode(node: SceneNode, doc: Document): EngineNode {
@@ -1711,6 +1749,20 @@ export function renderContent(deps: RenderContentDeps): void {
             const groupY = minY - effectPadding;
             let retainedKey: string | null = null;
             let retainedShapeLeaves = 0;
+            const detailedRetainedDiagnostics =
+              retainedGroupSurfaceCache.detailedDiagnosticsEnabled;
+            let retainedBypassReason = detailedRetainedDiagnostics
+              ? retainedGroupBoundaryBypassReason({
+                  warped: Boolean(warpedContainer),
+                  masterPlacement: Boolean(masterPlacement),
+                  instanceOccurrence: Boolean(instancePrefix),
+                  proofing: Boolean(docProofConfig),
+                  visibleEffects: visibleGroupEffects.length > 0,
+                  groupMask: 'mask' in n && Boolean(n.mask),
+                })
+              : null;
+            const retainedDependencyPath = detailedRetainedDiagnostics ? [String(n.id)] : [];
+            let retainedDependencyPathTruncated = false;
             if (
               !warpedContainer &&
               !masterPlacement &&
@@ -1738,19 +1790,17 @@ export function renderContent(deps: RenderContentDeps): void {
               ];
               let eligible = true;
               for (const childId of effectivePaintOrder(doc, n)) {
+                if (detailedRetainedDiagnostics) {
+                  if (retainedDependencyPath.length < RETAINED_GROUP_DIAGNOSTIC_PATH_LIMIT) {
+                    retainedDependencyPath.push(String(childId));
+                  } else retainedDependencyPathTruncated = true;
+                }
                 const child = doc.nodes[childId];
                 const childItem = irByRenderKey.get(childId);
-                if (
-                  child?.kind !== 'shape' ||
-                  child.visible === false ||
-                  ('mask' in child && child.mask) ||
-                  !childItem ||
-                  childItem.primitive.kind === 'text' ||
-                  (childItem.effects?.length ?? 0) > 0 ||
-                  (childItem.filters?.length ?? 0) > 0 ||
-                  childItem.fills?.some((fill) => fill.type !== 'solid' && fill.type !== 'gradient')
-                ) {
+                const childBypassReason = retainedChildBypassReason(child, childItem);
+                if (childBypassReason) {
                   eligible = false;
+                  if (detailedRetainedDiagnostics) retainedBypassReason = childBypassReason;
                   break;
                 }
                 keyParts.push(childId, child, childItem);
@@ -1758,7 +1808,34 @@ export function renderContent(deps: RenderContentDeps): void {
               }
               if (eligible) retainedKey = retainedGroupSurfaceCache.key(keyParts);
             }
-            const retained = retainedKey ? retainedGroupSurfaceCache.get(retainedKey) : null;
+            if (retainedKey && detailedRetainedDiagnostics) {
+              retainedGroupSurfaceCache.recordQuality({
+                renderScale,
+                devicePixelRatio: dpr,
+                backingWidth: fitted.width,
+                backingHeight: fitted.height,
+              });
+            } else if (detailedRetainedDiagnostics && retainedBypassReason) {
+              retainedGroupSurfaceCache.recordAdmissionBypass(
+                retainedBypassReason,
+                String(n.id),
+                retainedDependencyPath,
+                retainedDependencyPathTruncated,
+              );
+            }
+            const retained = retainedKey
+              ? retainedGroupSurfaceCache.get(
+                  retainedKey,
+                  detailedRetainedDiagnostics
+                    ? {
+                        groupIdentity: `${String(doc.id).length}:${doc.id}${String(n.id).length}:${n.id}`,
+                        groupId: String(n.id),
+                        dependencyPath: retainedDependencyPath,
+                        dependencyPathTruncated: retainedDependencyPathTruncated,
+                      }
+                    : undefined,
+                )
+              : null;
             if (retained) {
               const bm = n.blendMode ?? 'passThrough';
               if (bm !== 'passThrough') {
@@ -1781,6 +1858,9 @@ export function renderContent(deps: RenderContentDeps): void {
               targetCtx.restore();
               return;
             }
+            const retainedBuildStartedAt = detailedRetainedDiagnostics
+              ? retainedGroupSurfaceCache.beginCompositionMeasurement()
+              : null;
             const gCanvas = new CompositeCanvas({
               width: groupWidth,
               height: groupHeight,
@@ -1827,12 +1907,23 @@ export function renderContent(deps: RenderContentDeps): void {
               }
             }
             gCtx.restore();
+            if (retainedBuildStartedAt !== null) {
+              retainedGroupSurfaceCache.finishCompositionMeasurement(retainedBuildStartedAt);
+            }
             if (retainedKey && !retained) {
               retainedGroupSurfaceCache.set(
                 retainedKey,
                 String(doc.id),
                 gCanvas.canvas,
                 retainedShapeLeaves,
+                detailedRetainedDiagnostics
+                  ? {
+                      groupIdentity: `${String(doc.id).length}:${doc.id}${String(n.id).length}:${n.id}`,
+                      groupId: String(n.id),
+                      dependencyPath: retainedDependencyPath,
+                      dependencyPathTruncated: retainedDependencyPathTruncated,
+                    }
+                  : undefined,
               );
             }
             for (const effect of visibleGroupEffects) {

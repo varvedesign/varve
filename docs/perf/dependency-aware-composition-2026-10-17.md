@@ -105,6 +105,33 @@ also now declines a backing canvas whose RGBA dimensions cannot fit its budget
 before allocating it. This is not a full memory-pressure soak: browser/GPU
 residency and transient effect allocations were not measured.
 
+## Opt-in diagnostic detail
+
+With `?perf=1`, inspect
+`window.__varvePerf.compositionCache.diagnostics().detailed`. The bounded
+snapshot keeps at most 32 recent fallback/identity-miss records, each with a
+group-to-child path capped at 32 nodes and 128 UTF-16 code units per ID,
+including size-rejection records that include the attempted group's context.
+It keeps at most 128 group identity/key fingerprints for distinguishing
+untracked, nonresident, and changed-key misses. These compact two-word
+fingerprints are diagnostic labels only; collisions remain possible and can
+mislabel a reason, while cache hits still compare the complete key. A group is
+considered previously resident only after a successful admission or a hit, so
+rejected allocations do not produce a false `nonresident-miss` label.
+
+Each record gives the reason and dependency path; unsupported boundaries
+include masks, proofing, warp, master/instance occurrences, group effects,
+unsupported child kinds, unresolved child IR, and child effects, filters, or
+fills. It also reports average key-build, cache-lookup, and source-composition
+times, plus current quality generation (DPR and raster scale), backing
+dimensions, and Canvas2D producer. That generation describes raster quality
+inputs, not an OS/device generation; this retained product is a 2D canvas
+rather than a GPU resource. Detailed timers and path collection are off unless
+diagnostics are enabled. The report does not measure total frame presentation,
+temporary effect memory, GPU residency, or asynchronous stale-job rejection.
+Instrumentation overhead has not yet been compared with the same workflow
+while detailed diagnostics are disabled.
+
 No customer design, standalone SVG/photo asset, native WebView, whole-document
 cache-versus-export parity, thumbnail freshness, font/image completion race,
 rotated scale sweep, or long-session pressure run was completed. The selected

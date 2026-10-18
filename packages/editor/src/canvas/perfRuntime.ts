@@ -455,6 +455,7 @@ export function installPerfDiagnosticsHandle(): void {
   if (typeof window !== 'undefined' && window.location.search.includes('perf=1')) {
     enableSnapMetrics(true);
     enableInteractionTraces(true);
+    retainedGroupSurfaceCache.setDetailedDiagnosticsEnabled(true);
     // Real presentation evidence where the runtime exposes it (Event Timing
     // reports input → next paint). No-op on engines that do not, which fall
     // back to the rAF lower bound recorded per frame.
@@ -523,6 +524,8 @@ function augmentPerfDiagnosticsHandle(): void {
     compositionCache: {
       diagnostics: () => retainedGroupSurfaceCache.diagnostics,
       setEnabled: (enabled: boolean) => retainedGroupSurfaceCache.setEnabled(enabled),
+      setDetailedDiagnosticsEnabled: (enabled: boolean) =>
+        retainedGroupSurfaceCache.setDetailedDiagnosticsEnabled(enabled),
       resetDiagnostics: () => retainedGroupSurfaceCache.resetDiagnostics(),
     },
     // Run (or re-read) the verified OffscreenCanvas probe. Returns the cached

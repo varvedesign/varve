@@ -116,4 +116,136 @@ describe('RetainedGroupSurfaceCache', () => {
     expect(cache.get(key)).toBeNull();
     expect(cache.diagnostics).toMatchObject({ enabled: false, entries: 0, residentBytes: 0 });
   });
+
+  it('keeps detailed bypass, timing, and quality diagnostics bounded and opt-in', () => {
+    const cache = new RetainedGroupSurfaceCache(1024);
+    const group = {};
+    const firstChild = {};
+    const firstKey = cache.key(['doc', group, 'child', firstChild])!;
+    expect(cache.diagnostics.detailed).toBeNull();
+
+    cache.setDetailedDiagnosticsEnabled(true);
+    cache.get(firstKey, {
+      groupIdentity: 'doc:group',
+      groupId: 'group',
+      dependencyPath: ['group', 'child'],
+    });
+    expect(cache.diagnostics.detailed?.bypasses.at(-1)?.reason).toBe('untracked-miss');
+    cache.set(firstKey, 'doc', surface(8, 8), 1, {
+      groupIdentity: 'doc:group',
+      groupId: 'group',
+      dependencyPath: ['group', 'child'],
+    });
+    const changedKey = cache.key(['doc', group, 'child', {}])!;
+    cache.get(changedKey, {
+      groupIdentity: 'doc:group',
+      groupId: 'group',
+      dependencyPath: ['group', 'child'],
+    });
+    cache.recordAdmissionBypass('text-child', 'other-group', ['other-group', 'text']);
+    cache.recordQuality({
+      renderScale: 2,
+      devicePixelRatio: 2,
+      backingWidth: 32,
+      backingHeight: 24,
+    });
+    cache.recordQuality({
+      renderScale: 4,
+      devicePixelRatio: 2,
+      backingWidth: 64,
+      backingHeight: 48,
+    });
+    const startedAt = cache.beginCompositionMeasurement();
+    cache.finishCompositionMeasurement(startedAt);
+    expect(cache.diagnostics.detailed?.bypasses).toEqual(
+      expect.arrayContaining([
+        { reason: 'untracked-miss', groupId: 'group', dependencyPath: ['group', 'child'] },
+        {
+          reason: 'dependency-key-changed',
+          groupId: 'group',
+          dependencyPath: ['group', 'child'],
+        },
+        {
+          reason: 'text-child',
+          groupId: 'other-group',
+          dependencyPath: ['other-group', 'text'],
+        },
+      ]),
+    );
+    cache.set(changedKey, 'doc', surface(8, 8), 1, {
+      groupIdentity: 'doc:group',
+      groupId: 'group',
+      dependencyPath: ['group', 'child'],
+    });
+    cache.clear();
+    cache.get(changedKey, {
+      groupIdentity: 'doc:group',
+      groupId: 'group',
+      dependencyPath: ['group', 'child'],
+    });
+    expect(cache.diagnostics.detailed?.bypasses.at(-1)?.reason).toBe('nonresident-miss');
+    const longPath = Array.from({ length: 40 }, (_, index) => `node-${index}`);
+    cache.recordAdmissionBypass('group-mask', 'large-group', longPath);
+    expect(cache.diagnostics.detailed?.bypasses.at(-1)).toMatchObject({
+      dependencyPath: longPath.slice(0, 32),
+      dependencyPathTruncated: true,
+    });
+    for (let i = 0; i < 40; i++) {
+      cache.recordAdmissionBypass('group-mask', `group-${i}`, [`group-${i}`]);
+    }
+
+    const detailed = cache.diagnostics.detailed!;
+    expect(detailed.bypasses).toHaveLength(32);
+    expect(detailed.bypasses.at(-1)).toMatchObject({
+      reason: 'group-mask',
+      groupId: 'group-39',
+    });
+    expect(detailed.quality).toMatchObject({ generation: 2, renderScale: 4, backend: 'canvas-2d' });
+    expect(detailed.timings.keyBuildCount).toBeGreaterThan(0);
+    expect(detailed.timings.lookupCount).toBe(3);
+    expect(detailed.timings.compositionCount).toBe(1);
+    for (let i = 0; i < 140; i++) {
+      cache.set(`diagnostic-key-${i}`, 'doc', surface(1, 1), 1, {
+        groupIdentity: `doc:group-${i}`,
+      });
+    }
+    expect(cache.diagnostics.detailed?.trackedGroupKeys).toBe(128);
+    expect(cache.diagnostics.detailed?.retainedBypassRecords).toBe(32);
+
+    const hugeId = 'x'.repeat(1000);
+    const overBudget = cache.key(['over-budget'])!;
+    expect(
+      cache.set(overBudget, 'doc', surface(32, 32), 1, {
+        groupIdentity: hugeId,
+        groupId: hugeId,
+        dependencyPath: [hugeId],
+      }),
+    ).toBe(false);
+    const sizeBypass = cache.diagnostics.detailed?.bypasses.at(-1);
+    expect(sizeBypass).toMatchObject({
+      reason: 'surface-over-budget',
+      groupId: `${'x'.repeat(127)}…`,
+      dependencyPath: [`${'x'.repeat(127)}…`],
+    });
+    expect(sizeBypass?.groupId?.length).toBeLessThanOrEqual(128);
+    expect(sizeBypass?.dependencyPath?.[0].length).toBeLessThanOrEqual(128);
+    cache.recordAdmissionBypass('group-mask', hugeId, [hugeId]);
+    expect(cache.diagnostics.detailed?.bypasses.at(-1)).toMatchObject({
+      reason: 'group-mask',
+      groupId: `${'x'.repeat(127)}…`,
+      dependencyPath: [`${'x'.repeat(127)}…`],
+    });
+    cache.get(overBudget, {
+      groupIdentity: hugeId,
+      groupId: hugeId,
+      dependencyPath: [hugeId],
+    });
+    expect(cache.diagnostics.detailed?.bypasses.at(-1)).toMatchObject({
+      reason: 'untracked-miss',
+      groupId: `${'x'.repeat(127)}…`,
+    });
+
+    cache.setDetailedDiagnosticsEnabled(false);
+    expect(cache.diagnostics.detailed).toBeNull();
+  });
 });

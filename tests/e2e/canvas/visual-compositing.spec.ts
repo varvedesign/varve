@@ -128,6 +128,17 @@ async function compositionCacheDiagnostics(page: import('@playwright/test').Page
               residentBytes: number;
               budgetBytes: number;
               avoidedShapeLeaves: number;
+              detailed: null | {
+                trackedGroupKeys: number;
+                retainedBypassRecords: number;
+                bypasses: Array<{ reason: string; groupId?: string; dependencyPath?: string[] }>;
+                timings: {
+                  keyBuildAverageMs: number;
+                  lookupAverageMs: number;
+                  compositionAverageMs: number;
+                };
+                quality: { generation: number; backend: string };
+              };
             };
             setEnabled: (enabled: boolean) => void;
             resetDiagnostics: () => void;
@@ -570,6 +581,15 @@ test.describe('full-editor visual compositing', () => {
     await forceAuthoritativeCanvasFrame(page);
     const afterGroupedChildEdit = await compositionCacheDiagnostics(page);
     expect(afterGroupedChildEdit?.misses).toBeGreaterThan(warmedAfterBypass?.misses ?? 0);
+    expect(
+      afterGroupedChildEdit?.detailed?.bypasses.some(
+        (record) => record.reason === 'dependency-key-changed',
+      ),
+    ).toBe(true);
+    expect(afterGroupedChildEdit?.detailed?.timings.keyBuildAverageMs).toBeGreaterThanOrEqual(0);
+    expect(afterGroupedChildEdit?.detailed?.timings.lookupAverageMs).toBeGreaterThanOrEqual(0);
+    expect(afterGroupedChildEdit?.detailed?.timings.compositionAverageMs).toBeGreaterThanOrEqual(0);
+    expect(afterGroupedChildEdit?.detailed?.quality.backend).toBe('canvas-2d');
     const childEditedCachedHash = await canvasPixelHash(page);
     expect(childEditedCachedHash).not.toBe(editedCachedHash);
     const childEditedCachedCapture = await contentCanvas.screenshot({
