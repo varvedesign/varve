@@ -338,3 +338,72 @@ workflows are the exact-SHA follow-up.
 VARVE_E2E_PORT=1527 node scripts/quality/heavy-lease.mjs "e2e: buffered text save and close" -- \
   bash -lc 'TMPDIR=/home/kevina/.cache/varve-photocraft-tmp npx playwright test tests/e2e/save/text-draft-save.spec.ts --project=chromium --workers=1 --reporter=list'
 ```
+
+## 2026-10-18: direct text-session handoff follow-up
+
+The first post-merge run of `tests/e2e/save/text-target-switch.spec.ts` exposed
+that clicking another text node while the Text tool was active created an
+empty layer instead of transferring the inline session. The Text tool now
+receives the overlay's active target and, only during an active text session,
+switches to a hit text node; ordinary Text-tool clicks on existing artwork
+still create point text, preserving the nearby-placement behavior users expect.
+Before handing off, it drains buffered input and closes any open text-creation
+transaction so the previous draft is durable in its own history step. The
+focused TextTool regression covers the handoff ordering and both click modes.
+The browser spec checks the second node's active editor, verifies the first
+buffered value after switching back, and confirms undo through the inspector's
+Text content field.
+
+The TextTool suite passed 7/7, editor and E2E typechecks passed, and changed
+TypeScript files passed Biome. A focused Chromium E2E pass before the explicit
+buffer-drain handoff was visually inspected at
+`/tmp/varve-photocraft-text-switch-visual-final-2026-10-18/save-text-target-switch-sw-5e2cc-ed-draft-and-preserves-undo-chromium/text-target-switch.png`;
+both text objects render with the expected content. The subsequent run with
+the explicit buffer drain confirmed the first draft was restored after undo,
+but its final canvas-coordinate selection missed after the layout shifted.
+The spec now selects the restored text through its Layers tree item and is
+queued through the shared heavy-task lease behind another worktree’s Vitest
+run; do not treat that latest run as passed until it completes.
+`audit:docs` passed
+(1,162 docs, 833 links, 182 ADRs), `audit:emoji` passed, and `audit:tokens`
+passed all 324 pairs in three themes. `pnpm verify:affected` still stops in
+Tier 0 on the untracked `packages/codegen/src/bundle-assets.ts` formatter
+difference owned by concurrent work; neither it nor the other concurrent
+untracked `packages/scene/src/nodeResize.ts` was modified. The required
+architecture audit for the `CanvasArea` tool-context field was started, but
+its completion result was not captured while another worktree ran the same
+long audit; rerun it when that shared CPU-heavy audit finishes.
+
+Exact-SHA CI for master commit `0245c169aae97f10d5a88c32ffd201a317cf8d7c`
+passed. Website Deploy run `39136030071` for `daa308d1` failed four browser
+cases: one install-guidance assertion still prohibited the PKGBUILD guidance
+the page now correctly contains, and three visual captures used stale download
+page baselines. The failed-run screenshots were inspected; the current source
+baselines differ from the CI actual screenshots by 0.0053% (dark download)
+and 1.1241% (Linux guidance), both within the visual test's 2% threshold. The
+integration candidate's first correction was pushed as
+`cf89909b61d271f15c86b86b2550946276c5bc3d`. Its CI passed all non-website
+lanes, but Website Deploy `39141258752` found one more stale copy assertion
+in both deployment modes: the Linux package table says “PKGBUILD recommended,”
+not “recommended default for Arch.” The other 688 cases passed, including the
+updated visual baselines. That wording correction was committed and pushed as
+`558f97fdd`; exact-SHA CI and Website Deploy for the new head remain in progress.
+
+
+## 2026-10-18: final read-only code review repairs
+
+A read-only review of PDF export found two transparency gaps in text fast
+paths: searchable and outlined text bypassed per-node blend state, and the
+shared node opacity ExtGState set fill alpha without setting stroke alpha.
+Commit `5d7561f28` scopes text output to the same node graphics state used by
+the shape renderer and writes both PDF `ca` and `CA` alpha values. Regression
+coverage checks searchable and outlined Multiply text plus fill and stroke
+opacity. `cargo fmt --check` passed; `cargo test -p varve-print blend_mode`
+passed 7 tests and `cargo test -p varve-print node_opacity_is_applied_not_commented`
+passed 1 test.
+
+The editor handoff commit is integrated locally as a separate commit after
+`5d7561f28`. Its final Layers-tree selection variant is queued for Chromium
+validation through the shared lease. The app and the other worktree processes
+remain running. The latest exact-SHA CI and Website Deploy runs have not yet
+completed.

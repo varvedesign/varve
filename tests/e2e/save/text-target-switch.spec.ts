@@ -51,19 +51,24 @@ test('switching text targets commits the previous buffered draft and preserves u
   await firstEditor.fill('First buffered update');
   await expect(firstEditor).toHaveValue('First buffered update');
 
-  // Select the second canvas object, then enter its text session from the
-  // visible quick action before the first node's debounce expires.
+  // Clicking another text object in the active Text tool switches the editing
+  // session before the first node's debounce expires.
   await page.mouse.click(secondTarget.x, secondTarget.y);
-  await page.getByRole('button', { name: 'Edit text', exact: true }).click();
   const secondEditor = page.getByRole('textbox', { name: /editing text/i });
   await expect(secondEditor).toBeVisible();
   await expect(secondEditor).toHaveValue('Second original');
-  await page.screenshot({ path: testInfo.outputPath('text-target-switch.png') });
 
+  await page.mouse.click(firstTarget.x, firstTarget.y);
+  const firstSwitchedEditor = page.getByRole('textbox', { name: /editing text/i });
+  await expect(firstSwitchedEditor).toHaveValue('First buffered update');
   await page.clock.resume();
+  await page.waitForTimeout(100);
+  await page.screenshot({ path: testInfo.outputPath('text-target-switch.png') });
   await page.keyboard.press('Escape');
   await page.keyboard.press('Control+z');
-  await page.mouse.click(firstTarget.x, firstTarget.y);
-  await page.getByRole('button', { name: 'Edit text', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: /editing text/i })).toHaveValue('First original');
+  await page.keyboard.press('v');
+  await page.getByRole('treeitem', { name: /Text: First original/ }).click();
+  await expect(page.getByRole('textbox', { name: 'Text content', exact: true })).toHaveValue(
+    'First original',
+  );
 });
