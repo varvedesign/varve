@@ -241,6 +241,14 @@ Inkscape’s canonical tracker.
     in CLI selection, large-raster tracing, undo/cancel behavior, and SVG
     filter or mask fidelity. These remain body-only, mostly historical test
     categories.
+33. Individually screened 198 available nonempty bodies in IID 5791–6000.
+    Eleven already-screened IIDs were excluded (#5808, #5878, #5887, #5893,
+    #5910, #5924, #5939, #5960, #5971, #5976 and #5983); #5956 has an empty
+    description. No notes or linked attachments were reviewed. The ledger now
+    records 2,959 of 6,392 bodies. High-impact report categories include
+    clipboard focus and object integrity, large-document tree-operation
+    stalls, LPE load/undo crashes, geometry hit-testing, and import-versus-open
+    fidelity differences.
 
 ## Validation checkpoint: 2026-10-18
 
