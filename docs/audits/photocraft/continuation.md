@@ -267,7 +267,12 @@ and the usage scan, the focused editor batch passed 58 tests, both typechecks
 passed, and Biome plus `git diff --check` passed. The directly invoked
 `pnpm audit:radius` reported existing legacy-radius consumers in Presentation
 and SpecPanel styles; none are in this task's changed files. No full suite was
-run.
+run. The read-only integration review found that direct Rust PDF and PDF/X-4
+calls did not reject blend modes with no PDF name, even though editor
+preflight did. Commit `373ef7439` adds the same refusal at both native API
+boundaries; `cargo test -p varve-print a_mode_without_a_pdf_name` passes both
+standard-PDF and PDF/X-4 regression cases, and `cargo fmt -p varve-print -- --check`
+passes.
 
 1. When the shared heavy-test lease is available, rerun the targeted Thai text
    corpus E2E; the previous attempt expired without starting Playwright.
