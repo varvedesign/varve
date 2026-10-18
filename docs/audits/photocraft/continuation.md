@@ -66,6 +66,13 @@ Last updated: 2026-10-18 (session 5).
 
 ## Review record
 
+A follow-up source check corrected two provenance/ledger errors: the emoji and
+Persian keyboard references in findings §4.6 are PhotoCraft issues outside the
+PdfCraft cutoff, and PdfCraft #813 is now classified under async-generation
+with its actual cancelled password-recovery report. The same check noted a
+possible Home-open focus race in Varve; no runtime repro was run and tab identity
+prevents claiming the reported wrong-save outcome.
+
 The `review-agent` workflow was applied as a distinct second-pass self-review;
 it does not permit delegating this read-only review, and no independent review
 was available for these local commits. The reviewer and implementer were the
