@@ -161,7 +161,10 @@ export class CloneStampTool extends BaseTool {
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     const local = rasterLocalPoint(ctx, rasterNodeId, world);
 
-    if (e.altKey) {
+    // Alt-click is the conventional shortcut, but some Linux window managers
+    // consume Alt+mouse before it reaches the app. Keep Ctrl/Cmd-click as
+    // equivalent source-pick gestures so users can work around that conflict.
+    if (e.altKey || e.ctrlKey || e.metaKey) {
       this.sourceWorld = { x: world.x, y: world.y };
       this.sourceNodeId = rasterNodeId;
       this.sourcePoint = { nodeId: rasterNodeId, x: local.x, y: local.y };
@@ -174,7 +177,7 @@ export class CloneStampTool extends BaseTool {
       return { consumed: true };
     }
     if (!this.sourceWorld && !this.sourcePoint) {
-      ctx.announce('Alt-click to set the clone source first');
+      ctx.announce('Alt-, Ctrl-, or Command-click to set the clone source first');
       return { consumed: false };
     }
 

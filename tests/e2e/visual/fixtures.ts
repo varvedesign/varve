@@ -840,6 +840,43 @@ export const FIXTURES: VisualFixture[] = [
       }),
     ],
   },
+  {
+    name: 'variable-pressure-long-dash-pattern',
+    width: 240,
+    height: 96,
+    maxDiffPixels: 80,
+    items: [
+      baseItem({
+        fill: WHITE,
+        primitive: { kind: 'rect', x: 0, y: 0, w: 240, h: 96 },
+      }),
+      baseItem({
+        fill: { space: 'rgb', r: 248, g: 249, b: 252, a: 0 },
+        primitive: {
+          kind: 'path',
+          points: [
+            { x: 20, y: 48, pressure: 0.2, handleIn: null, handleOut: null },
+            { x: 220, y: 48, pressure: 0.9, handleIn: null, handleOut: null },
+          ],
+          closed: false,
+          tolerance: 0,
+        },
+        strokes: [
+          {
+            color: BLUE,
+            weight: 18,
+            align: 'center',
+            cap: 'butt',
+            join: 'round',
+            dashPattern: Array.from({ length: 65 }, () => [8, 12]).flat(),
+            dashOffset: 1,
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+      }),
+    ],
+  },
 ];
 
 export interface MotionVisualFixture {

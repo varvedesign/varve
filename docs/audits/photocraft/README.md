@@ -163,7 +163,9 @@ is not evidence that Varve has a matching fix. Cutoff-B deltas retain the
 separate limitations recorded above. Issue #2826 exposed a practical Linux
 input conflict: Cinnamon can capture Alt-click before Clone Stamp receives it.
 Varve now accepts Ctrl- or Command-click as an alternate clone-source gesture;
-the pointer path is awaiting its real-browser regression run. Issues #3076 and
-#3093 were separately checked against Varve's history and gradient workflows;
-#3076 has no matching history-pixel brush operation, while #3093 is an adjacent
-canvas-gradient lock bypass that is being fixed and tested.
+the focused unit tests and real-browser pointer regression pass, with a
+target-safety screenshot retained under `evidence/`. Issues #3076 and #3093
+were separately checked against Varve's history and gradient workflows; #3076
+has no matching history-pixel brush operation, while #3093 is an adjacent
+canvas-gradient lock bypass now covered by a passing real-pointer regression.
+The lock-mid-drag screenshot is retained under `evidence/`.

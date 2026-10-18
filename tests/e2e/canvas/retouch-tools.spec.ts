@@ -435,9 +435,11 @@ test('Clone Stamp refuses locked and non-pixel targets instead of redirecting th
   await treeItems.filter({ hasText: 'Repair layer' }).click();
   await chooseSamplingScope(page, 'Clone Stamp', 'All visible layers');
   await expect(page.locator('.paint-overlay__badge')).toContainText('Repair layer');
-  await page.keyboard.down('Alt');
+  // Ctrl-click is the fallback for Linux window managers that capture the
+  // conventional Alt-click before the application receives it.
+  await page.keyboard.down('Control');
   await page.mouse.click(box.x + box.width * 0.43, box.y + box.height * 0.43);
-  await page.keyboard.up('Alt');
+  await page.keyboard.up('Control');
   await expect(announcer).toHaveText('Clone source set');
   // The source marker is real chrome, not just tool state: it must be on the
   // canvas once the anchor exists.

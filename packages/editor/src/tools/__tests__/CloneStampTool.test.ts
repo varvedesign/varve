@@ -54,6 +54,18 @@ describe('CloneStampTool', () => {
     expect(ctx.announce).toHaveBeenCalledWith('Clone source set');
   });
 
+  it.each(['ctrlKey', 'metaKey'] as const)('sets source point on %s', (modifier) => {
+    const tool = new CloneStampTool();
+    const ctx = makeMockContext(makeMockCanvas());
+
+    const result = tool.onPointerDown(
+      { [modifier]: true, clientX: 30, clientY: 40, pointerId: 1 } as any,
+      ctx,
+    );
+    expect(result.consumed).toBe(true);
+    expect(ctx.announce).toHaveBeenCalledWith('Clone source set');
+  });
+
   it('paints from source to target on click', () => {
     const tool = new CloneStampTool();
     const canvas = makeMockCanvas();
@@ -83,7 +95,9 @@ describe('CloneStampTool', () => {
       ctx,
     );
     expect(result.consumed).toBe(false);
-    expect(ctx.announce).toHaveBeenCalledWith('Alt-click to set the clone source first');
+    expect(ctx.announce).toHaveBeenCalledWith(
+      'Alt-, Ctrl-, or Command-click to set the clone source first',
+    );
   });
 
   it('supports aligned mode offset tracking', () => {

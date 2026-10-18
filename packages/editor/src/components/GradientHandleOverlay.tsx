@@ -15,6 +15,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getEditorViewport } from '../canvas/cameraState';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';
+import { isNodeEffectivelyLocked } from '../scene/world';
 import { type GradientHandleKind, moveGradientHandle } from './gradientHandleGeometry';
 
 interface GradientHandleOverlayProps {
@@ -75,7 +76,7 @@ function getGradientHandles(
   const id = selectedIds[0];
   if (!id) return [];
   const node = doc.nodes[id];
-  if (!node) return [];
+  if (!node || isNodeEffectivelyLocked(doc, id)) return [];
   const bounds = nodeLocalBounds(node, doc);
   if (!bounds || bounds.w === 0 || bounds.h === 0) return [];
   const nodeAny = node as unknown as { fills?: Fill[]; transform?: Affine };

@@ -28,7 +28,7 @@ import type { GridOverlayMode } from '../context/types';
 import type { TransformPreviewStore } from '../context/ViewportContext';
 import { DebugOverlayHost } from '../debug/DebugOverlayHost';
 import { SelectionOverlay } from '../SelectionOverlay';
-import { nodeWorldBounds, worldRectToScreenAabb } from '../scene/world';
+import { isNodeEffectivelyLocked, nodeWorldBounds, worldRectToScreenAabb } from '../scene/world';
 import type { DraftShape, PixelProbe, ShapeBuilderDraft } from '../tools';
 import type { CropTool } from '../tools/CropTool';
 import type { PerspectiveTool } from '../tools/PerspectiveTool';
@@ -663,14 +663,20 @@ export function CanvasOverlays({
           doc={doc}
           getWorldTransform={editor.getWorldTransform}
           onUpdateGradient={(nodeId, fillIndex, gradient) => {
-            editor.updateNode(nodeId, (node) => {
+            editor.updateDoc((document) => {
+              if (isNodeEffectivelyLocked(document, nodeId)) return document;
+              const node = document.nodes[nodeId];
+              if (!node) return document;
               const nodeAny = node as unknown as { fills?: Fill[] };
               const current = nodeAny.fills ?? [];
               const fill = current[fillIndex];
-              if (fill?.type !== 'gradient') return node;
+              if (fill?.type !== 'gradient') return document;
               const fills = [...current];
               fills[fillIndex] = { ...fill, gradient };
-              return { ...node, fills } as SceneNode;
+              return {
+                ...document,
+                nodes: { ...document.nodes, [nodeId]: { ...node, fills } as SceneNode },
+              };
             });
           }}
           onEditStart={editor.beginTransaction}

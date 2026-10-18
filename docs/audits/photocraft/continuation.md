@@ -9,7 +9,7 @@ Last updated: 2026-10-18. Status: active and incomplete.
   endpoint-only sampling for straight segments, caps outlines at 65,536
   samples, caps dashed expansion at 16,384 on-runs with a pressure-aware solid
   tail, and bounds pathological dash-pattern length. Focused engine unit tests
-  pass (2 tests); the native cover-quad regression passes (1 Rust test).
+  pass (5 tests); the native cover-quad regression passes (1 Rust test).
   `pnpm --filter @varve/engine typecheck` passed, as did focused engine tests,
   Rust tests/clippy, and Biome checks. Independent review found that dash
   splitting rescanned the full sample list for every run and that patterns over
@@ -17,45 +17,59 @@ Last updated: 2026-10-18. Status: active and incomplete.
   shared cursor, distance lookup is logarithmic, and long patterns fall back to
   native dashed centerline replay. A second review caught a zero-width/tiny
   dash loop that escaped the run cap; a 32,768-step cap now sends unproductive
-  patterns to native dashed replay. The focused regression failed before each
-  fix and passes now. Real-browser visual validation remains required. The
+  patterns to native dashed replay. These review repairs are committed as
+  `7d3e0bc87` and `0e21e9a89`. The focused engine bounds suite now passes all
+  five tests, the full `varve-accel` library suite passes 51 tests, and clippy
+  passes. The independent review-agent's final pass found no actionable defect
+  in the committed stroke changes or current editor changes. The real-browser
+  visual fixture now shows the preserved dashes clearly and passes
+  baseline generation plus clean comparison at 1×, 2×, and 3× DPR. The 1×–3×
+  snapshots are in `tests/e2e/visual/replay.spec.ts-snapshots/`. The
   source fix in PhotoCraft PR #5204 was read; it also covers large coordinates,
   which this Varve change does not fully match. Website review found no
   affected marketing claim.
 - PhotoCraft #2826: Clone Stamp now accepts Ctrl/Command-click as an alternate
   source gesture alongside Alt-click, addressing the reported Cinnamon
   window-manager conflict. Focused unit coverage passes (8 tests), and
-  `pnpm typecheck:e2e` passes. `retouch-tools.spec.ts` browser execution and
-  screenshot inspection remain pending. Chromium can verify event handling in
-  the app but cannot reproduce Cinnamon's OS-level interception. No marketing
+  `pnpm typecheck:e2e` passes. The targeted real-browser pointer E2E passes
+  using Ctrl-click, and its target-safety screenshot was inspected and retained
+  as `evidence/clone-stamp-control-click.png`. Chromium verifies app event
+  handling but cannot reproduce Cinnamon's OS-level interception. No marketing
   copy change is indicated.
 - PhotoCraft #3093: locked selections hide gradient handles and the drag path
   rechecks the latest lock state before mutation. A pointer regression covers
-  unlocked movement and lock-mid-drag behavior. E2E typecheck passes. The
-  browser retry never launched: the heavy-task lease expired after 600 seconds
-  while waiting behind a live full-local validation in another worktree; no
-  screenshot exists from that retry. The prior browser setup attempt stopped
-  in shared `global-setup.ts` before this spec. Retry only after the owner exits.
-- `pnpm verify:plan` selected 46 lanes across editor/engine and transitive
-  dependents (78% of repo test files); full-suite escalation was NO. The
-  required `pnpm verify:affected` run stopped at the pre-existing
+  unlocked movement and lock-mid-drag behavior. E2E typecheck and the targeted
+  real-browser test pass. The inspected lock-mid-drag screenshot is retained
+  as `evidence/gradient-locked-during-drag.png`. A first standard Playwright
+  retry stalled in shared `global-setup.ts`; the successful targeted run skipped
+  only that shared warm-up and exercised real Chromium navigation, editor DOM,
+  pointer events, and persisted document state.
+- The latest `pnpm verify:plan` selected 16 lanes for the editor changes and
+  visual fixture; full-suite escalation was NO. The required
+  `pnpm verify:affected` run stopped at the pre-existing
   `audit:radius` failure: ten raw-radius consumers in untouched Presentation,
   SpecPanel, and other files. It did pass touched-file format/lint and the
-  emoji/docs audits before stopping. Targeted engine bounds tests pass (3),
+  emoji/docs audits before stopping. Targeted engine bounds tests pass (5),
   `@varve/engine` typecheck passes, and all 51 `varve-accel` library tests plus
-  clippy pass. Clone Stamp unit tests pass (8), the Save As ownership tests
-  pass (10), editor typecheck passes, E2E typecheck passes, and token audit
-  passes (324 pairs, 3 themes). Desktop typecheck remains blocked by the
+  clippy pass. Clone Stamp and Save As focused tests pass (18 total), editor
+  typecheck and E2E typecheck pass, and token audit passes (324 pairs, 3
+  themes). Desktop typecheck remains blocked by the
   existing untouched `CollabSurfaces.tsx:450` readonly `Affine` cast error.
-  Package-wide JS unit lanes and both browser E2Es remain outstanding; the
-  browser lease is occupied by a separate full-local run. Do not report the
-  affected closure as passed.
-- Progressive commits: `dd5120f28` (native fill cover-quad budget) and
-  `a4aca5e53` (bounded variable-width stroke expansion). A follow-up commit is
-  needed for the independent review repairs and the remaining editor changes.
-  Clone Stamp and gradient handle changes remain uncommitted pending browser
-  validation.
-  Independent final review and safe integration to `master` remain outstanding.
+  A dedicated visual fixture for a variable-pressure path with a >128-entry
+  dash pattern passes at all three DPRs. Clone Stamp and locked-gradient pointer
+  E2Es pass; screenshots were inspected. The current E2E typecheck passes.
+  The latest `pnpm verify:affected` passed touched format/lint, emoji, and docs
+  checks, then stopped on the same pre-existing radius audit findings.
+  Package-wide JS unit lanes remain
+  outstanding. Do not report the affected closure as passed.
+- Progressive commits: `dd5120f28` (native fill cover-quad budget),
+  `a4aca5e53` (bounded variable-width stroke expansion), `7d3e0bc87` (linear,
+  pattern-preserving dash fallback), and `0e21e9a89` (cap unproductive dash
+  traversal). Editor changes remain uncommitted pending final review and commit.
+  The final independent read-only review found no actionable findings. Safe
+  integration to `master` remains outstanding:
+  the primary master checkout has unrelated dirty changes and the dedicated
+  integration worktree also has unrelated in-progress changes.
 
 ## Source boundary
 

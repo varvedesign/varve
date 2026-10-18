@@ -1,5 +1,9 @@
 import { act, render, waitFor } from '@testing-library/react';
-import { createMemoryPlatform, type WriteSaveResult } from '@varve/platform';
+import {
+  createMemoryPlatform,
+  type DocumentSaveTargetChoice,
+  type WriteSaveResult,
+} from '@varve/platform';
 import { createDocument, DocumentCodec } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
@@ -341,13 +345,10 @@ describe('save destination ownership', () => {
 
   it('checks Save As ownership again after the destination picker returns', async () => {
     const { platform, getEditor } = mountEditor();
-    let finishPicker!: (choice: {
-      kind: 'target';
-      target: { kind: 'native-file'; path: string };
-    }) => void;
+    let finishPicker!: (choice: DocumentSaveTargetChoice) => void;
     platform.chooseDocumentSaveTarget = vi.fn(
       () =>
-        new Promise((resolve) => {
+        new Promise<DocumentSaveTargetChoice>((resolve) => {
           finishPicker = resolve;
         }),
     );
