@@ -34,7 +34,7 @@ import {
 } from '@varve/shared';
 import { committedParentIndex } from '../scene/parentIndexCache';
 import { planManualWorldTranslationFromOrigins } from '../scene/selectionArrangement';
-import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
+import { isNodeEffectivelyLocked, nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
 import { interactionSession } from './InteractionContext';
@@ -1198,6 +1198,7 @@ export class SelectTool extends BaseTool {
     const hit = ctx.hitTest(world);
     if (hit) {
       const node = ctx.getNode(hit.nodeId);
+      if (isNodeEffectivelyLocked(ctx.document, hit.nodeId)) return;
       let clippingGroupId: NodeId | undefined;
       if (!ctx.isolatedNodeId) {
         let ancestorId = getParent(ctx.document, hit.nodeId);

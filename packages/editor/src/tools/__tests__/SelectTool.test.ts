@@ -455,6 +455,28 @@ describe('SelectTool', () => {
     expect(ctx.setTool).toHaveBeenCalledWith('nodeEdit');
   });
 
+  it('double-click on a locked path does not enter nodeEdit mode', () => {
+    const tool = new SelectTool();
+    const hitNode = {
+      id: 'p1',
+      kind: 'shape' as const,
+      name: 'Path',
+      locked: true,
+      shape: { kind: 'path' },
+    };
+    const base = createDocument('locked-path');
+    const ctx = makeCtx({
+      document: { ...base, rootChildren: ['p1'], nodes: { p1: hitNode } },
+      hitTest: vi.fn().mockReturnValue({ nodeId: 'p1', node: hitNode }),
+      getNode: vi.fn().mockReturnValue(hitNode),
+    });
+
+    tool.onDoubleClick({ clientX: 50, clientY: 50 } as any, ctx);
+
+    expect(ctx.setNodeEditTargetId).not.toHaveBeenCalled();
+    expect(ctx.setTool).not.toHaveBeenCalledWith('nodeEdit');
+  });
+
   it('double-click on a balloon body edits its dialogue text', () => {
     const tool = new SelectTool();
     const body = {

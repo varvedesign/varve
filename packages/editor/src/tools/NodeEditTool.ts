@@ -28,7 +28,7 @@ import {
 } from '@varve/shared';
 import { getNudgeStep, type NudgeDirection } from '../commands/nudge';
 import { findPathTopologyDependency, pathTopologyBlockMessage } from '../pathTopologyDependencies';
-import { nodeWorldTransform } from '../scene/world';
+import { isNodeEffectivelyLocked, nodeWorldTransform } from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
 import {
@@ -244,6 +244,11 @@ export class NodeEditTool extends BaseTool {
     }
   }
 
+  private targetIsLocked(ctx: ToolContext): boolean {
+    const targetId = ctx.nodeEditTargetId;
+    return Boolean(targetId && isNodeEffectivelyLocked(ctx.document, targetId));
+  }
+
   private beginPointerTransaction(ctx: ToolContext): void {
     if (!this.pointerGesture || this.pointerGesture.active) return;
     ctx.beginTransaction();
@@ -272,6 +277,10 @@ export class NodeEditTool extends BaseTool {
     if (this.pointerGesture) return { consumed: false };
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return { consumed: false };
+    if (isNodeEffectivelyLocked(ctx.document, targetId)) {
+      ctx.announce('Unlock this layer to edit its path.');
+      return { consumed: true };
+    }
     const target = pathNode(ctx, targetId);
     if (!target) return { consumed: false };
 
@@ -400,7 +409,11 @@ export class NodeEditTool extends BaseTool {
   override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
     const gesture = this.pointerGesture;
     if (!gesture || gesture.pointerId !== e.pointerId) return;
-    if (ctx.nodeEditTargetId !== gesture.targetId || !pathNode(ctx, gesture.targetId)) {
+    if (
+      ctx.nodeEditTargetId !== gesture.targetId ||
+      isNodeEffectivelyLocked(ctx.document, gesture.targetId) ||
+      !pathNode(ctx, gesture.targetId)
+    ) {
       this.cancelPointerGesture(ctx);
       return;
     }
@@ -461,6 +474,10 @@ export class NodeEditTool extends BaseTool {
   override onDoubleClick(e: PointerEvent, ctx: ToolContext): void {
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return;
+    if (isNodeEffectivelyLocked(ctx.document, targetId)) {
+      ctx.announce('Unlock this layer to edit its path.');
+      return;
+    }
     const target = pathNode(ctx, targetId);
     if (!target) return;
     const dependency = findPathTopologyDependency(ctx.document, targetId);
@@ -514,6 +531,20 @@ export class NodeEditTool extends BaseTool {
       ctx.setTool('select');
       return true;
     }
+    if (this.targetIsLocked(ctx)) {
+      this.cancelPointerGesture(ctx);
+      this.finishNudgeGesture(ctx);
+      const direction = nudgeDirectionForKey(e.key);
+      const editsPath =
+        direction !== null ||
+        e.key === 'Backspace' ||
+        e.key === 'Delete' ||
+        ((e.key === 'c' || e.key === 'C') && !e.shiftKey) ||
+        (e.shiftKey && ['c', 's', 'y', 'a'].includes(e.key.toLowerCase()));
+      if (!editsPath) return false;
+      ctx.announce('Unlock this layer to edit its path.');
+      return true;
+    }
     if (e.key === 'Backspace' || e.key === 'Delete') return this.deleteSelectedAnchors(ctx);
     if (e.shiftKey && e.key.toLowerCase() === 'c') return this.applyMode('corner', ctx);
     if (e.shiftKey && e.key.toLowerCase() === 's') return this.applyMode('smooth', ctx);
@@ -545,6 +576,7 @@ export class NodeEditTool extends BaseTool {
     if (this.selectedAnchors.size === 0) return false;
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return false;
+    if (isNodeEffectivelyLocked(ctx.document, targetId)) return false;
     const target = pathNode(ctx, targetId);
     if (!target) return false;
     const inverseWorld = safeInverse(
@@ -574,6 +606,7 @@ export class NodeEditTool extends BaseTool {
     if (this.selectedAnchors.size === 0) return false;
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return false;
+    if (isNodeEffectivelyLocked(ctx.document, targetId)) return false;
     const target = pathNode(ctx, targetId);
     if (!target) return false;
     const dependency = findPathTopologyDependency(ctx.document, targetId);
@@ -601,6 +634,7 @@ export class NodeEditTool extends BaseTool {
     if (this.selectedAnchors.size === 0) return false;
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return false;
+    if (isNodeEffectivelyLocked(ctx.document, targetId)) return false;
     const target = pathNode(ctx, targetId);
     if (!target) return false;
     let shape = target.shape;
@@ -619,6 +653,7 @@ export class NodeEditTool extends BaseTool {
     if (this.selectedAnchors.size === 0) return false;
     const targetId = ctx.nodeEditTargetId;
     if (!targetId) return false;
+    if (isNodeEffectivelyLocked(ctx.document, targetId)) return false;
     const target = pathNode(ctx, targetId);
     if (!target) return false;
     let shape = target.shape;

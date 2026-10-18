@@ -11,7 +11,7 @@
 import type { Affine } from '@varve/engine';
 import { getParent } from '@varve/scene';
 import { multiplyAffine } from '@varve/shared';
-import { nodeWorldTransform } from '../scene/world';
+import { isNodeEffectivelyLocked, nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -20,6 +20,10 @@ interface NodeInitialState {
   centroidX: number;
   centroidY: number;
   bbox: { x: number; y: number; w: number; h: number };
+}
+
+function isEffectivelyLocked(ctx: ToolContext, nodeId: string): boolean {
+  return Boolean(ctx.document?.nodes?.[nodeId] && isNodeEffectivelyLocked(ctx.document, nodeId));
 }
 
 export class ScaleTool extends BaseTool {
@@ -60,6 +64,7 @@ export class ScaleTool extends BaseTool {
       maxX = -Infinity,
       maxY = -Infinity;
     for (const id of ctx.selection) {
+      if (isEffectivelyLocked(ctx, id)) continue;
       const node = ctx.getNode(id);
       if (!node) continue;
       const bbox = ctx.nodeWorldBounds(node);
@@ -94,6 +99,10 @@ export class ScaleTool extends BaseTool {
 
   override onDragMove(ctx: ToolContext): void {
     if (this.initialNodes.length === 0 || this.initialDist === 0) return;
+    this.initialNodes = this.initialNodes.filter(
+      (initial) => !isEffectivelyLocked(ctx, initial.id),
+    );
+    if (this.initialNodes.length === 0) return;
 
     const origin = this.pivot ?? this.selectionCenter;
     const current = this.drag.currentWorld;
@@ -177,6 +186,7 @@ export class ScaleTool extends BaseTool {
       updaters.push({
         id: init.id,
         update: (node) => {
+          if (isEffectivelyLocked(ctx, init.id)) return node;
           const nodeDx = init.centroidX - origin.x;
           const nodeDy = init.centroidY - origin.y;
           const scaleAffine: Affine = [scaleX, 0, 0, scaleY, 0, 0];

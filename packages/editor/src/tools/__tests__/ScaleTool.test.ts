@@ -6,6 +6,77 @@ import { nodeWorldBounds } from '../../scene/world';
 import { ScaleTool } from '../ScaleTool';
 
 describe('ScaleTool', () => {
+  it.each(['node', 'ancestor'] as const)('does not scale a node locked by its %s', (lockAt) => {
+    const tool = new ScaleTool();
+    const node = makeShapeNode('node1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 });
+    const frame = makeFrameNode('frame', {
+      children: ['node1'],
+      locked: lockAt === 'ancestor',
+    });
+    const document = createDocument('locked-scale');
+    document.rootChildren = lockAt === 'ancestor' ? ['frame'] : ['node1'];
+    document.nodes =
+      lockAt === 'ancestor' ? { frame, node1: node } : { node1: { ...node, locked: true } };
+    const ctx = {
+      document,
+      selection: ['node1'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn().mockReturnValue(document.nodes.node1),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 0, y: 0, w: 100, h: 80 }),
+      updateNodes: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    tool.onPointerDown({ clientX: 50, clientY: 40, pointerId: 1 } as any, ctx);
+    (tool as any).drag.currentWorld = { x: 100, y: 80 };
+    tool.onDragMove(ctx);
+
+    expect(ctx.beginTransaction).not.toHaveBeenCalled();
+    expect(ctx.updateNodes).not.toHaveBeenCalled();
+  });
+
+  it('stops scaling a selected node if it becomes locked during the gesture', () => {
+    const tool = new ScaleTool();
+    const node = makeShapeNode('node1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 });
+    const document = createDocument('lock-during-scale');
+    document.rootChildren = ['node1'];
+    document.nodes = { node1: node };
+    const ctx = {
+      document,
+      selection: ['node1'],
+      shiftKey: false,
+      altKey: false,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+      getNode: vi.fn().mockReturnValue(node),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 0, y: 0, w: 100, h: 80 }),
+      updateNodes: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    tool.onPointerDown({ clientX: 50, clientY: 40, pointerId: 1 } as any, ctx);
+    document.nodes.node1 = { ...node, locked: true };
+    (tool as any).drag.currentWorld = { x: 100, y: 80 };
+    tool.onDragMove(ctx);
+
+    expect(ctx.updateNodes).not.toHaveBeenCalled();
+  });
+
   it('computes scale factor from distance ratio', () => {
     const tool = new ScaleTool();
     const node = {

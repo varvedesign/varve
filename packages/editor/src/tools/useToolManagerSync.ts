@@ -14,6 +14,7 @@ import type { ToolContext } from './types';
 
 interface ToolSyncEditor {
   updateDoc: (fn: (doc: Document) => Document) => void;
+  setTool: (tool: EditorState['tool']) => void;
   announce: (msg: string) => void;
 }
 
@@ -36,6 +37,8 @@ export function useToolManagerSync(
   // the sync effects only re-run on their real inputs.
   const buildToolCtxRef = useRef(buildToolCtx);
   buildToolCtxRef.current = buildToolCtx;
+  const setToolRef = useRef(editor.setTool);
+  setToolRef.current = editor.setTool;
 
   // Bumped when the sync effect transitions the ToolManager's active tool.
   // Instance-backed overlays (crop) read the tool instance during render, but
@@ -45,18 +48,30 @@ export function useToolManagerSync(
   // would never mount. This tick forces one extra render so overlays re-read
   // the now-populated instance.
   const [, setToolSyncTick] = useState(0);
+  const documentSessionKeyRef = useRef(`${state.activeId}:${state.document.id}`);
 
-  // Sync active tool to ToolManager when state.tool changes
+  // Sync active tool to ToolManager when the selected tool changes. Crop state
+  // belongs to one document session: the manager is shared across tabs, so
+  // retaining crop mode across a session switch can apply the old crop to a
+  // different document that happens to reuse the same node ID.
   useEffect(() => {
     if (tm.current) {
       const prevActive = tm.current.activeToolId;
       const ctx = buildToolCtxRef.current({} as PointerEvent);
-      tm.current.setTool(state.tool, ctx);
+      const documentSessionKey = `${state.activeId}:${state.document.id}`;
+      const documentChanged = documentSessionKeyRef.current !== documentSessionKey;
+      documentSessionKeyRef.current = documentSessionKey;
+      if (documentChanged && tm.current.activeToolId === 'crop') {
+        tm.current.setTool('select', ctx);
+        setToolRef.current('select');
+      } else {
+        tm.current.setTool(state.tool, ctx);
+      }
       if (tm.current.activeToolId !== prevActive) {
         setToolSyncTick((n) => n + 1);
       }
     }
-  }, [state.tool]);
+  }, [state.activeId, state.document.id, state.tool]);
 
   // Push live refine-mask brush options into the active tool instance.
   useEffect(() => {

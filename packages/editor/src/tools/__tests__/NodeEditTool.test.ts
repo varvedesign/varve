@@ -182,6 +182,50 @@ describe('NodeEditTool — exit', () => {
   });
 });
 
+describe('NodeEditTool — locked paths', () => {
+  it.each(['node', 'ancestor'] as const)('does not start a gesture when locked by %s', (lockAt) => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    const path = ctx.document.nodes.n1 as ReturnType<typeof makePathNode>;
+    if (lockAt === 'node') {
+      ctx.document.nodes.n1 = { ...path, locked: true } as ReturnType<typeof makePathNode>;
+    } else {
+      const group = makeFrameNode('frame', {
+        name: 'Locked frame',
+        children: ['n1'],
+        locked: true,
+      });
+      ctx.document.rootChildren = ['frame'];
+      ctx.document.nodes.frame = group;
+    }
+
+    const result = tool.onPointerDown(makePointerEvent(10, 10), ctx);
+
+    expect(result.consumed).toBe(true);
+    expect(ctx.setPointerCapture).not.toHaveBeenCalled();
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+    expect(ctx.announce).toHaveBeenCalledWith('Unlock this layer to edit its path.');
+  });
+
+  it('does not nudge selected anchors after the target becomes effectively locked', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    selectAnchors(tool, 0);
+    ctx.document.nodes.n1 = {
+      ...(ctx.document.nodes.n1 as ReturnType<typeof makePathNode>),
+      locked: true,
+    } as ReturnType<typeof makePathNode>;
+
+    const handled = (
+      tool as unknown as { nudgeSelectedAnchors: (...args: unknown[]) => boolean }
+    ).nudgeSelectedAnchors('right', 'standard', ctx);
+
+    expect(handled).toBe(false);
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+    expect(ctx.beginTransaction).not.toHaveBeenCalled();
+  });
+});
+
 describe('NodeEditTool — anchor selection via pointer', () => {
   it('clicking near an anchor selects it (within 8px radius)', () => {
     const tool = new NodeEditTool();

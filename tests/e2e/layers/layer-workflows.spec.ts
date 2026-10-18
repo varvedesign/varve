@@ -346,6 +346,53 @@ test.describe('layer workflows', () => {
     await page.screenshot({ path: SHOT('locked-layer-no-drag'), fullPage: false });
   });
 
+  test('locked path cannot enter node edit or scale from the canvas', async ({ page }) => {
+    await callCtx(page, 'setTool', 'pen');
+    await callCtx(
+      page,
+      'createShapeAt',
+      { x: 100, y: 100 },
+      undefined,
+      undefined,
+      [
+        { x: 100, y: 100, handleIn: null, handleOut: null },
+        { x: 300, y: 300, handleIn: null, handleOut: null },
+      ],
+      false,
+    );
+    await callCtx(page, 'fitAll');
+    await page.keyboard.press('v');
+
+    const row = page.getByRole('treeitem').filter({ hasText: 'Vector shape' }).last();
+    await expect(row).toBeVisible();
+    const nodeId = await row.getAttribute('data-node-id');
+    expect(nodeId).toBeTruthy();
+    await row.click();
+    await expect(row).toHaveAttribute('aria-selected', 'true');
+    const outline = page.locator('svg:has(filter#selection-glow) > rect').first();
+    await expect(outline).toBeVisible();
+    const bounds = await outline.boundingBox();
+    expect(bounds).toBeTruthy();
+
+    await callCtx(page, 'setNodeLocked', nodeId, true);
+    await waitForRender(page);
+    const before = await callCtx(page, 'serializeDocument');
+    const centerX = bounds!.x + bounds!.width / 2;
+    const centerY = bounds!.y + bounds!.height / 2;
+    await page.mouse.dblclick(centerX, centerY);
+    await page.keyboard.press('ArrowRight');
+    expect(await callCtx(page, 'serializeDocument')).toBe(before);
+
+    await page.keyboard.press('s');
+    await page.mouse.move(centerX, centerY);
+    await page.mouse.down();
+    await page.mouse.move(centerX + 70, centerY + 60, { steps: 4 });
+    await page.mouse.up();
+    await waitForRender(page);
+    expect(await callCtx(page, 'serializeDocument')).toBe(before);
+    await page.screenshot({ path: SHOT('locked-path-no-node-edit-or-scale'), fullPage: false });
+  });
+
   test('child rows show inherited lock state while the ancestor remains unlockable', async ({
     page,
   }) => {
