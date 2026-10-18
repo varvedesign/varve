@@ -96,6 +96,20 @@ Last updated: 2026-10-18. Status: active and incomplete.
   (#6611). Batch B fixes the read-only replacement defect (#6600) and preserves
   writable target modes; see F-002. Other candidates remain under investigation.
 
+- Save-path linked-evidence pass: #6602 hard-link loss and #6603 metadata loss
+  are confirmed consequences of Varve's staged native replacement. Their fixes
+  need deliberate policy/platform design: do not replace atomic writes with
+  in-place writes, and do not copy security metadata best-effort. Microsoft
+  documents `ReplaceFileW` preservation and failure behavior; Apple's
+  `copyfile(COPYFILE_METADATA)` covers POSIX metadata, ACLs, and xattrs. The
+  adjacent PdfCraft #3042 remains unmerged and is not platform validation.
+  #6607 is retained for format/backend memory measurement. #6611 is a partial
+  analogue because Varve normalizes several persisted fields but a broad catch
+  can still return all defaults. #6615's normal browser path is already covered
+  by Varve's IndexedDB recovery manager; quota/storage-denial edges remain.
+  These dispositions are recorded on the matching issue inventory rows.
+  Website review found no matching public claims requiring a copy change.
+
 ## Current full-gate checkpoint (2026-10-18)
 
 - Exact reviewed SHA: `025f61d63984fef3e63c47918f0fb73d489276e8`.

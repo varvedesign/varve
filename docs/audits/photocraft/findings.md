@@ -245,6 +245,50 @@ failure or proof that Varve shares Inkscape's reported behavior.
 capability claim. Reviewed save, recovery, and local-first pages; no marketing
 edit is justified.
 
+## Save-path follow-up: identity, metadata, memory, and recovery
+
+The PhotoCraft filesystem cluster (#6602, #6603, #6607, #6611, #6615) has been
+compared against Varve's implementation rather than treated as one save bug:
+
+- **Hard links (#6602) are confirmed exposure.** Native document writes use
+  `write_file_atomic` and replace the destination with a staged file. This
+  preserves crash safety but changes the file identity, so other hard links
+  keep the old bytes. Varve's same-file guard detects hard links for
+  destination-collision checks; it does not preserve aliases during save. Do
+  not change this path to in-place writes without explicitly accepting the
+  crash-loss tradeoff. A safe next step needs a user-facing policy and
+  platform-tested hard-link count handling.
+- **Metadata loss (#6603) is confirmed on the native replacement path.** The
+  staged file currently preserves permission bits, but not extended
+  attributes, ACLs, creation time, or Windows named streams. macOS `copyfile`
+  documents `COPYFILE_METADATA` as POSIX metadata, ACL, and xattr copying;
+  Windows `ReplaceFileW` preserves several attributes, ACLs, creation time,
+  and named streams. These APIs have different error and replacement
+  semantics, so silently copying best-effort metadata is not an adequate
+  cross-platform fix. The issue remains open for platform-specific design and
+  native verification. The adjacent PdfCraft #3042 implementation is an
+  unmerged proposal, not validation for Varve.
+- **Save memory (#6607) is a live investigation lead.** Varve's recovery store
+  serializes full-document snapshots, and file export/save has several
+  serialization routes. The memory peak must be measured by format and
+  backend before changing those routes; streaming is not a safe assumption
+  for every encoder or atomic-save contract.
+- **Malformed settings (#6611) is a partial analogue.** `loadSettings` merges
+  many sections with defaults and explicitly normalizes several enum and
+  numeric fields, but its broad catch can discard all settings when parsing
+  or a migration throws. No reproduction of the reported exact reset behavior
+  has been established in Varve. This warrants targeted malformed-field
+  review, not a claim that the issue is already fixed.
+- **Browser recovery (#6615) is covered in Varve's normal browser path.** The
+  editor stores crash-recovery snapshots in IndexedDB and offers recovery on
+  the next launch. Storage denial or quota exhaustion remain failure cases to
+  assess; Varve does not promise recovery when the browser refuses durable
+  storage.
+
+No marketing-site claim currently describes hard-link, metadata, save-memory,
+or crash-recovery behavior, so no website copy change is justified before an
+implemented and released improvement.
+
 ## Source seeds that did not match the requested repository
 
 The attachment's seed links use `storytold/pdfcraft`. In the requested
