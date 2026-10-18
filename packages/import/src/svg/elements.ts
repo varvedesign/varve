@@ -202,7 +202,7 @@ function convertPath(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
-): { node: SceneNode; warnings: string[] } {
+): { node: SceneNode; warnings: string[] } | null {
   const d = el.attrs.d ?? '';
   const parsed = parsePathData(d, opts.scale);
   const contours = parsed.contours.length
@@ -211,12 +211,7 @@ function convertPath(
   const outer = contours[0];
 
   if (!outer || outer.points.length < 2) {
-    const node = makeShapeNode(
-      '',
-      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-      { name: svgLayerName(el, 'Path') },
-    );
-    return { node, warnings: ['Path too short'] };
+    return null;
   }
 
   const style = parseCssStyle(el.attrs.style ?? '');
@@ -986,6 +981,7 @@ export function convertElement(
       break;
     case 'path':
       result = convertPath(el, transforms, opts);
+      if (!result) warnings.push('SVG <path> has fewer than two points — skipped');
       break;
     case 'text':
       result = convertText(el, transforms, opts);

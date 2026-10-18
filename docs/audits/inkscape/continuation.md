@@ -668,7 +668,7 @@ Inkscape’s canonical tracker.
 ## Next operation
 
 Finish the mobile marketing-page visual review for #2069, then continue cached
-discussion review from IID 1726 and inspect the strongest related evidence from
+discussion review from IID 1731 and inspect the strongest related evidence from
 #1711, #1704, #1707, and #1712. Investigate #1551 sequential export state and #5960
 variable-font PDF fidelity after that. Keep research coverage separate from
 engineering status. #5939 and the #2069 export UI have desktop visual evidence;
@@ -774,8 +774,10 @@ its title, labels, or downloaded body.
     The actual DestinationPicker and partial-output result list were reviewed
     in a desktop browser harness at 1280x720, including selection changes and
     per-companion saved/failed states. The marketing page was reviewed at a
-    desktop viewport. A mobile screenshot is queued behind another worktree's
-    editor Vitest lease; do not bypass the lease. Native Tauri visual behavior
+    desktop viewport. The mobile screenshot job waited 600 seconds behind
+    another worktree's editor Vitest lease, timed out without launching a
+    browser, and produced no image. Retry after the current shared lease clears;
+    do not bypass it. Native Tauri visual behavior
     has not been checked. Self-review found no remaining actionable findings;
     this is not an independent review-agent result.
 
@@ -784,7 +786,7 @@ its title, labels, or downloaded body.
     dirty main checkout and nested `codex/inkscape-master-integration` worktree
     were inspected read-only and left untouched. No integration or remote merge
     has occurred. Next: finish the mobile visual check, then advance the
-    Inkscape discussion sweep from IID 1726; revisit zero-comment IDs 1705,
+    Inkscape discussion sweep from IID 1731; revisit zero-comment IDs 1705,
     1706, 1720, and 1722 if their note retrieval changes.
 
 62. Continued the Inkscape discussion review through IID 1715. Thirteen cached
@@ -821,3 +823,29 @@ its title, labels, or downloaded body.
     the macOS cycle-window shortcut and keyboard layout. These are platform- or
     extension-specific leads, not evidence of a Varve defect. The review ledger
     and summary now record 935 reviewed issue threads.
+
+65. Read all cached discussion records for IID 1726–1730: 85 records across
+    five threads (39 user comments, 46 system/history events), bringing the
+    reviewed total to 940. #1726's reporter corrected the original complaint
+    after finding the Bezier tool's Triangle In mode; the remaining confirmed
+    Powerstroke LPE issue has no Varve counterpart. #1727 is GNOME Mutter/GTK
+    modal-window behavior; #1728 is an upstream GTK keyboard-layout bug that
+    the thread reports fixed in GTK 3.24.31; #1729's PDF text iterator
+    underflow was addressed in MR !2621. These are not Varve defects. The
+    #1730 minimal SVG path is a relevant robustness case: Varve previously
+    substituted visible 10×10 placeholder geometry for paths with fewer than
+    two points. It now skips those paths and reports a warning, with unit and
+    editor UI regression coverage. The import behavior is implemented but not
+    committed; final review and validation remain pending. The planner ran
+    formatting, lint, docs/emoji audits,
+    E2E typecheck, and importer/codegen/scene/editor typechecks successfully;
+    the affected closure then stopped at the existing
+    `CollabSurfaces.tsx:450` readonly-affine type error in desktop typecheck.
+    The focused `svg.test.ts` passes (38 tests). The full `@varve/import`
+    package run passed 420 of 421 tests; its lone failure is the existing
+    `service.test.ts` expectation for an unused SVG filter definition, which
+    validation does not report. The new import UI E2E passed and its
+    1280x720 Import Results screenshot was inspected: the layer panel stays at
+    zero objects and the warning is legible, with no placeholder geometry.
+    The export marketing page mobile screenshot is running through the lease
+    and remains pending because another task currently owns the browser slot.

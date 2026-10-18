@@ -18,6 +18,17 @@ describe('parseSvg', () => {
     expect(root?.tag).toBe('svg');
   });
 
+  it('skips zero-length paths instead of inserting visible placeholder geometry', () => {
+    for (const pathData of ['M 0,0', 'm 0,0 z']) {
+      const result = parseSvg(
+        `<svg><path d="${pathData}" style="stroke:blue;stroke-width:1.5;stroke-dasharray:1,1"/></svg>`,
+      );
+
+      expect(result.nodeIds).toEqual([]);
+      expect(result.warnings).toContain('SVG <path> has fewer than two points — skipped');
+    }
+  });
+
   it('terminates on malformed clipboard markup', () => {
     expect(parseSingleElement('<svg><?bad?></svg>')?.tag).toBe('svg');
   });

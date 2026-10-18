@@ -124,3 +124,32 @@ test('imports an editable Inkscape-style SVG drop shadow through the editor UI',
   await page.waitForTimeout(250);
   await page.screenshot({ path: testInfo.outputPath('inkscape-svg-drop-shadow-mobile-dark.png') });
 });
+
+test('reports a zero-length SVG path without inserting placeholder geometry', async ({
+  page,
+}, testInfo) => {
+  await navigateToEditor(page);
+
+  await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+  const importItem = page
+    .getByRole('menu', { name: 'File', exact: true })
+    .getByRole('menuitem', { name: /^Import…/ });
+  const picker = page.waitForEvent('filechooser', { timeout: 10000 });
+  await importItem.click();
+  const fileChooser = await picker;
+  await fileChooser.setFiles({
+    name: 'zero-length-path.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(
+      '<svg><path d="M 0,0" style="stroke:blue;stroke-width:1.5;stroke-dasharray:1,1"/></svg>',
+    ),
+  });
+
+  const report = page.getByRole('dialog', { name: 'Import Results' });
+  await expect(report).toBeVisible();
+  await report.getByRole('button', { name: /show details/i }).click();
+  await expect(report).toContainText('0 layers inserted');
+  await expect(report).toContainText('SVG <path> has fewer than two points — skipped');
+  await expect(report.getByRole('button', { name: 'Reveal selection' })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('inkscape-svg-zero-length-path-warning.png') });
+});

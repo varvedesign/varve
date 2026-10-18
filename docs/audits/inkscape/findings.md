@@ -1666,3 +1666,47 @@ This sweep adds no confirmed Varve defect or implementation-ready change.
 Continue by inspecting the referenced issue bodies, attachments, linked MRs,
 and current Varve contracts for the strongest candidates, while the wider
 corpus remains in progress.
+
+## Discussion sweep: IID 1721–1730 (2026-10-18)
+
+Read the cached discussion history for five new threads in this interval (85
+records: 39 user comments and 46 system/history events). Together with the four
+previously reviewed threads #1721 and #1723–1725, this interval covers nine
+threads and 110 cached records. IID 1722 has no
+reported comments or note cache and remains pending. The four previously
+reviewed threads #1721 and #1723–1725 are included in the running 940-thread
+coverage count.
+
+- [#1726](https://gitlab.com/inkscape/inkscape/-/issues/1726): the reporter
+  retracted the original fill complaint after discovering Bezier Pen mode was
+  set to Triangle In. The maintainer then confirmed a separate Powerstroke LPE
+  bug for closed paths and linked #577/#1079. Varve has no matching Powerstroke
+  LPE, so this is not mapped to a current defect.
+- [#1727](https://gitlab.com/inkscape/inkscape/-/issues/1727): Linux users
+  described a modal live-preview dialog obscuring and dimming the canvas, with
+  one saying the workaround was obscure enough to make them consider leaving
+  Inkscape. Replies attribute the behavior to GNOME Mutter's attached-modal
+  setting, report it absent on other desktop environments, and later identify
+  a GTK issue. This is a toolkit/window-manager behavior, not an SVG rendering
+  regression in Varve.
+- [#1728](https://gitlab.com/inkscape/inkscape/-/issues/1728): exporting in a
+  rapid Windows CLI loop while typing with non-US keyboard layouts produced
+  spurious accent characters. The thread identifies an upstream GTK issue and
+  reports it fixed in GTK 3.24.31. Varve's export path does not share that GTK
+  event-handling route.
+- [#1729](https://gitlab.com/inkscape/inkscape/-/issues/1729): a PDF-import
+  text iterator underflow was addressed in [MR !2621](https://gitlab.com/inkscape/inkscape/-/merge_requests/2621).
+  Varve uses a separate TypeScript PDF importer; the report does not establish
+  the same defect there.
+- [#1730](https://gitlab.com/inkscape/inkscape/-/issues/1730): Inkscape's
+  debug build crashed opening a single-point SVG path with `stroke-dasharray`;
+  the issue records it fixed by commit
+  `97c5de14bd45ec5ac810fd2fba48f3c64225fe55`. Inspecting Varve's importer
+  against the minimal reproducer found it substituted a visible 10×10
+  rectangle when a path had fewer than two points. Varve now skips that
+  non-renderable path and reports a warning, with regression coverage for
+  `M 0,0` and `m 0,0 z`.
+
+These discussions also contain reports that were later corrected or traced to
+toolkit and desktop-environment behavior. They are evidence about where users
+lose trust, not proof that Varve shares the same implementation failure.
