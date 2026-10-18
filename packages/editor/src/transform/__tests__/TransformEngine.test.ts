@@ -579,6 +579,8 @@ describe('TransformEngine.bakeNode — frame child constraints', () => {
 
   it('keeps constrained absolute children responsive inside a layout frame', () => {
     const absolute = makeChild('absolute', 60, 30, 40, 20);
+    absolute.shape.x = 12;
+    absolute.shape.y = 6;
     absolute.layoutPosition = 'absolute';
     absolute.constraints = { horizontal: 'centerOffset', vertical: 'centerOffset' };
     const flow = makeChild('flow', 0, 0, 100, 40);

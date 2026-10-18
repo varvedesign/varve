@@ -71,6 +71,7 @@ function constrainAbsoluteLayoutChildren(
       Math.abs(result.w - bounds.w) > 0.001 || Math.abs(result.h - bounds.h) > 0.001
         ? resizeNodeGeometry(child, result.w, result.h)
         : child;
+    const resizedBounds = nodeLocalBounds(resized, doc) ?? bounds;
     updates[childId] = {
       ...resized,
       transform: [
@@ -78,8 +79,8 @@ function constrainAbsoluteLayoutChildren(
         child.transform[1],
         child.transform[2],
         child.transform[3],
-        result.x,
-        result.y,
+        result.x - resizedBounds.x,
+        result.y - resizedBounds.y,
       ] as Affine,
     } as SceneNode;
   }
@@ -573,6 +574,7 @@ export class TransformEngine {
               if (dimChanged) {
                 updatedChild = resizeNodeGeometry(child, result.w, result.h);
               }
+              const updatedBounds = nodeLocalBounds(updatedChild, currentDoc) ?? childBounds;
 
               updates[childId] = {
                 ...updatedChild,
@@ -581,8 +583,8 @@ export class TransformEngine {
                   child.transform[1],
                   child.transform[2],
                   child.transform[3],
-                  result.x,
-                  result.y,
+                  result.x - updatedBounds.x,
+                  result.y - updatedBounds.y,
                 ] as Affine,
               } as SceneNode;
             }
