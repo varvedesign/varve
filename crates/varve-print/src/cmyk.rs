@@ -582,6 +582,7 @@ fn assert_pdfx1a_has_no_live_transparency(
 /// - Same box structure as X-1a
 /// - Supports live transparency, so blend modes are written as `/BM`
 pub fn export_pdfx4(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, String> {
+    crate::assert_pdf_blends_are_representable(nodes, "PDF/X-4")?;
     build_pdfx_document(nodes, opts, "1.6", false, None, "PDF/X-4", true)
 }
 
@@ -591,6 +592,7 @@ pub fn export_pdfx4_with_marks(
     opts: &PdfOptions,
     geo: &MarksGeometry,
 ) -> Result<Vec<u8>, String> {
+    crate::assert_pdf_blends_are_representable(nodes, "PDF/X-4")?;
     build_pdfx_document(nodes, opts, "1.6", false, Some(geo), "PDF/X-4", true)
 }
 
@@ -1321,6 +1323,17 @@ mod tests {
             vec!["BMMultiply=Multiply".to_string()],
             "PDF/X-4 allows live transparency, so the blend mode must be carried"
         );
+    }
+
+    #[test]
+    fn pdfx4_refuses_a_mode_without_a_pdf_name() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.name = "Glow".into();
+        node.blend_mode = BlendMode::PlusLighter;
+        let error = export_pdfx4(&[node], &PdfOptions::default()).unwrap_err();
+        assert!(error.contains("PDF/X-4 export stopped"));
+        assert!(error.contains("Glow"));
+        assert!(error.contains("Plus Lighter"));
     }
 
     #[test]
