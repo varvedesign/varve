@@ -13,6 +13,32 @@ function pngHeader(width: number, height: number): Uint8Array {
   return bytes;
 }
 
+function jpegHeader(width: number, height: number): Uint8Array {
+  return new Uint8Array([
+    0xff,
+    0xd8,
+    0xff,
+    0xc0,
+    0,
+    17,
+    8,
+    (height >>> 8) & 0xff,
+    height & 0xff,
+    (width >>> 8) & 0xff,
+    width & 0xff,
+    3,
+    1,
+    0x11,
+    0,
+    2,
+    0x11,
+    1,
+    3,
+    0x11,
+    1,
+  ]);
+}
+
 function twoFrameGif(): Uint8Array {
   return new Uint8Array([
     0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1, 0, 1, 0, 0, 0, 0, 0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 1,
@@ -36,6 +62,12 @@ describe('inspectRasterBytes', () => {
     );
     expect(() => inspectRasterBytes(pngHeader(12, 8), { maxDimension: 10 })).toThrow(/dimension/i);
     expect(() => inspectRasterBytes(pngHeader(12, 8), { maxPixels: 95 })).toThrow(/pixel budget/i);
+  });
+
+  it('rejects the 65,500×3,273 Inkscape crash-report image before decode', () => {
+    // The linked Wikimedia JPEG is 73.2 MB encoded and 214,381,500 pixels,
+    // above the 64 Mi-pixel budget while remaining below the dimension limit.
+    expect(() => inspectRasterBytes(jpegHeader(65_500, 3_273))).toThrow(/pixel budget/i);
   });
 
   it('detects animated GIFs from container content with metadata', () => {

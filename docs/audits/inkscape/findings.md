@@ -228,15 +228,16 @@ the reported Cairo trace as evidence of a shared renderer bug.
 
 Inkscape [#5983](https://gitlab.com/inkscape/inkscape/-/issues/5983) reports a
 black display and crash while zooming around a linked JPEG 65,000 pixels wide
-in Inkscape 1.4.2 on macOS. Varve's raster header gate accepts dimensions up
-to 65,535 on an axis and caps images at 64 megapixels / 128 MiB encoded, so a
-65,000-pixel width is *inside* the per-axis limit. The area and byte limits
-may still reject particular files; the dimension limit alone is not protection
-against this case. The external Wikimedia image was not downloaded. A synthetic
-small-height 65,000-pixel-wide image can safely check import classification,
-decode behavior, and zooming without the untrusted attachment. The two issue
-notes and related import pipeline have not yet been reviewed, so this remains
-an open Varve risk hypothesis rather than a confirmed defect.
+in Inkscape 1.4.2 on macOS. The linked
+[Wikimedia image](https://commons.wikimedia.org/wiki/File:Panorama_of_Sydney_from_Lavender_Bay_%281875%29.jpg)
+is 65,500 × 3,273 pixels (214,381,500 total) and 73.2 MB encoded. Varve's
+65,535-pixel axis limit alone would accept that width, but the image is far
+above Varve's 64 Mi-pixel decoded-area budget and is rejected by the header
+gate before decode. A focused regression test now uses a synthetic JPEG header
+with those exact dimensions to assert the rejection. This establishes a safe
+import boundary for the linked file's dimensions; it does not reproduce or
+explain Inkscape's black-canvas zoom crash. The original image was not
+downloaded, and the two issue notes remain pending review.
 
 Inkscape [#1231](https://gitlab.com/inkscape/inkscape/-/issues/1231) reports
 rapid memory growth while dragging roughly 200 rectangles after applying a
