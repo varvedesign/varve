@@ -97,6 +97,15 @@ and [`cache-bypassed`](../screenshots/dependency-aware-composition/poster-groupe
 No timing claim was taken from these runs. The twelve-shape controlled fixture
 above remains the only timing comparison.
 
+On 2026-10-18, the same case passed again on the committed browser harness
+(1.1 minutes for the test). This Linux browser session logged that the WASM
+engine could not load and used the pure-TypeScript fallback; the result proves
+cached/fresh parity for that Canvas2D fallback session, not WASM or native
+WebView parity. The two captures from that run had identical SHA-256
+`c0175bdfc147b38b99ddb83b4954437d90e267a29daf62c0c14c78897edff6ed`. The
+fallback wrapped the poster's small annual-label line differently from the
+previously reviewed capture, so the tracked reference images were left intact.
+
 ## Budget and current limits
 
 Unit coverage verifies LRU eviction, document retirement, diagnostic bypass,
