@@ -252,3 +252,30 @@ an explicit description of PDF import as a bounded local parser. No unsupported
 save-memory or full-fidelity PDF claim was found in those surfaces, so no site
 copy change is justified for these unconfirmed candidates. Recheck the relevant
 feature and troubleshooting pages for every later implementation batch.
+
+## Cross-application PDF compatibility and zoom resource limits
+
+Inkscape [#6242](https://gitlab.com/inkscape/inkscape/-/issues/6242) reports
+that its CapyPDF-generated PDF 2.0 files fail when included by LuaLaTeX, while
+QDF-normalized files work. The report explicitly identifies CapyPDF/LuaTeX
+interoperability as the likely boundary. Varve's standard PDF writer emits
+PDF 1.4, and PDF/X-4 emits 1.6; both are within the reported LuaTeX 1.7
+maximum. This rules out the specific PDF 2.0 version trigger, but does not
+claim LuaLaTeX interoperability has been tested. No marketing change or format
+change is supported by this report. Discussion review remains pending.
+
+Inkscape [#2190](https://gitlab.com/inkscape/inkscape/-/issues/2190) reports
+garbled or unopenable PDFs when embedding mixed/bold text fonts on Windows in
+Inkscape 1.0.2. The report lists inconsistent reproduction and is tied to an
+older font embedding/subsetting path. Varve's PDF text export has separate font
+embedding and subsetting code, so this is a useful cross-viewer test category,
+not evidence of a matching defect. Reader coverage for embedded and subset
+fonts remains pending.
+
+Inkscape [#3580](https://gitlab.com/inkscape/inkscape/-/issues/3580) reports
+`std::bad_alloc` while scroll-zooming some documents near 15,000%. Varve clamps
+zoom at 6,400% and bounds raster surfaces to 16,384 pixels per side with an
+area limit. The reported zoom level is therefore unreachable in Varve; existing
+clamp and raster-budget checks cover the closest shared resource boundary. The
+issue's discussion history remains pending, and no matching Varve failure was
+identified.
