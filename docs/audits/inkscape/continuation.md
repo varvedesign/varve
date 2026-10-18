@@ -341,6 +341,13 @@ Inkscape’s canonical tracker.
   dependent browser test did not start. No full suite was selected. The
   commit checkpoint also passed staged Biome, emoji, health, impact-config,
   E2E-interaction, secret, contacts, and docs audits.
+- For the #504/#2107 correction and IID 6393–6482 sweep (`036eddae4`),
+  `pnpm verify:plan` selected the same six lanes. Touched-file format/lint,
+  `audit:emoji`, and `audit:docs` passed; `typecheck:e2e` failed after 148s
+  on the same absent `./nodeResize` module, so the dependent browser E2E did
+  not start. No full suite was selected. The staged commit checkpoint passed
+  Biome, emoji, health, impact-config, E2E-interaction, secret, contacts, and
+  docs audits.
 
 ## Next operation
 
