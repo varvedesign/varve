@@ -183,10 +183,9 @@ Inkscape’s canonical tracker.
 26. At this checkpoint, #1–#1200 and #1201–#2400 had received full-text
     triage plus manual review of selected high-signal bodies and cached
     discussions; neither range was counted as fully manually screened.
-    Subsequently, #1–#1200 was fully manually screened (entry 34).
-    #1201–#2400 remains partially reviewed. Selected reports add
-    document-integrity, explicit export-error, stroked-text PDF, clip-path,
-    filter/mask, and pattern-memory regression categories.
+    Subsequently, #1–#1200 was fully manually screened (entry 34), and
+    #1201–#2400 received its full-description sweep (entry 36). Discussion
+    review remains partial for both ranges.
 27. Individually screened 1,190 available issue bodies in #2401–#3600. Eight
     bodies (#2443, #2580, #2806, #2880, #2946, #3011, #3452, #3558) were not
     present in the local cache; two other bodies in the range were already
@@ -268,6 +267,19 @@ Inkscape’s canonical tracker.
     and ID-reference integrity, multipage PDF export, filter/marker preview
     lifecycle, and CLI versus GUI export behavior. These are historical
     reports and do not establish current Varve defects.
+36. Completed the full-description sweep of IID 1201–2400: 1,165 descriptions
+    were fully read, 32 IDs were excluded because already reviewed, and two
+    descriptions were unavailable in cache (#1489, #1503). Two cached bodies
+    were empty (#1289, #1595) and are counted as screened. #2207's 99,250-
+    character build/test transcript was only partially inspected because tool
+    output truncated repeated middle sections; it remains explicitly partial.
+    No comments, attachments, or linked merge requests were reviewed in this
+    sweep. The total is 5,328 of 6,392 bodies fully screened, plus one partial.
+    High-signal report categories include save-time text/attribute loss,
+    clipboard/import fidelity, batch-export overwrite safety, zoom/export
+    rendering differences, PDF text positioning, startup stalls from stale
+    remote recents, and snapping stalls. These historical reports are
+    investigation leads, not verified Varve defects.
 
 ## Validation checkpoint: 2026-10-18
 
