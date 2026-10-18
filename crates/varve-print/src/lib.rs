@@ -445,7 +445,7 @@ pub(crate) struct ImageRenderState<'a> {
     pub doc: &'a mut Document,
     pub counter: u32,
     pub refs: Vec<(String, Object)>,
-    /// Graphics state dictionaries for fill opacity (opacity -> GS name).
+    /// Graphics state dictionaries for alpha (opacity -> GS name).
     gs_cache: HashMap<u32, String>,
     /// Graphics state dictionaries for blend modes (PDF name -> GS name).
     blend_gs_cache: HashMap<&'static str, String>,
@@ -467,8 +467,10 @@ impl<'a> ImageRenderState<'a> {
         }
     }
 
-    /// Get-or-create an ExtGState dictionary for a given fill opacity.
-    /// Returns the GS name (e.g. "GS075") to use with `gs` in the content stream.
+    /// Get-or-create an ExtGState dictionary for a given alpha value.
+    /// Sets both non-stroking (`ca`) and stroking (`CA`) alpha so a node's
+    /// global opacity applies to fills and strokes. Returns the GS name (e.g.
+    /// "GS075") to use with `gs` in the content stream.
     pub fn get_or_create_opacity_gs(&mut self, opacity: f64) -> String {
         let key = (opacity.clamp(0.0, 1.0) * 1000.0) as u32;
         if let Some(name) = self.gs_cache.get(&key) {
@@ -478,6 +480,7 @@ impl<'a> ImageRenderState<'a> {
         let gs = dictionary! {
             "Type" => "ExtGState",
             "ca" => opacity.clamp(0.0, 1.0),
+            "CA" => opacity.clamp(0.0, 1.0),
         };
         self.refs.push((name.clone(), Object::Dictionary(gs)));
         self.gs_cache.insert(key, name.clone());
@@ -3614,8 +3617,6 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
     let _ = font_map;
     let _ = cid_font_map;
 
-    let mut need_bt = false;
-
     // ── Build content with image rendering support ──────────────────────
     let (image_refs, shading_registry) = {
         let mut image_state = ImageRenderState::new(&mut doc);
@@ -3635,15 +3636,15 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             );
 
             if is_text_node && has_rich_text {
-                // Flush any pending BT first
-                if need_bt {
-                    content.extend_from_slice(b"ET\n");
-                    need_bt = false;
-                }
                 if let Some(mut rich_content) =
                     render_rich_text_to_pdf(node, opts, &embedded_fonts, opts.page_height)
                 {
+                    // Scope native text and outlined rich-text runs with the
+                    // same node state as the general shape renderer.
+                    content.extend_from_slice(b"q\n");
+                    write_node_graphics_state(&mut content, &mut image_state, node);
                     content.append(&mut rich_content);
+                    content.extend_from_slice(b"Q\n");
                     continue;
                 }
                 // If rich text rendering fails (no runs), fall through to
@@ -3685,10 +3686,9 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                             let pdf_x = x + x_off;
                             let pdf_y = opts.page_height - y - asc - y_off;
 
-                            if !need_bt {
-                                content.extend_from_slice(b"BT\n");
-                                need_bt = true;
-                            }
+                            content.extend_from_slice(b"q\n");
+                            write_node_graphics_state(&mut content, &mut image_state, node);
+                            content.extend_from_slice(b"BT\n");
                             // Use TJ array with kerning when font binary is available
                             let font_data_ref = opts
                                 .fonts
@@ -3711,6 +3711,7 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                                 )
                                 .as_bytes(),
                             );
+                            content.extend_from_slice(b"ET\nQ\n");
                             continue;
                         }
                     }
@@ -3745,10 +3746,9 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                                 .collect::<Vec<_>>()
                                 .join("");
 
-                            if !need_bt {
-                                content.extend_from_slice(b"BT\n");
-                                need_bt = true;
-                            }
+                            content.extend_from_slice(b"q\n");
+                            write_node_graphics_state(&mut content, &mut image_state, node);
+                            content.extend_from_slice(b"BT\n");
                             content.extend(
                                 format!(
                                     "/{} {} Tf\n1 0 0 1 {:.2} {:.2} Tm\n<{}> Tj\n",
@@ -3756,16 +3756,11 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                                 )
                                 .as_bytes(),
                             );
+                            content.extend_from_slice(b"ET\nQ\n");
                             continue;
                         }
                     }
                 }
-            }
-
-            // Flush BT if we were in text mode
-            if need_bt {
-                content.extend_from_slice(b"ET\n");
-                need_bt = false;
             }
 
             // Try outline mode — or forced outline for non-WinAnsi text
@@ -3786,7 +3781,10 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                         let outlined =
                             try_outline_node(node, text, *font_size, font_family, x, y, opts);
                         if let Some(mut cmd) = outlined {
+                            content.extend_from_slice(b"q\n");
+                            write_node_graphics_state(&mut content, &mut image_state, node);
                             content.append(&mut cmd);
+                            content.extend_from_slice(b"Q\n");
                             continue;
                         }
                     }
@@ -3816,9 +3814,6 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
         (std::mem::take(&mut image_state.refs), shading_registry)
     };
 
-    if need_bt {
-        content.extend_from_slice(b"ET\n");
-    }
     content.extend_from_slice(b"Q\n");
 
     let content_stream = Stream::new(dictionary! {}, content);
@@ -6486,6 +6481,47 @@ mod tests {
     }
 
     #[test]
+    fn searchable_text_fast_path_preserves_node_blend_mode() {
+        let font_data = test_font_data();
+        let mut node = text_node(1, 10.0, 10.0, "Multiply text", 24.0);
+        node.blend_mode = BlendMode::Multiply;
+        let opts = PdfOptions {
+            subset_fonts: true,
+            fonts: vec![("DejaVu Sans".into(), font_data)],
+            ..Default::default()
+        };
+
+        let bytes = export_pdf(&[node], &opts).expect("searchable text pdf");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert_eq!(
+            blend_state_names(&resources),
+            vec!["BMMultiply=Multiply".to_string()]
+        );
+        assert!(content.contains("/BMMultiply gs"));
+        assert!(content.contains("TJ"));
+    }
+
+    #[test]
+    fn outlined_text_fast_path_preserves_node_blend_mode() {
+        let mut node = text_node(1, 10.0, 10.0, "Multiply text", 24.0);
+        node.blend_mode = BlendMode::Multiply;
+        let opts = PdfOptions {
+            outline_text: true,
+            font_data: Some(test_font_data()),
+            ..Default::default()
+        };
+
+        let bytes = export_pdf(&[node], &opts).expect("outlined text pdf");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert_eq!(
+            blend_state_names(&resources),
+            vec!["BMMultiply=Multiply".to_string()]
+        );
+        assert!(content.contains("/BMMultiply gs"));
+        assert!(content.contains("f\n"));
+    }
+
+    #[test]
     fn normal_blend_mode_writes_no_blend_state() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
@@ -6548,6 +6584,11 @@ mod tests {
     fn node_opacity_is_applied_not_commented() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.opacity = 0.4;
+        node.strokes.push(Stroke {
+            weight: 2.0,
+            visible: true,
+            ..Default::default()
+        });
         let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
         let (resources, content) = page_resources_and_content(&bytes);
         assert!(
@@ -6562,6 +6603,19 @@ mod tests {
                 .and_then(|value| value.as_dict().ok())
                 .is_some_and(|states| states.has(b"GS400")),
             "the selected opacity state must resolve in the page resources"
+        );
+        let opacity_state = resources
+            .get(b"ExtGState")
+            .ok()
+            .and_then(|value| value.as_dict().ok())
+            .and_then(|states| states.get(b"GS400").ok())
+            .and_then(|value| value.as_dict().ok())
+            .expect("the node opacity state");
+        assert_eq!(opacity_state.get(b"ca").unwrap().as_float().unwrap(), 0.4);
+        assert_eq!(opacity_state.get(b"CA").unwrap().as_float().unwrap(), 0.4);
+        assert!(
+            content.contains("S\n"),
+            "the node stroke is present: {content}"
         );
     }
 
