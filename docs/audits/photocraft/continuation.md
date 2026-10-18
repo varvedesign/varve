@@ -535,9 +535,15 @@ to remote `master` through the normal pre-push checkpoint. Exact-SHA affected
 CI run `39159848356` passed: planner and pipeline validation plus selected
 Rust lanes on Windows, Ubuntu, and macOS. The push checkpoint passed history,
 format/lint, `varve-print` tests and clippy, docs/emoji audits and Cargo fmt.
-Master push triggered CI run `39161573299` and Website Deploy run
-`39161573285`; both are pending at this record update. Recheck them and inspect
-the deployed Unreleased changelog entry when Website Deploy completes.
+Master CI run `39161573299` passed, including pipeline validation and the
+selected Rust lanes on Windows, Ubuntu, and macOS. Website Deploy run
+`39161573285` passed both-mode website E2E, built-demo validation, artifact
+verification, Pages deployment and live smoke check. The live
+`https://varve.studio/changelog/` Unreleased entry was reloaded in the existing
+Codex in-app browser and visually inspected at desktop width; its Unicode
+limitation sentence is present and wraps cleanly in the PDF export fidelity
+entry. The marketing feature page remains unchanged because it does not claim
+Unicode text searchability.
 
 The batch changes:
 
@@ -593,9 +599,7 @@ Full suite run: no local full suite; one remote manual full-matrix diagnostic wa
 
 ### Exact next steps
 
-1. Finish master CI run `39161573299` and Website Deploy run `39161573285`;
-   reload the public changelog and inspect the deployed Unicode limitation copy.
-2. Continue cutoff-A and cutoff-B recursive evidence and engineering queue.
+1. Continue cutoff-A and cutoff-B recursive evidence and engineering queue.
    Cutoff A is 1,296 issues (30 full threads, 1,253 bodies, 13 title-only);
    cutoff B is 1,454 issues (37 still screened, 117 out of scope, 2 already
    handled, 2 implemented). The issue bodies are read, but relevant linked
