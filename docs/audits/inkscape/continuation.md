@@ -280,6 +280,21 @@ Inkscape’s canonical tracker.
     rendering differences, PDF text positioning, startup stalls from stale
     remote recents, and snapping stalls. These historical reports are
     investigation leads, not verified Varve defects.
+37. Fully read the cached descriptions for linked-evidence issues #504 and
+    #2107, whose ledger body-screening fields had still been pending. #504
+    describes a 100%-CPU open/preview hang with a style-heavy SVG in Inkscape
+    1.0 beta; its linked SVG was not opened. #2107 reports canvas lag and
+    occasional crashes while Document Properties is open on Linux/GTK. This
+    brings full body screening to 5,330 of 6,392, plus partial #2207.
+38. Individually read all 85 pending descriptions with IIDs 6393–6482. The
+    three previously screened IDs were #6398, #6407, and #6477; all 85
+    remaining bodies were present and nonempty. No discussion comments or
+    attachments were reviewed. The total is 5,415 of 6,392 bodies fully
+    screened, plus partial #2207. Candidate categories include save/reopen
+    persistence for page clipping and alignment defaults, text styling,
+    transform and gradient fidelity, raster-import extension detection, and
+    page-relative duplication. These are issue leads, not verified Varve
+    defects.
 
 ## Validation checkpoint: 2026-10-18
 
