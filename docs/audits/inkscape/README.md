@@ -6,8 +6,7 @@ the Inkscape project’s issue tracker.
 
 ## Source boundary
 
-The supplied brief names Inkscape and links its GitHub project. The user's
-correction resolves inconsistent project wording in favor of Inkscape itself.
+The user confirms that the target and baseline are Inkscape.
 The GitHub
 `inkscape/inkscape` repository is a code mirror whose issue creation is
 restricted; its official project page directs bug reports to GitLab. The
@@ -20,7 +19,8 @@ creation is restricted; GitHub's search API returned zero issues. The initial Gi
 `state=all`, reconciled as **2,112 opened + 4,278 closed**, using
 `per_page=100`. Durable rehydration found two additional accessible work items
 created before cutoff A that were absent from that original paginated snapshot.
-They are being added to the baseline; the corrected inventory target is 6,392.
+They have been added to the baseline: 6,392 unique project-local IIDs,
+2,114 opened and 4,278 closed.
 This is a complete issue-list/body download, not a claim that every issue has
 been substantively screened or every discussion has been read.
 
@@ -42,11 +42,11 @@ The original raw response cache at `/tmp/inkscape-corpus-2026-10-17/` is no
 longer available. Its combined `issues.ndjson` SHA-256 was
 `f1e9f6be7cc3eaa8a7381b510bf89cad23858717e84dd6468126d81a80720d43`.
 `page-manifest.txt` records each page retrieval time, row count and API total;
-`SHA256SUMS` covers the downloaded files. The list response contains 6,387
-non-empty descriptions (13,078,966 characters total) and reports 32,680 user
-comments across 5,667 issues in the initial crawl. Rehydration added 12 reported
-comments from the two omitted work items; the corrected expected total is
-32,692 across 5,669 issues. Issue bodies and discussions are being
+`SHA256SUMS` covers the downloaded files. The initial list response contained 6,387 non-empty descriptions (13,078,966
+characters) and reported 32,680 user comments across 5,667 issues. Rehydration
+added two non-empty descriptions (13,080,370 total description characters) and
+12 reported comments from the two omitted work items; the corrected expected
+total is 32,692 across 5,669 issues. Issue bodies and discussions are being
 rehydrated to the durable local cache described below; coverage is not current
 until retrieval is reconciled. The GraphQL `Issue.notes` connection also returns
 system-generated notes, so reconciliation compares non-system notes with
@@ -95,7 +95,7 @@ confirmed Varve defect. Relevant comments, attachments and recursive links
 must be reviewed to the depth needed to establish the user problem and
 implementation evidence; any inaccessible evidence remains explicit.
 
-The recovered list inventory is being reconciled against the two additional pre-cutoff records. Substantive body screening, thread
+The recovered 6,392-row list and body inventory is reconciled. Substantive body screening, thread
 coverage, issue classifications, comparison research, Varve reproductions,
 fixes, visual evidence and integration remain incomplete until recorded in
 the ledger and continuation file.

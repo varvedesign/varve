@@ -7,8 +7,7 @@ Last updated: 2026-10-18.
 Review the Inkscape issue corpus and recursively investigate relevant evidence
 to make verified improvements in Varve. The target is Inkscape's main vector
 editor issue tracker (`gitlab.com/inkscape/inkscape`). User correction on
-2026-10-18 confirms Inkscape as the intended target despite inconsistent
-project wording elsewhere in the attached brief. Keep the baseline on
+2026-10-18 confirms Inkscape as the target. Keep the baseline on
 Inkscape’s canonical tracker.
 
 ## Cutoffs
@@ -17,7 +16,7 @@ Inkscape’s canonical tracker.
 - Initial GitLab API count and crawl: 6,390 issues (2,112 opened; 4,278
   closed). Durable rehydration exposed two accessible issues with pre-cutoff
   creation dates (#6482 and #6483) absent from that paginated snapshot. The
-  ledger is expanding to include both; corrected baseline target: 6,392 IIDs.
+  ledger now includes both; corrected baseline: 6,392 unique IIDs.
 - Full list/body crawl: completed across 64 pages from `2026-10-17T10:05:41Z`
   through `2026-10-17T10:08:41Z` UTC. Page 64 had 90 rows; all page totals
   reported 6,390. Creation dates spanned 2018-11-19 through 2026-10-16.
@@ -28,7 +27,9 @@ Inkscape’s canonical tracker.
   `~/.cache/varve/inkscape-corpus-2026-10-17/` with
   `python3 scripts/research/inkscape/fetch_issues.py`; this preserves the
   frozen ledger ID set and records later issues separately.
-- List records report 32,680 notes across 5,667 issues. Discussion notes
+- The initial list reported 32,680 notes across 5,667 issues; the corrected
+  expected total is 32,692 across 5,669 issues after adding #6482 and #6483.
+  Discussion notes
   are being re-fetched through GitLab GraphQL `Issue.notes` connections. The
   previous temporary cache snapshot at `2026-10-17T10:24:25Z` recorded 921
   issue threads and 14,364 total note records (6,216 non-system comments), but
@@ -71,20 +72,32 @@ Inkscape’s canonical tracker.
    screening, thread, evidence, engineering and visual status. Added resumable
    issue-body and GraphQL discussion fetchers.
 6. Screened issue bodies #6398 (save-time memory growth), #6380 (PDF text loss),
-   #6477 (extension path rewriting) and linked #1313. Varve uses embedded,
+   #6477 (extension path rewriting), linked #1313, and #5782 (PDF partial export). Varve uses embedded,
    content-addressed image assets and strips repeated per-fill payloads, so
    #6398 is only an adjacent memory-risk hypothesis pending measurement. The
    #6380 PDF attachment returned HTTP 403; #6398's attached archive warns it
    can lock up the system and was not downloaded or executed.
 7. Screened body #2800, a second historical Inkscape report of memory retained
    per save with a linked PNG. The reported archive was not downloaded. Current
-   body-screening total is 6 of 6,392; threads and linked fix history for these
-   candidates remain pending.
+   body-screening total was 9 of 6,392 before the next two screens. #5782 discussion review found a
+   singular-transform trigger and linked #691; Varve source inspection suggests
+   subtree rasterization contains it, but an actual export check remains pending.
+8. Reviewed all 39 notes on #203, including 14 user comments, and MR 2907:
+   Inkscape's minimal filtered-clip crash was confirmed fixed, while the larger
+   original document remained untested. Varve routes effects and masks through
+   a canvas raster PDF fallback; no same-cause Varve failure is established.
+9. Screened #1739's body: a masked image inside an SVG pattern reportedly
+   caused high memory use, missing fill, and a crash with a zero-byte PDF.
+   Its two comments and linked original sample remain pending. Varve has a
+   bounded tile-count path, but an equivalent nested-SVG-mask pipeline has not
+   been established.
+10. Current body-screening total is 11 of 6,392. The website review found no
+   PDF capability claim that these source reports justify changing; recheck
+   after export validation.
 
 ## Next operation
 
-Continue reconciling the 6,392-issue ledger and all 32,692 reported non-system
-comments, then screen the remaining bodies and discussions. Continue screening issue bodies and
-discussions for high-impact candidate failure classes. Keep system notes for
+Continue reconciling all 32,692 reported non-system comments, then screen the
+remaining bodies and discussions for high-impact candidate failure classes. Keep system notes for
 linked events and state history. Do not mark an issue reviewed based only on
 its title, labels, or downloaded body.
