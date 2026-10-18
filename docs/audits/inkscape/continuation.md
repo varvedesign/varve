@@ -419,11 +419,235 @@ Inkscape’s canonical tracker.
     --check` reports only two pre-existing differences at lines 348 and 420 of
     `crates/varve-print/src/lib.rs`.
 
+45. Read the six remaining pending issue descriptions: #5887, #5910, #5924,
+    #5939, #5956, and #5960. #5956's cached description is empty. All 6,392
+    ledger rows are now accounted for: 6,390 fully screened descriptions,
+    including empty descriptions, 2 partial bodies (#2207 and #5294), and zero
+    pending bodies. Discussion, recursive linked-evidence, engineering, and
+    visual coverage remain separate and incomplete.
+
+46. Reviewed discussions and linked history for #5887, #5910, #5924, #5939,
+    #5956, and #5960, plus the linked #4702 clone export report. #5887's
+    selection SVG bounds fix is in merged MRs !7358/!7359; #5924 remains an
+    oversized-viewBox report with its attached reproducer uninspected. #5910
+    and #4702 document the selection-only clone-source tradeoff and merged
+    MR !6138. #5960's variable-font report was addressed by merged MR !7516;
+    Varve currently rasterizes variable-axis text for PDF, preserving visible
+    appearance while losing vector/searchable text. #5956 has no body or user
+    comments. #5939 has no human comments; merged MR !7506 implements SVG
+    `feDropShadow`, with duplicate reports #5638/#5902. Varve now imports the
+    single-primitive case as an editable drop shadow while reporting the
+    unrepresented filter clip and blur-unit difference; visual validation is
+    pending. The in-app browser rejected a `data:` SVG preview under its URL
+    policy, so no alternate browser route was used; the earlier PDF visual
+    check does not validate this SVG importer. Marketing pages were checked
+    for SVG-import/filter claims and none need revision; the public File
+    Formats guide now describes the supported primitive and reported limits.
+    Cross-app complaint review found
+    Illustrator reports of missing custom SVG shadows and displaced exported
+    shadows, plus Affinity feedback about non-editable/rasterized effects;
+    these are version-specific reports, not verified current behavior. Their
+    transferable lesson is to preserve editable geometry and label filter
+    approximations. These are bounded issue follow-ups, not complete discussion
+    coverage across the corpus.
+
+47. Updated the public File Formats guide to name the single-object
+    `feDropShadow` import subset and its filter-region/blur limitations. The
+    local Astro page was visually inspected in the browser; `astro check` and
+    the static build passed (126 routes). The final `verify:affected` run
+    stopped at `audit:radius` on 10 pre-existing declarations in unrelated
+    presentation/inspector styles. Website E2E stayed queued behind another
+    session's active JavaScript test lease; only this session's waiting E2E
+    request was cancelled. Focused importer suites passed (39 tests) with a
+    temporary test config that read the shared scene package from the main
+    checkout. The standard verifier and commit checkpoint still cannot pass
+    while this worktree lacks the exported `packages/scene/src/nodeResize.ts`;
+    the file was not copied or modified. The importer screenshot was not
+    completed because the in-app browser policy rejected the SVG data URL.
+
+48. Read all cached notes/history for #2229 (16), #2378 (12), and #2069 (10).
+    #2229's SVG 1.1 fallback text-loss regression was fixed upstream in 2021;
+    Varve's codec/writer review found no current analogue. #2378 concerns
+    arbitrary attributes on SVG2 auto-flow tspans under SVG 1.1 fallback;
+    Varve's normalized TextNode does not preserve arbitrary XML attributes,
+    but current docs make no generic XML round-trip promise. #2069's later
+    history shows the tradeoff between silent overwrite and auto-suffix copy
+    clutter; Varve desktop folder exports currently replace existing paths.
+    Findings and ledger record a candidate batch-level keep-both/skip/replace
+    choice. No #2069 implementation has started yet.
+
+49. A read-only `review-agent` pass of the #5939 slice found that filters
+    attached to `<g>` bypassed `applyStylesToNode` without a warning. Added
+    explicit unsupported reporting for filters attached to `<g>`, root `<svg>`,
+    and `<use>`; drawable-node filters retain the supported subset. The same
+    review found that a filename/content mismatch skipped the SVG parser and
+    could hide filter fidelity details in preflight, so detected SVGs now still
+    parse with mismatch diagnostics and have a regression case. The latest
+    `verify:affected` run passed touched-file format/lint and emoji audit, then
+    stopped at the 10 unrelated `audit:radius` declarations before docs audit,
+    typechecks, or tests. A direct focused test invocation was started without
+    the required heavy-task lease and stopped as this session's process. The
+    corrected lease-wrapped importer run passed 76 tests across 4 files using a
+    temporary read-only scene alias after the other session released its test
+    lease. The latest Astro build passed `astro check` with zero diagnostics
+    and built 126 static pages. The importer behavior remains visually
+    unverified; the current docs page was checked at desktop (1280px) and
+    mobile (375px) widths with no horizontal overflow, and the copy wraps
+    within the existing layout. No files from other contributors were changed.
+
+50. Reconciled ledger rows for #4702, #5887, #5910, #5924, #5956, and #5960
+    with the discussion and linked-history review recorded in item 46. The
+    summary now counts 55 issue threads whose ledger discussion state is
+    reviewed. #5924 retains an explicit partial linked-evidence state because
+    its attached reproducer is still uninspected; this distinction is not
+    included in the broad body-screening count.
+
+51. Final validation for the current uncommitted #5939/docs slice: `pnpm
+    verify:plan` selected 21 lanes with no full-suite escalation. `pnpm
+    verify:affected` passed touched-file format/lint and emoji audit, then
+    stopped at `audit:radius` on the same 10 unrelated presentation/inspector
+    declarations; no downstream affected lanes ran. `pnpm audit:docs` passed
+    (1,169 docs, 867 links, 182 ADRs). The lease-wrapped focused importer tests
+    passed 76 tests across 4 files using a temporary read-only scene alias to
+    the main checkout because this worktree still lacks
+    `packages/scene/src/nodeResize.ts`. The website build passed Astro check
+    with zero diagnostics and built 126 pages. The public File Formats page
+    was inspected at 1280px desktop and 375px mobile; both had no horizontal
+    overflow. No commit or merge was made: the previous commit checkpoint
+    failed on the same missing scene export, the SVG importer has no real-app
+    visual evidence, and #2069 remains a researched candidate rather than an
+    implementation.
+
+52. A second-pass review checked SVG `primitiveUnits` against the W3C Filter
+    Effects specification: the default is `userSpaceOnUse`, while
+    `objectBoundingBox` lengths are target-relative. The importer now declines
+    that latter case rather than applying offsets at the wrong scale, with
+    regressions for default, explicit user-space, and object-bounding-box
+    declarations. Updated the architecture table and public File Formats guide
+    to state that subset. After the copy change, inspected the page in the
+    existing in-app browser at 1280×720 and 375×812 (dark theme); the text wraps
+    cleanly and the document width remained 1265/1280 and 360/375 respectively.
+    The browser viewport was restored and the tab remains open. No landing-page
+    marketing claim needs change.
+
+    Added `tests/e2e/import/svg-filter-visual.spec.ts` to exercise File → Import,
+    the fidelity report, editable Layer Effects, and desktop/mobile screenshots.
+    Its first heavy-lease wait reached the configured 600-second deadline before
+    launch while another session's editor package test (PID 696193) remained
+    alive. Re-queued with a 1,800-second wait; the run is still waiting and has
+    not launched. `pnpm typecheck:e2e` fails before reaching the spec because
+    this worktree lacks `packages/scene/src/nodeResize.ts`. The file exists
+    untracked in the main checkout and has not been copied or changed. A
+    temporary resolver in `apps/desktop/vite.config.ts` points the eventual
+    browser run at that existing file read-only; remove this local bridge when
+    the run completes. The importer screenshot is therefore still unverified.
+    The latest focused Biome check and `pnpm audit:docs` passed. The latest
+    `pnpm verify:affected` still stops at the same ten unrelated radius audit
+    entries before typechecks or test lanes.
+
+53. Reconfirmed the user-corrected scope is Inkscape. `pnpm verify:plan` selects 22
+    affected lanes with no full-suite escalation. A fresh
+    `pnpm verify:affected` invocation showed touched-file format and lint pass
+    and began the emoji audit, but its terminal output was not retained, so its
+    overall result is unverified. A direct `pnpm audit:radius` completed with
+    exit 1 on the same 10 pre-existing declarations in Presentation and
+    SpecPanel CSS. `pnpm audit:docs` passed (1,169 docs, 867 links, 182 ADRs
+    indexed). A direct Biome check does not process Markdown files, so it was
+    not counted as Markdown formatting validation. The importer visual E2E remains queued in heavy-lease
+    session 53853 behind the still-live editor-package test process PID 696193;
+    neither process has been interrupted. No source or documentation changes
+    were made in this checkpoint.
+
+54. Continued the Inkscape discussion-history review in bounded IID batches.
+    For #1–100, 93 pending issues with cached notes were read individually:
+    2,119 records (839 user comments and 1,280 system events); missing caches
+    were #43, #48, #61, #67, #68, and #79. For #1201–1300, 79 pending issues
+    with cached notes were read: 924 records (372 user comments and 552 system
+    events); 18 pending issues had zero reported notes and no cache. For
+    #2401–2500, 91 pending issues were reviewed: 1,164 records (554 user
+    comments and 610 system events); nine note caches were missing. Previously
+    reviewed IDs were excluded from these counts. These batches add 1,765
+    non-system comments to the reviewed discussion set. Source reports are
+    candidate workflow comparisons only, not verified Varve defects. Notable
+    leads include keyboard focus and shortcut routing (#94, #1201, #1269–1270),
+    unintended control changes from wheel scrolling (#31), object/metadata
+    preservation (#1224), memory growth in selection workflows (#1231), and
+    clipboard/tool behavior (#1276, #1296). Their source resolution state and
+    version caveats are recorded in `findings.md`. Discussion retrieval is
+    still incomplete; reconcile per-issue cache counts before claiming full
+    coverage.
+
+    Separately, the omitted `feDropShadow.stdDeviation` value was corrected
+    from zero to the W3C-defined default of two, with a regression test. The
+    latest `pnpm verify:affected` passed touched-file format/lint and emoji
+    audit, then failed at `audit:radius` on ten unrelated pre-existing CSS
+    declarations. The SVG importer visual E2E is still queued behind another
+    live test process; no process was interrupted.
+
+55. Reviewed and reconciled three more discussion ranges. IID 101–200 had 83
+    pending cached threads read (1,370 notes: 604 user comments, 766 system
+    events); nine caches were missing, while #112 and #155 were already
+    reviewed. IID 1301–1400 had 93 cached threads read (1,330 notes: 588 user
+    comments, 742 system events); seven zero-note caches were absent. IID
+    2501–2600 had 84 cached threads read (1,103 notes: 521 user comments, 582
+    system events); 16 caches were missing. #2550 remains partial: all 21
+    cached entries were read, but the issue list reports 10 user comments and
+    the cache contains only eight. The ledger now marks 259 new threads fully
+    reviewed and records #2550 separately. The summary reports 577 fully
+    reviewed threads total. Candidate failures, partial fixes, and their
+    version caveats are in `findings.md`; none is presented as a verified
+    Varve defect.
+
+    At the latest notes-manifest snapshot (`2026-10-18T17:00:36Z`), retrieval
+    had 28,983 of 32,692 expected non-system comments across 4,955 issue
+    threads (65,875 total notes); 18 per-issue note-count mismatches remain
+    and are recorded in `issue-ledger.summary.json`. The manifest is live and
+    supersedes this checkpoint as retrieval continues.
+
+    `pnpm verify:plan` selected 22 affected lanes and no full-suite escalation;
+    `pnpm audit:docs` passed with 1,169 docs, 867 links, and 182 indexed ADRs;
+    `git diff --check HEAD` passed. The real-editor SVG import visual test
+    remains queued in session 53853 behind a separate session's live editor
+    Vitest PID 696193. Both processes and the Astro dev server PID 634900 are
+    still live; none was stopped or interacted with. The temporary resolver
+    in `apps/desktop/vite.config.ts` is local-only and must be removed after
+    visual validation. No commit or merge has occurred.
+
+56. Added two more read-only Inkscape discussion reviews. IID 201–300 covered
+    80 cached pending threads (1,061 records: 531 user comments and 530 system
+    events); 15 pending issues had no cache. IID 1401–1500 covered 84 pending
+    threads (1,171 records: 515 user comments and 656 system events); two
+    already-reviewed threads bring the batch total to 1,229 records. Thirteen
+    pending issues had no cache and IID #1489 is absent from ledger/cache.
+    Both sets are recorded in the ledger; its discussion count is now 741
+    fully reviewed threads, with #2550 still partial. High-signal reports
+    include large-font-set picker freezes (#1465, later marked fixed by MR
+    !8228 but not independently verified), rotated-image print omissions
+    (#1478), office clipboard format mismatch (#1467), PDF text-position
+    editing problems (#297), and SVG text-coordinate shifts (#234). Details
+    and version caveats are in `findings.md`; these are competitor reports,
+    not Varve defects.
+
+    A read-only code review of the #5939 SVG drop-shadow importer found no
+    actionable code findings. The reviewer also confirmed that parser and
+    validation tests cover the supported subset and unsupported cases, while
+    the real-editor rendering remains unverified until the queued E2E runs.
+    The current `pnpm verify:plan` selects 22 lanes with no full-suite
+    escalation. `pnpm verify:affected` passed touched format, lint, and emoji,
+    then failed at the same 10 pre-existing radius-audit declarations in
+    Presentation and SpecPanel CSS; later lanes were not run. The direct docs
+    audit passed (1,169 docs, 867 links, 182 ADRs). `git diff --check HEAD`
+    passed. The visual E2E is still queued in lease session 53853 behind
+    another session's live editor Vitest PID 696193. The website server,
+    other sessions, and ChatGPT Linux app remain open; no process was stopped.
+
 ## Next operation
 
-Continue body screening for the six remaining pending bodies (#5887, #5910,
-#5924, #5939, #5956, #5960), then review remaining Inkscape discussions,
-linked evidence, and candidate Varve workflows.
+Continue with real-app visual validation for the SVG importer, then implement
+the Inkscape #2069 desktop batch conflict choice and validate overwrite/skip/
+keep-both behavior before taking on the #5960 variable-font PDF candidate.
+Continue recursive linked-evidence and discussion review in parallel with
+implementation; keep research coverage separate from engineering status.
 Reconcile all 32,692 reported non-system comments before claiming broad discussion
 coverage. Keep system notes for linked events and state history. Do not mark an
 issue reviewed based only on its title, labels, or downloaded body.
