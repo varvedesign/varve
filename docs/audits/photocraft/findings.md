@@ -53,9 +53,9 @@ Every one of the 1 296 issues received a disposition (see
 
 | Disposition | Count |
 |---|---|
-| `out-of-scope` (named product boundary, §3; includes no-signal records) | 676 |
+| `out-of-scope` (named product boundary, §3; includes no-signal records) | 677 |
 | `screened-for-varve` (failure class reaches a Varve subsystem) | 407 |
-| `already-handled` (verified in Varve source) | 206 |
+| `already-handled` (verified in Varve source) | 205 |
 | `implemented` in this corpus pass | 7 |
 
 Reading depth is recorded per issue and is **not** uniform:
@@ -111,7 +111,7 @@ Classes are ordered by the severity policy in the assignment: data
 loss/corruption and crashes first, then wrong documents/output, broken core
 interactions, accessibility/performance, then useful improvements.
 
-### 4.1 Text edits lost inside an editing session — **implemented; browser-verified**
+### 4.1 Text edits lost inside an editing session — **implemented; save/close browser-verified**
 
 - **External evidence** — [#811](https://github.com/storytold/pdfcraft/issues/811)
   "save and close ignore typing in an open paragraph" (closed via linked #843;
@@ -177,21 +177,39 @@ interactions, accessibility/performance, then useful improvements.
      `docs/audits/photocraft/evidence/text-draft-before-save.png`.
      The browser run used the browser save-picker stub and fell back from WASM
      to the TypeScript renderer; it does not cover the native Tauri menu path.
+  8. Directly switching from one text node to another while the first node has
+     buffered characters is a separate interaction and was not covered by
+     those save/close cases. PdfCraft #2022 is upstream-fixed (PR #2302), but
+     Varve's matching browser regression remains pending until that exact
+     target-switch workflow is exercised.
 
-### 4.2 Edit-target identity drift — **already handled, verified**
+### 4.2 Edit-target identity drift — **source-specific report; Varve has stable authored-node identity**
 
 - **External evidence** — [#2516](https://github.com/storytold/pdfcraft/issues/2516)
-  (critical) paragraph numbers shift after an edit so the next edit rewrites a
-  different paragraph; #2517, #2564, #1680, #2508 same mechanism.
+  (critical) a PDF paragraph ordinal becomes stale after geometric regrouping;
+  its proposed mitigation PR [#2756](https://github.com/storytold/pdfcraft/pull/2756)
+  remains open and unmerged. #2517 is a separate grouping/deletion report,
+  with open draft PR #2529; #2508 tracks durable PDF marked-content identity.
+  These are related PDF paragraph API problems, not a single reproduced
+  Varve defect.
 - **Mechanism in the source product** — paragraphs are addressed by ordinal
   position in a list regrouped from geometry after every edit, so an edit that
   changes the grouping retargets the next edit and destroys text.
-- **Varve verdict** — not the same class. Text content is addressed by
-  `SceneNodeId` and grapheme offsets
+- **Varve verdict** — authored text content is addressed by `SceneNodeId` and grapheme offsets
   (`TextEditOverlay`, `createUnicodeIndexMap`/`normalizeGraphemeRange`), never
-  by an ordinal recomputed from layout. A reflow cannot retarget an edit.
+  by an ordinal recomputed from layout. This supports stable identity for
+  Varve-authored text; it does not implement or verify PdfCraft's ordinal PDF
+  paragraph editing API. Ledger #2516 is therefore source-specific/out of
+  Varve scope, not evidence that the whole class is handled.
 - **Residual risk** — the class would reappear if any surface introduced
   layout-derived indices. Recorded as a review question, not an open defect.
+
+PdfCraft #2512 is an open design proposal for a one-paragraph editing session.
+It is related to session lifetime and latency, not digital signatures (the
+previous ledger rationale was incorrect). It does not report a reproduced
+failure. Varve's buffered text draft drain is an implementation choice for its
+own editor; it does not establish that PdfCraft's proposed architecture is
+needed or that the two products share a defect.
 
 ### 4.3 Locked objects — **already handled, verified (correcting the earlier ledger)**
 
@@ -803,3 +821,39 @@ Current bodies and comments were read for [#3170](https://github.com/storytold/p
 The website was visually checked at desktop and 390px mobile widths. The mobile pass exposed clipped install commands and long distro labels in the responsive package table; the small-screen styles now allow both to wrap. Captures are in `evidence/download-linux-support-desktop.png` and `evidence/download-linux-support-mobile.png`.
 
 The follow-on ledger now has body and current-comment coverage for all 158 cutoff-B issues: 40 screened-for-Varve, 116 out-of-scope, and 2 already handled. “Reviewed” here means issue body and current comments read, not full recursive-source exhaustion. Attachments, sample files, linked implementation PRs and relevant external discussions still require follow-up where the ledger or findings says they matter. No new Varve defect is confirmed by this cutoff-B screen.
+
+
+### 4.23 Follow-up source checks for image and page workflows
+
+A deeper read of the source threads and linked PRs corrected three prior
+ledger rationales and narrowed one disposition:
+
+- [#434](https://github.com/storytold/pdfcraft/issues/434) reports image
+  stamps rotating on rotated PDF pages. Merged PR
+  [#473](https://github.com/storytold/pdfcraft/pull/473) fixes natural-size
+  point placement at 90/180/270 degrees, but explicitly excludes image
+  signatures, explicit rectangles, PDF-page stamps, image-file orientation
+  metadata, and the reporter's original PDF. Varve has no matching PDF
+  annotation/stamp workflow, so this is not a Varve defect; the previous
+  signature-validation rationale was wrong.
+- [#2944](https://github.com/storytold/pdfcraft/issues/2944) has since closed
+  with merged [PR #2951](https://github.com/storytold/pdfcraft/pull/2951),
+  which corrects EXIF orientation in PdfCraft's image-to-PDF create APIs. The
+  cutoff ledger's open state is historical. Varve's image-ingestion path
+  adjusts displayed dimensions and covers EXIF orientation 6; this is
+  already handled for the analogous import path, unlike PDF page construction.
+- [#787](https://github.com/storytold/pdfcraft/issues/787) is not a blanket
+  missing cross-page drag in Varve. `SelectTool` reparents a dropped node to
+  the destination page, with a test for a drop on an empty trim. Multi-page
+  selection remains restricted by ADR-0195 and Layers-tree cross-page drag is
+  documented unsupported. A focused Varve context regression now covers
+  same-document rich paste after switching publishing pages: clipboard v5
+  carries `sourcePageId`, and paste uses destination placement instead of the
+  source page's world anchor. Same-page in-place paste remains covered by the
+  existing regression. The direct browser flow and visible destination trim
+  still need confirmation; this does not cover layer-tree transfer or
+  multi-page selection. The linked PR #1861 is still draft/open and is not
+  release evidence.
+
+These findings came from source review only; they do not claim a fresh Varve
+reproduction for the unresolved routes.

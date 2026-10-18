@@ -18,21 +18,21 @@
     "reviewed_title_only": 13
   },
   "relevance": [
-    ["out-of-scope", 671],
+    ["out-of-scope", 672],
     ["applicable", 414],
-    ["not-a-varve-defect", 206],
+    ["not-a-varve-defect", 205],
     ["no-signal", 5]
   ],
   "disposition": [
-    ["out-of-scope", 676],
+    ["out-of-scope", 677],
     ["screened-for-varve", 407],
-    ["already-handled", 206],
+    ["already-handled", 205],
     ["implemented", 7]
   ],
   "family": [
     ["out-of-scope", 652],
-    ["handled-class", 212],
-    ["text-edit-identity", 78],
+    ["handled-class", 211],
+    ["text-edit-identity", 79],
     ["crash-robustness", 58],
     ["selection-interaction", 55],
     ["render-compositing", 50],
