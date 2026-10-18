@@ -108,6 +108,49 @@ describe('FontResolver', () => {
   const resolver = new FontResolver();
 
   describe('detectMissing', () => {
+    it('treats CSS generic families as platform-resolved fallbacks', () => {
+      const catalog = makeCatalog([]);
+      const doc = makeDoc(
+        [
+          'serif',
+          'sans-serif',
+          'monospace',
+          'cursive',
+          'fantasy',
+          'system-ui',
+          'ui-serif',
+          'ui-sans-serif',
+          'ui-monospace',
+          'ui-rounded',
+          'math',
+          'generic(fangsong)',
+          'generic(kai)',
+          'generic(khmer-mul)',
+          'generic(nastaliq)',
+        ].map((fontFamily, index) => ({ id: `generic-${index}`, fontFamily })),
+        {
+          'generic-style': {
+            type: 'text',
+            fontFamily: 'sans-serif',
+            fontSize: 16,
+          },
+        },
+      );
+
+      expect(resolver.detectMissing(doc, catalog)).toEqual([]);
+      expect(
+        resolver
+          .detectMissing(
+            makeDoc([
+              { id: 'quoted-generic-name', fontFamily: '"sans-serif"' },
+              { id: 'emoji-family-name', fontFamily: 'emoji' },
+            ]),
+            catalog,
+          )
+          .map((font) => font.familyName),
+      ).toEqual(['"sans-serif"', 'emoji']);
+    });
+
     it('finds missing fonts in document', () => {
       const catalog = makeCatalog(['Inter', 'Roboto']);
       const doc = makeDoc([

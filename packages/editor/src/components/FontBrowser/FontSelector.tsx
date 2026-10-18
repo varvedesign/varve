@@ -12,6 +12,7 @@ import {
   type FontReference,
   type FontSemanticRecord,
   fontReferenceKey,
+  isCssGenericFontFamily,
   parseFontSemanticQuery,
   tagLabel,
 } from '@varve/engine/font';
@@ -270,7 +271,13 @@ export function FontSelector({
   const warningLabel = !hasFamilyMatch
     ? 'Font is not installed'
     : 'Exact font face is not installed; fallback is in use';
-  const showWarning = !mixed && (!hasFamilyMatch || !hasExactFaceMatch) && !isOpen && value.trim();
+  const genericFallback = !fontReference && isCssGenericFontFamily(value);
+  const showWarning =
+    !genericFallback &&
+    !mixed &&
+    (!hasFamilyMatch || !hasExactFaceMatch) &&
+    !isOpen &&
+    value.trim();
 
   const sections = useMemo(() => {
     const sections: Array<{ title: string; records: FontSemanticRecord[] }> = [];

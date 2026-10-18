@@ -209,6 +209,19 @@ describe('StatusBar section gating', () => {
     expect(screen.getByText('Page 1 of 1 · Cover')).toBeTruthy();
   });
 
+  it('names the active isolated group in the bottom bar', () => {
+    const editor = baseEditor();
+    Object.assign(editor.state, { isolatedNodeId: 'nested-group' });
+    editor.state.document.nodes = {
+      'nested-group': { id: 'nested-group', kind: 'group', name: 'Inner group' },
+    };
+    useEditorMock.mockReturnValue(editor);
+
+    render(<StatusBar />);
+
+    expect(screen.getByText('Inside: Inner group')).toBeVisible();
+  });
+
   it('shows the document color mode when the section is visible', () => {
     const editor = baseEditor();
     editor.state.workspaceMode = 'print';
@@ -234,13 +247,13 @@ describe('StatusBar section gating', () => {
     expect(screen.queryByText('1920 \u00d7 1080 px')).toBeNull();
   });
 
-  it('gates the zoom controls, units select, and document health by section ids', () => {
+  it('gates the zoom controls, ruler-units select, and document health by section ids', () => {
     const editor = baseEditor();
     editor.selectedNodes = (() => [namedShapeNode]) as unknown as typeof editor.selectedNodes;
     useEditorMock.mockReturnValue(editor);
     render(<StatusBar />);
     expect(screen.getByRole('button', { name: 'Zoom out' })).toBeTruthy();
-    expect(screen.getByRole('combobox', { name: /Units/ })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Ruler units' })).toBeTruthy();
     expect(screen.queryByText('Hero Card')).toBeNull();
 
     act(() => {
@@ -252,7 +265,7 @@ describe('StatusBar section gating', () => {
       });
     });
     expect(screen.queryByRole('button', { name: 'Zoom out' })).toBeNull();
-    expect(screen.queryByRole('combobox', { name: /Units/ })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Ruler units' })).toBeNull();
     expect(screen.queryByLabelText('Toggle pixel grid')).toBeNull();
   });
 

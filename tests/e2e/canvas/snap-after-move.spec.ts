@@ -259,6 +259,49 @@ test.describe('snapping after a target has moved', () => {
     expect(after.x).toBe(target.x);
   });
 
+  test('releases an object snap when drag intent moves away from the guide', async ({
+    page,
+  }, testInfo) => {
+    await drawRect(page, 250, 140, 350, 240); // target
+    await drawRect(page, 160, 420, 240, 500); // mover
+    await selectRect(page, 'Rectangle 1');
+    const target = await readXY(page);
+    const targetScreen = await selectedScreenRect(page);
+    await selectRect(page, 'Rectangle 2');
+    const moverScreen = await selectedScreenRect(page);
+    const start = {
+      x: moverScreen.x + moverScreen.width / 2,
+      y: moverScreen.y + moverScreen.height / 2,
+    };
+    const snappedPointer = {
+      x: targetScreen.x + moverScreen.width / 2,
+      y: start.y,
+    };
+    const cssPixelsPerWorldUnit = targetScreen.width / 100;
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(snappedPointer.x, snappedPointer.y);
+    await page.waitForTimeout(80);
+    const acquired = await selectedScreenRect(page);
+    await page.screenshot({ path: testInfo.outputPath('snap-release-acquired.png') });
+    expect(Math.abs(acquired.x - targetScreen.x)).toBeLessThan(1);
+
+    // Keep dragging well beyond the CSS-pixel release hysteresis while the
+    // pointer remains down. The object should follow the raw pointer intent.
+    await page.mouse.move(snappedPointer.x + 40 * cssPixelsPerWorldUnit, snappedPointer.y);
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+
+    const after = await readXY(page);
+    await page.screenshot({ path: testInfo.outputPath('snap-release-after.png') });
+    // Browser screen-to-world conversion can quantize the final coordinate by
+    // less than one world unit; assert that the drag escaped the snap target
+    // and followed pointer intent without requiring sub-unit precision.
+    expect(after.x).toBeGreaterThan(target.x + 39);
+    expect(after.x).toBeLessThan(target.x + 41);
+  });
+
   test('snaps to a node created after the document opened', async ({ page }, testInfo) => {
     // The index was also never rebuilt for insertions, so a freshly created
     // object could not be snapped to either.

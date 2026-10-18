@@ -154,6 +154,35 @@ test('reports a zero-length SVG path without inserting placeholder geometry', as
   await page.screenshot({ path: testInfo.outputPath('inkscape-svg-zero-length-path-warning.png') });
 });
 
+test('visually imports physical-unit SVG stroke dashes', async ({ page }, testInfo) => {
+  await navigateToEditor(page);
+
+  await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+  const importItem = page
+    .getByRole('menu', { name: 'File', exact: true })
+    .getByRole('menuitem', { name: /^Import…/ });
+  const picker = page.waitForEvent('filechooser', { timeout: 10000 });
+  await importItem.click();
+  const fileChooser = await picker;
+  await fileChooser.setFiles({
+    name: 'inkscape-unit-dashes.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="120mm" height="32mm" viewBox="0 0 120 32">
+        <path id="dotted-grid-rule" d="M 8 16 L 112 16" fill="none" stroke="#c0392b" stroke-width="1.5" stroke-dasharray="0.4mm 4.6mm" stroke-dashoffset="0.2mm" />
+      </svg>
+    `),
+  });
+
+  // Fully supported SVG imports do not open the partial-fidelity report.
+  await expect(page.getByRole('treeitem', { name: 'dotted-grid-rule' })).toBeVisible();
+  await expect(page.locator('canvas.editor-canvas__content-layer')).toBeVisible();
+  await page.locator('canvas.editor-canvas__content-layer').focus();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.selection-overlay__dim')).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('inkscape-svg-unit-dashes.png') });
+});
+
 test('reports overflowing SVG path coordinates without inserting invalid geometry', async ({
   page,
 }, testInfo) => {
@@ -179,4 +208,125 @@ test('reports overflowing SVG path coordinates without inserting invalid geometr
   await expect(report).toContainText('SVG <path> contains non-finite geometry — skipped');
   await expect(report.getByRole('button', { name: 'Reveal selection' })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('inkscape-svg-overflow-path-warning.png') });
+});
+
+test('warns about possible legacy 90-dpi Inkscape SVG sizing in Import Results', async ({
+  page,
+}, testInfo) => {
+  await navigateToEditor(page);
+
+  await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+  const importItem = page
+    .getByRole('menu', { name: 'File', exact: true })
+    .getByRole('menuitem', { name: /^Import…/ });
+  const picker = page.waitForEvent('filechooser', { timeout: 10000 });
+  await importItem.click();
+  const fileChooser = await picker;
+  await fileChooser.setFiles({
+    name: 'legacy-inkscape-048.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(
+      '<svg xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" inkscape:version="0.48+devel r12217" width="90" height="90"><rect id="legacy-square" x="0" y="0" width="90" height="90" /></svg>',
+    ),
+  });
+
+  const report = page.getByRole('dialog', { name: 'Import Results' });
+  await expect(report).toBeVisible();
+  await report.getByRole('button', { name: /show details/i }).click();
+  await expect(report).toContainText('1 layer inserted');
+  await expect(report).toContainText(
+    'Legacy Inkscape SVG without a viewBox may use 90-dpi dimensions; verify physical size after import.',
+  );
+  await page.screenshot({ path: testInfo.outputPath('inkscape-legacy-svg-dpi-warning.png') });
+
+  await report.getByRole('button', { name: 'Reveal selection' }).click();
+  await report.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('treeitem', { name: 'legacy-square' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('inkscape-legacy-svg-imported-geometry.png') });
+});
+
+test('reports unsupported Inkscape flowed text in Import Results', async ({ page }, testInfo) => {
+  await navigateToEditor(page);
+
+  await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+  const importItem = page
+    .getByRole('menu', { name: 'File', exact: true })
+    .getByRole('menuitem', { name: /^Import…/ });
+  const picker = page.waitForEvent('filechooser', { timeout: 10000 });
+  await importItem.click();
+  const fileChooser = await picker;
+  await fileChooser.setFiles({
+    name: 'inkscape-flowed-text.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(
+      '<svg xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"><flowRoot><flowRegion><rect width="80" height="30" /></flowRegion><flowPara>Text is not imported</flowPara></flowRoot></svg>',
+    ),
+  });
+
+  const report = page.getByRole('dialog', { name: 'Import Results' });
+  await expect(report).toBeVisible();
+  await report.getByRole('button', { name: /show details/i }).click();
+  await expect(report).toContainText('0 layers inserted');
+  await expect(report).toContainText('Inkscape flowed text (SVG 1.2 text layout is not imported)');
+  await page.screenshot({ path: testInfo.outputPath('inkscape-flowed-text-warning.png') });
+});
+
+test('reports SVG shape-inside text flow while retaining editable text', async ({
+  page,
+}, testInfo) => {
+  await navigateToEditor(page);
+
+  await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+  const importItem = page
+    .getByRole('menu', { name: 'File', exact: true })
+    .getByRole('menuitem', { name: /^Import…/ });
+  const picker = page.waitForEvent('filechooser', { timeout: 10000 });
+  await importItem.click();
+  const fileChooser = await picker;
+  await fileChooser.setFiles({
+    name: 'inkscape-invalid-shape-inside.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="80"><text id="flowed-copy" x="12" y="28" style="shape-inside:url(#missing-frame)">Readable fallback text</text></svg>',
+    ),
+  });
+
+  const report = page.getByRole('dialog', { name: 'Import Results' });
+  await expect(report).toBeVisible();
+  await report.getByRole('button', { name: /show details/i }).click();
+  await expect(report).toContainText('SVG text flowed into a shape');
+  await report.getByRole('button', { name: 'Reveal selection' }).click();
+  await report.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('treeitem', { name: 'flowed-copy' })).toBeVisible();
+  await page.waitForTimeout(250);
+  await expect(page.getByRole('heading', { name: /Missing Fonts/ })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('inkscape-shape-inside-import.png') });
+});
+
+test('explains why external SVG use references are absent after import', async ({
+  page,
+}, testInfo) => {
+  await navigateToEditor(page);
+
+  await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+  const importItem = page
+    .getByRole('menu', { name: 'File', exact: true })
+    .getByRole('menuitem', { name: /^Import…/ });
+  const picker = page.waitForEvent('filechooser', { timeout: 10000 });
+  await importItem.click();
+  const fileChooser = await picker;
+  await fileChooser.setFiles({
+    name: 'external-use.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg><use href="icons.svg#arrow" /></svg>'),
+  });
+
+  const report = page.getByRole('dialog', { name: 'Import Results' });
+  await expect(report).toBeVisible();
+  await report.getByRole('button', { name: /show details/i }).click();
+  await expect(report).toContainText('0 layers inserted');
+  await expect(report).toContainText(
+    'SVG <use> references to other documents (not fetched during import)',
+  );
+  await page.screenshot({ path: testInfo.outputPath('inkscape-external-use-warning.png') });
 });

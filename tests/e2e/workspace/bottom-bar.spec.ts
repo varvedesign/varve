@@ -68,6 +68,7 @@ test.describe('bottom bar', () => {
 
     // 4. Save state is always present — clamped by ESSENTIAL_STATUS_SECTION_IDS.
     await expect(page.getByRole('button', { name: /open Document Info/i })).toBeVisible();
+    await expect(status.getByRole('combobox', { name: 'Ruler units' })).toBeVisible();
 
     // 5. The grid-spacing field is labelled and only present while it can do
     //    something. Snapping is on by default, so it shows now; turning snapping
@@ -104,7 +105,7 @@ test.describe('bottom bar', () => {
 
     const status = page.locator('.editor-status');
     const saveBox = await page.getByRole('button', { name: /open Document Info/i }).boundingBox();
-    const unitsBox = await status.getByRole('combobox', { name: 'Units' }).boundingBox();
+    const unitsBox = await status.getByRole('combobox', { name: 'Ruler units' }).boundingBox();
     expect(saveBox).not.toBeNull();
     expect(unitsBox).not.toBeNull();
     expect(saveBox!.x).toBeLessThan(unitsBox!.x);
@@ -137,9 +138,9 @@ test.describe('bottom bar', () => {
     // findings to show or hide, so the round trip proves the dialog drives the
     // row on a section whose output is always present.
     await toggleSection('Units');
-    await expect(status.getByRole('combobox', { name: 'Units' })).toHaveCount(0);
+    await expect(status.getByRole('combobox', { name: 'Ruler units' })).toHaveCount(0);
     await toggleSection('Units');
-    await expect(status.getByRole('combobox', { name: 'Units' })).toHaveCount(1);
+    await expect(status.getByRole('combobox', { name: 'Ruler units' })).toHaveCount(1);
 
     const healthToggle = dialog.getByRole('checkbox', { name: 'Document Health' });
     await expect(healthToggle).toBeChecked();
@@ -155,11 +156,11 @@ test.describe('bottom bar', () => {
 
   test('every visible control is a 24px target with nothing clipped at any width', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await navigateToEditor(page, '/', { startupTimeout: 120_000 });
     await seedLayers(page, 2);
 
-    for (const width of [1440, 1280, 1024, 900, 768, 640]) {
+    for (const width of [1440, 1280, 1024, 900, 768, 640, 390]) {
       await page.setViewportSize({ width, height: 900 });
       await page.waitForTimeout(250);
       const report = await page.evaluate(() => {
@@ -223,5 +224,8 @@ test.describe('bottom bar', () => {
         expect(reachable, `last control reachable by scrolling at ${width}px`).toBe(true);
       }
     }
+    await page.screenshot({
+      path: testInfo.outputPath('ruler-units-statusbar-mobile.png'),
+    });
   });
 });

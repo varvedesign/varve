@@ -42,6 +42,18 @@ describe('FontSelector', () => {
     expect(fireEvent.keyDown(input, { key: 'End' })).toBe(true);
   });
 
+  it('replaces the current family when typing after clicking the combobox', async () => {
+    render(<FontSelector value="Inter" onChange={() => {}} />);
+    const input = screen.getByRole('combobox', { name: 'Font family' });
+
+    fireEvent.click(input);
+    expect(input).toHaveValue('');
+    fireEvent.change(input, { target: { value: 'Noto Sans' } });
+
+    expect(input).toHaveValue('Noto Sans');
+    expect(await screen.findByRole('option', { name: /Noto Sans/ })).toBeInTheDocument();
+  });
+
   it('opens from Alt+ArrowDown without changing the query', async () => {
     render(<FontSelector value="Inter" onChange={() => {}} />);
     const input = screen.getByRole('combobox');
@@ -148,6 +160,12 @@ describe('FontSelector', () => {
     expect(
       screen.getByRole('img', { name: /Exact font face is not installed/i }),
     ).toBeInTheDocument();
+  });
+
+  it('does not report CSS generic families as missing installed fonts', () => {
+    render(<FontSelector value="sans-serif" onChange={() => {}} />);
+
+    expect(screen.queryByRole('img', { name: /Font is not installed/i })).not.toBeInTheDocument();
   });
 
   it('shows a mixed family value without reporting a missing-face warning', () => {

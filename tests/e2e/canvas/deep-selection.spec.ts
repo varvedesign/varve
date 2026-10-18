@@ -81,19 +81,28 @@ test.describe('Deep Selection', () => {
   });
 
   test('3. Escape exits isolation mode', async ({ page }) => {
-    const { frameCenter } = await createFrameWithChild(page);
+    await createFrameWithChild(page);
 
-    // Select the frame
-    await page.mouse.click(frameCenter.x, frameCenter.y);
+    // Select the frame from the layer tree so the child does not intercept the
+    // click at the frame's visual center.
+    await page.getByRole('treeitem', { name: /Frame 1, Frame/ }).click();
     await page.waitForTimeout(100);
 
-    // Enter the frame (double-click or Enter)
-    await page.keyboard.press('Enter');
+    // Enter isolation through the same explicit action exposed to users in
+    // the Layers context menu. Enter is not handled by the tree widget after
+    // its row receives focus.
+    await page.getByRole('treeitem', { name: /Frame 1, Frame/ }).click({ button: 'right' });
+    await page.getByRole('menuitem', { name: /isolate/i }).click();
     await page.waitForTimeout(200);
+
+    const isolationStatus = page.locator('.editor-status__isolation');
+    await expect(isolationStatus).toContainText('Inside:');
+    await page.screenshot({ path: test.info().outputPath('nested-group-bottom-bar-context.png') });
 
     // Escape should exit isolation
     await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
+    await expect(isolationStatus).toHaveCount(0);
 
     // The isolation breadcrumb should no longer be visible
     const isolationLabel = page.locator('.layers-panel__isolation-label');

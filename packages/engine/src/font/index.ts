@@ -151,7 +151,7 @@ export type {
   ResolverTextRun,
 } from './fontResolver';
 // Missing font resolution
-export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
+export { FONT_COMPAT_MAP, FontResolver, isCssGenericFontFamily } from './fontResolver';
 export type { FontStorageMetadata, StoredFontRecord } from './fontStorage';
 export {
   getStoredFont,

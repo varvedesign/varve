@@ -175,6 +175,12 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
   const colorModeLabel = colorConfig
     ? `${colorConfig.mode.toUpperCase()} · ${colorConfig.bitDepth}`
     : '';
+  const isolatedContainer = state.isolatedNodeId
+    ? state.document.nodes[state.isolatedNodeId]
+    : undefined;
+  const isolationLabel = isolatedContainer
+    ? `Inside: ${isolatedContainer.name || 'Unnamed container'}`
+    : null;
 
   // Image info: natural source dimensions of a single selected raster node.
   let imageInfoLabel = '';
@@ -233,7 +239,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
 
     unit: (
       <Select
-        label="Units"
+        label="Ruler units"
         value={state.unitType}
         options={[
           { value: 'px', label: 'px' },
@@ -436,6 +442,11 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
         {infoNodes.map((entry) => (
           <Fragment key={entry.id}>{entry.rendered}</Fragment>
         ))}
+        {isolationLabel && (
+          <span className="editor-status__meta editor-status__isolation" title={isolationLabel}>
+            {isolationLabel}
+          </span>
+        )}
         <span className="editor-status__spacer" aria-hidden="true" />
         {/* Not a section: the chip exists only while the view is rotated, so
             there is no persistent surface to configure. It replaces the old

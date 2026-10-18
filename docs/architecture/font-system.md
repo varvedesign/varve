@@ -163,6 +163,14 @@ If an unavailable reference also carries a PostScript name, substitute ranking
 uses that face-level signal before the legacy family-name heuristic, so localized
 or shared family labels do not hide a matching installed face.
 
+The resolver and font picker do not report CSS generic font families as missing
+fonts. Browsers and native webviews resolve category keywords such as
+`sans-serif`, `system-ui`, `ui-sans-serif`, and `math` to platform fonts; the
+script-specific `generic(...)` forms are treated the same way. `emoji` is not a
+CSS generic family and remains subject to ordinary font availability checks.
+Specific family names and explicit font artifact references still use the
+normal availability checks. See the [CSS Fonts specification](https://www.w3.org/TR/2026/WD-css-fonts-4-20260906/#generic-font-families).
+
 Document Fonts now exposes a scoped **Replace** action beside each used face.
 It opens the same full browser used by the other typography surfaces, so a
 replacement can be chosen as either an installed family or an expanded exact

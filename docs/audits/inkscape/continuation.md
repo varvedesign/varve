@@ -1147,8 +1147,11 @@ its title, labels, or downloaded body.
 
 ## Current execution checkpoint — 2026-10-18, resumed
 
-- Current branch is `feat/inkscape-corpus`, HEAD `9b6ce1538`; the current
-  Inkscape batch and follow-up regressions are uncommitted. Continue excluding
+- Current branch is `feat/inkscape-corpus`, HEAD `d16362b1f`; the SVG importer
+  increment is committed as `Improve SVG import fidelity and scaling`. Its
+  required commit checkpoint passed (including 86 focused importer tests).
+  Font/status-bar, desktop export, marketing-site, and browser-regression
+  follow-ups remain uncommitted. Continue excluding
   unrelated `tests/e2e/export/native-pdf-contract.spec.ts`,
   `packages/codegen/src/bundle-assets.ts`, and `packages/scene/src/nodeResize.ts`
   from task commits. Do not close the ChatGPT app or interrupt other worktree

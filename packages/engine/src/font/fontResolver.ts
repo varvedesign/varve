@@ -323,6 +323,7 @@ function recordMissingReference(
   reference: FontResolutionReference,
   nodeIds: readonly string[],
 ): void {
+  if (!reference.fontReference && isCssGenericFontFamily(reference.family)) return;
   const key = reference.fontReference
     ? `reference:${fontReferenceKey(reference.fontReference)}`
     : `family:${reference.family.toLowerCase()}`;
@@ -399,6 +400,7 @@ export class FontResolver {
     // Scan text/paragraph style references
     const styleRefs = getFontFamiliesFromStyles(doc);
     for (const ref of styleRefs) {
+      if (!ref.fontReference && isCssGenericFontFamily(ref.family)) continue;
       const key = ref.fontReference
         ? `reference:${fontReferenceKey(ref.fontReference)}`
         : `family:${ref.family.toLowerCase()}`;
@@ -772,6 +774,28 @@ function resolveCatalogEntry(
       : entries.filter((entry) => matchesRequestedVariant(entry, { style: reference.style }));
   if (styled.length === 0) return undefined;
   return selectNearestWeightEntry(styled, reference.weight ?? 400);
+}
+
+const cssGenericFontFamilies = new Set([
+  'serif',
+  'sans-serif',
+  'monospace',
+  'cursive',
+  'fantasy',
+  'system-ui',
+  'ui-serif',
+  'ui-sans-serif',
+  'ui-monospace',
+  'ui-rounded',
+  'math',
+]);
+
+export function isCssGenericFontFamily(family: string): boolean {
+  const normalized = family.trim().toLowerCase();
+  return (
+    cssGenericFontFamilies.has(normalized) ||
+    /^generic\(\s*(?:fangsong|kai|khmer-mul|nastaliq)\s*\)$/u.test(normalized)
+  );
 }
 
 function preferUprightEntries(entries: FontCatalogEntry[]): FontCatalogEntry[] {
