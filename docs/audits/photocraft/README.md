@@ -62,7 +62,15 @@ excluded. Relevance classification and recursive linked evidence remain in
 progress; the source-body pass is complete.
 Pull requests have a separate machine-readable inventory so they are not
 counted as issues; their descriptions and discussions also remain unreviewed
-unless explicitly listed.
+unless explicitly listed. Linked discussion review currently includes the
+single-instance PRs #2358 and #3755 for #1540, and transform PRs #3843, #5859,
+and #6186 for issues #2784, #3610, #5665, and #5667. This review found an
+external transient-preview loss while panning, an async commit cancellation,
+and a history-order defect; it did not establish the same defects in Varve.
+Issue #2784 remains unclear after video inspection: the cut selection disappears
+after two images swap positions, but the initiating command and operation state
+are not identified. The linked transform evidence and Varve comparison are recorded in
+[the transform evidence note](linked-transform-evidence.md).
 
 The second full crawl completed 2026-10-17 10:33:10 UTC (interval
 10:32:24–10:33:10 UTC), again following all 70 `state=all` pages. It contained
@@ -139,8 +147,8 @@ the current website review found no matching claim that needs correction.
 ## 2026-10-18 disposition checkpoint
 
 All 3,275 cutoff-A issue rows now have an explicit Varve disposition or an
-explicit unresolved decision: 225 candidates, 2 fixed items, 198 analogues,
-452 partial matches, 28 already-covered behaviors, 80 trackers, 78 adjacent
+explicit unresolved decision: 224 candidates, 2 fixed items, 198 analogues,
+453 partial matches, 28 already-covered behaviors, 80 trackers, 78 adjacent
 QA/design leads, 2,208 reports with no Varve match established, and 4 issues
 that remain `unclear`. Those four are not completed dispositions; each has a
 specific reason the available source evidence does not yet support a confident
@@ -152,8 +160,8 @@ scope were manually resolved. Thirteen of the 17 previously unclear issues
 were resolved after their linked evidence and Varve paths were inspected.
 
 The status counts distinguish source comparison from engineering completion.
-The 225 candidates still require Varve reproduction or a product decision;
-the 452 partial matches and 78 adjacent leads are not automatically defects.
+The 224 candidates still require Varve reproduction or a product decision;
+the 453 partial matches and 78 adjacent leads are not automatically defects.
 The issue source pass and row-level Varve comparison do not complete the
 recursive link frontier or review of the source repository's PR discussions.
 
@@ -195,3 +203,11 @@ the visible surface remains Canvas2D and lifecycle callbacks request an
 authoritative redraw after loss. Focused simulated-loss and lifecycle tests
 pass. A browser test that destroys the actual device and compares pixels is
 not yet present; no Varve defect was established by source tracing.
+
+PhotoCraft #1540 maps to Varve's existing `.varve`/`.strata` file associations.
+Single-instance forwarding is implemented for Windows and Linux and uses the
+current document-tab intake path. The focused native test build was stopped at
+about 826 MB free on the root filesystem; packaged Linux visual validation and
+Windows file-association validation remain pending, so the issue stays a
+partial match. Tauri's single-instance plugin requires Linux session D-Bus
+access; Varve does not publish a Flatpak package today.

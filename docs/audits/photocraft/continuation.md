@@ -95,8 +95,30 @@ Last updated: 2026-10-18. Status: active and incomplete.
   redraw, and focused WebGPU/lifecycle tests cover the recovery path. The
   browser suite does not yet destroy a real device and compare pixels, so this
   is a source-traced covered disposition, not an end-to-end reproduction. No
-  marketing claim needs revision. The ledger is now 225 candidates / 452
-  partial matches / 28 covered.
+  marketing claim needs revision. PhotoCraft #1540 is now a partial match:
+  Varve's Windows/Linux startup args are forwarded through Tauri's single-
+  instance plugin into the existing file-open queue, with a relative-path
+  regression added and Linux requesting taskbar attention for Wayland. The
+  focused native test build was stopped when root free space fell to about
+  826 MB, before it reached the test executable. Free space has since risen to
+  about 974 MB, still below a safe native build margin. Independent review
+  caught a startup race where activation could be lost before the main window
+  exists; the code now retains and retries the request on Tauri `Ready`, and
+  follow-up review found no further defect. That review noted the unit test
+  covers the retained request flag, not the full callback-to-`Ready` lifecycle.
+  Linux package-level visual validation and Windows launch validation are
+  still pending. The desktop
+  TypeScript check hit the previously documented unrelated
+  `CollabSurfaces.tsx:450` readonly `Affine` cast. The issue remains partial
+  until native validation is completed. Website copy does not claim this
+  behavior. PR #2358 and #3755 discussions were reviewed as linked evidence.
+  Validation: `pnpm verify:plan` selected touched format/lint, docs/emoji,
+  desktop typecheck/unit, and desktop-native lanes, and escalated to the full
+  gate because of the Cargo manifest change. Rustfmt and `git diff --check`
+  passed; `pnpm audit:docs` and `pnpm audit:emoji` passed. The required full
+  gate, affected JS/native lanes, and packaged visual checks have not run due
+  to insufficient disk headroom; no commit was made for this slice.
+  The ledger is now 224 candidates / 453 partial matches / 28 covered.
   Safe integration to `master` remains outstanding. A clean-snapshot merge
   preview succeeded, but the real dirty master checkout rejected the merge
   because unrelated local edits and untracked files overlap paths touched by
@@ -151,12 +173,16 @@ Last updated: 2026-10-18. Status: active and incomplete.
   remain in progress; “complete” here records source reading, not completion of
   those separate reviews.
 - Pull requests: the 3,683 A records and three B additions are inventoried,
-  but descriptions/discussions have not been comprehensively reviewed. PR
-  #6863 changed files were inspected; its full discussion and release status
-  remain open.
+  but descriptions/discussions have not been comprehensively reviewed. Linked
+  transform evidence is now reviewed for #3843, #5859, and #6186. PR #5859's
+  discussion exposed false-positive test fixtures and a real history-order
+  defect; PR #6186 records the asynchronous commit-cancellation root cause and
+  remains open at cutoff B. PR #6863 changed files were inspected; its full
+  discussion and release status remain open.
 - Link frontier: #6863; #5752; #6424; #1101; #6423's related link(s); #6392's
   #3641 / SolidCraft evidence; #6962's #2850/#2339/#2687; #6964's #3384/#6669;
-  and all relevant links not yet enumerated from the corpus.
+  #2784's inspected video symptoms and remaining Varve workflow ambiguity; and all relevant
+  links not yet enumerated from the corpus.
 - Varve batch A: decode boundary, expression overflow, invalid open preservation,
   docs, unit tests, and Playwright visual test are implemented. The focused
   editor/scene run passed 111 tests; codegen passed 16 tests. The real Inspector
