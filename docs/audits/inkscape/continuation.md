@@ -172,6 +172,29 @@ Inkscape’s canonical tracker.
     PDF image placement, text-decoration omission, and missing print marks.
     These remain candidate classes pending comments, fixtures, or Varve output
     comparison. Current body-screening total is 55 of 6,392.
+25. Screened #5451, #5527, #5661, #5808, #5893, #6031, #6132, #6243, and
+    #6284. Coverage includes embedded-font PDF validity, large raster export,
+    bleed boxes, missing-font text omission, nested transparency, legacy flowed
+    text, cloned clipped pages, and cross-linked SVG memory use. Some map to
+    existing Varve bounds or explicit font failures; linked discussions and
+    output comparisons remain pending. This brought body-screening total to 64
+    of 6,392.
+
+26. The #1–#1200 and #1201–#2400 ranges received full-text triage plus
+    manual review of selected high-signal issue bodies and cached discussions;
+    neither range is counted as fully manually screened. Selected reports add
+    document-integrity, explicit export-error, stroked-text PDF, clip-path,
+    filter/mask, and pattern-memory regression categories.
+27. Individually screened 1,190 available issue bodies in #2401–#3600. Eight
+    bodies (#2443, #2580, #2806, #2880, #2946, #3011, #3452, #3558) were not
+    present in the local cache; two other bodies in the range were already
+    screened. No notes were cached in this range, so discussion review remains
+    pending. Current ledger coverage is 1,293 unique bodies of 6,392, with 44
+    target discussion threads content-reviewed. Strong candidates include
+    #2704/#3239 clipped blend and masked-filter PDF, #2828 large masked-scene
+    memory, #3115 relinking data integrity, #3214 multipage resource omission,
+    and #3596 empty export failure. These are test categories, not established
+    Varve defects.
 
 ## Validation checkpoint: 2026-10-18
 
@@ -212,7 +235,6 @@ Inkscape’s canonical tracker.
 
 ## Next operation
 
-Continue reconciling all 32,692 reported non-system comments, then screen the
-remaining bodies and discussions for high-impact candidate failure classes. Keep
+Continue the manual description review of the remaining body ranges and reconcile all 32,692 reported non-system comments, then screen the remaining discussions for high-impact candidate failure classes. Keep
 system notes for linked events and state history. Do not mark an issue reviewed
 based only on its title, labels, or downloaded body.
