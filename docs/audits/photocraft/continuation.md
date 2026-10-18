@@ -196,6 +196,15 @@ Escalations: none. No full suite run. The possible Home-open focus race is docum
 Full suite run: no.
 If yes, reason: n/a.
 
+### Latest validation report — PdfCraft #2970 link reconciliation
+
+Changed scope: cutoff A classification for #2970, render-compositing findings and summary totals; no application code changed.
+Validation plan: `pnpm verify:plan` selected 38 lanes and reported FULL-SUITE NO. The unowned codegen/scene source files remain in the affected dependency closure.
+Commands actually run: `gh api` for issue #2970 and PR #2972; `gh pr diff 2972`; `curl` of the public libharu fixture; `sha256sum`; `pdfinfo`; `pdftoppm`; visual inspection of the 800×1200 Poppler render; `pnpm verify:plan`; `pnpm verify:affected`; `pnpm audit:docs`; `pnpm audit:emoji`; Biome formatting of the summary; JSONL/summary consistency check; `git diff --check`.
+Passed: issue/PR status reconciliation (issue open, PR #2972 open and unmerged at the check); fixture SHA-256 `01e2126bab892af1c7248aadb723ccfc3f8e7bce0fb01265f8d5a19a0067352a`; PDF metadata inspection; Poppler visual inspection; docs/emoji audits; 1,296 ledger-ID uniqueness and all summary counts.
+Skipped: affected compilers, unit tests and E2E did not run because `pnpm verify:affected` stopped at Tier 0 on the unowned `packages/codegen/src/bundle-assets.ts` formatting issue. No full suite run; the planner did not escalate.
+Review: distinct self-review confirmed the corrected ledger disposition agrees with §4.7 and summary counts. The in-flight untracked compositor E2E in the shared main checkout was not treated as evidence or modified.
+
 ## Exact next steps
 
 1. When the shared heavy-test lease is available, rerun the targeted Thai text

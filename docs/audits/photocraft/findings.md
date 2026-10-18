@@ -53,8 +53,8 @@ Every one of the 1 296 issues received a disposition (see
 
 | Disposition | Count |
 |---|---|
-| `out-of-scope` (named product boundary, §3; includes no-signal records) | 677 |
-| `screened-for-varve` (failure class reaches a Varve subsystem) | 406 |
+| `out-of-scope` (named product boundary, §3; includes no-signal records) | 676 |
+| `screened-for-varve` (failure class reaches a Varve subsystem) | 407 |
 | `already-handled` (verified in Varve source) | 206 |
 | `implemented` in this corpus pass | 7 |
 
@@ -283,15 +283,30 @@ interactions, accessibility/performance, then useful improvements.
 ### 4.7 Render compositing against the wrong backdrop — **open, screened**
 
 - **External evidence** — [#2970](https://github.com/storytold/pdfcraft/issues/2970)
-  (Screen/Lighten/Overlay/Difference over an empty page blend with white
-  instead of the transparent backdrop, so green comes out white — a regression
-  against their own 0.7.1), #2971 (knockout groups ignored), #2975 (stencil
-  mask alpha applied twice), #2200, #1560.
+  includes a minimal generated PDF and distinguishes a transparent page
+  backdrop from paper white. Three current comments add a public
+  [libharu demo fixture](https://github.com/libharu/libharu/blob/3467749fd1c0ab6ca6ed424d053b1ea53c1bf67c/demo/ext_gstate_demo.pdf)
+  (10,387 bytes; SHA-256
+  `01e2126bab892af1c7248aadb723ccfc3f8e7bce0fb01265f8d5a19a0067352a`) and
+  report that [PR #2972](https://github.com/storytold/pdfcraft/pull/2972)
+  fixes its empty-area blend cells against MuPDF. At the latest source check
+  (2026-10-18), #2972 remained open and unmerged; the fix and pixel comparison
+  are thread claims, not reproduced in this review. The fixture was downloaded,
+  hash-verified, and visually inspected with Poppler here; it shows labelled
+  normal, alpha, and separable blend examples. #2971 reports ignored knockout
+  groups, #2975 double-applied stencil-mask alpha, alongside #2200 and #1560.
 - **Varve surface** — `@varve/compositor` (Canvas2D/WebGPU/WebGL2),
   `canvas/renderPipeline.ts`, `docs/architecture/blend-evaluation-policy.md`.
-- **Status** — screened; needs a same-camera differential oracle (the repo
-  already requires one for pixel-reuse changes) before any claim about the
-  canvas/compositor. The PDF probe in §6.3 verifies only exported PDF output.
+- **Transfer to Varve** — only the compositing invariant transfers: layer
+  content should preserve the source colour over an empty transparent area,
+  while still blending with existing content. PdfCraft's fix is inside its PDF
+  page-group renderer, which Varve does not share. Varve's Canvas2D and
+  accelerated compositor paths still need a same-camera differential oracle;
+  the PDF probe in §6.3 verifies exported PDF output only.
+- **Status** — screened and queued for Varve compositor verification; no
+  Varve rendering defect is established by the external PDF report. A visual
+  E2E file for this behavior is present only as untracked work in the shared
+  main checkout and is not validation evidence for this branch.
 
 ### 4.8 Stale derived renders after a geometry change — **screened, partially covered**
 

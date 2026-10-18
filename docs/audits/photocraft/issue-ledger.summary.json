@@ -18,24 +18,24 @@
     "reviewed_title_only": 13
   },
   "relevance": [
-    ["out-of-scope", 672],
-    ["applicable", 413],
+    ["out-of-scope", 671],
+    ["applicable", 414],
     ["not-a-varve-defect", 206],
     ["no-signal", 5]
   ],
   "disposition": [
-    ["out-of-scope", 677],
-    ["screened-for-varve", 406],
+    ["out-of-scope", 676],
+    ["screened-for-varve", 407],
     ["already-handled", 206],
     ["implemented", 7]
   ],
   "family": [
-    ["out-of-scope", 653],
+    ["out-of-scope", 652],
     ["handled-class", 212],
     ["text-edit-identity", 78],
     ["crash-robustness", 58],
     ["selection-interaction", 55],
-    ["render-compositing", 49],
+    ["render-compositing", 50],
     ["text-font-scripts", 49],
     ["import-parse", 34],
     ["save-integrity", 32],
