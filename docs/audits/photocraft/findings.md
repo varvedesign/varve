@@ -439,6 +439,9 @@ was also checked with `pdfinfo` (single page, 200×200 pt, PDF 1.4). This
 validates sample ordinary-PDF output; it is not a formal PDF/X conformance
 certificate. A standards checker is not installed. Website feature/help copy
 and `docs/architecture/fill-system.md` now state the PDF/X-1a limitations and
-the PDF/X-4 blend/transparency behavior. Both changed pages were captured and
-visually inspected at desktop width; mobile viewport screenshots and the
-PDF/X standards-validator check remain pending.
+the PDF/X-4 blend/transparency behavior. Both changed website pages were
+captured and visually inspected at desktop and 390×844 mobile widths. Their
+desktop and mobile evidence is saved in `evidence/website-export-*.png`; local
+navigation destinations returned HTTP 200. `/try/` is built as part of the
+combined deployment artifact rather than the standalone Astro dev server.
+Formal PDF/X standards validation remains pending.
