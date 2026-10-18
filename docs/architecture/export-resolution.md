@@ -150,6 +150,9 @@ than overwritten. Individual files are atomic; a disk or permission failure
 can still leave a multi-file group partially written, which the report
 identifies per output. Browser ZIP export retains its separate archive-entry
 deduplication behavior and does not expose native folder conflict choices.
+File systems that disallow hard links can reject `Keep both` even when the
+target name is free; the failed output includes the operating-system error so
+the user can choose another destination or use `Replace` when that is safe.
 
 The export dialog shows resolved pixel dimensions before execution. Its
 temporary “Override raster outputs” control applies one PPI to the selected

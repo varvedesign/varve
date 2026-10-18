@@ -667,14 +667,15 @@ Inkscape’s canonical tracker.
 
 ## Next operation
 
-Implement and validate the Inkscape #2069 desktop export collision choice, then
-investigate #1551 sequential export state and #5960 variable-font PDF fidelity.
-Continue linked-evidence and cached discussion review while keeping research
-coverage separate from engineering status. #5939 visual validation is complete
-for the Chromium TypeScript-renderer path; native Tauri remains unverified.
-Reconcile all 32,692 reported non-system comments before claiming broad discussion
-coverage. Keep system notes for linked events and state history. Do not mark an
-issue reviewed based only on its title, labels, or downloaded body.
+Finish the mobile marketing-page visual review for #2069, then continue cached
+discussion review from IID 1711 and inspect the strongest related evidence from
+#1704, #1707, and #1712. Investigate #1551 sequential export state and #5960
+variable-font PDF fidelity after that. Keep research coverage separate from
+engineering status. #5939 and the #2069 export UI have desktop visual evidence;
+native Tauri rendering remains unverified. Reconcile all 32,692 reported
+non-system comments before claiming broad discussion coverage. Keep system notes
+for linked events and state history. Do not mark an issue reviewed based only on
+its title, labels, or downloaded body.
 
 57. A fresh visual E2E attempt acquired the heavy-test lease and started
     Chromium, but global setup timed out waiting for the editor's New button;
@@ -748,3 +749,39 @@ issue reviewed based only on its title, labels, or downloaded body.
     existing-file export conflicts using the reviewed architecture notes, then
     continue source discussion coverage. The user correction is authoritative:
     this task's source corpus and scope are Inkscape.
+
+61. Implemented the Inkscape #2069 desktop-folder collision policy in commit
+    `75ad1029e`: Keep both (default, with a new `Exports N` folder per
+    conflicting deliverable group), Replace, and Skip existing. Companion code
+    outputs remain together; output outcomes and partial writes are listed
+    individually; retry repeats the whole incomplete group under the current
+    choice. The Inkscape finding, export architecture doc, marketing feature
+    page, and export-tool guide now describe the behavior and the boundary with
+    browser ZIP export. The docs also call out path-claim races and filesystems
+    that do not allow hard links.
+
+    The normal commit checkpoint passed 6 focused suites / 88 tests after
+    restoring temporary local copies of untracked `nodeResize.ts` and
+    `bundle-assets.ts` required by this older task branch. Those copies were
+    removed after the commit; they are not part of the change. Native export
+    Rust tests (11) and package typechecks for editor, platform, scene, codegen,
+    website, and E2E passed earlier in this batch. `pnpm verify:affected` passes
+    touched formatting/lint and emoji, then stops at the existing ten radius
+    violations in untouched Presentation/SpecPanel CSS. Docs, emoji, token,
+    sizing, health, and architecture audits passed. The planner selected no
+    full-suite escalation.
+
+    The actual DestinationPicker and partial-output result list were reviewed
+    in a desktop browser harness at 1280x720, including selection changes and
+    per-companion saved/failed states. The marketing page was reviewed at a
+    desktop viewport. A mobile screenshot is queued behind another worktree's
+    editor Vitest lease; do not bypass the lease. Native Tauri visual behavior
+    has not been checked. Self-review found no remaining actionable findings;
+    this is not an independent review-agent result.
+
+    The task worktree is clean except for the pre-existing, user-owned edit in
+    `tests/e2e/export/native-pdf-contract.spec.ts`; it remains unstaged. The
+    dirty main checkout and nested `codex/inkscape-master-integration` worktree
+    were inspected read-only and left untouched. No integration or remote merge
+    has occurred. Next: finish the mobile visual check, then advance the
+    Inkscape discussion sweep from IID 1711.
