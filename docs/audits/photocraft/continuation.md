@@ -269,10 +269,10 @@ passed, and Biome plus `git diff --check` passed. The directly invoked
 and SpecPanel styles; none are in this task's changed files. No full suite was
 run. The read-only integration review found that direct Rust PDF and PDF/X-4
 calls did not reject blend modes with no PDF name, even though editor
-preflight did. Commit `373ef7439` adds the same refusal at both native API
-boundaries; `cargo test -p varve-print a_mode_without_a_pdf_name` passes both
-standard-PDF and PDF/X-4 regression cases, and `cargo fmt -p varve-print -- --check`
-passes.
+preflight did. Task-branch commit `373ef7439` adds the same refusal at both
+native API boundaries; its merged integration commit is `cb75b7f4a`.
+`cargo test -p varve-print a_mode_without_a_pdf_name` passes both standard-PDF
+and PDF/X-4 regression cases, and `cargo fmt -p varve-print -- --check` passes.
 
 Follow-up Agent Validation Report: changed scope is the editor clipboard and
 text-edit/save lifecycle, scene/PDF export fidelity, Rust PDF writers, Astro
@@ -294,6 +294,16 @@ deferred. Website desktop/mobile screenshots and PDF render samples were
 visually inspected as recorded above. Full Vitest, full Playwright, Rust
 workspace tests, and full gate were not run; the planner did not escalate.
 
+Integration: the task-only candidate was pushed as a fast-forward to `master`
+at `6e6c9d569586fca2d2c628a7f907d495fb414f8e` on 2026-10-18. GitHub started
+CI, E2E Keyboard Nav, and Website Deploy for that SHA; their outcomes were
+pending at the time this entry was written. The `pnpm verify:push` attempt
+started a fresh dependency install in the candidate; I stopped only that
+install when I found another agent's `pnpm verify:full --local` waiting on the
+live shared Vitest lease. A direct dry-run also could not load `cross-spawn`
+from the candidate's incomplete `node_modules`. The push checkpoint therefore
+did not pass; the remote workflows are the exact-SHA follow-up.
+
 1. When the shared heavy-test lease is available, rerun the targeted Thai text
    corpus E2E; the previous attempt expired without starting Playwright.
 2. Follow linked issues, PRs, attachments and source fixtures for cutoff-B
@@ -308,11 +318,10 @@ workspace tests, and full gate were not run; the planner did not escalate.
    color-glyph/joining-control shaping, async generation guards, export
    fidelity and claims, bounded document-scale work, and dirty-state truth.
    Review deeper linked evidence for each relevant class.
-5. Reconcile later arrivals, refresh project/remote/default-branch state, and
-   integrate only after the owning untracked modules and affected validation
-   are resolved. A push to `master` touching `packages/**` or
-   `apps/website/**` runs `website-deploy.yml`; the assignment authorizes the
-   normal task merge/push, but no separate manual release.
+5. Follow the exact-SHA CI, E2E Keyboard Nav, and Website Deploy workflows for
+   the merged commit above. Reconcile later arrivals and continue the open
+   applicable issue queue; a passing merge workflow does not close that audit
+   queue.
 
 ```bash
 VARVE_E2E_PORT=1527 node scripts/quality/heavy-lease.mjs "e2e: buffered text save and close" -- \
