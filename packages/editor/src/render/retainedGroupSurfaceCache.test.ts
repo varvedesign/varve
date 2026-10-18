@@ -81,16 +81,22 @@ describe('RetainedGroupSurfaceCache', () => {
     );
   });
 
-  it('rejects oversized surfaces and retires surfaces when the active document changes', () => {
+  it('rejects oversized surfaces and retains open-document surfaces until close or eviction', () => {
     const cache = new RetainedGroupSurfaceCache(512);
     const tooLarge = cache.key(['large'])!;
     expect(cache.set(tooLarge, 'doc-a', surface(16, 16), 1)).toBe(false);
-    const key = cache.key(['small'])!;
-    cache.set(key, 'doc-a', surface(8, 8), 1);
-    cache.activateDocument('doc-b');
+    const docAKey = cache.key(['doc-a', 'group'])!;
+    const docBKey = cache.key(['doc-b', 'group'])!;
+    cache.set(docAKey, 'doc-a', surface(8, 8), 1);
+    cache.set(docBKey, 'doc-b', surface(8, 8), 1);
 
-    expect(cache.get(key)).toBeNull();
-    expect(cache.diagnostics.residentBytes).toBe(0);
+    expect(cache.get(docAKey)).not.toBeNull();
+    expect(cache.get(docBKey)).not.toBeNull();
+    cache.closeDocument('doc-a');
+
+    expect(cache.get(docAKey)).toBeNull();
+    expect(cache.get(docBKey)).not.toBeNull();
+    expect(cache.diagnostics.residentBytes).toBe(256);
     expect(cache.diagnostics.bypasses).toBe(1);
   });
 

@@ -748,7 +748,6 @@ export function renderContent(deps: RenderContentDeps): void {
     const ctxNN = ctx;
     const s = stateRef.current;
     const doc = documentHasSolo(s.document) ? applySoloToDocument(s.document) : s.document;
-    retainedGroupSurfaceCache.activateDocument(String(doc.id));
     _showOriginalBgNodeId = s.showOriginalBgNodeId ?? null;
 
     // Render resources are session-derived. Retain only sources owned by the

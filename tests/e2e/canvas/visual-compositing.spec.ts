@@ -167,6 +167,39 @@ async function forceRedrawReplayMs(page: import('@playwright/test').Page): Promi
   return frame as number;
 }
 
+async function setDetailedCompositionDiagnostics(
+  page: import('@playwright/test').Page,
+  enabled: boolean,
+): Promise<void> {
+  await page.evaluate((nextEnabled) => {
+    const cache = (
+      window as Window & {
+        __varvePerf?: {
+          compositionCache?: { setDetailedDiagnosticsEnabled: (enabled: boolean) => void };
+        };
+      }
+    ).__varvePerf?.compositionCache;
+    cache?.setDetailedDiagnosticsEnabled(nextEnabled);
+  }, enabled);
+}
+
+async function sampleReplayMs(
+  page: import('@playwright/test').Page,
+  count: number,
+): Promise<number[]> {
+  const samples: number[] = [];
+  for (let index = 0; index < count; index++) samples.push(await forceRedrawReplayMs(page));
+  return samples;
+}
+
+function median(values: readonly number[]): number {
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2
+    : (sorted[middle] ?? 0);
+}
+
 /**
  * Wait until the content canvas stops changing. The dropped JPEG decodes
  * asynchronously, so the first painted frame can be a partial image; a full
@@ -343,7 +376,7 @@ test.describe('full-editor visual compositing', () => {
 
   test('reuses an independent isolated group and matches a cache-bypassed composition', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.addInitScript(() => localStorage.setItem('varve.renderWorker', 'off'));
     await navigateToCleanEditor(page, '?perf=1');
     const contentCanvas = page.locator(CANVAS);
@@ -407,6 +440,27 @@ test.describe('full-editor visual compositing', () => {
     expect(afterIndependentEdit?.avoidedShapeLeaves).toBeGreaterThan(
       firstWarm?.avoidedShapeLeaves ?? 0,
     );
+    const detailedOnBeforeMs = await sampleReplayMs(page, 7);
+    await setDetailedCompositionDiagnostics(page, false);
+    expect((await compositionCacheDiagnostics(page))?.detailed).toBeNull();
+    const detailedOffMs = await sampleReplayMs(page, 7);
+    await setDetailedCompositionDiagnostics(page, true);
+    const detailedOnAfterMs = await sampleReplayMs(page, 7);
+    expect((await compositionCacheDiagnostics(page))?.detailed).not.toBeNull();
+    const diagnosticsOverhead = {
+      detailedOnBeforeMs,
+      detailedOffMs,
+      detailedOnAfterMs,
+      mediansMs: {
+        detailedOn: median([...detailedOnBeforeMs, ...detailedOnAfterMs]),
+        detailedOff: median(detailedOffMs),
+      },
+    };
+    console.log('composition-cache-diagnostics-overhead', JSON.stringify(diagnosticsOverhead));
+    await testInfo.attach('composition-cache-diagnostics-overhead.json', {
+      body: Buffer.from(JSON.stringify(diagnosticsOverhead, null, 2)),
+      contentType: 'application/json',
+    });
     const independentEditHash = await canvasPixelHash(page);
     const cachedReplaySamples: number[] = [];
     for (let index = 0; index < 7; index++) {
@@ -508,7 +562,37 @@ test.describe('full-editor visual compositing', () => {
     expect(warm?.avoidedShapeLeaves).toBeGreaterThanOrEqual(3);
     expect(warm?.budgetBytes).toBeLessThanOrEqual(8 * 1024 * 1024);
 
+    const posterTab = page
+      .getByRole('tablist', { name: /open documents/i })
+      .getByRole('tab')
+      .filter({ hasText: 'poster.varve' });
+    await page.getByRole('button', { name: /new document/i }).click();
+    await posterTab.click();
+    await waitForStableCanvas(page);
+    await forceAuthoritativeCanvasFrame(page);
+    const afterDocumentSwitch = await compositionCacheDiagnostics(page);
+    expect(afterDocumentSwitch?.hits).toBeGreaterThan(warm?.hits ?? 0);
     const cachedHash = await canvasPixelHash(page);
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { setEnabled: (enabled: boolean) => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.setEnabled(false);
+    });
+    await forceAuthoritativeCanvasFrame(page);
+    expect(await canvasPixelHash(page)).toBe(cachedHash);
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { setEnabled: (enabled: boolean) => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.setEnabled(true);
+    });
+    await forceAuthoritativeCanvasFrame(page);
+
     const cachedCapture = await contentCanvas.screenshot();
     await testInfo.attach('poster-with-retained-group', {
       body: cachedCapture,
@@ -593,7 +677,7 @@ test.describe('full-editor visual compositing', () => {
     const childEditedCachedHash = await canvasPixelHash(page);
     expect(childEditedCachedHash).not.toBe(editedCachedHash);
     const childEditedCachedCapture = await contentCanvas.screenshot({
-      path: 'docs/screenshots/dependency-aware-composition/poster-grouped-child-cached.png',
+      path: testInfo.outputPath('poster-grouped-child-cached.png'),
     });
     await testInfo.attach('poster-cache-enabled-after-grouped-child-edit', {
       body: childEditedCachedCapture,
@@ -611,7 +695,7 @@ test.describe('full-editor visual compositing', () => {
     await forceAuthoritativeCanvasFrame(page);
     const childEditedBypassedHash = await canvasPixelHash(page);
     const childEditedBypassedCapture = await contentCanvas.screenshot({
-      path: 'docs/screenshots/dependency-aware-composition/poster-grouped-child-bypassed.png',
+      path: testInfo.outputPath('poster-grouped-child-bypassed.png'),
     });
     await testInfo.attach('poster-cache-bypassed-after-grouped-child-edit', {
       body: childEditedBypassedCapture,

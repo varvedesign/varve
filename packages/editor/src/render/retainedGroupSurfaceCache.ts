@@ -252,17 +252,6 @@ export class RetainedGroupSurfaceCache {
     while (this.bytes > this.budgetBytes) this.evictOldest();
   }
 
-  activateDocument(documentId: string): void {
-    for (const [key, entry] of this.entries) {
-      if (entry.documentId === documentId) continue;
-      entry.canvas.width = 0;
-      entry.canvas.height = 0;
-      this.entries.delete(key);
-      this.bytes -= entry.bytes;
-      this.evictionCount++;
-    }
-  }
-
   closeDocument(documentId: string): void {
     for (const [key, entry] of this.entries) {
       if (entry.documentId !== documentId) continue;

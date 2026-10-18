@@ -594,9 +594,11 @@ memory preset: 8 MiB (low), 32 MiB (balanced), or 64 MiB (high), with an 8 MiB
 single-surface ceiling. A runtime cache-quality multiplier can lower that cap;
 the 4 GiB and 2 GiB device-memory profiles further cap it at 8 MiB and 4 MiB.
 Reducing the cap immediately evicts least-recently-used surfaces. Oversized
-surfaces are composed normally but are not retained. Surfaces are also released
-when the active document changes or closes, when diagnostic bypass is enabled, and when
-the page closes. The developer-only `?perf=1` handle exposes hits, misses, bypasses,
+surfaces are composed normally but are not retained. Surfaces are released when
+their document closes, when diagnostic bypass is enabled, and when the page
+closes. Switching between open documents keeps their distinct surfaces under
+the same shared budget; LRU eviction removes older inactive products first. The
+developer-only `?perf=1` handle exposes hits, misses, bypasses,
 evictions, retained bytes, and shape-leaf/raster-pixel work skipped, separately
 from the IR cache. Its bypass clears owned surfaces and forces fresh subtree
 composition; export and thumbnail consumers do not use this cache.

@@ -17,8 +17,9 @@ at 8 MiB and total residency according to the render memory preset (8 MiB low,
 quality multipliers can reduce the cap; 4 GiB and 2 GiB device-memory profiles
 cap it at 8 MiB and 4 MiB, respectively. A cap reduction immediately evicts
 least-recently-used entries.
-Changing or closing the active document retires its retained group surfaces. An
-entry too large for its cap is replayed but not retained.
+Switching between still-open documents preserves their independently keyed
+surfaces under the shared LRU budget; closing a document retires its surfaces.
+An entry too large for its cap is replayed but not retained.
 
 ## Browser comparison
 
@@ -57,6 +58,27 @@ hash was identical with retention enabled and disabled. Captures are retained
 at [`cached.png`](../screenshots/dependency-aware-composition/cached.png) and
 [`cache-bypassed.png`](../screenshots/dependency-aware-composition/cache-bypassed.png);
 they were also opened and visually inspected at full viewport size.
+
+### Detailed-diagnostics overhead
+
+The 2026-10-18 controlled rerun samples forced replay of the same warm
+twelve-shape group with detailed cache diagnostics enabled before and after a
+seven-sample disabled interval. The detailed-on median combines the two
+seven-sample runs; the disabled median uses seven samples:
+
+| Mode | Samples (ms) | Median |
+|---|---|---:|
+| Detailed diagnostics on | 0.5, 0.4, 0.5, 0.4, 0.5, 0.4, 1.0; then 0.4, 0.3, 0.4, 0.7, 0.4, 0.3, 0.2 | 0.4 |
+| Detailed diagnostics off | 0.3, 0.4, 0.3, 0.3, 0.4, 0.4, 0.2 | 0.3 |
+
+These browser replay-stage values are quantized at roughly 0.1 ms. The observed
+0.1 ms median difference is too small to establish a meaningful overhead or
+regression budget; this is a measurement with no presentation-latency claim.
+Detailed collection remains opt-in and bounded.
+In this rerun, retained replay samples were 0.4, 0.4, 0.7, 0.4, 0.4, 0.4,
+0.2 ms (median 0.4); cache-bypassed samples were 1.1, 1.2, 1.6, 1.8, 1.7,
+1.4, 1.8 ms (median 1.6). These reinforce the controlled fixture's direction
+of benefit, while remaining stage timings from one browser session.
 
 ## Imported Varve fixture comparison
 
@@ -106,6 +128,14 @@ WebView parity. The two captures from that run had identical SHA-256
 fallback wrapped the poster's small annual-label line differently from the
 previously reviewed capture, so the tracked reference images were left intact.
 
+The 2026-10-18 run also opened a new document, returned to `poster.varve`, and
+verified that the still-open document received another retained-group hit.
+After the switch, its cached canvas matched an authoritative full redraw with
+the cache disabled at the restored view. The focused cache unit test confirms
+that closing one document releases only that document's entries. This checks
+selective in-memory reuse across open tabs; it does not claim cross-window or
+native WebView coverage.
+
 ## Budget and current limits
 
 Unit coverage verifies LRU eviction, document retirement, diagnostic bypass,
@@ -138,8 +168,9 @@ inputs, not an OS/device generation; this retained product is a 2D canvas
 rather than a GPU resource. Detailed timers and path collection are off unless
 diagnostics are enabled. The report does not measure total frame presentation,
 temporary effect memory, GPU residency, or asynchronous stale-job rejection.
-Instrumentation overhead has not yet been compared with the same workflow
-while detailed diagnostics are disabled.
+The 2026-10-18 controlled comparison above found a 0.1 ms median difference
+with timing resolution around 0.1 ms. That is too small to set a meaningful
+overhead budget and is not a presentation-latency measurement.
 
 No customer design, standalone SVG/photo asset, native WebView, whole-document
 cache-versus-export parity, thumbnail freshness, font/image completion race,

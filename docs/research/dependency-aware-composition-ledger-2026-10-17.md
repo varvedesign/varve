@@ -133,14 +133,31 @@ path inside that admitted boundary. Review also identified delayed release when
 the last document closes; a final-session close event now retires and zeroes
 that document's retained surfaces immediately, covered by a cache release test.
 
+A follow-up source review found that every active-document render called
+`activateDocument`, which retired all surfaces for other still-open documents.
+The complete key already includes document identity, the shared byte cap already
+evicts by LRU, and final-session close already releases a document's entries, so
+that eager flush discarded valid work without adding correctness. It has been
+removed; a focused cache test now verifies that two open documents retain
+separate entries and that closing one releases only its surfaces. The poster
+fixture E2E also opens another editor document and returns to the still-open
+poster, verifies a retained hit, and matches that frame against a cache-bypassed
+full replay. This addresses the selectivity pattern from EffectCraft #1492
+within the current in-memory group-cache boundary; it does not claim to
+reproduce EffectCraft's reported playback behavior in Varve.
+
 This remains narrow product validation: one controlled drawing fixture and one
 repository-owned imported Varve sample. No customer design, standalone
 SVG/photo asset, native WebView, export or thumbnail differential,
 delayed-resource race, multi-scale rotation sweep, or long-session
-memory-pressure soak was run. The current validation planner also escalated to
-a full gate because the shared checkout contains unrelated workspace/toolchain
-and validation-infrastructure changes; those unrelated files were preserved
-and not included in this task's source changes.
+memory-pressure soak was run. The final 2026-10-18 `pnpm verify:plan` selected
+43 lanes because temporary root-only `codegen` and `scene` source copies were
+present in this worktree; it reported no full-suite escalation. The
+`pnpm verify:affected` attempt stopped at `format:touched` because the
+temporary untracked `packages/codegen/src/bundle-assets.ts` copy needs
+formatting; no later lanes ran. That file is excluded from this task's commits.
+The affected closure must be rerun after the copied files are no longer in its
+changed-file set and shared validation jobs release the repository lease.
 
 ### Other render consumers inspected
 
