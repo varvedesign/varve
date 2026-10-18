@@ -1,6 +1,6 @@
 # Continuation record
 
-Last updated: 2026-10-18 (session 4).
+Last updated: 2026-10-18 (session 5).
 
 ## Frozen baseline
 
@@ -13,10 +13,15 @@ Last updated: 2026-10-18 (session 4).
   reconciles to 1,454 issues (936 open / 518 closed) and 1,795 PRs; all A IDs
   remain present. The 158 new issue records are in
   `issue-ledger-follow-on-b.jsonl`, with bodies hashed but not included. All 158
-  still require body and thread triage. Do not move cutoff A or B.
+  bodies and current comment threads are now reviewed; the ledger records 40
+  screened-for-Varve, 116 out-of-scope, and 2 already handled, with zero queued.
+  Current comments were fetched after the issue inventory, so they do not form
+  an atomic snapshot with the cutoff B issue records. Linked evidence, sample
+  files and attachments remain open where noted in findings.md. Do not move
+  cutoff A or B.
 - Scope mismatch: user resolved the brief’s conflicting links as PdfCraft
   (`storytold/pdfcraft`); `storytold/photocraft` is a separate repo. See README.
-- Thread-depth limits remain: 25 full issue threads, 1,258 full bodies, and 13
+- Cutoff A review depth was: 25 full issue threads, 1,258 full bodies, and 13
   empty-body title-only records. Relevant thread and attachment review is not
   complete; unresolved classes remain listed in `findings.md`.
 
@@ -26,7 +31,8 @@ Last updated: 2026-10-18 (session 4).
 - Branch: `feat/photocraft-hardening`, based on `32de0c41c4e30defe14452f04e500a624ac2582b`.
   Task commits: `3524d07ee` (text draft save integrity), `f0c0ae563`
   (PDF blend/transparency fidelity and release-aware website copy), `9a7e447eb`
-  (cutoff A corpus records/findings), and `5b2c3a409` (mobile website evidence).
+  (cutoff A corpus records/findings), `5b2c3a409` (mobile website evidence),
+  and `722315eda` (cutoff B inventory).
 - The main checkout has unrelated in-flight edits. Do not stage, revert,
   reset, stash, or commit them.
 - `packages/codegen/src/bundle-assets.ts` and
@@ -136,20 +142,47 @@ If yes, reason: n/a.
   current changes; Astro reported zero errors, warnings, or hints. Do not run
   the full suite; the planner did not escalate.
 
+### Latest validation report — cutoff B issue-body and thread screen
+
+Changed scope: cutoff B classifications for 89 queued issues, findings, README, summary and continuation docs.
+Validation plan: pnpm verify:plan selected 38 lanes; FULL-SUITE NO. Two unowned files under codegen/scene keep those packages in the affected closure.
+Commands actually run: pnpm verify:plan; pnpm verify:affected; pnpm audit:docs; pnpm audit:emoji; git diff --check; inline Python JSONL/summary consistency check.
+Passed: audit:docs; audit:emoji; follow-on ledger count/state/depth consistency; diff check.
+Skipped as unrelated: package compilers, unit tests and E2E did not run because verify:affected stopped at Tier 0 on the unowned packages/codegen/src/bundle-assets.ts formatting error.
+Escalations: none. No fix was applied to the other-worktree file.
+Full suite run: no.
+If yes, reason: n/a.
+
+### Latest validation report — Linux package guidance and mobile table
+
+Changed scope: `apps/website/src/pages/download.astro`, `docs/release/platform-support-matrix.md`, cutoff-B findings/ledger notes, and desktop/mobile visual evidence.
+Validation plan: `pnpm verify:plan` selected 41 lanes and reported FULL-SUITE NO. The package-codegen and scene untracked files remain in the affected closure.
+Commands actually run: `pnpm verify:plan`; `pnpm verify:affected`; `pnpm build:website`; `pnpm audit:docs`; `pnpm audit:emoji`; `pnpm audit:radius`; `pnpm exec biome check` on the owned touched files; `git diff --check`; inline Python ledger/summary consistency check; Firefox Playwright visual captures at 1440px and 390px; lease-wrapped Thai text corpus E2E attempt.
+Passed: website client-env guard and Astro check/build (126 static pages); docs audit (1162 docs, 833 links, 182 ADRs indexed); emoji audit (5414 files); owned-file Biome check; whitespace check; ledger/summary reconciliation; desktop and mobile visual review.
+Skipped as unrelated: full visual suite, Rust workspace tests, native print tests, and unrelated package/browser lanes. The Thai text corpus E2E never started: its shared heavy lease expired at 600 seconds while another live test lease remained active. `verify:affected` stopped at Tier 0 on the unowned `packages/codegen/src/bundle-assets.ts` formatting error, before dependent lanes; no fix was applied there. `audit:radius` still reports the 10 pre-existing legacy-radius consumers under editor Presentation and SpecPanel; none is in this change.
+Escalations: none. No full suite run.
+Full suite run: no.
+If yes, reason: n/a.
+
 ## Exact next steps
 
-1. Screen all 158 cutoff B issue bodies, then inspect full threads and linked
-   evidence for applicable or uncertain cases. Update the follow-on ledger with
-   research and engineering dispositions without changing cutoff A.
-2. Review new candidate classes against Varve source and tests before claiming
-   defects; resolve high-impact applicable classes in progressive commits.
-3. Continue the open applicable queue in `findings.md`: compositing backdrop,
+1. When the shared heavy-test lease is available, rerun the targeted Thai text
+   corpus E2E; the previous attempt expired without starting Playwright.
+2. Follow linked issues, PRs, attachments and source fixtures for cutoff-B
+   candidates that remain relevant or uncertain in `findings.md` §§4.20–4.22;
+   record inaccessible evidence rather than treating it as empty. The issue-body
+   queue is empty, but recursive evidence is not exhausted.
+3. Reproduce applicable candidates against Varve's declared workflows before
+   calling them defects. New screens confirm no additional defect; language,
+   layout, platform, startup, keyboard and updater candidates still need
+   product-specific checks or decisions.
+4. Continue the open applicable queue in `findings.md`: compositing backdrop,
    color-glyph/joining-control shaping, async generation guards, export
    fidelity and claims, bounded document-scale work, and dirty-state truth.
    Review deeper linked evidence for each relevant class.
-4. Take cutoff B, reconcile arrivals, refresh project/remote/default-branch
-   state, and integrate only after the owning untracked modules and affected
-   validation are resolved. A push to `master` touching `packages/**` or
+5. Reconcile later arrivals, refresh project/remote/default-branch state, and
+   integrate only after the owning untracked modules and affected validation
+   are resolved. A push to `master` touching `packages/**` or
    `apps/website/**` runs `website-deploy.yml`; the assignment authorizes the
    normal task merge/push, but no separate manual release.
 

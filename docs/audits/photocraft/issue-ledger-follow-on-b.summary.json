@@ -7,11 +7,16 @@
   "new_issues_since_cutoff_a": 158,
   "open": 149,
   "closed": 9,
-  "body_reviewed": 0,
-  "thread_reviewed": 0,
-  "queued_for_review": 158,
+  "body_reviewed": 158,
+  "thread_reviewed": 158,
+  "queued_for_review": 0,
   "baseline_issue_ids_missing": 0,
   "created_at_min": "2026-10-17T04:50:22Z",
   "created_at_max": "2026-10-18T12:27:29Z",
-  "notes": "Counts are inventory only. No new issue body, comment thread, attachment, or linked PR has yet been reviewed."
+  "notes": "All 158 cutoff-B issues have full body and current-comment review. Current comments were fetched after the frozen issue inventory, so this is a source-versioned issue snapshot plus later discussion reads, not an atomic point-in-time snapshot. Attachments, source fixtures, linked PR implementations and all recursive evidence were not exhausted; see findings.md §§4.15–4.22 and continuation.md for remaining frontier. No new Varve defect is confirmed by this screen.",
+  "reviewed_dispositions": {
+    "screened-for-varve": 40,
+    "out-of-scope": 116,
+    "already-handled": 2
+  }
 }
