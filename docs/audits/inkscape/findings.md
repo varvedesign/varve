@@ -687,3 +687,49 @@ GTK, extension, live-path-effect, arbitrary-marker, EPS/PS and packaging
 reports were not treated as Varve defects. The full-body lexical triage in
 #1–#1200 and #1201–#2400 is not counted as individual manual screening; the
 ledger records only descriptions that received a substantive read.
+
+### Additional historical threads and document-safety cases
+
+A direct read of [#1668](https://gitlab.com/inkscape/inkscape/-/issues/1668)
+found an old print clipping report whose discussion separates at least two
+reproductions: the original clip/print mismatch was reproduced on 1.0 and
+0.92.5, then not reproduced on 1.1-dev; a second user reported nested SVG
+viewports not appearing in print. Later notes link separate Inbox reports and
+additional fixtures. Treat this as historical renderer-parity evidence, not a
+single current defect. [#1627](https://gitlab.com/inkscape/inkscape/-/issues/1627)
+reports PNG export hanging on a clipped group whose fill references a gradient
+inside itself, with repeated “more than 32 iterations” document-update
+warnings. Its discussion also contains later distinct examples and a 42 KB
+comment; that thread is not counted as content-reviewed here. This reinforces
+cycle detection and bounded export as a test category without establishing a
+Varve hang. [#1957](https://gitlab.com/inkscape/inkscape/-/issues/1957) records
+an export-by-ID-only operation removing objects before a later export in the
+same session; [#1673](https://gitlab.com/inkscape/inkscape/-/issues/1673)
+records an old complex-document hit-testing loop during tool switching. These
+are historical integrity/performance reports; no matching Varve failure is
+known.
+
+## Recent Inkscape reports, IID 6001–6392
+
+A full-description pass read all 375 available, previously unscreened issues in
+this range. Ten were already in the ledger and seven bodies were unavailable;
+exact IDs are recorded in the continuation record. No discussions or linked
+attachments were reviewed in this pass, so the findings below are screening
+candidates only.
+
+Recent body reports again cluster around export fidelity and data integrity:
+PDFs reportedly lose content in masks and patterns (#6073, #6157, #6163,
+#6176, #6347), imported PDF colors/text can differ by renderer (#6186, #6278,
+#6380), and export metadata/links and page geometry can be wrong (#6052,
+#6105, #6184, #6185, #6305, #6317, #6390). Other reports cite incorrect
+HSL serialization (#6309), turbulence seams (#6331), raster edge bleed
+(#6160), and a 512× viewBox expansion during plain-SVG export (#6317).
+
+These reports are not direct evidence of matching Varve defects. Validate only
+where Varve supports the same feature and use the linked report as a regression
+shape; the attached samples were not fetched. Several reports concern current
+1.5 development builds, so check the tested version, platform, and export path
+before treating them as continuing upstream failures. User-pain reports also
+include an eight-minute selection of thousands of layers (#6391) and PDF form
+radio controls rendered selected on import (#6292); both are feature-specific
+and need realistic Varve workflow evidence before implementation.
