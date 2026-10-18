@@ -214,3 +214,36 @@ observable to tests/diagnostics.
   stopped or reclaimed, and the ChatGPT Linux app remained active. The broader
   55-lane branch triage, exact-SHA full gate, outgoing push checkpoint, PR/CI
   review, and merge remain incomplete.
+
+### Final local push checkpoint (2026-10-18)
+
+- The branch is at `53a76f2b9` (six commits ahead of `origin/master`, 20 net
+  files). `pnpm verify:plan` selects 55 lanes and reports
+  `FULL-SUITE ESCALATION: YES` for the Rust/WASM contract impact. The exact
+  push checkpoint passed with `VARVE_TEST_WORKERS=4 pnpm verify:push --since
+  origin/master`.
+- Passed in that checkpoint: outgoing history/secrets/policy scans, touched
+  format and lint, focused engine loader tests, the engine suite (451 files,
+  5,516 passed, 15 skipped), website unit tests (307 passed), affected editor,
+  engine, and website typechecks (Astro check: 199 files, zero diagnostics),
+  `varve-effects` and `varve-wasm` Rust tests, clippy for both crates, docs and
+  emoji audits, Cargo formatting, and model manifest validation.
+- Earlier retries reported only pre-existing timing ceilings in the engine
+  shaping and mockup-warp benchmarks while other worktrees had concurrent
+  browser/native workloads. Each file passed alone under the heavy-task lease;
+  the final four-worker checkpoint passed both within the package suite. No
+  performance limits were changed. A one-worker direct engine suite also
+  passed (5,518 passed, 13 skipped) but took 403.72s; the checkpoint's fixed
+  lane timeout is 300s, so that setting was not used for the final checkpoint.
+- Feature E2E passed 3/3, including WASM, unavailable-WASM CPU fallback, and
+  cold-load timeout fallback. PNG alpha/MIME E2E passed 2/2. WASM and CPU
+  fallback screenshots were captured and visually inspected in light, dark,
+  and high-contrast themes. The public performance documentation was updated
+  with the measured, bounded preview scope; the main feature landing page was
+  left unchanged because the measured sample does not support a general speed
+  claim.
+- Deferred to remote full certification by the push plan: full workspace JS
+  and Rust suites, editor package suite, all E2E and visual projects, WASM
+  target checks, desktop-native, and render benchmarks. These are not recorded
+  as passed. The required exact-SHA full gate, push, PR/CI review, and merge
+  remain outstanding.
