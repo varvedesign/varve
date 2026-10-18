@@ -54,8 +54,8 @@ Every one of the 1 296 issues received a disposition (see
 | Disposition | Count |
 |---|---|
 | `out-of-scope` (named product boundary, §3; includes no-signal records) | 677 |
-| `screened-for-varve` (failure class reaches a Varve subsystem) | 405 |
-| `already-handled` (verified in Varve source) | 207 |
+| `screened-for-varve` (failure class reaches a Varve subsystem) | 406 |
+| `already-handled` (verified in Varve source) | 206 |
 | `implemented` in this corpus pass | 7 |
 
 Reading depth is recorded per issue and is **not** uniform:
@@ -320,9 +320,11 @@ interactions, accessibility/performance, then useful improvements.
 - **Transferable rule** — every async completion carries the document/session
   identity *and* the generation it started for, and drops the result with a
   visible reason when that target is gone.
-- **Varve surface** — imports, drops, paste, background-removal and
-  segmentation already capture destination identity and reject stale results;
-  see the named guards and tests in this section's source review. A distinct
+- **Varve surface** — `useFileImport.ts` captures the destination document,
+  session and revision and is covered by `useFileImport.test.tsx`; canvas drops
+  capture document/session/revisions and are guarded by `dropUtils.test.ts`;
+  paste validates its invocation before applying. Background removal and
+  segmentation also capture document/node identity before committing. A distinct
   possible focus race remains at `apps/desktop/src/App.tsx:236`: concurrent
   Home opens can finish out of order because `handleOpenFile` has no latest
   intent check after its awaits. This is a focus/activation concern; each open
