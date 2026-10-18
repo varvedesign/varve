@@ -387,7 +387,9 @@ lanes, but Website Deploy `39141258752` found one more stale copy assertion
 in both deployment modes: the Linux package table says “PKGBUILD recommended,”
 not “recommended default for Arch.” The other 688 cases passed, including the
 updated visual baselines. That wording correction was committed and pushed as
-`558f97fdd`; exact-SHA CI and Website Deploy for the new head remain in progress.
+`558f97fdd`; its exact-SHA CI and Website Deploy quality gates and deploy
+passed. On the next integration head, `3da083f54e5f5bcff02105aac9237326e4cb6797`,
+CI and E2E Keyboard Nav are running and Website Deploy is queued.
 
 
 ## 2026-10-18: final read-only code review repairs
@@ -402,8 +404,9 @@ opacity. `cargo fmt --check` passed; `cargo test -p varve-print blend_mode`
 passed 7 tests and `cargo test -p varve-print node_opacity_is_applied_not_commented`
 passed 1 test.
 
-The editor handoff commit is integrated locally as a separate commit after
-`5d7561f28`. Its final Layers-tree selection variant is queued for Chromium
-validation through the shared lease. The app and the other worktree processes
-remain running. The latest exact-SHA CI and Website Deploy runs have not yet
-completed.
+The editor handoff is committed as `3da083f54e5f5bcff02105aac9237326e4cb6797`
+on `master`, after `5d7561f28`. The candidate documentation audit passed
+(1,140 docs, 814 links, 178 ADRs). Its final Layers-tree selection variant is
+queued for Chromium validation through the shared lease behind another
+worktree’s 36-minute Vitest run; the app and other worktree processes remain
+running. Exact-SHA CI and Website Deploy for this head are still in progress.
