@@ -47,7 +47,7 @@ function explicitAxisSizing(n: SceneNode, axis: 'width' | 'height'): LayoutSizin
 function primaryGrowWeight(child: SceneNode, primaryAxis: 'width' | 'height'): number {
   const fillGrow = axisSizing(child, primaryAxis) === 'fill' ? 1 : 0;
   const styleGrow = (child as { layoutStyle?: { grow?: number } }).layoutStyle?.grow ?? 0;
-  return fillGrow || styleGrow;
+  return fillGrow || (Number.isFinite(styleGrow) && styleGrow > 0 ? styleGrow : 0);
 }
 
 function relativePercent(child: SceneNode, axis: 'width' | 'height'): number {
@@ -267,6 +267,19 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
 
   const frameW = frame.w ?? 400;
   const frameH = frame.h ?? 200;
+  if (
+    ![
+      frameW,
+      frameH,
+      style.gap,
+      style.columnGap ?? style.gap,
+      style.rowGap ?? style.gap,
+      ...style.padding,
+    ].every(Number.isFinite) ||
+    style.padding.some((value) => value < 0)
+  ) {
+    return [];
+  }
   const availW = Math.max(0, frameW - pl - pr);
   const availH = Math.max(0, frameH - pt - pb);
   const primaryAxis: 'width' | 'height' = row ? 'width' : 'height';
@@ -338,7 +351,29 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
     if (lineTotal > avail) {
       shrinkLineSizes(children, sizes, line.indices, primaryAxis, row, avail, primaryGap);
     }
-    line.totalSize = Math.max(...line.indices.map((index) => crossNatural(sizes[index]!, row)), 0);
+    if (row) {
+      for (let offset = 0; offset < line.indices.length; offset++) {
+        const index = line.indices[offset]!;
+        const child = children[index]!;
+        const allocated = sizes[index]!;
+        if (
+          child.kind !== 'text' ||
+          axisSizing(child, 'width') === 'fixed' ||
+          Math.abs(allocated.w - lineNatural[offset]!.w) <= 0.001
+        ) {
+          continue;
+        }
+        const remeasured = measureNodeFootprint({ ...child, w: allocated.w });
+        sizes[index] = {
+          ...allocated,
+          h: style.includeBordersInLayout === true ? remeasured.occupied.h : remeasured.geometry.h,
+        };
+      }
+    }
+    line.totalSize = line.indices.reduce(
+      (maximum, index) => Math.max(maximum, crossNatural(sizes[index]!, row)),
+      0,
+    );
   }
 
   // ── Distribute lines along cross-axis, align items per line ─────
@@ -472,5 +507,12 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
     }
   }
 
-  return results;
+  return results.every(
+    (result) =>
+      [result.x, result.y, result.w, result.h].every(Number.isFinite) &&
+      result.w >= 0 &&
+      result.h >= 0,
+  )
+    ? results
+    : [];
 }

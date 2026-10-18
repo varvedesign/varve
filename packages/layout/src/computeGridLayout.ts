@@ -511,9 +511,29 @@ export function computeGridLayoutDetailed(
       true,
       includeBorders,
     );
+    const assignmentByChild = new Map(
+      assignments.map((assignment) => [assignment.childIndex, assignment]),
+    );
+    const rowMeasurementNodes = childNodes.map((child, childIndex) => {
+      const assignment = assignmentByChild.get(childIndex);
+      if (!assignment || child.kind !== 'text' || axisSizing(child, 'width') === 'fixed') {
+        return child;
+      }
+      const cellWidth =
+        resolvedColSizes
+          .slice(assignment.col, assignment.col + assignment.colSpan)
+          .reduce((sum, size) => sum + size, 0) +
+        Math.max(0, assignment.colSpan - 1) * columnGap;
+      const footprint = measureNodeFootprint(child);
+      const borderOutsets = footprint.occupied.w - footprint.geometry.w;
+      return {
+        ...child,
+        w: Math.max(0, cellWidth - (includeBorders ? borderOutsets : 0)),
+      };
+    });
     resolvedRowSizes = resolveGridTrackSizes(
       resolvedRows,
-      childNodes,
+      rowMeasurementNodes,
       assignments,
       availH,
       rowGap,

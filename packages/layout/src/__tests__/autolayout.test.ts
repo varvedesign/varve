@@ -1,6 +1,7 @@
 import type { FrameNode, SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { computeFlexLayout } from '../computeFlexLayout';
+import { measureNodeSize } from '../measure';
 
 function makeFrame(layoutStyle: FrameNode['layoutStyle']): FrameNode {
   return {
@@ -636,5 +637,83 @@ describe('computeFlexLayout', () => {
     // occupied footprint used for spacing.
     expect(results[0]).toMatchObject({ w: 100, occupiedW: 108 });
     expect(results[1]).toMatchObject({ x: 118 });
+  });
+
+  it('remeasures auto-height text after a fill width is allocated', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 60;
+    const text: SceneNode = {
+      id: 'wrapped-copy',
+      name: 'Wrapped copy',
+      kind: 'text',
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 1 },
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      text: 'A sentence that wraps to several lines after its fill width is resolved.',
+      fontSize: 16,
+      fontFamily: 'Arial',
+      textResizing: 'autoHeight',
+      w: 140,
+      h: 20,
+      layoutSizingWidth: 'fill',
+      layoutSizingHeight: 'hug',
+      strokes: [],
+      effects: [],
+    } as SceneNode;
+
+    const [result] = computeFlexLayout(frame, [text]);
+
+    expect(result?.w).toBe(60);
+    expect(result?.h).toBe(measureNodeSize({ ...text, w: 60 } as SceneNode).h);
+    expect(result?.h).toBeGreaterThan(measureNodeSize(text).h);
+  });
+
+  it('ignores non-finite grow weights without producing non-finite geometry', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 100;
+    const child = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: Number.POSITIVE_INFINITY,
+      shrink: 0,
+    });
+    child.id = 'invalid-grow';
+    child.w = 20;
+    child.h = 20;
+
+    const results = computeFlexLayout(frame, [child]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ x: 0, y: 0, w: 20, h: 20 });
+    expect(
+      Object.values(results[0] ?? {}).every(
+        (value) => typeof value !== 'number' || Number.isFinite(value),
+      ),
+    ).toBe(true);
   });
 });
