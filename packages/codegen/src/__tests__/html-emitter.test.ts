@@ -55,6 +55,55 @@ describe('exportIrToHtml', () => {
     expect(result.css).toContain('grid-row: 1;');
   });
 
+  it('exports around and evenly distribution without normalizing either to between', () => {
+    const doc = createDocument('Distributed spacing');
+    const aroundFirst = makeFrameNode('around-first', { name: 'Around first', w: 50, h: 30 });
+    const aroundSecond = makeFrameNode('around-second', { name: 'Around second', w: 50, h: 30 });
+    const evenlyFirst = makeFrameNode('evenly-first', { name: 'Evenly first', w: 50, h: 30 });
+    const evenlySecond = makeFrameNode('evenly-second', { name: 'Evenly second', w: 50, h: 30 });
+    const baseStyle = {
+      mode: 'flex' as const,
+      direction: 'row' as const,
+      gap: 0,
+      padding: [0, 0, 0, 0] as [number, number, number, number],
+      wrap: false,
+      grow: 0,
+      shrink: 0,
+    };
+    const around = makeFrameNode('around', {
+      name: 'Around',
+      w: 400,
+      h: 100,
+      children: [aroundFirst.id, aroundSecond.id],
+      layoutStyle: { ...baseStyle, justifyContent: 'spaceAround' },
+    });
+    const evenly = makeFrameNode('evenly', {
+      name: 'Evenly',
+      w: 400,
+      h: 100,
+      children: [evenlyFirst.id, evenlySecond.id],
+      layoutStyle: { ...baseStyle, justifyContent: 'spaceEvenly' },
+    });
+    const result = exportIrToHtml(
+      sceneToIR({
+        ...doc,
+        nodes: {
+          [around.id]: around,
+          [aroundFirst.id]: aroundFirst,
+          [aroundSecond.id]: aroundSecond,
+          [evenly.id]: evenly,
+          [evenlyFirst.id]: evenlyFirst,
+          [evenlySecond.id]: evenlySecond,
+        },
+        rootChildren: [around.id, evenly.id],
+      }),
+    );
+
+    expect(result.css).toContain('justify-content: space-around;');
+    expect(result.css).toContain('justify-content: space-evenly;');
+    expect(result.css).not.toContain('justify-content: space-between;');
+  });
+
   it('produces valid HTML document structure', () => {
     const doc = createDocument('Test Design');
     const frame = makeFrameNode('f1', { name: 'Container' });

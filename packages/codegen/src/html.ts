@@ -119,6 +119,9 @@ function layoutToCss(layout: LayoutSpec, unit: string, base: number): Record<str
     else if (jc === 'end') props['justify-content'] = 'flex-end';
     else if (jc === 'center') props['justify-content'] = 'center';
     else if (jc === 'stretch') props['justify-content'] = 'stretch';
+    else if (jc === 'space-between') props['justify-content'] = 'space-between';
+    else if (jc === 'space-around') props['justify-content'] = 'space-around';
+    else if (jc === 'space-evenly') props['justify-content'] = 'space-evenly';
   }
 
   if (layout.mode === 'grid') {

@@ -536,10 +536,10 @@ function normalizeNode(
     layoutAlign: stringValue(raw.layoutAlign),
     layoutPositioning: stringValue(raw.layoutPositioning),
     overflowDirection: stringValue(raw.overflowDirection),
-    minWidth: positive(raw.minWidth, 0),
-    maxWidth: positive(raw.maxWidth, 0),
-    minHeight: positive(raw.minHeight, 0),
-    maxHeight: positive(raw.maxHeight, 0),
+    minWidth: optionalFinite(raw.minWidth),
+    maxWidth: optionalFinite(raw.maxWidth),
+    minHeight: optionalFinite(raw.minHeight),
+    maxHeight: optionalFinite(raw.maxHeight),
     layoutGrids: recordArray(raw.layoutGrids)
       .map(layoutGrid)
       .filter((grid): grid is FigmaLayoutGrid => grid !== undefined),

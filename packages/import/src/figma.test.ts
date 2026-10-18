@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { applyGridLayout } from '@varve/layout';
+import { applyGridLayout, computeFlexLayout } from '@varve/layout';
 import { DocumentCodec, validateDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
@@ -552,6 +552,71 @@ describe('Figma JSON importer', () => {
     expect(contentRoot && result.document.nodes[contentRoot]?.transform).toEqual([
       2, 0, 0, 2, 0, 0,
     ]);
+  });
+
+  it('preserves distributed spacing through import, save/reopen, and layout', () => {
+    const input = JSON.parse(fixture()) as Record<string, any>;
+    const page = input.document.children[0];
+    const modes = [
+      { source: 'SPACE_AROUND', stored: 'spaceAround', firstX: 75, secondX: 275 },
+      { source: 'SPACE_EVENLY', stored: 'spaceEvenly', firstX: 100, secondX: 250 },
+    ] as const;
+
+    for (const [index, mode] of modes.entries()) {
+      page.children.push({
+        id: `justify:${index}`,
+        type: 'FRAME',
+        name: `Distributed ${mode.stored}`,
+        absoluteBoundingBox: { x: 20 + index * 420, y: 250, width: 400, height: 100 },
+        layoutMode: 'HORIZONTAL',
+        itemSpacing: 0,
+        primaryAxisAlignItems: mode.source,
+        counterAxisAlignItems: 'MIN',
+        children: [0, 1].map((childIndex) => ({
+          id: `justify:${index}:child:${childIndex}`,
+          type: 'RECTANGLE',
+          name: `Distributed child ${index}-${childIndex}`,
+          absoluteBoundingBox: {
+            x: 20 + index * 420 + childIndex * 60,
+            y: 250,
+            width: 50,
+            height: 30,
+          },
+        })),
+      });
+    }
+
+    const imported = createFigmaParser().parse(JSON.stringify(input)).document;
+    const reopened = DocumentCodec.decode(DocumentCodec.encode(imported));
+    expect(reopened.ok).toBe(true);
+    if (!reopened.ok) throw new Error('Imported document could not be reopened');
+
+    for (const mode of modes) {
+      const frame = Object.values(reopened.document.nodes).find(
+        (node) => node.name === `Distributed ${mode.stored}`,
+      );
+      expect(frame?.kind).toBe('frame');
+      if (frame?.kind !== 'frame') throw new Error('Distributed frame was not imported');
+      expect(frame.layoutStyle?.justifyContent).toBe(mode.stored);
+      const children = frame.children.flatMap((id) => {
+        const child = reopened.document.nodes[id];
+        return child ? [child] : [];
+      });
+      expect(frame.w).toBe(400);
+      expect(frame.layoutStyle?.padding).toEqual([0, 0, 0, 0]);
+      expect(
+        children.map((child) =>
+          child.kind === 'shape' && child.shape.kind === 'rect' ? child.shape.w : null,
+        ),
+      ).toEqual([50, 50]);
+      expect(children.map((child) => [child.minWidth, child.maxWidth])).toEqual([
+        [undefined, undefined],
+        [undefined, undefined],
+      ]);
+      const [first, second] = computeFlexLayout(frame, children);
+      expect(first?.x).toBeCloseTo(mode.firstX);
+      expect(second?.x).toBeCloseTo(mode.secondX);
+    }
   });
 
   it('keeps fixed child geometry and reports loss when grid sizing cannot be represented', () => {
