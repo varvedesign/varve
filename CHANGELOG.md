@@ -10,6 +10,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 build a tag that has no matching section. Write for someone deciding whether to install the
 update, not for someone reading the commit log.
 
+## [Unreleased]
+
+### Fixed
+
+- **Text save integrity** — Save and close now include buffered text drafts, including the visible
+  value during IME composition, without ending the active edit session.
+
 ## [0.5.1] - 2026-10-15
 
 Patch over public-beta 0.5.0. The document schema is still 2.33. This

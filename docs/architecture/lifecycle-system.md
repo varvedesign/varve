@@ -97,6 +97,14 @@ TitleBar X    File menu/Shortcuts  OS event (Alt+F4, WM close, Cmd+Q,
 - **Dirty authority**: `state.sessions[]` (per-session `dirty`) — never undo
   stack length, identity, or autosave timing. Hidden sessions and Home view
   count.
+- **Buffered drafts are drained first**: a session's `dirty` flag cannot see
+  input an editing surface has coalesced but not yet applied. `run`,
+  `shouldWarnOnUnload` and `bestEffortFlush` therefore call the injected
+  `flushPendingEdits` (implemented by `context/pendingEdits.ts`) before
+  deriving the unsaved set or warning. Without it, quitting inside the typing
+  coalescing window decided "nothing unsaved" for text the user could see
+  (photocraft #811). The same drain runs at the head of the save engine, so a
+  manual save inside that window writes the visible text.
 - **Revision safety**: a save marks clean only if the document is still at
   the saved revision; a revision race re-saves (bounded) or fails as
   `conflict`. A quit during Ctrl+S joins the existing save.
