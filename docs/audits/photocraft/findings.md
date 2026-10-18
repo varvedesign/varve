@@ -85,9 +85,12 @@ attempt and that a writable 0640 file remains 0640. Atomic replacement and
 same-filesystem staging remain intact.
 
 **Engineering status:** focused Linux native tests passed (3 tests covering
-replacement, read-only refusal, and mode preservation). Full-gate validation
-for this batch remains pending because the impact planner escalated. Code
-review and final integration are pending. **Research status:** #6617 and the
+replacement, read-only refusal, and mode preservation). The exact-SHA local
+full gate passed formatting/lint, architecture, health, all typechecks, CI
+tooling, and WASM lanes; its Vitest lane had two unrelated baseline failures
+and a benchmark timing failure that passed when rerun alone under the heavy-task
+lease. Code review of the complete branch and final integration are pending.
+**Research status:** #6617 and the
 full discussions for #6600–#6605 were reviewed; related same-path and recovery
 issues remain under Varve applicability review.
 

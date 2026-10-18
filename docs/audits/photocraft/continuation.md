@@ -46,11 +46,14 @@ Last updated: 2026-10-18. Status: active and incomplete.
   docs, unit tests, and Playwright visual test are implemented. The focused
   editor/scene run passed 111 tests; codegen passed 16 tests. The real Inspector
   Playwright test passed, and screenshots are retained under `evidence/`.
-  A clean-SHA full local gate passed typechecks, architecture, health, CI
-  tooling, and WASM lanes, but the Vitest lane ended with 2, out-of-scope
-  failures: the screenshot-policy test found six existing literals in other
-  specs, and the presentation demo fixture is stale. It reported 1,992 passing
-  test files / 22,905 passing tests. The exact details are in Validation below.
+  The first clean-SHA full local gate passed typechecks, architecture, health,
+  CI tooling, and WASM lanes, but Vitest found two existing failures: the
+  screenshot-policy test reported six literals in other specs, and the
+  presentation demo fixture is stale. A second exact-SHA gate after Batch B
+  reproduced those and found the selection-refinement benchmark just over its
+  timing ceiling under full-suite load. The benchmark passed alone under the
+  heavy-task lease (6.95s total; 3.44s for sigma-16 feather), so it is recorded
+  as contention-sensitive, not a regression from Batch B. See Validation.
   A code-review
   finding for `__proto__` node IDs was fixed in a separate codegen commit. Prerequisite
   commits restored `packages/scene/src/nodeResize.ts` and
@@ -141,8 +144,8 @@ Last updated: 2026-10-18. Status: active and incomplete.
   found six hard-coded screenshot destinations in existing specs
   `vertical-text-orientation.spec.ts` and `visual-compositing.spec.ts`;
   `apps/website/src/test/demoDocuments.test.ts` found the committed
-  `presentation.varve` fixture stale. These failures were observed at the
-  clean SHA before F-002 and are not attributed to F-001.
+  `presentation.varve` fixture stale. These failures were observed before
+  F-002 and do not touch its native filesystem path.
 - For F-002, `pnpm verify:plan` selected format/lint, emoji, desktop JS
   typecheck/unit, and desktop-native lanes, then escalated to full suite because
   the touched native boundary is classified as shared contract surface.
@@ -152,5 +155,16 @@ Last updated: 2026-10-18. Status: active and incomplete.
   task-specific `/tmp` target and debug info disabled passed all three
   `atomic_write_` tests. Rustfmt passed for the touched `lib.rs` with child
   modules excluded; repository-wide `cargo fmt --check` reports existing drift
-  in untouched `collab_host.rs` and `lifecycle.rs`. The exact-SHA full gate for
-  F-002 is still required.
+  in untouched `collab_host.rs` and `lifecycle.rs`. The exact-SHA gate at
+  `a5684de538823ce0180d151de6d8413cfbec963a` passed formatting/lint, emoji,
+  health, enforced architecture checks (14 cycles, zero layer violations),
+  all 20 workspace typechecks and E2E typecheck, 40 CI tooling tests, and all
+  baseline/SIMD/colour WASM builds. Its Vitest lane ran 2,008 files: 1,991
+  passed, 14 skipped, and 3 failed; 22,904 tests passed and 17 skipped.
+  The failures were (1) six pre-existing hard-coded screenshot destinations in
+  `vertical-text-orientation.spec.ts` and `visual-compositing.spec.ts`,
+  (2) stale `presentation.varve`, and (3) `feather-sigma16` at 10.365s against
+  the benchmark's 10s bound. The focused benchmark passed via the heavy-task
+  lease with `feather-sigma16` at 3.44s. Full-gate output and operation receipt
+  are retained in local validation history; this does not certify hosted E2E,
+  packaged builds, or native Windows/macOS matrices.
