@@ -31,8 +31,9 @@ they do not imply code signing or a warranty.
 | macOS 13+ Apple Silicon | `.dmg` | Native installed-app qualification passed on the macOS ARM64 runner; no maintainer-owned Mac for ongoing hardware coverage | **Tier 2 — Best effort** | Installed writable app can self-update; mounted or translocated copies cannot |
 | macOS Intel | — | No artifact is built or published | **Not supported** | — |
 
-The minimum Linux ABI baseline is glibc 2.35. Linux AppImages use the host's
-WebKitGTK libraries and may require FUSE2; see
+The minimum Linux ABI baseline is glibc 2.35. musl-based distributions such as
+Alpine are not supported by the published Linux builds. Linux AppImages use
+the host's WebKitGTK libraries and may require FUSE2; see
 [Linux build requirements](platform-build-requirements.md) and the
 [download page](https://varve.studio/download) for per-package requirements.
 Windows and macOS installers are unsigned; the macOS DMG is also not

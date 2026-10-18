@@ -531,16 +531,16 @@ test('install guidance is honest about Gatekeeper, SmartScreen, and checksums', 
   );
   await expect(page.locator('body')).not.toContainText('The Arch AUR package');
   await expect(page.locator('body')).not.toContainText('use the AppImage for now');
-  await expect(page.locator('body')).not.toContainText('the repository PKGBUILD is fine to use');
-  await expect(page.locator('body')).not.toContainText('An AUR package is coming');
-  await expect(page.locator('body')).not.toContainText('AUR registration is currently closed');
-  await expect(page.locator('body')).not.toContainText('AUR/Arch is fixed');
-  await expect(page.locator('body')).not.toContainText('is fixed and fine to use');
   await expect(page.locator('#troubleshoot-help')).toContainText(
-    'Linux — AppImage will not start (FUSE2 missing)',
+    'the repository PKGBUILD is fine to use',
+  );
+  await expect(page.locator('#troubleshoot-help')).toContainText('The AppImage also works');
+  await expect(page.locator('#troubleshoot-help')).toContainText('An AUR package is coming');
+  await expect(page.locator('#troubleshoot-help')).toContainText(
+    'AUR registration is currently closed',
   );
   await page.locator('#platform-tab-linux').click();
-  await expect(page.locator('#platform-linux')).toContainText('recommended default for Arch');
+  await expect(page.locator('#platform-linux')).toContainText('PKGBUILD recommended');
   await expect(page.locator('.release-info')).toContainText('October 9, 2026');
   await expect(page.locator('.release-info')).not.toContainText('2026-10-16');
   await expect(page.locator('.release-info')).not.toContainText('Released: 2026-10-16');

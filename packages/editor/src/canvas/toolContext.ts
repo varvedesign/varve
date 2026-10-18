@@ -24,6 +24,7 @@ import {
 import type { Camera } from '@varve/shared';
 import { applyAffine } from '@varve/shared';
 import type { EditorContextValue, EditorState } from '../context';
+import { flushPendingEdits } from '../context/pendingEdits';
 import type { TransformPreviewStore } from '../context/ViewportContext';
 import { HitTestEngine } from '../hitTest/HitTestEngine';
 import {
@@ -107,6 +108,7 @@ export interface ToolContextDeps {
   marqueeIndexRef: React.MutableRefObject<SpatialIndex | null>;
   pendingAutoTextEditRef: React.MutableRefObject<boolean>;
   nodeEditTargetId: string | null;
+  textEditTargetId?: string | null;
   setDraft: (draft: DraftShape | null) => void;
   previewNodePositions?: ToolContext['previewNodePositions'];
   clearNodePositionPreview?: ToolContext['clearNodePositionPreview'];
@@ -489,9 +491,11 @@ export function buildToolContext(
     focusNextSelectedNode: () => e.focusNextSelectedNode(),
     focusPreviousSelectedNode: () => e.focusPreviousSelectedNode(),
     nodeEditTargetId: deps.nodeEditTargetId,
+    textEditTargetId: deps.textEditTargetId,
     setNodeEditTargetId: deps.setNodeEditTargetId,
     setNodeEditSelectedAnchors: deps.setNodeEditSelectedAnchors,
     setTextEditTargetId: deps.setTextEditTargetId,
+    flushPendingEdits,
     setTableEdit: (state) => e.setTableEdit(state),
 
     snapPosition: (bounds, _targets) => {

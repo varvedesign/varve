@@ -76,18 +76,20 @@ import '../../../styles/docs-prose.css';
         </p>
         <ul>
           <li><strong>Standard PDF</strong> — Path operators for all primitive types (rect, circle, ellipse, line, polygon, star, arrow, bezier paths)</li>
-          <li><strong>PDF/X-1a</strong> — Print-ready PDF with CMYK color, crop marks, registration marks, and color bars</li>
-          <li><strong>PDF/X-4</strong> — Modern PDF/X with transparency and color management support</li>
+          <li><strong>PDF/X-1a</strong> — Print-ready PDF with CMYK color, crop marks, registration marks, and color bars. The next desktop release will stop export when artwork uses transparency or blend modes it cannot preserve.</li>
+          <li><strong>PDF/X-4</strong> — Modern PDF/X with live transparency, supported blend modes, and color management in the next desktop release</li>
           <li><strong>Font outlining</strong> — Text converted to vector paths using ab_glyph for reliable rendering (optional)</li>
           <li><strong>ICC profile embedding</strong> — Bundled sRGB, Adobe RGB, Fogra39, GRACoL, and SWOP profiles</li>
           <li><strong>Color bars and registration marks</strong> — Print production marks with 5-crosshair registration targets</li>
         </ul>
         <p>
           Pattern fills in print output currently support axis-aligned grid repeats with positive
-          independent gaps. Standard PDF preserves tile transparency and fill opacity; PDF/X-4
-          preserves transparency; PDF/X-1a converts opaque tiles to CMYK and omits transparent
-          patterns with a warning. Shifted repeats, mirror, phase, rotation, negative gaps, and
-          repeats estimated above 100,000 tiles are omitted with an embedded warning. Linked
+          independent gaps. Standard PDF preserves tile transparency and fill opacity. The next
+          desktop release will have PDF/X-4 preserve transparency, while PDF/X-1a requires opaque artwork and stops when object or fill
+          opacity, image alpha, pattern-tile alpha, or blend modes cannot be represented. Make the
+          artwork opaque and flatten the full composite against its background, or choose PDF/X-4
+          before exporting. Shifted repeats, mirror, phase, rotation, negative
+          gaps, and repeats estimated above 100,000 tiles are omitted with an embedded warning. Linked
           pattern fills are raster tile images in PDF, not reusable PDF pattern objects. See the{' '}
           <a href={sitePath('/docs/tools/patterns')}>pattern workflow guide</a> for source-tile and
           SVG limits.

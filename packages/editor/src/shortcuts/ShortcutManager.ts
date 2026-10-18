@@ -1007,6 +1007,11 @@ export function shouldIgnoreHistoryShortcutTarget(target: Element | null): boole
  * keep their own key ownership, as they do for ordinary global shortcuts.
  */
 export function shouldIgnoreSaveShortcutTarget(target: Element | null): boolean {
+  // The on-canvas text editor is a native textarea so ordinary shortcuts
+  // stay local to the draft, but Save must reach the document persistence
+  // path while that draft is still focused. \`runSave\` drains the coalesced
+  // text before capturing the document revision.
+  if (target?.closest('textarea[aria-label^="Editing text:"]')) return false;
   const nearestDialog = target?.closest('[role="dialog"],[role="alertdialog"]');
   const inspectorDrawer = nearestDialog?.matches(
     '[role="dialog"][data-editor-shortcut-scope="inspector-history"]',

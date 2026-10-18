@@ -548,3 +548,99 @@ describe('mockup composition findings', () => {
     }
   });
 });
+
+// The PDF/X encoders do not read `blendMode` unless the capability says the
+// format carries it. Before this contract, a blended document exported through
+// those formats printed as if every object were Normal, and the preflight
+// described the loss as "will be rasterized" — which never happened.
+describe('blend-mode export fidelity', () => {
+  function docWithBlend(mode: 'multiply' | 'plusLighter') {
+    const rect = {
+      ...makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }, { name: 'Glow' }),
+      blendMode: mode,
+    };
+    return {
+      ...createDocument('Doc', true),
+      rootChildren: ['n1'],
+      nodes: { n1: rect },
+    } as ReturnType<typeof createDocument> & {
+      rootChildren: string[];
+      nodes: Record<string, typeof rect>;
+    };
+  }
+
+  const pressConfig = (format: 'pdf-x1a' | 'pdf-x4') =>
+    createExportConfiguration({
+      id: 'c1',
+      target: { type: 'node', nodeId: 'n1' },
+      format,
+    });
+
+  it('blocks PDF/X-1a blend content by name instead of promising a raster pass', () => {
+    const result = runExportPreflight(docWithBlend('multiply'), request([pressConfig('pdf-x1a')]));
+    const blend = result.findings.find((f) => f.code === 'blend-mode-blocked');
+    expect(blend).toBeDefined();
+    expect(blend).toMatchObject({ severity: 'error', canIgnore: false });
+    expect(blend?.description).toContain('Glow');
+    expect(blend?.description).toContain('Multiply');
+    expect(blend?.description).toContain('PDF/X-4');
+    expect(blend?.description).toContain('complete composite');
+    expect(blend?.description).not.toContain('will be flattened to raster');
+    expect(result.findings.find((f) => f.code === 'subtree-rasterized')).toBeUndefined();
+    expect(result.blocked).toBe(true);
+  });
+
+  it('lets PDF/X-4 carry a named blend mode without a finding', () => {
+    const result = runExportPreflight(docWithBlend('multiply'), request([pressConfig('pdf-x4')]));
+    expect(result.findings.filter((f) => f.code.startsWith('blend-'))).toEqual([]);
+  });
+
+  it('blocks PDF/X-1a object opacity that the writer cannot preserve', () => {
+    const doc = docWithShapes();
+    const node = doc.nodes.n1!;
+    node.opacity = 0.5;
+
+    const result = runExportPreflight(doc, request([pressConfig('pdf-x1a')]));
+    const transparency = result.findings.find((f) => f.code === 'transparency-blocked');
+    expect(transparency).toMatchObject({ severity: 'error', canIgnore: false, nodeIds: ['n1'] });
+    expect(transparency?.description).toContain('PDF/X-4');
+    expect(result.blocked).toBe(true);
+  });
+
+  it('blocks PDF/X-1a translucent fill colors during preflight', () => {
+    const doc = docWithShapes();
+    const node = doc.nodes.n1!;
+    node.fills = [
+      {
+        type: 'solid',
+        color: { space: 'rgb', r: 255, g: 0, b: 0, a: 128 },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ];
+
+    const result = runExportPreflight(doc, request([pressConfig('pdf-x1a')]));
+    const transparency = result.findings.find((f) => f.code === 'transparency-blocked');
+    expect(transparency).toMatchObject({ severity: 'error', canIgnore: false, nodeIds: ['n1'] });
+    expect(result.blocked).toBe(true);
+  });
+
+  it('reports a mode with no PDF name even for a transparency-capable format', () => {
+    const result = runExportPreflight(
+      docWithBlend('plusLighter'),
+      request([pressConfig('pdf-x4')]),
+    );
+    const blend = result.findings.find((f) => f.code === 'blend-mode-blocked');
+    expect(blend).toBeDefined();
+    expect(blend?.description).toContain('Plus Lighter');
+  });
+
+  it('raises no blend finding for a format that really rasterizes', () => {
+    const result = runExportPreflight(
+      docWithBlend('multiply'),
+      request([pngConfig({ type: 'node', nodeId: 'n1' })]),
+    );
+    expect(result.findings.find((f) => f.code === 'blend-mode-blocked')).toBeUndefined();
+  });
+});

@@ -34,6 +34,49 @@ testing to the canvas viewport, so an off-canvas line cannot intercept the
 inspector. The floating formatting toolbar remains a separate overlay.
 This does not replace the pending shaped-glyph caret geometry work.
 
+### Buffered input must be drainable from outside the surface
+
+Typing is coalesced: `TextEditOverlay.scheduleTextUpdate` holds native input
+for ~100 ms before it reaches the document, because replaying a large document
+on every keystroke is the regression
+[photocraft #2616](https://github.com/storytold/pdfcraft/issues/2616)
+describes. Coalescing is therefore deliberate, and it creates a window in
+which the textarea shows characters the document does not have yet.
+
+Any consumer that observes or persists the model on the user's behalf must
+close that window first. `context/pendingEdits.ts` owns the contract: a
+buffering surface registers a `PendingEditSource` (identity, `hasPending`,
+`flush`) while it can hold work, and `flushPendingEdits()` drains every
+pending source inside a `flushSync` so the editor's async-authoritative state
+reflects the flush before the caller reads it. Today the save engine
+(`context/usePersistence.ts#runSave`) and the termination coordinator
+(`lifecycle/coordinator.ts` — `run`, `shouldWarnOnUnload`,
+`bestEffortFlush`) are drains; a new surface that buffers a model write must
+register one, and a new consumer that persists or reports the model must
+drain.
+
+The rules that follow:
+
+1. A save, close, quit, or unload decision made inside the coalescing window
+   must include the buffered characters.
+2. A drain publishes text; it does not end the editing session, drop the
+   selection, or change undo granularity (the burst transaction is settled,
+   exactly as a formatting handoff already does).
+3. An active IME composition remains open, but its currently visible textarea
+   value is included in a save snapshot. The drain does not end native
+   composition or close the burst underneath it; `compositionend` avoids
+   publishing the same value twice and then settles the typing transaction.
+4. Draining is idempotent and cheap when nothing is pending, so observation
+   points may call it unconditionally.
+
+Evidence: [photocraft #811](https://github.com/storytold/pdfcraft/issues/811)
+(save and close ignore typing in an open paragraph) and
+[#166](https://github.com/storytold/pdfcraft/issues/166) (save omits the
+focused field's text) — the same defect in a sibling Tauri document editor.
+Regression coverage: `tests/e2e/save/text-draft-save.spec.ts`,
+`components/TextEditOverlay.test.tsx`,
+`lifecycle/__tests__/coordinator.test.ts`, `context/pendingEdits.test.ts`.
+
 The glyph inspector segments a paragraph once, derives each label from its
 existing grapheme, and memoizes the option arrays. Closed shared Select
 controls do not construct their option elements. This avoids quadratic

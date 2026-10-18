@@ -49,6 +49,23 @@ export class TextTool extends BaseTool {
     const parentId = this.commitToParent(center, ctx);
 
     if (this.isBelowThreshold(ctx)) {
+      // While an inline text session is active, clicking another text object
+      // switches sessions and lets TextEditOverlay drain its buffered draft.
+      // In ordinary Text-tool use, keep clicks on existing artwork available
+      // for placing a new text object nearby.
+      if (ctx.textEditTargetId) {
+        const hit = ctx.hitTest(this.drag.startWorld);
+        if (hit?.node.kind === 'text') {
+          // Flush the old session before closing any open creation transaction.
+          // The save drain commits React updates synchronously, so the previous
+          // node is durable in history before the new editor receives focus.
+          ctx.flushPendingEdits?.();
+          ctx.commitTransaction();
+          ctx.setSelection(hit.nodeId);
+          ctx.setTextEditTargetId(hit.nodeId);
+          return;
+        }
+      }
       ctx.createTextNodeAt(this.drag.startWorld, undefined, parentId, '');
       return;
     }
