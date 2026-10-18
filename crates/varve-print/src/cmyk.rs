@@ -559,9 +559,19 @@ fn assert_pdfx1a_has_no_live_transparency(
             .strokes
             .iter()
             .any(|stroke| stroke.visible && translucent_color(&stroke.color));
+        let translucent_effect = node.effects.iter().any(|effect| match effect {
+            varve_core::Effect::DropShadow {
+                color,
+                opacity,
+                visible,
+                ..
+            } => *visible && (*opacity < 1.0 || translucent_color(color)),
+            _ => false,
+        });
         if node.opacity < 1.0
             || translucent_fill
             || translucent_stroke
+            || translucent_effect
             || (legacy_fill_is_used && translucent_color(&node.fill))
             || translucent_raster_fill
         {
@@ -1370,6 +1380,33 @@ mod tests {
         node.opacity = 0.5;
         let error = export_pdfx1a(&[node], &PdfOptions::default()).unwrap_err();
         assert!(error.contains("Translucent card"));
+        assert!(error.contains("PDF/X-4"));
+    }
+
+    #[test]
+    fn pdfx1a_refuses_translucent_drop_shadow_instead_of_emitting_live_alpha() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.name = "Soft shadow".into();
+        node.effects = vec![varve_core::Effect::DropShadow {
+            id: None,
+            x: 3.0,
+            y: 3.0,
+            blur: 0.0,
+            spread: 0.0,
+            color: varve_core::EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                bit_depth: None,
+                profile: None,
+            },
+            opacity: 0.5,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }];
+        let error = export_pdfx1a(&[node], &PdfOptions::default()).unwrap_err();
+        assert!(error.contains("Soft shadow"));
         assert!(error.contains("PDF/X-4"));
     }
 

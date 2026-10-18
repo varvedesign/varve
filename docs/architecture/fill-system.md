@@ -416,6 +416,9 @@ original source containing the bytes is required for the old pixels to return.
   or reimported; this prevents a valid-looking file with missing artwork.
   Resource detection is covered by `printImageManifest.test.ts`, the PDF/X
   export-service test, and `varve-print` pattern export tests.
+- **Authored PDF drop shadows** carry PDF-supported blend modes and combine
+  effect opacity, shadow-colour alpha, and node opacity. PDF/X-1a refuses
+  visible drop-shadow transparency or a blend mode it cannot carry.
 - SVG node export emits a native `<pattern>` for the supported linked-grid
   subset above. Unsupported SVG cases use the export compositor's raster
   fallback with a fidelity warning. Other generated code targets continue to

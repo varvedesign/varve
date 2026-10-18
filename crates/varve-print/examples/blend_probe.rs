@@ -4,7 +4,7 @@
 //! Not part of the crate's maintained surface — see §6.3 in
 //! `docs/audits/photocraft/findings.md` for the recorded run.
 
-use varve_core::{Affine, BlendMode, EngineColor, FillIR, Rect, SceneNode, Shape, Stroke};
+use varve_core::{Affine, BlendMode, Effect, EngineColor, FillIR, Rect, SceneNode, Shape, Stroke};
 use varve_print::resources::{ColorSpace, ExportManifest, ImageResource};
 use varve_print::{export_pdf, PdfOptions};
 
@@ -229,5 +229,35 @@ fn main() {
     .unwrap();
     std::fs::write(out_dir.join("pattern-opacity.pdf"), bytes).unwrap();
 
-    println!("wrote 7 PDFs to {}", out_dir.display());
+    // 8. A screen-blended red drop shadow over gray must preserve the gray
+    // backdrop channels. Normal blending would paint this pixel pure red.
+    let mut shadow_backdrop = rect(1, "gray backdrop", 0.0, 0.0, 200.0, 200.0);
+    solid(
+        &mut shadow_backdrop,
+        rgb(128.0, 128.0, 128.0),
+        1.0,
+        BlendMode::Normal,
+    );
+    let mut shadow_shape = rect(2, "screen shadow", 60.0, 60.0, 80.0, 80.0);
+    solid(
+        &mut shadow_shape,
+        rgb(0.0, 0.0, 0.0),
+        1.0,
+        BlendMode::Normal,
+    );
+    shadow_shape.effects = vec![Effect::DropShadow {
+        id: None,
+        x: 20.0,
+        y: 0.0,
+        blur: 0.0,
+        spread: 0.0,
+        color: rgb(255.0, 0.0, 0.0),
+        opacity: 1.0,
+        blend_mode: BlendMode::Screen,
+        visible: true,
+    }];
+    let bytes = export_pdf(&[shadow_backdrop, shadow_shape], &opts).unwrap();
+    std::fs::write(out_dir.join("drop-shadow-screen-over-gray.pdf"), bytes).unwrap();
+
+    println!("wrote 8 PDFs to {}", out_dir.display());
 }

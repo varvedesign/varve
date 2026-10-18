@@ -184,6 +184,12 @@ export quality.
 5. **Figma/Illustrator semantic parity.** dropShadow = behind content,
    innerShadow = on top. Verified 2026-07-20.
 
+The authored PDF writer also carries PDF-supported drop-shadow blend modes
+and the product of node opacity, effect opacity, and shadow-colour alpha. Its
+vector shadow geometry remains an approximation for blur; this does not imply
+that every raster or procedural effect is preserved in PDF. PDF/X-1a export
+refuses visible effect transparency or a blend mode it cannot represent.
+
 ## Per-node effect array order
 
 Users reorder effects within a node through the Effects inspector. Reordering is
