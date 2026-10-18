@@ -80,6 +80,7 @@ export function usePersistence(
     doc: Document,
     viewport: Viewport,
   ) => { zoom: number; pan: { x: number; y: number } } | null,
+  sessionDocumentRef: React.MutableRefObject<(sessionId: string) => Document | undefined>,
 ): PersistenceAPI {
   const serializeDocument = useCallback(() => {
     return serializeDocumentSnapshot(stateRef.current.document);
@@ -98,8 +99,16 @@ export function usePersistence(
    */
   const runSave = useCallback(
     async (intent: SaveIntent): Promise<SaveOutcome> => {
+      const sessionId = stateRef.current.activeId;
+      const patchSession = (partial: Partial<EditorState>) => {
+        if (stateRef.current.activeId === sessionId) {
+          patch(partial);
+        } else if (partial.sessions) {
+          patch({ sessions: partial.sessions });
+        }
+      };
       if (!platform) {
-        patch({
+        patchSession({
           saveState: 'error',
           saveIssue: issue('unsupported', 'Persistence is unavailable in this mode.'),
         });
@@ -112,33 +121,43 @@ export function usePersistence(
       // Captured BEFORE the 'saving' patch below: save-copy must restore the
       // previous status, not the transient 'saving' it just set.
       const prevSaveState = stateRef.current.saveState;
-      patch({ saveState: 'saving', saveIssue: null });
+      patchSession({ saveState: 'saving', saveIssue: null });
       try {
         if (intent === 'save-as') {
           return await chooseAndAdopt(
             platform,
             stateRef,
             recoveryRef,
-            patch,
+            patchSession,
             revision,
-            stateRef.current.sessions.find((sess) => sess.id === stateRef.current.activeId)?.name,
+            stateRef.current.sessions.find((sess) => sess.id === sessionId)?.name,
+            sessionId,
+            sessionDocumentRef,
           );
         }
         if (intent === 'save-copy') {
-          const outcome = await performSaveCopy(platform, stateRef, patch, revision);
+          const outcome = await performSaveCopy(platform, stateRef, patchSession, revision);
           if (outcome.status !== 'failed') {
-            patch({ saveState: prevSaveState, saveIssue: null });
+            patchSession({ saveState: prevSaveState, saveIssue: null });
           }
           return outcome;
         }
-        return await performSave(platform, stateRef, recoveryRef, patch, revision);
+        return await performSave(
+          platform,
+          stateRef,
+          recoveryRef,
+          patchSession,
+          revision,
+          sessionId,
+          sessionDocumentRef,
+        );
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
-        patch({ saveState: 'error', saveIssue: issue('unknown-io', message) });
+        patchSession({ saveState: 'error', saveIssue: issue('unknown-io', message) });
         return { status: 'failed', issue: issue('unknown-io', message) };
       }
     },
-    [platform, stateRef, recoveryRef, patch],
+    [platform, stateRef, recoveryRef, patch, sessionDocumentRef],
   );
 
   // Coordinator is created once; runSave only reads stable refs, so the
@@ -241,29 +260,40 @@ async function performSave(
   recoveryRef: React.MutableRefObject<RecoveryManager | null>,
   patch: (partial: Partial<EditorState>) => void,
   revision: Document,
+  sessionId: string,
+  sessionDocumentRef: React.MutableRefObject<(sessionId: string) => Document | undefined>,
 ): Promise<SaveOutcome> {
   const s = stateRef.current;
-  const meta = s.sessions.find((sess) => sess.id === s.activeId);
+  const meta = s.sessions.find((sess) => sess.id === sessionId);
   if (!meta) {
     const e = issue('destination-missing', 'No active document to save.');
     patch({ saveState: 'error', saveIssue: e });
     return { status: 'failed', issue: e };
   }
   const target = saveTargetFromSession(meta);
-  const json = DocumentCodec.encode(s.document);
+  const json = DocumentCodec.encode(revision);
 
   // First save: the user picks a location. Never silently fall into
   // internal storage — recovery may keep running, but the UI may only say
   // "Saved" once the user chose a real destination and the write succeeded.
   if (target.kind === 'unsaved') {
-    return chooseAndAdopt(platform, stateRef, recoveryRef, patch, revision, meta.name);
+    return chooseAndAdopt(
+      platform,
+      stateRef,
+      recoveryRef,
+      patch,
+      revision,
+      meta.name,
+      sessionId,
+      sessionDocumentRef,
+    );
   }
 
   const ownershipFailure = await rejectTargetOwnedByAnotherSession(
     platform,
     target,
     s.sessions,
-    s.activeId,
+    sessionId,
   );
   if (ownershipFailure) {
     patch({ saveState: 'error', saveIssue: ownershipFailure });
@@ -285,7 +315,7 @@ async function performSave(
     // destination the user never chose, which is what the branch above
     // deliberately avoids.
     if (meta.fileId) await mirror(patch, platform, meta.fileId, meta.name, json);
-    patch({ lastSavedAt: Date.now() });
+    patch({ saveState: 'idle', lastSavedAt: Date.now(), saveIssue: null });
     return { status: 'saved' };
   }
 
@@ -326,7 +356,17 @@ async function performSave(
     const fileId = meta.fileId ?? crypto.randomUUID();
     await mirror(patch, platform, fileId, meta.name, json, { filePath: target.path });
     const update: SessionUpdate = { diskContentHash: contentHash(json), fileId };
-    return afterPrimaryWrite(platform, stateRef, recoveryRef, patch, revision, update, meta.name);
+    return afterPrimaryWrite(
+      platform,
+      stateRef,
+      recoveryRef,
+      patch,
+      revision,
+      sessionId,
+      sessionDocumentRef,
+      update,
+      meta.name,
+    );
   }
 
   if (target.kind === 'web-file-handle') {
@@ -337,7 +377,17 @@ async function performSave(
     // Establish the baseline for external-change detection: the next save
     // refuses to overwrite a file whose bytes no longer match this hash.
     const update: SessionUpdate = { fileId, diskContentHash: contentHash(json) };
-    return afterPrimaryWrite(platform, stateRef, recoveryRef, patch, revision, update, meta.name);
+    return afterPrimaryWrite(
+      platform,
+      stateRef,
+      recoveryRef,
+      patch,
+      revision,
+      sessionId,
+      sessionDocumentRef,
+      update,
+      meta.name,
+    );
   }
 
   // app-storage — the user explicitly chose Varve Library as the document's
@@ -345,7 +395,17 @@ async function performSave(
   const fileId = meta.fileId ?? target.fileId;
   await mirror(patch, platform, fileId, meta.name, json);
   const update: SessionUpdate = { fileId };
-  return afterPrimaryWrite(platform, stateRef, recoveryRef, patch, revision, update, meta.name);
+  return afterPrimaryWrite(
+    platform,
+    stateRef,
+    recoveryRef,
+    patch,
+    revision,
+    sessionId,
+    sessionDocumentRef,
+    update,
+    meta.name,
+  );
 }
 
 /** Save As / first Save: choose a destination, write, adopt only on success. */
@@ -356,40 +416,47 @@ async function chooseAndAdopt(
   patch: (partial: Partial<EditorState>) => void,
   revision: Document,
   name: string | undefined,
+  savedSessionId: string,
+  sessionDocumentRef: React.MutableRefObject<(sessionId: string) => Document | undefined>,
 ): Promise<SaveOutcome> {
+  const requestedState = stateRef.current;
+  const requestedSessionId = savedSessionId;
+  const patchRequestedSession = (partial: Partial<EditorState>) => {
+    if (stateRef.current.activeId === requestedSessionId) patch(partial);
+  };
   const choice = await platform.chooseDocumentSaveTarget(name ?? 'Untitled');
   if (choice.kind === 'cancelled') {
     // Cancellation is normal; it must not change anything (no path change,
     // no identity change, no dirty change) and must not look like a failure.
-    patch({ saveState: 'idle' });
+    patchRequestedSession({ saveState: 'idle' });
     return { status: 'cancelled' };
   }
   if (choice.kind === 'unsupported') {
-    return writeFailure(patch, {
+    return writeFailure(patchRequestedSession, {
       category: 'unsupported',
       message: 'Saving to a file is not available in this mode.',
     });
   }
-  if (choice.kind === 'failed') return writeFailure(patch, choice.error);
+  if (choice.kind === 'failed') return writeFailure(patchRequestedSession, choice.error);
 
   const target = choice.target;
-  const s = stateRef.current;
-  const meta = s.sessions.find((sess) => sess.id === s.activeId);
+  const s = requestedState;
+  const meta = s.sessions.find((sess) => sess.id === requestedSessionId);
   const ownershipFailure = await rejectTargetOwnedByAnotherSession(
     platform,
     target,
     s.sessions,
-    s.activeId,
+    savedSessionId,
   );
   if (ownershipFailure) {
-    patch({ saveState: 'error', saveIssue: ownershipFailure });
+    patchRequestedSession({ saveState: 'error', saveIssue: ownershipFailure });
     return { status: 'failed', issue: ownershipFailure };
   }
-  const json = DocumentCodec.encode(s.document);
+  const json = DocumentCodec.encode(revision);
   const written = await platform.writeSaveTarget(target, json);
   if (written.kind !== 'written') {
     // The new destination failed — the CURRENT destination stays untouched.
-    return writeFailure(patch, written.error);
+    return writeFailure(patchRequestedSession, written.error);
   }
 
   const adopted = adoptTarget(meta, target);
@@ -398,17 +465,61 @@ async function chooseAndAdopt(
   // A fresh UUID is minted only when the document never had one.
   const fileId = meta?.fileId ?? crypto.randomUUID();
 
-  await recoveryRef.current?.deleteSession(s.activeId);
   // A download-only target is not persistent, so it never adopted a location
   // to mirror to. But a document that already has an id has a browser-local
   // copy that is now stale, and leaving it stale is how Firefox and Safari
   // users lost their edits on reload: the snapshot downloaded, the stored
   // copy kept its pre-edit state, and reopening quietly restored that.
+  let mirrored = false;
   if (adopted.persistent || meta?.fileId) {
-    await mirror(patch, platform, fileId, adopted.name, json, adopted.mirrorExtra);
+    mirrored = await mirror(
+      patchRequestedSession,
+      platform,
+      fileId,
+      adopted.name,
+      json,
+      adopted.mirrorExtra,
+    );
   }
-  const cur = stateRef.current;
-  const clean = cur.document === revision;
+  let cur = stateRef.current;
+  let revisionUnchanged = sessionDocumentRef.current(savedSessionId) === revision;
+  // A download hand-off is not an authoritative persisted destination. Keep
+  // recovery for brand-new documents, and only remove it after a persistent
+  // target or the existing library mirror contains this exact snapshot. Also
+  // preserve recovery if the user edited again while the mirror was pending.
+  if (revisionUnchanged && (adopted.persistent || (meta?.fileId && mirrored))) {
+    await recoveryRef.current?.deleteSession(savedSessionId);
+    cur = stateRef.current;
+    revisionUnchanged = sessionDocumentRef.current(savedSessionId) === revision;
+    if (!revisionUnchanged) {
+      const recoveryRevision = sessionDocumentRef.current(savedSessionId) ?? revision;
+      let currentSession = cur.sessions.find((session) => session.id === savedSessionId);
+      await recoveryRef.current?.createRecoveryPoint(
+        recoveryRevision,
+        currentSession?.name ?? adopted.name,
+        currentSession?.fileId,
+        currentSession?.filePath,
+      );
+      cur = stateRef.current;
+      revisionUnchanged = sessionDocumentRef.current(savedSessionId) === revision;
+      const latestRevision = sessionDocumentRef.current(savedSessionId);
+      if (latestRevision && latestRevision !== recoveryRevision) {
+        // If another edit arrived during the recovery write, immediately
+        // catch up once more. Continued typing is handled by normal recovery
+        // scheduling, so a Save As never waits on an unbounded retry loop.
+        currentSession = cur.sessions.find((session) => session.id === savedSessionId);
+        await recoveryRef.current?.createRecoveryPoint(
+          latestRevision,
+          currentSession?.name ?? adopted.name,
+          currentSession?.fileId,
+          currentSession?.filePath,
+        );
+        cur = stateRef.current;
+        revisionUnchanged = sessionDocumentRef.current(savedSessionId) === revision;
+      }
+    }
+  }
+  const clean = adopted.persistent && revisionUnchanged;
   const update: SessionUpdate = {
     ...adopted.session,
     fileId,
@@ -418,24 +529,28 @@ async function chooseAndAdopt(
     ...(adopted.persistent ? { diskContentHash: contentHash(json) } : {}),
   };
   const sessions = cur.sessions.map((sess) =>
-    sess.id === cur.activeId ? { ...sess, ...update, dirty: clean ? false : sess.dirty } : sess,
+    sess.id === savedSessionId ? { ...sess, ...update, dirty: !clean } : sess,
   );
   patch({
-    dirty: clean ? false : cur.dirty,
-    saveState: 'saved',
-    lastSavedAt: Date.now(),
-    saveIssue: null,
+    ...(cur.activeId === savedSessionId
+      ? {
+          dirty: !clean,
+          saveState: clean ? 'saved' : 'idle',
+          lastSavedAt: Date.now(),
+          saveIssue: null,
+        }
+      : {}),
     sessions,
   });
   if (clean) {
     // Thumbnail persistence honors the encrypted-project policy: encrypted
     // sessions only ever store the content-free placeholder, never
     // plaintext preview pixels.
-    const meta = cur.sessions.find((sess) => sess.id === cur.activeId);
+    const meta = cur.sessions.find((sess) => sess.id === savedSessionId);
     if (meta?.encrypted) {
       void persistEncryptedThumbnail(platform, json).catch(() => undefined);
     } else {
-      void persistFileThumbnail(platform, fileId, cur.document).catch(() => undefined);
+      void persistFileThumbnail(platform, fileId, revision).catch(() => undefined);
     }
   }
   return { status: 'saved' };
@@ -526,38 +641,71 @@ async function afterPrimaryWrite(
   recoveryRef: React.MutableRefObject<RecoveryManager | null>,
   patch: (partial: Partial<EditorState>) => void,
   revision: Document,
+  savedSessionId: string,
+  sessionDocumentRef: React.MutableRefObject<(sessionId: string) => Document | undefined>,
   update: SessionUpdate,
   name: string,
 ): Promise<SaveOutcome> {
-  await recoveryRef.current?.deleteSession(stateRef.current.activeId);
-  const cur = stateRef.current;
-  const json = DocumentCodec.encode(cur.document);
-  // Revision-aware clean: if the user edited while the write was in flight,
-  // the save covered an older revision — the document stays dirty.
-  const clean = cur.document === revision;
+  let cur = stateRef.current;
+  let revisionUnchanged = sessionDocumentRef.current(savedSessionId) === revision;
+  if (revisionUnchanged) {
+    await recoveryRef.current?.deleteSession(savedSessionId);
+    cur = stateRef.current;
+    revisionUnchanged = sessionDocumentRef.current(savedSessionId) === revision;
+    if (!revisionUnchanged) {
+      let latestRevision = sessionDocumentRef.current(savedSessionId) ?? revision;
+      let currentSession = cur.sessions.find((session) => session.id === savedSessionId);
+      await recoveryRef.current?.createRecoveryPoint(
+        latestRevision,
+        currentSession?.name ?? name,
+        currentSession?.fileId,
+        currentSession?.filePath,
+      );
+      cur = stateRef.current;
+      revisionUnchanged = sessionDocumentRef.current(savedSessionId) === revision;
+      const afterRecovery = sessionDocumentRef.current(savedSessionId);
+      if (afterRecovery && afterRecovery !== latestRevision) {
+        latestRevision = afterRecovery;
+        currentSession = cur.sessions.find((session) => session.id === savedSessionId);
+        await recoveryRef.current?.createRecoveryPoint(
+          latestRevision,
+          currentSession?.name ?? name,
+          currentSession?.fileId,
+          currentSession?.filePath,
+        );
+        cur = stateRef.current;
+        revisionUnchanged = sessionDocumentRef.current(savedSessionId) === revision;
+      }
+    }
+  }
+  const clean = revisionUnchanged;
   const sessions = cur.sessions.map((sess) =>
-    sess.id === cur.activeId
-      ? { ...sess, ...update, name, dirty: clean ? false : sess.dirty }
-      : sess,
+    sess.id === savedSessionId ? { ...sess, ...update, name, dirty: !clean } : sess,
   );
   patch({
-    dirty: clean ? false : cur.dirty,
-    saveState: 'saved',
-    lastSavedAt: Date.now(),
-    saveIssue: null,
+    ...(cur.activeId === savedSessionId
+      ? {
+          dirty: !clean,
+          saveState: clean ? 'saved' : 'idle',
+          lastSavedAt: Date.now(),
+          saveIssue: null,
+        }
+      : {}),
     sessions,
   });
   if (clean) {
     // Thumbnail persistence honors the encrypted-project policy: encrypted
     // sessions only ever store the content-free placeholder, never
     // plaintext preview pixels.
-    const meta = cur.sessions.find((sess) => sess.id === cur.activeId);
+    const meta = cur.sessions.find((sess) => sess.id === savedSessionId);
     if (meta?.encrypted) {
-      void persistEncryptedThumbnail(platform, json).catch(() => undefined);
+      void persistEncryptedThumbnail(platform, DocumentCodec.encode(revision)).catch(
+        () => undefined,
+      );
     } else if (update.fileId) {
-      void persistFileThumbnail(platform, update.fileId, cur.document).catch(() => undefined);
+      void persistFileThumbnail(platform, update.fileId, revision).catch(() => undefined);
     } else {
-      persistProjectThumbnail(platform, cur.document);
+      persistProjectThumbnail(platform, revision);
     }
   }
   return { status: 'saved' };
@@ -572,15 +720,17 @@ async function mirror(
   name: string,
   json: string,
   extra?: { filePath?: string },
-): Promise<void> {
+): Promise<boolean> {
   try {
     await upsertPreservingMeta(platform, fileId, name, json, extra);
+    return true;
   } catch {
     // Home cache/thumbnail index update failed — the primary write already
     // succeeded; log and continue rather than flipping the save to failed.
     if (typeof console !== 'undefined') {
       console.warn('[Varve] internal index mirror failed for', fileId);
     }
+    return false;
   }
 }
 

@@ -10,7 +10,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('browser demo docs', () => {
-  test('guide states install, offline, and storage behavior', async ({ page }) => {
+  test('guide states install, offline, and storage behavior', async ({ page }, testInfo) => {
     await page.goto('/docs/browser-demo/', { waitUntil: 'domcontentloaded' });
 
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Browser Demo');
@@ -23,6 +23,27 @@ test.describe('browser demo docs', () => {
     expect(body).toMatch(/documents and recovery copies are untouched/i);
     expect(body).toMatch(/Motion and Email authoring remain outside this bounded demo/i);
     expect(body).toMatch(/Logo tools are part of Design and Code export is a shared panel/i);
+    expect(body).toMatch(/browser-local copy when that storage write succeeds/i);
+    expect(body).toMatch(/stays marked Modified and its recovery copy is kept/i);
+
+    const saving = page.locator('section.docs-section').filter({
+      has: page.getByRole('heading', { name: 'Saving, recovery, and what "Saved" means' }),
+    });
+    for (const viewport of [
+      { name: 'desktop', width: 1280, height: 900 },
+      { name: 'mobile', width: 375, height: 812 },
+    ]) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await expect(saving).toBeVisible();
+      await saving.scrollIntoViewIfNeeded();
+      await saving.evaluate((section) => {
+        const top = section.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo(0, Math.max(0, top - 96));
+      });
+      await saving.screenshot({
+        path: testInfo.outputPath(`browser-demo-saving-${viewport.name}.png`),
+      });
+    }
   });
 
   test('FAQ answers the browser question with a pointer to the guide', async ({ page }) => {

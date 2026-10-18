@@ -243,13 +243,16 @@ export class TerminationCoordinator {
           }
           case 'save-as': {
             const saved = await this.deps.api.saveSessionAs(doc.sessionId);
-            if (!saved.ok) {
+            const stillDirty = this.deps.api.isSessionDirty(doc.sessionId);
+            if (!saved.ok || stillDirty) {
               remaining.push({
                 kind: 'failed',
                 sessionId: doc.sessionId,
-                category: saved.cancelled
-                  ? 'cancelled'
-                  : this.deps.api.getLastSaveFailure(doc.sessionId),
+                category: !saved.ok
+                  ? saved.cancelled
+                    ? 'cancelled'
+                    : this.deps.api.getLastSaveFailure(doc.sessionId)
+                  : 'conflict',
               });
             }
             break;

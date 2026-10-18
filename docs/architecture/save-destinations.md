@@ -76,6 +76,10 @@ Always opens the location picker. The session adopts the new destination
 **only after a successful write**; a cancelled or failed Save As leaves the
 current destination, name, identity and dirty state untouched. Suggested
 filename normalizes to exactly one `.varve` (never `Poster.varve.varve`).
+In a browser without a writable file handle, Save As is a snapshot download:
+the session remains modified and recovery is retained unless an existing
+Varve Library mirror successfully stores that exact snapshot. Storage failure
+must not turn the download hand-off into a Saved state.
 
 ### Save a Copy (File menu)
 
@@ -98,10 +102,13 @@ Reveal in Files / Copy File Path actions.
 
 ## Revision-safe completion
 
-A save captures the immutable document reference it serialized. When the
-write completes, the document is marked clean only if the reference is still
-current; an edit that landed mid-save keeps the document dirty. The
-coordinator serializes writes so a stale save can never clobber a newer one.
+A save captures the immutable document reference and session it serialized.
+When the write completes, only that session is updated, and it is marked clean
+only if the same revision is still current. An edit that landed mid-save keeps
+that session dirty, even if the user switched tabs while the write was pending.
+Recovery cleanup follows the same revision check and restores a recovery point
+for a newer edit if it arrived while cleanup was pending. The coordinator
+serializes writes so a stale save can never clobber a newer one.
 
 ## Safety before overwriting
 

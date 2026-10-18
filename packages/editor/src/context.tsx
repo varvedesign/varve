@@ -2971,6 +2971,13 @@ export function EditorProvider({
   const historySkipRef = useRef(false);
   /** F2: snapshots of all inactive sessions, keyed by session ID. */
   const sessionStoreRef = useRef<Map<string, SavedSession>>(new Map());
+  const sessionDocumentRef = useRef<(sessionId: string) => Document | undefined>(() => undefined);
+  sessionDocumentRef.current = (sessionId) => {
+    const current = stateRef.current;
+    return current.activeId === sessionId
+      ? current.document
+      : sessionStoreRef.current.get(sessionId)?.document;
+  };
   /** Shared aria-live announcer for screen-reader messages. */
   const announcerRef = useRef<CanvasAnnouncer>(null);
   if (!announcerRef.current) {
@@ -3323,6 +3330,7 @@ export function EditorProvider({
     openInNewSession,
     recoveryRef,
     computeFitAllCamera,
+    sessionDocumentRef,
   );
 
   // Remote-session sync (auxiliary windows, ADR-0204): mutation + selection
@@ -10822,19 +10830,22 @@ export function EditorProvider({
       },
 
       closeTab: (id, force = false) => {
-        const sess = state.sessions.find((s) => s.id === id);
+        const currentState = stateRef.current;
+        const sess = currentState.sessions.find((s) => s.id === id);
         if (sess?.dirty && !force) return false;
-        if (id === stateRef.current.activeId) {
-          interactionState.cancelCanvasInteraction(stateRef.current.activeId);
+        if (id === currentState.activeId) {
+          interactionState.cancelCanvasInteraction(currentState.activeId);
         }
         const closingDocumentId =
-          id === state.activeId ? state.document.id : sessionStoreRef.current.get(id)?.document.id;
+          id === currentState.activeId
+            ? currentState.document.id
+            : sessionStoreRef.current.get(id)?.document.id;
         const hasOtherOpenSession = closingDocumentId
-          ? state.sessions.some((candidate) => {
+          ? currentState.sessions.some((candidate) => {
               if (candidate.id === id) return false;
               const candidateDocumentId =
-                candidate.id === state.activeId
-                  ? state.document.id
+                candidate.id === currentState.activeId
+                  ? currentState.document.id
                   : sessionStoreRef.current.get(candidate.id)?.document.id;
               return candidateDocumentId === closingDocumentId;
             })

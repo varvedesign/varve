@@ -113,6 +113,18 @@ describe('export save adapter', () => {
     expect(extension).toBe('.zip');
   });
 
+  it('preserves archive filenames that match Object prototype keys', async () => {
+    const saveBinaryFile = vi.fn<Platform['saveBinaryFile']>(async () => 'bundle.zip');
+    const platform = { kind: 'web', saveBinaryFile } as unknown as Platform;
+    const archive = createBufferedExportArchive(platform);
+    await archive.saveFile('constructor', new TextEncoder().encode('bytes'));
+
+    await archive.flush('bundle');
+
+    const [, bytes] = saveBinaryFile.mock.calls[0]!;
+    expect(Object.keys(unzipSync(bytes))).toEqual(['constructor']);
+  });
+
   it('does not create an empty archive after a fully failed batch', async () => {
     const saveBinaryFile = vi.fn<Platform['saveBinaryFile']>();
     const platform = { kind: 'web', saveBinaryFile } as unknown as Platform;

@@ -207,7 +207,7 @@ function jobStem(fileName: string): string {
 
 /** Normalize an output's relative name for duplicate detection across hosts. */
 function outputNameKey(fileName: string): string {
-  return normalizeExportOutputPath(fileName).normalize('NFC');
+  return normalizeExportOutputPath(fileName).normalize('NFC').toLowerCase();
 }
 
 function abortError(): Error {

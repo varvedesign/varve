@@ -66,25 +66,40 @@ describe('TabStrip — dirty-close flow', () => {
   });
 
   it('Save persists the document before closing', async () => {
+    closeTab.mockReturnValueOnce(false).mockReturnValueOnce(true);
     render(<TabStrip />);
     fireEvent.click(screen.getByLabelText('Close Doc A'));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(closeTab).toHaveBeenCalledWith('s1', true);
+    expect(closeTab).toHaveBeenCalledWith('s1');
   });
 
   it('Save on a background dirty tab activates that tab first', async () => {
-    closeTab.mockImplementation((_id: string, force = false) => {
-      // First call is the guard (no force); background tab close also guards.
-      if (!force) return false;
-      return true;
-    });
+    closeTab.mockReturnValueOnce(false).mockReturnValueOnce(true);
     render(<TabStrip />);
     const closeBtn = screen.getByLabelText('Close Doc B');
     fireEvent.click(closeBtn);
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(switchTab).toHaveBeenCalledWith('s2'));
     expect(save).toHaveBeenCalledTimes(1);
+    expect(closeTab).toHaveBeenCalledWith('s2');
+  });
+
+  it('keeps a tab open when Save returns true but the session is still dirty', async () => {
+    closeTab.mockReturnValueOnce(false).mockReturnValueOnce(false);
+    render(<TabStrip />);
+    fireEvent.click(screen.getByLabelText('Close Doc A'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith({
+        message: 'The document still has unsaved changes — it stays open',
+        type: 'error',
+      }),
+    );
+    expect(closeTab).toHaveBeenCalledTimes(2);
+    expect(closeTab).toHaveBeenLastCalledWith('s1');
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('a failed save keeps the document open and surfaces a toast', async () => {

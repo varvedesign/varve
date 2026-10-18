@@ -189,6 +189,34 @@ describe('TerminationCoordinator', () => {
     expect(marker.cleanCalls()).toBe(1);
   });
 
+  it('does not commit after Save As reports success while the session stays dirty', async () => {
+    const { controls, harness, coordinator, marker } = makeCoordinator({
+      sessions: [{ id: 'a', name: 'Poster.varve', dirty: true, filePath: '/p/x.varve' }],
+    });
+    controls.setSaveResult({ ok: false, cancelled: false });
+    controls.setSaveAsResult({ ok: true });
+    const tx = coordinator.requestTermination('close-window');
+    harness.respond({
+      kind: 'proceed',
+      choices: [{ sessionId: 'a', choice: 'save' }],
+    });
+    await harness.flush();
+    expect(harness.last()?.kind).toBe('save-failed');
+
+    harness.respond({
+      kind: 'proceed',
+      choices: [{ sessionId: 'a', choice: 'save-as' }],
+    });
+    await harness.flush();
+    expect(harness.last()?.kind).toBe('save-failed');
+    expect(harness.last()?.docs[0]?.failureCategory).toBe('conflict');
+    expect(controls.closed).toHaveLength(0);
+    expect(marker.cleanCalls()).toBe(0);
+
+    harness.cancel();
+    expect(await tx).toEqual({ outcome: 'cancelled' });
+  });
+
   it('commits with discard after a save failure', async () => {
     const { controls, harness, coordinator, discard } = makeCoordinator({
       sessions: [{ id: 'a', name: 'Poster.varve', dirty: true, filePath: '/p/x.varve' }],

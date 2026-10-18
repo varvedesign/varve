@@ -172,10 +172,11 @@ an opaque loading overlay that never went away. Only the image showed it.
   desktop build depends on that build's supported schema; keep a backup and use
   a release that understands schema 2.33 before continuing to edit it.
 - WASM engine, not native desktop engine — slower rendering on large documents.
-- No autosave: edits must be saved explicitly (Ctrl+S), and anything after the
-  last save is lost on close. An explicit save does now update the browser-local
-  copy in every browser, so reopening restores the saved work — that was broken
-  in Firefox and Safari until the download-only mirror was added.
+- No autosave to the user's chosen file: use an explicit save. In browsers
+  without a persistent file handle, Save downloads a snapshot and updates the
+  browser-local copy only if that storage write succeeds. If storage is full or
+  unavailable, the document remains Modified and its recovery copy is retained;
+  the download alone is not reported as a persistent save.
 - No service worker; offline only while the tab is open.
 - Background removal, upscaling, print production, Motion, and Email are
   desktop-only (see above). The sample poster opens fitted to the viewport.

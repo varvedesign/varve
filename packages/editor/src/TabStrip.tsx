@@ -19,6 +19,7 @@
 
 import { Button, CloseButton, Dialog, IconButton, Tooltip } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useEditor } from './context';
 
 export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () => void }) {
@@ -55,11 +56,17 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
   }
 
   async function saveAndClose(id: string) {
-    if (id !== activeId) switchTab(id);
+    if (id !== activeId) flushSync(() => switchTab(id));
     const ok = await save();
     if (ok) {
-      closeTab(id, true);
-      setConfirmCloseId(null);
+      if (closeTab(id)) {
+        setConfirmCloseId(null);
+      } else {
+        showToast?.({
+          message: 'The document still has unsaved changes — it stays open',
+          type: 'error',
+        });
+      }
     } else {
       showToast?.({ message: 'Save failed — the document stays open', type: 'error' });
     }

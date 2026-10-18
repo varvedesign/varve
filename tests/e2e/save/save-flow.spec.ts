@@ -212,6 +212,12 @@ test('write failure keeps the document dirty and reports Save failed', async ({ 
   await page.keyboard.press(`${mod('s')}`);
 
   await expect(saveStatus(page)).toHaveText('Save failed');
+  await saveStatus(page).hover();
+  await expect(page.getByRole('tooltip')).toContainText('QuotaExceededError');
+  await page.screenshot({
+    path: 'docs/audits/photocraft/evidence/save-failed-status.png',
+    animations: 'disabled',
+  });
   expect(await pickerCalls(page)).toBe(1);
   // Still dirty: the failed write never cleared the edit state.
   await page.evaluate(() => {
@@ -219,6 +225,46 @@ test('write failure keeps the document dirty and reports Save failed', async ({ 
   });
   await page.keyboard.press(`${mod('s')}`);
   await expect(saveStatus(page)).toHaveText('Saved');
+});
+
+test('download-only Save keeps a dirty tab open during its close confirmation', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'showSaveFilePicker', {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  await navigateToCleanEditor(page);
+  await startUnboundDocument(page);
+  await makeDirty(page);
+
+  const tabs = page.getByRole('tablist', { name: /open documents/i }).getByRole('tab');
+  const dirtyTab = page
+    .getByRole('tablist', { name: /open documents/i })
+    .getByRole('tab', { selected: true });
+  await dirtyTab
+    .getByRole('button', { name: /^Close/ })
+    .last()
+    .click();
+  const closeDialog = page.getByRole('dialog');
+  await expect(closeDialog).toBeVisible();
+  const download = page.waitForEvent('download');
+  await closeDialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await download;
+
+  await expect(saveStatus(page)).toHaveText('Modified');
+  await expect(tabs).toHaveCount(2);
+  await expect(dirtyTab).toBeVisible();
+  await expect(closeDialog).toBeVisible();
+  await expect(
+    page.getByText('The document still has unsaved changes — it stays open'),
+  ).toBeVisible();
+  await page.screenshot({
+    path: 'docs/audits/photocraft/evidence/download-save-keeps-tab-open.png',
+    animations: 'disabled',
+  });
 });
 
 test('revoked file permission keeps the active target and modified state', async ({ page }) => {

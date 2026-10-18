@@ -88,8 +88,10 @@ import '../../styles/docs-prose.css';
           The demo follows your browser's file capabilities. In Chromium browsers it can keep
           writing to a file you chose (File System Access API), re-asking for permission when the
           browser requires it. In Firefox and Safari, Save produces a fresh snapshot download each
-          time and the browser-local copy is updated as well, because a download is not a
-          persistent location.
+          time. Varve also updates its browser-local copy when that storage write succeeds,
+          because a download is not a persistent location. If local storage is unavailable or
+          full, the document stays marked Modified and its recovery copy is kept so you can try
+          again or save elsewhere.
         </p>
         <p>
           <strong>Saved means the write to the destination actually finished.</strong> The status

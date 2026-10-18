@@ -170,18 +170,18 @@ export interface BufferedExportArchive {
  * rendering each output.
  */
 export function createBufferedExportArchive(platform?: Platform): BufferedExportArchive {
-  const files: Record<string, Uint8Array> = {};
+  const files = Object.create(null) as Record<string, Uint8Array>;
   let count = 0;
 
   return {
     saveFile: async (fileName, bytes) => {
       let entry = normalizeExportOutputPath(fileName);
-      if (files[entry]) {
+      if (Object.hasOwn(files, entry)) {
         const dot = entry.lastIndexOf('.');
         const stem = dot > 0 ? entry.slice(0, dot) : entry;
         const extension = dot > 0 ? entry.slice(dot) : '';
         let suffix = 2;
-        while (files[`${stem}-${suffix}${extension}`]) suffix += 1;
+        while (Object.hasOwn(files, `${stem}-${suffix}${extension}`)) suffix += 1;
         entry = `${stem}-${suffix}${extension}`;
       }
       files[entry] = bytes;

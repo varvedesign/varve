@@ -151,14 +151,27 @@ function firstNonFiniteNumber(value: unknown): string | null {
 
     if (Array.isArray(current.value)) {
       for (let i = current.value.length - 1; i >= 0; i -= 1) {
-        pending.push({ value: current.value[i], path: `${current.path}[${i}]` });
+        const child = current.value[i];
+        if (typeof child === 'number') {
+          if (!Number.isFinite(child))
+            pending.push({ value: child, path: `${current.path}[${i}]` });
+        } else if (child !== null && typeof child === 'object') {
+          pending.push({ value: child, path: `${current.path}[${i}]` });
+        }
       }
       continue;
     }
 
     for (const [key, child] of Object.entries(current.value)) {
-      const segment = /^[A-Za-z_$][\w$]*$/.test(key) ? `.${key}` : `[${JSON.stringify(key)}]`;
-      pending.push({ value: child, path: current.path ? `${current.path}${segment}` : key });
+      if (typeof child === 'number') {
+        if (!Number.isFinite(child)) {
+          const segment = /^[A-Za-z_$][\w$]*$/.test(key) ? `.${key}` : `[${JSON.stringify(key)}]`;
+          pending.push({ value: child, path: current.path ? `${current.path}${segment}` : key });
+        }
+      } else if (child !== null && typeof child === 'object') {
+        const segment = /^[A-Za-z_$][\w$]*$/.test(key) ? `.${key}` : `[${JSON.stringify(key)}]`;
+        pending.push({ value: child, path: current.path ? `${current.path}${segment}` : key });
+      }
     }
   }
 
