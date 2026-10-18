@@ -60,6 +60,78 @@ accessible validation message and the model value remains 375.
 correctness fix and does not alter a public product claim. Architecture and
 Inspector behavior docs are updated in this batch.
 
+## F-008 — Native path lowering must enforce its vertex budget before allocation
+
+**Sources.** Photocraft's hostile-geometry reports include [#4427](https://github.com/storytold/photocraft/issues/4427)
+and [#4429](https://github.com/storytold/photocraft/issues/4429). They are
+external reports, not proof of a Varve fault.
+
+**Varve applicability.** Source review found that native `flatten_contour`
+reserved `points.len() * 8` and could emit as many as 64 vertices for each
+cubic segment before `lower_frame` checked the aggregate frame budget. The
+existing source-size limit does not bound this derived work tightly enough for
+native lowering.
+
+**Implementation.** Flattening now accepts a remaining-vertex budget, limits
+initial capacity to that budget, refuses before appending beyond it, and maps
+budget refusal to `RejectReason::OutOfBudget`. The saturation guard also avoids
+overflow in the subdivision estimate. A focused regression exercises a small
+budget and an accepted larger budget. Rust validation is pending.
+
+**Website impact:** no copy change is justified. This is defensive handling of
+untrusted document geometry and does not change a user-facing capability claim.
+
+## F-009 — Download-only Save As must not make a session clean or discard recovery
+
+**Sources.** The user-visible failure class appears in the complete review of
+PhotoCraft #3301–#5000, including reported save-success/dirty-state mismatches
+([#4953](https://github.com/storytold/photocraft/issues/4953),
+[#4962](https://github.com/storytold/photocraft/issues/4962)). The reports are
+cross-checks; Varve's own save-target contract determines the fix.
+
+**Varve applicability.** The documented `download-only` target has no
+persistent writable destination and must stay dirty. Save As adopted that
+target but marked the document clean and deleted recovery. The lifecycle
+coordinator also trusted the returned success boolean without checking the
+session's dirty state, so a shutdown Save As could commit after only a browser
+download hand-off.
+
+**Implementation.** Download-only Save As now remains dirty, does not clear
+recovery unless a persistent destination or existing library mirror has the
+exact snapshot, and does not show a saved state. Termination Save As checks
+`isSessionDirty` after the write and keeps prompting with a conflict if the
+session is still dirty. The browser-demo guidance now explains that a download
+is accompanied by a local copy only when browser storage accepts the write;
+otherwise Varve keeps the modified state and recovery copy. Regressions cover
+the persistence state, recovery preservation, and termination postcondition.
+Focused validation is pending.
+
+**Website impact:** updated the browser-demo save/recovery guidance to state
+the storage-failure outcome. No landing-page capability claim changed.
+
+## F-010 — Save and close must remain bound to the requested tab
+
+**Sources.** PhotoCraft #1098 reports a background-tab save-and-close path that
+can target the wrong active document; #1100 documents the adjacent regression
+class where closing a background tab changes which document remains active.
+These are external reports, not proof of a Varve defect.
+
+**Varve applicability.** The termination coordinator already checks its
+requested session after saving, but `TabStrip` had a separate path that
+switched to the requested tab, called the global save action, then force-closed
+the tab after a successful result. A download-only save or an edit during an
+async save could leave the session dirty and still close it.
+
+**Implementation.** The tab-strip path now switches to the intended session
+before saving, then calls the guarded `closeTab` operation. If the save result
+does not actually clear dirty state, it keeps the tab open and reports the
+reason. `closeTab` reads current state for its dirty guard. Regressions cover
+successful save-and-close, a background tab, and a successful write that leaves
+the session dirty. Focused validation is pending.
+
+**Website impact:** no public product claim changes; this protects the existing
+multi-document save and close behavior.
+
 ## F-002 — Atomic replacement could overwrite read-only files and change their mode
 
 **Sources.** PhotoCraft's filesystem tracking issue [#6617](https://github.com/storytold/photocraft/issues/6617)
@@ -394,6 +466,58 @@ here.
 **Website impact:** no public claim describes confidentiality or native save
 permission handling; no marketing copy change is warranted.
 
+## F-011 — Locked paths could enter Node Edit and Scale gestures
+
+**Sources.** PhotoCraft [#1102](https://github.com/storytold/photocraft/issues/1102),
+[#1103](https://github.com/storytold/photocraft/issues/1103),
+[#1104](https://github.com/storytold/photocraft/issues/1104),
+[#1526](https://github.com/storytold/photocraft/issues/1526), and
+[#2370](https://github.com/storytold/photocraft/issues/2370) report edits or
+movement through locked layers. Later reports #3076, #3078, and #3092–#3094
+describe additional write paths. PhotoCraft behavior is comparison evidence,
+not proof about Varve.
+
+**Varve applicability.** A source review confirmed that double-clicking a path
+could enter Node Edit without checking effective lock state. Node Edit's drag,
+nudge, delete, and anchor-mode operations could then mutate it, including when
+an ancestor was locked. Separately, locking a selected node preserves its
+selection; Scale Tool snapshotted that selection and applied transforms
+without checking its own or ancestor lock. Ordinary selection handles already
+used `isNodeEffectivelyLocked`, so this bypass was specific to alternate entry
+and transform paths.
+
+**Implementation.** The current change blocks double-click entry into editing
+for effectively locked nodes, rejects Node Edit gestures and keyboard edits on
+locked paths, and excludes locked targets from Scale Tool gestures. It
+rechecks effective locks during active edits so locking during a gesture
+stops later mutations. Unit and browser interaction regressions are added;
+validation is pending.
+
+**Website impact:** no marketing claim promises editing locked artwork. The
+layer workflow is unchanged when the target is unlocked; no marketing copy
+change is warranted.
+
+## F-012 — Pending crop state could cross document sessions
+
+**Source.** PhotoCraft [#1918](https://github.com/storytold/photocraft/issues/1918)
+reports pending crop state leaking between documents. The report is a lead for
+session ownership, not evidence about Varve.
+
+**Varve applicability.** `ToolManager` is shared across editor tabs, while
+`CropTool` keeps its pending crop rectangle and target node ID on the tool
+instance. Switching documents preserves the selected tool in editor state, and
+the synchronization hook previously ran only when the tool ID changed. A user
+could leave Crop mode open, switch to another document with a colliding node ID,
+then accept the old crop against the new active document.
+
+**Implementation.** `useToolManagerSync` now tracks the active document
+session key. If the shared manager is in Crop mode when the session changes, it
+switches both the manager and editor state to Select, which deactivates and
+clears the pending crop. A hook regression checks that transition.
+
+**Website impact:** no published claim describes cross-tab crop state. No
+marketing copy change is warranted.
+
 ## Source seeds that did not match the requested repository
 
 The attachment's seed links use `storytold/pdfcraft`. In the requested
@@ -405,6 +529,7 @@ may be assessed later as comparative evidence only.
 
 ## Deferred classification policy
 
-Every inventory row starts `unassessed`. Do not infer irrelevance from labels,
-closed state, missing body, or bot-suggested relatedness. Record an exclusion
-reason and source pointer before changing a row's relevance disposition.
+A row marked `unassessed` has no completed Varve relevance disposition. Do not
+infer irrelevance from labels, closed state, missing body, or bot-suggested
+relatedness. Record an exclusion reason and source pointer before changing a
+row's relevance disposition.
