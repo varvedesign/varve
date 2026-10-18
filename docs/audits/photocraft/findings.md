@@ -641,21 +641,26 @@ only consumed arguments in the newly launched process. Tauri's
 `tauri-plugin-single-instance` now forwards later Windows/Linux launches to
 the primary process. The callback resolves relative arguments using the
 secondary launch's working directory, queues every valid file through the
-existing intake path, and focuses the window; Linux additionally requests
-user attention for Wayland compositors. macOS remains on its existing
+existing intake path, and requests window focus; Linux additionally requests
+user attention for Wayland compositors. Activation stays pending until focus
+or Linux attention succeeds, allowing the startup-ready callback to retry a
+failed attempt. macOS remains on its existing
 LaunchServices route. The pending-open queue is registered before plugin
 setup so forwarded files cannot race initialization. This applies to Varve
 project-file associations; it does not add direct PNG/PSD document opening.
 
 **Validation and limitation.** Focused Rust tests were added for argument-zero
-removal, relative-path resolution, and the existing queue. Their native build
-was stopped after root free space fell to about 826 MB; the test and Linux
-packaged-launch visual check remain unverified. Independent review found and
-prompted a fix for a startup race: a forwarded launch can arrive before the
-primary window exists, so activation is retained and retried on Tauri's
-`Ready` event. That change has not yet received its follow-up review or native
-validation. The follow-up review found no further defect and noted that the
-unit test does not exercise the complete callback-to-`Ready` lifecycle.
+removal, relative-path resolution, and activation retry state. The native
+build was stopped after root free space fell to about 826 MB; the tests and
+Linux packaged-launch visual check remain unverified. Independent review found
+and prompted a fix for a startup race: a forwarded launch can arrive before
+the primary window exists, so activation is retained and retried on Tauri's
+`Ready` event. A subsequent review found no issue in that fix, but noted the
+unit test did not exercise the full callback-to-`Ready` lifecycle. A further
+source review found that a failed focus request could still consume the
+activation; the latest patch keeps the request pending until focus or Linux
+attention succeeds. That patch awaits native validation and a fresh code
+review.
 Windows Explorer also needs a platform run. Tauri's Linux plugin uses the
 session D-Bus and a future sandbox package must grant the required bus name;
 no Flatpak package is currently published. No user-facing site claim needs

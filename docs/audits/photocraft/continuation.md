@@ -103,9 +103,12 @@ Last updated: 2026-10-18. Status: active and incomplete.
   826 MB, before it reached the test executable. Free space has since risen to
   about 974 MB, still below a safe native build margin. Independent review
   caught a startup race where activation could be lost before the main window
-  exists; the code now retains and retries the request on Tauri `Ready`, and
-  follow-up review found no further defect. That review noted the unit test
-  covers the retained request flag, not the full callback-to-`Ready` lifecycle.
+  exists; the code retains and retries the request on Tauri `Ready`. A fresh
+  source review found a second edge where failed focus could consume the
+  request; the latest code only acknowledges activation after a successful
+  focus or Linux attention result. The updated unit case checks that a failed
+  attempt leaves the request pending. Neither the native test nor full
+  callback-to-`Ready` lifecycle has run yet.
   Linux package-level visual validation and Windows launch validation are
   still pending. The desktop
   TypeScript check hit the previously documented unrelated
