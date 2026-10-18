@@ -1,8 +1,12 @@
 # Photocraft corpus → Varve findings
 
-Source tracker: [storytold/pdfcraft](https://github.com/storytold/pdfcraft/issues)
-(the project renamed from `photocraft`; both paths resolve to the same
-repository, default branch `main`).
+Source tracker: [storytold/pdfcraft](https://github.com/storytold/pdfcraft/issues),
+default branch `main`. The task brief also linked
+[storytold/photocraft](https://github.com/storytold/photocraft/issues), which the
+GitHub API confirms is a separate repository. The user resolved this conflict
+by selecting PdfCraft because it matches the five seed issue links and the
+existing audit corpus. The `photocraft/` audit directory is retained for
+continuity; it does not refer to the separate PhotoCraft repository.
 
 This document is the engineering record for the corpus review. The
 machine-readable per-issue ledger lives beside it
@@ -66,6 +70,18 @@ Attachment-only evidence (screenshots, recordings, attached PDFs) was **not**
 downloaded: it is bulk third-party material, most of it re-encoded by GitHub's
 asset proxy, and no conclusion in this pass depends on a pixel in another
 product. Where a class's only evidence is an attachment, the ledger says so.
+
+### Cutoff B inventory (screening pending)
+
+The second API crawl ran `2026-10-18T12:28:21Z`–`2026-10-18T12:28:46Z` UTC.
+Pagination and search reconciliation found 3,249 unique issue-endpoint records: 1,454
+issues (936 open / 518 closed) and 1,795 PRs. All cutoff A issue IDs remain
+present; 158 new issues were created after A, 40 existing issues changed state,
+and 251 issues were updated. The 158 new issue bodies have not yet been
+screened. See `issue-ledger-follow-on-b.jsonl`; none is currently presented as
+reviewed or excluded. The raw response is outside Git at
+`/tmp/opencode/photocraft/pdfcraft-cutoff-b-pages.json` (SHA-256
+`13e385871d051ce3a18734bcc8a3b1ebab875b2e749ae2cb9a2515c9ff29748a`).
 
 ## 3. Product boundary (why 677 issues are excluded)
 
@@ -355,6 +371,23 @@ interactions, accessibility/performance, then useful improvements.
   `autoSaveService`. Screened: the transactional model already distinguishes
   preview from edit, so the specific failures may not be expressible; that has
   to be shown, not assumed.
+
+### 4.14 Cutoff B triage findings — **inventory only**
+
+Titles in the new inventory identify candidate areas including Wayland/Windows
+touchpad pan behavior, Arabic and CJK text, export fidelity, print preview,
+clipboard, undo, content clipping, and document-scale rendering. These are
+triage leads only: the 158 bodies, comments, linked PRs, and user attachments
+have not been reviewed, and none of these titles establishes a Varve defect.
+Current code review has not yet verified these candidates.
+
+The requested transparent-canvas E2E probe was invalid for issue #2970: it
+selected a shape whose selection overlay affected sampled pixels, and after
+deselection it measured Varve’s intentionally opaque editor pasteboard rather
+than a transparent render surface. The probe was removed and no production
+change was made. Therefore the transparent-surface canvas differential remains
+open; the other agent’s in-flight test in the shared main checkout is preserved
+and is not part of this branch’s evidence.
 
 ## 5. Evidence limitations for this corpus pass
 

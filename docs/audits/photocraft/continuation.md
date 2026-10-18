@@ -7,11 +7,15 @@ Last updated: 2026-10-18 (session 4).
 - Cutoff A: `2026-10-17T04:41:35Z`–`2026-10-17T04:42:17Z`; 1,296 unique
   issues and 1,682 PR records, with pagination and search totals reconciled.
   Hashes and retrieval details are in `README.md`.
-- Cutoff B is still pending. Re-query `state=all` with
-  `sort=created&direction=desc`, diff against `issue-ledger.jsonl`, and record
-  later arrivals separately. Do not move cutoff A.
-- Raw crawl cache, outside Git: `/tmp/opencode/photocraft/`. If absent, re-crawl
-  rather than reconstructing the evidence from notes.
+- Cutoff B: `2026-10-18T12:28:21Z`–`2026-10-18T12:28:46Z` UTC. The full 33-page
+  `state=all` API response is outside Git at `/tmp/opencode/photocraft/`, SHA-256
+  `13e385871d051ce3a18734bcc8a3b1ebab875b2e749ae2cb9a2515c9ff29748a`. It
+  reconciles to 1,454 issues (936 open / 518 closed) and 1,795 PRs; all A IDs
+  remain present. The 158 new issue records are in
+  `issue-ledger-follow-on-b.jsonl`, with bodies hashed but not included. All 158
+  still require body and thread triage. Do not move cutoff A or B.
+- Scope mismatch: user resolved the brief’s conflicting links as PdfCraft
+  (`storytold/pdfcraft`); `storytold/photocraft` is a separate repo. See README.
 - Thread-depth limits remain: 25 full issue threads, 1,258 full bodies, and 13
   empty-body title-only records. Relevant thread and attachment review is not
   complete; unresolved classes remain listed in `findings.md`.
@@ -21,8 +25,8 @@ Last updated: 2026-10-18 (session 4).
 - Worktree: `/home/kevina/CodingProjects/varve/.worktrees/photocraft-hardening`
 - Branch: `feat/photocraft-hardening`, based on `32de0c41c4e30defe14452f04e500a624ac2582b`.
   Task commits: `3524d07ee` (text draft save integrity), `f0c0ae563`
-  (PDF blend/transparency fidelity and release-aware website copy), and
-  `9a7e447eb` (frozen corpus records and findings).
+  (PDF blend/transparency fidelity and release-aware website copy), `9a7e447eb`
+  (cutoff A corpus records/findings), and `5b2c3a409` (mobile website evidence).
 - The main checkout has unrelated in-flight edits. Do not stage, revert,
   reset, stash, or commit them.
 - `packages/codegen/src/bundle-assets.ts` and
@@ -134,10 +138,11 @@ If yes, reason: n/a.
 
 ## Exact next steps
 
-1. Complete a distinct second-pass self-review of the reproducible pixel
-   probe and corpus docs; the PDF fidelity/site diff already received one.
-   Keep corpus tracking in a separate documentation commit. Do not include
-   either unowned source file above.
+1. Screen all 158 cutoff B issue bodies, then inspect full threads and linked
+   evidence for applicable or uncertain cases. Update the follow-on ledger with
+   research and engineering dispositions without changing cutoff A.
+2. Review new candidate classes against Varve source and tests before claiming
+   defects; resolve high-impact applicable classes in progressive commits.
 3. Continue the open applicable queue in `findings.md`: compositing backdrop,
    color-glyph/joining-control shaping, async generation guards, export
    fidelity and claims, bounded document-scale work, and dirty-state truth.
