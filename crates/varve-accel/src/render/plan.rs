@@ -334,8 +334,9 @@ fn flatten_cubic(
     p2: [f64; 2],
     p3: [f64; 2],
     tolerance: f64,
+    max_vertices: usize,
     out: &mut Vec<[f64; 2]>,
-) {
+) -> bool {
     let chord = ((p3[0] - p0[0]).powi(2) + (p3[1] - p0[1]).powi(2)).sqrt();
     let hull = ((p1[0] - p0[0]).powi(2) + (p1[1] - p0[1]).powi(2)).sqrt()
         + ((p2[0] - p1[0]).powi(2) + (p2[1] - p1[1]).powi(2)).sqrt()
@@ -352,8 +353,13 @@ fn flatten_cubic(
     } else {
         let ratio = error / tolerance;
         // steps ∝ sqrt(1/tolerance) for a cubic; 4 = 2^2.
-        (ratio.sqrt().ceil() as usize * 4).clamp(1, 64)
+        (ratio.sqrt().ceil() as usize)
+            .saturating_mul(4)
+            .clamp(1, 64)
     };
+    if steps > max_vertices.saturating_sub(out.len()) {
+        return false;
+    }
 
     for step in 1..=steps {
         let t = step as f64 / steps as f64;
@@ -367,6 +373,7 @@ fn flatten_cubic(
             a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1],
         ]);
     }
+    true
 }
 
 /// Flatten a Varve contour to a polyline.
@@ -375,10 +382,22 @@ fn flatten_cubic(
 /// **relative offsets** from the point, and the segment from `a` to `b` is the
 /// cubic `a, a + a.handleOut, b + b.handleIn, b`.
 pub fn flatten_contour(points: &[PathPoint], closed: bool, tolerance: f64) -> Vec<[f64; 2]> {
+    flatten_contour_with_budget(points, closed, tolerance, MAX_PLAN_VERTICES).unwrap_or_default()
+}
+
+pub(super) fn flatten_contour_with_budget(
+    points: &[PathPoint],
+    closed: bool,
+    tolerance: f64,
+    max_vertices: usize,
+) -> Option<Vec<[f64; 2]>> {
     if points.is_empty() {
-        return Vec::new();
+        return Some(Vec::new());
     }
-    let mut out: Vec<[f64; 2]> = Vec::with_capacity(points.len() * 8);
+    if max_vertices == 0 {
+        return None;
+    }
+    let mut out: Vec<[f64; 2]> = Vec::with_capacity(points.len().min(max_vertices));
     out.push([points[0].x, points[0].y]);
 
     let last = if closed {
@@ -399,16 +418,22 @@ pub fn flatten_contour(points: &[PathPoint], closed: bool, tolerance: f64) -> Ve
         };
         let straight = control_a == [a.x, a.y] && control_b == [b.x, b.y];
         if straight {
+            if out.len() == max_vertices {
+                return None;
+            }
             out.push([b.x, b.y]);
         } else {
-            flatten_cubic(
+            if !flatten_cubic(
                 [a.x, a.y],
                 control_a,
                 control_b,
                 [b.x, b.y],
                 tolerance,
+                max_vertices,
                 &mut out,
-            );
+            ) {
+                return None;
+            }
         }
     }
 
@@ -418,7 +443,7 @@ pub fn flatten_contour(points: &[PathPoint], closed: bool, tolerance: f64) -> Ve
     if closed && out.len() > 1 && out.last() == out.first() {
         out.pop();
     }
-    out
+    Some(out)
 }
 
 /// Reply from `lower_item`: either a drawable description or the reason the
@@ -505,7 +530,7 @@ fn resolve_solid(item: &RenderItem) -> Result<[f32; 4], RejectReason> {
     Ok(rgba)
 }
 
-fn lower_item(item: &RenderItem) -> Result<Lowered, RejectReason> {
+fn lower_item(item: &RenderItem, max_vertices: usize) -> Result<Lowered, RejectReason> {
     if let Some(reason) = reject_reason(item) {
         return Err(reason);
     }
@@ -678,13 +703,19 @@ fn lower_item(item: &RenderItem) -> Result<Lowered, RejectReason> {
                 return Err(RejectReason::EmptyGeometry);
             }
             let mut flattened_rings = Vec::with_capacity(rings.len());
+            let mut remaining_vertices = max_vertices;
             for ring in rings.iter() {
                 // A fill closes every ring, and the replay's closing segment
                 // is a bezier through the end handles (strokeReplay's
                 // tracePathSegment with closed=true), so the flattened ring
                 // must include the last->first closing curve, never a straight
                 // chord stand-in.
-                let flattened = flatten_contour(ring, true, *tolerance);
+                let Some(flattened) =
+                    flatten_contour_with_budget(ring, true, *tolerance, remaining_vertices)
+                else {
+                    return Err(RejectReason::OutOfBudget);
+                };
+                remaining_vertices = remaining_vertices.saturating_sub(flattened.len());
                 if flattened.len() >= 3 {
                     flattened_rings.push(flattened);
                 }
@@ -692,11 +723,9 @@ fn lower_item(item: &RenderItem) -> Result<Lowered, RejectReason> {
             if flattened_rings.is_empty() {
                 return Err(RejectReason::EmptyGeometry);
             }
-            let even_odd = compound_path_fill_rule(
-                fill_rule.as_deref(),
-                contours.len(),
-                holes.len(),
-            ) == PathFillRule::EvenOdd;
+            let even_odd =
+                compound_path_fill_rule(fill_rule.as_deref(), contours.len(), holes.len())
+                    == PathFillRule::EvenOdd;
             Ok(Lowered::Fill {
                 contours: flattened_rings,
                 even_odd,
@@ -798,7 +827,8 @@ pub fn lower_frame(items: &[RenderItem], view: Affine) -> NativePlan {
             continue;
         }
 
-        match lower_item(item) {
+        let remaining_vertices = MAX_PLAN_VERTICES.saturating_sub(plan.vertices.len());
+        match lower_item(item, remaining_vertices) {
             Ok(Lowered::Shape(mut record, local)) => {
                 let combined = multiply(view, multiply(item.transform, local));
                 let scale = max_scale(combined);

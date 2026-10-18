@@ -54,7 +54,10 @@ impl NativeRenderStage {
         forced_sample_count: Option<u32>,
     ) -> Result<Self, crate::discovery::AccelError> {
         Ok(Self {
-            raster: NativeRaster::create_with_sample_count(preferred_device_id, forced_sample_count)?,
+            raster: NativeRaster::create_with_sample_count(
+                preferred_device_id,
+                forced_sample_count,
+            )?,
             health: RenderHealth::default(),
         })
     }
@@ -743,6 +746,16 @@ mod tests {
         let fine = flatten_contour(&points, false, 0.01).len();
         let coarse = flatten_contour(&points, false, 5.0).len();
         assert!(fine > coarse, "fine={fine} coarse={coarse}");
+    }
+
+    #[test]
+    fn native_path_flattening_rejects_work_before_exceeding_its_vertex_budget() {
+        let mut points = path_points(&[(0.0, 0.0), (10.0, 0.0)]);
+        points[0].handle_out = Some([5.0, -5.0]);
+        points[1].handle_in = Some([-5.0, -5.0]);
+
+        assert!(super::plan::flatten_contour_with_budget(&points, false, 0.05, 3).is_none());
+        assert!(super::plan::flatten_contour_with_budget(&points, false, 0.05, 128).is_some());
     }
 
     #[test]
