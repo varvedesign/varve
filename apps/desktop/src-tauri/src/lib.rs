@@ -359,7 +359,9 @@ fn process_is_running(pid: u32) -> bool {
     #[cfg(unix)]
     {
         let Ok(pid) = libc::pid_t::try_from(pid) else {
-            return false;
+            // A PID outside this host's range cannot be verified, so retain
+            // the file instead of treating an unrecognized owner as dead.
+            return true;
         };
         // Signal 0 only performs process existence and permission checks.
         // Treat all errors except ESRCH as "possibly alive" to fail safely.
@@ -7747,8 +7749,10 @@ mod tests {
         std::fs::create_dir_all(&dir).expect("create test dir");
         let target = dir.join("document.varve");
         let stale = dir.join(".varve-write-1-1.tmp");
-        let dead_owner = dir.join(".varve-write-4294967295-4-4.tmp");
-        let recent_dead_owner = dir.join(".varve-write-4294967294-5-5.tmp");
+        let dead_owner = dir.join(".varve-write-2147483647-4-4.tmp");
+        let recent_dead_owner = dir.join(".varve-write-2147483646-5-5.tmp");
+        #[cfg(unix)]
+        let unknown_owner = dir.join(".varve-write-4294967295-6-6.tmp");
         let recent = dir.join(format!(".varve-write-{}-2-2.tmp", std::process::id()));
         let active = dir.join(format!(".varve-write-{}-3-3.tmp", std::process::id()));
         let unrelated = dir.join(".varve-write-user-file.tmp");
@@ -7758,6 +7762,9 @@ mod tests {
             .expect("write dead-owner staging file");
         std::fs::write(&recent_dead_owner, b"recent abandoned process staging file")
             .expect("write recent dead-owner staging file");
+        #[cfg(unix)]
+        std::fs::write(&unknown_owner, b"unrepresentable owner PID")
+            .expect("write unknown-owner staging file");
         std::fs::write(&recent, b"active").expect("write recent staging file");
         std::fs::write(&active, b"active long save").expect("write active staging file");
         std::fs::write(&unrelated, b"user file").expect("write unrelated file");
@@ -7799,6 +7806,11 @@ mod tests {
         assert!(
             !recent_dead_owner.exists(),
             "a file with a dead owner is removed without an age delay"
+        );
+        #[cfg(unix)]
+        assert!(
+            unknown_owner.exists(),
+            "a PID outside the host range has an unknown owner and is retained"
         );
         assert!(recent.exists(), "a recent staging file is left alone");
         assert!(

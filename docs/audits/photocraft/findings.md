@@ -181,7 +181,11 @@ replacement remains unchanged.
 
 **Engineering status:** implementation is present and the five focused native
 `atomic_write_` tests pass, including legacy stale-file removal, dead-owner
-cleanup, live-owner retention, lookalike-name retention, and symlink retention.
+cleanup (including recent abandoned files), live or unrepresentable-owner
+retention, lookalike-name retention, and symlink retention. A final
+read-only review caught and fixed the Unix case where a PID outside `pid_t`
+could otherwise be treated as dead; out-of-range owner status is now unknown
+and retained.
 Rustfmt, documentation, emoji, and token audits pass. The planner escalates to
 the full suite; its two attempts are recorded in the continuation report, and
 the full gate remains incomplete.

@@ -123,7 +123,9 @@ Last updated: 2026-10-18. Status: active and incomplete.
   cleanup errors do not fail saves. A minimal Windows API target probe passed;
   the full desktop cross-check could not build `ring` because this Linux host
   has no MSVC-compatible C compiler, so native Windows behavior is unverified.
-  Focused native tests pass. This newer code is not covered by either full-gate
+  Focused native tests pass, including retention of a Unix PID that is outside
+  the host's `pid_t` range. The read-only final review found and fixed that
+  out-of-range-PID safety case. This newer code is not covered by either full-gate
   receipt above. Keep #6602 hard-link semantics and #6603
   xattr/ACL preservation as separate findings; do not imply that either is
   fixed by read-only/mode preservation or F-004.
