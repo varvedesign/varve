@@ -38,6 +38,7 @@ import { applyAiDisclosureToSvg, getDocumentAiDisclosure } from './export/aiDisc
 import { composeFlattenedRasterAssetsForNode } from './export/compositor';
 import { collectGradientMapFlattenWarnings } from './export/gradientMapPreflight';
 import { injectPngPhys, ppiToPixelsPerMeter } from './export/pngDensity';
+import { normalizeExportOutputPath } from './exportBatchPaths';
 import { loadSettings } from './settings';
 
 /** Resolve the default export colour space from settings. */
@@ -206,7 +207,7 @@ function jobStem(fileName: string): string {
 
 /** Normalize an output's relative name for duplicate detection across hosts. */
 function outputNameKey(fileName: string): string {
-  return fileName.normalize('NFC').replaceAll('\\', '/');
+  return normalizeExportOutputPath(fileName).normalize('NFC');
 }
 
 function abortError(): Error {

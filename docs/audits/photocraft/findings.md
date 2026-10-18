@@ -334,9 +334,12 @@ and accepted duplicate filenames from direct callers; generated multi-file
 deliverables add further names after the dialog's job-level resolution. Such a
 duplicate could replace a previous file depending on the configured sink.
 
-**Implementation.** The service now normalizes output path separators and
-Unicode composition, reserves every output name before writing, and reports a
-duplicate as a failed job with an actionable rename message. It reserves before
+**Implementation.** The service now uses the same output-path canonicalizer as
+the folder and archive sinks, normalizes Unicode composition, reserves every
+output name before writing, and reports a duplicate as a failed job with an
+actionable rename message. A review regression found that `./Logo.svg` and
+`Logo.svg` otherwise reached the same sanitized path; the shared canonicalizer
+now catches both. It reserves before
 the first write so a partially written multi-file export cannot be overwritten
 by a later job. A regression first failed because the sink received both writes,
 then passed after the guard. This complements the dialog's automatic renaming;

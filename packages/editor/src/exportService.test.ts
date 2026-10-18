@@ -76,6 +76,36 @@ describe('ExportService', () => {
     expect(report.files[1]?.error).toContain('already used by another output');
   });
 
+  it('detects duplicate paths after folder-sink path cleanup', async () => {
+    const first = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 });
+    const second = makeShapeNode('n2', { kind: 'rect', x: 30, y: 0, w: 20, h: 10 });
+    const doc = {
+      ...createDocument('Doc', true),
+      rootChildren: ['n1', 'n2'],
+      nodes: { n1: first, n2: second },
+    };
+    const job = svgBatch().jobs[0]!;
+    const batch = {
+      ...svgBatch(),
+      jobs: [
+        { ...job, nodeId: 'n1', fileName: './Logo.svg' },
+        { ...job, nodeId: 'n2', fileName: 'Logo.svg' },
+      ],
+    };
+    const saved: string[] = [];
+
+    const report = await ExportService.run(batch, {
+      document: doc,
+      saveFile: async (fileName) => {
+        saved.push(fileName);
+        return `/exports/${fileName}`;
+      },
+    });
+
+    expect(saved).toEqual(['./Logo.svg']);
+    expect(report.files.map((file) => file.status)).toEqual(['success', 'failed']);
+  });
+
   it('exports SVG jobs through the save sink and reports success', async () => {
     const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Logo' });
     const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };

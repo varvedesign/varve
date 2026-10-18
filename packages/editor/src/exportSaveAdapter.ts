@@ -7,8 +7,8 @@
 
 import type { Platform } from '@varve/platform';
 import type { ExportFormat, ExportJob } from '@varve/scene';
-import { sanitizeSegment } from '@varve/scene/export';
 import { zipSync } from 'fflate';
+import { normalizeExportOutputPath } from './exportBatchPaths';
 import type { ExportRunContext } from './exportService';
 
 const FORMAT_EXTENSIONS: Partial<Record<ExportFormat, string>> = {
@@ -140,7 +140,11 @@ export function createExportFolderSaveFile(
   folder: string,
 ): NonNullable<ExportRunContext['saveFile']> {
   return async (fileName, bytes) => {
-    return await platform.writeBinaryFileToFolder(folder, safeArchiveEntryPath(fileName), bytes);
+    return await platform.writeBinaryFileToFolder(
+      folder,
+      normalizeExportOutputPath(fileName),
+      bytes,
+    );
   };
 }
 
@@ -159,16 +163,6 @@ export interface BufferedExportArchive {
   flush: (archiveName: string) => Promise<string | null>;
 }
 
-function safeArchiveEntryPath(fileName: string): string {
-  const segments = fileName
-    .replaceAll('\\', '/')
-    .split('/')
-    .filter((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
-    .map((segment) => sanitizeSegment(segment, { keepDots: true }).trim())
-    .filter(Boolean);
-  return segments.join('/') || 'export.bin';
-}
-
 /**
  * Buffer a browser batch and deliver it as one ZIP. This prevents a batch from
  * opening one picker or uncontrolled download per output. Only successful
@@ -181,7 +175,7 @@ export function createBufferedExportArchive(platform?: Platform): BufferedExport
 
   return {
     saveFile: async (fileName, bytes) => {
-      let entry = safeArchiveEntryPath(fileName);
+      let entry = normalizeExportOutputPath(fileName);
       if (files[entry]) {
         const dot = entry.lastIndexOf('.');
         const stem = dot > 0 ? entry.slice(0, dot) : entry;

@@ -4,7 +4,19 @@ import {
   legacyFormatToCanonical,
   legacyScaleToCanonical,
   resolveCollisions,
+  sanitizeSegment,
 } from '@varve/scene/export';
+
+/** Canonicalize a relative output path before it reaches a filesystem sink. */
+export function normalizeExportOutputPath(fileName: string): string {
+  const segments = fileName
+    .replaceAll('\\', '/')
+    .split('/')
+    .filter((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
+    .map((segment) => sanitizeSegment(segment, { keepDots: true }).trim())
+    .filter(Boolean);
+  return segments.join('/') || 'export.bin';
+}
 
 /**
  * Resolve the filename template, organization rule, and collisions once for

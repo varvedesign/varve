@@ -120,8 +120,10 @@ Last updated: 2026-10-18. Status: active and incomplete.
   current embedded asset model. #6613 exposed a defense-in-depth gap: the
   dialog already renames duplicates, while ExportService now rejects duplicate
   names from direct callers and generated multi-file outputs; its focused test
-  is green and wider validation remains. #6614's named-layer asset workflow is
-  not present in Varve.
+  is green and wider validation remains. Read-only review found and fixed a
+  path-alias gap by sharing canonicalization with the folder/archive sinks; its
+  red/green regression is added. #6614's named-layer asset workflow is not
+  present in Varve.
 
 ## Current full-gate checkpoint (2026-10-18)
 
