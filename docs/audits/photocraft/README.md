@@ -148,9 +148,10 @@ the current website review found no matching claim that needs correction.
 ## 2026-10-18 disposition checkpoint
 
 All 3,275 cutoff-A issue rows now have an explicit Varve disposition or an
-explicit unresolved decision: 222 candidates, 2 fixed items, 200 analogues,
+explicit unresolved decision: 221 candidates, 2 fixed items, 200 analogues,
 453 partial matches, 28 already-covered behaviors, 80 trackers, 78 adjacent
-QA/design leads, 2,208 reports with no Varve match established, and 4 issues
+QA/design leads, 2,208 reports with no Varve match established, 1 out-of-scope
+issue with no corresponding feature, and 4 issues
 that remain `unclear`. Those four are not completed dispositions; each has a
 specific reason the available source evidence does not yet support a confident
 Varve scope decision. The earlier 455-row unassessed gap now has per-issue
@@ -161,7 +162,7 @@ scope were manually resolved. Thirteen of the 17 previously unclear issues
 were resolved after their linked evidence and Varve paths were inspected.
 
 The status counts distinguish source comparison from engineering completion.
-The 222 candidates still require Varve reproduction or a product decision;
+The 221 candidates still require Varve reproduction or a product decision;
 the 453 partial matches and 78 adjacent leads are not automatically defects.
 The issue source pass and row-level Varve comparison do not complete the
 recursive link frontier or review of the source repository's PR discussions.

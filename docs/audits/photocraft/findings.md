@@ -705,3 +705,38 @@ above `f32::MAX`, confirm the item is rejected before any non-finite GPU buffer
 value is emitted, then compare the displayed surface with the Canvas2D
 full-redraw oracle. Run the crate's affected validation and visual test when
 native build headroom is available. No marketing claim needs revision.
+
+## F-017 — Mask feather input needs a finite, bounded range
+
+**Source.** PhotoCraft [#4201](https://github.com/storytold/photocraft/issues/4201)
+reports that vector-mask editing accepted a feather of `1e39`, narrowed it to
+`f32` infinity, and left the document unsavable. Linked [#4181](https://github.com/storytold/photocraft/issues/4181)
+concerns Global Light, a layer-style feature Varve does not currently expose;
+its fix is described in [PR #4182](https://github.com/storytold/photocraft/pull/4182).
+PhotoCraft fixed #4201 in [PR #4202](https://github.com/storytold/photocraft/pull/4202),
+which confirms that vector-mask input should follow the existing finite 0–1,000
+px contract and reject invalid edits before history changes.
+
+**Varve applicability.** Varve stores mask feather as a JS number and does not
+downcast it at persistence. However, the editing helper previously used
+`Math.max(0, feather)`, which preserves `Infinity` and `NaN`, while the mask
+document validator did not bound the field. The mask renderer's box blur
+performs an initialization loop proportional to the radius, so an extreme
+finite value could also stall rendering. This is a direct input-boundary
+analogue with a distinct Varve failure mode.
+
+**Implementation status.** The current branch now ignores non-finite edits,
+caps finite edits at 1,000 world-space pixels, validates the same range during
+document loading, and exposes that maximum in the Inspector. Focused regression
+coverage and docs were added. The 1,000 px range matches the source fix, while
+the Varve setter caps out-of-range finite edits to preserve the existing
+clamping interaction model. This remains `implemented_pending_validation`
+until the affected validation and visual inspection complete. The marketing
+website scan found no claim about mask-feather limits or Global Light that
+needs revision.
+
+**Next verification.** Run the affected plan after disk headroom recovers;
+confirm setter and load-boundary regressions, then open a masked document in
+the UI and inspect the Inspector limit and canvas response. Capture the usual
+visual evidence in dark, light, and high-contrast themes if the visual harness
+permits it.

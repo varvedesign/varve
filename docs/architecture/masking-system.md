@@ -84,6 +84,13 @@ EffectMaskBinding
   visible / inverted / density / feather / linked / transform
 ```
 
+Layer-mask feather is a finite world-space radius in the inclusive range
+0–1,000 px. `setMaskFeather()` caps finite edits at that limit and leaves the
+document unchanged for non-finite input; document loading rejects values
+outside the range before rendering. The Inspector uses the same maximum.
+This bound also keeps the box-blur initialization work proportional to a
+bounded radius for each row and column.
+
 `buildCompositingDependencyGraph()` indexes source-to-dependent edges for node
 masks and effect-local masks. A source edit therefore has a discoverable path
 to its dependent repaint. `setEffectMask()` rejects missing sources, self

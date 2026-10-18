@@ -509,3 +509,21 @@ Last updated: 2026-10-18. Status: active and incomplete.
   escalation before running lanes. `pnpm --filter @varve/desktop typecheck`
   reports the known untouched `CollabSurfaces.tsx:450` readonly `Affine` cast
   diagnostic. No website copy change is justified.
+
+- 2026-10-18 mask numeric boundary follow-up: PhotoCraft #4201 and merged PR
+  #4202 confirm a finite 0–1,000 px vector-mask feather contract. Varve's
+  `setMaskFeather` previously preserved non-finite values, the document mask
+  validator did not bound finite values, and the mask blur initializer scales
+  with the radius. The current unvalidated change ignores non-finite setter
+  input, caps finite edits at 1,000 px, rejects out-of-range loaded documents,
+  and applies the same maximum in the Inspector. Regression coverage and the
+  masking architecture note are added; docs now identify the source and the
+  distinct Varve failure mode. PhotoCraft #4181 / PR #4182 concern Global
+  Light, which has no corresponding Varve feature, so #4181 is now explicitly
+  out of scope. Marketing-site review found no matching claim to change.
+  `pnpm verify:plan` currently selects desktop format/lint, docs and emoji
+  audits, desktop unit/typecheck, and desktop-native, and escalates to the full
+  gate because the worktree also contains the earlier Cargo manifest change.
+  Workspace space remains critically low (360 MB free at check); affected
+  validation, native build, UI visual inspection, and final code review have
+  not run. Do not call the implementation complete until those are done.
