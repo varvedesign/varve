@@ -172,6 +172,17 @@ Escalations: none. No full suite run.
 Full suite run: no.
 If yes, reason: n/a.
 
+### Latest validation report — provenance and ledger correction
+
+Changed scope: PdfCraft #813 classification and rationale, adjacent PhotoCraft source links, async-open risk notes, cutoff A count summary.
+Validation plan: `pnpm verify:plan` selected 38 lanes, FULL-SUITE NO. Untracked, unowned codegen/scene files caused those packages to enter the closure.
+Commands actually run: `pnpm verify:plan`; `pnpm verify:affected`; `pnpm audit:docs`; `pnpm audit:emoji`; `pnpm exec biome check docs/audits/photocraft/issue-ledger.summary.json`; `git diff --check`; Python JSONL/summary reconciliation.
+Passed: docs audit (1162 docs, 833 links, 182 ADRs); emoji audit (5414 files); JSONL/summary counts and uniqueness; summary formatting; staged commit checkpoints for both commits.
+Skipped as unrelated: package compilers, unit tests and E2E did not run because `pnpm verify:affected` stopped at Tier 0 on the unowned `packages/codegen/src/bundle-assets.ts` formatter error. The other unowned `packages/scene/src/nodeResize.ts` remains untracked too.
+Escalations: none. No full suite run. The possible Home-open focus race is documented but not reproduced or changed.
+Full suite run: no.
+If yes, reason: n/a.
+
 ## Exact next steps
 
 1. When the shared heavy-test lease is available, rerun the targeted Thai text
