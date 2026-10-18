@@ -501,7 +501,20 @@ change is warranted.
 
 **Source.** PhotoCraft [#1918](https://github.com/storytold/photocraft/issues/1918)
 reports pending crop state leaking between documents. The report is a lead for
-session ownership, not evidence about Varve.
+session ownership, not evidence about Varve. Its linked
+[PR #1957](https://github.com/storytold/photocraft/pull/1957) merged a
+document-owned crop state, stale-session cancellation before draw and commit,
+and menu blocking while a crop is pending. The maintainer discussion confirms
+the wrong-document commit path was reproduced and manually checked the switch
+behavior in Photoshop 25.1 and 27.11. Varve's existing interaction uses a
+different, simpler policy: switching sessions cancels crop mode rather than
+keeping a pending crop per document or blocking every unrelated menu action.
+Krita's [Crop Tool manual](https://docs.krita.org/en/reference_manual/tools/crop.html)
+describes recalling a previous crop when starting “a new one” and Escape
+cancellation, but does not say whether that carries across images. It neither
+establishes nor contradicts cross-document isolation for uncommitted crop
+state. The PhotoCraft PR and issue discussion directly support the
+cross-document leakage concern.
 
 **Varve applicability.** `ToolManager` is shared across editor tabs, while
 `CropTool` keeps its pending crop rectangle and target node ID on the tool
@@ -513,7 +526,18 @@ then accept the old crop against the new active document.
 **Implementation.** `useToolManagerSync` now tracks the active document
 session key. If the shared manager is in Crop mode when the session changes, it
 switches both the manager and editor state to Select, which deactivates and
-clears the pending crop. A hook regression checks that transition.
+clears the pending crop. The hook regression and the full real-Chromium crop
+pointer spec pass (14/14). The new pointer flow imports an image, modifies an
+uncommitted crop and verifies the rectangle narrows, creates a new document
+tab, verifies the overlay is gone, then compares the second document's
+serialized state before and after Enter while confirming it remains active.
+The 1280×721 screenshot was inspected and retained at
+`evidence/crop-cleared-on-new-tab.png`. File-open and direct tab-switch routes
+share the same active-session synchronization path but were not separately
+pointer-driven in this run. Crop commit still emits the existing development
+warning for `updateDoc` outside a transaction; the same real-browser suite
+passes crop undo and redo. That history diagnostic is recorded for follow-up,
+not treated as part of this cross-document state fix.
 
 **Website impact:** no published claim describes cross-tab crop state. No
 marketing copy change is warranted.

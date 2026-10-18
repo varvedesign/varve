@@ -65,11 +65,23 @@ Last updated: 2026-10-18. Status: active and incomplete.
 - Progressive commits: `dd5120f28` (native fill cover-quad budget),
   `a4aca5e53` (bounded variable-width stroke expansion), `7d3e0bc87` (linear,
   pattern-preserving dash fallback), and `0e21e9a89` (cap unproductive dash
-  traversal). Editor changes remain uncommitted pending final review and commit.
-  The final independent read-only review found no actionable findings. Safe
-  integration to `master` remains outstanding:
-  the primary master checkout has unrelated dirty changes and the dedicated
-  integration worktree also has unrelated in-progress changes.
+  traversal), and `13a3f67b6` (Clone Stamp modifier fallback and gradient lock
+  guard). The independent read-only review found no actionable findings in
+  those editor changes. The real-browser crop session regression is now added:
+  the complete crop pointer spec passes 14/14, including New-tab cancellation,
+  crop commit, cancel, undo and redo. The new-tab case confirms the pending
+  crop rectangle changed before switching and that Enter leaves the new
+  document's serialized state unchanged. The 1280×721 new-tab screenshot was
+  inspected and retained as `evidence/crop-cleared-on-new-tab.png`. The first
+  affected run failed before Chromium because the root filesystem was full; a
+  retry passed after space returned (4.4 GB available). Crop commit logs the
+  existing development warning for `updateDoc` outside a transaction; the
+  same browser run verified crop undo/redo. Direct file-open and tab-switch
+  routes use the same session-sync branch but were not separately driven.
+  Safe integration to `master` remains outstanding. A clean-snapshot merge
+  preview succeeded, but the real dirty master checkout rejected the merge
+  because unrelated local edits and untracked files overlap paths touched by
+  this branch; no master worktree changes were made.
 
 ## Source boundary
 

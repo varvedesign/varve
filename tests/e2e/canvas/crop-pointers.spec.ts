@@ -48,6 +48,36 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     return box;
   }
 
+  async function serializeActiveDocument(page: import('@playwright/test').Page): Promise<string> {
+    return page.evaluate(() => {
+      type Fiber = {
+        memoizedProps?: { value?: unknown };
+        child?: Fiber | null;
+        sibling?: Fiber | null;
+      };
+      const root = document.getElementById('root');
+      if (!root) throw new Error('Missing editor root');
+      const fiberKey = Object.keys(root).find(
+        (key) => key.startsWith('__reactContainer$') || key.startsWith('__reactFiber$'),
+      );
+      if (!fiberKey) throw new Error('Missing editor React container');
+      const findEditor = (
+        fiber: Fiber | null | undefined,
+      ): { serializeDocument?: () => string } | null => {
+        if (!fiber) return null;
+        const value = fiber.memoizedProps?.value;
+        if (value && typeof value === 'object' && 'serializeDocument' in value) {
+          const editor = value as { serializeDocument?: () => string };
+          if (typeof editor.serializeDocument === 'function') return editor;
+        }
+        return findEditor(fiber.child) ?? findEditor(fiber.sibling);
+      };
+      const editor = findEditor((root as unknown as Record<string, unknown>)[fiberKey] as Fiber);
+      if (!editor?.serializeDocument) throw new Error('Missing editor serialization method');
+      return editor.serializeDocument();
+    });
+  }
+
   test('import image file and verify it appears in layers', async ({ page }) => {
     test.setTimeout(60000);
     await importFixture(page, 'test-image.png');
@@ -65,6 +95,47 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await importFixture(page, 'test-image.png');
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('pending crop is cleared when creating another document tab', async ({ page }) => {
+    test.setTimeout(60000);
+    await importFixture(page, 'test-image.png');
+    await page.keyboard.press('c');
+    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+    const cropBefore = await cropWindowBox(page);
+
+    const eastHandle = page.getByRole('button', { name: 'Resize crop e', exact: true });
+    const handleBox = await eastHandle.boundingBox();
+    if (!handleBox) throw new Error('east crop handle not found');
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(
+      handleBox.x + handleBox.width / 2 - 35,
+      handleBox.y + handleBox.height / 2,
+    );
+    await page.mouse.up();
+    const pendingCrop = await cropWindowBox(page);
+    expect(pendingCrop.width).toBeLessThan(cropBefore.width - 15);
+
+    await page.getByRole('button', { name: 'New document (Ctrl+T)' }).click();
+    const tabs = page.getByRole('tablist', { name: 'Open documents' }).getByRole('tab');
+    await expect(tabs).toHaveCount(2);
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('[data-testid="crop-overlay"]')).not.toBeVisible();
+    const secondDocumentBeforeEnter = await serializeActiveDocument(page);
+    await page.screenshot({
+      path: path.resolve(
+        __dirname,
+        '../../../docs/audits/photocraft/evidence/crop-cleared-on-new-tab.png',
+      ),
+      fullPage: true,
+    });
+
+    // Enter must not apply the first tab's pending crop to the new document.
+    await page.keyboard.press('Enter');
+    await expect(page.locator('[data-testid="crop-overlay"]')).not.toBeVisible();
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect.poll(() => serializeActiveDocument(page)).toBe(secondDocumentBeforeEnter);
   });
 
   test('drag right crop handle inward reduces crop width', async ({ page }) => {
