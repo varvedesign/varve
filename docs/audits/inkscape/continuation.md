@@ -355,6 +355,13 @@ Inkscape’s canonical tracker.
   `typecheck:e2e` failed after 80.6s on the existing missing
   `packages/scene/src/nodeResize` module; the dependent browser E2E did not
   start. No full-suite escalation was selected.
+- For the PDF pattern row-orientation regression, the focused lease-wrapped
+  Rust test first failed on an incorrect negative-height expectation. Rendering
+  the captured PDF with `pdftoppm -r 1152` showed the existing positive-height
+  transform preserved the asymmetric tile's red/green top row and blue/white
+  bottom row. The test expectation was corrected to this visually verified
+  behavior. The corrected focused test passed; the orientation screenshot is
+  `/tmp/varve-inkscape-pattern-orientation-green.png`.
 
 39. Reconciled the Inkscape body sweep for IID 5479–5790 against exact retained
     ranges and the durable issue cache. Fully read 300 available descriptions
@@ -362,15 +369,61 @@ Inkscape’s canonical tracker.
     #5579–5586, #5588–5623, #5625–5660, #5662–5673, #5675–5695,
     #5697–5716, #5718–5781, and #5783–5790. Also fully read #5304.
     #5294's 126,637-character body remains partial. IIDs #5546, #5578,
-    #5587, #5674, and #5717 had no ledger/cache body. The earlier reported
-    #4801–5478 counts conflict and could not be reconstructed from exact IDs;
-    those bodies remain uncredited. No discussions or attachments were read.
+    #5587, #5674, and #5717 had no ledger/cache body. The #4801–5478 counts
+    reported earlier conflicted and could not be reconstructed at
+    that checkpoint. A fresh exact-ID pass later recovered #4801–5150; the
+    remaining #5151–5478 bodies were still uncredited. No discussions or
+    attachments were read.
     Body screening now records 5,716 fully screened, 2 partial, and 674 pending.
+40. Re-read pending bodies in IID 4801–5150 with exact IDs: 347 full descriptions
+    in #4801–4833, #4835–4923, #4925–5090, and #5092–5150. #4924 was already
+    screened; #4834 and #5091 are absent from the ledger/cache. No descriptions
+    in the slice were empty or cache-missing; discussions and attachments were
+    not reviewed. High-signal body-only leads include batch PNG layer flattening
+    versus preview (#5092), stale export order/preview state (#5106/#5147), PDF
+    import/CLI export crashes (#5098/#5099), undo/redo crash under reverse mask
+    (#5120), and text coordinate loss after hide/show (#5137/#5102). These
+    reports do not establish current Varve defects. Body totals are now 6,063
+    fully screened, 2 partial, and 327 pending.
+41. Investigated Inkscape #5480's mirrored pattern-export report. GitLab reports
+    zero comments, while its four screenshots redirect to sign-in. Varve's PDF
+    raster-tile path preserved an asymmetric 2×2 source tile in a 1152-dpi
+    Poppler render, so no matching raster-orientation defect was reproduced.
+    Vector-origin pattern and blur variants remain untested; a focused test now
+    guards the verified transform.
+
+42. Re-read pending bodies in IID 5151–5478 with exact IDs: 321 full available
+    descriptions in #5151–5292, #5297–5303, #5305–5417, #5419–5450, and
+    #5452–5478. #5293, #5295, #5296, and #5418 are absent from the ledger/cache;
+    #5294 remains partial, while #5304 and #5451 were already screened. The
+    #5316 cached report itself ends abruptly at a literal `<a`; #5400 and #5467
+    are template-only reports. No discussions or attachments were reviewed.
+    Body totals are now 6,384 fully screened, 2 partial, and 6 pending.
+
+43. High-signal body-only leads in IID 5151–5478 include external-SVG/clone
+    copy crashes (#5282), recursive defs import on pattern paste (#5351), SVG
+    ID collision affecting `<use>` (#5317), broken-link repair substituting a
+    same-basename image (#5432), duplicated clipPaths on PDF import (#5345),
+    portal printing at the wrong physical size (#5335), stale boolean-LPE
+    rendering after save/reopen (#5305), and a Save As callback recursion
+    freeze (#5376). These are screening candidates: linked fixtures, notes,
+    current fix status, and matching Varve workflows still need review.
+
+44. Added a focused asymmetric raster-pattern PDF orientation regression test
+    and visually verified the captured Poppler render. Focused
+    `varve-print` tests (170) and clippy passed. The planner-selected desktop
+    Rust check stopped during archive creation with `No space left on device`;
+    its generated Cargo.lock edit was restored. `verify:affected` still stops
+    at the unrelated E2E typecheck failure caused by missing
+    `packages/scene/src/nodeResize`; browser E2E did not start. `cargo fmt
+    --check` reports only two pre-existing differences at lines 348 and 420 of
+    `crates/varve-print/src/lib.rs`.
 
 ## Next operation
 
-Continue body screening from #4801–5478 using exact IID accounting, then review
-remaining Inkscape discussions, linked evidence, and candidate Varve workflows.
+Continue body screening for the six remaining pending bodies (#5887, #5910,
+#5924, #5939, #5956, #5960), then review remaining Inkscape discussions,
+linked evidence, and candidate Varve workflows.
 Reconcile all 32,692 reported non-system comments before claiming broad discussion
 coverage. Keep system notes for linked events and state history. Do not mark an
 issue reviewed based only on its title, labels, or downloaded body.

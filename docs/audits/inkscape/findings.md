@@ -4,7 +4,7 @@ This page records evidence reviewed so far. A body-screened report is not a
 confirmed Varve defect. Discussion review and linked implementation history
 remain pending unless stated otherwise in the issue ledger.
 
-## Screening update: issues #5304 and #5479–5790
+## Screening update: #4801–5478, #5304, and #5479–5790
 
 The reconciled sweep fully read #5304 and 300 available descriptions in
 #5479–5790. The exact reviewed ranges are #5479–5481, #5483–5526,
@@ -12,9 +12,11 @@ The reconciled sweep fully read #5304 and 300 available descriptions in
 #5625–5660, #5662–5673, #5675–5695, #5697–5716, #5718–5781, and
 #5783–5790. #5294 remains partial because its 126,637-character body was not
 fully inspected. #5546, #5578, #5587, #5674, and #5717 had no available
-ledger/cache body; they are not counted as read. The conflicting earlier
-checkpoints for #4801–5478 could not be reconciled, so no other descriptions
-in that interval are credited. No discussions or attachments were reviewed.
+ledger/cache body; they are not counted as read. Fresh exact-ID reads later
+covered 347 descriptions in #4801–5150 and 321 available descriptions in
+#5151–5478. #4834, #5091, #5293, #5295, #5296, and #5418 are absent from the
+ledger/cache; #5294 remains partial. #5304 and #5451 were already screened.
+No discussions or attachments were reviewed.
 These reports are issue-screening leads, not proof that Varve has the same
 defects:
 
@@ -26,7 +28,13 @@ defects:
 - [#5480](https://gitlab.com/inkscape/inkscape/-/issues/5480) reports pattern
   fills mirrored in PDF/PNG exports despite looking correct in the viewport,
   with a blur-related export difference. This maps to export/render parity;
-  its fixture and comments were not inspected.
+  its four linked screenshots are unavailable because GitLab redirects the
+  upload URLs to sign-in, and the issue list reports no comments. Varve's
+  raster pattern path was checked with an asymmetric 2×2 tile: the exported
+  PDF retained its red/green top row and blue/white bottom row in a 1152-dpi
+  Poppler render. This verifies that raster-tile path only; vector-origin
+  patterns and blur behavior remain untested, so no matching defect is
+  established.
 - [#5497](https://gitlab.com/inkscape/inkscape/-/issues/5497) reports a
   clipboard crash when pasting from LibreOffice, in a GTK clipboard target
   selection path. This is a cross-application clipboard robustness prompt;
@@ -35,8 +43,31 @@ defects:
   import crash during GTK file chooser teardown. The report is platform and
   lifecycle-specific; it does not establish a matching Varve defect.
 
-The remaining bodies from #4801–5478 require a fresh, exact-ID review before
-the ledger can credit that interval.
+The fresh pass fully read 347 pending descriptions in IID 4801–5150: #4801–4833,
+#4835–4923, #4925–5090, and #5092–5150. #4924 was already screened; #4834 and
+#5091 are absent from the ledger/cache. No discussions or attachments were
+reviewed. High-signal body-only leads from the #4801–5150 pass include:
+
+- [#5092](https://gitlab.com/inkscape/inkscape/-/issues/5092) reports batch
+  PNG layer export flattening overlapping content differently from its
+  preview; [#5106](https://gitlab.com/inkscape/inkscape/-/issues/5106) and
+  [#5147](https://gitlab.com/inkscape/inkscape/-/issues/5147) report stale
+  batch ordering after page reorder and stale preview after visibility/content
+  changes. These suggest export-preview parity and invalidation checks.
+- [#5098](https://gitlab.com/inkscape/inkscape/-/issues/5098) reports a PDF
+  import crash during recursive font traversal, while
+  [#5099](https://gitlab.com/inkscape/inkscape/-/issues/5099) reports a CLI
+  PDF export crash while deleting pages. Both suggest failure-boundary checks
+  for malformed or changing document inputs.
+- [#5120](https://gitlab.com/inkscape/inkscape/-/issues/5120) reports an
+  undo/redo crash while editing text under a reverse mask.
+  [#5137](https://gitlab.com/inkscape/inkscape/-/issues/5137), a duplicate of
+  #5102, reports hide/show clearing SVG `tspan` coordinates. These suggest
+  history and text-preservation checks, subject to confirming the supported
+  document paths in Varve.
+
+These are historical descriptions only; their discussions, linked fixes,
+fixtures, and current upstream status have not been checked.
 
 ## Screening update: issues #6393–6482
 
@@ -1131,3 +1162,29 @@ failures, invalid IDs, and closing during export can crash the application
 non-destructive edits, saved state, explicit invalid-input errors, and safe
 cancellation. Their reports are version-specific and have not been reproduced
 in Varve.
+
+## Inkscape issue bodies #4801–#5478
+
+Fresh exact-ID reads covered 347 descriptions in #4801–#5150 and 321
+descriptions in #5151–#5478. The ledger records the screened IDs and omissions.
+No discussions or linked attachments were reviewed in these body-only passes,
+so the items below are leads rather than confirmed current Inkscape defects or
+Varve regressions.
+
+The clearest transferable integrity and interoperability leads are external
+SVG/clone copy crashes (#5282), recursive SVG definition import while pasting a
+pattern (#5351), and generated SVG ID collisions that change `<use>` resolution
+(#5317). Image relinking reportedly substitutes a different same-basename file
+when a valid external link contains spaces (#5432), a high-impact asset
+integrity scenario worth reproducing before mapping it to Varve. PDF import
+reportedly creates a clipPath for every path, including duplicates (#5345),
+which suggests measuring whether Varve's importer bounds redundant resources.
+
+Other workflow leads include physical print-size errors with GTK portals
+(#5335), stale boolean-operation rendering after save/reopen (#5305), and a
+Save As freeze caused by a recursive file-picker callback (#5376). These map
+to print geometry, scene invalidation, and re-entrant UI state only if Varve
+exposes equivalent workflows. The bodies are version- and platform-specific;
+their linked fixtures, discussions, and current upstream status remain
+unreviewed. See the continuation record for exact body coverage and remaining
+gaps.
