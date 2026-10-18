@@ -149,10 +149,16 @@ reproduce EffectCraft's reported playback behavior in Varve.
 This remains narrow product validation: one controlled drawing fixture and one
 repository-owned imported Varve sample. No customer design, standalone
 SVG/photo asset, native WebView, export or thumbnail differential,
-delayed-resource race, multi-scale rotation sweep, or long-session
-memory-pressure soak was run. The final 2026-10-18 `pnpm verify:plan` selected
-43 lanes because temporary root-only `codegen` and `scene` source copies were
-present in this worktree; it reported no full-suite escalation. The
+delayed-resource race, broad multi-scale/DPR/rotation sweep, or long-session
+memory-pressure soak was run. One alternate zoom and one camera rotation were
+checked on the imported poster: each retained frame matched the cache-disabled
+authoritative redraw pixel-for-pixel, and the captures were visually inspected.
+That run used the browser's pure-TypeScript fallback because WASM would not
+load; it does not establish WASM or native WebView parity. The earlier
+2026-10-18 `pnpm verify:plan` selected 43 lanes because temporary root-only
+`codegen` and `scene` source copies were present in this worktree. The latest
+plan, after adding the camera check and its captures, selects 39 lanes for the
+same unrelated copies and reports no full-suite escalation. The
 `pnpm verify:affected` attempt stopped at `format:touched` because the
 temporary untracked `packages/codegen/src/bundle-assets.ts` copy needs
 formatting; no later lanes ran. That file is excluded from this task's commits.

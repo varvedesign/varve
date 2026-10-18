@@ -98,6 +98,68 @@ async function forceAuthoritativeCanvasFrame(page: import('@playwright/test').Pa
   expect(result?.authoritative, 'oracle must commit a fresh full frame').toBe(true);
 }
 
+type TestCamera = { zoom: number; panX: number; panY: number; rotation: number };
+
+async function readTestCamera(page: import('@playwright/test').Page): Promise<TestCamera> {
+  const camera = await page.evaluate(() => {
+    const perf = (
+      window as Window & {
+        __varvePerf?: {
+          getLast: () => {
+            camera?: { zoom: number; panX: number; panY: number; rotation: number };
+          } | null;
+        };
+      }
+    ).__varvePerf;
+    return perf?.getLast()?.camera ?? null;
+  });
+  if (!camera) throw new Error('The canvas oracle has no committed camera');
+  return camera;
+}
+
+async function setTestCamera(
+  page: import('@playwright/test').Page,
+  camera: TestCamera,
+): Promise<void> {
+  const applied = await page.evaluate((nextCamera) => {
+    const perf = (
+      window as Window & {
+        __varvePerf?: {
+          camera: {
+            setState: (next: {
+              zoom: number;
+              pan: { x: number; y: number };
+              rotation: number;
+            }) => boolean;
+          };
+        };
+      }
+    ).__varvePerf;
+    return perf?.camera.setState({
+      zoom: nextCamera.zoom,
+      pan: { x: nextCamera.panX, y: nextCamera.panY },
+      rotation: nextCamera.rotation,
+    });
+  }, camera);
+  expect(applied, 'the perf camera controller must be installed').toBe(true);
+  await waitForStableCanvas(page);
+  await forceAuthoritativeCanvasFrame(page);
+}
+
+async function setTestZoom(page: import('@playwright/test').Page, zoom: number): Promise<void> {
+  const applied = await page.evaluate((nextZoom) => {
+    const perf = (
+      window as Window & {
+        __varvePerf?: { camera: { setZoom: (next: number) => boolean } };
+      }
+    ).__varvePerf;
+    return perf?.camera.setZoom(nextZoom);
+  }, zoom);
+  expect(applied, 'the perf camera controller must be installed').toBe(true);
+  await waitForStableCanvas(page);
+  await forceAuthoritativeCanvasFrame(page);
+}
+
 async function canvasPixelHash(page: import('@playwright/test').Page): Promise<number> {
   return page.locator(CANVAS).evaluate((element) => {
     const { data } = (element as HTMLCanvasElement)
@@ -702,6 +764,95 @@ test.describe('full-editor visual compositing', () => {
       contentType: 'image/png',
     });
     expect(childEditedBypassedHash).toBe(childEditedCachedHash);
+
+    // The retained source raster is keyed by exact zoom-derived scale. A zoom
+    // change must build a quality-matched surface, while camera rotation does
+    // not alter the world-space source and should keep that surface reusable.
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { setEnabled: (enabled: boolean) => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.setEnabled(true);
+    });
+    await forceAuthoritativeCanvasFrame(page);
+    await forceAuthoritativeCanvasFrame(page);
+    const baseCamera = await readTestCamera(page);
+    expect(await canvasPixelHash(page)).toBe(childEditedCachedHash);
+
+    const beforeZoomChange = await compositionCacheDiagnostics(page);
+    await setTestZoom(page, Math.max(2, baseCamera.zoom * 3));
+    const zoomCamera = await readTestCamera(page);
+    const firstZoomFrame = await compositionCacheDiagnostics(page);
+    expect(firstZoomFrame?.misses).toBeGreaterThan(beforeZoomChange?.misses ?? 0);
+    await forceAuthoritativeCanvasFrame(page);
+    const warmedZoomFrame = await compositionCacheDiagnostics(page);
+    expect(warmedZoomFrame?.hits).toBeGreaterThan(firstZoomFrame?.hits ?? 0);
+    const zoomCachedHash = await canvasPixelHash(page);
+    const zoomCapture = await contentCanvas.screenshot({
+      path: testInfo.outputPath('poster-grouped-zoom-retained.png'),
+    });
+    await testInfo.attach('poster-cache-enabled-at-alternate-zoom', {
+      body: zoomCapture,
+      contentType: 'image/png',
+    });
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { setEnabled: (enabled: boolean) => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.setEnabled(false);
+    });
+    await forceAuthoritativeCanvasFrame(page);
+    expect(await canvasPixelHash(page)).toBe(zoomCachedHash);
+
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { setEnabled: (enabled: boolean) => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.setEnabled(true);
+    });
+    await forceAuthoritativeCanvasFrame(page);
+    await forceAuthoritativeCanvasFrame(page);
+    const beforeRotation = await compositionCacheDiagnostics(page);
+    const rotatedCamera = { ...zoomCamera, rotation: zoomCamera.rotation + 0.18 };
+    await setTestCamera(page, rotatedCamera);
+    const afterRotation = await compositionCacheDiagnostics(page);
+    expect(afterRotation?.hits).toBeGreaterThan(beforeRotation?.hits ?? 0);
+    const rotatedCachedHash = await canvasPixelHash(page);
+    const rotatedCapture = await contentCanvas.screenshot({
+      path: testInfo.outputPath('poster-grouped-rotated-retained.png'),
+    });
+    await testInfo.attach('poster-cache-enabled-at-alternate-rotation', {
+      body: rotatedCapture,
+      contentType: 'image/png',
+    });
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { setEnabled: (enabled: boolean) => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.setEnabled(false);
+    });
+    await forceAuthoritativeCanvasFrame(page);
+    expect(await canvasPixelHash(page)).toBe(rotatedCachedHash);
+
+    await page.evaluate(() => {
+      const cache = (
+        window as Window & {
+          __varvePerf?: { compositionCache?: { setEnabled: (enabled: boolean) => void } };
+        }
+      ).__varvePerf?.compositionCache;
+      cache?.setEnabled(true);
+    });
+    await setTestCamera(page, baseCamera);
+    await forceAuthoritativeCanvasFrame(page);
+    expect(await canvasPixelHash(page)).toBe(childEditedCachedHash);
   });
 
   test('clip mask is visible in the real canvas and layer hierarchy', async ({ page }) => {

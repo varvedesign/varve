@@ -136,6 +136,18 @@ that closing one document releases only that document's entries. This checks
 selective in-memory reuse across open tabs; it does not claim cross-window or
 native WebView coverage.
 
+The same imported-fixture case now changes from its baseline zoom to a higher
+zoom that creates a distinct retained source surface, then rotates the camera
+without changing that world-space source. At both states it records retained
+hits and checks the cached content-canvas hash against a forced authoritative
+redraw with retention disabled. The Linux Chromium run passed in 3.0 minutes
+for the test (3.9 minutes including runner startup), using the pure-TypeScript
+fallback because the WASM engine could not load. The inspected screenshots are
+[`alternate zoom`](../screenshots/dependency-aware-composition/poster-grouped-zoom-retained.png)
+and [`alternate rotation`](../screenshots/dependency-aware-composition/poster-grouped-rotated-retained.png).
+This is one alternate-zoom and one rotation parity check on the Canvas2D
+fallback, not a broad zoom/DPR/rotation matrix or native WebView validation.
+
 ## Budget and current limits
 
 Unit coverage verifies LRU eviction, document retirement, diagnostic bypass,
