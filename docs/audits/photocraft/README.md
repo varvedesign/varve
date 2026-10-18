@@ -95,13 +95,14 @@ page-by-page observation, not an atomic point-in-time snapshot.
 - [Cutoff-B pull-request inventory](pr-inventory-cutoff-b-2026-10-17.jsonl)
 - [Cutoff-B pull-request deltas](pr-deltas-cutoff-b-2026-10-17.jsonl)
 
-The highest-priority applicable defect found so far is non-finite numeric data crossing document and
-inspector boundaries. Photocraft #6862 reports a JSON number (`1e39`) parsed as
-`f32` infinity, after which the affected file cannot be saved. Its two comments
-were read; the contributor points to still-open PR #6863. Related reports #5752
-and #6424 have had their full discussions read. This is an external report, not proof
-of Varve behavior; the Varve regression was separately reproduced and is being
-fixed in the current branch.
+The highest-priority Varve data-integrity defect found so far is non-finite
+numeric data crossing document and inspector boundaries. PhotoCraft #6862
+reports `1e39` parsed as `f32` infinity, after which the affected file cannot
+be saved. Its two comments and linked PR #6863's full body/timeline were read;
+that exact failure is only analogous because Varve stores these document fields
+as `f64`. Varve's separate JavaScript non-finite decode and expression-overflow
+failures were independently reproduced and are being fixed in the current
+branch. Related reports #5752 and #6424 have had their full discussions read.
 
 ## Website decision
 

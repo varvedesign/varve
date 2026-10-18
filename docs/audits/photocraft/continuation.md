@@ -177,9 +177,11 @@ Last updated: 2026-10-18. Status: active and incomplete.
   transform evidence is now reviewed for #3843, #5859, and #6186. PR #5859's
   discussion exposed false-positive test fixtures and a real history-order
   defect; PR #6186 records the asynchronous commit-cancellation root cause and
-  remains open at cutoff B. PR #6863 changed files were inspected; its full
-  discussion and release status remain open.
-- Link frontier: #6863; #5752; #6424; #1101; #6423's related link(s); #6392's
+  remains open at cutoff B. PR #6863's full body and timeline were reviewed; it
+  remained open with one commit and no reviews at cutoff B. Its `f32` overflow
+  report is only an analogue to Varve's `f64` model; Varve's non-finite-input
+  guard addresses a separate JavaScript parsing boundary.
+- Link frontier: #5752; #6424; #1101; #6423's related link(s); #6392's
   #3641 / SolidCraft evidence; #6962's #2850/#2339/#2687; #6964's #3384/#6669;
   #2784's inspected video symptoms and remaining Varve workflow ambiguity; and all relevant
   links not yet enumerated from the corpus.

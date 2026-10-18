@@ -18,8 +18,12 @@ the recursive evidence frontier. #1101 concerns the opposite direction—
 serialization of a non-finite adjustment value—and its commenter supplied a
 failing engine round-trip test. Varve's existing adjustment normalization
 replaces the invalid parameter before encode; a new encode/decode regression
-covers that report. It is classified separately as covered behavior, not proof
-of the #6862 root cause. Bot links do not establish equivalence.
+covers #1101 separately. #6862 is only an analogue: Varve document and bridge
+numeric fields use JavaScript/Rust `f64`, so finite `1e39` does not narrow to
+infinity on that path. Varve separately rejects JSON values that parse as
+non-finite JavaScript numbers, such as `1e309`; that is a different boundary
+guard and does not reproduce PhotoCraft's reported save failure. Bot links do
+not establish equivalence.
 
 **Varve applicability and reproduction.** Varve previously accepted JSON
 `1e309` as JavaScript `Infinity` during `DocumentCodec.decode`; a focused
@@ -43,11 +47,12 @@ error; refuse invalid Open requests without replacing the active document or
 binding a blank fallback to the source path. Tests cover codec, expression,
 field parsing, open-session preservation, and a real-browser Inspector flow.
 
-**Engineering status:** implementation present in `codex/photocraft-source-review`,
-not yet validated/reviewed/integrated. See continuation for commands and exact
-status. **Research status:** #6862 body and all comments read; PR #6863 metadata
-and changed files inspected, discussion not yet established as complete; #5752,
-#6424, and #1101 bodies and discussions read; recursive evidence remains open.
+**Engineering status:** the independent Varve decode/expression fixes are present
+in `codex/photocraft-source-review`, not yet fully validated/reviewed/integrated.
+See continuation for commands and exact status. **Research status:** #6862 body
+and all comments read; PR #6863 body, changed files summary, and full discussion/
+timeline reviewed (open with one commit and no reviews at cutoff B); #5752, #6424,
+and #1101 bodies and discussions read; recursive evidence remains open.
 
 **Visual evidence.** Playwright passed against the real Inspector field at
 1440×900. The before screenshot shows width 375; after entering a 309-digit
@@ -609,6 +614,51 @@ end to end, so this disposition rests on source tracing plus focused tests.
 
 **Website impact.** No marketing claim promises GPU-loss behavior. No website
 copy change is indicated.
+
+## F-015 — OS file opens should reach the existing desktop session
+
+**Sources.** PhotoCraft [#1540](https://github.com/storytold/photocraft/issues/1540)
+collects Linux/Flatpak and Windows reports where every file association launch
+opened another process. A Windows user reported five concurrent instances
+loading the same 1 GB document and competing for memory. The issue's linked
+reports [#3708](https://github.com/storytold/photocraft/issues/3708) and
+[#5275](https://github.com/storytold/photocraft/issues/5275) confirm repeated
+Windows behavior. Upstream [PR #3755](https://github.com/storytold/photocraft/pull/3755)
+merged Windows/Linux single-instance forwarding and exercised Windows 11,
+Linux/X11, KDE Wayland, multiple simultaneous opens, recovery after primary
+exit, and taskbar attention when native Wayland cannot raise a window. Its
+review also found loopback forwarding fails between Flatpak sandboxes without
+network sharing; the earlier Linux-only
+[PR #2358](https://github.com/storytold/photocraft/pull/2358) used a private
+runtime-directory Unix socket and was separately tested across those
+sandboxes. These failures are platform-specific: Varve does not currently
+publish a Flatpak package.
+
+**Varve applicability and implementation.** Varve already queues OS-opened
+`.varve` and `.strata` paths and opens them as tabs, but on Windows/Linux it
+only consumed arguments in the newly launched process. Tauri's
+`tauri-plugin-single-instance` now forwards later Windows/Linux launches to
+the primary process. The callback resolves relative arguments using the
+secondary launch's working directory, queues every valid file through the
+existing intake path, and focuses the window; Linux additionally requests
+user attention for Wayland compositors. macOS remains on its existing
+LaunchServices route. The pending-open queue is registered before plugin
+setup so forwarded files cannot race initialization. This applies to Varve
+project-file associations; it does not add direct PNG/PSD document opening.
+
+**Validation and limitation.** Focused Rust tests were added for argument-zero
+removal, relative-path resolution, and the existing queue. Their native build
+was stopped after root free space fell to about 826 MB; the test and Linux
+packaged-launch visual check remain unverified. Independent review found and
+prompted a fix for a startup race: a forwarded launch can arrive before the
+primary window exists, so activation is retained and retried on Tauri's
+`Ready` event. That change has not yet received its follow-up review or native
+validation. The follow-up review found no further defect and noted that the
+unit test does not exercise the complete callback-to-`Ready` lifecycle.
+Windows Explorer also needs a platform run. Tauri's Linux plugin uses the
+session D-Bus and a future sandbox package must grant the required bus name;
+no Flatpak package is currently published. No user-facing site claim needs
+changing.
 
 ## Source seeds that did not match the requested repository
 
