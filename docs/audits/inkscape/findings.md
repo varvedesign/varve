@@ -4,6 +4,40 @@ This page records evidence reviewed so far. A body-screened report is not a
 confirmed Varve defect. Discussion review and linked implementation history
 remain pending unless stated otherwise in the issue ledger.
 
+## Screening update: issues #5304 and #5479–5790
+
+The reconciled sweep fully read #5304 and 300 available descriptions in
+#5479–5790. The exact reviewed ranges are #5479–5481, #5483–5526,
+#5528–5538, #5540–5545, #5547–5577, #5579–5586, #5588–5623,
+#5625–5660, #5662–5673, #5675–5695, #5697–5716, #5718–5781, and
+#5783–5790. #5294 remains partial because its 126,637-character body was not
+fully inspected. #5546, #5578, #5587, #5674, and #5717 had no available
+ledger/cache body; they are not counted as read. The conflicting earlier
+checkpoints for #4801–5478 could not be reconciled, so no other descriptions
+in that interval are credited. No discussions or attachments were reviewed.
+These reports are issue-screening leads, not proof that Varve has the same
+defects:
+
+- [#5304](https://gitlab.com/inkscape/inkscape/-/issues/5304) reports a crash
+  when selecting a range in the Objects panel. The described stack ends in
+  object-set ancestor testing/removal during range selection. This suggests a
+  multi-selection regression prompt, but no Varve reproduction or source
+  implementation was reviewed.
+- [#5480](https://gitlab.com/inkscape/inkscape/-/issues/5480) reports pattern
+  fills mirrored in PDF/PNG exports despite looking correct in the viewport,
+  with a blur-related export difference. This maps to export/render parity;
+  its fixture and comments were not inspected.
+- [#5497](https://gitlab.com/inkscape/inkscape/-/issues/5497) reports a
+  clipboard crash when pasting from LibreOffice, in a GTK clipboard target
+  selection path. This is a cross-application clipboard robustness prompt;
+  no Varve failure is established.
+- [#5502](https://gitlab.com/inkscape/inkscape/-/issues/5502) reports an SVG
+  import crash during GTK file chooser teardown. The report is platform and
+  lifecycle-specific; it does not establish a matching Varve defect.
+
+The remaining bodies from #4801–5478 require a fresh, exact-ID review before
+the ledger can credit that interval.
+
 ## Screening update: issues #6393–6482
 
 All 85 pending bodies in this IID slice were available and read in full; #6398,

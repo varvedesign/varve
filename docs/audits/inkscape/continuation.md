@@ -348,9 +348,29 @@ Inkscape’s canonical tracker.
   not start. No full suite was selected. The staged commit checkpoint passed
   Biome, emoji, health, impact-config, E2E-interaction, secret, contacts, and
   docs audits.
+- For the exact-ID IID 5479–5790 reconciliation and #5304 body update,
+  `pnpm verify:plan` selected touched format/lint, emoji and docs audits,
+  `typecheck:e2e`, and the targeted PDF export E2E. After formatting the
+  summary JSON with Biome, format, lint, `audit:emoji`, and `audit:docs` passed.
+  `typecheck:e2e` failed after 80.6s on the existing missing
+  `packages/scene/src/nodeResize` module; the dependent browser E2E did not
+  start. No full-suite escalation was selected.
+
+39. Reconciled the Inkscape body sweep for IID 5479–5790 against exact retained
+    ranges and the durable issue cache. Fully read 300 available descriptions
+    in #5479–5481, #5483–5526, #5528–5538, #5540–5545, #5547–5577,
+    #5579–5586, #5588–5623, #5625–5660, #5662–5673, #5675–5695,
+    #5697–5716, #5718–5781, and #5783–5790. Also fully read #5304.
+    #5294's 126,637-character body remains partial. IIDs #5546, #5578,
+    #5587, #5674, and #5717 had no ledger/cache body. The earlier reported
+    #4801–5478 counts conflict and could not be reconstructed from exact IDs;
+    those bodies remain uncredited. No discussions or attachments were read.
+    Body screening now records 5,716 fully screened, 2 partial, and 674 pending.
 
 ## Next operation
 
-Continue the manual description review of the remaining body ranges and reconcile all 32,692 reported non-system comments, then screen the remaining discussions for high-impact candidate failure classes. Keep
-system notes for linked events and state history. Do not mark an issue reviewed
-based only on its title, labels, or downloaded body.
+Continue body screening from #4801–5478 using exact IID accounting, then review
+remaining Inkscape discussions, linked evidence, and candidate Varve workflows.
+Reconcile all 32,692 reported non-system comments before claiming broad discussion
+coverage. Keep system notes for linked events and state history. Do not mark an
+issue reviewed based only on its title, labels, or downloaded body.
