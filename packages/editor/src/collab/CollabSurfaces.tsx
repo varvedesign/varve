@@ -448,7 +448,7 @@ function nodeScreenRect(
   nodeId: string,
 ): { x: number; y: number; width: number; height: number } | null {
   const node = editor.state.document.nodes[nodeId as never] as
-    | { transform?: number[]; w?: number; h?: number; shape?: { w?: number; h?: number } }
+    | { transform?: readonly number[]; w?: number; h?: number; shape?: { w?: number; h?: number } }
     | undefined;
   if (!node) return null;
   const width = node.w ?? node.shape?.w ?? 0;
