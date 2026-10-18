@@ -4,6 +4,45 @@ This page records evidence reviewed so far. A body-screened report is not a
 confirmed Varve defect. Discussion review and linked implementation history
 remain pending unless stated otherwise in the issue ledger.
 
+## Screening update: issues #6393–6482
+
+All 85 pending bodies in this IID slice were available and read in full; #6398,
+#6407, and #6477 were already screened. Discussions and attachments were not
+reviewed. These version-specific reports are test prompts rather than verified
+Varve defects:
+
+- [#6411](https://gitlab.com/inkscape/inkscape/-/issues/6411) says the
+  “Clip to page” option stops clipping after save/reopen. This suggests a
+  persistence round-trip check for page clipping and overflow.
+- [#6416](https://gitlab.com/inkscape/inkscape/-/issues/6416) reports
+  swatch/gradient edits applied to selected text spans affecting all spans or
+  disappearing after a move. The sample was not inspected; test selection
+  scope and undo/persistence only for equivalent rich-text styling in Varve.
+- [#6420](https://gitlab.com/inkscape/inkscape/-/issues/6420) reports a
+  startup failure after one Linux dialog-state configuration; renaming a saved
+  dialog-state file restores launch. The logs/config were not opened, and the
+  issue is platform-specific; no matching Varve failure is established.
+- [#6421](https://gitlab.com/inkscape/inkscape/-/issues/6421) reports the
+  final line of centered/right-aligned multiline text shifting by about one
+  character. The fixture was not inspected; this is a text-layout comparison
+  prompt.
+- [#6452](https://gitlab.com/inkscape/inkscape/-/issues/6452) reports a
+  displaced gradient in one SVG compared with Firefox. [#6453](https://gitlab.com/inkscape/inkscape/-/issues/6453)
+  reports page-view scrollbars reaching their endpoint while content remains
+  offscreen. Both sample files were unavailable to this sweep; these motivate
+  gradient-transform and multipage viewport-bound checks.
+- [#6474](https://gitlab.com/inkscape/inkscape/-/issues/6474) says `.jfif`
+  raster files fail on drag/drop/import but succeed after renaming to `.jpg`.
+  This is a MIME/extension-detection case for import workflows.
+- [#6478](https://gitlab.com/inkscape/inkscape/-/issues/6478) reports page
+  duplication shifting text relative to its page. The video was not opened;
+  compare page-relative transforms if Varve's page duplication shows the same
+  behavior.
+- [#6482](https://gitlab.com/inkscape/inkscape/-/issues/6482) reports the
+  Align and Distribute “Relative to” choice not persisting and falling back to
+  Page. This is a saved-operation-defaults case; the report is from Inkscape
+  1.4.2 and its discussion was not reviewed.
+
 ## Screening update: issues #1201–2400
 
 The 1,200-ID body sweep fully read 1,165 descriptions. Thirty-two IDs were
@@ -40,6 +79,12 @@ prompts, not evidence that Varve has the same defects:
   stalls when recent-file history points to disconnected locations. The
   reports implicate probing unrelated GTK recent-file entries, a platform
   integration detail; no matching Varve mechanism has been established.
+- [#504](https://gitlab.com/inkscape/inkscape/-/issues/504) reports an
+  open/preview hang for a style-heavy SVG in Inkscape 1.0 beta; the linked SVG
+  was not opened. [#2107](https://gitlab.com/inkscape/inkscape/-/issues/2107)
+  reports canvas lag and occasional crashes while Document Properties is
+  open on Linux/GTK. These reports warrant separate file-load and modal-dialog
+  checks only if a comparable Varve path is implicated.
 - [#2039](https://gitlab.com/inkscape/inkscape/-/issues/2039) was later
   marked duplicate of [#773](https://gitlab.com/inkscape/inkscape/-/issues/773),
   a historical stale-background-cache report for filter effects. The cached
