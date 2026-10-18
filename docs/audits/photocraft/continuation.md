@@ -118,7 +118,7 @@ Last updated: 2026-10-18. Status: active and incomplete.
   passed; `pnpm audit:docs` and `pnpm audit:emoji` passed. The required full
   gate, affected JS/native lanes, and packaged visual checks have not run due
   to insufficient disk headroom; no commit was made for this slice.
-  The ledger is now 224 candidates / 453 partial matches / 28 covered.
+  The ledger is now 223 candidates / 453 partial matches / 28 covered.
   Safe integration to `master` remains outstanding. A clean-snapshot merge
   preview succeeded, but the real dirty master checkout rejected the merge
   because unrelated local edits and untracked files overlap paths touched by
