@@ -605,10 +605,60 @@ Full suite run: no local full suite; one remote manual full-matrix diagnostic wa
    screenshot is retained as `evidence/pdf-blend-screen-empty.png`. The exact
    PdfCraft PDF-viewer behavior has no matching Varve reader path. Recursive
    links #1968 and #1548 were verified as separate reader/annotation cases.
-2. Follow the separate VectorCraft #827 raster-effect blend-mode complaint
-   through merged PR #884 and check Varve's native PDF effect path. This is a
-   distinct candidate because the writer and effects may have different
-   fidelity limits from ordinary image fills.
+2. VectorCraft #827 and merged PR #884 are now reviewed. The Varve authored-PDF
+   `DropShadow` writer omitted blend mode and alpha; a fix, blend/alpha and
+   PDF/X-1a regression cases, and an eight-case Poppler probe are in the current
+   worktree. The website copy and architecture/findings evidence are updated.
+   `pnpm verify:plan` selects website checks, `varve-print`, desktop Rust, and
+   website E2E. Emoji/docs/radius audits, website typecheck, and 307 website
+   unit tests pass. Three earlier affected attempts timed out before Rust tests
+   could acquire the shared heavy-task lease (first owner: full local gate
+   Vitest; later owner: editor Vitest). A fourth was externally terminated
+   during the website unit lane after typecheck; owned-process cleanup
+   completed. A fifth ran the `varve-print` test and Clippy lanes, then failed
+   in the desktop Rust lane when `/tmp` filled during native dependency
+   compilation. Once all compiler processes exited, `cargo clean` removed only
+   this worktree's generated targets and recovered 3.4 GiB. A sixth attempt
+   passed all 198 print tests and crate Clippy, then failed during Tauri
+   dependency compilation when its unique target exhausted `/` (`No space left
+   on device`); no other agent's process was stopped. Cleaning only that target
+   recovered about 4.4 GiB. The low-debug retry
+   (`CARGO_PROFILE_TEST_DEBUG=0 CARGO_PROFILE_DEV_DEBUG=0
+   CARGO_INCREMENTAL=0`) passed 198 `varve-print` tests, crate Clippy, 134
+   desktop Rust tests, and both 307-test website unit lanes. Its E2E lane
+   completed with 687 passed and 3 failed. The failures are the global GitHub
+   Pages homepage light/dark and footer dark visual snapshots; each capture
+   differs from baseline by one pixel in full-page height. All other E2E cases
+   passed, including export-route axe checks in both themes on both site bases
+   and export-route contrast checks in both themes on the custom-domain base.
+   Do not refresh unrelated global snapshots for this content-only change. The
+   eight-output Poppler probe now independently renders the shadow PDF as one
+   200×200 pt PDF 1.4 page: pixel `(150, 100)` in the Screen shadow is
+   `(255, 128, 128)` and unshadowed gray at `(10, 10)` is `(128, 128, 128)`.
+   The PNG is visually inspected and linked from findings.md §4.7. Current
+   full-page export-page captures at 1440×1000 and 390×844 are also visually
+   inspected and linked there. The mobile layout has no horizontal overflow.
+   The screenshot job waited behind the live shared Playwright lease for
+   Inkscape SVG import visuals, then ran after it cleared without stopping or
+   reclaiming that work. A final `pnpm verify:affected` rerun after the
+   documentation/evidence updates passed its audits, website typecheck, 307
+   website unit tests, 198 `varve-print` tests, and crate Clippy, then failed in
+   the repeated desktop Rust lane: concurrent shared activity filled `/`, and
+   Cargo failed writing its unique low-debug target with `No space left on
+   device`. Once its compiler exited, `cargo clean` removed only this
+   worktree's unique target and restored about 1 GiB; no other process was
+   stopped. The same low-debug lane had passed all 134 desktop tests earlier.
+   This last rerun exited before website E2E; the full earlier E2E result
+   remains 687 passed and the three one-pixel global snapshots described above.
+   The final validation plan selected format/lint (no
+   Biome-compatible source files), emoji/docs/radius audits, website typecheck,
+   website unit, `varve-print` tests/Clippy, desktop Rust tests, and website
+   E2E. The completed full affected run's only failing lane was website E2E:
+   687 tests passed and its three one-pixel global visual snapshots failed. The
+   later docs/evidence rerun was blocked at desktop compilation by the shared
+   disk exhaustion noted above. No full suite ran. The read-only review found no
+   implementation defect and strengthened color-alpha coverage; it was done by
+   the implementer, not an independent reviewer. The desktop app remains open.
 3. Continue cutoff-A and cutoff-B recursive evidence and engineering queue.
    Cutoff A is 1,296 issues (30 full threads, 1,253 bodies, 13 title-only);
    cutoff B is 1,454 issues (37 still screened, 117 out of scope, 2 already

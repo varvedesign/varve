@@ -338,13 +338,47 @@ needed or that the two products share a defect.
   inside the page group only in reading-colour mode. The unconditional
   background placement then broke #2970. Cross-project
   [VectorCraft #827](https://github.com/storytold/vectorcraft/issues/827)
-  reports raster outer-glow blend modes dropped by PDF export and was fixed by
-  merged [PR #884](https://github.com/storytold/vectorcraft/pull/884). This is
-  a distinct output path and is queued for a separate Varve effect-export
-  check; it is not evidence that the Screen-over-empty-page case fails.
-- **Status** — no defect found in Varve's authored-PDF Screen-over-empty-page
-  path. The PdfCraft existing-PDF renderer and full GPU compositor remain
-  outside this verification; no fix to their behavior is claimed.
+  reports a Screen outer glow over gray being emitted as Normal; the reporter
+  compared sampled PDF pixels against PNG and observed the backdrop's green and
+  blue channels drop from 128. The issue was fixed by merged
+  [PR #884](https://github.com/storytold/vectorcraft/pull/884), whose test
+  exports a Screen glow and Multiply shadow and checks their compositing. This
+  is a distinct output path. A Varve authored-PDF probe found that `render_effects`
+  painted drop shadows without applying their blend mode or alpha. The PDF
+  output now carries an effect-local ExtGState, including explicit Normal to
+  override a non-Normal node mode, and combines node opacity, effect opacity,
+  and shadow-colour alpha. Unsupported modes are reported by export preflight;
+  PDF/X-1a refuses effect transparency and unsupported modes. A generated
+  red Screen shadow over gray was exported by the real Rust writer and rendered
+  with Poppler 26.05.0. `pdfinfo` reports one 200×200 pt PDF 1.4 page. At 72 dpi,
+  sample pixel `(150, 100)` inside the shadow is `(255, 128, 128)`; unshadowed
+  gray at `(10, 10)` remains `(128, 128, 128)`. Normal blending would instead
+  have discarded the backdrop channels. The render
+  [`pdf-drop-shadow-screen-over-gray-after.png`](evidence/pdf-drop-shadow-screen-over-gray-after.png)
+  was visually inspected; the generated source PDF is
+  [`drop-shadow-screen-over-gray.pdf`](evidence/drop-shadow-screen-over-gray.pdf).
+- **Status** — the authored-PDF Screen-over-empty-page case was verified with no
+  defect. The separate authored drop-shadow blend/alpha implementation and
+  three-source alpha regression are in the worktree. With test/dev debug info
+  and incremental artifacts disabled, all 198 `varve-print` tests, crate
+  Clippy, and 134 desktop Rust tests passed. The website E2E lane completed
+  with 687 passed and 3 failed: the unrelated homepage light/dark and footer
+  dark global visual snapshots on the GitHub Pages base each captured page
+  height one pixel away from baseline. The changed `/features/export` route
+  passed axe checks in light and dark on both site bases, and computed-style
+  contrast checks in light and dark on the custom-domain base. Full-page export
+  route captures at 1440×1000 and 390×844 were visually inspected; the new copy
+  remains readable and the narrow layout has no horizontal overflow. Evidence:
+  [`website-export-feature-pdf-shadow-desktop.png`](evidence/website-export-feature-pdf-shadow-desktop.png)
+  and
+  [`website-export-feature-pdf-shadow-mobile.png`](evidence/website-export-feature-pdf-shadow-mobile.png).
+  A final docs/evidence `verify:affected` rerun repeated its audits, website
+  typecheck/unit, and `varve-print` test/Clippy successfully, but its repeated
+  desktop lane stopped when concurrent shared work filled `/`; Cargo reported
+  `No space left on device`. The earlier low-debug desktop run passed all 134
+  tests. Only this worktree's target was cleaned afterward. The PdfCraft
+  existing-PDF renderer and full GPU compositor remain outside this
+  verification; no fix to their behavior is claimed.
 
 ### 4.8 Stale derived renders after a geometry change — **screened, partially covered**
 

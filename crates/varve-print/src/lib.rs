@@ -515,6 +515,30 @@ impl<'a> ImageRenderState<'a> {
         self.blend_gs_cache.insert(pdf_name, name.clone());
         Some(name)
     }
+
+    /// Get-or-create an effect blend state, including `/BM /Normal`.
+    ///
+    /// A drop shadow's blend mode is local to the effect and can override a
+    /// non-Normal node mode. The regular node/fill helper omits Normal because
+    /// the page default is Normal; effects need an explicit Normal entry when
+    /// the surrounding node state selected another mode.
+    fn get_or_create_effect_blend_gs(&mut self, mode: &varve_core::BlendMode) -> Option<String> {
+        if !self.allow_blend_modes {
+            return None;
+        }
+        let pdf_name = blend::pdf_blend_name(mode)?;
+        if let Some(name) = self.blend_gs_cache.get(pdf_name) {
+            return Some(name.clone());
+        }
+        let name = format!("BM{pdf_name}");
+        let gs = dictionary! {
+            "Type" => "ExtGState",
+            "BM" => Object::Name(pdf_name.as_bytes().to_vec()),
+        };
+        self.refs.push((name.clone(), Object::Dictionary(gs)));
+        self.blend_gs_cache.insert(pdf_name, name.clone());
+        Some(name)
+    }
 }
 
 /// Add image XObjects and opacity graphics states collected by the fill
@@ -2179,6 +2203,7 @@ fn render_effects(
     page_height: f64,
     use_cmyk: bool,
     profile: Option<PrintProfile>,
+    mut image_state: Option<&mut ImageRenderState>,
 ) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
     let has_filters = node
@@ -2200,6 +2225,7 @@ fn render_effects(
                 spread: _,
                 color,
                 opacity,
+                blend_mode,
                 visible,
                 ..
             } => {
@@ -2207,6 +2233,20 @@ fn render_effects(
                     continue;
                 }
                 buf.extend_from_slice(b"q\n");
+
+                if let Some(state) = image_state.as_deref_mut() {
+                    if let Some(name) = state.get_or_create_effect_blend_gs(blend_mode) {
+                        buf.extend(format!("/{name} gs\n").as_bytes());
+                    }
+                    let color_alpha = f64::from(engine_color_rgba(color).3) / 255.0;
+                    let effect_alpha =
+                        (node.opacity.clamp(0.0, 1.0) * opacity.clamp(0.0, 1.0) * color_alpha)
+                            .clamp(0.0, 1.0);
+                    if effect_alpha < 1.0 {
+                        let name = state.get_or_create_opacity_gs(effect_alpha);
+                        buf.extend(format!("/{name} gs\n").as_bytes());
+                    }
+                }
 
                 // Apply shadow offset translation
                 let blur_approx = blur.max(0.0);
@@ -2226,9 +2266,6 @@ fn render_effects(
                 buf.extend(&path_ops);
                 buf.extend_from_slice(path_fill_operator(node));
 
-                if *opacity < 1.0 {
-                    buf.extend(format!("% opacity={:.3}\n", opacity).as_bytes());
-                }
                 if *blur > 0.0 {
                     buf.extend(format!("% blur={:.2}\n", blur).as_bytes());
                 }
@@ -2461,7 +2498,13 @@ fn shape_to_pdf_content(
     if let Some(state) = image_state.as_mut() {
         write_node_graphics_state(&mut buf, state, node);
     }
-    let effects = render_effects(node, page_height, use_cmyk, profile);
+    let effects = render_effects(
+        node,
+        page_height,
+        use_cmyk,
+        profile,
+        image_state.as_deref_mut(),
+    );
     buf.extend(&effects);
     let fills = render_fills(
         node,
@@ -2657,6 +2700,21 @@ pub fn unrepresented_blend_modes(
                     out.push(UnrepresentedBlend {
                         node_name: node.name.clone(),
                         mode: blend::blend_mode_label(mode),
+                    });
+                }
+            }
+        }
+        for effect in &node.effects {
+            if let Effect::DropShadow {
+                blend_mode,
+                visible: true,
+                ..
+            } = effect
+            {
+                if !blend_is_representable(blend_mode, allow_blend_modes) {
+                    out.push(UnrepresentedBlend {
+                        node_name: node.name.clone(),
+                        mode: blend::blend_mode_label(blend_mode),
                     });
                 }
             }
@@ -3216,6 +3274,7 @@ fn render_rich_text_to_pdf(
     opts: &PdfOptions,
     embedded_fonts: &[EmbeddedFontEntry],
     page_height: f64,
+    image_state: &mut ImageRenderState,
 ) -> Option<Vec<u8>> {
     let Shape::Text {
         text: _,
@@ -3309,6 +3368,7 @@ fn render_rich_text_to_pdf(
                 &current_x,
                 &current_y,
                 opts,
+                image_state,
             ) {
                 content.append(&mut cmd);
                 current_x += run_width;
@@ -3481,9 +3541,13 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             );
 
             if is_text_node && has_rich_text {
-                if let Some(mut rich_content) =
-                    render_rich_text_to_pdf(node, opts, &embedded_fonts, opts.page_height)
-                {
+                if let Some(mut rich_content) = render_rich_text_to_pdf(
+                    node,
+                    opts,
+                    &embedded_fonts,
+                    opts.page_height,
+                    &mut image_state,
+                ) {
                     // Scope native text and outlined rich-text runs with the
                     // same node state as the general shape renderer.
                     content.extend_from_slice(b"q\n");
@@ -3578,8 +3642,16 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                 } = &node.shape
                 {
                     if !text.is_empty() {
-                        let outlined =
-                            try_outline_node(node, text, *font_size, font_family, x, y, opts);
+                        let outlined = try_outline_node(
+                            node,
+                            text,
+                            *font_size,
+                            font_family,
+                            x,
+                            y,
+                            opts,
+                            &mut image_state,
+                        );
                         if let Some(mut cmd) = outlined {
                             content.extend_from_slice(b"q\n");
                             write_node_graphics_state(&mut content, &mut image_state, node);
@@ -3593,7 +3665,13 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             // New pipeline: effects + fills + strokes
             content.extend_from_slice(b"q\n");
             write_node_graphics_state(&mut content, &mut image_state, node);
-            let effects = render_effects(node, opts.page_height, use_cmyk, opts.print_profile);
+            let effects = render_effects(
+                node,
+                opts.page_height,
+                use_cmyk,
+                opts.print_profile,
+                Some(&mut image_state),
+            );
             content.extend(&effects);
             let fills = render_fills(
                 node,
@@ -3705,6 +3783,7 @@ fn try_outline_node(
     x: &f64,
     y: &f64,
     opts: &PdfOptions,
+    image_state: &mut ImageRenderState,
 ) -> Option<Vec<u8>> {
     let tx = node.transform.as_coeffs();
     let x_off = tx[4];
@@ -3742,7 +3821,13 @@ fn try_outline_node(
     content.extend_from_slice(b"q\n");
 
     // Drop shadow for text
-    let shadow = render_effects(node, opts.page_height, use_cmyk, opts.print_profile);
+    let shadow = render_effects(
+        node,
+        opts.page_height,
+        use_cmyk,
+        opts.print_profile,
+        Some(image_state),
+    );
     content.extend(&shadow);
 
     for glyph in &glyphs {
@@ -5541,7 +5626,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }];
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("cm"), "shadow should use translation matrix");
         assert!(s.contains("0.000 0.000 0.000 rg"), "shadow should be black");
@@ -5549,9 +5634,108 @@ mod tests {
     }
 
     #[test]
+    fn drop_shadow_pdf_uses_its_blend_mode_and_combined_alpha() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.opacity = 0.5;
+        node.effects = vec![Effect::DropShadow {
+            id: None,
+            x: 5.0,
+            y: 5.0,
+            blur: 0.0,
+            spread: 0.0,
+            color: EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 128.0,
+                bit_depth: None,
+                profile: None,
+            },
+            opacity: 0.5,
+            blend_mode: BlendMode::Screen,
+            visible: true,
+        }];
+
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("PDF with screen shadow");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert!(
+            content.contains("/BMScreen gs"),
+            "shadow blend state: {content}"
+        );
+        assert!(
+            content.contains("/GS125 gs"),
+            "node × effect alpha: {content}"
+        );
+        assert_every_graphics_state_precedes_a_paint(&content);
+
+        let ext = resources
+            .get(b"ExtGState")
+            .expect("ExtGState resources")
+            .as_dict()
+            .expect("ExtGState dictionary");
+        let alpha = ext
+            .get(b"GS125")
+            .expect("combined alpha state")
+            .as_dict()
+            .expect("alpha dictionary");
+        let expected_alpha = 0.5 * 0.5 * 128.0 / 255.0;
+        assert!(
+            (alpha.get(b"ca").unwrap().as_float().unwrap() - expected_alpha).abs() < 1e-12,
+            "node × effect × shadow-colour alpha"
+        );
+        let blend = ext
+            .get(b"BMScreen")
+            .expect("Screen blend state")
+            .as_dict()
+            .expect("blend dictionary");
+        assert_eq!(blend.get(b"BM").unwrap().as_name().unwrap(), b"Screen");
+    }
+
+    #[test]
+    fn normal_drop_shadow_overrides_its_nodes_non_normal_blend_mode() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.blend_mode = BlendMode::Screen;
+        node.effects = vec![Effect::DropShadow {
+            id: None,
+            x: 5.0,
+            y: 5.0,
+            blur: 0.0,
+            spread: 0.0,
+            color: EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                bit_depth: None,
+                profile: None,
+            },
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }];
+
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("PDF with normal shadow");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert!(content.contains("/BMScreen gs"));
+        assert!(content.contains("/BMNormal gs"));
+        assert_every_graphics_state_precedes_a_paint(&content);
+        let ext = resources
+            .get(b"ExtGState")
+            .expect("ExtGState resources")
+            .as_dict()
+            .expect("ExtGState dictionary");
+        let normal = ext
+            .get(b"BMNormal")
+            .expect("explicit Normal effect mode")
+            .as_dict()
+            .expect("Normal blend dictionary");
+        assert_eq!(normal.get(b"BM").unwrap().as_name().unwrap(), b"Normal");
+    }
+
+    #[test]
     fn render_effects_no_effects() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         assert!(result.is_empty(), "no effects should produce no output");
     }
 
@@ -5562,7 +5746,7 @@ mod tests {
         // rather than silently vanishing from print export.
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.filters = Some(vec![serde_json::json!({ "kind": "halftone" })]);
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("nondestructive adjustment stack"),
@@ -5574,7 +5758,7 @@ mod tests {
     fn render_effects_empty_filters_produce_no_output() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.filters = Some(vec![]);
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         assert!(
             result.is_empty(),
             "an empty filters array should not produce a spurious comment"
@@ -5602,7 +5786,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }];
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("innerShadow"), "should have comment");
     }
@@ -5625,7 +5809,7 @@ mod tests {
             edge_protection: 0.035,
             visible: true,
         }];
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("depthBlur depthMapId=depth-map-1"), "got: {s}");
         assert!(s.contains("not rendered in basic PDF"), "got: {s}");
@@ -6558,6 +6742,40 @@ mod tests {
                 },
             ],
             "the export must be able to name what it could not represent"
+        );
+    }
+
+    #[test]
+    fn drop_shadow_with_a_mode_without_a_pdf_name_is_reported() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.name = "Glow".into();
+        node.effects = vec![Effect::DropShadow {
+            id: None,
+            x: 0.0,
+            y: 0.0,
+            blur: 0.0,
+            spread: 0.0,
+            color: EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                bit_depth: None,
+                profile: None,
+            },
+            opacity: 1.0,
+            blend_mode: BlendMode::PlusLighter,
+            visible: true,
+        }];
+        let error = export_pdf(&[node.clone()], &PdfOptions::default()).unwrap_err();
+        assert!(error.contains("Glow"));
+        assert!(error.contains("Plus Lighter"));
+        assert_eq!(
+            unrepresented_blend_modes(&[node], true),
+            vec![UnrepresentedBlend {
+                node_name: "Glow".into(),
+                mode: "Plus Lighter",
+            }]
         );
     }
 

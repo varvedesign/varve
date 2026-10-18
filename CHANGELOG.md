@@ -22,6 +22,9 @@ update, not for someone reading the commit log.
   to preserve its glyphs; those outlines are not searchable as text.
 - **PDF stroke transparency** — Standard PDF and PDF/X-4 exports now preserve each stroke color's
   alpha together with the node opacity. PDF/X-1a continues to stop when a stroke is translucent.
+- **PDF drop-shadow blending** — Authored drop shadows now retain PDF-supported blend modes and
+  combine effect opacity, shadow-colour alpha, and node opacity. PDF/X-1a stops when an effect uses
+  transparency or a blend mode it cannot represent.
 
 ## [0.5.1] - 2026-10-15
 
