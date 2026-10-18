@@ -318,6 +318,14 @@ Inkscape’s canonical tracker.
 - Website impact review found no supported PDF claim or user guidance that the
   current change needs to alter. Marketing site source remains unchanged; no
   website visual run was needed because no marketing source changed.
+- For the IID 1201–2400 ledger update (`229ab02d4`), `pnpm verify:plan`
+  selected touched-file format/lint, emoji and docs audits, `typecheck:e2e`,
+  and the targeted PDF export E2E. Touched format/lint, `audit:emoji`, and
+  `audit:docs` passed; `typecheck:e2e` again failed because
+  `packages/scene/src/index.ts` exports missing `./nodeResize`, so the
+  dependent browser test did not start. No full suite was selected. The
+  commit checkpoint also passed staged Biome, emoji, health, impact-config,
+  E2E-interaction, secret, contacts, and docs audits.
 
 ## Next operation
 
