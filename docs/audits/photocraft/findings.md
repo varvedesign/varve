@@ -298,33 +298,53 @@ needed or that the two products share a defect.
   input path and no Varve reproduction was performed. Keep these as adjacent
   research leads, not PdfCraft findings.
 
-### 4.7 Render compositing against the wrong backdrop — **open, screened**
+### 4.7 Render compositing against the wrong backdrop — **screened; authored PDF output verified**
 
 - **External evidence** — [#2970](https://github.com/storytold/pdfcraft/issues/2970)
   includes a minimal generated PDF and distinguishes a transparent page
-  backdrop from paper white. Three current comments add a public
+  backdrop from paper white. Its current comments add a public
   [libharu demo fixture](https://github.com/libharu/libharu/blob/3467749fd1c0ab6ca6ed424d053b1ea53c1bf67c/demo/ext_gstate_demo.pdf)
   (10,387 bytes; SHA-256
   `01e2126bab892af1c7248aadb723ccfc3f8e7bce0fb01265f8d5a19a0067352a`) and
   report that [PR #2972](https://github.com/storytold/pdfcraft/pull/2972)
-  fixes its empty-area blend cells against MuPDF. At the latest source check
-  (2026-10-18), #2972 remained open and unmerged; the fix and pixel comparison
-  are thread claims, not reproduced in this review. The fixture was downloaded,
-  hash-verified, and visually inspected with Poppler here; it shows labelled
-  normal, alpha, and separable blend examples. #2971 reports ignored knockout
-  groups, #2975 double-applied stencil-mask alpha, alongside #2200 and #1560.
+  fixes the source renderer against MuPDF. The PR remains open and unmerged;
+  its tests and comparison were inspected, not run here. The public fixture was
+  downloaded, hash-verified, and visually inspected with Poppler; it shows
+  labelled normal, alpha, and separable blend examples. #2971 reports ignored
+  knockout groups, #2975 double-applied stencil-mask alpha, alongside #2200
+  and #1560.
 - **Varve surface** — `@varve/compositor` (Canvas2D/WebGPU/WebGL2),
   `canvas/renderPipeline.ts`, `docs/architecture/blend-evaluation-policy.md`.
 - **Transfer to Varve** — only the compositing invariant transfers: layer
   content should preserve the source colour over an empty transparent area,
   while still blending with existing content. PdfCraft's fix is inside its PDF
-  page-group renderer, which Varve does not share. Varve's Canvas2D and
-  accelerated compositor paths still need a same-camera differential oracle;
-  the PDF probe in §6.3 verifies exported PDF output only.
-- **Status** — screened and queued for Varve compositor verification; no
-  Varve rendering defect is established by the external PDF report. A visual
-  E2E file for this behavior is present only as untracked work in the shared
-  main checkout and is not validation evidence for this branch.
+  page-group renderer, which Varve does not share. The Varve PDF import path is
+  explicitly partial and does not implement an existing-PDF page renderer.
+  Varve's authored-PDF path was exercised with the real Rust `export_pdf`
+  entry point: `blend_probe.rs` exported `screen-over-empty.pdf`, Poppler 26.05.0
+  rendered it at 72 dpi, `pdfinfo` reported one 200×200 pt PDF 1.4 page, and
+  the rendered sample pixel was green `(0, 255, 0)` over the page's white
+  display backdrop. The screenshot
+  [`pdf-blend-screen-empty.png`](evidence/pdf-blend-screen-empty.png) was
+  inspected; SHA-256 is
+  `fe4b97d838847b3ed8aab12b7b6dfefc5908780b9c6e0f733517b16c508bbd19`.
+  The focused `screen_over_an_unpainted_area_keeps_the_source_colour` test
+  passed. This establishes authored-PDF behavior for the reported Screen case,
+  not the full Canvas2D/GPU compositor or a general PDF reader.
+- **Related source branches** — #1968 is a separate imported Foxit highlight
+  appearance/alpha failure and has no Varve PDF-annotation workflow. #1548 is
+  the reading-colour regression that motivated #1557; its merged patch keeps
+  annotations out of document-colour replacement and puts the page background
+  inside the page group only in reading-colour mode. The unconditional
+  background placement then broke #2970. Cross-project
+  [VectorCraft #827](https://github.com/storytold/vectorcraft/issues/827)
+  reports raster outer-glow blend modes dropped by PDF export and was fixed by
+  merged [PR #884](https://github.com/storytold/vectorcraft/pull/884). This is
+  a distinct output path and is queued for a separate Varve effect-export
+  check; it is not evidence that the Screen-over-empty-page case fails.
+- **Status** — no defect found in Varve's authored-PDF Screen-over-empty-page
+  path. The PdfCraft existing-PDF renderer and full GPU compositor remain
+  outside this verification; no fix to their behavior is claimed.
 
 ### 4.8 Stale derived renders after a geometry change — **screened, partially covered**
 

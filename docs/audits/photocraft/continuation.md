@@ -599,7 +599,17 @@ Full suite run: no local full suite; one remote manual full-matrix diagnostic wa
 
 ### Exact next steps
 
-1. Continue cutoff-A and cutoff-B recursive evidence and engineering queue.
+1. Finish the #2970 rendering thread follow-up: PdfCraft's issue, fixture,
+   comments, and PR #2972 were inspected. Varve's authored-PDF Screen output
+   was rendered with Poppler and its focused Rust regression passed; the
+   screenshot is retained as `evidence/pdf-blend-screen-empty.png`. The exact
+   PdfCraft PDF-viewer behavior has no matching Varve reader path. Recursive
+   links #1968 and #1548 were verified as separate reader/annotation cases.
+2. Follow the separate VectorCraft #827 raster-effect blend-mode complaint
+   through merged PR #884 and check Varve's native PDF effect path. This is a
+   distinct candidate because the writer and effects may have different
+   fidelity limits from ordinary image fills.
+3. Continue cutoff-A and cutoff-B recursive evidence and engineering queue.
    Cutoff A is 1,296 issues (30 full threads, 1,253 bodies, 13 title-only);
    cutoff B is 1,454 issues (37 still screened, 117 out of scope, 2 already
    handled, 2 implemented). The issue bodies are read, but relevant linked
