@@ -32,10 +32,20 @@ Last updated: 2026-10-18 (session 5).
   Task commits: `3524d07ee` (text draft save integrity), `f0c0ae563`
   (PDF blend/transparency fidelity and release-aware website copy), `9a7e447eb`
   (cutoff A corpus records/findings), `5b2c3a409` (mobile website evidence),
-  `722315eda` (cutoff B inventory), and `bd0c62933` (cutoff B review and
-  Linux support guidance).
+  `722315eda` (cutoff B inventory), `bd0c62933` (cutoff B review and Linux
+  support guidance), `349cfcb2a` (cutoff B reconciliation), `11601d58e`
+  (corrected issue provenance), `57eccb6a2` (reconciled cutoff A totals), and
+  `de2c09ef6` (provenance review checkpoint).
 - The main checkout has unrelated in-flight edits. Do not stage, revert,
-  reset, stash, or commit them.
+  reset, stash, or commit them. The latest read-only workflow status showed the
+  task branch has no upstream configured; relative to local `master` it is 9
+  commits ahead and 33 behind. The main checkout remains dirty, and the
+  codegen/scene source files are untracked there as well as in this task
+  worktree. No merge or rebase is in progress. Do not merge into the main
+  checkout until the source-owning work lands and candidate validation can run.
+- `pnpm workflow:status` also listed other running full-gate operations in the
+  shared workflow registry. They were not inspected further, stopped, or
+  altered.
 - `packages/codegen/src/bundle-assets.ts` and
   `packages/scene/src/nodeResize.ts` are untracked in this worktree and match
   untracked files in the main checkout. Ownership remains with other work;
