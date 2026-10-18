@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { RetainedGroupSurfaceCache } from './retainedGroupSurfaceCache';
+import {
+  RETAINED_GROUP_MAX_ENTRIES,
+  RETAINED_GROUP_MAX_KEY_CHARACTERS,
+  RetainedGroupSurfaceCache,
+} from './retainedGroupSurfaceCache';
 
 function surface(width: number, height: number): HTMLCanvasElement {
   return { width, height } as HTMLCanvasElement;
@@ -29,6 +33,35 @@ describe('RetainedGroupSurfaceCache', () => {
   it('length-prefixes arbitrary ids so separators cannot create key collisions', () => {
     const cache = new RetainedGroupSurfaceCache(1024);
     expect(cache.key(['alpha', 'beta'])).not.toBe(cache.key(['alpha|sbeta']));
+  });
+
+  it('bounds dependency key size and retained metadata entry count', () => {
+    const cache = new RetainedGroupSurfaceCache(1024 * 1024);
+    expect(cache.key(['x'.repeat(RETAINED_GROUP_MAX_KEY_CHARACTERS)])).toBeNull();
+    cache.setDetailedDiagnosticsEnabled(true);
+    cache.set('x'.repeat(RETAINED_GROUP_MAX_KEY_CHARACTERS + 1), 'doc', surface(1, 1), 1, {
+      groupId: 'large-group',
+      dependencyPath: ['large-group', 'child'],
+    });
+    expect(cache.diagnostics.detailed?.bypasses.at(-1)).toEqual({
+      reason: 'dependency-key-too-large',
+      groupId: 'large-group',
+      dependencyPath: ['large-group', 'child'],
+    });
+
+    const keys = Array.from({ length: RETAINED_GROUP_MAX_ENTRIES + 1 }, (_, index) =>
+      cache.key([`group-${index}`]),
+    );
+    const surfaces = keys.map(() => surface(1, 1));
+    keys.forEach((key, index) => {
+      cache.set(key!, 'doc', surfaces[index]!, 1);
+    });
+
+    expect(cache.diagnostics.entries).toBe(RETAINED_GROUP_MAX_ENTRIES);
+    expect(cache.diagnostics.evictions).toBe(1);
+    expect(cache.get(keys[0]!)).toBeNull();
+    expect(cache.get(keys.at(-1)!)).not.toBeNull();
+    expect(surfaces[0]).toMatchObject({ width: 0, height: 0 });
   });
 
   it('evicts least-recently-used surfaces and never exceeds its byte budget', () => {
