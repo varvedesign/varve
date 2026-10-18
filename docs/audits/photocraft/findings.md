@@ -659,8 +659,9 @@ the primary window exists, so activation is retained and retried on Tauri's
 unit test did not exercise the full callback-to-`Ready` lifecycle. A further
 source review found that a failed focus request could still consume the
 activation; the latest patch keeps the request pending until focus or Linux
-attention succeeds. That patch awaits native validation and a fresh code
-review.
+attention succeeds. A read-only source review of the latest diff found no
+additional actionable issue; native compilation, lifecycle validation, and
+packaged launch visuals remain pending.
 Windows Explorer also needs a platform run. Tauri's Linux plugin uses the
 session D-Bus and a future sandbox package must grant the required bus name;
 no Flatpak package is currently published. No user-facing site claim needs
