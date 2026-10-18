@@ -32,7 +32,8 @@ Last updated: 2026-10-18 (session 5).
   Task commits: `3524d07ee` (text draft save integrity), `f0c0ae563`
   (PDF blend/transparency fidelity and release-aware website copy), `9a7e447eb`
   (cutoff A corpus records/findings), `5b2c3a409` (mobile website evidence),
-  and `722315eda` (cutoff B inventory).
+  `722315eda` (cutoff B inventory), and `bd0c62933` (cutoff B review and
+  Linux support guidance).
 - The main checkout has unrelated in-flight edits. Do not stage, revert,
   reset, stash, or commit them.
 - `packages/codegen/src/bundle-assets.ts` and
