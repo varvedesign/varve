@@ -4,6 +4,47 @@ This page records evidence reviewed so far. A body-screened report is not a
 confirmed Varve defect. Discussion review and linked implementation history
 remain pending unless stated otherwise in the issue ledger.
 
+## Screening update: issues #3751–3900
+
+The full descriptions for all 149 available nonempty issue bodies in this
+interval were read; #3771 was unavailable. This is body screening only: no
+discussion notes, linked files, or upstream fixes were checked for this batch.
+The following reports are useful regression-test prompts, not verified Varve
+defects:
+
+- [#3786](https://gitlab.com/inkscape/inkscape/-/issues/3786) reports a
+  segmentation fault when a paint-server URL has a missing closing parenthesis.
+  The report is from Inkscape 1.2.1/Arch in 2022 and was not reproduced. It is
+  a malformed-SVG robustness case for parser/import paths.
+- [#3797](https://gitlab.com/inkscape/inkscape/-/issues/3797) and
+  [#3798](https://gitlab.com/inkscape/inkscape/-/issues/3798) describe recursive
+  filter application leading to unbounded load-time CPU and memory use. Both
+  are old 1.2.1-era reports; sample files and discussion history were not
+  reviewed. They motivate bounded resource evaluation only if Varve exercises
+  an equivalent recursive filter graph.
+- [#3822](https://gitlab.com/inkscape/inkscape/-/issues/3822) reports PDF
+  import placing U+000C in generated SVG, after which extension tools fail XML
+  parsing. The report includes a specific import-to-extension sequence but is
+  Windows/Inkscape 1.2-era and remains unconfirmed here. This is a document
+  integrity and downstream-validation case.
+- [#3840](https://gitlab.com/inkscape/inkscape/-/issues/3840) reports
+  optimized SVG save dropping text objects using `inline-size`. The original
+  file reportedly opens before save; the report is Fedora/Inkscape 1.2.1 and
+  its attachments were not inspected. It is a useful lossless-serialization
+  regression category.
+- [#3885](https://gitlab.com/inkscape/inkscape/-/issues/3885) reports the
+  Poppler/Cairo PDF importer ignoring the requested page and loading page 1.
+  [#3886](https://gitlab.com/inkscape/inkscape/-/issues/3886) reports flipped
+  text from the internal PDF importer where another importer and browser
+  render the pattern upright. Importer mode, requested page, and text
+  orientation are distinct PDF fidelity checks; the linked examples and
+  discussion were not inspected.
+- [#3899](https://gitlab.com/inkscape/inkscape/-/issues/3899) reports
+  keyboard-applied bold/italic text being saved or copied with the wrong font
+  size, while panel-applied formatting survives. It is an old Ubuntu 20.04 /
+  Inkscape 1.1.2 report; use as a text style round-trip case, not evidence of a
+  current Varve problem.
+
 ## Candidate: large raster save memory
 
 Inkscape [#6398](https://gitlab.com/inkscape/inkscape/-/issues/6398) reports
@@ -733,3 +774,31 @@ before treating them as continuing upstream failures. User-pain reports also
 include an eight-minute selection of thousands of layers (#6391) and PDF form
 radio controls rendered selected on import (#6292); both are feature-specific
 and need realistic Varve workflow evidence before implementation.
+
+## Inkscape issue bodies #3901–#4800
+
+All 868 available, previously unscreened descriptions in this range were read
+in full. Bodies #3601–#3900 have not yet been fully screened; compact excerpts
+from part of that range are not counted. Thirty IDs had no cached body, and two were already screened. This
+pass did not inspect comments or attachments; findings here remain issue-body
+reports, not confirmed Varve defects.
+
+The strongest transferable reports include PDF export dropping a cloned
+marker (#3911), multi-page PDF output progressively clipping a masked JPEG
+(#3998), a pattern-of-pattern PDF mismatch (#4217), objects omitted from bleed
+areas (#4292), single-page bleed omitted while multipage output includes it
+(#4487), transparent text hiding earlier PDF text (#4572), mismatched page
+MediaBoxes (#4780), and clones omitted from batch PDF export (#4702). Import
+cases report PDF page scaling errors (#4251) and a renderer-specific PDF
+round-trip failure (#4577). These warrant fixtures only where Varve supports
+the same print/import behavior.
+
+Integrity and lifecycle reports include image dimensions changing when a
+missing link is edited (#4014), live preview actions wiping document contents
+(#4385), text style lost after saving/reopening (#4160), and document content
+flipping when a page moves with an inverted Y axis (#4350). Repeated export
+failures, invalid IDs, and closing during export can crash the application
+(#4235, #4328, #4523/#4524, #4703). These suggest invariant tests for
+non-destructive edits, saved state, explicit invalid-input errors, and safe
+cancellation. Their reports are version-specific and have not been reproduced
+in Varve.

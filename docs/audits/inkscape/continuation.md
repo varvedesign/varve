@@ -207,6 +207,25 @@ Inkscape’s canonical tracker.
     HSL serialization, turbulence seams, and raster edge bleed. They remain
     unconfirmed Varve test categories.
 
+29. Individually screened 868 available bodies in IID 3901–4800; the
+    30 unavailable descriptions were #4083, #4153, #4178, #4181–#4185,
+    #4205–#4214, #4290, #4294, #4332, #4344, #4414–#4416, #4529–#4532,
+    and #4743. Two bodies (#3975 and #4717) were already screened. No notes
+    or attachments were reviewed. Bodies #3601–#3900 remain pending full review; excerpt-based checks in that
+    segment are not counted. The overall count is 2,540 unique bodies of
+    6,392. Body-only candidate reports cover multipage PDF masks, clones and
+    bleed, page geometry, linked-image data integrity, document mutation, and
+    export cancellation/crashes; no matching Varve defect is established.
+30. Individually screened all 149 available nonempty bodies in IID 3751–3900;
+    #3771 was unavailable. None was previously counted. No notes or linked
+    attachments were reviewed. The ledger now records 2,689 of 6,392 bodies.
+    Body-only candidates include malformed paint-server crash handling
+    (#3786), PDF-imported control characters breaking downstream XML tools
+    (#3822), text loss in optimized SVG save (#3840), PDF page selection and
+    text orientation (#3885/#3886), and text-style serialization (#3899).
+    These are historical reports with version/platform-specific caveats; no
+    matching Varve defect has been reproduced.
+
 ## Validation checkpoint: 2026-10-18
 
 - Latest `pnpm verify:affected` selected `format:touched`, `lint:touched`,
