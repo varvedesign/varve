@@ -623,7 +623,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 <div class="format-tradeoffs">
                   <h3>Which package should I choose?</h3>
                   <p class="format-tradeoffs-intro">
-                    Linux has no single package format. Pick the one that matches your distro:
+                    Choose a package for your distro. Every Linux build requires glibc 2.35 or newer
+                    and the system WebKitGTK libraries.
                   </p>
                   <div class="distro-picker">
                     <table class="distro-table">
@@ -661,8 +662,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                           <td><code>chmod +x Varve-*.AppImage &amp;&amp; ./Varve-*.AppImage</code></td>
                         </tr>
                         <tr>
-                          <td><strong>Other distros</strong></td>
-                          <td>AppImage <span class="format-badge">universal</span></td>
+                          <td><strong>Other glibc-based distros</strong></td>
+                          <td>AppImage <span class="format-badge">portable format</span></td>
                           <td>Same as above; or <code>--appimage-extract-and-run</code> if FUSE2 is unavailable</td>
                         </tr>
                       </tbody>
@@ -670,12 +671,12 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   </div>
                   <div class="format-notes">
                     <p>
-                      <strong>AppImage</strong> — a single portable file that runs on any distro
-                      without root or a package manager. This is the universal option and the
-                      recommended default for openSUSE and other non-Debian/Fedora distros. On
-                      Arch and CachyOS the repository PKGBUILD is fine to use; the AppImage also
-                      works. Requires FUSE2 (or <code>--appimage-extract-and-run</code>) and the
-                      system WebKitGTK library.
+                      <strong>AppImage</strong> — a single portable file that needs no root or
+                      package manager. Use it on openSUSE and other glibc-based distros that meet
+                      the requirements below. It is not a universal Linux ABI: Alpine and other
+                      musl-based systems are not supported. Requires glibc 2.35+, FUSE2 (or{' '}
+                      <code>--appimage-extract-and-run</code>), and the system WebKitGTK library.
+                      On Arch and CachyOS, the repository PKGBUILD is also available.
                     </p>
                     <p>
                       <strong>Debian package (.deb)</strong> — installs system-wide and pulls in
@@ -1770,6 +1771,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     .distro-table td:first-child {
       font-size: var(--type-interface-control-size);
       margin-bottom: 0.25rem;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     .distro-table td:nth-child(2) {
@@ -1779,6 +1782,11 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
     .distro-table td:nth-child(3) {
       margin-top: 0.25rem;
+    }
+
+    .distro-table td:nth-child(3) code {
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
   }
 

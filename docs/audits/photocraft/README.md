@@ -1,4 +1,4 @@
-# Photocraft corpus review — Varve audit area
+# PdfCraft issue corpus review — Varve audit area
 
 Durable record for the review of [storytold/pdfcraft's issue
 tracker](https://github.com/storytold/pdfcraft/issues) as evidence for
@@ -9,7 +9,7 @@ hardening Varve.
 | `README.md` | This file: scope, method, cutoffs, status vocabulary, how to resume |
 | `findings.md` | Failure classes, their Varve verdicts, the implementation log, evidence limitations |
 | `issue-ledger.jsonl` | Frozen cutoff A issue records and screening dispositions |
-| `issue-ledger-follow-on-b.jsonl` | Cutoff B new issue inventory; items remain queued until screened |
+| `issue-ledger-follow-on-b.jsonl` | Cutoff B new issue inventory with per-issue review/disposition status |
 | `issue-ledger-follow-on-b.summary.json` | Cutoff B inventory counts and review coverage |
 | `issue-ledger.summary.json` | Counts for frozen cutoff A |
 | `continuation.md` | Where the work stopped and the exact next operation |
@@ -19,12 +19,14 @@ hardening Varve.
 | Cutoff | Window (UTC) | Issue count | Notes |
 |---|---|---|---|
 | **Cutoff A (frozen)** | `2026-10-17T04:41:35Z` → `2026-10-17T04:42:17Z` | 1 296 issues (827 open / 469 closed) + 1 682 PRs | Full enumeration, reconciled against the search totals |
-| **Cutoff B (frozen)** | `2026-10-18T12:28:21Z` → `2026-10-18T12:28:46Z` | 1 454 issues (936 open / 518 closed) + 1 795 PRs | Reconciled by pagination and issue search totals; 158 new issues queued separately; 40 existing issues changed state |
+| **Cutoff B (frozen)** | `2026-10-18T12:28:21Z` → `2026-10-18T12:28:46Z` | 1 454 issues (936 open / 518 closed) + 1 795 PRs | Reconciled by pagination and issue search totals; all 158 new issue bodies and current comments screened (40 screened for Varve, 116 out of scope, 2 already handled); 40 existing issues changed state |
 
 Issues created after cutoff A are recorded in the cutoff B follow-on ledger; they do not
-change the frozen A ledger. Cutoff B is the current source-reconciliation boundary,
-but its 158 new issues remain unscreened and are not counted as reviewed. Later
-arrivals go into a subsequent queue rather than moving either frozen boundary.
+change the frozen A ledger. Cutoff B is the current source-reconciliation boundary.
+All 158 new issue bodies and current comment threads have been read. Recursive linked
+evidence, attachments and sample files remain open where noted in `findings.md` and
+`continuation.md`. Later arrivals go into a subsequent queue rather than moving either
+frozen boundary.
 
 ## Method
 

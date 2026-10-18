@@ -1,4 +1,4 @@
-# Photocraft corpus → Varve findings
+# PdfCraft corpus → Varve findings
 
 Source tracker: [storytold/pdfcraft](https://github.com/storytold/pdfcraft/issues),
 default branch `main`. The task brief also linked
@@ -71,15 +71,16 @@ downloaded: it is bulk third-party material, most of it re-encoded by GitHub's
 asset proxy, and no conclusion in this pass depends on a pixel in another
 product. Where a class's only evidence is an attachment, the ledger says so.
 
-### Cutoff B inventory (screening pending)
+### Cutoff B inventory and review status
 
 The second API crawl ran `2026-10-18T12:28:21Z`–`2026-10-18T12:28:46Z` UTC.
 Pagination and search reconciliation found 3,249 unique issue-endpoint records: 1,454
 issues (936 open / 518 closed) and 1,795 PRs. All cutoff A issue IDs remain
 present; 158 new issues were created after A, 40 existing issues changed state,
-and 251 issues were updated. The 158 new issue bodies have not yet been
-screened. See `issue-ledger-follow-on-b.jsonl`; none is currently presented as
-reviewed or excluded. The raw response is outside Git at
+and 251 issues were updated. All 158 new issue bodies and current comment
+threads have now been reviewed. Review dispositions and depth are in
+`issue-ledger-follow-on-b.jsonl`; linked evidence and attachments remain an
+open frontier as detailed below. The raw response is outside Git at
 `/tmp/opencode/photocraft/pdfcraft-cutoff-b-pages.json` (SHA-256
 `13e385871d051ce3a18734bcc8a3b1ebab875b2e749ae2cb9a2515c9ff29748a`).
 
@@ -372,14 +373,18 @@ interactions, accessibility/performance, then useful improvements.
   preview from edit, so the specific failures may not be expressible; that has
   to be shown, not assumed.
 
-### 4.14 Cutoff B triage findings — **inventory only**
+### 4.14 Cutoff B triage findings — **body and current-comment review complete; recursive evidence remains**
 
-Titles in the new inventory identify candidate areas including Wayland/Windows
-touchpad pan behavior, Arabic and CJK text, export fidelity, print preview,
-clipboard, undo, content clipping, and document-scale rendering. These are
-triage leads only: the 158 bodies, comments, linked PRs, and user attachments
-have not been reviewed, and none of these titles establishes a Varve defect.
-Current code review has not yet verified these candidates.
+All 158 new issue bodies and their current comment threads have been read and
+classified in `issue-ledger-follow-on-b.jsonl`. The ledger separates 40
+screened-for-Varve candidates, 116 out-of-scope reports, and 2 capabilities
+already handled in Varve. A screened classification is only a follow-up
+queue: it does not claim a Varve defect. Linked issues/PRs, source fixtures,
+attachments and external app builds remain unreviewed where the later sections
+say so.
+
+The incremental counts at the end of §§4.15–4.19 are preserved as batch-time
+progress records; the final reconciled cutoff-B totals appear after §4.22.
 
 The requested transparent-canvas E2E probe was invalid for issue #2970: it
 selected a shape whose selection overlay affected sampled pixels, and after
@@ -478,3 +483,284 @@ desktop and mobile evidence is saved in `evidence/website-export-*.png`; local
 navigation destinations returned HTTP 200. `/try/` is built as part of the
 combined deployment artifact rather than the standalone Astro dev server.
 Formal PDF/X standards validation remains pending.
+
+### 4.15 Cutoff B text and input screen — 15 threads screened; no new Varve defect confirmed
+
+Read-only review covered issue bodies and current issue comments for
+[#3248](https://github.com/storytold/pdfcraft/issues/3248),
+[#3234](https://github.com/storytold/pdfcraft/issues/3234),
+[#3231](https://github.com/storytold/pdfcraft/issues/3231),
+[#3128](https://github.com/storytold/pdfcraft/issues/3128),
+[#3093](https://github.com/storytold/pdfcraft/issues/3093),
+[#3224](https://github.com/storytold/pdfcraft/issues/3224),
+[#3223](https://github.com/storytold/pdfcraft/issues/3223),
+[#3202](https://github.com/storytold/pdfcraft/issues/3202),
+[#3196](https://github.com/storytold/pdfcraft/issues/3196),
+[#3185](https://github.com/storytold/pdfcraft/issues/3185),
+[#3183](https://github.com/storytold/pdfcraft/issues/3183),
+[#3167](https://github.com/storytold/pdfcraft/issues/3167),
+[#3154](https://github.com/storytold/pdfcraft/issues/3154),
+[#3127](https://github.com/storytold/pdfcraft/issues/3127), and
+[#2982](https://github.com/storytold/pdfcraft/issues/2982). The issues include
+reporter-provided screenshots and sample PDF links; attachment bytes were not
+retrieved. Shallow bot comments and linked upstream changes were not treated as
+proof of Varve behavior.
+
+- **Navigation:** #3248 and #3234 are platform reports without captured input
+  traces; #3234's author explicitly lacks a Windows precision-touchpad device.
+  Varve's wheelClassifier.ts treats line/page deltas as mouse input and may
+  apply app inertia, while pixel-mode trackpad deltas bypass it. The Windows
+  deltaMode path needs hardware verification before changing classification.
+  #3231's “page follows pointer” direction is already the documented and
+  E2E-tested middle-drag convention; its separate speed complaint is not
+  measured. #3128 requests optional speed-dependent gain, a product preference
+  not a defect. #3093 requests middle-click auto-scroll but has no interaction
+  requirements; no subsystem was added based on this underspecified request.
+- **Text and fonts:** #3223, #3185 and #2982 concern rewriting text that uses
+  embedded/subsetted PDF fonts, which Varve does not support. #3224 concerns
+  PDF comment hover/bookmark surfaces not present in Varve. #3202, #3196,
+  #3167 and #3154 reach Varve's Unicode text, font packaging/selection and PDF
+  export boundaries and remain screened for focused coverage; no Varve failure
+  was reproduced. #3183 is ambiguous about whether the affected field is
+  search or document text. #3127 lacks sample text, font and expected Korean
+  line break; existing Unicode layout tests are adjacent evidence, not
+  reproduction.
+- **Existing evidence and limits:** packages/engine/src/text/paragraphs.ts
+  itemizes bidirectional and script runs; paragraphLayout.test.ts covers
+  mixed Arabic and RTL layout, and text fixtures include multiple scripts.
+  TextEditOverlay.tsx uses dir="auto". The font resolver can diagnose known
+  missing glyphs. The generic CSS fallback chain and system-only Noto Sans CJK
+  registration do not prove those faces are present in a clean packaged
+  install. No fresh tests, native IME, clean-machine packaging, or visual text
+  export comparison was performed for this screen. The follow-on ledger records
+  15 bodies/threads screened, with the other 143 new issues still queued.
+
+### 4.16 Cutoff B PDF output and document reports — 13 threads screened; boundary limits most
+
+Read-only review covered current issue bodies and comments for
+[#3229](https://github.com/storytold/pdfcraft/issues/3229),
+[#3176](https://github.com/storytold/pdfcraft/issues/3176),
+[#3159](https://github.com/storytold/pdfcraft/issues/3159),
+[#3157](https://github.com/storytold/pdfcraft/issues/3157),
+[#3149](https://github.com/storytold/pdfcraft/issues/3149),
+[#3148](https://github.com/storytold/pdfcraft/issues/3148),
+[#3147](https://github.com/storytold/pdfcraft/issues/3147),
+[#3123](https://github.com/storytold/pdfcraft/issues/3123),
+[#3119](https://github.com/storytold/pdfcraft/issues/3119),
+[#3063](https://github.com/storytold/pdfcraft/issues/3063),
+[#2986](https://github.com/storytold/pdfcraft/issues/2986),
+[#2992](https://github.com/storytold/pdfcraft/issues/2992), and
+[#2984](https://github.com/storytold/pdfcraft/issues/2984). Some reports include
+synthetic PDF scripts, screenshot/video references, or third-party PDF fixture
+links. Those attachments were not downloaded or executed; links in comments
+were not treated as verified fixes.
+
+The product boundary is important here: packages/import/src/pdf.ts extracts
+text and simple rectangles with explicit fidelity warnings. It does not render
+arbitrary PDF pages or interpret PDF optional-content groups, annotations,
+redactions, or text clipping. Varve creates its own PDFs from its scene through
+crates/varve-print; its image export renders authored scene content. Therefore
+most imported-PDF reader/editor failures below are out of scope for Varve.
+
+- **Adjacent authored-output checks remain open:** #3229 reports incorrect
+  compositing when one PDF path operator fills and strokes the same path; #3176
+  reports alpha loss in PDF shading patterns. The Varve writer emits fills and
+  strokes through separate passes. This is not the same parser path, but the
+  correct transfer question is whether a Varve-authored semi-transparent
+  fill+stroke and pattern alpha export match the live canvas. Compare actual
+  canvas and independently rendered PDF pixels before calling this a defect.
+- **Export progress/grayscale:** #3159 combines toast layout, a premature
+  100% indicator and grayscale settings. Varve already models preflight,
+  rendering, encoding, writing, completion, and failure in exportService.ts,
+  and completion follows the write. No defect is known from source inspection.
+  No grayscale PDF export option was identified, so no claim is made that the
+  PdfCraft option exists in Varve.
+- **Crop, work bounds and false success:** #3148 uses PDF user-space crop
+  coordinates, unlike Varve's source-pixel image crop. #3147 concerns PDF
+  image arranger endpoints absent in Varve. #3119 concerns bounded recursive
+  PDF interpretation; Varve's render bitmap/residency budgets are different
+  memory controls. Its transferable rule is that a bounded operation must not
+  report complete when work was truncated; no matching Varve no-op or silent
+  truncation was found in this screen.
+- **Explicit exclusions:** #3157 and #3063 concern arbitrary PDF page rendering
+  (the latter is unconfirmed even in PdfCraft); #3149 concerns egui texture
+  limits; #3123 requires editing/redacting PDF clipping modes; #2986 requires
+  PDF OCG/OCMD interpretation; #2992 requests PDF-to-DOCX behavior; and #2984
+  compares PDF-page rasterizers. These do not map to Varve's authored-scene
+  renderer or PDF output path. #3157's maintainer could not reproduce blank
+  pages on a 1,424-page document and requested a fixture.
+- No Varve reproduction, fresh test, or visual comparison was run for these
+  candidates. The ledger records 28 new issue bodies and threads screened; 130
+  post-A issues remain queued.
+
+### 4.17 Cutoff B printer and page workflow screen — 13 threads screened; OS print path is not a current UI workflow
+
+Read-only review covered current bodies and comments for
+[#3208](https://github.com/storytold/pdfcraft/issues/3208),
+[#3203](https://github.com/storytold/pdfcraft/issues/3203),
+[#3188](https://github.com/storytold/pdfcraft/issues/3188),
+[#3153](https://github.com/storytold/pdfcraft/issues/3153),
+[#3152](https://github.com/storytold/pdfcraft/issues/3152),
+[#3151](https://github.com/storytold/pdfcraft/issues/3151),
+[#3047](https://github.com/storytold/pdfcraft/issues/3047),
+[#3032](https://github.com/storytold/pdfcraft/issues/3032),
+[#3046](https://github.com/storytold/pdfcraft/issues/3046),
+[#3096](https://github.com/storytold/pdfcraft/issues/3096),
+[#3094](https://github.com/storytold/pdfcraft/issues/3094),
+[#2991](https://github.com/storytold/pdfcraft/issues/2991), and
+[#2983](https://github.com/storytold/pdfcraft/issues/2983). Screenshot and driver
+or PDF attachments were not opened; fixes mentioned by commenters were not
+independently validated.
+
+- **Potential OS print capability gap:** PdfCraft users report ignored duplex,
+  missing nonstandard paper sizes, missing printers, and driver-specific failures.
+  Varve's Windows native adapter hardcodes A4/Letter and duplex false and
+  ignores duplex, color and page_size in print_pdf. Linux passes requested
+  lp settings but discards printer option discovery. However repository search
+  found no frontend consumer of listPrinters or printPdf; these adapters are
+  not evidence of a reachable user workflow. The PDF/X press panel is a
+  separate artifact-export workflow, not OS printing. No Windows or Linux
+  physical printer reproduction was run. These reports remain screened for a
+  product decision and reachability check, not confirmed Varve defects.
+- **PDF reader/editor exclusions:** #3203 batch-printing PDF pages, #3188
+  replacing PDF pages, #3153 Organize Pages export, #3152 PDF page cropping,
+  and #3046 printing hidden PDF OCGs require a multipage PDF editor/reader,
+  which Varve does not provide. #2983's reported crash is in a different
+  PdfCraft Windows PDF/XPS rendering path.
+- **Other candidates:** #3151 sequential page-export naming lacks steps or
+  expected output and is only adjacent to Varve batch naming. #3047/#3032 are
+  tied in source comments to printer driver failures on PdfCraft's distinct
+  Direct2D/XPS path. #2991 asks for persistent printer preferences, but no
+  Varve user-facing OS print settings or preference flow was located.
+- No Varve issue was reproduced in this screen. The follow-on ledger now records
+  41 new issue bodies and current comment threads screened; 117 remain queued.
+
+### 4.18 Cutoff B editing, interaction, and platform screen — 13 threads screened; one request already handled
+
+Read-only review covered current issue bodies/comments for
+[#3249](https://github.com/storytold/pdfcraft/issues/3249),
+[#3236](https://github.com/storytold/pdfcraft/issues/3236),
+[#3190](https://github.com/storytold/pdfcraft/issues/3190),
+[#3144](https://github.com/storytold/pdfcraft/issues/3144),
+[#3139](https://github.com/storytold/pdfcraft/issues/3139),
+[#3001](https://github.com/storytold/pdfcraft/issues/3001),
+[#3002](https://github.com/storytold/pdfcraft/issues/3002),
+[#2995](https://github.com/storytold/pdfcraft/issues/2995),
+[#2997](https://github.com/storytold/pdfcraft/issues/2997),
+[#3082](https://github.com/storytold/pdfcraft/issues/3082),
+[#3051](https://github.com/storytold/pdfcraft/issues/3051),
+[#3058](https://github.com/storytold/pdfcraft/issues/3058), and
+[#3073](https://github.com/storytold/pdfcraft/issues/3073). Reporter screenshots
+and video were not opened; linked PRs and commits remain unverified.
+
+- **Already handled:** #3249 asks to replace only the current Find match, show
+  its position and advance predictably. Varve's FindReplaceBar already has
+  separate Replace and Replace & Find Next actions and a match counter.
+  Unit tests cover advancing after replacement; the E2E spec covers counters,
+  Replace All and undo, but does not directly click Replace & Find Next.
+- **Visual/interaction candidates:** #3236 reports text overlapping PdfCraft's
+  toolbar at zoom; #3001 reports cursor state leaking from PDF content through
+  the mode bar; #3082 reports Hebrew filename tofu on macOS. These are good
+  targeted visual checks, but the PDFs, screenshots and exact linked fixes
+  were not reviewed, and no Varve defect was reproduced. #3144 says clipboard
+  behavior is imperfect without a failing route or payload; Varve already has
+  clipboard unit and browser E2E coverage, but that does not resolve an
+  unspecified case.
+- **Different or absent workflows:** #3190 and #3139 concern editing PDF
+  images/context menus and watermarks. #3002 requests shortcuts for PDF
+  annotation tools, while #2995 requests a particular fullscreen control
+  placement. #2997 requests modifier-drag duplication in a PDF page organizer;
+  Varve has page duplicate/reorder controls but no PDF Organize Pages surface.
+  These are feature requests or product-specific paths, not defects in Varve's
+  existing interactions.
+- **Distinct causes:** #3051's “text changes disappear” title resembles the
+  pending-draft save case, but its maintainer suspects edited text is covered
+  by later page background content. Varve's committed pending-draft drain
+  covers a different window and its PDF import does not rewrite page content.
+  #3058 reports an eframe/AppKit KVO teardown crash that its thread says was
+  fixed upstream; Varve's Tauri lifecycle is a different stack. #3073 gives
+  no workload or metrics for lag on a 2010 MacBook with OCLP and legacy NVIDIA,
+  so it does not show a Varve regression.
+- The follow-on ledger records 54 new issue bodies and current comments
+  screened: 22 screened-for-Varve, 19 out-of-scope, and one already handled
+  across this and earlier screens. The other 104 issues remain queued.
+
+### 4.19 Cutoff B tagged PDF, redaction, parser and annotation screen — 15 threads screened; outside Varve's PDF contract
+
+Read-only review covered the bodies and current comments for
+[#3221](https://github.com/storytold/pdfcraft/issues/3221),
+[#3219](https://github.com/storytold/pdfcraft/issues/3219),
+[#3218](https://github.com/storytold/pdfcraft/issues/3218),
+[#3217](https://github.com/storytold/pdfcraft/issues/3217),
+[#3216](https://github.com/storytold/pdfcraft/issues/3216),
+[#3215](https://github.com/storytold/pdfcraft/issues/3215),
+[#3214](https://github.com/storytold/pdfcraft/issues/3214),
+[#3213](https://github.com/storytold/pdfcraft/issues/3213),
+[#3212](https://github.com/storytold/pdfcraft/issues/3212),
+[#3211](https://github.com/storytold/pdfcraft/issues/3211),
+[#3205](https://github.com/storytold/pdfcraft/issues/3205),
+[#3179](https://github.com/storytold/pdfcraft/issues/3179),
+[#3178](https://github.com/storytold/pdfcraft/issues/3178),
+[#3177](https://github.com/storytold/pdfcraft/issues/3177), and
+[#3175](https://github.com/storytold/pdfcraft/issues/3175). Several bodies
+include carefully constructed synthetic PDFs, corpus samples or concrete
+parser/operator traces. Those files were not downloaded or executed. Comments
+that say a fix is being worked on or cite a PR are not treated as a shipped fix;
+the identified PRs were checked only for their open/merged state.
+
+Varve's PDF import at packages/import/src/pdf.ts is explicitly partial: it
+extracts text and simple rectangles and does not preserve PDF page geometry,
+vectors or embedded images. Format capabilities likewise mark the importer
+partial. Varve does not have a PDF page renderer, content-stream editor,
+ToUnicode parser, tagged-PDF structure tree, optional-content-group reader,
+annotation flattener, PDF redaction engine, or PDF-to-Office exporter. The
+related PdfCraft issues therefore remain explicitly outside Varve's current
+product boundary, even where the external reports are reproducible and severe.
+
+The reviewed families cover tagged accessibility MCR stream identity (#3221),
+ActualText/MCID preservation (#3219), form-aware redaction audits (#3218),
+content-stream rewriting and comment boundaries (#3217), vertical Identity-V
+edit geometry (#3216), per-run text render state (#3215), hidden-layer PDF
+selection/flattening/output (#3214, #3213, #3212, #3211), PDF phone-pattern
+redaction (#3205), JPX palette images (#3179), Type3 glyph soft-mask rendering
+(#3178), malformed ToUnicode CMaps (#3177), and missing annotation appearance
+flattening (#3175). These do not establish failures in Varve-authored scenes.
+If Varve later adds any such feature, the documented source fixtures and
+operation-specific controls are valuable acceptance candidates; until then,
+these remain out of scope, not deferred Varve defects.
+
+The follow-on ledger now records 69 new issue bodies and current comments
+screened: 29 screened-for-Varve, 39 out-of-scope, and one already handled.
+The other 89 new issues remain queued.
+
+### 4.20 Cutoff B remaining text, layout, and platform reports — 16 issues screened
+
+The remaining queued reports in this group are [#2981](https://github.com/storytold/pdfcraft/issues/2981), [#2985](https://github.com/storytold/pdfcraft/issues/2985), [#2990](https://github.com/storytold/pdfcraft/issues/2990), [#2999](https://github.com/storytold/pdfcraft/issues/2999), [#3005](https://github.com/storytold/pdfcraft/issues/3005), [#3029](https://github.com/storytold/pdfcraft/issues/3029), [#3031](https://github.com/storytold/pdfcraft/issues/3031), [#3037](https://github.com/storytold/pdfcraft/issues/3037), [#3048](https://github.com/storytold/pdfcraft/issues/3048), [#3052](https://github.com/storytold/pdfcraft/issues/3052), [#3057](https://github.com/storytold/pdfcraft/issues/3057), [#3060](https://github.com/storytold/pdfcraft/issues/3060), [#3061](https://github.com/storytold/pdfcraft/issues/3061), [#3072](https://github.com/storytold/pdfcraft/issues/3072), [#3074](https://github.com/storytold/pdfcraft/issues/3074), and [#3079](https://github.com/storytold/pdfcraft/issues/3079). Each issue body and all comments returned by GitHub at review time were read. Attachments and linked issues/PRs were not independently inspected except where noted below.
+
+- **Possible shared text fidelity question:** #2981 reports Thai characters becoming question marks after PdfCraft Fill & Sign input ends; #3133 is an exact duplicate of #2981, as its bot comment states. The linked #2354 describes a Windows 11/PdfCraft 0.7.1 comparison: Thai works in the main Add Text path with craft-fonts but not in comment text or Fill & Sign. #2428 is a distinct report where Thai appears as boxes only while editing existing PDF text, then renders correctly afterward. #506 describes the broader WinAnsi FreeText limitation. PR #1775 remains open/unmerged and excludes Thai; #2811 also remains open/unmerged for existing text. Merged #1112 makes undrawable text fail visibly instead of emitting `?`, and #403 addresses Arabic, neither is a Thai fix. Varve does not edit PDF form text, but Thai edit/save/export is a reasonable focused check of its own Unicode path. Its existing `tests/e2e/canvas/text-corpus.spec.ts` and corpus manifest include Thai paint/save/reopen coverage; the focused lease-wrapped run waited 600 seconds for another live shared test lease and expired before Playwright started. The result is pending, not a pass or failure. No Varve reproduction is claimed.
+- **Font and localization reports:** #3150 is screenshot-only with no steps/version. Its linked #396 CJK UI/tofu report was closed in favor of #826, which records ongoing CJK fallback work and remaining bundled/web/Linux gaps; #142/#614 address bookmark mojibake rather than tab labels, while #689 reports CJK glyphs missing in a Mac Flatpak. Varve's tab strip uses ellipsized filenames and system font fallback, but no matching failure has been reproduced in a packaged target. #3181's attached 2,685-line Finnish TSV is a localization proposal, not a Varve defect; Varve Settings currently makes no localization claim. The TSV and linked proposals were not independently validated.
+- **Adjacent layout and platform candidates:** #2990 reports a crowded page-number control; a commenter could not reproduce the original and only noticed icon overlap during resize. #2985 requests ARM support, which Varve already builds for Windows ARM64 and Linux aarch64; the platform support matrix retains qualification caveats. Neither establishes a new Varve failure. These reports and the later #3097, #3150, #3151, #3166, #3181, #3197/#3228, #3230 and #3247 remain individually classified in the ledger as responsive UI, shell, font UI, batch naming, musl packaging, localization, updater channels, startup visuals and keyboard-navigation candidates.
+- **PDF editor boundary:** #3005 and #3061 are PDF content selection/clipping reports; #3029 is a PDF graphics-state leak; #3072 concerns XFA; and #3079 concerns selecting PDF vector paths. Varve's partial PDF importer does not edit PDF object streams, render arbitrary pages, execute XFA or import PDF vector paths. #3031 and #3057 concern certificate validation or online signing; #3048 asks for a OneNote clone. These have no corresponding current Varve workflow. #3037 is a PdfCraft-specific panel issue that its maintainer said would be fixed in a panel redesign; #3052 is an arbitrary PDF reader performance report without its sample file; #2999/#3074 request translation, not a reported Varve failure.
+- No source attachment, linked fix, or source-product build was verified for this group. The website was not changed: none of these reports establishes a Varve capability or claim that needs correction.
+
+### 4.21 Cutoff B parser, export, printing, and application requests — 51 issue threads screened
+
+The group includes [#3080](https://github.com/storytold/pdfcraft/issues/3080), [#3081](https://github.com/storytold/pdfcraft/issues/3081), [#3084](https://github.com/storytold/pdfcraft/issues/3084), [#3085](https://github.com/storytold/pdfcraft/issues/3085), [#3086](https://github.com/storytold/pdfcraft/issues/3086), [#3087](https://github.com/storytold/pdfcraft/issues/3087), [#3088](https://github.com/storytold/pdfcraft/issues/3088), [#3090](https://github.com/storytold/pdfcraft/issues/3090), [#3095](https://github.com/storytold/pdfcraft/issues/3095), [#3097](https://github.com/storytold/pdfcraft/issues/3097), [#3098](https://github.com/storytold/pdfcraft/issues/3098), [#3099](https://github.com/storytold/pdfcraft/issues/3099), [#3103](https://github.com/storytold/pdfcraft/issues/3103), [#3104](https://github.com/storytold/pdfcraft/issues/3104), [#3107](https://github.com/storytold/pdfcraft/issues/3107), [#3108](https://github.com/storytold/pdfcraft/issues/3108), [#3109](https://github.com/storytold/pdfcraft/issues/3109), [#3110](https://github.com/storytold/pdfcraft/issues/3110), [#3111](https://github.com/storytold/pdfcraft/issues/3111), [#3112](https://github.com/storytold/pdfcraft/issues/3112), [#3113](https://github.com/storytold/pdfcraft/issues/3113), [#3115](https://github.com/storytold/pdfcraft/issues/3115), [#3117](https://github.com/storytold/pdfcraft/issues/3117), [#3118](https://github.com/storytold/pdfcraft/issues/3118), [#3120](https://github.com/storytold/pdfcraft/issues/3120), [#3121](https://github.com/storytold/pdfcraft/issues/3121), [#3122](https://github.com/storytold/pdfcraft/issues/3122), [#3124](https://github.com/storytold/pdfcraft/issues/3124), [#3130](https://github.com/storytold/pdfcraft/issues/3130), [#3131](https://github.com/storytold/pdfcraft/issues/3131), [#3132](https://github.com/storytold/pdfcraft/issues/3132), [#3133](https://github.com/storytold/pdfcraft/issues/3133), [#3135](https://github.com/storytold/pdfcraft/issues/3135), [#3136](https://github.com/storytold/pdfcraft/issues/3136), [#3137](https://github.com/storytold/pdfcraft/issues/3137), [#3138](https://github.com/storytold/pdfcraft/issues/3138), [#3140](https://github.com/storytold/pdfcraft/issues/3140), [#3141](https://github.com/storytold/pdfcraft/issues/3141), [#3142](https://github.com/storytold/pdfcraft/issues/3142), [#3143](https://github.com/storytold/pdfcraft/issues/3143), [#3145](https://github.com/storytold/pdfcraft/issues/3145), [#3146](https://github.com/storytold/pdfcraft/issues/3146), [#3150](https://github.com/storytold/pdfcraft/issues/3150), [#3151](https://github.com/storytold/pdfcraft/issues/3151), [#3156](https://github.com/storytold/pdfcraft/issues/3156), [#3158](https://github.com/storytold/pdfcraft/issues/3158), [#3160](https://github.com/storytold/pdfcraft/issues/3160), [#3162](https://github.com/storytold/pdfcraft/issues/3162), [#3163](https://github.com/storytold/pdfcraft/issues/3163), [#3164](https://github.com/storytold/pdfcraft/issues/3164), [#3166](https://github.com/storytold/pdfcraft/issues/3166), and [#3169](https://github.com/storytold/pdfcraft/issues/3169). Current comments were read for all. Strong synthetic PDF cases and comparator measurements in the issue bodies/comments were reviewed as claims; their fixture files, attachments, linked PRs and external oracles were not independently run. Issue #3151 was also discussed in §4.17; this pass reread its thread and reconciled its ledger record.
+
+- **High-confidence source-product failures:** #3080/#3081, #3084, #3107–#3111, #3113, #3115, #3117/#3118, #3120/#3122, and #3145/#3146 contain concrete content-stream, state, extraction, redaction, or ordering reproducers. #3086 has multiple PDF text-extraction corpus reports, including distinct glyph-spacing cases. These are serious PdfCraft reader/editor/audit issues, but Varve does not parse or rewrite arbitrary PDF content streams, perform PDF redaction, or export PDF text to Office. They do not establish defects in Varve's authored scene path.
+- **Other reader and platform reports:** #3087 describes lost 3D annotations during PDF flattening; #3099 is PDF bookmark editing; #3103 is a PdfCraft demo generation race; #3132 is a Windows physical-printer/font issue on PdfCraft's print path; #3156 is grayscale print preview; and #3169 concerns PDF glyph-name text extraction. They lack a corresponding Varve workflow. #3097's macOS menu/clipping report has too little evidence for a Varve reproduction and remains a shell-visual candidate.
+- **Feature/process requests:** the remaining items ask for XFA, OCR, signatures, PDF version controls, themes, AI, office conversion, header/footer/watermark tooling, context menus, custom printers, or contributor merge coordination. The ledger records the per-issue boundary and whether a nearby Varve surface still merits product follow-up. No marketing claim or website guidance was changed because no requested behavior was implemented or newly promised.
+
+### 4.22 Cutoff B long-document, update, and platform reports — 22 issue threads screened
+
+Current bodies and comments were read for [#3170](https://github.com/storytold/pdfcraft/issues/3170), [#3171](https://github.com/storytold/pdfcraft/issues/3171), [#3172](https://github.com/storytold/pdfcraft/issues/3172), [#3173](https://github.com/storytold/pdfcraft/issues/3173), [#3174](https://github.com/storytold/pdfcraft/issues/3174), [#3180](https://github.com/storytold/pdfcraft/issues/3180), [#3181](https://github.com/storytold/pdfcraft/issues/3181), [#3189](https://github.com/storytold/pdfcraft/issues/3189), [#3193](https://github.com/storytold/pdfcraft/issues/3193), [#3194](https://github.com/storytold/pdfcraft/issues/3194), [#3197](https://github.com/storytold/pdfcraft/issues/3197), [#3199](https://github.com/storytold/pdfcraft/issues/3199), [#3201](https://github.com/storytold/pdfcraft/issues/3201), [#3206](https://github.com/storytold/pdfcraft/issues/3206), [#3207](https://github.com/storytold/pdfcraft/issues/3207), [#3220](https://github.com/storytold/pdfcraft/issues/3220), [#3225](https://github.com/storytold/pdfcraft/issues/3225), [#3228](https://github.com/storytold/pdfcraft/issues/3228), [#3230](https://github.com/storytold/pdfcraft/issues/3230), [#3238](https://github.com/storytold/pdfcraft/issues/3238), [#3247](https://github.com/storytold/pdfcraft/issues/3247), and [#3250](https://github.com/storytold/pdfcraft/issues/3250). Linked documents, screenshots, PRs and sample PDFs were not downloaded. Fixes cited in comments remain thread claims unless the Varve implementation was separately inspected.
+
+- **PDF extraction/reader limits:** #3170–#3174 report long-document truncation, Type 3 ordering, overlapping glyphs, clipping, and positioned subscript extraction. #3180 concerns XFA page content changed by metadata save; #3193/#3220 concern PDF bookmarks/comments; #3189 is PDF text highlighting; #3250 is raster quality in a PDF reader. Varve's PDF import is explicitly partial and text-focused, so these cases do not demonstrate a Varve failure.
+- **Platform/update/product requests:** #3197 and duplicate #3228 concern update channels and portable updater behavior. Varve has signed updater plumbing with manual, notify and automatic-download consent and release channels bound to the installed build; no Varve update failure or user-selectable channel/changelog gap was established. #2985's ARM request is already covered by Varve release targets (see §4.20). #3166's musl request is not a supported Varve release target. #3230's black startup frame was not reproduced by the PdfCraft maintainer and uses a different desktop stack than Varve. #3181 asks for Finnish UI localization; #3201/#3206 ask for PdfCraft Docker images; #3247 asks for optional `hjkl` scrolling. These are product decisions, not defects established by these issues.
+- **Deeper update evidence:** PdfCraft #28's update PR #32 adds a user-initiated release-page check, while #1682 points to #99, where users describe manually finding, downloading, replacing and relaunching builds. #2814 asks for a more visible launcher update path; the related Craft Launcher #400 comments describe an AppImage being offered to Flatpak users, illustrating a packaging mismatch. PhotoCraft #2375 users request notifications but object to forced updates and raise package-manager conflicts. Varve already goes beyond a release-page link for supported self-managed desktop builds: settings expose manual, notify and automatic-download consent; the app verifies signed bytes before install; update channel is reported and bound to the installed build. The UI does not expose an arbitrary channel switch. This supports keeping consent and package authority explicit; the PdfCraft/PhotoCraft complaints do not justify an update-policy change in Varve.
+- **Deeper startup and keyboard evidence:** PdfCraft #3230's maintainer could not reproduce the full-window black frame and measured a separate dark pre-compositor frame clearing in roughly 70 ms; linked #76/#378/#413 describe distinct blurry UI, black-window, or GPU-reset reports. These do not transfer to Varve's Tauri/WebView startup. PdfCraft #3247 links page-navigation requests #224/#214 and LightCraft #1171; merged LightCraft PR #1264 adds arrow navigation while leaving `h/j/k/l` unbound because of shortcut conflicts. Varve likewise restricts arrow panning to Hand/Space-Hand so the keys remain available to text and controls. No new Vim-key mapping is warranted by this single request.
+- No Varve-specific visual reproduction was justified by the source evidence in this group. The #3166 musl report did reveal ambiguous marketing copy: the download page called the AppImage “universal” and said it ran on any distro even though published builds require glibc 2.35+. The wording now limits that claim to supported glibc-based systems and explicitly names musl/Alpine as unsupported; `docs/release/platform-support-matrix.md` records the same boundary. This is a support-clarity correction, not a new musl support promise. No other site claims changed for this group.
+
+The website was visually checked at desktop and 390px mobile widths. The mobile pass exposed clipped install commands and long distro labels in the responsive package table; the small-screen styles now allow both to wrap. Captures are in `evidence/download-linux-support-desktop.png` and `evidence/download-linux-support-mobile.png`.
+
+The follow-on ledger now has body and current-comment coverage for all 158 cutoff-B issues: 40 screened-for-Varve, 116 out-of-scope, and 2 already handled. “Reviewed” here means issue body and current comments read, not full recursive-source exhaustion. Attachments, sample files, linked implementation PRs and relevant external discussions still require follow-up where the ledger or findings says they matter. No new Varve defect is confirmed by this cutoff-B screen.
