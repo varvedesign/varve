@@ -13,7 +13,7 @@ restricted; its official project page directs bug reports to GitLab. The
 canonical source is therefore
 [`gitlab.com/inkscape/inkscape`](https://gitlab.com/inkscape/inkscape), with
 issues at `https://gitlab.com/inkscape/inkscape/-/issues` and the GitLab REST
-API at `/api/v4/projects/inkscape%2Finkscape/issues`. 
+API at `/api/v4/projects/inkscape%2Finkscape/issues`.
 Source resolution evidence: the GitHub mirror's issue page reports that issue
 creation is restricted; GitHub's search API returned zero issues. The initial GitLab project API crawl returned **6,390** issues with
 `state=all`, reconciled as **2,112 opened + 4,278 closed**, using
