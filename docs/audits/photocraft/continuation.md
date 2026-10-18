@@ -118,7 +118,7 @@ Last updated: 2026-10-18. Status: active and incomplete.
   passed; `pnpm audit:docs` and `pnpm audit:emoji` passed. The required full
   gate, affected JS/native lanes, and packaged visual checks have not run due
   to insufficient disk headroom; no commit was made for this slice.
-  The ledger is now 223 candidates / 453 partial matches / 28 covered.
+  The ledger is now 222 candidates / 453 partial matches / 28 covered.
   Safe integration to `master` remains outstanding. A clean-snapshot merge
   preview succeeded, but the real dirty master checkout rejected the merge
   because unrelated local edits and untracked files overlap paths touched by
@@ -177,11 +177,13 @@ Last updated: 2026-10-18. Status: active and incomplete.
   transform evidence is now reviewed for #3843, #5859, and #6186. PR #5859's
   discussion exposed false-positive test fixtures and a real history-order
   defect; PR #6186 records the asynchronous commit-cancellation root cause and
-  remains open at cutoff B. PR #6863's full body and timeline were reviewed; it
-  remained open with one commit and no reviews at cutoff B. Its `f32` overflow
-  report is only an analogue to Varve's `f64` model; Varve's non-finite-input
-  guard addresses a separate JavaScript parsing boundary.
-- Link frontier: #5752; #6424; #1101; #6423's related link(s); #6392's
+  remains open at cutoff B. Numeric overflow PRs #5753 and #5831 were also
+  reviewed: both remain open as competing fixes, with review noting malformed
+  non-array phase remains ignored in #5753. PR #6863's full body and timeline
+  were reviewed; it remained open with one commit and no reviews at cutoff B.
+  These f32 overflow reports are analogues to Varve's f64 model; Varve's
+  non-finite-input guard addresses a separate JavaScript parsing boundary.
+- Link frontier: #6424; #1101; #6423's related link(s); #6392's
   #3641 / SolidCraft evidence; #6962's #2850/#2339/#2687; #6964's #3384/#6669;
   #2784's inspected video symptoms and remaining Varve workflow ambiguity; and all relevant
   links not yet enumerated from the corpus.

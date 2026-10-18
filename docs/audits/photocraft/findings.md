@@ -10,17 +10,18 @@ separately. The frozen issue inventory is not an exhaustively reviewed corpus.
 was open at the source cutoff. The issue says a JSON numeric value such as
 `1e39` becomes `f32` infinity and prevents subsequent save. The first comment
 links the proposed fix; a bot comment suggests #1101, #5752, and #6424.
-#5752 (gradient/pattern assignment) and #6424 (commands) share the overflow
-symptom. Their complete discussions are reviewed: #5752 links follow-up #5753
-and the bot separates angle normalization from non-finite acceptance; #6424
-links #5752, #4201, and #4181. Those leads are being reconciled before closing
-the recursive evidence frontier. #1101 concerns the opposite direction—
+#5752 (gradient/pattern assignment) and #6424 (commands) share the f32
+narrowing symptom. Their issue discussions and linked PRs #5753/#5831 are now
+reviewed. The two fill-angle PRs remained competing open changes at cutoff B;
+review found the first still silently ignores a malformed non-array phase.
+#6424 links #5752, #4201, and #4181, which remain in the numeric overflow
+frontier for Varve-specific boundary comparison. #1101 concerns the opposite direction—
 serialization of a non-finite adjustment value—and its commenter supplied a
 failing engine round-trip test. Varve's existing adjustment normalization
 replaces the invalid parameter before encode; a new encode/decode regression
 covers #1101 separately. #6862 is only an analogue: Varve document and bridge
 numeric fields use JavaScript/Rust `f64`, so finite `1e39` does not narrow to
-infinity on that path. Varve separately rejects JSON values that parse as
+infinity on those paths. Varve separately rejects JSON values that parse as
 non-finite JavaScript numbers, such as `1e309`; that is a different boundary
 guard and does not reproduce PhotoCraft's reported save failure. Bot links do
 not establish equivalence.
