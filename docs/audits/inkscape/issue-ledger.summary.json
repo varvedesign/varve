@@ -22,7 +22,7 @@
     "linked_evidence_review": "pending",
     "varve_mapping": "pending",
     "engineering_disposition": "pending",
-    "visual_validation": "pending"
+    "visual_validation": "one bounded-pattern PDF render visually reviewed; remaining linked-fixture and UI comparisons pending"
   },
   "ledger_rows": 6392,
   "retrieved_user_notes": 12748,
