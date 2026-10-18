@@ -263,6 +263,44 @@ marker workflow, so no direct implementation or marketing change follows from
 this report. The discussion remains pending, and the large body was screened
 without executing or rendering its embedded media.
 
+## Screened rendering and export edge cases
+
+Inkscape [#721](https://gitlab.com/inkscape/inkscape/-/issues/721) reports
+that a blue multiply-blended circle was missing its blend result in PDF after
+a green blur was rasterized. The report compares Inkscape 0.92.4 and 1.0-alpha
+and includes two linked SVG samples that were not downloaded. Varve's standard
+PDF path uses the live compositor raster fallback for unsupported effects,
+which makes overlapping blend-plus-blur output a focused visual test. The old
+Cairo-specific cause is not established as shared, and no Varve defect has
+been reproduced.
+
+Inkscape [#670](https://gitlab.com/inkscape/inkscape/-/issues/670) reports
+dashed polygon strokes differing between on-screen display and PNG output in
+Inkscape 0.92.4 on Windows, with a minimal SVG linked. This is a useful
+canvas/export parity scenario for Varve's dashed-stroke renderer, but the issue
+is historical and its linked sample has not been checked against current
+Inkscape or Varve. Preserve it as a regression candidate until a bounded
+reproducer is available.
+
+Inkscape [#894](https://gitlab.com/inkscape/inkscape/-/issues/894) reports
+zero-length SVG paths with square caps rendered in Firefox but not Inkscape.
+The reporter notes that the sample changed after an optimization and that the
+expected result was uncertain. Because the expected semantics are unsettled,
+Varve should only adopt this as a visual test after checking the current SVG
+specification and sample; no change is justified from the report alone.
+
+Inkscape [#1063](https://gitlab.com/inkscape/inkscape/-/issues/1063) reports
+white bars in large radial gradients in Cairo while comparing other SVG
+backends. Varve's browser renderer does not use Cairo, so this does not show a
+shared failure. Large-coordinate radial gradients are still a reasonable
+cross-renderer test case; the referenced SVG and inbox samples were not
+downloaded.
+
+Inkscape [#1351](https://gitlab.com/inkscape/inkscape/-/issues/1351) reports
+severe editing lag from its Simplify live-path effect, even after removing
+embedded images. Varve has no equivalent live-path-effect feature, so there is
+no direct implementation target.
+
 ## Not directly transferable: relative image paths in extensions
 
 Inkscape [#6477](https://gitlab.com/inkscape/inkscape/-/issues/6477) reports
