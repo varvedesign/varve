@@ -50,6 +50,22 @@ RPM, NSIS, DMG, installed `.app`, and development launches. No mutable state
 is placed beside the executable, in the current working directory, or inside
 a mounted AppImage/app bundle.
 
+### Desktop file association launches
+
+On Windows and Linux, Tauri's single-instance plugin forwards later process
+arguments to the first Varve process. The callback resolves relative paths
+against the second launch's working directory, then sends valid `.varve` and
+`.strata` files through the same pending-open queue used at startup. The
+existing tab workflow opens each file and raises the current window where the
+window system allows it; Linux also requests user attention for compositors
+such as native Wayland, where an app cannot raise an existing window itself.
+If a forwarded launch arrives before the primary window exists, the activation
+request is retained and retried when Tauri reports the app ready.
+macOS continues to use LaunchServices `RunEvent::Opened`. Linux sandbox
+packages must grant the session D-Bus name access required by Tauri's
+single-instance plugin; Varve currently publishes AppImage, DEB, and RPM
+packages rather than a Flatpak package.
+
 Downloaded models and installed fonts are application data, not cache. Clearing
 regenerable cache must not remove either. Model storage is injected into the
 native inference crates at startup so all desktop inference uses the same

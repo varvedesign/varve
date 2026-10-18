@@ -6,9 +6,8 @@
 //!
 //! Two intake paths exist, funnelled into one managed queue the frontend
 //! drains over IPC:
-//!   - `argv[1..]` on Windows/Linux: the shell passes the opened path to a
-//!     freshly launched process, which opens the file in that instance.
-//!     (No single-instance plugin: each double-click is its own window.)
+//!   - `argv[1..]` on Windows/Linux: the first process opens startup files;
+//!     later launches are forwarded by Tauri's single-instance plugin.
 //!   - `RunEvent::Opened` on macOS/iOS/Android: LaunchServices delivers
 //!     `file://` URLs, usually to the already-running instance.
 //!
@@ -22,12 +21,18 @@ use std::sync::Mutex;
 
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
 
-/// Pending document paths the frontend has not drained yet.
-pub struct PendingFileOpens(pub Mutex<Vec<String>>);
+/// Pending document paths and window activation the app has not handled yet.
+pub struct PendingFileOpens {
+    pending: Mutex<Vec<String>>,
+    activation_requested: Mutex<bool>,
+}
 
 impl Default for PendingFileOpens {
     fn default() -> Self {
-        Self(Mutex::new(Vec::new()))
+        Self {
+            pending: Mutex::new(Vec::new()),
+            activation_requested: Mutex::new(false),
+        }
     }
 }
 
@@ -50,7 +55,7 @@ fn queue_path(state: &PendingFileOpens, path: &str) -> bool {
         return false;
     }
     state
-        .0
+        .pending
         .lock()
         .map(|mut pending| {
             if pending.iter().any(|existing| existing == path) {
@@ -81,9 +86,86 @@ pub fn register_startup_args(app: &AppHandle) {
     }
 }
 
+/// Open files forwarded from a second Windows/Linux launch. Tauri's callback
+/// includes the second process's executable as `args[0]`; relative document
+/// paths are resolved against that process's working directory before the
+/// existing queue validates and delivers them.
+pub fn handle_forwarded_args(app: &AppHandle, args: Vec<String>, cwd: String) {
+    let state = app.state::<PendingFileOpens>();
+    request_activation(&state);
+    for path in resolve_forwarded_paths(&args, &cwd) {
+        push_open(app, &state, path);
+    }
+    activate_if_requested(app, &state);
+}
+
+/// Apply a forwarded launch's activation request when the configured window
+/// exists. Tauri can invoke the single-instance callback before `Ready`, so
+/// retain the request until the run-event loop can retry it.
+fn activate_if_requested(app: &AppHandle, state: &PendingFileOpens) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    if !activation_is_requested(state) {
+        return;
+    }
+    let focus_handled = window.set_focus().is_ok();
+    #[cfg(target_os = "linux")]
+    let attention_handled = window
+        .request_user_attention(Some(tauri::UserAttentionType::Informational))
+        .is_ok();
+    #[cfg(target_os = "linux")]
+    let handled = focus_handled || attention_handled;
+    #[cfg(not(target_os = "linux"))]
+    let handled = focus_handled;
+    acknowledge_activation_request(state, handled);
+}
+
+fn request_activation(state: &PendingFileOpens) {
+    if let Ok(mut requested) = state.activation_requested.lock() {
+        *requested = true;
+    }
+}
+
+fn activation_is_requested(state: &PendingFileOpens) -> bool {
+    state
+        .activation_requested
+        .lock()
+        .map(|requested| *requested)
+        .unwrap_or(false)
+}
+
+fn acknowledge_activation_request(state: &PendingFileOpens, handled: bool) {
+    if !handled {
+        return;
+    }
+    if let Ok(mut requested) = state.activation_requested.lock() {
+        *requested = false;
+    }
+}
+
+fn resolve_forwarded_paths(args: &[String], cwd: &str) -> Vec<String> {
+    args.iter()
+        .skip(1)
+        .map(|argument| {
+            let path = Path::new(argument);
+            if path.is_absolute() {
+                path.to_string_lossy().into_owned()
+            } else {
+                Path::new(cwd).join(path).to_string_lossy().into_owned()
+            }
+        })
+        .collect()
+}
+
 /// macOS/iOS/Android LaunchServices "Open With" requests arrive as URLs and
 /// may target a running instance.
 pub fn handle_run_event(app: &AppHandle, event: &RunEvent) {
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    if matches!(event, RunEvent::Ready) {
+        let state = app.state::<PendingFileOpens>();
+        activate_if_requested(app, &state);
+    }
     #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
     {
         if let RunEvent::Opened { urls } = event {
@@ -98,6 +180,7 @@ pub fn handle_run_event(app: &AppHandle, event: &RunEvent) {
         }
     }
     #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     let _ = (app, event);
 }
 
@@ -106,7 +189,7 @@ pub fn handle_run_event(app: &AppHandle, event: &RunEvent) {
 /// by path, so the same file can never open twice.
 fn drain_pending(state: &PendingFileOpens) -> Vec<String> {
     state
-        .0
+        .pending
         .lock()
         .map(|mut pending| std::mem::take(&mut *pending))
         .unwrap_or_default()
@@ -176,5 +259,35 @@ mod tests {
             1,
             "only the document was queued"
         );
+    }
+
+    #[test]
+    fn forwarded_arguments_skip_executable_and_resolve_relative_documents() {
+        let args = vec![
+            "/opt/varve/varve".to_string(),
+            "artboards/poster.varve".to_string(),
+            "/tmp/other.strata".to_string(),
+        ];
+
+        assert_eq!(
+            resolve_forwarded_paths(&args, "/home/user/projects"),
+            vec![
+                "/home/user/projects/artboards/poster.varve",
+                "/tmp/other.strata"
+            ]
+        );
+    }
+
+    #[test]
+    fn activation_request_is_retained_until_consumed() {
+        let state = PendingFileOpens::default();
+
+        assert!(!activation_is_requested(&state));
+        request_activation(&state);
+        assert!(activation_is_requested(&state));
+        acknowledge_activation_request(&state, false);
+        assert!(activation_is_requested(&state));
+        acknowledge_activation_request(&state, true);
+        assert!(!activation_is_requested(&state));
     }
 }

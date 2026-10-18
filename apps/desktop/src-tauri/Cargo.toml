@@ -85,6 +85,9 @@ tokio = { version = "1", features = ["rt", "macros", "net", "io-util", "sync", "
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_SystemInformation", "Win32_System_Threading"] }
 
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
 [features]
 default = ["ai"]
 custom-protocol = ["tauri/custom-protocol"]

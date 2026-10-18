@@ -5713,7 +5713,20 @@ pub fn run() {
         glib::set_application_name("Varve");
     }
 
-    let builder = tauri::Builder::default()
+    // The single-instance callback can run while the app is still entering
+    // setup, so its durable file-open queue must exist before plugin setup.
+    let builder = tauri::Builder::default().manage(file_open::PendingFileOpens::default());
+
+    // Keep one desktop process on Windows and Linux so file-association
+    // launches add documents to the existing tabbed workspace. This must be
+    // the first plugin registered; macOS keeps its native LaunchServices path
+    // in `file_open::handle_run_event`.
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+        file_open::handle_forwarded_args(app, args, cwd);
+    }));
+
+    let builder = builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
@@ -5785,7 +5798,6 @@ pub fn run() {
             app.manage(TraceCancelState::new());
             app.manage(lifecycle::LifecycleGuard::new());
             // OS file-association intake (.varve / .strata "Open With").
-            app.manage(file_open::PendingFileOpens::default());
             file_open::register_startup_args(app.handle());
 
             #[cfg(target_os = "linux")]
