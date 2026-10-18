@@ -1783,14 +1783,6 @@ fn render_fills(
                                     );
                                     buf.extend_from_slice(b"Q\n");
                                     continue;
-                                } else if estimated_tiles > 1000.0 {
-                                    buf.extend(
-                                        format!(
-                                            "% WARNING: pattern tile estimate {:.0} exceeds 1000; consider a larger tile size\n",
-                                            estimated_tiles
-                                        )
-                                        .as_bytes(),
-                                    );
                                 }
 
                                 let source_has_alpha =
@@ -1802,6 +1794,16 @@ fn render_fills(
                                     );
                                     buf.extend_from_slice(b"Q\n");
                                     continue;
+                                }
+
+                                if estimated_tiles > 1000.0 {
+                                    buf.extend(
+                                        format!(
+                                            "% WARNING: pattern tile estimate {:.0} exceeds 1000; consider a larger tile size\n",
+                                            estimated_tiles
+                                        )
+                                        .as_bytes(),
+                                    );
                                 }
 
                                 let image_state = image_state.as_mut().unwrap();
