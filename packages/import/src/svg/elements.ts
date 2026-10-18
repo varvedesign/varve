@@ -202,6 +202,7 @@ function convertPath(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
+  warnings: string[],
 ): { node: SceneNode; warnings: string[] } | null {
   const d = el.attrs.d ?? '';
   const parsed = parsePathData(d, opts.scale);
@@ -210,7 +211,24 @@ function convertPath(
     : [{ points: parsed.points, closed: parsed.closed }];
   const outer = contours[0];
 
+  const hasNonFiniteGeometry = contours.some((contour) =>
+    contour.points.some(
+      (point) =>
+        !Number.isFinite(point.x) ||
+        !Number.isFinite(point.y) ||
+        (point.handleIn !== null &&
+          (!Number.isFinite(point.handleIn[0]) || !Number.isFinite(point.handleIn[1]))) ||
+        (point.handleOut !== null &&
+          (!Number.isFinite(point.handleOut[0]) || !Number.isFinite(point.handleOut[1]))),
+    ),
+  );
+  if (hasNonFiniteGeometry) {
+    warnings.push('SVG <path> contains non-finite geometry — skipped');
+    return null;
+  }
+
   if (!outer || outer.points.length < 2) {
+    warnings.push('SVG <path> has fewer than two points — skipped');
     return null;
   }
 
@@ -980,8 +998,7 @@ export function convertElement(
       result = convertPolyline(el, transforms, opts);
       break;
     case 'path':
-      result = convertPath(el, transforms, opts);
-      if (!result) warnings.push('SVG <path> has fewer than two points — skipped');
+      result = convertPath(el, transforms, opts, warnings);
       break;
     case 'text':
       result = convertText(el, transforms, opts);

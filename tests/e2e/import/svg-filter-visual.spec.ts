@@ -153,3 +153,30 @@ test('reports a zero-length SVG path without inserting placeholder geometry', as
   await expect(report.getByRole('button', { name: 'Reveal selection' })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('inkscape-svg-zero-length-path-warning.png') });
 });
+
+test('reports overflowing SVG path coordinates without inserting invalid geometry', async ({
+  page,
+}, testInfo) => {
+  await navigateToEditor(page);
+
+  await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+  const importItem = page
+    .getByRole('menu', { name: 'File', exact: true })
+    .getByRole('menuitem', { name: /^Import…/ });
+  const picker = page.waitForEvent('filechooser', { timeout: 10000 });
+  await importItem.click();
+  const fileChooser = await picker;
+  await fileChooser.setFiles({
+    name: 'overflowing-path.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg><path d="m 0 0 v 1e309 -1e309 0" /></svg>'),
+  });
+
+  const report = page.getByRole('dialog', { name: 'Import Results' });
+  await expect(report).toBeVisible();
+  await report.getByRole('button', { name: /show details/i }).click();
+  await expect(report).toContainText('0 layers inserted');
+  await expect(report).toContainText('SVG <path> contains non-finite geometry — skipped');
+  await expect(report.getByRole('button', { name: 'Reveal selection' })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('inkscape-svg-overflow-path-warning.png') });
+});

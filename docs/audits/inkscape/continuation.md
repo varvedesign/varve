@@ -865,7 +865,23 @@ its title, labels, or downloaded body.
     #1735 concerns GTK/GDL panel docking cues, later rewritten upstream; Varve
     has its own React dock preview. No additional Varve defect was established.
     The findings, issue rows, and summary now record the evidence and limits.
-    The mobile marketing screenshot is queued behind another task's active
-    browser lease (PID 1183056); a temporary Playwright harness targets the
-    task-owned Astro server and will be removed after capture. No app or other
-    task was closed or interrupted.
+    The mobile marketing screenshot was captured at 390x844 through the lease;
+    the page has no horizontal overflow, and the title, format guidance,
+    existing-file choices, CTA, and footer remain visible and readable. The
+    task-owned Astro server remains available for the import UI screenshot. No
+    app or other task was closed or interrupted.
+
+67. Read all cached discussion records for IID 1736–1738 and 1740: 80 records
+    across four threads (43 user comments and 37 system/history events). #1736
+    concerns the Inkscape Objects dialog search and points to upstream MR
+    !2216 / its 1.0.x backport. #1738 is an older Linux/AppImage optimized-SVG
+    extension packaging failure, addressed by a packaging update. #1740's
+    zero-area Stroke to Path output was partly fixed and split into #3259; Varve
+    has no matching operation. #1737 is a direct importer robustness case:
+    `1e309` path coordinates become non-finite numbers. Varve now skips such
+    paths with a warning; the parser regression and Chromium import E2E pass.
+    The inspected 1280x720 screenshot shows 0 layers inserted, the warning, and
+    an empty object panel; this run used the TypeScript renderer fallback
+    because WASM did not load. #1739 was already reviewed and is not counted
+    again. The
+    review ledger and summary now record 949 reviewed threads.

@@ -29,6 +29,13 @@ describe('parseSvg', () => {
     }
   });
 
+  it('skips SVG paths whose coordinates overflow to non-finite values', () => {
+    const result = parseSvg('<svg><path d="m 0 0 v 1e309 -1e309 0" /></svg>');
+
+    expect(result.nodeIds).toEqual([]);
+    expect(result.warnings).toContain('SVG <path> contains non-finite geometry — skipped');
+  });
+
   it('terminates on malformed clipboard markup', () => {
     expect(parseSingleElement('<svg><?bad?></svg>')?.tag).toBe('svg');
   });
