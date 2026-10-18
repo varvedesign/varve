@@ -124,9 +124,11 @@ Last updated: 2026-10-18. Status: active and incomplete.
   throttled to once every five minutes per directory, and cleanup errors do not
   fail saves. The minimal Windows API target probe passed; full native Windows
   compilation remains unverified because this Linux host lacks an MSVC-compatible
-  C compiler. F-005 / #6605 is implemented in the current working tree; its
-  seven focused native `atomic_write_` tests pass. Neither finding is covered by
-  the older full-gate receipts above. Keep #6602 hard-link semantics and #6603
+  C compiler. F-005 / #6605 is committed as `a708493b0`; its seven focused
+  native `atomic_write_` tests pass. The defect-first review narrowed symlink
+  handling to approved user paths so app-managed writes do not follow arbitrary
+  symlinks; no remaining actionable F-005 finding was identified. Neither
+  finding is covered by the older full-gate receipts above. Keep #6602 hard-link semantics and #6603
   xattr/ACL preservation separate; neither is fixed by read-only/mode
   preservation, F-004, or F-005.
 - PhotoCraft #6604's linked #3489 and #203 source bodies and the #3489 comment
@@ -145,7 +147,7 @@ Last updated: 2026-10-18. Status: active and incomplete.
 - Base: local `master` `1109bf5962091fb00aa34198876d1812327d808b`.
 - Prerequisite commit: `98dec72b5` (cherry-picked repair of the missing
   `nodeResize.ts` module).
-- Next: complete the defect-first review and focused validation for F-005;
+- Next: complete the branch-level defect-first review and broad validation;
   capture and inspect F-003's save-error screenshot after the live editor
   Vitest lease releases (the first visual attempt timed out in the lease queue,
   before Chromium launched); then run the planner-required broad gate on the
