@@ -74,9 +74,12 @@ error for an invalid supplied manifest on all four native PDF/PDF/X command
 paths. The parser consumes the owned JSON string so its base64 buffer can be
 released immediately after decoding. A Rust regression test covers the
 ordinary PDF command; the UI error is covered by a desktop-bridge E2E test.
-The Rust parser regression passes. The desktop error-state E2E remains
-pending because the worktree is missing `packages/scene/src/nodeResize.ts`;
-this does not validate or resolve the separate #5782 visual-export report.
+The Rust parser regression passes. The desktop error-state E2E is pending: its
+typecheck fails on committed `master` because
+`packages/scene/src/index.ts` exports absent `./nodeResize`. An uncommitted
+copy exists in the shared root worktree, so it was not copied into this
+isolated validation tree. This does not validate or resolve the separate
+#5782 visual-export report.
 
 Comparable first-hand reports include [Illustrator users reporting missing
 artwork after PDF export](https://community.adobe.com/questions-652/adobe-illustrator-2025-images-not-exporting-as-pdf-815385)

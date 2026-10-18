@@ -140,16 +140,18 @@ Inkscape’s canonical tracker.
 - `pnpm audit:docs` and `pnpm audit:emoji` passed after the documentation edits.
 - `node scripts/quality/heavy-lease.mjs 'Inkscape PDF pattern export regressions' -- cargo test --manifest-path crates/varve-print/Cargo.toml pattern` passed: 12 tests, including alpha embedding, PDF/X behavior, and the new tile-cap sibling-preservation regression.
 - A fresh lease-wrapped run of `export_pdf_caps_pattern_tile_expansion_without_dropping_neighbor_content` passed (1 test); its generated PDF was rendered with `pdftoppm` and visually inspected. The PDF and PNG were written under `/tmp`, not the repository.
-- Read-only review of the committed code diff and pending E2E test found no actionable defects. The E2E test itself remains unrun because of the missing `nodeResize` module described below.
+- Read-only review of the committed code diff and pending E2E test found no actionable defects. The E2E UI test is waiting for the shared browser lease; typechecking fails first on a pre-existing missing `nodeResize` module in committed `master`.
 - `cargo fmt --manifest-path crates/varve-print/Cargo.toml -- --check` reports
   two formatting differences at existing lines 348 and 420 in `lib.rs`; neither
   overlaps commit `9718be550`'s diff. The added code has no reported formatter
   changes.
 - Native PDF manifest parser unit test passed earlier in this worktree.
-  `pnpm verify:affected` reached `typecheck:e2e` and failed because
+  `pnpm verify:affected` on the feature branch and an isolated worktree at
+  committed local `master` both reached `typecheck:e2e` and failed because
   `packages/scene/src/index.ts` exports the absent `./nodeResize` module. The
-  E2E test and desktop UI screenshot are therefore not yet validated. No source
-  was copied from the other active worktree to mask this blocker.
+  direct lease-wrapped E2E test is queued separately; its UI screenshot is not
+  yet validated. No source was copied from the other active worktree to mask
+  this blocker.
 - Website impact review found no supported PDF claim or user guidance that the
   current change needs to alter. Marketing site source remains unchanged; no
   website visual run was needed because no marketing source changed.
