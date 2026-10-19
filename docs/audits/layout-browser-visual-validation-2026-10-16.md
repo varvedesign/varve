@@ -131,3 +131,9 @@ These browser checks cover a subset of the requested eight-document corpus. Gene
 - After the capture, removed the temporary XDG profiles, native failure frames, and the 11 GB test-only Tauri build target created in the integration worktree. Root volume availability rose from 15 GB to 26 GB; shared targets, other worktrees, and running processes were left in place.
 
 ![Native Tauri editor interaction capture at 1280×800](../screenshots/layout/tauri-fluidity-2026-10-19.png)
+
+### Focused canvas rerun after interrupted browser batch — 2026-10-19
+
+- A broader leased Chromium batch was cancelled by its wrapper after 39 tests had run. The flow-child reorder case reported a closed page, and the next constraints case could not connect to the stopped Vite server; neither produced a layout assertion failure. The remaining cases in that batch were not run.
+- Once the shared browser lease cleared, reran those exact two cases in the isolated integration worktree with one Chromium worker: `11b - dragging a flow child reorders it within its flex frame` and `constraint section shows when child of frame is selected`. Both passed (**2/2**, 2.4 minutes). This confirms those interactions only; the unrun cases and full gate remain outstanding.
+- The cancelled batch's temporary Playwright trace bundle was absent after the focused rerun. No other worktree artifacts or active processes were removed during cleanup.
