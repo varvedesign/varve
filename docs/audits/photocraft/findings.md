@@ -483,14 +483,18 @@ needed or that the two products share a defect.
 
 ### 4.12 Unbounded per-operation work — **partially implemented; export guard verified**
 
-- **External evidence** — [#971](https://github.com/storytold/pdfcraft/issues/971)
+- **External evidence** — [#307](https://github.com/storytold/pdfcraft/issues/307)
+  reports a large-PDF open reaching about 16 GB of RAM; that opening workload
+  differs from Varve's export path but is relevant class-level memory evidence.
+  [#971](https://github.com/storytold/pdfcraft/issues/971)
   reports a limited `text_find` request extracting every page first;
   [#2616](https://github.com/storytold/pdfcraft/issues/2616) reports laggy PDF
   text editing; and [#1796](https://github.com/storytold/pdfcraft/issues/1796)
   reports a decoder ignoring the caller's output budget. These are failure
   patterns, not evidence of the same defect in Varve. The audit ledger marks
-  #971 as not a Varve defect; #307 is a PDF metadata/navigation scope issue,
-  and the previously cited #6110 could not be verified as a PdfCraft issue.
+  #971 as not a Varve defect and now records #307 as applicable class-level
+  performance evidence, not as a report of the same export defect; the
+  previously cited #6110 could not be verified as a PdfCraft issue.
 - **Transferable rule** — a document-scale operation is bounded by an explicit
   memory/time budget and can return a partial result; a decoder enforces its
   own budget rather than trusting the caller.
