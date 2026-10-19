@@ -153,6 +153,24 @@ Rationale (also documented in `packages/engine/src/exportPipeline/pipeline.ts`):
   `pdfx1a_embeds_destination_icc_profile` (asserts an embedded `acsp` magic),
   `print_profile_parse_is_case_insensitive`, `print_profile_icc_bytes_are_valid_profiles`.
 
+### Follow-up: screen-PDF raster color space (2026-10-19)
+
+Inkscape report [#1934](https://gitlab.com/inkscape/inkscape/-/issues/1934)
+describes grayscale PNG tones changing in Photoshop and print workflows when
+the PDF loses the image's color-profile information. Varve's desktop screen-PDF
+route reads raster pixels through a canvas (sRGB) and previously embedded those
+RGB samples as unprofiled `/DeviceRGB`, leaving their interpretation to the PDF
+consumer. Decoded RGB image fills and raster pattern tiles now reference one embedded ICCBased sRGB
+profile per render state. The Rust regression checks both the image color
+space and profile bytes; a synthetic gray-ramp PDF was also rendered with
+Poppler and visually inspected.
+
+This records the color space of Varve's canvas-decoded pixels. It does not
+round-trip arbitrary source image ICC profiles or their rendering intents, and
+it is not a print-proof or PDF/X conformance claim. Keep press output on its
+separate profile-controlled PDF/X path and verify the proof with the printer's
+preflight workflow.
+
 ## 9. Verification commands run
 
 | Command | Result |

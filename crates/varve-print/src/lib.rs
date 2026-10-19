@@ -453,6 +453,8 @@ pub(crate) struct ImageRenderState<'a> {
     pub refs: Vec<(String, Object)>,
     /// Graphics state dictionaries for fill opacity (opacity -> GS name).
     gs_cache: HashMap<u32, String>,
+    /// Reused ICCBased sRGB profile for canvas-decoded screen images.
+    srgb_profile_id: Option<ObjectId>,
 }
 
 impl<'a> ImageRenderState<'a> {
@@ -462,7 +464,30 @@ impl<'a> ImageRenderState<'a> {
             counter: 0,
             refs: Vec::new(),
             gs_cache: HashMap::new(),
+            srgb_profile_id: None,
         }
+    }
+
+    /// Return an ICCBased PDF color space for decoded pixels in Varve's sRGB
+    /// working space. DeviceRGB leaves the interpretation to the viewer's
+    /// current device profile, which can shift grayscale artwork in print apps.
+    fn srgb_color_space(&mut self) -> Object {
+        let profile_id = *self.srgb_profile_id.get_or_insert_with(|| {
+            let id = self.doc.new_object_id();
+            let profile = Stream::new(
+                dictionary! {
+                    "N" => 3,
+                    "Alternate" => "DeviceRGB",
+                },
+                crate::profiles::bundled_srgb().to_vec(),
+            );
+            self.doc.objects.insert(id, Object::Stream(profile));
+            id
+        });
+        Object::Array(vec![
+            Object::Name(b"ICCBased".to_vec()),
+            Object::Reference(profile_id),
+        ])
     }
 
     /// Get-or-create an ExtGState dictionary for a given fill opacity.
@@ -1477,13 +1502,20 @@ fn render_fills(
                                             ))
                                         });
 
-                                        match embed_image_with_colorspace(
+                                        let color_space = if !use_cmyk
+                                            && matches!(img.color_space, resources::ColorSpace::Rgb)
+                                        {
+                                            state.srgb_color_space()
+                                        } else {
+                                            Object::Name(cs.as_bytes().to_vec())
+                                        };
+                                        match embed_image_with_color_space_object(
                                             state.doc,
                                             &data,
                                             img.width,
                                             img.height,
                                             bpc,
-                                            cs,
+                                            color_space,
                                             alpha_data.as_deref(),
                                         ) {
                                             Ok(obj_ref) => {
@@ -1844,13 +1876,14 @@ fn render_fills(
                                         let rgb_data = rgba_to_rgb(&img.data);
                                         let alpha = rgba_extract_alpha(&img.data);
                                         let alpha_data = alpha.iter().any(|value| *value < 255);
-                                        embed_image_with_colorspace(
+                                        let color_space = image_state.srgb_color_space();
+                                        embed_image_with_color_space_object(
                                             image_state.doc,
                                             &rgb_data,
                                             img.width,
                                             img.height,
                                             3,
-                                            "DeviceRGB",
+                                            color_space,
                                             alpha_data.then_some(alpha.as_slice()),
                                         )
                                     }
@@ -2334,6 +2367,26 @@ pub fn embed_image_with_colorspace(
     color_space_name: &str,
     alpha_data: Option<&[u8]>,
 ) -> Result<Object, String> {
+    embed_image_with_color_space_object(
+        doc,
+        image_data,
+        width,
+        height,
+        bpc,
+        Object::Name(color_space_name.as_bytes().to_vec()),
+        alpha_data,
+    )
+}
+
+fn embed_image_with_color_space_object(
+    doc: &mut Document,
+    image_data: &[u8],
+    width: u32,
+    height: u32,
+    bpc: u32,
+    color_space: Object,
+    alpha_data: Option<&[u8]>,
+) -> Result<Object, String> {
     let expected = (width * height * bpc) as usize;
     if image_data.len() < expected {
         return Err(format!(
@@ -2347,10 +2400,10 @@ pub fn embed_image_with_colorspace(
         "Subtype" => "Image",
         "Width" => width as i64,
         "Height" => height as i64,
-        "ColorSpace" => color_space_name,
         "BitsPerComponent" => 8,
         "Length" => expected as i64,
     };
+    image_dict.set("ColorSpace", color_space);
 
     // Embed alpha channel as a soft mask (SMask) for transparency support.
     // The alpha is stored as a separate 1-component 8-bit image XObject
@@ -4854,6 +4907,47 @@ mod tests {
             )),
             "pattern tile alpha must be retained"
         );
+        let tile = doc
+            .objects
+            .values()
+            .find_map(|object| {
+                let Object::Stream(stream) = object else {
+                    return None;
+                };
+                (stream
+                    .dict
+                    .get(b"Subtype")
+                    .ok()
+                    .and_then(|value| value.as_name().ok())
+                    == Some(b"Image")
+                    && matches!(
+                        stream.dict.get(b"ColorSpace"),
+                        Ok(Object::Array(values))
+                            if values.len() == 2
+                                && values[0].as_name().ok() == Some(b"ICCBased")
+                    ))
+                .then_some(stream)
+            })
+            .expect("pattern tile image XObject");
+        let profile_id = match tile.dict.get(b"ColorSpace").expect("tile colorspace") {
+            Object::Array(values)
+                if values.len() == 2 && values[0].as_name().ok() == Some(b"ICCBased") =>
+            {
+                values[1].as_reference().expect("ICC profile reference")
+            }
+            other => panic!("screen pattern tile should declare ICCBased sRGB, got {other:?}"),
+        };
+        let profile = doc
+            .get_object(profile_id)
+            .expect("pattern ICC profile")
+            .as_stream()
+            .expect("pattern ICC profile stream");
+        assert_eq!(
+            profile
+                .decompressed_content()
+                .expect("decompress pattern ICC profile"),
+            crate::profiles::bundled_srgb()
+        );
         assert!(
             !content.contains("pattern tile not found"),
             "resolved pattern source must not take the missing-resource path"
@@ -4905,12 +4999,12 @@ mod tests {
         assert!(
             doc.objects.values().any(|object| match object {
                 Object::Stream(stream) => {
-                    let is_rgb_image = stream
-                        .dict
-                        .get(b"ColorSpace")
-                        .ok()
-                        .and_then(|value| value.as_name().ok())
-                        == Some(b"DeviceRGB");
+                    let is_profiled_rgb_image = matches!(
+                        stream.dict.get(b"ColorSpace"),
+                        Ok(Object::Array(values))
+                            if values.len() == 2
+                                && values[0].as_name().ok() == Some(b"ICCBased")
+                    );
                     let is_2x2 = stream
                         .dict
                         .get(b"Width")
@@ -4923,7 +5017,7 @@ mod tests {
                             .ok()
                             .and_then(|value| value.as_i64().ok())
                             == Some(2);
-                    is_rgb_image && is_2x2 && stream.content == expected_rgb
+                    is_profiled_rgb_image && is_2x2 && stream.content == expected_rgb
                 }
                 _ => false,
             }),
@@ -5428,6 +5522,65 @@ mod tests {
         assert!(
             bytes.len() > 300,
             "PDF with image fill should have meaningful content"
+        );
+    }
+
+    #[test]
+    fn screen_pdf_embeds_srgb_profile_for_decoded_raster_images() {
+        let src = "data:image/png;base64,AAAA";
+        let mut manifest = image_manifest(src, 2, 2);
+        manifest.images[0].data = vec![
+            32, 32, 32, 255, 96, 96, 96, 255, 160, 160, 160, 255, 224, 224, 224, 255,
+        ];
+        let opts = PdfOptions {
+            manifest: Some(manifest),
+            ..PdfOptions::default()
+        };
+        let bytes = export_pdf(&[image_fill_node(1, 100.0, 100.0, 600.0, 600.0)], &opts)
+            .expect("screen PDF with decoded grayscale pixels");
+        let doc = Document::load_mem(&bytes).expect("parse screen PDF");
+        let image = doc
+            .objects
+            .values()
+            .find_map(|object| {
+                let Object::Stream(stream) = object else {
+                    return None;
+                };
+                let is_image = stream
+                    .dict
+                    .get(b"Subtype")
+                    .ok()
+                    .and_then(|value| value.as_name().ok())
+                    == Some(b"Image");
+                let is_expected_raster =
+                    stream.content == [32, 32, 32, 96, 96, 96, 160, 160, 160, 224, 224, 224];
+                (is_image && is_expected_raster).then_some(stream)
+            })
+            .expect("decoded grayscale samples must be embedded as an image XObject");
+        let colorspace = image.dict.get(b"ColorSpace").expect("image colorspace");
+        let profile_id = match colorspace {
+            Object::Array(values)
+                if values.len() == 2 && values[0].as_name().ok() == Some(b"ICCBased") =>
+            {
+                values[1].as_reference().expect("ICC profile reference")
+            }
+            other => panic!("screen image should declare ICCBased sRGB, got {other:?}"),
+        };
+        let profile = doc
+            .get_object(profile_id)
+            .expect("ICC profile stream")
+            .as_stream()
+            .expect("ICC profile stream object");
+        assert_eq!(
+            profile
+                .decompressed_content()
+                .expect("decompress ICC profile"),
+            crate::profiles::bundled_srgb()
+        );
+        assert_eq!(profile.dict.get(b"N").unwrap().as_i64().unwrap(), 3);
+        assert_eq!(
+            profile.dict.get(b"Alternate").unwrap().as_name().unwrap(),
+            b"DeviceRGB"
         );
     }
 

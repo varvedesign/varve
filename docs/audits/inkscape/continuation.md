@@ -1462,6 +1462,45 @@ its title, labels, or downloaded body.
   changed screenshot; review code findings; commit the implementation and
   website increments; resume issue review at IID 1901–1910.
 
+## Resume update — Inkscape IID 1931–1940 / screen-PDF raster color
+
+- The task remains Inkscape-only. The pasted brief's mistaken “photocraft”
+  wording was corrected by the user; use Inkscape in research, docs, and
+  commits.
+- Reviewed all nine note-bearing issue threads in IID 1931–1940: 138 cached
+  notes (45 user comments, 93 system/history events); #1939 has no comments or
+  note cache. Per-issue reported comment counts reconcile. Findings and ledger
+  now record the distinct dispositions and linked evidence. The whole-corpus
+  snapshot still has 32 comment retrieval mismatches that remain to reconcile.
+- #1934 is the only directly actionable report in this batch. Varve's desktop
+  screen-PDF path decoded image pixels through canvas into sRGB but emitted
+  unprofiled `/DeviceRGB`. It now embeds one ICCBased sRGB profile per image
+  render state for decoded RGB image XObjects. Scope is only labeling decoded
+  pixels as sRGB; source ICC profile/rendering-intent round-trip remains
+  unsupported and is not claimed. Other reports in this batch are disputed,
+  historical fixes, or feature paths Varve does not implement.
+- The focused `cargo test -p varve-print
+  screen_pdf_embeds_srgb_profile_for_decoded_raster_images -- --nocapture`
+  passed. A temporary one-page PDF with a four-patch gray ramp was rendered
+  with Poppler (`pdfinfo`, `pdftoppm`) and visually inspected; its geometry and
+  gray patches render as intended. The temporary write hook was removed from
+  the test afterward. Native Tauri, Photoshop, and print-provider validation
+  have not been performed.
+- Updated `docs/implementation/export-pipeline-progress.md` and the marketing
+  page `apps/website/src/pages/features/print-production.astro` to describe
+  the screen-PDF sRGB labeling and its source-profile/press-work limitations.
+  Website visual validation remains to be captured and inspected.
+- Current working branch is `feat/inkscape-corpus` at `73d14046f` before this
+  uncommitted PDF/docs change. Preserve collaborator-owned dirty paths:
+  `tests/e2e/export/native-pdf-contract.spec.ts`,
+  `packages/codegen/src/bundle-assets.ts`, and
+  `packages/scene/src/nodeResize.ts`. Do not close the ChatGPT Linux app or
+  interrupt other agents/processes.
+- Next: complete second-pass review of the PDF change, run the project impact
+  planner and relevant affected checks, visually validate the updated website
+  page, commit the code/docs/site increment, then continue issue review at
+  IID 1941–1950.
+
 ## Resume update — 2026-10-19, after IID 1901–1910
 
 - The task remains Inkscape-only. The user corrected the contradictory project
@@ -1517,3 +1556,111 @@ its title, labels, or downloaded body.
 - No new code change was selected for this batch. The research docs are
   uncommitted pending a docs audit and progressive commit. Native macOS input
   remains outside the available Linux/browser validation.
+
+## Resume update — 2026-10-19, IID 1931–1950 and PDF profile follow-up
+
+- The task remains Inkscape-only. The user corrected the pasted brief's
+  contradictory application name; no Photocraft scope was used.
+- IID 1941–1950 are now discussion-reviewed: 120 cached notes (48 user comments,
+  72 system/history events) across ten threads, with per-issue reported user
+  comment totals reconciled. The cumulative ledger records 1,152 reviewed
+  discussion threads; the snapshot still has 32 corpus-wide user-note retrieval
+  mismatches.
+- #1934's screen-PDF correction now covers both decoded RGB image fills and
+  raster pattern tiles with the bundled sRGB ICC profile. A read-only second
+  pass caught the pattern route still using unprofiled DeviceRGB; it was fixed,
+  and the existing raster row-order assertion now recognizes ICCBased images.
+  `cargo test -p varve-print` passes 171/171 and
+  `cargo clippy -p varve-print -- -D warnings` passes. Poppler rendered the
+  four-patch grayscale PDF fixture; its tones and separation were visually
+  inspected. The screen route records canvas-decoded sRGB values; arbitrary
+  source ICC/rendering intent preservation and press-proof equivalence are not
+  claimed.
+- Marketing copy on `/features/print-production` now explains the sRGB screen
+  PDF behavior and its profile/press boundary. Desktop and phone screenshots
+  were inspected at `/tmp/varve-print-production-desktop.png` and
+  `/tmp/varve-print-production-mobile.png`; the page reflows without visible
+  overflow. The full site run found the touch-guide full-page baseline stale
+  against its updated content and the requested softened side accent. Only
+  `apps/website/tests/e2e/visual.spec.ts-snapshots/touch-and-pen-light-ghpages-linux.png`
+  was refreshed; the focused visual test then passed. No hook suppression was
+  added. The side accent finding was fixed by softening/removing its prominent
+  edge.
+- #1946 now has a real-pointer Layers regression: reorder a row, select another
+  row, then select the original object on canvas and assert the tree follows.
+  The focused Chromium test passes; the canvas and Layers screenshots were
+  inspected in `test-results/run-1776178-1420/.../canvas-selection-after-row-reorder.png`
+  and `.../layers-selection-after-row-reorder.png`.
+- The complete Layers drag/drop file passed 9/11 on rerun. #1946 and eight
+  existing cases passed. Two existing cases remain failed: `multi-selection
+  handoff to the canvas stays owned by the canvas` asserts the dnd-kit
+  `isOver` winner equals the pointer's canvas location, although
+  `docs/architecture/layers-drag-drop.md` documents that collision winner as
+  non-authoritative; and `auto-scrolls a virtualized tree while dragging at
+  the panel edge` timed out during `mouse.move` with a 40-object fixture. The
+  first appears to be an invalid test expectation rather than a failure of the
+  pointer-based canvas drop commit, which is exercised after drop in that test.
+  These unrelated cases were not changed. The earlier run had four
+  Chromium-page crashes during setup; a kernel journal check found no OOM
+  record. The rerun did not reproduce those setup crashes; the multi-selection
+  case advanced to its distinct collision-winner assertion failure.
+- Website build completed both configured base paths (126 pages each). The
+  full website browser suite completed 684/692, with eight failures: navbar
+  visual test timed out waiting for `.mobile-menu-toggle`; homepage light and
+  dark visual snapshots differ by 1px in height; dark footer, lower-memory
+  performance, features dark, and typography light snapshots mismatch; and
+  the touch-guide snapshot (since refreshed, and its focused test passes).
+  These other routes were not changed. Website typecheck passed (Astro check:
+  197 files, zero diagnostics); `pnpm typecheck:e2e` passed. `pnpm test:website`
+  previously had 301 passes and one stale `presentation.varve` fixture
+  mismatch, associated with collaborator-owned scene/codegen edits.
+- `pnpm verify:plan` selects 48 lanes, no full-suite escalation. The later
+  `pnpm verify:affected` run passed touched format, touched lint, and emoji
+  audit, then stopped at the same pre-existing radius audit debt in ten
+  declarations under Presentation and SpecPanel; none of those files changed.
+  Docs audit passed (1,169 docs / 867 links / 182 ADRs), token audit passed all
+  324 pairs across three themes plus token-usage checks, and emoji audit passed
+  across 5,427 files. Because the radius gate stops the affected runner before
+  downstream lanes, direct relevant validation also ran: Rust tests/clippy,
+  E2E typecheck, focused #1946 Chromium, and focused touch-guide visual test.
+- Preserve other contributor changes in
+  `tests/e2e/export/native-pdf-contract.spec.ts`,
+  `packages/codegen/src/bundle-assets.ts`, and
+  `packages/scene/src/nodeResize.ts`; do not stage them. The ChatGPT Linux app,
+  shared servers, and unrelated agents were left running.
+
+### Agent Validation Report — 2026-10-19
+
+- **Changed scope:** `crates/varve-print/src/lib.rs`, the print-production
+  marketing page and its touch-guide visual baseline, the Layers drag/drop E2E,
+  Inkscape issue findings/ledger/checkpoint, and export-pipeline progress docs.
+- **Validation plan:** `pnpm verify:plan` selected 48 lanes; no full-suite
+  escalation. `pnpm verify:affected` passed touched format, touched lint, and
+  emoji audit, then stopped at the pre-existing `audit:radius` failures in
+  unchanged Presentation/SpecPanel styles. The runner therefore did not reach
+  its downstream lanes.
+- **Commands run and passed:** `cargo test -p varve-print` (171/171);
+  `cargo clippy -p varve-print -- -D warnings`; `pnpm typecheck:e2e`;
+  `pnpm audit:docs`; `pnpm audit:emoji`; `pnpm audit:tokens`;
+  `pnpm exec biome check apps/website/src/pages/features/print-production.astro tests/e2e/layers/layers-drag-drop.spec.ts`;
+  `git diff --check`; focused touch-guide visual Playwright test (1/1);
+  focused #1946 Chromium regression (1/1). The full Layers file passed 9/11;
+  the two unrelated existing failures are described above. The full website
+  suite completed with 684/692 passing; its eight failures are listed above,
+  and the refreshed touch-guide visual then passed in isolation.
+- **Other results:** `pnpm test:website` reported 301 passed / 1 failed on the
+  stale `presentation.varve` fixture. `cargo fmt -p varve-print -- --check`
+  reported only two existing format differences at unchanged lines 348 and 420;
+  no changed Rust hunk was implicated. Poppler visual validation inspected the
+  generated gray-ramp PDF. Desktop and mobile marketing screenshots were
+  visually inspected.
+- **Skipped:** the full visual suite was deliberately skipped by the planner;
+  the full workspace suite was not selected. `pnpm verify:affected` aborted
+  before downstream compiler/test lanes at the unrelated radius audit. The
+  collaborator-owned native PDF E2E, codegen asset helper, and scene resize
+  module were not included in task commits or independently revalidated here.
+- **Escalations:** none. **Full suite run:** no.
+- **Review:** a separate second-pass, read-only review of the complete task
+  diff found and fixed the remaining unprofiled raster-pattern route. No
+  independent reviewer was available under the no-delegation constraint; the
+  final review is self-review, not independent approval.

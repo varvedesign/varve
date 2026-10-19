@@ -2951,3 +2951,79 @@ rules.
   production change is justified by this report alone. Related Inkscape
   [#1645](https://gitlab.com/inkscape/inkscape/-/issues/1645) describes a
   distinct full-selection alignment bug and is not treated as the same cause.
+
+## IID 1932–1940 — markers, print tones, and editing regressions
+
+- [#1932](https://gitlab.com/inkscape/inkscape/-/issues/1932) is an ambiguous
+  request for `Object to Path` to separate a marker from its stroke. The thread
+  records a maintainer's preference to keep the marker attached, a correction
+  where the proposed behavior was confused with `Stroke to Path`, and later
+  browser-compatibility discussion around SVG2 `context-stroke` plus invalid
+  marker IDs split to [#2785](https://gitlab.com/inkscape/inkscape/-/issues/2785).
+  A later [#5315](https://gitlab.com/inkscape/inkscape/-/issues/5315) is a
+  distinct Stroke to Path complaint. Varve does not import/edit SVG markers or
+  offer either conversion route; implementing marker semantics would be a
+  substantial new subsystem, not a focused fix from this disputed report.
+- [#1933](https://gitlab.com/inkscape/inkscape/-/issues/1933) was a short-lived
+  Inkscape opacity info-bar regression bisected to a SpinButton refactor and
+  closed the same day. Varve's opacity control lives in its inspector and no
+  matching failure was reproduced, so no production change was selected.
+- [#1934](https://gitlab.com/inkscape/inkscape/-/issues/1934) documents a
+  grayscale PNG tone shift in Photoshop and print workflows. The issue's
+  ImageMagick evidence says the source grayscale PNG carried sRGB/perceptual
+  metadata, Scribus retained it, and Inkscape's PDF path emitted Gray with an
+  undefined profile; other viewers were reported to look correct. Varve's
+  desktop screen-PDF path decoded RGB canvas pixels and embedded them as
+  unprofiled `/DeviceRGB`. It now attaches the bundled sRGB profile to those
+  RGB image XObjects. A Rust structural test verifies the profile and image
+  samples, and Poppler rendered a synthetic four-patch gray ramp that was
+  visually inspected. This records the decoded sRGB values; it does not retain
+  arbitrary source ICC profiles/rendering intent, prove Photoshop equivalence,
+  or guarantee press output. The website now states that boundary on the print
+  production page. The original report attachments remain sign-in-gated.
+- [#1935](https://gitlab.com/inkscape/inkscape/-/issues/1935) reports confusing
+  lock behavior while editing swatch gradients, with a 2022 user saying that
+  selecting another gradient stop still edits the first in Inkscape 1.2.2.
+  Varve swatches currently store solid `ManagedColor` values and have no linked
+  gradient-swatch locking workflow; this is a feature gap rather than a defect
+  in an existing Varve route.
+- [#1936](https://gitlab.com/inkscape/inkscape/-/issues/1936) concerns marker
+  controls for rectangles. It was migrated from an older Launchpad patch and
+  has no Varve equivalent because SVG marker editing is not implemented.
+- [#1937](https://gitlab.com/inkscape/inkscape/-/issues/1937) reports last-used
+  style not applying during fill/stroke swap. MR !2437 fixed it and a user
+  confirmed the fix in Inkscape 1.1-dev. Varve has neither the same last-style
+  command nor swap operation, so no matching regression was found.
+- [#1938](https://gitlab.com/inkscape/inkscape/-/issues/1938) reports
+  `Stroke to Path` creating invisible marker shapes in 1.1-dev. The fix landed
+  in [MR !2410](https://gitlab.com/inkscape/inkscape/-/merge_requests/2410)
+  and was backported in [MR !2434](https://gitlab.com/inkscape/inkscape/-/merge_requests/2434).
+  Varve has no marker conversion path.
+- [#1939](https://gitlab.com/inkscape/inkscape/-/issues/1939) is a zero-comment
+  duplicate crash report; its Corners LPE / selected-node path is covered by
+  the follow-up [#1940](https://gitlab.com/inkscape/inkscape/-/issues/1940).
+- [#1940](https://gitlab.com/inkscape/inkscape/-/issues/1940) records a crash
+  when applying the Corners live path effect with the Node tool active, plus a
+  related Dynamic Offset sequence. Comments distinguish trunk fixes from the
+  1.0.x point release and link the LPE crash-fix series. Varve does not have a
+  live path effect runtime, so this cannot be applied as a bounded fix.
+
+The IID 1931–1940 discussion sweep covered 138 cached notes (45 user comments,
+93 system/history events) across nine note-bearing threads; each issue's
+reported user-comment count reconciles. The 32 retrieval mismatches elsewhere
+in the complete source snapshot remain an inventory-level reconciliation item.
+
+## Inkscape IID 1941–1950
+
+- [#1941](https://gitlab.com/inkscape/inkscape/-/work_items/1941) reports intermittent dragging of a PNG beneath an overlapping drawing despite selecting the drawing. The discussion is a migration to inbox #3833 and contains no fix record. Varve's selection tool preserves the selected leaf as the drag target and intentionally cycles through overlapping objects on repeated clicks; focused SelectTool tests cover both behaviors. No matching Varve failure was established, so this historical report did not prompt a code change.
+- [#1942](https://gitlab.com/inkscape/inkscape/-/work_items/1942) is a confirmed CLI regression where a zero `--export-background-opacity` value is lost while parsed and PNG becomes opaque. MR [!2775](https://gitlab.com/inkscape/inkscape/-/merge_requests/2775) changed the option parsing path. Varve's CLI currently has no raster export or export-background-opacity option, so this route has no direct analogue.
+- [#1943](https://gitlab.com/inkscape/inkscape/-/work_items/1943) reports duplicate close-without-save prompts when closing one of several Inkscape documents with Ctrl+W. The comments reproduce the keyboard route and link MRs [!2490](https://gitlab.com/inkscape/inkscape/-/merge_requests/2490) and [!2493](https://gitlab.com/inkscape/inkscape/-/merge_requests/2493). Varve has a separate multi-document lifecycle and one termination dialog host; no equivalent duplicate-prompt report was identified. Existing lifecycle unit tests cover multi-document save/discard scope, so no behavior change was selected.
+- [#1944](https://gitlab.com/inkscape/inkscape/-/work_items/1944) records a 1.0.x crash while closing multiple documents with the legacy floating Objects dialog. The reporter and maintainers narrowed it to that floating-window setup; it was closed as fixed by the 1.1 dialog-tracking rewrite. Varve's panels are hosted in the editor window and do not use the reported GTK floating-dialog path.
+- [#1945](https://gitlab.com/inkscape/inkscape/-/work_items/1945) concerns a disabled Redo menu after undoing ellipse creation. The discussion bisected an event-log name-change replay bug and closed it against commit `df5691b1`; the linked !4520 is a separate follow-up, not the reported fix. Varve uses its own history and action registry, and no corresponding failure was reported or reproduced, so no code change was selected.
+- [#1946](https://gitlab.com/inkscape/inkscape/-/work_items/1946) reports that the Objects panel stops reflecting canvas selection after drag-reordering rows. It remains open; the historical report was reproduced in GTK3 builds but not a normal build. Varve's equivalent Layers tree is driven by stable node IDs. A real-pointer Chromium regression now reorders rows, selects through the tree, then selects on canvas and asserts that the tree follows; the focused Chromium regression passed and both the canvas-selection and Layers-panel screenshots were inspected.
+- [#1947](https://gitlab.com/inkscape/inkscape/-/work_items/1947) reports the canvas shifting when opening a dock. MR [!2431](https://gitlab.com/inkscape/inkscape/-/merge_requests/2431) explicitly fixes #1947 by reverting part of the preceding resize change. Varve's dock alters the canvas viewport, so the visible world area necessarily changes; the issue mapping found no specific camera-reset defect to reproduce in Varve, so no behavior change was selected.
+- [#1948](https://gitlab.com/inkscape/inkscape/-/work_items/1948) reports delayed ICC color-managed redraw until the user switches tools. The issue was reproduced, bisected to the canvas rewrite, and fixed by [MR !2828](https://gitlab.com/inkscape/inkscape/-/merge_requests/2828). Varve includes `proofEnabled` in its render revision and requests a frame when the proof provider becomes ready. Existing proof-view browser coverage checks immediate view updates for available modes; no matching stale-frame defect was identified.
+- [#1949](https://gitlab.com/inkscape/inkscape/-/work_items/1949) reports a frozen canvas when dragging the Split View separator outside the canvas. [MR !2587](https://gitlab.com/inkscape/inkscape/-/merge_requests/2587) fixes the reported regression. Varve does not have Split View mode, so this specific interaction is not present.
+- [#1950](https://gitlab.com/inkscape/inkscape/-/work_items/1950) reports missing linked tutorial images when opening a tutorial as a new document because its document base was not retained. [MR !2640](https://gitlab.com/inkscape/inkscape/-/merge_requests/2640) fixes #1950. Varve's tutorial content does not use this external linked-image/base-path workflow.
+
+The IID 1941–1950 discussion sweep covers 120 cached notes (48 user comments, 72 system/history events) across ten threads; each issue's reported user-comment count reconciles. The separate corpus retrieval mismatch count remains 32.
