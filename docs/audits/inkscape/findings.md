@@ -2932,3 +2932,22 @@ rules.
   snapping on ellipse arc handles. Varve creates ellipses but has no editable
   arc-handle workflow, so adding a specialized snapping mode is not justified
   by a current user path.
+
+## IID 1931 — text alignment state after reopening autoflowed text
+
+- [#1931](https://gitlab.com/inkscape/inkscape/-/issues/1931) was confirmed
+  against Inkscape 1.1-dev and was reported still present in 1.3. A July 2025
+  comment only says it seems fixed in master and asks for confirmation; no
+  confirming reply appears in the retained discussion, so the issue remains
+  open. The maintainer-provided workaround is to highlight the text as well
+  as select it. The bisection points to a 2019 line-height selection-scope
+  change in [MR !796](https://gitlab.com/inkscape/inkscape/-/merge_requests/796),
+  but this is correlation, not a demonstrated alignment-specific root cause.
+  The original SVG attachment redirects to GitLab sign-in and could not be
+  inspected. Varve maps basic SVG `text-anchor` values to its `textAlign`
+  model, while its import guide explicitly reports legacy `flowRoot`,
+  `shape-inside`, and `inline-size` flow layouts as unsupported. The reported
+  autoflowed-text editing path therefore has no direct Varve equivalent; no
+  production change is justified by this report alone. Related Inkscape
+  [#1645](https://gitlab.com/inkscape/inkscape/-/issues/1645) describes a
+  distinct full-selection alignment bug and is not treated as the same cause.

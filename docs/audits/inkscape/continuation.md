@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-19.
 
-## Resume checkpoint — 2026-10-19 05:31 UTC
+## Resume checkpoint — 2026-10-19 05:35 UTC
 
 - Target and scope remain the Inkscape issue corpus and verified Varve fixes.
   The corpus review is still in progress; cutoff B is pending. The last
@@ -38,9 +38,18 @@ Last updated: 2026-10-19.
   leaves it unchanged. The updated Chromium case passed and its screenshot was
   inspected at
   `test-results/run-1687936-1420/inspector-color-picker-Col-d0376-g-the-pointer-after-release-chromium/color-slider-after-release.png`.
-- Self-review is complete for this increment. Next: commit only the task-owned
-  test and corpus-document paths, then continue issue review from #1931. No
-  merge, push, deployment, or release has occurred.
+- Committed the task-owned E2Es and #1847/#1849/#1857/#1867 docs in
+  `87b69c36a test: cover interaction findings from Inkscape corpus`. Shared
+  export, codegen, and scene changes were excluded. Commit hooks passed; the
+  affected validator's unchanged desktop typecheck failure is recorded above.
+- Reviewed all #1931 discussion comments and history. The original workflow
+  is Inkscape autoflowed text; Varve's import guide already explains that
+  legacy `flowRoot`, `shape-inside`, and `inline-size` flow layouts are
+  unsupported. The source SVG is behind GitLab sign-in, and a 2025 “seems
+  fixed in master” comment remains unconfirmed. Findings and ledger record no
+  direct Varve equivalent and no product change.
+- Next: continue discussion review from #1932. No merge, push, deployment, or
+  release has occurred.
 
 ## Resume checkpoint — 2026-10-19 04:58 UTC
 
