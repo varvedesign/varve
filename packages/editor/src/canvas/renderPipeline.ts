@@ -1750,19 +1750,22 @@ export function renderContent(deps: RenderContentDeps): void {
             const detailedRetainedDiagnostics =
               retainedGroupSurfaceCache.detailedDiagnosticsEnabled;
             const retainedCacheEnabled = retainedGroupSurfaceCache.isEnabled;
+            const retainedSurfaceRecoveryAvailable =
+              retainedGroupSurfaceCache.supportsContextLossEvents;
             let retainedBypassReason = detailedRetainedDiagnostics
-              ? retainedGroupBoundaryBypassReason({
+              ? (retainedGroupBoundaryBypassReason({
                   warped: Boolean(warpedContainer),
                   masterPlacement: Boolean(masterPlacement),
                   instanceOccurrence: Boolean(instancePrefix),
                   proofing: Boolean(docProofConfig),
                   visibleEffects: visibleGroupEffects.length > 0,
                   groupMask: 'mask' in n && Boolean(n.mask),
-                })
+                }) ?? (retainedSurfaceRecoveryAvailable ? null : 'context-loss-unobservable'))
               : null;
             const retainedDependencyPath = detailedRetainedDiagnostics ? [String(n.id)] : [];
             let retainedDependencyPathTruncated = false;
             if (
+              retainedSurfaceRecoveryAvailable &&
               !warpedContainer &&
               !masterPlacement &&
               !instancePrefix &&

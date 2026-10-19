@@ -596,9 +596,16 @@ the 4 GiB and 2 GiB device-memory profiles further cap it at 8 MiB and 4 MiB.
 Reducing the cap immediately evicts least-recently-used surfaces. Oversized
 surfaces are composed normally but are not retained. Surfaces are released when
 their document closes, when diagnostic bypass is enabled, and when the page
-closes. Switching between open documents keeps their distinct surfaces under
-the same shared budget; LRU eviction removes older inactive products first. The
-cache also caps residency at 512 entries and rejects dependency keys over
+closes. Each retained 2D surface is also retired on its
+[`contextlost` event](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/contextlost_event),
+before the browser can restore its backing store as blank pixels; the next
+frame rebuilds it from the document. `contextLosses` is counted in the
+developer snapshot. Engines that do not expose this event bypass retained
+composition and use fresh replay, since a lost surface could not be detected
+reliably there. Switching between open documents keeps their distinct
+surfaces under the same shared budget; LRU eviction removes older inactive
+products first. The cache also caps residency at 512 entries and rejects
+dependency keys over
 16,384 UTF-16 code units before joining/storing them. This bounds key strings to
 roughly 16 MiB at the entry cap; per-entry document-owner strings add at most
 another 16 MiB under the same key limit. Map/entry/canvas object overhead is

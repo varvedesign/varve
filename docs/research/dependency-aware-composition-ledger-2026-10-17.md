@@ -70,6 +70,20 @@ References: [ADR-0193](../adr/0193-shared-canvas-rendering.md),
   again timed out while fetching. The cache-size claim and missing-control
   complaint remain unverified beyond the supplied brief.
 
+### Canvas context-loss support — 2026-10-19
+
+- The [HTML Standard](https://html.spec.whatwg.org/multipage/canvas.html)
+  defines `contextlost` and `contextrestored` for canvas 2D surfaces; an
+  unhandled loss can reset the backing bitmap. MDN currently labels the
+  [HTMLCanvasElement `contextlost` event](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/contextlost_event)
+  as limited availability.
+- The [WebKit tracker issue 227280](https://bugs.webkit.org/show_bug.cgi?id=227280)
+  for canvas 2D context-loss support still reports `NEW` when checked; its page
+  was last modified in 2021. This is not a Varve defect report. It means the
+  retained HTMLCanvasElement path cannot assume loss will be observable in
+  WebKit, so the live renderer now falls back to fresh composition when the
+  event handler is unavailable.
+
 ## Primary architecture references
 
 - [Chromium paint architecture](https://chromium.googlesource.com/chromium/src/+/HEAD/third_party/blink/renderer/platform/graphics/paint/README.md): paint chunks and shared properties offer a more useful reuse boundary than a page-sized bitmap; invalidation and compositor updates are separate decisions.

@@ -27,6 +27,15 @@ limit; per-entry document-owner strings add at most another 16 MiB under the
 same key limit. Map/entry/canvas object overhead is additional and is not
 included in the reported RGBA byte budget. Groups exceeding the key cap use
 fresh replay.
+Each retained surface listens for `contextlost` and is removed from residency
+without preventing browser recovery. A restored 2D surface may contain blank
+pixels, so it is never reused; the next render composes from the document. The
+diagnostic snapshot counts these retirements as `contextLosses` and records a
+bounded `surface-context-lost` reason when detailed diagnostics are enabled.
+The browser must expose `oncontextlost` on its canvas element before retention
+is admitted. Engines without observable 2D context-loss events bypass this
+cache and keep fresh replay; this includes WebKit according to the current
+[WebKit implementation bug](https://bugs.webkit.org/show_bug.cgi?id=227280).
 
 ## Browser comparison
 
@@ -181,7 +190,8 @@ establish WASM or native WebView parity.
 ## Budget and current limits
 
 Unit coverage verifies LRU and metadata-entry eviction, overlong-key refusal,
-document retirement, diagnostic bypass, single-surface refusal, and hard
+document retirement, context-loss retirement and rebuild, context-loss
+capability bypass, diagnostic bypass, single-surface refusal, and hard
 raster-byte-budget adherence. The raster-layer cache
 also now declines a backing canvas whose RGBA dimensions cannot fit its budget
 before allocating it. This is not a full memory-pressure soak: browser/GPU

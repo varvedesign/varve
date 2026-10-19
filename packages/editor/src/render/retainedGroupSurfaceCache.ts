@@ -39,6 +39,8 @@ export type RetainedGroupBypassReason =
   | 'child-filters'
   | 'unsupported-fill'
   | 'unsupported-surface-size'
+  | 'context-loss-unobservable'
+  | 'surface-context-lost'
   | 'surface-over-budget';
 
 export type RetainedGroupAdmissionBypassReason = Exclude<
@@ -77,6 +79,17 @@ export interface RetainedGroupSurface {
 interface Entry extends RetainedGroupSurface {
   lastUsed: number;
   documentId: string;
+  contextLossListener: EventListener;
+  diagnosticGroupId?: string;
+}
+
+function supportsCanvasContextLossEvents(): boolean {
+  if (typeof document === 'undefined') return true;
+  try {
+    return 'oncontextlost' in document.createElement('canvas');
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -93,6 +106,7 @@ export class RetainedGroupSurfaceCache {
   private missCount = 0;
   private bypassCount = 0;
   private evictionCount = 0;
+  private contextLossCount = 0;
   private avoidedShapeLeaves = 0;
   private avoidedRasterPixels = 0;
   private enabled = true;
@@ -117,6 +131,7 @@ export class RetainedGroupSurfaceCache {
   };
 
   private budgetBytes: number;
+  private readonly contextLossEventsAvailable = supportsCanvasContextLossEvents();
 
   constructor(budgetBytes = RETAINED_GROUP_SURFACE_BUDGET_BYTES) {
     this.budgetBytes =
@@ -211,6 +226,16 @@ export class RetainedGroupSurfaceCache {
     },
   ): boolean {
     if (!this.enabled) return false;
+    if (!('oncontextlost' in canvas)) {
+      this.bypassCount++;
+      this.recordBypass({
+        reason: 'context-loss-unobservable',
+        ...(this.collectDetailedDiagnostics
+          ? { groupId: this.boundedDiagnosticId(context?.groupId) }
+          : {}),
+      });
+      return false;
+    }
     if (key.length > RETAINED_GROUP_MAX_KEY_CHARACTERS) {
       this.bypassCount++;
       this.recordBypass({
@@ -256,6 +281,7 @@ export class RetainedGroupSurfaceCache {
 
     const previous = this.entries.get(key);
     if (previous) {
+      previous.canvas.removeEventListener('contextlost', previous.contextLossListener);
       this.bytes -= previous.bytes;
       this.entries.delete(key);
     }
@@ -265,7 +291,19 @@ export class RetainedGroupSurfaceCache {
     ) {
       this.evictOldest();
     }
-    this.entries.set(key, { canvas, bytes, shapeLeaves, lastUsed: ++this.clock, documentId });
+    const entry: Entry = {
+      canvas,
+      bytes,
+      shapeLeaves,
+      lastUsed: ++this.clock,
+      documentId,
+      contextLossListener: () => this.retireLostSurface(key, entry),
+      ...(this.collectDetailedDiagnostics && context?.groupId
+        ? { diagnosticGroupId: this.boundedDiagnosticId(context.groupId) }
+        : {}),
+    };
+    canvas.addEventListener('contextlost', entry.contextLossListener);
+    this.entries.set(key, entry);
     this.bytes += bytes;
     if (context?.groupIdentity) {
       this.rememberGroupKey(context.groupIdentity, this.diagnosticKeySignature(key));
@@ -277,6 +315,7 @@ export class RetainedGroupSurfaceCache {
     for (const entry of this.entries.values()) {
       // Resetting dimensions releases the backing store when no frame still
       // owns the canvas. Calls are synchronous on the main render thread.
+      entry.canvas.removeEventListener('contextlost', entry.contextLossListener);
       entry.canvas.width = 0;
       entry.canvas.height = 0;
     }
@@ -293,6 +332,7 @@ export class RetainedGroupSurfaceCache {
   closeDocument(documentId: string): void {
     for (const [key, entry] of this.entries) {
       if (entry.documentId !== documentId) continue;
+      entry.canvas.removeEventListener('contextlost', entry.contextLossListener);
       entry.canvas.width = 0;
       entry.canvas.height = 0;
       this.entries.delete(key);
@@ -363,6 +403,7 @@ export class RetainedGroupSurfaceCache {
     this.missCount = 0;
     this.bypassCount = 0;
     this.evictionCount = 0;
+    this.contextLossCount = 0;
     this.avoidedShapeLeaves = 0;
     this.avoidedRasterPixels = 0;
     this.resetDetailedDiagnostics();
@@ -377,6 +418,7 @@ export class RetainedGroupSurfaceCache {
       misses: this.missCount,
       bypasses: this.bypassCount,
       evictions: this.evictionCount,
+      contextLosses: this.contextLossCount,
       avoidedShapeLeaves: this.avoidedShapeLeaves,
       avoidedRasterPixels: this.avoidedRasterPixels,
       enabled: this.enabled,
@@ -408,6 +450,10 @@ export class RetainedGroupSurfaceCache {
 
   get isEnabled(): boolean {
     return this.enabled;
+  }
+
+  get supportsContextLossEvents(): boolean {
+    return this.contextLossEventsAvailable;
   }
 
   private recordBypass(bypass: RetainedGroupBypass): void {
@@ -528,11 +574,25 @@ export class RetainedGroupSurfaceCache {
       }
     }
     if (!oldest || oldestKey === null) return;
+    oldest.canvas.removeEventListener('contextlost', oldest.contextLossListener);
     oldest.canvas.width = 0;
     oldest.canvas.height = 0;
     this.entries.delete(oldestKey);
     this.bytes -= oldest.bytes;
     this.evictionCount++;
+  }
+
+  private retireLostSurface(key: string, entry: Entry): void {
+    if (this.entries.get(key) !== entry) return;
+    entry.canvas.removeEventListener('contextlost', entry.contextLossListener);
+    this.entries.delete(key);
+    this.bytes -= entry.bytes;
+    this.evictionCount++;
+    this.contextLossCount++;
+    this.recordBypass({
+      reason: 'surface-context-lost',
+      ...(entry.diagnosticGroupId ? { groupId: entry.diagnosticGroupId } : {}),
+    });
   }
 }
 

@@ -6,7 +6,11 @@ import {
 } from './retainedGroupSurfaceCache';
 
 function surface(width: number, height: number): HTMLCanvasElement {
-  return { width, height } as HTMLCanvasElement;
+  return Object.assign(new EventTarget(), {
+    width,
+    height,
+    oncontextlost: null,
+  }) as unknown as HTMLCanvasElement;
 }
 
 describe('RetainedGroupSurfaceCache', () => {
@@ -33,6 +37,46 @@ describe('RetainedGroupSurfaceCache', () => {
   it('length-prefixes arbitrary ids so separators cannot create key collisions', () => {
     const cache = new RetainedGroupSurfaceCache(1024);
     expect(cache.key(['alpha', 'beta'])).not.toBe(cache.key(['alpha|sbeta']));
+  });
+
+  it('retires a lost source surface and rebuilds it from the next authoritative composition', () => {
+    const cache = new RetainedGroupSurfaceCache(1024);
+    cache.setDetailedDiagnosticsEnabled(true);
+    const key = cache.key(['doc', 'group'])!;
+    const lostSurface = surface(8, 8);
+    expect(cache.set(key, 'doc', lostSurface, 3, { groupId: 'group' })).toBe(true);
+
+    lostSurface.dispatchEvent(new Event('contextlost'));
+
+    expect(cache.diagnostics).toMatchObject({
+      entries: 0,
+      residentBytes: 0,
+      evictions: 1,
+      contextLosses: 1,
+    });
+    expect(cache.diagnostics.detailed?.bypasses.at(-1)).toEqual({
+      reason: 'surface-context-lost',
+      groupId: 'group',
+    });
+    expect(cache.get(key)).toBeNull();
+
+    const rebuiltSurface = surface(8, 8);
+    expect(cache.set(key, 'doc', rebuiltSurface, 3, { groupId: 'group' })).toBe(true);
+    expect(cache.get(key)?.canvas).toBe(rebuiltSurface);
+  });
+
+  it('does not retain a surface when context loss cannot be observed', () => {
+    const cache = new RetainedGroupSurfaceCache(1024);
+    cache.setDetailedDiagnosticsEnabled(true);
+    const key = cache.key(['doc', 'group'])!;
+    const unsupportedSurface = { width: 8, height: 8 } as HTMLCanvasElement;
+
+    expect(cache.set(key, 'doc', unsupportedSurface, 3, { groupId: 'group' })).toBe(false);
+    expect(cache.diagnostics).toMatchObject({ entries: 0, residentBytes: 0, bypasses: 1 });
+    expect(cache.diagnostics.detailed?.bypasses.at(-1)).toEqual({
+      reason: 'context-loss-unobservable',
+      groupId: 'group',
+    });
   });
 
   it('bounds dependency key size and retained metadata entry count', () => {
