@@ -349,17 +349,22 @@ compared against Varve's implementation rather than treated as one save bug:
   cross-platform fix. The issue remains open for platform-specific design and
   native verification. The adjacent PdfCraft #3042 implementation is an
   unmerged proposal, not validation for Varve.
-- **Save memory (#6607) is a live investigation lead.** Varve's recovery store
-  serializes full-document snapshots, and file export/save has several
-  serialization routes. The memory peak must be measured by format and
-  backend before changing those routes; streaming is not a safe assumption
-  for every encoder or atomic-save contract.
-- **Malformed settings (#6611) is a partial analogue.** `loadSettings` merges
-  many sections with defaults and explicitly normalizes several enum and
-  numeric fields, but its broad catch can discard all settings when parsing
-  or a migration throws. No reproduction of the reported exact reset behavior
-  has been established in Varve. This warrants targeted malformed-field
-  review, not a claim that the issue is already fixed.
+- **Save memory (#6607) is partially addressed.** A representative 16 MiB
+  embedded-image document encoded to 21.3 MiB JSON; serialization alone raised
+  measured peak RSS by 58.2 MiB in a Node probe. This is not a complete Tauri
+  save measurement. The native external-change check now hashes the old file
+  in 64 KiB chunks instead of returning its complete text over IPC. The newly
+  encoded document and atomic writer still use whole-document buffers, so
+  per-format/backend measurement remains necessary before changing those
+  routes.
+- **Malformed settings (#6611) is a partial analogue.** Varve's JavaScript
+  loader does not reproduce PhotoCraft's all-preferences reset for one bad
+  scalar, but generic merges previously accepted wrong-typed values and could
+  pass them to consumers. `mergePartial` now defaults type-mismatched values
+  for non-null defaults while preserving sibling settings. This does not validate
+  enum strings or nested object members that still have the expected outer
+  type, show a recovery notice, or persist a repaired copy; it is a targeted
+  safety improvement, not full parity with PhotoCraft's merged #6641 fix.
 - **Browser recovery (#6615) is covered in Varve's normal browser path.** The
   editor stores crash-recovery snapshots in IndexedDB and offers recovery on
   the next launch. Storage denial or quota exhaustion remain failure cases to
@@ -1065,3 +1070,36 @@ working-set measurement remain outstanding.
 **Website impact.** Reviewed save and local-first marketing pages make no
 save-memory or large-document performance guarantee. No website copy change
 is supported by this issue.
+
+
+## F-024 — Keep valid settings when a persisted field has the wrong type
+
+**Source.** PhotoCraft [#6611](https://github.com/storytold/photocraft/issues/6611)
+reproduces a malformed `fileHandling.recentFileCount` resetting the entire
+preferences struct on every launch. Its linked PR
+[#6641](https://github.com/storytold/photocraft/pull/6641) was open at the
+frozen review cutoff and merged on 2026-10-19. The PR resets only values that
+fail deserialization, reports their paths, repairs the persisted file while
+preserving unknown keys, and tests the next launch. It does not make a
+`prefs.json.bad` copy or localize the new notice strings.
+
+**Varve applicability.** Varve stores browser/editor preferences in localStorage
+and its `loadSettings` path uses JavaScript object merges rather than decoding
+the whole settings object into Rust structs. A malformed scalar therefore did
+not reset every setting as in PhotoCraft, but the generic `mergePartial`
+accepted wrong-typed values for non-null defaults. That could pass invalid
+state such as a string autosave interval to code expecting a number.
+
+**Implementation.** `mergePartial` now compares each persisted value's basic
+runtime type with its default and uses that field's default on a mismatch. Other
+fields and sections continue loading. The fix intentionally leaves nullable
+fields, string enum validation, nested object members, user notices, and
+persisted repair for separate targeted work.
+
+**Validation.** A regression stores a bad string in `general.autosaveInterval`
+with valid language, units, and appearance preferences; only the bad value
+falls back. The focused `settings.test.ts` suite passes (29 tests).
+
+**Website impact.** The settings documentation describes the available
+preferences but does not promise corrupt-setting recovery. No marketing or help
+copy change is warranted.

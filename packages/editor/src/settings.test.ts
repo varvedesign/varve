@@ -58,6 +58,21 @@ describe('loadSettings', () => {
     expect(s.performance.showPerformanceDiagnostics).toBe(false);
   });
 
+  it('defaults a wrong-typed field while preserving the other saved settings', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        general: { language: 'fr', units: 'mm', autosaveInterval: 'ten' },
+        appearance: { theme: 'dark' },
+      }),
+    );
+
+    const s = loadSettings();
+
+    expect(s.general).toEqual({ language: 'fr', units: 'mm', autosaveInterval: 5 });
+    expect(s.appearance.theme).toBe('dark');
+  });
+
   it('migrates the previous WebGPU preference and keeps an explicit renderer choice', () => {
     localStorage.setItem(
       'strata-editor-settings',

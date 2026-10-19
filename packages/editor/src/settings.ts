@@ -464,9 +464,20 @@ function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undef
   const result = { ...defaults };
   for (const key of Object.keys(defaults) as (keyof T)[]) {
     const val = partial[key];
-    result[key] = val !== undefined ? val : defaults[key];
+    const fallback = defaults[key];
+    result[key] = val !== undefined && hasCompatibleSettingsType(fallback, val) ? val : fallback;
   }
   return result;
+}
+
+/** Reject basic type mismatches for non-null defaults without invalidating their section. */
+function hasCompatibleSettingsType(fallback: unknown, value: unknown): boolean {
+  if (fallback === null) return true;
+  if (Array.isArray(fallback)) return Array.isArray(value);
+  if (typeof fallback === 'object') {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+  }
+  return typeof value === typeof fallback;
 }
 
 function normalizeNudgeAmount(value: unknown, fallback: number): number {

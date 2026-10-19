@@ -271,3 +271,10 @@ about 826 MB free on the root filesystem; packaged Linux visual validation and
 Windows file-association validation remain pending, so the issue stays a
 partial match. Tauri's single-instance plugin requires Linux session D-Bus
 access; Varve does not publish a Flatpak package today.
+
+The malformed-preference follow-up is in
+[F-024](findings.md#f-024--keep-valid-settings-when-a-persisted-field-has-the-wrong-type).
+Varve now defaults wrong-typed values for non-null-default fields while
+retaining valid preferences in the same settings object. It does not yet show a
+recovery notice or repair the stored value; the settings docs make no claim
+about corrupt-preference recovery.

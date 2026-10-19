@@ -73,6 +73,31 @@ Last updated: 2026-10-19. Status: active and incomplete.
   validation applies to this backend-only change. No marketing performance
   claim was found; website changes are not indicated.
 
+## Malformed-settings follow-up (2026-10-19)
+
+- PhotoCraft #6611 is not an exact Varve reproduction: a wrongly typed scalar
+  is not decoded as one all-or-nothing preferences struct in Varve, but its
+  generic `mergePartial` used to accept the malformed value and pass it through.
+  Non-null-default fields now fall back independently on runtime type mismatch;
+  a regression covers a string autosave interval alongside valid language,
+  units, and dark-theme settings.
+- Reviewed PhotoCraft PR #6641's full patch. At the frozen cutoff it was open; a
+  live API check on 2026-10-19 found it merged at `5e1d90d86e62dd5d969f7f454cbc8d25628692a2`.
+  It reports invalid paths and repairs the file while preserving unknown keys.
+  Its own description says it has no bad-file backup, untranslated notices, and
+  no hand testing in desktop/web. Varve's current change does not yet notify or
+  rewrite localStorage, and does not validate nullable fields, enum values, or
+  nested object members. F-024 records this as partial hardening, not parity.
+- Reviewed `apps/website/src/pages/docs/settings.astro`: it describes controls
+  without promising malformed-preference recovery. No website copy change is
+  justified. `pnpm exec vitest run packages/editor/src/settings.test.ts` passed
+  29 tests; `pnpm typecheck:e2e` passed. `pnpm verify:plan` selected 12 lanes
+  with no full-suite escalation. `pnpm verify:affected` passed touched
+  format/lint and emoji/docs audits, then stopped at the same 10 pre-existing
+  radius-token findings in untouched Presentation/SpecPanel styles. The planned
+  settings E2E is queued behind an active `e2e:canvas` lease in another worktree;
+  it has not started yet. Full editor package typecheck/tests were not reached.
+
 ## Current follow-up batch (2026-10-19)
 
 - PhotoCraft #6962's post-cutoff author update confirms that its System Title
