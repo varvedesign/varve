@@ -232,6 +232,44 @@ test.describe('Auto Layout comprehensive verification', () => {
     await page.screenshot({ path: 'test-results/autolayout-01-layout-section.png' });
   });
 
+  test('1b - authored grid tracks place two dashboard cards in equal columns', async ({ page }) => {
+    test.setTimeout(300000);
+    await drawFrame(page, 80, 80, 480, 380);
+    await drawRect(page, 110, 110, 250, 230);
+    await drawRect(page, 270, 110, 410, 230);
+
+    await selectTool(page);
+    const frame = page.getByRole('treeitem', { name: 'Frame 1, Frame', exact: true });
+    await frame.click();
+    await expect(layoutSection(page)).toBeVisible();
+    await selectFromCombobox(page, 'Layout mode', 'Grid');
+    const columns = layoutSection(page).getByRole('textbox', { name: 'Grid template columns' });
+    await columns.fill('1fr 1fr');
+    await columns.press('Enter');
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'test-results/autolayout-grid-dashboard.png' });
+
+    async function selectedRect(layerName: string) {
+      const layer = page.getByRole('treeitem', { name: layerName, exact: true });
+      await layer.click();
+      const outline = page.locator('svg:has(filter#selection-glow) > rect').first();
+      await expect(outline).toBeVisible();
+      const rect = await outline.boundingBox();
+      if (!rect) throw new Error(`selection outline missing for ${layerName}`);
+      return rect;
+    }
+    const first = await selectedRect('Rectangle 1, Vector rectangle');
+    const second = await selectedRect('Rectangle 2, Vector rectangle');
+    expect(Math.abs(first.width - second.width)).toBeLessThan(2);
+    expect(second.x).toBeGreaterThan(first.x + first.width + 8);
+    expect(first.y).toBeCloseTo(second.y, 0);
+
+    // Canvas interactions select the same committed layout result exposed by
+    // the inspector; retaining a second screenshot makes the authored state
+    // reviewable alongside the dimensions asserted above.
+    await page.screenshot({ path: 'test-results/autolayout-grid-dashboard-selected.png' });
+  });
+
   // ── 2. Flex controls ───────────────────────────────────────────
 
   test('2 - enabling flex shows direction gap wrap controls', async ({ page }) => {
