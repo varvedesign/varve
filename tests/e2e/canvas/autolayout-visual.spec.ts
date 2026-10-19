@@ -252,6 +252,7 @@ test.describe('Auto Layout comprehensive verification', () => {
     async function selectedRect(layerName: string) {
       const layer = page.getByRole('treeitem', { name: layerName, exact: true });
       await layer.click();
+      await expect(layer).toHaveAttribute('aria-selected', 'true');
       const outline = page.locator('svg:has(filter#selection-glow) > rect').first();
       await expect(outline).toBeVisible();
       const rect = await outline.boundingBox();
