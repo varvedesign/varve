@@ -845,3 +845,16 @@ Passed: final pnpm verify:affected (6/6 visual-integrity E2E, E2E TypeScript, fo
 Skipped as unrelated: Rust workspace tests, website tests, full browser/visual suite, native GTK GUI matrix, and physical Linux Wayland touchpad tests; no Rust or website behavior changed.
 Escalations: none. Full-suite run: no. Reason: planner did not escalate.
 ```
+
+### Latest validation report — download-only saves and website visuals
+
+```text
+Changed scope: editor browser download-only Save/Save As/Save a Copy outcome handling; lifecycle and website copy; product, homepage, and footer visual baselines; cutoff C continuation record.
+Validation plan: pnpm verify:plan selected 19 lanes / 18 commands, including touched-file format/lint, docs/emoji/radius audits, affected editor/website/desktop checks, focused tests, menu E2E, and website E2E; FULL-SUITE NO.
+Commands actually run: pnpm verify:plan; pnpm verify:affected; focused pnpm exec vitest run for downloadOnlySave.test.tsx and saveCoordinator.test.ts; retry of the five editor suites after ENOSPC; VARVE_TEST_WORKERS=2 pnpm exec vitest run apps/desktop; pnpm --filter @varve/editor typecheck; pnpm --filter @varve/website typecheck; pnpm test:website; pnpm build:website; pnpm build:website:pages; pnpm typecheck:e2e; pnpm typecheck:website-e2e; pnpm test:website:e2e; lease-wrapped visual-integrity menu E2E; lease-wrapped targeted website visual E2E with snapshot refresh; lease-wrapped complete website visual.spec.ts; pnpm audit:docs; pnpm audit:emoji; pnpm audit:tokens; git diff --check.
+Passed: focused save tests (5); editor typecheck; final `pnpm verify:affected` (all 8 planned lanes, including website unit 307 and visual spec 26); website typecheck/build (0 Astro diagnostics); desktop unit suite (90); E2E TypeScript checks; menu viewport E2E (6); browser-demo E2E (5); complete website E2E after reconciling three stale homepage/footer baselines (687 passed in the full run, then all three affected screenshots passed on refresh); product light/dark screenshots and desktop, tablet, and 320px marketing captures were visually inspected; docs/emoji/token audits.
+Skipped as unrelated: Rust workspace tests, native GUI matrix, benchmark suite, packaging/signing, and full browser suite outside the affected website surface.
+Escalations: none. The initial affected editor Vitest lane hit ENOSPC after 893 passed and 2 skipped; its five failed suites were rerun directly after shared disk pressure eased and passed (87 tests). The full website E2E run produced 687 passes and three stale homepage/footer snapshot failures; current screenshots were visually compared with old baselines, three baselines regenerated from current built pages, and the full visual spec then passed 26/26. No other worktree files or processes were changed.
+Full suite run: no.
+If yes, reason: n/a.
+```
