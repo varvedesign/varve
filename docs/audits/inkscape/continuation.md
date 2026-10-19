@@ -2,6 +2,128 @@
 
 Last updated: 2026-10-19.
 
+## Resume checkpoint — 2026-10-19 12:20 UTC
+
+- IID 1962 is implemented on `codex/inkscape-corpus-1962-1971`, based on
+  merged master `5bf3ba5fd8f2e0ffd88d2069d9175f1845017ec4`. Styled text whose
+  weight is not 400 or whose style is italic now takes the existing Canvas2D
+  raster route for desktop/native PDF export. The settings guide explains the
+  fidelity/editability tradeoff. The native Rust PDF IPC remains stubbed in
+  the browser contract test; final Rust PDF rendering is not certified here.
+- Visual validation: the five settings/canvas-fluidity website E2E cases
+  completed successfully inside the website suite, including narrow 200%
+  text, dark theme, and forced-colors. The dark full-page settings screenshot
+  was inspected and the PDF export note is legible in context. The native PDF
+  boundary E2E passed 2/2; its bold-text canvas and reconstructed RGBA glyph
+  screenshot were inspected.
+- The exact `pnpm verify:plan` selected 20 lanes, with no full-suite
+  escalation. `pnpm verify:affected` passed Tier 0, E2E typechecks, website,
+  editor and desktop typechecks, compositor unit tests (97/97), and website
+  unit tests (307/307); the editor-wide JS unit lane exceeded its 382-second
+  runner timeout and was cancelled by the validator without reporting an
+  assertion failure. The desktop unit suite passed (15 files, 90 tests).
+- A full `pnpm test:website:e2e` attempt built both website variants (126
+  pages each) and began its 690-test GH Pages project. It was stopped after
+  Playwright hit `ENOSPC` creating result artifacts on the full root
+  filesystem. All five affected visual cases had passed; the aggregate website
+  suite is incomplete. After the root filesystem recovered 609 MB, the exact
+  five-case settings visual spec was rerun under the lease with output in
+  `/dev/shm`; all five passed again and the dark settings screenshot was
+  inspected at full resolution. The ChatGPT app, unrelated processes, and
+  other worktrees were left running/untouched.
+- `pnpm audit:docs`, `pnpm audit:emoji`, the radius audit, touched Biome checks,
+  E2E typecheck, website E2E typecheck, and `git diff --check` passed. The
+  focused compositor suite passed 97/97, and the desktop unit suite passed.
+  The full export E2E domain passed 15/15 and the related SVG file-import E2E
+  passed 7/7, serially under the heavy-task lease with outputs in `/dev/shm`.
+  Both used the pure-TypeScript renderer fallback, as expected on this host.
+- Competitor complaints and Varve's realistic improvement are recorded under
+  IID 1962 in `findings.md`. Issue discussion review is 1,164/5,669 note-bearing
+  threads; remaining corpus work continues after this checkpoint.
+- The user requested the touch-guide callout's thick side accent be softened;
+  it was changed to a subtle 1px border in the earlier merged slice. This
+  hook's finding is fixed, nothing was suppressed, and there are no remaining
+  visual findings from that hook pass.
+- Next: review the current diff, update the validation record if any targeted
+  lanes become safe to rerun, then commit/push/open and merge the #1962 slice.
+  Keep resource pressure and the user's live app in view.
+
+### Agent Validation Report — IID 1962
+
+- **Changed scope:** desktop PDF compositor capability routing and unit/E2E
+  regressions; settings export documentation and its website visual assertion;
+  Inkscape findings, issue ledger, and continuation record.
+- **Validation plan:** `pnpm verify:plan` selected 20 lanes and did not request
+  full-suite escalation. `pnpm verify:affected` passed Tier 0, E2E typechecks,
+  website/editor/desktop typechecks, compositor tests, and website unit tests;
+  it stopped at the editor-wide JS unit lane after the runner's 382-second
+  timeout without an assertion report.
+- **Commands run and passed:**
+  `TMPDIR=/dev/shm pnpm exec vitest run packages/editor/src/export/compositor.test.ts --reporter=dot`
+  (97/97); `pnpm typecheck:e2e`; `pnpm --filter @varve/editor typecheck`;
+  `pnpm --filter @varve/website typecheck`;
+  `pnpm exec tsc -p apps/website/tests/e2e/tsconfig.json --noEmit`;
+  `TMPDIR=/dev/shm pnpm exec vitest run apps/desktop --reporter=dot`
+  (15 files / 90 tests); `pnpm audit:docs`; `pnpm audit:emoji`;
+  `node scripts/quality/audit-radius.mjs`; touched-file `pnpm exec biome check`;
+  `git diff --check`; and the focused compositor, desktop, website and native
+  IPC checks described above. Browser commands:
+  `node scripts/quality/heavy-lease.mjs "Inkscape 1962 export domain" -- pnpm exec playwright test tests/e2e/export --project=chromium --workers=1 --reporter=list --output=/dev/shm/varve-1962-export`
+  (15/15);
+  `node scripts/quality/heavy-lease.mjs "Inkscape corpus SVG import regression" -- pnpm exec playwright test tests/e2e/canvas/file-import.spec.ts --project=chromium --workers=1 --reporter=list --output=/dev/shm/varve-1962-import`
+  (7/7); and
+  `node scripts/quality/heavy-lease.mjs "Inkscape 1962 settings visual" -- pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/canvas-fluidity-pages.visual.spec.ts --project=ghpages --workers=1 --reporter=line --output=/dev/shm/varve-settings-1962`
+  (5/5).
+- **Incomplete:** `pnpm verify:affected`'s editor-wide unit lane timed out at
+  382.1 seconds; no assertion failure was reported. `TMPDIR=/dev/shm pnpm
+  test:website:e2e` built both 126-page website variants but was interrupted
+  after the full root filesystem caused `ENOSPC` in Playwright output. The
+  affected website visual file passed in the rerun above. The ChatGPT app and
+  other sessions were not stopped.
+- **Skipped as unrelated:** Rust workspace tests and the full visual suite;
+  no Rust files or global rendering surface changed. No full workspace suite
+  was selected or run. **Escalations:** none. **Full suite run:** no.
+- **Review:** self-review found no remaining correctness or scope issues.
+  Review limitation: no independent second reviewer was used in this
+  no-delegation workflow; the read-only review-agent checklist was applied.
+
+## Resume checkpoint — 2026-10-19 11:56 UTC
+
+- Scope remains the Inkscape issue corpus only. User corrected the earlier
+  application-name mistake; do not introduce Photocraft into this work.
+- PR [#145](https://github.com/varvedesign/varve/pull/145) merged to master at
+  `5bf3ba5fd8f2e0ffd88d2069d9175f1845017ec4`. Its test-focused hosted checks
+  passed. The Linux `Build (ubuntu-latest)` job was still active in the Tauri
+  build-test-binary step at the last poll; continue monitoring rather than
+  interrupting it.
+- IID 1962's two user comments and three system/history events were read; the
+  reported user-comment count reconciles. The report is still open and its
+  Linux user workaround is to open the SVG in Firefox and print through the
+  system dialog. Varve's native PDF writer accepts non-regular text as native
+  text despite dropping font weight/style. A compositor rule now routes
+  non-400 weight and non-normal style text through Canvas2D rasterization;
+  normal 400 text remains vector. The compositor unit file passed 97 tests.
+- A native-boundary Chromium regression passes: bold styled text is serialized
+  as one image rectangle with a nonempty RGBA pixel manifest. The test stubs
+  the final Rust PDF IPC command. Both the source canvas screenshot and the
+  captured glyph bitmap were visually inspected; Chromium used the pure-TS
+  renderer because WASM could not load. Run E2E typecheck again after the last
+  test edit, and run the exact affected plan.
+- Competitor evidence includes repeated Affinity reports of bold/variable font
+  styles reverting to regular on PDF export and text strokes rendering badly.
+  The settings documentation now discloses that styled text raster fallback is
+  image-based; review the rendered docs page before checkpointing.
+- The touch-and-pen `.docs-note` side-tab finding was softened to a 1px subtle
+  border in the earlier merged work, following the user's direction. No
+  impeccable finding was suppressed; the latest website-doc edit has no
+  deterministic design-quality findings.
+- Update the #1962 ledger/findings and this checkpoint as validation completes,
+  then run the read-only review-agent checklist, progressively commit, push,
+  and merge the next verified slice. Current branch is
+  `codex/inkscape-corpus-1962-1971` based on merged master at
+  `5bf3ba5fd8f2e0ffd88d2069d9175f1845017ec4`. Preserve other sessions and the
+  ChatGPT desktop app.
+
 ## Resume checkpoint — 2026-10-19 10:26 UTC
 
 - IID 1961's 13 user comments and 23 system/history events (36 cached notes)

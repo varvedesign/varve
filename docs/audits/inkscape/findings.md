@@ -3045,3 +3045,26 @@ The IID 1941–1950 discussion sweep covers 120 cached notes (48 user comments, 
 The IID 1951–1960 discussion sweep covers 145 cached notes (77 user comments, 68 system/history events) across ten threads. The #1954 cache has 31 user comments against 32 reported; this is one of the 32 unresolved inventory-level retrieval mismatches.
 
 The IID 1961 discussion contains 36 cached notes (13 user comments and 23 system/history events); the reported user-comment count reconciles.
+
+- [#1962](https://gitlab.com/inkscape/inkscape/-/issues/1962) reports PDF
+  fill/stroke displacement when a requested font face is missing; the two user
+  comments include a macOS reproduction and a Linux workaround that opens the
+  SVG in Firefox and prints through the system dialog. The issue remains open.
+  Varve had a related desktop-PDF fidelity gap: the compositor sent styled text
+  to the native vector writer, but its IPC font records are family-addressed
+  and the Rust text operators do not apply the requested weight or italic
+  state. Plain 400/normal text still uses the native vector route; non-regular
+  weight or italic text now goes through the live Canvas2D raster boundary so
+  faux styling cannot disappear or misalign at export. A unit regression and
+  Chromium native-boundary E2E verify the route and nonempty glyph pixels; the
+  captured PNG and canvas screenshot were inspected. The E2E stubs the final
+  native PDF command, so it verifies the pixels sent across IPC rather than a
+  Rust-produced PDF. Affinity users report bold fonts falling back to regular
+  and text strokes rendering badly in PDF; Affinity's own export docs offer
+  text-as-curves as a font-independent path, with the expected editability
+  tradeoff ([bold-weight report](https://www.reddit.com/r/Affinity/comments/nssgi2/publisher_doesnt_export_fonts_in_bold_weight/),
+  [variable-font report](https://www.reddit.com/r/Affinity/comments/z31ka8),
+  [stroke-export report](https://forum.affinity.serif.com/index.php?%2Ftopic%2F190385-text-and-curves-with-stroke-outlines-exports-badly-to-pdf%2F=),
+  [export options](https://s3-eu-west-1.amazonaws.com/affinity-docs/help/designer/en-US.lproj/pages/ShareSavePrint/export.html)).
+  The Varve settings documentation now discloses when styled PDF text becomes
+  image-based; no separate marketing claim required correction.

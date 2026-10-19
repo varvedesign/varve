@@ -530,6 +530,11 @@ function hasUnsupportedPdfTextFeatures(node: SceneNode): boolean {
 
   if (
     node.richText?.paragraphs?.length ||
+    // The native PDF bridge embeds font bytes by family but emits no PDF
+    // synthetic bold/italic state. Keep non-regular faces on the live canvas
+    // path so missing-font faux styling cannot disappear or shift on export.
+    (node.fontWeight ?? 400) !== 400 ||
+    (node.fontStyle !== undefined && node.fontStyle !== 'normal') ||
     (node.textCase && node.textCase !== 'none') ||
     (node.direction && node.direction !== 'ltr' && node.direction !== 'auto') ||
     (node.writingMode !== undefined && node.writingMode !== 'horizontal-tb') ||
