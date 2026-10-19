@@ -487,6 +487,7 @@ export function CanvasOverlays({
     if (!scopedTextEditTargetId) return null;
     const n = doc.nodes[scopedTextEditTargetId];
     if (n?.kind !== 'text') return null;
+    const effectivelyLocked = isNodeEffectivelyLocked(doc, n.id);
     const canvasRect = contentCanvasRef.current?.getBoundingClientRect();
     const canvasLeft = canvasRect?.left ?? 0;
     const canvasTop = canvasRect?.top ?? 0;
@@ -538,45 +539,50 @@ export function CanvasOverlays({
           worldX={worldX}
           worldY={worldY}
           worldTransform={textWorldMat}
+          readOnly={effectivelyLocked}
           onCommit={finishTextEdit}
-          onUpdateText={(text, targetId) =>
+          onUpdateText={(text, targetId) => {
+            if (isNodeEffectivelyLocked(editor.state.document, targetId)) return;
             editor.updateNode(targetId, (node) =>
               node.kind === 'text'
                 ? replaceTextNodeContent(node, text, editor.state.pendingFormat)
                 : node,
-            )
-          }
-        />
-        <FloatingTextBar
-          node={n}
-          canvasBoundary={contentCanvasRef.current}
-          selectionRange={editor.state.selectionRange}
-          pendingFormat={editor.state.pendingFormat}
-          textScreenRect={textScreenRect}
-          onUpdate={(id, changes) => {
-            textEditCommitRef.current?.prepareFormatting();
-            applyTypographyChanges(
-              {
-                selectedIds: editor.state.selection,
-                selectionRange: editor.state.selectionRange,
-                pendingFormat: editor.state.pendingFormat,
-                updateNode: editor.updateNode,
-                applyFormatToSelection: editor.applyFormatToSelection,
-                setPendingFormat: editor.setPendingFormat,
-                groupCompoundOperation: editor.groupCompoundOperation,
-              },
-              id,
-              changes,
             );
           }}
-          beginPreview={() => {
-            textEditCommitRef.current?.prepareFormatting();
-            editor.beginTransaction('preview');
-          }}
-          commitPreview={editor.commitTransaction}
-          abortPreview={editor.abortTransaction}
-          onClose={() => textEditCommitRef.current?.commit()}
         />
+        {!effectivelyLocked && (
+          <FloatingTextBar
+            node={n}
+            canvasBoundary={contentCanvasRef.current}
+            selectionRange={editor.state.selectionRange}
+            pendingFormat={editor.state.pendingFormat}
+            textScreenRect={textScreenRect}
+            onUpdate={(id, changes) => {
+              if (isNodeEffectivelyLocked(editor.state.document, id)) return;
+              textEditCommitRef.current?.prepareFormatting();
+              applyTypographyChanges(
+                {
+                  selectedIds: editor.state.selection,
+                  selectionRange: editor.state.selectionRange,
+                  pendingFormat: editor.state.pendingFormat,
+                  updateNode: editor.updateNode,
+                  applyFormatToSelection: editor.applyFormatToSelection,
+                  setPendingFormat: editor.setPendingFormat,
+                  groupCompoundOperation: editor.groupCompoundOperation,
+                },
+                id,
+                changes,
+              );
+            }}
+            beginPreview={() => {
+              textEditCommitRef.current?.prepareFormatting();
+              editor.beginTransaction('preview');
+            }}
+            commitPreview={editor.commitTransaction}
+            abortPreview={editor.abortTransaction}
+            onClose={() => textEditCommitRef.current?.commit()}
+          />
+        )}
       </>
     );
   })();

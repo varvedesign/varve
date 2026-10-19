@@ -643,6 +643,7 @@ describe('createActionHandlers — editText', () => {
       state: {
         selection: [textId],
         document: {
+          rootChildren: [textId],
           nodes: {
             [textId]: { id: textId, kind: 'text', name: 'Text 1' },
           },
@@ -668,6 +669,28 @@ describe('createActionHandlers — editText', () => {
       } as unknown as EditorContextValue['state'],
     });
     createActionHandlers(editor).editText?.();
+    expect(startTextEdit).not.toHaveBeenCalled();
+    setStartTextEditingHandler(null);
+  });
+
+  it('does not start inline editing for an effectively locked text node', () => {
+    const textId = 't1';
+    const startTextEdit = vi.fn();
+    setStartTextEditingHandler(startTextEdit);
+    const editor = makeEditorMock({
+      state: {
+        selection: [textId],
+        document: {
+          rootChildren: [textId],
+          nodes: {
+            [textId]: { id: textId, kind: 'text', name: 'Text 1', locked: true },
+          },
+        },
+      } as unknown as EditorContextValue['state'],
+    });
+
+    createActionHandlers(editor).editText?.();
+
     expect(startTextEdit).not.toHaveBeenCalled();
     setStartTextEditingHandler(null);
   });

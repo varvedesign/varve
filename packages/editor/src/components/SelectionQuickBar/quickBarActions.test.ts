@@ -132,6 +132,19 @@ describe('dispatchQuickBarAction', () => {
     expect(deps.setTextEditTargetId).toHaveBeenCalledWith('t1');
   });
 
+  it('does not start text edit when the selected node became locked after rendering', async () => {
+    const deps = makeDeps({
+      selection: ['t1'],
+      selectedImageNode: null,
+      isNodeEffectivelyLocked: () => true,
+    });
+
+    await dispatchQuickBarAction('editText', deps);
+
+    expect(deps.setTool).not.toHaveBeenCalled();
+    expect(deps.setTextEditTargetId).not.toHaveBeenCalled();
+  });
+
   it('wires group and boolean ops', async () => {
     const deps = makeDeps();
     await dispatchQuickBarAction('group', deps);

@@ -41,7 +41,7 @@ import { importReportHasIssues, publishImportReport } from '../context/sessionGl
 import { preparedFragmentFromRootSets } from '../dropUtils';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 import { getLifecycleCoordinator } from '../lifecycle';
-import { nodeLocalBounds, nodeWorldBounds } from '../scene/world';
+import { isNodeEffectivelyLocked, nodeLocalBounds, nodeWorldBounds } from '../scene/world';
 import { loadSettings, updateSettings } from '../settings';
 import { deserializeAreaSelection, serializeAreaSelection } from '../tools/savedAreaSelections';
 import {
@@ -1603,7 +1603,7 @@ export function createActionHandlers(
       const sel = e.state.selection;
       if (sel.length !== 1 || !sel[0]) return;
       const node = e.state.document.nodes[sel[0]!];
-      if (node?.kind === 'text') {
+      if (node?.kind === 'text' && !isNodeEffectivelyLocked(e.state.document, node.id)) {
         startTextEditing(node.id);
       }
     },

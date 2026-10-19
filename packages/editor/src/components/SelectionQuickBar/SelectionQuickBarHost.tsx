@@ -9,6 +9,7 @@ import {
   findPathTopologyDependency,
   pathTopologyBlockMessage,
 } from '../../pathTopologyDependencies';
+import { isNodeEffectivelyLocked } from '../../scene/world';
 import { reversePathNode, setPathClosed, simplifyPathNode } from './pathQuickOps';
 import { dispatchQuickBarAction } from './quickBarActions';
 import { type QuickBarActionId, resolveQuickBarProfile } from './resolveQuickBarProfile';
@@ -130,6 +131,7 @@ export function SelectionQuickBarHost({
           selectedImageNode: imageNode,
           setNodeEditTargetId,
           setTextEditTargetId,
+          isNodeEffectivelyLocked: (id) => isNodeEffectivelyLocked(state.document, id),
           groupSelected: editor.groupSelected,
           booleanOp: editor.booleanOp,
           announce: editor.announce,

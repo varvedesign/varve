@@ -138,6 +138,16 @@ describe('resolveQuickBarProfile', () => {
     );
   });
 
+  it('hides the Edit text action for an effectively locked text node', () => {
+    let doc = createDocument('test', true);
+    const text = { ...makeTextNode('t1', 'Hi', { name: 'Text' }), locked: true };
+    doc = { ...doc, nodes: { ...doc.nodes, [text.id]: text }, rootChildren: [text.id] };
+    const profile = resolveQuickBarProfile(baseInput({ document: doc, selection: [text.id] }));
+
+    expect(profile?.kind).toBe('text');
+    expect(profile!.actions.map((a) => a.id)).not.toContain('editText');
+  });
+
   it('returns null while text is being edited', () => {
     let doc = createDocument('test', true);
     const text = makeTextNode('t1', 'Hi');

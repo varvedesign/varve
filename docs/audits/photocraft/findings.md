@@ -503,8 +503,18 @@ and transform paths.
 for effectively locked nodes, rejects Node Edit gestures and keyboard edits on
 locked paths, and excludes locked targets from Scale Tool gestures. It
 rechecks effective locks during active edits so locking during a gesture
-stops later mutations. Unit and browser interaction regressions are added;
-validation is pending.
+stops later mutations. The text replacement route is covered separately:
+the Edit text action and selection quick bar refuse effectively locked text,
+and an editor already open when the layer becomes locked switches to read-only.
+Text and typography update callbacks also recheck the latest document lock so
+stale UI state cannot write through the lock. Four focused unit files passed
+(100 tests), editor and E2E typechecks passed, and the full layer-workflows
+browser file passed (16 tests), including both locked path and locked text
+interactions. The keyboard E2E domain passed (28 tests); the desktop unit lane
+passed (90 tests). The package-wide editor unit run was stopped at 30 minutes
+under concurrent shared-machine Vitest load after reporting a separate
+`retouchTools.test.ts` failure; it did not produce an aggregate result. The
+affected planner still stops at ten raw-radius consumers in untouched styles.
 
 **Website impact:** no marketing claim promises editing locked artwork. The
 layer workflow is unchanged when the target is unlocked; no marketing copy

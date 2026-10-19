@@ -102,6 +102,8 @@ interface TextEditOverlayProps {
   worldY?: number;
   /** Pre-composed world transform matrix. */
   worldTransform?: Affine;
+  /** Locked text remains visible but cannot be edited. */
+  readOnly?: boolean;
   /**
    * Called when editing completes (Escape or blur), with the textarea's final
    * value. The caller cannot read it from the node instead: the last
@@ -124,6 +126,7 @@ export function TextEditOverlay({
   worldX,
   worldY,
   worldTransform,
+  readOnly = false,
   onCommit,
   onUpdateText,
   commitRef,
@@ -548,6 +551,7 @@ export function TextEditOverlay({
       ref={textareaRef}
       defaultValue={canonicalText}
       aria-label={`Editing text: ${node.name}`}
+      readOnly={readOnly}
       onInput={handleInput}
       onKeyDown={handleKeyDown}
       onCompositionStart={handleCompositionStart}

@@ -7,6 +7,7 @@
 import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
 import { isBooleanOperand, isImageShape } from '@varve/scene';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
+import { isNodeEffectivelyLocked } from '../../scene/world';
 
 export type QuickBarKind = 'image' | 'path' | 'text' | 'multi';
 
@@ -129,11 +130,11 @@ function pathProfile(node: ShapeNode): QuickBarProfile {
   return { kind: 'path', actions };
 }
 
-function textProfile(): QuickBarProfile {
+function textProfile(canEdit: boolean): QuickBarProfile {
   return {
     kind: 'text',
     actions: [
-      action('editText', 'Edit text'),
+      ...(canEdit ? [action('editText', 'Edit text')] : []),
       action('flipH', 'Flip horizontal'),
       action('flipV', 'Flip vertical'),
     ],
@@ -178,7 +179,7 @@ export function resolveQuickBarProfile(input: ResolveQuickBarInput): QuickBarPro
     return pathProfile(node);
   }
   if (node.kind === 'text') {
-    return textProfile();
+    return textProfile(!isNodeEffectivelyLocked(doc, node.id));
   }
   return null;
 }

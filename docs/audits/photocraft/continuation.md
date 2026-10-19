@@ -712,3 +712,25 @@ Last updated: 2026-10-19. Status: active and incomplete.
   17-cycle ceiling, no new cycle identity was reported, and layer violations
   remain zero. Its instability, unused-export, and hub-budget findings are
   report-only under the repository policy. Final full code review is pending.
+
+- PhotoCraft #2585/#3092 locked editing follow-up: the real-canvas locked-path
+  regression passed for Node Edit and Scale, and its screenshot was inspected.
+  Review then found the separate text-replacement surface: Edit text and the
+  selection quick bar could open a locked text node, and an active inline
+  editor could keep writing after its layer was locked. Both entry points now
+  check effective ancestor locks; an open textarea becomes read-only, the
+  floating text controls are hidden, and text/typography callbacks recheck the
+  latest document. Four focused unit files passed (100 tests); editor and E2E
+  typechecks passed. The browser test passed after correcting its selector to
+  target the new text row; the screenshot showed the lock explanation and
+  unchanged text. `verify:affected` passed format, touched-file lint, and the
+  emoji audit, then stopped at the known 10 raw-radius consumers in untouched
+  Presentation/SpecPanel CSS. The explicit docs, emoji, and token audits pass.
+  The full layer-workflows file passes (16 tests), the keyboard E2E domain
+  passes (28 tests), and the desktop unit lane passes (90 tests). The
+  package-wide editor unit run exceeded 30 minutes under shared Vitest load;
+  it reported a separate `retouchTools.test.ts` failure before it was stopped,
+  so the aggregate editor suite is incomplete. Desktop typecheck still fails
+  on the existing `CollabSurfaces.tsx:450` readonly Affine cast. The docs and
+  issue records now mark #2585 and #3092 covered; the slice commit remains
+  pending.

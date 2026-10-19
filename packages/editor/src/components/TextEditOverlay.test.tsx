@@ -43,6 +43,7 @@ function renderOverlay(
   node: TextNode,
   onCommit: (text: string) => void = () => {},
   onUpdateText: (text: string, targetId: string) => void = () => {},
+  readOnly = false,
 ) {
   const canvas = document.createElement('canvas');
   canvas.getBoundingClientRect = () =>
@@ -65,6 +66,7 @@ function renderOverlay(
         zoom={1}
         pan={{ x: 0, y: 0 }}
         canvasElement={canvas}
+        readOnly={readOnly}
         onCommit={onCommit}
         onUpdateText={onUpdateText}
       />
@@ -89,6 +91,16 @@ describe('TextEditOverlay', () => {
     expect((ta as HTMLTextAreaElement).value).toBe('Hello');
     expect((ta as HTMLTextAreaElement).style.color).toBe('transparent');
     expect(ta.getAttribute('data-text-edit-surface')).toBe('true');
+  });
+
+  it('makes the inline editor read-only when its text node is locked', () => {
+    renderOverlay(
+      makeNode('Locked'),
+      () => {},
+      () => {},
+      true,
+    );
+    expect(screen.getByRole('textbox')).toHaveProperty('readOnly', true);
   });
 
   it('keeps the edit session alive when focus moves to a portaled toolbar', async () => {

@@ -147,6 +147,21 @@ async function waitForCanvasLayoutStability(page: import('@playwright/test').Pag
   });
 }
 
+async function createTextAt(
+  page: import('@playwright/test').Page,
+  x: number,
+  y: number,
+  text: string,
+): Promise<void> {
+  await page.keyboard.press('t');
+  await page.mouse.click(x, y);
+  const editor = page.getByRole('textbox', { name: /editing text/i });
+  await expect(editor).toBeVisible();
+  await page.keyboard.insertText(text);
+  await page.keyboard.press('Escape');
+  await expect(editor).toBeHidden();
+}
+
 test.describe('layer workflows', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     mkdirSync(REVIEW_DIR, { recursive: true });
@@ -391,6 +406,33 @@ test.describe('layer workflows', () => {
     await waitForRender(page);
     expect(await callCtx(page, 'serializeDocument')).toBe(before);
     await page.screenshot({ path: SHOT('locked-path-no-node-edit-or-scale'), fullPage: false });
+  });
+
+  test('text editing stops when a selected text layer becomes locked', async ({ page }) => {
+    await createTextAt(page, 360, 220, 'a');
+    const row = page.getByRole('treeitem').filter({ hasText: 'Text: a' }).first();
+    const nodeId = await row.getAttribute('data-node-id');
+    expect(nodeId).toBeTruthy();
+    await row.click();
+
+    const editButton = page.getByRole('button', { name: 'Edit text', exact: true });
+    await expect(editButton).toBeVisible();
+    await editButton.click();
+    const editor = page.getByRole('textbox', { name: /editing text/i });
+    await expect(editor).toBeFocused();
+
+    await callCtx(page, 'setNodeLocked', nodeId, true);
+    await expect(editor).toHaveAttribute('readonly', '');
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.insertText('b');
+    await waitForRender(page);
+    const lockedJson = (await callCtx(page, 'serializeDocument')) as string;
+    expect(JSON.parse(lockedJson).nodes[nodeId!].text).toBe('a');
+
+    await page.keyboard.press('Escape');
+    await expect(editor).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Edit text', exact: true })).toHaveCount(0);
+    await page.screenshot({ path: SHOT('locked-text-content-unchanged'), fullPage: false });
   });
 
   test('child rows show inherited lock state while the ancestor remains unlockable', async ({
