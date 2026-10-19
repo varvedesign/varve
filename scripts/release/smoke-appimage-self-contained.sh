@@ -146,9 +146,12 @@ run_one() {
       $(refuse_webkit "$distro")
       bash /opt/smoke-appimage-with-display.sh \
         bash /opt/smoke-appimage-probe.sh --appimage /opt/Varve.AppImage
-    " | tee "$log"
-  status=${PIPESTATUS[0]}
+    " >"$log" 2>&1
+  status=$?
   set -e
+  if [[ -f "$log" ]]; then
+    cat "$log"
+  fi
   if [[ "$status" -ne 0 ]]; then
     echo "AppImage self-contained smoke FAILED ($distro)" >&2
     [[ -n "$LOG_DIR" ]] || rm -f "$log"

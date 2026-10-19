@@ -21,6 +21,9 @@ RUN apt-get update \
       libnspr4 \
       libnss3 \
       libwayland-client0 \
+      libwayland-cursor0 \
+      libwayland-egl1 \
+      libwayland-server0 \
       libx11-6 \
       libxcomposite1 \
       libxcursor1 \

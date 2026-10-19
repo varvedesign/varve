@@ -1,10 +1,11 @@
 {
   "schemaVersion": 1,
-  "note": "Expected NSIS installer sizes from the released v0.5.1 artifacts (installer-size-report-windows-*.json): nsis-x86_64 66,744,034 bytes; nsis-aarch64 62,224,916 bytes. The growth vs the 2026-08-18 56/44 MB estimates is the isolated diffusion helper payload accepted in 0.5.0; 0.5.1 reused size_gate_override once (ARM64 62.2 MB vs the stale 44 MB baseline; 0.5.0 measured ~61.6 MB). Update this file in the same commit as any intentional installer-size change — that is the override-at-source process. Per-run overrides use --override-reason.",
+  "note": "Expected NSIS installer sizes from the released v0.5.1 artifacts (installer-size-report-windows-*.json): nsis-x86_64 66,744,034 bytes; nsis-aarch64 62,224,916 bytes. The growth vs the 2026-08-18 56/44 MB estimates is the isolated diffusion helper payload accepted in 0.5.0; 0.5.1 reused size_gate_override once (ARM64 62.2 MB vs the stale 44 MB baseline; 0.5.0 measured ~61.6 MB). appimage-x86_64 is the first bundled-WebKitGTK AppImage measured on ubuntu-22.04 (PR 150 Linux AppImage offline-smoke job, 163,613,176 bytes / 163.6 MB). Update this file in the same commit as any intentional installer-size change. That is the override-at-source process. Per-run overrides use --override-reason.",
   "warnRatio": 1.2,
   "blockRatio": 1.35,
   "installers": {
     "nsis-x86_64": { "expectedBytes": 66744034 },
-    "nsis-aarch64": { "expectedBytes": 62224916 }
+    "nsis-aarch64": { "expectedBytes": 62224916 },
+    "appimage-x86_64": { "expectedBytes": 163613176 }
   }
 }

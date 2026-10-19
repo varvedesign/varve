@@ -31,7 +31,10 @@ RUN dnf -y install --setopt=install_weak_deps=False \
       nspr \
       nss \
       procps-ng \
-      wayland \
+      libwayland-client \
+      libwayland-cursor \
+      libwayland-egl \
+      libwayland-server \
       xorg-x11-server-Xvfb \
       xwininfo \
     && dnf clean all \

@@ -150,6 +150,7 @@ assert.match(orchestrator, /smoke-appimage-probe\.sh/);
 assert.match(orchestrator, /--distro/);
 assert.match(orchestrator, /--log-dir/);
 assert.match(orchestrator, /fedora/);
+assert.match(orchestrator, />"\$log" 2>&1/);
 assert.doesNotMatch(orchestrator, /xvfb-run/);
 assert.doesNotMatch(orchestrator, /WEBKIT_DISABLE_SANDBOX/);
 assert.doesNotMatch(readFileSync(probe, 'utf8'), /WEBKIT_DISABLE_SANDBOX/);
@@ -162,11 +163,17 @@ assert.match(
 assert.match(ubuntu, /FROM docker\.io\/library\/ubuntu:22\.04/);
 assert.match(ubuntu, /libgl1-mesa-dri/);
 assert.match(ubuntu, /libglx-mesa0/);
+assert.match(ubuntu, /libwayland-cursor0/);
+assert.match(ubuntu, /libwayland-egl1/);
+assert.match(ubuntu, /libwayland-server0/);
 assert.doesNotMatch(ubuntu, /libwebkit2gtk-4/);
 assert.match(ubuntu, /libwebkit2gtk must not be installed/);
 
 assert.match(fedora, /FROM docker\.io\/library\/fedora:latest/);
 assert.match(fedora, /mesa-dri-drivers/);
+assert.match(fedora, /libwayland-cursor/);
+assert.match(fedora, /libwayland-egl/);
+assert.match(fedora, /libwayland-server/);
 assert.match(fedora, /webkit2gtk must not be installed/);
 assert.match(fedora, /gtk3 must not be installed/);
 
