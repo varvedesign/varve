@@ -2461,3 +2461,86 @@ evidence listed below were reviewed; missing attachments were not executed.
   transform; Varve does not import that flowed-text form. The broader
   transform/bounds interaction deserves a Varve regression only if the
   supported area/path-text workflow reproduces the same failure.
+
+## IID 1861–1870 — flow text, export controls, and view input
+
+The retained note cache has 60 user comments and 65 system/history events for
+this batch. Every available note body was reviewed; reported per-issue comment
+counts reconcile. Linked issues and merge requests were inspected where they
+clarify the cause or disposition. The SVG attachment for #1870 could not be
+opened by the web reader, so its in-issue XML example was used and the importer
+mapping remains a reproduction candidate.
+
+- [#1861](https://gitlab.com/inkscape/inkscape/-/issues/1861) is a 1.0.x
+  shape-inside text selection that paints text at a doubled position while a
+  drag is active. The thread distinguishes the related flow-frame transform
+  defects in [#1029](https://gitlab.com/inkscape/inkscape/-/issues/1029) and
+  [#1396](https://gitlab.com/inkscape/inkscape/-/issues/1396), and the second
+  flip/LPE report later split to [#1769](https://gitlab.com/inkscape/inkscape/-/issues/1769).
+  It was fixed in Inkscape 1.2 alpha, while the remaining flip issue was tracked
+  separately. Varve reports unsupported `shape-inside` flow during SVG import;
+  no same-route Varve defect is established.
+- [#1862](https://gitlab.com/inkscape/inkscape/-/issues/1862) concerns the
+  marker combo-box preview colors, not markers rendered on artwork. The
+  linked [MR !2326](https://gitlab.com/inkscape/inkscape/-/merge_requests/2326)
+  makes the preview stroke black and fill white so context paint remains
+  distinguishable. Varve has no matching GTK marker-selection widget.
+- [#1863](https://gitlab.com/inkscape/inkscape/-/issues/1863) reports a PDF
+  image absent from one Poppler/Cairo import route. The thread traces a clone
+  transform inside an image mask to the upstream Cairo issue and records the
+  reproduction absent by Inkscape 1.3. The archival sample was not re-downloaded.
+  Varve reports PDF image XObjects unsupported rather than claiming that
+  import route, so this is a capability boundary to revisit with the other
+  PDF-image reports, not a silent supported-path regression.
+- [#1864](https://gitlab.com/inkscape/inkscape/-/issues/1864) is specifically
+  about adding a trailing newline to legacy SVG 1.2 flowed text. One follow-up
+  was initially mistaken for the same bug, then traced to a zero line-height
+  preference after an upgrade; the original flowed-text report remained. Varve
+  identifies flowed text as unsupported in Import Results and keeps the
+  readable text content, so there is no matching editable flow-text route.
+- [#1865](https://gitlab.com/inkscape/inkscape/-/issues/1865) reports a
+  disabled selected-object batch-export control after an export-panel change.
+  The thread points to the separate dock-sizing report [#2080](https://gitlab.com/inkscape/inkscape/-/issues/2080)
+  and the closely related export-button report [#1894](https://gitlab.com/inkscape/inkscape/-/issues/1894).
+  Varve's export inspector presents an explicit multi-selection route and its
+  browser coverage exercises the batch workspace; no equivalent disabled
+  control has been reproduced.
+- [#1866](https://gitlab.com/inkscape/inkscape/-/issues/1866) describes
+  broken handles at high display scale. Although the initial report names
+  Windows, discussion reproduction required `GDK_SCALE=2` and did not occur at
+  ordinary scale. This is a platform-specific historical GTK rendering case;
+  Varve's browser DPR coverage does not certify native Windows handle
+  rendering, and no same-cause defect is established.
+- [#1867](https://gitlab.com/inkscape/inkscape/-/issues/1867) reports digits
+  and arrow keys being intercepted while editing the zoom field. The thread
+  identifies a broader GTK key-event ordering issue, fixed by
+  [MR !2316](https://gitlab.com/inkscape/inkscape/-/merge_requests/2316),
+  which routes key events to the focused widget before window accelerators.
+  Varve's shortcut manager already yields to native input controls, but the
+  existing zoom E2Es used programmatic fill. A real-keystroke regression now
+  checks intermediate digits before commit; execution and screenshot review
+  are pending.
+- [#1868](https://gitlab.com/inkscape/inkscape/-/issues/1868) exposed a
+  misleading print-comments preference that only affected legacy LaTeX
+  output. The discussion confirms ordinary printing did not implement the
+  advertised feature; [MR !2317](https://gitlab.com/inkscape/inkscape/-/merge_requests/2317)
+  removed the mostly defunct option. Varve has no such preference or print
+  comment contract.
+- [#1869](https://gitlab.com/inkscape/inkscape/-/issues/1869) reports the
+  viewport zoom changing while the status field stayed stale during a
+  document/extension transition. Its single follow-up identifies the same
+  2020 canvas refactor as the zoom-input report, but provides no later
+  reproduction. Varve intentionally opens a document at its stored zoom and
+  updates the status control from the active camera; no matching stale display
+  is established.
+- [#1870](https://gitlab.com/inkscape/inkscape/-/issues/1870) reports
+  appearance changing when recursively unlinking a clone that references a
+  group containing a symbol instance. The issue's one linked report,
+  [#3517](https://gitlab.com/inkscape/inkscape/-/issues/3517), is a separate
+  `preserveAspectRatio` raster-export issue, not the same cause. Varve does not
+  offer clone-unlink editing, but its SVG importer expands local `<use>` nodes;
+  inspection showed `<symbol>` was not handled by the element converter and
+  could be silently omitted. Varve now lists referenced `<symbol>` instances
+  as unsupported in Import Results and in the file-format guide; the parser
+  regression and browser-visible report still need execution. Full symbol
+  viewport and transform support remains a separate fidelity decision.

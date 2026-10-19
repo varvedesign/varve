@@ -1252,3 +1252,28 @@ its title, labels, or downloaded body.
   changes remain unstaged and excluded from task commits. The shared browser
   lease is still held by a live process in another worktree; do not reclaim
   the lease or interrupt that process.
+
+## Resume update — 2026-10-19 01:05 UTC
+
+- Reviewed Inkscape IID 1861–1870 from the retained note cache and primary
+  linked sources: 60 user comments and 65 system/history events. The summary
+  now records 1,061 note-bearing threads content-reviewed; the separate 32
+  retrieved-note count mismatches remain.
+- #1867 exposed a coverage gap: Varve's shortcut manager already yields to
+  native input controls, but existing zoom E2Es use programmatic fill. A
+  real-keystroke test now checks the incomplete digits and final zoom value.
+  #1870's Inkscape clone-unlink defect is not the same operation as Varve
+  import, but inspection found local `<use>` of `<symbol>` could disappear
+  silently. Varve now reports this limitation and documents it; focused parser
+  and browser-report checks remain pending. Full symbol viewport/transform
+  support is still a separate fidelity decision.
+- `pnpm typecheck:e2e`, `pnpm audit:docs`, `pnpm audit:emoji`,
+  `pnpm audit:tokens`, and `git diff --check` passed. The planner selects 51
+  lanes with no full-suite escalation. The task E2Es and importer unit test
+  have not run: the shared browser lease remains owned by live external PID
+  1474493/1475145. Do not stop or reclaim them.
+- Current worktree is `feat/inkscape-corpus` at `1d94c9cc3`. Keep the other
+  contributors' `tests/e2e/export/native-pdf-contract.spec.ts`,
+  `packages/codegen/src/bundle-assets.ts`, and
+  `packages/scene/src/nodeResize.ts` out of task commits. The current task
+  diffs remain uncommitted pending focused runtime and visual validation.
