@@ -2754,3 +2754,54 @@ count mismatches remain unchanged.
   cherry-picked the guard to 1.0.x after the original master fix. Varve imports
   the SVG path geometry from `d` and does not recreate Inkscape's native arc
   object from this metadata; no matching Varve regression is established.
+- [#1901](https://gitlab.com/inkscape/inkscape/-/issues/1901) bisected an
+  incorrect zoom factor after the zoom actions were converted. Follow-up says
+  the zoom-correction behavior and UX issue were fixed; Varve's canvas zoom
+  path is different, and no matching defect was demonstrated.
+- [#1902](https://gitlab.com/inkscape/inkscape/-/issues/1902) reports Pen and
+  Pencil startup modes interfering after `tools_isactive()` was removed. The
+  report was marked fixed in 1.2-dev. Varve's tools and activation state differ;
+  no matching startup regression was found.
+- [#1903](https://gitlab.com/inkscape/inkscape/-/issues/1903) was moved to
+  [Inkscape Inbox #3768](https://gitlab.com/inkscape/inbox/-/issues/3768) as a
+  requested behavior change. Its later bug report is #1905, which isolates
+  accidental keyboard deletion of a locked guide.
+- [#1904](https://gitlab.com/inkscape/inkscape/-/issues/1904) traced missing
+  View menu toggles to the View-menu action rewrite in
+  [MR !1987](https://gitlab.com/inkscape/inkscape/-/merge_requests/1987).
+  Varve already exposes guide/grid visibility through its own menus and
+  controls; this Inkscape menu migration is not a Varve regression.
+- [#1905](https://gitlab.com/inkscape/inkscape/-/issues/1905) reproduces
+  deleting a locked guide with Delete/Backspace while the pointer is over it.
+  [MR !2371](https://gitlab.com/inkscape/inkscape/-/merge_requests/2371)
+  guarded the canvas keyboard-delete route. Varve had the same gap: the
+  selected-guide branch ran after generic Delete shortcut dispatch and removed
+  locked guides. The fix now intercepts both bare keys before generic dispatch,
+  consumes them for locked guides, and preserves removal for unlocked guides.
+  The explicit guide context-menu Delete remains available, matching the
+  original discussion's distinction between accidental keyboard deletion and
+  intentional deletion from the guide dialog/menu. Unit and browser regression
+  checks are recorded with the implementation commit.
+- [#1906](https://gitlab.com/inkscape/inkscape/-/issues/1906) reports an
+  unrecoverable freeze from composing two Inkscape live path effects; a 2024
+  comment confirms it still reproduced in 1.5-dev. Varve has no equivalent LPE
+  composition route, so this is not transferable to its current workflow.
+- [#1907](https://gitlab.com/inkscape/inkscape/-/issues/1907) describes a
+  sporadic rotation-center snapping failure that disappeared after restart.
+  Multiple versions and platforms failed to reproduce it, and no reliable
+  steps or current Varve analogue were established.
+- [#1908](https://gitlab.com/inkscape/inkscape/-/issues/1908) needed an
+  additional canvas redraw after grid settings changed, following an upstream
+  CanvasItems rewrite. Varve's grid overlay uses a different state/render path;
+  the Inkscape report alone does not establish a Varve redraw defect.
+- [#1909](https://gitlab.com/inkscape/inkscape/-/issues/1909) reports a crash
+  opening an SVG with a pattern containing a `<use>` clone of another pattern.
+  Reproduction varied by version/platform and later Linux reports followed an
+  upstream guide-constraints removal. Varve does not import SVG pattern paint
+  servers and reports that unsupported content, so it does not enter this
+  crash path; pattern support remains a separate fidelity feature.
+- [#1910](https://gitlab.com/inkscape/inkscape/-/issues/1910) reports zoom
+  buttons removed from Inkscape's Commands bar during an action migration;
+  users documented risky toolbar-file workarounds before the buttons returned
+  in 1.2-dev. Varve's StatusBar already provides zoom controls, so no matching
+  missing-control defect was found.

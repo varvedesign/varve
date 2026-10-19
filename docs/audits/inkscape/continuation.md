@@ -1359,3 +1359,36 @@ its title, labels, or downloaded body.
   ChromeOS twist, and website touch-guide browser checks; inspect every
   changed screenshot; review code findings; commit the implementation and
   website increments; resume issue review at IID 1901–1910.
+
+## Resume update — 2026-10-19, after IID 1901–1910
+
+- The task remains Inkscape-only. The user corrected the contradictory project
+  name in the pasted brief; do not characterize this as another application's
+  corpus or work.
+- Reviewed IID 1901–1910 from the retained cache: 99 notes (44 user comments,
+  55 system/history events) across all ten discussions; each issue's reported
+  user-note count reconciles. The ledger now records 1,112 note-bearing
+  discussions reviewed out of 5,669. The separate source retrieval mismatch
+  remains 32 comments across the full corpus.
+- #1905 matches Varve's selected-guide Delete/Backspace path. The selected
+  guide now consumes bare deletion keys before generic shortcut routing; a
+  locked guide remains selected and present, while an unlocked guide retains
+  keyboard deletion. Focused unit cases cover both keys and lock states. A
+  real Chromium regression now creates and locks a ruler guide, then presses
+  both keys. That browser test still needs execution and screenshot inspection.
+  The explicit context-menu Delete remains available as the Inkscape thread
+  distinguished accidental keyboard deletion from intentional dialog/menu
+  deletion.
+- The remaining batch items map to upstream fixes, absent Varve feature paths,
+  or non-reproducible reports; details and source links are in `findings.md`.
+  The research documents for IID 1901–1910 have not yet been committed.
+- `pnpm verify:plan` selects 57 lanes, no full-suite escalation. It includes
+  existing dirty files from collaborators; exclude their PDF E2E, codegen, and
+  scene paths from task commits. `pnpm verify:affected` has not yet been rerun
+  for the guide changes. The focused `useShortcuts.test.ts` process is still
+  running. The earlier isometric-grid Chromium run is waiting behind live
+  Rust validation leases in another worktree; do not cancel it or reclaim the
+  lease. The app and other agents/processes remain untouched.
+- The impeccable hook finding in `apps/website/src/pages/docs/touch-and-pen.astro`
+  is an attribution-unknown side-tab accent. It is left unchanged pending the
+  user's preference; no ignore has been added.
