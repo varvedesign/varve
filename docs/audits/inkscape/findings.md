@@ -2673,3 +2673,84 @@ no note-cache file.
   Inkscape MR !4691 later repaired inconsistent export-filename behavior and
   `~` expansion. Varve's CLI does not expose an equivalent vector-export flag,
   so this particular CLI contract is not present.
+
+## IID 1891–1900 — text editing, desktop input, export state, and legacy SVG
+
+The retained cache contains 169 notes across nine note-bearing threads: 87
+user comments and 82 system/history events. All cached notes and resolution
+events were read; their per-issue user counts match the source ledger. #1896
+reports zero comments and has no note-cache file. The 32 corpus-wide retrieval
+count mismatches remain unchanged.
+
+- [#1891](https://gitlab.com/inkscape/inkscape/-/issues/1891) is a split-out
+  report for #1887: changing old multiline text into SVG 2 `inline-size` text
+  lost line breaks. MRs [!2533](https://gitlab.com/inkscape/inkscape/-/merge_requests/2533)
+  and [!2540](https://gitlab.com/inkscape/inkscape/-/merge_requests/2540)
+  respectively preserve newlines in the Text and Font dialog and fix
+  round-tripping between old and SVG 2 multiline text. Varve's current importer
+  retains plain text while reporting `inline-size` flow as unsupported; it has
+  no equivalent width-reflow editor mode, so no additional editor change is
+  selected.
+- [#1892](https://gitlab.com/inkscape/inkscape/-/issues/1892) documents a
+  confirmed Windows tablet-coordinate offset with monitors at different
+  resolutions and scaling. The report distinguishes the pen from a correctly
+  aligned mouse; users describe matching display scaling as a workaround, and
+  the follow-up calls it inadequate. Linked [#1913](https://gitlab.com/inkscape/inkscape/-/issues/1913)
+  is a distinct macOS page-orientation coordinate defect. Varve's canvas uses
+  CSS-to-world pointer conversion shared by browser and Tauri paths, but the
+  Windows/macOS mixed-DPI stylus route cannot be reproduced on the available
+  Linux setup. No platform fix is claimed; physical mixed-DPI stylus validation
+  remains outstanding.
+- [#1893](https://gitlab.com/inkscape/inkscape/-/issues/1893) is a macOS
+  package defect in symbolic filesystem icons. The discussion narrows it to
+  broken generated Adwaita icons from the GTK macOS build dependencies; [MR
+  !2608](https://gitlab.com/inkscape/inkscape/-/merge_requests/2608) identifies
+  the librsvg upgrade as the actual fix. Varve uses its own SVG icon sources
+  and platform icon generation, so the Inkscape-specific GTK package path does
+  not establish a Varve defect.
+- [#1894](https://gitlab.com/inkscape/inkscape/-/issues/1894) is a second
+  manifestation of the batch-export state regression in [#1865](https://gitlab.com/inkscape/inkscape/-/issues/1865).
+  Inkscape first reverted the button relocation in [MR
+  !2358](https://gitlab.com/inkscape/inkscape/-/merge_requests/2358), then
+  [MR !2707](https://gitlab.com/inkscape/inkscape/-/merge_requests/2707)
+  corrected the selection callbacks while batch export was active. Varve's
+  export dialog builds an explicit batch preview and has no equivalent single
+  PNG button state; no corresponding failure is established and no change is
+  selected.
+- [#1895](https://gitlab.com/inkscape/inkscape/-/issues/1895) reports
+  Powerstroke paths thickening across document copy/paste in Inkscape 1.0.x.
+  The reproducer is inconsistent across builds, then the reporter confirms
+  the development version works; the thread identifies a copy/paste transform
+  fix shipped in 1.0.2. Varve has no Powerstroke Live Path Effect, so this
+  source-specific effect has no direct equivalent.
+- [#1896](https://gitlab.com/inkscape/inkscape/-/issues/1896) asks that bundled
+  tutorials open as untitled templates so users cannot overwrite the installed
+  source file. It has no comments or linked fix evidence in the retained
+  snapshot. Varve has no tutorial-file menu; its separate template workflow
+  starts a new document and does not expose an installed tutorial file to
+  overwrite. No change is selected.
+- [#1897](https://gitlab.com/inkscape/inkscape/-/issues/1897) initially
+  misidentified a 1.1-dev Text and Font dialog behavior as a 1.0.1 issue. The
+  reporter corrected the version and could not reproduce it in the next
+  development build. Varve has no matching Text and Font dialog or Apply-based
+  editing transaction; this is not evidence of a current Varve defect.
+- [#1898](https://gitlab.com/inkscape/inkscape/-/issues/1898) asks for
+  irrelevant object actions to be disabled in a blank-canvas context menu when
+  nothing is selected. The thread points to [inbox #2376](https://gitlab.com/inkscape/inbox/-/issues/2376)
+  for the broader context-menu design and reports the narrower issue mostly
+  fixed in 2024. Varve's canvas menu omits selection-only cut/copy/duplicate,
+  delete, grouping, and clip actions when the selection is empty; existing
+  menu snapshot tests cover the empty-selection variant. No change is needed.
+- [#1899](https://gitlab.com/inkscape/inkscape/-/issues/1899) concerns rune
+  shaping on FreeBSD. Windows and Linux reports conflict with the initial
+  FreeBSD behavior; later investigation confirms the canvas failure even when
+  `pango-view` renders the same text correctly, and a Fedora user reports a
+  later occurrence. Varve's Canvas2D/WebKit font stack differs, and FreeBSD is
+  not a validated target in this worktree. Without a current Varve reproduction,
+  no shaping workaround is selected; FreeBSD glyph fidelity remains unverified.
+- [#1900](https://gitlab.com/inkscape/inkscape/-/issues/1900) reports old
+  Inkscape arc objects imported as chords because `sodipodi:open="false"` was
+  treated like `true`. [MR !2356](https://gitlab.com/inkscape/inkscape/-/merge_requests/2356)
+  cherry-picked the guard to 1.0.x after the original master fix. Varve imports
+  the SVG path geometry from `d` and does not recreate Inkscape's native arc
+  object from this metadata; no matching Varve regression is established.

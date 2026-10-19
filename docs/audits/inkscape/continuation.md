@@ -1309,3 +1309,53 @@ its title, labels, or downloaded body.
   still need leased browser execution and image inspection. Keep the other
   contributors' PDF E2E, codegen, and scene files out of task commits. Do not
   close the ChatGPT Linux app or stop collaborator work.
+
+## Resume update — 2026-10-19 01:40 UTC
+
+- Scope is Inkscape's tracker. The user explicitly corrected an earlier
+  misread; do not investigate or describe this as Photocraft work.
+- Reviewed Inkscape IID 1881–1890 and committed the research checkpoint as
+  `9f1550e5c`. Then reviewed IID 1891–1900 from the retained 2026-10-18 cache
+  and primary linked MRs: 169 notes (87 user comments, 82 system/history
+  events) across nine note-bearing threads. #1896 reports zero comments and
+  has no note-cache file. Per-issue counts reconcile; 32 corpus-wide retrieval
+  count mismatches remain. The summary's reviewed-IID list is now reconciled
+  to the ledger (1,102 reviewed entries).
+- The batch confirms #1891 is the multiline-text follow-up to #1887 (fixed
+  upstream by !2533/!2540); the existing importer warning covers the separate
+  unsupported SVG `inline-size` flow. #1892 is a confirmed mixed-DPI Windows
+  pen offset with macOS page-coordinate reports linked separately; Varve's
+  relevant native stylus path is unverified on this Linux setup. #1893 is an
+  upstream macOS Adwaita/librsvg package defect. #1894 is the batch-export
+  state regression also tracked in #1865, repaired upstream in !2358/!2707;
+  Varve's export batch UI is different. #1895 and #1897 are upstream LPE/text
+  dialog cases not reproduced in later builds and have no equivalent Varve
+  route. #1896 has no Varve tutorial-file workflow. #1898's empty-selection
+  actions are already omitted from Varve's canvas context menu and covered by
+  snapshots. #1899 remains a FreeBSD font-shaping report without a Varve
+  reproduction. #1900's `sodipodi:open` arc parsing regression was fixed in
+  Inkscape 1.0.x; Varve consumes SVG path `d` geometry.
+- `pnpm verify:plan` selects 54 affected lanes with no full-suite escalation.
+  `pnpm verify:affected` stops at ten unchanged legacy `audit:radius`
+  declarations in Presentation and SpecPanel, before downstream lanes.
+  Formatting, lint, emoji, docs, and token audits passed; E2E, website and
+  import typechecks passed. Focused SVG/settings/gesture tests passed (94), and
+  the existing text-on-path reference test passed (1, 23 skipped).
+- The leased Chromium `fit-surface.spec.ts` run passed all five tests. I
+  inspected the real-keyboard zoom and fit screenshots; the entered value is
+  visible and the Design Canvas/publishing-page fits frame their intended
+  surfaces. Chromium emitted the known WASM-load fallback warning, so these
+  screenshots reflect the browser's pure-TS fallback renderer. The next
+  isometric-grid E2E is safely waiting behind another worktree's live
+  `rust-test:varve-accel` lease (session 46067); do not stop or reclaim it.
+- Current branch: `feat/inkscape-corpus`, HEAD `9f1550e5c`. Task-owned code,
+  tests and user guidance remain uncommitted until their browser/visual checks
+  and second-pass review complete. Exclude the other contributors' dirty
+  `tests/e2e/export/native-pdf-contract.spec.ts`,
+  `packages/codegen/src/bundle-assets.ts`, and
+  `packages/scene/src/nodeResize.ts` from commits. The shared ChatGPT Linux
+  app and other agents/processes remain untouched.
+- Next: finish leased isometric-grid, text-on-path, SVG import, color picker,
+  ChromeOS twist, and website touch-guide browser checks; inspect every
+  changed screenshot; review code findings; commit the implementation and
+  website increments; resume issue review at IID 1901–1910.
