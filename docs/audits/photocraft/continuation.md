@@ -26,6 +26,21 @@ Last updated: 2026-10-19. Status: active and incomplete.
 - No website change is indicated: Varve makes no public promise about hard
   links, filesystem metadata preservation, or missing-folder save behavior.
   F-022 and `filesystem-boundary.md` record the concrete behavior.
+- Progressive implementation checkpoint: commit `2aae14eec` contains the
+  native save changes and F-022. Focused Rust atomic-write tests (11) and
+  explicit-save tests (2), platform `saveTargets` tests (14), platform
+  typecheck, Rust formatting, docs/emoji/token audits, and the staged commit
+  checkpoint passed. Windows replacement/hard-link snippets cross-compile in
+  isolation; full desktop Windows and macOS builds/runtime tests remain
+  unavailable. The desktop package typecheck was interrupted after roughly
+  three minutes under shared memory pressure, before a result.
+- `pnpm verify:plan` selects 43 lanes and reports `FULL-SUITE ESCALATION: YES`
+  because the planner classifies the desktop target dependency change as a
+  workspace/toolchain change. `pnpm verify:affected` stops at that escalation
+  before executing lanes. `pnpm verify:full` was attempted with a stated
+  reason, then refused because hosted certification requires a clean,
+  committed `master` candidate. Full-gate certification remains deferred until
+  the integration candidate. Do not count this batch as fully validated.
 
 ## Current follow-up batch (2026-10-19)
 
