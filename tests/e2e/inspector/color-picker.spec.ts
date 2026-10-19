@@ -172,6 +172,30 @@ test.describe('Color picker workflow', () => {
     await waitForSwatchBackground(page, 'rgb(255, 136, 0)');
   });
 
+  test('color slider stops tracking the pointer after release', async ({ page }, testInfo) => {
+    await createRect(page);
+    const dialog = await openFillPicker(page);
+    const slider = dialog.getByRole('slider', { name: 'Hue', exact: true });
+    const track = dialog.locator('.color-slider--hue .color-slider__track');
+    const box = await track.boundingBox();
+    if (!box) throw new Error('Hue slider has no bounds');
+    const initialValue = await slider.getAttribute('aria-valuenow');
+
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + box.width * 0.25, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.7, y, { steps: 6 });
+    await page.mouse.up();
+    const releasedValue = await slider.getAttribute('aria-valuenow');
+    expect(releasedValue).not.toBe(initialValue);
+
+    // A lost release can leave native editors changing a color as the cursor
+    // moves elsewhere. Pointer motion after mouseup must not change the value.
+    await page.mouse.move(box.x + box.width + 120, y + 80, { steps: 4 });
+    await expect(slider).toHaveAttribute('aria-valuenow', releasedValue ?? '');
+    await dialog.screenshot({ path: testInfo.outputPath('color-slider-after-release.png') });
+  });
+
   test('recent colors are recorded and shown after a committed edit', async ({ page }) => {
     await createRect(page);
     await openFillPicker(page);

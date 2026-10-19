@@ -51,6 +51,36 @@ async function editSelectedText(page: import('@playwright/test').Page, value: st
   await page.waitForTimeout(350);
 }
 
+async function serializeEditorDocument(page: import('@playwright/test').Page): Promise<string> {
+  return page.evaluate(() => {
+    const root = document.getElementById('root');
+    if (!root) throw new Error('React root not found');
+    const key = Object.keys(root).find(
+      (name) => name.startsWith('__reactContainer$') || name.startsWith('__reactFiber$'),
+    );
+    if (!key) throw new Error('React fiber not found');
+    interface EditorLike {
+      serializeDocument?: () => string;
+    }
+    interface FiberLike {
+      memoizedProps?: { value?: EditorLike };
+      child?: unknown;
+      sibling?: unknown;
+    }
+    function find(fiber: unknown): EditorLike | null {
+      if (!fiber || typeof fiber !== 'object') return null;
+      const candidate = fiber as FiberLike;
+      if (typeof candidate.memoizedProps?.value?.serializeDocument === 'function') {
+        return candidate.memoizedProps.value;
+      }
+      return find(candidate.child) ?? find(candidate.sibling);
+    }
+    const editor = find((root as unknown as Record<string, unknown>)[key]);
+    if (!editor?.serializeDocument) throw new Error('Missing editor context');
+    return editor.serializeDocument();
+  });
+}
+
 function textLayer(page: import('@playwright/test').Page) {
   return page
     .getByRole('treeitem')
@@ -130,6 +160,67 @@ test.describe('text on path', () => {
     const after = await canvas.screenshot();
     await canvas.screenshot({ path: testInfo.outputPath('text-on-path-after-offset.png') });
     expect(Buffer.compare(before, after)).not.toBe(0);
+  });
+
+  test('the first drag moves a multi-selection containing text on path together', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(120000);
+    await drawRingAndLabel(page);
+    await page.keyboard.press('Control+a');
+    await page.waitForTimeout(300);
+    await page.getByRole('menuitem', { name: /^Object$/ }).click();
+    await page.getByRole('menuitem', { name: /^Text on Path$/ }).click();
+    await page.waitForTimeout(600);
+
+    const before = JSON.parse(await serializeEditorDocument(page)) as {
+      nodes: Record<
+        string,
+        {
+          kind?: string;
+          textMode?: string;
+          pathTextSettings?: { pathNodeId?: string };
+          transform?: number[];
+        }
+      >;
+    };
+    const textEntry = Object.entries(before.nodes).find(([, node]) => node.textMode === 'path');
+    expect(textEntry, 'attached text node must be in path mode').toBeDefined();
+    const [textId, textNode] = textEntry ?? ['', {}];
+    const pathId = textNode.pathTextSettings?.pathNodeId;
+    expect(pathId, 'path text must retain its referenced path').toBeTruthy();
+    const pathNode = before.nodes[pathId ?? ''];
+    expect(pathNode?.kind).toBe('shape');
+    expect(textNode.transform).toHaveLength(6);
+    expect(pathNode?.transform).toHaveLength(6);
+
+    await page.getByRole('button', { name: 'Fit sel' }).click();
+    await page.waitForTimeout(500);
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.screenshot({ path: testInfo.outputPath('path-text-multiselect-before.png') });
+    const box = await canvasBox(page);
+    const centerX = box.width / 2;
+    const centerY = box.height / 2;
+    await dragOn(page, centerX - 35, centerY - 25, centerX + 35, centerY + 25);
+
+    const after = JSON.parse(await serializeEditorDocument(page)) as typeof before;
+    const movedText = after.nodes[textId];
+    const movedPath = after.nodes[pathId ?? ''];
+    expect(movedText?.transform).toHaveLength(6);
+    expect(movedPath?.transform).toHaveLength(6);
+    const textDelta = [
+      (movedText?.transform?.[4] ?? 0) - (textNode.transform?.[4] ?? 0),
+      (movedText?.transform?.[5] ?? 0) - (textNode.transform?.[5] ?? 0),
+    ];
+    const pathDelta = [
+      (movedPath?.transform?.[4] ?? 0) - (pathNode?.transform?.[4] ?? 0),
+      (movedPath?.transform?.[5] ?? 0) - (pathNode?.transform?.[5] ?? 0),
+    ];
+    expect(textDelta).not.toEqual([0, 0]);
+    expect(pathDelta).toEqual(textDelta);
+    await canvas.screenshot({
+      path: testInfo.outputPath('path-text-multiselect-after-first-drag.png'),
+    });
   });
 
   test('detaching removes the section and keeps the path', async ({ page }) => {

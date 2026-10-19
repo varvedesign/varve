@@ -111,8 +111,8 @@ async function drawRectangle(
   }
 }
 
-async function enterIsometricWorkspace(page: Page) {
-  await navigateToEditor(page, '/?isoTest=1');
+async function enterIsometricWorkspace(page: Page, perf = false) {
+  await navigateToEditor(page, perf ? '/?isoTest=1&perf=1' : '/?isoTest=1');
   await enableIsometricWorkspace(page);
 }
 
@@ -221,6 +221,62 @@ function worldPoints(item: SelectionGeometry): Array<[number, number]> {
 }
 
 test.describe('Isometric construction workflow (real editor)', () => {
+  test('the visible isometric grid follows camera rotation', async ({ page }, testInfo) => {
+    await enterIsometricWorkspace(page, true);
+    const overlay = page.locator('.document-grid-overlay');
+    await expect(overlay.locator('path').first()).toBeVisible();
+    const unrotatedPaths = await overlay
+      .locator('path')
+      .evaluateAll((paths) => paths.map((path) => path.getAttribute('d')));
+    await overlay.screenshot({ path: testInfo.outputPath('isometric-grid-camera-unrotated.png') });
+
+    await page.evaluate(() => {
+      const perf = (
+        window as unknown as {
+          __varvePerf?: {
+            getLast?: () => {
+              camera?: { zoom: number; panX: number; panY: number; rotation: number };
+            } | null;
+            camera?: {
+              setState?: (camera: {
+                zoom: number;
+                pan: { x: number; y: number };
+                rotation: number;
+              }) => void;
+            };
+          };
+        }
+      ).__varvePerf;
+      const camera = perf?.getLast?.()?.camera;
+      if (!camera || !perf.camera?.setState) throw new Error('camera inspection hook unavailable');
+      perf.camera.setState({
+        zoom: camera.zoom,
+        pan: { x: camera.panX, y: camera.panY },
+        rotation: Math.PI / 6,
+      });
+    });
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const perf = (
+            window as unknown as {
+              __varvePerf?: { getLast?: () => { camera?: { rotation: number } } | null };
+            }
+          ).__varvePerf;
+          return perf?.getLast?.()?.camera?.rotation ?? null;
+        }),
+      )
+      .toBeCloseTo(Math.PI / 6, 6);
+    await page.waitForTimeout(200);
+
+    const rotatedPaths = await overlay
+      .locator('path')
+      .evaluateAll((paths) => paths.map((path) => path.getAttribute('d')));
+    expect(rotatedPaths).toHaveLength(unrotatedPaths.length);
+    expect(rotatedPaths).not.toEqual(unrotatedPaths);
+    await overlay.screenshot({ path: testInfo.outputPath('isometric-grid-camera-rotated.png') });
+  });
+
   test('renders the declared lattice and keeps phase when the origin moves', async ({ page }) => {
     await enterIsometricWorkspace(page);
     const snapshot = await grid(page);

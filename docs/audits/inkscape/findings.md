@@ -2352,9 +2352,10 @@ about Inkscape; they do not establish the same defect in Varve.
   open report of text-on-path objects jumping back on the first multi-object
   move. The reporter's video shows the first attempt can move none, one, or
   both objects and the second attempt then works. Varve has editable text on
-  path, but its current E2E coverage does not exercise first-drag movement of
-  a multi-selection containing path text. This is a direct workflow match and
-  remains an investigation item until reproduced or ruled out in Varve.
+  path; a new Chromium E2E fits the selected path-text objects onscreen and
+  verifies their first drag applies identical translation deltas to the text
+  and referenced shape. The behavior was not reproduced in Varve, so the
+  regression stays covered without a production code change.
 - [#1848](https://gitlab.com/inkscape/inkscape/-/issues/1848) records a
   development build failing to start on macOS because the dynamic loader
   rejected a library's code signature. The reporter was directed to a newer
@@ -2365,9 +2366,11 @@ about Inkscape; they do not establish the same defect in Varve.
   color sliders continuing to follow the pointer after release and value
   entry becoming inconsistent across CMYK profiles. Varve offers RGB/CMYK
   color entry but no CMS profile selector or profile-managed channel editing.
-  The pointer-release failure mode is still relevant to its color slider, so
-  a browser regression now checks that mouse movement after release cannot
-  keep changing the hue; this test is pending execution and visual review.
+  A Chromium regression verifies that mouse movement after release does not
+  keep changing Varve's hue slider; it passed and the resulting dialog
+  screenshot was inspected. The reported pointer-release failure was not
+  reproduced in Varve, and profile-specific CMYK behavior is outside its
+  implemented scope, so no production change is warranted.
 - [#1850](https://gitlab.com/inkscape/inkscape/-/issues/1850) is a
   shutdown-time `No toolname` debug warning, later removed during the dock
   replacement; the reporter could not reproduce it after that change. It is
@@ -2435,8 +2438,10 @@ evidence listed below were reviewed; missing attachments were not executed.
   [MR !7798](https://gitlab.com/inkscape/inkscape/-/merge_requests/7798),
   which explicitly says its prior calculations assumed an unrotated view.
   Varve has a separate camera-aware isometric overlay and rotated-camera unit
-  geometry, but no real-browser rotation visual assertion in the isometric
-  workflow suite. Add visual validation before marking the match resolved.
+  geometry; a new Chromium check changes camera rotation while the grid is
+  visible and confirms the overlay paths change. The before/after screenshots
+  show the lattice following the rotated view, so no product change was
+  indicated by this comparison.
 - [#1858](https://gitlab.com/inkscape/inkscape/-/issues/1858) reports a
   collision between Inkscape's `edit-select-all` icon name and generic Linux
   icon themes. Varve uses its own UI icon components rather than resolving
@@ -2517,9 +2522,10 @@ mapping remains a reproduction candidate.
   [MR !2316](https://gitlab.com/inkscape/inkscape/-/merge_requests/2316),
   which routes key events to the focused widget before window accelerators.
   Varve's shortcut manager already yields to native input controls, but the
-  existing zoom E2Es used programmatic fill. A real-keystroke regression now
-  checks intermediate digits before commit; execution and screenshot review
-  are pending.
+  existing zoom E2Es used programmatic fill. A real-keystroke Chromium
+  regression checks each intermediate digit before commit and passes; the
+  captured status field shows the committed `200` value. No keyboard
+  interception was reproduced, so no product change was indicated.
 - [#1868](https://gitlab.com/inkscape/inkscape/-/issues/1868) exposed a
   misleading print-comments preference that only affected legacy LaTeX
   output. The discussion confirms ordinary printing did not implement the

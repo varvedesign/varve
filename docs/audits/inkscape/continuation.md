@@ -1,6 +1,46 @@
 # Continuation record
 
-Last updated: 2026-10-18.
+Last updated: 2026-10-19.
+
+## Resume checkpoint — 2026-10-19 05:31 UTC
+
+- Target and scope remain the Inkscape issue corpus and verified Varve fixes.
+  The corpus review is still in progress; cutoff B is pending. The last
+  completed discussion batch remains #1921–1930.
+- Finished the focused interaction E2Es in this increment. Fit-surface (5),
+  isometric grid (7), first-drag text-on-path multi-selection (1), and color
+  slider release (1) passed in Chromium. The text-on-path fixture now fits its
+  selection before dragging; its first drag moved the text and referenced
+  shape by matching deltas. The slider check confirmed pointer motion after
+  release does not alter the value. The zoom-field screenshot and isometric
+  grid before/after screenshots were also inspected. Evidence is recorded in
+  the #1847, #1849, #1857, and #1867 findings and ledger entries. The color
+  dialog screenshot is at
+  `test-results/run-1664629-1420/inspector-color-picker-Col-d0376-g-the-pointer-after-release-chromium/color-slider-after-release.png`.
+  Browser E2Es used the pure-TS fallback renderer; they do not certify native
+  Tauri behavior.
+- Updated the #1847/#1849 findings and #1849 ledger visual record with those
+  results. Both reports were not reproduced in Varve; these changes add
+  regression coverage without product-code changes.
+- Latest `pnpm verify:plan` selected 43 lanes and reported no full-suite
+  escalation. It includes files owned by other contributors in this shared
+  worktree; keep their export, codegen, and scene paths out of this task's
+  commits. `pnpm typecheck:e2e` passed after the screenshot edit. The targeted
+  browser checks listed above passed. `pnpm verify:affected` passed touched
+  formatting/lint, docs/emoji audits, E2E typecheck, and Codegen/Scene/Editor
+  typechecks before stopping at the desktop typecheck error in unchanged
+  `packages/editor/src/collab/CollabSurfaces.tsx:450`: a cast to mutable
+  `number[]` conflicts with readonly `Affine`. `git diff` confirms that file
+  is unchanged on this branch; `git blame` attributes it to existing commit
+  `60ce1c03e`. No unrelated code was changed to suppress this baseline error.
+- The second review pass strengthened the color-slider test to assert that the
+  drag changes the value before checking that pointer movement after release
+  leaves it unchanged. The updated Chromium case passed and its screenshot was
+  inspected at
+  `test-results/run-1687936-1420/inspector-color-picker-Col-d0376-g-the-pointer-after-release-chromium/color-slider-after-release.png`.
+- Self-review is complete for this increment. Next: commit only the task-owned
+  test and corpus-document paths, then continue issue review from #1931. No
+  merge, push, deployment, or release has occurred.
 
 ## Resume checkpoint — 2026-10-19 04:58 UTC
 

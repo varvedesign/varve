@@ -17,6 +17,29 @@ async function selectionGeometry(page: Page) {
   });
 }
 
+test('status zoom accepts real keystrokes while the numeric draft is incomplete', async ({
+  page,
+}, testInfo) => {
+  await navigateToEditor(page);
+  const zoom = page.locator('#status-zoom');
+  await zoom.focus();
+  await zoom.press('Control+A');
+  await zoom.press('Backspace');
+  await expect(zoom).toHaveValue('');
+
+  // Keep the user-visible draft intact after each key; the committed camera
+  // value must not clamp the intermediate 2 to the minimum zoom.
+  await zoom.press('2');
+  await expect(zoom).toHaveValue('2');
+  await zoom.press('0');
+  await expect(zoom).toHaveValue('20');
+  await zoom.press('0');
+  await expect(zoom).toHaveValue('200');
+  await zoom.press('Enter');
+  await expect(zoom).toHaveValue('200');
+  await zoom.screenshot({ path: testInfo.outputPath('status-zoom-keyboard-entry.png') });
+});
+
 test('active-surface fit centers actual Design Canvas artwork without a publishing page', async ({
   page,
 }, testInfo) => {
