@@ -71,7 +71,9 @@ Last updated: 2026-10-19. Status: active and incomplete.
   editor typecheck was interrupted after roughly three minutes at about 2.9 GB
   RSS; editor unit tests in that chained command did not run. No full visual
   validation applies to this backend-only change. No marketing performance
-  claim was found; website changes are not indicated.
+  claim was found; website changes are not indicated. Progressive checkpoint:
+  commit `ac7c9b4d6`; staged commit checks passed, while affected closure and
+  editor typecheck remain incomplete as recorded above.
 
 ## Malformed-settings follow-up (2026-10-19)
 
@@ -97,6 +99,8 @@ Last updated: 2026-10-19. Status: active and incomplete.
   radius-token findings in untouched Presentation/SpecPanel styles. The planned
   settings E2E is queued behind an active `e2e:canvas` lease in another worktree;
   it has not started yet. Full editor package typecheck/tests were not reached.
+  Progressive checkpoint: commit `86c55936e`; the staged commit checkpoint
+  passed the 29-test settings file and docs/emoji/health/import-boundary checks.
 
 ## Current follow-up batch (2026-10-19)
 
