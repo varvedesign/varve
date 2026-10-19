@@ -38,6 +38,16 @@ function isServiceReport(
   return 'files' in result;
 }
 
+function dedupeDisplayWarnings(warnings: ImportResultWarning[]): ImportResultWarning[] {
+  const seen = new Set<string>();
+  return warnings.filter((warning) => {
+    const key = `${warning.severity}:${warning.message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function rowsFor(result: BatchImportResult | ImportResultReport): ImportResultRow[] {
   if (!isServiceReport(result)) {
     return result.results.map((file) => ({
@@ -53,7 +63,7 @@ function rowsFor(result: BatchImportResult | ImportResultReport): ImportResultRo
   return result.files.map((file) => ({
     name: file.name,
     status: file.status,
-    warnings: [
+    warnings: dedupeDisplayWarnings([
       ...file.warnings.map((issue) => ({
         code: issue.code,
         message: issue.message,
@@ -67,7 +77,7 @@ function rowsFor(result: BatchImportResult | ImportResultReport): ImportResultRo
       ...(file.error
         ? [{ code: 'import.error', message: file.error, severity: 'error' as const }]
         : []),
-    ],
+    ]),
     ...(file.capabilities ? { capabilities: file.capabilities } : {}),
   }));
 }

@@ -271,6 +271,41 @@ test('reports unsupported Inkscape flowed text in Import Results', async ({ page
   await page.screenshot({ path: testInfo.outputPath('inkscape-flowed-text-warning.png') });
 });
 
+test('reports symbol instances that cannot yet be imported through use', async ({
+  page,
+}, testInfo) => {
+  await navigateToEditor(page);
+
+  await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+  const importItem = page
+    .getByRole('menu', { name: 'File', exact: true })
+    .getByRole('menuitem', { name: /^Import…/ });
+  const picker = page.waitForEvent('filechooser', { timeout: 10000 });
+  await importItem.click();
+  const fileChooser = await picker;
+  await fileChooser.setFiles({
+    name: 'inkscape-symbol-use.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="30"><defs><symbol id="icon" viewBox="0 0 100 30"><path d="M0 0h100v30H0z" /></symbol></defs><use href="#icon" x="10" y="5" width="50" height="15" /></svg>',
+    ),
+  });
+
+  const report = page.getByRole('dialog', { name: 'Import Results' });
+  await expect(report).toBeVisible();
+  await report.getByRole('button', { name: /show details/i }).click();
+  await expect(report).toContainText('0 layers inserted');
+  await expect(report).toContainText(
+    'SVG <symbol> instances referenced through <use> (not imported)',
+  );
+  await expect(
+    report.getByText('SVG <symbol> instances referenced through <use> (not imported)', {
+      exact: true,
+    }),
+  ).toHaveCount(1);
+  await page.screenshot({ path: testInfo.outputPath('svg-symbol-use-warning.png') });
+});
+
 test('reports SVG shape-inside text flow while retaining editable text', async ({
   page,
 }, testInfo) => {
@@ -301,6 +336,37 @@ test('reports SVG shape-inside text flow while retaining editable text', async (
   await page.waitForTimeout(250);
   await expect(page.getByRole('heading', { name: /Missing Fonts/ })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('inkscape-shape-inside-import.png') });
+});
+
+test('reports SVG inline-size text flow while retaining editable text', async ({
+  page,
+}, testInfo) => {
+  await navigateToEditor(page);
+
+  await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+  const importItem = page
+    .getByRole('menu', { name: 'File', exact: true })
+    .getByRole('menuitem', { name: /^Import…/ });
+  const picker = page.waitForEvent('filechooser', { timeout: 10000 });
+  await importItem.click();
+  const fileChooser = await picker;
+  await fileChooser.setFiles({
+    name: 'svg-inline-size-flow.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="80"><text id="inline-flow" x="12" y="28" style="inline-size:80px">Readable fallback text</text></svg>',
+    ),
+  });
+
+  const report = page.getByRole('dialog', { name: 'Import Results' });
+  await expect(report).toBeVisible();
+  await report.getByRole('button', { name: /show details/i }).click();
+  await expect(report).toContainText('SVG text using inline-size flow');
+  await expect(report.getByText('SVG text using inline-size flow', { exact: true })).toHaveCount(1);
+  await report.getByRole('button', { name: 'Reveal selection' }).click();
+  await report.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('treeitem', { name: 'inline-flow' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('svg-inline-size-import-warning.png') });
 });
 
 test('explains why external SVG use references are absent after import', async ({

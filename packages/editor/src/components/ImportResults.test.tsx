@@ -208,6 +208,41 @@ describe('ImportResults', () => {
     expect(warningItems[0]?.getAttribute('data-code')).toBe('parser.warning');
   });
 
+  it('does not repeat an unsupported-feature message already shown as a file warning', () => {
+    const message = 'SVG <symbol> instances referenced through <use> (not imported)';
+    const result = {
+      startedAt: 0,
+      completedAt: 1,
+      durationMs: 1,
+      totalFiles: 1,
+      successCount: 0,
+      partialCount: 1,
+      failureCount: 0,
+      unsupportedCount: 0,
+      warnings: [],
+      files: [
+        {
+          name: 'symbol.svg',
+          source: 'file-picker' as const,
+          format: 'svg',
+          status: 'partial' as const,
+          byteCount: 1,
+          durationMs: 1,
+          nodeCount: 0,
+          artifacts: [],
+          warnings: [{ code: 'validation.warning', message, severity: 'warning' as const }],
+          unsupportedFeatures: [{ code: 'svg.symbol', feature: message, message }],
+        },
+      ],
+    };
+    const { container } = render(<ImportResults result={result} onClose={() => {}} />);
+    const toggle = container.querySelector('.import-results__toggle') as HTMLButtonElement;
+    fireEvent.click(toggle);
+    const warningItems = container.querySelectorAll('.import-results__file-warning-list li');
+    expect(warningItems).toHaveLength(1);
+    expect(warningItems[0]?.textContent).toBe(message);
+  });
+
   it('handles all-failed result', () => {
     const result = makeResult({ successCount: 0, failCount: 4 });
     render(<ImportResults result={result} onClose={() => {}} />);
