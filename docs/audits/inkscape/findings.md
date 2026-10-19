@@ -2307,3 +2307,69 @@ source follow-ups and missing attachment limits.
   twist rotation for new users. This is a close workflow match: make twist
   rotation opt-in by default, keep the existing setting, and test both states
   with real touch input.
+
+## IID 1841–1850 — stroke markers, effects, text movement, and color controls
+
+This batch adds ten reviewed threads (52 user comments and 68 history or
+system events) from the retained discussion cache. Upstream fixes are evidence
+about Inkscape; they do not establish the same defect in Varve.
+
+- [#1841](https://gitlab.com/inkscape/inkscape/-/issues/1841) reports that
+  the no-marker choice disappeared from Inkscape's stroke-end menu after a
+  UI regression; discussion narrowed it to an icon-name/pixbuf lookup and
+  identified the introducing commit. Varve currently exposes no stroke-marker
+  authoring menu, so there is no matching control to repair.
+- [#1842](https://gitlab.com/inkscape/inkscape/-/issues/1842) documents
+  intermittent crashes while grouping paths using Clone Original and Offset
+  live path effects, including related layer-move failures. Discussion reports
+  a fix in commit `33f9ad6c` and a reporter confirmation on master. Varve does
+  not implement these live path effects; generic grouping and undo tests do
+  not reproduce this effect-specific reference lifecycle.
+- [#1843](https://gitlab.com/inkscape/inkscape/-/issues/1843) found
+  PowerStroke affecting only the first subpath and hiding the remainder after
+  a split. It was fixed for Inkscape 1.3 by
+  [MR !4880](https://gitlab.com/inkscape/inkscape/-/merge_requests/4880),
+  which adds subpath support. Varve has no PowerStroke LPE or equivalent
+  per-subpath live width effect.
+- [#1844](https://gitlab.com/inkscape/inkscape/-/issues/1844) reports
+  unwrapped CDR text and compares Inkscape with LibreOffice's import result.
+  Follow-up links a CDR/PDF/SVG reproduction and LibreOffice report #136186.
+  CDR is outside Varve's declared import formats, so this does not justify a
+  new proprietary-format importer or a website capability claim.
+- [#1845](https://gitlab.com/inkscape/inkscape/-/issues/1845) reproduces a
+  crash on undo after an already-existing filter-primitive connection is
+  dragged back to its same target; its backtrace matches the separate
+  [#1688](https://gitlab.com/inkscape/inkscape/-/issues/1688). Varve exposes
+  filter parameters, not an editable primitive-connection graph, so the
+  no-op relink action cannot occur in the current UI.
+- [#1846](https://gitlab.com/inkscape/inkscape/-/issues/1846) reports a GTK
+  marker-list assertion tied to dialog/preferences state. Users could clear
+  the symptom by resetting the Inkscape profile; another report traced it to
+  marker-combo iterator invalidation, fixed in commit `21ce30ad`. Varve has no
+  GTK list store or stroke-marker dialog, and no corresponding native crash
+  has been observed.
+- [#1847](https://gitlab.com/inkscape/inkscape/-/issues/1847) remains an
+  open report of text-on-path objects jumping back on the first multi-object
+  move. The reporter's video shows the first attempt can move none, one, or
+  both objects and the second attempt then works. Varve has editable text on
+  path, but its current E2E coverage does not exercise first-drag movement of
+  a multi-selection containing path text. This is a direct workflow match and
+  remains an investigation item until reproduced or ruled out in Varve.
+- [#1848](https://gitlab.com/inkscape/inkscape/-/issues/1848) records a
+  development build failing to start on macOS because the dynamic loader
+  rejected a library's code signature. The reporter was directed to a newer
+  development build; this is a packaging artifact, not evidence of a Varve
+  runtime defect. Varve's signed/notarized release workflow remains a separate
+  platform validation requirement.
+- [#1849](https://gitlab.com/inkscape/inkscape/-/issues/1849) reports CMS
+  color sliders continuing to follow the pointer after release and value
+  entry becoming inconsistent across CMYK profiles. Varve offers RGB/CMYK
+  color entry but no CMS profile selector or profile-managed channel editing.
+  The pointer-release failure mode is still relevant to its color slider, so
+  a browser regression now checks that mouse movement after release cannot
+  keep changing the hue; this test is pending execution and visual review.
+- [#1850](https://gitlab.com/inkscape/inkscape/-/issues/1850) is a
+  shutdown-time `No toolname` debug warning, later removed during the dock
+  replacement; the reporter could not reproduce it after that change. It is
+  not a user-visible Varve workflow failure and no equivalent warning is
+  present in the application.
