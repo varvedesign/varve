@@ -2373,3 +2373,91 @@ about Inkscape; they do not establish the same defect in Varve.
   replacement; the reporter could not reproduce it after that change. It is
   not a user-visible Varve workflow failure and no equivalent warning is
   present in the application.
+
+## IID 1851–1860 — modifiers, text persistence, and PDF images
+
+This batch contains 37 user comments and 43 system/history events in the
+retained cache. Two issues (#1856 and #1860) report no user comments and have
+no note records. Source bodies, all available discussions, and the linked
+evidence listed below were reviewed; missing attachments were not executed.
+
+- [#1851](https://gitlab.com/inkscape/inkscape/-/issues/1851) reports
+  modifier combinations cancelling during live resize/rotation. The discussion
+  reproduces this in Inkscape 1.1-dev and points to
+  [MR !2250](https://gitlab.com/inkscape/inkscape/-/merge_requests/2250) and
+  [#1815](https://gitlab.com/inkscape/inkscape/-/issues/1815), a distinct
+  Ctrl/Shift-wheel navigation regression. Varve's `ScaleTool` reads modifier
+  state on each drag and has coverage for changing Shift during a resize, but
+  no test combines modifiers mid-gesture. Add that focused regression before
+  calling this workflow resolved.
+- [#1852](https://gitlab.com/inkscape/inkscape/-/issues/1852) documents the
+  missing Mesh-tool Show/Hide Handles action and other mesh controls. The
+  follow-up says the control still fails in Inkscape 1.4
+  ([#5668](https://gitlab.com/inkscape/inkscape/-/issues/5668)). Varve has no
+  mesh-gradient node or authoring tool; adding a full mesh subsystem is not
+  justified by a missing-toolbar-action report alone.
+- [#1853](https://gitlab.com/inkscape/inkscape/-/issues/1853) describes a
+  Windows crash on undo after repeatedly editing a filter-primitive slider.
+  It reproduced on Inkscape 1.0 and 1.3 Windows but not the reporter's Linux
+  Mint builds. [MR !4520](https://gitlab.com/inkscape/inkscape/-/merge_requests/4520)
+  tentatively mentioned it, but the reporter reopened the issue after
+  confirming the crash remained. Varve's supported effect controls do not
+  expose this editable Specular Lighting primitive, so no same-cause crash is
+  established; slider release and undo safety remain regression categories
+  for Varve's actual effect controls.
+- [#1854](https://gitlab.com/inkscape/inkscape/-/issues/1854) reproduces
+  paragraphs joining after save/reopen when legacy SVG 1.1 text is flowed into
+  a frame; SVG 2 text does not reproduce it. The discussion separates the
+  earlier justified-short-line report tracked in
+  [#1661](https://gitlab.com/inkscape/inkscape/-/issues/1661). Varve's PDF/SVG
+  import results explicitly identify unsupported flowed-text layout; the
+  reported Inkscape XML construct is outside the imported contract, so this
+  is not evidence that Varve's supported text round-trip loses newlines.
+- [#1855](https://gitlab.com/inkscape/inkscape/-/issues/1855) reports changed
+  word spacing on path text across Linux distribution upgrades. The thread
+  narrows the behavior to a Pango version change (1.42 versus 1.44/1.46) and
+  records differing results across fonts, package versions, and systems; the
+  apparent off-center glyph was not confirmed as part of the same defect.
+  Varve's text layout uses different runtime paths, but no Varve fixture or
+  cross-platform mismatch was demonstrated. Keep this as an open fidelity
+  check when a reproducible source fixture is available.
+- [#1856](https://gitlab.com/inkscape/inkscape/-/issues/1856) reports one PDF
+  image missing from a Poppler/Cairo page import and has zero user comments.
+  Varve's bounded PDF parser does not import image XObjects and reports them
+  as unsupported in Import Results; it does not claim complete PDF object
+  fidelity. This is an existing capability limit, not a silent omission in a
+  supported feature. Assess it with the related PDF-image findings before
+  expanding the importer contract.
+- [#1857](https://gitlab.com/inkscape/inkscape/-/issues/1857) is titled as a
+  snapping defect, but the reporter clarified that snapped artwork is correct
+  and the visible axonometric grid is misprojected during canvas rotation.
+  Inkscape later fixed the grid-rendering path in
+  [MR !7798](https://gitlab.com/inkscape/inkscape/-/merge_requests/7798),
+  which explicitly says its prior calculations assumed an unrotated view.
+  Varve has a separate camera-aware isometric overlay and rotated-camera unit
+  geometry, but no real-browser rotation visual assertion in the isometric
+  workflow suite. Add visual validation before marking the match resolved.
+- [#1858](https://gitlab.com/inkscape/inkscape/-/issues/1858) reports a
+  collision between Inkscape's `edit-select-all` icon name and generic Linux
+  icon themes. Varve uses its own UI icon components rather than resolving
+  that GTK theme name, so the reported substitution has no matching route.
+- [#1859](https://gitlab.com/inkscape/inkscape/-/issues/1859) concerns
+  transparent PostScript/PDF imagery imported through Inkscape's internal
+  route. Its long thread records several distinct failures: an alpha-mask
+  interpretation bug, a mismatched Poppler package causing a crash, and a
+  reproduction still present in 1.3 after the importer rewrite. The linked
+  [MR !4348](https://gitlab.com/inkscape/inkscape/-/merge_requests/4348)
+  fixed an image-mask alpha inversion associated with the separate historical
+  [#291 report](https://gitlab.com/inkscape/inkscape/-/issues/291); it does
+  not prove every #1859 symptom was resolved. Varve currently reports PDF
+  images as unsupported and imports no image bytes from those XObjects. If
+  PDF image support is expanded, soft masks, alpha polarity, and actionable
+  partial-import reporting are acceptance requirements; no matching Varve
+  rendering bug is yet established.
+- [#1860](https://gitlab.com/inkscape/inkscape/-/issues/1860) reports a
+  multi-selection flying across the canvas when horizontally flipped with a
+  path and flowed text at large positive X coordinates. It has zero user
+  comments. The reproducer depends on Inkscape flowed-text layout and a path
+  transform; Varve does not import that flowed-text form. The broader
+  transform/bounds interaction deserves a Varve regression only if the
+  supported area/path-text workflow reproduces the same failure.

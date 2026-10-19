@@ -1225,3 +1225,30 @@ its title, labels, or downloaded body.
   `pnpm verify:affected` again stopped at `audit:radius` on the same ten
   unchanged presentation/spec-panel declarations before downstream lanes.
   Full-suite escalation remains NO.
+
+## Resume update — 2026-10-19 00:55 UTC
+
+- Reviewed Inkscape IID 1851–1860 from the retained source cache and primary
+  linked sources. Eight note-bearing threads add 80 cached notes (37 user
+  comments, 43 system/history events); #1856 and #1860 report zero comments
+  and have no note records. The ledger now marks 1,051 note-bearing threads
+  content-reviewed out of 5,669; the summary's stale 1,047 figure was
+  reconciled to the ledger status count. The separate 32 user-note count
+  mismatches remain.
+- #1851 needs a combined live-modifier resize regression. #1857's report is
+  specifically a rotated visible-grid defect (snapping stayed correct); the
+  isometric workflow still needs a real-browser rotation screenshot. #1856
+  and #1859 are explicit PDF image-XObject capability limits in Varve, not
+  reproduced alpha-rendering defects: the current importer reports those
+  objects unsupported. #1852, #1853, #1854, #1855, #1858, and #1860 have the
+  issue-specific dispositions in `findings.md` and the ledger.
+- `pnpm typecheck:e2e` passed with the new #1847 first-drag multi-selection
+  regression. `pnpm audit:docs` and `git diff --check` passed after the
+  #1851–1860 source documentation update. The #1840 rotation pixel oracle,
+  #1849 slider-release browser test, #1847 interaction E2E, and website visual
+  capture still need execution. Their code remains uncommitted.
+- Commit `b442507ff` records the prior resume checkpoint. Current branch is
+  `feat/inkscape-corpus`; the other contributors' PDF E2E, codegen, and scene
+  changes remain unstaged and excluded from task commits. The shared browser
+  lease is still held by a live process in another worktree; do not reclaim
+  the lease or interrupt that process.
