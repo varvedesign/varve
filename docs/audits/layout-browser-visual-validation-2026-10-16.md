@@ -137,3 +137,8 @@ These browser checks cover a subset of the requested eight-document corpus. Gene
 - A broader leased Chromium batch was cancelled by its wrapper after 39 tests had run. The flow-child reorder case reported a closed page, and the next constraints case could not connect to the stopped Vite server; neither produced a layout assertion failure. The remaining cases in that batch were not run.
 - Once the shared browser lease cleared, reran those exact two cases in the isolated integration worktree with one Chromium worker: `11b - dragging a flow child reorders it within its flex frame` and `constraint section shows when child of frame is selected`. Both passed (**2/2**, 2.4 minutes). This confirms those interactions only; the unrun cases and full gate remain outstanding.
 - The cancelled batch's temporary Playwright trace bundle was absent after the focused rerun. No other worktree artifacts or active processes were removed during cleanup.
+
+### Track identity review follow-up — 2026-10-19
+
+- Post-integration review found that track removal preview fell back to numeric placement when a child carried a stale persistent track identity. That could turn invalid authored placement into a valid-looking rehome. The preview now rejects a missing identity on either grid axis and preserves the source document for correction.
+- Commit `ed9b58ccf` contains the fix and regression; it was cherry-picked onto local `master` as `db9a44081`. The focused grid-mutation file passed **4/4**, the full layout package passed **93/93**, and layout, editor, import, and desktop typechecks passed. The broader `pnpm verify:affected --staged` editor unit lane is still running; no completion is claimed for it yet.
