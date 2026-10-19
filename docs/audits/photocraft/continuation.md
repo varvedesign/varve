@@ -597,5 +597,8 @@ Last updated: 2026-10-18. Status: active and incomplete.
   building. Both desktop attempts were stopped before filesystem exhaustion,
   and only this worktree's generated Cargo target was cleaned. Desktop tests
   remain unverified due to shared disk capacity. The oversized Vitest sweep was
-  interrupted with SIGINT and must not be reported as passing. Final review of
-  the complete diff and integration into master remain pending.
+  interrupted with SIGINT and must not be reported as passing. A read-only
+  review of the committed GPU diff found no additional actionable defects, and
+  the #6424 and #4201 issue-inventory records now reflect the current evidence.
+  The focused Inspector unit and desktop Rust checks remain pending, as does
+  integration into master.
