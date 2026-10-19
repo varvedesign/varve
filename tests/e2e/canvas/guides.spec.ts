@@ -73,4 +73,34 @@ test.describe('Canvas guides', () => {
     const xAfter = await guideLine.getAttribute('x1');
     expect(Number.parseFloat(xAfter ?? '0')).toBeGreaterThan(guideX);
   });
+
+  test('Delete and Backspace keep a selected locked guide', async ({ page }) => {
+    const topRuler = page.locator('.ruler-canvas--top');
+    const box = await topRuler.boundingBox();
+    if (!box) throw new Error('top ruler not found');
+
+    await page.mouse.move(box.x + 100, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 140, box.y + box.height / 2);
+    await page.mouse.up();
+
+    const guideLine = page.locator('.guide-overlay__line').first();
+    await expect(guideLine).toHaveCount(1);
+    const guideX = Number.parseFloat((await guideLine.getAttribute('x1')) ?? '0');
+    const canvas = page.locator('.editor-canvas');
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('canvas not found');
+    await page.mouse.click(canvasBox.x + guideX, canvasBox.y + 40, { button: 'right' });
+    await page.getByRole('menuitem', { name: 'Lock' }).click();
+    await expect(guideLine).toHaveAttribute('stroke-dasharray', '4 2');
+
+    await page.mouse.click(canvasBox.x + guideX, canvasBox.y + 40);
+
+    await page.keyboard.press('Delete');
+    await expect(page.locator('.guide-overlay__line')).toHaveCount(1);
+    await page.keyboard.press('Backspace');
+    await expect(page.locator('.guide-overlay__line')).toHaveCount(1);
+    await expect(guideLine).toHaveAttribute('stroke-dasharray', '4 2');
+    await page.screenshot({ path: 'test-results/locked-guide-delete-guard.png' });
+  });
 });

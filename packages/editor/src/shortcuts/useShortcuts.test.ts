@@ -13,6 +13,49 @@ afterEach(() => {
 });
 
 describe('useShortcuts', () => {
+  it.each(['Delete', 'Del', 'Backspace'])('keeps a selected locked guide on %s', (key) => {
+    const removeGuide = vi.fn();
+    const setSelectedGuideId = vi.fn();
+    const removeSelected = vi.fn();
+    const editor = {
+      state: { selectedGuideId: 'guide-1', isolatedNodeId: null },
+      guides: [{ id: 'guide-1', axis: 'vertical', position: 120, locked: true }],
+      removeGuide,
+      removeSelected,
+      setSelectedGuideId,
+      recordAction: vi.fn(),
+    } as unknown as EditorContextValue;
+
+    renderHook(() => useShortcuts(editor));
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+    act(() => window.dispatchEvent(event));
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(removeGuide).not.toHaveBeenCalled();
+    expect(removeSelected).not.toHaveBeenCalled();
+    expect(setSelectedGuideId).not.toHaveBeenCalled();
+  });
+
+  it.each(['Delete', 'Del', 'Backspace'])('deletes an unlocked selected guide on %s', (key) => {
+    const removeGuide = vi.fn();
+    const setSelectedGuideId = vi.fn();
+    const editor = {
+      state: { selectedGuideId: 'guide-1', isolatedNodeId: null },
+      guides: [{ id: 'guide-1', axis: 'vertical', position: 120, locked: false }],
+      removeGuide,
+      setSelectedGuideId,
+      recordAction: vi.fn(),
+    } as unknown as EditorContextValue;
+
+    renderHook(() => useShortcuts(editor));
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+    act(() => window.dispatchEvent(event));
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(removeGuide).toHaveBeenCalledExactlyOnceWith('guide-1');
+    expect(setSelectedGuideId).toHaveBeenCalledExactlyOnceWith(null);
+  });
+
   it('uses the local Quick Actions toggle when the registry entry is a placeholder', () => {
     getActionRegistry().register(
       { id: 'quickActions', label: 'Quick Actions', category: 'view', placeholder: true },

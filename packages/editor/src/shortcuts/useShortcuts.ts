@@ -118,6 +118,26 @@ export function useShortcuts(
       if (shouldIgnoreShortcutTarget(e.target as Element | null)) return;
       if (e.isComposing) return;
 
+      const editor = ref.current;
+      const guideId = editor.state.selectedGuideId;
+      // A selected guide owns bare Delete/Backspace before the generic
+      // Delete shortcut can remove the document selection. Locked guides
+      // still consume the key so the canvas cannot fall through to deletion.
+      if (
+        guideId &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        (e.key === 'Delete' || e.key === 'Del' || e.key === 'Backspace')
+      ) {
+        e.preventDefault();
+        if (!editor.guides.find((guide) => guide.id === guideId)?.locked) {
+          editor.removeGuide(guideId);
+          editor.setSelectedGuideId(null);
+        }
+        return;
+      }
+
       // Commands registered with a declared binding but no SHORTCUT_DEFS entry
       // (menu-accelerator commands such as Find and Replace) are dispatched from
       // the registry, so their key path and their menu label cannot drift apart.
@@ -134,8 +154,6 @@ export function useShortcuts(
         return;
       }
 
-      const editor = ref.current;
-      const guideId = editor.state.selectedGuideId;
       if (guideId && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const step = e.shiftKey ? 10 : 1;
         if (e.key === 'ArrowLeft') {
@@ -160,12 +178,6 @@ export function useShortcuts(
         }
         if (e.key === 'Escape') {
           e.preventDefault();
-          editor.setSelectedGuideId(null);
-          return;
-        }
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-          e.preventDefault();
-          editor.removeGuide(guideId);
           editor.setSelectedGuideId(null);
           return;
         }
