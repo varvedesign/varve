@@ -35,7 +35,7 @@ import '../../styles/docs-prose.css';
         <h2>Laptop and tablet workflows</h2>
         <ul>
           <li><strong>Keyboard and trackpad:</strong> use the browser's normal keyboard and pointer routes when those devices are available. Varve does not detect whether a detachable keyboard is attached.</li>
-          <li><strong>Workspace layout:</strong> Appearance settings and View &gt; Workspace layout offer Automatic, Tablet, and Desktop. Automatic responds to the available CSS width and reported touch capabilities; it does not listen for a ChromeOS hinge or keyboard-attachment signal. The preference is independent of Drawing Input and density.</li>
+          <li><strong>Workspace layout:</strong> Appearance settings and View &gt; Workspace layout offer Automatic, Tablet, and Desktop. Automatic picks the tablet presentation only when touch or pen is the device's only pointer; a device that also exposes a mouse, trackpad, or fine pointer keeps the desktop layout (compact below 900 CSS px) unless you choose Tablet yourself, so touching a touchscreen laptop never hijacks the session. It does not listen for a ChromeOS hinge or keyboard-attachment signal. The preference is independent of Drawing Input and density.</li>
           <li><strong>Panel behavior:</strong> tablet presentation keeps a compact Inspector available without blocking the canvas; Layers and Resources open as dismissible drawers. Portrait uses a lower Inspector pane, and landscape reserves a side rail. Detailed Inspector editing can expand into a modal surface.</li>
           <li><strong>Keyboardless editing:</strong> the toolbar's Editing controls popover offers latched Constrain, From centre, and Bypass snap modifiers, one-shot deep selection, Duplicate, alignment, and layer-order actions. Appearance settings can mirror panel launchers for alternate reach.</li>
           <li><strong>Back navigation:</strong> when browser Back reaches Varve's same-page dismissal entry, the topmost eligible dialog or menu closes first. ChromeOS owns edge-swipe gestures, so this browser-emulated behavior does not certify physical gesture dispatch.</li>
@@ -53,6 +53,7 @@ import '../../styles/docs-prose.css';
             <tr><td>Use the active tool</td><td>One finger drag by default; switch to one-finger viewport navigation in Settings &gt; Drawing input</td><td>Keyboard shortcuts, command palette, or the Hand tool</td></tr>
             <tr><td>Pan the canvas</td><td>Two-finger drag</td><td>Hand tool, trackpad two-finger scroll, scrollbars/space-drag where available</td></tr>
             <tr><td>Zoom</td><td>Two-finger pinch</td><td>Status-bar zoom field, View menu, keyboard zoom, Zoom tool</td></tr>
+            <tr><td>Rotate the view</td><td>Two-finger twist is off by default. Enable it in Settings &gt; Drawing input, then twist during a pinch after about 5°; artwork never rotates.</td><td>View menu rotate commands, status-bar rotation chip with its reset control</td></tr>
             <tr><td>Recover from a second contact</td><td>The first provisional tool contact is cancelled for that pointer; both contacts become navigation-owned</td><td>Lift both fingers and start a fresh drawing contact</td></tr>
             <tr><td>Move or resize</td><td>Drag a selection or handle</td><td>Arrow-key nudge, Inspector position/size fields</td></tr>
             <tr><td>Context actions</td><td>Long-press (about 0.5 s) for the deep-selection menu</td><td>Right-click / two-finger tap with a trackpad or mouse</td></tr>
@@ -180,7 +181,7 @@ import '../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Accessibility</h2>
         <ul>
-          <li><strong>Target size:</strong> the project targets 44 CSS px for primary controls on coarse pointers and holds the WCAG 2.2 AA minimum of 24×24 CSS px (or the spacing exception) for dense chrome. The requirement is independent of zoom.</li>
+          <li><strong>Target size:</strong> the project targets 44 CSS px for primary controls on coarse pointers and holds the WCAG 2.2 AA minimum of 24×24 CSS px (or the spacing exception) for dense chrome. On-canvas targets follow the same floor where it helps without hurting precision: finger drags on path anchors, bezier handles, and page resize corners use a 24 CSS px touch tolerance, while mouse and pen keep the tighter radii dense path editing needs. Authored geometry never moves because its hit target grew. The requirement is independent of zoom.</li>
           <li><strong>No gesture-only actions:</strong> every drag and multipoint gesture has a single-pointer or keyboard equivalent, per WCAG 2.5.1 and 2.5.7.</li>
           <li><strong>Keyboard:</strong> panels and dialogs trap focus, return it on close, and close on <kbd>Esc</kbd>. The skip link and landmarks are present.</li>
           <li><strong>Screen readers:</strong> ChromeVox works in native Chrome. Google documents ChromeVox as supported only for the Terminal inside the Linux environment, so the Linux-app route is not a screen-reader path.</li>
@@ -220,7 +221,7 @@ import '../../styles/docs-prose.css';
   .docs-note {
     margin: -1rem 0 3rem;
     padding: 1rem 1.25rem;
-    border-left: 3px solid var(--accent-primary);
+    border-left: 1px solid var(--border-subtle);
     background: var(--surface-muted);
     color: var(--text-secondary);
     line-height: 1.7;
