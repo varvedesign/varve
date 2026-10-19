@@ -28,7 +28,7 @@
   "retrieved_user_notes": 32663,
   "retrieved_issue_discussions": 964,
   "discussion_snapshot_at_utc": "2026-10-18T18:05:33Z",
-  "discussion_review_status": "Note retrieval completed for all 5669 note-bearing issues at 2026-10-18T18:05:33Z, but reconciliation remains incomplete: 32663 of 32692 reported user notes were fetched and 32 per-issue count mismatches remain. Issue-ledger status currently marks 1142 of 5669 note-bearing issue threads content-reviewed; IID 1901–1910 added 99 cached notes (44 user comments, 55 system/history events) across ten threads; IID 1911–1920 added 120 cached notes (52 user comments, 68 system/history events) across ten threads; per-issue user-note totals reconcile; 12 zero-comment issue rows are also explicitly reviewed. Raw note retrieval remains a separate reconciliation: 32663 of 32692 reported user notes were fetched at 2026-10-18T18:05:33Z and 32 per-issue count mismatches remain; IID 1921–1930 reviewed 2026-10-19: 91 cached notes (51 user comments, 40 system/history events); issue-level reported user-note counts reconcile; IID 1931–1940 reviewed at 2026-10-19: 138 cached notes (45 user comments, 93 system/history events) across nine note-bearing threads; #1939 has zero reported comments and no note cache; per-issue user-comment totals reconcile. IID 1941–1950 reviewed at 2026-10-19: 120 cached notes (48 user comments, 72 system/history events) across ten threads; issue-level reported user-comment totals reconcile.",
+  "discussion_review_status": "Note retrieval completed for all 5669 note-bearing issues at 2026-10-18T18:05:33Z, but reconciliation remains incomplete: 32663 of 32692 reported user notes were fetched and 32 per-issue count mismatches remain. Issue-ledger status currently marks 1163 of 5669 note-bearing issue threads content-reviewed; IID 1901–1910 added 99 cached notes (44 user comments, 55 system/history events) across ten threads; IID 1911–1920 added 120 cached notes (52 user comments, 68 system/history events) across ten threads; per-issue user-note totals reconcile; 12 zero-comment issue rows are also explicitly reviewed. Raw note retrieval remains a separate reconciliation: 32663 of 32692 reported user notes were fetched at 2026-10-18T18:05:33Z and 32 per-issue count mismatches remain; IID 1921–1930 reviewed 2026-10-19: 91 cached notes (51 user comments, 40 system/history events); issue-level reported user-note counts reconcile; IID 1931–1940 reviewed at 2026-10-19: 138 cached notes (45 user comments, 93 system/history events) across nine note-bearing threads; #1939 has zero reported comments and no note cache; per-issue user-comment totals reconcile. IID 1941–1950 reviewed at 2026-10-19: 120 cached notes (48 user comments, 72 system/history events) across ten threads; issue-level reported user-comment totals reconcile. IID 1951–1960 reviewed at 2026-10-19: 145 cached notes (77 user, 68 system/history) across ten threads; #1954 has one retrieval mismatch. IID 1961 reviewed: 36 cached notes (13 user, 23 system/history), with all 13 reported user comments retrieved; its focused Varve fill-opacity clone regression reproduced and now passes, while package/browser/visual validation remains pending.",
   "body_screening_counts": {
     "pending": 0,
     "reviewed": 6390,
@@ -95,18 +95,18 @@
     1912, 1913, 1914, 1915, 1916, 1917, 1918, 1919, 1920, 1921, 1922, 1923, 1924, 1925, 1926, 1927,
     1928, 1929, 1930, 1931, 1932, 1933, 1934, 1935, 1936, 1937, 1938, 1939, 1940, 1941, 1942, 1943,
     1944, 1945, 1946, 1947, 1948, 1949, 1950, 1951, 1952, 1953, 1954, 1955, 1956, 1957, 1958, 1959,
-    1960, 1984, 2069, 2097, 2229, 2378, 2401, 2403, 2404, 2405, 2406, 2407, 2409, 2410, 2411, 2412,
-    2413, 2414, 2415, 2416, 2417, 2418, 2419, 2420, 2421, 2422, 2424, 2425, 2426, 2427, 2428, 2429,
-    2431, 2432, 2433, 2434, 2435, 2437, 2438, 2439, 2440, 2441, 2442, 2444, 2445, 2446, 2447, 2448,
-    2449, 2450, 2452, 2453, 2454, 2455, 2456, 2457, 2458, 2459, 2460, 2461, 2462, 2463, 2464, 2465,
-    2466, 2467, 2468, 2469, 2470, 2471, 2472, 2473, 2474, 2475, 2476, 2478, 2479, 2481, 2482, 2483,
-    2484, 2485, 2486, 2487, 2488, 2489, 2490, 2491, 2492, 2493, 2494, 2495, 2496, 2497, 2498, 2499,
-    2500, 2502, 2503, 2504, 2505, 2506, 2508, 2510, 2511, 2512, 2513, 2514, 2516, 2517, 2518, 2519,
-    2520, 2521, 2522, 2523, 2525, 2526, 2527, 2529, 2530, 2531, 2532, 2534, 2535, 2536, 2537, 2538,
-    2539, 2540, 2541, 2542, 2543, 2544, 2545, 2546, 2547, 2548, 2549, 2552, 2553, 2554, 2555, 2556,
-    2557, 2559, 2560, 2561, 2562, 2565, 2566, 2567, 2568, 2570, 2571, 2572, 2574, 2575, 2576, 2577,
-    2579, 2581, 2582, 2583, 2584, 2585, 2586, 2587, 2588, 2589, 2590, 2592, 2593, 2594, 2595, 2596,
-    2597, 2598, 2599, 2600, 4702, 5782, 5887, 5910, 5924, 5939, 5956, 5960
+    1960, 1961, 1984, 2069, 2097, 2229, 2378, 2401, 2403, 2404, 2405, 2406, 2407, 2409, 2410, 2411,
+    2412, 2413, 2414, 2415, 2416, 2417, 2418, 2419, 2420, 2421, 2422, 2424, 2425, 2426, 2427, 2428,
+    2429, 2431, 2432, 2433, 2434, 2435, 2437, 2438, 2439, 2440, 2441, 2442, 2444, 2445, 2446, 2447,
+    2448, 2449, 2450, 2452, 2453, 2454, 2455, 2456, 2457, 2458, 2459, 2460, 2461, 2462, 2463, 2464,
+    2465, 2466, 2467, 2468, 2469, 2470, 2471, 2472, 2473, 2474, 2475, 2476, 2478, 2479, 2481, 2482,
+    2483, 2484, 2485, 2486, 2487, 2488, 2489, 2490, 2491, 2492, 2493, 2494, 2495, 2496, 2497, 2498,
+    2499, 2500, 2502, 2503, 2504, 2505, 2506, 2508, 2510, 2511, 2512, 2513, 2514, 2516, 2517, 2518,
+    2519, 2520, 2521, 2522, 2523, 2525, 2526, 2527, 2529, 2530, 2531, 2532, 2534, 2535, 2536, 2537,
+    2538, 2539, 2540, 2541, 2542, 2543, 2544, 2545, 2546, 2547, 2548, 2549, 2552, 2553, 2554, 2555,
+    2556, 2557, 2559, 2560, 2561, 2562, 2565, 2566, 2567, 2568, 2570, 2571, 2572, 2574, 2575, 2576,
+    2577, 2579, 2581, 2582, 2583, 2584, 2585, 2586, 2587, 2588, 2589, 2590, 2592, 2593, 2594, 2595,
+    2596, 2597, 2598, 2599, 2600, 4702, 5782, 5887, 5910, 5924, 5939, 5956, 5960
   ],
   "reviewed_issue_body_iid_ranges": [
     "1-132",
@@ -349,5 +349,5 @@
       "retrieved_user_notes": 8
     }
   },
-  "engineering_disposition": "; IID 1901–1910 reviewed; #1905 fix implemented with focused unit and browser coverage pending execution; no additional Varve behavior change selected; IID 1911–1920 reviewed; no new Varve code change selected; native macOS coordinate behavior from #1913 remains unverified; #1934 screen-PDF raster images now use ICCBased sRGB for canvas-decoded RGB samples, with Rust structural test and Poppler render; source ICC profile round-trip remains unimplemented and is not claimed. IID 1941–1950 reviewed; real-pointer #1946 Layers selection-sync regression added and passed in focused Chromium, with both interaction screenshots inspected; no additional production changes selected. IID 1951–1960 reviewed; #1953 menu wording distinguishes the fixed CMYK approximation from ICC proofing (visual validation pending); #1960 exposes a dashed-stroke expansion gap for focused follow-up; other reports have no matching Varve path or remain platform-unverified."
+  "engineering_disposition": "; IID 1901–1910 reviewed; #1905 fix implemented with focused unit and browser coverage pending execution; no additional Varve behavior change selected; IID 1911–1920 reviewed; no new Varve code change selected; native macOS coordinate behavior from #1913 remains unverified; #1934 screen-PDF raster images now use ICCBased sRGB for canvas-decoded RGB samples, with Rust structural test and Poppler render; source ICC profile round-trip remains unimplemented and is not claimed. IID 1941–1950 reviewed; real-pointer #1946 Layers selection-sync regression added and passed in focused Chromium, with both interaction screenshots inspected; no additional production changes selected. IID 1951–1960 reviewed; #1953 menu wording distinguishes the fixed CMYK approximation from ICC proofing (visual validation pending); #1960 exposes a dashed-stroke expansion gap for focused follow-up; other reports have no matching Varve path or remain platform-unverified. IID 1961 reviewed; Varve SVG import drops fill-opacity on simple shapes despite parsing #rgb and expanding <use>; focused regression reproduced and local alpha fix passes, pending affected package and visual checks."
 }

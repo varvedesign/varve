@@ -2,6 +2,50 @@
 
 Last updated: 2026-10-19.
 
+## Resume checkpoint — 2026-10-19 10:26 UTC
+
+- IID 1961's 13 user comments and 23 system/history events (36 cached notes)
+  were reviewed. Inkscape's footer regression was closed after MR !3080's
+  viewBox change and !3146's style-source propagation fix; neither is the same
+  implementation path as Varve's importer. The notes' minimal SVG also
+  exposed a matching observable defect in Varve: repeated `<use>` instances
+  keep shorthand `#e5e` RGB correctly but lose `fill-opacity=".1"` on the
+  basic shape's top-level fill color.
+- Added a regression in `packages/import/src/svg.test.ts`. Its first run failed
+  for the expected reason (alpha 255 instead of 26); the focused test passed
+  after `applyStylesToNode` began clamping and applying `fill-opacity` to the
+  stored fill alpha as well as existing fill-array opacity. The focused import
+  regression and complete `@varve/import` unit suite passed. E2E typecheck and
+  import/editor/desktop typechecks passed. The full editor suite exceeded the
+  affected lane's 5-minute limit; a direct retry continued for more than 12
+  minutes while Vitest workers stayed busy and root free space fell below 250
+  MB, so only that run was stopped. The first affected attempt hit ENOSPC before
+  completing the same suite. The desktop unit suite passed (15 files, 90
+  tests).
+- Added a permanent SVG-import E2E in
+  `tests/e2e/canvas/file-import.spec.ts` that loads repeated legacy
+  `xlink:href` instances with shorthand color and `.1` opacity and captures a
+  canvas screenshot. The lease-wrapped Chromium regression now passes and its
+  screenshot was inspected: both unselected repeated-use shapes render with
+  the expected faint magenta fill, without selection overlays. A rerun without
+  updating the baseline also passes. The full file-import spec passed (7/7),
+  the import domain passed (12/12), and the export domain passed (14/14), all
+  under the heavy-task lease. Chromium used the pure-TypeScript fallback, so
+  these browser results do not certify the native renderer.
+- Slice 1951–1960 is committed locally as `48486f5bd` but not pushed. Its
+  exact-ref push checkpoint passed local lanes; the actual pre-push hook
+  refused to create its disposable target worktree because the root filesystem
+  is full. The repository is at `217/230 GB` with only `1.3 GB` reported
+  available; do not bypass the hook or remove another session's files. Recheck
+  capacity after concurrent work finishes and retry safely, potentially using
+  `/dev/shm` only if available memory is sufficient.
+- Discussion review progress is now 1,163/5,669 threads (IID 1961 adds 36
+  notes: 13 user comments and 23 system/history events; its reported comment
+  count reconciles). The 32 unrelated inventory retrieval mismatches remain.
+  Continue with IID 1962 after the current #1961 affected checks, and retain
+  #1953's menu screenshot as visually pending because Chromium exhausted
+  resources before the app mounted.
+
 ## Resume checkpoint — 2026-10-19 09:54 UTC
 
 - PR #143's merge SHA `1946efe80b6c39c61fbdcf7667783dcf9f730bd1` is on
