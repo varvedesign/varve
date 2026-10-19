@@ -120,4 +120,24 @@ describe('grid track mutations', () => {
     ).toBeUndefined();
     expect(doc.nodes.a?.gridPlacement?.gridColumnStart).toBe(2);
   });
+
+  it('refuses removal previews when a placement references a missing track identity', () => {
+    const doc = makeDocument();
+    const child = doc.nodes.a;
+    if (!child) throw new Error('fixture child missing');
+    doc.nodes.a = {
+      ...child,
+      gridPlacement: {
+        ...child.gridPlacement,
+        gridColumnStartTrackId: 'deleted-track',
+      },
+    };
+
+    const preview = previewRemoveGridTrack(doc, 'frame', 'columns', 'grid-frame-column-2');
+
+    expect(preview?.valid).toBe(false);
+    expect(preview?.placements).toEqual({});
+    expect(preview?.resolvedDocument).toBe(doc);
+    expect(doc.nodes.a?.gridPlacement?.gridColumnStartTrackId).toBe('deleted-track');
+  });
 });
