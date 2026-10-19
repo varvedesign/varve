@@ -1,6 +1,6 @@
 # Continuation record
 
-Last updated: 2026-10-18 (session 6).
+Last updated: 2026-10-18 (session 7).
 
 ## Frozen baseline
 
@@ -665,3 +665,35 @@ Full suite run: no local full suite; one remote manual full-matrix diagnostic wa
    handled, 2 implemented). The issue bodies are read, but relevant linked
    evidence, attachments and Varve workflows remain open as listed in
    `findings.md` and `link-frontier.jsonl`.
+
+## Session 7 — integration and image-resolution review
+
+- The PDF drop-shadow compositing batch was merged to `master` as PR #138 at
+  `f78093a911042b14208ff56f1f35b2460da589b6`. The merge included authored-PDF
+  compositing, PDF/X-1a refusal behavior, regression coverage, export guidance,
+  and matching website copy. Exact-SHA CI passed before merge. Website Deploy
+  run 39178264332 was still in progress at the last check; verify its final
+  status before treating the marketing update as live.
+- This continuation worktree is `/tmp/varve-photocraft-integration-ours`, on
+  `codex/pdfcraft-next-audit`, based on that merged master SHA. The separate
+  main checkout and the ChatGPT Linux app were left open; no other processes or
+  leases were stopped or reclaimed.
+- Follow-up comparison research found a distinct image-export tradeoff:
+  Penpot #7047 reports low-resolution placed-image PDFs, while DesignCraft
+  #1268 reports preserved 1019 ppi JPEGs with unchanged 9.5 MB output and no
+  target-PPI control. Findings §4.11 now records both user needs and Varve's
+  actual boundary: print manifests preserve decoded source dimensions up to a
+  192 MiB decoded-pixel cap; the current Rust assertion covers only a 32 × 32
+  image object, not realistic high-resolution output or file-size behavior.
+  No marketing edit was needed for this research-only documentation slice:
+  the current site makes no image-downsampling or image-compression promise.
+- Validation report for the findings/continuation update:
+
+  ```text
+  Changed scope: docs/audits/photocraft/findings.md and continuation.md.
+  Validation plan: pnpm verify:plan selected format:touched, lint:touched, audit:emoji, and audit:docs; FULL-SUITE NO.
+  Commands actually run: pnpm verify:plan; pnpm verify:affected.
+  Passed: emoji audit (5310 files); docs audit (1140 docs, 823 links, 178 ADRs); affected validation exited 0.
+  Skipped as unrelated: touched-file formatter/linter (no Biome-compatible changed files); Rust, website E2E, and full visual suite (docs-only scope).
+  Escalations: none. Full suite run: no.
+  ```
