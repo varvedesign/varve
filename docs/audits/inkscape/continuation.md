@@ -4,10 +4,9 @@ Last updated: 2026-10-18.
 
 ## Resume checkpoint — 2026-10-19 00:40 UTC
 
-- The corpus and implementation target are Inkscape's issue tracker. The
-  pasted brief contains stale “Photocraft” wording, but names Inkscape as the
-  source. Do not redirect this work to another project. The current isolated
-  branch is `feat/inkscape-corpus`, at `f060567e6`; the latest issue notes
+- The corpus and implementation target are Inkscape's issue tracker, as the
+  brief specifies. Do not redirect this work to another project. The current
+  isolated branch is `feat/inkscape-corpus`, at `f060567e6`; the latest issue notes
   reviewed are #1841–1850, bringing substantive discussion review to 1,047 of
   5,669 note-bearing threads. The source baseline remains 6,392 unique issues.
 - The #1840 change (rotation off by default, settings copy, behavior matrix,

@@ -2612,3 +2612,64 @@ outcome.
   build failure caused by missing sentinel arguments, fixed upstream by MR
   !3377. It concerns compile-time portability, not user-visible drawing or
   export behavior in Varve.
+
+## IID 1881–1890 — path measurement, text flow, and file output
+
+The retained note cache contains 77 user comments and 62 system/history events
+for this batch. All user notes and material resolution events were reviewed;
+the per-issue user-note counts reconcile. #1881 has zero reported comments and
+no note-cache file.
+
+- [#1881](https://gitlab.com/inkscape/inkscape/-/issues/1881) asks for path
+  perimeter in the XML Editor while reporting that the Measure Path extension
+  stopped working in Inkscape 1.0.1. Varve has no XML Editor or user-facing
+  path-length readout (the engine computes path length internally for text on
+  paths). This is a potential workflow feature request, not a parity defect in
+  an existing Varve control; no UI expansion is selected in this increment.
+- [#1882](https://gitlab.com/inkscape/inkscape/-/issues/1882) reports a
+  negative `SPDocument` reference count on close after a copy/draw workflow.
+  The thread records it fixed for Inkscape 1.1 by MR !2005. This is an upstream
+  lifetime bug in Inkscape's native document model; no matching Varve close
+  defect is established.
+- [#1883](https://gitlab.com/inkscape/inkscape/-/issues/1883) reports copied
+  text-on-path changing size or position and was closed as a duplicate of
+  [#853](https://gitlab.com/inkscape/inkscape/-/issues/853). Varve's subtree
+  clone remaps a text node's path reference when both are copied, with a
+  regression in `packages/scene/src/__tests__/clone.test.ts`; the focused test
+  is pending. The current report does not establish a Varve behavior defect.
+- [#1884](https://gitlab.com/inkscape/inkscape/-/issues/1884) reports a
+  Windows 8.1 crash when grouping a Clone Original Live Path Effect. The thread
+  has mixed reproductions and links the same crash backtrace to #1842. It was
+  fixed by Inkscape commit `33f9ad6c` and cherry-picked to 1.0.2. Varve does
+  not implement Clone Original LPEs, so this crash route is absent.
+- [#1885](https://gitlab.com/inkscape/inkscape/-/issues/1885) reports Clone
+  Original being added when opening the LPE picker on a clone, then crashing
+  when removed. #1886 describes a related crash while moving such a clone out
+  of a clip group; replies connect it to #1884 and report the same upstream
+  fix. Varve has no clone-original LPE or corresponding editor flow.
+- [#1887](https://gitlab.com/inkscape/inkscape/-/issues/1887) reports line
+  breaks lost when resizing SVG 2 `inline-size` text and editing it through
+  Inkscape's Text and Font dialog. This is an editing defect in the source
+  application. During Varve source review, the related import format exposed
+  a separate silent degradation: CSS `inline-size` layout was ignored while
+  the plain text remained. Varve now retains that text and reports the
+  unsupported flow layout in Import Results; the parser check passes, and the
+  browser import-report screenshot is pending.
+- [#1888](https://gitlab.com/inkscape/inkscape/-/issues/1888) reports the
+  MDN `<symbol>`/`<use>` example appearing misplaced and was moved to the Inbox
+  for triage, so a confirmed Inkscape fix is not established. It reinforces
+  the separate fidelity gap already found under #1870: Varve now identifies
+  local `<symbol>` instances referenced through `<use>` as unsupported instead
+  of silently omitting them. Parser, Import Results browser, and marketing
+  guide validation are pending.
+- [#1889](https://gitlab.com/inkscape/inkscape/-/issues/1889) reports a
+  ghost docking dialog after sharing 1.0 preferences with 1.1-dev. The thread
+  says this was obsolete after replacing the GDL docking system. Varve's UI
+  layout and settings migration are different; no equivalent dialog defect
+  is established.
+- [#1890](https://gitlab.com/inkscape/inkscape/-/issues/1890) reports
+  `--export-filename` discarding its directory when `--export-type` is omitted;
+  a follow-up confirms the path works when the type is explicitly supplied.
+  Inkscape MR !4691 later repaired inconsistent export-filename behavior and
+  `~` expansion. Varve's CLI does not expose an equivalent vector-export flag,
+  so this particular CLI contract is not present.
