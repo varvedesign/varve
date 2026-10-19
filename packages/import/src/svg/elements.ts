@@ -542,10 +542,19 @@ function applyStylesToNode(
 
   if (fillOpacity) {
     const fop = parseFloat(fillOpacity);
-    if (!Number.isNaN(fop) && 'fills' in result && result.fills && result.fills.length > 0) {
-      const fills = [...result.fills];
-      fills[0] = { ...fills[0]!, opacity: fop };
-      result = { ...result, fills } as SceneNode;
+    if (Number.isFinite(fop)) {
+      const opacity = Math.max(0, Math.min(1, fop));
+      if ('fills' in result && result.fills && result.fills.length > 0) {
+        const fills = [...result.fills];
+        const firstFill = fills[0]!;
+        fills[0] = { ...firstFill, opacity: (firstFill.opacity ?? 1) * opacity };
+        result = { ...result, fills } as SceneNode;
+      } else if ('fill' in result && result.fill) {
+        result = {
+          ...result,
+          fill: { ...result.fill, a: Math.round(result.fill.a * opacity) },
+        } as SceneNode;
+      }
     }
   }
 

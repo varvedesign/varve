@@ -517,7 +517,7 @@ export const SHORTCUT_DEFS = {
   },
   softProof: {
     binding: { key: 'y', ctrl: true, shift: true },
-    label: 'Toggle Soft Proofing',
+    label: 'Toggle Approximate CMYK Preview',
     category: 'View',
   },
   canvasModeOutline: {
