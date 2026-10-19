@@ -62,8 +62,10 @@ from fixed-on-scroll. Hug measures content; it is not a one-time resize action.
 9. Invalid layouts keep their last materialized geometry. The bounded grid
    solver returns typed failure reasons and the layout inspector explains
    invalid track syntax or identities, bounds, gaps, cell anchors, collisions,
-   and track/placement limits without mutating the document. Flex overflow and
-   nested layout-cycle feedback remain deferred.
+   and track/placement limits without mutating the document. Flex reports
+   invalid bounds/results and visible main-axis overflow; invalid geometry
+   keeps the last materialized child positions. Nested layout-cycle feedback
+   remains deferred.
 10. Supported importers preserve editable rules and cell anchors. If a source
     layout cannot be represented, import keeps its fixed geometry and reports
     the unsupported fields instead of attaching a partial live layout.
@@ -81,6 +83,8 @@ from fixed-on-scroll. Hug measures content; it is not a one-time resize action.
 | Center constraint on an older file | Existing proportional behavior remains unchanged |
 | One child in Between/Around/Evenly; zero, spare, or negative free space | Results are deterministic, non-negative for auto spacing, and preserve explicit signed gaps only |
 | Invalid track input, colliding spans, oversized repeat/count/depth | No unbounded work or geometry overwrite; the inspector reports the bounded grid failure |
+| Flex minimum sizes exceed available main-axis space | Finite child rectangles remain visible and the inspector reports overflow |
+| Flex bounds or resolved geometry are non-finite | Reflow keeps prior child geometry and the inspector explains the invalid layout |
 | Save/reopen, duplicate/detach, importer first edit, undo/redo | Authored sizing/track/anchor rules remain editable and the initiating edit is one undo entry |
 
 ## Consequences
