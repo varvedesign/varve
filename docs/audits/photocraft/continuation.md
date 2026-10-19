@@ -120,6 +120,23 @@ Full suite run: no.
 If yes, reason: n/a.
 ```
 
+### Post-rebase validation — 2026-10-19
+
+The branch was rebased onto `origin/master` at `1946efe80` (Inkscape corpus PR
+#143) after the prior validation report. That merge added separate touch-and-pen
+and print-production website changes, an E2E layer test, and Inkscape audit
+records. The rebase completed without conflicts; the PdfCraft save implementation
+and marketing copy did not need changes.
+
+```text
+Changed scope: same 23-file PdfCraft branch diff, rebased onto master 1946efe80.
+Validation plan: pnpm verify:plan selected 19 lanes / 18 commands; FULL-SUITE NO.
+Commands actually run: pnpm verify:plan; pnpm verify:affected; pnpm exec vitest run packages/editor/src/SelectionOverlay.test.tsx; pnpm build:website; pnpm build:website:pages; lease-wrapped pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/visual.spec.ts --workers=1 --reporter=list.
+Passed: formatting/lint; radius/docs/emoji audits; E2E and website-E2E typechecks; website and editor typechecks; focused download-only save tests (5); save coordinator tests (4); website unit suite (307); representative editor SelectionOverlay suite (51); website build (126 routes, 0 Astro errors/warnings/hints); website visual suite (26/26), including homepage, footer, product, download guidance, touch-and-pen, and theme captures.
+Skipped as unrelated: native GUI matrix, benchmarks, packaging/signing, Rust workspace tests, and browser lanes outside the website visual spec.
+Escalations: the complete affected editor Vitest lane ran 900 files and ended with 716 suites passed, 2 skipped, and 182 failed at ENOSPC while writing; 6,840 tests passed and 2 skipped before the storage error. The directly rerun SelectionOverlay suite passed (51). The remaining affected editor-package, desktop-package, menu-browser, and full website-browser lanes were not rerun by this affected invocation. Earlier successful full editor and website coverage is recorded in the preceding report against the pre-#143 base; remote CI is still required for this rebased SHA. Full suite run: no.
+```
+
 ### Rebased integration validation — 2026-10-19
 
 The four task commits were rebased onto `origin/master` at
