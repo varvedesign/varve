@@ -155,6 +155,29 @@ and [`alternate rotation`](../screenshots/dependency-aware-composition/poster-gr
 This is one alternate-zoom and one rotation parity check on the Canvas2D
 fallback, not a broad zoom/DPR/rotation matrix or native WebView validation.
 
+On 2026-10-19 the four tests in `visual-compositing.spec.ts` passed in Chromium
+(3.8 minutes for the file). This included nested isolated opacity, the
+independent-group/cache-bypass comparison, the imported poster workflow, and
+the clip-mask canvas check. In the independent-group test, disabling retention
+left `keyBuildCount` unchanged, reported a bounded `cache-disabled` reason, and
+produced the same canvas pixel hash as the retained frame. The imported poster
+cached and cache-bypassed child captures were byte-identical (SHA-256
+`2cd7f616fce1028a86eb7cc651aa79186c2cf3518cd76b3cb97bc76fc40bc87d`); both
+were inspected at full viewport size. The latest captured zoom and rotated
+frames were also visually inspected. The cached/bypassed pair is archived as
+[`cached`](../screenshots/dependency-aware-composition/poster-grouped-child-2026-10-19-cached.png)
+and [`cache bypassed`](../screenshots/dependency-aware-composition/poster-grouped-child-2026-10-19-bypassed.png).
+
+Runtime diagnostics for the controlled twelve-shape case reported 36 avoided
+shape leaves after an independent edit. The retained replay samples were 0.3,
+0.3, 2.4, 0.1, 0.3, 0.3, and 0.4 ms; the cache-disabled samples were 0.8, 1.1,
+1.6, 1.8, 1.2, 1.6, and 1.6 ms. In a separate seven-sample diagnostics toggle,
+both detailed-on and detailed-off medians quantized to 0.3 ms. These browser
+replay-stage measurements are noisy and do not establish a smoothness gain,
+diagnostics overhead budget, or presentation-latency result. This run again
+used the pure-TypeScript fallback because WASM could not load; it does not
+establish WASM or native WebView parity.
+
 ## Budget and current limits
 
 Unit coverage verifies LRU and metadata-entry eviction, overlong-key refusal,
