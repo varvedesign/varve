@@ -932,3 +932,36 @@ Escalations: none. The initial affected editor Vitest lane hit ENOSPC after 893 
 Full suite run: no.
 If yes, reason: n/a.
 ```
+
+## 2026-10-19 post-cutoff issue reconciliation — zoom settling
+
+- Re-read PdfCraft [#3266](https://github.com/storytold/pdfcraft/issues/3266)
+  after the cutoff-C snapshot. The issue is now closed by merged
+  [PR #3350](https://github.com/storytold/pdfcraft/pull/3350), commit
+  `9d23505`. The PR description confirms the page jump came from a zoom-anchor
+  scroll offset beyond the reader's content bounds; the UI toolkit clamped it
+  only after drawing the frame.
+- Varve's authoring canvas has no corresponding page-scroll bounds. Its
+  `zoomAboutPoint` solves pan from the world anchor, its wheel handler previews
+  each camera update directly, and the repository already tests anchor
+  preservation at unit and browser levels. This PdfCraft reader-specific
+  failure was not reproduced or mapped to a Varve defect. Findings §4.28 and
+  the recursive link frontier now include the merged source fix and this
+  product-boundary assessment. The frozen cutoff-C disposition remains intact.
+- The full research and engineering queue remains open: cutoff A still has
+  408 `screened-for-varve` records, cutoff B has 37, and cutoff C has four
+  additional `screened-for-varve` records after the zoom item was resolved as
+  an existing invariant / product-model difference. Recursive linked evidence,
+  user artifacts, and queued Varve workflows remain outstanding; this update
+  does not claim complete corpus review.
+
+### Agent Validation Report — zoom-settle reconciliation
+
+```text
+Changed scope: PdfCraft cutoff-C findings, recursive link frontier, and continuation record; documentation only.
+Validation plan: pnpm verify:plan selected format:touched, lint:touched, audit:emoji, and audit:docs; FULL-SUITE NO.
+Commands actually run: pnpm verify:plan; pnpm verify:affected; git diff --check.
+Passed: affected validation (emoji and docs audits; format/lint correctly skipped because no compatible source files changed); diff whitespace check; source issue and merged PR reviewed; existing camera unit and browser test paths inspected.
+Skipped as unrelated: application tests and visual E2E were not rerun because this batch changes only audit documentation and records existing coverage.
+Escalations: none. Full suite run: no.
+```

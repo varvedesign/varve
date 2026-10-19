@@ -1192,10 +1192,19 @@ called complete merely because its source issue is closed or a source PR is open
   manipulation, and no speculative handle UI was added in this pass.
 - **Additional Varve-adjacent reports — screened, not reproduced.** PdfCraft
   [#3266](https://github.com/storytold/pdfcraft/issues/3266) reports a page
-  that jumps after zoom settles. Varve's camera keeps the world point under a
-  zoom anchor fixed, with unit coverage in `packages/shared/src/viewport.test.ts`
-  and `packages/editor/src/tools/zoom.test.ts`; the report's page-view settle
-  behavior has not been reproduced in Varve. PdfCraft
+  that jumps after zoom settles. Its later
+  [merged fix, PR #3350](https://github.com/storytold/pdfcraft/pull/3350),
+  confirms the cause: the paginated reader could draw a zoom-anchor scroll
+  beyond the content bounds for one frame before the UI toolkit clamped it.
+  Varve's authoring canvas has no page-scroll boundary; it solves camera pan
+  directly from the world point under the zoom anchor in
+  `packages/shared/src/viewport.ts`, and the wheel path previews that camera
+  without a separate settle animation in `packages/editor/src/canvas/inputPipeline.ts`.
+  Unit coverage checks the anchor through zoom and clamping, and
+  `tests/e2e/canvas/input-navigation.spec.ts` checks repeated cursor-anchored
+  Ctrl-wheel zoom in the browser. The PdfCraft page-boundary failure therefore
+  does not map to Varve's current canvas model; no matching jump was reproduced
+  and no code change is justified. PdfCraft
   [#3284](https://github.com/storytold/pdfcraft/issues/3284) and
   [#3317](https://github.com/storytold/pdfcraft/issues/3317) request opaque
   fills and thicker borders for text boxes/callouts. Varve callout bodies are
