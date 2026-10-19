@@ -155,4 +155,100 @@ describe('GridPlacementFields', () => {
       expect(placement.gridRowSpan).toBe(1);
     });
   });
+
+  it('preserves each selected child’s span and row anchor when changing a mixed column start', async () => {
+    let sceneDocument = createDocument('grid-placement-multiselect');
+    const parent = makeFrameNode('parent', {
+      name: 'Grid parent',
+      layoutStyle: {
+        ...GRID_STYLE,
+        gridColumnTracks: [
+          { id: 'column-a', size: '1fr' },
+          { id: 'column-b', size: '1fr' },
+          { id: 'column-c', size: '1fr' },
+        ],
+        gridRowTracks: [
+          { id: 'row-a', size: 'auto' },
+          { id: 'row-b', size: 'auto' },
+        ],
+      },
+    });
+    const firstChild = {
+      ...makeShapeNode('first-child', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }),
+      gridPlacement: {
+        gridColumnStartTrackId: 'column-a',
+        gridColumnSpan: 2,
+        gridRowStartTrackId: 'row-a',
+        gridRowSpan: 1,
+      },
+    };
+    const secondChild = {
+      ...makeShapeNode('second-child', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }),
+      gridPlacement: {
+        gridColumnStartTrackId: 'column-b',
+        gridColumnSpan: 1,
+        gridRowStartTrackId: 'row-b',
+        gridRowSpan: 1,
+      },
+    };
+    sceneDocument = addNode(sceneDocument, parent);
+    sceneDocument = addChild(sceneDocument, parent.id, firstChild);
+    sceneDocument = addChild(sceneDocument, parent.id, secondChild);
+
+    function SelectChildren() {
+      const { state, setSelection, toggleSelection } = useEditor();
+      useEffect(() => {
+        if (!state.selection.includes(firstChild.id)) {
+          setSelection(firstChild.id, 'api');
+        } else if (!state.selection.includes(secondChild.id)) {
+          toggleSelection(secondChild.id, true, 'api');
+        }
+      }, [state.selection, setSelection, toggleSelection]);
+      return null;
+    }
+
+    function PlacementProbe() {
+      const { state } = useEditor();
+      return (
+        <output data-testid="placements">
+          {JSON.stringify([
+            state.document.nodes[firstChild.id]?.gridPlacement,
+            state.document.nodes[secondChild.id]?.gridPlacement,
+          ])}
+        </output>
+      );
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(sceneDocument)}>
+        <SelectChildren />
+        <GridPlacementFields nodes={[firstChild, secondChild]} />
+        <PlacementProbe />
+      </EditorProvider>,
+    );
+
+    const columnStart = screen.getByRole('spinbutton', { name: 'Column start' });
+    fireEvent.change(columnStart, { target: { value: '2' } });
+    fireEvent.blur(columnStart);
+
+    await waitFor(() => {
+      const placements = JSON.parse(screen.getByTestId('placements').textContent ?? '[]');
+      expect(placements).toEqual([
+        {
+          gridColumnStart: 2,
+          gridColumnStartTrackId: 'column-b',
+          gridColumnSpan: 2,
+          gridRowStartTrackId: 'row-a',
+          gridRowSpan: 1,
+        },
+        {
+          gridColumnStart: 2,
+          gridColumnStartTrackId: 'column-b',
+          gridColumnSpan: 1,
+          gridRowStartTrackId: 'row-b',
+          gridRowSpan: 1,
+        },
+      ]);
+    });
+  });
 });
