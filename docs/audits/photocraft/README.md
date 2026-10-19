@@ -63,8 +63,9 @@ progress; the source-body pass is complete.
 Pull requests have a separate machine-readable inventory so they are not
 counted as issues; their descriptions and discussions also remain unreviewed
 unless explicitly listed. Linked discussion review currently includes the
-single-instance PRs #2358 and #3755 for #1540, and transform PRs #3843, #5859,
-and #6186 for issues #2784, #3610, #5665, and #5667. This review found an
+single-instance PRs #2358 and #3755 for #1540; transform PRs #3843, #5859, and
+#6186 for issues #2784, #3610, #5665, and #5667; and numeric-boundary fixes
+#4182 and #4202 for issues #4181 and #4201. This review found an
 external transient-preview loss while panning, an async commit cancellation,
 and a history-order defect; it did not establish the same defects in Varve.
 Issue #2784 remains unclear after video inspection: the cut selection disappears

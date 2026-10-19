@@ -18,6 +18,7 @@ import {
   canNodeHaveMask,
   defaultVectorMaskForNode,
   isMasked,
+  MAX_MASK_FEATHER,
   removeMask,
   resolveMask,
   resolveMaskType,
@@ -168,6 +169,30 @@ describe('isMasked', () => {
 });
 
 describe('addMask', () => {
+  it('caps finite feather options and ignores non-finite options', () => {
+    const doc = addNode(createDocument(), makeFrameNode('f1'));
+    const vectorMask = {
+      points: [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 1, y: 1 },
+      ],
+      closed: true,
+      fillRule: 'nonzero' as const,
+    };
+    const maxed = addMask(doc, 'f1', undefined, 'clip', {
+      vectorMask,
+      feather: Number.MAX_VALUE,
+    });
+    expect(maxed.nodes.f1?.mask?.feather).toBe(MAX_MASK_FEATHER);
+
+    const nonFinite = addMask(doc, 'f1', undefined, 'clip', {
+      vectorMask,
+      feather: Number.POSITIVE_INFINITY,
+    });
+    expect(nonFinite.nodes.f1?.mask?.feather).toBeUndefined();
+  });
+
   it('adds a clip mask to a frame', () => {
     const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
     let doc = addNode(createDocument(), shape);
@@ -325,6 +350,19 @@ describe('setMaskFeather', () => {
     doc = setMaskFeather(doc, 'f1', -5);
     const m = (doc.nodes.f1 as { mask?: { feather?: number } }).mask;
     expect(m?.feather).toBeUndefined();
+  });
+
+  it('caps large finite values and ignores non-finite values', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    let doc = addNode(createDocument(), shape);
+    const frame = makeFrameNode('f1', { children: ['n1'] });
+    frame.mask = { type: 'alpha', sourceNodeId: 'n1', visible: true };
+    doc = addNode(doc, frame);
+
+    doc = setMaskFeather(doc, 'f1', MAX_MASK_FEATHER + 1);
+    expect(doc.nodes.f1?.mask?.feather).toBe(MAX_MASK_FEATHER);
+    expect(setMaskFeather(doc, 'f1', Number.POSITIVE_INFINITY)).toBe(doc);
+    expect(setMaskFeather(doc, 'f1', Number.NaN)).toBe(doc);
   });
 
   it('removes feather when set to 0', () => {

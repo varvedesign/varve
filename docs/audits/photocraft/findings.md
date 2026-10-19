@@ -730,13 +730,17 @@ caps finite edits at 1,000 world-space pixels, validates the same range during
 document loading, and exposes that maximum in the Inspector. Focused regression
 coverage and docs were added. The 1,000 px range matches the source fix, while
 the Varve setter caps out-of-range finite edits to preserve the existing
-clamping interaction model. This remains `implemented_pending_validation`
-until the affected validation and visual inspection complete. The marketing
-website scan found no claim about mask-feather limits or Global Light that
-needs revision.
+clamping interaction model. A browser interaction initially exposed that the
+Inspector action also needed its own upper clamp: entering 1,001 produced an
+invalid saved document that the loader correctly rejected. The Inspector now
+caps the action value before updating the document. A fresh browser document
+accepted the same entry as 1,000, saved, and reopened with 1,000. The dark-theme
+Inspector was visually inspected; broader theme checks and the planner-required
+validation remain pending, so this remains `implemented_pending_validation`.
+The marketing website scan found no claim about mask-feather limits or Global
+Light that needs revision.
 
 **Next verification.** Run the affected plan after disk headroom recovers;
-confirm setter and load-boundary regressions, then open a masked document in
-the UI and inspect the Inspector limit and canvas response. Capture the usual
-visual evidence in dark, light, and high-contrast themes if the visual harness
-permits it.
+confirm setter and load-boundary regressions, then inspect the Inspector limit
+and canvas response across light, dark, and high-contrast themes if the visual
+harness permits it.

@@ -45,6 +45,23 @@ function frameDoc(): { doc: Document; frameId: string } {
 }
 
 describe('container-local raster masks (brush masks)', () => {
+  it('rejects mask feathers outside the finite supported range', () => {
+    const { doc, frameId } = frameDoc();
+    const frame = doc.nodes[frameId]!;
+    frame.mask = {
+      type: 'clip',
+      visible: true,
+      vectorMask: { points: [], closed: true, fillRule: 'nonzero' },
+      feather: 1_001,
+    };
+    expect(validateRasterMaskDocument(doc)).toContain('Mask feather must be within [0, 1000]');
+    const decoded = DocumentCodec.decode(JSON.stringify(doc));
+    expect(decoded).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('Mask feather must be within [0, 1000]'),
+    });
+  });
+
   it('addRasterMaskAsset attaches a container-local mask to a frame', () => {
     const { doc, frameId } = frameDoc();
     const updated = addRasterMaskAsset(doc, frameId, makeAsset('mask-f1'), undefined, {

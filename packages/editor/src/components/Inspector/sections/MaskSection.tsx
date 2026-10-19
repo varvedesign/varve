@@ -4,6 +4,7 @@ import {
   canReceiveLayerMask,
   canReceiveRasterMask,
   isVisualMaskTarget,
+  MAX_MASK_FEATHER,
   walkNodes,
 } from '@varve/scene';
 import { Icon, Select, Switch, Tooltip } from '@varve/ui';
@@ -140,7 +141,7 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
 
   const handleFeather = useCallback(
     (v: number) => {
-      setMaskFeather(Math.max(0, v));
+      setMaskFeather(Math.min(MAX_MASK_FEATHER, Math.max(0, v)));
     },
     [setMaskFeather],
   );
@@ -400,6 +401,7 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
             label="Feather"
             value={mask.feather ?? 0}
             min={0}
+            max={MAX_MASK_FEATHER}
             step={0.5}
             onChange={handleFeather}
             fieldName="maskFeather"

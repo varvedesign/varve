@@ -154,7 +154,8 @@ Last updated: 2026-10-18. Status: active and incomplete.
   Three new PRs were added at B; 14 existing PR records changed body or
   metadata. PR descriptions/discussions have not been comprehensively reviewed.
   Reviewed linked exceptions include #2358/#3755, #3843/#5859/#6186,
-  #5753/#5831, and #6863; the remaining PR inventory is still unreviewed.
+  #5753/#5831, #6863, and numeric-boundary fixes #4182/#4202; the remaining PR
+  inventory is still unreviewed.
 
 ## Progress snapshot
 
@@ -527,3 +528,44 @@ Last updated: 2026-10-18. Status: active and incomplete.
   Workspace space remains critically low (360 MB free at check); affected
   validation, native build, UI visual inspection, and final code review have
   not run. Do not call the implementation complete until those are done.
+
+- Follow-up validation snapshot: `pnpm verify:plan` now selects 42 lanes across
+  desktop/editor/scene plus downstream workspace packages, and reports full
+  suite escalation due to the uncommitted Tauri manifest change.
+  `pnpm verify:affected` exited before running lanes with the required
+  `pnpm verify:full` instruction. Touched-file Biome and `git diff --check`
+  pass; docs and emoji audits pass; token audit passes all 324 pairs in three
+  themes; Inspector CSS audit is clean with existing debt warnings. Spacing
+  audit reports 30 unrelated baseline drifts in collab/first-run/website files;
+  radius audit reports 10 existing legacy consumers in Presentation/SpecPanel.
+  Neither audit points at a changed file. `impeccable detect` reports no UI
+  source findings. Disk has stayed below 400 MB free with unrelated Vitest and
+  Playwright jobs active, so tests, native builds, and visual screenshots are
+  still deferred; final code review and code commit remain pending.
+
+- Additional evidence review: read the complete merged conversations for
+  PhotoCraft PR #4202 and PR #4182. #4202 validates vector-mask feather
+  against the finite 0–1,000 px pixel-mask contract and tests rejection before
+  mutation/history changes; #4182 validates Global Light angle/altitude before
+  narrowing to `f32`, which remains out of scope because Varve has no matching
+  feature. Both PR inventory rows now record complete body/discussion review,
+  and the issue README lists them as linked implementation evidence. The docs
+  audit passes after this update. A Vite browser preview visually confirmed
+  the home and new-document screens, but the mask Inspector could not be
+  reached: generating a test document failed with `ENOSPC` as root space fell
+  to zero. The preview server and its 43 MB cache were stopped/removed; only
+  intended source changes remain in the worktree. Feature-specific visual
+  evidence, full affected validation, and final code review are still pending.
+
+- 2026-10-18 mask visual follow-up: after clearing Cargo target artifacts, the
+  browser preview reached the Inspector. Typing `1001` first produced an
+  invalid document that was rejected on reopen; this exposed the need to clamp
+  at the Inspector action boundary in addition to the scene helper. After that
+  change, a fresh document capped the same entry to `1000`, saved, and reopened
+  with `1000`. The dark-theme Inspector layout was visually inspected. Focused
+  scene/codec regressions passed before the action-boundary follow-up; the
+  combined rerun (including the new Inspector input regression) is queued
+  behind the shared heavy-task lease. Multi-theme visual checks,
+  planner-required broad validation, final code review, and integration remain
+  pending. Website review found no public mask-feather or Global Light claim
+  that needs revision.

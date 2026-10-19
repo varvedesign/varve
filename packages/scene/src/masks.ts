@@ -60,6 +60,8 @@ import type {
 } from './types';
 
 export const RASTER_MASK_MAX_DIMENSION = 16_384;
+/** Maximum feather radius accepted by mask editing and document loading. */
+export const MAX_MASK_FEATHER = 1_000;
 // Portable decoders reliably support 128 Mi pixels; the prior 256 Mi-pixel
 // ceiling admitted 16K-square assets that could not be decoded cross-platform.
 // Existing supported assets at or below this bound remain unaffected.
@@ -597,6 +599,15 @@ export function validateRasterMaskDocument(doc: Document): string | null {
     }
     if (!('mask' in nodeValue) || nodeValue.mask === undefined) continue;
     if (!isRecord(node.mask)) return `${node.id}: Mask must be an object`;
+    if (
+      node.mask.feather !== undefined &&
+      (typeof node.mask.feather !== 'number' ||
+        !Number.isFinite(node.mask.feather) ||
+        node.mask.feather < 0 ||
+        node.mask.feather > MAX_MASK_FEATHER)
+    ) {
+      return `${node.id}: Mask feather must be within [0, ${MAX_MASK_FEATHER}]`;
+    }
     if ('vectorMask' in node.mask) {
       if (!isRecord(node.mask.vectorMask)) return `${node.id}: vectorMask must be an object`;
       if (!Array.isArray(node.mask.vectorMask.points)) {
@@ -1107,7 +1118,9 @@ export function addMask(
     type,
     visible: opts?.visible ?? true,
     ...(opts?.inverted ? { inverted: true } : {}),
-    ...(opts?.feather !== undefined && opts.feather > 0 ? { feather: opts.feather } : {}),
+    ...(opts?.feather !== undefined && Number.isFinite(opts.feather) && opts.feather > 0
+      ? { feather: Math.min(MAX_MASK_FEATHER, opts.feather) }
+      : {}),
     ...(opts?.density !== undefined && opts.density < 1 ? { density: opts.density } : {}),
     ...(opts?.linked === false ? { linked: false } : {}),
     ...(opts?.transform ? { transform: opts.transform } : {}),
@@ -1214,9 +1227,10 @@ export function setMaskInverted(doc: Document, containerId: NodeId, inverted: bo
   return updateMaskProperty(doc, containerId, 'inverted', inverted || undefined, (v) => !!v);
 }
 
-/** Set mask feather radius in world-space pixels (0 to remove feather). */
+/** Set mask feather radius in world-space pixels; 0 removes feather, non-finite input is ignored. */
 export function setMaskFeather(doc: Document, containerId: NodeId, feather: number): Document {
-  const clamped = Math.max(0, feather);
+  if (!Number.isFinite(feather)) return doc;
+  const clamped = Math.min(MAX_MASK_FEATHER, Math.max(0, feather));
   return updateMaskProperty(doc, containerId, 'feather', clamped > 0 ? clamped : undefined, (v) => {
     return (v as number) > 0;
   });

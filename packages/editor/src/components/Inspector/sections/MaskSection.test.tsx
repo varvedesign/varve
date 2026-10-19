@@ -58,6 +58,10 @@ describe('MaskSection', () => {
     render(<MaskSection nodes={[frame]} />);
 
     expect(screen.getByText('Clip mask')).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Feather' })).toHaveAttribute(
+      'aria-valuemax',
+      '1000',
+    );
 
     const toggleBtn = screen.getByRole('button', { name: 'Disable mask' });
     expect(toggleBtn).toBeInTheDocument();
@@ -73,6 +77,22 @@ describe('MaskSection', () => {
     expect(removeBtn).toBeInTheDocument();
     fireEvent.click(removeBtn);
     expect(editor.removeMaskFromSelected).toHaveBeenCalledTimes(1);
+  });
+
+  it('clamps entered feather values to the supported maximum', () => {
+    const doc = createDocument('test doc');
+    const editor = createMockEditor(doc);
+    mocks.useEditor.mockReturnValue(editor);
+
+    const frame = makeFrameNode('frame-1', { children: ['child-1', 'child-2'] });
+    frame.mask = { type: 'clip', visible: true, sourceNodeId: 'child-1' };
+    render(<MaskSection nodes={[frame]} />);
+
+    const feather = screen.getByRole('spinbutton', { name: 'Feather' });
+    fireEvent.change(feather, { target: { value: '1001' } });
+    fireEvent.keyDown(feather, { key: 'Enter' });
+
+    expect(editor.setMaskFeather).toHaveBeenCalledWith(1000);
   });
 
   it('renders creation buttons when eligible container has no mask', () => {
