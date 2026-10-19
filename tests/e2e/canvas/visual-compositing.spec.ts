@@ -198,6 +198,7 @@ async function compositionCacheDiagnostics(page: import('@playwright/test').Page
                   keyBuildAverageMs: number;
                   lookupAverageMs: number;
                   compositionAverageMs: number;
+                  keyBuildCount: number;
                 };
                 quality: { generation: number; backend: string };
               };
@@ -609,6 +610,7 @@ test.describe('full-editor visual compositing', () => {
     await group.click();
     expect(await callEditor(page, 'setSelectedOpacity', 0.7)).not.toBeNull();
     await waitForStableCanvas(page);
+    await setDetailedCompositionDiagnostics(page, true);
 
     await page.evaluate(() => {
       const cache = (
@@ -635,6 +637,7 @@ test.describe('full-editor visual compositing', () => {
     const afterDocumentSwitch = await compositionCacheDiagnostics(page);
     expect(afterDocumentSwitch?.hits).toBeGreaterThan(warm?.hits ?? 0);
     const cachedHash = await canvasPixelHash(page);
+    const beforeCacheBypass = await compositionCacheDiagnostics(page);
     await page.evaluate(() => {
       const cache = (
         window as Window & {
@@ -644,6 +647,13 @@ test.describe('full-editor visual compositing', () => {
       cache?.setEnabled(false);
     });
     await forceAuthoritativeCanvasFrame(page);
+    const afterCacheBypass = await compositionCacheDiagnostics(page);
+    expect(afterCacheBypass?.detailed?.timings.keyBuildCount).toBe(
+      beforeCacheBypass?.detailed?.timings.keyBuildCount,
+    );
+    expect(
+      afterCacheBypass?.detailed?.bypasses.some((record) => record.reason === 'cache-disabled'),
+    ).toBe(true);
     expect(await canvasPixelHash(page)).toBe(cachedHash);
     await page.evaluate(() => {
       const cache = (

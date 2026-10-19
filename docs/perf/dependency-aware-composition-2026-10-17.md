@@ -192,6 +192,14 @@ The 2026-10-18 controlled comparison above found a 0.1 ms median difference
 with timing resolution around 0.1 ms. That is too small to set a meaningful
 overhead budget and is not a presentation-latency measurement.
 
+Calling `window.__varvePerf.compositionCache.setEnabled(false)` clears retained
+surfaces and skips dependency-key construction and lookup on subsequent frames.
+It still checks group/child admission so eligible-group bypass counts and
+bounded diagnostic reasons stay accurate. This keeps a cache-disabled redraw
+independent of key-building work; the diagnostic snapshot reports
+`enabled: false` while the authoritative renderer still rebuilds the group
+source pixels.
+
 No customer design, standalone SVG/photo asset, native WebView, whole-document
 cache-versus-export parity, thumbnail freshness, font/image completion race,
 rotated scale sweep, or long-session pressure run was completed. The selected

@@ -19,6 +19,7 @@ export const RETAINED_GROUP_DIAGNOSTIC_PATH_LIMIT = 32;
 const MAX_DIAGNOSTIC_ID_LENGTH = 128;
 
 export type RetainedGroupBypassReason =
+  | 'cache-disabled'
   | 'untracked-miss'
   | 'nonresident-miss'
   | 'dependency-key-changed'
@@ -324,6 +325,21 @@ export class RetainedGroupSurfaceCache {
     });
   }
 
+  recordDisabledBypass(
+    groupId: string,
+    dependencyPath: readonly string[],
+    dependencyPathTruncated = false,
+  ): void {
+    if (this.enabled) return;
+    this.bypassCount++;
+    if (!this.collectDetailedDiagnostics) return;
+    this.recordBypass({
+      reason: 'cache-disabled',
+      groupId: this.boundedDiagnosticId(groupId),
+      ...this.boundedDependencyPath(dependencyPath, dependencyPathTruncated),
+    });
+  }
+
   recordQuality(input: Omit<RetainedGroupQuality, 'generation' | 'backend'>): void {
     if (!this.collectDetailedDiagnostics) return;
     const signature = [input.renderScale, input.devicePixelRatio].join(':');
@@ -388,6 +404,10 @@ export class RetainedGroupSurfaceCache {
 
   get detailedDiagnosticsEnabled(): boolean {
     return this.collectDetailedDiagnostics;
+  }
+
+  get isEnabled(): boolean {
+    return this.enabled;
   }
 
   private recordBypass(bypass: RetainedGroupBypass): void {

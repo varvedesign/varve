@@ -1749,6 +1749,7 @@ export function renderContent(deps: RenderContentDeps): void {
             let retainedShapeLeaves = 0;
             const detailedRetainedDiagnostics =
               retainedGroupSurfaceCache.detailedDiagnosticsEnabled;
+            const retainedCacheEnabled = retainedGroupSurfaceCache.isEnabled;
             let retainedBypassReason = detailedRetainedDiagnostics
               ? retainedGroupBoundaryBypassReason({
                   warped: Boolean(warpedContainer),
@@ -1769,23 +1770,25 @@ export function renderContent(deps: RenderContentDeps): void {
               visibleGroupEffects.length === 0 &&
               !('mask' in n && n.mask)
             ) {
-              const keyParts: (object | string | number)[] = [
-                String(doc.id),
-                n,
-                s.workspaceMode,
-                doc.activePageId ?? '',
-                doc.colorConfig ?? 'default-color-config',
-                replayColorOptions.blendEvaluationSpace,
-                ...instanceWorldTransform(n.id, masterPlacement),
-                minX,
-                minY,
-                groupWidth,
-                groupHeight,
-                fitted.width,
-                fitted.height,
-                renderScale,
-                effectPadding,
-              ];
+              const keyParts: (object | string | number)[] | null = retainedCacheEnabled
+                ? [
+                    String(doc.id),
+                    n,
+                    s.workspaceMode,
+                    doc.activePageId ?? '',
+                    doc.colorConfig ?? 'default-color-config',
+                    replayColorOptions.blendEvaluationSpace,
+                    ...instanceWorldTransform(n.id, masterPlacement),
+                    minX,
+                    minY,
+                    groupWidth,
+                    groupHeight,
+                    fitted.width,
+                    fitted.height,
+                    renderScale,
+                    effectPadding,
+                  ]
+                : null;
               let eligible = true;
               for (const childId of effectivePaintOrder(doc, n)) {
                 if (detailedRetainedDiagnostics) {
@@ -1811,13 +1814,22 @@ export function renderContent(deps: RenderContentDeps): void {
                   if (detailedRetainedDiagnostics) retainedBypassReason = childBypassReason;
                   break;
                 }
-                keyParts.push(childId, child, childItem);
+                keyParts?.push(childId, child, childItem);
                 retainedShapeLeaves++;
               }
               if (eligible) {
-                retainedKey = retainedGroupSurfaceCache.key(keyParts);
-                if (!retainedKey && detailedRetainedDiagnostics) {
-                  retainedBypassReason = 'dependency-key-too-large';
+                if (keyParts) {
+                  retainedKey = retainedGroupSurfaceCache.key(keyParts);
+                  if (!retainedKey && detailedRetainedDiagnostics) {
+                    retainedBypassReason = 'dependency-key-too-large';
+                  }
+                } else {
+                  retainedGroupSurfaceCache.recordDisabledBypass(
+                    String(n.id),
+                    retainedDependencyPath,
+                    retainedDependencyPathTruncated,
+                  );
+                  if (detailedRetainedDiagnostics) retainedBypassReason = 'cache-disabled';
                 }
               }
             }
@@ -1828,7 +1840,11 @@ export function renderContent(deps: RenderContentDeps): void {
                 backingWidth: fitted.width,
                 backingHeight: fitted.height,
               });
-            } else if (detailedRetainedDiagnostics && retainedBypassReason) {
+            } else if (
+              detailedRetainedDiagnostics &&
+              retainedBypassReason &&
+              retainedBypassReason !== 'cache-disabled'
+            ) {
               retainedGroupSurfaceCache.recordAdmissionBypass(
                 retainedBypassReason,
                 String(n.id),

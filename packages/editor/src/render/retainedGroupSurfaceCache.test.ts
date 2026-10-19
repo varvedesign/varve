@@ -152,8 +152,24 @@ describe('RetainedGroupSurfaceCache', () => {
     cache.set(key, 'doc', surface(8, 8), 1);
     cache.setEnabled(false);
 
+    expect(cache.isEnabled).toBe(false);
+    cache.setDetailedDiagnosticsEnabled(true);
+    cache.recordDisabledBypass('group', ['group', 'child']);
     expect(cache.get(key)).toBeNull();
-    expect(cache.diagnostics).toMatchObject({ enabled: false, entries: 0, residentBytes: 0 });
+    expect(cache.diagnostics).toMatchObject({
+      enabled: false,
+      entries: 0,
+      residentBytes: 0,
+      bypasses: 2,
+    });
+    expect(cache.diagnostics.detailed?.bypasses.at(-1)).toMatchObject({
+      reason: 'cache-disabled',
+      groupId: 'group',
+      dependencyPath: ['group', 'child'],
+    });
+
+    cache.setEnabled(true);
+    expect(cache.isEnabled).toBe(true);
   });
 
   it('keeps detailed bypass, timing, and quality diagnostics bounded and opt-in', () => {
