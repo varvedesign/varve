@@ -29,13 +29,13 @@ Last updated: 2026-10-19. Status: active and incomplete.
   Its exact-SHA local full gate has passed format/lint, audits, health and
   architecture checks, all workspace typechecks, and E2E typecheck. It is
   waiting for the shared website E2E lease before its remaining lanes can run.
-- This turn also compared PhotoCraft #3804/#3806/#6599 against Varve's effect,
-  rasterization, format, save, and export contracts. #3804 is an adjacent
-  design lead because Varve has no effect-only bake operation; #3806 is
-  no-match because Varve has no OpenRaster import/save route; #6599 has no
-  matching same-folder document quick-export path. Counts in the issue ledger
-  and README reflect these dispositions. Existing public export docs describe
-  the desktop dialog/browser download, so no marketing copy change is needed.
+- This turn compared PhotoCraft #3804/#3806/#6599/#6740 against Varve effect,
+  rasterization, format, save, export, and paint-lock contracts. #3804 is an
+  adjacent design lead, #3806 and #6599 have no matching workflows, and #6740
+  is covered by the paint-target guard and lock update path (59 focused tests
+  passed). Counts in the issue ledger and README reflect these dispositions.
+  Public export docs already describe the desktop dialog/browser download; no
+  marketing copy change is needed.
 - Next: finish the queued full gate, run Windows-native build/minimize/restore
   visual validation when a Windows target is available, continue recursive
   source/PR review, then complete final independent review and safe integration

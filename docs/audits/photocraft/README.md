@@ -158,8 +158,8 @@ the current website review found no matching claim that needs correction.
 ## 2026-10-19 disposition checkpoint
 
 All 3,275 cutoff-A issue rows now have an explicit Varve disposition or an
-explicit unresolved decision: 218 candidates, 2 fixed items, 200 analogues,
-453 partial matches, 31 already-covered behaviors, 80 trackers, 79 adjacent
+explicit unresolved decision: 217 candidates, 2 fixed items, 200 analogues,
+453 partial matches, 32 already-covered behaviors, 80 trackers, 79 adjacent
 QA/design leads, 2,207 reports with no Varve match established, 1 out-of-scope
 issue with no corresponding feature, and 4 issues
 that remain `unclear`. Those four are not completed dispositions; each has a
@@ -172,7 +172,7 @@ scope were manually resolved. Thirteen of the 17 previously unclear issues
 were resolved after their linked evidence and Varve paths were inspected.
 
 The status counts distinguish source comparison from engineering completion.
-The 218 candidates still require Varve reproduction or a product decision;
+The 217 candidates still require Varve reproduction or a product decision;
 the 453 partial matches and 79 adjacent leads are not automatically defects.
 The issue source pass and row-level Varve comparison do not complete the
 recursive link frontier or review of the source repository's PR discussions.
@@ -188,6 +188,12 @@ export is for one object, and desktop output uses an explicit native save
 dialog. The current [export documentation](../../architecture/code-export-system.md)
 and [public export guide](../../../apps/website/src/pages/docs/tools/export.astro)
 already describe this flow, so no marketing copy change is needed.
+
+PhotoCraft #6740 is covered by Varve's paint-target lock guard. The layer lock
+control changes only the `locked` property, while the paint target resolver
+refuses a locked raster layer; focused tests passed for both the resolver and
+the `PaintTool` pointer path (59 tests total). Unlocking does not rename the
+layer in this flow. No product or marketing change is indicated.
 
 Disposition records add a concise rationale and distinguish the PhotoCraft
 issue state from Varve's engineering status. A PhotoCraft issue marked closed
