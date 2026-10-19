@@ -135,14 +135,20 @@ Noto Sans, Noto Serif, and Noto Sans Mono on this Linux host. The targeted
 footer screenshot passed, followed by the complete website `visual.spec.ts`
 suite (26/26) under the shared heavy-task lease; snapshot thresholds and
 baselines were unchanged. The next hosted run loaded the valid config but
-reproduced the exact same 26,670-pixel text difference. That pointed to
-`font-display: optional` capture timing: the visual helper awaited
-`document.fonts.ready` and checked the CSS family list, but did not assert that
-the shipped font faces had actually loaded. The helper now explicitly loads
-the Geist, IBM Plex Sans, and Fraunces variable faces, asserts each loaded, and
-waits two animation frames before capturing. This focused change passed
-`pnpm verify:affected` and the full website visual spec locally (26/26); hosted
-validation of the font-loading correction is pending on the next PR run.
+reproduced the exact same 26,670-pixel text difference. The visual helper's
+`document.fonts.ready` and CSS family check had not established that the
+optional webfonts replaced the first-paint fallback. Explicitly loading and
+checking the Geist, IBM Plex Sans, and Fraunces faces still left CI on the
+fallback: `font-display: optional` can keep that first paint even when the face
+arrives later. The visual-test setup now rewrites only test-served CSS to use
+`font-display: swap` before navigation, then waits for the three shipped faces
+against all visible page text (including Latin Extended glyphs) and two
+animation frames before capture. Production CSS and the screenshot baselines
+remain unchanged. This test-only swap and visible-text font-load version
+passed `pnpm verify:affected` with
+`FONTCONFIG_FILE="$PWD/apps/website/tests/e2e/fonts.conf"`; all 26 visual
+screenshots passed. Hosted validation of this correction is pending on the
+next PR run.
 
 Validation plan for this two-file workflow/config change selected format,
 lint, emoji audit, website typecheck/unit tests, website E2E, and reported
