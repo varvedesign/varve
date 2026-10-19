@@ -173,9 +173,9 @@ describe('addMask', () => {
     const doc = addNode(createDocument(), makeFrameNode('f1'));
     const vectorMask = {
       points: [
-        { x: 0, y: 0 },
-        { x: 1, y: 0 },
-        { x: 1, y: 1 },
+        { x: 0, y: 0, handleIn: null, handleOut: null },
+        { x: 1, y: 0, handleIn: null, handleOut: null },
+        { x: 1, y: 1, handleIn: null, handleOut: null },
       ],
       closed: true,
       fillRule: 'nonzero' as const,
