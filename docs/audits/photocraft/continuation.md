@@ -697,3 +697,59 @@ Full suite run: no local full suite; one remote manual full-matrix diagnostic wa
   Skipped as unrelated: touched-file formatter/linter (no Biome-compatible changed files); Rust, website E2E, and full visual suite (docs-only scope).
   Escalations: none. Full suite run: no.
   ```
+
+## Session 8 — bounded print-image manifest preflight
+
+- PdfCraft (`storytold/pdfcraft`) is the reviewed issue tracker for this
+  corpus. PR #141, `https://github.com/varvedesign/varve/pull/141`, merged to
+  `master` at `1f99f8ee7fdafe948dad3d8d5e9af74d5a06c75e` on 2026-10-19.
+  Its code commit was `28d74c711a4098c9cd27cb46b1173d38a3c4eb2f`.
+- The print-image manifest now checks decoded RGBA allocation size and the
+  existing 192 MiB budget before canvas/readback allocation, checks cumulative
+  image size before allocating each next image, closes the raster-fallback
+  bitmap on refusal, and rechecks aggregate size before base64 assembly. The
+  refusal message recommends downsampling large images or removing some
+  images. Three focused regressions cover an oversized single image, cumulative
+  image overflow, and bitmap cleanup. Findings §4.12 records the evidence and
+  remaining acceptance conditions.
+- Corrected the issue ledger evidence: PdfCraft #307 is an opening workload
+  (186 MB PDF reportedly reaching ~16 GB RAM), so it is class-level evidence
+  for bounded memory, not a direct match for Varve's PDF-export path. #971 is
+  not a Varve defect; #2616 and #1796 are recorded as failure patterns only.
+  The unsupported #6110 claim was removed.
+- Marketing review: no image-size or compression copy change was warranted;
+  the site makes no promise about image downsampling or compression. The
+  earlier PDF/X-1a marketing copy from PR #138 is live: Website Deploy run
+  `39178264332` succeeded and its production route was checked. Desktop and
+  mobile screenshots of that feature-page change were already visually
+  reviewed; this source/export slice changed no rendered UI.
+- PR #141's exact-SHA CI at `28d74c711` passed the selected checks, including
+  JavaScript, Playwright, WASM, pipeline validation, AI attribution, build and
+  packaging lanes. Rust, native desktop, website E2E, website visual, and
+  performance lanes were skipped by the impact plan for this TypeScript
+  source/docs scope. Full suite: no.
+- The review-agent workflow was used as a second-pass self-review (delegation
+  is prohibited by that skill); no findings. Call sites were checked for
+  allocation ordering and recovery guidance. A realistic peak-memory
+  measurement on a 4 GB machine and manual verification of desktop export UI
+  recovery remain open acceptance items.
+
+### Validation report — Session 8
+
+```text
+Changed scope: packages/editor/src/export/printImageManifest.ts; its focused test; docs/audits/photocraft/findings.md and this continuation.
+Validation plan: pnpm verify:plan selected 12 lanes; FULL-SUITE NO.
+Commands actually run: pnpm verify:plan; pnpm verify:affected; focused manifest test; ShortcutPalette test rerun; desktop package tests; import-domain and export-domain Playwright suites; exact-SHA hosted CI; pnpm verify:push --since origin/master; git diff --check.
+Passed: focused manifest tests 5/5; editor, desktop and E2E typechecks; desktop package 90/90; import-domain E2E 12/12; export-domain E2E 14/14; isolated ShortcutPalette test 18/18; exact-SHA hosted CI for 28d74c711; push checkpoint.
+Affected-run issue: pnpm verify:affected stopped after two unrelated ShortcutPalette tests timed out at 15 seconds during editor package load. The isolated file rerun passed 18/18 under the shared heavy-task lease. The editor package lane had otherwise reported 8,782 passed and 2 skipped. This was environmental contention, not a code assertion failure.
+Skipped as unrelated: full suite, website E2E/visual, Rust and native desktop hosted lanes; impact plan did not select them for this TypeScript export guard. The local export-domain browser suite was run as feature-specific coverage.
+Escalations: none. Full suite run: no.
+```
+
+### Remaining work
+
+1. Measure peak memory for a realistic mixed-image PDF export on a 4 GB
+   machine, and exercise the desktop export UI's refusal/recovery path.
+2. Continue the open recursive issue evidence and Varve workflow queue in
+   `findings.md` and `link-frontier.jsonl`; the fixes above do not complete the
+   full PdfCraft issue corpus.
