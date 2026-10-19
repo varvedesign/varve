@@ -481,17 +481,34 @@ needed or that the two products share a defect.
   explicit, opt-in, and validated against a preserve-originals path. No PDF/X
   certification claim is made from the present tests.
 
-### 4.12 Unbounded per-operation work — **screened**
+### 4.12 Unbounded per-operation work — **partially implemented; export guard verified**
 
-- **External evidence** — #307 (16 GB RAM for a 186 MB file), #971 (`text_find`
-  extracted every page before honouring `limit`), #2616 (per-keystroke full
-  page re-layout), #6110 (unbounded stroke coverage allocation), #1796
-  (decoder ignoring the caller's output budget).
+- **External evidence** — [#971](https://github.com/storytold/pdfcraft/issues/971)
+  reports a limited `text_find` request extracting every page first;
+  [#2616](https://github.com/storytold/pdfcraft/issues/2616) reports laggy PDF
+  text editing; and [#1796](https://github.com/storytold/pdfcraft/issues/1796)
+  reports a decoder ignoring the caller's output budget. These are failure
+  patterns, not evidence of the same defect in Varve. The audit ledger marks
+  #971 as not a Varve defect; #307 is a PDF metadata/navigation scope issue,
+  and the previously cited #6110 could not be verified as a PdfCraft issue.
 - **Transferable rule** — a document-scale operation is bounded by an explicit
   memory/time budget and can return a partial result; a decoder enforces its
   own budget rather than trusting the caller.
-- **Varve state** — partial: `MAX_STROKE_OPACITY_BYTES`, decode dimension
-  guards, thumbnail scheduler concurrency 1. Verification pending.
+- **Varve state** — several bounded-work mechanisms exist:
+  `MAX_STROKE_OPACITY_BYTES`, decode dimension guards, and thumbnail scheduler
+  concurrency 1. A review of `printImageManifest.ts` found its 192 MiB decoded
+  RGBA cap ran only after all image readbacks and base64 strings had been
+  allocated. That made the error too late to protect export-time memory for
+  oversized or cumulative image sets. The manifest now checks each image's
+  expected RGBA byte count before its export canvas/readback allocation, checks
+  the cumulative limit before preparing the next image, and rechecks the
+  aggregate before base64 conversion. The raster-fallback bitmap path applies
+  the same pre-allocation guard and closes the bitmap on refusal. Regression
+  tests cover single-image, aggregate, and raster-fallback refusal paths.
+- **Remaining acceptance** — measure peak memory for realistic mixed-image
+  documents on the 4 GB target and verify the error/recovery path through the
+  desktop export UI. Existing decoder, stroke-opacity, and thumbnail bounds
+  have not been re-audited end-to-end in this batch.
 
 ### 4.13 Dirty state and history truthfulness — **screened**
 
