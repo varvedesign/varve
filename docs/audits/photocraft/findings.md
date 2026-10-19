@@ -807,4 +807,9 @@ passed. `pnpm audit:docs` passed. The affected planner stops at existing
 `audit:radius` drift in untouched editor files, so remaining selected package
 and browser lanes require direct runs. The lease-wrapped real PSD/PSB visual
 import E2E passed and its Import Results screenshot baseline was inspected. The
-targeted website E2E still needs a lease and result.
+targeted website screenshot E2E passed on both the GitHub Pages and custom
+domain projects; both screenshots were visually inspected and showed the new
+PSD/PSB limits in the existing format documentation layout. The affected
+planner still stops at unrelated `audit:radius` findings, and an earlier
+code-only affected run reached the pre-existing desktop type error described
+above; the complete affected closure remains unverified.

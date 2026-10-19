@@ -620,5 +620,8 @@ Last updated: 2026-10-19. Status: active and incomplete.
   complete. The real PSD/PSB import E2E passed and its Import Results screenshot
   baseline was inspected. The public file-format page lists PSD/PSB import; it
   now states the tree limits, with an assertion added to its screenshot E2E.
-  That targeted website E2E is waiting for a different worktree's live lease.
-  No public page claims Affinity import. See F-018.
+  The targeted website screenshot E2E passed for both GitHub Pages and custom-
+  domain projects, and both screenshots were visually inspected. The affected
+  closure remains incomplete because its planner run stops at unrelated
+  `audit:radius` findings; an earlier code-only run also encountered the known
+  desktop typecheck error. No public page claims Affinity import. See F-018.
