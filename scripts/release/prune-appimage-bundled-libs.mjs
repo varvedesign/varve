@@ -44,11 +44,17 @@
 import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
+  closeSync,
+  copyFileSync,
   existsSync,
   lstatSync,
+  mkdirSync,
   mkdtempSync,
+  openSync,
   readdirSync,
   readFileSync,
+  readSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -98,6 +104,23 @@ export function isHostSystemLibraryName(name) {
 
 export function isHostProvidedLibraryName(name) {
   return isHostGraphicsLibraryName(name) || isHostSystemLibraryName(name);
+}
+
+/** glibc / loader family. linuxdeploy leaves these on the host. */
+export const LIBC_FAMILY_FILE_RE =
+  /^(?:ld-linux.*|libc|libm|libdl|libpthread|librt|libresolv|libanl|libutil|libnss_.*|libnsl)(?:\.so(?:\..*)?)?$/;
+
+export function isLibcFamilyLibraryName(name) {
+  return LIBC_FAMILY_FILE_RE.test(name);
+}
+
+/**
+ * Missing DT_NEEDED entries that must be copied from the ubuntu-22.04 build
+ * host into the AppDir. GPU / C++ ABI / Wayland / libc stay on the running
+ * system so a newer Mesa is not shadowed.
+ */
+export function shouldCopyMissingDependency(soname) {
+  return !isLibcFamilyLibraryName(soname) && !isHostProvidedLibraryName(soname);
 }
 
 function parseArgs(argv) {
@@ -371,6 +394,182 @@ export function normalizeAppDirPermissions(squashfsRoot) {
   }
 }
 
+/**
+ * GNU and LLVM `readelf -d` both print
+ * `(NEEDED)             Shared library: [libfoo.so.0]`.
+ * A `NEEDED <token> [name]` pattern never matches that line.
+ */
+export function parseReadelfNeeded(output) {
+  const names = [];
+  for (const line of output.split('\n')) {
+    const match = line.match(/\(NEEDED\)\s+Shared library:\s+\[([^\]]+)\]/);
+    if (match) names.push(match[1]);
+  }
+  return names;
+}
+
+export function listElfNeeded(filePath) {
+  const out = execFileSync('readelf', ['-d', filePath], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  return parseReadelfNeeded(out);
+}
+
+export function payloadHasSoname(squashfsRoot, soname) {
+  const roots = [join(squashfsRoot, 'usr', 'lib'), join(squashfsRoot, 'usr', 'lib64')];
+  function walk(dir) {
+    if (!existsSync(dir)) return false;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === soname) return true;
+      if (entry.isDirectory() && !entry.isSymbolicLink() && walk(join(dir, entry.name))) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return roots.some((dir) => walk(dir));
+}
+
+function isElfFile(path) {
+  let fd;
+  try {
+    fd = openSync(path, 'r');
+    const magic = Buffer.alloc(4);
+    const bytes = readSync(fd, magic, 0, 4, 0);
+    return (
+      bytes === 4 &&
+      magic[0] === 0x7f &&
+      magic[1] === 0x45 &&
+      magic[2] === 0x4c &&
+      magic[3] === 0x46
+    );
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
+function collectElfFiles(squashfsRoot) {
+  const files = [];
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory() && !entry.isSymbolicLink()) {
+        walk(full);
+        continue;
+      }
+      if (!entry.isFile() && !entry.isSymbolicLink()) continue;
+      if (isElfFile(full)) files.push(full);
+    }
+  }
+  walk(join(squashfsRoot, 'usr', 'bin'));
+  walk(join(squashfsRoot, 'usr', 'lib'));
+  walk(join(squashfsRoot, 'usr', 'lib64'));
+  return files;
+}
+
+export function resolveHostLibrary(soname) {
+  try {
+    const out = execFileSync('ldconfig', ['-p'], { encoding: 'utf8' });
+    for (const line of out.split('\n')) {
+      const match = line.match(/^\s*(\S+)\s+\(.*\)\s+=>\s+(\S+)/);
+      if (match?.[1] === soname && existsSync(match[2])) return match[2];
+    }
+  } catch {
+    // ldconfig is not required when the fallback paths exist
+  }
+  for (const dir of [
+    '/lib/x86_64-linux-gnu',
+    '/usr/lib/x86_64-linux-gnu',
+    '/lib/aarch64-linux-gnu',
+    '/usr/lib/aarch64-linux-gnu',
+    '/lib64',
+    '/usr/lib',
+    '/lib',
+  ]) {
+    const candidate = join(dir, soname);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * linuxdeploy's first pass (and `--exclude-library '*'`) can omit GTK/Pango
+ * companions such as libfribidi. Copy those from the build host so a clean
+ * VM does not fail on `error while loading shared libraries`.
+ */
+export function copyMissingToolkitLibraries(squashfsRoot) {
+  const destDir = join(squashfsRoot, 'usr', 'lib');
+  mkdirSync(destDir, { recursive: true });
+  const copied = [];
+  const neededCache = new Map();
+  let changed = true;
+  let round = 0;
+  for (; changed && round < 12; round += 1) {
+    changed = false;
+    for (const elf of collectElfFiles(squashfsRoot)) {
+      let needed = neededCache.get(elf);
+      if (!needed) {
+        try {
+          needed = listElfNeeded(elf);
+        } catch {
+          continue;
+        }
+        neededCache.set(elf, needed);
+      }
+      for (const soname of needed) {
+        if (!shouldCopyMissingDependency(soname) || payloadHasSoname(squashfsRoot, soname)) {
+          continue;
+        }
+        const host = resolveHostLibrary(soname);
+        if (!host) {
+          throw new Error(
+            `${elf.slice(squashfsRoot.length + 1)} needs ${soname}, which is not ` +
+              'in the AppDir and not on the build host. Refusing to pack an AppImage ' +
+              'that cannot start on a clean system.',
+          );
+        }
+        const real = realpathSync(host);
+        const realName = real.split(/[/\\]/).pop();
+        copyFileSync(real, join(destDir, realName));
+        if (realName !== soname) {
+          const link = join(destDir, soname);
+          if (existsSync(link)) rmSync(link);
+          symlinkSync(realName, link);
+        }
+        copied.push(soname);
+        changed = true;
+      }
+    }
+  }
+  const leftover = [];
+  for (const elf of collectElfFiles(squashfsRoot)) {
+    let needed = neededCache.get(elf);
+    if (!needed) {
+      try {
+        needed = listElfNeeded(elf);
+      } catch {
+        continue;
+      }
+    }
+    for (const soname of needed) {
+      if (shouldCopyMissingDependency(soname) && !payloadHasSoname(squashfsRoot, soname)) {
+        leftover.push(`${elf.slice(squashfsRoot.length + 1)} -> ${soname}`);
+      }
+    }
+  }
+  if (leftover.length > 0) {
+    throw new Error(
+      'AppDir still has unresolved toolkit DT_NEEDED entries after copying from the host: ' +
+        leftover.join(', '),
+    );
+  }
+  return copied;
+}
+
 /** Payload hygiene + modes that every released AppImage must have before pack. */
 export function prepareAppDirForRepack(squashfsRoot) {
   const stray = collectStrayBuildArtifacts(squashfsRoot);
@@ -425,6 +624,16 @@ function main() {
     : { remove: [], keep: [] };
   for (const entry of runtimePlan.remove) {
     rmSync(entry, { recursive: true, force: true });
+  }
+  const copiedDeps = copyMissingToolkitLibraries(squashfsRoot);
+  if (copiedDeps.length > 0) {
+    process.stdout.write(
+      'Copied ' +
+        copiedDeps.length +
+        ' missing toolkit libraries from the build host: ' +
+        copiedDeps.join(', ') +
+        '\n',
+    );
   }
   if (runtimePlan.remove.length > 0) {
     process.stdout.write(
@@ -525,7 +734,7 @@ function main() {
     const leftoverGpu = collectPrunePlan(packedRoot, resourceDirName);
     if (leftoverGpu.remove.length > 0) {
       throw new Error(
-        'Reassembled AppImage still contains host GPU libraries: ' +
+        'Reassembled AppImage still contains host GPU or system-sensitive libraries: ' +
           leftoverGpu.remove.map((p) => p.slice(packedRoot.length + 1)).join(', '),
       );
     }

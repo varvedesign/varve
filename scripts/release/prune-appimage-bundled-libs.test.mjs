@@ -10,10 +10,12 @@
 import assert from 'node:assert/strict';
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -26,13 +28,19 @@ import {
   collectPrunePlan,
   collectRuntimePrunePlan,
   collectStrayBuildArtifacts,
+  copyMissingToolkitLibraries,
   findBundledWebKit,
   isHostGraphicsLibraryName,
   isHostSystemLibraryName,
+  isLibcFamilyLibraryName,
+  listElfNeeded,
   normalizeAppDirPermissions,
   normalizeAppImageDesktopEntries,
+  parseReadelfNeeded,
+  payloadHasSoname,
   prepareAppDirForRepack,
   resolveLinuxResourceDirName,
+  shouldCopyMissingDependency,
   TAURI_APPIMAGE_DESKTOP_NAME,
 } from './prune-appimage-bundled-libs.mjs';
 
@@ -72,6 +80,13 @@ try {
   assert.equal(isHostSystemLibraryName('libstdc++.so.6'), true);
   assert.equal(isHostSystemLibraryName('libgcc_s.so.1'), true);
   assert.equal(isHostSystemLibraryName('libwebkit2gtk-4.1.so.0'), false);
+  assert.equal(shouldCopyMissingDependency('libfribidi.so.0'), true);
+  assert.equal(shouldCopyMissingDependency('libharfbuzz.so.0'), true);
+  assert.equal(shouldCopyMissingDependency('libwayland-cursor.so.0'), false);
+  assert.equal(shouldCopyMissingDependency('libstdc++.so.6'), false);
+  assert.equal(shouldCopyMissingDependency('libEGL.so.1'), false);
+  assert.equal(shouldCopyMissingDependency('libc.so.6'), false);
+  assert.equal(isLibcFamilyLibraryName('ld-linux-x86-64.so.2'), true);
   assert.equal(isHostGraphicsLibraryName('libwebkit2gtk-4.1.so.0'), false);
   assert.equal(isHostGraphicsLibraryName('libgtk-3.so.0'), false);
   assert.equal(isHostGraphicsLibraryName('libglib-2.0.so.0'), false);
@@ -171,6 +186,60 @@ try {
   assert.equal(bundled.injectedBundles.length, 1);
   assert.ok(bundled.helperDir.endsWith('webkit2gtk-4.1'));
   assertWebKitBundled(appRoot, 'fixture');
+  assert.equal(payloadHasSoname(appRoot, 'libwebkit2gtk-4.1.so.0'), true);
+  assert.equal(payloadHasSoname(appRoot, 'libfribidi.so.0'), false);
+
+  assert.deepEqual(
+    parseReadelfNeeded(
+      ' 0x0000000000000001 (NEEDED)             Shared library: [libfribidi.so.0]\n' +
+        ' 0x0000000000000001 (NEEDED)             Shared library: [libharfbuzz.so.0]\n' +
+        ' 0x000000000000000e (SONAME)             Library soname: [libpango-1.0.so.0]\n',
+    ),
+    ['libfribidi.so.0', 'libharfbuzz.so.0'],
+    'GNU/LLVM readelf -d prints Shared library: [soname], not NEEDED token [soname]',
+  );
+  assert.deepEqual(
+    parseReadelfNeeded(' 0x0000000000000001 (NEEDED)             Shared library: [libfoo.so.0]'),
+    ['libfoo.so.0'],
+  );
+
+  const libcElf = ['/lib/x86_64-linux-gnu/libc.so.6', '/lib64/libc.so.6'].find((path) =>
+    existsSync(path),
+  );
+  if (libcElf) {
+    assert.ok(
+      listElfNeeded(libcElf).length > 0,
+      `listElfNeeded(${libcElf}) must parse a real readelf -d listing`,
+    );
+  }
+
+  const pangoCandidates = [
+    '/tmp/appimage-ci2/extract/squashfs-root/usr/lib/libpango-1.0.so.0',
+    '/lib/x86_64-linux-gnu/libpango-1.0.so.0',
+    '/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0',
+  ];
+  const pangoElf = pangoCandidates.find((path) => existsSync(path));
+  if (pangoElf) {
+    const pangoNeeded = listElfNeeded(pangoElf);
+    assert.ok(
+      pangoNeeded.includes('libfribidi.so.0'),
+      `listElfNeeded(${pangoElf}) must see pango's DT_NEEDED fribidi, got ${pangoNeeded.join(', ')}`,
+    );
+    assert.ok(pangoNeeded.includes('libharfbuzz.so.0'));
+
+    const copyRoot = join(fixture, 'copy-missing');
+    mkdirSync(join(copyRoot, 'usr', 'lib'), { recursive: true });
+    copyFileSync(realpathSync(pangoElf), join(copyRoot, 'usr', 'lib', 'libpango-1.0.so.0'));
+    const copied = copyMissingToolkitLibraries(copyRoot);
+    assert.ok(
+      copied.includes('libfribidi.so.0'),
+      `copyMissingToolkitLibraries must pull fribidi from the host, got ${copied.join(', ')}`,
+    );
+    assert.ok(copied.includes('libharfbuzz.so.0'));
+    assert.ok(existsSync(join(copyRoot, 'usr', 'lib', 'libfribidi.so.0')));
+    assert.ok(existsSync(join(copyRoot, 'usr', 'lib', 'libharfbuzz.so.0')));
+    assert.equal(payloadHasSoname(copyRoot, 'libfribidi.so.0'), true);
+  }
 
   const unpatched = join(fixture, 'unpatched');
   write(join(unpatched, 'usr', 'lib', 'x86_64-linux-gnu', 'libjavascriptcoregtk-4.1.so.0'));
