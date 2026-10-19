@@ -108,6 +108,13 @@ TitleBar X    File menu/Shortcuts  OS event (Alt+F4, WM close, Cmd+Q,
 - **Revision safety**: a save marks clean only if the document is still at
   the saved revision; a revision race re-saves (bounded) or fails as
   `conflict`. A quit during Ctrl+S joins the existing save.
+- **Browser download fallback is not a persistent save**: without the File
+  System Access API, the browser only reports that a download was requested;
+  it cannot tell the page whether the user kept or cancelled it. Varve keeps
+  the document dirty, retains the beforeunload warning, and does not advance
+  the persistent-save timestamp for that fallback. The save result also stays
+  unsuccessful for lifecycle coordination, so Save, Save As, or Save a Copy
+  through this fallback cannot authorize closing a dirty document.
 - **Save As cancellation aborts the transaction** — never interpreted as
   discard. Save failures block termination until resolved (retry / save-as /
   discard / cancel).

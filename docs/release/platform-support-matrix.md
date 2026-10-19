@@ -201,7 +201,7 @@ Untested and needing a VM pass before Tier 2 is claimed:
 
 - WebKitGTK 2.40–2.46 behaviour (Ubuntu 22.04/24.04 ship older versions than CachyOS)
 - Software rendering fallback where no GPU/WebGPU is available
-- XDG desktop portal file dialogs under GNOME vs KDE vs wlroots
+- Native GTK3 file dialogs under GNOME vs KDE vs wlroots (the current Tauri dialog plugin uses its default GTK3/rfd backend; portal-specific failures observed in other apps are not evidence for this configured path)
 - CUPS discovery via `lpstat` (`print_linux.rs:7`) where CUPS is absent
 - Fontconfig behaviour with a minimal font set
 - AppImage on a FUSE-less host

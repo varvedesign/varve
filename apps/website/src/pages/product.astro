@@ -100,6 +100,12 @@ import ClosingCTA from '../components/ClosingCTA.astro';
         <p>
           Varve stores design data locally. No account or mandatory cloud sync is required, and core editing works offline. Optional model downloads, online font/icon search, user-configured providers, update checks, and aggregate measurements are separate network features; consented measurements do not include design content. You own your files, you control where they live, and the desktop application uses a native Rust engine. The same engine is compiled to WASM for the <a href={sitePath('/docs/browser-demo')}>browser demo</a> — a bounded subset, not a hosted replacement for the desktop app.
         </p>
+        <p>
+          In Firefox and Safari, the browser demo saves snapshots as downloads. Since those
+          browsers do not tell a page whether a download was kept, Varve keeps the document marked
+          <em>Modified</em> and warns before leaving until a persistent file write completes.
+          <a href={sitePath('/docs/browser-demo')}>See how browser saving works.</a>
+        </p>
       </section>
 
       <section class="product-section">

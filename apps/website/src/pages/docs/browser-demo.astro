@@ -87,15 +87,18 @@ import '../../styles/docs-prose.css';
         <p>
           The demo follows your browser's file capabilities. In Chromium browsers it can keep
           writing to a file you chose (File System Access API), re-asking for permission when the
-          browser requires it. In Firefox and Safari, Save produces a fresh snapshot download each
-          time and the browser-local copy is updated as well, because a download is not a
-          persistent location.
+          browser requires it. In Firefox and Safari, Save starts a fresh snapshot download each
+          time and updates the browser-local copy as well. Because the browser does not tell the
+          page whether you kept or cancelled a download, the document stays <em>Modified</em> and
+          the leave-page warning stays active until a write to a persistent file destination
+          finishes. Starting a download through Save As does not dismiss that warning either.
         </p>
         <p>
           <strong>Saved means the write to the destination actually finished.</strong> The status
           bar reports <em>Saving…</em>, <em>Saved</em>, <em>Modified</em>, <em>Not saved</em>, or{' '}
-          <em>Save failed</em> with the reason in its tooltip. A cancelled file picker changes
-          nothing and does not mark the document saved. While edits have not reached a destination,
+          <em>Save failed</em> with the reason in its tooltip. A download-only save stays
+          <em>Modified</em>; only a completed write to a persistent destination marks the document
+          saved. A cancelled file picker changes nothing. While edits have not reached a destination,
           the demo writes <strong>recovery copies</strong> into this browser's storage; they are
           offered after a crash or a discarded tab and are removed when the document is saved, when
           you discard it intentionally, or after seven days.
