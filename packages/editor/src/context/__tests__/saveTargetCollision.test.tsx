@@ -1,5 +1,6 @@
 import { act, render, waitFor } from '@testing-library/react';
 import {
+  contentHash,
   createMemoryPlatform,
   type DocumentSaveTargetChoice,
   type WriteSaveResult,
@@ -49,6 +50,31 @@ function mountEditor() {
 }
 
 describe('save destination ownership', () => {
+  it('refuses to overwrite a native file changed outside the session', async () => {
+    const { platform, getEditor } = mountEditor();
+    const openedBytes = '{"revision":1}';
+    const externalBytes = '{"revision":2}';
+    platform.readDocumentText = vi.fn(async () => ({ ok: true as const, text: externalBytes }));
+    act(() => {
+      getEditor().loadDocument(DocumentCodec.encode(createDocument('Original')), {
+        fileId: 'file-a',
+        filePath: '/docs/original.varve',
+        diskContentHash: contentHash(openedBytes),
+      });
+      getEditor().setTool('rect');
+      getEditor().createShapeAt({ x: 10, y: 10 }, { w: 100, h: 60 });
+    });
+
+    await act(async () => {
+      await getEditor().save();
+    });
+
+    expect(platform.readDocumentText).toHaveBeenCalledWith('/docs/original.varve');
+    expect(platform.writeSaveTarget).not.toHaveBeenCalled();
+    expect(getEditor().state.saveIssue).toMatchObject({ category: 'file-changed-externally' });
+    expect(getEditor().state.dirty).toBe(true);
+  });
+
   it('keeps a concurrent edit in the saved session when switching tabs during a write', async () => {
     const { platform, getEditor } = mountEditor();
     platform.readDocumentText = vi.fn(async () => ({ ok: true as const, text: '{}' }));
