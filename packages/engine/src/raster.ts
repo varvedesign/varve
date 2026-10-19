@@ -53,9 +53,17 @@ export function supportsFormat(format: RasterFormat): boolean {
   // PNG and JPEG are universally supported.
   // WebP and AVIF need a feature test via toBlob detection.
   if (format === 'png' || format === 'jpeg') return true;
-  // For WebP/AVIF, skip detection in test/SSR environments
+  // WebP/AVIF require a runtime probe; a Canvas encoder may silently return PNG.
   if (typeof document === 'undefined') return false;
-  return true; // runtime detection at test time
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const mime = mimeForFormat(format);
+    return canvas.toDataURL(mime).startsWith(`data:${mime}`);
+  } catch {
+    return false;
+  }
 }
 
 function mimeForFormat(format: RasterFormat): string {
@@ -80,7 +88,8 @@ export async function renderRaster(
 ): Promise<RasterResult> {
   const { width, height, format, quality, background, antiAlias } = options;
 
-  const surface = createRasterSurface(width, height, { alpha: background === null });
+  // PNG keeps alpha when the background is omitted; other formats flatten below.
+  const surface = createRasterSurface(width, height, { alpha: format === 'png' });
   const ctx = surface.context;
 
   // Anti-aliasing control
@@ -109,6 +118,11 @@ export async function renderRaster(
   // Produce blob
   const mime = mimeForFormat(format);
   const blob = await encodeRasterSurface(surface, mime, quality ? quality / 100 : undefined);
+  if (blob.type.toLowerCase() !== mime) {
+    throw new Error(
+      `Requested ${mime}, but this runtime encoded ${blob.type || 'an unknown format'}.`,
+    );
+  }
 
   const estimatedBytes = estimateFileSize(width, height, format, quality);
   return { blob, width, height, format, estimatedBytes };
