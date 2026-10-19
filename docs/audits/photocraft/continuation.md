@@ -20,15 +20,24 @@ Last updated: 2026-10-19. Status: active and incomplete.
   audit:docs`, `pnpm audit:emoji`, JSONL parsing/unique-ID checks, and direct
   config-entry checks pass. Native Linux/Windows app visual validation has not
   run; the exact Windows minimize/restore path requires a Windows target. The
-  host filesystem currently has 2.5 GB free and the Rust target tree is 2.3 GB,
-  so check storage before starting another large native/full-gate build. The
+  host filesystem has about 5.3 GB free at the latest check. The
   separate read-only review found no actionable issues. Windows build and
   native minimize/restore visual validation remain required before calling
   F-020 fully verified. The public site makes no title-bar or driver-specific
   claim, so no website edit is indicated.
-- Next: commit through the normal hook, resolve the planner's full-gate
-  escalation according to the validation policy, and continue the Windows
-  target/native visual check when a suitable runner is available.
+- `a9d358199` commits the platform-specific Tauri decoration configuration.
+  Its exact-SHA local full gate has passed format/lint, audits, health and
+  architecture checks, all workspace typechecks, and E2E typecheck. It is
+  waiting for the shared website E2E lease before its remaining lanes can run.
+- This turn also compared PhotoCraft #3804/#3806 against Varve's effect,
+  rasterization, format, and save contracts. #3804 is now an adjacent design
+  lead because Varve has no effect-only bake operation; #3806 is no-match
+  because Varve has no OpenRaster import/save route. Counts in the issue
+  ledger and README reflect these dispositions. No website claim is implicated.
+- Next: finish the queued full gate, run Windows-native build/minimize/restore
+  visual validation when a Windows target is available, continue recursive
+  source/PR review, then complete final independent review and safe integration
+  to `master` without touching the dirty primary checkout.
 
 ## Current engineering batch (2026-10-18)
 

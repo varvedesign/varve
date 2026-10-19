@@ -155,12 +155,12 @@ These examples support internal reliability work and QA cases. They do not
 justify changing Varve's public marketing claims before an improvement ships;
 the current website review found no matching claim that needs correction.
 
-## 2026-10-18 disposition checkpoint
+## 2026-10-19 disposition checkpoint
 
 All 3,275 cutoff-A issue rows now have an explicit Varve disposition or an
-explicit unresolved decision: 221 candidates, 2 fixed items, 200 analogues,
-453 partial matches, 28 already-covered behaviors, 80 trackers, 78 adjacent
-QA/design leads, 2,208 reports with no Varve match established, 1 out-of-scope
+explicit unresolved decision: 219 candidates, 2 fixed items, 200 analogues,
+453 partial matches, 31 already-covered behaviors, 80 trackers, 79 adjacent
+QA/design leads, 2,206 reports with no Varve match established, 1 out-of-scope
 issue with no corresponding feature, and 4 issues
 that remain `unclear`. Those four are not completed dispositions; each has a
 specific reason the available source evidence does not yet support a confident
@@ -172,10 +172,17 @@ scope were manually resolved. Thirteen of the 17 previously unclear issues
 were resolved after their linked evidence and Varve paths were inspected.
 
 The status counts distinguish source comparison from engineering completion.
-The 221 candidates still require Varve reproduction or a product decision;
-the 453 partial matches and 78 adjacent leads are not automatically defects.
+The 219 candidates still require Varve reproduction or a product decision;
+the 453 partial matches and 79 adjacent leads are not automatically defects.
 The issue source pass and row-level Varve comparison do not complete the
 recursive link frontier or review of the source repository's PR discussions.
+
+The 2026-10-19 comparison classified PhotoCraft #3804 as an adjacent design
+lead: Varve has no operation that bakes effects while preserving layer masks,
+so the report does not establish a defect in an equivalent workflow. #3806 is
+no-match because Varve has no OpenRaster import or save route; its destructive
+in-place `.ora` conversion path is absent. These are scope decisions, not
+claims that the PhotoCraft data-loss reports are harmless.
 
 Disposition records add a concise rationale and distinguish the PhotoCraft
 issue state from Varve's engineering status. A PhotoCraft issue marked closed
