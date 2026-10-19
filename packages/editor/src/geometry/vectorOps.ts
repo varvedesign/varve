@@ -18,7 +18,7 @@
  */
 
 import type { PathPoint, Shape } from '@varve/engine';
-import { cubicBezierPoint, expandStroke, offsetPath, roundCorners } from '@varve/engine';
+import { cubicBezierPoint, expandStroke, offsetPath, pathRings, roundCorners } from '@varve/engine';
 import type { Document, Fill, NodeId, SceneNode, ShapeNode, Stroke } from '@varve/scene';
 import { addNode } from '@varve/scene';
 import type { Affine, Point } from '@varve/shared';
@@ -296,13 +296,20 @@ export function offsetPathNode(
   const shape = asPathShape(node.shape);
   if (shape?.kind !== 'path') return null;
   if (shape.points.length < 2) return null;
-  const points = offsetPath(shape.points, shape.closed, distance, joinStyle, miterLimit);
-  if (points.length < 2) return null;
+  const rings = pathRings(shape);
+  const offsetRings = rings.map((ring, index) =>
+    offsetPath(ring, index === 0 ? shape.closed : true, distance, joinStyle, miterLimit),
+  );
+  const points = offsetRings[0];
+  if (!points || points.length < 2) return null;
+  const additionalRings = offsetRings.slice(1);
   return {
     ...node,
     shape: {
       ...shape,
       points,
+      ...(shape.contours?.length ? { contours: offsetRings } : {}),
+      ...(shape.holes ? { holes: additionalRings } : {}),
     },
   };
 }
