@@ -120,6 +120,28 @@ Full suite run: no.
 If yes, reason: n/a.
 ```
 
+### Rebased integration validation — 2026-10-19
+
+The four task commits were rebased onto `origin/master` at
+`d17afae2aa75b4092de0ba9c3c38d19d52b5c54e`; the incoming changes were confined
+to the WASM effects pipeline and website performance guide. The rebased head is
+`2a1a2bbb294f2b5bc3acf0b01b6df6325fef4ff5` before this documentation addendum.
+The affected plan still selected 19 lanes and reported no full-suite escalation.
+`pnpm verify:affected` passed format/lint, radius/docs/emoji audits, editor,
+website, desktop, and E2E typechecks, focused save tests, editor package tests
+(8,785 passed, 2 skipped across 900 files), desktop tests (90), website tests
+(307), website-unit tests (307), and the menu visual E2E (6/6). Its full website
+E2E lane completed 688/690 before the aggregate command reported the two
+failures below; its navbar composition test hit the configured
+45-second timeout and its 390 px detail-card spacing assertion missed by 0.41
+px. Both exact cases passed in a separate one-worker, lease-wrapped rerun
+(2/2) with a 90-second case timeout; no website source or test change was
+needed. The full 26-case website visual spec passed, including the refreshed
+homepage/footer and product captures. `pnpm verify:push --since origin/master`
+passed on the pre-rebase four-commit tree; repeat it after this addendum and
+before pushing the rebased branch. No full repository suite, Rust suite, or
+release certification was run.
+
 ## Validation evidence and gaps
 
 - `pnpm verify:plan`: 54 selected lanes, 38 changed files,
