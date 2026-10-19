@@ -68,6 +68,7 @@ accessible validation message and the model value remains 375.
 correctness fix and does not alter a public product claim. Architecture and
 Inspector behavior docs are updated in this batch.
 
+
 ## F-008 — Native path lowering must enforce its vertex budget before allocation
 
 **Sources.** Photocraft's hostile-geometry reports include [#4427](https://github.com/storytold/photocraft/issues/4427)
@@ -877,3 +878,51 @@ findings in untouched Presentation/SpecPanel CSS. Desktop typecheck reports
 the pre-existing `CollabSurfaces.tsx:450` readonly `Affine` cast; the selected
 desktop unit lane passed (15 files, 90 tests). The independent final review
 found no remaining issues.
+
+## F-020 — Native title-bar strategy must match desktop window decorations
+
+**Sources.** PhotoCraft [#6962](https://github.com/storytold/photocraft/issues/6962)
+reports a black window after minimize/restore on Windows 10 with Intel HD
+Graphics 4600 using OpenGL. After the frozen cutoff, the reporter confirmed
+that enabling the system title bar avoids the black screen while keeping GPU
+acceleration on. Its related older-device report [#2687](https://github.com/storytold/photocraft/issues/2687)
+records the same workaround on Intel HD Graphics 4000; that thread also
+contains a separate AMD layer-drag performance complaint. [#2339](https://github.com/storytold/photocraft/issues/2339)
+is explicitly a duplicate of #2687. The linked [PR #3626](https://github.com/storytold/photocraft/pull/3626)
+proposes more invasive Win32 custom-frame changes and remains open with
+maintainer concerns about losing native snapping and shadow behavior; it is not
+the behavior Varve needs to copy. [#2246](https://github.com/storytold/photocraft/issues/2246)
+records a confirmed cursor-offset fix for PhotoCraft's Windows borderless frame
+in PR #2401. By contrast, [#3810](https://github.com/storytold/photocraft/issues/3810)
+was traced to mixed-DPI monitor handling; the reporter said the native title
+bar did not fix it, and a separate upstream winit change was tested. The
+unrelated taskbar/full-screen issues #3225, #3430, and #3550 were also linked
+from PR #3626, but its maintainer review explicitly rejected treating them as
+fixed by that PR.
+
+**Varve applicability and reproduction.** `@varve/platform` already selects
+native title bars on Windows and macOS, and `TitleBar` renders no custom bar
+for those strategies. However, the shared Tauri window config disabled OS
+decorations for every target. That mismatch made the expected native frame
+unavailable on Windows and macOS. The report's system-title-bar workaround
+therefore maps to a concrete Varve configuration defect, even though the exact
+Intel driver failure has not been reproduced here. PhotoCraft's evidence
+supports avoiding a custom Windows frame in this flow; it does not support
+claiming a fix for every old-GPU rendering failure, mixed-DPI movement, or
+taskbar/full-screen defect.
+
+**Implementation.** Shared Tauri config now enables native decorations. Linux
+retains its custom title bar through `tauri.linux.conf.json`, matching its
+runtime chrome strategy. No Windows-specific Win32 frame code was added.
+
+**Validation status.** The Tauri configuration and platform merge must be
+validated for Windows, and the native Windows minimize/restore path still needs
+visual checking on a Windows runner or machine. Linux visual checking should
+confirm its custom title bar remains intact. Do not treat browser screenshots
+as native title-bar evidence. The independent read-only review found no
+actionable issues and confirmed the configuration shape matches Tauri's
+platform-file and array-replacement rules.
+
+**Website impact.** No marketing copy or compatibility promise changes: the
+site does not claim a custom Windows title bar or driver-specific GPU behavior.
+The architecture guide records the per-platform chrome contract.

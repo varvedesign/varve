@@ -2,6 +2,34 @@
 
 Last updated: 2026-10-19. Status: active and incomplete.
 
+## Current follow-up batch (2026-10-19)
+
+- PhotoCraft #6962's post-cutoff author update confirms that its System Title
+  Bar workaround avoids the black return-from-minimize screen while retaining
+  GPU acceleration. Linked reports #2687/#2339 and #2850/#2246 trace related
+  symptoms to Windows custom-frame behavior, but #3810 is a separate mixed-DPI
+  issue and the AMD drag-performance report is separate from window chrome.
+- Varve already resolved native Windows/macOS chrome in `@varve/platform`, but
+  the shared Tauri config disabled decorations globally. The shared config now
+  enables them; `tauri.linux.conf.json` keeps Linux custom chrome. F-020 and
+  [linked-window-chrome-evidence.md](linked-window-chrome-evidence.md) record
+  the evidence, scope, and website no-change decision.
+- Validation so far: `pnpm verify:plan` escalated to the full gate because the
+  desktop target config was classified as workspace/toolchain infrastructure;
+  `pnpm verify:affected` correctly stopped and directed to that gate. `pnpm
+  audit:docs`, `pnpm audit:emoji`, JSONL parsing/unique-ID checks, and direct
+  config-entry checks pass. Native Linux/Windows app visual validation has not
+  run; the exact Windows minimize/restore path requires a Windows target. The
+  host filesystem currently has 2.5 GB free and the Rust target tree is 2.3 GB,
+  so check storage before starting another large native/full-gate build. The
+  separate read-only review found no actionable issues. Windows build and
+  native minimize/restore visual validation remain required before calling
+  F-020 fully verified. The public site makes no title-bar or driver-specific
+  claim, so no website edit is indicated.
+- Next: commit through the normal hook, resolve the planner's full-gate
+  escalation according to the validation policy, and continue the Windows
+  target/native visual check when a suitable runner is available.
+
 ## Current engineering batch (2026-10-18)
 
 - PhotoCraft #5195/#5211: Varve native fill lowering now includes the emitted

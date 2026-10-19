@@ -246,6 +246,19 @@ ordering controls.
 
 ## Desktop and browser posture
 
+The main desktop window uses native OS decorations on Windows and macOS. Linux
+keeps the custom title bar because its window-manager integrations need the
+in-app drag region and controls. This split is configured with Tauri's
+platform-specific config: the shared window config keeps decorations enabled,
+and `tauri.linux.conf.json` disables them. Keep the runtime chrome strategy in
+`@varve/platform` aligned with those build-time settings; otherwise native
+title-bar layouts can be rendered into a borderless window with no OS controls.
+
+This also keeps the Windows webview out of an unnecessary custom-frame path on
+older integrated graphics, where users of comparable desktop editors have
+reported black or shifted windows after minimizing and restoring. It does not
+promise to resolve graphics-driver faults in the editor surface itself.
+
 Runtime capability and presentation mode answer different questions. Runtime
 capability describes which window transport the host can provide; presentation
 mode describes whether window-detach controls fit the current interaction

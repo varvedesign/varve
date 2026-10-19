@@ -87,6 +87,15 @@ page-by-page observation, not an atomic point-in-time snapshot.
 
 ## Current implementation batch
 
+The latest completed code batch fixes multi-selection resize visibility and
+locking in [F-019](findings.md#f-019--multi-selection-needs-visible-member-outlines-and-working-resize-handles).
+The active follow-up [F-020](findings.md#f-020--native-title-bar-strategy-must-match-desktop-window-decorations)
+aligns Tauri's build-time decorations with Varve's native Windows/macOS chrome
+strategy, based on the #6962/#2687 system-title-bar reports. Windows target
+build and native visual validation are still pending; related independent
+GPU, mixed-DPI, and taskbar reports are not claimed fixed. See the
+[linked window-chrome evidence](linked-window-chrome-evidence.md).
+
 - [Findings and decisions](findings.md)
 - [Continuation record](continuation.md)
 - [Frozen issue inventory](issue-inventory-2026-10-17.jsonl)
