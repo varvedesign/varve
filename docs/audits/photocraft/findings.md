@@ -1206,14 +1206,47 @@ called complete merely because its source issue is closed or a source PR is open
   does not map to Varve's current canvas model; no matching jump was reproduced
   and no code change is justified. PdfCraft
   [#3284](https://github.com/storytold/pdfcraft/issues/3284) and
-  [#3317](https://github.com/storytold/pdfcraft/issues/3317) request opaque
-  fills and thicker borders for text boxes/callouts. Varve callout bodies are
-  ordinary shapes with the standard fill/stroke inspector; a separate opaque
-  background control for generic text boxes is not established. PdfCraft
+  [#3317](https://github.com/storytold/pdfcraft/issues/3317) requested opaque
+  fills and thicker borders for text boxes/callouts; their merged source fix
+  is reviewed in §4.29. PdfCraft
   [#3399](https://github.com/storytold/pdfcraft/issues/3399) asks for callout
   text sizing, already available through Varve's Typography inspector on the
   ordinary dialogue TextNode. These are recorded as partial workflow matches,
   not as defects found in Varve. No marketing claim follows from them.
+
+### 4.29 Cutoff C follow-up: text-frame fill and border
+
+- **Source behavior is now implemented; Varve still has a distinct gap.**
+  PdfCraft issues [#3284](https://github.com/storytold/pdfcraft/issues/3284)
+  and [#3317](https://github.com/storytold/pdfcraft/issues/3317) describe text
+  placed over busy floor plans becoming hard to read without an opaque backing,
+  and request fill and border-width controls for text boxes and callouts. The
+  merged [PR #3366](https://github.com/storytold/pdfcraft/pull/3366) adds
+  persistent FreeText `/C` fill, callout/text-box border controls including
+  zero width, saved tool defaults, annotation appearance regeneration, and
+  `comment_edit` support. Its own annot, automation, UI, and native checks are
+  source-project evidence, not validation of Varve.
+- In Varve, callout bodies are ordinary `ShapeNode`s and already use the
+  standard Fill and Stroke inspector. Ordinary `TextNode` has shared node
+  fills, but those are used to paint glyphs; `TextNode.strokes` outlines glyphs
+  through the text painter. Neither gives users a backing rectangle or a
+  border around a text frame. The floor-plan readability need therefore
+  remains relevant to Varve's authoring workflow.
+- **Implementation acceptance:** provide an optional text-frame backing and
+  frame border without changing existing text appearance; retain glyph fill
+  and glyph-outline behavior; keep the frame aligned to the same computed text
+  geometry used by selection and hit testing; preserve undo, copy/paste,
+  duplicate, save/reopen, and old-document compatibility; render consistently
+  in Canvas2D, native/WASM, and PDF export; expose clear inspector controls
+  with an explicit no-fill/zero-border state. Verify point, area, rich, and
+  vertical text, including clipping and text reflow. Do not claim this
+  capability on the marketing site until every supported output path passes.
+- **Status:** relevant Varve feature candidate, not yet implemented. The
+  optional node property crosses scene serialization/versioning, engine IR,
+  Rust bridge/rendering, print export, and inspector UI; it needs a complete
+  cross-platform slice and its migration/compatibility review. The exact source
+  PR scope and later issue closure are recorded in
+  `issue-ledger-post-cutoff-c-updates.jsonl` and `link-frontier.jsonl`.
 
 The website's Browser Demo guide was updated to explain the download-only save
 state; no other marketing or capability claim needed revision. The menu and

@@ -955,6 +955,36 @@ If yes, reason: n/a.
   user artifacts, and queued Varve workflows remain outstanding; this update
   does not claim complete corpus review.
 
+## 2026-10-19 post-cutoff issue reconciliation — text-frame styling
+
+- Current source issue pages show PdfCraft #3284 and #3317 closed by merged
+  PR #3366 (`e503324`). The PR adds FreeText `/C` background persistence,
+  callout and text-box border width including zero, saved tool defaults,
+  appearance regeneration and automation editing. The report says the need is
+  readable callouts over floor-plan lines; both issue comments describe the
+  same two style controls. The merged source change, review note and merge
+  event were inspected. Source tests are recorded as source-project evidence,
+  not as Varve validation.
+- Varve already styles callout body shapes through standard fills/strokes, but
+  a generic TextNode has no frame fill or frame border; its node fills and
+  strokes paint glyphs. This remains a relevant Varve feature candidate, not
+  an established defect or an out-of-scope exclusion. Findings §4.29 records
+  the required end-to-end acceptance across persistence, text geometry,
+  editor controls, Canvas2D/native/WASM rendering and PDF export. Existing
+  marketing copy makes no text-frame styling claim, so no marketing text was
+  changed before the capability exists and is visually verified.
+- Current source-state follow-ups for #3284/#3317 are recorded separately in
+  `issue-ledger-post-cutoff-c-updates.jsonl`; frozen cutoff-C rows remain
+  unchanged. The next engineering slice is to implement and validate a
+  distinct frame-fill/frame-border property without changing glyph styling or
+  legacy document appearance. This requires updating the scene schema and
+  native/print bridges; do not merge it without migration/serialization and
+  visual evidence.
+- The earlier `b9a8794f2` zoom-evidence commit remains local because the exact
+  push-target snapshot could not be created at 100% disk use. Once enough
+  shared space is available, rerun the push checkpoint and publish that branch
+  before opening its PR; do not skip the checkpoint.
+
 ### Agent Validation Report — zoom-settle reconciliation
 
 ```text
