@@ -274,8 +274,11 @@ async function performSave(
     // destination the user never chose, which is what the branch above
     // deliberately avoids.
     if (meta.fileId) await mirror(patch, platform, meta.fileId, meta.name, json);
-    patch({ lastSavedAt: Date.now() });
-    return { status: 'saved' };
+    // A synthetic download can only be started; browsers do not report
+    // whether the user kept it. Do not present its initiation as a completed
+    // save or replace the timestamp of the last persistent write.
+    patch({ saveState: 'idle' });
+    return { status: 'download-started' };
   }
 
   if (target.kind === 'native-file') {
@@ -377,7 +380,10 @@ async function chooseAndAdopt(
   // A fresh UUID is minted only when the document never had one.
   const fileId = meta?.fileId ?? crypto.randomUUID();
 
-  await recoveryRef.current?.deleteSession(s.activeId);
+  // Keep recovery data when only a browser download was started. The page
+  // cannot verify that the snapshot was retained, so a fallback download is
+  // not a safe reason to remove the last recovery copy.
+  if (adopted.persistent) await recoveryRef.current?.deleteSession(s.activeId);
   // A download-only target is not persistent, so it never adopted a location
   // to mirror to. But a document that already has an id has a browser-local
   // copy that is now stale, and leaving it stale is how Firefox and Safari
@@ -387,7 +393,10 @@ async function chooseAndAdopt(
     await mirror(patch, platform, fileId, adopted.name, json, adopted.mirrorExtra);
   }
   const cur = stateRef.current;
-  const clean = cur.document === revision;
+  // File System Access and native/library writes have a persistent result.
+  // The fallback download only dispatches a browser download event, so the
+  // page cannot know whether a file was actually retained.
+  const clean = adopted.persistent && cur.document === revision;
   const update: SessionUpdate = {
     ...adopted.session,
     fileId,
@@ -401,8 +410,8 @@ async function chooseAndAdopt(
   );
   patch({
     dirty: clean ? false : cur.dirty,
-    saveState: 'saved',
-    lastSavedAt: Date.now(),
+    saveState: adopted.persistent ? 'saved' : 'idle',
+    ...(adopted.persistent ? { lastSavedAt: Date.now() } : {}),
     saveIssue: null,
     sessions,
   });
@@ -417,7 +426,7 @@ async function chooseAndAdopt(
       void persistFileThumbnail(platform, fileId, cur.document).catch(() => undefined);
     }
   }
-  return { status: 'saved' };
+  return adopted.persistent ? { status: 'saved' } : { status: 'download-started' };
 }
 
 /** Save a Copy: write elsewhere, never adopt, never touch dirty state. */
@@ -447,6 +456,7 @@ async function performSaveCopy(
   // Deliberately no session mutation: the active document keeps its own
   // target, name, and dirty state. A successful copy never clears dirty.
   void revision;
+  if (choice.target.kind === 'download-only') return { status: 'download-started' };
   return { status: 'saved-copy' };
 }
 

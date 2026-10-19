@@ -20,6 +20,8 @@ export type SaveIntent = 'save' | 'save-as' | 'save-copy';
 export type SaveOutcome =
   | { status: 'saved' }
   | { status: 'saved-copy' }
+  /** A browser download event started, but retention cannot be confirmed. */
+  | { status: 'download-started' }
   | { status: 'cancelled' }
   | { status: 'failed'; issue: SaveIssue };
 
