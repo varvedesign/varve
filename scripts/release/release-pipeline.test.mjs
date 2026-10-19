@@ -604,6 +604,11 @@ assert.match(workflowJob(candidateWorkflow, 'triage-certification'), /needs:.*ru
   const candidate = load(candidateWorkflow);
   assert.ok(candidate.jobs.changes.outputs.tree_sha.includes('steps.plan.outputs.tree_sha'));
   assert.ok(candidate.jobs.certification.if.includes("inputs.mode == 'final'"));
+  assert.notEqual(
+    candidate.jobs.certification.name,
+    'Release Candidate / certification',
+    'the Actions job check must not shadow the API-published exact-SHA attestation',
+  );
   assert.ok(candidate.jobs.certification.needs.includes('attribution-check'));
   for (const id of [
     'pipeline-validate',
@@ -628,6 +633,7 @@ assert.match(workflowJob(candidateWorkflow, 'triage-certification'), /needs:.*ru
   );
   const adopted = workflowJob(candidateWorkflow, 'certification');
   assert.match(adopted, /candidate-certification\.json/);
+  assert.match(adopted, /name='Release Candidate \/ certification'/);
   assert.doesNotMatch(adopted, /ci-certification\.json/);
 }
 const candidateBrowserCommands = candidateWorkflow
