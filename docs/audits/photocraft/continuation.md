@@ -869,3 +869,17 @@ Last updated: 2026-10-19. Status: active and incomplete.
   review of the complete #2913 code, test, evidence, and inventory diff found
   no actionable defects. The #2913 slice is ready for commit; master integration
   remains part of the larger incomplete issue-corpus review.
+
+- PhotoCraft #6110 and linked #4961 resource-bound review: compared the issue
+  and linked open PR #5992 against Varve's retouch implementation. PR #5992
+  adds both an early stroke-footprint estimate and an actual rendered-coverage
+  admission check before dense allocation; this remains upstream, unmerged work
+  at the frozen cutoff. Varve does not accumulate retouch coverage for a whole
+  stroke: each dab creates its mask and writes only touched tiles in
+  `retouchRaster.ts`. The retouch UI constrains brush diameter to 1–1000 px, and
+  `setOptions` is connected to that bounded control. This does not establish the
+  PhotoCraft defect in Varve; #6110 is marked reviewed/no direct action. The
+  separate per-dab allocation is bounded by the user-facing size limit and is
+  not treated as an equivalent whole-stroke allocation. No product behavior
+  changed, so no visual validation or marketing copy change applies. Full code
+  review and master integration for the larger corpus task remain outstanding.
