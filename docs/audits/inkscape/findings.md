@@ -2861,3 +2861,68 @@ count mismatches remain unchanged.
   to ordinary paths in the Node tool. The thread says the issue was fixed by
   Inkscape 1.1.2/1.3-dev. Varve has no matching live path-effect conversion
   route.
+
+## IID 1921–1930 — import safety, packaging, and canvas behavior
+
+The discussion cache for these ten threads contains 91 notes (51 user
+comments and 40 system/history events); issue-level counts reconcile. Relevant
+linked evidence was followed for the clipping antialias fix, Scribus packaging
+reports, the earlier sticky context-menu report, and the SVG clipping-path
+rules.
+
+- [#1921](https://gitlab.com/inkscape/inkscape/-/issues/1921) reports masked
+  PNG exports remaining antialiased when antialiasing is disabled. The thread
+  points to [MR !2401](https://gitlab.com/inkscape/inkscape/-/merge_requests/2401),
+  which explicitly fixes clipping-path antialias. Varve has no matching
+  raster export toggle for clips/masks, so this is not evidence of a current
+  Varve defect.
+- [#1922](https://gitlab.com/inkscape/inkscape/-/issues/1922) describes
+  intermittent freezes with no stable reproduction. Its attached journal
+  output is platform-specific and does not identify a Varve subsystem or
+  actionable analogue.
+- [#1923](https://gitlab.com/inkscape/inkscape/-/issues/1923) is an Inkscape
+  Snap sandbox restriction: an external Scribus executable cannot be reached
+  from the confined package. The maintainer confirms there is no practical
+  workaround short of bundling Scribus; Varve does not shell out to Scribus.
+- [#1924](https://gitlab.com/inkscape/inkscape/-/issues/1924) reports a
+  Scribus CMYK export failure in an Inkscape AppImage. The investigation
+  traced it to the package's `PYTHONHOME`, and
+  [MR !2074](https://gitlab.com/inkscape/inkscape/-/merge_requests/2074)
+  addressed the AppImage environment. Varve has no comparable extension
+  process or environment to fix.
+- [#1925](https://gitlab.com/inkscape/inkscape/-/issues/1925) is a GNOME
+  Wayland titlebar-button artifact with normal X11 behavior. It depends on
+  GTK/window-manager decoration and is outside the browser canvas; Varve's
+  Linux native decoration path remains a platform verification area, not a
+  confirmed match.
+- [#1926](https://gitlab.com/inkscape/inkscape/-/issues/1926) is a crash in
+  the legacy clone/live-path-effect layer move path, fixed in 1.1-dev through
+  [MR !1979](https://gitlab.com/inkscape/inkscape/-/merge_requests/1979).
+  Varve has no equivalent live path effects or clone model.
+- [#1927](https://gitlab.com/inkscape/inkscape/-/issues/1927) reports a
+  canvas context menu that stays open after Paste on some X11/desktop
+  combinations; Wayland instead requires an extra click. The thread traces it
+  to duplicated popup handling and links the older sticky-menu
+  [#677](https://gitlab.com/inkscape/inkscape/-/issues/677). Varve's Paste
+  handler already closes its menu explicitly. A browser regression now checks
+  that Paste inserts the copied object and dismisses the menu; visual/browser
+  execution passed in Chromium, and the captured canvas showed the inserted
+  object with the menu dismissed.
+- [#1928](https://gitlab.com/inkscape/inkscape/-/issues/1928) concerns
+  crashes/freezes from Mirror live path effects with split elements and
+  chained clones; reports persisted in later development versions. Varve has
+  no equivalent feature model.
+- [#1929](https://gitlab.com/inkscape/inkscape/-/issues/1929) narrowed an
+  initially inconsistent “Simple Globe.svg” crash to a minimal `<use>` that
+  indirectly references a second `clipPath`. SVG 1.1 disallows indirect
+  references from `clipPath` children ([specification](https://www.w3.org/TR/SVG11/masking.html#ClipPathElement)),
+  but malformed content must not crash an importer. Varve currently skips
+  this unresolved clip definition with a warning and retains the remaining
+  document; a focused regression in the passing 446-test importer suite pins
+  that behavior. The public Wikimedia
+  sample itself contains a simple path clip and no `<use>`, so it does not
+  reproduce the reduced crash case.
+- [#1930](https://gitlab.com/inkscape/inkscape/-/issues/1930) requests
+  snapping on ellipse arc handles. Varve creates ellipses but has no editable
+  arc-handle workflow, so adding a specialized snapping mode is not justified
+  by a current user path.
