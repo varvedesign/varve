@@ -71,7 +71,7 @@ set +e
       echo "REFUSING: libwebkit2gtk is installed in the smoke image" >&2
       exit 1
     fi
-    chmod +x /opt/Varve.AppImage
+    # Bind-mounted :ro — chmod here would fail. The host script already +x'd it.
     export APPIMAGE_EXTRACT_AND_RUN=1
     export WEBKIT_DISABLE_SANDBOX=1
     LOG=/tmp/varve-appimage-smoke.log

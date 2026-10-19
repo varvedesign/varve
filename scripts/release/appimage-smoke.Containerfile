@@ -16,6 +16,8 @@ RUN apt-get update \
       libgbm1 \
       libgl1 \
       libgles2 \
+      libnspr4 \
+      libnss3 \
       libwayland-client0 \
       libx11-6 \
       libxcomposite1 \

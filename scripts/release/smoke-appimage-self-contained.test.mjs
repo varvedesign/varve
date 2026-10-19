@@ -21,6 +21,12 @@ assert.match(script, /APPIMAGE_EXTRACT_AND_RUN=1/);
 assert.match(script, /xvfb-run/);
 assert.match(script, /WINDOW_OK/);
 assert.match(script, /libwebkit2gtk-4\.1\.so\.0: cannot open/);
+assert.match(script, /:ro/);
+assert.doesNotMatch(
+  script,
+  /chmod \+x \/opt\/Varve\.AppImage/,
+  'ro bind-mount cannot chmod the AppImage inside the container',
+);
 assert.doesNotMatch(script, /apt-get install[^\n]*libwebkit2gtk/);
 
 assert.match(containerfile, /FROM docker\.io\/library\/ubuntu:22\.04/);
@@ -28,6 +34,7 @@ assert.match(containerfile, /xvfb/);
 assert.match(containerfile, /libegl1/);
 assert.match(containerfile, /libx11-6/);
 assert.match(containerfile, /libxrandr2/);
+assert.match(containerfile, /libnss3/);
 assert.doesNotMatch(containerfile, /libwebkit2gtk-4/);
 assert.match(containerfile, /libwebkit2gtk must not be installed/);
 assert.match(containerfile, /libgtk-3-0 must not be installed/);
