@@ -75,7 +75,7 @@ function assertWithinManifestBudget(totalBytes: number): void {
   const limitMb = Math.round(PRINT_MANIFEST_MAX_TOTAL_BYTES / (1024 * 1024));
   const totalMb = Math.round(totalBytes / (1024 * 1024));
   throw new Error(
-    `PDF export image content (${totalMb} MB decoded) exceeds the ${limitMb} MB print limit. Reduce the export scale or export a smaller region and try again.`,
+    `PDF export image content (${totalMb} MB decoded) exceeds the ${limitMb} MB print limit. Downsample large images or remove some images, then try again.`,
   );
 }
 

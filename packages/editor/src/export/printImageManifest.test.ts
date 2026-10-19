@@ -72,7 +72,7 @@ describe('print image manifest memory budget', () => {
 
     const { buildPrintImageManifestForSrcs } = await import('./printImageManifest');
     await expect(buildPrintImageManifestForSrcs(['large-photo.png'])).rejects.toThrow(
-      /exceeds the 192 MB print limit/,
+      /exceeds the 192 MB print limit\. Downsample large images or remove some images/,
     );
 
     expect(createElement).not.toHaveBeenCalledWith('canvas');
