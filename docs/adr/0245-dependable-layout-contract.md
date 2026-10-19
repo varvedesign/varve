@@ -64,8 +64,9 @@ from fixed-on-scroll. Hug measures content; it is not a one-time resize action.
    invalid track syntax or identities, bounds, gaps, cell anchors, collisions,
    and track/placement limits without mutating the document. Flex reports
    invalid bounds/results and visible main-axis overflow; invalid geometry
-   keeps the last materialized child positions. Nested layout-cycle feedback
-   remains deferred.
+   keeps the last materialized child positions. A child that Fills an axis
+   inside a parent that Hugs that same axis gets a user-facing warning; the
+   deterministic minimum-contribution policy still resolves the geometry.
 10. Supported importers preserve editable rules and cell anchors. If a source
     layout cannot be represented, import keeps its fixed geometry and reports
     the unsupported fields instead of attaching a partial live layout.
@@ -85,6 +86,7 @@ from fixed-on-scroll. Hug measures content; it is not a one-time resize action.
 | Invalid track input, colliding spans, oversized repeat/count/depth | No unbounded work or geometry overwrite; the inspector reports the bounded grid failure |
 | Flex items cannot shrink enough to fit the available main-axis space | Finite child rectangles remain visible and the inspector reports overflow |
 | Flex bounds or resolved geometry are non-finite | Reflow keeps prior child geometry and the inspector explains the invalid layout |
+| A flow child Fills the same axis its auto-layout parent Hugs | Inspector identifies the axis-specific cycle; hidden and absolute children do not warn |
 | Save/reopen, duplicate/detach, importer first edit, undo/redo | Authored sizing/track/anchor rules remain editable and the initiating edit is one undo entry |
 
 ## Consequences

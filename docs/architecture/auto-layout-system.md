@@ -23,7 +23,7 @@
 | Min/max constraints | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** — Fixed bounds remain visible but inactive |
 | Relative sizing | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (new)** — literal percentages retain their authored reference |
 | Nested layout (multi-level, hug + fill mixed) | ✓ | ✓ | N/A | ✓ | ✓ | **Working (new)** — was single-level only |
-| Cycle handling (fill inside hug) | ✓ | ✓ | N/A | N/A | ✓ | **Working (new)** — broken by construction (min-size contribution), diagnostic in cycleDetection.ts is available but not yet wired into the inspector as a user-facing warning |
+| Cycle handling (fill inside hug) | ✓ | ✓ | ✓ | N/A | ✓ | **Working** — broken by construction (min-size contribution); same-axis Fill/Hug configurations show an inspector warning |
 | Grid layout | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** — repeat tracks, occupant mapping, spans, and constrained application |
 | Grid hug/intrinsic sizing | ✓ | ✓ | — | — | ✓ | **Working** — px/auto tracks measure through the shared grid resolver; fractional tracks contribute no unconstrained size |
 | Grid hidden/absolute filtering | ✓ | ✓ | — | — | — | **Working (new)** — parity fix, not deeply tested |
@@ -54,7 +54,7 @@ Layout Engine (@varve/layout — pure TS, no DOM)
     ├── computeGridLayout()   → explicit tracks, auto-flow, placement overrides (unchanged this pass)
     ├── intrinsicSize.ts      → resolveIntrinsicSizes(): bottom-up hug resolution across a subtree
     ├── reflow.ts             → reflowLayoutChildren(): the single entry point (see phases below)
-    └── cycleDetection.ts     → checkLayoutCycle(): deterministic diagnostic (inspector wiring remains queued)
+    └── cycleDetection.ts     → checkLayoutCycle(): axis-aware diagnostic shown by the child layout inspector
     │
     ▼
 Resolved Geometry (transform + w/h written back onto each node)
@@ -157,7 +157,7 @@ verification gate and are not inferred from solver tests.
 
 ## 4. Known Limitations (see final report for full prioritization)
 
-- **Cycle diagnostic not surfaced**: `checkLayoutCycle` exists and is tested but isn't called from any mutation path — there's no user-facing warning when a configuration would have cycled (the engine still resolves deterministically; this is about UX feedback, not correctness).
+- **Cycle warning is diagnostic only**: `checkLayoutCycle` detects same-axis Fill/Hug parent-child pairs, including per-axis sizing, and the child inspector explains the deterministic minimum-contribution policy. It does not block the edit because the engine already breaks the sizing loop deterministically.
 - **Absolute-child constraints** apply during layout-frame reflow, while flow children are arranged independently. `centerOffset` preserves the child's signed offset from the parent center; legacy `center` remains proportional. Native interaction coverage across rotation and cancel/undo is still pending.
 - **Canvas reordering**: dragging a single flow child within its existing flex frame now updates scene child order and reflows in the same undo transaction. A visual insertion indicator, multi-child reordering, and gap/padding drag handles remain future work.
 - **Real typographic baseline alignment** is not implemented; `alignItems` has no `baseline` option, which is correct per the "don't expose a fake option" principle rather than an oversight.
