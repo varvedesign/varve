@@ -2,6 +2,42 @@
 
 Last updated: 2026-10-18.
 
+## Resume checkpoint — 2026-10-19 00:40 UTC
+
+- The corpus and implementation target are Inkscape's issue tracker. The
+  pasted brief contains stale “Photocraft” wording, but names Inkscape as the
+  source. Do not redirect this work to another project. The current isolated
+  branch is `feat/inkscape-corpus`, at `f060567e6`; the latest issue notes
+  reviewed are #1841–1850, bringing substantive discussion review to 1,047 of
+  5,669 note-bearing threads. The source baseline remains 6,392 unique issues.
+- The #1840 change (rotation off by default, settings copy, behavior matrix,
+  and touch/pen website guidance) is still uncommitted because its updated
+  browser test exposed a canvas pixel difference after the authoritative
+  redraw. The earlier default-locked screenshot was inspected; the enabled
+  test's before/after canvas images still need a fresh run and inspection.
+  #1849's slider-release E2E also needs its browser run. #1847 now has a new
+  first-drag multi-selection test that asserts path text and its referenced
+  shape translate together; it has only passed Biome formatting so far.
+- `pnpm verify:plan` after adding the #1847 spec selected 48 lanes and no full
+  suite. The prior `pnpm verify:affected` stopped at the same ten pre-existing
+  `audit:radius` findings in unchanged presentation/spec-panel CSS. The
+  website Astro and Pages builds, docs/token/emoji audits, E2E typecheck, and
+  formatting of the previously added #1840/#1849 changes passed as recorded
+  in the prior checkpoint; the new text-on-path E2E has not yet been included
+  in typecheck or browser execution.
+- Shared validation is still owned by another worktree. Heavy-lease owner PID
+  `1474493` remains alive and holds the repository lease, although available
+  memory is currently above 8 GiB. Do not terminate it, reclaim the lock, or
+  launch another browser job until the owner exits. No operation has closed or
+  interacted with the ChatGPT Linux app.
+- Other contributors' dirty paths remain excluded from task commits:
+  `tests/e2e/export/native-pdf-contract.spec.ts`,
+  `packages/codegen/src/bundle-assets.ts`, and
+  `packages/scene/src/nodeResize.ts`. Next: wait for the shared lease, run the
+  three focused Chromium specs through `heavy-lease.mjs`, inspect their canvas
+  and website screenshots, resolve any true regressions, then finish the
+  defect-first second-pass review and commit this increment.
+
 ## Goal and scope
 
 Review the Inkscape issue corpus and recursively investigate relevant evidence
