@@ -126,6 +126,36 @@ test.describe('Workspace switcher keyboard contract', () => {
   });
 });
 
+test.describe('Open document shortcut contract', () => {
+  test('Ctrl+Tab and Ctrl+Shift+Tab cycle through open documents in both directions', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await navigateToEditor(page);
+
+    const tabs = page.getByRole('tablist', { name: 'Open documents' }).getByRole('tab');
+    await expect(tabs).toHaveCount(1);
+    const first = tabs.nth(0);
+    await expect(first).toHaveAttribute('aria-selected', 'true');
+
+    await page.getByRole('button', { name: /new document/i }).click();
+    await expect(tabs).toHaveCount(2);
+    const second = tabs.nth(1);
+    await expect(second).toHaveAttribute('aria-selected', 'true');
+
+    await page.keyboard.press('Control+Tab');
+    await expect(first).toHaveAttribute('aria-selected', 'true');
+    await page.screenshot({ path: testInfo.outputPath('document-tab-shortcuts.png') });
+
+    await page.keyboard.press('Control+Tab');
+    await expect(second).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('Control+Shift+Tab');
+    await expect(first).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('Control+Shift+Tab');
+    await expect(second).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
 test.describe('Dirty document tab close flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
