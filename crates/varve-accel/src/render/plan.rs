@@ -303,6 +303,20 @@ fn finite(value: f64) -> bool {
     value.is_finite()
 }
 
+fn finite_f32(values: &[f32]) -> bool {
+    values.iter().all(|value| value.is_finite())
+}
+
+fn shape_record_is_finite(record: &ShapeRecord) -> bool {
+    finite_f32(&record.mv)
+        && finite_f32(&record.mv2)
+        && finite_f32(&record.quad)
+        && finite_f32(&record.p0)
+        && finite_f32(&record.p1)
+        && finite_f32(&record.radii)
+        && finite_f32(&record.color)
+}
+
 /// Parse `cornerRadius`, which the IR carries as an untyped JSON value: a
 /// single number or a four-element array in top-left/top-right/bottom-right/
 /// bottom-left order.
@@ -770,13 +784,6 @@ fn bounds_of(points: &[[f64; 2]]) -> Option<[f64; 4]> {
     Some([min_x, min_y, max_x - min_x, max_y - min_y])
 }
 
-fn push_solid_vertex(out: &mut Vec<SolidVertex>, clip: [f64; 2], color: [f32; 4]) {
-    out.push(SolidVertex {
-        position: [clip[0] as f32, clip[1] as f32],
-        color,
-    });
-}
-
 /// Lower a full frame in paint order.
 ///
 /// `view` is the camera transform already multiplied by the display scale, in
@@ -875,7 +882,10 @@ pub fn lower_frame(items: &[RenderItem], view: Affine) -> NativePlan {
                         (),
                     ),
                 };
-                if !(bounds[2] > 0.0 && bounds[3] > 0.0) {
+                if !shape_record_is_finite(&record)
+                    || !finite_f32(&bounds)
+                    || !(bounds[2] > 0.0 && bounds[3] > 0.0)
+                {
                     plan.report.rejected += 1;
                     *plan
                         .report
@@ -904,6 +914,24 @@ pub fn lower_frame(items: &[RenderItem], view: Affine) -> NativePlan {
                     bounds[2] + margin * 2.0,
                     bounds[3] + margin * 2.0,
                 ];
+                if !finite_f32(&record.mv) || !finite_f32(&record.mv2) {
+                    plan.report.rejected += 1;
+                    *plan
+                        .report
+                        .reasons
+                        .entry(RejectReason::NonFiniteTransform.key().to_string())
+                        .or_insert(0) += 1;
+                    continue;
+                }
+                if !finite_f32(&record.quad) {
+                    plan.report.rejected += 1;
+                    *plan
+                        .report
+                        .reasons
+                        .entry(RejectReason::EmptyGeometry.key().to_string())
+                        .or_insert(0) += 1;
+                    continue;
+                }
 
                 if run_start.is_none() {
                     run_start = Some(plan.shapes.len() as u32);
@@ -924,6 +952,7 @@ pub fn lower_frame(items: &[RenderItem], view: Affine) -> NativePlan {
                 // every sample, so non-zero fill is exact for concave and
                 // self-intersecting contours without any triangulator.
                 let fan_index_start = plan.indices.len() as u32;
+                let vertex_start = plan.vertices.len();
                 let mut bounds = [
                     f64::INFINITY,
                     f64::INFINITY,
@@ -931,6 +960,7 @@ pub fn lower_frame(items: &[RenderItem], view: Affine) -> NativePlan {
                     f64::NEG_INFINITY,
                 ];
                 let mut emitted_any = false;
+                let mut invalid_transform = false;
 
                 for contour in &contours {
                     let Some(local_bounds) = bounds_of(contour) else {
@@ -943,8 +973,19 @@ pub fn lower_frame(items: &[RenderItem], view: Affine) -> NativePlan {
 
                     let combined = multiply(view, item.transform);
                     let base = plan.vertices.len() as u32;
+                    let mut contour_is_finite = true;
                     for point in contour {
-                        push_solid_vertex(&mut plan.vertices, apply(combined, *point), color);
+                        let clip = apply(combined, *point);
+                        let position = [clip[0] as f32, clip[1] as f32];
+                        if !finite_f32(&position) {
+                            contour_is_finite = false;
+                            break;
+                        }
+                        plan.vertices.push(SolidVertex { position, color });
+                    }
+                    if !contour_is_finite {
+                        invalid_transform = true;
+                        break;
                     }
                     let count = contour.len() as u32;
                     for index in 1..count.saturating_sub(1) {
@@ -955,8 +996,29 @@ pub fn lower_frame(items: &[RenderItem], view: Affine) -> NativePlan {
                     emitted_any = true;
                 }
 
+                if invalid_transform {
+                    plan.vertices.truncate(vertex_start);
+                    plan.indices.truncate(fan_index_start as usize);
+                    plan.report.rejected += 1;
+                    *plan
+                        .report
+                        .reasons
+                        .entry(RejectReason::EmptyGeometry.key().to_string())
+                        .or_insert(0) += 1;
+                    continue;
+                }
+                if !emitted_any {
+                    plan.report.rejected += 1;
+                    *plan
+                        .report
+                        .reasons
+                        .entry(RejectReason::EmptyGeometry.key().to_string())
+                        .or_insert(0) += 1;
+                    continue;
+                }
+
                 let has_area = bounds[2] > bounds[0] && bounds[3] > bounds[1];
-                if !emitted_any || !has_area {
+                if !has_area {
                     plan.report.rejected += 1;
                     *plan
                         .report
@@ -978,14 +1040,29 @@ pub fn lower_frame(items: &[RenderItem], view: Affine) -> NativePlan {
                     [bounds[0], bounds[3]],
                     [bounds[2], bounds[3]],
                 ];
+                let cover_positions = corners.map(|corner| {
+                    let clip = apply(combined, corner);
+                    [clip[0] as f32, clip[1] as f32]
+                });
+                if cover_positions.iter().any(|point| !finite_f32(point)) || !finite_f32(&color) {
+                    plan.vertices.truncate(vertex_start);
+                    plan.indices.truncate(fan_index_start as usize);
+                    plan.report.rejected += 1;
+                    *plan
+                        .report
+                        .reasons
+                        .entry(RejectReason::EmptyGeometry.key().to_string())
+                        .or_insert(0) += 1;
+                    continue;
+                }
                 // The cover draw addresses the *index buffer*, not the vertex
                 // buffer, so the offset must be taken before the cover indices
                 // are appended. Using the vertex base here happens to work only
                 // while the fan emits exactly one index per vertex, which is
                 // true for a triangle and false for every larger contour.
                 let cover_vertex_base = plan.vertices.len() as u32;
-                for corner in corners {
-                    push_solid_vertex(&mut plan.vertices, apply(combined, corner), color);
+                for position in cover_positions {
+                    plan.vertices.push(SolidVertex { position, color });
                 }
                 let cover_index_start = plan.indices.len() as u32;
                 plan.indices.extend_from_slice(&[

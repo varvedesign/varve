@@ -569,3 +569,32 @@ Last updated: 2026-10-18. Status: active and incomplete.
   planner-required broad validation, final code review, and integration remain
   pending. Website review found no public mask-feather or Global Light claim
   that needs revision.
+
+- 2026-10-18 validation and WebGPU-boundary follow-up: inspected the saved mask
+  document's Inspector in dark, light, and high-contrast themes. Each showed
+  the 1,000 px limit; entering 1,001 resolved to 1,000, and the saved document
+  reopened at that value. The source page makes no mask-range or Global Light
+  claim, so no marketing copy change is warranted. Earlier focused scene
+  validation passed 80 mask tests. A broader 14-package Vitest sweep was
+  stopped after about an hour under shared-machine contention; it is not a
+  pass, and the mask-specific focused checks remain the relevant evidence.
+
+  Separate review of #6424 and linked numeric-overflow reports found an
+  adjacent defect in the opt-in Rust GPU planner: finite `f64` geometry could
+  overflow during narrowing to `f32` and still produce a presentable plan.
+  Lowering now checks shape records, transforms, path vertices, and cover
+  vertices after conversion, rolling back a path item if any vertex fails.
+  Two regressions cover `1e39` rectangle and path coordinates. `pnpm verify:plan`
+  selected format/lint, emoji, `varve-accel` tests and Clippy, plus dependent
+  desktop Rust tests; it reported no full-suite escalation. The first affected
+  run passed all 53 accelerator unit tests and accelerator Clippy. A follow-up
+  diagnostic classification and rustfmt cleanup happened after that first
+  pass, so validation was rerun. The current run passed the same 53 accelerator
+  tests, Clippy, format/lint no-op checks, emoji, and docs audits. Its dependent
+  desktop Rust lane could not complete: the default-debug build drove free disk
+  below 350 MB; a low-debug retry reached 91 MB while unrelated worktrees were
+  building. Both desktop attempts were stopped before filesystem exhaustion,
+  and only this worktree's generated Cargo target was cleaned. Desktop tests
+  remain unverified due to shared disk capacity. The oversized Vitest sweep was
+  interrupted with SIGINT and must not be reported as passing. Final review of
+  the complete diff and integration into master remain pending.

@@ -804,6 +804,39 @@ mod tests {
     }
 
     #[test]
+    fn finite_f64_shape_geometry_that_overflows_f32_is_rejected() {
+        let plan = lower_frame(&[rect_item(1.0e39, 0.0, 10.0, 10.0)], identity());
+        assert!(!plan.is_presentable());
+        assert!(plan.shapes.is_empty());
+        assert_eq!(plan.report.rejected, 1);
+        assert_eq!(
+            plan.report.reasons.get(RejectReason::EmptyGeometry.key()),
+            Some(&1)
+        );
+    }
+
+    #[test]
+    fn finite_f64_path_coordinates_that_overflow_clip_f32_are_rejected() {
+        let item = solid_item(Primitive::Path {
+            points: path_points(&[(1.0e39, 0.0), (0.0, 0.0), (0.0, 10.0)]),
+            closed: true,
+            tolerance: 0.25,
+            contours: Vec::new(),
+            holes: Vec::new(),
+            fill_rule: Some("nonzero".to_string()),
+        });
+        let plan = lower_frame(&[item], identity());
+        assert!(!plan.is_presentable());
+        assert!(plan.vertices.is_empty());
+        assert!(plan.indices.is_empty());
+        assert_eq!(plan.report.rejected, 1);
+        assert_eq!(
+            plan.report.reasons.get(RejectReason::EmptyGeometry.key()),
+            Some(&1)
+        );
+    }
+
+    #[test]
     fn a_non_finite_view_rejects_the_whole_frame_without_panicking() {
         let plan = lower_frame(
             &[rect_item(0.0, 0.0, 1.0, 1.0), rect_item(1.0, 1.0, 1.0, 1.0)],

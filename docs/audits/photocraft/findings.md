@@ -692,19 +692,30 @@ failure in that app; they do not establish a Varve defect.
 
 **Varve applicability.** Varve's persisted model and native bridge represent
 these values as `f64`, so the reported save-corruption path is not a direct
-match. Static source review did find an adjacent candidate in the opt-in
-experimental WebGPU renderer: `crates/varve-accel/src/render/plan.rs`
-validates rectangle coordinates and path positions as finite `f64`, then casts
-them to `f32` when building GPU records/vertices without checking the narrowed
-result. The renderer should reject such inputs synchronously so the compositor
-can use its authoritative Canvas2D fallback. This has not yet been reproduced
-against actual output, so it remains a candidate rather than a confirmed bug.
+match. A separate defect existed in the opt-in experimental native GPU stage:
+finite `f64` geometry could overflow when lowered to `f32`, while admission
+only checked the pre-cast values. A complete plan could therefore contain
+infinite buffer coordinates and be presented instead of taking the
+authoritative Canvas2D path.
 
-**Next verification.** Add a focused admission regression using finite values
-above `f32::MAX`, confirm the item is rejected before any non-finite GPU buffer
-value is emitted, then compare the displayed surface with the Canvas2D
-full-redraw oracle. Run the crate's affected validation and visual test when
-native build headroom is available. No marketing claim needs revision.
+**Implementation status.** Native lowering now checks shape records after
+narrowing, verifies composed shape transforms and bounds, and validates every
+transformed path and cover-quad vertex before keeping the item. If any path
+vertex is invalid, its partial indices and vertices are rolled back and the
+item is rejected; `NativeAccelerator::render` converts an incomplete plan to
+an unsupported result without submitting it to the device. Two regressions use
+finite `1e39` shape and path coordinates and assert that no presentable plan or
+partial path buffer is produced. The accelerator unit and GPU-render
+integration suites passed. This opt-in backend produces no UI change: rejected
+frames stay on the existing Canvas2D fallback, so an interactive screenshot
+would not add evidence beyond the admission and GPU integration tests. The
+marketing site makes no claim about this renderer's coordinate range.
+
+**Validation status.** The current affected run passes all accelerator unit
+tests, accelerator Clippy, the documentation and emoji audits, and touched-file
+format/lint checks. The dependent desktop Rust test lane was stopped before
+filesystem exhaustion after two builds consumed the available headroom; it is
+not a pass. Final code review and issue-ledger reconciliation remain pending.
 
 ## F-017 — Mask feather input needs a finite, bounded range
 
