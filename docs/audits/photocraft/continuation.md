@@ -33,16 +33,16 @@ Last updated: 2026-10-19. Status: active and incomplete.
   rejected the stale lane receipt and exited nonzero; the full gate is
   **incomplete**, not passed. Rerun at a frozen exact SHA after the live lease
   clears.
-- This turn compared PhotoCraft #3804/#3806/#6596/#6597/#6599/#6740 against
-  Varve effect, rasterization, format, save, export, and paint-lock contracts.
-  #3804 is an adjacent design lead; #3806 and #6599 have no matching
-  workflows; #6740 is covered by the paint-target guard and lock update path
-  (59 focused tests passed); and #6596/#6597 are covered by the native
-  external-change and open-session destination guards. The editor save-target
-  regression passes 11 tests, including the newly added external-edit refusal
-  case. Counts in the issue ledger and README reflect these dispositions.
-  Public export docs already describe the desktop dialog/browser download; no
-  marketing copy change is needed.
+- This turn compared PhotoCraft #3804/#3806/#6596/#6597/#6599/#6600/#6604/
+  #6605/#6613/#6740 against Varve effect, rasterization, format, save, export,
+  atomic-write, and paint-lock contracts. #3804 is an adjacent design lead;
+  #3806 and #6599 have no matching workflows; #6740 and #6596/#6597 are
+  covered by existing guards and focused tests; #6600/#6604/#6605 pass 9
+  focused Tauri atomic-write tests; and #6613 passes 21 export-service tests.
+  The editor save-target regression passes 11 tests, including the newly added
+  external-edit refusal case. Counts in the issue ledger and README reflect
+  these dispositions. Public export docs already describe the desktop
+  dialog/browser download; no marketing copy change is needed.
 - For the new #6596 regression, `pnpm verify:plan` selected its focused editor
   test plus format/lint and audits. `pnpm verify:affected` passed touched-file
   format/lint and emoji, then stopped at the existing radius audit's ten raw

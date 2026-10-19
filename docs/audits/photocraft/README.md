@@ -158,8 +158,8 @@ the current website review found no matching claim that needs correction.
 ## 2026-10-19 disposition checkpoint
 
 All 3,275 cutoff-A issue rows now have an explicit Varve disposition or an
-explicit unresolved decision: 215 candidates, 2 fixed items, 200 analogues,
-453 partial matches, 34 already-covered behaviors, 80 trackers, 79 adjacent
+explicit unresolved decision: 211 candidates, 2 fixed items, 200 analogues,
+453 partial matches, 38 already-covered behaviors, 80 trackers, 79 adjacent
 QA/design leads, 2,207 reports with no Varve match established, 1 out-of-scope
 issue with no corresponding feature, and 4 issues
 that remain `unclear`. Those four are not completed dispositions; each has a
@@ -172,7 +172,7 @@ scope were manually resolved. Thirteen of the 17 previously unclear issues
 were resolved after their linked evidence and Varve paths were inspected.
 
 The status counts distinguish source comparison from engineering completion.
-The 215 candidates still require Varve reproduction or a product decision;
+The 211 candidates still require Varve reproduction or a product decision;
 the 453 partial matches and 79 adjacent leads are not automatically defects.
 The issue source pass and row-level Varve comparison do not complete the
 recursive link frontier or review of the source repository's PR discussions.
@@ -200,6 +200,14 @@ hash check and open-session destination ownership guard. The focused editor
 regression passes 11 tests, including refusing a write when the native file
 changed after open and refusing Save, Save As, or Save a Copy when another
 open tab owns the destination. No public claim or website change is implicated.
+
+The native atomic-write regressions also cover the matching #6600, #6604, and
+#6605 behaviors: read-only targets remain unchanged, stale generated temps are
+swept under bounded ownership rules, and dangling symlinks are preserved or
+refused. The focused Linux Tauri filter passed 9 tests. PhotoCraft #6613's
+duplicate batch-output collision is covered by Varve's export service path
+reservation; its focused suite passed 21 tests. None of these internal
+correctness guards changes a public product claim.
 
 Disposition records add a concise rationale and distinguish the PhotoCraft
 issue state from Varve's engineering status. A PhotoCraft issue marked closed
