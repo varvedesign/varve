@@ -2805,3 +2805,59 @@ count mismatches remain unchanged.
   users documented risky toolbar-file workarounds before the buttons returned
   in 1.2-dev. Varve's StatusBar already provides zoom controls, so no matching
   missing-control defect was found.
+- [#1911](https://gitlab.com/inkscape/inkscape/-/issues/1911) reports Pen
+  tool adjustment handles changing from circles to arrows during a CanvasItems
+  change. The maintainer clarified the shared handle type and corrected it in
+  the upstream implementation. Varve renders path nodes and handles through a
+  separate overlay; no matching Pen-handle defect was found.
+- [#1912](https://gitlab.com/inkscape/inkscape/-/issues/1912) initially
+  appeared to crash when clipping a raster image with a shape, but resetting
+  Inkscape preferences fixed the reporter's case. A maintainer later
+  reproduced it with the saved preference `maskobject grouping="1"`; that
+  preference controls the legacy choice to group clipped objects. Varve has
+  no equivalent preference path, so the original report does not establish a
+  matching crash.
+- [#1913](https://gitlab.com/inkscape/inkscape/-/issues/1913) describes a
+  cursor offset after changing page orientation on macOS, later also reported
+  after applying an axonometric grid. It was linked with the separate
+  mixed-DPI report #1892, while its original bisection identified the
+  CanvasItems rewrite. Varve's Linux browser checks cover rotated canvas
+  interaction, but its native macOS coordinate path is not validated here;
+  this remains a platform-specific verification lead rather than a confirmed
+  Varve defect.
+- [#1914](https://gitlab.com/inkscape/inkscape/-/issues/1914) reports a crash
+  when switching away from Inkscape's Connector tool, with a destructor
+  backtrace in its legacy knot object. Varve has no corresponding connector
+  tool or knot lifetime path.
+- [#1915](https://gitlab.com/inkscape/inkscape/-/issues/1915) is a
+  zero-length dashed-path crash in an Inkscape 1.0.x development package. It
+  was fixed in 1.1-dev through the Poppler/Cairo path-outline change; release
+  builds and later development builds did not reproduce it. Varve's
+  non-native SVG importer already guards single-point paths, and the focused
+  importer suite covers degenerate paths with dash data.
+- [#1916](https://gitlab.com/inkscape/inkscape/-/issues/1916) reports Roughen
+  live-path-effect parameters changing after duplicate, effect paste, or
+  reselect. The issue evolved from an early 1.0.1 report into a repeatable
+  effect-state bug in later releases. Varve does not have Inkscape's live path
+  effects or parameter-linking model, so a similar-looking duplicate would
+  require a separate Varve reproduction before changing state-copy behavior.
+- [#1917](https://gitlab.com/inkscape/inkscape/-/issues/1917) reports grouped
+  legacy dialogs painting blank on launch in Windows 10/Inkscape 1.0.x. The
+  thread confirms that the 1.1 dock system replaced the affected dialog
+  manager. Varve's dock panels and persistence system are unrelated; no
+  matching current issue was established.
+- [#1918](https://gitlab.com/inkscape/inkscape/-/issues/1918) concerns an
+  Aspell dependency missing from a third-party Ubuntu PPA build. The thread
+  confirms the package was updated and spellcheck returned. This is a
+  distribution packaging failure, not a Varve editor behavior regression.
+- [#1919](https://gitlab.com/inkscape/inkscape/-/issues/1919) reports a crash
+  duplicating text whose SVG2 `shape-inside` reference points to a nonexistent
+  element. Varve's importer retains the readable text and warns that
+  `shape-inside` layout is unsupported; an existing parser regression uses
+  the same `url(#missing-frame)` case and asserts the warning. No additional
+  code change was needed.
+- [#1920](https://gitlab.com/inkscape/inkscape/-/issues/1920) reports stale
+  nodes and status feedback after converting Spiro/BSpline live path effects
+  to ordinary paths in the Node tool. The thread says the issue was fixed by
+  Inkscape 1.1.2/1.3-dev. Varve has no matching live path-effect conversion
+  route.

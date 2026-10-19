@@ -1392,3 +1392,26 @@ its title, labels, or downloaded body.
 - The impeccable hook finding in `apps/website/src/pages/docs/touch-and-pen.astro`
   is an attribution-unknown side-tab accent. It is left unchanged pending the
   user's preference; no ignore has been added.
+
+## Research checkpoint — Inkscape IID 1911–1920
+
+- Reviewed all ten discussions from the retained cache: 120 notes (52 user
+  comments, 68 system/history events), with issue-level comment totals
+  reconciled. The machine-readable reviewed-IID list is now 1,122 of 5,669
+  note-bearing threads. The 32 corpus-wide retrieval mismatches remain.
+- #1911 is an upstream Pen-handle rendering fix; #1912 was a
+  preference-specific clipping crash whose initial reporter recovered by
+  resetting preferences; #1913 remains a native macOS coordinate verification
+  lead tied to page orientation/axonometric grid and the distinct #1892
+  mixed-DPI report; #1914 is a legacy ConnectorTool destructor crash;
+  #1915's old zero-length dashed-path outline crash was fixed upstream and
+  Varve already skips the degenerate path; #1916's Roughen LPE corruption was
+  reported as late as 1.3 but has no Varve LPE equivalent; #1917 was replaced
+  by the new dock system; #1918 was a missing Aspell dependency in a third-party
+  Ubuntu PPA, later fixed; #1919 is already covered by the existing importer
+  test for missing `shape-inside` targets; #1920's Node-tool refresh was fixed
+  in Inkscape 1.1.2/1.3-dev. Findings contain issue links and exact Varve
+  dispositions.
+- No new code change was selected for this batch. The research docs are
+  uncommitted pending a docs audit and progressive commit. Native macOS input
+  remains outside the available Linux/browser validation.
