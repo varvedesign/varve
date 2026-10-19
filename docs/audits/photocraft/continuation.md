@@ -26,9 +26,13 @@ Last updated: 2026-10-19. Status: active and incomplete.
   F-020 fully verified. The public site makes no title-bar or driver-specific
   claim, so no website edit is indicated.
 - `a9d358199` commits the platform-specific Tauri decoration configuration.
-  Its exact-SHA local full gate has passed format/lint, audits, health and
-  architecture checks, all workspace typechecks, and E2E typecheck. It is
-  waiting for the shared website E2E lease before its remaining lanes can run.
+  Its exact-SHA local full gate passed format/lint, audits, health and
+  architecture checks, all workspace typechecks, and E2E typecheck. The
+  remaining lane then waited for a shared visual E2E lease until the wrapper's
+  10-minute deadline. Because this branch advanced while it waited, the gate
+  rejected the stale lane receipt and exited nonzero; the full gate is
+  **incomplete**, not passed. Rerun at a frozen exact SHA after the live lease
+  clears.
 - This turn compared PhotoCraft #3804/#3806/#6599/#6740 against Varve effect,
   rasterization, format, save, export, and paint-lock contracts. #3804 is an
   adjacent design lead, #3806 and #6599 have no matching workflows, and #6740
