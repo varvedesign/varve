@@ -6,7 +6,7 @@
  * menu surfaces.
  */
 import { expect, test } from '@playwright/test';
-import { navigateToEditor, seedLayers } from '../shared';
+import { dragOnCanvas, navigateToEditor, seedLayers } from '../shared';
 
 test.describe('Context menu visual features', () => {
   test.describe.configure({ mode: 'serial' });
@@ -80,6 +80,25 @@ test.describe('Context menu visual features', () => {
       // Destructive items should not be the same color as regular items
       expect(color).toBeTruthy();
     }
+  });
+
+  test('canvas context menu closes after a single paste action', async ({ page }, testInfo) => {
+    await navigateToEditor(page);
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 120, 120, 220, 190);
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await page.keyboard.press('v');
+    await page.keyboard.press('Control+c');
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.click({ button: 'right', position: { x: 500, y: 400 } });
+    const menu = page.locator('.varve-ctxmenu[role="menu"]');
+    await expect(menu).toBeVisible();
+    await menu.getByRole('menuitem', { name: 'Paste', exact: true }).click();
+
+    await expect(menu).toHaveCount(0);
+    await expect(page.getByRole('treeitem')).toHaveCount(2);
+    await page.screenshot({ path: testInfo.outputPath('canvas-context-paste-closes.png') });
   });
 
   test('layers context menu shows section labels', async ({ page }) => {
