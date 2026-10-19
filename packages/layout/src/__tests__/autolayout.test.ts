@@ -69,6 +69,29 @@ describe('computeFlexLayout', () => {
     expect(result.items.map((item) => item.w)).toEqual([100, 100]);
   });
 
+  it('reports overflow when shrinkable items hit their minimum bounds', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 150;
+    const children = [makeChild('c1', 0, 0, 100, 40), makeChild('c2', 0, 0, 100, 40)];
+    for (const child of children) {
+      child.minWidth = 90;
+      Object.assign(child, { layoutStyle: { shrink: 1 } });
+    }
+
+    const result = computeFlexLayoutDetailed(frame, children);
+
+    expect(result.diagnostic).toBe('main-axis-overflow');
+    expect(result.items.map((item) => item.w)).toEqual([90, 90]);
+  });
+
   it('reports invalid flex bounds without returning geometry', () => {
     const frame = makeFrame({
       mode: 'flex',
