@@ -254,6 +254,12 @@ export function previewRemoveGridTrack(
     const otherIdIndex = placement[otherIdKey]
       ? otherTracks.findIndex((track) => track.id === placement[otherIdKey])
       : -1;
+    if (
+      (placement[idKey] != null && idIndex < 0) ||
+      (placement[otherIdKey] != null && otherIdIndex < 0)
+    ) {
+      return { valid: false, style: nextStyle, placements: {}, rehomes: [], resolvedDocument: doc };
+    }
     const otherStart =
       otherIdIndex >= 0 ? otherIdIndex : Math.max(0, (placement[otherStartKey] ?? 1) - 1);
     const otherSpan =
