@@ -2,6 +2,90 @@
 
 Last updated: 2026-10-19.
 
+## Resume checkpoint — 2026-10-19 09:54 UTC
+
+- PR #143's merge SHA `1946efe80b6c39c61fbdcf7667783dcf9f730bd1` is on
+  `master`. The merge-triggered Pages quality job had one intermittent browser
+  screenshot-capture failure on the unrelated Gradient Maps page. The
+  documented source-deploy workflow was rerun against the exact merged SHA;
+  website quality gates, artifact build/upload, deploy, and live Lighthouse
+  report all completed successfully.
+- IID 1951–1960 remains the current engineering batch. The selected
+  `pnpm verify:affected` run passed static checks, editor/desktop type checks,
+  focused menu/localization/shortcut tests, the full editor suite (897 files
+  passed, 2 skipped; 8,784 tests passed, 2 skipped), and the desktop suite
+  (15 files, 90 tests passed). Its Chrome visual lane completed 19/30; eleven
+  unrelated canvas/upscale/email/workspace cases failed due browser crashes,
+  the WASM-to-TS fallback, or a 537-pixel high-contrast snapshot difference.
+  The selected keyboard lane first timed out in global setup before executing
+  tests; a lease-protected retry passed all 28 tests. Two temporary direct
+  menu screenshot attempts could not get the app to render: the first timed
+  out waiting for its New button; the extended retry recorded Chromium
+  `net::ERR_INSUFFICIENT_RESOURCES` while fetching Vite editor modules, then
+  displayed the startup-fallback screen. The requested menu never mounted.
+  The temporary test has been removed after recording this environmental
+  blocker; keep #1953 visually pending until a browser session can render the
+  app.
+- The menu now labels the fixed analytical CMYK view “Approximate CMYK
+  Preview” so it is not mistaken for the profile-aware ICC proof in the
+  Document panel. The eight affected menu snapshots were regenerated and the
+  package suite now passes. #1960 remains a candidate Varve defect awaiting a
+  semantic check, focused regression, and visual outline verification.
+- The Inkscape-only tracker is at 1,162/5,669 note-bearing discussions
+  reviewed. Continue with IID 1961 after committing this batch. Keep the
+  original task worktree's unrelated changes out of task commits, and leave
+  the user's ChatGPT desktop app and other sessions' processes running.
+
+## Resume checkpoint — 2026-10-19 08:25 UTC
+
+- Scope remains Inkscape only. The typo in the supplied brief was corrected;
+  do not substitute Photocraft or broaden the tracker scope.
+- Incremental checkpoint PR [#143](https://github.com/varvedesign/varve/pull/143)
+  merged to `master` at `1946efe80b6c39c61fbdcf7667783dcf9f730bd1` from tested
+  head `6175a2ab17198e55d9bf97cb2ac590de0cd125c7`. It includes the #1946
+  Layers selection-sync E2E, print-PDF sRGB claim boundary, touch-guide
+  clarification and softened callout, and corpus progress. The automatic
+  GitHub Pages workflow triggered at merge and is in progress; no separate
+  manual deployment was run. The post-merge `master` CI run is pending.
+- PR checks passed for the Linux package build, WASM, JS, Playwright, both
+  website deployment modes, desktop/mobile Lighthouse, pipeline/SHA pins,
+  change lanes, and attribution. Hosted plan deliberately skipped unrelated
+  native Tauri and WebGL2 qualification lanes. The PR's later certification
+  job had not yet acquired a runner when the merge completed; post-merge
+  validation remains tracked by the new `master` workflows.
+- The exact candidate's local `pnpm verify:plan` selected 13 lanes with no
+  full-suite escalation. `pnpm verify:affected` passed selected static,
+  docs, E2E typecheck, and website typecheck/unit checks; its Layers file
+  E2E had the new #1946 case pass and three unrelated failures (one stale
+  collision-target assertion and two browser crashes). The full website E2E
+  passed 687/690; only three existing homepage/footer visual snapshots failed.
+  The changed touch-and-pen screenshots and axe checks passed in both modes.
+  Both website builds produced 126 routes. Print-production desktop/mobile
+  and touch-and-pen guide screenshots were inspected. No unrelated snapshots
+  were refreshed. The PR push checkpoint passed its selected local lanes and
+  deferred hosted gates; hosted results are listed above.
+- Reviewed all comments for IID 1951–1960 (145 cached notes: 77 user comments,
+  68 system/history records). #1954 remains one of the 32 inventory note-count
+  mismatches (32 reported, 31 cached). Updated findings and the ledger. #1953
+  exposed that the View shortcut's analytical CMYK overlay was called “Soft
+  Proofing” despite being separate from Document-panel ICC proof; the menu and
+  shortcut labels now distinguish it as “Approximate CMYK Preview.” Visual
+  validation is still pending. #1960 exposes a possible concrete Varve gap:
+  `expandStrokeNode` ignores dash patterns; confirm the action semantics and
+  add a regression before deciding the fix.
+- Corpus completion is still far away: 6,390/6,392 bodies are fully screened,
+  1,152/5,669 note-bearing discussions have been content-reviewed, 32
+  inventory note-count mismatches and 29 missing reported user comments
+  remain. Linked evidence, engineering dispositions, and native/platform
+  validation are incomplete. Cutoff B is pending. Continue the discussion
+  review with IID 1961, and keep separate product fixes as progressive commits.
+- Current integration worktree:
+  `.worktrees/inkscape-corpus/.worktrees/inkscape-pr`, branch
+  `codex/inkscape-corpus-1951-1960`, based on the merged remote `master`.
+  Keep the original `feat/inkscape-corpus` worktree's unrelated export,
+  codegen and scene changes out of task commits. Do not close the user's
+  ChatGPT desktop app or stop another session's work.
+
 ## Resume checkpoint — 2026-10-19 05:35 UTC
 
 - Target and scope remain the Inkscape issue corpus and verified Varve fixes.
