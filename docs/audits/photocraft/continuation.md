@@ -134,9 +134,15 @@ With the corrected config loaded by its absolute path, `fc-match` resolves
 Noto Sans, Noto Serif, and Noto Sans Mono on this Linux host. The targeted
 footer screenshot passed, followed by the complete website `visual.spec.ts`
 suite (26/26) under the shared heavy-task lease; snapshot thresholds and
-baselines were unchanged. The previous remote run is still for the earlier
-commit and retains its footer failure; a new PR run is required to validate the
-workflow correction.
+baselines were unchanged. The next hosted run loaded the valid config but
+reproduced the exact same 26,670-pixel text difference. That pointed to
+`font-display: optional` capture timing: the visual helper awaited
+`document.fonts.ready` and checked the CSS family list, but did not assert that
+the shipped font faces had actually loaded. The helper now explicitly loads
+the Geist, IBM Plex Sans, and Fraunces variable faces, asserts each loaded, and
+waits two animation frames before capturing. This focused change passed
+`pnpm verify:affected` and the full website visual spec locally (26/26); hosted
+validation of the font-loading correction is pending on the next PR run.
 
 Validation plan for this two-file workflow/config change selected format,
 lint, emoji audit, website typecheck/unit tests, website E2E, and reported

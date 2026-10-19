@@ -8,7 +8,26 @@ import { dismissAnalyticsBanner } from './helpers';
  * image to be complete before any screenshot.
  */
 async function waitForImages(page: import('@playwright/test').Page) {
-  await page.evaluate(() => document.fonts.ready);
+  const loadedFonts = await page.evaluate(async () => {
+    const fontSpecs = [
+      ['16px "Geist Variable"', 'Varve navigation'],
+      ['16px "IBM Plex Sans Variable"', 'Varve interface'],
+      ['16px "Fraunces Variable"', 'Varve editorial'],
+    ] as const;
+    const faces = await Promise.all(
+      fontSpecs.map(([font, text]) => document.fonts.load(font, text)),
+    );
+    await document.fonts.ready;
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
+    return faces.map((loaded) => loaded.some((face) => face.status === 'loaded'));
+  });
+  expect(loadedFonts, 'shipped marketing fonts load before visual capture').toEqual([
+    true,
+    true,
+    true,
+  ]);
   const bodyFamily = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
   expect(
     bodyFamily,
