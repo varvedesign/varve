@@ -76,7 +76,9 @@ describe('TabletTouchControls', () => {
     expect(screen.getByRole('heading', { name: 'Gestures' })).toBeInTheDocument();
     expect(screen.getByText(/two fingers/i)).toBeInTheDocument();
     expect(screen.getByText(/pan and zoom the canvas/i)).toBeInTheDocument();
-    expect(screen.getByText(/twist rotates the view/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/rotation is available when enabled in Drawing input/i),
+    ).toBeInTheDocument();
     // The guide names gestures but must not become the only path: the
     // corresponding control for each mode stays in the panel.
     expect(screen.getByRole('button', { name: 'Constrain movement' })).toBeInTheDocument();

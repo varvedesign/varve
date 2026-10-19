@@ -18,7 +18,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { expect, type Page, type TestInfo, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 interface MatrixEntry {
   name: string;
@@ -91,6 +91,204 @@ async function captureTabletEvidence(
     body: JSON.stringify(report, null, 2),
     contentType: 'application/json',
   });
+}
+
+async function dispatchTwoFingerTwist(page: Page): Promise<void> {
+  const box = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
+  if (!box) throw new Error('content canvas not laid out');
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const radius = 90;
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [
+        { x: cx - radius, y: cy, id: 1 },
+        { x: cx + radius, y: cy, id: 2 },
+      ],
+    });
+    for (let step = 1; step <= 5; step += 1) {
+      const theta = (step * 6 * Math.PI) / 180;
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [
+          {
+            x: cx - radius * Math.cos(theta),
+            y: cy - radius * Math.sin(theta),
+            id: 1,
+          },
+          {
+            x: cx + radius * Math.cos(theta),
+            y: cy + radius * Math.sin(theta),
+            id: 2,
+          },
+        ],
+      });
+    }
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  } finally {
+    await session.detach();
+  }
+  await page.waitForTimeout(250);
+}
+
+async function forceAuthoritativeCanvasFrame(page: Page): Promise<void> {
+  const result = (await page.evaluate(async () => {
+    const perf = (
+      window as unknown as {
+        __varvePerf?: {
+          forceFullRedraw?: () => Promise<{ authoritative: boolean; renderPath: string }>;
+        };
+      }
+    ).__varvePerf;
+    return (await perf?.forceFullRedraw?.()) ?? null;
+  })) as { authoritative: boolean; renderPath: string } | null;
+  expect(result, 'rotation test requires the full-redraw oracle (?perf=1)').toBeTruthy();
+  expect(result?.authoritative).toBe(true);
+}
+
+async function waitForSettledCanvas(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    delete (window as unknown as { __touchCanvasSettling?: unknown }).__touchCanvasSettling;
+  });
+  await page.waitForFunction(
+    () => {
+      type Frame = { docVersion: number; camera: unknown; frameSource?: string };
+      type ProbeWindow = Window & {
+        __varvePerf?: { getLast?: () => Frame | null };
+        __touchCanvasSettling?: { state: string; since: number };
+      };
+      const target = window as ProbeWindow;
+      const frame = target.__varvePerf?.getLast?.();
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        'canvas.editor-canvas__content-layer',
+      );
+      if (!frame || !canvas) return false;
+      const state = JSON.stringify([frame.docVersion, frame.camera, canvas.width, canvas.height]);
+      const now = performance.now();
+      if (target.__touchCanvasSettling?.state !== state) {
+        target.__touchCanvasSettling = { state, since: now };
+        return false;
+      }
+      return (
+        now - target.__touchCanvasSettling.since >= 500 &&
+        canvas.width === Math.max(1, Math.round(canvas.clientWidth * devicePixelRatio)) &&
+        canvas.height === Math.max(1, Math.round(canvas.clientHeight * devicePixelRatio))
+      );
+    },
+    undefined,
+    { polling: 50, timeout: 30_000 },
+  );
+}
+
+async function contentCanvasSnapshot(page: Page): Promise<{
+  width: number;
+  height: number;
+  drawingPath: string | null;
+}> {
+  return page.evaluate(() => {
+    type PerfFrame = { actualDrawingPath?: string | null; frameSource?: string };
+    const target = window as unknown as {
+      __varvePerf?: { getLast?: () => PerfFrame | null };
+      __touchOraclePixels?: Uint8ClampedArray;
+    };
+    const canvas = document.querySelector<HTMLCanvasElement>('canvas.editor-canvas__content-layer');
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) throw new Error('content canvas context unavailable');
+    target.__touchOraclePixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    return {
+      width: canvas.width,
+      height: canvas.height,
+      drawingPath: target.__varvePerf?.getLast?.()?.actualDrawingPath ?? null,
+    };
+  });
+}
+
+async function compareContentCanvas(page: Page): Promise<{
+  width: number;
+  height: number;
+  exact: boolean;
+  differingPixels: number;
+  totalPixels: number;
+  maxChannelDelta: number;
+}> {
+  return page.evaluate(() => {
+    const target = window as unknown as { __touchOraclePixels?: Uint8ClampedArray };
+    const canvas = document.querySelector<HTMLCanvasElement>('canvas.editor-canvas__content-layer');
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context || !target.__touchOraclePixels)
+      throw new Error('content canvas oracle snapshot unavailable');
+    const before = target.__touchOraclePixels;
+    const after = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    if (before.length !== after.length)
+      throw new Error('content canvas backing store changed across authoritative redraw');
+    let differingPixels = 0;
+    let maxChannelDelta = 0;
+    for (let offset = 0; offset < before.length; offset += 4) {
+      const delta = Math.max(
+        Math.abs((before[offset] ?? 0) - (after[offset] ?? 0)),
+        Math.abs((before[offset + 1] ?? 0) - (after[offset + 1] ?? 0)),
+        Math.abs((before[offset + 2] ?? 0) - (after[offset + 2] ?? 0)),
+        Math.abs((before[offset + 3] ?? 0) - (after[offset + 3] ?? 0)),
+      );
+      if (delta > 0) differingPixels += 1;
+      if (delta > maxChannelDelta) maxChannelDelta = delta;
+    }
+    return {
+      width: canvas.width,
+      height: canvas.height,
+      exact: differingPixels === 0,
+      differingPixels,
+      totalPixels: before.length / 4,
+      maxChannelDelta,
+    };
+  });
+}
+
+async function lastCanvasFrame(page: Page): Promise<{
+  source: string | null;
+  drawingPath: string | null;
+}> {
+  return page.evaluate(() => {
+    const perf = (
+      window as unknown as {
+        __varvePerf?: {
+          getLast?: () => { actualDrawingPath?: string | null; frameSource?: string } | null;
+        };
+      }
+    ).__varvePerf;
+    const frame = perf?.getLast?.();
+    return {
+      source: frame?.frameSource ?? null,
+      drawingPath: frame?.actualDrawingPath ?? null,
+    };
+  });
+}
+
+async function createRotationTestArtwork(page: Page): Promise<void> {
+  const canvas = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
+  if (!canvas) throw new Error('content canvas not laid out');
+  await page.getByRole('button', { name: 'Rectangle', exact: true }).click();
+  await dragOnCanvas(page, 120, 120, 270, 225);
+  await page.keyboard.press('v');
+  await expect.poll(() => documentNodeCount(page)).toBeGreaterThan(0);
+}
+
+async function enableTwoFingerRotationFromSettings(page: Page): Promise<void> {
+  await page.getByRole('menubar').getByRole('menuitem', { name: 'File' }).click();
+  await page.getByRole('menuitem', { name: /Settings/ }).click();
+  const dialog = page.locator('dialog.varve-dialog--settings[open]');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('tab', { name: 'Drawing Input', exact: true }).click();
+  const setting = dialog.getByRole('switch', {
+    name: 'Allow two-finger twist to rotate the view',
+  });
+  await expect(setting).not.toBeChecked();
+  await setting.check();
+  await expect(setting).toBeChecked();
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+  await expect(dialog).toHaveCount(0);
 }
 
 let pageErrors: string[] = [];
@@ -732,52 +930,14 @@ test.describe('touch interaction', () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test('two-finger twist rotates the view without moving artwork', async ({ page }) => {
-    await navigateToEditor(page);
+  test('two-finger twist rotates the view without moving artwork', async ({ page }, testInfo) => {
+    await navigateToEditor(page, '/?perf=1');
     await settleLayout(page);
+    await enableTwoFingerRotationFromSettings(page);
+    await createRotationTestArtwork(page);
 
-    const box = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
-    if (!box) throw new Error('content canvas not laid out');
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
     const beforeDocument = await serializeEditorDocument(page);
-    const session = await page.context().newCDPSession(page);
-
-    try {
-      // Place the two contacts horizontally, then rotate them 30 degrees
-      // around the shared centre in five steps. Per-step angle change is 6°,
-      // so the first move stays inside the twist dead zone by design.
-      const radius = 90;
-      await session.send('Input.dispatchTouchEvent', {
-        type: 'touchStart',
-        touchPoints: [
-          { x: cx - radius, y: cy, id: 1 },
-          { x: cx + radius, y: cy, id: 2 },
-        ],
-      });
-      for (let step = 1; step <= 5; step += 1) {
-        const theta = (step * 6 * Math.PI) / 180;
-        await session.send('Input.dispatchTouchEvent', {
-          type: 'touchMove',
-          touchPoints: [
-            {
-              x: cx - radius * Math.cos(theta),
-              y: cy - radius * Math.sin(theta),
-              id: 1,
-            },
-            {
-              x: cx + radius * Math.cos(theta),
-              y: cy + radius * Math.sin(theta),
-              id: 2,
-            },
-          ],
-        });
-      }
-      await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    } finally {
-      await session.detach();
-    }
-    await page.waitForTimeout(250);
+    await dispatchTwoFingerTwist(page);
 
     // The status bar exposes a rotation chip only while the view is rotated;
     // 30° of twist minus the dead zone must leave a visible non-zero angle.
@@ -790,8 +950,70 @@ test.describe('touch interaction', () => {
     // The view rotated; the artwork did not.
     const afterDocument = await serializeEditorDocument(page);
     expect(afterDocument).toEqual(beforeDocument);
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await waitForSettledCanvas(page);
+    const beforeSurface = await contentCanvasSnapshot(page);
+    const beforePath = beforeSurface.drawingPath;
+    await canvas.screenshot({ path: testInfo.outputPath('twist-rotation-before-redraw.png') });
+    let authoritative = false;
+    let afterPath: string | null = null;
+    let afterSource: string | null = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await forceAuthoritativeCanvasFrame(page);
+      await waitForSettledCanvas(page);
+      const frame = await lastCanvasFrame(page);
+      afterPath = frame.drawingPath;
+      afterSource = frame.source;
+      if (afterSource === 'oracle-full-redraw') {
+        authoritative = true;
+        break;
+      }
+    }
+    expect(
+      authoritative,
+      `authoritative redraw must remain the last painted frame (source: ${afterSource}, path: ${afterPath})`,
+    ).toBe(true);
+    const diff = await compareContentCanvas(page);
+    expect({ width: diff.width, height: diff.height }).toEqual({
+      width: beforeSurface.width,
+      height: beforeSurface.height,
+    });
+    await canvas.screenshot({ path: testInfo.outputPath('twist-rotation-after-redraw.png') });
+    await page.screenshot({ path: testInfo.outputPath('twist-rotation-enabled.png') });
+    if (beforePath === afterPath) {
+      expect(diff, 'same-renderer content must match the authoritative redraw').toMatchObject({
+        exact: true,
+        differingPixels: 0,
+      });
+    } else {
+      expect(
+        diff.maxChannelDelta,
+        `cross-renderer rounding (${beforePath ?? 'unknown'} vs ${afterPath}) must stay within 1 channel value`,
+      ).toBeLessThanOrEqual(1);
+      expect(
+        diff.differingPixels,
+        'cross-renderer rounding must stay below 0.5% of the canvas',
+      ).toBeLessThan(Math.max(64, Math.ceil(diff.totalPixels * 0.005)));
+    }
     const pageScale = await page.evaluate(() => window.visualViewport?.scale ?? 1);
     expect(pageScale).toBeCloseTo(1, 2);
+    expect(pageErrors).toEqual([]);
+  });
+
+  test('two-finger twist stays locked by default', async ({ page }, testInfo) => {
+    await page.addInitScript(() => localStorage.removeItem('varve-editor-settings'));
+    await navigateToEditor(page, '/?perf=1');
+    await settleLayout(page);
+    await createRotationTestArtwork(page);
+    const zoomBefore = Number.parseFloat(await page.locator('#status-zoom').inputValue());
+    const beforeDocument = await serializeEditorDocument(page);
+
+    await dispatchTwoFingerTwist(page);
+
+    await expect(page.locator('.editor-status__rotation')).toHaveCount(0);
+    expect(Number.parseFloat(await page.locator('#status-zoom').inputValue())).toBe(zoomBefore);
+    expect(await serializeEditorDocument(page)).toEqual(beforeDocument);
+    await page.screenshot({ path: testInfo.outputPath('twist-rotation-locked-by-default.png') });
     expect(pageErrors).toEqual([]);
   });
 

@@ -16,7 +16,7 @@ test('file formats documentation explains local file actions', async ({ page }) 
   ).toBeVisible();
   await expect(
     page.getByText(
-      /Inkscape SVG 1\.2 flowed text.*SVG text using.*shape-inside.*flow layout is not imported/i,
+      /Inkscape SVG 1\.2 flowed text.*shape-inside.*symbol.*referenced through.*use.*layout or instance geometry is not imported/i,
     ),
   ).toBeVisible();
   await expect(
@@ -54,6 +54,32 @@ test('image conversion documentation explains bounded local workflow', async ({ 
   await expect(page.getByText(/TIFF uses the first IFD and is flattened/i)).toBeVisible();
   await page.screenshot({
     path: test.info().outputPath('image-conversion-local-workflow.png'),
+    fullPage: true,
+  });
+});
+
+test('touch guide explains optional rotation and stays usable on mobile', async ({ page }) => {
+  await page.goto('/docs/touch-and-pen?test-motion=static');
+  await expect(
+    page.getByRole('heading', { name: 'Touch, pen, keyboard, and trackpad', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('cell', { name: /Two-finger twist is off by default.*Enable it in Settings/ }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: test.info().outputPath('touch-guide-optional-rotation.png'),
+    fullPage: true,
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole('cell', { name: /Two-finger twist is off by default/ }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({
+    path: test.info().outputPath('touch-guide-optional-rotation-mobile.png'),
     fullPage: true,
   });
 });

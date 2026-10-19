@@ -53,7 +53,7 @@ diagnostics behavior.
 |---|---|
 | One finger | Routed to the active tool by default. Settings > Drawing input can reversibly switch one-finger touch to viewport navigation. |
 | Two-finger pinch | Combined pan + zoom around the gesture centroid. |
-| Two-finger twist | After about 5° of cumulative twist inside one pinch, the contacts' angle rotates the *view* about the gesture centroid; artwork never rotates. Disable with Settings > Drawing input > "Two-finger twist rotates the view". Replacement of a contact pair starts a fresh twist gesture, so the atan2 branch cut cannot read as a spin. |
+| Two-finger twist | Off by default. Enable with Settings > Drawing input > "Allow two-finger twist to rotate the view". When enabled, about 5° of cumulative twist inside one pinch rotates the *view* about the gesture centroid; artwork never rotates. Replacement of a contact pair starts a fresh twist gesture, so the atan2 branch cut cannot read as a spin. |
 | Two-finger pan | The provisional first tool interaction is cancelled for that pointer only; its capture transfers into navigation ownership and the viewport pans without global undo or a history entry. |
 | Three or more fingers | Navigation-owned or ignored; never creates a path, selection change, or paint dab. |
 | Return from pinch | A remaining finger stays navigation-owned; a new contact is required before drawing resumes. |
@@ -254,7 +254,7 @@ for desktop; they are not yet re-verified on the Duet.
 |---|---|---|
 | One-finger touch | Follows the persisted Drawing input preference: draw by default, or viewport navigation | `inputPolicy` unit tests + `tests/e2e/interaction/drawing-input.spec.ts`; physical touch pending |
 | Two-finger touch | Pan + zoom about the centroid; second contact cancels only the first pointer’s provisional tool interaction | `inputPolicy` unit tests + `drawing-input.spec.ts`; physical touch pending |
-| Two-finger twist | View rotation about the centroid after a ~5° dead zone; artwork and history untouched; reversible in Settings > Drawing input | `twistRotation.test.ts` (9 unit tests) + `chromeos-device-matrix.spec.ts` two-finger twist test (synthetic CDP touch); physical twist pending |
+| Two-finger twist | Disabled by default; when enabled, view rotates about the centroid after a ~5° dead zone; artwork and history stay untouched; reversible in Settings > Drawing input | `twistRotation.test.ts` + `chromeos-device-matrix.spec.ts` default-locked and enabled CDP touch tests; physical twist pending |
 | Touch long-press | Opens the deep-selection menu (SelectTool, `LONG_PRESS_MS`) | unit tests + implementation |
 | Touch multi-select | Toolbar toggle (`state.touchMultiSelect`) with marquee suppression | E2E and unit tests |
 | Tablet editing controls | Floating toolbar popover: Constrain, From centre, Bypass snap, one-shot deep select, Duplicate, six alignment actions, Bring forward, Send backward, and a compact Gestures reference | `TabletTouchControls.test.tsx` (gate, latched state, gesture guide), `tests/e2e/interaction/tablet-editing-controls.spec.ts` (target size, orientation), `tests/e2e/interaction/tablet-keyboardless-workflow.spec.ts` (align + reorder actually applied) |

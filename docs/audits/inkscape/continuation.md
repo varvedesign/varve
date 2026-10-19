@@ -2,6 +2,59 @@
 
 Last updated: 2026-10-18.
 
+## Resume checkpoint — 2026-10-19 04:58 UTC
+
+- Target remains Inkscape, as clarified by the user. Cutoff A is frozen at
+  `2026-10-17T10:03:35Z`; the baseline is 6,392 unique issue IDs. Discussion
+  content review currently covers 1,132 of 5,669 note-bearing threads. The
+  latest committed review batch is #1921–1930 in `f53871991`; cutoff B is
+  still pending.
+- `cdbefcb38 fix(import): report unsupported SVG instances and flows` and
+  `bde7660a7 fix(import): dedupe unsupported-feature warnings` are completed
+  progressive commits. They report unsupported `<symbol>` instances and CSS
+  `inline-size` text flow, safely skip #1929's indirect `<use>` clip path while
+  preserving surrounding geometry, and display duplicate fidelity messages
+  once. The import architecture and format guide were updated with the first
+  commit.
+- Current uncommitted touch-input slice turns two-finger view rotation off by
+  default while preserving the opt-in setting, adds UI guidance and regression
+  coverage, and updates the touch guide. The user asked to soften the
+  `.docs-note` accent; it is now a 1px `--border-subtle` rule. The impeccable
+  detector returns no findings on either changed docs page. No finding was
+  suppressed.
+- E2E typecheck passed after the last browser-spec edits. Focused editor/import
+  tests passed (95 tests); the SVG suite passed 63 tests; the ImportResults
+  suite passed 15 tests in its commit hook. Docs, emoji, token and touched-file
+  formatting checks are clean. `pnpm verify:plan` selected 54 lanes, with no
+  full-suite escalation. A previous `pnpm verify:affected` stopped at ten
+  pre-existing radius audit violations in unchanged Presentation/SpecPanel
+  CSS; do not broaden the patch to fix those unrelated declarations.
+- Visual E2E: both touch-rotation Chromium cases passed (enabled twist matches
+  the settled authoritative redraw within the renderer-aware policy; default
+  remains locked). Both File > Import E2Es passed for `<symbol>` and
+  `inline-size`; the report now shows a single message for each unsupported
+  feature. Website touch-guide E2E passed in GitHub Pages and custom-domain
+  modes at desktop/mobile sizes. Screenshots were inspected under
+  `test-results/run-1626141-1420/` (rotation) and
+  `test-results/website-1627812-15991/` (website). Import UI screenshots were
+  inspected under `test-results/run-1633850-1420/`. Chromium could not load WASM
+  and used the pure-TS stub renderer; browser validation does not certify native
+  Tauri behavior.
+- Do not commit `tests/e2e/export/native-pdf-contract.spec.ts`,
+  `packages/codegen/src/bundle-assets.ts`, or `packages/scene/src/nodeResize.ts`;
+  they belong to other contributors. The ChatGPT Linux app has not been
+  touched or closed.
+- Remote HEAD resolves to default branch `master` at
+  `1f99f8ee7fdafe948dad5b5e9af74d5a06c75e` (GitHub remote still named
+  `K-Arthur/varve`). `.github/workflows/website-deploy.yml` deploys on a master
+  push when `apps/website/**` changes; the requested normal task merge therefore
+  also publishes the updated guides. No manual release has occurred.
+- Next: finish the remaining task-owned targeted E2Es (text-on-path and
+  color-picker; fit-surface and isometric-grid already passed), run affected
+  validation and the two-pass self-review, commit the touch slice, then
+  continue the corpus from #1931 onward. No merge, push, deployment, or release
+  has occurred.
+
 ## Resume checkpoint — 2026-10-19 00:40 UTC
 
 - The corpus and implementation target are Inkscape's issue tracker, as the

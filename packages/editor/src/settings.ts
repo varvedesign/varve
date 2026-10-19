@@ -372,7 +372,9 @@ export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
   wheelMode: 'auto',
   wheelSensitivity: 1,
   wheelInertia: true,
-  twistRotationEnabled: true,
+  // Rotation is available, but off by default so an incidental two-finger
+  // twist cannot leave a new user's canvas unexpectedly rotated.
+  twistRotationEnabled: false,
   pixelGridEnabled: false,
   pixelGridSnapEnabled: false,
   dotGridEnabled: false,

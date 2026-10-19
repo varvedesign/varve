@@ -279,6 +279,7 @@ describe('loadSettings', () => {
       wheelMode: 'auto',
       wheelSensitivity: 4,
       wheelInertia: false,
+      twistRotationEnabled: false,
     });
 
     const updated = updateSettings({
@@ -288,6 +289,13 @@ describe('loadSettings', () => {
     expect(updated.render.interactivePreview).toBe('full');
     expect(updated.viewport.wheelMode).toBe('zoom');
     expect(updated.viewport.wheelSensitivity).toBe(0.25);
+  });
+
+  it('keeps canvas twist rotation disabled by default and preserves an explicit opt-in', () => {
+    expect(loadSettings().viewport.twistRotationEnabled).toBe(false);
+    expect(
+      updateSettings({ viewport: { twistRotationEnabled: true } }).viewport.twistRotationEnabled,
+    ).toBe(true);
   });
 
   it('normalizes drawing input preferences without rejecting older settings files', () => {

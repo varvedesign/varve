@@ -187,7 +187,7 @@ export function TabletTouchControls() {
               <dt>One finger</dt>
               <dd>Follows Drawing input: draws, or pans when set to navigate.</dd>
               <dt>Two fingers</dt>
-              <dd>Pan and zoom the canvas; a firm twist rotates the view.</dd>
+              <dd>Pan and zoom the canvas; rotation is available when enabled in Drawing input.</dd>
               <dt>Long press</dt>
               <dd>Pick a nested object under your finger.</dd>
               <dt>Multi</dt>

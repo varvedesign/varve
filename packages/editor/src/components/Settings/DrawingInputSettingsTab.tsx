@@ -282,8 +282,8 @@ export function DrawingInputSettingsTab() {
       />
 
       <SwitchField
-        label="Two-finger twist rotates the view"
-        description="During a two-finger pinch, rotating the contacts rotates the viewport around the gesture centre after about five degrees of twist; the artwork itself is never rotated. Turn off to keep pinch as pan and zoom only."
+        label="Allow two-finger twist to rotate the view"
+        description="Off by default to prevent accidental view rotation. When enabled, rotating contacts during a two-finger pinch rotates the viewport after about five degrees of twist; artwork is never rotated."
         checked={settings.viewport.twistRotationEnabled}
         onChange={(event) => updateNavigation({ twistRotationEnabled: event.target.checked })}
       />
