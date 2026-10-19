@@ -120,6 +120,31 @@ Full suite run: no.
 If yes, reason: n/a.
 ```
 
+### CI screenshot-font follow-up
+
+The first PR run failed `footer dark` in the website E2E lane (689 passed,
+one failed), and adding `FONTCONFIG_FILE` to the workflow step did not change
+the captured output. Inspection found that `apps/website/tests/e2e/fonts.conf`
+was not valid XML: XML comments cannot contain `--`, which appeared in the
+`--font-mono` example. The workflow also supplied a relative config path, which
+Fontconfig did not resolve. The fix removes the double hyphen from the comment
+and passes `${{ github.workspace }}/apps/website/tests/e2e/fonts.conf`.
+
+With the corrected config loaded by its absolute path, `fc-match` resolves
+Noto Sans, Noto Serif, and Noto Sans Mono on this Linux host. The targeted
+footer screenshot passed, followed by the complete website `visual.spec.ts`
+suite (26/26) under the shared heavy-task lease; snapshot thresholds and
+baselines were unchanged. The previous remote run is still for the earlier
+commit and retains its footer failure; a new PR run is required to validate the
+workflow correction.
+
+Validation plan for this two-file workflow/config change selected format,
+lint, emoji audit, website typecheck/unit tests, website E2E, and reported
+`FULL-SUITE ESCALATION: YES` because it changes validation infrastructure.
+`pnpm verify:affected` stopped at that required escalation before executing its
+lanes. The exact pushed SHA must receive the hosted full-gate verification
+before merge; this report will be updated with its result.
+
 ### Post-rebase validation — 2026-10-19
 
 The branch was rebased onto `origin/master` at `1946efe80` (Inkscape corpus PR
