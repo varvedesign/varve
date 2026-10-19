@@ -9,8 +9,8 @@
  * Research basis: Figma/Penpot handle layout conventions; MDN SVG coordinate system.
  */
 
-import type { SceneNode, ShapeNode } from '@varve/scene';
-import { buildParentIndexMap, resolveEditorSceneScope } from '@varve/scene';
+import type { Document as SceneDocument, SceneNode, ShapeNode } from '@varve/scene';
+import { buildParentIndexMap, isContainer, resolveEditorSceneScope } from '@varve/scene';
 import type { Affine, Camera, Point, Rect, Viewport } from '@varve/shared';
 import {
   applyAffine,
@@ -352,13 +352,29 @@ function selectionHandlesAreInteractive(
   node: SceneNode | undefined,
   locked: boolean,
 ): boolean {
-  if (!single || !node || locked) return false;
+  if (locked) return false;
   return (
     // Node editing owns every anchor hit, including anchors on box edges.
     // Transform hit targets there would intercept Shift selection and drags.
     (tool === 'select' || tool === 'scale') &&
-    (node.kind === 'shape' || node.kind === 'frame' || node.kind === 'text')
+    (!single ||
+      (node !== undefined &&
+        (node.kind === 'shape' || node.kind === 'frame' || node.kind === 'text')))
   );
+}
+
+function selectionContainsLockedNode(document: SceneDocument, selectedIds: string[]): boolean {
+  const pending = [...selectedIds];
+  const visited = new Set<string>();
+  while (pending.length > 0) {
+    const id = pending.pop();
+    if (!id || visited.has(id)) continue;
+    visited.add(id);
+    if (isNodeEffectivelyLocked(document, id)) return true;
+    const node = document.nodes[id];
+    if (node && isContainer(node)) pending.push(...node.children);
+  }
+  return false;
 }
 
 export function SelectionOverlay({ canvasRef, transformPreviewStore }: SelectionOverlayProps = {}) {
@@ -450,6 +466,32 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
     return computeSelectionBox(candidates);
   }, [renderDocument, state.selection]);
 
+  const memberOutlinePoints = useMemo(() => {
+    if (state.selection.length < 2) return [];
+    return state.selection.flatMap((id) => {
+      const node = renderDocument.nodes[id];
+      if (!node) return [];
+      const worldTransform = nodeWorldTransform(renderDocument, id, parentIndex);
+      let localBounds = nodeLocalBounds(node, renderDocument);
+      if (!localBounds) {
+        const worldBounds = nodeWorldBounds(renderDocument, id, parentIndex);
+        const inverseWorldTransform = tryInvertAffine(worldTransform);
+        if (!worldBounds || !inverseWorldTransform) return [];
+        localBounds = transformRect(inverseWorldTransform, worldBounds);
+      }
+      const localCorners: Point[] = [
+        [localBounds.x, localBounds.y],
+        [localBounds.x + localBounds.w, localBounds.y],
+        [localBounds.x + localBounds.w, localBounds.y + localBounds.h],
+        [localBounds.x, localBounds.y + localBounds.h],
+      ];
+      const corners = localCorners.map((point) =>
+        overlayWorldToScreen(...applyAffine(worldTransform, point)),
+      );
+      return [{ id, points: corners.map(([x, y]) => `${x},${y}`).join(' ') }];
+    });
+  }, [parentIndex, cameraRotation, renderDocument, pan, state.selection, zoom]);
+
   const previewRects = useMemo(() => {
     if (state.selectionPreview?.source !== 'canvas-object-marquee') return [];
     return state.selectionPreview.ids.flatMap((id) => {
@@ -472,8 +514,13 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
   const isSingle = sel.length === 1;
   const node = sel[0];
   const isShape = node?.kind === 'shape';
-  const isLockedSelection =
-    isSingle && node !== undefined && isNodeEffectivelyLocked(renderDocument, node.id);
+  // TransformEngine applies the shared box delta to every selected root. Keep
+  // the handles unavailable when any member is locked so a mixed selection
+  // can never make a locked object appear editable or mutate it indirectly.
+  const isLockedSelection = selectionContainsLockedNode(
+    renderDocument,
+    sel.map((selectedNode) => selectedNode.id),
+  );
   const hasInteractiveHandles = selectionHandlesAreInteractive(
     state.tool,
     isSingle,
@@ -1050,6 +1097,19 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
         </filter>
       </defs>
       {previewRectElements}
+      {memberOutlinePoints.map(({ id, points }) => (
+        <polygon
+          key={`selection-member-${id}`}
+          className="selection-overlay__member"
+          points={points}
+          fill="none"
+          stroke="var(--color-canvas-selection)"
+          strokeWidth={1}
+          strokeDasharray="2 3"
+          vectorEffect="non-scaling-stroke"
+          pointerEvents="none"
+        />
+      ))}
       <rect
         x={topLeftScreen[0]}
         y={topLeftScreen[1]}
@@ -1099,7 +1159,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
           );
         })()}
 
-      {hasInteractiveHandles && (
+      {hasInteractiveHandles && isSingle && (
         <>
           {/* Transform-origin indicator is display-only: it has no drag
               handler, so it must stay pointer-events:none or it silently
@@ -1131,6 +1191,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
           MIN_SKEW_BOX_PX: their 24px hit targets (WCAG 2.5.8) would cover a
           tiny box and intercept the shape's own move-drag. */}
       {hasInteractiveHandles &&
+        isSingle &&
         box.w * zoom >= MIN_SKEW_BOX_PX &&
         box.h * zoom >= MIN_SKEW_BOX_PX &&
         (() => {

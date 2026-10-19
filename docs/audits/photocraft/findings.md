@@ -813,3 +813,67 @@ PSD/PSB limits in the existing format documentation layout. The affected
 planner still stops at unrelated `audit:radius` findings, and an earlier
 code-only affected run reached the pre-existing desktop type error described
 above; the complete affected closure remains unverified.
+
+## F-019 — Multi-selection needs visible member outlines and working resize handles
+
+**Source.** PhotoCraft [#3384](https://github.com/storytold/photocraft/issues/3384)
+and duplicate [#3403](https://github.com/storytold/photocraft/issues/3403)
+report that transform controls cover only the first selected layer and resize
+only that layer. Cutoff-B issue [#6964](https://github.com/storytold/photocraft/issues/6964)
+repeats the request to scale more than one selected layer. PhotoCraft [#5419](https://github.com/storytold/photocraft/issues/5419)
+reports that multi-selection can move together but the canvas does not show
+which objects are selected; [#6669](https://github.com/storytold/photocraft/issues/6669)
+combines unclear selection feedback with unavailable simultaneous resize.
+Post-cutoff duplicate [#7274](https://github.com/storytold/photocraft/issues/7274)
+adds a screenshot and confirms that multiple selected layers appear as only one
+highlighted item. This is direct user evidence of both a missing affordance and
+an interaction gap.
+
+Comparable design tools make the intended contract explicit: [Figma's selection
+guide](https://help.figma.com/hc/en-us/articles/360040449873-Select-layers-and-objects)
+describes per-object selection boxes plus one shared box for bulk edits, while
+the [Inkscape selector guide](https://inkscape-manuals.readthedocs.io/en/1.3/selector-tool.html)
+describes a dashed box for every selected object and transform handles around
+the overall selection. These docs establish a familiar approach, not proof that
+other implementations never fail. Inkscape forum reports also describe relative
+position changes during multi-item scaling; Varve therefore needs a regression
+that checks the full selection delta, not only that a handle responds.
+
+**Varve applicability.** `TransformEngine` already computes a shared delta
+matrix and applies it to independent selected roots, but `SelectionOverlay`
+only made resize handles interactive for a single node. For multiple nodes the
+canvas showed one collective dashed box, so it hid which members were selected
+and offered no working canvas resize despite engine-level multi-scale tests.
+
+**Implementation status.** The overlay now draws an accent outline around each
+selected member, retains the collective bounds and its eight resize handles,
+and routes a multi-selection drag through the existing `TransformEngine` box
+resize. Multi-selection rotation and skew remain hidden. If a selected root or
+any descendant within a selected container is locked, shared resize handles
+remain disabled to avoid changing locked artwork indirectly. Focused pointer
+tests and a real-browser workflow are added; the E2E asserts that both selected
+objects change size independently.
+
+**Website impact.** The public site does not advertise this specific canvas
+interaction, so no marketing claim or page needs to change. The transform
+architecture guide now documents the shared-box, member-outline, and lock
+behavior.
+
+**Validation status.** The focused overlay suite passed after the
+locked-descendant regression (53 tests). The E2E TypeScript check and editor
+package typecheck passed. The full editor package run completed with four
+workers: 913 test files and 8,987 tests passed, 2 skipped, and one unrelated
+assertion failed in `retouchTools.test.ts` because it expects “Alt-click” while
+the current announcement says “Alt-, Ctrl-, or Command-click”; an isolated
+rerun reproduced that same mismatch (23/24 passed). An earlier parallel run's
+three `ShortcutPalette` timeout failures did not recur when its 18-test file
+was run alone with one worker. The lease-wrapped Chromium interaction passed
+after the visible-outline and shared-resize implementation, with saved
+before/after screenshots manually inspected. The subsequent descendant-lock
+guard does not alter the unlocked two-shape scenario; its pointer gating is
+covered by focused unit tests. The planner's affected run passed format, lint,
+emoji, and docs audits, then stopped at the repository's 10 existing radius
+findings in untouched Presentation/SpecPanel CSS. Desktop typecheck reports
+the pre-existing `CollabSurfaces.tsx:450` readonly `Affine` cast; the selected
+desktop unit lane passed (15 files, 90 tests). The independent final review
+found no remaining issues.

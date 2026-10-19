@@ -73,6 +73,19 @@ There is no persisted custom pivot today. Rotation uses the selection-box centre
 or the pivot supplied to the engine for a gesture. Do not persist a world pivot
 without a document-level product decision.
 
+### Multi-selection canvas controls
+
+With two or more selected roots in Select or Scale, the overlay draws a dashed
+outline around each selected node plus one shared selection box. The eight
+shared resize handles apply one box delta to every independent selected root,
+preserving their relative arrangement while each node keeps its own geometry
+and transform policy. Multi-selection rotation and skew handles remain hidden;
+the center-origin marker is also single-selection only. If any selected root
+or any descendant within a selected container is locked (including through a
+locked ancestor), shared resize handles are disabled so a group gesture cannot
+mutate locked artwork indirectly. The shared engine still enforces each node's
+resize semantics for text, image fills, groups, frames, and vector geometry.
+
 ## Snapping
 
 `tools/snapping.ts` is the single resolver for move snapping. It evaluates X

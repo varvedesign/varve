@@ -80,6 +80,8 @@ function renderOverlay(
   contextOverrides: Record<string, unknown> = {},
 ) {
   const { tool = 'select', ...providerOverrides } = contextOverrides;
+  const selectedIds =
+    (contextOverrides.selectedIds as string[] | undefined) ?? nodes.map((n) => n.id);
   const nodeMap: Record<string, SceneNode> = {};
   for (const n of nodes) {
     nodeMap[n.id] = n;
@@ -89,12 +91,12 @@ function renderOverlay(
   mockUseEditor.mockReturnValue({
     state: {
       document: buildDoc(nodeMap),
-      selection: nodes.map((n) => n.id),
+      selection: selectedIds,
       pan,
       zoom,
       tool,
     },
-    selectedNodes: () => nodes,
+    selectedNodes: () => nodes.filter((node) => selectedIds.includes(node.id)),
     setNodePosition: vi.fn(),
     setNodePositions: vi.fn(),
     updateNodes: vi.fn(),
@@ -412,24 +414,140 @@ describe('SelectionOverlay — shape handle types', () => {
     expect(rects.length).toBe(25);
   });
 
-  it('shows no interactive handles for multi-selection (dashed bbox, handles still in DOM with pointerEvents:none)', () => {
-    const container = renderOverlay([
+  it('resizes a multi-selection from the shared bounding box without rotation controls', () => {
+    const nodes = [
       makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }),
       makeShapeNode('b', { kind: 'rect', x: 100, y: 0, w: 50, h: 50 }),
-    ]);
+    ];
+    const document = buildDoc(Object.fromEntries(nodes.map((node) => [node.id, node])));
+    const updateDoc = vi.fn((update: (current: Document) => Document) => update(document));
+    const beginTransaction = vi.fn();
+    const resize = vi.spyOn(TransformEngine.prototype, 'resize');
+    const container = renderOverlay(nodes, {}, MOCK_PAN, MOCK_ZOOM, {
+      beginTransaction,
+      updateDoc,
+    });
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
-    // Multi-selection: skew handles not rendered (no individual node to skew)
-    // 1 bbox + 8 touch targets + 8 visual handles = 17 rects
+    // The collective box has resize handles, but no single-node rotation,
+    // skew, endpoint, or corner-radius controls.
     const rects = container.querySelectorAll('svg > rect');
     expect(rects.length).toBe(17);
-    // No rotation handle in multi-select
+    expect(container.querySelectorAll('polygon.selection-overlay__member')).toHaveLength(2);
     expect(container.querySelectorAll('svg > circle').length).toBe(0);
-    // No rotation line in multi-select
     expect(container.querySelectorAll('svg > line').length).toBe(0);
-    // Bbox has dashed stroke in multi-select
     const bboxRect = rects[0];
     expect(bboxRect?.getAttribute('stroke-dasharray')).toBe('4 3');
+
+    const visibleHandle = container.querySelector<SVGRectElement>(
+      'rect[aria-label="Bottom-right resize handle"]',
+    );
+    expect(visibleHandle).not.toBeNull();
+    const hitTarget = [...container.querySelectorAll<SVGRectElement>('rect[fill="transparent"]')]
+      .filter((target) => target.style.pointerEvents === 'auto')
+      .find(
+        (target) =>
+          Number(target.getAttribute('x')) === Number(visibleHandle?.getAttribute('x')) - 8 &&
+          Number(target.getAttribute('y')) === Number(visibleHandle?.getAttribute('y')) - 8,
+      );
+    expect(hitTarget).toBeDefined();
+
+    fireEvent.pointerDown(hitTarget as SVGRectElement, {
+      button: 0,
+      clientX: 150,
+      clientY: 50,
+      pointerId: 4,
+      pointerType: 'mouse',
+    });
+    fireEvent.pointerMove(svg as SVGSVGElement, {
+      clientX: 180,
+      clientY: 80,
+      pointerId: 4,
+      pointerType: 'mouse',
+    });
+
+    expect(beginTransaction).toHaveBeenCalledOnce();
+    expect(resize).toHaveBeenCalledWith(
+      [180, 80],
+      'se',
+      expect.objectContaining({ scaleContents: false }),
+      document,
+    );
+    expect(updateDoc).toHaveBeenCalledOnce();
+  });
+
+  it('disables shared resize when a selected node or group descendant is locked', () => {
+    const container = renderOverlay([
+      makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }),
+      makeShapeNode('b', { kind: 'rect', x: 100, y: 0, w: 50, h: 50 }, { locked: true }),
+    ]);
+    const targets = [...container.querySelectorAll<SVGRectElement>('rect[fill="transparent"]')];
+    expect(targets.every((target) => target.style.pointerEvents !== 'auto')).toBe(true);
+
+    const lockedChild = makeShapeNode(
+      'locked-child',
+      { kind: 'rect', x: 0, y: 0, w: 30, h: 30 },
+      { locked: true },
+    );
+    const group = {
+      id: 'group',
+      kind: 'group',
+      name: 'Group',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 0, 0],
+      children: ['locked-child'],
+      effects: [],
+    } as unknown as SceneNode;
+    const unlockedPeer = makeShapeNode('peer', { kind: 'rect', x: 100, y: 0, w: 50, h: 50 });
+    const groupContainer = renderOverlay(
+      [group, lockedChild, unlockedPeer],
+      {},
+      MOCK_PAN,
+      MOCK_ZOOM,
+      {
+        selectedIds: ['group', 'peer'],
+      },
+    );
+    const groupTargets = [
+      ...groupContainer.querySelectorAll<SVGRectElement>('rect[fill="transparent"]'),
+    ];
+    expect(groupTargets.every((target) => target.style.pointerEvents !== 'auto')).toBe(true);
+  });
+
+  it('draws a member outline around a selected group using its world bounds', () => {
+    const child = makeShapeNode('child', { kind: 'rect', x: 0, y: 0, w: 40, h: 30 });
+    const group = {
+      id: 'group',
+      kind: 'group',
+      name: 'Group',
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      transform: [1, 0, 0, 1, 20, 10],
+      children: ['child'],
+      effects: [],
+    } as unknown as SceneNode;
+    const other = makeShapeNode('other', { kind: 'rect', x: 100, y: 0, w: 20, h: 20 });
+    const container = renderOverlay([group, child, other], {}, MOCK_PAN, MOCK_ZOOM, {
+      selectedIds: ['group', 'other'],
+    });
+
+    const outlines = container.querySelectorAll<SVGPolygonElement>(
+      'polygon.selection-overlay__member',
+    );
+    expect(outlines).toHaveLength(2);
+    expect(outlines[0]?.getAttribute('points')).not.toBe('');
+    expect(outlines[0]?.getAttribute('points')).toContain('20,10');
   });
 });
 
