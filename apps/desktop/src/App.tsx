@@ -362,7 +362,7 @@ export function App() {
 
   useEffect(() => {
     let dispose: (() => void) | undefined;
-    void armOsFileOpen(handleOsFileOpen).then((disposeOpen) => {
+    void armOsFileOpen(handleOsFileOpen, (message) => window.alert(message)).then((disposeOpen) => {
       dispose = disposeOpen;
     });
     return () => dispose?.();

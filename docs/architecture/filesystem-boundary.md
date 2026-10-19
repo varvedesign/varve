@@ -343,3 +343,18 @@ between portable references, native paths, URLs, and display strings.
   extension (`logo.png.png` → `logo.png`, case-insensitive) while keeping
   legitimate interior dots; `extensionForExport` never derives `"."` from a
   trailing-dot filename.
+- **Native path encoding.** Native filesystem paths remain OS `PathBuf` values
+  until they cross a webview API that requires UTF-8 strings. Varve refuses
+  document paths that cannot be represented as UTF-8 at startup arguments,
+  OS-open events, and native drag/drop. A second-instance path containing
+  U+FFFD is also refused because Tauri's single-instance plugin may have
+  substituted it for invalid native bytes. The desktop surfaces a queued
+  error asking the user to rename the file to a Unicode name and open it
+  again. Native dialog IPC serialization failures are caught at the platform
+  boundary; Open and Import show the same recovery guidance, and Save returns
+  a failed result without writing. This safely refuses unsupported paths; it
+  does not provide arbitrary byte or UTF-16 path support in the webview. A
+  chooser or OS plugin that cannot serialize a selected path may fail before
+  Varve can identify the filename. Literal U+FFFD filenames are refused only
+  on the potentially lossy forwarded-launch route; use File → Open when that
+  is the actual filename.

@@ -149,6 +149,19 @@ async function withFocusRestore<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+function invalidPathIpcError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /path contains invalid utf-?8 characters/i.test(message);
+}
+
+function reportInvalidPathIpcError(): void {
+  if (typeof window !== 'undefined') {
+    window.alert(
+      "Varve couldn't safely use this file path. Rename the file to a Unicode name, then try again.",
+    );
+  }
+}
+
 /** KV key holding the directory of the last successful document save. */
 const LAST_SAVE_DIRECTORY_KEY = 'lastSaveDirectory';
 
@@ -625,12 +638,19 @@ export function createTauriPlatform(): Platform {
     async openDocumentFromDisk() {
       return withFocusRestore(async () => {
         const c = core();
-        const picked = (await c.invoke('plugin:dialog|open', {
-          options: {
-            multiple: false,
-            filters: [{ name: 'Varve document', extensions: ['varve', 'strata'] }],
-          },
-        })) as string | null;
+        let picked: string | null;
+        try {
+          picked = (await c.invoke('plugin:dialog|open', {
+            options: {
+              multiple: false,
+              filters: [{ name: 'Varve document', extensions: ['varve', 'strata'] }],
+            },
+          })) as string | null;
+        } catch (error) {
+          if (!invalidPathIpcError(error)) throw error;
+          reportInvalidPathIpcError();
+          return null;
+        }
         if (!picked) return null;
         const text = (await c.invoke('home_read_text_file_approved', {
           path: picked,
@@ -655,12 +675,21 @@ export function createTauriPlatform(): Platform {
     async importDocumentFromDisk(extensions) {
       return withFocusRestore(async () => {
         const c = core();
-        const picked = (await c.invoke('plugin:dialog|open', {
-          options: {
-            multiple: false,
-            filters: [{ name: 'Import', extensions: extensions.map((e) => e.replace(/^\./, '')) }],
-          },
-        })) as string | null;
+        let picked: string | null;
+        try {
+          picked = (await c.invoke('plugin:dialog|open', {
+            options: {
+              multiple: false,
+              filters: [
+                { name: 'Import', extensions: extensions.map((e) => e.replace(/^\./, '')) },
+              ],
+            },
+          })) as string | null;
+        } catch (error) {
+          if (!invalidPathIpcError(error)) throw error;
+          reportInvalidPathIpcError();
+          return { result: null, unsupported: false };
+        }
         if (!picked) return { result: null, unsupported: false };
         const name = picked.split(/[\\/]/).pop() ?? '';
         const kind = detectFileKind(name);
@@ -699,16 +728,29 @@ export function createTauriPlatform(): Platform {
         // (SQLite KV) — never serialized into the document.
         const lastDir = await loadLastSaveDirectory();
         const defaultPath = lastDir ? joinPath(lastDir, suggested) : suggested;
-        const path = (await c.invoke('plugin:dialog|save', {
-          options: {
-            defaultPath,
-            // New saves produce the canonical format only. Legacy .strata
-            // files still open and import; they round-trip through their
-            // existing path on plain Save. The dialog deliberately does not
-            // present .strata as an equal new-document output format.
-            filters: [{ name: 'Varve document', extensions: ['varve'] }],
-          },
-        })) as string | null;
+        let path: string | null;
+        try {
+          path = (await c.invoke('plugin:dialog|save', {
+            options: {
+              defaultPath,
+              // New saves produce the canonical format only. Legacy .strata
+              // files still open and import; they round-trip through their
+              // existing path on plain Save. The dialog deliberately does not
+              // present .strata as an equal new-document output format.
+              filters: [{ name: 'Varve document', extensions: ['varve'] }],
+            },
+          })) as string | null;
+        } catch (error) {
+          if (!invalidPathIpcError(error)) throw error;
+          return {
+            kind: 'failed',
+            error: {
+              category: 'unknown-io',
+              message:
+                "Varve couldn't safely use this file path. Rename the file to a Unicode name, then try again.",
+            },
+          };
+        }
         if (!path) return { kind: 'cancelled' };
         return { kind: 'target', target: { kind: 'native-file', path } };
       });

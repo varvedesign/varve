@@ -379,11 +379,15 @@ The tracker and adjacent reports were checked against the same Varve boundary:
   open may still create a second session, but the write guard prevents silent
   concurrent replacement. Open-session deduplication remains a separate UX
   decision.
-- #6601 is a confirmed native-path limitation. The desktop OS-open queue and
-  dialog path conversion use lossy UTF-8 before paths reach editor state. A
-  correct fix needs an end-to-end path identity contract or a deliberate early
-  refusal with a usable explanation; changing only the final writer would not
-  repair open, Save As, and recent-file behavior together.
+- #6601 was a confirmed native-path limitation. Varve now refuses paths it
+  cannot represent as UTF-8 at startup open, macOS OS-open, native drag/drop,
+  and Tauri Open/Import/Save dialog boundaries, with user-facing recovery
+  guidance. Forwarded single-instance paths containing U+FFFD are refused
+  because the plugin may already have replaced invalid native bytes. This is
+  safe refusal, not arbitrary native-path support; recent-file paths remain
+  UTF-8 strings. See the implementation and platform limits in
+  `docs/architecture/filesystem-boundary.md` and the change record in
+  `continuation.md`.
 - #6606 matches `write_file_atomic`, which creates missing parent directories.
   This may be useful for batch destinations, so a fix should distinguish
   explicit document Save As from export and app-managed writes rather than

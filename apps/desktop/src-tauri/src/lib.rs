@@ -5742,7 +5742,10 @@ pub fn run() {
     builder
         // Native termination interception (ADR-0216 D5): close/exit is
         // prevented until the frontend coordinator approves it.
-        .on_window_event(lifecycle::handle_window_event)
+        .on_window_event(|window, event| {
+            lifecycle::handle_window_event(window, event);
+            file_open::handle_window_event(window, event);
+        })
         .setup(|app| {
             // Native ONNX Runtime init deliberately does NOT happen here.
             // Loading a native dylib this early — before the webview has
@@ -6278,6 +6281,7 @@ pub fn run() {
             close_splashscreen,
             // OS file-association intake
             file_open::take_pending_open_files,
+            file_open::take_pending_open_errors,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

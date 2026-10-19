@@ -9,6 +9,7 @@ test('file formats documentation explains local file actions', async ({ page }) 
     page.getByText(/upload.*reserved for an explicit, consented remote service/i),
   ).toBeVisible();
   await expect(page.getByText(/duplicate names are allowed/i)).toBeVisible();
+  await expect(page.getByText(/file names must be representable as Unicode text/i)).toBeVisible();
   await expect(
     page.getByText(/layer trees are limited to 64 levels, 50,000 nodes, and 500,000 child slots/i),
   ).toBeVisible();

@@ -19,11 +19,14 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
+use tauri::{
+    AppHandle, DragDropEvent, Emitter, Manager, RunEvent, State, Window, WindowEvent, Wry,
+};
 
 /// Pending document paths and window activation the app has not handled yet.
 pub struct PendingFileOpens {
     pending: Mutex<Vec<String>>,
+    rejected: Mutex<Vec<String>>,
     activation_requested: Mutex<bool>,
 }
 
@@ -31,21 +34,55 @@ impl Default for PendingFileOpens {
     fn default() -> Self {
         Self {
             pending: Mutex::new(Vec::new()),
+            rejected: Mutex::new(Vec::new()),
             activation_requested: Mutex::new(false),
         }
     }
 }
 
-fn is_document_path(path: &str) -> bool {
-    let file = Path::new(path);
-    let document_extension = file
-        .extension()
+fn has_document_extension(path: &Path) -> bool {
+    path.extension()
         .and_then(|extension| extension.to_str())
         .map(|extension| {
             extension.eq_ignore_ascii_case("varve") || extension.eq_ignore_ascii_case("strata")
         })
-        .unwrap_or(false);
-    document_extension && file.is_file()
+        .unwrap_or(false)
+}
+
+fn is_document_path(path: &str) -> bool {
+    let file = Path::new(path);
+    has_document_extension(file) && file.is_file()
+}
+
+fn invalid_document_path_message(path: &Path, forwarded_as_text: bool) -> Option<String> {
+    let display_name = path
+        .file_name()
+        .unwrap_or_else(|| path.as_os_str())
+        .to_string_lossy();
+    let invalid = path.to_str().is_none();
+    // A lossy conversion may have replaced bytes in any path component or in
+    // the forwarded working directory, not only in the basename.
+    let potentially_lossy = forwarded_as_text && path.to_string_lossy().contains('\u{FFFD}');
+    if !has_document_extension(path) || (!invalid && !potentially_lossy) {
+        return None;
+    }
+    Some(format!(
+        "Varve couldn't safely open '{display_name}'. Rename the file to a Unicode name, then open it again."
+    ))
+}
+
+fn queue_rejected_path(state: &PendingFileOpens, message: String) {
+    if let Ok(mut rejected) = state.rejected.lock() {
+        rejected.push(message);
+    }
+}
+
+fn reject_path(app: &AppHandle, state: &PendingFileOpens, path: &Path, forwarded_as_text: bool) {
+    let Some(message) = invalid_document_path_message(path, forwarded_as_text) else {
+        return;
+    };
+    queue_rejected_path(state, message.clone());
+    let _ = app.emit("varve:file-open-error", vec![message]);
 }
 
 /// Queue a document path unless it is already pending. Returns true when the
@@ -80,8 +117,14 @@ fn push_open(app: &AppHandle, state: &PendingFileOpens, path: String) {
 pub fn register_startup_args(app: &AppHandle) {
     let state = app.state::<PendingFileOpens>();
     for argument in std::env::args_os().skip(1) {
-        if let Ok(path) = argument.into_string() {
-            push_open(app, &state, path);
+        match argument.into_string() {
+            Ok(path) => push_open(app, &state, path),
+            Err(argument) => {
+                let path = Path::new(&argument);
+                if path.is_file() {
+                    reject_path(app, &state, path, false);
+                }
+            }
         }
     }
 }
@@ -94,7 +137,12 @@ pub fn handle_forwarded_args(app: &AppHandle, args: Vec<String>, cwd: String) {
     let state = app.state::<PendingFileOpens>();
     request_activation(&state);
     for path in resolve_forwarded_paths(&args, &cwd) {
-        push_open(app, &state, path);
+        if let Some(message) = invalid_document_path_message(Path::new(&path), true) {
+            queue_rejected_path(&state, message.clone());
+            let _ = app.emit("varve:file-open-error", vec![message]);
+        } else {
+            push_open(app, &state, path);
+        }
     }
     activate_if_requested(app, &state);
 }
@@ -158,6 +206,20 @@ fn resolve_forwarded_paths(args: &[String], cwd: &str) -> Vec<String> {
         .collect()
 }
 
+/// Warn when a dropped native file has a path that Tauri cannot serialize as
+/// UTF-8. The built-in drag event cannot carry that path to the webview.
+pub fn handle_window_event(window: &Window<Wry>, event: &WindowEvent) {
+    let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = event else {
+        return;
+    };
+    let Some(state) = window.try_state::<PendingFileOpens>() else {
+        return;
+    };
+    for path in paths {
+        reject_path(window.app_handle(), &state, path, false);
+    }
+}
+
 /// macOS/iOS/Android LaunchServices "Open With" requests arrive as URLs and
 /// may target a running instance.
 pub fn handle_run_event(app: &AppHandle, event: &RunEvent) {
@@ -173,7 +235,11 @@ pub fn handle_run_event(app: &AppHandle, event: &RunEvent) {
             for url in urls {
                 if url.scheme() == "file" {
                     if let Ok(path) = url.to_file_path() {
-                        push_open(app, &state, path.to_string_lossy().into_owned());
+                        if let Some(path_text) = path.to_str() {
+                            push_open(app, &state, path_text.to_owned());
+                        } else {
+                            reject_path(app, &state, &path, false);
+                        }
                     }
                 }
             }
@@ -198,6 +264,15 @@ fn drain_pending(state: &PendingFileOpens) -> Vec<String> {
 #[tauri::command]
 pub fn take_pending_open_files(state: State<'_, PendingFileOpens>) -> Vec<String> {
     drain_pending(state.inner())
+}
+
+#[tauri::command]
+pub fn take_pending_open_errors(state: State<'_, PendingFileOpens>) -> Vec<String> {
+    state
+        .rejected
+        .lock()
+        .map(|mut rejected| std::mem::take(&mut *rejected))
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -276,6 +351,51 @@ mod tests {
                 "/tmp/other.strata"
             ]
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn invalid_utf8_document_paths_are_rejected_without_lossy_opening() {
+        use std::os::unix::ffi::OsStrExt;
+
+        let path = Path::new(std::ffi::OsStr::from_bytes(b"/tmp/Poster-\xff.varve"));
+        let message = invalid_document_path_message(path, false).unwrap();
+
+        assert!(message.contains("couldn't safely open"));
+        assert!(message.contains("Rename the file"));
+        assert_eq!(path.to_str(), None);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn unpaired_surrogate_document_paths_are_rejected_without_lossy_opening() {
+        use std::os::windows::ffi::OsStringExt;
+
+        let path = Path::new(&std::ffi::OsString::from_wide(&[
+            b'C' as u16,
+            b':' as u16,
+            b'\\' as u16,
+            0xD800,
+            b'.' as u16,
+            b'v' as u16,
+            b'a' as u16,
+            b'r' as u16,
+            b'v' as u16,
+            b'e' as u16,
+        ]));
+        assert!(invalid_document_path_message(path, false).is_some());
+        assert_eq!(path.to_str(), None);
+    }
+
+    #[test]
+    fn replacement_character_is_rejected_only_for_lossy_forwarded_paths() {
+        let path = Path::new("/tmp/Poster-�.varve");
+        assert!(invalid_document_path_message(path, false).is_none());
+        assert!(invalid_document_path_message(path, true).is_some());
+
+        let path_with_replaced_parent = Path::new("/tmp/�/Poster.varve");
+        assert!(invalid_document_path_message(path_with_replaced_parent, false).is_none());
+        assert!(invalid_document_path_message(path_with_replaced_parent, true).is_some());
     }
 
     #[test]

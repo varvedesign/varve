@@ -15,6 +15,7 @@ const originalTauri = globalWithTauri.__TAURI__;
 
 afterEach(() => {
   globalWithTauri.__TAURI__ = originalTauri;
+  vi.restoreAllMocks();
 });
 
 describe('createTauriPlatform', () => {
@@ -229,6 +230,32 @@ describe('createTauriPlatform', () => {
     expect(await createTauriPlatform().openDocumentFromDisk()).toBeNull();
     expect(invoke).toHaveBeenCalledTimes(1);
     expect(invoke).toHaveBeenCalledWith('plugin:dialog|open', expect.any(Object));
+  });
+
+  it('explains when Tauri cannot serialize a selected non-UTF-8 path', async () => {
+    const invoke = vi.fn().mockRejectedValue(new Error('path contains invalid UTF-8 characters'));
+    globalWithTauri.__TAURI__ = { core: { invoke } };
+    const alert = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+
+    await expect(createTauriPlatform().openDocumentFromDisk()).resolves.toBeNull();
+    expect(alert).toHaveBeenCalledWith(expect.stringMatching(/rename the file to a Unicode name/i));
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns an actionable save failure when Tauri cannot serialize the selected path', async () => {
+    const invoke = vi.fn(async (cmd: string) => {
+      if (cmd === 'app_get_setting') return null;
+      if (cmd === 'plugin:dialog|save') {
+        throw new Error('path contains invalid UTF-8 characters');
+      }
+      return null;
+    });
+    globalWithTauri.__TAURI__ = { core: { invoke } };
+
+    await expect(createTauriPlatform().chooseDocumentSaveTarget('Poster')).resolves.toMatchObject({
+      kind: 'failed',
+      error: { category: 'unknown-io', message: expect.stringMatching(/rename the file/i) },
+    });
   });
 
   it.each([

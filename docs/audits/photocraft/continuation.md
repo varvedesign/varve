@@ -686,3 +686,29 @@ Last updated: 2026-10-19. Status: active and incomplete.
   closure remains incomplete because its planner run stops at unrelated
   `audit:radius` findings; an earlier code-only run also encountered the known
   desktop typecheck error. No public page claims Affinity import. See F-018.
+
+- PhotoCraft #6601 non-UTF-8 native paths: the Rust OS-open queue now refuses
+  invalid UTF-8 startup paths and `RunEvent::Opened` paths before lossy
+  conversion; second-instance paths containing U+FFFD are refused because
+  Tauri may already have substituted them for invalid bytes. Native Tauri
+  drag/drop queues an actionable error, and native Open/Import/Save catch the
+  dialog plugin's `path contains invalid UTF-8 characters` serialization
+  failure. The public File Formats page now documents the Unicode filename
+  requirement and rename recovery. This is early refusal, not support for
+  arbitrary byte or unpaired-surrogate paths; literal U+FFFD filenames through
+  second-instance forwarding must be opened from File → Open. Inkscape issue
+  #9197 records a comparable user complaint where Open/Save As appeared to do
+  nothing after an invalid-UTF-8 path failure; Varve now surfaces the failure.
+  Validation: focused desktop Rust tests passed (6); focused platform tests
+  passed (21); platform and website typechecks passed; the website File Formats
+  screenshot E2E passed under the lease in both GitHub Pages and custom-domain
+  projects, and both screenshots were visually inspected. Both website builds
+  passed. The touched checks passed, as did the emoji, docs, and token audits.
+  `verify:affected` stops on 10 pre-existing raw-radius consumers in untouched
+  Presentation/SpecPanel styles; desktop typecheck separately reaches the
+  existing `CollabSurfaces.tsx:450` readonly Affine mismatch. Native Tauri
+  runtime validation and the Windows unpaired-surrogate test remain pending.
+  `audit-architecture.mjs --ci` completed: 14 current cycles remain under the
+  17-cycle ceiling, no new cycle identity was reported, and layer violations
+  remain zero. Its instability, unused-export, and hub-budget findings are
+  report-only under the repository policy. Final full code review is pending.
