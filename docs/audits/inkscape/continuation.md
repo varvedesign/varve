@@ -2,6 +2,12 @@
 
 Last updated: 2026-10-19.
 
+## Review follow-up — 2026-10-19, PR #149
+
+- Independent review found that compound paths without a stored `fillRule` use the engine's default even-odd rule, while the offset topology check had been reading only the optional field. Added a test-first regression for a same-winding nested ring without `fillRule`; it failed with the hole contracting to 35–65 instead of expanding to 15–85. `offsetPathNode` now uses the canonical `pathFillRule(shape)` resolver. The focused geometry suite passes 28/28.
+- The reviewer rechecked the updated diff and reported no remaining findings. The code-only `pnpm verify:plan` selected 11 lanes with no full-suite escalation, and `TMPDIR=/dev/shm pnpm verify:affected` passed all 11. After adding this docs record, the revised plan selected 12 lanes; the second affected run passed format/lint, emoji/docs/radius audits, E2E/editor/desktop typechecks, focused geometry tests (28/28), editor unit tests (8,790 passed / 2 skipped across 900 files), desktop unit tests (90/90), and compound-path Chromium E2E (2/2). The docs audit indexed 1,145 docs and checked 830 links and 178 ADRs. Chromium warned that WASM did not load and used the TypeScript fallback renderer.
+- Visually inspected the even-odd browser screenshot: the contracted outer shape retains the expected narrow green ring around the expanded hole. No snapshot update was needed during the follow-up. `git diff --check` passed before the docs edit; a final check and commit/push checkpoints remain on the completed diff.
+
 ## Resume checkpoint — 2026-10-19 15:03 UTC
 
 - The prior IID 1962 slice is integrated: PR [#147](https://github.com/varvedesign/varve/pull/147) merged to `master` at `38d7c0a387d6604fec5572457bf32c823862427c`. This supersedes the earlier checkpoint below that described #147 as open. The corpus inventory remains at 6,392 issues; discussion review now covers 1,180 of 5,669 note-bearing issues, with 32 source-snapshot retrieval mismatches still open.

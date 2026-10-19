@@ -18,7 +18,14 @@
  */
 
 import type { PathPoint, Shape } from '@varve/engine';
-import { cubicBezierPoint, expandStroke, offsetPath, pathRings, roundCorners } from '@varve/engine';
+import {
+  cubicBezierPoint,
+  expandStroke,
+  offsetPath,
+  pathFillRule,
+  pathRings,
+  roundCorners,
+} from '@varve/engine';
 import type { Document, Fill, NodeId, SceneNode, ShapeNode, Stroke } from '@varve/scene';
 import { addNode } from '@varve/scene';
 import type { Affine, Point } from '@varve/shared';
@@ -266,6 +273,27 @@ function pointInRingEvenOdd(point: PathPoint, ring: readonly PathPoint[]): boole
   return inside;
 }
 
+function offsetDistanceForRing(
+  rings: readonly PathPoint[][],
+  ringIndex: number,
+  distance: number,
+  fillRule: 'nonzero' | 'evenodd' | undefined,
+): number {
+  if (fillRule !== 'evenodd') return distance;
+  const ring = rings[ringIndex];
+  if (!ring || ring.length < 3) return distance;
+  const area = ringArea(ring);
+  if (area === 0) return distance;
+  const probe = ring[0]!;
+  let nestingDepth = 0;
+  for (let index = 0; index < rings.length; index++) {
+    const candidate = rings[index];
+    if (index !== ringIndex && candidate && pointInRingEvenOdd(probe, candidate)) nestingDepth++;
+  }
+  const ringDirection = Math.sign(area);
+  return distance * (nestingDepth % 2 === 0 ? ringDirection : -ringDirection);
+}
+
 function resolveStrokeFill(stroke: Stroke): Fill {
   if (stroke.gradient) {
     return {
@@ -298,7 +326,13 @@ export function offsetPathNode(
   if (shape.points.length < 2) return null;
   const rings = pathRings(shape);
   const offsetRings = rings.map((ring, index) =>
-    offsetPath(ring, index === 0 ? shape.closed : true, distance, joinStyle, miterLimit),
+    offsetPath(
+      ring,
+      index === 0 ? shape.closed : true,
+      offsetDistanceForRing(rings, index, distance, pathFillRule(shape)),
+      joinStyle,
+      miterLimit,
+    ),
   );
   const points = offsetRings[0];
   if (!points || points.length < 2) return null;
