@@ -114,10 +114,12 @@ serializes writes so a stale save can never clobber a newer one.
 
 For native-file targets, before every write:
 
-1. `platform.readDocumentText(path)` — if the destination is gone (USB
-   unplugged, folder deleted), the save fails with `destination-missing` and
-   the UI offers Save As; nothing is silently redirected into internal
-   storage.
+1. `platform.hashDocumentText(path)` on native platforms, with
+   `readDocumentText(path)` as the adapter fallback — if the destination is
+   gone (USB unplugged, folder deleted), the save fails with
+   `destination-missing` and the UI offers Save As; nothing is silently
+   redirected into internal storage. The native implementation hashes UTF-8
+   text in bounded chunks and does not send the old document text over IPC.
 2. Content-hash comparison against `diskContentHash` — if the file changed
    on disk since it was opened, the save fails with
    `file-changed-externally` instead of silently destroying external edits.
@@ -137,7 +139,9 @@ failure never fails the user's filesystem save.
   writes, no state changes.
 - `writeSaveTarget(target, contents) → WriteSaveResult` — writes to an
   already-resolved target.
-- `readDocumentText(path)` — external-change / missing-destination checks.
+- `hashDocumentText(path)` (optional) or `readDocumentText(path)` —
+  external-change / missing-destination checks. Native adapters stream the
+  hash; other adapters can return text for the existing client-side hash.
 
 Desktop (Tauri): dialog-approved resolver lets documents live anywhere the
 user chose (other drives, removable media, network mounts); the strict

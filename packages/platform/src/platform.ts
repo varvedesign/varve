@@ -17,6 +17,7 @@ import type {
   Branch,
   Collection,
   CreateVersionInput,
+  DocumentHashResult,
   DocumentReadResult,
   DocumentSaveTargetChoice,
   FileEntry,
@@ -323,6 +324,10 @@ export interface Platform {
    *  from a path that exists but cannot be read (permission, IO), so a save
    *  never misreports a permission error as a vanished destination. */
   readDocumentText(path: string): Promise<DocumentReadResult>;
+
+  /** Optional native streaming hash used to verify a save destination without
+   *  loading its full text into the editor process. */
+  hashDocumentText?(path: string): Promise<DocumentHashResult>;
   saveBinaryFile(
     name: string,
     data: Uint8Array,

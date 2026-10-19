@@ -218,7 +218,9 @@ hidden from the user's own file manager.
 ### Safety contracts
 
 - **Pre-overwrite external-change guard.** Both native paths and browser file
-  handles compare a content hash before writing. For a handle, the session
+  handles compare a content hash before writing. Native adapters stream the
+  UTF-8 file through a bounded buffer and return only the hash over IPC; other
+  adapters may return text for the client-side hash. For a handle, the session
   stores `diskContentHash` after every successful write and passes it as
   `expectedContentHash` on the next write; a mismatch returns
   `file-changed-externally` and never touches the file. This is what detects a

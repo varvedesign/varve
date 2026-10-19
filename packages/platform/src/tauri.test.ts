@@ -49,6 +49,22 @@ describe('createTauriPlatform', () => {
     await expect(readNativePreviousCleanShutdown()).rejects.toThrow(/invalid response/i);
   });
 
+  it('hashes an approved native document without transferring its text', async () => {
+    const invoke = vi.fn().mockResolvedValue('1adc54fe');
+    globalWithTauri.__TAURI__ = {
+      core: { invoke },
+      event: { listen: async () => () => {} },
+    };
+
+    await expect(createTauriPlatform().hashDocumentText?.('/docs/design.varve')).resolves.toEqual({
+      ok: true,
+      hash: '1adc54fe',
+    });
+    expect(invoke).toHaveBeenCalledWith('home_hash_text_file_approved', {
+      path: '/docs/design.varve',
+    });
+  });
+
   it('updates native shutdown state for verified updater restarts', async () => {
     const invoke = vi.fn().mockResolvedValue(undefined);
     globalWithTauri.__TAURI__ = {

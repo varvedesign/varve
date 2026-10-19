@@ -75,6 +75,64 @@ describe('save destination ownership', () => {
     expect(getEditor().state.dirty).toBe(true);
   });
 
+  it('uses the native streaming hash for external-change checks', async () => {
+    const { platform, getEditor } = mountEditor();
+    const openedBytes = '{"revision":1}';
+    platform.hashDocumentText = vi.fn(async () => ({
+      ok: true as const,
+      hash: contentHash('{"revision":2}'),
+    }));
+    platform.readDocumentText = vi.fn(async () => ({
+      ok: false as const,
+      reason: 'unsupported' as const,
+    }));
+    act(() => {
+      getEditor().loadDocument(DocumentCodec.encode(createDocument('Original')), {
+        fileId: 'file-a',
+        filePath: '/docs/original.varve',
+        diskContentHash: contentHash(openedBytes),
+      });
+      getEditor().setTool('rect');
+      getEditor().createShapeAt({ x: 10, y: 10 }, { w: 100, h: 60 });
+    });
+
+    await act(async () => {
+      await getEditor().save();
+    });
+
+    expect(platform.hashDocumentText).toHaveBeenCalledWith('/docs/original.varve');
+    expect(platform.readDocumentText).not.toHaveBeenCalled();
+    expect(platform.writeSaveTarget).not.toHaveBeenCalled();
+    expect(getEditor().state.saveIssue).toMatchObject({ category: 'file-changed-externally' });
+  });
+
+  it('falls back to reading when a platform cannot hash a document', async () => {
+    const { platform, getEditor } = mountEditor();
+    platform.hashDocumentText = vi.fn(async () => ({
+      ok: false as const,
+      reason: 'unsupported' as const,
+    }));
+    platform.readDocumentText = vi.fn(async () => ({ ok: true as const, text: '{"revision":2}' }));
+    act(() => {
+      getEditor().loadDocument(DocumentCodec.encode(createDocument('Original')), {
+        fileId: 'file-a',
+        filePath: '/docs/original.varve',
+        diskContentHash: contentHash('{"revision":1}'),
+      });
+      getEditor().setTool('rect');
+      getEditor().createShapeAt({ x: 10, y: 10 }, { w: 100, h: 60 });
+    });
+
+    await act(async () => {
+      await getEditor().save();
+    });
+
+    expect(platform.hashDocumentText).toHaveBeenCalledWith('/docs/original.varve');
+    expect(platform.readDocumentText).toHaveBeenCalledWith('/docs/original.varve');
+    expect(platform.writeSaveTarget).not.toHaveBeenCalled();
+    expect(getEditor().state.saveIssue).toMatchObject({ category: 'file-changed-externally' });
+  });
+
   it('keeps a concurrent edit in the saved session when switching tabs during a write', async () => {
     const { platform, getEditor } = mountEditor();
     platform.readDocumentText = vi.fn(async () => ({ ok: true as const, text: '{}' }));

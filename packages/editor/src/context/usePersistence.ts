@@ -321,8 +321,16 @@ async function performSave(
 
   if (target.kind === 'native-file') {
     // Safety checks before overwriting: the destination may be gone (USB
-    // unplugged) or changed by another app since we last read/wrote it.
-    const disk = await platform.readDocumentText(target.path);
+    // unplugged) or changed by another app since we last read/wrote it. Native
+    // platforms hash the existing file in bounded chunks so the old document
+    // text never crosses IPC or stays resident beside the encoded revision.
+    const hashResult = platform.hashDocumentText
+      ? await platform.hashDocumentText(target.path)
+      : await platform.readDocumentText(target.path);
+    const disk =
+      !hashResult.ok && hashResult.reason === 'unsupported'
+        ? await platform.readDocumentText(target.path)
+        : hashResult;
     if (!disk.ok) {
       if (disk.reason === 'unreadable') {
         const e = issue(
@@ -341,7 +349,8 @@ async function performSave(
       patch({ saveState: 'error', saveIssue: e });
       return { status: 'failed', issue: e };
     }
-    if (meta.diskContentHash && contentHash(disk.text) !== meta.diskContentHash) {
+    const diskHash = 'hash' in disk ? disk.hash : contentHash(disk.text);
+    if (meta.diskContentHash && diskHash !== meta.diskContentHash) {
       const e = issue(
         'file-changed-externally',
         'The file changed on disk since it was opened. Save As to a new location, or use the File menu to decide how to proceed.',

@@ -5,7 +5,7 @@
 //! them into display text at the UI/diagnostics boundary.
 
 use serde::Serialize;
-use std::io;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
@@ -228,7 +228,7 @@ pub fn replace_file(temporary: &Path, destination: &Path) -> Result<(), FsError>
                 .join(format!(
                     ".varve-write-{}-{}.tmp.bak",
                     std::process::id(),
-                    uuid::Uuid::new_v4().simple()
+                    crate::uuid()
                 ));
             let backup = backup_path
                 .as_os_str()
@@ -303,9 +303,68 @@ pub fn replace_file(temporary: &Path, destination: &Path) -> Result<(), FsError>
     }
 }
 
+/// Match `@varve/platform`'s FNV-1a hash of JavaScript UTF-16 code units while
+/// reading a native document in bounded chunks. The save-conflict check needs
+/// a digest, not a second in-memory copy of the complete document text.
+pub fn hash_text_file(path: &Path) -> io::Result<String> {
+    const CHUNK_BYTES: usize = 64 * 1024;
+
+    let file = std::fs::File::open(path)?;
+    let mut reader = file;
+    let mut chunk = [0; CHUNK_BYTES];
+    // A UTF-8 code point is at most four bytes. `pending` keeps only an
+    // incomplete trailing code point from the previous chunk.
+    let mut pending = Vec::with_capacity(4);
+    let mut hash = 0x811c9dc5_u32;
+
+    loop {
+        let read = reader.read(&mut chunk)?;
+        if read == 0 {
+            if !pending.is_empty() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "document ends with an incomplete UTF-8 sequence",
+                ));
+            }
+            break;
+        }
+        pending.extend_from_slice(&chunk[..read]);
+        match std::str::from_utf8(&pending) {
+            Ok(text) => {
+                update_utf16_fnv1a(&mut hash, text);
+                pending.clear();
+            }
+            Err(error) => {
+                if error.error_len().is_some() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "document contains invalid UTF-8",
+                    ));
+                }
+                let valid_bytes = error.valid_up_to();
+                let valid_text = std::str::from_utf8(&pending[..valid_bytes])
+                    .expect("UTF-8 prefix reported as valid");
+                update_utf16_fnv1a(&mut hash, valid_text);
+                pending.drain(..valid_bytes);
+            }
+        }
+    }
+
+    Ok(format!("{hash:08x}"))
+}
+
+fn update_utf16_fnv1a(hash: &mut u32, text: &str) {
+    let mut units = [0; 2];
+    for character in text.chars() {
+        for unit in character.encode_utf16(&mut units).iter() {
+            *hash = (*hash ^ u32::from(*unit)).wrapping_mul(0x01000193);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{validate_portable_relative_path, validate_storage_key};
+    use super::{hash_text_file, validate_portable_relative_path, validate_storage_key};
 
     #[test]
     fn storage_keys_are_not_paths() {
@@ -333,5 +392,33 @@ mod tests {
         }
         assert!(validate_portable_relative_path("assets/%2e%2e/file.png").is_ok());
         assert!(validate_portable_relative_path("assets/设计/file.png").is_ok());
+    }
+
+    #[test]
+    fn streamed_text_hash_matches_utf16_fnv_across_utf8_chunk_boundaries() {
+        let path =
+            std::env::temp_dir().join(format!("varve_streamed_hash_test_{}.varve", crate::uuid()));
+        let text = format!("{}🌱é{}", "A".repeat(64 * 1024 - 1), "tail");
+        std::fs::write(&path, text.as_bytes()).expect("write hash fixture");
+
+        assert_eq!(hash_text_file(&path).expect("hash valid UTF-8"), "1adc54fe");
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn streamed_text_hash_rejects_invalid_utf8() {
+        let path = std::env::temp_dir().join(format!(
+            "varve_streamed_hash_invalid_test_{}.varve",
+            crate::uuid()
+        ));
+        std::fs::write(&path, [b'{', 0xff, b'}']).expect("write invalid UTF-8 fixture");
+
+        assert_eq!(
+            hash_text_file(&path)
+                .expect_err("invalid UTF-8 must match read_to_string behavior")
+                .kind(),
+            std::io::ErrorKind::InvalidData
+        );
+        let _ = std::fs::remove_file(path);
     }
 }

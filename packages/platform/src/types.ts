@@ -349,6 +349,12 @@ export type DocumentReadResult =
   | { ok: true; text: string }
   | { ok: false; reason: 'missing' | 'unreadable' | 'unsupported'; message?: string };
 
+/** Streaming native equivalent of DocumentReadResult for save-conflict checks.
+ *  It returns the content hash without allocating or transporting the file text. */
+export type DocumentHashResult =
+  | { ok: true; hash: string }
+  | { ok: false; reason: 'missing' | 'unreadable' | 'unsupported'; message?: string };
+
 // ─── Phase 1: Drafts ─────────────────────────────────────────────────────────
 /** Sentinel projectId meaning "this file is a draft" (personal sandbox). */
 export const DRAFTS_ID = '__drafts__';

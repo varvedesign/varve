@@ -104,6 +104,14 @@ missing parent folders. Linux regressions pass. Windows/macOS runtime checks
 remain pending because this host lacks their SDK/toolchains. The marketing site
 makes no claims about these filesystem details, so no website edit is indicated.
 
+The save-memory follow-up is recorded in
+[F-023](findings.md#f-023--avoid-a-duplicate-native-document-read-during-save-checks):
+measurement found a 58.2 MiB peak RSS increase during representative JSON
+serialization, and native save conflict checks now stream-hash the existing
+file. Serialization and atomic writes still buffer the new document; this is
+not a full save-memory fix. Reviewed marketing copy makes no performance
+guarantee, so no website edit is indicated.
+
 - [Findings and decisions](findings.md)
 - [Continuation record](continuation.md)
 - [Frozen issue inventory](issue-inventory-2026-10-17.jsonl)

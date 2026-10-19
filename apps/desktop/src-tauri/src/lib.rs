@@ -5621,6 +5621,20 @@ fn home_read_text_file_approved(path: String) -> Result<String, filesystem::FsEr
 }
 
 #[tauri::command]
+fn home_hash_text_file_approved(path: String) -> Result<String, filesystem::FsError> {
+    let resolved = resolve_user_path_approved(&path).map_err(|message| {
+        let kind = if message.contains("does not resolve to any existing ancestor") {
+            filesystem::FsErrorKind::NotFound
+        } else {
+            filesystem::FsErrorKind::InvalidPath
+        };
+        filesystem::FsError::new(kind, message)
+    })?;
+    filesystem::hash_text_file(&resolved)
+        .map_err(|error| filesystem::FsError::from_io("hash", &resolved, &error))
+}
+
+#[tauri::command]
 fn home_write_text_file_approved(path: String, contents: String) -> Result<(), String> {
     let resolved = resolve_user_path_approved(&path)?;
     write_file_atomic_to_existing_folder(&resolved, contents.as_bytes())
@@ -6376,6 +6390,7 @@ pub fn run() {
             home_read_text_file,
             home_write_text_file,
             home_read_text_file_approved,
+            home_hash_text_file_approved,
             home_write_text_file_approved,
             home_same_approved_file,
             write_binary_file,

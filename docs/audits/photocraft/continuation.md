@@ -42,6 +42,37 @@ Last updated: 2026-10-19. Status: active and incomplete.
   committed `master` candidate. Full-gate certification remains deferred until
   the integration candidate. Do not count this batch as fully validated.
 
+## Save-memory follow-up (2026-10-19)
+
+- PhotoCraft #6607's report prompted measurement before choosing a serialization
+  change. A local Node probe encoded a Varve document with a 16 MiB embedded
+  image: encoded JSON was 21.3 MiB, RSS delta after encode was 33.6 MiB, and
+  peak RSS delta was 58.2 MiB. This isolates `DocumentCodec.encode`; it is not a
+  full Tauri save/recovery/PSD-export measurement.
+- The native external-change check previously loaded the existing document text
+  over IPC while the new serialized JSON was resident, only to hash it. A
+  64 KiB streaming native hash now returns the existing JS-compatible hash and
+  avoids that old-text allocation and IPC transfer. The serializer and atomic
+  writer still hold the new document as whole buffers, so #6607 is partially
+  addressed and more format/backend profiling is required.
+- `pnpm verify:plan` selected 44 lanes and 79% of test files; full-suite
+  escalation was NO. `pnpm verify:affected` passed touched format/lint plus
+  emoji and docs audits, then stopped at `audit:radius` with 10 existing raw
+  radius consumers in untouched Presentation/SpecPanel styles. Later lanes did
+  not run through that command. `pnpm audit:tokens` passed all 324 contrast
+  pairs across three themes and the token-usage scan.
+- `pnpm exec vitest run
+  packages/editor/src/context/__tests__/saveTargetCollision.test.tsx
+  packages/platform/src/tauri.test.ts` passed 35 tests after adding unsupported
+  hash fallback coverage. Focused Rust hash tests passed 2/2 with `cargo test
+  --manifest-path apps/desktop/src-tauri/Cargo.toml --lib
+  filesystem::tests::streamed_text_hash -- --nocapture`. The full platform
+  package typecheck and tests previously passed (330 tests / 25 files). The
+  editor typecheck was interrupted after roughly three minutes at about 2.9 GB
+  RSS; editor unit tests in that chained command did not run. No full visual
+  validation applies to this backend-only change. No marketing performance
+  claim was found; website changes are not indicated.
+
 ## Current follow-up batch (2026-10-19)
 
 - PhotoCraft #6962's post-cutoff author update confirms that its System Title

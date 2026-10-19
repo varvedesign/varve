@@ -1028,3 +1028,40 @@ full cross-platform verification.
 alternate-stream, or save-target-folder behavior. No marketing edit is
 justified; the filesystem architecture contract and this issue ledger carry
 the implementation detail.
+
+## F-023 — Avoid a duplicate native document read during save checks
+
+**Source.** PhotoCraft [#6607](https://github.com/storytold/photocraft/issues/6607)
+reports save-time memory spikes in a 4,000 × 4,000 two-layer noise document.
+Its follow-up work is visible in the open PhotoCraft PRs
+[#6682](https://github.com/storytold/photocraft/pull/6682) and
+[#6688](https://github.com/storytold/photocraft/pull/6688); neither is treated
+as shipped behavior or proof of Varve's memory profile.
+
+**Varve measurement.** A temporary Node probe encoded a representative
+document with a 16 MiB embedded image: output JSON was 21.3 MiB, serialization
+raised RSS by 33.6 MiB after the operation and by 58.2 MiB at peak. This probe
+isolated `DocumentCodec.encode`; it did not measure the complete Tauri save,
+recovery write, PSD export, or peak memory on other platforms.
+
+**Implementation.** Before a native save, Varve previously read the complete
+existing document through IPC while the new encoded JSON was already resident,
+only to compare its content hash. The native platform adapter now streams the
+existing UTF-8 text through a 64 KiB buffer and returns the same FNV-1a hash of
+UTF-16 code units used by the editor. The content and conflict checks are
+unchanged; non-native adapters retain the text-read fallback. This removes one
+avoidable whole-document allocation/IPC transfer from the save check. The
+serializer and atomic writer still buffer the new document, so this is a
+bounded reduction rather than a full streaming-save solution.
+
+**Validation and limits.** Rust tests cover invalid UTF-8 and multibyte
+characters crossing the chunk boundary; platform and focused editor tests
+cover the hash IPC route and external-change refusal. Full editor typecheck
+was interrupted under shared memory pressure, and the affected validation
+command stopped on pre-existing radius-token violations in untouched
+Presentation/SpecPanel styles. Windows/macOS native execution and full save
+working-set measurement remain outstanding.
+
+**Website impact.** Reviewed save and local-first marketing pages make no
+save-memory or large-document performance guarantee. No website copy change
+is supported by this issue.

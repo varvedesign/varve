@@ -34,6 +34,7 @@ import type {
   Branch,
   Collection,
   CreateVersionInput,
+  DocumentHashResult,
   FileEntry,
   Folder,
   HomeViewState,
@@ -801,6 +802,20 @@ export function createTauriPlatform(): Platform {
         if (detail.kind === 'NOT_FOUND') {
           return { ok: false, reason: 'missing' };
         }
+        return {
+          ok: false,
+          reason: 'unreadable',
+          message: detail.message ?? String(err),
+        };
+      }
+    },
+    async hashDocumentText(path): Promise<DocumentHashResult> {
+      try {
+        const hash = (await core().invoke('home_hash_text_file_approved', { path })) as string;
+        return { ok: true, hash };
+      } catch (err) {
+        const detail = (err ?? {}) as { kind?: string; message?: string };
+        if (detail.kind === 'NOT_FOUND') return { ok: false, reason: 'missing' };
         return {
           ok: false,
           reason: 'unreadable',
