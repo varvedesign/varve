@@ -732,5 +732,40 @@ Last updated: 2026-10-19. Status: active and incomplete.
   it reported a separate `retouchTools.test.ts` failure before it was stopped,
   so the aggregate editor suite is incomplete. Desktop typecheck still fails
   on the existing `CollabSurfaces.tsx:450` readonly Affine cast. The docs and
-  issue records now mark #2585 and #3092 covered; the slice commit remains
-  pending.
+  issue records now mark #2585 and #3092 covered. The locked-text slice is
+  committed as `6e27d0dd9`.
+
+- PhotoCraft #2913 gradient-map opacity handles: source review identified an
+  interaction gap in Varve's `GradientMapEditor`: opacity could be changed by
+  keyboard or numeric entry, but pointer dragging only changed horizontal
+  position and the handles did not encode opacity vertically. The editor now
+  maps vertical drag to opacity and renders handles at their opacity height.
+  `pnpm verify:plan` selected 15 lanes and reported no full-suite escalation.
+  The latest `pnpm verify:affected` run passed format, lint, emoji, docs,
+  Inspector CSS, and token audits, then stopped at 30 existing
+  spacing-baseline drifts in untouched collab, FirstRunOverlay, and website
+  files. The final E2E typecheck passed after adding the viewport assertion and
+  focused screenshot capture. The focused GradientMapEditor unit file passed (23 tests),
+  and editor typecheck passed. Desktop typecheck still reproduces the existing
+  `CollabSurfaces.tsx:450` readonly Affine cast. `VARVE_TEST_WORKERS=2 pnpm exec
+  vitest run packages/editor --reporter=dot` completed in 59m32s: 913 files and
+  8,993 tests passed, 2 files and 2 tests skipped, and one unrelated assertion
+  failed in `packages/editor/src/tools/__tests__/retouchTools.test.ts:108`
+  (expected “Alt-click”, received “Alt-, Ctrl-, or Command-click”). The selected
+  desktop unit lane `pnpm exec vitest run apps/desktop --reporter=dot` passed
+  (15 files, 90 tests). The full serial
+  gradient-map spec failed before reaching the new test because its existing
+  “Add adjustment” menu remained closed. The isolated case uses the visible
+  Colour Grade correction preset to establish a real Gradient Map, then
+  exercises the handle with real mouse events; it passes and asserts the 50%
+  opacity value, viewport visibility, and vertical alignment. The focused
+  opacity-bar screenshot was inspected and is saved at
+  `docs/audits/photocraft/evidence/gradient-map-opacity-handle.png`.
+  `pnpm audit:docs` passes (1,171 docs, 888 links, 182 ADRs indexed). The
+  Impeccable detector found no deterministic UI-rule issues. The Gradient Maps
+  marketing page already claims users can edit opacity stops; numeric and
+  keyboard editing supported that claim before this change, and vertical drag
+  now adds a direct affordance. No website copy change is needed. Read-only
+  review of the complete #2913 code, test, evidence, and inventory diff found
+  no actionable defects. The #2913 slice is ready for commit; master integration
+  remains part of the larger incomplete issue-corpus review.

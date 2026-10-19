@@ -343,6 +343,56 @@ describe('GradientMapEditor', () => {
     });
   });
 
+  describe('opacity stop dragging', () => {
+    it('changes opacity by dragging vertically and position by dragging horizontally', () => {
+      const onChange = vi.fn();
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+        callback(0);
+        return 1;
+      });
+      render(
+        <GradientMapEditor
+          stops={makeDefaultStops()}
+          opacityStops={[
+            { id: 'start', position: 0, opacity: 1 },
+            { id: 'end', position: 1, opacity: 1 },
+          ]}
+          dither={false}
+          preserveLuminosity={false}
+          onChange={onChange}
+        />,
+      );
+
+      const bar = screen.getByRole('slider', { name: /opacity stop bar/i });
+      Object.defineProperty(bar, 'getBoundingClientRect', {
+        value: () => ({
+          left: 0,
+          right: 200,
+          top: 100,
+          bottom: 124,
+          width: 200,
+          height: 24,
+          x: 0,
+          y: 100,
+        }),
+        configurable: true,
+      });
+      const handle = screen.getByRole('button', { name: /opacity stop 1 at 0%, opacity 100%/i });
+
+      fireEvent.pointerDown(handle, { button: 0 });
+      fireEvent.pointerMove(window, { clientX: 50, clientY: 112 });
+      fireEvent.pointerUp(window);
+
+      const finalChange = onChange.mock.calls.at(-1)?.[0] as {
+        opacityStops: Array<{ id: string; position: number; opacity: number }>;
+      };
+      expect(finalChange.opacityStops).toEqual([
+        expect.objectContaining({ id: 'start', position: 0.25, opacity: 0.5 }),
+        expect.objectContaining({ id: 'end', position: 1, opacity: 1 }),
+      ]);
+    });
+  });
+
   describe('selected stop controls', () => {
     it('shows position and color for selected stop', () => {
       render(

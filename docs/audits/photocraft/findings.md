@@ -940,3 +940,43 @@ platform-file and array-replacement rules.
 **Website impact.** No marketing copy or compatibility promise changes: the
 site does not claim a custom Windows title bar or driver-specific GPU behavior.
 The architecture guide records the per-platform chrome contract.
+
+## F-021 — Gradient opacity stops need a direct vertical drag affordance
+
+**Sources.** PhotoCraft [#2913](https://github.com/storytold/photocraft/issues/2913)
+is a user report that opacity handles in the Gradient Editor appear not to work.
+The report compares the expected interaction with Photoshop's top handles and
+links upstream [PR #2859](https://github.com/storytold/photocraft/pull/2859).
+The issue is a usability signal from another design app, not evidence that
+PhotoCraft's behavior applies unchanged to Varve.
+
+**Varve applicability and reproduction.** Varve already supports gradient-map
+opacity ramps, numeric opacity editing, and keyboard opacity nudges. However,
+the opacity stop buttons only changed horizontal position during pointer drag
+and remained vertically centered regardless of their opacity value. A user
+trying the expected vertical handle gesture therefore saw no opacity change.
+
+**Implementation.** A vertical drag now sets opacity from the handle's height
+within the opacity bar, while the horizontal axis continues to set position.
+Handles render at the height represented by their opacity. Keyboard nudges and
+numeric entry remain available, and dragging far outside the bar still removes
+a stop.
+
+**Validation.** The focused GradientMapEditor unit file passes (23 tests), and
+the isolated real-pointer browser case passes. It drags the first stop from
+100% to 50%, asserts the numeric value, checks that the handle is in the
+viewport and vertically centered at 50%, then captures the opacity bar. The
+focused screenshot was inspected.
+
+![Gradient-map opacity handle at 50%](evidence/gradient-map-opacity-handle.png)
+
+The full existing gradient-map spec was also attempted; its first older test
+timed out because the Add adjustment menu stayed closed, so serial mode skipped
+the rest. The new case seeds the adjustment layer through the visible Colour
+Grade preset to isolate the pointer workflow. This does not resolve the separate
+menu setup failure.
+
+**Website impact.** The Gradient Maps feature page already says users can edit
+opacity stops. Numeric entry and keyboard nudges supported that claim before
+this change; vertical dragging now gives the stop a direct visual affordance.
+No marketing copy change is needed.

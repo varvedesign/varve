@@ -425,7 +425,11 @@ function OpacityStopBar({
         cancelAnimationFrame(rafRef.current);
         rafRef.current = requestAnimationFrame(() => {
           const pos = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
-          updateStop(id, { position: Math.round(pos * 1000) / 1000 });
+          const opacity = Math.max(0, Math.min(1, 1 - (me.clientY - rect.top) / rect.height));
+          updateStop(id, {
+            position: Math.round(pos * 1000) / 1000,
+            opacity: Math.round(opacity * 1000) / 1000,
+          });
         });
         draggedOff = me.clientY < rect.top - 40 || me.clientY > rect.bottom + 40;
       };
@@ -454,7 +458,7 @@ function OpacityStopBar({
       <div
         ref={barRef}
         role="slider"
-        aria-label="Gradient map opacity stop bar — click to add, drag stops to reposition"
+        aria-label="Gradient map opacity stop bar — click to add, drag stops to set position and opacity"
         aria-valuenow={Math.round((current?.position ?? 0) * 100)}
         aria-valuemin={0}
         aria-valuemax={100}
@@ -500,7 +504,10 @@ function OpacityStopBar({
               }
             }}
             className={`gm-editor__stop gm-editor__stop--opacity${selectedId === stop.id ? ' gm-editor__stop--selected' : ' gm-editor__stop--idle'}`}
-            style={{ left: `${stop.position * 100}%` }}
+            style={{
+              left: `${stop.position * 100}%`,
+              top: `${(1 - stop.opacity) * 100}%`,
+            }}
           />
         ))}
       </div>

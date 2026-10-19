@@ -160,6 +160,66 @@ test.describe('Gradient Map Adjustment', () => {
     });
   });
 
+  test('opacity handles update opacity when dragged vertically', async ({ page }, testInfo) => {
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 150, 150, 400, 350);
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+
+    const created = await createAdjustmentLayer(page);
+    if (!created) {
+      test.skip();
+      return;
+    }
+
+    await page.getByRole('button', { name: 'Apply correction preset Colour Grade' }).click();
+
+    const opacityBar = page.getByRole('slider', { name: /gradient map opacity stop bar/i });
+    const handle = page.getByRole('button', {
+      name: /opacity stop 1 at 0%, opacity 100%/i,
+    });
+    await expect(opacityBar).toBeVisible();
+    await expect(handle).toBeVisible();
+    await handle.scrollIntoViewIfNeeded();
+    const barBounds = await opacityBar.boundingBox();
+    const handleBounds = await handle.boundingBox();
+    expect(barBounds).not.toBeNull();
+    expect(handleBounds).not.toBeNull();
+
+    await page.mouse.move(
+      handleBounds!.x + handleBounds!.width / 2,
+      handleBounds!.y + handleBounds!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      barBounds!.x + barBounds!.width / 2,
+      barBounds!.y + barBounds!.height / 2,
+    );
+    await page.mouse.up();
+
+    const updatedHandle = page.getByRole('button', {
+      name: /opacity stop 1 at 50%, opacity 50%/i,
+    });
+    await expect(updatedHandle).toBeVisible();
+    await expect(page.getByRole('spinbutton', { name: /opacity stop 1 value/i })).toHaveValue('50');
+    await updatedHandle.scrollIntoViewIfNeeded();
+    await expect(opacityBar).toBeInViewport();
+    await expect(updatedHandle).toBeInViewport();
+    const visibleBarBounds = await opacityBar.boundingBox();
+    const visibleHandleBounds = await updatedHandle.boundingBox();
+    expect(visibleBarBounds).not.toBeNull();
+    expect(visibleHandleBounds).not.toBeNull();
+    expect(
+      Math.abs(
+        visibleHandleBounds!.y +
+          visibleHandleBounds!.height / 2 -
+          (visibleBarBounds!.y + visibleBarBounds!.height / 2),
+      ),
+    ).toBeLessThan(2);
+    await opacityBar.screenshot({
+      path: testInfo.outputPath('gradient-map-opacity-handle.png'),
+    });
+  });
+
   test('toggles dither and preserve luminosity checkboxes', async ({ page }) => {
     // Create shape and adjustment layer
     await page.keyboard.press('r');
