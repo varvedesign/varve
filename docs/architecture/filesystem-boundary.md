@@ -103,6 +103,9 @@ platform adapter, never in a separator replacement helper.
   oversized values before `PathBuf::join`.
 - Atomic writes use an app-generated sibling temporary name and do not convert
   the target filename through `to_string_lossy()`.
+- User-selected Save, Save As, and export targets require an existing parent
+  directory. They return a destination-folder error instead of creating a
+  typoed path tree. App-managed writes keep their create-parent policy.
 - Atomic replacement refuses an existing read-only target and preserves its
   existing permissions for a writable target. This matters on Unix, where
   replacing a file only requires write access to its parent directory; the
@@ -114,12 +117,22 @@ platform adapter, never in a separator replacement helper.
   are written. If applying those permissions fails, the save aborts and the
   empty staging file is removed. The full permission set is restored after
   writing as well, since writes can clear Unix setuid/setgid bits. New files
-  retain `0666`-and-umask creation behavior. Windows ACLs and extended
-  attributes are separate metadata concerns.
+  retain `0666`-and-umask creation behavior.
+- Replacing an existing file with multiple hard links is refused on Unix and
+  Windows with Save As guidance. Replacing one directory entry atomically can
+  detach it from the other names; the preflight is repeated just before
+  replacement to narrow the race window.
+- Existing Linux files copy extended attributes (including POSIX ACL xattrs)
+  to the staged replacement with bounded limits; copy/read/set failures abort
+  the save. Existing macOS files use `copyfile(COPYFILE_METADATA)` for
+  metadata and restore the modification time. Existing Windows files use
+  `ReplaceFileW` to carry forward ACLs, creation time, attributes, and named
+  streams. Windows replacement supplies a unique sibling backup and attempts
+  restoration if the API reports failure; abandoned generated backups join
+  the stale staging sweep. New files inherit the platform's normal defaults.
 - Replacement uses the host-native atomic replace operation: `rename` on
-  platforms where it replaces a destination, and Windows `MoveFileExW` with
-  replace/write-through flags where plain rename would fail on an existing
-  file.
+  platforms where it replaces a destination, and Windows `ReplaceFileW` for
+  an existing file or `MoveFileExW` for a new file.
 - Approved user-selected file paths resolve existing file-level symbolic
   links before replacement, so the target is updated and the link remains. A
   dangling or otherwise unresolved link fails with an error instead of being
@@ -127,8 +140,8 @@ platform adapter, never in a separator replacement helper.
   path policy and reject unresolved symbolic-link targets.
 - Before a native save when at least five minutes have passed since the last
   sweep of that directory in this process, Varve makes a
-  best-effort sweep of regular `.varve-write-<pid>-<token>.tmp` files whose
-  owner process has exited. Legacy timestamp-only staging files are removed
+  best-effort sweep of regular `.varve-write-<pid>-<token>.tmp` files and
+  their `.tmp.bak` recovery backups whose owner process has exited. Legacy timestamp-only staging files are removed
   only after 24 hours. Files with a live or unknown owner, symlinks, and names
   outside Varve's generated pattern are left untouched. A read or cleanup
   error never fails the requested save.

@@ -334,10 +334,10 @@ fn generated_write_temp_owner(name: &std::ffi::OsStr) -> Option<Option<u32>> {
     let Some(name) = name.to_str() else {
         return None;
     };
-    let Some(token) = name
-        .strip_prefix(".varve-write-")
-        .and_then(|name| name.strip_suffix(".tmp"))
-    else {
+    let Some(token) = name.strip_prefix(".varve-write-").and_then(|name| {
+        name.strip_suffix(".tmp.bak")
+            .or_else(|| name.strip_suffix(".tmp"))
+    }) else {
         return None;
     };
     let mut parts = token.split('-');
@@ -441,6 +441,18 @@ fn create_write_temporary(
 }
 
 fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
+    write_file_atomic_with_parent_policy(path, data, true)
+}
+
+fn write_file_atomic_to_existing_folder(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
+    write_file_atomic_with_parent_policy(path, data, false)
+}
+
+fn write_file_atomic_with_parent_policy(
+    path: &std::path::Path,
+    data: &[u8],
+    create_parent_directories: bool,
+) -> Result<(), String> {
     if let Ok(metadata) = std::fs::symlink_metadata(path) {
         if metadata.file_type().is_symlink() {
             std::fs::canonicalize(path).map_err(|error| {
@@ -454,15 +466,38 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
     let Some(parent) = path.parent() else {
         return Err("Invalid path: no parent directory".to_string());
     };
-    if !parent.exists() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory {}: {e}", parent.display()))?;
+    match std::fs::metadata(parent) {
+        Ok(metadata) if metadata.is_dir() => {}
+        Ok(_) => {
+            return Err(format!(
+                "Save destination is not a folder: {}",
+                parent.display()
+            ))
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            if create_parent_directories {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| format!("Failed to create directory {}: {e}", parent.display()))?;
+            } else {
+                return Err(format!(
+                    "Save destination folder does not exist: {}",
+                    parent.display()
+                ));
+            }
+        }
+        Err(error) => {
+            return Err(format!(
+                "Failed to inspect save destination folder {}: {error}",
+                parent.display()
+            ));
+        }
     }
     // Replacing a file only requires write access to its parent directory on
     // Unix. Honor the file's own read-only bit before staging a replacement,
     // so an atomic rename cannot silently overwrite a file the user marked
     // read-only. Preserve the existing permissions on successful replacement
     // as the temporary file otherwise inherits only the process umask.
+    refuse_hard_link_replacement(path)?;
     let existing_permissions = match std::fs::metadata(path) {
         Ok(metadata) => {
             let permissions = metadata.permissions();
@@ -492,14 +527,18 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
         let mut file = create_write_temporary(&tmp, existing_permissions.as_ref())?;
         file.write_all(data)
             .map_err(|e| format!("Failed to write temp file: {e}"))?;
-        if let Some(permissions) = existing_permissions {
+        if let Some(permissions) = existing_permissions.as_ref() {
             // Writing can clear Unix setuid/setgid bits. Restore the complete
             // original permissions before publication, as the old writer did.
-            file.set_permissions(permissions)
+            file.set_permissions(permissions.clone())
                 .map_err(|e| format!("Failed to preserve target file permissions: {e}"))?;
+        }
+        if existing_permissions.is_some() {
+            copy_replacement_metadata(path, &tmp, &file)?;
         }
         file.sync_all()
             .map_err(|e| format!("Failed to flush temp file: {e}"))?;
+        refuse_hard_link_replacement(path)?;
         drop(file);
         filesystem::replace_file(&tmp, path).map_err(|error| error.message)?;
         Ok(())
@@ -518,6 +557,138 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
         }
     }
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+const MAX_PRESERVED_XATTRS: usize = 256;
+#[cfg(target_os = "linux")]
+const MAX_PRESERVED_XATTR_BYTES: usize = 1024 * 1024;
+
+fn copy_replacement_metadata(
+    source: &std::path::Path,
+    replacement: &std::path::Path,
+    file: &std::fs::File,
+) -> Result<(), String> {
+    let _ = file;
+    #[cfg(target_os = "linux")]
+    {
+        let attributes = match xattr::list(source) {
+            Ok(attributes) => attributes,
+            Err(error) if error.raw_os_error() == Some(libc::ENOTSUP) => return Ok(()),
+            Err(error) => {
+                return Err(format!("Could not list file metadata before save: {error}"));
+            }
+        };
+        let mut copied_attributes = 0;
+        let mut copied_bytes: usize = 0;
+        for name in attributes {
+            copied_attributes += 1;
+            if copied_attributes > MAX_PRESERVED_XATTRS {
+                return Err("File has too many extended attributes to preserve safely".into());
+            }
+            let value = xattr::get(source, &name)
+                .map_err(|error| format!("Could not read file metadata before save: {error}"))?
+                .ok_or_else(|| {
+                    "File metadata changed while the save was being prepared".to_string()
+                })?;
+            copied_bytes = copied_bytes.saturating_add(value.len());
+            if copied_bytes > MAX_PRESERVED_XATTR_BYTES {
+                return Err(
+                    "File's extended attributes exceed the 1 MiB preservation limit".into(),
+                );
+            }
+            xattr::set(replacement, &name, &value).map_err(|error| {
+                format!("Could not preserve file metadata during save: {error}")
+            })?;
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        let source = std::ffi::CString::new(source.as_os_str().as_bytes())
+            .map_err(|_| "Source path contains a NUL byte".to_string())?;
+        let replacement = std::ffi::CString::new(replacement.as_os_str().as_bytes())
+            .map_err(|_| "Temporary path contains a NUL byte".to_string())?;
+        let copied = unsafe {
+            libc::copyfile(
+                source.as_ptr(),
+                replacement.as_ptr(),
+                std::ptr::null_mut(),
+                libc::COPYFILE_METADATA,
+            )
+        };
+        if copied != 0 {
+            return Err(format!(
+                "Could not preserve file metadata during save: {}",
+                std::io::Error::last_os_error()
+            ));
+        }
+        file.set_times(std::fs::FileTimes::new().set_modified(std::time::SystemTime::now()))
+            .map_err(|error| format!("Could not update saved file modification time: {error}"))?;
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    let _ = (source, replacement, file);
+    Ok(())
+}
+
+fn refuse_hard_link_replacement(path: &std::path::Path) -> Result<(), String> {
+    match std::fs::metadata(path) {
+        Ok(metadata) if metadata.is_file() => {
+            if has_multiple_hard_links(path)? {
+                Err(format!(
+                    "Cannot safely overwrite a file with multiple hard links: {}. Choose Save As to preserve the existing linked copies.",
+                    path.display()
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!(
+            "Failed to inspect target file before replacement {}: {error}",
+            path.display()
+        )),
+    }
+}
+
+#[cfg(unix)]
+fn has_multiple_hard_links(path: &std::path::Path) -> Result<bool, String> {
+    use std::os::unix::fs::MetadataExt;
+
+    std::fs::metadata(path)
+        .map(|metadata| metadata.nlink() > 1)
+        .map_err(|error| format!("Failed to inspect target hard links: {error}"))
+}
+
+#[cfg(windows)]
+fn has_multiple_hard_links(path: &std::path::Path) -> Result<bool, String> {
+    use std::os::windows::io::AsRawHandle;
+
+    let file = std::fs::File::open(path)
+        .map_err(|error| format!("Failed to inspect target hard links: {error}"))?;
+    let mut information = std::mem::MaybeUninit::<
+        windows_sys::Win32::Storage::FileSystem::BY_HANDLE_FILE_INFORMATION,
+    >::zeroed();
+    let inspected = unsafe {
+        windows_sys::Win32::Storage::FileSystem::GetFileInformationByHandle(
+            file.as_raw_handle() as windows_sys::Win32::Foundation::HANDLE,
+            information.as_mut_ptr(),
+        )
+    };
+    if inspected == 0 {
+        return Err(format!(
+            "Failed to inspect target hard links: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    let information = unsafe { information.assume_init() };
+    Ok(information.nNumberOfLinks > 1)
+}
+
+#[cfg(not(any(unix, windows)))]
+fn has_multiple_hard_links(_path: &std::path::Path) -> Result<bool, String> {
+    Ok(false)
 }
 
 /// Canonicalize an untrusted path exactly like `resolve_user_path`, but
@@ -590,7 +761,7 @@ fn resolve_user_path_approved(raw: &str) -> Result<std::path::PathBuf, String> {
 #[tauri::command]
 fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
     let resolved = resolve_user_path(&path)?;
-    write_file_atomic(&resolved, &data)
+    write_file_atomic_to_existing_folder(&resolved, &data)
 }
 
 /// Write an export below a directory the user selected in the native folder
@@ -619,7 +790,7 @@ fn write_binary_file_to_folder(
     if !resolved.starts_with(&root) {
         return Err("Export path escapes the selected directory".into());
     }
-    write_file_atomic(&resolved, &data)?;
+    write_file_atomic_to_existing_folder(&resolved, &data)?;
     Ok(filesystem::display_path(&resolved))
 }
 
@@ -5423,7 +5594,7 @@ fn home_read_text_file(path: String) -> Result<String, String> {
 #[tauri::command]
 fn home_write_text_file(path: String, contents: String) -> Result<(), String> {
     let resolved = resolve_user_path(&path)?;
-    write_file_atomic(&resolved, contents.as_bytes())
+    write_file_atomic_to_existing_folder(&resolved, contents.as_bytes())
 }
 
 // Dialog-approved variants: paths chosen through the native open/save
@@ -5452,7 +5623,7 @@ fn home_read_text_file_approved(path: String) -> Result<String, filesystem::FsEr
 #[tauri::command]
 fn home_write_text_file_approved(path: String, contents: String) -> Result<(), String> {
     let resolved = resolve_user_path_approved(&path)?;
-    write_file_atomic(&resolved, contents.as_bytes())
+    write_file_atomic_to_existing_folder(&resolved, contents.as_bytes())
 }
 
 #[tauri::command]
@@ -7811,6 +7982,7 @@ mod tests {
         std::fs::create_dir_all(&dir).expect("create test dir");
         let target = dir.join("document.varve");
         let stale = dir.join(".varve-write-1-1.tmp");
+        let stale_backup = dir.join(".varve-write-2147483647-4-5.tmp.bak");
         let dead_owner = dir.join(".varve-write-2147483647-4-4.tmp");
         let recent_dead_owner = dir.join(".varve-write-2147483646-5-5.tmp");
         #[cfg(unix)]
@@ -7820,6 +7992,8 @@ mod tests {
         let unrelated = dir.join(".varve-write-user-file.tmp");
         std::fs::write(&target, b"old").expect("write initial content");
         std::fs::write(&stale, b"abandoned").expect("write abandoned staging file");
+        std::fs::write(&stale_backup, b"abandoned backup")
+            .expect("write abandoned recovery backup");
         std::fs::write(&dead_owner, b"abandoned process staging file")
             .expect("write dead-owner staging file");
         std::fs::write(&recent_dead_owner, b"recent abandoned process staging file")
@@ -7861,6 +8035,10 @@ mod tests {
 
         assert_eq!(std::fs::read(&target).expect("read final content"), b"new");
         assert!(!stale.exists(), "an old Varve staging file is removed");
+        assert!(
+            !stale_backup.exists(),
+            "an abandoned recovery backup is removed"
+        );
         assert!(
             !dead_owner.exists(),
             "an old file with a dead owner is removed"
@@ -7986,6 +8164,181 @@ mod tests {
         assert!(result.is_err(), "a read-only file must not be replaced");
         assert_eq!(std::fs::read(&target).expect("read original"), b"original");
         let _ = std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o644));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn explicit_save_does_not_create_missing_parent_directories() {
+        let dir = std::env::temp_dir().join(format!("varve_save_missing_parent_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("typo").join("nested").join("document.varve");
+
+        let result = home_write_text_file_approved(
+            target.to_str().expect("UTF-8 test path").to_string(),
+            "saved".to_string(),
+        );
+
+        assert!(
+            result.is_err(),
+            "an explicit save must reject a missing parent"
+        );
+        assert!(
+            !target.parent().expect("target parent").exists(),
+            "a typo in a save destination must not scatter directories"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn explicit_save_refuses_hard_linked_targets_without_changing_either_name() {
+        use std::os::unix::fs::MetadataExt;
+
+        let dir = std::env::temp_dir().join(format!("varve_save_hardlink_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        let alias = dir.join("alias.varve");
+        std::fs::write(&target, b"original").expect("write initial content");
+        std::fs::hard_link(&target, &alias).expect("create hard link");
+
+        let result = home_write_text_file_approved(
+            target.to_str().expect("UTF-8 test path").to_string(),
+            "replacement".to_string(),
+        );
+
+        assert!(
+            result.is_err(),
+            "an atomic save must not silently split hard links"
+        );
+        assert_eq!(std::fs::read(&target).expect("read target"), b"original");
+        assert_eq!(std::fs::read(&alias).expect("read alias"), b"original");
+        assert_eq!(
+            std::fs::metadata(&target).expect("stat target").nlink(),
+            2,
+            "refusal must preserve both links"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn atomic_write_refuses_windows_hard_links_without_changing_either_name() {
+        let dir = std::env::temp_dir().join(format!("varve_windows_hardlink_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        let alias = dir.join("alias.varve");
+        std::fs::write(&target, b"original").expect("write initial content");
+        std::fs::hard_link(&target, &alias).expect("create NTFS hard link");
+
+        let result = write_file_atomic(&target, b"replacement");
+
+        assert!(result.is_err(), "hard-linked targets must be refused");
+        assert_eq!(std::fs::read(&target).expect("read target"), b"original");
+        assert_eq!(
+            std::fs::read(&alias).expect("read alias"),
+            b"original",
+            "refusing the replacement preserves every hard-link name"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn atomic_write_preserves_user_extended_attributes() {
+        let dir = std::env::temp_dir().join(format!("varve_atomic_xattr_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        std::fs::write(&target, b"original").expect("write initial content");
+        xattr::set(&target, "user.varve_test_tag", b"artist-note").expect("set extended attribute");
+
+        write_file_atomic(&target, b"replacement").expect("replace target");
+
+        assert_eq!(
+            xattr::get(&target, "user.varve_test_tag").expect("read extended attribute"),
+            Some(b"artist-note".to_vec())
+        );
+        assert_eq!(
+            std::fs::read(&target).expect("read replacement"),
+            b"replacement"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn atomic_write_preserves_macos_extended_attributes_and_creation_time() {
+        let dir = std::env::temp_dir().join(format!("varve_atomic_macos_metadata_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        std::fs::write(&target, b"original").expect("write initial content");
+        xattr::set(&target, "com.varve.test_tag", b"artist-note").expect("set extended attribute");
+        let creation_time = std::fs::metadata(&target)
+            .expect("stat original")
+            .created()
+            .expect("read original creation time");
+
+        write_file_atomic(&target, b"replacement").expect("replace target");
+
+        assert_eq!(
+            xattr::get(&target, "com.varve.test_tag").expect("read extended attribute"),
+            Some(b"artist-note".to_vec())
+        );
+        assert_eq!(
+            std::fs::metadata(&target)
+                .expect("stat replacement")
+                .created()
+                .expect("read replacement creation time"),
+            creation_time
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn atomic_write_preserves_windows_alternate_data_streams() {
+        use std::ffi::OsString;
+
+        let dir = std::env::temp_dir().join(format!("varve_windows_ads_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        std::fs::write(&target, b"original").expect("write initial content");
+        let mut stream_name = OsString::from(target.as_os_str());
+        stream_name.push(":VarveTestStream");
+        let stream = std::path::PathBuf::from(stream_name);
+        std::fs::write(&stream, b"security marker").expect("write alternate data stream");
+
+        write_file_atomic(&target, b"replacement").expect("replace target");
+
+        assert_eq!(
+            std::fs::read(&stream).expect("read alternate data stream"),
+            b"security marker"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn atomic_write_preserves_posix_access_control_lists() {
+        let dir = std::env::temp_dir().join(format!("varve_atomic_acl_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        std::fs::write(&target, b"original").expect("write initial content");
+        // Linux POSIX ACL xattr v2: owner rw, named user 65534 r, group r,
+        // mask r, other r. This fixture exercises the real kernel ACL xattr.
+        let acl = [
+            0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06, 0x00, 0xff, 0xff, 0xff, 0xff, 0x02, 0x00,
+            0x04, 0x00, 0xfe, 0xff, 0x00, 0x00, 0x04, 0x00, 0x04, 0x00, 0xff, 0xff, 0xff, 0xff,
+            0x10, 0x00, 0x04, 0x00, 0xff, 0xff, 0xff, 0xff, 0x20, 0x00, 0x04, 0x00, 0xff, 0xff,
+            0xff, 0xff,
+        ];
+        xattr::set(&target, "system.posix_acl_access", &acl).expect("set access ACL");
+
+        write_file_atomic(&target, b"replacement").expect("replace target");
+
+        assert_eq!(
+            xattr::get(&target, "system.posix_acl_access").expect("read access ACL"),
+            Some(acl.to_vec())
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

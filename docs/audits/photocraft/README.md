@@ -96,6 +96,14 @@ build and native visual validation are still pending; related independent
 GPU, mixed-DPI, and taskbar reports are not claimed fixed. See the
 [linked window-chrome evidence](linked-window-chrome-evidence.md).
 
+The active native-save batch is recorded in
+[F-022](findings.md#f-022--native-saves-must-preserve-file-relationships-and-metadata):
+#6602 hard-link replacement is refused on Unix and Windows, #6603 metadata is
+copied with platform-native policies, and #6606 explicit saves/exports reject
+missing parent folders. Linux regressions pass. Windows/macOS runtime checks
+remain pending because this host lacks their SDK/toolchains. The marketing site
+makes no claims about these filesystem details, so no website edit is indicated.
+
 - [Findings and decisions](findings.md)
 - [Continuation record](continuation.md)
 - [Frozen issue inventory](issue-inventory-2026-10-17.jsonl)

@@ -2,6 +2,31 @@
 
 Last updated: 2026-10-19. Status: active and incomplete.
 
+## Native save follow-up (2026-10-19)
+
+- PhotoCraft #6602/#6603/#6606 now have an implementation batch in F-022.
+  Explicit user-selected save/export targets reject missing parent folders;
+  app-managed writes retain their separate create-parent policy. Saves refuse
+  multiply linked targets on Unix and Windows with Save As guidance. Linux
+  copies xattrs (including POSIX ACL xattrs) within fixed bounds, macOS uses
+  `copyfile(COPYFILE_METADATA)`, and Windows uses `ReplaceFileW` with a sibling
+  rollback backup. The stale staging sweep recognizes abandoned backup files.
+- The Windows API documentation notes failure outcomes that can leave the
+  target at the backup name; implementation now attempts restoration before
+  returning an error. The same docs say the final replacement file ID is the
+  replacement file's ID, so hard links are refused on Windows too rather than
+  assuming `ReplaceFileW` preserves aliases.
+- Focused Linux Tauri tests pass: atomic-write tests (11), explicit-save tests
+  (2), including hard-link refusal, missing folder refusal, xattr, and ACL
+  regressions. The platform `saveTargets` test passes (14). Windows and macOS
+  target snippets compile in isolation, but full desktop cross-builds and
+  native runtime checks are blocked by missing platform SDK/linkers on this
+  Linux host. NTFS ACL/alternate-stream and APFS Finder-tag/creation-time
+  runtime evidence remains required before full cross-platform closure.
+- No website change is indicated: Varve makes no public promise about hard
+  links, filesystem metadata preservation, or missing-folder save behavior.
+  F-022 and `filesystem-boundary.md` record the concrete behavior.
+
 ## Current follow-up batch (2026-10-19)
 
 - PhotoCraft #6962's post-cutoff author update confirms that its System Title

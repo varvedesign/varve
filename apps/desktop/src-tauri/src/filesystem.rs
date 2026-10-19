@@ -203,9 +203,10 @@ pub fn display_path(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
-/// Replace a file with a fully-written sibling temporary file. Windows does
-/// not make `std::fs::rename` replace an existing file, so use the native
-/// replace-and-flush primitive there as well as the platform rename elsewhere.
+/// Replace a file with a fully-written sibling temporary file. Windows uses
+/// ReplaceFileW for existing targets so ACLs, attributes, creation time, and
+/// named streams survive. A sibling backup allows recovery from documented
+/// partial-failure states; new targets use MoveFileExW.
 pub fn replace_file(temporary: &Path, destination: &Path) -> Result<(), FsError> {
     #[cfg(windows)]
     {
@@ -220,14 +221,71 @@ pub fn replace_file(temporary: &Path, destination: &Path) -> Result<(), FsError>
             .encode_wide()
             .chain(std::iter::once(0))
             .collect::<Vec<_>>();
-        let flags = windows_sys::Win32::Storage::FileSystem::MOVEFILE_REPLACE_EXISTING
-            | windows_sys::Win32::Storage::FileSystem::MOVEFILE_WRITE_THROUGH;
-        let replaced = unsafe {
-            windows_sys::Win32::Storage::FileSystem::MoveFileExW(
-                source.as_ptr(),
-                target.as_ptr(),
-                flags,
-            )
+        let replaced = if destination.exists() {
+            let backup_path = destination
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .join(format!(
+                    ".varve-write-{}-{}.tmp.bak",
+                    std::process::id(),
+                    uuid::Uuid::new_v4().simple()
+                ));
+            let backup = backup_path
+                .as_os_str()
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect::<Vec<_>>();
+            let replaced = unsafe {
+                windows_sys::Win32::Storage::FileSystem::ReplaceFileW(
+                    target.as_ptr(),
+                    source.as_ptr(),
+                    backup.as_ptr(),
+                    0,
+                    std::ptr::null(),
+                    std::ptr::null(),
+                )
+            };
+            if replaced == 0 {
+                let replace_error = io::Error::last_os_error();
+                // ReplaceFileW documents failure states that can leave the
+                // original at the backup name. Restore it before returning.
+                if backup_path.exists() {
+                    let restored = unsafe {
+                        windows_sys::Win32::Storage::FileSystem::MoveFileExW(
+                            backup.as_ptr(),
+                            target.as_ptr(),
+                            windows_sys::Win32::Storage::FileSystem::MOVEFILE_REPLACE_EXISTING
+                                | windows_sys::Win32::Storage::FileSystem::MOVEFILE_WRITE_THROUGH,
+                        )
+                    };
+                    if restored == 0 {
+                        return Err(FsError::from_io(
+                            "Could not restore save backup after replacement failed",
+                            &backup_path,
+                            &io::Error::last_os_error(),
+                        ));
+                    }
+                }
+                return Err(FsError::from_io(
+                    "Could not replace file",
+                    destination,
+                    &replace_error,
+                ));
+            }
+            // A crash between replacement and cleanup leaves a uniquely
+            // named backup; the regular stale-temp sweep also removes it.
+            let _ = std::fs::remove_file(&backup_path);
+            replaced
+        } else {
+            let flags = windows_sys::Win32::Storage::FileSystem::MOVEFILE_REPLACE_EXISTING
+                | windows_sys::Win32::Storage::FileSystem::MOVEFILE_WRITE_THROUGH;
+            unsafe {
+                windows_sys::Win32::Storage::FileSystem::MoveFileExW(
+                    source.as_ptr(),
+                    target.as_ptr(),
+                    flags,
+                )
+            }
         };
         if replaced == 0 {
             return Err(FsError::from_io(

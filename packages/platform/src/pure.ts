@@ -146,6 +146,7 @@ export function classifyTauriSaveError(message: string): SaveError {
   else if (/permission denied|access is denied|operation not permitted/i.test(m)) {
     category = 'permission-denied';
   } else if (/read-?only|read-only file system/i.test(m)) category = 'read-only';
+  else if (/multiple hard links/i.test(m)) category = 'destination-in-use';
   else if (/no such file|not found|does not exist/i.test(m)) category = 'destination-missing';
   else if (/not supported|unsupported/i.test(m)) category = 'unsupported';
   return { category, message };

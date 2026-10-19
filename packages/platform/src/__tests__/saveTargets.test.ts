@@ -75,6 +75,15 @@ describe('classifyTauriSaveError', () => {
     expect(classifyTauriSaveError('No such file or directory (os error 2)').category).toBe(
       'destination-missing',
     );
+    expect(classifyTauriSaveError('Save destination folder does not exist').category).toBe(
+      'destination-missing',
+    );
+  });
+
+  it('classifies hard-link replacement refusal as a destination conflict', () => {
+    expect(
+      classifyTauriSaveError('Cannot safely overwrite a file with multiple hard links'),
+    ).toMatchObject({ category: 'destination-in-use' });
   });
 
   it('falls back to unknown-io', () => {

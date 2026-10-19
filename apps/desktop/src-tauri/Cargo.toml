@@ -73,9 +73,11 @@ gtk = "0.18"
 # This is the direct native bridge used by the editor's rich clipboard path.
 wl-clipboard-rs = "0.9"
 libc = "0.2"
+xattr = "1.6.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
+xattr = "1.6.1"
 
 # Test-only: the app-hosted room host regression drives a real async runtime
 # (the `block_on`-inside-a-runtime panic it locks down is runtime-specific).

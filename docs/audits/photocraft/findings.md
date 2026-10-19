@@ -980,3 +980,51 @@ menu setup failure.
 opacity stops. Numeric entry and keyboard nudges supported that claim before
 this change; vertical dragging now gives the stop a direct visual affordance.
 No marketing copy change is needed.
+
+## F-022 — Native saves must preserve file relationships and metadata
+
+**Sources.** PhotoCraft [#6602](https://github.com/storytold/photocraft/issues/6602)
+reports that atomic saving breaks hard links; its author confirmed the behavior
+on APFS and NTFS in a [follow-up comment](https://github.com/storytold/photocraft/issues/6602#issuecomment-6216217375).
+PhotoCraft [#6603](https://github.com/storytold/photocraft/issues/6603)
+reports lost extended attributes and platform metadata, with an author
+[cross-platform follow-up](https://github.com/storytold/photocraft/issues/6603#issuecomment-6216217685)
+listing Finder tags, ACLs, creation dates, Windows alternate data streams,
+Zone.Identifier, and ACLs. [#6606](https://github.com/storytold/photocraft/issues/6606)
+reports that Save As silently creates a missing folder tree instead of
+rejecting a mistyped destination. As adjacent firsthand evidence, PdfCraft
+[#2658](https://github.com/storytold/pdfcraft/issues/2658) reports dropped
+Finder tags, ACL/mode changes, hard-link breakage, and creation-date loss on
+macOS. That report is a separate repository and supports regression coverage,
+not a claim about PhotoCraft or Varve implementation.
+
+**Varve applicability and reproduction.** The staged native writer replaced
+the original directory entry, which split hard links and omitted metadata on
+the replacement inode. Its shared helper also created missing parent
+directories. User-selected saves and exports need the existing parent-directory
+contract; app-managed metadata/model writes may still create their own parents.
+
+**Implementation.** Varve now refuses to atomically replace multiply linked
+targets on Unix and Windows, with Save As guidance, and checks again before
+publication. Linux copies extended attributes (including POSIX ACL xattrs)
+within explicit bounds and fails closed on copy errors. macOS uses
+`copyfile(COPYFILE_METADATA)` and restores the modification time. Windows uses
+`ReplaceFileW` for an existing target, with a unique sibling backup and
+best-effort restoration on documented failure states; generated abandoned
+backups are included in stale-temp cleanup. Explicit user-selected save and
+export commands reject absent parent directories while app-managed writers
+retain their create-parent behavior.
+
+**Validation status.** Linux focused native tests pass for hard-link refusal,
+xattrs, ACLs, missing parents, and existing atomic-write behavior. The
+platform target-specific snippets compile for Windows and macOS, but the
+desktop crate cannot be cross-built on this Linux host because the platform
+SDK/linker toolchains are unavailable. Windows and macOS runtime checks,
+including NTFS alternate-stream/ACL and APFS Finder-tag/creation-time
+preservation, remain pending. The current change therefore does not claim
+full cross-platform verification.
+
+**Website impact.** The marketing site does not promise hard-link, ACL, xattr,
+alternate-stream, or save-target-folder behavior. No marketing edit is
+justified; the filesystem architecture contract and this issue ledger carry
+the implementation detail.
