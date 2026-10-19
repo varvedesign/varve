@@ -1277,3 +1277,36 @@ its title, labels, or downloaded body.
   `packages/codegen/src/bundle-assets.ts`, and
   `packages/scene/src/nodeResize.ts` out of task commits. The current task
   diffs remain uncommitted pending focused runtime and visual validation.
+
+## Resume update — 2026-10-19 01:11 UTC
+
+- Reviewed Inkscape IID 1871–1880 using the retained issue/comment cache and
+  linked upstream release/fix evidence. The batch has 51 user comments and 61
+  system/history notes across eight nonempty discussions; #1876 and #1878
+  have zero reported comments and no note-cache files. Per-issue user-note
+  counts reconcile. The ledger and summary now record the added eight reviewed
+  note-bearing threads (1,069 in total); the corpus-wide 32 retrieval count
+  mismatches remain.
+- #1872's ungroup z-order defect is recorded as fixed in Inkscape 1.1 MR !2452.
+  #1873 is a separate Windows monitor-scaling native-print issue; multiple
+  reports say the primary monitor must be at 100%, and the source workaround
+  is PDF export followed by Adobe Reader printing. Varve's native PDF export
+  is a different route; native Windows print behavior at non-100% scaling
+  remains explicitly unverified. #1874's duplicate-mask complaint maps to a
+  shallow/deep-copy expectation disagreement; Varve already remaps duplicate
+  mask references to the copied matte and has scene/editor regression coverage.
+  #1879 and #1880 are GTK/GCC upstream issues fixed outside Varve. No additional
+  code change was selected for this batch.
+- Current `pnpm verify:plan` selects 52 lanes and no full-suite escalation.
+  `pnpm typecheck:e2e` passed. Focused Vitest run passed: 3 files, 93 tests
+  (`TabletTouchControls.test.tsx`, `settings.test.ts`, and `svg.test.ts`).
+  The prior `pnpm verify:affected` blocker at `audit:radius` remains the ten
+  unchanged presentation/spec-panel declarations recorded above. Browser E2E
+  and screenshot review remain pending while external PIDs 1474493 and 1475145
+  hold the shared heavy-task lease. Do not interrupt either process.
+- The Inkscape `findings.md`, ledger, summary, and this continuation update are
+  the current documentation increment. The symbol parser/browser regression,
+  input regressions, touch-settings website visuals, and existing E2E suite
+  still need leased browser execution and image inspection. Keep the other
+  contributors' PDF E2E, codegen, and scene files out of task commits. Do not
+  close the ChatGPT Linux app or stop collaborator work.

@@ -2544,3 +2544,71 @@ mapping remains a reproduction candidate.
   as unsupported in Import Results and in the file-format guide; the parser
   regression and browser-visible report still need execution. Full symbol
   viewport and transform support remains a separate fidelity decision.
+
+## IID 1871–1880 — color gestures, duplicate references, and platform reports
+
+The retained note cache contains 51 user comments and 61 system/history events
+for this batch. All available user comments and resolution events were reviewed;
+the two zero-comment issues (#1876 and #1878) have no note records, consistent
+with their source counts. The per-issue user-note totals reconcile. Linked source
+issues and release/fix evidence were inspected where they materially clarify the
+outcome.
+
+- [#1871](https://gitlab.com/inkscape/inkscape/-/issues/1871) asks which color
+  model the status-bar color patches use for scroll gestures. The one technical
+  reply points to HSL and attributes hue drift and early saturation stopping to
+  incremental floating-point/8-bit rounding. Varve has no equivalent status-bar
+  swatch gesture tied to the Fill & Stroke color-model sliders; this is not a
+  matching workflow defect.
+- [#1872](https://gitlab.com/inkscape/inkscape/-/issues/1872) reproduced
+  z-order changes when ungrouping SVG symbols outside `<defs>`. A follow-up says
+  moving the symbols into `<defs>` avoids this case, and Inkscape 1.1 release
+  notes record the z-order fix in MR !2452. Varve does not expose this Inkscape
+  ungroup operation. The related importer limitation is separately covered by
+  the explicit `<symbol>`-through-`<use>` warning added for #1870.
+- [#1873](https://gitlab.com/inkscape/inkscape/-/issues/1873) reports pasted
+  raster content cropped in print/PDF when Windows display scaling is above
+  100%, while canvas and PNG export look correct. Multiple replies reproduce it
+  with the Microsoft PDF printer; PDF export followed by Adobe Reader printing
+  is a workaround. Later reports narrow the workaround to the primary monitor's
+  scaling. Varve's native PDF export is a separate explicit output path, and no
+  same-route defect is established. Windows printing at non-100% display scale
+  remains unverified; do not treat this Linux review as platform certification.
+- [#1874](https://gitlab.com/inkscape/inkscape/-/issues/1874) began as a
+  complaint that duplicated clip masks remain linked. The discussion establishes
+  that preserving linked references on Duplicate was intentional in Inkscape,
+  while multiple users report that this expectation is surprising and ask for a
+  clear shallow/deep duplicate distinction. Varve's duplicate path remaps the
+  mask source to the cloned matte and has scene/editor regression coverage, so a
+  duplicate can be edited independently; no code change is needed for this
+  specific behavior.
+- [#1875](https://gitlab.com/inkscape/inkscape/-/issues/1875) requests
+  multi-page documents. Varve already has document pages and multi-page output;
+  there is no missing core capability to address from this request.
+- [#1876](https://gitlab.com/inkscape/inkscape/-/issues/1876) asks whether a
+  raster image path is absolute or relative. Varve's import model is embedded
+  image data and it reports unsupported external SVG assets rather than
+  pretending to resolve arbitrary paths. This is an explicit scope boundary, not
+  a silent broken path preference.
+- [#1877](https://gitlab.com/inkscape/inkscape/-/issues/1877) was closed by
+  the reporter after discovering they built with the Git for Windows SDK instead
+  of the required MSYS2 environment; the dependency conflict itself was in
+  MSYS2's package state. It does not identify an Inkscape behavior defect or a
+  Varve product path.
+- [#1878](https://gitlab.com/inkscape/inkscape/-/issues/1878) reports a
+  historical Inkscape internal PDF importer stall while repeatedly parsing
+  ICCBased color spaces. Varve's bounded PDF content parser does not implement
+  that Poppler ICC color-space parsing path, and unsupported or unresolved PDF
+  fills are surfaced in Import Results. There is no matching Varve hang to fix;
+  the existing bounded parser and explicit unsupported-fill report remain the
+  appropriate boundary.
+- [#1879](https://gitlab.com/inkscape/inkscape/-/issues/1879) has multiple
+  independent crash reproductions in GTK 3.24.20–3.24.23 when expanding the XML
+  Editor tree with `*`, plus non-reproductions on some later development builds.
+  The report traces the failure to GTK's tree-view lazy expansion behavior; a
+  GTK fix was reported in 3.24.24. Varve has no editable XML-tree dialog, so this
+  is an upstream widget crash without an equivalent product route.
+- [#1880](https://gitlab.com/inkscape/inkscape/-/issues/1880) is a GCC/musl
+  build failure caused by missing sentinel arguments, fixed upstream by MR
+  !3377. It concerns compile-time portability, not user-visible drawing or
+  export behavior in Varve.
