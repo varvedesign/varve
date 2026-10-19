@@ -13,8 +13,8 @@
  * Research basis: Figma auto-layout panel; APG Disclosure, Radiogroup, Spinbutton.
  */
 
-import type { GridLayoutDiagnostic } from '@varve/layout';
-import { computeGridLayoutDetailed } from '@varve/layout';
+import type { FlexLayoutDiagnostic, GridLayoutDiagnostic } from '@varve/layout';
+import { computeFlexLayoutDetailed, computeGridLayoutDetailed } from '@varve/layout';
 import type {
   FlexDirection,
   FrameNode,
@@ -124,6 +124,10 @@ export function LayoutSection({ node }: { node: FrameNode }) {
       node.children ?? [],
     ).diagnostic;
   }, [ls, node.children, node.h, node.id, node.w, state.document]);
+  const flexLayoutDiagnostic = useMemo(() => {
+    if (ls?.mode !== 'flex') return undefined;
+    return computeFlexLayoutDetailed(node, children).diagnostic;
+  }, [children, ls, node]);
 
   function patch(partial: Partial<LayoutStyle>) {
     const base: LayoutStyle = ls ?? {
@@ -197,6 +201,15 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                 <p className="insp-hint insp-hint--error" role="status" aria-live="polite">
                   {formatGridLayoutDiagnostic(gridLayoutDiagnostic)} Existing child positions were
                   kept.
+                </p>
+              )}
+              {flexLayoutDiagnostic && (
+                <p
+                  className={`insp-hint ${flexLayoutDiagnostic === 'main-axis-overflow' ? 'insp-hint--warning' : 'insp-hint--error'}`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  {formatFlexLayoutDiagnostic(flexLayoutDiagnostic)}
                 </p>
               )}
               <FieldRow label="Direction">
@@ -408,6 +421,19 @@ function formatGridLayoutDiagnostic(diagnostic: GridLayoutDiagnostic): string {
       return 'This grid uses an unsupported auto-flow mode.';
     default:
       return 'This grid could not be resolved.';
+  }
+}
+
+function formatFlexLayoutDiagnostic(diagnostic: FlexLayoutDiagnostic): string {
+  switch (diagnostic) {
+    case 'invalid-flex-bounds':
+      return 'Flex layout bounds or padding contain invalid values. Existing child positions were kept.';
+    case 'invalid-flex-result':
+      return 'Flex layout produced invalid geometry. Existing child positions were kept.';
+    case 'main-axis-overflow':
+      return 'Flex items exceed the available space at their minimum sizes; overflow remains visible.';
+    default:
+      return 'This flex layout could not be resolved.';
   }
 }
 

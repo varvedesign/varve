@@ -56,6 +56,18 @@ function childTransform(doc: Document, id: string): number[] {
 }
 
 describe('reflowLayoutChildren', () => {
+  it('preserves the last materialized child geometry when flex bounds are invalid', () => {
+    const frame = makeFrame({ w: Number.NaN });
+    const child = makeChild('a', 17, 19, 100, 50);
+    frame.children = ['a'];
+    const doc = makeDoc(frame, [child]);
+
+    const reflowed = reflowLayoutChildren(doc, 'f1');
+
+    expect(reflowed.nodes.a).toBe(child);
+    expect(childTransform(reflowed, 'a')).toEqual([1, 0, 0, 1, 17, 19]);
+  });
+
   it('repositions flex children when the frame is resized', () => {
     const frame = makeFrame({ w: 200, h: 300 });
     const a = makeChild('a', 10, 10, 50, 50);

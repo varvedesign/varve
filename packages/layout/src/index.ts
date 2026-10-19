@@ -22,8 +22,8 @@
  * rendering pipeline (see `packages/editor/src/layout/` for editor-only
  * arranging utilities such as autoArrange and table layout).
  */
-export type { LayoutResult } from './computeFlexLayout';
-export { computeFlexLayout } from './computeFlexLayout';
+export type { FlexLayoutDiagnostic, FlexLayoutResult, LayoutResult } from './computeFlexLayout';
+export { computeFlexLayout, computeFlexLayoutDetailed } from './computeFlexLayout';
 export type { GridItem, GridLayoutDiagnostic, GridLayoutResult } from './computeGridLayout';
 export {
   applyGridLayout,

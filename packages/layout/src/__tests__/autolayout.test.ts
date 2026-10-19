@@ -1,6 +1,6 @@
 import type { FrameNode, SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { computeFlexLayout } from '../computeFlexLayout';
+import { computeFlexLayout, computeFlexLayoutDetailed } from '../computeFlexLayout';
 import { measureNodeSize } from '../measure';
 
 function makeFrame(layoutStyle: FrameNode['layoutStyle']): FrameNode {
@@ -49,6 +49,44 @@ function makeChild(id: string, x: number, y: number, w: number, h: number): Scen
 }
 
 describe('computeFlexLayout', () => {
+  it('reports visible minimum overflow while retaining finite resolved items', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 150;
+    const children = [makeChild('c1', 0, 0, 100, 40), makeChild('c2', 0, 0, 100, 40)];
+
+    const result = computeFlexLayoutDetailed(frame, children);
+
+    expect(result.diagnostic).toBe('main-axis-overflow');
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((item) => item.w)).toEqual([100, 100]);
+  });
+
+  it('reports invalid flex bounds without returning geometry', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = Number.NaN;
+
+    expect(computeFlexLayoutDetailed(frame, [makeChild('c1', 12, 13, 100, 40)])).toEqual({
+      items: [],
+      diagnostic: 'invalid-flex-bounds',
+    });
+  });
+
   it('lays out row children sequentially with gap', () => {
     const frame = makeFrame({
       mode: 'flex',

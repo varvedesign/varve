@@ -32,7 +32,7 @@
 import type { Affine } from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import { getParent } from '@varve/scene';
-import { computeFlexLayout } from './computeFlexLayout';
+import { computeFlexLayoutDetailed } from './computeFlexLayout';
 import { applyGridLayout } from './computeGridLayout';
 import { resolveIntrinsicSizes } from './intrinsicSize';
 import { axisSizing } from './measure';
@@ -59,10 +59,10 @@ export function reflowLayoutChildren(doc: Document, parentId: NodeId | null | un
     const childNodes = resolvedParent.children
       .map((cid) => next.nodes[cid])
       .filter((n): n is SceneNode => Boolean(n));
-    const results = computeFlexLayout(resolvedParent, childNodes);
-    if (results.length > 0) {
+    const result = computeFlexLayoutDetailed(resolvedParent, childNodes);
+    if (result.items.length > 0) {
       const nodes = { ...next.nodes };
-      for (const r of results) {
+      for (const r of result.items) {
         const child = nodes[r.id];
         if (!child) continue;
         let updated: SceneNode = {

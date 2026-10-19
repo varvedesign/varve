@@ -123,6 +123,31 @@ describe('LayoutSection per-node Width/Height sizing controls', () => {
     ).toBeInTheDocument();
   });
 
+  it('reports flex overflow at minimum item sizes', async () => {
+    const getCtx = setup();
+    getCtx().applyFramePreset({ name: 'Compact Frame', w: 120, h: 160 });
+    await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
+    const frameId = getCtx().state.selection[0] as string;
+    getCtx().setNodeLayout(frameId, {
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    getCtx().createTextNodeAt({ x: 0, y: 0 }, { w: 100, h: 24 }, frameId, 'one');
+    getCtx().createTextNodeAt({ x: 0, y: 0 }, { w: 100, h: 24 }, frameId, 'two');
+    getCtx().setSelection(frameId);
+
+    expect(
+      await screen.findByText(
+        'Flex items exceed the available space at their minimum sizes; overflow remains visible.',
+      ),
+    ).toHaveClass('insp-hint--warning');
+  });
+
   it('setting both axes independently keeps them independent', async () => {
     const getCtx = setup();
     getCtx().applyFramePreset({ name: 'Test Frame', w: 400, h: 300 });

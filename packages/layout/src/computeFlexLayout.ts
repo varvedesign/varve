@@ -28,6 +28,16 @@ export interface LayoutResult {
   occupiedH?: number;
 }
 
+export type FlexLayoutDiagnostic =
+  | 'invalid-flex-bounds'
+  | 'invalid-flex-result'
+  | 'main-axis-overflow';
+
+export interface FlexLayoutResult {
+  items: LayoutResult[];
+  diagnostic?: FlexLayoutDiagnostic;
+}
+
 function isRow(dir: string): boolean {
   return dir === 'row' || dir === 'rowReverse';
 }
@@ -251,12 +261,15 @@ function resolvePrimarySizes(
   });
 }
 
-export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): LayoutResult[] {
+export function computeFlexLayoutDetailed(
+  frame: FrameNode,
+  allChildren: SceneNode[],
+): FlexLayoutResult {
   const style = frame.layoutStyle;
-  if (!style) return [];
+  if (!style) return { items: [] };
 
   const children = allChildren.filter(isFlowParticipant);
-  if (children.length === 0) return [];
+  if (children.length === 0) return { items: [] };
 
   const [pt, pr, pb, pl] = style.padding;
   const row = isRow(style.direction);
@@ -276,9 +289,11 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
       style.rowGap ?? style.gap,
       ...style.padding,
     ].every(Number.isFinite) ||
+    frameW < 0 ||
+    frameH < 0 ||
     style.padding.some((value) => value < 0)
   ) {
-    return [];
+    return { items: [], diagnostic: 'invalid-flex-bounds' };
   }
   const availW = Math.max(0, frameW - pl - pr);
   const availH = Math.max(0, frameH - pt - pb);
@@ -330,6 +345,7 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
   // Resolve flexible sizes independently for each final line. A wrapped line
   // gets the full available main-axis budget, as CSS flex lines do.
   const sizes = new Array<Size>(children.length);
+  let hasMainAxisOverflow = false;
   for (const line of lines) {
     const lineChildren = line.indices.map((index) => children[index]!);
     const lineNatural = line.indices.map((index) => naturalSizes[index]!);
@@ -351,6 +367,10 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
     if (lineTotal > avail) {
       shrinkLineSizes(children, sizes, line.indices, primaryAxis, row, avail, primaryGap);
     }
+    const finalLineTotal =
+      line.indices.reduce((sum, index) => sum + primaryNatural(sizes[index]!, row), 0) +
+      Math.max(0, line.indices.length - 1) * primaryGap;
+    if (finalLineTotal > avail + 0.001) hasMainAxisOverflow = true;
     if (row) {
       for (let offset = 0; offset < line.indices.length; offset++) {
         const index = line.indices[offset]!;
@@ -507,12 +527,23 @@ export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): L
     }
   }
 
-  return results.every(
-    (result) =>
-      [result.x, result.y, result.w, result.h].every(Number.isFinite) &&
-      result.w >= 0 &&
-      result.h >= 0,
-  )
-    ? results
-    : [];
+  if (
+    !results.every(
+      (result) =>
+        [result.x, result.y, result.w, result.h].every(Number.isFinite) &&
+        result.w >= 0 &&
+        result.h >= 0,
+    )
+  ) {
+    return { items: [], diagnostic: 'invalid-flex-result' };
+  }
+  return {
+    items: results,
+    ...(hasMainAxisOverflow ? { diagnostic: 'main-axis-overflow' as const } : {}),
+  };
+}
+
+/** Compatibility adapter for callers that only need the resolved rectangles. */
+export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): LayoutResult[] {
+  return computeFlexLayoutDetailed(frame, allChildren).items;
 }
