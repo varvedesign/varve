@@ -1664,3 +1664,44 @@ its title, labels, or downloaded body.
   diff found and fixed the remaining unprofiled raster-pattern route. No
   independent reviewer was available under the no-delegation constraint; the
   final review is self-review, not independent approval.
+
+### Candidate integration validation — 2026-10-19
+
+- The actual remote default branch is `master` at `d17afae2a`. The source
+  research branch also contained 219 commits not on that remote branch, so the
+  integration candidate is isolated on `codex/inkscape-corpus-pr` and contains
+  only the Inkscape audit checkpoint, the #1946 Layers regression, the
+  print-production note, and the touch-and-pen guide/snapshot update. Existing
+  SVG importer and ICCBased sRGB implementation changes are already present in
+  remote `master`; this candidate does not duplicate those production changes.
+- Exact-candidate `pnpm verify:plan` selects 13 lanes and does not escalate to
+  the full suite. `pnpm verify:affected` passes touched format/lint, emoji,
+  radius, docs audits, E2E typechecks, website typecheck (199 Astro files,
+  zero diagnostics), website JS unit tests (307/307), and website unit tests
+  (307/307). Its Layers browser lane finishes 8/11 and fails three existing
+  cases: the canvas hover-state assertion assumes the dnd-kit collision winner
+  must follow the pointer despite the documented non-authoritative collision
+  contract; two later tests encounter Chromium `Target crashed` failures on
+  this shared loaded host. The new #1946 row-reorder/selection-sync case passes
+  and both captured screenshots were inspected.
+- Exact-candidate website build and GitHub Pages build each produce 126 pages.
+  The focused touch-and-pen screenshot passes on this candidate. The full
+  `pnpm test:website:e2e` completes 687/690: only homepage light, homepage
+  dark, and dark-footer visual snapshots fail; the changed touch-and-pen visual
+  passes, as do all touch-and-pen accessibility checks in both deployment
+  modes. The three failing snapshots cover unchanged pages and were not
+  refreshed.
+- Read-only second-pass review of the actual merge diff found no actionable
+  defect. This is self-review, not independent approval; no separate reviewer
+  was available under the current no-delegation constraint. No hook finding
+  was suppressed: the user-requested touch-guide accent was softened, and the
+  updated screenshot matches the page.
+- Website source changes auto-run the GitHub Pages deployment workflow on a
+  push to `master`. The user authorized normal task-related merges through the
+  repository workflow; no manual release or deployment command is part of this
+  candidate.
+- Research and engineering remain incomplete. The issue inventory has 6,392
+  unique IIDs; 6,390 bodies are fully screened and two are partial. Discussion
+  content has been reviewed for 1,142 of 5,669 note-bearing issues, with 32
+  per-issue retrieval count mismatches still unresolved. The PR candidate is
+  an incremental checkpoint, not completion of the Inkscape assignment.
