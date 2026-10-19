@@ -9,6 +9,14 @@ Last updated: 2026-10-19. Status: active and incomplete.
   GPU acceleration. Linked reports #2687/#2339 and #2850/#2246 trace related
   symptoms to Windows custom-frame behavior, but #3810 is a separate mixed-DPI
   issue and the AMD drag-performance report is separate from window chrome.
+- PhotoCraft #2340 is now covered by a browser regression for Ctrl+Tab and
+  Ctrl+Shift+Tab cycling, including wraparound in both directions. The test is
+  committed as `28f49c9f3`; touched-file formatting/lint, E2E typecheck, and
+  the commit checkpoint passed. The affected E2E lane could not acquire the
+  shared heavy-task lease within 30 minutes, so browser behavior and its
+  screenshot remain unverified. Keep #2340 as a candidate until the focused
+  Chromium run passes; the test must be rerun after the live canvas lease
+  clears.
 - Varve already resolved native Windows/macOS chrome in `@varve/platform`, but
   the shared Tauri config disabled decorations globally. The shared config now
   enables them; `tauri.linux.conf.json` keeps Linux custom chrome. F-020 and
@@ -49,7 +57,8 @@ Last updated: 2026-10-19. Status: active and incomplete.
   radius consumers in untouched Presentation/SpecPanel files. The directly
   selected `saveTargetCollision.test.tsx` passed all 11 tests. Record the
   affected closure as incomplete; no CSS changed in this save-path batch.
-- Next: finish the queued full gate, run Windows-native build/minimize/restore
+- Next: rerun the #2340 browser test after the live lease clears, finish the
+  queued full gate, run Windows-native build/minimize/restore
   visual validation when a Windows target is available, continue recursive
   source/PR review, then complete final independent review and safe integration
   to `master` without touching the dirty primary checkout.
