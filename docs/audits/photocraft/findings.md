@@ -745,13 +745,19 @@ clamping interaction model. A browser interaction initially exposed that the
 Inspector action also needed its own upper clamp: entering 1,001 produced an
 invalid saved document that the loader correctly rejected. The Inspector now
 caps the action value before updating the document. A fresh browser document
-accepted the same entry as 1,000, saved, and reopened with 1,000. The dark-theme
-Inspector was visually inspected; broader theme checks and the planner-required
-validation remain pending, so this remains `implemented_pending_validation`.
-The marketing website scan found no claim about mask-feather limits or Global
-Light that needs revision.
+accepted the same entry as 1,000, saved, and reopened with 1,000. The Inspector
+was visually checked in dark, light, and high-contrast themes, each showing the
+supported maximum and a coherent field layout. The mask scene/codec regression
+suite passed 80 tests, including rejection of out-of-range loaded values and
+setter clamping. An Inspector interaction test is present; the broader
+14-package Vitest sweep that would include it was stopped after about an hour
+under shared-machine contention and is not counted as a pass. The marketing
+website scan found no claim about mask-feather limits or Global Light that needs
+revision.
 
-**Next verification.** Run the affected plan after disk headroom recovers;
-confirm setter and load-boundary regressions, then inspect the Inspector limit
-and canvas response across light, dark, and high-contrast themes if the visual
-harness permits it.
+**Validation status.** Scene/codec tests and editor/scene typechecks passed.
+The affected planner exited before package tests on 30 pre-existing spacing
+drifts in untouched collab, first-run, and website files; this audit does not
+report a clean full affected run. Focused browser save/reopen and three-theme
+visual checks passed. The pending broad Vitest sweep must not be reported as
+passing.
