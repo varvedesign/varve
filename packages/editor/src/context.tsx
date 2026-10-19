@@ -1267,7 +1267,12 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   /** Batch-set flow/absolute position on all selected layout children. */
   setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
   /** P3: batch-set grid item placement on all selected nodes. */
-  setSelectedGridPlacement: (value: import('@varve/scene').GridItemPlacement) => void;
+  setSelectedGridPlacement: (
+    update: (
+      placement: import('@varve/scene').GridItemPlacement,
+      node: SceneNode,
+    ) => import('@varve/scene').GridItemPlacement,
+  ) => void;
   /** P3: set the document canvas width. */
   setCanvasWidth: (value: number) => void;
   /** P3: set the document canvas height. */
@@ -9270,7 +9275,7 @@ export function EditorProvider({
           applySelectedLayoutChildField(doc, state.selection, 'layoutAlign', value),
         ),
 
-      setSelectedGridPlacement: (value) => {
+      setSelectedGridPlacement: (update) => {
         const sel = state.selection;
         if (sel.length === 0) return;
         updateDoc((doc) => {
@@ -9278,7 +9283,8 @@ export function EditorProvider({
           for (const id of sel) {
             const node = nodes[id];
             if (!node) continue;
-            nodes[id] = { ...node, gridPlacement: value } as SceneNode;
+            const gridPlacement = update(node.gridPlacement ?? {}, node);
+            nodes[id] = { ...node, gridPlacement } as SceneNode;
           }
           return { ...doc, nodes };
         });

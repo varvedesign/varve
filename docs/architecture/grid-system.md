@@ -21,6 +21,9 @@ may anchor to a track ID and span rows or columns. Reordering keeps those anchor
 attached to their tracks. Track removal uses a before/after preview and only
 applies a deterministic rehome when the resulting placements are valid. These
 edits travel through one document update so undo restores the entire grid edit.
+The inspector resolves identity anchors back to visible row and column indices;
+changing one axis preserves the other axis, each selected layer's own placement,
+and its existing span.
 
 Auto-layout grid semantics are versioned independently from visual guide
 geometry. Missing or version-1 layout semantics keep the legacy track sizing;

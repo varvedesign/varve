@@ -1,9 +1,10 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
+import { useEffect } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { EditorProvider } from '../../../context';
+import { EditorProvider, useEditor } from '../../../context';
 import { GridPlacementFields } from './GridPlacementFields';
 
 afterEach(cleanup);
@@ -88,5 +89,70 @@ describe('GridPlacementFields', () => {
 
     expect(screen.getByText(/stored on the layer/i)).toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: 'Column start' })).toHaveValue('2');
+  });
+
+  it('shows identity anchors as indices and preserves the other axis when one axis changes', async () => {
+    const { document: sceneDocument, child } = documentWithNodes(
+      {
+        layoutStyle: {
+          ...GRID_STYLE,
+          gridColumnTracks: [
+            { id: 'column-a', size: '1fr' },
+            { id: 'column-b', size: '1fr' },
+            { id: 'column-c', size: '1fr' },
+          ],
+          gridRowTracks: [{ id: 'row-a', size: 'auto' }],
+        },
+      },
+      {
+        gridPlacement: {
+          gridColumnStartTrackId: 'column-a',
+          gridColumnSpan: 2,
+          gridRowStartTrackId: 'row-a',
+          gridRowSpan: 1,
+        },
+      },
+    );
+
+    function SelectChild() {
+      const { state, setSelection } = useEditor();
+      useEffect(() => {
+        if (!state.selection.includes(child.id)) setSelection(child.id);
+      }, [state.selection, setSelection]);
+      return null;
+    }
+
+    function PlacementProbe() {
+      const { state } = useEditor();
+      return (
+        <output data-testid="placement">
+          {JSON.stringify(state.document.nodes[child.id]?.gridPlacement)}
+        </output>
+      );
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(sceneDocument)}>
+        <SelectChild />
+        <GridPlacementFields nodes={[child]} />
+        <PlacementProbe />
+      </EditorProvider>,
+    );
+
+    expect(screen.getByRole('spinbutton', { name: 'Column start' })).toHaveValue('1');
+    expect(screen.getByRole('spinbutton', { name: 'Column end' })).toHaveValue('3');
+    expect(screen.getByRole('spinbutton', { name: 'Row start' })).toHaveValue('1');
+
+    const columnStart = screen.getByRole('spinbutton', { name: 'Column start' });
+    fireEvent.change(columnStart, { target: { value: '2' } });
+    fireEvent.blur(columnStart);
+
+    await waitFor(() => {
+      const placement = JSON.parse(screen.getByTestId('placement').textContent ?? '{}');
+      expect(placement.gridColumnStartTrackId).toBe('column-b');
+      expect(placement.gridColumnSpan).toBe(2);
+      expect(placement.gridRowStartTrackId).toBe('row-a');
+      expect(placement.gridRowSpan).toBe(1);
+    });
   });
 });
