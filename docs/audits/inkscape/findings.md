@@ -2231,3 +2231,79 @@ reproduced. #1829's connector initialization crash was fixed in
 has no matching connector-tool lifecycle. #1830's apparent EMF text breakup
 was not reproduced after disabling the exporter's “convert text to paths”
 option and was closed as a support question; Varve has no EMF exporter.
+
+## IID 1831–1840 — style paste, path editing, and view rotation
+
+This batch adds ten reviewed issue threads (63 user comments and 85 history
+events) from the 2026-10-18 discussion cache. The per-issue ledger records the
+source follow-ups and missing attachment limits.
+
+- [#1831](https://gitlab.com/inkscape/inkscape/-/issues/1831) describes a
+  copied blur filter leaking into the style for subsequently drawn objects.
+  The thread contains different platform observations and links to the earlier
+  [#164 report](https://gitlab.com/inkscape/inkscape/-/issues/164); Inkscape
+  later filtered `filter` CSS from its “use current style” route in
+  [MR !2776](https://gitlab.com/inkscape/inkscape/-/merge_requests/2776).
+  Varve's property clipboard applies effects to selected nodes; it does not
+  seed the next shape tool's defaults. There is no demonstrated matching
+  failure, so no change is justified.
+- [#1832](https://gitlab.com/inkscape/inkscape/-/issues/1832) concerns memory
+  growth while repeatedly opening/exporting in Inkscape's persistent `--shell`
+  mode. The final 2024 comment says the reporter's loop reopened the same file
+  for every export and that opening it once removed the observed growth. This
+  was closed as a duplicate of [#201](https://gitlab.com/inkscape/inkscape/-/issues/201),
+  a distinct file-preview leak. A separate mention of [#3369](https://gitlab.com/inkscape/inkscape/-/issues/3369)
+  records another preview/open-save document-lifecycle leak, not proof of the
+  same cause. Varve's CLI has no equivalent persistent shell loop.
+- [#1833](https://gitlab.com/inkscape/inkscape/-/issues/1833) concerns XML
+  editor changes to `sodipodi:nodetypes` not updating node handles until a
+  later edit. Its related [#1771](https://gitlab.com/inkscape/inkscape/-/issues/1771)
+  concerns overlapping or misclassified smooth nodes. Varve has no raw XML
+  editor or Sodipodi node metadata; the typed node editor writes model state
+  directly. The upstream SVG/video uploads were not locally available.
+- [#1834](https://gitlab.com/inkscape/inkscape/-/issues/1834) is a Bezier
+  preview color/fill regression, fixed upstream by restoring transparent fill
+  for handle paths in [MR !2391](https://gitlab.com/inkscape/inkscape/-/merge_requests/2391).
+  The neighboring [#1835](https://gitlab.com/inkscape/inkscape/-/issues/1835)
+  was a separate, small path-stroke hover offset; the reporter confirmed that
+  one fixed too, and the thread corrects an erroneous MR reference. Varve's
+  PenTool preview and node-hover overlay have no reproduced matching defect;
+  source screenshots and the hover video remain upstream-only.
+- [#1836](https://gitlab.com/inkscape/inkscape/-/issues/1836) was closed as a
+  duplicate of [#1347](https://gitlab.com/inkscape/inkscape/-/issues/1347):
+  moving a scaled path could create an extra endpoint node. “Preserve
+  transforms” was reported as a workaround with a stroke-skew tradeoff. The
+  source SVG and screencast are unavailable, and no Varve node-topology
+  corruption was reproduced.
+- [#1837](https://gitlab.com/inkscape/inkscape/-/issues/1837) mixes a node
+  count discrepancy with reports of zero nodes for a one-point path. The
+  related [#1443](https://gitlab.com/inkscape/inkscape/-/issues/1443) and
+  [#5689](https://gitlab.com/inkscape/inkscape/-/issues/5689) confirm that the
+  single-point count report resurfaced in later releases. Varve does not
+  display path-node totals in its status bar, so this particular wrong count
+  has no user-facing equivalent; the linked circle-to-path topology reports
+  [#576](https://gitlab.com/inkscape/inkscape/-/issues/576) and
+  [#620](https://gitlab.com/inkscape/inkscape/-/issues/620) lack a Varve
+  reproduction.
+- [#1838](https://gitlab.com/inkscape/inkscape/-/issues/1838) asks Division
+  and Cut Path to retain user-selected chunks as combined paths instead of
+  leaving many subpaths. The discussion rejects node editing as a workaround.
+  Varve Shape Builder's Divide intentionally outputs each selected filled
+  region as a separately editable shape; that contract differs from
+  Inkscape's path operations. No change is justified without a Varve report
+  showing that this output model creates unusable fragments.
+- [#1839](https://gitlab.com/inkscape/inkscape/-/issues/1839) concerns stale
+  entries and a close-time crash in Inkscape's document-bound SVG Font Editor,
+  with related [#628](https://gitlab.com/inkscape/inkscape/-/issues/628) and
+  [MR !3381](https://gitlab.com/inkscape/inkscape/-/merge_requests/3381).
+  Varve's Font Browser is a catalog and picker, not an in-document SVG font
+  editor, so adding that subsystem would not be warranted by this report.
+- [#1840](https://gitlab.com/inkscape/inkscape/-/issues/1840) records
+  repeated accidental view rotation during ordinary navigation. Inkscape
+  added a rotation lock in [MR !1964](https://gitlab.com/inkscape/inkscape/-/merge_requests/1964)
+  and backported it in [MR !2633](https://gitlab.com/inkscape/inkscape/-/merge_requests/2633);
+  later comments still ask for a nearby lock affordance. Varve already has a
+  persisted two-finger twist toggle and a rotated-view reset chip, but enables
+  twist rotation for new users. This is a close workflow match: make twist
+  rotation opt-in by default, keep the existing setting, and test both states
+  with real touch input.
