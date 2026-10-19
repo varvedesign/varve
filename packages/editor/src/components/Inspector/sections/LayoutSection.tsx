@@ -431,7 +431,7 @@ function formatFlexLayoutDiagnostic(diagnostic: FlexLayoutDiagnostic): string {
     case 'invalid-flex-result':
       return 'Flex layout produced invalid geometry. Existing child positions were kept.';
     case 'main-axis-overflow':
-      return 'Flex items exceed the available space at their minimum sizes; overflow remains visible.';
+      return 'Flex items exceed the available main-axis space; overflow remains visible.';
     default:
       return 'This flex layout could not be resolved.';
   }

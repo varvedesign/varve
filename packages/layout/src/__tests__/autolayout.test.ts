@@ -49,7 +49,7 @@ function makeChild(id: string, x: number, y: number, w: number, h: number): Scen
 }
 
 describe('computeFlexLayout', () => {
-  it('reports visible minimum overflow while retaining finite resolved items', () => {
+  it('reports visible overflow when shrinking is disabled', () => {
     const frame = makeFrame({
       mode: 'flex',
       direction: 'row',

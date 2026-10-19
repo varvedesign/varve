@@ -83,7 +83,7 @@ from fixed-on-scroll. Hug measures content; it is not a one-time resize action.
 | Center constraint on an older file | Existing proportional behavior remains unchanged |
 | One child in Between/Around/Evenly; zero, spare, or negative free space | Results are deterministic, non-negative for auto spacing, and preserve explicit signed gaps only |
 | Invalid track input, colliding spans, oversized repeat/count/depth | No unbounded work or geometry overwrite; the inspector reports the bounded grid failure |
-| Flex minimum sizes exceed available main-axis space | Finite child rectangles remain visible and the inspector reports overflow |
+| Flex items cannot shrink enough to fit the available main-axis space | Finite child rectangles remain visible and the inspector reports overflow |
 | Flex bounds or resolved geometry are non-finite | Reflow keeps prior child geometry and the inspector explains the invalid layout |
 | Save/reopen, duplicate/detach, importer first edit, undo/redo | Authored sizing/track/anchor rules remain editable and the initiating edit is one undo entry |
 

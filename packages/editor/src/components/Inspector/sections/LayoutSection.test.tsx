@@ -123,7 +123,7 @@ describe('LayoutSection per-node Width/Height sizing controls', () => {
     ).toBeInTheDocument();
   });
 
-  it('reports flex overflow at minimum item sizes', async () => {
+  it('reports flex main-axis overflow when item shrinking is disabled', async () => {
     const getCtx = setup();
     getCtx().applyFramePreset({ name: 'Compact Frame', w: 120, h: 160 });
     await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
@@ -143,7 +143,7 @@ describe('LayoutSection per-node Width/Height sizing controls', () => {
 
     expect(
       await screen.findByText(
-        'Flex items exceed the available space at their minimum sizes; overflow remains visible.',
+        'Flex items exceed the available main-axis space; overflow remains visible.',
       ),
     ).toHaveClass('insp-hint--warning');
   });
