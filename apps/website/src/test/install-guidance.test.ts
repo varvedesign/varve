@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  appImageShipsBundledWebKit,
   CHECKSUM_COMMANDS,
   livePackageManagerChannels,
   macosUnsignedCaveat,
@@ -21,6 +22,14 @@ describe('install guidance', () => {
     expect(windows).toMatch(/More info, then Run anyway/);
     expect(windows).toMatch(/Smart App Control/);
     expect(windows).toContain('/try');
+  });
+
+  it('does not describe 0.5.x AppImages as shipping WebKitGTK', () => {
+    expect(appImageShipsBundledWebKit('0.5.0')).toBe(false);
+    expect(appImageShipsBundledWebKit('0.5.1')).toBe(false);
+    expect(appImageShipsBundledWebKit(null)).toBe(false);
+    expect(appImageShipsBundledWebKit('0.5.2')).toBe(true);
+    expect(appImageShipsBundledWebKit('0.6.0')).toBe(true);
   });
 
   it('gives single-file checksum commands instead of a full SHA256SUMS check', () => {

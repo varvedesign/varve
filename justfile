@@ -267,6 +267,7 @@ prune-runtimes:
 
 # Build all Linux bundles (AppImage + deb + rpm). Requires Linux + Tauri deps.
 package-linux: prune-runtimes
+    node scripts/release/ensure-linuxdeploy-plugin-gtk.mjs
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb,rpm --ci --features ai --config '{"bundle":{"createUpdaterArtifacts":false}}'
     node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
     @echo "Bundles written to apps/desktop/src-tauri/target/release/bundle/"
@@ -281,6 +282,7 @@ package-rpm: prune-runtimes
 
 # Build AppImage only. Local smoke-test artifact — see the note above.
 package-appimage: prune-runtimes
+    node scripts/release/ensure-linuxdeploy-plugin-gtk.mjs
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage --ci --features ai --config '{"bundle":{"createUpdaterArtifacts":false}}'
     node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
 
@@ -295,6 +297,7 @@ package-linux-dev: prune-runtimes
     set -euo pipefail
     V="$(node scripts/release/version.mjs snapshot)"
     echo "Building dev bundles as ${V}..."
+    node scripts/release/ensure-linuxdeploy-plugin-gtk.mjs
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb --ci --features ai --config "{\"version\":\"${V}\",\"bundle\":{\"createUpdaterArtifacts\":false}}"
     node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
     echo "Dev bundles written to apps/desktop/src-tauri/target/release/bundle/"
@@ -435,9 +438,10 @@ appimage-smoke:
     echo "Smoke test complete."
 
 # AppImageHub-shaped smoke: no host WebKitGTK, --network none, xvfb.
+# ubuntu:22.04 (build baseline) and fedora:latest (newer Mesa).
 appimage-smoke-offline:
     #!/usr/bin/env bash
     set -euo pipefail
     _img=$(find apps/desktop/src-tauri/target/release/bundle/appimage -name '*.AppImage' | head -1)
-    if [[ -z "${_img}" ]]; then echo "No AppImage found — run 'just package-appimage' first."; exit 1; fi
-    bash scripts/release/smoke-appimage-self-contained.sh --appimage "${_img}"
+    if [[ -z "${_img}" ]]; then echo "No AppImage found. Run 'just package-appimage' first."; exit 1; fi
+    bash scripts/release/smoke-appimage-self-contained.sh --appimage "${_img}" --distro all

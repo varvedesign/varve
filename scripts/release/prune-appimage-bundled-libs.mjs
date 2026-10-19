@@ -76,12 +76,28 @@ const STRAY_BUILD_FILE_NAMES = new Set(['varve-generative-helper.d']);
  * `libglib`. libGL / libEGL prefixes are exact SONAME families, not `libg*`.
  */
 export const HOST_GRAPHICS_FILE_RE =
-  /^(?:libEGL(?:_[^.]+)?|libGL(?:U|X(?:_[^.]+)?|ES(?:v1_CM|v2)|dispatch|api)?|libOpenGL|libglapi|libdrm(?:_[^.]+)?|libgbm|libvulkan|libwayland-egl|libnvidia.*|libcuda.*)(?:\.so(?:\..*)?)?$/;
+  /^(?:libEGL(?:_[^.]+)?|libGL(?:U|X(?:_[^.]+)?|ES(?:v1_CM|v2)|dispatch|api)?|libOpenGL|libglapi|libdrm(?:_[^.]+)?|libgbm|libvulkan|libnvidia.*|libcuda.*)(?:\.so(?:\..*)?)?$/;
+
+/**
+ * Host C++ / Wayland / display libs. If the 22.04 copies stay in the AppImage
+ * they shadow a newer host Mesa via LD_LIBRARY_PATH (GLIBCXX_3.4.3x, Wayland
+ * symbol mismatches) and recreate the white-screen failure.
+ */
+export const HOST_SYSTEM_FILE_RE =
+  /^(?:libstdc\+\+|libgcc_s|libwayland(?:-[^.]+)?)(?:\.so(?:\..*)?)?$/;
 
 export const HOST_GRAPHICS_DIR_NAMES = new Set(['dri', 'mesa', 'nvidia', 'glvnd']);
 
 export function isHostGraphicsLibraryName(name) {
   return HOST_GRAPHICS_FILE_RE.test(name);
+}
+
+export function isHostSystemLibraryName(name) {
+  return HOST_SYSTEM_FILE_RE.test(name);
+}
+
+export function isHostProvidedLibraryName(name) {
+  return isHostGraphicsLibraryName(name) || isHostSystemLibraryName(name);
 }
 
 function parseArgs(argv) {
@@ -148,7 +164,7 @@ export function collectPrunePlan(squashfsRoot, resourceDirName) {
         walk(full);
         continue;
       }
-      if (isHostGraphicsLibraryName(entry.name)) remove.push(full);
+      if (isHostProvidedLibraryName(entry.name)) remove.push(full);
     }
   }
 
@@ -158,9 +174,28 @@ export function collectPrunePlan(squashfsRoot, resourceDirName) {
   return { remove, keep };
 }
 
+const WEBKIT_HELPER_DIR = 'webkit2gtk-4.1';
+const WEBKIT_PATCH_MARKER = '././/lib/';
+const WEBKIT_UNPATCHED_PATH = /\/usr\/lib\/[^/\0]+\/webkit2gtk-4\.1/;
+
+export function findWebKitHelperDir(squashfsRoot) {
+  const libRoot = join(squashfsRoot, 'usr', 'lib');
+  if (!existsSync(libRoot)) return null;
+  for (const entry of readdirSync(libRoot, { withFileTypes: true })) {
+    const candidate = join(libRoot, entry.name, WEBKIT_HELPER_DIR);
+    if (existsSync(candidate)) return candidate;
+  }
+  const fallback = join(libRoot, WEBKIT_HELPER_DIR);
+  return existsSync(fallback) ? fallback : null;
+}
+
 export function findBundledWebKit(squashfsRoot) {
   const libraries = [];
-  const helpers = [];
+  const javascriptcore = [];
+  const webProcess = [];
+  const networkProcess = [];
+  const storageProcess = [];
+  const injectedBundles = [];
   function walk(dir) {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -170,28 +205,77 @@ export function findBundledWebKit(squashfsRoot) {
         continue;
       }
       if (/^libwebkit2gtk-4\.1\.so/.test(entry.name)) libraries.push(full);
-      if (/^WebKit(?:Web|Network|Storage)Process$/.test(entry.name)) helpers.push(full);
+      if (/^libjavascriptcoregtk-4\.1\.so/.test(entry.name)) javascriptcore.push(full);
+      if (entry.name === 'WebKitWebProcess') webProcess.push(full);
+      if (entry.name === 'WebKitNetworkProcess') networkProcess.push(full);
+      if (entry.name === 'WebKitStorageProcess') storageProcess.push(full);
+      if (entry.name === 'libwebkit2gtkinjectedbundle.so') injectedBundles.push(full);
     }
   }
   walk(join(squashfsRoot, 'usr'));
-  return { libraries, helpers };
+  return {
+    libraries,
+    javascriptcore,
+    webProcess,
+    networkProcess,
+    storageProcess,
+    injectedBundles,
+    helperDir: findWebKitHelperDir(squashfsRoot),
+    helpers: [...webProcess, ...networkProcess, ...storageProcess],
+  };
+}
+
+export function assertWebKitPathPatch(libraryPath, label) {
+  const text = readFileSync(libraryPath).toString('latin1');
+  if (!text.includes(WEBKIT_PATCH_MARKER)) {
+    throw new Error(
+      `${label}: ${libraryPath} is missing the linuxdeploy-plugin-gtk ` +
+        `'${WEBKIT_PATCH_MARKER}' relocation. The plugin was not applied or is unpinned.`,
+    );
+  }
+  if (WEBKIT_UNPATCHED_PATH.test(text)) {
+    throw new Error(
+      `${label}: ${libraryPath} still contains an unpatched ` +
+        `/usr/lib/<triplet>/webkit2gtk-4.1 path.`,
+    );
+  }
 }
 
 export function assertWebKitBundled(squashfsRoot, label) {
-  const { libraries, helpers } = findBundledWebKit(squashfsRoot);
-  if (libraries.length === 0) {
+  const found = findBundledWebKit(squashfsRoot);
+  if (found.libraries.length === 0) {
     throw new Error(
       `${label} is missing libwebkit2gtk-4.1.so. linuxdeploy-plugin-gtk must bundle it; ` +
         'refusing to ship an AppImage that needs a host WebKitGTK.',
     );
   }
-  if (helpers.length === 0) {
+  if (found.javascriptcore.length === 0) {
+    throw new Error(`${label} is missing libjavascriptcoregtk-4.1.so.`);
+  }
+  if (found.webProcess.length === 0 || found.networkProcess.length === 0) {
     throw new Error(
-      `${label} is missing WebKitWebProcess / WebKitNetworkProcess. ` +
-        'The webview helper binaries must be executable inside the payload.',
+      `${label} is missing WebKitWebProcess or WebKitNetworkProcess. ` +
+        'Both webview helper binaries must be present and executable.',
     );
   }
-  return { libraries, helpers };
+  if (found.injectedBundles.length === 0) {
+    throw new Error(`${label} is missing injected-bundle/libwebkit2gtkinjectedbundle.so.`);
+  }
+  if (!found.helperDir) {
+    throw new Error(`${label} is missing usr/lib/<triplet>/webkit2gtk-4.1/.`);
+  }
+  for (const helper of [...found.webProcess, ...found.networkProcess, ...found.injectedBundles]) {
+    if (!helper.startsWith(`${found.helperDir}/`)) {
+      throw new Error(
+        `${label}: ${helper.slice(squashfsRoot.length + 1)} is not inside ` +
+          `${found.helperDir.slice(squashfsRoot.length + 1)}.`,
+      );
+    }
+  }
+  for (const library of found.libraries) {
+    assertWebKitPathPatch(library, label);
+  }
+  return found;
 }
 
 /**

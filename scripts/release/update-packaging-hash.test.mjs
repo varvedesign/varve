@@ -180,22 +180,22 @@ sha256sums=('${SINGLE}')
   assert.match(srcinfo, new RegExp(`^\\tpkgver = ${pkgver.replaceAll('.', '\\.')}$`, 'm'));
   assert.match(
     srcinfo,
-    new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-x86_64\\.AppImage`),
+    new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-linux-x86_64\\.AppImage`),
   );
   assert.match(
     srcinfo,
-    new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-aarch64\\.AppImage`),
+    new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-linux-aarch64\\.AppImage`),
   );
   assert.match(
     srcinfo,
     new RegExp(
-      `source_x86_64 = Varve-${pkgver.replaceAll('.', '\\.')}-x86_64\\.AppImage::.*/releases/download/v${pkgver.replaceAll('.', '\\.')}/`,
+      `source_x86_64 = Varve-${pkgver.replaceAll('.', '\\.')}-linux-x86_64\\.AppImage::.*/releases/download/v${pkgver.replaceAll('.', '\\.')}/`,
     ),
   );
   assert.match(
     srcinfo,
     new RegExp(
-      `source_aarch64 = Varve-${pkgver.replaceAll('.', '\\.')}-aarch64\\.AppImage::.*/releases/download/v${pkgver.replaceAll('.', '\\.')}/`,
+      `source_aarch64 = Varve-${pkgver.replaceAll('.', '\\.')}-linux-aarch64\\.AppImage::.*/releases/download/v${pkgver.replaceAll('.', '\\.')}/`,
     ),
   );
   assert.match(srcinfo, new RegExp(`^\\tsha256sums_x86_64 = ${x86}$`, 'm'));

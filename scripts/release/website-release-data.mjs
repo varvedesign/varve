@@ -105,6 +105,29 @@ export function macosUnsignedCaveat(version) {
   );
 }
 
+/** First published AppImage that ships bundled WebKitGTK instead of host WebKit. */
+export const FIRST_BUNDLED_WEBKIT_APPIMAGE = '0.5.2';
+
+export function compareReleaseVersion(left, right) {
+  const parse = (value) =>
+    String(value ?? '')
+      .replace(/^v/, '')
+      .split(/[-+]/)[0]
+      .split('.')
+      .map((part) => Number(part) || 0);
+  const a = parse(left);
+  const b = parse(right);
+  for (let i = 0; i < 3; i += 1) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) - (b[i] ?? 0);
+  }
+  return 0;
+}
+
+export function appImageShipsBundledWebKit(version) {
+  if (!version) return false;
+  return compareReleaseVersion(version, FIRST_BUNDLED_WEBKIT_APPIMAGE) >= 0;
+}
+
 export function windowsUnsignedCaveat() {
   return (
     'Unsigned: Windows will show "Windows protected your PC". Choose More info, then Run anyway. ' +
@@ -115,16 +138,28 @@ export function windowsUnsignedCaveat() {
 /** Copy for each installer format, keyed by the manifest `format` field. */
 export function formatCopy(product, version) {
   return {
-    appimage: {
-      title: 'AppImage',
-      blurb:
-        'Portable file for Linux — no install, no root. Ships its own WebKitGTK, so it ' +
-        'launches without installing libwebkit2gtk.',
-      caveat:
-        'Requires FUSE2 and glibc 2.35+. On systems without FUSE2, run with ' +
-        '--appimage-extract-and-run. GPU/EGL come from the host Mesa stack.',
-      install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
-    },
+    appimage: appImageShipsBundledWebKit(version)
+      ? {
+          title: 'AppImage',
+          blurb:
+            'Portable file for Linux: no install, no root. Ships its own WebKitGTK, so it ' +
+            'launches without installing libwebkit2gtk.',
+          caveat:
+            'Requires FUSE2 and glibc 2.35+. On systems without FUSE2, run with ' +
+            '--appimage-extract-and-run. GPU/EGL come from the host Mesa stack. ' +
+            'GStreamer plugins are not bundled.',
+          install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
+        }
+      : {
+          title: 'AppImage',
+          blurb:
+            'Portable file for Linux: no install, no root. Uses the system WebKitGTK ' +
+            'libraries (same requirement as the .deb).',
+          caveat:
+            'Requires FUSE2 and a system WebKitGTK (libwebkit2gtk-4.1). On systems without ' +
+            'FUSE2, run with --appimage-extract-and-run.',
+          install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
+        },
     deb: {
       title: 'Debian package',
       blurb: 'For Debian 12+ and Ubuntu 22.04+.',

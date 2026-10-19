@@ -15,7 +15,9 @@ RUN apt-get update \
       libegl1 \
       libgbm1 \
       libgl1 \
+      libgl1-mesa-dri \
       libgles2 \
+      libglx-mesa0 \
       libnspr4 \
       libnss3 \
       libwayland-client0 \

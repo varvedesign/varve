@@ -1362,15 +1362,35 @@ assert.throws(
     /Open Anyway\. Do not disable Gatekeeper\.$/,
     '0.5.0 must not claim Open Anyway will appear',
   );
-  assert.doesNotMatch(
-    copy.appimage.blurb + copy.appimage.caveat,
+  assert.match(
+    formatCopy('Varve', '0.5.1').appimage.blurb + formatCopy('Varve', '0.5.1').appimage.caveat,
     /system WebKitGTK/,
-    'AppImage copy must not require a host WebKitGTK',
+    '0.5.x AppImage copy must still require host WebKitGTK',
   );
-  assert.match(copy.appimage.blurb, /WebKitGTK/);
+  assert.doesNotMatch(
+    formatCopy('Varve', '0.5.1').appimage.blurb,
+    /Ships its own WebKitGTK/,
+    '0.5.x AppImage copy must not claim a bundled WebKitGTK',
+  );
+  assert.match(
+    formatCopy('Varve', '0.5.2').appimage.blurb,
+    /Ships its own WebKitGTK/,
+    '0.5.2+ AppImage copy describes the bundled WebKitGTK',
+  );
+  assert.match(formatCopy('Varve', '0.5.2').appimage.caveat, /GStreamer plugins are not bundled/);
+  assert.doesNotMatch(
+    formatCopy('Varve', '0.5.2').appimage.blurb + formatCopy('Varve', '0.5.2').appimage.caveat,
+    /system WebKitGTK/,
+    '0.5.2+ AppImage copy must not require a host WebKitGTK',
+  );
   assert.match(copy.nsis.caveat, /More info, then Run anyway/);
   assert.match(copy.nsis.caveat, /Smart App Control/);
   const tauriConf = JSON.parse(readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8'));
+  assert.equal(
+    tauriConf.bundle.linux.appimage.bundleMediaFramework,
+    false,
+    'AppImage must not claim bundled GStreamer plugins',
+  );
   assert.equal(
     tauriConf.bundle.macOS.signingIdentity,
     '-',

@@ -778,6 +778,10 @@ jobs:
         if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: node scripts/release/prune-foreign-runtimes.mjs
 
+      - name: Pin linuxdeploy-plugin-gtk
+        if: matrix.enabled && runner.os == 'Linux' && env.REUSE_PLATFORM != 'true'
+        run: node scripts/release/ensure-linuxdeploy-plugin-gtk.mjs --tools-dir "$HOME/.cache/tauri"
+
       # ── macOS: import the Developer ID certificate into a temp keychain ──
       # Only runs when the signing preflight resolved macos -> signed. The
       # temporary keychain dies with the runner; nothing is uploaded.
@@ -1395,7 +1399,7 @@ jobs:
           fi
           IMG="$(realpath "${IMG}")"
           chmod +x "${IMG}"
-          bash scripts/release/smoke-appimage-self-contained.sh --appimage "${IMG}"
+          bash scripts/release/smoke-appimage-self-contained.sh --appimage "${IMG}" --distro all
 
   # ── 3c. Native runner smoke (Windows NSIS, macOS DMG) ──────────────────────
   # The matrix builds the packages; these jobs prove the packaged artifacts

@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
 # Launch an AppImage in a clean, offline container that does not have
 # libwebkit2gtk or GTK installed. This is the AppImageHub catalog shape:
-# no network, no host WebKit, a window must appear.
+# no network, no host WebKit, a window must appear on one Xvfb display.
 #
 #   scripts/release/smoke-appimage-self-contained.sh --appimage path/to/Varve-*.AppImage
+#   scripts/release/smoke-appimage-self-contained.sh --appimage path --distro fedora
+#   scripts/release/smoke-appimage-self-contained.sh --appimage path --distro all
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-CONTAINERFILE="$REPO_ROOT/scripts/release/appimage-smoke.Containerfile"
-IMAGE_TAG="${VARVE_APPIMAGE_SMOKE_IMAGE:-varve-appimage-smoke:local}"
+PROBE="$REPO_ROOT/scripts/release/smoke-appimage-probe.sh"
+WITH_DISPLAY="$REPO_ROOT/scripts/release/smoke-appimage-with-display.sh"
 APPIMAGE=""
 HOLD_SECONDS="${VARVE_APPIMAGE_SMOKE_SECONDS:-25}"
+HOLD_WEBKIT_SECONDS="${VARVE_APPIMAGE_SMOKE_WEBKIT_SECONDS:-3}"
+DISTRO="${VARVE_APPIMAGE_SMOKE_DISTRO:-ubuntu}"
+LOG_DIR=""
 
 usage() {
-  echo "Usage: $0 --appimage <Varve-*.AppImage>" >&2
+  echo "Usage: $0 --appimage <Varve-*.AppImage> [--distro ubuntu|fedora|all] [--log-dir DIR]" >&2
   exit 2
 }
 
@@ -31,6 +36,22 @@ while [[ $# -gt 0 ]]; do
       HOLD_SECONDS="${2:-}"
       shift 2
       ;;
+    --distro)
+      DISTRO="${2:-}"
+      shift 2
+      ;;
+    --distro=*)
+      DISTRO="${1#*=}"
+      shift
+      ;;
+    --log-dir)
+      LOG_DIR="${2:-}"
+      shift 2
+      ;;
+    --log-dir=*)
+      LOG_DIR="${1#*=}"
+      shift
+      ;;
     *)
       usage
       ;;
@@ -41,6 +62,8 @@ done
 [[ -f "$APPIMAGE" ]] || { echo "AppImage not found: $APPIMAGE" >&2; exit 1; }
 APPIMAGE="$(realpath "$APPIMAGE")"
 chmod +x "$APPIMAGE"
+[[ -x "$PROBE" ]] || chmod +x "$PROBE"
+[[ -x "$WITH_DISPLAY" ]] || chmod +x "$WITH_DISPLAY"
 
 if command -v podman >/dev/null 2>&1 && podman info >/dev/null 2>&1; then
   RUNTIME=podman
@@ -51,76 +74,103 @@ else
   exit 1
 fi
 
-echo "Building $IMAGE_TAG with $RUNTIME (network allowed only for the image build)..."
-"$RUNTIME" build --file "$CONTAINERFILE" --tag "$IMAGE_TAG" "$REPO_ROOT/scripts/release"
+containerfile_for() {
+  case "$1" in
+    ubuntu) echo "$REPO_ROOT/scripts/release/appimage-smoke.Containerfile" ;;
+    fedora) echo "$REPO_ROOT/scripts/release/appimage-smoke-fedora.Containerfile" ;;
+    *)
+      echo "Unknown smoke distro: $1 (expected ubuntu, fedora, or all)" >&2
+      exit 2
+      ;;
+  esac
+}
 
-LOG="$(mktemp)"
-cleanup() { rm -f "$LOG"; }
-trap cleanup EXIT
-
-echo "Launching $(basename "$APPIMAGE") with --network none, no host WebKitGTK..."
-set +e
-"$RUNTIME" run --rm --network none \
-  --security-opt label=disable \
-  -e HOLD_SECONDS="$HOLD_SECONDS" \
-  -v "$APPIMAGE:/opt/Varve.AppImage:ro" \
-  "$IMAGE_TAG" \
-  bash -lc '
-    set -euo pipefail
-    if dpkg -l "libwebkit2gtk*" 2>/dev/null | grep -q "^ii"; then
-      echo "REFUSING: libwebkit2gtk is installed in the smoke image" >&2
-      exit 1
-    fi
-    # Bind-mounted :ro — chmod here would fail. The host script already +x'd it.
-    export APPIMAGE_EXTRACT_AND_RUN=1
-    export WEBKIT_DISABLE_SANDBOX=1
-    LOG=/tmp/varve-appimage-smoke.log
-    dbus-run-session -- xvfb-run --auto-servernum \
-      /opt/Varve.AppImage --appimage-extract-and-run >"$LOG" 2>&1 &
-    PID=$!
-    i=0
-    while (( i < HOLD_SECONDS )); do
-      sleep 1
-      i=$((i + 1))
-      if ! kill -0 "$PID" 2>/dev/null; then
-        echo "AppImage exited early"
-        cat "$LOG" | head -40
-        wait "$PID" || true
-        exit 1
-      fi
-      if grep -qiE "EGL_BAD_PARAMETER|Aborting|libwebkit2gtk-4.1.so.0: cannot open" "$LOG"; then
-        echo "WebKit/EGL failure in app output:"
-        grep -iE "EGL|Aborting|webkit|shared object" "$LOG" | head -10
-        kill "$PID" 2>/dev/null || true
-        exit 1
-      fi
-      WINDOWS="$(xwininfo -root -tree 2>/dev/null || true)"
-      if printf "%s\n" "$WINDOWS" | grep -qiE "varve|WebKitGtk|GtkApplication"; then
-        WEB_PROCS="$(pgrep -fc "WebKitWebProcess|WebKitNetworkProcess" || true)"
-        echo "WINDOW_OK web_processes=${WEB_PROCS:-0}"
-        kill "$PID" 2>/dev/null || true
-        wait "$PID" 2>/dev/null || true
-        exit 0
-      fi
-    done
-    echo "No window after ${HOLD_SECONDS}s"
-    echo "--- log ---"
-    cat "$LOG" | head -40
-    echo "--- xwininfo ---"
-    xwininfo -root -tree 2>/dev/null | head -40 || true
-    echo "--- processes ---"
-    ps aux | head -40 || true
-    kill "$PID" 2>/dev/null || true
-    exit 1
-  ' | tee "$LOG"
-STATUS=${PIPESTATUS[0]}
-set -e
-if [[ "$STATUS" -ne 0 ]]; then
-  echo "AppImage self-contained smoke FAILED" >&2
-  exit "$STATUS"
-fi
-if ! grep -q WINDOW_OK "$LOG"; then
-  echo "AppImage self-contained smoke produced no WINDOW_OK marker" >&2
+refuse_webkit() {
+  case "$1" in
+    ubuntu)
+      cat <<'EOF'
+if dpkg -l "libwebkit2gtk*" 2>/dev/null | grep -q "^ii"; then
+  echo "REFUSING: libwebkit2gtk is installed in the smoke image" >&2
   exit 1
 fi
-echo "AppImage self-contained smoke PASSED (offline, no host libwebkit2gtk)"
+if dpkg -l "libgtk-3-0" 2>/dev/null | grep -q "^ii"; then
+  echo "REFUSING: libgtk-3-0 is installed in the smoke image" >&2
+  exit 1
+fi
+EOF
+      ;;
+    fedora)
+      cat <<'EOF'
+if rpm -q webkit2gtk4.1 >/dev/null 2>&1 || rpm -q webkit2gtk3 >/dev/null 2>&1; then
+  echo "REFUSING: webkit2gtk is installed in the smoke image" >&2
+  exit 1
+fi
+if rpm -q gtk3 >/dev/null 2>&1; then
+  echo "REFUSING: gtk3 is installed in the smoke image" >&2
+  exit 1
+fi
+EOF
+      ;;
+  esac
+}
+
+run_one() {
+  local distro="$1"
+  local containerfile image_tag log status
+  containerfile="$(containerfile_for "$distro")"
+  image_tag="${VARVE_APPIMAGE_SMOKE_IMAGE:-varve-appimage-smoke:$distro}"
+
+  echo "Building $image_tag with $RUNTIME (network allowed only for the image build)..."
+  "$RUNTIME" build --file "$containerfile" --tag "$image_tag" "$REPO_ROOT/scripts/release"
+
+  if [[ -n "$LOG_DIR" ]]; then
+    mkdir -p "$LOG_DIR"
+    log="$LOG_DIR/${distro}.log"
+  else
+    log="$(mktemp)"
+  fi
+  echo "Launching $(basename "$APPIMAGE") on $distro with --network none, no host WebKitGTK..."
+  set +e
+  "$RUNTIME" run --rm --network none \
+    --security-opt label=disable \
+    --security-opt seccomp=unconfined \
+    -e HOLD_SECONDS="$HOLD_SECONDS" \
+    -e HOLD_WEBKIT_SECONDS="$HOLD_WEBKIT_SECONDS" \
+    -e VARVE_APPIMAGE_PROBE_LOG="/tmp/varve-appimage-smoke.log" \
+    -v "$APPIMAGE:/opt/Varve.AppImage:ro" \
+    -v "$PROBE:/opt/smoke-appimage-probe.sh:ro" \
+    -v "$WITH_DISPLAY:/opt/smoke-appimage-with-display.sh:ro" \
+    "$image_tag" \
+    bash -lc "
+      set -euo pipefail
+      $(refuse_webkit "$distro")
+      bash /opt/smoke-appimage-with-display.sh \
+        bash /opt/smoke-appimage-probe.sh --appimage /opt/Varve.AppImage
+    " | tee "$log"
+  status=${PIPESTATUS[0]}
+  set -e
+  if [[ "$status" -ne 0 ]]; then
+    echo "AppImage self-contained smoke FAILED ($distro)" >&2
+    [[ -n "$LOG_DIR" ]] || rm -f "$log"
+    exit "$status"
+  fi
+  if ! grep -q WINDOW_OK "$log"; then
+    echo "AppImage self-contained smoke produced no WINDOW_OK marker ($distro)" >&2
+    [[ -n "$LOG_DIR" ]] || rm -f "$log"
+    exit 1
+  fi
+  if ! grep -qE 'WINDOW_OK web_processes=[1-9][0-9]* network_processes=[1-9][0-9]*' "$log"; then
+    echo "AppImage self-contained smoke did not report live WebKit helpers ($distro)" >&2
+    [[ -n "$LOG_DIR" ]] || rm -f "$log"
+    exit 1
+  fi
+  [[ -n "$LOG_DIR" ]] || rm -f "$log"
+  echo "AppImage self-contained smoke PASSED ($distro, offline, no host libwebkit2gtk)"
+}
+
+if [[ "$DISTRO" == all ]]; then
+  run_one ubuntu
+  run_one fedora
+else
+  run_one "$DISTRO"
+fi

@@ -22,11 +22,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
   APPSTREAM_DESKTOP_ID,
+  assertWebKitBundled,
   collectPrunePlan,
   collectRuntimePrunePlan,
   collectStrayBuildArtifacts,
   findBundledWebKit,
   isHostGraphicsLibraryName,
+  isHostSystemLibraryName,
   normalizeAppDirPermissions,
   normalizeAppImageDesktopEntries,
   prepareAppDirForRepack,
@@ -64,7 +66,12 @@ try {
   assert.equal(isHostGraphicsLibraryName('libGLX_nvidia.so.0'), true);
   assert.equal(isHostGraphicsLibraryName('libdrm.so.2'), true);
   assert.equal(isHostGraphicsLibraryName('libgbm.so.1'), true);
-  assert.equal(isHostGraphicsLibraryName('libwayland-egl.so.1'), true);
+  assert.equal(isHostGraphicsLibraryName('libwayland-egl.so.1'), false);
+  assert.equal(isHostSystemLibraryName('libwayland-egl.so.1'), true);
+  assert.equal(isHostSystemLibraryName('libwayland-client.so.0'), true);
+  assert.equal(isHostSystemLibraryName('libstdc++.so.6'), true);
+  assert.equal(isHostSystemLibraryName('libgcc_s.so.1'), true);
+  assert.equal(isHostSystemLibraryName('libwebkit2gtk-4.1.so.0'), false);
   assert.equal(isHostGraphicsLibraryName('libwebkit2gtk-4.1.so.0'), false);
   assert.equal(isHostGraphicsLibraryName('libgtk-3.so.0'), false);
   assert.equal(isHostGraphicsLibraryName('libglib-2.0.so.0'), false);
@@ -73,8 +80,26 @@ try {
   // ── 1. Resource directory and WebKit survive; GPU libs are removed ──────
   const appRoot = join(fixture, 'appdir');
   write(join(appRoot, 'usr', 'bin', 'varve-desktop'));
-  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libwebkit2gtk-4.1.so.0'));
+  write(
+    join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libwebkit2gtk-4.1.so.0'),
+    'ELF ././/lib/aarch64-linux-gnu/webkit2gtk-4.1',
+  );
+  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libjavascriptcoregtk-4.1.so.0'));
   write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'webkit2gtk-4.1', 'WebKitWebProcess'));
+  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'webkit2gtk-4.1', 'WebKitNetworkProcess'));
+  write(
+    join(
+      appRoot,
+      'usr',
+      'lib',
+      'aarch64-linux-gnu',
+      'webkit2gtk-4.1',
+      'injected-bundle',
+      'libwebkit2gtkinjectedbundle.so',
+    ),
+  );
+  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libstdc++.so.6'));
+  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libwayland-client.so.0'));
   write(
     join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'gtk-3.0', 'modules', 'libprintbackend.so'),
   );
@@ -98,9 +123,11 @@ try {
     [
       'usr/lib/aarch64-linux-gnu/dri',
       'usr/lib/aarch64-linux-gnu/libEGL.so.1',
+      'usr/lib/aarch64-linux-gnu/libstdc++.so.6',
+      'usr/lib/aarch64-linux-gnu/libwayland-client.so.0',
       'usr/lib64/libGL.so.1',
     ].sort(),
-    'only host GPU libraries and DRI drivers must be selected for removal',
+    'host GPU and system-sensitive libraries must be selected for removal',
   );
 
   for (const entry of plan.remove) rmSync(entry, { recursive: true, force: true });
@@ -138,7 +165,35 @@ try {
 
   const bundled = findBundledWebKit(appRoot);
   assert.equal(bundled.libraries.length, 1);
-  assert.equal(bundled.helpers.length, 1);
+  assert.equal(bundled.javascriptcore.length, 1);
+  assert.equal(bundled.webProcess.length, 1);
+  assert.equal(bundled.networkProcess.length, 1);
+  assert.equal(bundled.injectedBundles.length, 1);
+  assert.ok(bundled.helperDir.endsWith('webkit2gtk-4.1'));
+  assertWebKitBundled(appRoot, 'fixture');
+
+  const unpatched = join(fixture, 'unpatched');
+  write(join(unpatched, 'usr', 'lib', 'x86_64-linux-gnu', 'libjavascriptcoregtk-4.1.so.0'));
+  write(
+    join(unpatched, 'usr', 'lib', 'x86_64-linux-gnu', 'libwebkit2gtk-4.1.so.0'),
+    'ELF /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess',
+  );
+  write(join(unpatched, 'usr', 'lib', 'x86_64-linux-gnu', 'webkit2gtk-4.1', 'WebKitWebProcess'));
+  write(
+    join(unpatched, 'usr', 'lib', 'x86_64-linux-gnu', 'webkit2gtk-4.1', 'WebKitNetworkProcess'),
+  );
+  write(
+    join(
+      unpatched,
+      'usr',
+      'lib',
+      'x86_64-linux-gnu',
+      'webkit2gtk-4.1',
+      'injected-bundle',
+      'libwebkit2gtkinjectedbundle.so',
+    ),
+  );
+  assert.throws(() => assertWebKitBundled(unpatched, 'unpatched'), /relocation|unpatched/);
 
   // ── 2. Missing resource directory: WebKit stays, GPU still goes ────────
   const bareRoot = join(fixture, 'bare');

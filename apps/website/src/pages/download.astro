@@ -5,6 +5,7 @@ import Layout from '../layouts/Layout.astro';
 import { sitePath, siteUrl } from '../lib/siteUrl';
 import {
   CHECKSUM_COMMANDS,
+  appImageShipsBundledWebKit,
   livePackageManagerChannels,
   macosUnsignedCaveat,
   windowsUnsignedCaveat,
@@ -14,6 +15,7 @@ import { appImageUpdaterSignatureNotice } from '../lib/release-availability';
 import { PRODUCT_STATUS, type ProductStatusStage } from '@varve/shared';
 
 const appImageSignatureNotice = appImageUpdaterSignatureNotice();
+const appImageBundlesWebKit = appImageShipsBundledWebKit(release.version);
 
 /**
  * SoftwareApplication JSON-LD for the download page itself. The homepage
@@ -202,7 +204,9 @@ function platformTrustLabel(
 const REQUIREMENTS: Record<string, string[]> = {
   linux: [
     'OS: any distribution with glibc 2.35 or newer (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS)',
-    'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (.deb/.rpm/AUR pull these in automatically; the AppImage bundles WebKitGTK and GTK)',
+    appImageBundlesWebKit
+      ? 'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (.deb/.rpm/AUR pull these in automatically; the AppImage bundles WebKitGTK and GTK)'
+      : 'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (.deb/.rpm/AUR/AppImage all need these on the host)',
     'CPU: choose the download labeled x86_64 or ARM64 to match your Linux machine',
     'RAM: 4 GB minimum, 8 GB recommended',
     'Display: Wayland or X11',
@@ -639,8 +643,10 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   <h3>Which package should I choose?</h3>
                   <p class="format-tradeoffs-intro">
                     Choose a package for your distro. Every Linux build requires glibc 2.35 or newer.
-                    Debian/RPM/AUR packages need the system WebKitGTK libraries; the AppImage
-                    bundles WebKitGTK.
+                    Debian/RPM/AUR packages need the system WebKitGTK libraries
+                    {appImageBundlesWebKit
+                      ? '; the AppImage bundles WebKitGTK.'
+                      : '. The current AppImage needs those same host libraries.'}
                   </p>
                   <div class="distro-picker">
                     <table class="distro-table">
@@ -691,7 +697,10 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       package manager. Use it on openSUSE and other glibc-based distros that meet
                       the requirements below. It is not a universal Linux ABI: Alpine and other
                       musl-based systems are not supported. Requires glibc 2.35+ and FUSE2 (or{' '}
-                      <code>--appimage-extract-and-run</code>). WebKitGTK is bundled.
+                      <code>--appimage-extract-and-run</code>).
+                      {appImageBundlesWebKit
+                        ? ' WebKitGTK is bundled. GStreamer plugins are not.'
+                        : ' It uses the system WebKitGTK libraries.'}
                       On Arch and CachyOS, the repository PKGBUILD is also available.
                     </p>
                     <p>
@@ -962,8 +971,11 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 <a href="https://github.com/AppImage/AppImageKit/wiki/FUSE" target="_blank" rel="noopener noreferrer">official AppImage FUSE guide</a> for other distributions.
               </li>
               <li>
-                <strong>Linux — AppImage white screen or EGL error:</strong> the AppImage uses
-                host Mesa/EGL with bundled WebKitGTK. If the window stays blank, try{' '}
+                <strong>Linux: AppImage white screen or EGL error:</strong>
+                {appImageBundlesWebKit
+                  ? ' the AppImage uses host Mesa/EGL with bundled WebKitGTK.'
+                  : ' the current AppImage uses host WebKitGTK and host Mesa/EGL.'}{' '}
+                If the window stays blank, try{' '}
                 <code>WEBKIT_DISABLE_DMABUF_RENDERER=1 ./Varve-*.AppImage</code> or install the
                 <code>.deb</code> / <code>.rpm</code> instead.
               </li>

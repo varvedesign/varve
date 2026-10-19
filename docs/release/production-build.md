@@ -176,21 +176,24 @@ This is set in `justfile` (`package-linux`, `package-appimage`) and in
 `release.yml`'s Tauri build step.
 
 **WebKit EGL vs AppImageHub (AppImage only).** linuxdeploy-plugin-gtk bundles
-the GTK/WebKit/GStreamer closure from the ubuntu-22.04 baseline, including
-Mesa/EGL. On distros with a newer Mesa stack the bundled `libEGL` fails
-display creation (`EGL_BAD_PARAMETER`) and the window stays white. v0.1.1
-through v0.5.1 deleted the entire `usr/lib` toolkit so the AppImage used
-host WebKit like the `.deb`. That fixed the white screen and failed
-AppImageHub: a clean offline VM has no `libwebkit2gtk-4.1.so.0`.
+the GTK/WebKit closure from the ubuntu-22.04 baseline, including Mesa/EGL
+when the host has them. `bundleMediaFramework` stays false, so GStreamer
+plugins and `gst-plugin-scanner` are not shipped. On distros with a newer
+Mesa stack the bundled `libEGL` fails display creation (`EGL_BAD_PARAMETER`)
+and the window stays white. v0.1.1 through v0.5.1 deleted the entire
+`usr/lib` toolkit so the AppImage used host WebKit like the `.deb`. That
+fixed the white screen and failed AppImageHub: a clean offline VM has no
+`libwebkit2gtk-4.1.so.0`.
 
-The current pack keeps WebKitGTK/GTK/GStreamer and deletes only the host
-GPU/EGL/Mesa/DRI/Vulkan libraries, then re-assembles with
-`--exclude-library '*'` so linuxdeploy cannot copy Mesa back in. Bundled
-WebKit talks to host `libEGL`. `WEBKIT_DISABLE_DMABUF_RENDERER=1`
-(`APPIMAGE`-gated in `apps/desktop/src-tauri/src/lib.rs`) remains the
-compositor fallback. libc is unbundled (glibc 2.35 floor). The release
-smoke launches the AppImage in a container without `libwebkit2gtk` and
-with `--network none`.
+The next pack keeps WebKitGTK/GTK and deletes host GPU/EGL/Mesa/DRI/Vulkan
+libraries plus system-sensitive copies (`libstdc++`, `libgcc_s`,
+`libwayland-*`). It then re-assembles with `--exclude-library '*'` so
+linuxdeploy cannot copy Mesa back in. Bundled WebKit talks to host `libEGL`.
+`WEBKIT_DISABLE_DMABUF_RENDERER=1` (`APPIMAGE`-gated in
+`apps/desktop/src-tauri/src/lib.rs`) remains the compositor fallback. libc
+is unbundled (glibc 2.35 floor). The release smoke launches the AppImage in
+ubuntu:22.04 and fedora:latest containers without `libwebkit2gtk` and with
+`--network none`.
 
 The `just package-linux`, `just package-appimage`, and
 `just package-linux-dev` recipes run this prune step automatically after Tauri
