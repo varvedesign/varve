@@ -166,6 +166,107 @@ describe('PSD mask import (D13)', () => {
     );
   });
 
+  it('rejects excessive group nesting before converting any nodes', () => {
+    let nested: { type: 'Group'; name: string; children: unknown[] } = {
+      type: 'Group',
+      name: 'Deepest',
+      children: [makeBasicPsdResponse().children[0]!],
+    };
+    for (let depth = 1; depth < 65; depth++) {
+      nested = { type: 'Group', name: `Group ${depth}`, children: [nested] };
+    }
+    (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...makeBasicPsdResponse(),
+      children: [nested],
+    });
+
+    const result = createPsdParser().parse(makeSimplePsdBuffer());
+
+    expect(result.nodeIds).toEqual([]);
+    expect(
+      Object.values(result.document.nodes).some(
+        (node) => node.name === 'Deepest' || node.name === 'Layer 1',
+      ),
+    ).toBe(false);
+    expect(
+      result.warnings.some((warning) => warning.includes('nesting exceeds the 64 level limit')),
+    ).toBe(true);
+  });
+
+  it('rejects excessive group nesting in the async conversion path', async () => {
+    let nested: { type: 'Group'; name: string; children: unknown[] } = {
+      type: 'Group',
+      name: 'Deepest',
+      children: [makeBasicPsdResponse().children[0]!],
+    };
+    for (let depth = 1; depth < 65; depth++) {
+      nested = { type: 'Group', name: `Group ${depth}`, children: [nested] };
+    }
+    (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...makeBasicPsdResponse(),
+      children: [nested],
+    });
+
+    const result = await createPsdParser().parseAsync!(makeSimplePsdBuffer());
+
+    expect(result.nodeIds).toEqual([]);
+    expect(
+      result.warnings.some((warning) => warning.includes('nesting exceeds the 64 level limit')),
+    ).toBe(true);
+  });
+
+  it('rejects repeated references and oversized root child lists in the async path', async () => {
+    const shared = makeBasicPsdResponse().children[0]!;
+    (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...makeBasicPsdResponse(),
+      children: [{ type: 'Group', name: 'Repeated', children: [shared, shared] }],
+    });
+
+    const repeated = await createPsdParser().parseAsync!(makeSimplePsdBuffer());
+    expect(repeated.nodeIds).toEqual([]);
+    expect(repeated.warnings.some((warning) => warning.includes('repeated node reference'))).toBe(
+      true,
+    );
+
+    (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...makeBasicPsdResponse(),
+      children: Array.from({ length: 500_001 }, () => shared),
+    });
+    const oversized = await createPsdParser().parseAsync!(makeSimplePsdBuffer());
+    expect(oversized.nodeIds).toEqual([]);
+    expect(oversized.warnings.some((warning) => warning.includes('child-slot count exceeds'))).toBe(
+      true,
+    );
+  });
+
+  it('rejects node-count and nested child-slot budgets in the async path', async () => {
+    const layer = makeBasicPsdResponse().children[0]!;
+    (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...makeBasicPsdResponse(),
+      children: Array.from({ length: 50_001 }, (_, index) => ({
+        ...layer,
+        name: `Layer ${index}`,
+      })),
+    });
+    const tooManyNodes = await createPsdParser().parseAsync!(makeSimplePsdBuffer());
+    expect(tooManyNodes.nodeIds).toEqual([]);
+    expect(tooManyNodes.warnings.some((warning) => warning.includes('node count exceeds'))).toBe(
+      true,
+    );
+
+    (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue({
+      ...makeBasicPsdResponse(),
+      children: [
+        { type: 'Group', name: 'Wide', children: Array.from({ length: 500_000 }, () => layer) },
+      ],
+    });
+    const tooManySlots = await createPsdParser().parseAsync!(makeSimplePsdBuffer());
+    expect(tooManySlots.nodeIds).toEqual([]);
+    expect(
+      tooManySlots.warnings.some((warning) => warning.includes('child-slot count exceeds')),
+    ).toBe(true);
+  });
+
   it('imports a layer with an active mask', () => {
     const psd = makeBasicPsdResponse();
     psd.children[0] = {

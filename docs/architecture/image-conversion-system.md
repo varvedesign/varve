@@ -37,6 +37,16 @@ that. They also record detected animation, EXIF orientation, ICC/color
 metadata, and fidelity warnings. A GIF/APNG/WebP can therefore retain media
 facts even though editor placement is currently a first-frame raster.
 
+Layered PSD/PSB document import validates the returned layer tree iteratively
+before conversion: nesting is capped at 64 levels, total nodes at 50,000, and
+child slots at 500,000. Cycles or repeated object references are rejected as a
+whole, before Varve creates partial scene content. The upstream `@webtoon/psd`
+parser builds the tree iteratively but freezes nested groups recursively; an
+extreme-depth input can fail inside that dependency before Varve receives the
+tree. That exception is caught at the import boundary and reported as a parse
+warning. The Varve limits therefore bound conversion work, but do not change
+the dependency's earlier recursion behavior.
+
 ## Conversion contract
 
 The implementation lives in `packages/import/src/rasterConversion.ts`.

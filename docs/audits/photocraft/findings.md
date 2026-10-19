@@ -763,3 +763,48 @@ drifts in untouched collab, first-run, and website files; this audit does not
 report a clean full affected run. Focused browser save/reopen and three-theme
 visual checks passed. The pending broad Vitest sweep must not be reported as
 passing.
+
+## F-018 — PSD layer conversion needs explicit tree work limits
+
+**Source.** PhotoCraft [#6423](https://github.com/storytold/photocraft/issues/6423)
+reports stack overflow and exponential expansion in recursive Affinity
+compound-shape import. Varve has no Affinity importer, so that exact format path
+does not apply. The related PhotoCraft [#6486](https://github.com/storytold/photocraft/pull/6486)
+proposes cycle, depth, and aggregate-work guards for that importer. PhotoCraft
+also fixed nested spot-color graph recursion in [#6506](https://github.com/storytold/photocraft/pull/6506).
+Related failures include Filmcraft [#2063](https://github.com/storytold/filmcraft/issues/2063)
+and Effectcraft [#1128](https://github.com/storytold/effectcraft/issues/1128),
+which document recursive media/group import failures in the same application
+family. These are evidence of a recurring import boundary risk, not evidence
+that Varve supports or should add Affinity import.
+
+**Varve applicability.** The PSD/PSB importer accepts nested layer groups. Both
+its synchronous and asynchronous converters recursively descend those groups
+without a depth or aggregate-node limit. `@webtoon/psd` 0.4.0 builds its tree
+iteratively, but recursively freezes nested groups before returning it; an
+extreme-depth source can fail there first. Varve catches that dependency error
+at the import boundary, but returned trees still needed bounded conversion and
+cycle/repeated-reference checks.
+
+**Implementation status.** Both conversion paths now run an iterative tree
+preflight before creating imported nodes. It rejects depth over 64, more than
+50,000 nodes, more than 500,000 child slots, and repeated object references.
+The rejection returns the original import document with a warning, so a
+partially converted document is not exposed. Focused tests cover the depth
+limit in both sync and async paths, repeated references, node count, root child
+slots, and aggregate nested child slots. The upstream recursive freeze behavior
+remains a documented limitation; this change does not patch or replace
+`@webtoon/psd`.
+
+The PhotoCraft issue itself is recorded as an out-of-scope format report with
+an implemented Varve PSD analogue. The public file-format page already lists
+PSD/PSB import; it now states the tree limits. No public page claims Affinity
+file import.
+
+**Validation status.** Focused PSD tests passed (30 tests across
+`psd-mask.test.ts` and `psd.test.ts`); import, editor, and website typechecks
+passed. `pnpm audit:docs` passed. The affected planner stops at existing
+`audit:radius` drift in untouched editor files, so remaining selected package
+and browser lanes require direct runs. The lease-wrapped real PSD/PSB visual
+import E2E passed and its Import Results screenshot baseline was inspected. The
+targeted website E2E still needs a lease and result.

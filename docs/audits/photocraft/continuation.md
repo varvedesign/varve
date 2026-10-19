@@ -1,6 +1,6 @@
 # Photocraft review continuation
 
-Last updated: 2026-10-18. Status: active and incomplete.
+Last updated: 2026-10-19. Status: active and incomplete.
 
 ## Current engineering batch (2026-10-18)
 
@@ -190,7 +190,7 @@ Last updated: 2026-10-18. Status: active and incomplete.
   These reports do not establish PhotoCraft's exact save-corruption path in
   Varve's f64 model. The adjacent native GPU f64-to-f32 admission defect found
   from #6424 is implemented; the dependent desktop test lane remains pending.
-- Link frontier: #1101; #6423's related link(s); #6392's
+- Link frontier: #1101; #6392's
   #3641 / SolidCraft evidence; #6962's #2850/#2339/#2687; #6964's #3384/#6669;
   #2784's inspected video symptoms and remaining Varve workflow ambiguity; and all relevant
   links not yet enumerated from the corpus.
@@ -602,3 +602,23 @@ Last updated: 2026-10-18. Status: active and incomplete.
   the #6424 and #4201 issue-inventory records now reflect the current evidence.
   The focused Inspector unit and desktop Rust checks remain pending, as does
   integration into master.
+
+- PhotoCraft #6423 and recursive import evidence: the exact Affinity compound
+  import path is outside Varve's supported formats. The review found an
+  analogous weakness in Varve's PSD/PSB group conversion: both converters
+  recursively walked nested groups without aggregate limits. Both now perform
+  an iterative preflight that rejects depth over 64, more than 50,000 nodes,
+  more than 500,000 child slots, and repeated references before conversion.
+  Tests cover depth rejection in both paths, plus repeated references, node
+  count, root child slots, and aggregate nested child slots. The upstream `@webtoon/psd` dependency
+  still recursively freezes groups before returning the parsed tree; that
+  earlier boundary is caught and documented, not patched. Related PhotoCraft
+  #6486/#6506 and Filmcraft #2063 / Effectcraft #1128 show the same import graph
+  risk in adjacent parsers. Focused PSD tests pass (30), and import/editor/
+  website typechecks pass. The affected planner stops at existing radius-token
+  drift in untouched editor files, so the broader selected lanes did not
+  complete. The real PSD/PSB import E2E passed and its Import Results screenshot
+  baseline was inspected. The public file-format page lists PSD/PSB import; it
+  now states the tree limits, with an assertion added to its screenshot E2E.
+  That targeted website E2E is waiting for a different worktree's live lease.
+  No public page claims Affinity import. See F-018.

@@ -34,6 +34,9 @@ const MAX_PSD_ENCODED_BYTES = 128 * 1024 * 1024;
 const MAX_PSD_PIXELS = 64 * 1024 * 1024;
 const MAX_PSD_DIMENSION = 300_000;
 const MAX_PSD_LAYER_RGBA_BYTES = MAX_PSD_PIXELS * 4;
+const MAX_PSD_TREE_DEPTH = 64;
+const MAX_PSD_TREE_NODES = 50_000;
+const MAX_PSD_TREE_CHILD_SLOTS = 500_000;
 
 /**
  * Map PSD blend mode constants to Varve blend modes.
@@ -185,6 +188,12 @@ function parsePsdData(data: Uint8Array, opts: ImportOptions, warnings: string[])
     ) as ArrayBuffer;
     const psd = Psd.parse(buf);
 
+    const treeError = validatePsdLayerTree(psd.children ?? []);
+    if (treeError) {
+      warnings.push(`${formatLabel} layer tree rejected: ${treeError}`);
+      return { document: doc, nodeIds, warnings };
+    }
+
     if (!psd.children || psd.children.length === 0) {
       warnings.push(`${formatLabel} file contains no layers`);
       return { document: doc, nodeIds, warnings };
@@ -237,6 +246,12 @@ async function parsePsdDataAsync(
 
   const buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
   const psd = Psd.parse(buf);
+
+  const treeError = validatePsdLayerTree(psd.children ?? []);
+  if (treeError) {
+    warnings.push(`${formatLabel} layer tree rejected: ${treeError}`);
+    return { document: doc, nodeIds, warnings };
+  }
 
   if (!psd.children || psd.children.length === 0) {
     warnings.push(`${formatLabel} file contains no layers`);
@@ -472,6 +487,51 @@ interface PsdConvertResult {
   ids: string[];
   /** The editable pixel-bearing layer when ids[0] is a mask container. */
   contentId?: string;
+}
+
+/**
+ * Bound the work and recursion in the returned layer tree before either
+ * converter walks it. @webtoon/psd builds its tree iteratively, but its
+ * recursive freeze step can throw before returning extremely deep input; the
+ * parser boundary catches that failure. This check covers returned trees and
+ * rejects malformed cycles/shared references as well as oversized documents.
+ */
+function validatePsdLayerTree(roots: readonly (PsdGroup | PsdLayer)[]): string | undefined {
+  if (roots.length > MAX_PSD_TREE_CHILD_SLOTS) {
+    return `child-slot count exceeds the ${MAX_PSD_TREE_CHILD_SLOTS} slot limit`;
+  }
+  const seen = new WeakSet<object>();
+  const pending = roots.map((node) => ({ node, depth: 1 }));
+  let visitedNodes = 0;
+  let visitedChildSlots = roots.length;
+
+  while (pending.length > 0) {
+    const entry = pending.pop();
+    if (!entry) continue;
+    if (entry.depth > MAX_PSD_TREE_DEPTH) {
+      return `nesting exceeds the ${MAX_PSD_TREE_DEPTH} level limit`;
+    }
+    if (seen.has(entry.node)) {
+      return 'layer tree contains a cycle or repeated node reference';
+    }
+    seen.add(entry.node);
+    visitedNodes += 1;
+    if (visitedNodes > MAX_PSD_TREE_NODES) {
+      return `node count exceeds the ${MAX_PSD_TREE_NODES} node limit`;
+    }
+
+    if (entry.node.type !== 'Group') continue;
+    const children = entry.node.children;
+    visitedChildSlots += children.length;
+    if (visitedChildSlots > MAX_PSD_TREE_CHILD_SLOTS) {
+      return `child-slot count exceeds the ${MAX_PSD_TREE_CHILD_SLOTS} slot limit`;
+    }
+    for (const child of children) {
+      pending.push({ node: child, depth: entry.depth + 1 });
+    }
+  }
+
+  return undefined;
 }
 
 function convertPsdNode(

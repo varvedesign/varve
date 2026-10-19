@@ -29,7 +29,7 @@
 
 ## Key facts (feature status)
 
-- Import formats: SVG, PDF, PSD/PSB, AI, EPS, Sketch, Figma REST/plugin JSON with bounded native `.fig` archive decoding, DNG/RAW in the documented subset, OpenEXR, and common image formats (PNG, JPG, WebP, AVIF, GIF, BMP, TIFF).
+- Import formats: SVG, PDF, PSD/PSB (layer trees capped at 64 levels, 50,000 nodes, and 500,000 child slots), AI, EPS, Sketch, Figma REST/plugin JSON with bounded native `.fig` archive decoding, DNG/RAW in the documented subset, OpenEXR, and common image formats (PNG, JPG, WebP, AVIF, GIF, BMP, TIFF).
 - Export formats: SVG, PDF (RGB), PDF/X-1a and PDF/X-4 (CMYK), PNG/WebP/JPEG, code export (React/Tailwind, React/CSS Modules, Svelte, Vue, Web Components, Flutter, SwiftUI, email HTML), and CSS/Lottie/SVG animation. MP4/WebM video export is capability-gated on the platform's WebCodecs support.
 - Print support: CMYK color management, ICC profiles, crop and registration marks, color bars, bleed boxes, print preflight checks.
 - Typography: multi-line text, OpenType features, variable fonts, text on path, inline editing, CJK line breaking. Complex-script shaping and bidirectional layout are implemented in the text engine, but the live canvas still falls back to browser measurement in places, so Arabic, Devanagari, Thai, and similar scripts are not yet guaranteed to match across fonts and exports — verify the exported result.
