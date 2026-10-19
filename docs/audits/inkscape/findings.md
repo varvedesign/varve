@@ -3098,3 +3098,116 @@ All nine issue bodies and all available cached discussion records were reviewed.
 - [#1980](https://gitlab.com/inkscape/inkscape/-/issues/1980) reports the Rotate Copies LPE angle display becoming stale after changing copy count; the discussion traces a fix, a release-blocker revert, and later reports. Varve has no live path effects or Rotate Copies control, so the reported state bug has no current equivalent.
 
 Marketing review: the website describes compound paths in tracing, shape building, and stroke expansion but makes no claim that Offset Path handles compound holes. No marketing wording change is justified by this fix. The touch-and-pen documentation's former thick caveat accent was softened to a 1px subtle border in the prior merged slice, as requested; this finding was fixed and not suppressed.
+
+## Inkscape IID 1981–1990
+
+The ten issue descriptions and their cached discussions were reviewed on
+2026-10-19. The cache contains 139 note records: 87 user comments and 52
+system/history events. Every per-issue user-comment count matches the tracker
+count. Linked issues, UX reports, merge requests, and the Pango API reference
+were followed where they establish the cause or disposition. The inventory's
+other unresolved retrieval mismatches are not changed by this batch.
+
+- [#1981](https://gitlab.com/inkscape/inkscape/-/issues/1981) asks what the
+  palette's Size, Width, Border, and Wrap controls mean. The discussion moved
+  to [UX #51](https://gitlab.com/inkscape/ux/-/issues/51); several commenters
+  found the choices confusing, and the reported size malfunction was already
+  tracked in [#1453](https://gitlab.com/inkscape/inkscape/-/issues/1453).
+  Varve has no equivalent persistent bottom palette bar or those controls, so
+  there is no direct control to rename or patch.
+- [#1982](https://gitlab.com/inkscape/inkscape/-/issues/1982) reports
+  connectors shifting or disappearing after clipboard export. Its two user
+  comments reproduce wrong positioning in 0.92.5/1.0 and state it no longer
+  occurs in 1.1-dev after bisection to commit
+  `0343071d390153ef3879db6eb18de50c4758ff7d`. The discussion separately points
+  to [#1467](https://gitlab.com/inkscape/inkscape/-/issues/1467), an EMF
+  availability issue. Varve has no matching connector-document model, and no
+  connector copy/export behavior was asserted by the site.
+- [#1983](https://gitlab.com/inkscape/inkscape/-/issues/1983) reports line
+  height changing when a font family is applied to a full nested-tspan
+  selection. The thread distinguishes inner selection updates from outer
+  text-element metrics and links [MR !796](https://gitlab.com/inkscape/inkscape/-/merge_requests/796),
+  which describes that selection distinction as existing UX policy rather
+  than a renderer fix. Varve stores rich-text line-height formatting on source
+  runs and lays out paragraphs through its text pipeline; the reviewed report
+  does not establish a Varve reproduction or a missing invariant, so no
+  speculative formatting change was made.
+- [#1984](https://gitlab.com/inkscape/inkscape/-/issues/1984) reports a
+  Cairo/Pango PDF/PS export abort with marker paints using `context-stroke`.
+  Follow-up separates the GTK print-preview problem into [#1985](https://gitlab.com/inkscape/inkscape/-/issues/1985).
+  Later Inkscape work addressed related context-paint PDF crashes in
+  [MR !4676](https://gitlab.com/inkscape/inkscape/-/merge_requests/4676) and
+  [MR !7169](https://gitlab.com/inkscape/inkscape/-/merge_requests/7169).
+  Varve's editor PDF path does not use Cairo/Pango or serialize SVG
+  `context-stroke` paints into its print model; no equivalent crash was
+  demonstrated. The related Inkscape follow-up history remains distinct from
+  the reported trigger.
+- [#1985](https://gitlab.com/inkscape/inkscape/-/issues/1985) concerns GTK's
+  Linux Print Preview command being hard-coded to Evince, which fails for some
+  users of Atril. Its five user comments trace the setting to GTK and the
+  upstream [GTK #3332](https://gitlab.gnome.org/GNOME/gtk/-/issues/3332), with
+  an Atril argument-compatibility report at
+  [Atril #5](https://github.com/mate-desktop/atril/issues/5). Varve does not
+  launch a system PDF previewer from its export workflow, so this GTK command
+  issue does not map to Varve.
+- [#1986](https://gitlab.com/inkscape/inkscape/-/issues/1986) is the
+  optical-size (`opsz`) variable-font translation bug fixed in
+  [MR !2470](https://gitlab.com/inkscape/inkscape/-/merge_requests/2470): the
+  code used the display label instead of the OpenType axis name. The discussion
+  also split adjacent Fraunces custom-axis and italic-reset cases into
+  [#2013](https://gitlab.com/inkscape/inkscape/-/issues/2013) and
+  [#2014](https://gitlab.com/inkscape/inkscape/-/issues/2014). Varve stores
+  four-character axis tags and enumerates metadata-provided axes in the Font
+  Browser; its model and rendering adapters carry arbitrary tagged values.
+  No corresponding reset or label/tag mismatch was found in the reviewed
+  Varve path. A later Inkscape issue, [#5968](https://gitlab.com/inkscape/inkscape/-/work_items/5968),
+  reports that a multi-axis widget is hard to use in a constrained dialog; this
+  is an adjacent UI concern, not evidence of the 2020 data-loss bug in Varve.
+- [#1987](https://gitlab.com/inkscape/inkscape/-/issues/1987) reports
+  inconsistent OpenType feature application around nested tspans and ligature
+  carets. The discussion identifies Pango shaping across text-item boundaries
+  and points to [Pango #511](https://gitlab.gnome.org/GNOME/pango/-/issues/511);
+  its proposed `pango_shape_full()` path would be a major Inkscape text rewrite.
+  Pango's current API documentation likewise recommends `shape_full()` when
+  shaping must interact across item boundaries
+  ([Pango API](https://docs.gtk.org/Pango/func.shape.html)). Varve's current
+  Canvas2D live renderer remains browser-shaped, while font-byte shaping and
+  per-range features belong to the derived layout/outlining path; the existing
+  [text-pipeline architecture](../../architecture/text-pipeline.md) and
+  [typography platform matrix](../../architecture/typography-platform.md) record
+  that boundary. This batch found no new isolated patch that could claim to
+  fix feature/caret parity across every live text backend; preserve it as a
+  known typography validation area rather than overstate parity.
+- [#1988](https://gitlab.com/inkscape/inkscape/-/issues/1988) disputes whether
+  Paste in Place should insert at the selected object's depth. The 24-comment
+  discussion is split between the established top-of-stack behavior and a
+  selection-relative expectation, then branches to
+  [UX #56](https://gitlab.com/inkscape/ux/-/issues/56). Adobe Illustrator
+  explicitly separates Paste in Place (position) from Paste in Front and Paste
+  in Back (stacking) in its
+  [paste commands](https://helpx.adobe.com/ie/illustrator/desktop/manage-objects/arrange-objects/move-or-duplicate-an-object-by-pasting.html).
+  An Affinity Designer report describes inconsistent paste location and
+  stacking expectations as well
+  ([user discussion](https://www.reddit.com/r/AffinityDesigner/comments/143oym7)).
+  Varve currently has no separate Paste in Place/Front/Back commands; ordinary
+  same-document clipboard pose preservation and insertion order are separate
+  contracts. Automatically changing z-order based on an incidental selection
+  would choose between conflicting expectations without a user action, so no
+  semantics were changed in this batch. Explicit, separately named stack-aware
+  paste actions remain a better-scoped future UX option if the workflow is
+  prioritized.
+- [#1989](https://gitlab.com/inkscape/inkscape/-/issues/1989) reports a crash
+  editing a Slice live path effect and points to duplicate
+  [#1990](https://gitlab.com/inkscape/inkscape/-/issues/1990). The latter's
+  discussion records the fix landing in Inkscape master in December 2020.
+  Varve has no live-path-effect Slice model or node-editing handles for it.
+
+The website review covered the existing typography and clipboard pages. They
+make no claims about cross-tspan ligature parity, Inkscape-style connectors,
+GTK Print Preview, or selection-relative paste stacking; the font page's
+variable-font-instance wording matches the behavior reviewed. No marketing
+copy or screenshot change is justified by this batch. The touch-and-pen caveat
+accent is already softened to a 1px subtle border per the user's direction;
+the design hook finding is fixed, not suppressed, and no ignore rule was
+added. No code fix was justified by IID 1981–1990 after checking the related
+Varve paths and upstream dispositions.

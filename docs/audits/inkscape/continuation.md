@@ -2,6 +2,45 @@
 
 Last updated: 2026-10-19.
 
+## Resume checkpoint — IID 1981–1990 evidence review
+
+- The next ten Inkscape issue descriptions and all cached discussions have now
+  been reviewed: 139 notes (87 user comments and 52 system/history events),
+  with every per-issue user-comment count reconciled. The issue-by-issue source
+  links and dispositions are in `findings.md` and `issue-ledger.jsonl`.
+- Linked evidence followed includes Inkscape #1453, #1467, #2013/#2014, UX
+  #51/#56, MR !2470, MR !796, Pango #511/API guidance, GTK #3332, Atril #5,
+  and Inkscape's later context-paint PDF fixes. The batch found no safely
+  isolated Varve code fix: palette controls, connectors, Evince preview, and
+  Slice LPEs have no direct Varve equivalent; the variable-axis bug is fixed
+  upstream and Varve carries arbitrary axis tags; line-height and rich-text
+  feature shaping require validation against Varve's own rich-range contract;
+  the Paste-in-Place request is disputed. Illustrator explicitly separates
+  position-preserving paste from stack-aware front/back commands, while an
+  Affinity user report illustrates how inconsistent expectations cause
+  confusion. No implicit stack-order change was made.
+- Website impact review covered the typography and clipboard pages. Their
+  current claims match available behavior and do not claim the affected
+  connector, cross-tspan shaping, GTK print-preview, or z-order behavior; no
+  website change is warranted. The touch-and-pen caveat accent was previously
+  softened to a 1px subtle border per the user's direction; its hook finding
+  is fixed, with no suppression.
+- Read-only independent review of PR #149 found a P2 edge case in
+  `offsetPathNode`: the current compound-hole regression assumes nonzero fill
+  and opposite ring winding. Even-odd fill treats same-winding nested rings as
+  holes, so offset direction must be based on fill topology, not winding alone.
+  This is now the outstanding implementation item; add a same-winding even-odd
+  regression, rerun the affected visual path, and recertify the exact branch
+  head before merge. The prior candidate's hosted CI was queued at SHA
+  `9212098d9176093d41e419af451b15bc1908e69f`; that evidence does not cover a
+  follow-up fix.
+- Current docs-only continuation branch: `codex/inkscape-corpus-1981-1990`,
+  stacked locally on the PR #149 candidate. It is not pushed or opened as a PR
+  yet. First finish the #1976 even-odd topology review and land that corrected
+  implementation through PR #149's normal checks, then rebase this docs commit
+  on current `master` before opening its review. Keep the active ChatGPT app
+  and unrelated worktrees untouched; the root filesystem is nearly full.
+
 ## Resume checkpoint — 2026-10-19 15:03 UTC
 
 - The prior IID 1962 slice is integrated: PR [#147](https://github.com/varvedesign/varve/pull/147) merged to `master` at `38d7c0a387d6604fec5572457bf32c823862427c`. This supersedes the earlier checkpoint below that described #147 as open. The corpus inventory remains at 6,392 issues; discussion review now covers 1,180 of 5,669 note-bearing issues, with 32 source-snapshot retrieval mismatches still open.
