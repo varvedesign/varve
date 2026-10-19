@@ -71,8 +71,8 @@ resolve_github_repo() {
 GITHUB_REPO="$(resolve_github_repo)"
 GITHUB_URL="https://github.com/$GITHUB_REPO"
 SHA256_URL="$GITHUB_URL/releases/download/v$VERSION/SHA256SUMS.txt"
-AUR_SOURCE_X86="Varve-${VERSION}-linux-x86_64.AppImage"
-AUR_SOURCE_ARM="Varve-${VERSION}-linux-aarch64.AppImage"
+AUR_SOURCE_X86="Varve-${VERSION}-x86_64.AppImage"
+AUR_SOURCE_ARM="Varve-${VERSION}-aarch64.AppImage"
 
 # Parse options
 SKIP_SOURCES=false

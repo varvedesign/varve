@@ -871,7 +871,7 @@ const FIXTURE_MANIFEST = {
   notarized: false,
   artifacts: [
     {
-      filename: 'Varve-0.1.0-linux-x86_64.AppImage',
+      filename: 'Varve-0.1.0-x86_64.AppImage',
       os: 'linux',
       arch: 'x86_64',
       format: 'appimage',
@@ -890,7 +890,7 @@ const FIXTURE_MANIFEST = {
 };
 
 const FIXTURE_ASSETS = [
-  'Varve-0.1.0-linux-x86_64.AppImage',
+  'Varve-0.1.0-x86_64.AppImage',
   'Varve-0.1.0-windows-x86_64.exe',
   'Varve-0.1.0-sbom-linux-x86_64.cdx.json',
   'Varve-0.1.0-sbom-windows-x86_64.cdx.json',
@@ -899,7 +899,7 @@ const FIXTURE_ASSETS = [
 ];
 
 const FIXTURE_CHECKSUMS = `${[
-  `${HASH_A}  Varve-0.1.0-linux-x86_64.AppImage`,
+  `${HASH_A}  Varve-0.1.0-x86_64.AppImage`,
   `${HASH_B}  Varve-0.1.0-windows-x86_64.exe`,
   `${sha256(Buffer.from('sbom-linux'))}  Varve-0.1.0-sbom-linux-x86_64.cdx.json`,
   `${sha256(Buffer.from('sbom-windows'))}  Varve-0.1.0-sbom-windows-x86_64.cdx.json`,
@@ -920,7 +920,7 @@ function verifyFixture(overrides = {}) {
 {
   const parsed = parseChecksums(FIXTURE_CHECKSUMS);
   assert.equal(parsed.size, 5, 'parses all entries');
-  assert.equal(parsed.get('Varve-0.1.0-linux-x86_64.AppImage'), HASH_A);
+  assert.equal(parsed.get('Varve-0.1.0-x86_64.AppImage'), HASH_A);
 }
 
 // Rejections: wrong format
@@ -973,7 +973,7 @@ assert.throws(
 
 // Missing asset in the checksum file
 {
-  const missing = FIXTURE_CHECKSUMS.replace(`${HASH_A}  Varve-0.1.0-linux-x86_64.AppImage\n`, '');
+  const missing = FIXTURE_CHECKSUMS.replace(`${HASH_A}  Varve-0.1.0-x86_64.AppImage\n`, '');
   assert.throws(
     () => verifyFixture({ checksumsText: missing }),
     /Hash mismatch.*\(absent\)/,
@@ -1092,7 +1092,7 @@ assert.throws(
           ...FIXTURE_MANIFEST,
           artifacts: [{ ...FIXTURE_MANIFEST.artifacts[0], sizeBytes: 0, sha256: sha256(tiny) }],
         },
-        checksumsText: `${FIXTURE_CHECKSUMS.replace(`${HASH_A}  Varve-0.1.0-linux-x86_64.AppImage\n`, '')}`,
+        checksumsText: `${FIXTURE_CHECKSUMS.replace(`${HASH_A}  Varve-0.1.0-x86_64.AppImage\n`, '')}`,
       }),
     /no positive sizeBytes/,
     'zero-byte installer must be rejected',
@@ -1128,7 +1128,7 @@ assert.throws(
   const linux = data.platforms.linux[0];
   assert.equal(
     linux.url,
-    'https://github.com/K-Arthur/varve/releases/download/v0.1.0/Varve-0.1.0-linux-x86_64.AppImage',
+    'https://github.com/K-Arthur/varve/releases/download/v0.1.0/Varve-0.1.0-x86_64.AppImage',
   );
   assert.equal(
     linux.sbomUrl,
@@ -1362,6 +1362,12 @@ assert.throws(
     /Open Anyway\. Do not disable Gatekeeper\.$/,
     '0.5.0 must not claim Open Anyway will appear',
   );
+  assert.doesNotMatch(
+    copy.appimage.blurb + copy.appimage.caveat,
+    /system WebKitGTK/,
+    'AppImage copy must not require a host WebKitGTK',
+  );
+  assert.match(copy.appimage.blurb, /WebKitGTK/);
   assert.match(copy.nsis.caveat, /More info, then Run anyway/);
   assert.match(copy.nsis.caveat, /Smart App Control/);
   const tauriConf = JSON.parse(readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8'));

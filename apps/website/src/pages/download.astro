@@ -202,7 +202,7 @@ function platformTrustLabel(
 const REQUIREMENTS: Record<string, string[]> = {
   linux: [
     'OS: any distribution with glibc 2.35 or newer (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS)',
-    'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (DEB/RPM pull these in automatically; AppImage and PKGBUILD need them as system packages)',
+    'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (.deb/.rpm/AUR pull these in automatically; the AppImage bundles WebKitGTK and GTK)',
     'CPU: choose the download labeled x86_64 or ARM64 to match your Linux machine',
     'RAM: 4 GB minimum, 8 GB recommended',
     'Display: Wayland or X11',
@@ -638,8 +638,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 <div class="format-tradeoffs">
                   <h3>Which package should I choose?</h3>
                   <p class="format-tradeoffs-intro">
-                    Choose a package for your distro. Every Linux build requires glibc 2.35 or newer
-                    and the system WebKitGTK libraries.
+                    Choose a package for your distro. Every Linux build requires glibc 2.35 or newer.
+                    Debian/RPM/AUR packages need the system WebKitGTK libraries; the AppImage
+                    bundles WebKitGTK.
                   </p>
                   <div class="distro-picker">
                     <table class="distro-table">
@@ -689,8 +690,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       <strong>AppImage</strong> — a single portable file that needs no root or
                       package manager. Use it on openSUSE and other glibc-based distros that meet
                       the requirements below. It is not a universal Linux ABI: Alpine and other
-                      musl-based systems are not supported. Requires glibc 2.35+, FUSE2 (or{' '}
-                      <code>--appimage-extract-and-run</code>), and the system WebKitGTK library.
+                      musl-based systems are not supported. Requires glibc 2.35+ and FUSE2 (or{' '}
+                      <code>--appimage-extract-and-run</code>). WebKitGTK is bundled.
                       On Arch and CachyOS, the repository PKGBUILD is also available.
                     </p>
                     <p>
@@ -961,9 +962,10 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 <a href="https://github.com/AppImage/AppImageKit/wiki/FUSE" target="_blank" rel="noopener noreferrer">official AppImage FUSE guide</a> for other distributions.
               </li>
               <li>
-                <strong>Linux — AppImage white screen or EGL error:</strong> some GPU/driver
-                combinations conflict with bundled Mesa libraries. Run with{' '}
-                <code>--appimage-extract-and-run</code> to use system libraries instead.
+                <strong>Linux — AppImage white screen or EGL error:</strong> the AppImage uses
+                host Mesa/EGL with bundled WebKitGTK. If the window stays blank, try{' '}
+                <code>WEBKIT_DISABLE_DMABUF_RENDERER=1 ./Varve-*.AppImage</code> or install the
+                <code>.deb</code> / <code>.rpm</code> instead.
               </li>
               <li>
                 <strong>Linux — .deb fails to install or start:</strong> the package needs the

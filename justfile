@@ -244,10 +244,11 @@ validate-workflows-staged:
 # Varve binary is already stripped by [profile.release] strip = true, and
 # distro libraries ship stripped.
 #
-# IMPORTANT: an AppImage built here is for local smoke-testing only. It bundles
-# this host's libraries, including glibc 2.44, so it will NOT run on the
-# Ubuntu 22.04 (glibc 2.35) compatibility baseline. Release AppImages must come
-# from the ubuntu-22.04 runner in release.yml.
+# IMPORTANT: an AppImage built here is for local smoke-testing only. It
+# bundles this host's WebKit/GTK (and this host's glibc, e.g. 2.44), so it
+# will NOT run on the Ubuntu 22.04 (glibc 2.35) compatibility baseline.
+# Release AppImages must come from the ubuntu-22.04 runner in release.yml.
+# GPU/EGL/Mesa are still taken from the machine that *runs* the image.
 
 # Strip ONNX Runtime libraries for other platforms out of the bundle.
 # tauri.conf.json globs onnxruntime-libs/** wholesale, so every platform ever
@@ -432,3 +433,11 @@ appimage-smoke:
     echo "Launching ${_img} for 5 s smoke test..."
     timeout 5 "${_img}" --no-sandbox || true
     echo "Smoke test complete."
+
+# AppImageHub-shaped smoke: no host WebKitGTK, --network none, xvfb.
+appimage-smoke-offline:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    _img=$(find apps/desktop/src-tauri/target/release/bundle/appimage -name '*.AppImage' | head -1)
+    if [[ -z "${_img}" ]]; then echo "No AppImage found — run 'just package-appimage' first."; exit 1; fi
+    bash scripts/release/smoke-appimage-self-contained.sh --appimage "${_img}"

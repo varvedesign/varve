@@ -22,7 +22,8 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const REPO_SLUG_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 
 /**
- * Product name used to build artifact filenames, e.g. `Varve-0.1.0-linux-x86_64.deb`.
+ * Product name used to build artifact filenames, e.g. `Varve-0.1.0-linux-x86_64.deb`
+ * and `Varve-0.1.0-x86_64.AppImage`.
  *
  * Taken from `tauri.conf.json`'s `productName`, with a trailing " Desktop"
  * removed — the installer is the product, and "Varve Desktop-0.1.0-…" reads

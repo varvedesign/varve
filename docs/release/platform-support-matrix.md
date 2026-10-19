@@ -179,7 +179,7 @@ received long-term or human-operated GUI testing.
 | Format | Decision | Reasoning |
 |---|---|---|
 | **`.deb`** | **Ship — primary** | Declares its full dependency list (incl. `libwebkit2gtk-4.1-0`), installs cleanly, verified on Ubuntu 22.04 + Fedora 38 containers and real hosts. The most reliable Linux path |
-| **AppImage** | **Ship — secondary** | Portable single file, but NOT dependency-free: bundling WebKit/GTK broke on modern Mesa (white screen, fixed by pruning the bundled libs — the AppImage now uses host WebKitGTK like the .deb). Needs FUSE2; on FUSE-less systems `--appimage-extract-and-run`. See `scripts/release/prune-appimage-bundled-libs.mjs` |
+| **AppImage** | **Ship — secondary** | Portable single file. Bundles WebKitGTK/GTK so a clean host without `libwebkit2gtk-4.1` can launch; GPU/EGL/Mesa stay on the host so newer Mesa stacks do not white-screen. Needs FUSE2; on FUSE-less systems `--appimage-extract-and-run`. Filename is `Varve-<version>-x86_64.AppImage` (no `linux`). See `scripts/release/prune-appimage-bundled-libs.mjs` |
 | **`.rpm`** | **Ship — secondary** | Same `depends` list present |
 | **Flatpak / Flathub** | **Defer** | `packaging/flatpak/dev.varve.desktop.yml` exists but is unvalidated. Flathub review is a multi-week process with a real maintenance burden (runtime upgrades, sandbox holes for printing + font access). Excellent *second* channel, wrong *first* channel |
 | **AUR** | **Defer to post-release** | Cannot exist before there is a release to point at (see RB-2). `varve-desktop-bin` PKGBUILD is already written (`packaging/aur/varve-desktop-bin`) and parses under `makepkg`; it needs the real SHA-256 from a published `SHA256SUMS.txt` before submission |

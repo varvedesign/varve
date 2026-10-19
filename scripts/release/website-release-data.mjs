@@ -118,11 +118,11 @@ export function formatCopy(product, version) {
     appimage: {
       title: 'AppImage',
       blurb:
-        'Portable file for Linux — no install, no root. Uses the system WebKitGTK ' +
-        'libraries (same requirement as the .deb).',
+        'Portable file for Linux — no install, no root. Ships its own WebKitGTK, so it ' +
+        'launches without installing libwebkit2gtk.',
       caveat:
-        'Requires FUSE2 and a system WebKitGTK (libwebkit2gtk-4.1). On systems without ' +
-        'FUSE2, run with --appimage-extract-and-run.',
+        'Requires FUSE2 and glibc 2.35+. On systems without FUSE2, run with ' +
+        '--appimage-extract-and-run. GPU/EGL come from the host Mesa stack.',
       install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
     },
     deb: {

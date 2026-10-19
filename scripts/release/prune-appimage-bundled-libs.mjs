@@ -1,49 +1,41 @@
 #!/usr/bin/env node
 /**
- * Remove the bundled WebKit/GTK/GStreamer library stack from the AppImage.
+ * Prepare the AppImage payload: keep WebKit/GTK, drop the host GPU stack.
  *
- * Why this exists (measured 2026-08-11, v0.1.1):
+ * Why this exists:
  *
  * Tauri's AppImage pipeline runs linuxdeploy-plugin-gtk, which bundles the
  * whole GTK/WebKit/GStreamer dependency closure built on the CI baseline
- * (ubuntu-22.04). That closure carries an EGL implementation ABI from the
- * build host; on distributions with a newer Mesa/EGL stack (Arch, CachyOS,
- * Fedora 40+, Ubuntu 24.04) the bundled WebKitWebProcess fails at startup:
+ * (ubuntu-22.04). That closure also carries Mesa/EGL from the build host.
+ * On distributions with a newer Mesa/EGL stack (Arch, CachyOS, Fedora 40+,
+ * Ubuntu 24.04) the bundled WebKitWebProcess then fails at startup:
  *
  *     Could not create default EGL display: EGL_BAD_PARAMETER. Aborting...
  *
- * The web process dies, the window stays open and blank — the documented
- * "white screen". `bundleMediaFramework: false` does NOT prevent this: it
- * only stops Tauri's own webkit copy and the gstreamer plugin, while
- * linuxdeploy-plugin-gtk still bundles the full stack via ldd analysis
- * (see tauri-bundler linuxdeploy.rs: --plugin gtk is unconditional).
- * `WEBKIT_DISABLE_DMABUF_RENDERER=1` (the v0.1.0 workaround) is not
- * sufficient either: the EGL display creation failure happens before the
- * renderer selection.
+ * v0.1.1–v0.5.1 deleted the *entire* usr/lib stack (`--exclude-library '*'`)
+ * so the AppImage used host WebKit like the .deb. That fixed the white
+ * screen and broke AppImageHub: a clean offline VM has no
+ * `libwebkit2gtk-4.1.so.0`, so the 0.5.1 catalog test exited before a
+ * window appeared.
  *
- * The fix: delete the bundled libraries from the AppImage payload and
- * re-assemble it with linuxdeploy's own AppImage output plugin, excluding
- * the entire shared-library closure (`--exclude-library '*'`), so the
- * AppImage carries only the binary, resources, icons and desktop files.
- * The binary resolves every library from the host (verified: `ldd` reports
- * zero unresolved), so the AppImage then behaves exactly like the .deb —
- * which works on every tested distribution. Trade-off: the AppImage now
- * requires the host to provide libwebkit2gtk-4.1, libgtk-3, GStreamer and
- * Mesa — the same system packages the .deb depends on. That is documented
- * on the download page; a silent white screen is worse than a declared
- * dependency.
+ * The split that satisfies both:
+ *   - Keep WebKitGTK, GTK, GStreamer, and the rest of the toolkit closure
+ *     so a machine without those packages can still launch.
+ *   - Delete only the GPU/EGL/Mesa/DRI/Vulkan libraries (and nvidia/cuda)
+ *     so WebKit talks to the *host* libEGL. libc stays unbundled (linuxdeploy
+ *     default); AppImageHub's glibc-2.35 note is expected.
+ *   - Re-assemble with `--exclude-library '*'` so linuxdeploy cannot copy
+ *     the build host's Mesa back in.
+ *
+ * `WEBKIT_DISABLE_DMABUF_RENDERER=1` (APPIMAGE-gated in lib.rs) remains the
+ * compositor fallback once EGL display creation succeeds against host Mesa.
  *
  * Resource preservation (fixed 2026-09-12): Tauri installs `bundle.resources`
- * under `usr/lib/<productName>/` in the AppDir — the same tree as the system
- * libraries. The original implementation removed `usr/lib` and `usr/lib64`
- * wholesale, which also deleted `usr/lib/Varve/onnxruntime-libs/<os>-<arch>/
- * libonnxruntime.so` (and the generative helper). v0.2.1's published
- * AppImages therefore shipped without the native ONNX Runtime even though the
- * .deb and .rpm carried it. The prune plan now keeps the product's resource
- * directory and removes only the library entries around it.
+ * under `usr/lib/<productName>/`. Never delete that tree. Foreign ONNX
+ * runtime directories from a reused AppDir are still stripped.
  *
  * Runs after `tauri build` on the Linux bundle directory, before collection.
- * Safe and idempotent: operates on the produced AppImage payload only.
+ * Always normalises AppDir modes before pack (firejail / AppImageHub).
  *
  *   node scripts/release/prune-appimage-bundled-libs.mjs \
  *     --bundle-dir apps/desktop/src-tauri/target/release/bundle \
@@ -77,6 +69,20 @@ export const APPSTREAM_DESKTOP_ID = 'dev.varve.desktop.desktop';
 export const TAURI_APPIMAGE_DESKTOP_NAME = 'Varve.desktop';
 const LAUNCHER_PATHS = ['AppRun', 'AppRun.wrapped', 'usr/bin/varve-desktop'];
 const STRAY_BUILD_FILE_NAMES = new Set(['varve-generative-helper.d']);
+
+/**
+ * GPU/display-driver libraries that must come from the host. Matching is on
+ * the basename only so a future `libGL-extra.so` does not hide inside
+ * `libglib`. libGL / libEGL prefixes are exact SONAME families, not `libg*`.
+ */
+export const HOST_GRAPHICS_FILE_RE =
+  /^(?:libEGL(?:_[^.]+)?|libGL(?:U|X(?:_[^.]+)?|ES(?:v1_CM|v2)|dispatch|api)?|libOpenGL|libglapi|libdrm(?:_[^.]+)?|libgbm|libvulkan|libwayland-egl|libnvidia.*|libcuda.*)(?:\.so(?:\..*)?)?$/;
+
+export const HOST_GRAPHICS_DIR_NAMES = new Set(['dri', 'mesa', 'nvidia', 'glvnd']);
+
+export function isHostGraphicsLibraryName(name) {
+  return HOST_GRAPHICS_FILE_RE.test(name);
+}
 
 function parseArgs(argv) {
   const args = {};
@@ -117,26 +123,75 @@ export function resolveLinuxResourceDirName(tauriConfPath = TAURI_CONF) {
 
 /**
  * Decide which entries under `usr/lib`/`usr/lib64` to remove and which to
- * keep. Everything in those trees is a bundled system library except the
- * product's own resource directory, which holds Tauri resources such as the
- * native ONNX Runtime and the generative helper.
+ * keep. Keep the product resource directory and the WebKit/GTK/GStreamer
+ * closure. Remove only host GPU/EGL/Mesa/DRI/Vulkan libraries so bundled
+ * WebKit talks to the running system's graphics stack.
  */
 export function collectPrunePlan(squashfsRoot, resourceDirName) {
   const remove = [];
   const keep = [];
-  for (const dirName of ['lib', 'lib64']) {
-    const dir = join(squashfsRoot, 'usr', dirName);
-    if (!existsSync(dir)) continue;
-    for (const entry of readdirSync(dir)) {
-      const full = join(dir, entry);
-      if (dirName === 'lib' && resourceDirName && entry === resourceDirName) {
+  const productLib = resourceDirName ? join(squashfsRoot, 'usr', 'lib', resourceDirName) : null;
+
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (productLib && full === productLib) {
         keep.push(full);
-      } else {
-        remove.push(full);
+        continue;
       }
+      if (HOST_GRAPHICS_DIR_NAMES.has(entry.name)) {
+        remove.push(full);
+        continue;
+      }
+      if (entry.isDirectory() && !entry.isSymbolicLink()) {
+        walk(full);
+        continue;
+      }
+      if (isHostGraphicsLibraryName(entry.name)) remove.push(full);
     }
   }
+
+  for (const dirName of ['lib', 'lib64']) {
+    walk(join(squashfsRoot, 'usr', dirName));
+  }
   return { remove, keep };
+}
+
+export function findBundledWebKit(squashfsRoot) {
+  const libraries = [];
+  const helpers = [];
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory() && !entry.isSymbolicLink()) {
+        walk(full);
+        continue;
+      }
+      if (/^libwebkit2gtk-4\.1\.so/.test(entry.name)) libraries.push(full);
+      if (/^WebKit(?:Web|Network|Storage)Process$/.test(entry.name)) helpers.push(full);
+    }
+  }
+  walk(join(squashfsRoot, 'usr'));
+  return { libraries, helpers };
+}
+
+export function assertWebKitBundled(squashfsRoot, label) {
+  const { libraries, helpers } = findBundledWebKit(squashfsRoot);
+  if (libraries.length === 0) {
+    throw new Error(
+      `${label} is missing libwebkit2gtk-4.1.so. linuxdeploy-plugin-gtk must bundle it; ` +
+        'refusing to ship an AppImage that needs a host WebKitGTK.',
+    );
+  }
+  if (helpers.length === 0) {
+    throw new Error(
+      `${label} is missing WebKitWebProcess / WebKitNetworkProcess. ` +
+        'The webview helper binaries must be executable inside the payload.',
+    );
+  }
+  return { libraries, helpers };
 }
 
 /**
@@ -238,6 +293,8 @@ export function prepareAppDirForRepack(squashfsRoot) {
   for (const entry of stray) rmSync(entry, { force: true });
   normalizeAppImageDesktopEntries(squashfsRoot);
   normalizeAppDirPermissions(squashfsRoot);
+  const { helpers } = findBundledWebKit(squashfsRoot);
+  for (const helper of helpers) chmodSync(helper, 0o755);
   return { stray };
 }
 
@@ -258,25 +315,21 @@ function main() {
   const work = mkdtempSync(join(tmpdir(), 'varve-appimage-prune-'));
   const squashfsRoot = join(work, 'squashfs-root');
 
-  process.stdout.write(`Pruning bundled libraries from ${appImage}...\n`);
+  process.stdout.write(
+    `Preparing AppImage payload (keep WebKit, drop host GPU libs) from ${appImage}...\n`,
+  );
 
   // Extract the AppImage payload. NOTE: the runtime's
   // `--appimage-extract <dir>` form silently creates an empty dir in some
   // versions; the no-arg form extracts to ./squashfs-root reliably.
   execFileSync(appImagePath, ['--appimage-extract'], { cwd: work, stdio: 'pipe' });
 
-  // Tauri resources (the bundled ONNX Runtime, the generative helper) live
-  // under usr/lib/<productName> inside the same tree as the GTK/WebKit
-  // closure. Remove only the library entries; keeping the resource directory
-  // is what stops the AppImage from silently losing native AI.
   const resourceDirName = resolveLinuxResourceDirName();
+  assertWebKitBundled(squashfsRoot, 'Tauri AppImage payload');
+  // Keep WebKit/GTK/GStreamer. Remove only host GPU/EGL/Mesa so a clean
+  // offline system can launch and a newer host Mesa is not shadowed.
   const { remove, keep } = collectPrunePlan(squashfsRoot, resourceDirName);
   for (const entry of remove) {
-    // Files, symlinks AND subdirectories such as
-    // usr/lib/x86_64-linux-gnu/gtk-3.0/*: every library the binary needs
-    // resolves from the host (validated with ldd on v0.1.1), and a leftover
-    // module .so makes linuxdeploy re-deploy dependencies and fail on libs
-    // the CI host does not have.
     rmSync(entry, { recursive: true, force: true });
   }
   const targetId = targetIdFor('linux', architecture);
@@ -330,9 +383,9 @@ function main() {
   // toolchain Tauri used to build the original. A hand-rolled
   // runtime + mksquashfs concatenation produces an invalid ELF (the runtime
   // reads its squashfs offset from an ELF section, not by scanning for
-  // "hsqs" — verified 2026-08-11 with a segfaulting repack). Excluding the
-  // whole library closure keeps linuxdeploy from re-deploying the CI host's
-  // GTK/WebKit (which would recreate the broken bundle).
+  // "hsqs" — verified 2026-08-11 with a segfaulting repack). `--exclude-library
+  // '*'` keeps linuxdeploy from copying the CI host's Mesa/EGL back into
+  // the AppDir after we deleted it. Existing WebKit/GTK files stay.
   const linuxdeploy =
     findTool(
       toolsDir,
@@ -378,12 +431,22 @@ function main() {
   chmodSync(output, 0o755);
 
   // Re-assembly is the step that dropped resources in the past, so verify the
-  // final payload — not just the intermediate AppDir — still carries them.
-  if (keep.length > 0 && resourceDirName) {
-    const verifyWork = mkdtempSync(join(tmpdir(), 'varve-appimage-verify-'));
-    try {
-      execFileSync(output, ['--appimage-extract'], { cwd: verifyWork, stdio: 'pipe' });
-      const preserved = join(verifyWork, 'squashfs-root', 'usr', 'lib', resourceDirName);
+  // final payload — not just the intermediate AppDir — still carries them,
+  // still has WebKit, and did not re-grow a GPU stack.
+  const verifyWork = mkdtempSync(join(tmpdir(), 'varve-appimage-verify-'));
+  try {
+    execFileSync(output, ['--appimage-extract'], { cwd: verifyWork, stdio: 'pipe' });
+    const packedRoot = join(verifyWork, 'squashfs-root');
+    assertWebKitBundled(packedRoot, 'Reassembled AppImage');
+    const leftoverGpu = collectPrunePlan(packedRoot, resourceDirName);
+    if (leftoverGpu.remove.length > 0) {
+      throw new Error(
+        'Reassembled AppImage still contains host GPU libraries: ' +
+          leftoverGpu.remove.map((p) => p.slice(packedRoot.length + 1)).join(', '),
+      );
+    }
+    if (keep.length > 0 && resourceDirName) {
+      const preserved = join(packedRoot, 'usr', 'lib', resourceDirName);
       if (!existsSync(preserved)) {
         throw new Error(
           'Pruned AppImage lost its resource directory usr/lib/' +
@@ -399,9 +462,9 @@ function main() {
             finalRuntimePlan.remove.map((p) => p.slice(finalRuntimeRoot.length + 1)).join(', '),
         );
       }
-    } finally {
-      rmSync(verifyWork, { recursive: true, force: true });
     }
+  } finally {
+    rmSync(verifyWork, { recursive: true, force: true });
   }
 
   verifyAppImagePermissions(output);
@@ -409,9 +472,9 @@ function main() {
   const prunedSize = statSync(output).size;
   rmSync(work, { recursive: true, force: true });
   process.stdout.write(
-    `Pruned ${removed} bundled library entries, removed ${runtimePlan.remove.length} foreign ` +
+    `Removed ${removed} host GPU library entries and ${runtimePlan.remove.length} foreign ` +
       `runtime directories, and re-assembled ${appImage} (${(prunedSize / 1e6).toFixed(1)} MB). ` +
-      'AppImage now uses host WebKit/GTK/GStreamer/Mesa and keeps its own resources — see module doc.\n',
+      'AppImage keeps bundled WebKit/GTK and uses host Mesa/EGL — see module doc.\n',
   );
 }
 

@@ -973,12 +973,9 @@ jobs:
         run: |
           node scripts/secret-scan.mjs --dir apps/desktop/dist --canary "$VARVE_PRIVATE_TEST_CANARY"
 
-      # The AppImage's bundled WebKit/GTK/GStreamer closure (from the
-      # ubuntu-22.04 build baseline) fails EGL display creation on newer
-      # Mesa/EGL stacks and renders a blank window — see
-      # scripts/release/prune-appimage-bundled-libs.mjs for the measured
-      # reproduction and fix. Prune it BEFORE collection so the artifact,
-      # manifest and checksums describe the shipped bytes.
+      # Keep WebKit/GTK in the AppImage; drop only the host GPU/EGL/Mesa
+      # stack so a clean VM can launch and a newer host Mesa is not
+      # shadowed. See scripts/release/prune-appimage-bundled-libs.mjs.
       - name: Prune bundled libraries from AppImage
         if: matrix.enabled && runner.os == 'Linux' && env.REUSE_PLATFORM != 'true'
         run: |
@@ -1386,6 +1383,19 @@ jobs:
             cat "${LOG}" | head -20
             exit 1
           fi
+
+      - name: Launch smoke (AppImage self-contained, offline)
+        if: matrix.enabled
+        run: |
+          set -euo pipefail
+          IMG="$(find staged/linux-${{ matrix.arch_slug }} -name '*.AppImage' | head -1)"
+          if [[ -z "${IMG}" ]]; then
+            echo "::error::No AppImage found in staged/linux-${{ matrix.arch_slug }}"
+            exit 1
+          fi
+          IMG="$(realpath "${IMG}")"
+          chmod +x "${IMG}"
+          bash scripts/release/smoke-appimage-self-contained.sh --appimage "${IMG}"
 
   # ── 3c. Native runner smoke (Windows NSIS, macOS DMG) ──────────────────────
   # The matrix builds the packages; these jobs prove the packaged artifacts

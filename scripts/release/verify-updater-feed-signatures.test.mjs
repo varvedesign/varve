@@ -75,7 +75,7 @@ function toFeedSignature(signResult) {
 
 {
   const artifact = randomBytes(4096);
-  const filename = 'Varve-test-linux-x86_64.AppImage';
+  const filename = 'Varve-test-x86_64.AppImage';
   writeFileSync(join(releaseDir, filename), artifact);
 
   const sig = await minisignSign(

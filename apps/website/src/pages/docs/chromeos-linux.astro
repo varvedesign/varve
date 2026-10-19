@@ -127,8 +127,8 @@ const appImagePackagingNotice = appImageOnnxPackagingNotice();
           </table>
         </div>
         <p>
-          An AppImage also exists ({arm64AppImage.filename}), but on ChromeOS it needs FUSE2
-          and the host WebKitGTK libraries. Prefer the <code>.deb</code> on ChromeOS.
+          An AppImage also exists ({arm64AppImage.filename}), but on ChromeOS it needs FUSE2,
+          which the Linux environment often lacks. Prefer the <code>.deb</code> on ChromeOS.
         </p>
         {appImagePackagingNotice && <p>{appImagePackagingNotice}</p>}
       </section>
