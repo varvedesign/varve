@@ -1081,3 +1081,131 @@ were not downloaded. These recursive edges are recorded in
 `link-frontier.jsonl`. The exact PDF sample proving the Varve CID defect remains
 the independent Polish output in §4.25, not a claim that Greek, Arabic, or CJK
 exports are now searchable or fully shaped.
+
+
+### 4.27 Cutoff C: short-window menus, scroll controls, and bundled-platform failures
+
+The C review adds 70 issue bodies and their full fetched comment threads, plus
+189 post-B comment candidates across 146 existing threads. The complete inventory
+and changed-record metadata are in `issue-ledger-follow-on-c.jsonl` and
+`issue-ledger-cutoff-c-updates.jsonl`; crawl reconciliation and page hashes are
+in `issue-ledger-follow-on-c.summary.json`. The issue and comment requests were
+not atomic. #3354 and #3403 each received one new comment after the issue row
+read; both were reconciled against a later live count. No report or PR merge is
+called complete merely because its source issue is closed or a source PR is open.
+
+- **Short-window menus — already handled in Varve, visually verified.**
+  PdfCraft [#3373](https://github.com/storytold/pdfcraft/issues/3373) reports
+  menus clipped below a 1366×768 XFCE display with no scrollbar. The issue's
+  comment says PdfCraft's open [#3374](https://github.com/storytold/pdfcraft/pull/3374)
+  adds a scrollable menu and short-window test; that PR remains open at
+  `3c433631a9c0c5547e6a466eb9df01cf41ba8036`. Varve's shared
+  [`Menu.tsx`](../../../packages/ui/src/components/Menu.tsx) caps its scroll
+  viewport to the visual window and keeps the outer placement node non-scrollable.
+  [`Menubar.tsx`](../../../packages/editor/src/Menubar.tsx) also groups the long
+  View list and provides a scroll owner for long command lists.
+  [`Menu.test.tsx`](../../../packages/ui/src/components/Menu.test.tsx) checks
+  the menu as the sole scroll owner and keyboard reachability. This is direct source/test evidence, and the new lease-wrapped 1366×400
+  Chromium regression passed. The saved menu capture was visually inspected at
+  [`menu-short-viewport.png`](evidence/menu-short-viewport.png) (SHA-256
+  `7788c651ef2a0218f1f8b8686126b94f2fc7982dfa777b95eef20b4d7f8af99a`). The
+  run used the TypeScript renderer fallback; it validates menu layout and item
+  reachability, not GPU rendering. The website has no menu behavior claim to
+  revise.
+- **Touchpad scroll speed — already provided; hardware validation remains open.**
+  PdfCraft [#3329](https://github.com/storytold/pdfcraft/issues/3329) asks for a
+  manual speed multiplier after slow Linux GNOME input reports. Varve exposes
+  wheel behavior and a persistent `0.25×`–`4×` sensitivity control in Drawing
+  Input settings ([`DrawingInputSettingsTab.tsx`](../../../packages/editor/src/components/Settings/DrawingInputSettingsTab.tsx));
+  the existing canvas navigation audit records wheel classification and tests.
+  Linux Wayland hardware feel is still unmeasured in
+  [`input-system-behavior-matrix.md`](../../../docs/architecture/input-system-behavior-matrix.md).
+  PdfCraft's related [#2623](https://github.com/storytold/pdfcraft/pull/2623) is
+  open at `fd5d6a03e7132d7fdcf46173f63676b4a6136347`; injected input tests do
+  not establish hardware behavior. No new Varve code change is justified by the
+  feature request alone.
+- **Linux file-picker failure — different configured backend.** PdfCraft
+  [#3344](https://github.com/storytold/pdfcraft/issues/3344) provides a concrete
+  AppImage/XFCE/X11 report: rfd 0.17 tries the XDG FileChooser portal, falls
+  back to Zenity on failure, and returns no path when both fail. Tauri's plugin
+  source and Varve's lockfile show `tauri-plugin-dialog` 2.7.2 with its default
+  `gtk3` feature and `rfd` 0.16.0; Varve's picker is therefore configured for
+  GTK3 rather than the reported portal→Zenity chain. The issue is useful Linux
+  support evidence but does not establish the same backend failure in Varve.
+  A related UX limitation remains: the platform dialog facade currently
+  returns the same `None` for cancellation and picker failure, so it cannot
+  safely show an unconditional failure alert without distinguishing a normal
+  cancel. This cutoff did not reproduce that failure in Varve; it remains a
+  separate platform observability follow-up.
+- **Broad drawing complaint — screened, not reproduced.** PdfCraft
+  [#3370](https://github.com/storytold/pdfcraft/issues/3370) bundles alleged
+  input latency/flicker, jagged strokes, gesture-based shape snapping, and
+  smoothing. It supplies no app version, test file, recording, or steps. Varve
+  has a separate canvas responsiveness and visual-quality workstream and an
+  existing Paint smoothing setting, but this source report does not demonstrate
+  a Varve defect. No shape-assist feature or marketing claim is added from this
+  request.
+- **Other recursive leads.** #3258's Macedonian text report is PdfCraft
+  Fill & Sign text encoded in WinAnsi; open [#1775](https://github.com/storytold/pdfcraft/pull/1775)
+  adds Type 3 text for that workflow, but Varve does not provide Fill & Sign.
+  #3396's original stream-boundary allegation was corrected by its author;
+  PdfCraft already inserts the spec-required separator, while Varve's PDF importer
+  explicitly remains a partial text/rectangle extractor. These do not support
+  a shared PDF-reader defect claim. Other product requests concern PDF security,
+  forms/XFA, OCR, reader navigation, printing, signatures, scanner acquisition,
+  prepress, or operating-system packaging and are individually classified in
+  the C ledger.
+
+### 4.28 Cutoff C follow-up: browser save state and callout editing
+
+- **Browser download completion — shared behavior; fixed in Varve.** PdfCraft
+  [#2167](https://github.com/storytold/pdfcraft/issues/2167) separates a
+  cross-origin host-bridge defect from an unresolved browser-download contract.
+  Its merged [#2601](https://github.com/storytold/pdfcraft/pull/2601) fixes the
+  host bridge and explicitly leaves the download behavior open: an anchor click
+  cannot tell the page whether the person kept or cancelled the file. The new
+  comment requests leaving the document modified, preserving the leave-page
+  warning, and saying that download started; File System Access can report a
+  completed write where supported. Varve already distinguishes browser file
+  handles from `download-only` targets, but its first-save path incorrectly
+  cleared dirty state after `writeSaveTarget` only clicked a download link.
+  This was reproduced in `downloadOnlySave.test.tsx`. Varve now keeps both the
+  editor and session dirty and does not advance `lastSavedAt` for first or
+  subsequent download-only saves; native, library, and browser-handle writes
+  retain revision-aware clean marking. The audit ledger's earlier #2167
+  “already handled” entry had an unrelated recovery rationale; this follow-up
+  corrects that assessment. The Browser Demo guide now says that Firefox and
+  Safari downloads cannot be confirmed and keep the document modified; no new
+  public capability is claimed.
+- **Callout repositioning — partial workflow match; interaction gap retained.**
+  PdfCraft [#1152](https://github.com/storytold/pdfcraft/issues/1152) and its
+  new floor-plan user comment ask to move the callout body/text independently
+  while its arrow tip stays anchored; the commenter says canvas drags currently
+  move the whole callout. Varve has separate body, text, and tail nodes, a
+  layer-tree deep-selection path, numeric tail endpoint controls, and ordinary
+  path node editing. However, its documented canvas contract selects the group
+  as a whole; it does not provide the requested direct drag handles for the
+  body, knee, and arrow tip. The previous cutoff-B ledger disposition and
+  rationale (“PDF interchange metadata”) were incorrect. This is now recorded
+  as a relevant usability gap for a later focused design/interaction slice;
+  no claim is made that layer-tree and inspector work equal direct canvas
+  manipulation, and no speculative handle UI was added in this pass.
+- **Additional Varve-adjacent reports — screened, not reproduced.** PdfCraft
+  [#3266](https://github.com/storytold/pdfcraft/issues/3266) reports a page
+  that jumps after zoom settles. Varve's camera keeps the world point under a
+  zoom anchor fixed, with unit coverage in `packages/shared/src/viewport.test.ts`
+  and `packages/editor/src/tools/zoom.test.ts`; the report's page-view settle
+  behavior has not been reproduced in Varve. PdfCraft
+  [#3284](https://github.com/storytold/pdfcraft/issues/3284) and
+  [#3317](https://github.com/storytold/pdfcraft/issues/3317) request opaque
+  fills and thicker borders for text boxes/callouts. Varve callout bodies are
+  ordinary shapes with the standard fill/stroke inspector; a separate opaque
+  background control for generic text boxes is not established. PdfCraft
+  [#3399](https://github.com/storytold/pdfcraft/issues/3399) asks for callout
+  text sizing, already available through Varve's Typography inspector on the
+  ordinary dialogue TextNode. These are recorded as partial workflow matches,
+  not as defects found in Varve. No marketing claim follows from them.
+
+The website's Browser Demo guide was updated to explain the download-only save
+state; no other marketing or capability claim needed revision. The menu and
+wheel controls are existing behaviors.

@@ -10,6 +10,9 @@ hardening Varve.
 | `findings.md` | Failure classes, their Varve verdicts, the implementation log, evidence limitations |
 | `issue-ledger.jsonl` | Frozen cutoff A issue records and screening dispositions |
 | `issue-ledger-follow-on-b.jsonl` | Cutoff B new issue inventory with per-issue review/disposition status |
+| `issue-ledger-follow-on-c.jsonl` | Cutoff C new issue inventory (70 bodies and all fetched current comments read) |
+| `issue-ledger-cutoff-c-updates.jsonl` | Cutoff C changes to the 266 existing issues updated since B, including post-B comment IDs and review hashes |
+| `issue-ledger-follow-on-c.summary.json` | Cutoff C crawl, reconciliation, review counts, and raw-page hashes |
 | `link-frontier.jsonl` | Deduplicated recursive evidence edges and their review dispositions |
 | `issue-ledger-follow-on-b.summary.json` | Cutoff B inventory counts and review coverage |
 | `issue-ledger.summary.json` | Counts for frozen cutoff A |
@@ -20,13 +23,18 @@ hardening Varve.
 | Cutoff | Window (UTC) | Issue count | Notes |
 |---|---|---|---|
 | **Cutoff A (frozen)** | `2026-10-17T04:41:35Z` → `2026-10-17T04:42:17Z` | 1 296 issues (827 open / 469 closed) + 1 682 PRs | Full enumeration, reconciled against the search totals |
-| **Cutoff B (frozen)** | `2026-10-18T12:28:21Z` → `2026-10-18T12:28:46Z` | 1 454 issues (936 open / 518 closed) + 1 795 PRs | Reconciled by pagination and issue search totals; all 158 new issue bodies and current comments screened; after follow-up, 37 remain screened for Varve, 117 are out of scope, 2 already handled, and 2 have linked Varve fixes; 40 existing issues changed state |
+| **Cutoff B (frozen)** | `2026-10-18T12:28:21Z` → `2026-10-18T12:28:46Z` | 1 454 issues (936 open / 518 closed) + 1 795 PRs | Reconciled by pagination and issue search totals; 158 new issues reviewed; 40 existing issues changed state |
+| **Cutoff C (frozen)** | `2026-10-19T04:55:46Z` → `2026-10-19T04:56:35Z` | 1 524 issues (828 open / 696 closed) + 1 879 PRs | Reconciled by pagination and issue search; 70 new issue bodies and fetched current comments read; all 189 post-B comment candidates across 146 threads read; 166 open→closed and no closed→open transitions |
 
-Issues created after cutoff A are recorded in the cutoff B follow-on ledger; they do not
-change the frozen A ledger. Cutoff B is the current source-reconciliation boundary.
-All 158 new issue bodies and current comment threads have been read. Recursive linked
-evidence, attachments and sample files remain open where noted in `findings.md` and
-`continuation.md`. Later arrivals go into a subsequent queue rather than moving either
+Issues created after a frozen cutoff are recorded in a follow-on ledger; they do not
+change earlier frozen ledgers. Cutoff C is the current source-reconciliation boundary. All 70 new issue bodies and
+fetched current comment threads have been read. The 189 comment candidates added after B
+were read across all 146 changed discussion threads; 120 other updated issue rows
+changed state or metadata without new comments. The issue-list and comment refresh
+requests were not atomic: #3354 and #3403 each gained a comment after the issue row
+was read, and both counters were reconciled by live reread. Recursive linked evidence,
+attachments, and sample files remain open where noted in `findings.md` and
+`continuation.md`. Later arrivals go into a subsequent queue rather than moving a
 frozen boundary.
 
 ## Method

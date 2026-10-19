@@ -1,6 +1,6 @@
 # Continuation record
 
-Last updated: 2026-10-18 (session 7).
+Last updated: 2026-10-19 (session 8).
 
 ## Frozen baseline
 
@@ -753,3 +753,95 @@ Escalations: none. Full suite run: no.
 2. Continue the open recursive issue evidence and Varve workflow queue in
    `findings.md` and `link-frontier.jsonl`; the fixes above do not complete the
    full PdfCraft issue corpus.
+
+
+## Cutoff C review (2026-10-19)
+
+- Crawled `storytold/pdfcraft` `state=all` from
+  `2026-10-19T04:55:46.075921Z` through `04:56:35.961209Z`. The full 35-page
+  issue-endpoint response reconciles to 3,403 records: 1,524 issues (828 open,
+  696 closed) and 1,879 PR records. GitHub Search independently returned the
+  same issue-state split with `incomplete_results=false`; all 1,454 B issue IDs
+  remain present. The response pages and comment JSON are preserved outside Git
+  at `/tmp/opencode/photocraft/pdfcraft-cutoff-c-2026-10-19/`; per-page hashes
+  are in `issue-ledger-follow-on-c.summary.json`.
+- All 70 new issue bodies and every comment in the fetched current collections
+  were read. The C
+  ledger records 3 already-handled classes (menu viewport, wheel sensitivity,
+  callout text sizing), 5 screened Varve-adjacent reports, and 62
+  product-boundary or
+  insufficient-evidence exclusions. The 266 issue rows updated since B are
+  recorded separately; 166 changed open→closed, none closed→open, 146 gained
+  comments, and 189 post-B comment candidates were reviewed. #3354 and #3403
+  each gained a comment between inventory retrieval and comment refresh; their
+  current counts were reconciled by live read.
+- New cross-product evidence: #3373 reports menus that cannot fit short
+  displays. Varve already caps shared menu surfaces to the visible viewport and
+  scrolls long menus (`packages/ui/src/components/Menu.tsx`,
+  `packages/editor/src/Menubar.tsx`); unit coverage checks the sole scroll owner
+  and keyboard reachability. The source PdfCraft PR #3374 is still open at
+  `3c433631a9c0c5547e6a466eb9df01cf41ba8036`. A 1366×400 browser run passed the long-menu fit/scroll checks; the saved short-viewport menu capture was visually inspected at `evidence/menu-short-viewport.png` (SHA-256 `7788c651ef2a0218f1f8b8686126b94f2fc7982dfa777b95eef20b4d7f8af99a`). The run used the TypeScript renderer fallback; it validates menu layout and reachability, not GPU rendering.
+- #3329 asks for a Linux touchpad scroll-speed setting. Varve already exposes
+  persistent wheel sensitivity (0.25×–4×) and wheel-mode choices in Drawing
+  Input settings. Physical Wayland event feel remains an explicit hardware
+  validation gap in the existing input behavior matrix; no new failure was
+  inferred. PdfCraft's related PR #2623 is still open at
+  `fd5d6a03e7132d7fdcf46173f63676b4a6136347`.
+- #3344 describes an AppImage picker failure caused by missing XDG portal and
+  Zenity backends in PdfCraft's rfd 0.17 path. Varve uses a different GTK3/rfd
+  0.16 backend, so that exact failure is not established. Varve's dialog facade
+  can also conflate cancellation with picker failure; this is recorded as an
+  observability follow-up, not a reproduced defect.
+- #3370 is a broad drawing complaint (input latency/flicker, antialiasing,
+  shape assist, smoothing). It has no repro details or artifact. Varve already
+  has a dedicated canvas responsiveness and visual quality workstream; this
+  issue is a research pointer only, not a Varve defect claim or justification
+  for adding gesture behavior.
+- #2167's new comment separates a fixed PdfCraft host-bridge defect from its
+  still-open download-completion decision. Varve had the same browser limit:
+  `download-only` dispatches an anchor click without a completion signal, but
+  its first-save path nevertheless cleared dirty state. A provider-level test
+  reproduced this; the fix keeps first and subsequent download-only saves
+  dirty and leaves the persistent-save timestamp unchanged. See findings.md
+  §4.28 and `docs/architecture/lifecycle-system.md`.
+- #1152's new floor-plan report is relevant to Varve's callout workflow but
+  only partially handled: independent body/text/tail nodes and numeric tail
+  controls exist, while canvas hit-testing selects the callout as a whole.
+  The cutoff-B “PDF metadata” classification was unrelated and has been
+  corrected in the C update ledger. Direct manipulation remains a later
+  interaction-design follow-up.
+- #3266's zoom-settle report was screened against Varve's zoom-about-point
+  camera and existing anchor tests; no matching jump was reproduced. #3284 and
+  #3317 have partial equivalents through callout body fill/stroke controls, but
+  no generic text-box background control was found. #3399's callout text-size
+  request is already covered by the Typography inspector on the dialogue
+  TextNode. These mappings are recorded per issue in the C ledger.
+- Every fetched comment for the 70 new issues and all 189 post-B comment
+  candidates across the 146 changed threads has now been read. Attachments,
+  linked PR heads, source builds, and sample files remain unverified unless a
+  finding names a separate inspection.
+- Website update: the Browser Demo guide now explains that Firefox/Safari
+  download initiation cannot confirm completion, so the document stays
+  modified and the leave-page warning remains active. The product page also
+  links to that explanation and qualifies the download behavior; no new
+  capability is being claimed.
+- Current worktree: `/tmp/varve-photocraft-continuation`, branch
+  `codex/pdfcraft-cutoff-c-20261019`, based on `112961cbaa00bc540bcfce0a1465cdbac2d1393b`.
+  Owned changes include the cutoff C ledger/summary, audit and support
+  documentation, the menu short-viewport E2E regression and screenshot, plus
+  the browser download-only save-state fix and provider-level regression. The
+  Linux desktop app and all other worktrees remain untouched.
+- Shared `pnpm verify:triage` and editor Vitest operations remain active in
+  other worktrees; `/` had about 509 MB free at the last check. No tests/builds
+  were started while waiting for the shared lease. `pnpm verify:affected` passed after the shared lease cleared: format, lint, emoji/docs audits, E2E TypeScript, and the complete `tests/e2e/menus/visual-integrity.spec.ts` (6/6). The suite ran one Chromium worker, waited on the shared lease, and used the TypeScript renderer fallback. The C ledger consistency script and `git diff --check` also passed. No full suite was escalated.
+
+### Agent Validation Report — cutoff C documentation/menu slice
+
+```text
+Changed scope: PdfCraft cutoff C inventory/update ledgers and findings; Linux support matrix; menu short-viewport E2E and screenshot evidence.
+Validation plan: pnpm verify:plan selected format:touched, lint:touched, audit:emoji, audit:docs, typecheck:e2e, and e2e:file:tests/e2e/menus/visual-integrity.spec.ts. FULL-SUITE NO.
+Commands actually run: pnpm verify:plan; pnpm verify:affected; pnpm audit:docs; pnpm exec biome format --write on the two initially reported files; Python JSONL/reconciliation consistency check; git diff --check.
+Passed: final pnpm verify:affected (6/6 visual-integrity E2E, E2E TypeScript, format/lint, emoji/docs audits); follow-up pnpm audit:docs; 70-row / 266-row / 189-comment ledger consistency; short-viewport screenshot was visually inspected and its SHA-256 recorded.
+Skipped as unrelated: Rust workspace tests, website tests, full browser/visual suite, native GTK GUI matrix, and physical Linux Wayland touchpad tests; no Rust or website behavior changed.
+Escalations: none. Full-suite run: no. Reason: planner did not escalate.
+```
