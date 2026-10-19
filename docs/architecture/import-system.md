@@ -159,8 +159,8 @@ covered by a parser regression and the real File > Import flow.
 | Fill, stroke, opacity, fill-rule | Full | SVG `stroke-dasharray` and `stroke-dashoffset` preserve unitless, px, pt, mm, cm, and in lengths, including values inherited from groups; child values override group values. Invalid values and percentages are reported and fall back to solid because the importer does not resolve viewport-relative dash diagonals |
 | Linear/radial gradients | Supported | Warned as "may not render identically" |
 | `clipPath`, `mask` | Supported | Mapped to Varve clip/alpha/luminance masks |
-| `use` / `symbol` | Local refs only | Cyclic refs detected and skipped; references to other documents are refused and reported |
-| `text` | Basic | `text-anchor` honoured; missing fonts surface in the font dialog; SVG `shape-inside` flow and Inkscape `flowRoot` layout are reported but not imported |
+| `use` / `symbol` | Local refs to supported elements only | Referenced `<symbol>` instances are reported but not imported; cyclic refs are detected and skipped; references to other documents are refused and reported |
+| `text` | Basic | `text-anchor` honoured; missing fonts surface in the font dialog; SVG `shape-inside` and CSS `inline-size` flow, plus Inkscape `flowRoot` layout, are reported but not imported |
 | Inkscape SVG 1.2 `flowRoot` | Unsupported | Identified in `unsupportedFeatures` rather than silently skipped |
 | `image` (`data:`) | Full | Becomes a managed embedded asset |
 | `image` (remote) | **Refused** | Reported; see security below |
@@ -232,7 +232,10 @@ is why the policy lives in the parser rather than relying on CSP.
 
 Other limits already in place: `MAX_RASTER_ENCODED_BYTES` (128 MB),
 `MAX_RASTER_PIXELS` (64 MP) and `MAX_RASTER_DIMENSION` (65535) gate raster
-decode; cyclic `<use>` is detected by a visited-id set.
+decode; cyclic `<use>` and recursive clip/mask references are bounded during
+conversion. Unsupported indirect `<use>` references inside a clip definition
+are skipped with an import warning while other document geometry is retained
+(covered by the SVG regression for Inkscape issue #1929).
 
 ## Placement, selection and undo
 

@@ -105,7 +105,7 @@ const figmaImportFaq = {
           <li><code>&lt;path&gt;</code> with M, L, C, S, Q, T, A, Z commands</li>
           <li><code>&lt;g&gt;</code> groups with transforms</li>
           <li><code>&lt;text&gt;</code> elements</li>
-          <li>Inkscape SVG 1.2 flowed text (<code>&lt;flowRoot&gt;</code>) and SVG text using <code>shape-inside</code> are identified in Import Results because their flow layout is not imported.</li>
+          <li>Inkscape SVG 1.2 flowed text (<code>&lt;flowRoot&gt;</code>), SVG text using CSS <code>shape-inside</code> or <code>inline-size</code>, and <code>&lt;symbol&gt;</code> instances referenced through <code>&lt;use&gt;</code> are identified in Import Results because their layout or instance geometry is not imported.</li>
           <li><code>&lt;image&gt;</code> embedded images</li>
           <li>Local <code>&lt;use&gt;</code> and <code>&lt;defs&gt;</code> references; references to other SVG files are reported and not fetched.</li>
           <li>One local <code>&lt;filter&gt;</code> with a single <code>&lt;feDropShadow&gt;</code> using <code>userSpaceOnUse</code> primitive units (the SVG default) imports as an editable shadow; object-bounding-box units are unsupported.</li>

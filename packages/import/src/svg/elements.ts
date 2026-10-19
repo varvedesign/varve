@@ -557,6 +557,7 @@ function applyStylesToNode(
   let strokeOpacity = el.attrs['stroke-opacity'];
   let filter = el.attrs.filter;
   let shapeInside = el.attrs['shape-inside'];
+  let inlineSize = el.attrs['inline-size'];
 
   if (el.attrs.style) {
     const styles = parseCssStyle(el.attrs.style);
@@ -570,10 +571,15 @@ function applyStylesToNode(
     strokeOpacity = styles['stroke-opacity'] ?? strokeOpacity;
     filter = styles.filter ?? filter;
     shapeInside = styles['shape-inside'] ?? shapeInside;
+    inlineSize = styles['inline-size'] ?? inlineSize;
   }
   if (el.tag === 'text' && shapeInside && shapeInside !== 'none') {
     unsupported.push('SVG text flowed into a shape');
     warnings.push('SVG text uses unsupported shape-inside flow layout');
+  }
+  if (el.tag === 'text' && inlineSize && inlineSize !== 'auto') {
+    unsupported.push('SVG text using inline-size flow');
+    warnings.push('SVG text uses unsupported inline-size flow layout');
   }
 
   let result = { ...node };

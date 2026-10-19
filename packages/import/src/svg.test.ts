@@ -251,6 +251,21 @@ describe('parseSvg', () => {
     );
   });
 
+  it('skips an indirect use inside a clip path without aborting the document import', () => {
+    const result = parseSvg(`
+      <svg><defs>
+        <clipPath id="outer"><use href="#inner" /></clipPath>
+        <clipPath id="inner"><path d="M 0 0 L 20 0 L 20 20 Z" /></clipPath>
+      </defs>
+      <rect width="40" height="30" clip-path="url(#outer)" />
+      </svg>
+    `);
+
+    expect(result.nodeIds).toHaveLength(1);
+    expect(Object.keys(result.document.nodes).length).toBeLessThan(10);
+    expect(result.warnings).toContain('clipPath/mask definition is empty — skipping');
+  });
+
   it.each(['4 -2', '1,,2', '1,', '9'.repeat(400)])(
     'reports invalid SVG dash array "%s" instead of silently claiming fidelity',
     (dashArray) => {
@@ -465,6 +480,17 @@ describe('parseSvg', () => {
     );
   });
 
+  it('reports referenced SVG symbols instead of silently dropping their instances', () => {
+    const result = parseSvg(
+      '<svg><defs><symbol id="icon" viewBox="0 0 100 30"><path d="M0 0h100v30H0z" /></symbol></defs><use href="#icon" x="10" y="20" width="50" height="15" /></svg>',
+    );
+
+    expect(result.nodeIds).toEqual([]);
+    expect(result.unsupportedFeatures).toContain(
+      'SVG <symbol> instances referenced through <use> (not imported)',
+    );
+  });
+
   it('reports unsupported text flowed through a shape-inside reference', () => {
     const result = parseSvg(
       '<svg><text x="12" y="24" style="shape-inside:url(#missing-frame)">Readable content</text></svg>',
@@ -473,6 +499,19 @@ describe('parseSvg', () => {
     expect(result.unsupportedFeatures).toContain('SVG text flowed into a shape');
     expect(result.warnings).toContain('SVG text uses unsupported shape-inside flow layout');
     expect(Object.values(result.document.nodes).some((node) => node.kind === 'text')).toBe(true);
+  });
+
+  it('reports SVG 2 inline-size text flow while retaining its text content', () => {
+    const result = parseSvg(
+      '<svg><text x="12" y="24" style="inline-size:80px">First line Second line</text></svg>',
+    );
+
+    expect(result.nodeIds).toHaveLength(1);
+    const textNode = result.document.nodes[result.nodeIds[0]!];
+    expect(textNode?.kind).toBe('text');
+    if (textNode?.kind === 'text') expect(textNode.text).toBe('First line Second line');
+    expect(result.warnings).toContain('SVG text uses unsupported inline-size flow layout');
+    expect(result.unsupportedFeatures).toContain('SVG text using inline-size flow');
   });
 
   it('preserves text nested in spans while avoiding text extraction for non-text subtrees', () => {
