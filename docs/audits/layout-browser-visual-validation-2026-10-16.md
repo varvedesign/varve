@@ -137,6 +137,13 @@ These browser checks cover a subset of the requested eight-document corpus. Gene
 - Captured the track-removal preview at 900×600 and inspected it. The modal and both actions remain within the viewport; Before/After track diagrams and explanation are legible, while the dialog covers most of the canvas at this minimum size. Screenshot: [`900×600 track removal preview`](../screenshots/layout/layout-native-track-removal-preview-900x600-2026-10-20.png).
 - The runner reported that standalone `tauri-driver` and `WebKitWebDriver` were unavailable; the embedded WebDriver provider still started and the test passed. This evidence covers desktop grid authoring, preview cancellation, and one-step undo only. The browser dashboard suite, responsive export rendering, remaining constraint/snap/rotation interactions, import recovery, full scenario corpus, and edit-to-correct-frame performance remain outstanding.
 
+### Browser dashboard grid geometry — 2026-10-19
+
+- Ran `node scripts/quality/heavy-lease.mjs "e2e: layout dashboard grid visual proof" -- pnpm exec playwright test tests/e2e/canvas/autolayout-visual.spec.ts --project=chromium --workers=1 --reporter=list --grep "authored grid tracks place two dashboard cards"`. Result: **1 passed** in 3 minutes.
+- The authored 400×300 frame with `1fr 1fr` columns placed two cards in one row. Selection outlines measured each card at 140 CSS px wide; the second card began more than 8 px after the first card's right edge, and their y coordinates matched. The capture shows the grid template editor, both cards and their selected geometry at 1280×720.
+- Inspected and retained both interaction frames: [grid authoring](../screenshots/layout/autolayout-grid-dashboard-1280x720-2026-10-19.png) and [second card selection](../screenshots/layout/autolayout-grid-dashboard-selected-1280x720-2026-10-19.png). The two temporary Playwright output copies were removed after retaining the reviewable evidence.
+- This verifies the browser dashboard authoring and geometry path only. Narrow/wide browser dashboard resizing, the remaining constraint and rotated snapping interactions, imported-component first edit, full scenario corpus, application export rendering, and edit-to-correct-frame performance remain outstanding.
+
 ![Native Tauri editor interaction capture at 1280×800](../screenshots/layout/tauri-fluidity-2026-10-19.png)
 
 ### Focused canvas rerun after interrupted browser batch — 2026-10-19
