@@ -1075,3 +1075,46 @@ Escalations: none. Full suite run: no.
 - Main checkout and other worktrees were not touched. The shared lease was acquired only after the active owner completed; the ChatGPT Linux app remained open.
 - After refining multi-selection toggles to preserve each enabled text-frame color while filling only unset selections, the plan still selects 77 lanes. A fresh `pnpm verify:triage` passed formatting/lint, all listed audits, E2E typechecks, and typechecks for website, codegen, editor, engine, and scene. It was then externally sent SIGTERM during `typecheck:@varve/desktop` after 139.3 seconds; the verifier reported owned-process cleanup completed. No signal was sent by this task, and unrelated active worktrees were left running. The complete affected triage therefore remains incomplete. The editor package typecheck also passed separately after adding explicit mixed/unset guards. This UI review correction prevents enabling a mixed text selection from replacing existing custom colors with defaults.
 - A distinct read-only second-pass self-review of the current implementation found and fixed that mixed-selection color loss. This is not an independent review. A final review of the complete candidate remains required after validation and documentation settle.
+
+## 2026-10-20 pushed text-frame candidate — validation reconciliation
+
+This entry supersedes the earlier pending visual and push-checkpoint statements
+for the text-frame slice above. The source ledger cutoffs remain frozen as
+recorded; this is an implementation/validation update, not a corpus refresh.
+
+- App visual E2E passed under the shared heavy-task lease (1/1) and desktop
+  plus 1024×768 captures were inspected. Marketing visual E2E passed (2/2) and
+  desktop plus 390×844 mobile captures were inspected. The independent PDF
+  probe was rasterized and inspected; text extraction succeeded. Evidence and
+  SHA-256 hashes are recorded in `findings.md` §4.29.
+- After merging the then-current `origin/master` at
+  `5172718c6f0f2597466cd08d0839b53ccafefbd2`, the implementation candidate is
+  `fd18dea96eab9dd1086e4663cc00a8ecc1ed7b12` on
+  `codex/pdfcraft-zoom-reconciliation-20261019`. No main checkout or other
+  worktree was changed. The ChatGPT Linux app and other worktree processes
+  were left running.
+- The affected triage refreshed after the merge selected 77 lanes and reported
+  `FULL-SUITE ESCALATION: YES` for the serialized/render contract. It passed
+  Tier 0 audits, E2E typechecking, and typechecking for all listed changed
+  packages. The editor package suite passed (8,789 tests; 2 skipped). The
+  verifier stopped at the engine lane after three benchmark/timeout-sensitive
+  tests failed under contention; the other plan lanes were not reached. A
+  lease-wrapped isolated rerun of those exact three files passed all 14 tests.
+  This does not count as a complete affected triage or full-gate certification.
+- `pnpm verify:push --since origin/master` passed all local blocking lanes on
+  the merge candidate. The Git pre-push checkpoint passed again for the exact
+  pushed ref, including desktop and website unit tests, typechecks, workflow
+  validation, action pinning, product/version/security checks, docs/emoji
+  audits, and manifest validation. It explicitly deferred render benchmark,
+  native desktop, full JavaScript/Rust/typecheck, WASM, and browser E2E/visual
+  lanes to hosted CI; these are required evidence, not reported as passed.
+- The latest review-plan output selected 77 lanes and required the exact-SHA
+  full gate. That full gate and hosted deferred lanes remain outstanding.
+  The read-only second-pass self-review found no additional actionable issue;
+  it is not an independent reviewer approval. Re-run the required gate against
+  the final PR SHA and resolve any findings before merging to `master`.
+- The text-frame marketing copy remains explicitly in development until
+  released-build support is verified. Merging the website source to `master`
+  triggers the configured GitHub Pages deployment to `varve.studio`; this
+  expected deployment follows the user's earlier instruction to integrate the
+  complete batch after all required gates pass.
