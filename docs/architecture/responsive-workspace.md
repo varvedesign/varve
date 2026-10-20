@@ -104,6 +104,10 @@ and records the [bounded Layers menu](../screenshots/2026-10-20-responsive-contr
 and its [Masking](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-submenu.png)
 and [bottom-row Color Tag](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-bottom-submenu.png)
 submenus.
+The browser regression set also covers full editor captures in light, dark,
+and high-contrast themes, plus Email workspace and Enhance dialog captures
+where the compact panel headers remain visible. These baselines were reviewed
+for the removed Layers eye control and the smaller Move controls.
 
 The former `min-width: 600px` floor predated drawer mode and caused horizontal
 drift in split-screen; it was removed in `f76d98eb1`.
@@ -368,7 +372,9 @@ gesture; ChromeOS hardware behavior remains a device-validation item.
   at that size.
 - `tests/e2e/interaction/tablet-editing-controls.spec.ts` — tablet control
   popover reachability, 44px targets, latched modifier survival across
-  landscape-to-portrait reflow, and popover bounds in both orientations.
+  landscape-to-portrait reflow, visible portal bounds above the toolbar in
+  both orientations, and scroll access to the gesture guide. The inner dialog
+  may extend past the portal's scrollport; the portal is the visible bound.
 - `tests/e2e/interaction/tablet-keyboardless-workflow.spec.ts` — one integrated
   touch-only round trip: tool selection, authoring two shapes, tap-select,
   multi-select, align-left, layer reorder, and undo/redo, asserting the

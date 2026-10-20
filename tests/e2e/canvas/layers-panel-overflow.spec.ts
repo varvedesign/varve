@@ -132,8 +132,7 @@ test.describe('Layers panel overflow fixes', () => {
     // above a low layer row. Verify the final action remains reachable instead
     // of treating the intentionally constrained viewport as clipped content.
     const finalAction = ctxMenu.getByRole('menuitem', {
-      name: 'Reveal in Layers Panel',
-      exact: true,
+      name: /^Zoom to Selection/,
     });
     const scrollMetricsBefore = await ctxMenu.evaluate((element) => {
       const style = getComputedStyle(element);
