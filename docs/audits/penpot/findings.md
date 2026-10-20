@@ -1,5 +1,24 @@
 # Findings and implementation batches
 
+## C1 issues #2257–#2280, plus recursive #2715
+
+The requested span has 21 returned records across two pages: 14 issues and
+seven PRs; #2272, #2273, and #2279 are absent slots. All 14 issue bodies and
+72 comments were read. Related #2715's body and three comments were also
+assessed as a distinct C1 issue. #2265's Figma import request is substantially
+served by Varve's documented JSON/native `.fig` routes, with private Copy
+envelopes and version/credential constraints remaining distinct. #2266's
+mobile review app, #2269's React/Storybook library import, #2270's placeholder
+text generator, #2274/#2715's collaborative comment workflows, and #2278's
+anonymous read-only inspector require product/security decisions. #2268's
+flex/grid requests are broadly present but named limitations were not mapped.
+#2276 is a concrete SVG import candidate: `currentColor` is explicitly
+discarded by `parseSvgColor`, so resolve standards semantics and reproduce the
+result before implementing a fix. #2291's ruler report is not retested against
+an upstream hash, and #2303's generic color-fix title does not establish a
+Varve defect. Linked community/Taiga posts, attachments, and PR review
+threads remain separately unresolved.
+
 ## C1 issues #2233–#2256
 
 All 24 slots are present: 14 PRs and ten issues. Every issue body and all 35
