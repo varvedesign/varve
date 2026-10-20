@@ -38,6 +38,7 @@ import { getRetouchOverlaySnapshot, subscribeRetouchOverlay } from '../tools/ret
 import type { SnapGuide } from '../tools/snapping';
 import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './AlignmentOverlay';
 import { BlurGalleryOverlay } from './BlurGalleryOverlay';
+import { CalloutManipulationOverlay } from './CalloutManipulationOverlay';
 import { CanvasAccessibilityTree } from './CanvasAccessibilityTree';
 import { CollabCursorOverlay, type RemoteCursor } from './CollabCursorOverlay/CollabCursorOverlay';
 import { ColorBlindnessOverlay, type ColorBlindnessView } from './ColorBlindnessOverlay';
@@ -762,6 +763,7 @@ export function CanvasOverlays({
           transformPreviewStore={transformPreviewStore}
         />
       )}
+      <CalloutManipulationOverlay canvasRef={contentCanvasRef} />
       {retouchBadge && (
         <PaintOverlay
           camera={{ zoom, pan, rotation: cameraRotation ?? 0 }}

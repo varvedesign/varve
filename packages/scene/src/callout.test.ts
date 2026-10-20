@@ -3,6 +3,7 @@ import { deepCloneSubtree } from './clone';
 import {
   addCalloutTail,
   addNode,
+  calloutTailBendPoint,
   createCallout,
   createDocument,
   detachCalloutRecipe,
@@ -17,6 +18,7 @@ import {
   setCalloutWrapShape,
   updateCalloutKind,
   updateCalloutPadding,
+  updateCalloutTailBendPoint,
   updateCalloutTailEndpoint,
   wrapTextInCallout,
 } from './index';
@@ -103,6 +105,38 @@ describe('comic callouts', () => {
     });
     const tail = moved.nodes[secondTail!];
     expect(tail?.kind === 'path' ? tail.points[1] : undefined).toMatchObject({ x: 88, y: 124 });
+  });
+
+  it('moves the tail bend handle without moving its authored endpoint', () => {
+    const created = createCallout(createDocument('bend-handle', true), {
+      x: 0,
+      y: 0,
+      w: 120,
+      h: 64,
+      tailEndpoint: { x: 50, y: 124 },
+    });
+    const tailId = created.tailNodeIds[0]!;
+    const beforeBend = calloutTailBendPoint(created.document, created.groupId, tailId);
+    const beforeTail = created.document.nodes[tailId];
+    if (!beforeBend || beforeTail?.kind !== 'path') throw new Error('tail geometry is missing');
+    const endpoint = beforeTail.points[1];
+    if (!endpoint) throw new Error('tail endpoint is missing');
+    const dx = endpoint.x - 60;
+    const dy = endpoint.y - 61;
+    const length = Math.hypot(dx, dy);
+    const requested = {
+      x: beforeBend.x + (-dy / length) * 12,
+      y: beforeBend.y + (dx / length) * 12,
+    };
+
+    const moved = updateCalloutTailBendPoint(created.document, created.groupId, tailId, requested);
+    const afterTail = moved.nodes[tailId];
+    const afterBend = calloutTailBendPoint(moved, created.groupId, tailId);
+    const afterTip = afterTail?.kind === 'path' ? afterTail.points[1] : undefined;
+    expect(afterTip?.x).toBe(endpoint.x);
+    expect(afterTip?.y).toBe(endpoint.y);
+    expect(afterBend?.x).toBeCloseTo(requested.x, 6);
+    expect(afterBend?.y).toBeCloseTo(requested.y, 6);
   });
 
   it('marks a callout detached while retaining ordinary geometry', () => {
