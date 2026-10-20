@@ -643,8 +643,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   <h3>Which package should I choose?</h3>
                   <p class="format-tradeoffs-intro">
                     Choose a package for your distro. Every Linux build requires glibc 2.35 or newer.
-                    Debian/RPM/AUR packages need the system WebKitGTK libraries
-                    {appImageBundlesWebKit
+                    Debian/RPM/AUR packages need the system WebKitGTK libraries{appImageBundlesWebKit
                       ? '; the AppImage bundles WebKitGTK.'
                       : '. The current AppImage needs those same host libraries.'}
                   </p>
@@ -976,7 +975,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   ? ' the AppImage uses host Mesa/EGL with bundled WebKitGTK.'
                   : ' the current AppImage uses host WebKitGTK and host Mesa/EGL.'}{' '}
                 If the window stays blank, try{' '}
-                <code>WEBKIT_DISABLE_DMABUF_RENDERER=1 ./Varve-*.AppImage</code> or install the
+                <code>WEBKIT_DISABLE_DMABUF_RENDERER=1</code>{' '}
+                <code>./Varve-*.AppImage</code> or install the{' '}
                 <code>.deb</code> / <code>.rpm</code> instead.
               </li>
               <li>
@@ -1588,6 +1588,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     border: 1px solid var(--border-subtle);
     border-radius: var(--website-radius-control-compact);
     padding: 0.1em 0.35em;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .after-install,

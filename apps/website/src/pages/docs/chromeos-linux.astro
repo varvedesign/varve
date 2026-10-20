@@ -129,11 +129,9 @@ const appImageBundlesWebKit = appImageShipsBundledWebKit(release.version);
           </table>
         </div>
         <p>
-          An AppImage also exists ({arm64AppImage.filename}), but on ChromeOS it needs FUSE2
-          {appImageBundlesWebKit
-            ? ', which the Linux environment often lacks'
-            : ' and the host WebKitGTK libraries'}
-          . Prefer the <code>.deb</code> on ChromeOS.
+          An AppImage also exists ({arm64AppImage.filename}), but on ChromeOS it needs FUSE2{appImageBundlesWebKit
+            ? ', which the Linux environment often lacks. '
+            : ' and the host WebKitGTK libraries. '}Prefer the <code>.deb</code> on ChromeOS.
         </p>
         {appImagePackagingNotice && <p>{appImagePackagingNotice}</p>}
       </section>

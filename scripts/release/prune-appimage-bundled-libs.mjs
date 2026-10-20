@@ -5,25 +5,27 @@
  * Why this exists:
  *
  * Tauri's AppImage pipeline runs linuxdeploy-plugin-gtk, which bundles the
- * whole GTK/WebKit/GStreamer dependency closure built on the CI baseline
- * (ubuntu-22.04). That closure also carries Mesa/EGL from the build host.
+ * GTK/WebKit toolkit closure built on the CI baseline (ubuntu-22.04). That
+ * closure also carries Mesa/EGL from the build host. GStreamer plugins are
+ * not bundled (`bundleMediaFramework` stays false).
  * On distributions with a newer Mesa/EGL stack (Arch, CachyOS, Fedora 40+,
  * Ubuntu 24.04) the bundled WebKitWebProcess then fails at startup:
  *
  *     Could not create default EGL display: EGL_BAD_PARAMETER. Aborting...
  *
- * v0.1.1–v0.5.1 deleted the *entire* usr/lib stack (`--exclude-library '*'`)
+ * v0.1.1 through v0.5.1 deleted the *entire* usr/lib stack (`--exclude-library '*'`)
  * so the AppImage used host WebKit like the .deb. That fixed the white
  * screen and broke AppImageHub: a clean offline VM has no
  * `libwebkit2gtk-4.1.so.0`, so the 0.5.1 catalog test exited before a
  * window appeared.
  *
  * The split that satisfies both:
- *   - Keep WebKitGTK, GTK, GStreamer, and the rest of the toolkit closure
- *     so a machine without those packages can still launch.
- *   - Delete only the GPU/EGL/Mesa/DRI/Vulkan libraries (and nvidia/cuda)
- *     so WebKit talks to the *host* libEGL. libc stays unbundled (linuxdeploy
- *     default); AppImageHub's glibc-2.35 note is expected.
+ *   - Keep WebKitGTK, GTK, and the rest of the toolkit closure so a machine
+ *     without those packages can still launch. GStreamer plugins stay out.
+ *   - Delete host GPU/EGL/Mesa/DRI/Vulkan libraries (and nvidia/cuda) plus
+ *     libstdc++, libgcc_s, and libwayland-* so WebKit talks to the host
+ *     libEGL and a newer Mesa is not shadowed. libc stays unbundled
+ *     (linuxdeploy default); AppImageHub's glibc-2.35 note is expected.
  *   - Re-assemble with `--exclude-library '*'` so linuxdeploy cannot copy
  *     the build host's Mesa back in.
  *
@@ -162,9 +164,10 @@ export function resolveLinuxResourceDirName(tauriConfPath = TAURI_CONF) {
 
 /**
  * Decide which entries under `usr/lib`/`usr/lib64` to remove and which to
- * keep. Keep the product resource directory and the WebKit/GTK/GStreamer
- * closure. Remove only host GPU/EGL/Mesa/DRI/Vulkan libraries so bundled
- * WebKit talks to the running system's graphics stack.
+ * keep. Keep the product resource directory and the WebKit/GTK toolkit
+ * closure. Remove host GPU/EGL/Mesa/DRI/Vulkan libraries and host C++ /
+ * Wayland copies so bundled WebKit talks to the running system's graphics
+ * stack. GStreamer plugins are not part of this payload.
  */
 export function collectPrunePlan(squashfsRoot, resourceDirName) {
   const remove = [];
@@ -589,7 +592,7 @@ function main() {
   const architecture = normalizeArchitecture(args.arch ?? process.arch);
   const appImage = findAppImage(bundleDir);
   if (!appImage) {
-    process.stdout.write('No AppImage found — nothing to prune.\n');
+    process.stdout.write('No AppImage found; nothing to prune.\n');
     return;
   }
 
@@ -609,7 +612,7 @@ function main() {
 
   const resourceDirName = resolveLinuxResourceDirName();
   assertWebKitBundled(squashfsRoot, 'Tauri AppImage payload');
-  // Keep WebKit/GTK/GStreamer. Remove only host GPU/EGL/Mesa so a clean
+  // Keep WebKit/GTK. Remove host GPU/EGL/Mesa and C++/Wayland so a clean
   // offline system can launch and a newer host Mesa is not shadowed.
   const { remove, keep } = collectPrunePlan(squashfsRoot, resourceDirName);
   for (const entry of remove) {
@@ -676,7 +679,7 @@ function main() {
   // toolchain Tauri used to build the original. A hand-rolled
   // runtime + mksquashfs concatenation produces an invalid ELF (the runtime
   // reads its squashfs offset from an ELF section, not by scanning for
-  // "hsqs" — verified 2026-08-11 with a segfaulting repack). `--exclude-library
+  // "hsqs", verified 2026-08-11 with a segfaulting repack). `--exclude-library
   // '*'` keeps linuxdeploy from copying the CI host's Mesa/EGL back into
   // the AppDir after we deleted it. Existing WebKit/GTK files stay.
   const linuxdeploy =
@@ -724,7 +727,7 @@ function main() {
   chmodSync(output, 0o755);
 
   // Re-assembly is the step that dropped resources in the past, so verify the
-  // final payload — not just the intermediate AppDir — still carries them,
+  // final payload, not just the intermediate AppDir, still carries them,
   // still has WebKit, and did not re-grow a GPU stack.
   const verifyWork = mkdtempSync(join(tmpdir(), 'varve-appimage-verify-'));
   try {
@@ -767,7 +770,7 @@ function main() {
   process.stdout.write(
     `Removed ${removed} host GPU library entries and ${runtimePlan.remove.length} foreign ` +
       `runtime directories, and re-assembled ${appImage} (${(prunedSize / 1e6).toFixed(1)} MB). ` +
-      'AppImage keeps bundled WebKit/GTK and uses host Mesa/EGL — see module doc.\n',
+      'AppImage keeps bundled WebKit/GTK and uses host Mesa/EGL. See module doc.\n',
   );
 }
 

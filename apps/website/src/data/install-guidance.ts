@@ -7,28 +7,11 @@ import packageManagers from './package-managers.json';
 
 export const MACOS_QUARANTINE_ONLY_RELEASES = new Set(['0.5.0']);
 
-/** First published AppImage that ships bundled WebKitGTK instead of host WebKit. */
-export const FIRST_BUNDLED_WEBKIT_APPIMAGE = '0.5.2';
-
-export function compareReleaseVersion(left: string, right: string): number {
-  const parse = (value: string) =>
-    value
-      .replace(/^v/, '')
-      .split(/[-+]/)[0]
-      .split('.')
-      .map((part) => Number(part) || 0);
-  const a = parse(left);
-  const b = parse(right);
-  for (let i = 0; i < 3; i += 1) {
-    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) - (b[i] ?? 0);
-  }
-  return 0;
-}
-
-export function appImageShipsBundledWebKit(version: string | null | undefined): boolean {
-  if (!version) return false;
-  return compareReleaseVersion(version, FIRST_BUNDLED_WEBKIT_APPIMAGE) >= 0;
-}
+export {
+  appImageShipsBundledWebKit,
+  compareReleaseVersion,
+  FIRST_BUNDLED_WEBKIT_APPIMAGE,
+} from './release-version.mjs';
 
 export function isMacosQuarantineOnlyRelease(version: string | null | undefined): boolean {
   return Boolean(version && MACOS_QUARANTINE_ONLY_RELEASES.has(version));

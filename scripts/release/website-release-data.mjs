@@ -15,8 +15,15 @@
  * America/Vancouver calendar day of generatedAt — never the UTC prefix of a
  * late-evening Pacific timestamp.
  */
+import {
+  appImageShipsBundledWebKit,
+  compareReleaseVersion,
+  FIRST_BUNDLED_WEBKIT_APPIMAGE,
+} from '../../apps/website/src/data/release-version.mjs';
 import { productSlug } from './product.mjs';
 import { ARCHITECTURES, normalizeArchitecture, targetFor } from './targets.mjs';
+
+export { appImageShipsBundledWebKit, compareReleaseVersion, FIRST_BUNDLED_WEBKIT_APPIMAGE };
 
 /** Availability belongs to the selected release and a feed verified in this fetch. */
 export function releaseUpdaterAvailability(release, verifiedFeeds = {}) {
@@ -103,29 +110,6 @@ export function macosUnsignedCaveat(version) {
     'Not Developer ID signed or notarized. After the first launch attempt, open ' +
     'System Settings > Privacy & Security and choose Open Anyway. Do not disable Gatekeeper.'
   );
-}
-
-/** First published AppImage that ships bundled WebKitGTK instead of host WebKit. */
-export const FIRST_BUNDLED_WEBKIT_APPIMAGE = '0.5.2';
-
-export function compareReleaseVersion(left, right) {
-  const parse = (value) =>
-    String(value ?? '')
-      .replace(/^v/, '')
-      .split(/[-+]/)[0]
-      .split('.')
-      .map((part) => Number(part) || 0);
-  const a = parse(left);
-  const b = parse(right);
-  for (let i = 0; i < 3; i += 1) {
-    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) - (b[i] ?? 0);
-  }
-  return 0;
-}
-
-export function appImageShipsBundledWebKit(version) {
-  if (!version) return false;
-  return compareReleaseVersion(version, FIRST_BUNDLED_WEBKIT_APPIMAGE) >= 0;
 }
 
 export function windowsUnsignedCaveat() {

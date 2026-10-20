@@ -1,6 +1,6 @@
 # Minimal Ubuntu for the AppImageHub-style launch check.
 # Has a display stack (Xvfb + Mesa) and deliberately does NOT install
-# libwebkit2gtk or GTK — those must come from the AppImage payload.
+# libwebkit2gtk or GTK; those must come from the AppImage payload.
 FROM docker.io/library/ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
