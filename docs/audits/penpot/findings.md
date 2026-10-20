@@ -1,5 +1,31 @@
 # Findings and implementation batches
 
+## C1 issues #2305–#2352 (noncontiguous returned ranges)
+
+The review covered 18 records in #2305–#2328 (8 issues, 10 PRs), then 24 in
+#2329–#2352 (14 issues, 10 PRs). All 22 issue bodies and 67 issue comments
+were read; PR discussion threads remain separate unresolved evidence. #2313's
+exact 9.3 MiB SVG gist was retrieved and inspected: it contains an embedded
+raster pattern and is below Varve's source-byte cap, while the parser builds
+the XML tree before dropping unsupported patterns and has no SVG node-count
+limit. This is a parser memory/time robustness lead despite Penpot's later
+non-reproduction, not a reproduced Varve crash. #2276 and #2348 both expose
+Varve's explicit `currentColor` drop; #2348's grouped Material Design SVG and
+below-125%-zoom condition remain distinct from #2276's basic fill fixture.
+Resolve inherited CSS color semantics and reproduce these before repair.
+
+#2311's exact numeric guide coordinate is a small precision feature candidate;
+#2336's Ctrl+Enter text commit needs IME/newline coverage; #2330 asks for
+responsive prototype simulation beyond existing flex/grid auto-layout;
+#2321 asks for recent-color assets in a dialog absent from Varve. #2337/#2341
+and #2314 are already served by Ctrl+S save and the hand tool. #2320's one-time
+Tidy Up is substantially present; inferred persistent geometry is a separate
+product idea. #2350's px/rem line height would alter schema semantics and
+needs compatibility acceptance. #2351's text baseline-grid report needs a
+real font fixture and Chromium/Firefox comparison. Localization and hosted
+auth, deployment, dashboard, and anonymous-share requests remain product or
+service-boundary decisions rather than editor defects.
+
 ## C1 issues #2257–#2280, plus recursive #2715
 
 The requested span has 21 returned records across two pages: 14 issues and
