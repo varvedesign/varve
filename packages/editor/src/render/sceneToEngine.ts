@@ -400,6 +400,7 @@ export function sceneNodeToEngineNode(
     const textShape = {
       kind: 'text' as const,
       text,
+      textFrame: node.textFrame,
       fontSize,
       fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
       fontReference: node.fontReference,

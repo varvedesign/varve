@@ -32,7 +32,7 @@ describe('halloween-cookies.varve app load path', () => {
     const result = DocumentCodec.decode(json);
     const doc = expectOk(result);
 
-    expect(doc.formatVersion).toBe('2.33');
+    expect(doc.formatVersion).toBe('2.34');
     expect(doc.name).toBe('Halloween Cookies');
     expect(doc.designCanvases).toHaveLength(1);
     expect(doc.activeDesignCanvasId).toBe(doc.designCanvases?.[0]?.id);
@@ -47,7 +47,7 @@ describe('halloween-cookies.varve app load path', () => {
     const raw = JSON.parse(await loadRaw()) as unknown;
     const migration = migrateDocumentDetailed(raw);
     expect(migration).not.toBeNull();
-    expect(migration?.toVersion).toBe('2.33');
+    expect(migration?.toVersion).toBe('2.34');
     expect(migration?.warnings.filter((warning) => /error/i.test(warning))).toEqual([]);
   });
 

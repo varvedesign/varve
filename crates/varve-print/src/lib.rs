@@ -41,7 +41,9 @@ use std::collections::HashMap;
 
 use ab_glyph::Font as AbGlyphFont;
 use lopdf::{dictionary, Document, Object, ObjectId, Stream};
-use varve_core::{Effect, EngineColor, FillIR, GradientStop, SceneNode, Shape};
+use varve_core::{
+    BlendMode, Effect, EngineColor, FillIR, GradientStop, Rect, SceneNode, Shape, Stroke,
+};
 
 use crate::subset::{
     collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission,
@@ -358,6 +360,71 @@ fn shape_path_operators(node: &SceneNode, page_height: f64) -> Vec<u8> {
             format!("{px:.2} {py:.2} {w:.2} {h:.2} re\n").into_bytes()
         }
     }
+}
+
+/// Render the optional text container box independently of the text glyphs.
+fn render_text_frame(
+    node: &SceneNode,
+    page_height: f64,
+    use_cmyk: bool,
+    profile: Option<PrintProfile>,
+    mut image_state: Option<&mut ImageRenderState>,
+) -> Vec<u8> {
+    let Shape::Text {
+        x,
+        y,
+        w,
+        h,
+        text_frame: Some(frame),
+        ..
+    } = &node.shape
+    else {
+        return Vec::new();
+    };
+    let mut frame_node = node.clone();
+    frame_node.shape = Shape::Rect(Rect::new(*x, *y, *x + *w, *y + *h));
+    frame_node.fills = frame.fill.as_ref().map(|color| {
+        vec![FillIR::Solid {
+            color: color.clone(),
+            opacity: (f64::from(engine_color_rgba(color).3) / 255.0).clamp(0.0, 1.0),
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }]
+    });
+    frame_node.strokes = frame
+        .border
+        .as_ref()
+        .filter(|border| border.width.is_finite() && border.width > 0.0)
+        .map(|border| {
+            vec![Stroke {
+                color: border.color.clone(),
+                weight: border.width,
+                ..Stroke::default()
+            }]
+        })
+        .unwrap_or_default();
+
+    let mut output = Vec::new();
+    if frame.fill.is_some() {
+        output.extend(render_fills(
+            &frame_node,
+            page_height,
+            use_cmyk,
+            image_state.as_deref_mut(),
+            None,
+            profile,
+            None,
+            false,
+        ));
+    }
+    output.extend(render_strokes(
+        &frame_node,
+        page_height,
+        use_cmyk,
+        profile,
+        image_state,
+    ));
+    output
 }
 
 /// Append one local-space path contour to a PDF path stream.
@@ -2498,6 +2565,13 @@ fn shape_to_pdf_content(
     if let Some(state) = image_state.as_mut() {
         write_node_graphics_state(&mut buf, state, node);
     }
+    buf.extend(render_text_frame(
+        node,
+        page_height,
+        use_cmyk,
+        profile,
+        image_state.as_deref_mut(),
+    ));
     let effects = render_effects(
         node,
         page_height,
@@ -3528,6 +3602,18 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
         let mut shading_registry = ShadingRegistry::new();
 
         for node in nodes {
+            if matches!(&node.shape, Shape::Text { .. }) {
+                content.extend_from_slice(b"q\n");
+                write_node_graphics_state(&mut content, &mut image_state, node);
+                content.extend(render_text_frame(
+                    node,
+                    opts.page_height,
+                    use_cmyk,
+                    opts.print_profile,
+                    Some(&mut image_state),
+                ));
+                content.extend_from_slice(b"Q\n");
+            }
             // Granular rich text fallback: when a node has rich text spans,
             // process each run independently instead of all-or-nothing.
             // Valid runs get native PDF text; non-WinAnsi runs are outlined.
@@ -3908,6 +3994,7 @@ mod tests {
             transform: Affine::translate((x, y)),
             shape: Shape::Text {
                 text: text.into(),
+                text_frame: None,
                 font_size,
                 font_family: "DejaVu Sans".into(),
                 font_weight: 400,
@@ -3956,6 +4043,53 @@ mod tests {
 
     fn test_font_data() -> Vec<u8> {
         crate::test_fonts::test_font_bytes().to_vec()
+    }
+
+    #[test]
+    fn text_frame_pdf_paints_container_before_glyph_paths_and_honors_zero_border() {
+        let mut node = text_node(77, 10.0, 12.0, "Label", 18.0);
+        let text_frame = varve_core::TextFrameStyle {
+            fill: Some(EngineColor::Rgb {
+                r: 250.0,
+                g: 249.0,
+                b: 240.0,
+                a: 255.0,
+                bit_depth: None,
+                profile: None,
+            }),
+            border: Some(varve_core::TextFrameBorder {
+                color: EngineColor::Rgb {
+                    r: 20.0,
+                    g: 30.0,
+                    b: 40.0,
+                    a: 255.0,
+                    bit_depth: None,
+                    profile: None,
+                },
+                width: 1.5,
+            }),
+        };
+        if let Shape::Text {
+            text_frame: slot, ..
+        } = &mut node.shape
+        {
+            *slot = Some(text_frame);
+        }
+
+        let painted = render_text_frame(&node, 200.0, false, None, None);
+        let painted = String::from_utf8(painted).expect("frame operators are ASCII");
+        assert!(painted.contains("0.980 0.976 0.941 rg"));
+        assert!(painted.contains("re\nf"));
+        assert!(painted.contains("1.50 w"));
+        assert!(painted.contains("S\n"));
+
+        if let Shape::Text { text_frame, .. } = &mut node.shape {
+            text_frame.as_mut().unwrap().border.as_mut().unwrap().width = 0.0;
+        }
+        let zero_width = render_text_frame(&node, 200.0, false, None, None);
+        let zero_width = String::from_utf8(zero_width).expect("frame operators are ASCII");
+        assert!(!zero_width.contains(" w\n"));
+        assert!(!zero_width.contains("S\n"));
     }
 
     fn solid_fill(r: u8, g: u8, b: u8, a: u8, visible: bool) -> FillIR {
@@ -6093,6 +6227,7 @@ mod tests {
             transform: Affine::translate((10.0, 10.0)),
             shape: Shape::Text {
                 text: "A".into(),
+                text_frame: None,
                 font_size: 24.0,
                 font_family: "DejaVu Sans".into(),
                 font_weight: 400,

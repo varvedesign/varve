@@ -21,7 +21,7 @@ import type {
   TextNode,
   VectorMaskData,
 } from '@varve/scene';
-import { computeTableLayout, isImageShape, resolveMask } from '@varve/scene';
+import { computeTableLayout, isImageShape, resolveMask, textNodeLocalBounds } from '@varve/scene';
 import {
   applyAffine,
   DEFAULT_ARTWORK_FONT_FAMILY,
@@ -948,6 +948,73 @@ function warpNotBakedComment(node: SceneNode): string {
   return `<!-- varve: live warp not baked into this ${kind === 'text' ? 'text' : 'container'}; exported undeformed -->\n`;
 }
 
+/** Keep the optional frame and its glyphs under one SVG node compositing state. */
+function textNodeSvgMarkup(args: {
+  node: TextNode;
+  doc: SceneDocument;
+  preserveColorSpace: boolean;
+  indent: string;
+  withTransform: string;
+  attributes: string[];
+  styles: string[];
+  content: string;
+  prefix: string;
+  compositing: ReturnType<typeof svgCompositing>;
+}): string {
+  const {
+    node,
+    doc,
+    preserveColorSpace,
+    indent,
+    withTransform,
+    attributes,
+    styles,
+    content,
+    prefix,
+    compositing,
+  } = args;
+  const frame = node.textFrame;
+  const hasFramePaint = Boolean(
+    frame?.fill || (frame?.border && Number.isFinite(frame.border.width) && frame.border.width > 0),
+  );
+  const textAttrs = [...attributes];
+  const textStyles = [...styles];
+  textAttrs.push(...compositing.attributes);
+  textStyles.push(...compositing.styles);
+  if (textStyles.length > 0) textAttrs.push(`style="${textStyles.join(' ')}"`);
+  const textTag = `${indent}${prefix}<text ${textAttrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
+  if (!hasFramePaint || !frame) return textTag;
+
+  const bounds = textNodeLocalBounds(node);
+  const frameAttrs = [
+    `x="${fmt(bounds.x)}"`,
+    `y="${fmt(bounds.y)}"`,
+    `width="${fmt(bounds.w)}"`,
+    `height="${fmt(bounds.h)}"`,
+  ];
+  const frameWarnings: string[] = [];
+  if (frame.fill) {
+    const value = colorToSvgValue(frame.fill, doc, preserveColorSpace);
+    frameAttrs.push(`fill="${value.value}"`);
+    if (value.warning) frameWarnings.push(value.warning);
+  } else {
+    frameAttrs.push('fill="none"');
+  }
+  const border = frame.border;
+  if (border && Number.isFinite(border.width) && border.width > 0) {
+    const color = colorToSvgValue(border.color, doc, preserveColorSpace);
+    frameAttrs.push(`stroke="${color.value}"`, `stroke-width="${fmt(border.width)}"`);
+    if (color.warning) frameWarnings.push(color.warning);
+  }
+  const warnings = frameWarnings.map((warning) => `${indent}<!-- ${warning} -->`).join('\n');
+  frameAttrs.push(...compositing.attributes);
+  if (compositing.styles.length > 0) {
+    frameAttrs.push(`style="${compositing.styles.join(' ')}"`);
+  }
+  const frameTag = `${warnings ? `${warnings}\n` : ''}${indent}<rect ${frameAttrs.join(' ')}${withTransform} />`;
+  return `${frameTag}\n${textTag}`;
+}
+
 function nodeToSvgTag(
   node: SceneNode,
   doc: SceneDocument,
@@ -1172,10 +1239,6 @@ ${shapeInner}`
         const features = openTypeFeaturesToCss(textNode.openTypeFeatures);
         if (features) styleParts.push(`font-feature-settings: ${features};`);
       }
-      attrs.push(...compositing.attributes);
-      styleParts.push(...compositing.styles);
-      if (styleParts.length > 0) attrs.push(`style="${styleParts.join(' ')}"`);
-
       const content = (() => {
         if (!pathText || !textNode.pathTextSettings) {
           return buildTextContent(textNode, indent);
@@ -1213,8 +1276,19 @@ ${shapeInner}`
       const missingComment = missingPath
         ? `${indent}<!-- varve: path text — referenced path ${textNode.pathTextSettings!.pathNodeId} not found, exported as flat text -->\n`
         : '';
-      const textTag = `${indent}${missingComment}${warpNotBakedComment(node)}<text ${attrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
-      return buildMaskedNode(textTag, node, doc, indent);
+      const textMarkup = textNodeSvgMarkup({
+        node: textNode,
+        doc,
+        preserveColorSpace,
+        indent,
+        withTransform,
+        attributes: attrs,
+        styles: styleParts,
+        content,
+        prefix: `${missingComment}${warpNotBakedComment(node)}`,
+        compositing,
+      });
+      return buildMaskedNode(textMarkup, node, doc, indent);
     }
     case 'frame':
     case 'group': {
