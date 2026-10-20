@@ -88,9 +88,9 @@ describe('Tauri layout grid workflow', () => {
     await draw('rect', [0.2, 0.2], [0.37, 0.38]);
     await draw('rect', [0.5, 0.2], [0.67, 0.38]);
 
-    const frame = await browser.$('[role="treeitem"][data-layer-type="frame"]');
-    await frame.waitForDisplayed({ timeout: 10_000 });
-    await frame.click();
+    const frameLayer = await browser.$('[role="treeitem"][data-layer-type="frame"]');
+    await frameLayer.waitForDisplayed({ timeout: 10_000 });
+    await frameLayer.click();
     const mode = await browser.$('[role="combobox"][aria-label="Layout mode"]');
     await mode.waitForDisplayed({ timeout: 10_000 });
     await mode.click();
@@ -166,5 +166,62 @@ describe('Tauri layout grid workflow', () => {
         join(dirname(screenshotPath), `${screenshotBase}-${width}x${height}.png`),
       );
     }
+
+    const trackFrame = await browser.$('[role="treeitem"][data-layer-type="frame"]');
+    await trackFrame.click();
+    await browser.waitUntil(
+      async () => (await trackFrame.getAttribute('aria-selected')) === 'true',
+      {
+        timeout: 5_000,
+        timeoutMsg: 'the frame must be selected before editing its tracks',
+      },
+    );
+    const layoutDisclosure = await browser.$(
+      '//button[contains(normalize-space(.), "Stack / Grid")]',
+    );
+    await layoutDisclosure.waitForDisplayed({ timeout: 5_000 });
+    if ((await layoutDisclosure.getAttribute('aria-expanded')) !== 'true') {
+      await layoutDisclosure.click();
+    }
+    const frameLayoutState = await browser.execute(() => ({
+      selected: Array.from(
+        document.querySelectorAll<HTMLElement>('[role="treeitem"][aria-selected="true"]'),
+      ).map((row) => row.getAttribute('aria-label')),
+      layoutSummary: document.querySelector('[role="button"][aria-label*="Stack / Grid"]')
+        ?.textContent,
+      layoutMode: document.querySelector('[aria-label="Layout mode"]')?.textContent,
+      trackEditor: Boolean(document.querySelector('.insp-grid-track-editor')),
+      layoutControls: Boolean(document.querySelector('.insp-layout-controls')),
+    }));
+    if (!frameLayoutState.trackEditor) throw new Error(JSON.stringify(frameLayoutState));
+    await browser.setWindowSize(900, 600);
+    const columnTrackCount = async () =>
+      await (await browser.$$('.insp-grid-track-editor__axis[aria-label="column tracks"] input'))
+        .length;
+    await browser.waitUntil(async () => (await columnTrackCount()) === 2, {
+      timeout: 10_000,
+      timeoutMsg: 'the authored two-column editor did not appear',
+    });
+    expect(await columnTrackCount()).toBe(2);
+    await (await browser.$('button=Add column')).click();
+    await browser.waitUntil(async () => (await columnTrackCount()) === 3, {
+      timeout: 5_000,
+      timeoutMsg: 'adding a column did not add one editable track',
+    });
+    await (await browser.$('button[aria-label="Remove column 3"]')).click();
+    const removalDialog = await browser.$('.insp-grid-track-editor__dialog');
+    await removalDialog.waitForDisplayed({ timeout: 5_000 });
+    await browser.saveScreenshot(
+      join(dirname(screenshotPath), 'grid-track-removal-preview-900x600.png'),
+    );
+    await (await removalDialog.$('button=Cancel')).click();
+    await removalDialog.waitForDisplayed({ reverse: true, timeout: 5_000 });
+    expect(await columnTrackCount()).toBe(3);
+    await browser.execute(() => document.body.focus());
+    await browser.keys(['Control', 'z']);
+    await browser.waitUntil(async () => (await columnTrackCount()) === 2, {
+      timeout: 5_000,
+      timeoutMsg: 'the single undo did not restore the previous grid tracks',
+    });
   });
 });

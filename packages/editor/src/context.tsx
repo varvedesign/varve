@@ -9165,29 +9165,33 @@ export function EditorProvider({
         }),
 
       setNodeLayout: (id, layout) => {
-        updateDoc((doc) => {
-          const node = doc.nodes[id];
-          if (node?.kind !== 'frame') return doc;
-          const updated = {
-            ...doc,
-            nodes: { ...doc.nodes, [id]: { ...node, layoutStyle: layout } },
-          };
-          return layout ? reflowLayoutChildren(updated, id) : updated;
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => {
+            const node = doc.nodes[id];
+            if (node?.kind !== 'frame') return doc;
+            const updated = {
+              ...doc,
+              nodes: { ...doc.nodes, [id]: { ...node, layoutStyle: layout } },
+            };
+            return layout ? reflowLayoutChildren(updated, id) : updated;
+          });
         });
       },
 
       setGridTrackLayout: (id, layout, placements) => {
-        updateDoc((doc) => {
-          const frame = doc.nodes[id];
-          if (frame?.kind !== 'frame' || frame.layoutStyle?.mode !== 'grid') return doc;
-          const nodes = { ...doc.nodes, [id]: { ...frame, layoutStyle: layout } };
-          for (const [childId, gridPlacement] of Object.entries(placements)) {
-            const child = nodes[childId];
-            if (child && frame.children.includes(childId)) {
-              nodes[childId] = { ...child, gridPlacement };
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => {
+            const frame = doc.nodes[id];
+            if (frame?.kind !== 'frame' || frame.layoutStyle?.mode !== 'grid') return doc;
+            const nodes = { ...doc.nodes, [id]: { ...frame, layoutStyle: layout } };
+            for (const [childId, gridPlacement] of Object.entries(placements)) {
+              const child = nodes[childId];
+              if (child && frame.children.includes(childId)) {
+                nodes[childId] = { ...child, gridPlacement };
+              }
             }
-          }
-          return reflowLayoutChildren({ ...doc, nodes }, id);
+            return reflowLayoutChildren({ ...doc, nodes }, id);
+          });
         });
       },
 

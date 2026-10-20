@@ -130,6 +130,13 @@ These browser checks cover a subset of the requested eight-document corpus. Gene
 - The harness emitted a diagnostic warning that `tauri-driver` and `WebKitWebDriver` were not found, but confirmed it was using the embedded provider and the WebDriver session completed. Optional external-driver packages were not installed.
 - After the capture, removed the temporary XDG profiles, native failure frames, and the 11 GB test-only Tauri build target created in the integration worktree. Root volume availability rose from 15 GB to 26 GB; shared targets, other worktrees, and running processes were left in place.
 
+### Native grid track edit and history interaction — 2026-10-20
+
+- Extended the native grid scenario to add a column, open the track removal preview, cancel it, and issue one Ctrl+Z. The first run found that grid track and frame layout commands called `updateDoc` outside a document transaction, so keyboard undo left the three-track edit in place. Both commands now use the existing owned transaction boundary.
+- Rebuilt the WDIO-enabled desktop binary with `pnpm desktop:build:test`, then ran `VARVE_WDIO_SPECS=./tests/wdio/layout-grid.e2e.ts` through `xvfb-run -a` with fresh temporary XDG config/data/cache paths. Result: **1 passed**. The test confirmed add produced three tracks, cancel retained all three, and one Ctrl+Z restored the original two. It also repeated resolved geometry checks at 900×600, 1280×800, and 1600×1000.
+- Captured the track-removal preview at 900×600 and inspected it. The modal and both actions remain within the viewport; Before/After track diagrams and explanation are legible, while the dialog covers most of the canvas at this minimum size. Screenshot: [`900×600 track removal preview`](../screenshots/layout/layout-native-track-removal-preview-900x600-2026-10-20.png).
+- The runner reported that standalone `tauri-driver` and `WebKitWebDriver` were unavailable; the embedded WebDriver provider still started and the test passed. This evidence covers desktop grid authoring, preview cancellation, and one-step undo only. The browser dashboard suite, responsive export rendering, remaining constraint/snap/rotation interactions, import recovery, full scenario corpus, and edit-to-correct-frame performance remain outstanding.
+
 ![Native Tauri editor interaction capture at 1280×800](../screenshots/layout/tauri-fluidity-2026-10-19.png)
 
 ### Focused canvas rerun after interrupted browser batch — 2026-10-19
