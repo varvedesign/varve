@@ -1154,12 +1154,11 @@ recorded; this is an implementation/validation update, not a corpus refresh.
   settled. This removes the variable locator-stitch dimensions without
   changing website CSS or clipping content. Their refreshed baselines were
   visually inspected. The typography and download cases each passed three
-  consecutive runs (6/6). Final affected validation after this adjustment is
-  pending. Full-suite escalation remains `NO` for this snapshot, test
-  expectation, and screenshot-boundary correction.
-- This candidate still needs a fresh PR push checkpoint, full hosted
-  integration run, review, and merge. No main checkout, desktop app, browser
-  tab, or other active worktree was changed or closed.
+  consecutive runs (6/6). Full-suite escalation remains `NO` for this
+  snapshot, test expectation, and screenshot-boundary correction.
+- At this point, a fresh PR push checkpoint, full hosted integration run,
+  review, and merge remained outstanding. No main checkout, desktop app,
+  browser tab, or other active worktree was changed or closed.
 - The inspector visual E2E passed 2/2. Added coverage for mixed background
   colors in a multi-selection, changed the mixed-color presentation into an
   editable color control, and verified both the mixed and normalized states in
@@ -1181,5 +1180,11 @@ recorded; this is an implementation/validation update, not a corpus refresh.
   - Inspector text-frame visual E2E: 2/2 passed. Website visual E2E:
     26/26 passed after the baseline refresh. `git diff --check` and Biome
     formatting of the four changed source files passed.
-  - The final docs audit, PR push checkpoint, exact-SHA hosted integration,
-    code review, and merge remain outstanding.
+  - The docs audit passed. The first `pnpm verify:push --since origin/master`
+    attempt passed outgoing-history checks, touched formatting, and the first
+    six targeted JS unit suites, then hit the 300-second timeout in
+    `typecheck:@varve/editor` while another worktree was running a full
+    TypeScript check and `/tmp` had 99% usage. It reported no source
+    diagnostics. Retry the exact push checkpoint once that concurrent check
+    exits. Hosted exact-SHA integration, final code review, and merge remain
+    outstanding.
