@@ -1232,20 +1232,56 @@ called complete merely because its source issue is closed or a source PR is open
   through the text painter. Neither gives users a backing rectangle or a
   border around a text frame. The floor-plan readability need therefore
   remains relevant to Varve's authoring workflow.
+- **Comparable-app complaint (checked 2026-10-19):** an Inkscape report,
+  [Text/Border padding #3705](https://gitlab.com/inkscape/inbox/-/issues/3705),
+  migrated from Launchpad and dated 2006-11-15, asks for a text-box background,
+  border, and inset spacing. The reporter describes composing separate
+  rectangles with flowed text and inset/outset commands as a longer workaround.
+  This supports the value of a first-class box style, while also identifying
+  padding/inset as a separate capability that this batch does not implement.
+  The distinct Inkscape complaint about an outside *glyph* stroke
+  ([Reddit, 2020-04-25](https://www.reddit.com/r/Inkscape/comments/g7v72j/help_trying_to_add_outside_border_to_text/))
+  concerns stroke alignment eating small glyphs; a text-frame border does not
+  solve that glyph-outline problem, so this batch makes no such claim.
 - **Implementation acceptance:** provide an optional text-frame backing and
   frame border without changing existing text appearance; retain glyph fill
   and glyph-outline behavior; keep the frame aligned to the same computed text
   geometry used by selection and hit testing; preserve undo, copy/paste,
   duplicate, save/reopen, and old-document compatibility; render consistently
-  in Canvas2D, native/WASM, and PDF export; expose clear inspector controls
+  in Canvas2D, native/WASM, SVG, and PDF export; expose clear inspector controls
   with an explicit no-fill/zero-border state. Verify point, area, rich, and
   vertical text, including clipping and text reflow. Do not claim this
   capability on the marketing site until every supported output path passes.
-- **Status:** relevant Varve feature candidate, not yet implemented. The
-  optional node property crosses scene serialization/versioning, engine IR,
-  Rust bridge/rendering, print export, and inspector UI; it needs a complete
-  cross-platform slice and its migration/compatibility review. The exact source
-  PR scope and later issue closure are recorded in
+- **Implementation status:** an additive `TextNode.textFrame` style is now
+  wired through schema 2.34, the text render primitive, native/WASM bridge,
+  Canvas2D replay, SVG and PDF export, and a dedicated Inspector section. Existing
+  node fill/stroke fields remain glyph styling, and the v2.33 migration does
+  not invent a frame style. Focused persistence, renderer, bridge, PDF, and
+  visual E2E regressions have been added. Targeted Rust tests, changed-crate
+  Clippy, the 12-case SVG suite, and both WASM builds pass. A read-only second-pass review caught
+  an SVG opacity mismatch; SVG now applies opacity to frame and text as
+  separate paint operations, matching Canvas2D and PDF. The PDF probe was
+  rasterized independently with Poppler: the fill masks the
+  diagonal floor-plan lines inside the frame, the border remains crisp, and
+  `pdftotext` extracts the label. See
+  [`text-frame-pdf-render.png`](evidence/text-frame-pdf-render.png) (SHA-256
+  `dbe164ef571e91075deb60abbe483681ec0a58b48a59f60428dcb5593933cabd`). The
+  app visual E2E passes save/reopen and zero-width persistence; desktop and
+  1024×768 captures were inspected. The typography page visual E2E passes at
+  desktop and 390×844, and both captures were inspected. Evidence:
+  [`text-frame-inspector-desktop.png`](evidence/text-frame-inspector-desktop.png)
+  (`eb004f0489f0a6e24856e81b93829d168d27c3c842dce7bab85a2bdccea49159`),
+  [`text-frame-inspector-1024.png`](evidence/text-frame-inspector-1024.png)
+  (`582b0d5bedafad0695bdaf41fa28dfb96ac57d58eba09f947b25f1e400bcb6a8`),
+  [`text-frame-marketing-desktop.png`](evidence/text-frame-marketing-desktop.png)
+  (`6fbb76512fee27e7e7546f536171458db55d74547c72ca315bcd4c329237ff9c`), and
+  [`text-frame-marketing-mobile.png`](evidence/text-frame-marketing-mobile.png)
+  (`fafdad263372fc20d4b2fc92387491a731ef9c121c0fb69d22f36188af26e9d9`).
+  The affected plan selects 75 lanes and escalates to the exact-SHA full gate.
+  The complete affected triage and exact-SHA full gate remain outstanding; do
+  not mark this release-ready until those gates and the final second-pass review
+  pass. The exact source PR scope
+  and later issue closure are recorded in
   `issue-ledger-post-cutoff-c-updates.jsonl` and `link-frontier.jsonl`.
 
 The website's Browser Demo guide was updated to explain the download-only save

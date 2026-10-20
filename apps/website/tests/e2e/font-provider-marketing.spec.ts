@@ -21,8 +21,22 @@ test.describe('Font provider marketing copy', () => {
     await expect(featurePage).toContainText('version-pinned Fontsource artifact');
     await expect(featurePage).toContainText('requested Fontsource face');
     await expect(featurePage).toContainText('requested weight, style, and license');
+    const textFrameCallout = featurePage.locator('.feature-callout').filter({
+      hasText: 'Keep text readable over detailed artwork',
+    });
+    await expect(textFrameCallout).toContainText('In development');
+    await expect(textFrameCallout).toContainText('not in a released build yet');
     await page.screenshot({
       path: test.info().outputPath('typography-fontsource-flow.png'),
+      fullPage: true,
+    });
+    await page.screenshot({
+      path: test.info().outputPath('typography-text-frame-desktop.png'),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: test.info().outputPath('typography-text-frame-mobile.png'),
       fullPage: true,
     });
   });

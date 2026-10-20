@@ -131,6 +131,24 @@ pub enum EngineColor {
     },
 }
 
+/// Optional container appearance for text. This is kept separate from node
+/// fills and strokes, which style glyph contours.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextFrameStyle {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill: Option<EngineColor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<TextFrameBorder>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextFrameBorder {
+    pub color: EngineColor,
+    pub width: f64,
+}
+
 // ── Gradient / Fill types (mirrors @varve/engine types.ts) ──────────────────
 
 /// Hue interpolation direction for cylindrical spaces (OKLCH, HSL).

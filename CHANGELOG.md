@@ -12,6 +12,13 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+### Added
+
+- **Text frame background and border** — Give text its own optional backing fill
+  and border without changing glyph fill or outline. The border can be set to
+  zero to keep the background with no visible line. The style is saved with
+  the document; existing text keeps its prior appearance.
+
 ### Fixed
 
 - **Text save integrity** — Save and close now include buffered text drafts, including the visible

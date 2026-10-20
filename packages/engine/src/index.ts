@@ -1609,6 +1609,7 @@ export type {
   TableCellIR,
   TableCellTextIR,
   TableShape,
+  TextFrameStyle,
   TextShaping,
 } from './types';
 export type { BidiClass, BidiDirection, BidiParagraph, BidiRun } from './unicode/bidi';

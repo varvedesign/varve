@@ -15,7 +15,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the current document schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.33');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.34');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
 
@@ -45,7 +45,7 @@ describe('Document Versioning', () => {
 
     const migrated = migrateDocument(legacy) as Document | null;
 
-    expect(migrated?.formatVersion).toBe('2.33');
+    expect(migrated?.formatVersion).toBe('2.34');
     expect(migrated?.patternDefinitions).toEqual({});
     expect(migrated?.nodes['shape-node']?.fills?.[0]).toMatchObject({
       type: 'pattern',
@@ -90,10 +90,25 @@ describe('Document Versioning', () => {
       tailValue && typeof tailValue === 'object' && !Array.isArray(tailValue)
         ? (tailValue as Record<string, unknown>)
         : undefined;
-    expect(migrated?.formatVersion).toBe('2.33');
+    expect(migrated?.formatVersion).toBe('2.34');
     expect(tail?.kind).toBe('path');
     expect(tail?.closed).toBe(false);
     expect(tail?.points).toEqual([{ ...left, y: 77 }, tip, { ...right, y: 77 }]);
+  });
+
+  it('migrates v2.33 text documents without inventing a frame style', () => {
+    const migrated = migrateDocument({
+      formatVersion: '2.33',
+      id: 'legacy-text-frame',
+      name: 'Legacy text',
+      rootChildren: ['text'],
+      nodes: { text: { id: 'text', kind: 'text', text: 'Legacy' } },
+      components: {},
+      nextId: 1,
+    }) as Document | null;
+
+    expect(migrated?.formatVersion).toBe('2.34');
+    expect(migrated?.nodes.text?.kind === 'text' && migrated.nodes.text.textFrame).toBeUndefined();
   });
 
   it('normalizes exact font references and drops malformed identities', () => {
