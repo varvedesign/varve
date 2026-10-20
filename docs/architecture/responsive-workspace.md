@@ -53,6 +53,15 @@ applies to creation tools and selection-handle resizing. The existing
 Alt-drag duplicate gesture remains unchanged while Select is active. Modifiers
 remain latched until explicitly toggled off.
 
+`tests/e2e/responsive/tablet-toolbar-geometry.spec.ts` forces tablet preference
+with browser touch emulation and checks toolbar bounds, 44px targets, launcher
+collisions, and the open Editing controls popover at 820×520, 899×640,
+900×700, and 1024×768. It also checks that the bounded portal remains in the
+viewport and that the gesture guide can be scrolled into view and hit-tested on
+short windows. Captures of the opened, scrolled, and dismissed states live in
+`docs/screenshots/2026-10-19-tablet-toolbar-review/`. This covers browser
+geometry and interaction, not a physical tablet device.
+
 The former `min-width: 600px` floor predated drawer mode and caused horizontal
 drift in split-screen; it was removed in `f76d98eb1`.
 
@@ -145,6 +154,43 @@ live near the viewport bottom. The FABs must never cover toolbar controls:
   `tests/e2e/interaction/chromeos-device-matrix.spec.ts`
   ("bottom chrome clearance"), which checks Design and Draw modes.
 
+### Bottom-anchored overlay chrome — one inset recipe
+
+Transient editor surfaces pinned to the viewport bottom or a side edge — the
+"Did You Know?" tip, the onboarding checklist, micro-hints, and the import
+progress panel — are `position: fixed`, so they are placed against the viewport
+while the chrome they must not cover lives in the shell grid. `.editor-shell` therefore
+publishes the recipe once:
+
+| Token | Value | Meaning |
+|---|---|---|
+| `--overlay-bottom-inset` | `statusbar-height + space-3 + floating-toolbar-height + space-2 + space-6 + space-3 + keyboard inset + env(safe-area-inset-bottom)` | Distance from the viewport bottom; clears status bar and floating toolbar |
+| `--overlay-left-inset` | `max(space-4, sidebar-width + space-4)` at `> 899px`, else `space-4` | Distance from the left edge |
+| `--overlay-right-inset` | `max(space-4, inspector-width + space-4)` at `> 899px`, else `space-4` | Distance from the right edge |
+
+A bare `bottom: var(--space-4)` on such a surface is wrong four ways: it sits
+under the on-screen keyboard, under a standalone PWA's gesture bar, on the
+status bar's own 24px targets, and — on the inline axis — on top of a docked
+rail. That last failure was observed: the "Did You Know?" tip covered the
+Inspector's "Snap tolerance" field at 900px, which
+`tests/e2e/responsive/dock-panels.spec.ts` reports as an unreachable control.
+
+The side gutter applies only above the `899px` drawer boundary, because below it
+both panels are drawers and a gutter would push transient chrome off the edge for
+no reason. `--inspector-width` / `--sidebar-width` are the rails' *preferred*
+widths, not the widths the dock resolves from its own bounds, so the gutter can
+be wider than the rail: erring wide keeps the surface clear of the rail and at
+worst leaves slack between them.
+
+Consumers must not re-derive these offsets, and a surface whose content floor is
+rem-based must bound its own width by the space actually left between both
+gutters (`calc(100vw - var(--overlay-left-inset) - var(--overlay-right-inset))`),
+or an enlarged root text size can push it across the opposite rail. Enforced by
+`tests/unit/overlay-inset-system.test.ts` (source contract + reasoned exemption
+list) and `tests/e2e/responsive/overlay-inset-occlusion.spec.ts` (resolved
+geometry in the real editor, including actual floating-toolbar clearance,
+rail-clearance checks, and 200% root text sizing).
+
 ## Virtual keyboard / visual viewport
 
 `packages/editor/src/canvas/keyboardInset.ts` publishes viewport and keyboard
@@ -175,8 +221,11 @@ Consumers:
 
 - Dialogs: `max-height` uses `var(--visual-viewport-height, 100dvh)` so the
   sticky footer stays reachable while the keyboard is open.
-- Toasts and drawer FABs subtract `--keyboard-inset-bottom` from their bottom
-  offsets.
+- Onboarding overlays and the import progress panel subtract the inset through
+  `--overlay-bottom-inset` (see
+  [Bottom-anchored overlay chrome](#bottom-anchored-overlay-chrome--one-inset-recipe));
+  drawer FABs use their separate measured-toolbar recipe above. A surface that
+  re-derives its own overlay bottom offset is a defect, not a variation.
 - `FloatingPortal` clamps a placed popover into the visual viewport (unzoomed
   case) and caps its height when the popover is taller than the visible area;
   under pinch zoom it keeps the layout-viewport clamp.
