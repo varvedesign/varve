@@ -1277,10 +1277,13 @@ called complete merely because its source issue is closed or a source PR is open
   (`6fbb76512fee27e7e7546f536171458db55d74547c72ca315bcd4c329237ff9c`), and
   [`text-frame-marketing-mobile.png`](evidence/text-frame-marketing-mobile.png)
   (`fafdad263372fc20d4b2fc92387491a731ef9c121c0fb69d22f36188af26e9d9`).
-  The affected plan selects 75 lanes and escalates to the exact-SHA full gate.
-  The complete affected triage and exact-SHA full gate remain outstanding; do
-  not mark this release-ready until those gates and the final second-pass review
-  pass. The exact source PR scope
+  The affected plan selected 75 lanes and escalated to the exact-SHA full gate.
+  The complete affected triage had contention-sensitive failures and remains
+  incomplete; however, the exact-SHA hosted full integration, final-candidate
+  adoption, and local full-gate complement passed on merged master SHA
+  `d2ed5a42694742c2bbbcffe4916e2ae932ad0890`. This certifies the integrated
+  candidate at that SHA; it does not convert the incomplete local triage into a
+  pass or imply a public release. The exact source PR scope
   and later issue closure are recorded in
   `issue-ledger-post-cutoff-c-updates.jsonl` and `link-frontier.jsonl`.
 

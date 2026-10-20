@@ -1,6 +1,6 @@
 # Continuation record
 
-Last updated: 2026-10-19 (session 8).
+Last updated: 2026-10-20 (session 9).
 
 ## Frozen baseline
 
@@ -1109,10 +1109,9 @@ recorded; this is an implementation/validation update, not a corpus refresh.
   native desktop, full JavaScript/Rust/typecheck, WASM, and browser E2E/visual
   lanes to hosted CI; these are required evidence, not reported as passed.
 - The latest review-plan output selected 77 lanes and required the exact-SHA
-  full gate. That full gate and hosted deferred lanes remain outstanding.
-  The read-only second-pass self-review found no additional actionable issue;
-  it is not an independent reviewer approval. Re-run the required gate against
-  the final PR SHA and resolve any findings before merging to `master`.
+  full gate. That review-plan requirement was satisfied on the merged master
+  SHA recorded below. The read-only second-pass self-review found no additional
+  actionable issue; it is not an independent reviewer approval.
 - The text-frame marketing copy remains explicitly in development until
   released-build support is verified. Merging the website source to `master`
   triggers the configured GitHub Pages deployment to `varve.studio`; this
@@ -1192,5 +1191,53 @@ recorded; this is an implementation/validation update, not a corpus refresh.
   - Read-only, defect-first self-review of the complete 59-file merge diff
     from base `5172718c6f0f2597466cd08d0839b53ccafefbd2` found no actionable
     findings. This is author self-review, not an independent reviewer
-    approval. Hosted exact-SHA integration and full-gate certification remain
-    outstanding before merge.
+    approval. Hosted exact-SHA integration and full-gate certification were
+    pending at this checkpoint; see the final merged-candidate record below.
+
+## 2026-10-20 merged candidate and full-gate attestation
+
+This record supersedes the earlier pending merge, hosted-CI, website-deploy,
+and full-gate statements for the text-frame implementation batch. It does not
+close the PdfCraft corpus review or mark the local affected triage as passed.
+
+- PR #152 merged to `master` with merge commit
+  `d2ed5a42694742c2bbbcffe4916e2ae932ad0890`; the source branch head was
+  `e4ad395960c20df871d33c089fc3f910ce1abaa7`. The repository deleted the PR
+  branch after merge. The task changes are integrated; the public release is
+  still separate.
+- Exact-head hosted full integration on `d2ed5a4` passed in run
+  [39442868442](https://github.com/varvedesign/varve/actions/runs/39442868442).
+  The full plan selected 2,230 test files and all 24 browser E2E shards; all
+  required jobs succeeded, including website, native desktop platform matrix,
+  Rust, WASM, visual regression, benchmarks, and Lighthouse.
+- The final release-candidate workflow passed in run
+  [39457029206](https://github.com/varvedesign/varve/actions/runs/39457029206).
+  Its read-only adoption step matched the successful exact-SHA full integration
+  evidence. Three earlier attempts failed in the external GitHub API/network
+  lookup; no source or policy checks failed, and the successful retry used the
+  same frozen SHA.
+- `pnpm verify:full` passed in the clean certification clone at the same SHA
+  and policy hash `9300078592038ea42cf1b2451d83cc810ffc6905ecd52fd96eb3a3e3a2b102d9`.
+  It adopted the exact integration and final-candidate evidence, then passed
+  `pnpm audit:emoji`, `node scripts/audit-health.mjs`, and
+  `node scripts/audit-architecture.mjs --ci`. The architecture audit reports
+  existing instability, unused-export, complexity, and hub-budget metrics;
+  these are documented as reported-only, while enforced cycle/layer checks
+  passed. The operation record is in the certification clone's ignored Git
+  metadata, not committed repository history.
+- Website deployment for the merged SHA passed in run
+  [39442868406](https://github.com/varvedesign/varve/actions/runs/39442868406),
+  including the live Lighthouse check. The text-frame marketing page continues
+  to label the feature as in development until a public Varve release includes
+  the verified behavior.
+- The previous affected triage was interrupted/incomplete under shared-machine
+  contention. The exact full hosted integration and candidate certification
+  passed, but they do not retroactively make that local `verify:triage` run a
+  pass. No second independent reviewer was available; the documented review is
+  a distinct author self-review, not independent approval.
+- The app, in-app browser, shared main checkout, and other active worktrees were
+  left open and untouched during this follow-up. PdfCraft evidence review is
+  still partial: cutoff A linked evidence/threads/attachments, cutoff B linked
+  evidence and sample files, and unresolved workflow findings remain in
+  `findings.md` and `link-frontier.jsonl`. Continue those queues and complete a
+  new reconciled cutoff before calling the overall assignment complete.
