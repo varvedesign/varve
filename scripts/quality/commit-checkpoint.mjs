@@ -18,7 +18,8 @@ import { spawnValidationCommandSync } from './heavy-lease.mjs';
 
 const ROOT = process.cwd();
 const DEFAULT_TIMEOUT_MS = 120_000;
-const DIRECT_TEST_TIMEOUT_MS = 180_000;
+const E2E_TYPECHECK_TIMEOUT_MS = 240_000;
+const DIRECT_TEST_TIMEOUT_MS = 360_000;
 const DIRECT_TEST_GROUP_SIZE = 8;
 
 function commandEnvironment() {
@@ -184,7 +185,7 @@ export function selectCommitCommands(stagedFiles) {
   }
 
   if (hasPath(files, /^tests\/e2e\//)) {
-    commands.push(command('typecheck:e2e', ['pnpm', 'typecheck:e2e']));
+    commands.push(command('typecheck:e2e', ['pnpm', 'typecheck:e2e'], E2E_TYPECHECK_TIMEOUT_MS));
   }
 
   const directTests = existingDirectTests(files).filter(

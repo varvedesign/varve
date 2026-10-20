@@ -58,13 +58,13 @@ these states into one completion flag.
   changes. These changes are not part of this branch.
 - Discussion coverage is complete, with eight source comment-count
   discrepancies retained in the cache and inventory above.
-- The per-issue ledger is `issue-ledger.jsonl`: 252/2,950 issues are
-  individually reviewed (including #10513 and #10024), with 2,698 still
-  `unreviewed`. Those reviewed issues cover 740 accessible comments; all
+- The per-issue ledger is `issue-ledger.jsonl`: 402/2,950 issues are
+  individually reviewed (including #10513 and #10024), with 2,548 still
+  `unreviewed`. Those reviewed issues cover 1,061 accessible comments; all
   7,070 comments are retrievable/indexed, with eight declared-count gaps.
-- Next actions: review every issue body and accessible comment, including
-  relevant linked evidence; disposition individually; validate candidate Varve
-  changes before implementation.
+- Next actions: continue reviewing each issue and relevant linked evidence,
+  disposition individually, complete the recursive link frontier, reconcile a
+  C2 cutoff, and validate each new Varve candidate before implementation.
 
 ## Verified batches
 
@@ -75,13 +75,16 @@ these states into one completion flag.
 | #10024 missing-parent undo review | No current Varve orphan reproduced. Focused merge returned an `edit-vs-delete` conflict and a valid document; remote collaboration is not implemented. | Temporary reproduction passed; 3 files, 47 focused tests passed. See its individual assessment. |
 | Audit tooling and ledger | Resumable source collector, source discrepancy accounting, guarded per-issue assessment and atomic range-import ledger. | Focused node tests pass (7 tests); `pnpm verify:plan` selected format, lint, emoji audit, docs audit (no full-suite escalation). An earlier affected run saw a transient reproduction file from an active investigation; final affected validation passed after it was removed. |
 | Link frontier | 1,750 distinct direct GitHub URLs and `#number` references are grouped with originating issue IDs; unresolved number references remain explicit. | Extracted from the frozen complete issue/comment corpus; recursive relevance triage remains in progress. |
-| Review positions 51–100 | 50 issues (#1267–#1306 plus #1313–#1322), all 170 accessible comments. Individual assessments identify #1304 tool persistence as a product-discovery candidate; no code change made. | `verify:affected` passed format, lint, emoji, docs lanes; JSONL rows/counts and `git diff --check` passed. See `ranges/0051-0100.md`. |
+| Review positions 51–100 | 50 issues (#1267–#1306 plus #1313–#1322), all 170 accessible comments. #1304's configurable return-to-select behavior is implemented with settings, tool, canvas E2E, and website coverage. | Affected validation and visual review are in progress; see `ranges/0051-0100.md`. |
 | Review positions 101–150 | 50 issues (#1324–#1544), all 102 accessible comments. #1395 abrupt image-loss and #1511 frame-deletion undo remain follow-up leads, not demonstrated Varve defects. No code change made. | `verify:affected` passed format, lint, emoji, docs lanes; 50 JSONL rows accepted by `applyLedgerReview`. See `ranges/0101-0150.md`. |
 | Review positions 1–50 | 50 issues (#2–#1266, sparse IDs), all 142 accessible comments. Follow-up candidates include first-paint theme, page-name clipping, image-load feedback, browser persistence signaling, and cross-page navigation; none is yet a reproduced Varve defect. | Source report plus one-to-one ledger import; the combined audit batch is being validated below. See `ranges/0001-0050.md`. |
 | Review positions 151–200 | 50 issues and all 148 accessible comments. Candidates include first-class layer stacks, persistent text alignment, and image insertion progress; no Varve defect reproduced. | Source report and schema-validated assessments; see `ranges/0151-0200.md`. |
 | Review positions 201–250 | 50 issues and all 178 accessible comments. Candidates include dense-snap drag stress, frame-label IME composition, and nested group movement; related table, paste, overlay, and image paths were already covered. | Source report and schema-validated assessments; see `ranges/0201-0250.md`. |
-| Ledger after position 250 | 252/2,950 reviewed, covering 740 accessible comments; 2,698 remain. | Atomic `ledger-import --assessments` accepted each 50-row batch; ledger order and review state retained. |
-| Website/deployment impact | Updated the first-project and vector-tools guides plus the Vector Tools feature page to explain the repeat-creation preference and default behavior. No offline, privacy, or cloud claims change. | Website edits are pending affected validation. `.github/workflows/website-deploy.yml` deploys after `master` updates under its source-path filters, so these source changes will trigger the normal website workflow after integration. Separate manual release publication remains outside this authorization. |
+| Review positions 251–300 | 50 issues (#1902–#2028), all 102 retrievable comments. No Varve defect reproduced; bounded-page authoring, nested-frame clipping, and stroke-edge selection remain targeted follow-up leads. | Individual report and schema-validated assessments; see `ranges/0251-0300.md`. |
+| Review positions 301–350 | 50 issues (#2029–#2151), all 105 retrievable comments. No Varve defect reproduced; locked-child ungrouping, platform input/export, and bounded export/pinned artwork remain targeted follow-up leads. | Individual report and schema-validated assessments; see `ranges/0301-0350.md`. |
+| Review positions 351–400 | 50 issues (#2152–#2274), all 114 retrievable comments. No Varve defect reproduced; custom backgrounds and clipboard-image import are already supported. Dynamic connector geometry, long-document pen performance, crop export, and locked-node marquee behavior remain test leads. | Individual report and schema-validated assessments; see `ranges/0351-0400.md`. |
+| Ledger after position 400 | 402/2,950 reviewed, covering 1,061 accessible comments; 2,548 remain. | Atomic `ledger-import --assessments` accepted each 50-row batch; ledger order and review state retained. |
+| Website/deployment impact | Updated the first-project and vector-tools guides plus the Vector Tools feature page to explain the repeat-creation preference and default behavior. No offline, privacy, or cloud claims change. | Website source/build checks and visual route tests are included in affected validation. `.github/workflows/website-deploy.yml` deploys after `master` updates under its source-path filters, so these source changes will trigger the normal website workflow after integration. Separate manual release publication remains outside this authorization. |
 
 ## Validation and continuation
 

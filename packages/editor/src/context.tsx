@@ -623,6 +623,19 @@ import type { PanelId } from './workspace/workspaceTypes';
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
 
+const CREATION_TOOLS_THAT_STAY_ACTIVE = new Set<ToolId>(['pen', 'pencil', 'panel']);
+
+function toolAfterShapeCreation(activeTool: ToolId): ToolId {
+  return CREATION_TOOLS_THAT_STAY_ACTIVE.has(activeTool) ||
+    !loadSettings().toolBehavior.returnToSelectAfterCreation
+    ? activeTool
+    : 'select';
+}
+
+function toolAfterTextCreation(): ToolId {
+  return loadSettings().toolBehavior.returnToSelectAfterCreation ? 'select' : 'text';
+}
+
 /**
  * Flatten `ids` and all of their descendants into a single node list, for
  * clipboard serialization. Copying only the directly-selected node(s) (not
@@ -4952,13 +4965,11 @@ export function EditorProvider({
 
             // A panel is a layout tool: after placing one, the next drag places
             // the next panel, and the Inspector keeps offering panel layouts.
-            const keepDrawTool =
-              activeTool === 'pen' || activeTool === 'pencil' || activeTool === 'panel';
             return {
               ...s,
               document: newDoc,
               selection: [id],
-              tool: keepDrawTool ? activeTool : ('select' as ToolId),
+              tool: toolAfterShapeCreation(activeTool),
               dirty: true,
               sessions: s.sessions.map((sess) =>
                 sess.id === s.activeId ? { ...sess, dirty: true } : sess,
@@ -5074,7 +5085,7 @@ export function EditorProvider({
             ...s,
             document: newDoc,
             selection: [id],
-            tool: 'select' as ToolId,
+            tool: toolAfterTextCreation(),
             dirty: true,
             canUndo: true,
             canRedo: false,

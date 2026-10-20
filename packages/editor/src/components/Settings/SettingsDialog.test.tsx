@@ -94,6 +94,16 @@ describe('SettingsDialog', () => {
     ).toBe(1.5);
   });
 
+  it('persists the repeat creation tool preference', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="input" />);
+    const toggle = screen.getByRole('switch', { name: 'Return to Select after creating' });
+    expect((toggle as HTMLInputElement).checked).toBe(true);
+
+    fireEvent.click(toggle);
+    expect((toggle as HTMLInputElement).checked).toBe(false);
+    expect(loadSettings().toolBehavior.returnToSelectAfterCreation).toBe(false);
+  });
+
   it('toggles the AI features switch without crashing and persists it', () => {
     renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="ai" />);
     const toggle = document.getElementById('ai-features-toggle') as HTMLInputElement;

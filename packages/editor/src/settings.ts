@@ -202,6 +202,12 @@ export interface DrawingInputSettingsStore {
   pressureCurve: number;
 }
 
+/** Behavior after a creation tool commits an object to the document. */
+export interface ToolBehaviorSettingsStore {
+  /** Return to Select after creating shapes or text; false keeps that tool active. */
+  returnToSelectAfterCreation: boolean;
+}
+
 /**
  * How selecting a layer from the Layers panel affects the canvas camera.
  *
@@ -258,6 +264,7 @@ export interface EditorSettings {
   layers: LayersSettingsStore;
   nudge: NudgeSettingsStore;
   drawingInput: DrawingInputSettingsStore;
+  toolBehavior: ToolBehaviorSettingsStore;
   collab: CollabSettingsStore;
   ai: AiSettingsStore;
   privacy: PrivacySettingsStore;
@@ -425,6 +432,10 @@ export const DEFAULT_DRAWING_INPUT_SETTINGS: DrawingInputSettingsStore = {
   pressureCurve: 1,
 };
 
+export const DEFAULT_TOOL_BEHAVIOR_SETTINGS: ToolBehaviorSettingsStore = {
+  returnToSelectAfterCreation: true,
+};
+
 export const NUDGE_MIN = 0.01;
 export const NUDGE_MAX = 10000;
 
@@ -449,6 +460,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   layers: { ...DEFAULT_LAYERS_SETTINGS },
   nudge: { ...DEFAULT_NUDGE_SETTINGS },
   drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
+  toolBehavior: { ...DEFAULT_TOOL_BEHAVIOR_SETTINGS },
   collab: { ...DEFAULT_COLLAB_SETTINGS },
   ai: { ...DEFAULT_AI_SETTINGS },
   privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -525,6 +537,7 @@ export function loadSettings(): EditorSettings {
         layers: { ...DEFAULT_LAYERS_SETTINGS },
         nudge: { ...DEFAULT_NUDGE_SETTINGS },
         drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
+        toolBehavior: { ...DEFAULT_TOOL_BEHAVIOR_SETTINGS },
         collab: { ...DEFAULT_COLLAB_SETTINGS },
         ai: { ...DEFAULT_AI_SETTINGS },
         privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -569,6 +582,7 @@ export function loadSettings(): EditorSettings {
       return result;
     }
     const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const toolBehavior = parsed.toolBehavior as Partial<ToolBehaviorSettingsStore> | undefined;
     const exportSettings = mergePartial(
       DEFAULT_EXPORT_SETTINGS,
       parsed.export as Partial<ExportSettingsStore>,
@@ -633,6 +647,12 @@ export function loadSettings(): EditorSettings {
       drawingInput: normalizeDrawingInputSettings(
         parsed.drawingInput as Partial<DrawingInputSettingsStore>,
       ),
+      toolBehavior: {
+        returnToSelectAfterCreation:
+          typeof toolBehavior?.returnToSelectAfterCreation === 'boolean'
+            ? toolBehavior.returnToSelectAfterCreation
+            : DEFAULT_TOOL_BEHAVIOR_SETTINGS.returnToSelectAfterCreation,
+      },
       collab: mergePartial(DEFAULT_COLLAB_SETTINGS, parsed.collab as Partial<CollabSettingsStore>),
       ai: mergePartial(DEFAULT_AI_SETTINGS, parsed.ai as Partial<AiSettingsStore>),
       privacy,
@@ -659,6 +679,7 @@ export function loadSettings(): EditorSettings {
       layers: { ...DEFAULT_LAYERS_SETTINGS },
       nudge: { ...DEFAULT_NUDGE_SETTINGS },
       drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
+      toolBehavior: { ...DEFAULT_TOOL_BEHAVIOR_SETTINGS },
       collab: { ...DEFAULT_COLLAB_SETTINGS },
       ai: { ...DEFAULT_AI_SETTINGS },
       privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -797,6 +818,7 @@ export interface EditorSettingsPatch {
   layers?: Partial<LayersSettingsStore>;
   nudge?: Partial<NudgeSettingsStore>;
   drawingInput?: Partial<DrawingInputSettingsStore>;
+  toolBehavior?: Partial<ToolBehaviorSettingsStore>;
   collab?: Partial<CollabSettingsStore>;
   ai?: Partial<AiSettingsStore>;
   privacy?: Partial<PrivacySettingsStore>;
@@ -822,6 +844,11 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     layers: { ...current.layers, ...patch.layers },
     nudge: normalizeNudgeSettings({ ...current.nudge, ...patch.nudge }),
     drawingInput: normalizeDrawingInputSettings({ ...current.drawingInput, ...patch.drawingInput }),
+    toolBehavior: {
+      returnToSelectAfterCreation:
+        patch.toolBehavior?.returnToSelectAfterCreation ??
+        current.toolBehavior.returnToSelectAfterCreation,
+    },
     collab: { ...current.collab, ...patch.collab },
     ai: { ...current.ai, ...patch.ai },
     privacy: { ...current.privacy, ...patch.privacy },
@@ -846,6 +873,7 @@ export function resetSettings(): EditorSettings {
     layers: { ...DEFAULT_LAYERS_SETTINGS },
     nudge: { ...DEFAULT_NUDGE_SETTINGS },
     drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
+    toolBehavior: { ...DEFAULT_TOOL_BEHAVIOR_SETTINGS },
     collab: { ...DEFAULT_COLLAB_SETTINGS },
     ai: { ...DEFAULT_AI_SETTINGS },
     privacy: { ...DEFAULT_PRIVACY_SETTINGS },

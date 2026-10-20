@@ -39,6 +39,7 @@ describe('loadSettings', () => {
       pressureEnabled: true,
       pressureCurve: 1,
     });
+    expect(s.toolBehavior).toEqual({ returnToSelectAfterCreation: true });
     expect(s.privacy.usageAnalytics).toBe('unknown');
     expect(s.privacy.diagnostics).toBe('unknown');
   });
@@ -301,6 +302,23 @@ describe('loadSettings', () => {
       pressureCurve: 4,
     });
   });
+
+  it('normalizes and persists tool behavior while preserving the default for older settings', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ drawingInput: { fingerMode: 'navigate' } }));
+    expect(loadSettings().toolBehavior).toEqual({ returnToSelectAfterCreation: true });
+
+    expect(
+      updateSettings({ toolBehavior: { returnToSelectAfterCreation: false } }).toolBehavior,
+    ).toEqual({ returnToSelectAfterCreation: false });
+    expect(loadSettings().toolBehavior.returnToSelectAfterCreation).toBe(false);
+
+    localStorage.removeItem('varve-editor-settings');
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ toolBehavior: { returnToSelectAfterCreation: 'no' } }),
+    );
+    expect(loadSettings().toolBehavior).toEqual({ returnToSelectAfterCreation: true });
+  });
 });
 
 describe('updateSettings', () => {
@@ -382,5 +400,10 @@ describe('resetSettings', () => {
       pressureEnabled: true,
       pressureCurve: 1,
     });
+  });
+
+  it('restores tool behavior to its factory default', () => {
+    updateSettings({ toolBehavior: { returnToSelectAfterCreation: false } });
+    expect(resetSettings().toolBehavior).toEqual({ returnToSelectAfterCreation: true });
   });
 });
