@@ -1,6 +1,23 @@
 # Photocraft review continuation
 
-Last updated: 2026-10-19. Status: active and incomplete.
+Last updated: 2026-10-20. Status: active and incomplete.
+
+## Clipboard mask workflow review (2026-10-20)
+
+- PhotoCraft #2122, linked #2184, #1035/#1078, and #2307/#2680/#2695 were
+  reviewed. Varve copies selected nodes with their attached masks and
+  `rasterMaskAssets` through the document dependency closure. The standalone
+  active mask/channel clipboard target in PhotoCraft has no Varve UI equivalent;
+  no direct copy/paste defect was established.
+- User reports in GIMP describe a cumbersome mask-to-mask copy workflow. This is
+  a plausible Varve improvement, but needs a deliberate coordinate-space and
+  target contract (especially source-image, node-local, and container-local
+  raster masks) before implementation. It is recorded as a separate feature
+  candidate, not counted as a completed fix or a source defect. See issue
+  #2122 in the inventory for evidence and current disposition.
+- Continue with the next unverified candidate; keep visual validation and the
+  final code review/integration gates open.
+
 
 ## SVG embedded raster budget follow-up (2026-10-19)
 
