@@ -165,6 +165,8 @@ these states into one completion flag.
 | Ledger after position 2540 | 2542/2,950 reviewed, covering 6,915 accessible comments; 408 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2531–2540. |
 | Review positions 2541–2550 | 10 issues (#9452–#9498), all 4 retrievable comments. Hosted search/style requests, frame reparenting, fixed-unit measurement, page-list affordance, and evolving MCP scope were separated from Varve evidence. | Atomic ledger import accepted 10 assessments; #9469 is a distinct collaboration-dependent feature idea. See `ranges/2541-2550.md`. |
 | Ledger after position 2550 | 2552/2,950 reviewed, covering 6,919 accessible comments; 398 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2541–2550. |
+| Review positions 2551–2560 | 10 issues (#9500–#9520), all 6 retrievable comments. Interaction extension, tooltip contract, hosted thumbnail/sync work, app keyboard/handle reports, and cursor-chat rendering research were kept within their respective scopes. | Atomic ledger import accepted 10 assessments; #9519 is retained as a duplicate of #9520. See `ranges/2551-2560.md`. |
+| Ledger after position 2560 | 2562/2,950 reviewed, covering 6,925 accessible comments; 388 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2551–2560. |
 
 ## Validation and continuation
 
