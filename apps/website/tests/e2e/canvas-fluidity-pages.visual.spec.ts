@@ -30,6 +30,9 @@ test('settings guide remains readable at narrow width and 200% text size', async
   await page.keyboard.press('Tab');
   await expect(page.locator(':focus-visible').first()).toBeVisible();
   await expect(page.locator('[data-testid="navigation-settings-help"]')).toBeVisible();
+  await expect(
+    page.getByText(/rasterizes text whose weight differs from 400 or whose style is italic/i),
+  ).toBeVisible();
   const widths = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
     content: document.documentElement.scrollWidth,

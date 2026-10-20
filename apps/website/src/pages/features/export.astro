@@ -36,8 +36,10 @@ const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
         </p>
         <p>
           Pattern fills can be printed as raster tiles for axis-aligned grid repeats. Shifted layouts,
-          rotation, phase, and mirroring are not included in PDF output yet; PDF/X-1a omits
-          transparent tiles and fills with non-opaque opacity, with a warning. See the{' '}
+          rotation, phase, and mirroring are not included in PDF output yet. The next desktop release
+          will stop PDF/X-1a export when artwork uses transparency or blend modes it cannot preserve;
+          PDF/X-4 will carry live transparency and supported object, fill, and drop-shadow blend modes.
+          See the{' '}
           <a href={sitePath('/features/patterns')}>pattern feature status</a> for current output limits.
         </p>
         <p>

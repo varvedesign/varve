@@ -162,6 +162,10 @@ export interface PixelProbe {
 export interface ToolContext {
   /** Tool that was active immediately before this lifecycle activation. */
   previousToolId?: ToolId;
+  /** Inline text session currently owned by the canvas overlay, if any. */
+  textEditTargetId?: string | null;
+  /** Drain buffered input before a tool changes the active text target. */
+  flushPendingEdits?: () => void;
   document: Document;
   /** Read the latest immutable document after asynchronous tool work settles. */
   getCurrentDocument?: () => Document;

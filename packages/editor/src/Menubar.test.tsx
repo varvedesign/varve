@@ -136,7 +136,10 @@ vi.mock('./shortcuts', () => {
       binding: { key: ';', ctrl: true, alt: true },
       label: 'Lock/Unlock All Guides',
     },
-    softProof: { binding: { key: 'y', ctrl: true, shift: true }, label: 'Soft Proof' },
+    softProof: {
+      binding: { key: 'y', ctrl: true, shift: true },
+      label: 'Approximate CMYK Preview',
+    },
     workspaceDesign: { binding: { key: '1', ctrl: true, shift: true }, label: 'Workspace: Design' },
     workspacePrint: { binding: { key: '2', ctrl: true, shift: true }, label: 'Workspace: Print' },
     workspaceDrawing: { binding: { key: '3', ctrl: true, shift: true }, label: 'Workspace: Draw' },

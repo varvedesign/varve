@@ -37,8 +37,14 @@ import {
 } from '@varve/engine';
 import type { Document as SceneDocument, SceneNode, ShapeNode } from '@varve/scene';
 import { effectPadding, imageFill } from '@varve/scene';
-import type { MetadataPolicy } from '@varve/scene/export';
-import { capabilitiesForFormat, sanitizeFileName, stripSourceExtension } from '@varve/scene/export';
+import type { BlendFidelityNode, MetadataPolicy } from '@varve/scene/export';
+import {
+  capabilitiesForFormat,
+  describeUnrepresentedBlends,
+  hasPdfX1aTransparency,
+  sanitizeFileName,
+  stripSourceExtension,
+} from '@varve/scene/export';
 import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect, tryInvertAffine } from '@varve/shared';
 import { appearancePaddingWorld, expandRect } from '../../canvas/visualBounds';
 import {
@@ -1050,6 +1056,16 @@ export async function exportNodeAsPdfX(
 
   const subtree = flattenSceneToEngine(doc, [node.id]);
   assertPdfPatternSources(subtree.nodes, standard === 'pdf-x1a' ? 'PDF/X-1a' : 'PDF/X-4');
+  assertPdfBlendFidelity(subtree.nodes, standard, capability);
+  if (standard === 'pdf-x1a') {
+    const affected = subtree.nodes.filter(hasPdfX1aTransparency);
+    if (affected.length > 0) {
+      const names = affected.map((item) => item.name || String(item.id)).join(', ');
+      throw new Error(
+        `PDF/X-1a export stopped: ${affected.length} object(s) use transparency that the standard cannot carry (${names}). Flatten the affected artwork against an opaque background, or export PDF/X-4.`,
+      );
+    }
+  }
   const fontRequests = collectEngineFonts(subtree.nodes);
   await awaitExportsReady(fontRequests);
 
@@ -1130,4 +1146,30 @@ function assertPdfPatternSources(
   throw new Error(
     `${format} export stopped: ${count} visible ${fillLabel} no tile source. Replace or reimport the missing pattern tile, then export again.`,
   );
+}
+
+/**
+ * Refuse a press export whose blend modes the standard cannot carry.
+ *
+ * The capability catalog says which is which, and `describeUnrepresentedBlends`
+ * turns it into a message naming the objects involved. Before this guard the
+ * PDF/X writers ignored `blendMode` entirely: a document composited with
+ * `multiply` on screen printed as plain art, and the export reported success.
+ */
+function assertPdfBlendFidelity(
+  nodes: readonly BlendFidelityNode[],
+  standard: PdfXStandard,
+  capability: ReturnType<typeof capabilitiesForFormat>,
+): void {
+  const message = describeUnrepresentedBlends(nodes, capability.blendModes, {
+    formatLabel: capability.label,
+    alternative:
+      standard === 'pdf-x1a'
+        ? 'Export PDF/X-4, which carries blend modes, or flatten the complete composite against its opaque background.'
+        : 'Flatten the complete composite against its opaque background, or export PDF (screen) instead.',
+  });
+  if (message)
+    throw new Error(
+      `${standard === 'pdf-x1a' ? 'PDF/X-1a' : 'PDF/X-4'} export stopped: ${message}`,
+    );
 }

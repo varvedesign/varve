@@ -8,8 +8,8 @@ const dir = mkdtempSync(join(tmpdir(), 'varve-updater-feed-'));
 
 // Create test artifacts for all supported targets
 const targets = [
-  { name: 'Varve-0.2.0-linux-x86_64.AppImage', platform: 'linux-x86_64' },
-  { name: 'Varve-0.2.0-linux-aarch64.AppImage', platform: 'linux-aarch64' },
+  { name: 'Varve-0.2.0-x86_64.AppImage', platform: 'linux-x86_64' },
+  { name: 'Varve-0.2.0-aarch64.AppImage', platform: 'linux-aarch64' },
   { name: 'Varve-0.2.0-windows-x86_64.exe', platform: 'windows-x86_64' },
   { name: 'Varve-0.2.0-windows-aarch64.exe', platform: 'windows-aarch64' },
   { name: 'Varve-0.2.0-macos-aarch64.app.tar.gz', platform: 'darwin-aarch64' },
@@ -46,7 +46,7 @@ assert.throws(
 // Nightly is a valid generator channel (builds on demand), but it must never
 // leak into stable/beta output — the client endpoint per channel is the
 // isolation boundary (docs/release/update-strategy.md §5).
-const nightlyArtifact = join(dir, 'Varve-0.2.0-nightly.1-linux-x86_64.AppImage');
+const nightlyArtifact = join(dir, 'Varve-0.2.0-nightly.1-x86_64.AppImage');
 writeFileSync(nightlyArtifact, Buffer.from('nightly appimage bytes'));
 writeFileSync(`${nightlyArtifact}.sig`, 'signature-content\n');
 const nightly = buildUpdaterFeed({

@@ -4,7 +4,8 @@
 # Run AFTER version.mjs has bumped all version strings and the release
 # artifacts are published to GitHub.  This script:
 #
-#   1. Updates sha256sums in the AUR PKGBUILD from published SHA256SUMS.txt
+#   1. Updates pkgver and per-arch sha256sums in the AUR PKGBUILD
+#      from published SHA256SUMS.txt
 #   2. Regenerates .SRCINFO from the updated PKGBUILD
 #   3. Updates the Flatpak manifest tag + commit
 #   4. Optionally regenerates Flatpak vendored sources (Cargo + pnpm)
@@ -28,10 +29,50 @@ VERSION="${1:?Usage: $0 <version> [--skip-sources|--regenerate-sources]}"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 AUR_DIR="$REPO_ROOT/packaging/aur/varve-desktop-bin"
 FLATPAK_DIR="$REPO_ROOT/packaging/flatpak"
-GITHUB_URL="https://github.com/K-Arthur/varve"
+
+# Owner/repo follows an explicit override, then CI (`GITHUB_REPOSITORY`), then
+# the git `origin` remote so a transfer does not require editing this script.
+# Precedence matches scripts/release/product.mjs.
+GITHUB_REPO_SLUG_RE='^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+
+assert_github_repo_slug() {
+  local slug="$1"
+  local owner repo
+  owner="${slug%%/*}"
+  repo="${slug#*/}"
+  if [[ ! "$slug" =~ $GITHUB_REPO_SLUG_RE || "$owner" == '.' || "$owner" == '..' || "$repo" == '.' || "$repo" == '..' ]]; then
+    echo ":: ERROR: Invalid GitHub repository slug: '$slug'" >&2
+    exit 1
+  fi
+  printf '%s\n' "$slug"
+}
+
+resolve_github_repo() {
+  local git_cwd="${1:-$REPO_ROOT}"
+  local slug=""
+  if [[ -n "${VARVE_GITHUB_REPOSITORY:-}" ]]; then
+    slug="$VARVE_GITHUB_REPOSITORY"
+  elif [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    slug="$GITHUB_REPOSITORY"
+  else
+    local url
+    url="$(git -C "$git_cwd" remote get-url origin 2>/dev/null || true)"
+    if [[ "$url" =~ [:/]([^/:]+/[^/]+)$ ]]; then
+      slug="${BASH_REMATCH[1]%.git}"
+    fi
+  fi
+  if [[ -z "$slug" ]]; then
+    echo ":: ERROR: Cannot determine GitHub repository. Set VARVE_GITHUB_REPOSITORY or GITHUB_REPOSITORY, or add a git remote named origin." >&2
+    exit 1
+  fi
+  assert_github_repo_slug "$slug"
+}
+
+GITHUB_REPO="$(resolve_github_repo)"
+GITHUB_URL="https://github.com/$GITHUB_REPO"
 SHA256_URL="$GITHUB_URL/releases/download/v$VERSION/SHA256SUMS.txt"
-AUR_SOURCE_X86="Varve-${VERSION}-linux-x86_64.AppImage"
-AUR_SOURCE_ARM="Varve-${VERSION}-linux-aarch64.AppImage"
+AUR_SOURCE_X86="Varve-${VERSION}-x86_64.AppImage"
+AUR_SOURCE_ARM="Varve-${VERSION}-aarch64.AppImage"
 
 # Parse options
 SKIP_SOURCES=false
@@ -79,25 +120,46 @@ AUR_SHA_ARM=$(hash_for "$AUR_SOURCE_ARM")
 info "SHA256 for $AUR_SOURCE_X86: $AUR_SHA_X86"
 info "SHA256 for $AUR_SOURCE_ARM: $AUR_SHA_ARM"
 
-# ── 2. Update AUR PKGBUILD sha256sums ───────────────────────────────────────
-info "Updating PKGBUILD sha256sums_x86_64 and sha256sums_aarch64..."
+# Rewrite pkgver plus both arch-specific hash arrays. A single
+# sha256sums=(...) replacement misses the current PKGBUILD.
+update_aur_pkgbuild() {
+  local pkgbuild="$1"
+  local version="$2"
+  local sha_x86="$3"
+  local sha_arm="$4"
+
+  sed -i "s/^pkgver=.*/pkgver=$version/" "$pkgbuild"
+  sed -i "s/^sha256sums_x86_64=('[^']*')/sha256sums_x86_64=('$sha_x86')/" "$pkgbuild"
+  sed -i "s/^sha256sums_aarch64=('[^']*')/sha256sums_aarch64=('$sha_arm')/" "$pkgbuild"
+
+  local new_ver new_x86 new_arm
+  new_ver=$(grep "^pkgver=" "$pkgbuild" | sed 's/^pkgver=//') || new_ver=""
+  new_x86=$(grep "^sha256sums_x86_64=" "$pkgbuild" | sed "s/sha256sums_x86_64=('//;s/')//") || new_x86=""
+  new_arm=$(grep "^sha256sums_aarch64=" "$pkgbuild" | sed "s/sha256sums_aarch64=('//;s/')//") || new_arm=""
+  if [[ "$new_ver" != "$version" ]]; then
+    die "pkgver replacement failed — got '$new_ver' instead of '$version'"
+  fi
+  if [[ "$new_x86" != "$sha_x86" ]]; then
+    die "sha256sums_x86_64 replacement failed — got '$new_x86' instead of '$sha_x86'"
+  fi
+  if [[ "$new_arm" != "$sha_arm" ]]; then
+    die "sha256sums_aarch64 replacement failed — got '$new_arm' instead of '$sha_arm'"
+  fi
+}
+
+# ── 2. Update AUR PKGBUILD pkgver + sha256sums ──────────────────────────────
+info "Updating PKGBUILD pkgver, sha256sums_x86_64, and sha256sums_aarch64..."
 PKGBUILD="$AUR_DIR/PKGBUILD"
 if [[ ! -f "$PKGBUILD" ]]; then
   die "PKGBUILD not found at $PKGBUILD"
 fi
 
-sed -i "s/^sha256sums_x86_64=('[^']*')/sha256sums_x86_64=('$AUR_SHA_X86')/" "$PKGBUILD"
-sed -i "s/^sha256sums_aarch64=('[^']*')/sha256sums_aarch64=('$AUR_SHA_ARM')/" "$PKGBUILD"
+update_aur_pkgbuild "$PKGBUILD" "$VERSION" "$AUR_SHA_X86" "$AUR_SHA_ARM"
 
 NEW_X86=$(grep "^sha256sums_x86_64=" "$PKGBUILD" | sed "s/sha256sums_x86_64=('//;s/')//")
 NEW_ARM=$(grep "^sha256sums_aarch64=" "$PKGBUILD" | sed "s/sha256sums_aarch64=('//;s/')//")
-if [[ "$NEW_X86" != "$AUR_SHA_X86" ]]; then
-  die "sha256sums_x86_64 replacement failed — got '$NEW_X86' instead of '$AUR_SHA_X86'"
-fi
-if [[ "$NEW_ARM" != "$AUR_SHA_ARM" ]]; then
-  die "sha256sums_aarch64 replacement failed — got '$NEW_ARM' instead of '$AUR_SHA_ARM'"
-fi
 
+info "PKGBUILD pkgver updated: $VERSION"
 info "PKGBUILD sha256sums_x86_64 updated: $NEW_X86"
 info "PKGBUILD sha256sums_aarch64 updated: $NEW_ARM"
 
@@ -140,7 +202,7 @@ if [[ -f "$MANIFEST" ]]; then
 
   # Fetch the commit hash for the tag from GitHub
   TAG="v$VERSION"
-  COMMIT=$(curl -sfL --connect-timeout 20 --max-time 30 "https://api.github.com/repos/K-Arthur/varve/git/ref/tags/$TAG" 2>/dev/null | \
+  COMMIT=$(curl -sfL --connect-timeout 20 --max-time 30 "https://api.github.com/repos/$GITHUB_REPO/git/ref/tags/$TAG" 2>/dev/null | \
     grep '"sha"' | head -1 | sed 's/.*"sha": *"//;s/".*//' || true)
 
   if [[ -z "$COMMIT" ]]; then
@@ -201,6 +263,7 @@ fi
 echo ""
 info "=== Packaging update complete for v$VERSION ==="
 echo ""
+echo "  AUR PKGBUILD:  pkgver=$VERSION"
 echo "  AUR PKGBUILD:  sha256sums_x86_64=$NEW_X86"
 echo "  AUR PKGBUILD:  sha256sums_aarch64=$NEW_ARM"
 echo "  AUR .SRCINFO:  regenerated"

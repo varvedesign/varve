@@ -44,7 +44,11 @@ export interface EffectPreviewJobInput {
   readonly signal?: AbortSignal;
   /** Compare every supplied revision against the current document before delivery. */
   readonly isCurrent: (identity: EffectPreviewIdentity) => boolean;
+  /** Reports which provider returned the pixels, for support and browser tests. */
+  readonly onBackend?: (backend: EffectPreviewBackend) => void;
 }
+
+export type EffectPreviewBackend = 'wasm-effects' | 'cpu-effects';
 
 export type EffectPreviewJobErrorCode =
   | 'cancelled'
@@ -67,7 +71,12 @@ export class EffectPreviewJobError extends Error {
 export interface EffectPreviewExecutor {
   /** Creates/probes the worker before source capture can allocate RGBA. */
   prepare(): boolean;
-  apply(request: EffectDispatchRequest, rgba: Uint8ClampedArray): Promise<Uint8ClampedArray>;
+  apply(
+    request: EffectDispatchRequest,
+    rgba: Uint8ClampedArray,
+  ): Promise<{ readonly rgba: Uint8ClampedArray; readonly backend: EffectPreviewBackend }>;
+  /** Stops synchronous work by terminating the module worker. */
+  cancel?(): void;
   dispose(): void;
 }
 
@@ -79,7 +88,12 @@ export interface EffectPreviewWorkerRequest {
 }
 
 export type EffectPreviewWorkerResponse =
-  | { readonly type: 'result'; readonly id: number; readonly rgba: ArrayBuffer }
+  | {
+      readonly type: 'result';
+      readonly id: number;
+      readonly rgba: ArrayBuffer;
+      readonly backend: EffectPreviewBackend;
+    }
   | { readonly type: 'error'; readonly id: number; readonly message: string };
 
 export interface EffectPreviewWorkerPort {
@@ -90,7 +104,10 @@ export interface EffectPreviewWorkerPort {
 }
 
 interface WorkerWaiter {
-  readonly resolve: (rgba: Uint8ClampedArray) => void;
+  readonly resolve: (result: {
+    readonly rgba: Uint8ClampedArray;
+    readonly backend: EffectPreviewBackend;
+  }) => void;
   readonly reject: (error: unknown) => void;
   readonly expectedBytes: number;
   readonly timeout: ReturnType<typeof setTimeout>;
@@ -135,7 +152,10 @@ export class ModuleEffectPreviewExecutor implements EffectPreviewExecutor {
     }
   }
 
-  apply(request: EffectDispatchRequest, rgba: Uint8ClampedArray): Promise<Uint8ClampedArray> {
+  apply(
+    request: EffectDispatchRequest,
+    rgba: Uint8ClampedArray,
+  ): Promise<{ readonly rgba: Uint8ClampedArray; readonly backend: EffectPreviewBackend }> {
     if (!this.worker) return Promise.reject(new EffectPreviewJobError('worker-unavailable'));
     const buffer = rgba.buffer;
     if (
@@ -188,6 +208,12 @@ export class ModuleEffectPreviewExecutor implements EffectPreviewExecutor {
       waiter.reject(new EffectPreviewJobError('worker-failed', message.message));
       return;
     }
+    if (message.backend !== 'wasm-effects' && message.backend !== 'cpu-effects') {
+      waiter.reject(
+        new EffectPreviewJobError('worker-failed', 'Effect worker returned an unknown backend.'),
+      );
+      return;
+    }
     if (message.rgba.byteLength !== waiter.expectedBytes) {
       waiter.reject(
         new EffectPreviewJobError(
@@ -197,7 +223,11 @@ export class ModuleEffectPreviewExecutor implements EffectPreviewExecutor {
       );
       return;
     }
-    waiter.resolve(new Uint8ClampedArray(message.rgba));
+    waiter.resolve({ rgba: new Uint8ClampedArray(message.rgba), backend: message.backend });
+  }
+
+  cancel(): void {
+    this.retire(new EffectPreviewJobError('cancelled', 'Effect work was cancelled'));
   }
 
   private retire(reason: unknown): void {
@@ -237,6 +267,9 @@ export interface EffectPreviewRunnerSnapshot {
 }
 
 const DEFAULT_MAX_PENDING_PREVIEWS = 64;
+const MAX_PREVIEW_DIMENSION = 16_384;
+const MAX_PREVIEW_PIXELS = 4_194_304;
+const MAX_REQUEST_JSON_BYTES = 64 * 1024;
 
 /**
  * One worker request at a time; each owner retains one replaceable pending
@@ -381,6 +414,7 @@ export class EffectPreviewRunner {
     }
     const pendingIndex = this.pending.indexOf(job);
     if (pendingIndex >= 0) this.pending.splice(pendingIndex, 1);
+    if (this.active === job && job.executionStarted) this.executor.cancel?.();
     if (reason === 'superseded') this.superseded++;
     else this.cancelled++;
     job.reject(new EffectPreviewJobError(reason));
@@ -437,7 +471,7 @@ export class EffectPreviewRunner {
       }
       job.executionStarted = true;
       const result = await this.executor.apply(job.request, rgba);
-      if (result.byteLength !== expectedLength) {
+      if (result.rgba.byteLength !== expectedLength) {
         throw new EffectPreviewJobError(
           'worker-failed',
           'Effect worker returned the wrong RGBA length.',
@@ -449,7 +483,12 @@ export class EffectPreviewRunner {
         job.input.isCurrent(job.identity)
       ) {
         this.completed++;
-        job.resolve(result);
+        try {
+          job.input.onBackend?.(result.backend);
+        } catch {
+          // Provider diagnostics must not turn a valid pixel result into a failure.
+        }
+        job.resolve(result.rgba);
       } else if (job.valid) {
         this.invalidate(job, 'cancelled');
       }
@@ -528,6 +567,31 @@ function validateJob(input: EffectPreviewJobInput): number {
       'invalid-request',
       'Effect dimensions must be positive safe integers.',
     );
+  }
+  if (
+    request.width > MAX_PREVIEW_DIMENSION ||
+    request.height > MAX_PREVIEW_DIMENSION ||
+    request.width * request.height > MAX_PREVIEW_PIXELS
+  ) {
+    throw new EffectPreviewJobError(
+      'invalid-request',
+      'Effect preview exceeds the 16,384-pixel axis or 4,194,304-pixel surface limit.',
+    );
+  }
+  try {
+    const requestJson = JSON.stringify(request);
+    if (
+      typeof requestJson !== 'string' ||
+      new TextEncoder().encode(requestJson).byteLength > MAX_REQUEST_JSON_BYTES
+    ) {
+      throw new EffectPreviewJobError(
+        'invalid-request',
+        'Effect request exceeds the 64 KiB limit.',
+      );
+    }
+  } catch (error) {
+    if (error instanceof EffectPreviewJobError) throw error;
+    throw new EffectPreviewJobError('invalid-request', 'Effect request is not JSON serializable.');
   }
   const bytes = request.width * request.height * 4;
   if (!Number.isSafeInteger(bytes) || bytes < 4 || bytes > Number.MAX_SAFE_INTEGER / 3) {

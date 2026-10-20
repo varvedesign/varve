@@ -40,7 +40,10 @@ import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-
 import { incrementVersion } from './version.mjs';
 import {
   buildWebsiteReleaseData,
+  calendarDateInTimeZone,
+  changelogDateForVersion,
   formatCopy,
+  releaseCalendarDate,
   releaseUpdaterAvailability,
 } from './website-release-data.mjs';
 import { buildUpdaterConfig } from './write-updater-config.mjs';
@@ -601,6 +604,11 @@ assert.match(workflowJob(candidateWorkflow, 'triage-certification'), /needs:.*ru
   const candidate = load(candidateWorkflow);
   assert.ok(candidate.jobs.changes.outputs.tree_sha.includes('steps.plan.outputs.tree_sha'));
   assert.ok(candidate.jobs.certification.if.includes("inputs.mode == 'final'"));
+  assert.notEqual(
+    candidate.jobs.certification.name,
+    'Release Candidate / certification',
+    'the Actions job check must not shadow the API-published exact-SHA attestation',
+  );
   assert.ok(candidate.jobs.certification.needs.includes('attribution-check'));
   for (const id of [
     'pipeline-validate',
@@ -625,6 +633,7 @@ assert.match(workflowJob(candidateWorkflow, 'triage-certification'), /needs:.*ru
   );
   const adopted = workflowJob(candidateWorkflow, 'certification');
   assert.match(adopted, /candidate-certification\.json/);
+  assert.match(adopted, /name='Release Candidate \/ certification'/);
   assert.doesNotMatch(adopted, /ci-certification\.json/);
 }
 const candidateBrowserCommands = candidateWorkflow
@@ -862,7 +871,7 @@ const FIXTURE_MANIFEST = {
   notarized: false,
   artifacts: [
     {
-      filename: 'Varve-0.1.0-linux-x86_64.AppImage',
+      filename: 'Varve-0.1.0-x86_64.AppImage',
       os: 'linux',
       arch: 'x86_64',
       format: 'appimage',
@@ -881,7 +890,7 @@ const FIXTURE_MANIFEST = {
 };
 
 const FIXTURE_ASSETS = [
-  'Varve-0.1.0-linux-x86_64.AppImage',
+  'Varve-0.1.0-x86_64.AppImage',
   'Varve-0.1.0-windows-x86_64.exe',
   'Varve-0.1.0-sbom-linux-x86_64.cdx.json',
   'Varve-0.1.0-sbom-windows-x86_64.cdx.json',
@@ -890,7 +899,7 @@ const FIXTURE_ASSETS = [
 ];
 
 const FIXTURE_CHECKSUMS = `${[
-  `${HASH_A}  Varve-0.1.0-linux-x86_64.AppImage`,
+  `${HASH_A}  Varve-0.1.0-x86_64.AppImage`,
   `${HASH_B}  Varve-0.1.0-windows-x86_64.exe`,
   `${sha256(Buffer.from('sbom-linux'))}  Varve-0.1.0-sbom-linux-x86_64.cdx.json`,
   `${sha256(Buffer.from('sbom-windows'))}  Varve-0.1.0-sbom-windows-x86_64.cdx.json`,
@@ -911,7 +920,7 @@ function verifyFixture(overrides = {}) {
 {
   const parsed = parseChecksums(FIXTURE_CHECKSUMS);
   assert.equal(parsed.size, 5, 'parses all entries');
-  assert.equal(parsed.get('Varve-0.1.0-linux-x86_64.AppImage'), HASH_A);
+  assert.equal(parsed.get('Varve-0.1.0-x86_64.AppImage'), HASH_A);
 }
 
 // Rejections: wrong format
@@ -964,7 +973,7 @@ assert.throws(
 
 // Missing asset in the checksum file
 {
-  const missing = FIXTURE_CHECKSUMS.replace(`${HASH_A}  Varve-0.1.0-linux-x86_64.AppImage\n`, '');
+  const missing = FIXTURE_CHECKSUMS.replace(`${HASH_A}  Varve-0.1.0-x86_64.AppImage\n`, '');
   assert.throws(
     () => verifyFixture({ checksumsText: missing }),
     /Hash mismatch.*\(absent\)/,
@@ -1083,7 +1092,7 @@ assert.throws(
           ...FIXTURE_MANIFEST,
           artifacts: [{ ...FIXTURE_MANIFEST.artifacts[0], sizeBytes: 0, sha256: sha256(tiny) }],
         },
-        checksumsText: `${FIXTURE_CHECKSUMS.replace(`${HASH_A}  Varve-0.1.0-linux-x86_64.AppImage\n`, '')}`,
+        checksumsText: `${FIXTURE_CHECKSUMS.replace(`${HASH_A}  Varve-0.1.0-x86_64.AppImage\n`, '')}`,
       }),
     /no positive sizeBytes/,
     'zero-byte installer must be rejected',
@@ -1119,7 +1128,7 @@ assert.throws(
   const linux = data.platforms.linux[0];
   assert.equal(
     linux.url,
-    'https://github.com/K-Arthur/varve/releases/download/v0.1.0/Varve-0.1.0-linux-x86_64.AppImage',
+    'https://github.com/K-Arthur/varve/releases/download/v0.1.0/Varve-0.1.0-x86_64.AppImage',
   );
   assert.equal(
     linux.sbomUrl,
@@ -1259,6 +1268,78 @@ assert.throws(
   'unknown formats must be refused by the page builder',
 );
 
+// A late-evening Pacific publish is already the next calendar day in UTC.
+// The download page must show the release's intended day, not the UTC slice
+// of generatedAt / GitHub published_at. 0.5.1 was published
+// 2026-10-16T04:19:29Z (evening of 2026-10-15 America/Vancouver); CHANGELOG
+// records ## [0.5.1] - 2026-10-15.
+{
+  const lateEveningPt = '2026-10-16T03:50:00.936Z';
+  assert.equal(lateEveningPt.slice(0, 10), '2026-10-16');
+  assert.equal(calendarDateInTimeZone(lateEveningPt), '2026-10-15');
+  assert.equal(calendarDateInTimeZone('2026-10-16T04:19:29Z'), '2026-10-15');
+  assert.equal(
+    changelogDateForVersion('## [0.5.1] - 2026-10-15\n\nPatch over 0.5.0.\n', '0.5.1'),
+    '2026-10-15',
+  );
+  assert.equal(
+    releaseCalendarDate({
+      version: '0.5.1',
+      generatedAt: lateEveningPt,
+      changelogText: '## [0.5.1] - 2026-10-15\n',
+    }),
+    '2026-10-15',
+  );
+  assert.equal(
+    releaseCalendarDate({
+      version: '0.5.1',
+      generatedAt: '2026-10-16T12:00:00.000Z',
+      changelogText: '## [0.5.1] - 2026-10-15\n',
+    }),
+    '2026-10-15',
+    'CHANGELOG date wins even when the pipeline timestamp is the next Pacific day',
+  );
+  assert.equal(
+    releaseCalendarDate({ version: '0.5.1', generatedAt: lateEveningPt }),
+    '2026-10-15',
+    'without CHANGELOG, convert generatedAt to America/Vancouver',
+  );
+  assert.equal(
+    releaseCalendarDate({
+      version: '0.5.0',
+      generatedAt: '2026-10-09T08:21:27Z',
+    }),
+    '2026-10-09',
+    'a morning Pacific timestamp must not shift back a day',
+  );
+  assert.equal(
+    releaseCalendarDate({ version: '0.5.0', generatedAt: '2026-10-09' }),
+    '2026-10-09',
+    'an already-calendar YYYY-MM-DD must not be treated as UTC midnight',
+  );
+
+  const data = buildWebsiteReleaseData({
+    repo: 'K-Arthur/varve',
+    tag: 'v0.5.1',
+    manifest: {
+      ...JSON.parse(JSON.stringify(FIXTURE_MANIFEST).replaceAll('0.1.0', '0.5.1')),
+      generatedAt: lateEveningPt,
+    },
+    checksumsText: FIXTURE_CHECKSUMS.replaceAll('0.1.0', '0.5.1'),
+    sbomFilenames: [],
+    changelogText: '## [0.5.1] - 2026-10-15\n\nPatch.\n',
+  });
+  assert.equal(data.version, '0.5.1');
+  assert.equal(data.releaseDate, '2026-10-15');
+
+  const fetchSource = readFileSync('scripts/release/fetch-website-release.mjs', 'utf8');
+  const updateSource = readFileSync('scripts/release/update-website-manifest.mjs', 'utf8');
+  assert.match(fetchSource, /CHANGELOG\.md/);
+  assert.match(fetchSource, /changelogText/);
+  assert.match(updateSource, /CHANGELOG\.md/);
+  assert.match(updateSource, /changelogText/);
+}
+
 // ── formatCopy ───────────────────────────────────────────────────────────────
 {
   const copy = formatCopy('Varve');
@@ -1281,9 +1362,35 @@ assert.throws(
     /Open Anyway\. Do not disable Gatekeeper\.$/,
     '0.5.0 must not claim Open Anyway will appear',
   );
+  assert.match(
+    formatCopy('Varve', '0.5.1').appimage.blurb + formatCopy('Varve', '0.5.1').appimage.caveat,
+    /system WebKitGTK/,
+    '0.5.x AppImage copy must still require host WebKitGTK',
+  );
+  assert.doesNotMatch(
+    formatCopy('Varve', '0.5.1').appimage.blurb,
+    /Ships its own WebKitGTK/,
+    '0.5.x AppImage copy must not claim a bundled WebKitGTK',
+  );
+  assert.match(
+    formatCopy('Varve', '0.5.2').appimage.blurb,
+    /Ships its own WebKitGTK/,
+    '0.5.2+ AppImage copy describes the bundled WebKitGTK',
+  );
+  assert.match(formatCopy('Varve', '0.5.2').appimage.caveat, /GStreamer plugins are not bundled/);
+  assert.doesNotMatch(
+    formatCopy('Varve', '0.5.2').appimage.blurb + formatCopy('Varve', '0.5.2').appimage.caveat,
+    /system WebKitGTK/,
+    '0.5.2+ AppImage copy must not require a host WebKitGTK',
+  );
   assert.match(copy.nsis.caveat, /More info, then Run anyway/);
   assert.match(copy.nsis.caveat, /Smart App Control/);
   const tauriConf = JSON.parse(readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8'));
+  assert.equal(
+    tauriConf.bundle.linux.appimage.bundleMediaFramework,
+    false,
+    'AppImage must not claim bundled GStreamer plugins',
+  );
   assert.equal(
     tauriConf.bundle.macOS.signingIdentity,
     '-',

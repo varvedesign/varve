@@ -124,6 +124,45 @@ describe('TextTool', () => {
     expect(vi.mocked(ctx.createTextNodeAt).mock.calls[0]?.[1]).toBeUndefined();
   });
 
+  it('switches to a hit text node on click instead of creating over it', () => {
+    const textNode = { id: 'second-text', kind: 'text' } as unknown as NonNullable<
+      ReturnType<ToolContext['hitTest']>
+    >['node'];
+    const flushPendingEdits = vi.fn();
+    const commitTransaction = vi.fn();
+    const ctx = makeCtx({
+      textEditTargetId: 'first-text',
+      flushPendingEdits,
+      commitTransaction,
+      hitTest: vi.fn(() => ({ nodeId: textNode.id, node: textNode })),
+    });
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(101, 100), ctx);
+
+    expect(ctx.setSelection).toHaveBeenCalledWith(textNode.id);
+    expect(ctx.setTextEditTargetId).toHaveBeenCalledWith(textNode.id);
+    expect(flushPendingEdits).toHaveBeenCalledTimes(1);
+    expect(commitTransaction).toHaveBeenCalledTimes(1);
+    expect(flushPendingEdits.mock.invocationCallOrder[0]).toBeLessThan(
+      commitTransaction.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(ctx.createTextNodeAt).not.toHaveBeenCalled();
+  });
+
+  it('still creates new point text over existing text outside an edit session', () => {
+    const textNode = { id: 'existing-text', kind: 'text' } as unknown as NonNullable<
+      ReturnType<ToolContext['hitTest']>
+    >['node'];
+    const ctx = makeCtx({ hitTest: vi.fn(() => ({ nodeId: textNode.id, node: textNode })) });
+
+    tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+    tool.onPointerUp?.(makePointerEvent(101, 100), ctx);
+
+    expect(ctx.setTextEditTargetId).not.toHaveBeenCalled();
+    expect(ctx.createTextNodeAt).toHaveBeenCalledTimes(1);
+  });
+
   it('creates a sized container on a drag', () => {
     const ctx = makeCtx();
     tool.onPointerDown?.(makePointerEvent(100, 100), ctx);

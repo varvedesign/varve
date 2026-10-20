@@ -398,18 +398,27 @@ original source containing the bytes is required for the old pixels to return.
   The desktop manifest builder resolves ordinary raster sources for standard
   PDF, PDF/X-1a, and PDF/X-4. `varve-print` tiles an axis-aligned grid with
   positive independent gaps. Standard PDF preserves tile alpha and fill
-  opacity; PDF/X-4 preserves alpha and opacity; PDF/X-1a converts opaque RGB
-  tile samples to CMYK. PDF/X-1a omits transparent tiles or non-opaque fills
-  with an explicit warning. Shifted arrangements, mirrors, phase offsets,
-  rotation, document alignment, and negative gaps are omitted with a PDF warning rather than
-  approximated. The print renderer also omits a fill when its estimated tile
-  count exceeds 100,000. The Rust print renderer omits missing sources with a
-  warning comment and never represents them as a gray rectangle. Before the
+  opacity, plus stroke color alpha multiplied by node opacity; PDF/X-4
+  preserves alpha and opacity; PDF/X-1a converts opaque RGB
+  tile samples to CMYK. Standard PDF and PDF/X-4 write representable node/fill
+  blend modes; PDF/X-1a stops when it cannot carry a blend mode or when visible
+  node/fill/stroke opacity or image/pattern alpha is present. The editor preflight and
+  Rust writer both enforce this, so direct native callers cannot silently get
+  Normal compositing or dropped transparency. Flattening must include the full
+  composite against its opaque background. Shifted arrangements, mirrors,
+  phase offsets, rotation, document alignment, and negative gaps are omitted
+  with a PDF warning rather than approximated. The print renderer also omits a
+  fill when its estimated tile count exceeds 100,000. The Rust print renderer
+  omits missing sources with a warning comment and never represents them as a
+  gray rectangle. Before the
   editor invokes the PDF or PDF/X pipeline, it rejects any visible pattern
   fill with no resolved tile source and reports which source must be replaced
   or reimported; this prevents a valid-looking file with missing artwork.
   Resource detection is covered by `printImageManifest.test.ts`, the PDF/X
   export-service test, and `varve-print` pattern export tests.
+- **Authored PDF drop shadows** carry PDF-supported blend modes and combine
+  effect opacity, shadow-colour alpha, and node opacity. PDF/X-1a refuses
+  visible drop-shadow transparency or a blend mode it cannot carry.
 - SVG node export emits a native `<pattern>` for the supported linked-grid
   subset above. Unsupported SVG cases use the export compositor's raster
   fallback with a fidelity warning. Other generated code targets continue to

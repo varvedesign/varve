@@ -266,6 +266,12 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, coord: CoordSpace) {
     let serpentine = p.b("serpentine", true);
     let seed = (js_round(p.f("seed", 0.0)) as i64) as u32;
 
+    // The TS reference treats "none" as a no-op for every algorithm,
+    // including ordered Bayer and blue-noise modes.
+    if p.s("paletteMode", "levels") == "none" {
+        return;
+    }
+
     let coord_valid = coord.scale > 0.0;
     let scale = if coord_valid { coord.scale } else { 1.0 };
     let phase_x = if coord_valid { coord.region_x } else { 0.0 };
@@ -293,12 +299,6 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, coord: CoordSpace) {
     }
 
     if strength <= 0.0 {
-        return;
-    }
-
-    // 'none' palette mode = no quantization = no dithering at all. Error
-    // diffusion requires a quantization target to diffuse error towards.
-    if p.s("paletteMode", "levels") == "none" {
         return;
     }
 
@@ -473,4 +473,30 @@ fn apply_ordered(out: &mut [u8], w: u32, h: u32, p: &Params, st: &OrderedState, 
 /// `quantizeByte`.
 fn quantize_byte(v: f64, step: f64) -> u8 {
     clamp_byte(clamp01(js_round(v / step) * step) * 255.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{apply_effect, EffectKind, EffectQuality, EffectRequest};
+
+    #[test]
+    fn no_palette_mode_keeps_bayer_input_unchanged() {
+        let request = EffectRequest {
+            effect: EffectKind::Dither,
+            width: 2,
+            height: 1,
+            quality: EffectQuality::Normal,
+            coord_space: None,
+            params: serde_json::json!({
+                "algorithm": "bayer",
+                "paletteMode": "none",
+                "strength": 1.0,
+                "levels": 4,
+                "cellSize": 1,
+                "bayerSize": 4
+            }),
+        };
+        let input = vec![27, 11, 20, 255, 30, 5, 19, 255];
+        assert_eq!(apply_effect(&request, &input).unwrap(), input);
+    }
 }

@@ -891,6 +891,7 @@ export function CanvasArea({
         marqueeIndexRef,
         pendingAutoTextEditRef,
         nodeEditTargetId,
+        textEditTargetId,
         setDraft,
         previewNodePositions: transformPreviewController.previewNodePositions,
         clearNodePositionPreview: transformPreviewController.clearNodePositionPreview,

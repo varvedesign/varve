@@ -56,11 +56,38 @@ function bytesToBase64(bytes: Uint8ClampedArray): string {
   return btoa(binary);
 }
 
+function rgbaByteLength(width: number, height: number): number {
+  const byteLength = width * height * 4;
+  if (
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    !Number.isSafeInteger(byteLength)
+  ) {
+    throw new Error('PDF export could not safely determine the decoded image size.');
+  }
+  return byteLength;
+}
+
+function assertWithinManifestBudget(totalBytes: number): void {
+  if (totalBytes <= PRINT_MANIFEST_MAX_TOTAL_BYTES) return;
+  const limitMb = Math.round(PRINT_MANIFEST_MAX_TOTAL_BYTES / (1024 * 1024));
+  const totalMb = Math.round(totalBytes / (1024 * 1024));
+  throw new Error(
+    `PDF export image content (${totalMb} MB decoded) exceeds the ${limitMb} MB print limit. Downsample large images or remove some images, then try again.`,
+  );
+}
+
 function assembleManifest(entries: readonly RgbaEntry[]): string | undefined {
   if (entries.length === 0) return undefined;
-  let total = 0;
+  const totalBytes = entries.reduce(
+    (total, entry) => total + rgbaByteLength(entry.width, entry.height),
+    0,
+  );
+  assertWithinManifestBudget(totalBytes);
+
   const images: PrintImageResource[] = entries.map((entry, index) => {
-    total += entry.data.length;
     return {
       id: `print-image-${index}`,
       src: entry.src,
@@ -73,17 +100,10 @@ function assembleManifest(entries: readonly RgbaEntry[]): string | undefined {
       color_space: 'Rgb',
     };
   });
-  if (total > PRINT_MANIFEST_MAX_TOTAL_BYTES) {
-    const limitMb = Math.round(PRINT_MANIFEST_MAX_TOTAL_BYTES / (1024 * 1024));
-    const totalMb = Math.round(total / (1024 * 1024));
-    throw new Error(
-      `PDF export image content (${totalMb} MB decoded) exceeds the ${limitMb} MB print limit. Reduce the export scale or export a smaller region and try again.`,
-    );
-  }
   return JSON.stringify({ images, patterns: [] } satisfies PrintImageManifest);
 }
 
-async function readRgbaFromSource(src: string): Promise<RgbaEntry> {
+async function readRgbaFromSource(src: string, currentTotalBytes: number): Promise<RgbaEntry> {
   const image = await getImageCache().load(src);
   const { width, height } = cachedImageDims(image);
   if (width <= 0 || height <= 0) {
@@ -91,6 +111,8 @@ async function readRgbaFromSource(src: string): Promise<RgbaEntry> {
       'PDF export could not read the decoded dimensions of an embedded image. The image failed to decode; export again after the image loads.',
     );
   }
+  assertWithinManifestBudget(currentTotalBytes + rgbaByteLength(width, height));
+
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -113,10 +135,13 @@ export async function buildPrintImageManifestForSrcs(
 ): Promise<string | undefined> {
   const entries: RgbaEntry[] = [];
   const seen = new Set<string>();
+  let currentTotalBytes = 0;
   for (const src of srcs) {
     if (!src || seen.has(src)) continue;
     seen.add(src);
-    entries.push(await readRgbaFromSource(src));
+    const entry = await readRgbaFromSource(src, currentTotalBytes);
+    entries.push(entry);
+    currentTotalBytes += rgbaByteLength(entry.width, entry.height);
   }
   return assembleManifest(entries);
 }
@@ -137,6 +162,8 @@ export async function buildPrintImageManifestFromPngBlob(
     if (width <= 0 || height <= 0) {
       throw new Error('PDF export rasterized to an empty image.');
     }
+    assertWithinManifestBudget(rgbaByteLength(width, height));
+
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;

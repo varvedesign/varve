@@ -53,6 +53,43 @@ pub enum EffectKind {
     Caustics,
 }
 
+/// Output-byte compatibility revision shared by native and WASM callers.
+/// Bump only when the same request and input can produce different bytes.
+pub const EFFECT_KERNEL_ABI_VERSION: u32 = 1;
+
+/// Every effect kind in the stable wire order exposed by the WASM capability
+/// report. Keep this in sync with `LiveEffectKind` in the TypeScript engine.
+pub const IMPLEMENTED_EFFECTS: [EffectKind; 10] = [
+    EffectKind::Dither,
+    EffectKind::PaletteSnap,
+    EffectKind::Bloom,
+    EffectKind::RgbSplit,
+    EffectKind::Crt,
+    EffectKind::Vhs,
+    EffectKind::LightShafts,
+    EffectKind::LensFlare,
+    EffectKind::LightLeak,
+    EffectKind::Caustics,
+];
+
+impl EffectKind {
+    /// Stable camelCase name used by the TS request contract.
+    pub const fn wire_name(self) -> &'static str {
+        match self {
+            Self::Dither => "dither",
+            Self::PaletteSnap => "paletteSnap",
+            Self::Bloom => "bloom",
+            Self::RgbSplit => "rgbSplit",
+            Self::Crt => "crt",
+            Self::Vhs => "vhs",
+            Self::LightShafts => "lightShafts",
+            Self::LensFlare => "lensFlare",
+            Self::LightLeak => "lightLeak",
+            Self::Caustics => "caustics",
+        }
+    }
+}
+
 /// Render quality tier — mirrors `liveEffects/quality.ts` `EffectQuality`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -215,32 +252,45 @@ pub fn validate_surface(width: u32, height: u32, rgba_len: usize) -> Result<(), 
 }
 
 /// Apply a live effect to RGBA bytes, returning the result, using bounded
-/// row-band parallelism ([`Execution::bounded`]). Output is byte-identical to
-/// [`apply_effect_with`] under [`Execution::scalar`].
+/// row-band parallelism. Output is byte-identical to scalar execution.
 pub fn apply_effect(request: &EffectRequest, rgba: &[u8]) -> Result<Vec<u8>, String> {
     apply_effect_with(request, rgba, Execution::bounded())
 }
 
-/// [`apply_effect`] under an explicit execution policy. [`Execution::scalar`]
-/// is the single-threaded diagnostic path.
+/// Apply an effect under an explicit execution policy.
 pub fn apply_effect_with(
     request: &EffectRequest,
     rgba: &[u8],
     exec: Execution,
 ) -> Result<Vec<u8>, String> {
     validate_surface(request.width, request.height, rgba.len())?;
+    let mut out = rgba.to_vec();
+    apply_effect_in_place_with(request, &mut out, exec)?;
+    Ok(out)
+}
+
+/// Apply a live effect to an owned RGBA buffer without another full-surface
+/// copy. The caller keeps the input authoritative; this buffer is a working
+/// copy that may be transferred, mutated, or discarded.
+pub fn apply_effect_in_place(request: &EffectRequest, rgba: &mut [u8]) -> Result<(), String> {
+    apply_effect_in_place_with(request, rgba, Execution::bounded())
+}
+
+fn apply_effect_in_place_with(
+    request: &EffectRequest,
+    rgba: &mut [u8],
+    exec: Execution,
+) -> Result<(), String> {
+    validate_surface(request.width, request.height, rgba.len())?;
     let params = Params::new(&request.params);
     let coord = request.coord_space.unwrap_or_default();
-    let mut out = rgba.to_vec();
     match request.effect {
-        EffectKind::Dither => {
-            dither::apply(&mut out, request.width, request.height, &params, coord)
-        }
+        EffectKind::Dither => dither::apply(rgba, request.width, request.height, &params, coord),
         EffectKind::PaletteSnap => {
-            palette_snap::apply(&mut out, request.width, request.height, &params)
+            palette_snap::apply(rgba, request.width, request.height, &params)
         }
         EffectKind::Bloom => bloom::apply_with(
-            &mut out,
+            rgba,
             request.width,
             request.height,
             &params,
@@ -248,24 +298,19 @@ pub fn apply_effect_with(
             coord,
             exec,
         )?,
-        EffectKind::RgbSplit => rgb_split::apply_with(
-            &mut out,
-            request.width,
-            request.height,
-            &params,
-            coord,
-            exec,
-        ),
-        EffectKind::Crt => crt::apply_with(&mut out, request.width, request.height, &params, exec),
+        EffectKind::RgbSplit => {
+            rgb_split::apply_with(rgba, request.width, request.height, &params, coord, exec)
+        }
+        EffectKind::Crt => crt::apply_with(rgba, request.width, request.height, &params, exec),
         EffectKind::Vhs => vhs::apply(
-            &mut out,
+            rgba,
             request.width,
             request.height,
             &params,
             request.quality,
         ),
         EffectKind::LightShafts => light_shafts::apply_with(
-            &mut out,
+            rgba,
             request.width,
             request.height,
             &params,
@@ -273,17 +318,17 @@ pub fn apply_effect_with(
             exec,
         ),
         EffectKind::LensFlare => lens_flare::apply(
-            &mut out,
+            rgba,
             request.width,
             request.height,
             &params,
             request.quality,
         ),
         EffectKind::LightLeak => {
-            light_leak::apply_with(&mut out, request.width, request.height, &params, exec)
+            light_leak::apply_with(rgba, request.width, request.height, &params, exec)
         }
         EffectKind::Caustics => caustics::apply_with(
-            &mut out,
+            rgba,
             request.width,
             request.height,
             &params,
@@ -292,5 +337,80 @@ pub fn apply_effect_with(
             exec,
         )?,
     }
-    Ok(out)
+    Ok(())
+}
+
+#[cfg(test)]
+mod wasm_boundary_tests {
+    use super::{
+        apply_effect, apply_effect_in_place, EffectKind, EffectQuality, EffectRequest,
+        EFFECT_KERNEL_ABI_VERSION, IMPLEMENTED_EFFECTS,
+    };
+
+    #[test]
+    fn effect_wire_names_and_abi_are_stable_and_complete() {
+        assert_eq!(EFFECT_KERNEL_ABI_VERSION, 1);
+        assert_eq!(
+            IMPLEMENTED_EFFECTS.map(EffectKind::wire_name),
+            [
+                "dither",
+                "paletteSnap",
+                "bloom",
+                "rgbSplit",
+                "crt",
+                "vhs",
+                "lightShafts",
+                "lensFlare",
+                "lightLeak",
+                "caustics",
+            ]
+        );
+    }
+
+    #[test]
+    fn owned_in_place_kernel_matches_the_reference_entry_point() {
+        let request = EffectRequest {
+            effect: EffectKind::Dither,
+            width: 2,
+            height: 2,
+            quality: EffectQuality::Interactive,
+            coord_space: None,
+            params: serde_json::json!({ "algorithm": "bayer", "bayerSize": 4, "levels": 3 }),
+        };
+        let input = vec![
+            16, 22, 31, 255, 72, 91, 104, 192, 148, 129, 111, 96, 240, 221, 203, 0,
+        ];
+        let expected = apply_effect(&request, &input).unwrap();
+        let mut owned = input.clone();
+        apply_effect_in_place(&request, &mut owned).unwrap();
+        assert_eq!(owned, expected);
+        assert_eq!(input[3], 255, "the borrowed source remains unchanged");
+    }
+
+    #[test]
+    fn every_owned_kernel_matches_borrowed_bounded_execution() {
+        let mut input = Vec::with_capacity(8 * 8 * 4);
+        for pixel in 0..64_u8 {
+            input.extend_from_slice(&[
+                pixel.wrapping_mul(3),
+                pixel.wrapping_mul(5),
+                pixel.wrapping_mul(7),
+                255,
+            ]);
+        }
+        for effect in IMPLEMENTED_EFFECTS {
+            let request = EffectRequest {
+                effect,
+                width: 8,
+                height: 8,
+                quality: EffectQuality::Interactive,
+                coord_space: None,
+                params: serde_json::json!({}),
+            };
+            let expected = apply_effect(&request, &input).unwrap();
+            let mut owned = input.clone();
+            apply_effect_in_place(&request, &mut owned).unwrap();
+            assert_eq!(owned, expected, "owned output differs for {effect:?}");
+        }
+    }
 }

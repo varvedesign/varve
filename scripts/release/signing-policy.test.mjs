@@ -281,7 +281,7 @@ assert.equal(
 const FIXTURE_ARTIFACTS = [
   { filename: 'Varve-0.1.0-windows-x86_64.exe', os: 'windows', format: 'nsis' },
   { filename: 'Varve-0.1.0-macos-aarch64.dmg', os: 'macos', format: 'dmg' },
-  { filename: 'Varve-0.1.0-linux-x86_64.AppImage', os: 'linux', format: 'appimage' },
+  { filename: 'Varve-0.1.0-x86_64.AppImage', os: 'linux', format: 'appimage' },
 ];
 const manifest = (overrides = {}) => ({
   version: '0.1.0',

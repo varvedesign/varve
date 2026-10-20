@@ -26,6 +26,7 @@ on:
       - 'scripts/release/website-release-data.mjs'
       - 'scripts/release/product.mjs'
       - 'scripts/release/github-fetch.mjs'
+      - 'CHANGELOG.md'
       - 'package.json'
       - 'pnpm-lock.yaml'
   # A human-published release dispatches a repository event so the download

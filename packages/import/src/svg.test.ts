@@ -43,6 +43,21 @@ describe('parseSvg', () => {
     }
   });
 
+  it('preserves shorthand fill color and fractional opacity on repeated use instances', () => {
+    const result = parseSvg(
+      '<svg xmlns:xlink="http://www.w3.org/1999/xlink"><defs><rect id="ck" width="100" height="50" fill="#e5e" fill-opacity=".1" /></defs><use xlink:href="#ck" /><use xlink:href="#ck" x="100" /></svg>',
+    );
+
+    expect(result.nodeIds).toHaveLength(2);
+    for (const id of result.nodeIds) {
+      const node = result.document.nodes[id];
+      expect(node?.kind).toBe('shape');
+      if (node?.kind === 'shape') {
+        expect(node.fill).toEqual({ space: 'rgb', r: 238, g: 85, b: 238, a: 26 });
+      }
+    }
+  });
+
   it('parses a circle element', () => {
     const result = parseSvg('<svg><circle cx="50" cy="50" r="40" fill="blue" /></svg>');
     expect(result.nodeIds.length).toBe(1);
