@@ -58,7 +58,7 @@ these states into one completion flag.
   changes. These changes are not part of this branch.
 - Discussion coverage is complete, with eight source comment-count
   discrepancies retained in the cache and inventory above.
-- The per-issue ledger is `issue-ledger.jsonl`: 1502/2,950 issues are individually reviewed (including #10513 and #10024), with 1,448 still `unreviewed`. Those reviewed issues cover 4,246 accessible comments; all 7,070 comments are retrievable/indexed, with eight declared-count gaps.
+- The per-issue ledger is `issue-ledger.jsonl`: 1552/2,950 issues are individually reviewed (including #10513 and #10024), with 1,398 still `unreviewed`. Those reviewed issues cover 4,446 accessible comments; all 7,070 comments are retrievable/indexed, with eight declared-count gaps.
 - Next actions: continue reviewing each issue and relevant linked evidence,
   disposition individually, complete the recursive link frontier, reconcile a
   C2 cutoff, and validate each new Varve candidate before implementation.
@@ -102,7 +102,8 @@ these states into one completion flag.
 | Review positions 1351–1400 | 50 issues (#5175–#5343), all 187 retrievable comments. Follow-up leads cover macOS URI-list image drops, browser/WebView coordinate scaling, bulk-import feedback, and export lifecycle guidance; several API questions and bugs are answered or fixed upstream. | Source-backed assessment and atomic ledger import. No Varve change was made without reproduction. See `ranges/1351-1400.md`. |
 | Review positions 1401–1450 | 50 issues (#5346–#5508), all 183 retrievable comments. Follow-up leads include image-corner controls, pan-speed consistency, and frame-relative alignment; several API behaviors and fixes are confirmed upstream. | Source-backed assessment and atomic ledger import. No Varve change was made without reproduction. See `ranges/1401-1450.md`. |
 | Review positions 1451–1500 | 50 issues (#5511–#5675), all 163 retrievable comments. Follow-up leads include multi-shape ordering, stale asset bytes, rich-text keyboard/focus behavior, SVG export size, and hit testing for empty shapes; the reported StrictMode issue was fixed upstream. | Source-backed assessment and atomic ledger import. No Varve change was made without reproduction. See `ranges/1451-1500.md`. |
-| Ledger after position 1500 | 1502/2,950 reviewed, covering 4,246 accessible comments; 1,448 remain. | Atomic `ledger-import --assessments` accepted each 50-row batch; ledger order and review state retained. |
+| Review positions 1501–1550 | 50 issues (#5681–#5816), all 200 retrievable comments. Follow-up leads include high-refresh input cadence, pointer release outside the canvas, cross-realm DOM handling, and CJK font coverage; multiple export, embed, zoom, and iPad input bugs are confirmed fixed upstream. | Source-backed assessment and atomic ledger import. No Varve change was made without reproduction. See `ranges/1501-1550.md`. |
+| Ledger after position 1550 | 1552/2,950 reviewed, covering 4,446 accessible comments; 1,398 remain. | Atomic `ledger-import --assessments` accepted each 50-row batch; ledger order and review state retained. |
 | Website/deployment impact | Updated the first-project and vector-tools guides plus the Vector Tools feature page to explain the repeat-creation preference and default behavior. No offline, privacy, or cloud claims change. | Full website E2E: 688 passed; two GH Pages-only cases were rerun and passed 3/3. Preference browser screenshots (enabled/disabled) were visually inspected; `tests/e2e/canvas/tools.spec.ts` passed 12/12 and records both states in artifacts. `.github/workflows/website-deploy.yml` deploys after `master` updates under its source-path filters. |
 
 ## Validation and continuation
