@@ -177,6 +177,8 @@ these states into one completion flag.
 | Ledger after position 2600 | 2602/2,950 reviewed, covering 6,943 accessible comments; 348 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2591–2600. |
 | Review positions 2601–2610 | 10 issues (#9720–#9729), all 1 retrievable comment. The batch concerns upstream comment anchors, notification state, sidebar/picker interactions, and input behavior; #9722 is confirmed implemented. | Atomic ledger import accepted 10 assessments; these hosted comments features have no direct Varve counterpart. See `ranges/2601-2610.md`. |
 | Ledger after position 2610 | 2612/2,950 reviewed, covering 6,944 accessible comments; 338 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2601–2610. |
+| Review positions 2611–2620 | 10 issues (#9730–#9764), all 9 retrievable comments. Hosted comments interactions, text-caret rendering, sync capacity, clipboard flavors, packaging, and preview cleanup were separated by product boundary and evidence status. | Atomic ledger import accepted 10 assessments; #9733 contributor work was not merged, while #9732 clarifies thread-root listing. See `ranges/2611-2620.md`. |
+| Ledger after position 2620 | 2622/2,950 reviewed, covering 6,953 accessible comments; 328 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2611–2620. |
 
 ## Validation and continuation
 
