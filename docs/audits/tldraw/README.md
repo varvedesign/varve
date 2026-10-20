@@ -58,9 +58,9 @@ these states into one completion flag.
   changes. These changes are not part of this branch.
 - Discussion coverage is complete, with eight source comment-count
   discrepancies retained in the cache and inventory above.
-- The per-issue ledger is `issue-ledger.jsonl`: 402/2,950 issues are
-  individually reviewed (including #10513 and #10024), with 2,548 still
-  `unreviewed`. Those reviewed issues cover 1,061 accessible comments; all
+- The per-issue ledger is `issue-ledger.jsonl`: 452/2,950 issues are
+  individually reviewed (including #10513 and #10024), with 2,498 still
+  `unreviewed`. Those reviewed issues cover 1,183 accessible comments; all
   7,070 comments are retrievable/indexed, with eight declared-count gaps.
 - Next actions: continue reviewing each issue and relevant linked evidence,
   disposition individually, complete the recursive link frontier, reconcile a
@@ -83,6 +83,7 @@ these states into one completion flag.
 | Review positions 251–300 | 50 issues (#1902–#2028), all 102 retrievable comments. No Varve defect reproduced; bounded-page authoring, nested-frame clipping, and stroke-edge selection remain targeted follow-up leads. | Individual report and schema-validated assessments; see `ranges/0251-0300.md`. |
 | Review positions 301–350 | 50 issues (#2029–#2151), all 105 retrievable comments. No Varve defect reproduced; locked-child ungrouping, platform input/export, and bounded export/pinned artwork remain targeted follow-up leads. | Individual report and schema-validated assessments; see `ranges/0301-0350.md`. |
 | Review positions 351–400 | 50 issues (#2152–#2274), all 114 retrievable comments. No Varve defect reproduced; custom backgrounds and clipboard-image import are already supported. Dynamic connector geometry, long-document pen performance, crop export, and locked-node marquee behavior remain test leads. | Individual report and schema-validated assessments; see `ranges/0351-0400.md`. |
+| Review positions 401–450 | 50 issues (#2276–#2382), all 122 retrievable comments. No Varve defect reproduced; export progress, payload-free history references, and typography weight data are already supported. Crop reload, arrow export, locked-shape dragging, and toolbar keyboard focus remain test leads. | Individual report and schema-validated assessments; linked fix PRs #2330, #2345, #2347 and #2378 checked. See `ranges/0401-0450.md`. |
 | Ledger after position 400 | 402/2,950 reviewed, covering 1,061 accessible comments; 2,548 remain. | Atomic `ledger-import --assessments` accepted each 50-row batch; ledger order and review state retained. |
 | Website/deployment impact | Updated the first-project and vector-tools guides plus the Vector Tools feature page to explain the repeat-creation preference and default behavior. No offline, privacy, or cloud claims change. | Website source/build checks and visual route tests are included in affected validation. `.github/workflows/website-deploy.yml` deploys after `master` updates under its source-path filters, so these source changes will trigger the normal website workflow after integration. Separate manual release publication remains outside this authorization. |
 
