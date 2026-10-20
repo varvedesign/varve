@@ -157,6 +157,8 @@ these states into one completion flag.
 | Ledger after position 2500 | 2502/2,950 reviewed, covering 6,884 accessible comments; 448 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2491–2500. |
 | Review positions 2501–2510 | 10 issues (#9298–#9346), all 5 retrievable comments. Crop improvements, keyboard behavior, workspace accessibility, source maps, and performance proposals were assessed against Varve source and product boundaries. | Atomic ledger import accepted 10 individual assessments; no direct matching viewport-polling or mandatory mount-time pattern-generation path was found. See `ranges/2501-2510.md`. |
 | Ledger after position 2510 | 2512/2,950 reviewed, covering 6,889 accessible comments; 438 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2501–2510. |
+| Review positions 2511–2520 | 10 issues (#9363–#9392), all 10 retrievable comments. Hosted metadata, startup measurement, embed/keyboard behavior, shape-flip requests, and a cropped-image group transform lead were distinguished by evidence status. | Atomic ledger import accepted 10 assessments; #9392 remains a local reproduction lead. See `ranges/2511-2520.md`. |
+| Ledger after position 2520 | 2522/2,950 reviewed, covering 6,899 accessible comments; 428 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2511–2520. |
 
 ## Validation and continuation
 
