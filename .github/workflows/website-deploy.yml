@@ -106,7 +106,7 @@ jobs:
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -176,7 +176,7 @@ jobs:
       # copying thousands of lines from the Actions log.
       - name: Upload website E2E diagnostics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: website-e2e-diagnostics-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -279,7 +279,7 @@ jobs:
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -289,16 +289,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # ── WASM engine build (for the browser demo at /try/) ──────────────
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Install just
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283
         with:
           tool: just@1.54.0
       - name: Install wasm-pack (pinned, verified)
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283
         with:
           tool: wasm-pack@0.13.1
           checksum: true
@@ -385,7 +385,7 @@ jobs:
 
       - name: Upload built-demo diagnostics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: website-demo-diagnostics-${{ needs.release-data.outputs.published_sha || github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: test-results/${{ env.VARVE_E2E_OUTPUT_DIR }}/
@@ -461,7 +461,7 @@ jobs:
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -488,7 +488,7 @@ jobs:
 
       - name: Upload live Lighthouse report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: website-lighthouse-live-${{ github.sha }}-${{ github.run_id }}
           path: .lighthouseci/mobile/
