@@ -179,6 +179,8 @@ these states into one completion flag.
 | Ledger after position 2610 | 2612/2,950 reviewed, covering 6,944 accessible comments; 338 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2601–2610. |
 | Review positions 2611–2620 | 10 issues (#9730–#9764), all 9 retrievable comments. Hosted comments interactions, text-caret rendering, sync capacity, clipboard flavors, packaging, and preview cleanup were separated by product boundary and evidence status. | Atomic ledger import accepted 10 assessments; #9733 contributor work was not merged, while #9732 clarifies thread-root listing. See `ranges/2611-2620.md`. |
 | Ledger after position 2620 | 2622/2,950 reviewed, covering 6,953 accessible comments; 328 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2611–2620. |
+| Review positions 2621–2630 | 10 issues (#9775–#9852), all 5 retrievable comments. Custom-shape scaling, an iPadOS report no longer reproduced, Zero service latency, and hosted comments UI were assessed by architecture and product scope. | Atomic ledger import accepted 10 assessments; #9852 is confirmed fixed upstream. See `ranges/2621-2630.md`. |
+| Ledger after position 2630 | 2632/2,950 reviewed, covering 6,958 accessible comments; 318 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2621–2630. |
 
 ## Validation and continuation
 
