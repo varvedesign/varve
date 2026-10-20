@@ -161,6 +161,10 @@ these states into one completion flag.
 | Ledger after position 2520 | 2522/2,950 reviewed, covering 6,899 accessible comments; 428 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2511–2520. |
 | Review positions 2521–2530 | 10 issues (#9397–#9431), all 6 retrievable comments. Upstream interpolation fix, hosted-workspace/data-retention reports, product ideas, third-party profile removal, and a timezone-sensitive license case were separated by scope. | Atomic ledger import accepted 10 assessments; Varve license expiry uses numeric timestamps with no matching date-only comparison. See `ranges/2521-2530.md`. |
 | Ledger after position 2530 | 2532/2,950 reviewed, covering 6,905 accessible comments; 408 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2521–2530. |
+| Review positions 2531–2540 | 10 issues (#9436–#9450), all 10 retrievable comments. Unreproduced cross-browser export, touch/stylus features, modifier-state behavior, accessibility, and hosted/MCP reports were individually assessed. | Atomic ledger import accepted 10 assessments; the MCP CSP/session issue is confirmed fixed upstream by #9513. See `ranges/2531-2540.md`. |
+| Ledger after position 2540 | 2542/2,950 reviewed, covering 6,915 accessible comments; 408 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2531–2540. |
+| Review positions 2541–2550 | 10 issues (#9452–#9498), all 4 retrievable comments. Hosted search/style requests, frame reparenting, fixed-unit measurement, page-list affordance, and evolving MCP scope were separated from Varve evidence. | Atomic ledger import accepted 10 assessments; #9469 is a distinct collaboration-dependent feature idea. See `ranges/2541-2550.md`. |
+| Ledger after position 2550 | 2552/2,950 reviewed, covering 6,919 accessible comments; 398 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2541–2550. |
 
 ## Validation and continuation
 
