@@ -1075,3 +1075,74 @@ shell; issue screenshots were reachable, but only #2082's pair supplied a
 clear visual comparison. Platform reproduction for #2078 and #2081, the
 unmerged #2070 details, and numeric gaps #2069/#2085/#2086 remain in the
 evidence frontier.
+
+## C1 issues #2089–#2112: custom font names, stylus input, and layer feedback
+
+This frozen page range contains 21 records: 16 PRs and five issues; #2104,
+#2105, and #2106 have no census record. All five issue bodies and all nine
+comments were reviewed. #2098's grouped typography asset disappearance was
+fixed upstream in PR #2097 by normalizing asset paths before grouping and
+editing the stored name; this is distinct from #2073's grouping-creation
+failure. Varve has local document text styles but no matching shared Asset
+Library grouping surface, so a local style organizer remains a product
+decision. #2100 is a corrupted OCI container-ID failure in Penpot's server
+compose stack, outside Varve's local app route. #2101's report about apostrophes
+in uploaded font names is standards-relevant: CSS Fonts permits a quoted
+`<string>` family name. Varve's font-loading and canvas text paths quote and
+escape family names, but a browser regression with an apostrophe fixture is
+still useful hardening; no source defect is established. #2102 is an iPad
+Apple Pencil support request. Varve routes pen pointer events through its
+input pipeline and has touch-action handling, but physical iPadOS/Pencil
+dispatch, pressure, palm rejection, and Scribble behavior remain unverified.
+#2103 concerns a team-avatar upload route Varve does not have; Varve's local
+avatar picker already has an explicit accessible label.
+
+PR #2107 was superseded by merged PR #2114 (merge commit
+`aa951148606355939a5b9a58bebb05cdfa74dfb6`). Both provide a layer-hover
+canvas-outline demonstration; Varve has no equivalent layer-row hover-to-canvas
+outline route. This is a concrete improvement to the existing layer workflow
+and will be implemented as a separate feature batch with pointer, keyboard,
+accessibility, and visual checks. PR #2111 closes #1159's layer-icon
+double-click zoom request, which Varve already implements through the
+accessible layer icon and `revealSelection({ fit: true })`; its two PR comments
+say it works as expected, and its GIF was inspected. A real Varve UI check is
+still required before marking the linked workflow verified. Taiga
+#3763/#3918/#3954/#3919 and #3929 returned generic application shells; #2103's
+primary image was inaccessible, while an alternative menu mock was retrieved
+and inspected. Numeric gaps #2104–#2106 remain explicit census gaps.
+
+## C1 issues #2113–#2136: grid workflows, component inheritance, and pointer behavior
+
+The page contains 24 records: 16 PRs and eight issues, with no absent numeric
+slots. All eight issue bodies and all 21 comments were read. #2115's F2 layer
+rename request is already implemented by Varve's Layers keyboard handler and
+batch rename; verify the real UI path before closure. #2117's per-grid-cell
+alignment and #2118's split export across grid cells are distinct feature
+opportunities with product details still needed for cell semantics, bleed,
+constraints, filenames, formats, and resource limits. #2120 reports two-level
+component fill inheritance after a main component update; the supplied ZIP is
+missing from the frozen attachment cache, so Varve's instance override model
+has not been tested against the reported fixture. #2126 is a localization
+investment decision. #2127's configurable font API is a possible self-hosted
+provider feature, but would change network trust and needs explicit provider,
+permission, cache, and failure contracts. #2134's round and bevel joins are
+already represented in Varve's scene type, inspector, renderer, imports,
+exports, and tests. #2136 asks for hosted demo-user work retention; Varve has
+no accounts or hosted demo-user route, and local recovery is a different
+workflow.
+
+PR #2114 confirms and merges the layer-row hover outline first shown in #2107;
+the Varve feature batch is tracked separately from bug fixes. PR #2111's
+comments and recorded GIF confirm the layer-icon double-click zoom behavior,
+which Varve already implements. PR #2113 concerns copied frames removing
+guides and is comparative evidence for the guide-ruler/copy workflows. PR
+#2122's four discussion comments end with confirmation that moving a grouped
+shape outside its frame should remove it from the group, then identify PR
+#2131 as the superseding fix. Its attached video was retrieved and inspected;
+preserve this intentional frame-boundary behavior as distinct from #2081's
+reported Windows/Chrome reparent freeze. PR #2121 points back to clipboard
+alignment issue #2007, and PR #2128 points to upstream Taiga #1617. Taiga
+#3955/#3956/#3957/#3958/#3932/#3629/#1617, the nested-component ZIP, and other
+unavailable source evidence remain explicit frontier items. PR #2111's two
+comments and PR #2122's four comments are cached outside normal source history
+with response metadata and checksums.
