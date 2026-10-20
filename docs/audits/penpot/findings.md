@@ -1,5 +1,34 @@
 # Findings and implementation batches
 
+## C1 issues #2353–#2448 (reviewed returned ranges)
+
+Across #2353–#2448, the reviewed ranges contain 42 issues and 52 PR records;
+all issue bodies and 109 advertised issue comments were read and reconciled
+with the cached page/comment responses. #2398 and #2432 are absent from the
+frozen inventory. PR records remain separate from issue dispositions; linked
+PR review discussions and Taiga records are not covered by issue-comment
+capture and remain explicit frontier work.
+
+Concrete Varve candidates are #2369 (middle-button pan is captured by guide
+overlays), #2422 (SVG embedded CSS class fills are not resolved and may fall
+back to black), and #2447 (intermittent first-click text caret positioning).
+Each needs a real browser reproduction before repair. Feature opportunities
+include an OKHSL color editor (#2355), unified Expand Appearance (#2356),
+named document-color labels (#2394), mobile prototype review controls (#2421),
+JPEG quality control (#2425), and PDF export discoverability (#2444). These
+are not established defects and need Varve workflow decisions. Varve already
+serves text-to-outline conversion, image replacement, save shortcuts, line
+and paragraph spacing, and multipage presentation PDF export. Localization,
+hosted identity/share, Docker, and Penpot archive workflows do not map to
+current Varve service boundaries. Preserve the separate Android/Linux
+prototype preview reports (#2419), paragraph/line spacing reports (#2428 and
+#2429), and hosted export conditions (#2373 and #2424).
+
+The only website impact identified in these ranges is documentation accuracy
+if SVG CSS class colors (#2422) or a later mobile prototype workflow ships;
+no current landing-page claims need changing. Website changes remain
+unreleased until verified integration.
+
 ## C1 issues #2305–#2352 (noncontiguous returned ranges)
 
 The review covered 18 records in #2305–#2328 (8 issues, 10 PRs), then 24 in
