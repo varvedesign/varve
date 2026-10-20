@@ -43,6 +43,7 @@ const VP9_CODEC = 'vp09.00.10.08';
 export const MAX_VIDEO_EXPORT_DIMENSION = 16_384;
 export const MAX_VIDEO_EXPORT_PIXELS = 8_388_608;
 export const MAX_VIDEO_EXPORT_FRAMES = 10_000;
+export const MAX_VIDEO_EXPORT_PIXEL_FRAMES = 4_000_000_000;
 
 export function videoExportDimensionsError(width: number, height: number): string | null {
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
@@ -74,6 +75,10 @@ export function videoExportRequestError(
     : Math.max(Math.ceil((timeline.duration / 1000) * options.fps), 1);
   if (!Number.isSafeInteger(frames) || frames > MAX_VIDEO_EXPORT_FRAMES) {
     return `Video export is limited to ${MAX_VIDEO_EXPORT_FRAMES.toLocaleString()} frames`;
+  }
+  const pixelsPerFrame = options.width * options.height;
+  if (frames > Math.floor(MAX_VIDEO_EXPORT_PIXEL_FRAMES / pixelsPerFrame)) {
+    return `Video export is limited to ${MAX_VIDEO_EXPORT_PIXEL_FRAMES.toLocaleString()} total pixels across all frames`;
   }
   return null;
 }

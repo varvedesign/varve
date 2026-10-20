@@ -196,8 +196,8 @@ import '../../../styles/docs-prose.css';
           <li><strong>CSS @keyframes</strong> — Standard CSS keyframe animation with per-keyframe timing functions, compatible with any web project</li>
           <li><strong>SVG animate</strong> — SMIL-based SVG animation embedded in SVG files</li>
           <li><strong>Lottie JSON</strong> — Lottie format for use with Lottie-web, Lottie-iOS, and Lottie-Android. Supports opacity, rotation, position (separate X/Y), scale, stroke width, corner radius, fill color, and stroke color with per-keyframe bezier easing</li>
-          <li><strong>MP4 / WebM video</strong> — WebCodecs-based export at 30 fps; frame surfaces are limited to 8,388,608 pixels (16,384 per side) and a timeline export to 10,000 frames</li>
-          <li><strong>Animated GIF</strong> — export is limited to 8,388,608 pixels per frame (16,384 per side), 10,000 frames, and 256 MiB of encoded output</li>
+          <li><strong>MP4 / WebM video</strong> — WebCodecs-based export at 30 fps; each frame is limited to 8,388,608 pixels (16,384 per side), with a 4 billion-pixel total surface budget and 10,000-frame ceiling</li>
+          <li><strong>Animated GIF</strong> — each frame is limited to 8,388,608 pixels (16,384 per side), with a 4 billion-pixel total surface budget, 10,000-frame ceiling, and 256 MiB output cap</li>
           <li><strong>Self-contained HTML prototype</strong> — Exports prototype interactions, state machines, variables, and screen transitions as a single HTML file with embedded CSS + JS runtime</li>
         </ul>
         <p>

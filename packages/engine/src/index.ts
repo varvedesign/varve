@@ -1721,6 +1721,7 @@ export {
   exportTimelineToVideo,
   MAX_VIDEO_EXPORT_DIMENSION,
   MAX_VIDEO_EXPORT_FRAMES,
+  MAX_VIDEO_EXPORT_PIXEL_FRAMES,
   MAX_VIDEO_EXPORT_PIXELS,
   videoExportDimensionsError,
   videoExportRequestError,

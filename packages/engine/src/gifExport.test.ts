@@ -88,6 +88,18 @@ describe('exportTimelineToGif', () => {
     expect(renderer).not.toHaveBeenCalled();
   });
 
+  it('rejects excessive total frame-surface work before rendering', async () => {
+    const renderer = vi.fn(async () => new Uint8Array(4));
+    const result = await exportTimelineToGif(renderer, 200_000, {
+      width: 2048,
+      height: 2048,
+      fps: 10,
+    });
+
+    expect(result.reason).toMatch(/total pixels across all frames/);
+    expect(renderer).not.toHaveBeenCalled();
+  });
+
   it('produces a valid GIF with a single frame', async () => {
     const renderer: GifFrameRenderer = async () => solidRgbaFrame(255, 0, 0, 255, 4, 4);
     const result = await exportTimelineToGif(renderer, 100, {
@@ -202,6 +214,18 @@ describe('exportAnimatedMediaToGif', () => {
 
     expect(result.supported).toBe(false);
     expect(result.reason).toMatch(/pixels per side/);
+    expect(frameSource).not.toHaveBeenCalled();
+  });
+
+  it('rejects excessive total frame-surface work before requesting media frames', async () => {
+    const frameSource = vi.fn(async () => new Uint8Array(4));
+    const result = await exportAnimatedMediaToGif(frameSource, {
+      frameDelaysMs: Array.from({ length: 1001 }, () => 100),
+      width: 2048,
+      height: 2048,
+    });
+
+    expect(result.reason).toMatch(/total pixels across all frames/);
     expect(frameSource).not.toHaveBeenCalled();
   });
 });

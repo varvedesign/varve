@@ -1191,7 +1191,8 @@ allocation with a clear reason rather than leaving users with a frozen export.
 
 **Implementation.** MP4/WebM and GIF requests now reject non-finite or invalid
 dimensions, frame surfaces over 8,388,608 pixels or 16,384 pixels on either
-side, and timelines over 10,000 frames. `ExportDialog` performs the request check before starting the renderer,
+side, timelines over 10,000 frames, and total rendered surfaces over 4 billion
+pixels per export. `ExportDialog` performs the request check before starting the renderer,
 and the video bridge repeats the dimension check before canvas allocation.
 WebCodecs encoding keeps at most two frames queued and waits for dequeue
 capacity. GIF timeline and animated-media exports encode frames as they arrive
@@ -1207,13 +1208,17 @@ and export limits. The product feature pages make no performance or unlimited
 resolution claim, so no landing-page or comparison-page change is warranted.
 Visual review of the edited page remains pending with the blocked browser lease.
 
-**Validation.** Focused video/GIF/bridge/ExportDialog tests pass (58 tests), and
+**Validation.** Focused video/GIF/bridge/ExportDialog tests pass (61 tests), and
 engine, editor, website, and E2E typechecks pass. The final `pnpm verify:plan`
-selected 47 lanes (81% of repository test files; full-suite escalation NO).
+selected 43 lanes (81% of repository test files; full-suite escalation NO).
 `pnpm verify:affected` stops at the existing radius audit findings in untouched
 Presentation/SpecPanel styles (10 consumers), before selected typecheck and
-unit lanes; the affected runner's later lanes were run directly where relevant.
-Docs, emoji, and token audits passed after the final F-026 evidence edits.
+unit lanes; the engine, editor, website, and focused export checks were run
+directly. The website unit lane passes 301/302; its sole failure is a stale
+`presentation.varve` demo fixture in
+`apps/website/src/test/demoDocuments.test.ts`, outside the changed export and
+motion-guide paths. Docs, emoji, and token audits passed after the final F-026
+evidence edits.
 Website and motion browser E2E plus screenshot inspection remain pending:
 the shared heavy-task lease is held by another worktree's live canvas E2E
 process. No browser test has been launched for this batch. Do not consider F-026

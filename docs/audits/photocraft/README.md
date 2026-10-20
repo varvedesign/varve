@@ -122,9 +122,10 @@ visual validation; no current marketing claim warrants a site change.
 
 PhotoCraft #6103 is recorded in
 [F-026](findings.md#f-026--bound-timeline-video-and-gif-export-work). MP4/WebM
-and GIF export now bound canvas dimensions, frame count, encoder queueing, and
-GIF output size. The website motion guide now documents the actual 30 fps rate
-and limits. Focused tests and typechecks pass, but `verify:affected` stops at
+and GIF export now bound per-frame dimensions, cumulative frame-surface pixels,
+frame count, encoder queueing, and GIF output size. The website motion guide now
+documents the actual 30 fps rate and limits. Focused tests and typechecks pass,
+but `verify:affected` stops at
 the existing radius audit and browser screenshot validation remains queued
 behind the shared lease; keep F-026 open for those checks.
 

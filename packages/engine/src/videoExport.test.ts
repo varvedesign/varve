@@ -133,6 +133,18 @@ describe('exportTimelineToVideo', () => {
     expect(excessive.reason).toMatch(/10,000 frames/);
     expect(renderer).not.toHaveBeenCalled();
   });
+
+  it('rejects excessive total frame-surface work before rendering', async () => {
+    const renderer = vi.fn(async () => new Uint8Array(4));
+    const result = await exportTimelineToVideo(
+      { id: 'tl1', duration: 333_000 },
+      { width: 4096, height: 2048, fps: 30 },
+      renderer,
+    );
+
+    expect(result.reason).toMatch(/total pixels across all frames/);
+    expect(renderer).not.toHaveBeenCalled();
+  });
 });
 
 describe('exportTimelineToVideo frame timing (mock encoder)', () => {

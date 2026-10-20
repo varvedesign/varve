@@ -1,4 +1,8 @@
-import { MAX_VIDEO_EXPORT_DIMENSION, MAX_VIDEO_EXPORT_PIXELS } from './videoExport';
+import {
+  MAX_VIDEO_EXPORT_DIMENSION,
+  MAX_VIDEO_EXPORT_PIXEL_FRAMES,
+  MAX_VIDEO_EXPORT_PIXELS,
+} from './videoExport';
 
 /**
  * Minimal GIF encoder — frames from ImageBitmap/Uint8Array → GIF file bytes.
@@ -74,6 +78,9 @@ export function gifExportRequestError(
   const totalFrames = computeFrameCount(durationMs, fps);
   if (!Number.isSafeInteger(totalFrames) || totalFrames > MAX_GIF_FRAME_COUNT) {
     return `GIF export is limited to ${MAX_GIF_FRAME_COUNT.toLocaleString()} frames`;
+  }
+  if (totalFrames > Math.floor(MAX_VIDEO_EXPORT_PIXEL_FRAMES / (width * height))) {
+    return `GIF export is limited to ${MAX_VIDEO_EXPORT_PIXEL_FRAMES.toLocaleString()} total pixels across all frames`;
   }
   return null;
 }
@@ -188,6 +195,14 @@ export async function exportAnimatedMediaToGif(
       frameCount: 0,
       supported: false,
       reason: dimensionError,
+    };
+  }
+  if (frameCount > Math.floor(MAX_VIDEO_EXPORT_PIXEL_FRAMES / (opts.width * opts.height))) {
+    return {
+      bytes: null,
+      frameCount: 0,
+      supported: false,
+      reason: `GIF export is limited to ${MAX_VIDEO_EXPORT_PIXEL_FRAMES.toLocaleString()} total pixels across all frames`,
     };
   }
   // addFrame adopts real dimensions from the first frame
