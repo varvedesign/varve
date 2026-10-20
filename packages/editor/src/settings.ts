@@ -155,6 +155,8 @@ export interface ViewportSettingsStore {
   wheelMode: WheelNavigationMode;
   /** Multiplier for normalized wheel deltas; bounded to keep input predictable. */
   wheelSensitivity: number;
+  /** Reverse the zoom direction for wheel gestures that zoom the canvas. */
+  invertWheelZoom: boolean;
   /** Allow app-side continuation for detented mouse wheels; trackpad tails never use it. */
   wheelInertia: boolean;
   pixelGridEnabled: boolean;
@@ -376,6 +378,7 @@ export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
   snapToGuides: true,
   wheelMode: 'auto',
   wheelSensitivity: 1,
+  invertWheelZoom: false,
   wheelInertia: true,
   pixelGridEnabled: false,
   pixelGridSnapEnabled: false,
@@ -773,6 +776,10 @@ function normalizeViewportSettings(
         ? viewport.wheelMode
         : DEFAULT_VIEWPORT_SETTINGS.wheelMode,
     wheelSensitivity,
+    invertWheelZoom:
+      typeof viewport.invertWheelZoom === 'boolean'
+        ? viewport.invertWheelZoom
+        : DEFAULT_VIEWPORT_SETTINGS.invertWheelZoom,
     wheelInertia:
       typeof viewport.wheelInertia === 'boolean'
         ? viewport.wheelInertia

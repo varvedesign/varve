@@ -187,7 +187,7 @@ capture cannot dismantle the active pinch.
 |---|---|
 | Keyboard panning (arrow keys move view) | Implemented only in the explicit Hand/temporary Space-Hand context: Arrow = 48 CSS px, Shift+Arrow = 192 CSS px. Select, text, fields, trees, guides, and specialized tools retain arrow ownership. |
 | Pen barrel-button action customization | Not exposed in settings |
-| Gesture sensitivity settings | Wheel policy (standard/always pan/always zoom), 0.25×–4× sensitivity, and optional mouse-wheel continuation are exposed in Settings > Drawing Input. |
+| Gesture sensitivity settings | Wheel policy (standard/always pan/always zoom), 0.25×–4× sensitivity, optional zoom-direction inversion, and optional mouse-wheel continuation are exposed in Settings > Drawing Input. |
 | Interactive preview quality | Settings > Performance exposes Automatic versus Full resolution while navigating; settled frames and exports remain authoritative. |
 | `zoomBy`/`zoomAtScreenPoint`/`panToWorldPoint` convenience API | Absorbed by existing `commitCamera`/`computeZoom*`; not re-exported |
 | Viewport-rotation gestures (touch twist) | Not implemented; rotation via toolbar/shortcuts only |

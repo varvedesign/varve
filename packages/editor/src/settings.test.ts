@@ -27,6 +27,7 @@ describe('loadSettings', () => {
     expect(s.render.interactivePreview).toBe('automatic');
     expect(s.viewport.wheelMode).toBe('auto');
     expect(s.viewport.wheelSensitivity).toBe(1);
+    expect(s.viewport.invertWheelZoom).toBe(false);
     expect(s.viewport.wheelInertia).toBe(true);
     expect(s.performance.reducedMotionOverride).toBe('system');
     expect(s.performance.showPerformanceDiagnostics).toBe(false);
@@ -272,23 +273,30 @@ describe('loadSettings', () => {
       STORAGE_KEY,
       JSON.stringify({
         render: { interactivePreview: 'invalid' },
-        viewport: { wheelMode: 'invalid', wheelSensitivity: 99, wheelInertia: false },
+        viewport: {
+          wheelMode: 'invalid',
+          wheelSensitivity: 99,
+          invertWheelZoom: 'invalid',
+          wheelInertia: false,
+        },
       }),
     );
     expect(loadSettings().render.interactivePreview).toBe('automatic');
     expect(loadSettings().viewport).toMatchObject({
       wheelMode: 'auto',
       wheelSensitivity: 4,
+      invertWheelZoom: false,
       wheelInertia: false,
     });
 
     const updated = updateSettings({
       render: { interactivePreview: 'full' },
-      viewport: { wheelMode: 'zoom', wheelSensitivity: 0.01 },
+      viewport: { wheelMode: 'zoom', wheelSensitivity: 0.01, invertWheelZoom: true },
     });
     expect(updated.render.interactivePreview).toBe('full');
     expect(updated.viewport.wheelMode).toBe('zoom');
     expect(updated.viewport.wheelSensitivity).toBe(0.25);
+    expect(updated.viewport.invertWheelZoom).toBe(true);
   });
 
   it('normalizes drawing input preferences without rejecting older settings files', () => {

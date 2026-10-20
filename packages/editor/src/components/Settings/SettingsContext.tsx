@@ -117,6 +117,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if (
         patch.viewport?.wheelMode !== undefined ||
         patch.viewport?.wheelSensitivity !== undefined ||
+        patch.viewport?.invertWheelZoom !== undefined ||
         patch.viewport?.wheelInertia !== undefined
       ) {
         refreshNavigationSettings();

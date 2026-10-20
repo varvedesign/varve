@@ -276,6 +276,13 @@ export function DrawingInputSettingsTab() {
         available.
       </p>
 
+      <SwitchField
+        label="Invert wheel zoom direction"
+        description="Reverses zoom in and out for wheel gestures that zoom the canvas. Panning direction is unchanged."
+        checked={settings.viewport.invertWheelZoom}
+        onChange={(event) => updateNavigation({ invertWheelZoom: event.target.checked })}
+      />
+
       <div className="settings-field-row">
         <span className="settings-field-row__label">Wheel sensitivity</span>
         <div className="settings-field-row__control">
@@ -306,6 +313,7 @@ export function DrawingInputSettingsTab() {
           updateNavigation({
             wheelMode: DEFAULT_VIEWPORT_SETTINGS.wheelMode,
             wheelSensitivity: DEFAULT_VIEWPORT_SETTINGS.wheelSensitivity,
+            invertWheelZoom: DEFAULT_VIEWPORT_SETTINGS.invertWheelZoom,
             wheelInertia: DEFAULT_VIEWPORT_SETTINGS.wheelInertia,
           })
         }

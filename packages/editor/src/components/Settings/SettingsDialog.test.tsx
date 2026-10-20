@@ -92,6 +92,12 @@ describe('SettingsDialog', () => {
     expect(
       JSON.parse(localStorage.getItem('varve-editor-settings')!).viewport.wheelSensitivity,
     ).toBe(1.5);
+
+    const invertZoom = screen.getByRole('switch', { name: 'Invert wheel zoom direction' });
+    fireEvent.click(invertZoom);
+    expect(
+      JSON.parse(localStorage.getItem('varve-editor-settings')!).viewport.invertWheelZoom,
+    ).toBe(true);
   });
 
   it('persists the repeat creation tool preference', () => {
