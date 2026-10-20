@@ -206,15 +206,12 @@ function writeTarget(target, version) {
     if (!existsSync(abs)) return;
     let updated = text.replace(/^(\tpkgver\s*=\s*).+$/m, (_m, prefix) => `${prefix}${version}`);
     // Replace version strings inside source = lines (e.g.
-    // Varve-0.1.0-linux-x86_64.AppImage::…/download/v0.1.0/Varve-0.1.0-…).
+    // Varve-0.1.0-x86_64.AppImage::…/download/v0.1.0/Varve-0.1.0-x86_64.AppImage).
     updated = updated.replace(
-      /(\tsource\s*=\s*Varve-)[^:]+(-linux)/g,
-      (_m, prefix, suffix) => `${prefix}${version}${suffix}`,
+      /Varve-\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:-linux)?-(x86_64|aarch64)\.AppImage/g,
+      (_m, arch) => `Varve-${version}-${arch}.AppImage`,
     );
-    updated = updated.replace(
-      /(releases\/download\/v)[^/]+(\/Varve-)[^"']+(")/g,
-      (_m, prefix, mid, suf) => `${prefix}${version}${mid}${version}-linux-x86_64.AppImage${suf}`,
-    );
+    updated = updated.replace(/(releases\/download\/v)[0-9][^/]+(\/Varve-)/g, `$1${version}$2`);
     if (updated === text && readTarget(target).value !== version) {
       throw new Error(`Could not locate pkgver or source in ${target.path}`);
     }

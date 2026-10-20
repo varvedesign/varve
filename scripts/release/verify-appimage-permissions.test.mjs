@@ -95,11 +95,11 @@ lrwxrwxrwx 0/0              40 2026-10-09 04:41 squashfs-root/dev.varve.desktop.
 }
 
 {
-  const result = inspectAppImagePermissions('/tmp/Varve-0.5.0-linux-x86_64.AppImage', {
+  const result = inspectAppImagePermissions('/tmp/Varve-0.5.0-x86_64.AppImage', {
     execFile(cmd, args) {
       if (args?.includes('--appimage-offset')) return '944632\n';
       if (cmd === 'unsquashfs') {
-        assert.deepEqual(args, ['-lln', '-o', '944632', '/tmp/Varve-0.5.0-linux-x86_64.AppImage']);
+        assert.deepEqual(args, ['-lln', '-o', '944632', '/tmp/Varve-0.5.0-x86_64.AppImage']);
         return FAILING_0_5_0;
       }
       throw new Error(`unexpected exec ${cmd} ${args}`);
@@ -109,7 +109,7 @@ lrwxrwxrwx 0/0              40 2026-10-09 04:41 squashfs-root/dev.varve.desktop.
   assert.ok(result.violations.length > 0);
   assert.throws(
     () =>
-      verifyAppImagePermissions('/tmp/Varve-0.5.0-linux-x86_64.AppImage', {
+      verifyAppImagePermissions('/tmp/Varve-0.5.0-x86_64.AppImage', {
         listingText: FAILING_0_5_0,
       }),
     /AppRun\.wrapped/,
@@ -168,7 +168,7 @@ lrwxrwxrwx 0/0              40 2026-10-09 04:41 squashfs-root/dev.varve.desktop.
 {
   const work = mkdtempSync(join(tmpdir(), 'varve-appimage-eacces-'));
   try {
-    const image = join(work, 'Varve-0.5.1-linux-x86_64.AppImage');
+    const image = join(work, 'Varve-0.5.1-x86_64.AppImage');
     writeFileSync(image, '#!/bin/sh\necho 944632\n');
     chmodSync(image, 0o644);
     assert.equal(statSync(image).mode & 0o111, 0, 'fixture starts without an exec bit');
@@ -220,7 +220,7 @@ if (have('mksquashfs') && have('unsquashfs')) {
     const squash = join(work, 'payload.squashfs');
     execFileSync('mksquashfs', [root, squash, '-all-root', '-noappend', '-quiet']);
     const offset = 128;
-    const image = join(work, 'Varve-0.5.1-linux-x86_64.AppImage');
+    const image = join(work, 'Varve-0.5.1-x86_64.AppImage');
     writeFileSync(image, Buffer.concat([Buffer.alloc(offset, 0), readFileSync(squash)]));
 
     const result = inspectAppImagePermissions(image, {

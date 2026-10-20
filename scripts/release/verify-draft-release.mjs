@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
+import { releaseArtifactFilename } from './artifact-names.mjs';
 import { collectResumableArtifacts } from './resume.mjs';
 import {
   readSigningReports,
@@ -343,10 +344,23 @@ function expectedUpdaterTargets(artifacts, options) {
   );
   const requested = new Set(requiredTargets(options.platforms).map((target) => target.id));
   return RELEASE_TARGETS.filter((target) => present.has(target.id) || requested.has(target.id)).map(
-    (target) => ({
-      key: target.os === 'macos' ? `darwin-${target.architecture}` : target.updateTarget,
-      filename: `Varve-${options.tag.slice(1)}-${target.id}.${target.os === 'linux' ? 'AppImage' : target.os === 'windows' ? 'exe' : 'app.tar.gz'}`,
-    }),
+    (target) => {
+      const version = options.tag.slice(1);
+      const format = target.os === 'linux' ? 'appimage' : target.os === 'windows' ? 'nsis' : 'dmg';
+      const filename =
+        target.os === 'macos'
+          ? `Varve-${version}-macos-${target.architecture}.app.tar.gz`
+          : releaseArtifactFilename({
+              version,
+              os: target.os,
+              arch: target.architecture,
+              format,
+            });
+      return {
+        key: target.os === 'macos' ? `darwin-${target.architecture}` : target.updateTarget,
+        filename,
+      };
+    },
   );
 }
 

@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { FIRST_BUNDLED_WEBKIT_APPIMAGE as releaseFirstBundled } from '../../../../scripts/release/website-release-data.mjs';
+import spec from '../data/appimage-webkit.json';
 import {
+  appImageShipsBundledWebKit,
   CHECKSUM_COMMANDS,
   livePackageManagerChannels,
   macosUnsignedCaveat,
   PACKAGE_MANAGER_CHANNELS,
+  FIRST_BUNDLED_WEBKIT_APPIMAGE as siteFirstBundled,
   windowsUnsignedCaveat,
 } from '../data/install-guidance';
 
@@ -21,6 +25,16 @@ describe('install guidance', () => {
     expect(windows).toMatch(/More info, then Run anyway/);
     expect(windows).toMatch(/Smart App Control/);
     expect(windows).toContain('/try');
+  });
+
+  it('does not describe 0.5.x AppImages as shipping WebKitGTK', () => {
+    expect(siteFirstBundled).toBe(spec.firstBundledWebKitAppImage);
+    expect(releaseFirstBundled).toBe(spec.firstBundledWebKitAppImage);
+    expect(appImageShipsBundledWebKit('0.5.0')).toBe(false);
+    expect(appImageShipsBundledWebKit('0.5.1')).toBe(false);
+    expect(appImageShipsBundledWebKit(null)).toBe(false);
+    expect(appImageShipsBundledWebKit('0.5.2')).toBe(true);
+    expect(appImageShipsBundledWebKit('0.6.0')).toBe(true);
   });
 
   it('gives single-file checksum commands instead of a full SHA256SUMS check', () => {

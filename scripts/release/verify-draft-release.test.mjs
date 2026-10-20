@@ -17,6 +17,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import test from 'node:test';
 import { load } from 'js-yaml';
+import { releaseArtifactFilename } from './artifact-names.mjs';
 import {
   readSigningReports,
   signingStateFromReport,
@@ -81,7 +82,13 @@ function sbom() {
 }
 
 function addInstaller(dir, manifest, target, format) {
-  const filename = `Varve-0.5.0-${target.id}.${suffix[format]}`;
+  const filename = releaseArtifactFilename({
+    version: '0.5.0',
+    os: target.os,
+    arch: target.architecture,
+    format,
+    ext: suffix[format],
+  });
   writeFileSync(join(dir, filename), Buffer.alloc(1_000_001, 42));
   const sha256 = digest(join(dir, filename));
   const artifact = {
@@ -208,7 +215,15 @@ function addUpdaterFeed(value, filename = 'varve-update-stable.json') {
   for (const target of RELEASE_TARGETS) {
     const extension =
       target.os === 'linux' ? 'AppImage' : target.os === 'windows' ? 'exe' : 'app.tar.gz';
-    const artifact = `Varve-0.5.0-${target.id}.${extension}`;
+    const artifact =
+      target.os === 'linux'
+        ? releaseArtifactFilename({
+            version: '0.5.0',
+            os: 'linux',
+            arch: target.architecture,
+            format: 'appimage',
+          })
+        : `Varve-0.5.0-${target.id}.${extension}`;
     if (target.os === 'macos') writeFileSync(join(value.dir, artifact), 'fixture updater bundle');
     writeFileSync(join(value.dir, `${artifact}.sig`), 'invalid\n');
     const key = target.os === 'macos' ? 'darwin-aarch64' : target.id;
