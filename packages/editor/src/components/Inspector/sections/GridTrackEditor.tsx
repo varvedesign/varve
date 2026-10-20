@@ -11,6 +11,7 @@ import {
   resizeGridTrack,
 } from '@varve/layout';
 import type { Document, GridItemPlacement, GridTrack, LayoutStyle } from '@varve/scene';
+import { Icon } from '@varve/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '../../../context';
@@ -164,23 +165,29 @@ export function GridTrackEditor({ frameId, layoutStyle, document }: GridTrackEdi
             />
             <button
               type="button"
+              className="insp-grid-track-editor__icon-button"
               aria-label={`Move ${axisLabel(axis)} ${index + 1} earlier`}
+              title={`Move ${axisLabel(axis)} ${index + 1} earlier`}
               onClick={() => moveTrack(axis, track.id, index - 1)}
               disabled={index === 0}
             >
-              Move up
+              <Icon name="ArrowUp" size={14} aria-hidden="true" />
             </button>
             <button
               type="button"
+              className="insp-grid-track-editor__icon-button"
               aria-label={`Move ${axisLabel(axis)} ${index + 1} later`}
+              title={`Move ${axisLabel(axis)} ${index + 1} later`}
               onClick={() => moveTrack(axis, track.id, index + 1)}
               disabled={index === list.length - 1}
             >
-              Move down
+              <Icon name="ArrowDown" size={14} aria-hidden="true" />
             </button>
             <button
               type="button"
+              className="insp-grid-track-editor__icon-button"
               aria-label={`Remove ${axisLabel(axis)} ${index + 1}`}
+              title={`Remove ${axisLabel(axis)} ${index + 1}`}
               disabled={list.length <= 1}
               onClick={(event) => {
                 const preview = previewRemoveGridTrack(document, frameId, axis, track.id);
@@ -190,7 +197,7 @@ export function GridTrackEditor({ frameId, layoutStyle, document }: GridTrackEdi
                 }
               }}
             >
-              Remove
+              <Icon name="Trash2" size={14} aria-hidden="true" />
             </button>
           </div>
         ))}

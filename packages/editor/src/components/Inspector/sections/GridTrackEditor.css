@@ -38,6 +38,34 @@
   cursor: default;
 }
 
+.insp-grid-track-editor__track > .insp-grid-track-editor__icon-button {
+  display: grid;
+  flex: 0 0 28px;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  min-inline-size: 28px;
+  padding: 0;
+}
+
+html[data-layout-mode="tablet"]
+  .insp-grid-track-editor__track
+  > .insp-grid-track-editor__icon-button {
+  flex-basis: 32px;
+  inline-size: 32px;
+  block-size: 32px;
+  min-inline-size: 32px;
+}
+
+@media (pointer: coarse) {
+  .insp-grid-track-editor__track > .insp-grid-track-editor__icon-button {
+    flex-basis: 32px;
+    inline-size: 32px;
+    block-size: 32px;
+    min-inline-size: 32px;
+  }
+}
+
 .insp-grid-track-editor__track {
   min-width: 0;
 }
@@ -113,9 +141,5 @@
 @media (max-width: 480px) {
   .insp-grid-track-editor__preview-pair {
     grid-template-columns: 1fr;
-  }
-
-  .insp-grid-track-editor__track > button[aria-label^="Remove"] {
-    padding-inline: var(--space-1);
   }
 }

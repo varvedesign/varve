@@ -2,6 +2,125 @@ import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 test.describe('Grid system — real editor controls and visual overlay', () => {
+  test('keeps grid track editing controls inside Inspector at 1366×768', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await navigateToEditor(page);
+    await page
+      .getByRole('button', { name: /^Frame\b/ })
+      .first()
+      .click();
+    await dragOnCanvas(page, 24, 24, 368, 264);
+    await page.getByRole('treeitem').first().click();
+
+    const mode = page.getByRole('combobox', { name: 'Layout mode' });
+    await mode.click();
+    await page.getByRole('option', { name: 'Grid', exact: true }).click();
+    await page.getByRole('button', { name: 'Add column', exact: true }).click();
+    await page.getByRole('button', { name: 'Add column', exact: true }).click();
+
+    const track = page.locator('.insp-grid-track-editor__track').first();
+    await track.scrollIntoViewIfNeeded();
+    const geometry = await track.evaluate((element) => {
+      const inspector = element.closest('.insp-panel');
+      if (!inspector) throw new Error('Inspector scrollport missing');
+      const panelRect = inspector.getBoundingClientRect();
+      const bounds = [...element.querySelectorAll<HTMLElement>('input, button')].map((control) => {
+        const rect = control.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2,
+        );
+        return {
+          label: control.getAttribute('aria-label'),
+          left: rect.left,
+          right: rect.right,
+          width: rect.width,
+          top: rect.top,
+          bottom: rect.bottom,
+          hit: Boolean(hit && control.contains(hit)),
+        };
+      });
+      return {
+        panel: {
+          left: panelRect.left,
+          right: panelRect.right,
+          top: panelRect.top,
+          bottom: panelRect.bottom,
+        },
+        bounds,
+      };
+    });
+    for (const control of geometry.bounds) {
+      expect(control.left, `${control.label} is clipped at Inspector left`).toBeGreaterThanOrEqual(
+        geometry.panel.left,
+      );
+      expect(control.right, `${control.label} is clipped at Inspector right`).toBeLessThanOrEqual(
+        geometry.panel.right,
+      );
+      expect(control.hit, `${control.label} is not hit-testable`).toBe(true);
+      if (/^(Move|Remove) column/.test(control.label ?? '')) {
+        expect(
+          control.width,
+          `${control.label} should use a compact icon control`,
+        ).toBeLessThanOrEqual(32);
+      }
+    }
+    await page.screenshot({ path: testInfo.outputPath('grid-track-controls-1366x768.png') });
+  });
+
+  test('keeps grid track actions compact in tablet layout at 900×600', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 900, height: 600 });
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'varve-editor-settings',
+        JSON.stringify({ appearance: { layoutPreference: 'tablet' } }),
+      );
+    });
+    await navigateToEditor(page);
+    await expect(page.locator('html')).toHaveAttribute('data-layout-mode', 'tablet');
+    await page
+      .getByRole('button', { name: /^Frame\b/ })
+      .first()
+      .click();
+    await dragOnCanvas(page, 24, 24, 368, 264);
+    await page.getByRole('treeitem').first().click();
+    await page.getByRole('combobox', { name: 'Layout mode' }).click();
+    await page.getByRole('option', { name: 'Grid', exact: true }).click();
+    await page.getByRole('button', { name: 'Add column', exact: true }).click();
+    await page.getByRole('button', { name: 'Add column', exact: true }).click();
+
+    const firstTrack = page.locator('.insp-grid-track-editor__track').first();
+    await firstTrack.scrollIntoViewIfNeeded();
+    const actions = firstTrack.locator('button.insp-grid-track-editor__icon-button');
+    await expect(actions).toHaveCount(3);
+    const geometry = await actions.evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const rect = button.getBoundingClientRect();
+        const panel = button.closest('.insp-panel')?.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2,
+        );
+        return {
+          label: button.getAttribute('aria-label'),
+          width: rect.width,
+          withinPanel: Boolean(panel && rect.left >= panel.left && rect.right <= panel.right),
+          hit: Boolean(hit && button.contains(hit)),
+        };
+      }),
+    );
+    for (const action of geometry) {
+      expect(action.width, `${action.label} width`).toBe(32);
+      expect(action.withinPanel, `${action.label} exceeds Inspector`).toBe(true);
+      expect(action.hit, `${action.label} is not hit-testable`).toBe(true);
+    }
+    await page.screenshot({ path: testInfo.outputPath('grid-track-controls-tablet-900x600.png') });
+  });
+
   test('keeps document, pixel, and layout-guide visibility independent', async ({ page }) => {
     await navigateToEditor(page);
 
