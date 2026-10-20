@@ -1,5 +1,40 @@
 # Findings and implementation batches
 
+## C1 issues #2233–#2256
+
+All 24 slots are present: 14 PRs and ten issues. Every issue body and all 35
+issue comments were read. PR discussions/reviews are not represented in the
+captured issue-comment cache, so their patch/CI/history claims remain separate
+frontier work. #2237's PostgreSQL URL scheme and #2249/#2250's self-hosted
+SMTP/verification configuration are outside Varve's local-first backend;
+#2250's resend/recovery condition stays distinct from #2249's initial SMTP and
+signup configuration. #2239/#2241/#2245 are localization decisions. #2246's
+artboard path-edit selection corruption is not reproduced in Varve and the
+source video is missing. #2251/#2254 concern Docker/Nginx deployment details
+without a matching Varve service route. #2252 is a high-value canvas lead:
+small Font Awesome SVG imported to Assets, placed, then resized across the
+handle boundary into a negative orientation. Varve has generic crossing-flip
+tests, but not that imported-SVG browser path; the GIF and Taiga #4109 are
+unavailable, so this is not yet a confirmed defect. Any implementation needs a
+real pointer regression against prior behavior.
+
+## C1 issues #2209–#2232
+
+All 24 page slots are present: 17 PRs and seven issues. The seven issue
+bodies and all 29 advertised issue comments were read. PR #2210 lists six
+comments, but its review/discussion pages are absent from the captured cache.
+#2215 is an outside-click dismissal reproduction lead for prototype overlays;
+#2216 is specific to Wacom Intuos 4 on Windows with Ink enabled, and the Ink
+disabled report must remain a separate condition. #2219's Cmd+Q expectation
+conflicts with the established macOS quit convention and needs shortcut-route
+verification before product changes. #2220's desktop request is substantially
+served by Varve's Tauri/local-first workflow. #2221 needs grid/guide parity and
+preference-reload reproduction across drawing and resize. #2230 is a distinct
+live drag-spacing feature opportunity beyond current spec measurements and
+smart guides. #2231 was confirmed as a stale/misquoted OAuth flag/cache issue
+in Penpot's self-hosted deployment, outside Varve's hosted-auth boundary.
+Missing Taiga records, attachments, and device fixtures remain in the frontier.
+
 ## C1 issues #2185–#2208
 
 This range contains all 24 slots: 17 PRs and seven issues. All seven issue
