@@ -974,3 +974,67 @@ The reviewer covered 24 contiguous records: four issues and 20 PRs, with all 13 
 The chronological interval contains 23 returned records (19 PRs and four issues); #1781 is absent from the frozen inventory and remains a numeric-gap frontier item. All four issue bodies and all 15 comments were read. #1784 and #1785 concern self-hosted account verification and team invitation email/JWT behavior, which have no Varve server identity route. #1795 is a volunteer offer to localize Penpot into Italian; adding a localization pipeline is a product and infrastructure decision. Their attachments remain unresolved where unavailable.
 
 #1793 is a product-improvement candidate, not a reproduced Varve defect. Penpot reports unclear import stages, weak progress visibility, and delayed license context. Varve already exposes nonblocking batch progress, filenames, cancellation, and per-file failures. A worthwhile bounded enhancement is truthful stage and per-file progress for long multi-file/library imports, with no estimated completion time unless supported by measured work. Licensing guidance only applies if licensed library installation becomes a Varve workflow. Taiga #3223 and the screencast remain unresolved; #12340 and PR #12192 are separate C1 records to review individually. No current marketing claim needs correction; website guidance can change if the progress enhancement ships.
+
+## C1 issues #1897–#1920: security contact, PDF image quality, and uploads
+
+This chronological range has five issues and 19 PR records; all five issue
+bodies and 73 issue comments were reviewed. #1897 asks for a public security
+contact and does not disclose a vulnerability; Varve already documents
+coordinated disclosure. #1899 reports blurry raster images in large-artboard
+PDFs. Varve has output-PPI controls and effective raster-PPI diagnostics, so
+the report is a validation lead, not a confirmed defect. Validate browser and
+native output at representative page sizes and densities before changing
+quality behavior. #1905 reports Penpot SVG exporter buffer failure and a later
+6x PNG timeout that was subsequently resolved; the attached reproduction was
+not available for inspection. Large, complex Varve exports remain a useful
+targeted validation opportunity. #1917 concerns self-hosted upload and NGINX
+asset-path configuration, with no matching Varve hosted-upload route. #1918
+was a Penpot UI typography decision and does not establish a Varve legibility
+problem. Linked PR #1915's discussion and referenced Penpot PR #1996 remain
+uninspected; Taiga #3220/#3422 and the private security report remain
+inaccessible.
+
+## C1 issues #1921–#1944 and linked #2011: SVG color and guide workflows
+
+This range has six issues and 17 PR records; all six issue bodies and 27
+comments were reviewed. #1922 was traced to the reporter's Chrome minimum-font
+setting; #1925 was unreleased Docker image timing. #1930's guide deletion had
+already shipped upstream and Varve now supports deletion through selection,
+context menu, keyboard, and ruler drop. Its separate guide-to-scene snapping
+idea remains a product candidate. #1935 overlaps Varve's existing centered
+resize behavior but still needs browser reproduction. #1938 is a localization
+infrastructure decision.
+
+#1936 contains three distinct conditions. Its old private Penpot document
+imported several artboards at 0.01×0.01 and was reported fixed upstream; the
+source file is inaccessible. Its external SVG style-shift report lacks a
+source fixture. Separately, commenters connected faint imported SVG lines to
+`fill`/`stroke="currentColor"`. Varve's `parseSvgColor` currently returns null
+for `currentColor`, and SVG import does not resolve the inherited `color`
+property. This is a standards-backed compatibility candidate to reproduce
+with controlled fixtures; the source SVG is unavailable. Keep it separate
+from linked #2011, whose drawn pen-tool path/round-cap edge artifact has a
+separate, unresolved reproduction. PR #1924 and #1940 separately document
+upstream component-integrity repairs and are useful comparative evidence for
+Varve's earlier document-recovery batch. Taiga #3447/#3645, screenshots, and
+the private file remain in the frontier where inaccessible or unresolved.
+
+
+## C1 issues #1945–#1968: hierarchy, mobile use, and localization
+
+The frozen inventory contains 23 records: six issues and 17 PRs; #1964 is an absent numeric slot. All six issue bodies and their 23 comments were reviewed. #1946 reports loss of grouping when pasting Figma multi-selection SVG. Varve preserves explicit SVG `<g>` hierarchy, but the original clipboard SVG is unavailable, so no loss in Varve is established; add real clipboard fixtures if a source representation becomes available. #1952 narrows a broad mobile-editor request to clipping/unscrollable content and a possible read-only share view. Varve already has responsive workspace behavior and prototype device previews; a public share route would be new product and hosting scope. #1953 requests Portuguese translation corrections and contributor tooling; Varve has no established localization workflow, so this is a product decision. #1959 concerns Java SMTP trust configuration, #1967 a self-hosted S3/NGINX deployment configuration, and #1968 backend notification-email templates; none has a matching Varve server route. Related Taiga #3452, #3455, #3478, and #3502 were inaccessible and remain unresolved frontier edges. The #1946 screenshots were linked but not visually exposed; its source SVG is unavailable.
+
+
+## C1 issues #1969–#1992: snapping, orientation, and SVG text fidelity
+
+This page range contains 23 records: 10 issues and 13 PRs; #1974 is absent. All ten issue bodies and 49 issue comments were reviewed, plus the one PR conversation comment on #1976. #1990 is a concrete improvement candidate: the attached 1,086,776-byte SVG has 523 text nodes, 966 font-family declarations, and 11 unique family values. The source fixture reproduced lost inline family, size, weight, and anchor styling because Varve read only direct attributes. A bounded parser fix and minimal unit regression are in place; inspector and browser-rendered visual confirmation remain queued. The source fixture checksum is recorded in the frontier. #1971's offscreen snap-target behavior overlaps but remains distinct from #1930 guide-to-scene snapping. #1982 requests a new batch orientation workflow and needs product acceptance. #1989 is substantially served by existing image replacement. #1992 provides only a generic backend error and inaccessible source workspace/logs. Authentication/configuration reports #1979/#1980 and translation contribution issues #1983/#1986 have no matching Varve route. Relevant Taiga tasks and unavailable screenshots/workspaces remain unresolved in the frontier.
+
+
+## C1 issues #1993–#2016: prototype branching and coordinate semantics
+
+The frozen page contains 24 slots: 16 PR records, seven issues, and absent #2010. All seven issue bodies and all 55 comments were reviewed. #1994 is an authorized product-improvement candidate: Varve's runtime already evaluates boolean conditions and variable-setting actions, but the inspector cannot author variable IDs/values or conditional branches. Implement after verifying playback state reset, persistence, undo, and keyboard/visual behavior; keep #1098 text-entry controls as a separate feature. #2007's upstream PR #2121 applies block formatting to every inserted block; Varve's text replacement currently preserves node-level alignment, but paste-while-editing needs a browser regression. #2008's screenshots show a nested child coordinate mismatch in Penpot, while Varve's inspector labels positions Artboard-relative but reads parent-local transforms; reproduce nested groups and rotated/scaled parents before repair. #2011's private file is unavailable and its separate round-cap hairline was not reproduced upstream; retain it as distinct from #1936 currentColor. #2009 exporter/Redis, #2012 LDAP, and #2013 OIDC reports resolve to self-hosted deployment configuration with no matching Varve service route. PR #2000 is adjacent transform-model context, not linked proof for #2008. Taiga #3630/#3645 and other referenced stories remain inaccessible beyond the unauthenticated app shell.
+
+
+## C1 issues #2017–#2040: stroke style, crop, and vector snapping
+
+The cached page contains 23 records: 17 PRs, six issues, and absent slot #2024. All six issue bodies and 28 comments were read. #2020 requests an editable hand-drawn appearance for ordinary vector shapes; Varve has freehand drawing and a raster sketch brush, but no general low-fidelity stroke style. This is a feature opportunity requiring acceptance around presentation-scale clarity and editability; keep the separate starter-kit discoverability concern distinct. Its image attachment and Taiga #3643 remain unavailable. #2022's Penpot context-menu crash was fixed upstream; Varve already has a text-style data model but no editor manager for creating, renaming, or deleting styles, a separate product opportunity rather than a reproduced crash. #2031's image-cropping request is covered by the existing non-destructive CropTool and history workflow; its linked demonstration was not cached. #2032 shared-link comments and #2036 MinIO setup have no matching Varve service/deployment route. #2040 reports inaccurate vector snapping, but its pointer conditions are underspecified and the linked video is unavailable. Varve's NodeEditTool does not use shared snapping while pixel-grid snapping exists for object transforms. Reproduce anchor movement across zoom levels and snap settings before considering a node-edit snapping feature; retain reported random drift separately from pixel-grid snapping. Linked PRs #2023/#2030/#2037, Taiga #3056/#3643, source commit `4d2de63374280814d5177ac64196d0dcdcfe00f7`, and unavailable videos remain explicit frontier edges.

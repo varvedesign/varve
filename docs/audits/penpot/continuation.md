@@ -6,8 +6,8 @@
 - Baseline Varve remote `master` SHA: `5172718c6f0f2597466cd08d0839b53ccafefbd2`. Isolated branch/worktree: `codex/penpot-corpus` at the same SHA; original dirty checkout and other worktrees remain untouched.
 - C1 froze at `2026-10-20T02:39:22.818Z` UTC, source Penpot `develop` SHA `be2e117f670fdc3fe440e55bea541df28f1c76d9`. Do not change C1. Do not freeze C2 until C1 issues and applicable evidence frontier are exhausted or individually blocked.
 - C1 listing: 12,050 records across 121 pages: 3,659 issues (757 open / 2,902 closed), 8,391 PRs (87 open / 8,304 closed), no duplicate IDs or issue numbers, 35 null issue bodies, and all 2,559 non-empty issue discussion threads captured with zero unresolved comments. Page inventory omitted issue #437 despite its pre-C1 `updated_at`; its full record/comments are kept separately in `snapshots/C1/supplemental.ndjson` and the common Git cache.
-- Current ledger: 489 page-listed issue assessments are completed and 3,170 remain research-pending; supplemental #437 is separately assessed (490 unique issue IDs total). Engineering pending count is 3,445 after the latest dispositions. Run `node scripts/research/penpot-audit.mjs status --cutoff C1` for the authoritative current totals; `reconciliation.json` is refreshed when the next checkpoint is written.
-- Ranges assessed individually through #1416: selected early ranges through #696, then sampled/bounded ranges through #1416, with numeric gaps retained. Coverage is not contiguous; see the per-issue ledger and `frontier.ndjson`. Agents reported all bodies/comments in their assigned returned ranges read; pull requests remain separately classified.
+- Current ledger at checkpoint 2026-10-20: 541 page-listed issue assessments are completed and 3,118 remain research-pending; supplemental #437 is separately assessed (542 unique issue IDs total). Engineering pending count is 3,417. C1 checker correctly remains incomplete for these corpus-wide counts; the current snapshot checksum and page/comment consistency checks pass. `node scripts/research/penpot-audit.mjs status --cutoff C1` is authoritative.
+- Ranges assessed individually through #1992: selected early ranges through #696, then sampled/bounded ranges through #1992, with numeric gaps retained. Coverage is not contiguous; see the per-issue ledger and `frontier.ndjson`. Agents reported all bodies/comments in their assigned returned ranges read; pull requests remain separately classified.
 
 ## Durable evidence and ownership
 
@@ -33,20 +33,19 @@
 ## Validation and integration state
 
 - Workspace instructions are in `/home/kevina/CodingProjects/varve/AGENTS.md`. Toolchain baseline recorded Rust 1.97, pnpm 11.9, Node 26, wasm32 target, and Linux GTK/WebKit dependencies; this worktree currently resolves Node v22.23.2, so the runtime differs from the documented baseline. Latest host snapshot during concurrent work: 5.0 GiB available RAM, swap fully used, 65 GiB free disk; other worktrees are using disk and shared memory.
-- Latest `pnpm verify:plan` selected 29 lanes across @varve/website and @varve/editor, with no full-suite escalation; rerun it after the full diff. The focused import-progress tests pass 12/12. `pnpm audit:docs` and `pnpm audit:emoji` passed earlier (1,149 docs / 830 links / 178 ADRs indexed; 5,318 files scanned); rerun for this diff. The current architecture audit reported engine and scene cycles already present at baseline; finish it and inspect enforced ceilings. The guide full browser suite owns the shared lease; import, attached visual, and website theme browser tests are queued. `pnpm verify:affected`, direct token audit, and final architecture audit remain required.
+- Latest `pnpm verify:plan` selected 42 lanes across @varve/website, @varve/editor, and @varve/import, with no full-suite escalation. Latest `pnpm verify:affected` stopped at the spacing audit's 16 pre-existing raw-spacing drifts in two untouched files (`FirstRunOverlay.css`, `DownloadRedirect.astro`); format, lint, emoji, radius, and docs lanes passed before that failure. Direct affected-unit coverage passed 331 tests; editor/import/desktop typechecks, website typecheck, and browser E2E typecheck passed. `pnpm audit:tokens` passed 324 pairs across three themes and no token-use violations. `audit:architecture.mjs --ci` completed with 14 cycles (under 17), zero layer violations, report-only instability/unused-export counts, and existing Shell/Menubar/context budget warnings; health audit passed. Fresh direct docs and emoji audits passed. Exact browser tests for import progress/cancellation, guides, clipboard feedback, mouse resize, browser-reserved shortcuts, and website theme-color are queued behind another active lease owner with an extended one-hour wait; screenshot inspection remains pending. The E2E typecheck was rerun after its last test-shim correction and is in progress.
 - The latest independent research-tool test run passes 16/16; `node --check scripts/research/penpot-audit.mjs` passes. `check --cutoff C1` currently fails only for expected pending issue coverage/applicable findings, with zero inventory pointer, checksum, timestamp, or identity errors. The checker now treats a missing after-cutoff marker as pending for unreviewed rows, while requiring an exact marker for reviewed rows; reviewed rows carry the explicit marker.
 - Another worktree has active `pnpm verify:full --local` and `pnpm verify:triage` operations. Do not compete with those processes or reclaim leases. Once they finish, run fresh `pnpm verify:plan`, then `pnpm verify:affected`; complete the new affected lanes, retry any cancellation with classified evidence, and run required audits including `pnpm audit:docs`, `pnpm audit:emoji`, and `pnpm audit:tokens`. No full suite unless the planner escalates or an explicit checkpoint applies.
-- Commits `5c8c95f0e` (audit tooling/evidence), `35c4fef86` (scene document recovery), `23eba88fa` (C1 ledger through #1800), and `eef2fb66b` (browser-safe shortcuts plus docs) are on the task branch. The scene commit checkpoint passed 66 focused tests. Guide, import-progress, website theme metadata, and mouse-button test changes remain uncommitted; shortcut E2E source is still uncommitted after a hook typecheck timeout under contention. No push checkpoint, PR, merge, site deploy, or app release has occurred. After validation/review, run `pnpm verify:push`, then use repository controls for focused PR/integration and verify any triggered deployment.
+- Commits `5c8c95f0e` (audit tooling/evidence), `35c4fef86` (scene document recovery), `23eba88fa` (C1 ledger through #1800), `eef2fb66b` (browser-safe shortcuts plus docs), and `aa01d57c9` (C1 ledger through #1896) are on the task branch. The scene commit checkpoint passed 66 focused tests. The current guide, import-progress, website theme metadata, clipboard feedback, mouse-button, and ledger changes remain uncommitted. No push checkpoint, PR, merge, site deploy, or app release has occurred. After validation/review, run `pnpm verify:push`, then use repository controls for focused PR/integration and verify any triggered deployment.
 
 ## Next operations
 
-1. Finish visual and browser validation for the current repair set (guide deletion, import progress/cancellation, mouse-button resize, and website theme metadata). Check Safari chrome separately if that runtime is available.
-2. Validate #1870’s clipboard feedback across browser secure/insecure contexts and native fallback, then update its engineering state. Also validate #1891’s horizontal gesture/history behavior on MacOS/Brave and strengthen PDF assertions only if a meaningful gap is demonstrated.
-3. Continue read-only issue reviews in bounded 24-number chunks from #1897, retaining PR separation, full comment evidence, gaps, duplicate conditions, and unresolved links. Integrate each completed range into the per-issue ledger, findings, frontier, and this checkpoint.
-3. Reproduce #823 and the strongest nearby interaction candidates in real browser tests before implementation. Reproduce the #1720 SVG whitespace candidate with a representative fixture before changing import/paste. For any confirmed defect, preserve a regression against baseline, implement the smallest complete slice, and cover adjacent routes.
-4. Wait for external leased browser work to release shared resources; rerun planner and affected validation on the final diff. Ask the independent reviewer to review the final implementation and evidence again after fixes.
-5. Commit and integrate only after validation, review, and `pnpm verify:push`. Continue C1 until every issue is individually assessed and relevant frontier is resolved or explicitly blocked; then freeze C2 exactly once, reconcile changes, and finish its applicable reviews. Later arrivals remain follow-on.
-
+1. Complete the queued lease-wrapped browser tests and inspect their attached import, guide-theme, pointer-interaction, clipboard, and website-theme screenshots. Check Safari chrome separately if that runtime is available.
+2. Re-run the final affected checks after any fixes, review native/browser evidence separately, refresh this checkpoint with exact test outcomes, then commit the implementation/documentation and research ledgers in coherent increments.
+3. Run `pnpm verify:push`, inspect current repository branch rules, and integrate via focused PR controls; confirm remote ancestry and any triggered website deployment. Manual app releases remain separate.
+4. Validate #1870 clipboard feedback across browser secure/insecure contexts and native fallback. Reproduce #1891 horizontal gesture/history behavior on MacOS/Brave before changing it; strengthen PDF assertions only if a meaningful gap is demonstrated.
+5. Finish the reproduced SVG inline-font fidelity improvement from #1990 against the cached source fixture, with parser tests, browser rendering and visual comparison. Continue bounded read-only issue reviews from #2041 and reconcile each completed range into the ledger/findings/frontier.
+6. Continue C1 until every issue is individually assessed and relevant frontier edges are resolved or explicitly blocked; then freeze C2 exactly once, reconcile changed evidence, and finish its applicable reviews. Later arrivals stay in the follow-on queue.
 This is a partial checkpoint. C1 remains incomplete; C2 is not frozen.
 
 ### Latest completed evidence range: #1753–#1776
@@ -81,12 +80,31 @@ guide-duplication history and Taiga #3072 remain distinct from #1838's guide
 clipping evidence. Taiga references and unavailable linked previews remain
 explicitly unresolved.
 
-The page-listed assessed count is now 501 of 3,659; 3,158 remain pending
-research. With supplemental #437, 502 unique issue IDs are individually
-assessed. The page census remains 3,659 issues and 8,391 PR records. The current
-implementation batch covers #1679, #1793, #1803, plus the reproduced
-non-primary-button resize defect; browser and visual checks are pending. #1870
-is clipboard capability feedback (#1870), now implemented with focused tests
-but awaiting browser/native visual and platform validation, plus horizontal
-gesture/history protection (#1891), awaiting MacOS reproduction. C2 remains
-unfrozen.
+The page-listed assessed count is now 529 of 3,659; 3,130 remain pending
+research. With supplemental #437, 530 unique issue IDs are individually
+assessed. The latest completed ranges #1897–#1920 and #1921–#1944 read eleven issue bodies and all 100 comments; 36 PR records are retained separately. #1899/#1905 remain PDF/export validation leads; #1930 guide-to-object snapping and #1936 SVG currentColor are feature candidates pending reproduction/product acceptance. Linked #2011’s round-cap artifact remains distinct and unreproduced. #1917 has no matching hosted-upload route, and #1897/#1918 are covered/design decisions. The page census remains 3,659 issues and 8,391 PR records. The current
+implementation batch covers guide-ruler deletion (#1679), import-stage progress
+(#1793), Safari theme-color synchronization (#1803), non-primary-button resize
+protection, and clipboard capability feedback (#1870). Focused unit checks pass;
+browser and visual validation remain pending. C1 research through #2016 is now reconciled into the issue ledger: 535 page-listed issues assessed, 3,124 pending research, and 3,420 pending engineering; open reproduction and product decisions are recorded per issue. Horizontal gesture/history
+protection (#1891) awaits MacOS reproduction. C2 remains unfrozen.
+
+
+### Latest completed evidence range: #1945–#1968
+
+The page range contains 23 records: six issues and 17 PRs; #1964 is an absent slot. All six issue bodies and 23 comments were reviewed. No Varve defect was established. #1946 needs an original SVG clipboard fixture to distinguish group hierarchy loss; #1952's shared mobile viewer and #1953's translation pipeline are product opportunities; #1959/#1967/#1968 concern backend or deployment routes Varve does not have. Taiga #3452/#3455/#3478/#3502 and inaccessible screenshot/source evidence remain in the frontier. Next research range: #1969–#1992.
+
+
+### Latest completed evidence range: #1969–#1992
+
+The page range contains 23 returned records: 10 issues and 13 PRs; #1974 is absent. All ten issue bodies and 49 issue comments were reviewed, plus the single PR conversation comment on #1976. The authoritative ledger now records those ten assessments. #1990 is the strongest improvement candidate: an attached SVG with 523 text elements, 966 font-family declarations, and 11 unique families loses inline font styling in Varve's parser. A bounded fix and unit regression now cover inline family, size, weight, and alignment; browser/visual confirmation remains queued. #1971 offscreen snapping, #1982 batch orientation, and #1992 export diagnostics remain open engineering evidence/product decisions. Next range: #2017–#2040.
+
+
+### Latest completed evidence range: #1993–#2016
+
+The frozen page contains 24 slots: 16 PRs, seven issues, and absent #2010. All seven issue bodies and 55 comments were reviewed. #1994's variable/condition authoring candidate and #2008's nested artboard coordinate semantics require Varve reproduction before implementation. #2007 needs a browser paste-alignment regression. No new source defect is established by the configuration-only issues #2009/#2012/#2013. Taiga #3629/#3630/#3645 remain inaccessible.
+
+
+### Latest completed evidence range: #2017–#2040
+
+The cached issue page contains 23 records: 17 PRs and six issues; #2024 is absent. All six issue bodies and 28 comments were reviewed. The page-listed assessed count is 541/3,659 (3,118 research-pending); supplemental #437 brings the unique assessed issue count to 542. Engineering pending is 3,417. #2020 is a feature candidate for editable hand-drawn strokes, with its visual attachment and Taiga #3643 unresolved; preserve its separate starter-kit usability feedback. #2022's upstream context-menu crash was fixed, but Varve lacks UI for its existing text-style model, a separate feature opportunity. #2031's crop request is already served by non-destructive crop. #2032 and #2036 are outside Varve's shared-link and S3 service boundaries. #2040's reported snapping behavior needs reproduction in NodeEditTool before considering pixel-grid snapping. Linked PRs remain separate evidence; Taiga #3056, #3643 and unavailable videos/source details are recorded in the frontier. Next range: #2041–#2064.
