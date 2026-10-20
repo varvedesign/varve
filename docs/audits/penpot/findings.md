@@ -24,6 +24,29 @@ is explicitly linked to either issue.
 The 21 PR records remain distinct from issue coverage. Taiga references from
 PR descriptions do not establish resolution for #2141 or #2146.
 
+## C1 issues #2161–#2184
+
+This range spans two frozen pages with all 24 records present: 14 PRs and ten
+issues. All ten issue bodies and 43 comments were reviewed; PR records remain
+separate. #2163 still needs a direct check that the editor exposes frame-to-
+component conversion; #2164 is an offline-help/template product opportunity;
+#2165's selection-handle recalculation and the commenter's pivot control are
+distinct feature decisions; #2166 is localization investment; and #2167's
+fixed-prototype-object behavior has no matching Varve feature route. #2170
+concerns hosted sign-in labels absent from Varve. #2177's middle-click image
+paste crash remains an exact browser reproduction lead, while #2178's core
+crop route already exists and its remaining ask is discoverability; preserve
+the separate JPEG-background comment. #2179's per-screen after-delay
+navigation is already served by Varve's prototype trigger.
+
+**#2183 is a concrete input feature candidate:** the shared Varve numeric
+expression tokenizer only accepts ASCII digits, so Persian and Arabic-Indic
+digits are rejected in artboard/shape numeric fields. Normalize Unicode
+decimal digits at a parsing boundary and cover expression signs/decimals with
+baseline-failing tests before deciding the repair scope. Taiga #4008 and the
+linked screenshot are unavailable. Other unresolved recordings and Taiga
+references remain individually listed in the issue ledger/frontier.
+
 The first group established two bounded Varve defects. The initial issue bodies
 and linked fix history were read against Varve SHA
 `5172718c6f0f2597466cd08d0839b53ccafefbd2` on 2026-10-19. Their full issue
