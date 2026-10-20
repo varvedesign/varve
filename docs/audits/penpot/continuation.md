@@ -6,8 +6,8 @@
 - Baseline Varve remote `master` SHA: `5172718c6f0f2597466cd08d0839b53ccafefbd2`. Isolated branch/worktree: `codex/penpot-corpus` at the same SHA; original dirty checkout and other worktrees remain untouched.
 - C1 froze at `2026-10-20T02:39:22.818Z` UTC, source Penpot `develop` SHA `be2e117f670fdc3fe440e55bea541df28f1c76d9`. Do not change C1. Do not freeze C2 until C1 issues and applicable evidence frontier are exhausted or individually blocked.
 - C1 listing: 12,050 records across 121 pages: 3,659 issues (757 open / 2,902 closed), 8,391 PRs (87 open / 8,304 closed), no duplicate IDs or issue numbers, 35 null issue bodies, and all 2,559 non-empty issue discussion threads captured with zero unresolved comments. Page inventory omitted issue #437 despite its pre-C1 `updated_at`; its full record/comments are kept separately in `snapshots/C1/supplemental.ndjson` and the common Git cache.
-- Current ledger at checkpoint 2026-10-20: 551 page-listed issue assessments are completed and 3,108 remain research-pending; supplemental #437 is separately assessed (552 unique issue IDs total). Engineering pending count is 3,413. C1 checker correctly remains incomplete for these corpus-wide counts; the current snapshot checksum and page/comment consistency checks pass. `node scripts/research/penpot-audit.mjs status --cutoff C1` is authoritative.
-- Ranges assessed individually through #1992: selected early ranges through #696, then sampled/bounded ranges through #1992, with numeric gaps retained. Coverage is not contiguous; see the per-issue ledger and `frontier.ndjson`. Agents reported all bodies/comments in their assigned returned ranges read; pull requests remain separately classified.
+- Current ledger at checkpoint 2026-10-20: 555 page-listed issue assessments are completed and 3,104 remain research-pending; supplemental #437 is separately assessed (556 unique issue IDs total). Engineering pending count is 3,413. C1 checker correctly remains incomplete for these corpus-wide counts; the current snapshot checksum and page/comment consistency checks pass. `node scripts/research/penpot-audit.mjs status --cutoff C1` is authoritative.
+- Ranges assessed individually through #2088: selected early ranges through #696, then sampled/bounded ranges through #2088, with numeric gaps retained. Coverage is not contiguous; see the per-issue ledger and `frontier.ndjson`. Agents reported all bodies/comments in their assigned returned ranges read; pull requests remain separately classified.
 
 ## Durable evidence and ownership
 
@@ -44,7 +44,7 @@
 2. Re-run the final affected checks after any fixes, review native/browser evidence separately, refresh this checkpoint with exact test outcomes, then commit the implementation/documentation and research ledgers in coherent increments.
 3. Run `pnpm verify:push`, inspect current repository branch rules, and integrate via focused PR controls; confirm remote ancestry and any triggered website deployment. Manual app releases remain separate.
 4. Validate #1870 clipboard feedback across browser secure/insecure contexts and native fallback. Reproduce #1891 horizontal gesture/history behavior on MacOS/Brave before changing it; strengthen PDF assertions only if a meaningful gap is demonstrated.
-5. Finish the reproduced SVG inline-font fidelity improvement from #1990 against the cached source fixture, with parser tests, browser rendering and visual comparison. Continue bounded read-only issue reviews from #2065 and reconcile each completed range into the ledger/findings/frontier.
+5. Finish the reproduced SVG inline-font fidelity improvement from #1990 against the cached source fixture, with parser tests, browser rendering and visual comparison. Continue bounded read-only issue reviews from #2089 and reconcile each completed range into the ledger/findings/frontier.
 6. Continue C1 until every issue is individually assessed and relevant frontier edges are resolved or explicitly blocked; then freeze C2 exactly once, reconcile changed evidence, and finish its applicable reviews. Later arrivals stay in the follow-on queue.
 This is a partial checkpoint. C1 remains incomplete; C2 is not frozen.
 
@@ -112,4 +112,20 @@ The cached issue page contains 23 records: 17 PRs and six issues; #2024 is absen
 
 ### Latest completed evidence range: #2041–#2064
 
-The page contains all 24 slots: 14 PRs and ten issues. All ten issue bodies and 27 comments were read. The page-listed assessed count is now 551/3,659 (3,108 research-pending); including supplemental #437, 552 unique issue IDs are assessed. Engineering pending is 3,413. #2042's fractional nudging is already supported; #2044's vector position and path-radius controls and #2047's nested frames are covered by existing routes; #2049 does not justify a font-library migration. #2041 path hit-area symmetry and #2050 viewport-overlay interception need browser reproduction; #2061 needs a resize-drag stroke-width comparison. #2043 and #2045 remain precision/variable-font verification leads; #2048 is a localization decision. Missing issue videos/images, Taiga tasks, and PR #2064's absent comment cache remain in the frontier. Next range: #2065–#2088.
+The page contains all 24 slots: 14 PRs and ten issues. All ten issue bodies and 27 comments were read. The page-listed assessed count is now 551/3,659 (3,108 research-pending); including supplemental #437, 552 unique issue IDs are assessed. Engineering pending is 3,413. #2042's fractional nudging is already supported; #2044's vector position and path-radius controls and #2047's nested frames are covered by existing routes; #2049 does not justify a font-library migration. #2041 path hit-area symmetry and #2050 viewport-overlay interception need browser reproduction; #2061 needs a resize-drag stroke-width comparison. #2043 and #2045 remain precision/variable-font verification leads; #2048 is a localization decision. Missing issue videos/images, Taiga tasks, and PR #2064's absent comment cache remain in the frontier.
+
+### Latest completed evidence range: #2065–#2088
+
+The two C1 pages contain 21 records: 17 PRs and four issues; #2069, #2085,
+and #2086 are absent slots. All four issue bodies and eight comments were
+read. The page-listed assessed count is 555/3,659 (3,104 research-pending);
+including supplemental #437, 556 unique issue IDs are assessed. Engineering
+pending remains 3,413. #2073's hosted text-style grouping issue was fixed
+upstream; a Varve text-style organizer is a product decision. #2078's
+macOS 12.4/Firefox 102 emoji-picker crash remains a platform-reproduction
+lead. #2081's Windows/Chrome group-reparent freeze is a high-priority browser
+interaction candidate. #2082's screenshots show the linear gradient unchanged
+after an exact 180-degree rotation and need pixel-based browser, history,
+reopen, and export verification. Taiga #3712/#3685/#3844/#3855/#3832 returned
+only the generic app shell. PR #2074's fix discussion points to #2070; exact
+landed evidence remains open. Next range: #2089–#2112.

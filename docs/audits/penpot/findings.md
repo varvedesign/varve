@@ -1043,3 +1043,35 @@ The cached page contains 23 records: 17 PRs, six issues, and absent slot #2024. 
 ## C1 issues #2041–#2064: path hit areas, variable fonts, and resize previews
 
 The C1 page contains all 24 slots: 14 PRs and ten issues. All ten issue bodies and 27 comments were read. #2041 reports path hit-zone asymmetry, which Penpot later marked fixed; Varve's path-distance test is already symmetric, but the supplied video is unavailable, so no browser reproduction is claimed. #2042's fractional nudge route is supported directly by configured numeric increments and tests. #2043 initially requested snapping rendered center-stroke edges, but later said its full/half-pixel snapping behavior had been fixed upstream; a separate Varve stroke-edge target remains only a feature lead, with source images unavailable. #2044's position/size controls and path-corner-radius route, #2047's nested frame structure, and #2049's font metadata handling cover their requests without a reproduced defect. #2045's comments specifically identify Fontsource-installed variable fonts; verify a real variable font through installation, axis selection, rendering, and export before asserting a gap. #2048 is a product/localization decision for Persian/Arabic UI fonts. #2050's alleged viewport-overlay interception and #2061's temporary stroke-width scaling during mouse resize need real browser interaction regressions before repair. Taiga #3690/#3689/#2956/#3109/#3416/#3686/#3687/#3701/#4016 and the supplied images/videos remain unavailable. PR #2056 is adjacent to #2061 but not linked as a resolution; PR #2064 reports one discussion comment whose cache is missing.
+
+## C1 issues #2065–#2088: typography grouping, group reparenting, and rotated gradients
+
+The frozen issue pages contain 21 records in this numeric interval: 17 PRs
+and four issues; #2069, #2085, and #2086 have no census record. All four issue
+bodies and all eight comments were read. #2073's hosted typography-grouping
+bug was fixed upstream; linked PR #2074 inspected the path/name update and
+stable React keys, and its thread points to a cherry-pick in #2070. Varve has
+local text styles but no published shared-library grouping workflow, so any
+style organization UI is a feature decision, not a parity defect. #2078 is a
+macOS 12.4/Firefox 102 native emoji-picker crash that Penpot later marked
+fixed; Varve's text entry has IME protections, but the platform-specific path
+has not been reproduced. #2081 is a Windows 10/Chrome 103 freeze while moving
+a child out of a group. Varve has guarded, world-preserving reparenting routes,
+but the exact context-menu path needs a live browser reproduction and history
+check. #2082's screenshots show a linear gradient visually unchanged after
+an exact 180-degree shape rotation; Varve transforms gradient endpoints and
+bakes transform matrices, but lacks a targeted 0/90/180-degree rendering
+regression. This remains a high-priority visual candidate: compare canvas,
+undo/redo, save/reopen, and export before changing the transform path.
+
+The other 17 records are PRs, kept separate from issue coverage. PR #2074
+links the upstream typography grouping fix; #2070 is an unmerged backport
+whose discussion indicates a cherry-pick; PR #2088's nested-frame auto-layout
+feature is already substantially covered by Varve's tested auto-layout
+system. The remaining PRs describe upstream library, auth, binary import,
+font, hosted collaboration, and UI work without establishing a Varve defect.
+Taiga #3712/#3685/#3844/#3855/#3832 returned only the generic application
+shell; issue screenshots were reachable, but only #2082's pair supplied a
+clear visual comparison. Platform reproduction for #2078 and #2081, the
+unmerged #2070 details, and numeric gaps #2069/#2085/#2086 remain in the
+evidence frontier.
