@@ -41,7 +41,7 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
 
   test('repeat creation preference keeps the rectangle tool active for the next drag', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.keyboard.press('Control+,');
     const settings = page.locator('dialog.varve-dialog--settings[open]');
     await expect(settings).toBeVisible();
@@ -50,8 +50,14 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
       name: 'Return to Select after creating',
     });
     await expect(repeatToggle).toBeChecked();
+    await settings.screenshot({
+      path: testInfo.outputPath('drawing-input-return-to-select-on.png'),
+    });
     await repeatToggle.click();
     await expect(repeatToggle).not.toBeChecked();
+    await settings.screenshot({
+      path: testInfo.outputPath('drawing-input-return-to-select-off.png'),
+    });
     await settings.getByRole('button', { name: 'Close dialog' }).click();
 
     await page.keyboard.press('r');
