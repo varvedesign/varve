@@ -58,9 +58,9 @@ these states into one completion flag.
   changes. These changes are not part of this branch.
 - Discussion coverage is complete, with eight source comment-count
   discrepancies retained in the cache and inventory above.
-- The per-issue ledger is `issue-ledger.jsonl`: 502/2,950 issues are
-  individually reviewed (including #10513 and #10024), with 2,448 still
-  `unreviewed`. Those reviewed issues cover 1,276 accessible comments; all
+- The per-issue ledger is `issue-ledger.jsonl`: 552/2,950 issues are
+  individually reviewed (including #10513 and #10024), with 2,398 still
+  `unreviewed`. Those reviewed issues cover 1,391 accessible comments; all
   7,070 comments are retrievable/indexed, with eight declared-count gaps.
 - Next actions: continue reviewing each issue and relevant linked evidence,
   disposition individually, complete the recursive link frontier, reconcile a
@@ -85,7 +85,8 @@ these states into one completion flag.
 | Review positions 351–400 | 50 issues (#2152–#2274), all 114 retrievable comments. No Varve defect reproduced; custom backgrounds and clipboard-image import are already supported. Dynamic connector geometry, long-document pen performance, crop export, and locked-node marquee behavior remain test leads. | Individual report and schema-validated assessments; see `ranges/0351-0400.md`. |
 | Review positions 401–450 | 50 issues (#2276–#2382), all 122 retrievable comments. No Varve defect reproduced; export progress, payload-free history references, and typography weight data are already supported. Crop reload, arrow export, locked-shape dragging, and toolbar keyboard focus remain test leads. | Individual report and schema-validated assessments; linked fix PRs #2330, #2345, #2347 and #2378 checked. See `ranges/0401-0450.md`. |
 | Review positions 451–500 | 50 issues (#2383–#2517), all 93 retrievable comments. No Varve code change is justified; nested clipping, clipboard import, touch hit targets, frame snapping, and rotated-frame export remain reproduction leads. Existing dialog backdrop dismissal and cycle audits cover related requests. | Individual report and schema-validated assessments; source discussions read. See `ranges/0451-0500.md`. |
-| Ledger after position 500 | 502/2,950 reviewed, covering 1,276 accessible comments; 2,448 remain. | Atomic `ledger-import --assessments` accepted each 50-row batch; ledger order and review state retained. |
+| Review positions 501–550 | 50 issues (#2518–#2581), all 115 retrievable comments. No new code change was justified; the earlier creation-tool preference also addresses the related return-to-draw request. Varve already has command search, tooltips, paste feedback, cursor support, and snap guides. | Individual report and schema-validated assessments; targeted existing paths inspected. See `ranges/0501-0550.md`. |
+| Ledger after position 550 | 552/2,950 reviewed, covering 1,391 accessible comments; 2,398 remain. | Atomic `ledger-import --assessments` accepted each 50-row batch; ledger order and review state retained. |
 | Website/deployment impact | Updated the first-project and vector-tools guides plus the Vector Tools feature page to explain the repeat-creation preference and default behavior. No offline, privacy, or cloud claims change. | Website source/build checks and visual route tests are included in affected validation. `.github/workflows/website-deploy.yml` deploys after `master` updates under its source-path filters, so these source changes will trigger the normal website workflow after integration. Separate manual release publication remains outside this authorization. |
 
 ## Validation and continuation
