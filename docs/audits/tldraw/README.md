@@ -181,6 +181,10 @@ these states into one completion flag.
 | Ledger after position 2620 | 2622/2,950 reviewed, covering 6,953 accessible comments; 328 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2611–2620. |
 | Review positions 2621–2630 | 10 issues (#9775–#9852), all 5 retrievable comments. Custom-shape scaling, an iPadOS report no longer reproduced, Zero service latency, and hosted comments UI were assessed by architecture and product scope. | Atomic ledger import accepted 10 assessments; #9852 is confirmed fixed upstream. See `ranges/2621-2630.md`. |
 | Ledger after position 2630 | 2632/2,950 reviewed, covering 6,958 accessible comments; 318 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2621–2630. |
+| Review positions 2631–2640 | 10 issues (#9853–#9923), all 9 retrievable comments. Low-zoom rendering/export, keyboard layouts, browser support, clipboard, thumbnail-runtime, presence, and file-load investigations were distinguished by architecture and evidence. | Atomic ledger import accepted 10 assessments; #9923 research corrects the cause from creation latency to hosted file-load/propagation. See `ranges/2631-2640.md`. |
+| Ledger after position 2640 | 2642/2,950 reviewed, covering 6,967 accessible comments; 308 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2631–2640. |
+| Review positions 2631–2640 | 10 issues (#9853–#9923), all 9 retrievable comments. Low-zoom rendering/export, keyboard layouts, browser support, clipboard, thumbnail-runtime, presence, and file-load investigations were distinguished by architecture and evidence. | Atomic ledger import accepted 10 assessments; #9923 research corrects the cause from creation latency to hosted file-load/propagation. See `ranges/2631-2640.md`. |
+| Ledger after position 2640 | 2642/2,950 reviewed, covering 6,967 accessible comments; 308 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2631–2640. |
 
 ## Validation and continuation
 
