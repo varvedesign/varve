@@ -1,5 +1,29 @@
 # Findings and implementation batches
 
+## C1 issues #2137–#2160
+
+This frozen page has 23 returned records: two issues and 21 PRs; #2143 is
+absent. Both issue bodies and all five issue comments were read. The page ETag
+and checksum are recorded in the C1 ledger and raw cache. No PR in this range
+is explicitly linked to either issue.
+
+- **#2141 multiexport download stalls:** the closed report describes a
+  self-hosted Docker/WSL deployment whose follow-up download request never
+  starts. A clean upstream Docker reproduction succeeded. Varve's batch export
+  and local ZIP save adapters do not use that hosted two-request route, so no
+  Varve change is indicated. The linked screenshot/video and Taiga #3666 remain
+  unavailable.
+- **#2146 invisible SVG text after drag-and-drop:** the only comment points to
+  Taiga #3962 and the report has no source SVG. Varve's importer creates text
+  nodes and preserves inline family, size, weight, and anchor styles, but the
+  reported invisible render has not been reproduced in a real browser. Nested
+  `tspan` styling/positioning remains a separate text-fidelity limitation. The
+  issue stays open as a reproduction and fixture lead; inline-style support is
+  not treated as proof that this report is fixed.
+
+The 21 PR records remain distinct from issue coverage. Taiga references from
+PR descriptions do not establish resolution for #2141 or #2146.
+
 The first group established two bounded Varve defects. The initial issue bodies
 and linked fix history were read against Varve SHA
 `5172718c6f0f2597466cd08d0839b53ccafefbd2` on 2026-10-19. Their full issue
