@@ -153,7 +153,7 @@ hold, but that is an inference and not a measurement.
 | `clipPath`, `mask` | Supported | Mapped to Varve clip/alpha/luminance masks |
 | `use` / `symbol` | Local refs only | Cyclic refs detected and skipped; external refs refused |
 | `text` | Basic | `text-anchor` honoured; missing fonts surface in the font dialog |
-| `image` (`data:`) | Full | Becomes a managed embedded asset |
+| `image` (`data:` raster) | Full within import budgets | Header-validated before the renderer sees it; distinct embedded raster sources share a 64 MP decoded-pixel budget per SVG |
 | `image` (remote) | **Refused** | Reported; see security below |
 | `filter`, `pattern` | Dropped | Reported |
 | `script`, `foreignObject`, `style` | Dropped | Reported |
@@ -205,9 +205,15 @@ carrying the referrer and any identifier in the query string.
 a remote load. Desktop and the ordinary web build have no such backstop, which
 is why the policy lives in the parser rather than relying on CSP.
 
-Other limits already in place: `MAX_RASTER_ENCODED_BYTES` (128 MB),
-`MAX_RASTER_PIXELS` (64 MP) and `MAX_RASTER_DIMENSION` (65535) gate raster
-decode; cyclic `<use>` is detected by a visited-id set.
+Raster imports use `MAX_RASTER_ENCODED_BYTES` (128 MB), `MAX_RASTER_PIXELS`
+(64 MP) and `MAX_RASTER_DIMENSION` (65535) before decode. SVG data-image fills
+now pass the same per-source header checks, and distinct accepted raster
+sources share a 64 MP decoded-pixel budget per imported SVG. Animated rasters
+are charged by canvas pixels times frame count. Repeated references to the
+same data URL are charged once because the image cache shares that source.
+Invalid or over-budget SVG images are omitted and named in the Import Results
+report. SVG filters and patterns are still reported as dropped; Varve does not
+rasterize them as fallbacks. Cyclic `<use>` is detected by a visited-id set.
 
 ## Placement, selection and undo
 

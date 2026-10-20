@@ -15,7 +15,12 @@ import {
 } from '@varve/scene';
 import { tryInvertAffine } from '@varve/shared';
 import type { ImportOptions } from '../types';
-import { droppedElementFeature, resolveSvgImageHref } from './resourcePolicy';
+import {
+  admitSvgRasterSource,
+  droppedElementFeature,
+  resolveSvgImageHref,
+  type SvgRasterPixelBudget,
+} from './resourcePolicy';
 import {
   adjustNodePosition,
   composeTransforms,
@@ -275,10 +280,12 @@ function convertText(
   return { node, warnings: [] };
 }
 
+type SvgConversionOptions = ImportOptions & { rasterBudget: SvgRasterPixelBudget };
+
 function convertImage(
   el: ParsedElement,
   transforms: string[],
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   unsupported: string[],
 ): { node: SceneNode; warnings: string[] } | null {
   const x = parseFloat(el.attrs.x ?? '0') * opts.scale;
@@ -293,6 +300,15 @@ function convertImage(
     return null;
   }
   const href = decision.href;
+  const admission = admitSvgRasterSource(href, opts.rasterBudget);
+  if (admission !== 'allowed') {
+    unsupported.push(
+      admission === 'over-budget'
+        ? 'SVG embedded raster pixel budget exceeded'
+        : 'SVG image with an invalid or unsupported raster payload',
+    );
+    return null;
+  }
   const transform = composeTransforms(transforms);
 
   const node: SceneNode = {
@@ -588,7 +604,7 @@ function buildMaskSourceNode(
   doc: Document,
   defs: Map<string, ParsedElement>,
   transforms: string[],
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   warnings: string[],
   unsupported: string[],
 ): { doc: Document; sourceId: string | null } {
@@ -596,7 +612,7 @@ function buildMaskSourceNode(
   let d = doc;
 
   for (const child of defEl.children) {
-    const r = convertElement(child, d, defs, transforms, opts, warnings, unsupported);
+    const r = convertElement(child, d, defs, transforms, opts, warnings, unsupported, new Set());
     d = r.doc;
     childNodes.push(...r.ids);
   }
@@ -638,7 +654,7 @@ function applySvgClipOrMask(
   containerId: string,
   defEl: ParsedElement,
   maskType: 'clip' | 'alpha' | 'luminance',
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   defs: Map<string, ParsedElement>,
   transforms: string[],
   warnings: string[],
@@ -685,7 +701,7 @@ function applyGroupClipOrMask(
   el: ParsedElement,
   defs: Map<string, ParsedElement>,
   transforms: string[],
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   warnings: string[],
   unsupported: string[],
 ): Document {
@@ -741,7 +757,7 @@ function wrapNodeInMaskedGroup(
   el: ParsedElement,
   defs: Map<string, ParsedElement>,
   transforms: string[],
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   warnings: string[],
   unsupported: string[],
 ): { doc: Document; groupId: string } | null {
@@ -777,7 +793,7 @@ export function convertElement(
   doc: Document,
   defs: Map<string, ParsedElement>,
   inheritedTransform: string[],
-  opts: ImportOptions,
+  opts: SvgConversionOptions,
   warnings: string[],
   unsupported: string[],
   visitedIds = new Set<string>(),

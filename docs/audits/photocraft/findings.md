@@ -1103,3 +1103,54 @@ falls back. The focused `settings.test.ts` suite passes (29 tests).
 **Website impact.** The settings documentation describes the available
 preferences but does not promise corrupt-setting recovery. No marketing or help
 copy change is warranted.
+
+
+## F-025 — Bound decoded raster sources embedded in SVG
+
+**Source.** PhotoCraft [#6105](https://github.com/storytold/photocraft/issues/6105)
+links to the SVG finding in audit [#5599](https://github.com/storytold/photocraft/issues/5599),
+which reports cumulative memory growth from many individually bounded raster
+fallbacks. The linked
+[PR #5671](https://github.com/storytold/photocraft/pull/5671) was open at the
+2026-10-17 corpus cutoff and merged on 2026-10-18. It budgets the aggregate
+decoded storage of native rasterized fallbacks before allocation, then skips
+and reports elements beyond the remaining budget. Its report says the added
+regression test was committed but not run locally.
+
+**Varve boundary.** Varve does not rasterize unsupported SVG filters or pattern
+fills; it drops and reports them. However, an SVG `<image href="data:image/...">`
+was copied into a scene image fill without the header inspection used by the
+standalone raster importer. The renderer then decoded that payload through
+`ImageCache`. A compressed image with extreme dimensions, or many distinct
+embedded images, could therefore request much more decoded memory than the SVG
+source byte limit suggests.
+
+**Implementation.** SVG image payloads now use `inspectRasterBytes` before
+entering the scene, enforcing the existing per-image encoded-byte, dimension,
+and 64 MP limits. One SVG conversion shares an aggregate 64 MP pixel budget
+across distinct data URLs; the first image that exceeds the remaining budget
+and any later duplicate of that rejected URL are omitted with an
+`unsupportedFeatures` entry. Repeated accepted data URLs are charged once,
+matching the renderer's shared-source cache. Animated images are charged by
+canvas pixels times frame count. Non-raster image payloads are refused. This
+bounds admitted decoded frame pixels before browser decode; it does not claim a
+precise platform-independent peak-RSS ceiling.
+
+**Validation.** `pnpm verify:plan` selected 15 lanes for the importer, including
+the SVG security spec, importer suite, downstream editor/desktop checks, and
+import/export E2E. Focused SVG security tests pass (19 tests), the importer
+typecheck passes, and the importer suite passed (416 tests) before the final
+constant-source cleanup; the focused security spec and importer typecheck were
+rerun after that cleanup. `pnpm verify:affected` passed format/lint, emoji/docs
+audits, E2E typecheck, importer typecheck, and editor typecheck, then stopped at
+the existing unrelated desktop type error in
+`packages/editor/src/collab/CollabSurfaces.tsx:450` (readonly `Affine` cast),
+before downstream unit/E2E lanes. The import E2E and visual screenshot check
+remain pending: the required heavy-task lease is held by another worktree's
+live canvas E2E process, so no browser test was launched. `pnpm audit:tokens`
+passed all 324 pairs across three themes. The full suite was not run; the plan
+did not escalate.
+
+**Website impact.** The marketing site makes no SVG image-count, raster-fallback,
+or resource-limit claim. No marketing copy change is warranted; the importer
+contract is documented in `docs/architecture/import-system.md`.

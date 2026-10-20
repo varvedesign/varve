@@ -1,3 +1,5 @@
+import { inspectRasterBytes, MAX_RASTER_PIXELS } from '../rasterInspection';
+
 /**
  * What an imported SVG is allowed to reference.
  *
@@ -29,6 +31,88 @@ const INLINE_IMAGE_PATTERN = /^data:image\//i;
 
 /** Schemes that can execute or read local state if anything ever resolves them. */
 const DANGEROUS_SCHEME_PATTERN = /^(?:javascript|vbscript|data:text\/html|file):/i;
+
+/** Aggregate decoded-pixel allowance for distinct inline rasters in one SVG. */
+export const MAX_SVG_EMBEDDED_RASTER_PIXELS = MAX_RASTER_PIXELS;
+
+export interface SvgRasterPixelBudget {
+  readonly maxPixels: number;
+  usedPixels: number;
+  readonly sources: Map<string, number | SvgRasterAdmission>;
+}
+
+export function createSvgRasterPixelBudget(
+  maxPixels = MAX_SVG_EMBEDDED_RASTER_PIXELS,
+): SvgRasterPixelBudget {
+  return { maxPixels, usedPixels: 0, sources: new Map() };
+}
+
+export type SvgRasterAdmission = 'allowed' | 'invalid' | 'over-budget';
+
+/** Validate embedded raster headers and charge each distinct source once. */
+export function admitSvgRasterSource(
+  href: string,
+  budget: SvgRasterPixelBudget,
+): SvgRasterAdmission {
+  const previous = budget.sources.get(href);
+  if (previous !== undefined) {
+    return typeof previous === 'number' ? 'allowed' : previous;
+  }
+
+  let bytes: Uint8Array;
+  try {
+    bytes = decodeDataImage(href);
+    const inspection = inspectRasterBytes(bytes);
+    const pixelsPerFrame = inspection.width * inspection.height;
+    const frameCount = inspection.animated?.frameCount ?? 1;
+    const decodedPixels = pixelsPerFrame * frameCount;
+    if (
+      !Number.isSafeInteger(decodedPixels) ||
+      decodedPixels > budget.maxPixels - budget.usedPixels
+    ) {
+      budget.sources.set(href, 'over-budget');
+      return 'over-budget';
+    }
+    budget.sources.set(href, decodedPixels);
+    budget.usedPixels += decodedPixels;
+    return 'allowed';
+  } catch {
+    budget.sources.set(href, 'invalid');
+    return 'invalid';
+  }
+}
+
+function decodeDataImage(href: string): Uint8Array {
+  const comma = href.indexOf(',');
+  if (comma < 0) throw new Error('Invalid data URL');
+  const header = href.slice(5, comma);
+  const payload = href.slice(comma + 1);
+  if (/(?:^|;)base64(?:;|$)/i.test(header)) {
+    const binary = atob(decodeURIComponent(payload));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  // Non-base64 data URLs carry bytes through percent escapes. Reject raw
+  // non-ASCII instead of silently changing their byte representation.
+  const bytes = new Uint8Array(payload.length);
+  let length = 0;
+  for (let i = 0; i < payload.length; i++) {
+    const char = payload[i]!;
+    if (char === '%') {
+      const hex = payload.slice(i + 1, i + 3);
+      if (!/^[0-9a-f]{2}$/i.test(hex)) throw new Error('Invalid data URL escape');
+      bytes[length++] = Number.parseInt(hex, 16);
+      i += 2;
+    } else {
+      const code = payload.charCodeAt(i);
+      if (code > 0x7f) throw new Error('Non-ASCII data URL payload must be percent-encoded');
+      bytes[length++] = code;
+    }
+  }
+  return bytes.subarray(0, length);
+}
 
 export type SvgResourceDecision =
   | { allowed: true; href: string }

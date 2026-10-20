@@ -27,6 +27,34 @@ function imageSources(svg: string): string[] {
   return out;
 }
 
+function pngHeaderDataUrl(width: number, height: number): string {
+  const bytes = new Uint8Array(45);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  bytes.set([0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52], 8);
+  for (let i = 0; i < 4; i++) {
+    bytes[16 + i] = (width >>> (24 - i * 8)) & 0xff;
+    bytes[20 + i] = (height >>> (24 - i * 8)) & 0xff;
+  }
+  bytes.set([0, 0, 0, 0, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82], 33);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `data:image/png;base64,${btoa(binary)}`;
+}
+
+function twoFrameGifDataUrl(width: number, height: number): string {
+  const bytes = new Uint8Array([
+    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1, 0, 1, 0, 0, 0, 0, 0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 1,
+    0, 0, 0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 1, 0, 0, 0x3b,
+  ]);
+  bytes[6] = width & 0xff;
+  bytes[7] = (width >>> 8) & 0xff;
+  bytes[8] = height & 0xff;
+  bytes[9] = (height >>> 8) & 0xff;
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `data:image/gif;base64,${btoa(binary)}`;
+}
+
 const REMOTE_HREFS = [
   'https://tracker.example.com/beacon.png?id=abc123',
   'http://tracker.example.com/beacon.png',
@@ -53,6 +81,44 @@ describe('SVG import resource policy', () => {
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l5fNwAAAAABJRU5ErkJggg==';
     const svg = `<svg><image href="${dataUrl}" width="10" height="10"/></svg>`;
     expect(imageSources(svg)).toEqual([dataUrl]);
+  });
+
+  it('drops an inline raster whose dimensions exceed the standalone import budget', () => {
+    const dataUrl = pngHeaderDataUrl(65_536, 1);
+    const result = parseSvg(`<svg><image href="${dataUrl}" width="10" height="10"/></svg>`);
+
+    expect(result.nodeIds).toHaveLength(0);
+    expect(result.unsupportedFeatures).toContain(
+      'SVG image with an invalid or unsupported raster payload',
+    );
+  });
+
+  it('charges distinct inline rasters against one aggregate decoded-pixel budget', () => {
+    const large = pngHeaderDataUrl(8192, 8192);
+    const small = pngHeaderDataUrl(1, 1);
+    const result = parseSvg(`<svg><image href="${large}"/><image href="${small}"/></svg>`);
+
+    expect(result.nodeIds).toHaveLength(1);
+    expect(imageSources(`<svg><image href="${large}"/><image href="${small}"/></svg>`)).toEqual([
+      large,
+    ]);
+    expect(result.unsupportedFeatures).toContain('SVG embedded raster pixel budget exceeded');
+  });
+
+  it('charges a repeated data URL only once because rendering shares its decoded source', () => {
+    const dataUrl = pngHeaderDataUrl(8192, 8192);
+    const result = parseSvg(`<svg><image href="${dataUrl}"/><image href="${dataUrl}"/></svg>`);
+
+    expect(result.nodeIds).toHaveLength(2);
+    expect(result.unsupportedFeatures).toBeUndefined();
+  });
+
+  it('includes animated frame storage in the aggregate decoded-pixel budget', () => {
+    const dataUrl = twoFrameGifDataUrl(8192, 8192);
+    const result = parseSvg(`<svg><image href="${dataUrl}"/></svg>`);
+
+    expect(result.nodeIds).toHaveLength(0);
+    expect(result.unsupportedFeatures).toContain('SVG embedded raster pixel budget exceeded');
   });
 
   it('refuses script-bearing and local-file hrefs', () => {
