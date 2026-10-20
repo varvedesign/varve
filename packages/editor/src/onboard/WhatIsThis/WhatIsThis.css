@@ -1,10 +1,16 @@
 .what-is-this {
   position: fixed;
-  bottom: var(--space-4);
+  /* Bottom comes from the shell's shared overlay inset contract so the hint
+   * clears the status bar, the virtual keyboard and a standalone PWA's bottom
+   * gesture bar. It is centred, so it needs no side gutter. */
+  bottom: var(--overlay-bottom-inset);
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--z-toast, 200);
   pointer-events: none;
+  /* The hint is a single nowrap row, so bound it by the space actually left
+   * between the rails rather than letting it run past a viewport edge. */
+  max-width: calc(100vw - var(--overlay-left-inset) - var(--overlay-right-inset));
 }
 
 .what-is-this__hint {
@@ -19,6 +25,8 @@
   box-shadow: var(--elevation-shadow-overlay);
   font-size: var(--font-size-sm);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .what-is-this__hint-icon {

@@ -343,6 +343,44 @@ input[type="number"] {
     2px +
     32px
   );
+  /* One inset recipe for every transient surface pinned to the viewport bottom
+   * or to a side edge — toasts, onboarding tips, the onboarding checklist,
+   * micro-hints.
+   *
+   * Those surfaces are `position: fixed`, so they are placed against the
+   * viewport while the chrome they must not cover lives in this grid. A bare
+   * `bottom: var(--space-4)` is wrong four ways: it sits under the on-screen
+   * keyboard (which covers the layout viewport but not the visual one), it sits
+   * under a standalone PWA's bottom gesture bar, it sits on the status bar's own
+   * 24px targets, and `right: var(--space-4)` drops a right-anchored surface on
+   * top of the docked Inspector rail. That last one is not hypothetical: the
+   * "Did You Know?" tip covered the Inspector's "Snap tolerance" field at 900px,
+   * which `tests/e2e/responsive/dock-panels.spec.ts` reports as an unreachable
+   * control. The canonical `.varve-toast-container` in `@varve/ui` already
+   * derives its own offset this way; these tokens expose the same recipe to the
+   * editor's onboarding and progress surfaces so they cannot drift apart again.
+   *
+   * `--inspector-width` / `--sidebar-width` are the rails' *preferred* widths,
+   * not the widths the dock actually resolves (the dock places panels from
+   * measured bounds, and at an enlarged root text size the token is wider than
+   * the rail turns out to be). Erring wide is the safe direction: the surface
+   * stays clear of the rail and at worst leaves slack between them.
+   *
+   * Compact tiers present both rails as drawers, so a fixed surface must not
+   * reserve a docked-rail gutter there — see the `min-width: 900px` override
+   * below, which is the same boundary the drawers switch on. */
+  --overlay-bottom-inset: calc(
+    var(--statusbar-height) +
+    var(--space-3) +
+    var(--floating-toolbar-height, var(--toolbar-height)) +
+    var(--space-2) +
+    var(--space-6) +
+    var(--space-3) +
+    var(--keyboard-inset-bottom, 0px) +
+    env(safe-area-inset-bottom, 0px)
+  );
+  --overlay-right-inset: var(--space-4);
+  --overlay-left-inset: var(--space-4);
   grid-template-areas:
     "menubar  menubar   menubar   logoarea"
     "tabs     tabs      tabs      logoarea"
@@ -386,6 +424,36 @@ input[type="number"] {
 /* Logo panel open: reserve its column. */
 .editor-shell--logo-open {
   --logo-panel-width: 340px;
+}
+
+/* Docked rails exist only at this width and above, so only there does a
+ * viewport-fixed surface reserve a gutter for them. Below it the same two
+ * panels are drawers and a gutter would only push transient chrome away from
+ * the edge for no reason. This is the boundary the drawers switch on.
+ *
+ * Both gutters are capped at a viewport fraction, and the cap is load-bearing.
+ * `--sidebar-width` / `--inspector-width` are rem-derived *preferred* widths
+ * while the dock resolves the real rails from ratios of its own bounds, so at
+ * an enlarged root text size the token is much wider than the rail it stands
+ * for: at 900x800 with a 200% root text size the tokens reserve 478.92px and
+ * 510.92px for rails that actually measure 198px and 240px. Uncapped, the pair
+ * asks for 989.84px of a 900px viewport, the space between them goes negative,
+ * and a right-anchored surface falls back to its rem floor and is pushed over
+ * the opposite rail — observed as the tip covering the Layers rail's Design
+ * Canvas controls. 38vw each keeps the pair under 76vw and therefore always
+ * leaves at least 24vw for the surface, while never binding at 100% text at
+ * desktop widths (the tokens stay the smaller term there). */
+@media (min-width: 900px) {
+  .editor-shell {
+    --overlay-right-inset: min(
+      max(var(--space-4), calc(var(--inspector-width) + var(--space-4))),
+      38vw
+    );
+    --overlay-left-inset: min(
+      max(var(--space-4), calc(var(--sidebar-width) + var(--space-4))),
+      38vw
+    );
+  }
 }
 
 @media (max-width: 899px) {
