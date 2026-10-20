@@ -3,6 +3,8 @@ import test from 'node:test';
 import {
   applyLedgerReview,
   createLedgerRecord,
+  extractEvidenceLinks,
+  importLedgerReviews,
   nextLink,
   parseArgs,
   partitionRecords,
@@ -119,4 +121,41 @@ test('requires every accessible comment and retains unresolved source gaps in a 
   assert.equal(reviewed.review.status, 'reviewed-with-source-gap');
   assert.equal(reviewed.review.commentsReviewed, 1);
   assert.equal(reviewed.review.reviewedAt, '2026-10-20T03:10:00Z');
+});
+
+test('extracts deduplicated GitHub evidence links and repository number references', () => {
+  assert.deepEqual(
+    extractEvidenceLinks(
+      'See #123 and [the fix](https://github.com/tldraw/tldraw/pull/456), repeated #123.',
+    ),
+    ['https://github.com/tldraw/tldraw/pull/456', '#123'],
+  );
+});
+
+test('imports a review batch atomically and refuses duplicate or already-reviewed IDs', () => {
+  const row = createLedgerRecord(
+    {
+      number: 42,
+      title: 'Selection issue',
+      url: 'https://github.com/tldraw/tldraw/issues/42',
+      createdAt: '2020-01-01T00:00:00Z',
+      updatedAt: '2020-01-01T00:00:00Z',
+      state: 'closed',
+      labels: [],
+      comments: 0,
+    },
+    { expectedAtInventory: 0, retrieved: 0, complete: true, pages: 1 },
+  );
+  const assessment = {
+    number: 42,
+    bodyReviewed: true,
+    commentsReviewed: 0,
+    disposition: 'outside-scope',
+    reason: 'Specific to a workflow Varve does not expose.',
+    evidence: ['https://github.com/tldraw/tldraw/issues/42'],
+  };
+  const updated = importLedgerReviews([row], [assessment], '2026-10-20T03:15:00Z');
+  assert.equal(updated[0].review.status, 'reviewed');
+  assert.throws(() => importLedgerReviews([row], [assessment, assessment]), /Duplicate assessment/);
+  assert.throws(() => importLedgerReviews(updated, [assessment]), /already has review status/);
 });

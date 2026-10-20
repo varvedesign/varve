@@ -2,7 +2,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import process from 'node:process';
 
@@ -139,6 +139,39 @@ export function applyLedgerReview(row, assessment, reviewedAt = new Date().toISO
       varveAssessment: assessment.varveAssessment ?? null,
     },
   };
+}
+
+export function importLedgerReviews(rows, assessments, reviewedAt = new Date().toISOString()) {
+  const byNumber = new Map(rows.map((row, index) => [row.number, index]));
+  const imported = new Set();
+  const nextRows = [...rows];
+  for (const assessment of assessments) {
+    if (imported.has(assessment.number))
+      throw new Error(`Duplicate assessment for issue #${assessment.number}.`);
+    imported.add(assessment.number);
+    const index = byNumber.get(assessment.number);
+    if (index === undefined)
+      throw new Error(`Issue #${assessment.number} is not in the frozen ledger.`);
+    if (nextRows[index].review.status !== 'unreviewed')
+      throw new Error(
+        `Issue #${assessment.number} already has review status ${nextRows[index].review.status}.`,
+      );
+    nextRows[index] = applyLedgerReview(nextRows[index], assessment, reviewedAt);
+  }
+  return nextRows;
+}
+
+export function extractEvidenceLinks(text) {
+  const links = new Set();
+  const githubPath =
+    /https?:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(?:issues|pull|commit|blob|tree)\/[^\s)\]}>"']+/g;
+  for (const match of text.matchAll(githubPath)) {
+    links.add(match[0].replace(/[.,;:!?]+$/, ''));
+  }
+  for (const match of text.matchAll(/(?<![\w/])#(\d+)\b/g)) {
+    links.add(`#${match[1]}`);
+  }
+  return [...links];
 }
 
 async function readJson(path, fallback = null) {
@@ -699,6 +732,93 @@ async function recordReview(options) {
   console.log(`Recorded ${rows[index].review.status} for issue #${number}.`);
 }
 
+async function importReviews(options) {
+  if (!options.assessments) throw new Error('Use ledger-import --assessments <jsonl-file>.');
+  const path = join(AUDIT, 'issue-ledger.jsonl');
+  const rows = await lines(path);
+  const assessments = await lines(options.assessments);
+  if (assessments.length === 0) throw new Error('Assessment file is empty.');
+  const updated = importLedgerReviews(rows, assessments);
+  await atomicLines(path, updated);
+  console.log(`Imported ${assessments.length} individual issue assessments.`);
+}
+
+async function buildFrontier() {
+  const source = await readJson(SOURCE_PATH);
+  if (!source?.paginationComplete || !source.commentsComplete)
+    throw new Error('Complete issue and discussion retrieval before building the link frontier.');
+  const path = join(AUDIT, 'link-frontier.jsonl');
+  if ((await lines(path)).length)
+    throw new Error(
+      `Link frontier already exists at ${path}; refusing to replace reviewed states.`,
+    );
+  const issues = await lines(INDEX_PATH);
+  const pullRequests = await lines(PULLS_PATH);
+  const issueNumbers = new Set(issues.map((issue) => issue.number));
+  const pullNumbers = new Set(pullRequests.map((pull) => pull.number));
+  const edges = new Map();
+  const addSource = (target, sourceIssue) => {
+    const current = edges.get(target) ?? { sourceIssueNumbers: [], occurrences: 0 };
+    current.occurrences += 1;
+    if (!current.sourceIssueNumbers.includes(sourceIssue))
+      current.sourceIssueNumbers.push(sourceIssue);
+    edges.set(target, current);
+  };
+  const visitText = (text, sourceIssue) => {
+    for (const target of extractEvidenceLinks(text ?? '')) addSource(target, sourceIssue);
+  };
+  for (const issue of issues) visitText(issue.body, issue.number);
+  for (const folder of await readdir(COMMENTS_PATH)) {
+    const number = Number(folder);
+    if (!issueNumbers.has(number)) continue;
+    for (const file of await readdir(join(COMMENTS_PATH, folder))) {
+      const page = await readJson(join(COMMENTS_PATH, folder, file));
+      for (const comment of page.records) visitText(comment.body, number);
+    }
+  }
+  const rows = [...edges.entries()].map(([target, evidence]) => {
+    if (target.startsWith('#')) {
+      const number = Number(target.slice(1));
+      const kind = issueNumbers.has(number)
+        ? 'issue-reference'
+        : pullNumbers.has(number)
+          ? 'pull-reference'
+          : 'unresolved-number-reference';
+      return {
+        target,
+        url:
+          kind === 'issue-reference'
+            ? `https://github.com/${REPOSITORY}/issues/${number}`
+            : kind === 'pull-reference'
+              ? `https://github.com/${REPOSITORY}/pull/${number}`
+              : null,
+        kind,
+        targetNumber: number,
+        ...evidence,
+        status: 'pending-relevance',
+        disposition: null,
+        reason: null,
+      };
+    }
+    const kind =
+      target.match(/github\.com\/[^/]+\/[^/]+\/(issues|pull|commit|blob|tree)\//)?.[1] ??
+      'github-link';
+    return {
+      target,
+      url: target,
+      kind,
+      targetNumber: Number(target.match(/\/(?:issues|pull)\/(\d+)/)?.[1]) || null,
+      ...evidence,
+      status: 'pending-relevance',
+      disposition: null,
+      reason: null,
+    };
+  });
+  rows.sort((a, b) => a.target.localeCompare(b.target));
+  await atomicLines(path, rows);
+  console.log(`Initialized ${rows.length} deduplicated evidence links at ${path}.`);
+}
+
 async function main(argv) {
   const { command, options } = parseArgs(argv);
   if (options.cache)
@@ -708,6 +828,8 @@ async function main(argv) {
   if (command === 'comments') return comments();
   if (command === 'ledger') return initializeLedger();
   if (command === 'ledger-review') return recordReview(options);
+  if (command === 'ledger-import') return importReviews(options);
+  if (command === 'frontier') return buildFrontier();
   if (command === 'status') return status();
   if (command === 'hash') {
     const issueRows = await lines(INDEX_PATH);
@@ -724,7 +846,7 @@ async function main(argv) {
     return;
   }
   throw new Error(
-    `Unknown command: ${command}. Use start, inventory, comments, ledger, ledger-review, status, or hash.`,
+    `Unknown command: ${command}. Use start, inventory, comments, ledger, ledger-review, ledger-import, frontier, status, or hash.`,
   );
 }
 
