@@ -60,6 +60,7 @@ export function TabletTouchControls() {
         onClose={() => setOpen(false)}
         dismissOnEscape
         className="tablet-touch-controls__portal"
+        zIndex="calc(var(--z-toast) + 1)"
         id={controlsId}
         kind="popover"
       >

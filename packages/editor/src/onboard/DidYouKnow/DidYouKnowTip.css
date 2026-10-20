@@ -2,13 +2,29 @@
 
 .did-you-know-tip {
   position: fixed;
-  bottom: var(--space-4);
-  right: var(--space-4);
+  /* Bottom and right come from the shell's shared overlay inset contract
+   * (`--overlay-*` in editor.css): the tip must clear the docked Inspector
+   * rail, the status bar, the virtual keyboard and a standalone PWA's bottom
+   * gesture bar. A bare `var(--space-4)` on both axes put it on top of the
+   * Inspector's "Snap tolerance" field at 900px — see the token's comment. */
+  bottom: var(--overlay-bottom-inset);
+  right: var(--overlay-right-inset);
   z-index: var(--z-toast);
   display: flex;
   gap: var(--space-3);
-  min-width: 18rem;
-  max-width: 24rem;
+  /* Both ends are bounded by the space actually left *between* the two rail
+   * gutters. Bounding by the right gutter alone is not enough: this surface is
+   * right-anchored, so a width that ignores the left gutter reaches straight
+   * across the Layers rail. Including both is what makes the guarantee hold —
+   * its left edge can never land left of `--overlay-left-inset`. The previous
+   * fixed `min-width: 18rem` is rem-based, so at an enlarged root text size
+   * (WCAG 1.4.4) it exceeded that space on its own; it now yields instead. At
+   * 100% text with ordinary content this is the same 18–24rem box as before. */
+  --did-you-know-available: calc(100vw - var(--overlay-left-inset) - var(--overlay-right-inset));
+  box-sizing: border-box;
+  width: min(24rem, var(--did-you-know-available));
+  min-width: min(18rem, var(--did-you-know-available));
+  max-width: 100%;
   padding: var(--space-3);
   background: var(--elevation-surface-overlay);
   color: var(--color-text-primary);
