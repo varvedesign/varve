@@ -5,6 +5,39 @@ and linked fix history were read against Varve SHA
 `5172718c6f0f2597466cd08d0839b53ccafefbd2` on 2026-10-19. Their full issue
 records still enter the C1 paginated inventory.
 
+## C1 issues #1801–#1848: theme metadata, editing interactions, and file routes
+
+The two completed research assignments covered 45 page records: 31 PR records
+and 14 issue reports. All 14 issue bodies and 33 issue comments were read. The frozen
+inventory has no record for #1810, #1821, or #1842; these gaps are retained in
+the frontier. The 14 issue threads contain 33 comments. Taiga pages
+#3226, #3233, #3237, #3259, and #3072, as well as
+several linked images and videos, remain inaccessible.
+
+#1803 identifies a real website polish opportunity: the browser `theme-color`
+metadata was selected only by the device color preference, even when a visitor
+had explicitly chosen the opposite Varve theme. The site now updates its
+Safari-facing metadata from the same pre-paint theme state and on theme changes,
+while preserving media-based behavior when JavaScript is unavailable. This is
+covered by a website browser regression; Safari's visible browser chrome still
+requires a Safari-specific visual check.
+
+#1793's import-progress enhancement is in implementation: File reads and
+parser/import work are distinct stages, counts describe completed files, the
+latest completed filename is labeled, and no unsupported ETA is shown. Focused
+unit tests pass; the real-browser preparation screenshot and artwork import
+check are queued through the heavy-task lease.
+
+Other reports were assessed individually. #1806, #1809, #1811, and #1829 are
+substantially handled by existing Varve routes; #1802 and #1848 concern external
+server installations/identity; #1817 and #1830 are localization product
+decisions; #1808 is a specialized SVG mesh-gradient support decision; #1818's
+Shift-vertex crash remains unreproduced and is distinct from any future
+additive-marquee interaction; #1831's touch scrub discoverability needs an
+interaction decision; #1837's PDF/component scale request is a distinct feature
+decision; and #1838 concerns Penpot's native `.penpot` round-trip, which Varve
+does not implement. No issue was excluded solely by title or label.
+
 For #10572, Penpot's open umbrella tracks variant referential-integrity errors
 that block later saves and have no repair path. The invalid `variant-id`
 reference case maps to Varve's `FrameNode.variant`, although Penpot's
@@ -927,6 +960,14 @@ The complete issue body says the expected action is to drag a guide onto its mat
 The 24-slot chronological range contains five issues and 19 PR records. All five issue bodies and all 33 comments were read. PR records remain inventory evidence and do not count as individual issue assessments. #1753 requests team member mentions and email notifications; Varve has no document-comment or account backend, so this is a collaboration product decision. #1766 requests trusted reverse-proxy identity headers for SAML; Varve has no server authentication route, and the feature needs a security/product decision. #1775 is a self-hosted Docker login/configuration failure with no matching Varve server route. Its linked Gist, video, and screenshots remain inaccessible.
 
 #1758 concerns a Penpot marketing image whose format was mislabeled; it does not establish a Varve website claim defect, and its attachment remains unavailable. #1769 requests dark mode in Penpot project and canvas menus; Varve already supports Light, Dark, High Contrast, and System themes through the shared theme runtime. The linked Taiga #2287 and referenced screenshots remain unresolved. None of these reports justifies a Varve application or marketing change on current evidence.
+
+## C1 issues #1849–#1872: clipboard context, PDF output, and hosted workflows
+
+The reviewer covered all 24 numeric slots as 16 PR records and eight issues, reading every issue body and all 22 issue comments. #1853 and #1854 are duplicate self-hosted backend-log questions; #1855 and #1868 concern OIDC/team invitations; #1862 is a translation contribution request; and #1869 requests upstream multi-tab navigation. None maps to a current Varve server or editor defect. #1871 describes an old Penpot PDF-text regression resolved by a subsequent release and softer raster images tied to downsampling; no current Varve defect is established. #1870 explicitly attributes its clipboard failure to direct HTTP access. Varve already fell back across event/API/native transports, but its async read failure was silently collapsed into an empty clipboard result. A focused improvement now preserves the distinction between insecure origin, denied, unavailable, and empty clipboard states for the explicit plain-text paste command. Website marketing claims do not change; the clipboard system doc now records the host requirement. Taiga #2266 and linked attachments remain frontier evidence.
+
+## C1 issues #1873–#1896: text export, text styles, and browser history
+
+The reviewer covered 24 contiguous records: four issues and 20 PRs, with all 13 issue comments read. #1876 is a resolved upstream PDF-text regression; Varve already has PDF text capability handling, though stronger structural/rendered-output assertions remain a useful adjacent validation opportunity. #1879's Penpot text-style save error was not reproduced upstream and its private file evidence remains unavailable. #1882 was confirmed by the reporter as a Cloudflare SSL configuration issue. #1891 reports MacOS/Brave Magic Mouse horizontal swipes navigating back out of the editor; Varve has overscroll and overflow protections, but the exact hardware/browser behavior and preservation of canvas panning remain unverified. PR-linked Taiga tasks, PR discussions/reviews/commits, and the reported platform case remain in the frontier.
 
 ## C1 issues #1777–#1800: invitation workflows, import progress, and localization
 
