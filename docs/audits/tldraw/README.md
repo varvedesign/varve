@@ -121,6 +121,9 @@ these states into one completion flag.
 | Ledger after position 2000 | 2002/2,950 reviewed, covering 6,003 accessible comments; 948 remain. | Atomic `ledger-import --assessments` accepted 50 individual reviews for positions 1951–2000. |
 | Website/deployment impact | Updated the first-project and vector-tools guides plus the Vector Tools feature page to explain the repeat-creation preference and default behavior. No offline, privacy, or cloud claims change. | Full website E2E: 688 passed; two GH Pages-only cases were rerun and passed 3/3. Preference browser screenshots (enabled/disabled) were visually inspected; `tests/e2e/canvas/tools.spec.ts` passed 12/12 and records both states in artifacts. `.github/workflows/website-deploy.yml` deploys after `master` updates under its source-path filters. |
 
+| Review positions 2001–2050 | 50 issues (#7666–#7779), all 182 retrievable comments. Confirmed upstream fixes, unresolved interaction reports, sync/storage design constraints, product requests, and duplicates were distinguished. | Atomic ledger import accepted 50 individual assessments; no Varve behavior change was justified from this batch alone. See `ranges/2001-2050.md`. |
+| Ledger after position 2050 | 2052/2,950 reviewed, covering 6,185 accessible comments; 898 remain. | Atomic `ledger-import --assessments` accepted 50 individual reviews for positions 2001–2050. |
+
 ## Validation and continuation
 
 After each implementation batch, record the exact `pnpm verify:plan` and
