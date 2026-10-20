@@ -15,7 +15,9 @@
  * checksum file, and the AUR PKGBUILD can all predict a URL:
  *
  *   Varve-<version>-<os>-<arch>.<ext>
- *   e.g. Varve-0.1.0-linux-x86_64.AppImage
+ *   e.g. Varve-0.1.0-linux-x86_64.deb
+ *   AppImageHub rejects "linux" in the filename, so AppImages are
+ *   Varve-<version>-<arch>.AppImage (e.g. Varve-0.1.0-x86_64.AppImage).
  *
  * Usage:
  *   node scripts/release/collect-artifacts.mjs \
@@ -41,6 +43,7 @@ import {
 } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { releaseArtifactFilename } from './artifact-names.mjs';
 import { productSlug } from './product.mjs';
 import { currentTargetId, targetById, targetFor } from './targets.mjs';
 
@@ -101,7 +104,14 @@ function collect({ bundleDir, outDir, os, arch, version, product, updaterSignatu
       const source = join(dir, entry);
       if (!statSync(source).isFile()) continue;
 
-      const canonical = `${product}-${version}-${os}-${arch}.${meta.ext}`;
+      const canonical = releaseArtifactFilename({
+        product,
+        version,
+        os,
+        arch,
+        format: meta.format,
+        ext: meta.ext,
+      });
       const dest = join(outDir, canonical);
       copyFileSync(source, dest);
 

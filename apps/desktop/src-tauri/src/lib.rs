@@ -5460,10 +5460,9 @@ pub fn run() {
     // generic Wayland logo. Must run before GTK init inside `Builder::run`.
     #[cfg(target_os = "linux")]
     {
-        // Legacy AppImage safety fallback. Current packaging prunes bundled
-        // GTK/WebKit libraries, so this should not normally be needed. Keep it
-        // until a packaged launch/render check passes without it, and preserve
-        // an explicit user override when diagnosing compositor failures.
+        // AppImage packaging bundles WebKitGTK and uses the host Mesa/EGL
+        // stack. DMA-BUF is a common compositor failure mode on that mix;
+        // default it off, and preserve an explicit user override.
         if let Some(value) = appimage_dmabuf_default(
             std::env::var_os("APPIMAGE").is_some(),
             std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_some(),

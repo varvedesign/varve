@@ -1,19 +1,21 @@
 #!/usr/bin/env node
 /**
- * Regression tests for the AppImage library-prune plan.
+ * Regression tests for the AppImage payload plan.
  *
- * Context: v0.2.1's published AppImages shipped without the bundled native
- * ONNX Runtime because the prune step removed all of `usr/lib`, including
- * Tauri's resource directory `usr/lib/<productName>`. These tests pin the
- * plan that keeps resources while removing the bundled GTK/WebKit closure.
+ * Context: v0.2.1 dropped ONNX Runtime by deleting all of `usr/lib`.
+ * v0.5.1 then dropped WebKit so AppImageHub could not launch on a clean VM.
+ * The plan must keep `usr/lib/<productName>` and libwebkit2gtk-4.1, and
+ * remove only host GPU/EGL/Mesa libraries.
  */
 import assert from 'node:assert/strict';
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -22,13 +24,23 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
   APPSTREAM_DESKTOP_ID,
+  assertWebKitBundled,
   collectPrunePlan,
   collectRuntimePrunePlan,
   collectStrayBuildArtifacts,
+  copyMissingToolkitLibraries,
+  findBundledWebKit,
+  isHostGraphicsLibraryName,
+  isHostSystemLibraryName,
+  isLibcFamilyLibraryName,
+  listElfNeeded,
   normalizeAppDirPermissions,
   normalizeAppImageDesktopEntries,
+  parseReadelfNeeded,
+  payloadHasSoname,
   prepareAppDirForRepack,
   resolveLinuxResourceDirName,
+  shouldCopyMissingDependency,
   TAURI_APPIMAGE_DESKTOP_NAME,
 } from './prune-appimage-bundled-libs.mjs';
 
@@ -54,29 +66,83 @@ function existsAsEntry(path) {
 }
 
 try {
-  // ── 1. Resource directory survives; library entries are removed ──────────
+  assert.equal(isHostGraphicsLibraryName('libEGL.so.1'), true);
+  assert.equal(isHostGraphicsLibraryName('libGL.so.1'), true);
+  assert.equal(isHostGraphicsLibraryName('libGLdispatch.so.0'), true);
+  assert.equal(isHostGraphicsLibraryName('libEGL_mesa.so.0'), true);
+  assert.equal(isHostGraphicsLibraryName('libGLX_mesa.so.0'), true);
+  assert.equal(isHostGraphicsLibraryName('libGLX_nvidia.so.0'), true);
+  assert.equal(isHostGraphicsLibraryName('libdrm.so.2'), true);
+  assert.equal(isHostGraphicsLibraryName('libgbm.so.1'), true);
+  assert.equal(isHostGraphicsLibraryName('libwayland-egl.so.1'), false);
+  assert.equal(isHostSystemLibraryName('libwayland-egl.so.1'), true);
+  assert.equal(isHostSystemLibraryName('libwayland-client.so.0'), true);
+  assert.equal(isHostSystemLibraryName('libstdc++.so.6'), true);
+  assert.equal(isHostSystemLibraryName('libgcc_s.so.1'), true);
+  assert.equal(isHostSystemLibraryName('libwebkit2gtk-4.1.so.0'), false);
+  assert.equal(shouldCopyMissingDependency('libfribidi.so.0'), true);
+  assert.equal(shouldCopyMissingDependency('libharfbuzz.so.0'), true);
+  assert.equal(shouldCopyMissingDependency('libwayland-cursor.so.0'), false);
+  assert.equal(shouldCopyMissingDependency('libstdc++.so.6'), false);
+  assert.equal(shouldCopyMissingDependency('libEGL.so.1'), false);
+  assert.equal(shouldCopyMissingDependency('libc.so.6'), false);
+  assert.equal(isLibcFamilyLibraryName('ld-linux-x86-64.so.2'), true);
+  assert.equal(isHostGraphicsLibraryName('libwebkit2gtk-4.1.so.0'), false);
+  assert.equal(isHostGraphicsLibraryName('libgtk-3.so.0'), false);
+  assert.equal(isHostGraphicsLibraryName('libglib-2.0.so.0'), false);
+  assert.equal(isHostGraphicsLibraryName('libjavascriptcoregtk-4.1.so.0'), false);
+
+  // ── 1. Resource directory and WebKit survive; GPU libs are removed ──────
   const appRoot = join(fixture, 'appdir');
   write(join(appRoot, 'usr', 'bin', 'varve-desktop'));
-  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libwebkit2gtk-4.1.so.0'));
+  write(
+    join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libwebkit2gtk-4.1.so.0'),
+    'ELF ././/lib/aarch64-linux-gnu/webkit2gtk-4.1',
+  );
+  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libjavascriptcoregtk-4.1.so.0'));
+  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'webkit2gtk-4.1', 'WebKitWebProcess'));
+  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'webkit2gtk-4.1', 'WebKitNetworkProcess'));
+  write(
+    join(
+      appRoot,
+      'usr',
+      'lib',
+      'aarch64-linux-gnu',
+      'webkit2gtk-4.1',
+      'injected-bundle',
+      'libwebkit2gtkinjectedbundle.so',
+    ),
+  );
+  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libstdc++.so.6'));
+  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libwayland-client.so.0'));
   write(
     join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'gtk-3.0', 'modules', 'libprintbackend.so'),
   );
   write(join(appRoot, 'usr', 'lib', 'libgtk-3.so.0'));
+  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libEGL.so.1'));
+  write(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'dri', 'radeonsi_dri.so'));
   write(
     join(appRoot, 'usr', 'lib', 'Varve', 'onnxruntime-libs', 'linux-aarch64', 'libonnxruntime.so'),
   );
   write(join(appRoot, 'usr', 'lib64', 'lib64leftover.so'));
+  write(join(appRoot, 'usr', 'lib64', 'libGL.so.1'));
 
   const plan = collectPrunePlan(appRoot, 'Varve');
   assert.deepEqual(
     plan.keep.map((p) => relative(appRoot, p)),
     ['usr/lib/Varve'],
-    'the product resource directory must be the only kept entry',
+    'the product resource directory must be kept as a unit',
   );
   assert.deepEqual(
     plan.remove.map((p) => relative(appRoot, p)).sort(),
-    ['usr/lib/aarch64-linux-gnu', 'usr/lib/libgtk-3.so.0', 'usr/lib64/lib64leftover.so'].sort(),
-    'every library entry must be selected for removal',
+    [
+      'usr/lib/aarch64-linux-gnu/dri',
+      'usr/lib/aarch64-linux-gnu/libEGL.so.1',
+      'usr/lib/aarch64-linux-gnu/libstdc++.so.6',
+      'usr/lib/aarch64-linux-gnu/libwayland-client.so.0',
+      'usr/lib64/libGL.so.1',
+    ].sort(),
+    'host GPU and system-sensitive libraries must be selected for removal',
   );
 
   for (const entry of plan.remove) rmSync(entry, { recursive: true, force: true });
@@ -95,17 +161,119 @@ try {
     'the bundled ONNX Runtime must survive pruning',
   );
   assert.ok(
-    !existsSync(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu')),
-    'system lib dirs must go',
+    existsSync(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libwebkit2gtk-4.1.so.0')),
+    'libwebkit2gtk-4.1 must stay in the payload',
   );
-  assert.ok(!existsSync(join(appRoot, 'usr', 'lib64', 'lib64leftover.so')), 'lib64 must be pruned');
+  assert.ok(
+    existsSync(join(appRoot, 'usr', 'lib', 'libgtk-3.so.0')),
+    'GTK must stay in the payload',
+  );
+  assert.ok(
+    !existsSync(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'libEGL.so.1')),
+    'bundled libEGL must go',
+  );
+  assert.ok(
+    !existsSync(join(appRoot, 'usr', 'lib', 'aarch64-linux-gnu', 'dri')),
+    'Mesa DRI drivers must go',
+  );
+  assert.ok(existsSync(join(appRoot, 'usr', 'lib64', 'lib64leftover.so')), 'unrelated lib64 stays');
 
-  // ── 2. Missing resource directory: everything under the lib trees goes ──
+  const bundled = findBundledWebKit(appRoot);
+  assert.equal(bundled.libraries.length, 1);
+  assert.equal(bundled.javascriptcore.length, 1);
+  assert.equal(bundled.webProcess.length, 1);
+  assert.equal(bundled.networkProcess.length, 1);
+  assert.equal(bundled.injectedBundles.length, 1);
+  assert.ok(bundled.helperDir.endsWith('webkit2gtk-4.1'));
+  assertWebKitBundled(appRoot, 'fixture');
+  assert.equal(payloadHasSoname(appRoot, 'libwebkit2gtk-4.1.so.0'), true);
+  assert.equal(payloadHasSoname(appRoot, 'libfribidi.so.0'), false);
+
+  assert.deepEqual(
+    parseReadelfNeeded(
+      ' 0x0000000000000001 (NEEDED)             Shared library: [libfribidi.so.0]\n' +
+        ' 0x0000000000000001 (NEEDED)             Shared library: [libharfbuzz.so.0]\n' +
+        ' 0x000000000000000e (SONAME)             Library soname: [libpango-1.0.so.0]\n',
+    ),
+    ['libfribidi.so.0', 'libharfbuzz.so.0'],
+    'GNU/LLVM readelf -d prints Shared library: [soname], not NEEDED token [soname]',
+  );
+  assert.deepEqual(
+    parseReadelfNeeded(' 0x0000000000000001 (NEEDED)             Shared library: [libfoo.so.0]'),
+    ['libfoo.so.0'],
+  );
+
+  const libcElf = ['/lib/x86_64-linux-gnu/libc.so.6', '/lib64/libc.so.6'].find((path) =>
+    existsSync(path),
+  );
+  if (libcElf) {
+    assert.ok(
+      listElfNeeded(libcElf).length > 0,
+      `listElfNeeded(${libcElf}) must parse a real readelf -d listing`,
+    );
+  }
+
+  const pangoCandidates = [
+    '/tmp/appimage-ci2/extract/squashfs-root/usr/lib/libpango-1.0.so.0',
+    '/lib/x86_64-linux-gnu/libpango-1.0.so.0',
+    '/usr/lib/x86_64-linux-gnu/libpango-1.0.so.0',
+  ];
+  const pangoElf = pangoCandidates.find((path) => existsSync(path));
+  if (pangoElf) {
+    const pangoNeeded = listElfNeeded(pangoElf);
+    assert.ok(
+      pangoNeeded.includes('libfribidi.so.0'),
+      `listElfNeeded(${pangoElf}) must see pango's DT_NEEDED fribidi, got ${pangoNeeded.join(', ')}`,
+    );
+    assert.ok(pangoNeeded.includes('libharfbuzz.so.0'));
+
+    const copyRoot = join(fixture, 'copy-missing');
+    mkdirSync(join(copyRoot, 'usr', 'lib'), { recursive: true });
+    copyFileSync(realpathSync(pangoElf), join(copyRoot, 'usr', 'lib', 'libpango-1.0.so.0'));
+    const copied = copyMissingToolkitLibraries(copyRoot);
+    assert.ok(
+      copied.includes('libfribidi.so.0'),
+      `copyMissingToolkitLibraries must pull fribidi from the host, got ${copied.join(', ')}`,
+    );
+    assert.ok(copied.includes('libharfbuzz.so.0'));
+    assert.ok(existsSync(join(copyRoot, 'usr', 'lib', 'libfribidi.so.0')));
+    assert.ok(existsSync(join(copyRoot, 'usr', 'lib', 'libharfbuzz.so.0')));
+    assert.equal(payloadHasSoname(copyRoot, 'libfribidi.so.0'), true);
+  }
+
+  const unpatched = join(fixture, 'unpatched');
+  write(join(unpatched, 'usr', 'lib', 'x86_64-linux-gnu', 'libjavascriptcoregtk-4.1.so.0'));
+  write(
+    join(unpatched, 'usr', 'lib', 'x86_64-linux-gnu', 'libwebkit2gtk-4.1.so.0'),
+    'ELF /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess',
+  );
+  write(join(unpatched, 'usr', 'lib', 'x86_64-linux-gnu', 'webkit2gtk-4.1', 'WebKitWebProcess'));
+  write(
+    join(unpatched, 'usr', 'lib', 'x86_64-linux-gnu', 'webkit2gtk-4.1', 'WebKitNetworkProcess'),
+  );
+  write(
+    join(
+      unpatched,
+      'usr',
+      'lib',
+      'x86_64-linux-gnu',
+      'webkit2gtk-4.1',
+      'injected-bundle',
+      'libwebkit2gtkinjectedbundle.so',
+    ),
+  );
+  assert.throws(() => assertWebKitBundled(unpatched, 'unpatched'), /relocation|unpatched/);
+
+  // ── 2. Missing resource directory: WebKit stays, GPU still goes ────────
   const bareRoot = join(fixture, 'bare');
   write(join(bareRoot, 'usr', 'lib', 'x86_64-linux-gnu', 'libwebkit2gtk-4.1.so.0'));
+  write(join(bareRoot, 'usr', 'lib', 'x86_64-linux-gnu', 'libEGL.so.1'));
   const barePlan = collectPrunePlan(bareRoot, 'Varve');
-  assert.equal(barePlan.keep.length, 0, 'no resource directory means nothing is kept');
-  assert.equal(barePlan.remove.length, 1, 'the bundled library is still removed');
+  assert.equal(barePlan.keep.length, 0, 'no resource directory means nothing is kept as a unit');
+  assert.deepEqual(
+    barePlan.remove.map((p) => relative(bareRoot, p)),
+    ['usr/lib/x86_64-linux-gnu/libEGL.so.1'],
+  );
   assert.ok(
     !barePlan.remove.includes(join(bareRoot, 'usr', 'lib', 'Varve')),
     'a non-existent resource directory is never part of the plan',

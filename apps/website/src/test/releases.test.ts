@@ -114,7 +114,7 @@ describe('release data states (shared builder)', () => {
   const HASH_OTHER = 'b'.repeat(64);
 
   const artifact = (overrides: Record<string, unknown> = {}) => ({
-    filename: 'Varve-0.1.0-linux-x86_64.AppImage',
+    filename: 'Varve-0.1.0-x86_64.AppImage',
     os: 'linux',
     arch: 'x86_64',
     format: 'appimage',

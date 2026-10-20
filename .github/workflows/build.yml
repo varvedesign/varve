@@ -165,10 +165,9 @@ jobs:
 
       # Compile-and-link check, not a packaging run. `--no-bundle` skips the
       # installer generation (AppImage tooling download, WiX, DMG staging),
-      # which is the slow half and is not what this workflow is for — release
-      # artifacts are built by release.yml from a tag. This keeps the signal
-      # that the Rust side still compiles and links on every OS, at roughly
-      # half the runner minutes.
+      # which is the slow half of this matrix job. Release installers are built
+      # by release.yml from a tag. The separate `linux-appimage-offline-smoke`
+      # job below is the one non-publishing AppImage pack on pull requests.
       - name: Tauri build (release, no bundle)
         run: pnpm tauri build --ci --no-bundle --features custom-protocol
         working-directory: apps/desktop
@@ -182,6 +181,132 @@ jobs:
       # workflow_run, which sees every job's finalized logs; a per-job copy was
       # a partial duplicate of that report.
 
-      # No bundle directory is produced here any more (see --no-bundle above);
-      # this workflow proves the build compiles, release.yml produces the
-      # installers. Nothing to upload.
+      # This matrix job does not upload installers. The AppImage offline-smoke
+      # job below is the only packaging upload, and it is evidence only.
+
+  # Non-publishing AppImage proof for PRs. Builds on ubuntu-22.04 (glibc 2.35
+  # floor), prunes host GPU/system libs, then launches the file in ubuntu:22.04
+  # and fedora:latest containers with no host WebKitGTK and --network none.
+  # Does not create a tag, draft release, checksum asset, or GitHub Release.
+  linux-appimage-offline-smoke:
+    name: Linux AppImage (offline smoke)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '26.10.0'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.97.1
+          components: rustfmt
+
+      - name: Install Linux system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
+            libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
+            libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
+            cmake pkg-config patchelf file \
+            squashfs-tools xdg-utils
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: linux-appimage-offline-smoke
+          workspaces: |
+            . -> target
+            apps/desktop/src-tauri -> target
+          cache-on-failure: true
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Pin linuxdeploy-plugin-gtk
+        run: node scripts/release/ensure-linuxdeploy-plugin-gtk.mjs --tools-dir "$HOME/.cache/tauri"
+
+      - name: Fetch ONNX Runtime for linux-x86_64
+        run: node scripts/fetch-onnxruntime.mjs
+
+      - name: Prune foreign ONNX runtimes
+        run: node scripts/release/prune-foreign-runtimes.mjs
+
+      - name: Build frontend
+        run: pnpm build
+        working-directory: apps/desktop
+
+      - name: Tauri AppImage (no updater artifacts)
+        env:
+          NO_STRIP: '1'
+        run: >
+          pnpm tauri build --bundles appimage --ci --features ai
+          --config '{"bundle":{"createUpdaterArtifacts":false}}'
+        working-directory: apps/desktop
+
+      - name: Prune bundled host GPU and system libraries
+        run: |
+          mkdir -p appimage-evidence
+          node scripts/release/prune-appimage-bundled-libs.mjs \
+            --bundle-dir apps/desktop/src-tauri/target/release/bundle \
+            --arch x86_64 \
+            --tools-dir "$HOME/.cache/tauri" | tee appimage-evidence/prune.log
+
+      - name: Verify AppImage squashfs permissions
+        run: |
+          node scripts/release/verify-appimage-permissions.mjs \
+            --bundle-dir apps/desktop/src-tauri/target/release/bundle
+
+      - name: Record size, SHA-256, and bundled library listing
+        run: |
+          set -euo pipefail
+          IMG="$(find apps/desktop/src-tauri/target/release/bundle/appimage -maxdepth 1 -name '*.AppImage' -print -quit)"
+          if [[ -z "${IMG}" ]]; then
+            echo "::error::No AppImage was produced."
+            exit 1
+          fi
+          IMG="$(realpath "${IMG}")"
+          chmod +x "${IMG}"
+          mkdir -p appimage-evidence
+          echo "${IMG}" > appimage-evidence/path.txt
+          stat -c '%s %n' "${IMG}" | tee appimage-evidence/size.txt
+          sha256sum "${IMG}" | tee appimage-evidence/sha256.txt
+          EXTRACT="$(mktemp -d "${RUNNER_TEMP:-/tmp}/varve-appimage-listing.XXXXXX")"
+          (
+            cd "${EXTRACT}"
+            "${IMG}" --appimage-extract >/dev/null
+            find squashfs-root/usr/lib -printf '%P\n' | sort > "${GITHUB_WORKSPACE}/appimage-evidence/usr-lib.txt"
+          )
+          echo "AppImage $(basename "${IMG}")"
+          cat appimage-evidence/size.txt
+          cat appimage-evidence/sha256.txt
+
+      - name: Offline smoke (ubuntu:22.04 and fedora:latest)
+        run: |
+          set -euo pipefail
+          IMG="$(find apps/desktop/src-tauri/target/release/bundle/appimage -maxdepth 1 -name '*.AppImage' -print -quit)"
+          IMG="$(realpath "${IMG}")"
+          mkdir -p appimage-evidence/smoke
+          bash scripts/release/smoke-appimage-self-contained.sh \
+            --appimage "${IMG}" \
+            --distro all \
+            --log-dir "${GITHUB_WORKSPACE}/appimage-evidence/smoke"
+
+      - name: Upload AppImage offline-smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: linux-appimage-offline-smoke-${{ github.run_id }}
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            appimage-evidence/**
+          if-no-files-found: warn
+          retention-days: 14
