@@ -1177,19 +1177,21 @@ called complete merely because its source issue is closed or a source PR is open
   corrects that assessment. The Browser Demo guide now says that Firefox and
   Safari downloads cannot be confirmed and keep the document modified; no new
   public capability is claimed.
-- **Callout repositioning — partial workflow match; interaction gap retained.**
+- **Callout repositioning — partial improvement; body movement and resizing remain open.**
   PdfCraft [#1152](https://github.com/storytold/pdfcraft/issues/1152) and its
   new floor-plan user comment ask to move the callout body/text independently
   while its arrow tip stays anchored; the commenter says canvas drags currently
   move the whole callout. Varve has separate body, text, and tail nodes, a
-  layer-tree deep-selection path, numeric tail endpoint controls, and ordinary
-  path node editing. However, its documented canvas contract selects the group
-  as a whole; it does not provide the requested direct drag handles for the
-  body, knee, and arrow tip. The previous cutoff-B ledger disposition and
-  rationale (“PDF interchange metadata”) were incorrect. This is now recorded
-  as a relevant usability gap for a later focused design/interaction slice;
-  no claim is made that layer-tree and inspector work equal direct canvas
-  manipulation, and no speculative handle UI was added in this pass.
+  layer-tree deep-selection path and numeric Inspector controls. A selected
+  parametric pointed callout now has direct canvas handles for its arrow tip
+  and bend, with fixed 24 CSS-pixel hit targets, keyboard nudging, and pointer
+  regression coverage. The separate body/text move and eight-way resize
+  behaviors requested by #1152 are still absent, so the issue is only partially
+  addressed. The previous cutoff-B disposition and rationale (“PDF interchange
+  metadata”) were incorrect. Adobe user reports also warn that grouped handles
+  can be hard to reach and unreliable below 100% zoom; the zoom-independent hit
+  target is an intentional response, but cross-platform native-app validation
+  remains a follow-up.
 - **Additional Varve-adjacent reports — screened, not reproduced.** PdfCraft
   [#3266](https://github.com/storytold/pdfcraft/issues/3266) reports a page
   that jumps after zoom settles. Its later
