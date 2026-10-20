@@ -159,6 +159,8 @@ these states into one completion flag.
 | Ledger after position 2510 | 2512/2,950 reviewed, covering 6,889 accessible comments; 438 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2501–2510. |
 | Review positions 2511–2520 | 10 issues (#9363–#9392), all 10 retrievable comments. Hosted metadata, startup measurement, embed/keyboard behavior, shape-flip requests, and a cropped-image group transform lead were distinguished by evidence status. | Atomic ledger import accepted 10 assessments; #9392 remains a local reproduction lead. See `ranges/2511-2520.md`. |
 | Ledger after position 2520 | 2522/2,950 reviewed, covering 6,899 accessible comments; 428 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2511–2520. |
+| Review positions 2521–2530 | 10 issues (#9397–#9431), all 6 retrievable comments. Upstream interpolation fix, hosted-workspace/data-retention reports, product ideas, third-party profile removal, and a timezone-sensitive license case were separated by scope. | Atomic ledger import accepted 10 assessments; Varve license expiry uses numeric timestamps with no matching date-only comparison. See `ranges/2521-2530.md`. |
+| Ledger after position 2530 | 2532/2,950 reviewed, covering 6,905 accessible comments; 408 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2521–2530. |
 
 ## Validation and continuation
 
