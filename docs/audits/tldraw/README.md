@@ -58,7 +58,7 @@ these states into one completion flag.
   changes. These changes are not part of this branch.
 - Discussion coverage is complete, with eight source comment-count
   discrepancies retained in the cache and inventory above.
-- The per-issue ledger is `issue-ledger.jsonl`: 1752/2,950 issues are individually reviewed (including #10513 and #10024), with 1,198 still `unreviewed`. Those reviewed issues cover 5,255 accessible comments; all 7,070 comments are retrievable/indexed, with eight declared-count gaps.
+- The per-issue ledger is `issue-ledger.jsonl`: 1802/2,950 issues are individually reviewed (including #10513 and #10024), with 1,148 still `unreviewed`. Those reviewed issues cover 5,419 accessible comments; all 7,070 comments are retrievable/indexed, with eight declared-count gaps.
 - Next actions: continue reviewing each issue and relevant linked evidence,
   disposition individually, complete the recursive link frontier, reconcile a
   C2 cutoff, and validate each new Varve candidate before implementation.
@@ -109,6 +109,8 @@ these states into one completion flag.
 | Ledger after position 1700 | 1702/2,950 reviewed, covering 5,092 accessible comments; 1,248 remain. | Atomic `ledger-import --assessments` accepted the range 1651–1700; #6011 now records the Chromium reproduction as not reproduced. |
 | Review positions 1701–1750 | 50 issues (#6341–#6669), all 163 retrievable comments. Follow-up leads include cross-realm clipboard handling, scrollable embeds, Firefox angle-bracket paste, tablet pointer ownership, non-macOS shortcut labels, custom URL schemes, and custom arrow routing; several behaviors are clarified or fixed upstream. | Source-backed assessment and atomic ledger import. No Varve behavior change was justified without targeted source inspection and reproduction. See `ranges/1701-1750.md`. |
 | Ledger after position 1750 | 1752/2,950 reviewed, covering 5,255 accessible comments; 1,198 remain. | Atomic `ledger-import --assessments` accepted 50 individual reviews for positions 1701–1750. |
+| Review positions 1751–1800 | 50 issues (#6676–#7006), all 164 retrievable comments. Follow-up findings include hidden-content fit behavior, Safari pinch-selection restoration, low-pressure pen strokes, arrow routing options, and degenerate freehand resize; cross-origin image loading and file-size feedback are already covered by Varve implementations. | Source inspection confirmed existing CORS fallback behavior and identified navigation bounds as a candidate for a visible-content fit regression test. See `ranges/1751-1800.md`. |
+| Ledger after position 1800 | 1802/2,950 reviewed, covering 5,419 accessible comments; 1,148 remain. | Atomic `ledger-import --assessments` accepted 50 individual reviews for positions 1751–1800. |
 | Website/deployment impact | Updated the first-project and vector-tools guides plus the Vector Tools feature page to explain the repeat-creation preference and default behavior. No offline, privacy, or cloud claims change. | Full website E2E: 688 passed; two GH Pages-only cases were rerun and passed 3/3. Preference browser screenshots (enabled/disabled) were visually inspected; `tests/e2e/canvas/tools.spec.ts` passed 12/12 and records both states in artifacts. `.github/workflows/website-deploy.yml` deploys after `master` updates under its source-path filters. |
 
 ## Validation and continuation
