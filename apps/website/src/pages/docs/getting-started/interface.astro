@@ -138,7 +138,8 @@ import '../../../styles/docs-prose.css';
           The toolbar is a single tab stop. Press <code>Tab</code> to enter it, then
           move between tools with the <strong>arrow keys</strong>; <code>Home</code> and
           <code>End</code> jump to the first and last tool. A tooltip shows each tool's
-          name and current shortcut, and shortcuts you remap are reflected in both.
+          name and current shortcut. Accepted remaps appear in the tooltip and accessible name;
+          browser-reserved shortcuts are rejected.
         </p>
         <h3>Groups, flyouts, and overflow</h3>
         <p>
@@ -421,6 +422,11 @@ import '../../../styles/docs-prose.css';
           <li>View rotation — the current angle and its reset, in one control</li>
           <li>On-device AI processing — shown only while a job is actually running</li>
         </ul>
+        <p>
+          Drag from the top ruler to place a vertical guide or from the left ruler
+          to place a horizontal one. Drag an unlocked guide back to its matching
+          ruler to remove it; Undo restores it.
+        </p>
         <p>
           Every one of these is a section in <strong>Customize Workspace</strong> (View menu or
           command palette), so each workspace can show a different row and arrange it differently.

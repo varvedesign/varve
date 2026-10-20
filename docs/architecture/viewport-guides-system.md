@@ -1,6 +1,6 @@
 # Viewport and Guides System
 
-**Updated:** 2026-09-29
+**Updated:** 2026-10-20
 
 ## Target Model
 
@@ -107,6 +107,10 @@ Current behavior:
   guide during the drag.
 - Dragging from the left ruler creates one horizontal guide and moves that same
   guide during the drag.
+- Dragging an unlocked vertical guide back onto the top ruler, or a horizontal
+  guide back onto the left ruler, removes it. Releasing elsewhere keeps and
+  moves the guide; a cancelled pointer drag does not count as a ruler drop.
+- Ruler-drop removal is an ordinary document edit and can be undone/redone.
 - Alt/Option while dragging a guide duplicates it (Figma convention).
 - Right-clicking a guide opens the guide context menu for lock/unlock and delete.
 - Locked guides cannot be dragged, but they remain visible and snap targets.
@@ -127,6 +131,10 @@ Current behavior:
 Guide creation returns the created guide id from `editor.addGuide(...)`. This is
 used by the ruler so a drag can create once, then call `moveGuide(id, position)`
 for subsequent pointer movement.
+
+The left ruler occupies the first 20 CSS pixels at the canvas-dock origin. A
+horizontal dock splitter may share that edge, but its pointer hit region must
+leave the ruler strip available so ruler drags can create guides.
 
 Layout guides, snap overlays, and ruler ticks use rotation-aware projection via
 `guideGeometry.ts` / `rulerGeometry.ts`.

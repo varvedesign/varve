@@ -29,6 +29,23 @@ const GUIDE_HIT = 8;
 type WorldPoint = readonly [number, number];
 type PerspectiveVanishingPoints = { left: WorldPoint; right: WorldPoint };
 
+function isGuideRulerDropTarget(
+  guide: Guide,
+  clientX: number,
+  clientY: number,
+  doc: Document,
+): boolean {
+  const selector = guide.axis === 'vertical' ? '.ruler-top-wrapper' : '.ruler-left-wrapper';
+  const bounds = doc.querySelector<HTMLElement>(selector)?.getBoundingClientRect();
+  return (
+    !!bounds &&
+    clientX >= bounds.left &&
+    clientX <= bounds.right &&
+    clientY >= bounds.top &&
+    clientY <= bounds.bottom
+  );
+}
+
 export function GuideOverlay({
   guides,
   zoom,
@@ -50,7 +67,7 @@ export function GuideOverlay({
     anchor: OverlayAnchor;
     guideId: string;
   } | null>(null);
-  const draggingRef = useRef<string | null>(null);
+  const draggingRef = useRef<{ guideId: string; pointerId: number } | null>(null);
   const altDuplicateRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -76,7 +93,7 @@ export function GuideOverlay({
         return;
       }
       altDuplicateRef.current = e.altKey;
-      draggingRef.current = guide.id;
+      draggingRef.current = { guideId: guide.id, pointerId: e.pointerId };
       onSelectGuide?.(guide.id);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     },
@@ -132,8 +149,24 @@ export function GuideOverlay({
   }, []);
 
   const handlePointerMove = useCallback(
-    (guide: Guide, e: React.PointerEvent) => {
-      if (draggingRef.current !== guide.id) return;
+    (_guide: Guide, e: React.PointerEvent) => {
+      const dragging = draggingRef.current;
+      if (dragging?.pointerId !== e.pointerId) return;
+      // Pointer capture stays on the original hit area after Alt-duplication,
+      // but the active drag belongs to the newly-created guide.
+      const activeGuide = guides.find((candidate) => candidate.id === dragging.guideId);
+      if (!activeGuide) return;
+      if (
+        containerRef.current &&
+        isGuideRulerDropTarget(
+          activeGuide,
+          e.clientX,
+          e.clientY,
+          containerRef.current.ownerDocument,
+        )
+      ) {
+        return;
+      }
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
       const screenX = e.clientX - rect.left;
@@ -141,7 +174,7 @@ export function GuideOverlay({
       const viewport = getEditorViewport();
       const world = Math.round(
         screenToGuidePosition(
-          { axis: guide.axis, position: guide.position },
+          { axis: activeGuide.axis, position: activeGuide.position },
           screenX,
           screenY,
           camState,
@@ -149,18 +182,51 @@ export function GuideOverlay({
         ),
       );
       if (altDuplicateRef.current && onDuplicateGuide) {
-        const newId = onDuplicateGuide(guide.id, world);
+        const newId = onDuplicateGuide(activeGuide.id, world);
         altDuplicateRef.current = false;
-        draggingRef.current = newId;
+        draggingRef.current = { guideId: newId, pointerId: e.pointerId };
         onSelectGuide?.(newId);
       } else {
-        onMoveGuide(guide.id, world);
+        onMoveGuide(activeGuide.id, world);
       }
     },
-    [camState, onMoveGuide, onDuplicateGuide, onSelectGuide],
+    [guides, camState, onMoveGuide, onDuplicateGuide, onSelectGuide],
   );
 
-  const handlePointerUp = useCallback(() => {
+  const handlePointerUp = useCallback(
+    (_guide: Guide, e: React.PointerEvent) => {
+      const dragging = draggingRef.current;
+      if (dragging?.pointerId !== e.pointerId) return;
+      // Alt-drag duplicates keep pointer capture on the original guide's hit
+      // area, while draggingRef tracks the newly-created guide. Resolve the
+      // active ID so release still completes the gesture and can drop that
+      // duplicate on a ruler.
+      const activeGuide = guides.find((candidate) => candidate.id === dragging.guideId);
+      if (!activeGuide) {
+        draggingRef.current = null;
+        altDuplicateRef.current = false;
+        return;
+      }
+      if (
+        !activeGuide.locked &&
+        containerRef.current &&
+        isGuideRulerDropTarget(
+          activeGuide,
+          e.clientX,
+          e.clientY,
+          containerRef.current.ownerDocument,
+        )
+      ) {
+        onRemoveGuide(activeGuide.id);
+      }
+      draggingRef.current = null;
+      altDuplicateRef.current = false;
+    },
+    [guides, onRemoveGuide],
+  );
+
+  const handlePointerCancel = useCallback((e: React.PointerEvent) => {
+    if (draggingRef.current?.pointerId !== e.pointerId) return;
     draggingRef.current = null;
     altDuplicateRef.current = false;
   }, []);
@@ -213,7 +279,7 @@ export function GuideOverlay({
       >
         {guides.map((guide) => {
           const line = lineForGuide(guide);
-          const isHover = hoveredId === guide.id || draggingRef.current === guide.id;
+          const isHover = hoveredId === guide.id || draggingRef.current?.guideId === guide.id;
           const isSelected = selectedGuideId === guide.id;
           const color = guide.color ?? 'var(--color-canvas-guide)';
           const midX = (line.x1 + line.x2) / 2;
@@ -248,7 +314,8 @@ export function GuideOverlay({
                 }}
                 onPointerDown={(e) => handlePointerDown(guide, e)}
                 onPointerMove={(e) => handlePointerMove(guide, e)}
-                onPointerUp={handlePointerUp}
+                onPointerUp={(e) => handlePointerUp(guide, e)}
+                onPointerCancel={handlePointerCancel}
                 onContextMenu={(e) => handleContextMenu(guide, e)}
               />
               {isHover && (
