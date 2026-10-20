@@ -58,7 +58,7 @@ these states into one completion flag.
   changes. These changes are not part of this branch.
 - Discussion coverage is complete, with eight source comment-count
   discrepancies retained in the cache and inventory above.
-- The per-issue ledger is `issue-ledger.jsonl`: 702/2,950 issues are
+- The per-issue ledger is `issue-ledger.jsonl`: 1152/2,950 issues are individually reviewed (including #10513 and #10024), with 1,798 still `unreviewed`. Those reviewed issues cover 2,962 accessible comments; all 7,070 comments are retrievable/indexed, with eight declared-count gaps.
   individually reviewed (including #10513 and #10024), with 2,248 still
   `unreviewed`. Those reviewed issues cover 1,733 accessible comments; all
   7,070 comments are retrievable/indexed, with eight declared-count gaps.
@@ -97,7 +97,8 @@ these states into one completion flag.
 | Review positions 951–1000 | 50 issues (#3727–#3888), all 148 retrievable comments. Follow-up leads cover touch editing, audio and OPFS, arrow bindings, image limits, snapshots, export, and math objects. | Source-backed assessment and atomic ledger import. See `ranges/0951-1000.md`. |
 | Review positions 1001–1050 | 50 issues (#3889–#4093), all 186 retrievable comments. Follow-up leads cover keyboard layouts, export grids, nested bindings, async undo, Firefox clipboard, performance limits, and paste placement. | Source-backed assessment and atomic ledger import. See `ranges/1001-1050.md`. |
 | Review positions 1051–1100 | 50 issues (#4095–#4278), all 139 retrievable comments. Follow-up leads cover pinch-selection, rotated flips, text editing, laser timing, duplicate stacking, SVG interoperability, connector resize, Edge paste, and multi-touch. | Source-backed assessment and atomic ledger import. See `ranges/1051-1100.md`. |
-| Ledger after position 700 | 702/2,950 reviewed, covering 1,733 accessible comments; 2,248 remain. | Atomic `ledger-import --assessments` accepted each 50-row batch; ledger order and review state retained. |
+| Review positions 1101–1150 | 50 issues (#4279–#4421), all 227 retrievable comments. Follow-up leads include export placeholders, grid persistence, save/recovery feedback, Mermaid conversion, object descriptions for accessibility, mind-map layout, rich-text color, and hover drawing. | Source-backed assessment and atomic ledger import. See `ranges/1101-1150.md`. |
+| Ledger after position 1150 | 1152/2,950 reviewed, covering 2,962 accessible comments; 1,798 remain. | Atomic `ledger-import --assessments` accepted each 50-row batch; ledger order and review state retained. |
 | Website/deployment impact | Updated the first-project and vector-tools guides plus the Vector Tools feature page to explain the repeat-creation preference and default behavior. No offline, privacy, or cloud claims change. | Website source/build checks and visual route tests are included in affected validation. `.github/workflows/website-deploy.yml` deploys after `master` updates under its source-path filters, so these source changes will trigger the normal website workflow after integration. Separate manual release publication remains outside this authorization. |
 
 ## Validation and continuation
