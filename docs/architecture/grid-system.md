@@ -24,6 +24,10 @@ edits travel through one document update so undo restores the entire grid edit.
 The inspector resolves identity anchors back to visible row and column indices;
 changing one axis preserves the other axis, each selected layer's own placement,
 and its existing span.
+Track reorder and removal buttons keep their full accessible names while painting
+compact arrow and trash icons. They measure 28px on desktop and 32px in tablet
+layout, keeping both axes editable inside the Inspector scrollport at compact
+window sizes. The removal preview and one-undo behavior are unchanged.
 
 Auto-layout grid semantics are versioned independently from visual guide
 geometry. Missing or version-1 layout semantics keep the legacy track sizing;
