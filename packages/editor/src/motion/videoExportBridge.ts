@@ -16,6 +16,7 @@ import {
   type ReplayTarget,
   replayIr,
   resolveUsageFrame,
+  videoExportDimensionsError,
 } from '@varve/engine';
 import type { Document, NodeId, Timeline } from '@varve/scene';
 import {
@@ -168,6 +169,8 @@ function applyTimelineOverrides(
  */
 export async function createVideoFrameRenderer(config: VideoExportBridgeConfig) {
   const { doc, timeline, options } = config;
+  const dimensionError = videoExportDimensionsError(options.width, options.height);
+  if (dimensionError) throw new Error(dimensionError);
   const bounds = resolveVideoExportBounds(
     doc,
     options.boundsMode ?? 'canvas',

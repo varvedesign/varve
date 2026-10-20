@@ -32,6 +32,25 @@ describe('resolveVideoExportBounds', () => {
 });
 
 describe('createVideoFrameRenderer', () => {
+  it('refuses unsafe surfaces before allocating a renderer canvas', async () => {
+    const doc = createDocument();
+    const timeline: Timeline = {
+      id: 'tl1',
+      name: 'Main',
+      duration: 1000,
+      tracks: [],
+      defaultEasing: { kind: 'linear' },
+    };
+
+    await expect(
+      createVideoFrameRenderer({
+        doc,
+        timeline,
+        options: { width: 16_384, height: 16_384, boundsMode: 'canvas' },
+      }),
+    ).rejects.toThrow(/pixels per frame/);
+  });
+
   it('includes native raster masks in motion export nodes', () => {
     let doc = createDocument('Motion mask', true);
     const image = makeShapeNode('image', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });

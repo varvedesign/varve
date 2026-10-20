@@ -143,6 +143,15 @@ Video export is frame-addressable: frame `i` at `fps` is sampled at
 `i * 1000 / fps` milliseconds. The sample time is not derived from the final
 frame count, so the renderer and encoder share one deterministic clock.
 
+Video frame surfaces are admitted before canvas allocation and limited to
+8,388,608 pixels per frame and 16,384 pixels on either side, with a 10,000-frame
+maximum per export. The frame renderer applies the same surface bound to MP4,
+WebM, and GIF. GIF timeline export encodes frames as they arrive rather than
+retaining all decoded RGBA frames; it stops before output exceeds 256 MiB. These
+limits protect the local renderer from imported documents whose canvas or
+timeline values would otherwise request unbounded work or memory. The Export
+dialog reports the relevant limit when an export is refused.
+
 ## Prototype screen transitions (complete)
 
 - **usePrototypeTransition** — hook coordinating transition kind, duration, easing, and Smart Animate layer overrides between prototype screens.

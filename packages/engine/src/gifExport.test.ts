@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checkGifExportSupport, exportTimelineToGif, type GifFrameRenderer } from './gifExport';
+import {
+  checkGifExportSupport,
+  exportAnimatedMediaToGif,
+  exportTimelineToGif,
+  type GifFrameRenderer,
+} from './gifExport';
 
 function solidRgbaFrame(
   r: number,
@@ -42,6 +47,45 @@ describe('exportTimelineToGif', () => {
     expect(result.supported).toBe(false);
     expect(result.reason).toMatch(/Invalid dimensions/);
     expect(result.bytes).toBeNull();
+  });
+
+  it('rejects oversized frame surfaces and timelines before rendering', async () => {
+    const renderer = vi.fn(async () => new Uint8Array(4));
+    const oversized = await exportTimelineToGif(renderer, 1000, {
+      width: 4096,
+      height: 4096,
+      fps: 10,
+    });
+    const oversizedSide = await exportTimelineToGif(renderer, 1000, {
+      width: 16_385,
+      height: 1,
+      fps: 10,
+    });
+    const excessiveDuration = await exportTimelineToGif(renderer, 1_001_000, {
+      width: 64,
+      height: 64,
+      fps: 10,
+    });
+
+    expect(oversized.supported).toBe(false);
+    expect(oversized.reason).toMatch(/pixels per frame/);
+    expect(oversizedSide.reason).toMatch(/pixels per side/);
+    expect(excessiveDuration.supported).toBe(false);
+    expect(excessiveDuration.reason).toMatch(/10,000 frames/);
+    expect(renderer).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-finite duration before rendering', async () => {
+    const renderer = vi.fn(async () => new Uint8Array(4));
+    const result = await exportTimelineToGif(renderer, Number.POSITIVE_INFINITY, {
+      width: 64,
+      height: 64,
+      fps: 10,
+    });
+
+    expect(result.supported).toBe(false);
+    expect(result.reason).toMatch(/finite/);
+    expect(renderer).not.toHaveBeenCalled();
   });
 
   it('produces a valid GIF with a single frame', async () => {
@@ -144,5 +188,20 @@ describe('exportTimelineToGif', () => {
     expect(result.supported).toBe(true);
     expect(result.bytes).not.toBeNull();
     expect(result.bytes!.byteLength).toBeGreaterThan(0);
+  });
+});
+
+describe('exportAnimatedMediaToGif', () => {
+  it('rejects oversized frame surfaces before requesting media frames', async () => {
+    const frameSource = vi.fn(async () => new Uint8Array(4));
+    const result = await exportAnimatedMediaToGif(frameSource, {
+      frameDelaysMs: [100],
+      width: 16_385,
+      height: 1,
+    });
+
+    expect(result.supported).toBe(false);
+    expect(result.reason).toMatch(/pixels per side/);
+    expect(frameSource).not.toHaveBeenCalled();
   });
 });

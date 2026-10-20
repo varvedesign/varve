@@ -15,6 +15,8 @@ import {
   checkVideoExportSupport,
   computeVideoFrameCount,
   getModelLoaderReady,
+  gifExportRequestError,
+  videoExportRequestError,
   workerModelIdForMethod,
 } from '@varve/engine';
 import { prefersReducedMotion } from '@varve/prototype';
@@ -769,15 +771,23 @@ export function ExportDialog({
   const handleVideoExport = useCallback(
     async (tl: Timeline, format: 'mp4' | 'webm') => {
       if (!document || !onSaveVideoFile) return;
+      const reducedMotion = prefersReducedMotion();
+      const width = document.canvasWidth ?? 1920;
+      const height = document.canvasHeight ?? 1080;
+      const fps = 30;
+      const limitError = videoExportRequestError(
+        { id: tl.id, duration: tl.duration },
+        { width, height, fps, reducedMotion },
+      );
+      if (limitError) {
+        setAnnounceMsg(limitError);
+        return;
+      }
       if (!videoSupport.supported) {
         setAnnounceMsg(videoSupport.reason ?? 'Video export unavailable in this browser');
         return;
       }
 
-      const reducedMotion = prefersReducedMotion();
-      const width = document.canvasWidth ?? 1920;
-      const height = document.canvasHeight ?? 1080;
-      const fps = 30;
       const totalFrames = computeVideoFrameCount(tl.duration, fps, reducedMotion);
 
       videoAbortRef.current?.abort();
@@ -842,16 +852,20 @@ export function ExportDialog({
   const handleGifExport = useCallback(
     async (tl: Timeline) => {
       if (!document || !onSaveVideoFile) return;
+      const width = document.canvasWidth ?? 1920;
+      const height = document.canvasHeight ?? 1080;
+      const fps = 10;
+      const limitError = gifExportRequestError(tl.duration, { width, height, fps });
+      if (limitError) {
+        setAnnounceMsg(limitError);
+        return;
+      }
       if (!gifSupport.supported) {
         setAnnounceMsg(gifSupport.reason ?? 'GIF export unavailable');
         return;
       }
 
-      const reducedMotion = prefersReducedMotion();
-      const width = document.canvasWidth ?? 1920;
-      const height = document.canvasHeight ?? 1080;
-      const fps = 10;
-      const totalFrames = reducedMotion ? 1 : Math.ceil((tl.duration / 1000) * fps);
+      const totalFrames = Math.ceil((tl.duration / 1000) * fps);
 
       videoAbortRef.current?.abort();
       const controller = new AbortController();

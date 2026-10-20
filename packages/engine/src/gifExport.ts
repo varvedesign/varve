@@ -1,3 +1,5 @@
+import { MAX_VIDEO_EXPORT_DIMENSION, MAX_VIDEO_EXPORT_PIXELS } from './videoExport';
+
 /**
  * Minimal GIF encoder — frames from ImageBitmap/Uint8Array → GIF file bytes.
  *
@@ -27,6 +29,12 @@ export type GifFrameRenderer = (
   frameIndex: number,
 ) => Promise<ImageBitmap | Uint8Array>;
 
+export const MAX_GIF_FRAME_DIMENSION = MAX_VIDEO_EXPORT_DIMENSION;
+export const MAX_GIF_FRAME_PIXELS = MAX_VIDEO_EXPORT_PIXELS;
+export const MAX_GIF_FRAME_COUNT = 10_000;
+export const MAX_GIF_OUTPUT_BYTES = 256 * 1024 * 1024;
+const GIF_CONTAINER_OVERHEAD_RESERVE = 1024;
+
 export function checkGifExportSupport(): { supported: boolean; reason?: string } {
   if (typeof OffscreenCanvas === 'undefined' && typeof HTMLCanvasElement === 'undefined') {
     return { supported: false, reason: 'Canvas API unavailable' };
@@ -37,6 +45,37 @@ export function checkGifExportSupport(): { supported: boolean; reason?: string }
 function computeFrameCount(durationMs: number, fps: number): number {
   const frames = Math.ceil((Math.max(durationMs, 0) / 1000) * fps);
   return Math.max(frames, 1);
+}
+
+function gifFrameDimensionsError(width: number, height: number): string | null {
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
+    return 'Invalid dimensions';
+  }
+  if (width > MAX_GIF_FRAME_DIMENSION || height > MAX_GIF_FRAME_DIMENSION) {
+    return `GIF export dimensions cannot exceed ${MAX_GIF_FRAME_DIMENSION.toLocaleString()} pixels per side`;
+  }
+  if (width > Math.floor(MAX_GIF_FRAME_PIXELS / height)) {
+    return `GIF export is limited to ${MAX_GIF_FRAME_PIXELS.toLocaleString()} pixels per frame`;
+  }
+  return null;
+}
+
+export function gifExportRequestError(
+  durationMs: number,
+  options: Pick<GifExportOptions, 'width' | 'height' | 'fps'>,
+): string | null {
+  const { width, height } = options;
+  const dimensionError = gifFrameDimensionsError(width, height);
+  if (dimensionError) return dimensionError;
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return 'GIF export requires a finite, non-negative timeline duration';
+  }
+  const fps = Math.max(1, Math.min(options.fps || 10, 50));
+  const totalFrames = computeFrameCount(durationMs, fps);
+  if (!Number.isSafeInteger(totalFrames) || totalFrames > MAX_GIF_FRAME_COUNT) {
+    return `GIF export is limited to ${MAX_GIF_FRAME_COUNT.toLocaleString()} frames`;
+  }
+  return null;
 }
 
 function frameDurationCs(fps: number): number {
@@ -70,17 +109,8 @@ export async function exportTimelineToGif(
 ): Promise<GifExportResult> {
   const width = opts.width;
   const height = opts.height;
-  if (width < 1 || height < 1) {
-    return { bytes: null, frameCount: 0, supported: false, reason: 'Invalid dimensions' };
-  }
-  if (width * height > 4096 * 4096) {
-    return {
-      bytes: null,
-      frameCount: 0,
-      supported: false,
-      reason: 'Resolution too large for GIF export',
-    };
-  }
+  const requestError = gifExportRequestError(durationMs, opts);
+  if (requestError) return { bytes: null, frameCount: 0, supported: false, reason: requestError };
 
   const fps = Math.max(1, Math.min(opts.fps || 10, 50));
   const totalFrames = computeFrameCount(durationMs, fps);
@@ -90,7 +120,6 @@ export async function exportTimelineToGif(
   if (totalFrames < 1) {
     return { bytes: null, frameCount: 0, supported: false, reason: 'No frames to export' };
   }
-
   const encoder = new GifEncoder(width, height, { repeat });
 
   for (let i = 0; i < totalFrames; i++) {
@@ -101,7 +130,15 @@ export async function exportTimelineToGif(
     const timeMs = (i / fps) * 1000;
     const source = await renderFrame(timeMs, i);
     const rgba = await sourceToRgba(source, width, height);
-    encoder.addFrame(rgba, width, height, delay);
+    const outputLimit = encoder.addFrame(rgba, width, height, delay);
+    if (!outputLimit) {
+      return {
+        bytes: null,
+        frameCount: i,
+        supported: false,
+        reason: `GIF output exceeds the ${Math.floor(MAX_GIF_OUTPUT_BYTES / (1024 * 1024))} MiB safety limit`,
+      };
+    }
 
     opts.onProgress?.(i + 1, totalFrames);
   }
@@ -136,12 +173,21 @@ export async function exportAnimatedMediaToGif(
   if (frameCount < 1) {
     return { bytes: null, frameCount: 0, supported: false, reason: 'No frames to export' };
   }
-  if (frameCount > 10_000) {
+  if (frameCount > MAX_GIF_FRAME_COUNT) {
     return {
       bytes: null,
       frameCount: 0,
       supported: false,
       reason: 'Too many frames for GIF export',
+    };
+  }
+  const dimensionError = gifFrameDimensionsError(opts.width, opts.height);
+  if (dimensionError) {
+    return {
+      bytes: null,
+      frameCount: 0,
+      supported: false,
+      reason: dimensionError,
     };
   }
   // addFrame adopts real dimensions from the first frame
@@ -152,7 +198,15 @@ export async function exportAnimatedMediaToGif(
     }
     const rgba = await frameSource(i);
     const delayCs = Math.max(1, Math.round(opts.frameDelaysMs[i]! / 10));
-    encoder.addFrame(rgba, opts.width, opts.height, delayCs);
+    const outputLimit = encoder.addFrame(rgba, opts.width, opts.height, delayCs);
+    if (!outputLimit) {
+      return {
+        bytes: null,
+        frameCount: i,
+        supported: false,
+        reason: `GIF output exceeds the ${Math.floor(MAX_GIF_OUTPUT_BYTES / (1024 * 1024))} MiB safety limit`,
+      };
+    }
     opts.onProgress?.(i + 1, frameCount);
   }
   const bytes = encoder.finish();
@@ -169,7 +223,8 @@ interface GifEncoderOptions {
 }
 
 class GifEncoder {
-  private frames: Array<{ rgba: Uint8Array; delay: number }> = [];
+  private frames: Uint8Array[] = [];
+  private outputBytes = 0;
   private width: number;
   private height: number;
   private repeat: number;
@@ -180,12 +235,21 @@ class GifEncoder {
     this.repeat = opts?.repeat ?? 0;
   }
 
-  addFrame(rgba: Uint8Array, width: number, height: number, delayCs: number): void {
-    this.frames.push({ rgba: rgba.slice(), delay: Math.max(1, delayCs) });
+  addFrame(rgba: Uint8Array, width: number, height: number, delayCs: number): boolean {
     if (this.width !== width || this.height !== height) {
       this.width = width;
       this.height = height;
     }
+    const encoded = this.encodeFrame(rgba, Math.max(1, delayCs));
+    if (
+      encoded.byteLength >
+      MAX_GIF_OUTPUT_BYTES - GIF_CONTAINER_OVERHEAD_RESERVE - this.outputBytes
+    ) {
+      return false;
+    }
+    this.frames.push(encoded);
+    this.outputBytes += encoded.byteLength;
+    return true;
   }
 
   finish(): Uint8Array {
@@ -246,9 +310,7 @@ class GifEncoder {
     }
 
     // Frames
-    for (const frame of this.frames) {
-      append(this.encodeFrame(frame.rgba, frame.delay));
-    }
+    for (const frame of this.frames) append(frame);
 
     // Trailer
     append([GIF_TRAILER]);

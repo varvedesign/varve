@@ -40,6 +40,43 @@ export type VideoFrameRenderer = (
 
 const H264_CODEC_CANDIDATES = ['avc1.42001E', 'avc1.4D401E', 'avc1.64001E'] as const;
 const VP9_CODEC = 'vp09.00.10.08';
+export const MAX_VIDEO_EXPORT_DIMENSION = 16_384;
+export const MAX_VIDEO_EXPORT_PIXELS = 8_388_608;
+export const MAX_VIDEO_EXPORT_FRAMES = 10_000;
+
+export function videoExportDimensionsError(width: number, height: number): string | null {
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
+    return 'Video export dimensions must be positive whole pixels';
+  }
+  if (width > MAX_VIDEO_EXPORT_DIMENSION || height > MAX_VIDEO_EXPORT_DIMENSION) {
+    return `Video export dimensions cannot exceed ${MAX_VIDEO_EXPORT_DIMENSION} pixels per side`;
+  }
+  if (width > Math.floor(MAX_VIDEO_EXPORT_PIXELS / height)) {
+    return `Video export is limited to ${MAX_VIDEO_EXPORT_PIXELS.toLocaleString()} pixels per frame`;
+  }
+  return null;
+}
+
+export function videoExportRequestError(
+  timeline: VideoTimelineRef,
+  options: VideoExportOptions,
+): string | null {
+  const dimensionError = videoExportDimensionsError(options.width, options.height);
+  if (dimensionError) return dimensionError;
+  if (!Number.isFinite(timeline.duration) || timeline.duration < 0) {
+    return 'Video export requires a finite, non-negative timeline duration';
+  }
+  if (!Number.isFinite(options.fps) || options.fps < 1 || options.fps > 60) {
+    return 'Video export frame rate must be between 1 and 60 fps';
+  }
+  const frames = options.reducedMotion
+    ? 1
+    : Math.max(Math.ceil((timeline.duration / 1000) * options.fps), 1);
+  if (!Number.isSafeInteger(frames) || frames > MAX_VIDEO_EXPORT_FRAMES) {
+    return `Video export is limited to ${MAX_VIDEO_EXPORT_FRAMES.toLocaleString()} frames`;
+  }
+  return null;
+}
 
 export function computeVideoFrameCount(
   durationMs: number,
@@ -47,9 +84,11 @@ export function computeVideoFrameCount(
   reducedMotion = false,
 ): number {
   if (reducedMotion) return 1;
-  if (!Number.isFinite(fps) || fps <= 0) return 1;
+  if (!Number.isFinite(durationMs) || !Number.isFinite(fps) || fps <= 0) return 1;
   const frames = Math.ceil((Math.max(durationMs, 0) / 1000) * fps);
-  return Math.max(frames, 1);
+  return Number.isSafeInteger(frames)
+    ? Math.min(Math.max(frames, 1), MAX_VIDEO_EXPORT_FRAMES + 1)
+    : 1;
 }
 
 /**
@@ -162,6 +201,7 @@ async function pickVp9Codec(width: number, height: number, fps: number): Promise
 
 interface EncoderSession {
   encodeFrame: (frame: VideoFrame, keyFrame: boolean) => void;
+  waitForCapacity: () => Promise<void>;
   flush: () => Promise<void>;
   close: () => void;
   mimeType: string;
@@ -184,10 +224,11 @@ async function createEncoderSession(
         video: { codec: 'avc', width, height },
         fastStart: 'in-memory',
       });
+      let encoderFailure: Error | null = null;
       const encoder = new VideoEncoder({
         output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-        error: (e) => {
-          throw e;
+        error: (error) => {
+          encoderFailure = error;
         },
       });
       encoder.configure({
@@ -200,6 +241,8 @@ async function createEncoderSession(
       return {
         mimeType: 'video/mp4',
         encodeFrame: (frame, keyFrame) => encoder.encode(frame, { keyFrame }),
+        waitForCapacity: () =>
+          waitForEncoderCapacity(encoder, () => encoderFailure, options.signal),
         flush: async () => {
           await encoder.flush();
           encoder.close();
@@ -218,10 +261,11 @@ async function createEncoderSession(
 
   const { ArrayBufferTarget, Muxer } = await import('webm-muxer');
   const chunks: EncodedVideoChunk[] = [];
+  let encoderFailure: Error | null = null;
   const encoder = new VideoEncoder({
     output: (chunk) => chunks.push(chunk),
-    error: (e) => {
-      throw e;
+    error: (error) => {
+      encoderFailure = error;
     },
   });
   encoder.configure({
@@ -241,6 +285,7 @@ async function createEncoderSession(
   return {
     mimeType: 'video/webm',
     encodeFrame: (frame, keyFrame) => encoder.encode(frame, { keyFrame }),
+    waitForCapacity: () => waitForEncoderCapacity(encoder, () => encoderFailure, options.signal),
     flush: async () => {
       await encoder.flush();
       encoder.close();
@@ -261,6 +306,11 @@ export async function exportTimelineToVideo(
 ): Promise<VideoExportResult> {
   const support = checkVideoExportSupport();
   const frameCount = computeVideoFrameCount(timeline.duration, options.fps, options.reducedMotion);
+
+  const limitError = videoExportRequestError(timeline, options);
+  if (limitError) {
+    return { bytes: null, frameCount, supported: false, reason: limitError };
+  }
 
   if (!support.supported) {
     return {
@@ -296,6 +346,17 @@ export async function exportTimelineToVideo(
         };
       }
 
+      await session.waitForCapacity();
+      if (options.signal?.aborted) {
+        session.close();
+        return {
+          bytes: null,
+          frameCount,
+          supported: true,
+          reason: 'Export cancelled',
+        };
+      }
+
       const timeMs = options.reducedMotion ? timeline.duration : frameTimeMs(i, options.fps);
 
       const source = await renderFrame(timeMs, i);
@@ -307,8 +368,11 @@ export async function exportTimelineToVideo(
         timestampUs,
         durationUs,
       );
-      session.encodeFrame(frame, i % keyFrameInterval === 0);
-      frame.close();
+      try {
+        session.encodeFrame(frame, i % keyFrameInterval === 0);
+      } finally {
+        frame.close();
+      }
       options.onProgress?.(i + 1, frameCount);
     }
 
@@ -329,4 +393,31 @@ export async function exportTimelineToVideo(
       reason: message,
     };
   }
+}
+
+async function waitForEncoderCapacity(
+  encoder: VideoEncoder,
+  getFailure: () => Error | null,
+  signal?: AbortSignal,
+  maxQueuedFrames = 2,
+): Promise<void> {
+  while (encoder.encodeQueueSize >= maxQueuedFrames) {
+    if (signal?.aborted) return;
+    const failure = getFailure();
+    if (failure) throw failure;
+    await new Promise<void>((resolve) => {
+      const onDequeue = () => {
+        clearTimeout(pollTimer);
+        encoder.removeEventListener('dequeue', onDequeue);
+        resolve();
+      };
+      const pollTimer = setTimeout(() => {
+        encoder.removeEventListener('dequeue', onDequeue);
+        resolve();
+      }, 50);
+      encoder.addEventListener('dequeue', onDequeue, { once: true });
+    });
+  }
+  const failure = getFailure();
+  if (failure) throw failure;
 }

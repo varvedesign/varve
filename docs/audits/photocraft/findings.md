@@ -1154,3 +1154,68 @@ did not escalate.
 **Website impact.** The marketing site makes no SVG image-count, raster-fallback,
 or resource-limit claim. No marketing copy change is warranted; the importer
 contract is documented in `docs/architecture/import-system.md`.
+
+
+## F-026 — Bound timeline video and GIF export work
+
+**Source.** PhotoCraft [#6103](https://github.com/storytold/photocraft/issues/6103)
+links to finding 1 in audit
+[#5599](https://github.com/storytold/photocraft/issues/5599): imported timeline
+duration was not capped before rendering, while animated GIF staging allocated
+dense canvas-sized buffers. At the 2026-10-17 review cutoff, #6103 said this was
+covered by PRs #5618 and #5670. A later check found #5670 merged on 2026-10-14;
+the issue's follow-up says that merge covered finding 1. PR #5618 closed without
+merging. The merged patch rejects timelines above PhotoCraft's existing duration
+limit and caps GIF frame surfaces at 64 MP.
+
+**Varve boundary.** Varve had two related paths. First,
+`ExportDialog` passed document-derived canvas dimensions to
+`createVideoFrameRenderer`, which allocated its OffscreenCanvas before
+`exportTimelineToVideo` ran and had no pixel or frame-count bound. Timeline
+duration is accepted from loaded documents without a corresponding video
+export limit, so even a small canvas could cause unbounded render/encode work.
+Second, GIF export checked its 4096² pixel ceiling only after the same bridge
+canvas was allocated, had no duration cap, and retained each full RGBA frame
+until final encoding. The output file was also assembled in memory.
+
+**Failure research.** The same user-visible failure class appears in other
+creative applications: Photoshop users report Render Video hanging during
+initialization or export, including after reducing pixel dimensions and clip
+length ([report 1](https://www.reddit.com/r/photoshop/comments/igrxlp),
+[report 2](https://www.reddit.com/r/photoshop/comments/9e7220)). Krita's current
+FAQ says an oversized document may be killed by the operating system without
+an application error and recommends reducing the file, splitting animation, or
+scaling down ([Krita FAQ](https://docs.krita.org/en/KritaFAQ.html)). These reports
+do not establish Varve's behavior; they support failing before resource
+allocation with a clear reason rather than leaving users with a frozen export.
+
+**Implementation.** MP4/WebM and GIF requests now reject non-finite or invalid
+dimensions, frame surfaces over 8,388,608 pixels or 16,384 pixels on either
+side, and timelines over 10,000 frames. `ExportDialog` performs the request check before starting the renderer,
+and the video bridge repeats the dimension check before canvas allocation.
+WebCodecs encoding keeps at most two frames queued and waits for dequeue
+capacity. GIF timeline and animated-media exports encode frames as they arrive
+instead of retaining all raw frames; both paths stop before encoded output
+exceeds 256 MiB. The UI announces the specific violated limit. The fixed MP4/
+WebM frame rate remains 30 fps; the motion guide now reflects that and documents
+the limits.
+
+**Website impact.** The motion guide incorrectly described frame rate as
+configurable, while ExportDialog currently fixes it at 30 fps. Updated
+`apps/website/src/pages/docs/tools/motion.astro` to state the actual frame rate
+and export limits. The product feature pages make no performance or unlimited
+resolution claim, so no landing-page or comparison-page change is warranted.
+Visual review of the edited page remains pending with the blocked browser lease.
+
+**Validation.** Focused video/GIF/bridge/ExportDialog tests pass (58 tests), and
+engine, editor, website, and E2E typechecks pass. The final `pnpm verify:plan`
+selected 47 lanes (81% of repository test files; full-suite escalation NO).
+`pnpm verify:affected` stops at the existing radius audit findings in untouched
+Presentation/SpecPanel styles (10 consumers), before selected typecheck and
+unit lanes; the affected runner's later lanes were run directly where relevant.
+Docs, emoji, and token audits passed after the final F-026 evidence edits.
+Website and motion browser E2E plus screenshot inspection remain pending:
+the shared heavy-task lease is held by another worktree's live canvas E2E
+process. No browser test has been launched for this batch. Do not consider F-026
+fully validated until the affected-runner blocker is resolved and visual export
+validation passes.

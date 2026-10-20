@@ -637,6 +637,7 @@ export type {
 export {
   checkGifExportSupport,
   exportTimelineToGif,
+  gifExportRequestError,
 } from './gifExport';
 export type { AdapterSelectionResult } from './gpuAdapter';
 export { isSoftwareAdapter, selectWebGpuAdapter } from './gpuAdapter';
@@ -1718,6 +1719,11 @@ export {
   checkVideoExportSupport,
   computeVideoFrameCount,
   exportTimelineToVideo,
+  MAX_VIDEO_EXPORT_DIMENSION,
+  MAX_VIDEO_EXPORT_FRAMES,
+  MAX_VIDEO_EXPORT_PIXELS,
+  videoExportDimensionsError,
+  videoExportRequestError,
 } from './videoExport';
 export {
   ensureYuNetModel,

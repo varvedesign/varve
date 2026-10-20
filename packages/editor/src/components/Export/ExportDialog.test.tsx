@@ -4,6 +4,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createDocument } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
 import { ConfirmDialog } from '../PromptDialog';
 import { buildJobs, ExportDialog } from './ExportDialog';
 
@@ -11,7 +12,10 @@ vi.mock('../../motion/videoExportBridge', () => ({
   createVideoFrameRenderer: vi.fn(),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 function mockNode(overrides: Record<string, unknown> = {}) {
   return {
@@ -159,6 +163,47 @@ describe('ExportDialog', () => {
       />,
     );
     expect(screen.getByRole('dialog', { name: 'Export' })).toBeTruthy();
+  });
+
+  it('announces oversized motion export limits before creating a frame renderer', async () => {
+    vi.stubGlobal(
+      'VideoEncoder',
+      Object.assign(class VideoEncoder {}, {
+        isConfigSupported: vi.fn(async () => ({ supported: true })),
+      }),
+    );
+    vi.stubGlobal('VideoFrame', class VideoFrame {});
+    vi.stubGlobal('OffscreenCanvas', class OffscreenCanvas {});
+
+    const document = createDocument('Oversized motion', true);
+    document.canvasWidth = 4096;
+    document.canvasHeight = 4096;
+    const timeline = {
+      id: 'tl1',
+      name: 'Main',
+      duration: 1000,
+      tracks: [],
+      defaultEasing: { kind: 'linear' },
+    };
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[]}
+        document={document}
+        timelines={{ [timeline.id]: timeline }}
+        onExport={async () => undefined}
+        onSaveVideoFile={async () => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export Main as MP4' }));
+    expect(screen.getByRole('status').textContent).toMatch(/pixels per frame/);
+    expect(createVideoFrameRenderer).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export Main as GIF' }));
+    expect(screen.getByRole('status').textContent).toMatch(/pixels per frame/);
+    expect(createVideoFrameRenderer).not.toHaveBeenCalled();
   });
 
   it('explains how jobs appear and offers the Export tab when nothing is configured', () => {

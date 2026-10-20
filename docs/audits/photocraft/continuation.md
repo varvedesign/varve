@@ -25,6 +25,27 @@ Last updated: 2026-10-19. Status: active and incomplete.
   resource-limit claim. No site change is indicated. Continue with the next
   unresolved source batch while preserving the visual check as an open item.
 
+## Video/GIF export budget follow-up (2026-10-19)
+
+- PhotoCraft #6103 is recorded as F-026. Varve's document canvas dimensions
+  reached OffscreenCanvas allocation without a cap; loaded timeline durations
+  could drive unbounded encode work; and the GIF encoder retained every raw
+  RGBA frame until finalization. Bounds now run in ExportDialog and again at
+  the renderer/engine boundaries: 8,388,608 pixels per frame with a 16,384-pixel side cap, 10,000 frames,
+  two queued WebCodecs frames, and a 256 MiB GIF output cap. GIF frames encode
+  as they arrive instead of accumulating decoded frame buffers.
+- The motion documentation now states the actual fixed 30 fps behavior and
+  limits; its former “configurable frame rate” statement was inaccurate. No
+  landing-page performance or unlimited-resolution claim needs correction.
+- Focused video/GIF/bridge/ExportDialog tests pass (58), as do engine, editor,
+  website, and E2E typechecks; docs, emoji, and token audits also pass after the
+  final ledger edits. `pnpm verify:affected` cannot reach its planned checks
+  because the radius audit fails on 10 existing consumers in untouched
+  Presentation/SpecPanel styles. The website/motion browser screenshot remains
+  pending. Another worktree still owns the live canvas E2E heavy-task lease; do not launch
+  unwrapped Playwright. Keep F-026 unverified until browser visuals and the
+  blocked affected checks are resolved.
+
 ## Native save follow-up (2026-10-19)
 
 - PhotoCraft #6602/#6603/#6606 now have an implementation batch in F-022.
