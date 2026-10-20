@@ -112,6 +112,14 @@ file. Serialization and atomic writes still buffer the new document; this is
 not a full save-memory fix. Reviewed marketing copy makes no performance
 guarantee, so no website edit is indicated.
 
+PhotoCraft #6105's decoded SVG raster risk is recorded in
+[F-025](findings.md#f-025--bound-decoded-raster-sources-embedded-in-svg).
+Varve now validates raster headers before renderer decode and budgets distinct
+embedded sources per SVG. The importer tests and typechecks pass, but the
+affected run stops at an unrelated desktop type error and the required browser
+visual check is waiting on the shared heavy-task lease. Keep F-025 open for
+visual validation; no current marketing claim warrants a site change.
+
 - [Findings and decisions](findings.md)
 - [Continuation record](continuation.md)
 - [Frozen issue inventory](issue-inventory-2026-10-17.jsonl)

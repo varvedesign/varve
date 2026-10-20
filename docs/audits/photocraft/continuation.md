@@ -2,6 +2,29 @@
 
 Last updated: 2026-10-19. Status: active and incomplete.
 
+## SVG embedded raster budget follow-up (2026-10-19)
+
+- PhotoCraft #6105 is tracked as F-025. Varve now inspects embedded SVG raster
+  headers before renderer decode and admits distinct sources under the existing
+  64 MP per-image and per-SVG decoded-pixel limits. Repeated data URLs are
+  charged once, and animated images are charged by canvas pixels times frame
+  count. Unsupported filters and patterns remain explicitly dropped; this
+  change does not implement PhotoCraft's raster fallback pipeline.
+- Commit `8a21a5119` contains the implementation, security regressions, import
+  architecture note, and updated issue record. Focused SVG security tests (19),
+  importer typecheck, the importer suite (416 tests before a final constant
+  source cleanup), format/lint, docs/emoji/token audits, E2E typecheck, and
+  editor typecheck passed. The final `pnpm verify:affected` stopped at the
+  existing desktop type error in `packages/editor/src/collab/CollabSurfaces.tsx:450`
+  (readonly `Affine` cast); later unit and browser lanes did not run through the
+  affected runner. The required import E2E and screenshot inspection remain
+  pending because another worktree's live canvas E2E process holds the shared
+  heavy-task lease. No browser test was launched, and the implementation must
+  remain unverified for visual integration until that check passes.
+- The current marketing site has no SVG image-count, raster-fallback, or
+  resource-limit claim. No site change is indicated. Continue with the next
+  unresolved source batch while preserving the visual check as an open item.
+
 ## Native save follow-up (2026-10-19)
 
 - PhotoCraft #6602/#6603/#6606 now have an implementation batch in F-022.
