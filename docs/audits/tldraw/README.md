@@ -58,9 +58,9 @@ these states into one completion flag.
   changes. These changes are not part of this branch.
 - Discussion coverage is complete, with eight source comment-count
   discrepancies retained in the cache and inventory above.
-- The per-issue ledger is `issue-ledger.jsonl`: 652/2,950 issues are
-  individually reviewed (including #10513 and #10024), with 2,298 still
-  `unreviewed`. Those reviewed issues cover 1,607 accessible comments; all
+- The per-issue ledger is `issue-ledger.jsonl`: 702/2,950 issues are
+  individually reviewed (including #10513 and #10024), with 2,248 still
+  `unreviewed`. Those reviewed issues cover 1,733 accessible comments; all
   7,070 comments are retrievable/indexed, with eight declared-count gaps.
 - Next actions: continue reviewing each issue and relevant linked evidence,
   disposition individually, complete the recursive link frontier, reconcile a
@@ -88,7 +88,8 @@ these states into one completion flag.
 | Review positions 501–550 | 50 issues (#2518–#2581), all 115 retrievable comments. No new code change was justified; the earlier creation-tool preference is related to, but does not fully implement, a return-to-previous-tool request. Varve already has command search, tooltips, paste feedback, cursor support, and snap guides. | Individual report and schema-validated assessments; targeted existing paths inspected. See `ranges/0501-0550.md`. |
 | Review positions 551–600 | 50 issues (#2582–#2656), all 99 retrievable comments. No Varve defect reproduced; toolbar keyboard focus, fractional icon scaling, and draw-after-wheel with open side panels remain targeted browser leads. | Individual report and schema-validated assessments; relevant pointer/action paths inspected without a product reproduction. See `ranges/0551-0600.md`. |
 | Review positions 601–650 | 50 issues (#2658–#2779), all 117 retrievable comments. No defect was reproduced; restricted-storage startup, retained deleted assets, inset pinch anchoring, degenerate arrows, and line-handle snapping remain concrete verification candidates. | Individual report and schema-validated assessments; localStorage and geometry paths inspected. See `ranges/0601-0650.md`. |
-| Ledger after position 650 | 652/2,950 reviewed, covering 1,607 accessible comments; 2,298 remain. | Atomic `ledger-import --assessments` accepted each 50-row batch; ledger order and review state retained. |
+| Review positions 651–700 | 50 issues (#2795–#2941), all 126 retrievable comments. No Varve defect reproduced; Control-click targeting, frame child order, touch drag/pinch cancellation, connector-label snap thresholds, and geometry-conversion undo remain targeted browser checks. Varve transparency-off export already has opaque-matte coverage. | Individual report and schema-validated assessments; coordinate, reparenting, input, and export paths inspected. See `ranges/0651-0700.md`. |
+| Ledger after position 700 | 702/2,950 reviewed, covering 1,733 accessible comments; 2,248 remain. | Atomic `ledger-import --assessments` accepted each 50-row batch; ledger order and review state retained. |
 | Website/deployment impact | Updated the first-project and vector-tools guides plus the Vector Tools feature page to explain the repeat-creation preference and default behavior. No offline, privacy, or cloud claims change. | Website source/build checks and visual route tests are included in affected validation. `.github/workflows/website-deploy.yml` deploys after `master` updates under its source-path filters, so these source changes will trigger the normal website workflow after integration. Separate manual release publication remains outside this authorization. |
 
 ## Validation and continuation
