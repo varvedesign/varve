@@ -47,6 +47,35 @@ describe('DocumentCodec', () => {
     expect(decoded.shape.points.map((point) => point.mode)).toEqual(['smooth', 'symmetric']);
   });
 
+  it('round-trips optional text-frame fill and border through save and reopen', () => {
+    const node = makeTextNode('framed-label', 'Keep this label readable', {
+      w: 320,
+      h: 64,
+      textFrame: {
+        fill: { space: 'rgb', r: 221, g: 246, b: 243, a: 255 },
+        border: {
+          color: { space: 'rgb', r: 18, g: 91, b: 91, a: 255 },
+          width: 0,
+        },
+      },
+    });
+    const doc = addNode(createDocument('Text frame', true), node);
+    const result = DocumentCodec.decode(DocumentCodec.encode(doc));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.nodes['framed-label']).toMatchObject({
+      kind: 'text',
+      textFrame: {
+        fill: { space: 'rgb', r: 221, g: 246, b: 243, a: 255 },
+        border: {
+          color: { space: 'rgb', r: 18, g: 91, b: 91, a: 255 },
+          width: 0,
+        },
+      },
+    });
+  });
+
   it('round-trips the export-region frame role', () => {
     let doc = createDocument('Export region', true);
     doc = addNode(

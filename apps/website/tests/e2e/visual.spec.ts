@@ -618,7 +618,9 @@ test('download page dark', async ({ page }) => {
   await dismissAnalyticsBanner(page);
   await warmFullPage(page);
   await waitForStableDocument(page);
-  await expect(page.locator('#main-content')).toHaveScreenshot('download-dark.png', {
+  await expect(page).toHaveScreenshot('download-dark.png', {
+    fullPage: true,
+    clip: await articleClip(page, '#main-content'),
     maxDiffPixelRatio: 0.02,
   });
 });
@@ -680,7 +682,17 @@ test('workspaces docs page light', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
   await dismissAnalyticsBanner(page);
   await warmFullPage(page);
-  await expect(page.locator('#main-content')).toHaveScreenshot('workspaces-docs-light.png', {
+  await waitForStableDocument(page);
+  await page.evaluate(async () => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    window.scrollTo(0, 0);
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  });
+  await expect(page).toHaveScreenshot('workspaces-docs-light.png', {
+    fullPage: true,
+    clip: await articleClip(page, '#main-content'),
     maxDiffPixelRatio: 0.02,
   });
 });
@@ -804,10 +816,20 @@ test('typography page light', async ({ page }) => {
   await waitForImages(page);
   await expect(page.getByRole('heading', { name: 'Typography', exact: true })).toBeVisible();
   await warmFullPage(page);
+  await page.evaluate(async () => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    window.scrollTo(0, 0);
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  });
   // Chromium alternates the document's stitched height by one footer pixel on
-  // this long route. Keep the typography article as the visual oracle; header
-  // and footer have their own snapshots and route checks.
-  await expect(page.locator('#main-content')).toHaveScreenshot('typography-light.png', {
+  // this long route. Clip the full-page image to the main content's integer
+  // document bounds so half-pixel layout edges cannot change the image size.
+  // Header and footer have their own snapshots and route checks.
+  await expect(page).toHaveScreenshot('typography-light.png', {
+    fullPage: true,
+    clip: await articleClip(page, '#main-content'),
     maxDiffPixelRatio: 0.02,
   });
 });

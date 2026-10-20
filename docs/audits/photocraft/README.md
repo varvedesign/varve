@@ -13,6 +13,7 @@ hardening Varve.
 | `issue-ledger-follow-on-c.jsonl` | Cutoff C new issue inventory (70 bodies and all fetched current comments read) |
 | `issue-ledger-cutoff-c-updates.jsonl` | Cutoff C changes to the 266 existing issues updated since B, including post-B comment IDs and review hashes |
 | `issue-ledger-follow-on-c.summary.json` | Cutoff C crawl, reconciliation, review counts, and raw-page hashes |
+| `issue-ledger-post-cutoff-c-updates.jsonl` | Later source-state changes and follow-up evidence for frozen cutoff-C issues |
 | `link-frontier.jsonl` | Deduplicated recursive evidence edges and their review dispositions |
 | `issue-ledger-follow-on-b.summary.json` | Cutoff B inventory counts and review coverage |
 | `issue-ledger.summary.json` | Counts for frozen cutoff A |

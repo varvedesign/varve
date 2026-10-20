@@ -442,6 +442,15 @@ export interface Stroke {
   arrowEnd?: ArrowheadStyle;
 }
 
+/** Optional text-container appearance; glyph fill/strokes remain independent. */
+export interface TextFrameStyle {
+  fill?: ManagedColor;
+  border?: {
+    color: ManagedColor;
+    width: number;
+  };
+}
+
 export function defaultStroke(): Stroke {
   return {
     color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } as ManagedColor,
@@ -1670,6 +1679,8 @@ export interface ShapeNode extends NodeBase {
 export interface TextNode extends NodeBase {
   kind: 'text';
   text: string;
+  /** Optional background and border around the text container, behind glyphs. */
+  textFrame?: TextFrameStyle;
   transform: Affine;
   /** Local text-container width. Present for area/fixed text, omitted for point text. */
   w?: number;

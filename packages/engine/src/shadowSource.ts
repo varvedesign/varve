@@ -322,6 +322,24 @@ function clipImageToAlpha(
  *    objects still cast shadows.
  */
 export function renderShadowSource(target: ReplayTarget, item: RenderItem, ops: ShadowOps): void {
+  if (item.primitive.kind === 'text' && item.primitive.textFrame) {
+    const { textFrame, x, y, w, h } = item.primitive;
+    target.save();
+    if (textFrame.fill) {
+      target.fillStyle = ops.rgba(textFrame.fill);
+      target.fillRect(x, y, w, h);
+    }
+    const border = textFrame.border;
+    if (border && Number.isFinite(border.width) && border.width > 0) {
+      target.strokeStyle = ops.rgba(border.color);
+      target.lineWidth = border.width;
+      target.lineDashOffset = 0;
+      target.setLineDash([]);
+      target.strokeRect(x, y, w, h);
+    }
+    target.restore();
+  }
+
   const fills = item.fills && item.fills.length > 0 ? item.fills : [];
   if (fills.length > 0) {
     for (const fill of fills) {

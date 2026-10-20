@@ -34,6 +34,25 @@ testing to the canvas viewport, so an off-canvas line cannot intercept the
 inspector. The floating formatting toolbar remains a separate overlay.
 This does not replace the pending shaped-glyph caret geometry work.
 
+### Text-frame appearance is separate from glyph paint
+
+`TextNode.textFrame` is an optional box style for text-container background and
+border. It is serialized with the scene node (document schema 2.34) and carried
+on the text render primitive through the native/WASM bridge. A missing style
+keeps legacy documents visually unchanged. `TextNode.fill` and
+`TextNode.strokes` continue to style glyphs; they are not reused as box paint.
+
+Canvas replay paints the frame using the same local `x/y/w/h` text geometry as
+the text primitive, before plain, rich, shaped, or path text paints its glyphs.
+SVG and PDF export emit the frame before their text content. The frame and text
+receive the node's opacity and blend mode as separate paint operations, matching
+Canvas2D replay and the PDF renderer. The Inspector exposes an
+optional background, optional border, and a zero-width border state. This is a
+new authored appearance, not a default text treatment. Canvas2D app screenshots,
+native bridge/WASM checks, and an independently rasterized PDF export are
+tracked in the PdfCraft issue-review evidence. The affected plan still escalates
+to the exact-SHA release gate before the change is release-ready.
+
 ### Buffered input must be drainable from outside the surface
 
 Typing is coalesced: `TextEditOverlay.scheduleTextUpdate` holds native input
