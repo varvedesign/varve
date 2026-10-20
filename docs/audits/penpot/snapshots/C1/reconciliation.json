@@ -1,0 +1,26 @@
+{
+  "totalRecords": 12050,
+  "issueCount": 3659,
+  "pullRequestCount": 8391,
+  "issueStates": {
+    "open": 757,
+    "closed": 2902
+  },
+  "pullRequestStates": {
+    "open": 87,
+    "closed": 8304
+  },
+  "duplicateNumberCount": 0,
+  "duplicateStableIdCount": 0,
+  "bodylessIssueCount": 35,
+  "unresolvedCommentCount": 0,
+  "pendingResearch": 3194,
+  "pendingEngineering": 3454,
+  "supplemental": {
+    "issueCount": 1,
+    "pendingResearch": 0,
+    "pendingEngineering": 0,
+    "duplicateStableIds": [],
+    "duplicateNumbers": []
+  }
+}

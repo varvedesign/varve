@@ -1,0 +1,506 @@
+{
+  "schemaVersion": 1,
+  "source": "https://github.com/penpot/penpot/issues",
+  "repository": "penpot/penpot",
+  "cutoff": "C1",
+  "cutoffAt": "2026-10-20T02:39:22.818Z",
+  "crawlStartedAt": "2026-10-20T02:39:22.818Z",
+  "crawlEndedAt": "2026-10-20T02:58:58.926Z",
+  "retrievalMethod": "GitHub REST API, all states, ascending creation order, Link-following",
+  "issueNextUrl": null,
+  "issuePages": 121,
+  "issuePageChecksums": [
+    {
+      "path": "C1/issues/page-0001.json",
+      "sha256": "abe8b43cb80c3c424a14792fa4729df2bfe61141faa252fe7eec0b8d5868386c"
+    },
+    {
+      "path": "C1/issues/page-0002.json",
+      "sha256": "8c787b8acc3156d90706146dd1aa434d26b4808864357970ed46777b8622da69"
+    },
+    {
+      "path": "C1/issues/page-0003.json",
+      "sha256": "576124b9eefdc7307f7930db1670e6f06b58a6a5c6d684897dba1524076936d4"
+    },
+    {
+      "path": "C1/issues/page-0004.json",
+      "sha256": "ca1875ef5403ca8ea2858f0abcf1be25e355b5f767290a042d414808c54ff643"
+    },
+    {
+      "path": "C1/issues/page-0005.json",
+      "sha256": "0aa3e4c2df4e04b6aeb6f516245a64ce3fbfdcb5e74efc31bc0424959f47dee1"
+    },
+    {
+      "path": "C1/issues/page-0006.json",
+      "sha256": "56f3c70df29bdeaec52947a26a263e70e5e5bc85510a4cc1db660e039e0baab6"
+    },
+    {
+      "path": "C1/issues/page-0007.json",
+      "sha256": "a840155ee5207b7acda6075a671e2cfbb9a2b7f049d77f35303f0f7bfadff220"
+    },
+    {
+      "path": "C1/issues/page-0008.json",
+      "sha256": "eb2c1a8f22b16984f4a1419d5edbab2241f4612b8e7b730060446f00387203b6"
+    },
+    {
+      "path": "C1/issues/page-0009.json",
+      "sha256": "5782ebcac641f9564fd431da32b5ae01870d0a966be0425cf968d3291408ab52"
+    },
+    {
+      "path": "C1/issues/page-0010.json",
+      "sha256": "a70ffe1ae00da0908c85b9b42b7fa5ba90ec9ae7c206f3d5a3275868474045be"
+    },
+    {
+      "path": "C1/issues/page-0011.json",
+      "sha256": "1f79b4861f9fb737d4b739e10eab3d00f5b4752fb6763b0ab9e782bcbeff994d"
+    },
+    {
+      "path": "C1/issues/page-0012.json",
+      "sha256": "bbbdd0d48f2a3ca2219b5f1d449b3648917fb4064d4417f3697d6bb5f8a7da39"
+    },
+    {
+      "path": "C1/issues/page-0013.json",
+      "sha256": "3bc5ae5cb185f92cf7d8b940223c371d76c6659efa58fdb312d653b8f77e3ed6"
+    },
+    {
+      "path": "C1/issues/page-0014.json",
+      "sha256": "634ef9d264360d39cd898e9c5e041781dc04e0002f34a610f1089c96abb1de48"
+    },
+    {
+      "path": "C1/issues/page-0015.json",
+      "sha256": "5a2d40e53e207dde9ca7f2ee11b64e2b44888272db23189e1b3cd6848278de71"
+    },
+    {
+      "path": "C1/issues/page-0016.json",
+      "sha256": "5a70c155af930f415e8d37726825234909150148aac78d1a3e6016b0b99660e6"
+    },
+    {
+      "path": "C1/issues/page-0017.json",
+      "sha256": "3a775bc2cc894aad3f9185326af046a4ae881e52398011f2a0a29b420216f2d4"
+    },
+    {
+      "path": "C1/issues/page-0018.json",
+      "sha256": "9f26beadb262a5a094c9c4088fd4c361f1be5e952274252bb369de5b0189e891"
+    },
+    {
+      "path": "C1/issues/page-0019.json",
+      "sha256": "b66c935a9a5632d891a31d31c8153bd6da58335179753bd63e3f892fa4095e23"
+    },
+    {
+      "path": "C1/issues/page-0020.json",
+      "sha256": "caae5b5bb18290d6ed2f6c89123855bf5b2ba57d24b60307f23bf6026bfb127b"
+    },
+    {
+      "path": "C1/issues/page-0021.json",
+      "sha256": "b49b5b263b7fde94af11732e08ae7a74fbf2f24baf1cf9e46add4c714161bbf0"
+    },
+    {
+      "path": "C1/issues/page-0022.json",
+      "sha256": "5d3d3a53f2b83ae6d96cdffe9988fd5024cbeda233281cf28a232a005cc944db"
+    },
+    {
+      "path": "C1/issues/page-0023.json",
+      "sha256": "e581bee9e59b43ad903a163168085021ec859e35fe383888d9a58bc70c1525fb"
+    },
+    {
+      "path": "C1/issues/page-0024.json",
+      "sha256": "709b73c221e2a0c32d97d9cf8721d50a93b02fda0403823459b3042f74cccdd8"
+    },
+    {
+      "path": "C1/issues/page-0025.json",
+      "sha256": "71d6745ae3bdc75358af86eeee53094940ad4bc85ea21158a789151eab9dc2e6"
+    },
+    {
+      "path": "C1/issues/page-0026.json",
+      "sha256": "64ae25ae51e17385f42cb341e11c6fc520357cc6e84fae7c5a5e7294f99e1018"
+    },
+    {
+      "path": "C1/issues/page-0027.json",
+      "sha256": "5246614bf871838cd30f61d32a6e9428e6db8fd88aa508c8ece98cf91339af55"
+    },
+    {
+      "path": "C1/issues/page-0028.json",
+      "sha256": "a4a0b0e351f5e9b5487f3b07100d4f95fea7f27c7436d2fab30cd2a6ab95bee4"
+    },
+    {
+      "path": "C1/issues/page-0029.json",
+      "sha256": "ab34d276c8c3d8b005c85eba84f68c3237561d0700cde5e30a5e657e1ed26de9"
+    },
+    {
+      "path": "C1/issues/page-0030.json",
+      "sha256": "fd7b58da6699418e4b2e83a02f8cb82f887b77ef75bef82e1f095ef7149def36"
+    },
+    {
+      "path": "C1/issues/page-0031.json",
+      "sha256": "375885dee7d70b1ff619fd6d95ce6eff821efe2a41b446bb09f586e9ed448b3b"
+    },
+    {
+      "path": "C1/issues/page-0032.json",
+      "sha256": "f1ca40d926fd5b9bcc3cf7541d8ece3c3d7b4b550fc405f7ba6522c3bf61f1ad"
+    },
+    {
+      "path": "C1/issues/page-0033.json",
+      "sha256": "4295cd95d66b6fcf5bd55db1022dba142b0d48da50e77da7606fcb2f92ca9ce4"
+    },
+    {
+      "path": "C1/issues/page-0034.json",
+      "sha256": "5ffae4f03b5bd5169756e983176992225de15181325804b30a72f7f04ff64c90"
+    },
+    {
+      "path": "C1/issues/page-0035.json",
+      "sha256": "680dc707bcfdabd4c1be1cfccfe44f7f33974d5b07ff4f000f9056bcd61f2eb2"
+    },
+    {
+      "path": "C1/issues/page-0036.json",
+      "sha256": "7cea2fb0d7159832f29865ce50e24984388e51670c7992945acf18e9387bece6"
+    },
+    {
+      "path": "C1/issues/page-0037.json",
+      "sha256": "4e61fb7d1c8811c481bdffe9094bb5e6017a2b3ce9df1e6263c34f08f41c08be"
+    },
+    {
+      "path": "C1/issues/page-0038.json",
+      "sha256": "01a063cf3bd2ddcbd1d98519b96c981ebbefdd2dacf0141fb9c734b84540862b"
+    },
+    {
+      "path": "C1/issues/page-0039.json",
+      "sha256": "4fa6f66a41b46c175b2d9c4ca61caaac704fcd74475d641cc9bc9d09fb2bc623"
+    },
+    {
+      "path": "C1/issues/page-0040.json",
+      "sha256": "ce03f3486331a25de2d2555046a17a68bdbfc9b7c43a4727f75f4f5f4dd86440"
+    },
+    {
+      "path": "C1/issues/page-0041.json",
+      "sha256": "d1659422705efaa60a54988feeccdf6c5a1127f2b8533890151f02f01e3afbd5"
+    },
+    {
+      "path": "C1/issues/page-0042.json",
+      "sha256": "4150f56b7b638509a6ba13ed1bc32799c720949c9524fc17dd03a037f1f800eb"
+    },
+    {
+      "path": "C1/issues/page-0043.json",
+      "sha256": "013c0c5cc28b9514d91a1cb275dc88c8b589127b4c547030b7dde0542027e0c3"
+    },
+    {
+      "path": "C1/issues/page-0044.json",
+      "sha256": "4d098d05c0a2896f3ae26c9ae27108ec7b62f5b4ca9a43222567d9052b3a2928"
+    },
+    {
+      "path": "C1/issues/page-0045.json",
+      "sha256": "0479b6f4c2b2bd746081150a0cf961182ff9ec36ff3909ac9b782f23e32abeae"
+    },
+    {
+      "path": "C1/issues/page-0046.json",
+      "sha256": "bb474bc0ac2066726fe090f7d436318f1fa776243079ac80a71cffdb71190435"
+    },
+    {
+      "path": "C1/issues/page-0047.json",
+      "sha256": "fe627217009f58b106aa5e8cee33bb1f3f4696bc5d4169efb2e9af4ff4f477e3"
+    },
+    {
+      "path": "C1/issues/page-0048.json",
+      "sha256": "058e72c9c717a682212a4fc4de2a111af4c22423147b1704ce031a0e4e19cbe3"
+    },
+    {
+      "path": "C1/issues/page-0049.json",
+      "sha256": "f836ce063552dbf539b052e038ef707b21819aa8f65d85f62131c5adf133cea8"
+    },
+    {
+      "path": "C1/issues/page-0050.json",
+      "sha256": "4c33eaa760806d10a5e1d5429003087c5b5ae4bbd9d74a75948c4a65f9688fc9"
+    },
+    {
+      "path": "C1/issues/page-0051.json",
+      "sha256": "d1f99dcb7540badc1053302d482947b1c26f87a7bb159f6b056505d1e6c64ca7"
+    },
+    {
+      "path": "C1/issues/page-0052.json",
+      "sha256": "988d810193c4e2a7ed1d94ad83203c426039a0c21d293448e7966d16e1cadcd3"
+    },
+    {
+      "path": "C1/issues/page-0053.json",
+      "sha256": "ad2687a7de82addd78d65c7f0c3d199729366cae2efe85cf6cb097e19b32c956"
+    },
+    {
+      "path": "C1/issues/page-0054.json",
+      "sha256": "0ff4a0417bf7d3c9523e2331ea18b590458becc427d76fc742c2e1c269c5cb19"
+    },
+    {
+      "path": "C1/issues/page-0055.json",
+      "sha256": "981a724ac6b59c99bd82d11daef967da088416a0ddbb6e9ff24a113e7345731c"
+    },
+    {
+      "path": "C1/issues/page-0056.json",
+      "sha256": "ec7f3720a0dfd3aee7f5a0361818ed12e44683db1ac57e33916ea2fee8d63852"
+    },
+    {
+      "path": "C1/issues/page-0057.json",
+      "sha256": "f6c718bd58d72d27ac2fbef2f5d951adc290a74f51e694b9524d5fdc49a0c6c6"
+    },
+    {
+      "path": "C1/issues/page-0058.json",
+      "sha256": "96cc72713afae51b7848f6a01b971e2bc14e60b9be16fbc654ed41a92c6e11c2"
+    },
+    {
+      "path": "C1/issues/page-0059.json",
+      "sha256": "95ad266b7a07de6ad306f74220aff3bcd2c5f4e1fb0a1054f73988a5f55846a2"
+    },
+    {
+      "path": "C1/issues/page-0060.json",
+      "sha256": "41179a8bc4977e4da42a99bbd749116927b378403a28b17245ebf32685518c05"
+    },
+    {
+      "path": "C1/issues/page-0061.json",
+      "sha256": "cfb3a214af23a024f3a10c575b71045b9405cbbe59a79d2abba2a741593ccd95"
+    },
+    {
+      "path": "C1/issues/page-0062.json",
+      "sha256": "c9062a102fb6e6f4fcf5bb2c4e0bc96d0f839559dd2ec58650dd69334aa5753b"
+    },
+    {
+      "path": "C1/issues/page-0063.json",
+      "sha256": "1580e102b06b9bb98f2b74065c87edb2440e439146147b6803771305425ee05e"
+    },
+    {
+      "path": "C1/issues/page-0064.json",
+      "sha256": "bd06b8b6b167d2fe82bb9ef018ab9f25ed412e1bea77ea54361d8e3f4ebc2c08"
+    },
+    {
+      "path": "C1/issues/page-0065.json",
+      "sha256": "03c8e3e93ddfc78bf113b730f0d7522bfdaf98c1c482a05af17e40622f1c3ac7"
+    },
+    {
+      "path": "C1/issues/page-0066.json",
+      "sha256": "faecbf4eb0d978ac3e222e665d0fcbcc8cbaa1350a2843ad0dc4ae0f33a427c1"
+    },
+    {
+      "path": "C1/issues/page-0067.json",
+      "sha256": "05b2443a716c8e6249b40546747e42d90c4add4d70b8226561452a6922748678"
+    },
+    {
+      "path": "C1/issues/page-0068.json",
+      "sha256": "1531d190834169d77ee6da10906a223f91ff728f64641a163363ac8e311958e7"
+    },
+    {
+      "path": "C1/issues/page-0069.json",
+      "sha256": "188659a83c7302f4fc5207bc23a55bbb6b32e8544cb117008fbb6e6440817747"
+    },
+    {
+      "path": "C1/issues/page-0070.json",
+      "sha256": "656752b0e33e60a4071ebf9831ca7d26a4c57d77d7056741d0cac4c45956cf56"
+    },
+    {
+      "path": "C1/issues/page-0071.json",
+      "sha256": "d761ed534717d702c831539f754dd5c3a487fcecfa68aa96a06735b9c65ed81c"
+    },
+    {
+      "path": "C1/issues/page-0072.json",
+      "sha256": "88e21a6fddb11646ba9fbc540138d28dcf63e2663af9f17354e756f1df984949"
+    },
+    {
+      "path": "C1/issues/page-0073.json",
+      "sha256": "a3a63fdb31e00d921e0b1aa5bdad31c419b6c35677603d0ef6aecb2f81b05a18"
+    },
+    {
+      "path": "C1/issues/page-0074.json",
+      "sha256": "036966e356dd72ffb58fc718b8c3fb8cb5f3414856cd49f56b289e09759d7eb8"
+    },
+    {
+      "path": "C1/issues/page-0075.json",
+      "sha256": "2c8fa0a3537e5c9b67b7801a7bb5a66d08412229ff61fec414aea711a51b9016"
+    },
+    {
+      "path": "C1/issues/page-0076.json",
+      "sha256": "ac552c27c49f03ecde5d234a51caf85769019b07de371968cba35424decc6eec"
+    },
+    {
+      "path": "C1/issues/page-0077.json",
+      "sha256": "753f2b0a606931badb32329c39fffe08ffee20dcd801258db87019f19fe4431f"
+    },
+    {
+      "path": "C1/issues/page-0078.json",
+      "sha256": "49886c3876090dfa7c5e4f4ab313b0511bd59dfa72dc1cb2d48f42cf6f03d1f1"
+    },
+    {
+      "path": "C1/issues/page-0079.json",
+      "sha256": "9c04aa9be6ba72e660619c56d2aa796c754e3ad9ac2e692cb9fbe3e42ce6af49"
+    },
+    {
+      "path": "C1/issues/page-0080.json",
+      "sha256": "c4868603543f30726a3ebb974041e7fc534c1d6177b21ad6b2dd671ede871199"
+    },
+    {
+      "path": "C1/issues/page-0081.json",
+      "sha256": "00e544c205eae59540f82012790230d806c688014d515c9f8336572755c76caa"
+    },
+    {
+      "path": "C1/issues/page-0082.json",
+      "sha256": "3d301bf6c485f5ee4bf3368e9067c954edf51818dd3b7ca3f5146f1046d26d05"
+    },
+    {
+      "path": "C1/issues/page-0083.json",
+      "sha256": "a16f3e675c97c85e685ba4b48806f5696e0e74ccdfc36129a9c73ac48b462190"
+    },
+    {
+      "path": "C1/issues/page-0084.json",
+      "sha256": "8636ff02a06be897ed0ad1134f107a5104bdff7ee2bd79480adb6efe695ca78c"
+    },
+    {
+      "path": "C1/issues/page-0085.json",
+      "sha256": "d0d44cd1cc807ac642bb50bcb0f2c3a014ca74b688d17065b826472aff11c860"
+    },
+    {
+      "path": "C1/issues/page-0086.json",
+      "sha256": "9b041451a0eb90f773e916c5fcd5c51cd3a20c6c1650d41e7df2852ddbc04d9c"
+    },
+    {
+      "path": "C1/issues/page-0087.json",
+      "sha256": "627635749f704074aa568ca63e5a795a74378b08d09d3bd9a1e7787d747ef13d"
+    },
+    {
+      "path": "C1/issues/page-0088.json",
+      "sha256": "dd98a7cbd040567f891ea532dba1d511eaf5b517614a635b880071118b926fe9"
+    },
+    {
+      "path": "C1/issues/page-0089.json",
+      "sha256": "a66a9454009711b1d651188aa37f82722dc5f0405eb691c52796a034d2e5389c"
+    },
+    {
+      "path": "C1/issues/page-0090.json",
+      "sha256": "35c3797e9798ed5c28278256bd73bd339929a438796771c96907c190b95c8174"
+    },
+    {
+      "path": "C1/issues/page-0091.json",
+      "sha256": "b1e3d81932215db3ebb8e6e803cc7c8705719a5c0779e58d265e0db3b3e880d3"
+    },
+    {
+      "path": "C1/issues/page-0092.json",
+      "sha256": "f3791e28e025296fb8a4c91d27ca127da20b11c43618c1cb071bf4608e5b8933"
+    },
+    {
+      "path": "C1/issues/page-0093.json",
+      "sha256": "adaf3e08cc55c28c27f01a61e6ba3c4b69550184244d920fffa5670a6c15f1dd"
+    },
+    {
+      "path": "C1/issues/page-0094.json",
+      "sha256": "a99bf229580a4c87fe8fb885186cbb70f6f891f166876722fa5177cea42ea993"
+    },
+    {
+      "path": "C1/issues/page-0095.json",
+      "sha256": "693f537393afc3c629a81388bcdbadfd31058160f7b0fffa5844aff5d2f8a6e3"
+    },
+    {
+      "path": "C1/issues/page-0096.json",
+      "sha256": "02dd9a210a38748d18f509f117e814b646ddfcb1d423ca52898e654f22be9f9e"
+    },
+    {
+      "path": "C1/issues/page-0097.json",
+      "sha256": "78da057b3071168e0edf1b19d8d36116a353ec0ac1091fc525a0a30f4e71d88f"
+    },
+    {
+      "path": "C1/issues/page-0098.json",
+      "sha256": "dcde2df7885f41425e37fd32e0f2fa57abaf3c092a8329c4baeb0cbf986b4354"
+    },
+    {
+      "path": "C1/issues/page-0099.json",
+      "sha256": "5e2058d441f3ad953052133b5cbb025c29fc216413bfdab23d601b8ab70cdae0"
+    },
+    {
+      "path": "C1/issues/page-0100.json",
+      "sha256": "c3a91e89ac100dcb4d2820849c95cde0e5a1c8327260895f069ea7fe57ac2996"
+    },
+    {
+      "path": "C1/issues/page-0101.json",
+      "sha256": "76c44c51c8c38d06448621426b54cf58cfae09204bea960fc470c1bb8593cf8e"
+    },
+    {
+      "path": "C1/issues/page-0102.json",
+      "sha256": "815b2e569a063f5c6e7578765743a81a5db56b3551d3c47bf7a7d4c6d0b4d0e3"
+    },
+    {
+      "path": "C1/issues/page-0103.json",
+      "sha256": "b3c917399a9aa290399a78e5d4ae44b040f40eb0177aa5f25e1f73cb4e653a05"
+    },
+    {
+      "path": "C1/issues/page-0104.json",
+      "sha256": "0a2946a15795ac593f4ce3d77dc171755945584175f4e335ba1a69e8b53c0440"
+    },
+    {
+      "path": "C1/issues/page-0105.json",
+      "sha256": "e50de0aa874a49511fe682fab5b67c41efb09e2b9ff9d2c138ca44d0399ee653"
+    },
+    {
+      "path": "C1/issues/page-0106.json",
+      "sha256": "45b33d7164aa247fccbcce4027122b62eae56f1bdd571127015ed4ce94f68dc3"
+    },
+    {
+      "path": "C1/issues/page-0107.json",
+      "sha256": "5d967fdbd3ad50324d89d496f868c70e198be178436070d658544c66241d3dc2"
+    },
+    {
+      "path": "C1/issues/page-0108.json",
+      "sha256": "55650d77dbf9c01e25fe926aa34393be3285a2c9bc4341e9150f7a7c76bd0816"
+    },
+    {
+      "path": "C1/issues/page-0109.json",
+      "sha256": "28ad759403e9fb7f256f5e8554ff2b6f7f07075fe97ccda1bf442d2bb5c9acf3"
+    },
+    {
+      "path": "C1/issues/page-0110.json",
+      "sha256": "c3554257f707c08f5e26928644a88c20c6da09e6beba6b3cbd4ecc42b267ac50"
+    },
+    {
+      "path": "C1/issues/page-0111.json",
+      "sha256": "a494724ec7c46fbdf85967e9b4e35cf0f33c88508e9b2b4a83d8795587b43d12"
+    },
+    {
+      "path": "C1/issues/page-0112.json",
+      "sha256": "1056fd0d43dee099dd8fcefc03f96ae209421c4e8ee06305f33ea1593311d7bb"
+    },
+    {
+      "path": "C1/issues/page-0113.json",
+      "sha256": "1ee5c03a3ad8583148510d4521601d8b21bb6ce15c61f11ca503266cdec0b212"
+    },
+    {
+      "path": "C1/issues/page-0114.json",
+      "sha256": "5628281a005e479d8b361f9cc8f5e68f6a450ab7cc4e7e1234e8d43697f3973c"
+    },
+    {
+      "path": "C1/issues/page-0115.json",
+      "sha256": "613c6a26f9b69be9b328c04360b311ddbe8663cfdf4c69a40ab6789691ae64ee"
+    },
+    {
+      "path": "C1/issues/page-0116.json",
+      "sha256": "a061de6d30d2c29e103ac1cca4e36cf5a050aee1e233f564d7dc83ed4c6a367d"
+    },
+    {
+      "path": "C1/issues/page-0117.json",
+      "sha256": "7c2818bef0efd8b8c42cbb4fc995feb914060dbe430404b46a0eeffefd822e53"
+    },
+    {
+      "path": "C1/issues/page-0118.json",
+      "sha256": "d95285e6fb853949aef009760e3a71642aa70851b0edbfd3cfaea12003192854"
+    },
+    {
+      "path": "C1/issues/page-0119.json",
+      "sha256": "38990ae8f372e05954c7c2af71493028442b4e1b68509e9a5f86352182ff9c52"
+    },
+    {
+      "path": "C1/issues/page-0120.json",
+      "sha256": "4cfc7aba273946afd9c3ba82cfec898854caec53676668642acaed505be88a00"
+    },
+    {
+      "path": "C1/issues/page-0121.json",
+      "sha256": "d2a96c3b032f1852850ea919d272ab78b9673691302287bffc42a5462418e014"
+    }
+  ],
+  "sourceVersion": "be2e117f670fdc3fe440e55bea541df28f1c76d9",
+  "inventoryComplete": true,
+  "commentsComplete": true,
+  "lastUpdatedAt": "2026-10-20T10:52:51Z",
+  "sourceVersionRef": "develop",
+  "sourceVersionFetchedAt": "2026-10-20T02:39:24.316Z",
+  "issuesLedgerSha256": "230111fb874d820cfcfedece6ffa436af68c1814b64e00c8067bc5ddb82692ea",
+  "commentsCompletedAt": "2026-10-20T02:58:48.798Z"
+}
