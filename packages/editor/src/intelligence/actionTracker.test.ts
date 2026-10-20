@@ -96,6 +96,24 @@ describe('ActionTracker', () => {
     expect(t.getTotalCount()).toBe(0);
   });
 
+  it('keeps shortcut usage in memory when localStorage access is denied', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new DOMException('Access is denied for this document.', 'SecurityError');
+      },
+    });
+
+    try {
+      const restrictedTracker = new ActionTracker();
+      expect(() => restrictedTracker.record('tool:rect')).not.toThrow();
+      expect(restrictedTracker.getCount('tool:rect')).toBe(1);
+    } finally {
+      if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
+    }
+  });
+
   it('records with context field', () => {
     tracker.record('tool:select', { kind: 'frame', count: '3' });
     expect(tracker.getCount('tool:select')).toBe(1);
