@@ -139,6 +139,9 @@ these states into one completion flag.
 | Review positions 2251–2300 | 50 issues (#8531–#8740), all 76 retrievable comments. Confirmed fixes, editor lifecycle/render leads, SDK proposals, and dotcom operations/marketing were separated. | Atomic ledger import accepted 50 individual assessments; no Varve behavior change was made from this evidence alone. See `ranges/2251-2300.md`. |
 | Ledger after position 2300 | 2302/2,950 reviewed, covering 6,648 accessible comments; 648 remain. | Atomic `ledger-import --assessments` accepted 50 reviews for positions 2251–2300. |
 
+| Review positions 2301–2350 | 50 issues (#8745–#8878), all 79 retrievable comments. Confirmed fixes, editor/accessibility reports, API/design proposals, and dotcom-only work were separated. | Atomic ledger import accepted 50 individual assessments. No Varve behavior change was justified from this batch alone. See `ranges/2301-2350.md`. |
+| Ledger after position 2350 | 2352/2,950 reviewed, covering 6,727 accessible comments; 598 remain. | Atomic `ledger-import --assessments` accepted 50 individual reviews for positions 2301–2350. |
+
 ## Validation and continuation
 
 After each implementation batch, record the exact `pnpm verify:plan` and
