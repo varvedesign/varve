@@ -167,6 +167,12 @@ these states into one completion flag.
 | Ledger after position 2550 | 2552/2,950 reviewed, covering 6,919 accessible comments; 398 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2541–2550. |
 | Review positions 2551–2560 | 10 issues (#9500–#9520), all 6 retrievable comments. Interaction extension, tooltip contract, hosted thumbnail/sync work, app keyboard/handle reports, and cursor-chat rendering research were kept within their respective scopes. | Atomic ledger import accepted 10 assessments; #9519 is retained as a duplicate of #9520. See `ranges/2551-2560.md`. |
 | Ledger after position 2560 | 2562/2,950 reviewed, covering 6,925 accessible comments; 388 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2551–2560. |
+| Review positions 2561–2570 | 10 issues (#9528–#9569), all 7 retrievable comments. Withdrawn identity concern, touch/pinch and toast reports, upstream fixes, and multiplayer/stylus feature requests were recorded with their evidence limits. | Atomic ledger import accepted 10 assessments; #9544 and #9549 cite confirmed upstream fixes. See `ranges/2561-2570.md`. |
+| Ledger after position 2570 | 2572/2,950 reviewed, covering 6,932 accessible comments; 378 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2561–2570. |
+| Review positions 2571–2580 | 10 issues (#9572–#9629), all 7 retrievable comments. Text paste, workspace UX, SDK events, transformation/layout features, draw closure, and a renderer-artifact duplicate lead were recorded with status distinctions. | Atomic ledger import accepted 10 assessments; #9622 is fixed upstream and #9625 awaits confirmation. See `ranges/2571-2580.md`. |
+| Ledger after position 2580 | 2582/2,950 reviewed, covering 6,939 accessible comments; 368 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2571–2580. |
+| Review positions 2581–2590 | 10 issues (#9633–#9699), all 3 retrievable comments. Cross-browser text/render issues, touch share controls, and pointer-release lifecycle were separated from hosted collaboration features. | Atomic ledger import accepted 10 assessments; #9692 is retained as a platform-edge pointer cleanup investigation lead. See `ranges/2581-2590.md`. |
+| Ledger after position 2590 | 2592/2,950 reviewed, covering 6,942 accessible comments; 358 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2581–2590. |
 
 ## Validation and continuation
 
