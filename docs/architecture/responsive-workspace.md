@@ -103,11 +103,19 @@ popover with a clear Resources launcher,
 and records the [bounded Layers menu](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-after.png)
 and its [Masking](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-submenu.png)
 and [bottom-row Color Tag](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-bottom-submenu.png)
-submenus.
+submenus. The [820px tablet menubar](../screenshots/2026-10-20-responsive-controls/tablet-menubar-labels-820.png)
+shows the application labels at their full widths before the rail scrolls.
 The browser regression set also covers full editor captures in light, dark,
 and high-contrast themes, plus Email workspace and Enhance dialog captures
 where the compact panel headers remain visible. These baselines were reviewed
-for the removed Layers eye control and the smaller Move controls.
+for the removed Layers eye control and the smaller Move controls. The dark Email
+inspector and full-editor baselines were refreshed after an inspected comparison
+showed that they still depicted the former wide Move labels and Layers eye.
+The Enhance pixel-art check compares its preview, Algorithm, and Scale groups
+as component snapshots and keeps a full-page diagnostic capture. The outer
+dialog's scroll position varied between local and hosted Chromium even when
+those controls rendered and remained reachable; a page-wide golden measured
+that scroll difference instead of the controls.
 
 The former `min-width: 600px` floor predated drawer mode and caused horizontal
 drift in split-screen; it was removed in `f76d98eb1`.
@@ -145,6 +153,11 @@ their min-content width between 641px and ~750px. Without `min-width: 0` the
 rail painted outside its own box and, because the controls follow it in the DOM,
 the switcher won hit-testing — the last 50px of the Help label activated a
 workspace at 641px (F6). The menu strip scrolls rather than spilling.
+Its individual menu buttons must also retain their intrinsic widths: flex
+shrink gave Object 44px for 46px of content and Arrange 44px for 54px at an
+820px tablet viewport, so their labels painted into the next button. The
+tablet menubar browser regression checks every label's content width, the
+Home-to-rail gap, the initial scroll position, and the reachable Help menu.
 
 The same containment is what keeps the rail honest under **text enlargement**
 (see below): the compact-tier rule alone left `> 899px` unguarded, and at a 200%

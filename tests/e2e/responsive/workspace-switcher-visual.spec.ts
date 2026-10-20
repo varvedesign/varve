@@ -108,3 +108,51 @@ test('an open tablet drawer does not leave a duplicate panel reveal button', asy
     await expect(launcher).toBeFocused();
   }
 });
+
+test('tablet application menu labels do not compress into adjacent buttons', async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 620 });
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'varve-editor-settings',
+      JSON.stringify({ appearance: { layoutPreference: 'tablet' } }),
+    );
+  });
+  await navigateToEditor(page);
+  await expect(page.locator('html')).toHaveAttribute('data-layout-mode', 'tablet');
+
+  const rail = page.getByRole('menubar', { name: 'Application' });
+  const labels = await rail.locator('.editor-menubar__item').evaluateAll((buttons) =>
+    buttons.map((button) => ({
+      name: button.textContent?.trim(),
+      width: button.clientWidth,
+      contentWidth: button.scrollWidth,
+    })),
+  );
+  expect(labels.filter(({ width, contentWidth }) => contentWidth > width + 1)).toEqual([]);
+
+  const leftEdge = await page.evaluate(() => {
+    const home = document.querySelector<HTMLElement>('.editor-menubar__home');
+    const rail = document.querySelector<HTMLElement>('.editor-menubar__left');
+    if (!home || !rail) throw new Error('missing application menu chrome');
+    return {
+      homeRight: home.getBoundingClientRect().right,
+      railLeft: rail.getBoundingClientRect().left,
+      railScrollLeft: rail.scrollLeft,
+    };
+  });
+  expect(leftEdge.railLeft).toBeGreaterThanOrEqual(leftEdge.homeRight - 1);
+  expect(leftEdge.railScrollLeft).toBe(0);
+
+  await page.screenshot({
+    path: test.info().outputPath('tablet-menubar-labels-820.png'),
+    animations: 'disabled',
+  });
+
+  const help = rail.getByRole('menuitem', { name: 'Help', exact: true });
+  await help.click();
+  await expect(help).toHaveAttribute('aria-expanded', 'true');
+  await page.screenshot({
+    path: test.info().outputPath('tablet-menubar-help-820.png'),
+    animations: 'disabled',
+  });
+});

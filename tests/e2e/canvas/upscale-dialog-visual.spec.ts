@@ -121,22 +121,30 @@ test('Enhance dialog pixel-art mode', async ({ page }) => {
     page.getByAltText('Enhanced preview — same crop and output size as original'),
   ).toBeVisible({ timeout: 15000 });
 
-  // Capture the pixel-art controls at a fixed scroll offset. The body's
-  // scrollHeight can change after preview content settles, so scrolling to
-  // the end produces different frames even when the controls are usable.
-  await page
-    .getByRole('dialog', { name: 'Enhance image' })
-    .locator('.varve-dialog__body')
-    .evaluate((body) => {
-      body.scrollTop = 200;
-    });
-  await expect(page.getByLabel('Pixel-art algorithm')).toBeInViewport();
-  await expect(page.getByRole('radiogroup', { name: 'Scale factor' })).toBeInViewport();
+  const algorithm = page.locator('.upscale-settings__group').filter({
+    has: page.getByLabel('Pixel-art algorithm'),
+  });
+  const scale = page.locator('.upscale-settings__group').filter({
+    has: page.getByRole('radiogroup', { name: 'Scale factor' }),
+  });
+  await scale.scrollIntoViewIfNeeded();
+  await expect(algorithm).toBeInViewport();
+  await expect(scale).toBeInViewport();
   await page.mouse.move(0, 0);
 
-  await expect(page).toHaveScreenshot('enhance-dialog-pixel-art.png', {
-    maxDiffPixels: 500,
+  // The dialog's outer scroll position differs by browser/OS, but the
+  // preview and settings groups must render identically within their boxes.
+  await expect(page.locator('.upscale-preview__image-container')).toHaveScreenshot(
+    'enhance-dialog-pixel-art-preview.png',
+    { maxDiffPixels: 200 },
+  );
+  await expect(algorithm).toHaveScreenshot('enhance-dialog-pixel-art-algorithm.png', {
+    maxDiffPixels: 100,
   });
+  await expect(scale).toHaveScreenshot('enhance-dialog-pixel-art-scale.png', {
+    maxDiffPixels: 100,
+  });
+  await page.screenshot({ path: test.info().outputPath('enhance-dialog-pixel-art-page.png') });
 });
 
 test('does not offer the anime model before its provenance and quality gates pass', async ({

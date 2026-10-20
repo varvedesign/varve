@@ -589,6 +589,9 @@ input[type="number"] {
 }
 
 .editor-menubar__item {
+  /* Keep menu labels inside their own hit targets when the tablet rail
+   * narrows. The containing rail scrolls horizontally when needed. */
+  flex-shrink: 0;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-control-compact);
   cursor: default;
