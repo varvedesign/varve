@@ -771,9 +771,9 @@ accepted the same entry as 1,000, saved, and reopened with 1,000. The Inspector
 was visually checked in dark, light, and high-contrast themes, each showing the
 supported maximum and a coherent field layout. The mask scene/codec regression
 suite passed 80 tests, including rejection of out-of-range loaded values and
-setter clamping. An Inspector interaction test is present; the broader
-14-package Vitest sweep that would include it was stopped after about an hour
-under shared-machine contention and is not counted as a pass. The marketing
+setter clamping. The focused Inspector interaction test now passes (3 tests).
+The broader 14-package Vitest sweep was stopped after about an hour under
+shared-machine contention and is not counted as a pass. The marketing
 website scan found no claim about mask-feather limits or Global Light that needs
 revision.
 
@@ -782,7 +782,7 @@ The affected planner exited before package tests on 30 pre-existing spacing
 drifts in untouched collab, first-run, and website files; this audit does not
 report a clean full affected run. Focused browser save/reopen and three-theme
 visual checks passed. The pending broad Vitest sweep must not be reported as
-passing.
+passing. The focused MaskSection test passes separately (3 tests).
 
 ## F-018 — PSD layer conversion needs explicit tree work limits
 

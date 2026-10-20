@@ -809,8 +809,8 @@ Last updated: 2026-10-19. Status: active and incomplete.
   interrupted with SIGINT and must not be reported as passing. A read-only
   review of the committed GPU diff found no additional actionable defects, and
   the #6424 and #4201 issue-inventory records now reflect the current evidence.
-  The focused Inspector unit and desktop Rust checks remain pending, as does
-  integration into master.
+  The focused #4201 MaskSection Inspector test now passes (3 tests). The #6424
+  dependent desktop Rust checks remain pending, as does integration into master.
 
 - PhotoCraft #6423 and recursive import evidence: the exact Affinity compound
   import path is outside Varve's supported formats. The review found an
