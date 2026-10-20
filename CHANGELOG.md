@@ -12,21 +12,8 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
-### Changed
-
-- **Linux AppImage**: ships bundled WebKitGTK and GTK so it launches on a
-  clean host without `libwebkit2gtk-4.1`. GPU/EGL/Mesa stay on the system so
-  newer Mesa stacks do not white-screen. GStreamer plugins are not bundled
-  (`bundleMediaFramework` stays false). The published filename is
-  `Varve-<version>-x86_64.AppImage` (no `linux` segment). The Tauri updater
-  platform key remains `linux-x86_64`, so 0.5.1 clients follow the new URL
-  from `stable.json` on the next release.
-
 ### Fixed
 
-- **AppImageHub launch**: 0.5.1 failed with
-  `libwebkit2gtk-4.1.so.0: cannot open shared object file` on a clean offline
-  VM. The next AppImage carries WebKitGTK in the payload.
 - **Text save integrity** — Save and close now include buffered text drafts, including the visible
   value during IME composition, without ending the active edit session.
 - **PDF export fidelity** — PDF export preserves PDF-supported blend modes. PDF/X-1a now stops with
@@ -38,6 +25,27 @@ update, not for someone reading the commit log.
 - **PDF drop-shadow blending** — Authored drop shadows now retain PDF-supported blend modes and
   combine effect opacity, shadow-colour alpha, and node opacity. PDF/X-1a stops when an effect uses
   transparency or a blend mode it cannot represent.
+
+## [0.5.2] - 2026-10-20
+
+Rehearsal pack only. This section exists so a Linux-only AppImage rehearsal
+can identify itself as 0.5.2. It is not a published release.
+
+### Changed
+
+- **Linux AppImage**: ships bundled WebKitGTK and GTK so it launches on a
+  clean host without `libwebkit2gtk-4.1`. GPU/EGL/Mesa stay on the system so
+  newer Mesa stacks do not white-screen. GStreamer plugins are not bundled
+  (`bundleMediaFramework` stays false). The published filename is
+  `Varve-<version>-x86_64.AppImage` (no `linux` segment). The Tauri updater
+  platform key remains `linux-x86_64`, so 0.5.1 clients follow the new URL
+  from `stable.json` on the next published release.
+
+### Fixed
+
+- **AppImageHub launch**: 0.5.1 failed with
+  `libwebkit2gtk-4.1.so.0: cannot open shared object file` on a clean offline
+  VM. The 0.5.2 AppImage carries WebKitGTK in the payload.
 
 ## [0.5.1] - 2026-10-15
 

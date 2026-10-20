@@ -188,10 +188,19 @@ jobs:
   # floor), prunes host GPU/system libs, then launches the file in ubuntu:22.04
   # and fedora:latest containers with no host WebKitGTK and --network none.
   # Does not create a tag, draft release, checksum asset, or GitHub Release.
+  # The aarch64 cell matches release.yml: native ubuntu-22.04-arm, no QEMU.
   linux-appimage-offline-smoke:
-    name: Linux AppImage (offline smoke)
-    runs-on: ubuntu-22.04
+    name: Linux AppImage (offline smoke ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            arch: x86_64
+          - os: ubuntu-22.04-arm
+            arch: aarch64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
@@ -222,7 +231,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
-          key: linux-appimage-offline-smoke
+          key: linux-appimage-offline-smoke-${{ matrix.arch }}
           workspaces: |
             . -> target
             apps/desktop/src-tauri -> target
@@ -234,7 +243,7 @@ jobs:
       - name: Pin linuxdeploy-plugin-gtk
         run: node scripts/release/ensure-linuxdeploy-plugin-gtk.mjs --tools-dir "$HOME/.cache/tauri"
 
-      - name: Fetch ONNX Runtime for linux-x86_64
+      - name: Fetch ONNX Runtime for linux-${{ matrix.arch }}
         run: node scripts/fetch-onnxruntime.mjs
 
       - name: Prune foreign ONNX runtimes
@@ -257,7 +266,7 @@ jobs:
           mkdir -p appimage-evidence
           node scripts/release/prune-appimage-bundled-libs.mjs \
             --bundle-dir apps/desktop/src-tauri/target/release/bundle \
-            --arch x86_64 \
+            --arch ${{ matrix.arch }} \
             --tools-dir "$HOME/.cache/tauri" | tee appimage-evidence/prune.log
 
       - name: Verify AppImage squashfs permissions
@@ -289,6 +298,30 @@ jobs:
           cat appimage-evidence/size.txt
           cat appimage-evidence/sha256.txt
 
+      - name: Collect published-style AppImage name
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          EXPECTED="Varve-${VERSION}-${{ matrix.arch }}.AppImage"
+          node scripts/release/collect-artifacts.mjs \
+            --bundle-dir apps/desktop/src-tauri/target/release/bundle \
+            --out appimage-evidence/collected \
+            --os linux \
+            --arch ${{ matrix.arch }} \
+            --updater-signatures false
+          COLLECTED="$(find appimage-evidence/collected -maxdepth 1 -name '*.AppImage' -printf '%f\n')"
+          echo "collect-artifacts produced: ${COLLECTED}"
+          if [[ "${COLLECTED}" != "${EXPECTED}" ]]; then
+            echo "::error::Expected published-style name ${EXPECTED}, got ${COLLECTED}"
+            exit 1
+          fi
+          if [[ "${COLLECTED}" == *-linux-* ]]; then
+            echo "::error::AppImage filename still contains -linux-: ${COLLECTED}"
+            exit 1
+          fi
+          stat -c '%s %n' "appimage-evidence/collected/${COLLECTED}" | tee appimage-evidence/collected-size.txt
+          sha256sum "appimage-evidence/collected/${COLLECTED}" | tee appimage-evidence/collected-sha256.txt
+
       - name: Offline smoke (ubuntu:22.04 and fedora:latest)
         run: |
           set -euo pipefail
@@ -304,7 +337,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: linux-appimage-offline-smoke-${{ github.run_id }}
+          name: linux-appimage-offline-smoke-${{ matrix.arch }}-${{ github.run_id }}
           path: |
             apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
             appimage-evidence/**
