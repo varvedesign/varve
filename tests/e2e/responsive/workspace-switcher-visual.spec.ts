@@ -33,6 +33,8 @@ test('tablet switcher matches desktop scale at a 1536px window', async ({ browse
   await expect(
     tabletPage.getByRole('button', { name: 'Auto-reveal canvas selection in Layers panel' }),
   ).toHaveCount(0);
+  await expect(tabletPage.getByTestId('restore-left-panel')).toBeHidden();
+  await expect(tabletPage.locator('.editor__fab--layers')).toBeHidden();
   const tabletChrome = await tabletPage.evaluate(() => ({
     canvasDockStyle: document
       .querySelector<HTMLElement>('.editor-shell__canvas-dock')
