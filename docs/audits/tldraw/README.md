@@ -173,6 +173,10 @@ these states into one completion flag.
 | Ledger after position 2580 | 2582/2,950 reviewed, covering 6,939 accessible comments; 368 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2571–2580. |
 | Review positions 2581–2590 | 10 issues (#9633–#9699), all 3 retrievable comments. Cross-browser text/render issues, touch share controls, and pointer-release lifecycle were separated from hosted collaboration features. | Atomic ledger import accepted 10 assessments; #9692 is retained as a platform-edge pointer cleanup investigation lead. See `ranges/2581-2590.md`. |
 | Ledger after position 2590 | 2592/2,950 reviewed, covering 6,942 accessible comments; 358 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2581–2590. |
+| Review positions 2591–2600 | 10 issues (#9704–#9719), all 1 retrievable comment. SDK licensing/coverage requests and upstream comments-feature reports were distinguished from Varve capabilities. | Atomic ledger import accepted 10 assessments; comment-pin issues have no Varve equivalent. See `ranges/2591-2600.md`. |
+| Ledger after position 2600 | 2602/2,950 reviewed, covering 6,943 accessible comments; 348 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2591–2600. |
+| Review positions 2601–2610 | 10 issues (#9720–#9729), all 1 retrievable comment. The batch concerns upstream comment anchors, notification state, sidebar/picker interactions, and input behavior; #9722 is confirmed implemented. | Atomic ledger import accepted 10 assessments; these hosted comments features have no direct Varve counterpart. See `ranges/2601-2610.md`. |
+| Ledger after position 2610 | 2612/2,950 reviewed, covering 6,944 accessible comments; 338 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2601–2610. |
 
 ## Validation and continuation
 
