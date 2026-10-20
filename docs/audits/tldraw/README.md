@@ -153,6 +153,10 @@ these states into one completion flag.
 | Ledger after position 2480 | 2482/2,950 reviewed, covering 6,867 accessible comments; 468 remain. | Atomic `ledger-import --assessments` accepted 10 individual issue assessments for positions 2471–2480. |
 | Review positions 2481–2490 | 10 issues (#9223–#9249), all 7 retrievable comments. Unreproduced history/keyboard reports, a version-limited iOS WebKit crash, and upstream feature requests were recorded with their evidence limits. | Atomic ledger import accepted 10 assessments. No local change was inferred. See `ranges/2481-2490.md`. |
 | Ledger after position 2490 | 2492/2,950 reviewed, covering 6,874 accessible comments; 458 remain. | Atomic `ledger-import --assessments` accepted 10 individual issue assessments for positions 2481–2490. |
+| Review positions 2491–2500 | 10 issues (#9255–#9282), all 10 retrievable comments. Worker tooling, dotcom account/UI reports, and an SDK schema edge case were assessed against their product scope; #9282 has no direct Varve analogue. | Atomic ledger import accepted 10 individual assessments. See `ranges/2491-2500.md`. |
+| Ledger after position 2500 | 2502/2,950 reviewed, covering 6,884 accessible comments; 448 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2491–2500. |
+| Review positions 2501–2510 | 10 issues (#9298–#9346), all 5 retrievable comments. Crop improvements, keyboard behavior, workspace accessibility, source maps, and performance proposals were assessed against Varve source and product boundaries. | Atomic ledger import accepted 10 individual assessments; no direct matching viewport-polling or mandatory mount-time pattern-generation path was found. See `ranges/2501-2510.md`. |
+| Ledger after position 2510 | 2512/2,950 reviewed, covering 6,889 accessible comments; 438 remain. | Atomic `ledger-import --assessments` accepted 10 issue assessments for positions 2501–2510. |
 
 ## Validation and continuation
 
