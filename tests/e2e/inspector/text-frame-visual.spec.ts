@@ -93,5 +93,60 @@ test('text frame background renders and a zero-width border persists', async ({
   await page.screenshot({ path: testInfo.outputPath('text-frame-controls-after-reopen.png') });
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.getByRole('treeitem', { name: /Keep this label readable/ }).press('Escape');
+  await page.getByRole('button', { name: 'Fit selection to viewport' }).click();
   await page.screenshot({ path: testInfo.outputPath('text-frame-1024x768.png') });
+});
+
+test('mixed text-frame colors can be normalized across a multi-selection', async ({
+  page,
+}, testInfo) => {
+  await navigateToEditor(page);
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error('Canvas has no bounds');
+
+  for (const [label, x] of [
+    ['First mixed frame', 160],
+    ['Second mixed frame', 340],
+  ] as const) {
+    await page.keyboard.press('t');
+    await page.mouse.click(bounds.x + x, bounds.y + 180);
+    await page.keyboard.insertText(label);
+    await page.keyboard.press('Escape');
+  }
+
+  const first = page.getByRole('treeitem', { name: /First mixed frame/ });
+  const second = page.getByRole('treeitem', { name: /Second mixed frame/ });
+  await first.click();
+  await page.getByRole('switch', { name: 'Add text frame background' }).click();
+  const firstColor = page.getByRole('button', { name: 'Text frame background colour' });
+  await firstColor.click();
+  const firstDialog = page.getByRole('dialog', { name: /pick text frame background colour/i });
+  await firstDialog.getByRole('textbox', { name: 'Hex color' }).fill('#57d0c6');
+  await firstDialog.getByRole('textbox', { name: 'Hex color' }).press('Enter');
+  await firstDialog.getByRole('button', { name: /^done$/i }).click();
+
+  await second.click({ modifiers: ['Control'] });
+  await expect(page.locator('.insp-panel__multi-count')).toBeVisible();
+  await page.getByRole('switch', { name: 'Add text frame background' }).click();
+
+  const mixedColor = page.getByRole('button', { name: 'Text frame background colour' });
+  await expect(mixedColor.locator('.insp-swatch__value')).toHaveText('Mixed');
+  await page.screenshot({ path: testInfo.outputPath('text-frame-multi-selection-mixed.png') });
+  await mixedColor.click();
+  const mixedDialog = page.getByRole('dialog', { name: /pick text frame background colour/i });
+  const hex = mixedDialog.getByRole('textbox', { name: 'Hex color' });
+  await hex.fill('#6A5ACD');
+  await hex.press('Enter');
+  await mixedDialog.getByRole('button', { name: /^done$/i }).click();
+
+  await mixedColor.click();
+  const normalizedDialog = page.getByRole('dialog', { name: /pick text frame background colour/i });
+  await expect(
+    normalizedDialog.getByRole('textbox', {
+      name: 'Hex color',
+    }),
+  ).toHaveValue('#6a5acd');
+  await normalizedDialog.getByRole('button', { name: /^done$/i }).click();
+  await page.screenshot({ path: testInfo.outputPath('text-frame-multi-selection-normalized.png') });
 });

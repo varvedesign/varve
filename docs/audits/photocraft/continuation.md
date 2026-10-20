@@ -1118,3 +1118,68 @@ recorded; this is an implementation/validation update, not a corpus refresh.
   triggers the configured GitHub Pages deployment to `varve.studio`; this
   expected deployment follows the user's earlier instruction to integrate the
   complete batch after all required gates pass.
+
+## 2026-10-20 hosted CI findings and visual-baseline reconciliation
+
+- The exact-SHA integration run for PR #152 (`39384250680`, merge SHA
+  `6010de33594fb4d2468ef99448f72323cfa33b93`, head
+  `ce41c359782ee9e2ae7cf7dc83cb8c14f13fc2d4`) exposed two stale expectations:
+  the GitHub Pages typography screenshot did not include the 308-pixel
+  in-development callout, and the published-schema migration E2E still
+  expected saved schema `2.33` after the text-frame change bumped it to `2.34`.
+  The other completed integration lanes passed, including Rust on Linux,
+  macOS, and Windows; WASM, native desktop on all three platforms; JS; and
+  canvas visual regression. Browser shards 1–24 completed with one shard
+  failing only on the stale `2.33` assertion. The hosted gate is not green and
+  the candidate must not merge until a fresh exact-SHA run passes.
+- Refreshed `apps/website/tests/e2e/visual.spec.ts-snapshots/typography-light-ghpages-linux.png`
+  from the rendered GitHub Pages page and visually inspected the full-page
+  result. Updated the migrated document expectation to `2.34`; the focused
+  migration browser test passed, including save, undo, export, and offline
+  reopen. The GitHub Pages-only 26-case website visual spec passed, including
+  the updated typography page. Both static website builds passed.
+- The initial planner selected nine affected lanes for the two fixes: touched
+  format and lint, emoji audit, E2E and website-E2E typechecks, website
+  typecheck and unit tests, the published-release migration E2E, and the
+  website visual E2E. After this record added the docs audit, the planner
+  selected ten lanes.
+  The complete `pnpm verify:affected` run passed: 308 website unit tests, the
+  migration E2E, all audits and typechecks, and both static builds. An initial
+  26-case visual run passed after refreshing the typography snapshot; a later
+  full rerun found unstable full-element screenshot geometry in the typography
+  and download pages (11047/11048px and 6461/6473px respectively), although
+  their rendered content was unchanged.
+- Both long-page visual cases now use the existing `articleClip` helper with
+  full-page screenshots, fixing integer document-space bounds once the page is
+  settled. This removes the variable locator-stitch dimensions without
+  changing website CSS or clipping content. Their refreshed baselines were
+  visually inspected. The typography and download cases each passed three
+  consecutive runs (6/6). Final affected validation after this adjustment is
+  pending. Full-suite escalation remains `NO` for this snapshot, test
+  expectation, and screenshot-boundary correction.
+- This candidate still needs a fresh PR push checkpoint, full hosted
+  integration run, review, and merge. No main checkout, desktop app, browser
+  tab, or other active worktree was changed or closed.
+- The inspector visual E2E passed 2/2. Added coverage for mixed background
+  colors in a multi-selection, changed the mixed-color presentation into an
+  editable color control, and verified both the mixed and normalized states in
+  captured screenshots. At 1024×768, the canvas now fits the full text frame
+  after resizing rather than capturing a cropped object. Reviewed all four
+  new captures; text and frame edges are visible and the mixed-color control
+  is legible. The visually reviewed workspaces page baseline refresh passed;
+  its 5207px article is intact from the page heading through the Next Steps
+  footer. The full 26-case website visual run passed after the refresh,
+  including the long download, workspaces, and typography pages. The refreshed
+  download, workspaces, and typography full-page screenshots were inspected.
+- Final follow-up validation for this batch:
+  - `pnpm verify:plan`: 19 lanes selected; full-suite escalation `NO`.
+  - `pnpm verify:affected`: formatter/linter and audits passed; all three
+    package typechecks, E2E typechecks, website 308/308 unit tests, desktop
+    90/90 unit tests, migration E2E, and the website build lanes passed. The
+    editor unit lane had two unrelated asynchronous failures in PromptDialog
+    and FloatingToolbar; an exact rerun of those two test files passed 24/24.
+  - Inspector text-frame visual E2E: 2/2 passed. Website visual E2E:
+    26/26 passed after the baseline refresh. `git diff --check` and Biome
+    formatting of the four changed source files passed.
+  - The final docs audit, PR push checkpoint, exact-SHA hosted integration,
+    code review, and merge remain outstanding.

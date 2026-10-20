@@ -17,8 +17,8 @@ export function TextFrameSection({ nodes }: { nodes: SceneNode[] }) {
   const fillValue = commonValue(nodes, (node) =>
     node.kind === 'text' ? node.textFrame?.fill : undefined,
   );
-  const borderValue = commonValue(nodes, (node) =>
-    node.kind === 'text' ? node.textFrame?.border : undefined,
+  const borderColor = commonValue(nodes, (node) =>
+    node.kind === 'text' ? node.textFrame?.border?.color : undefined,
   );
   const borderWidth = commonValue(nodes, (node) =>
     node.kind === 'text' ? node.textFrame?.border?.width : undefined,
@@ -56,10 +56,23 @@ export function TextFrameSection({ nodes }: { nodes: SceneNode[] }) {
               })
             }
           />
-          {fillEnabled && !isMixed(fillValue) && fillValue !== undefined && (
+          {fillEnabled && (isMixed(fillValue) || fillValue !== undefined) && (
             <InspectorColorPopover
               label="Text frame background colour"
-              value={fillValue}
+              value={
+                isMixed(fillValue)
+                  ? (textNodes[0]?.textFrame?.fill ?? DEFAULT_FRAME_FILL)
+                  : fillValue
+              }
+              valueText={isMixed(fillValue) ? 'Mixed' : undefined}
+              swatchStyle={
+                isMixed(fillValue)
+                  ? {
+                      background: 'var(--color-surface-sunken)',
+                      border: '2px solid var(--color-border-strong)',
+                    }
+                  : undefined
+              }
               onChange={(color) =>
                 change('Edit text frame background', (node) => ({
                   ...node,
@@ -71,7 +84,6 @@ export function TextFrameSection({ nodes }: { nodes: SceneNode[] }) {
               documentColorMode={editor.documentColorMode}
             />
           )}
-          {isMixed(fillValue) && <span className="insp-field__mixed">Mixed</span>}
         </div>
       </FieldRow>
       <FieldRow label="Border">
@@ -93,10 +105,23 @@ export function TextFrameSection({ nodes }: { nodes: SceneNode[] }) {
               })
             }
           />
-          {borderEnabled && !isMixed(borderValue) && borderValue !== undefined && (
+          {borderEnabled && (isMixed(borderColor) || borderColor !== undefined) && (
             <InspectorColorPopover
               label="Text frame border colour"
-              value={borderValue.color}
+              value={
+                isMixed(borderColor)
+                  ? (textNodes[0]?.textFrame?.border?.color ?? DEFAULT_FRAME_BORDER)
+                  : borderColor
+              }
+              valueText={isMixed(borderColor) ? 'Mixed' : undefined}
+              swatchStyle={
+                isMixed(borderColor)
+                  ? {
+                      background: 'var(--color-surface-sunken)',
+                      border: '2px solid var(--color-border-strong)',
+                    }
+                  : undefined
+              }
               onChange={(color) =>
                 change('Edit text frame border', (node) => ({
                   ...node,
@@ -111,7 +136,6 @@ export function TextFrameSection({ nodes }: { nodes: SceneNode[] }) {
               documentColorMode={editor.documentColorMode}
             />
           )}
-          {isMixed(borderValue) && <span className="insp-field__mixed">Mixed</span>}
         </div>
       </FieldRow>
       {borderEnabled && (
