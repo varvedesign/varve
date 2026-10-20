@@ -228,3 +228,5 @@ The expected final report includes inventory and discussion totals, pagination
 reconciliation, relevant findings by engineering status, exclusions and their
 reasons, inaccessible evidence, tests and platform/visual evidence, site/docs
 changes, and local/remote integration references.
+| Review positions 2751–2760 | 10 issues (#10430–#10439), all 1 retrievable comment. Upstream-specific handle, bookmark, frame-highlighter, crop, and collaboration reports were compared with Varve; malformed-file isolation is already handled per file, while locked-descendant deletion semantics remain an open product decision. | Atomic ledger import accepted 10 assessments; #10433's comment confirms an upstream product decision. See `ranges/2751-2760.md`. |
+| Ledger after position 2760 | 2762/2,950 reviewed, covering 6,988 accessible comments; 188 remain. | Atomic `ledger-import --assessments` accepted 10 individual issue assessments for positions 2751–2760. |
