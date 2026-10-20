@@ -53,14 +53,57 @@ applies to creation tools and selection-handle resizing. The existing
 Alt-drag duplicate gesture remains unchanged while Select is active. Modifiers
 remain latched until explicitly toggled off.
 
+The Editing controls portal uses the actual `.editor-canvas` as its collision
+boundary. Its height is limited to the space above the floating toolbar and
+its horizontal anchor yields to visible panel launchers, keeping the menu row,
+toolbar, launchers, and side rails reachable. The portal measures its CSS width
+before placement; an inline intrinsic width would expand it and shift it
+across Layers. Docked
+panel Move, collapse, detach, and Layers header controls paint centered 28px surfaces within
+their 44px tablet targets. The tablet workspace switcher uses 32px controls,
+4px gaps, and a 38px card to match the desktop dock's compact rhythm; its
+controls remain above the 24px touch target floor.
+The Layers auto-reveal preference lives in Layer navigation settings. The
+redundant header eye toggle is omitted, including when the panel has content.
+The context menu on a visible Layers row omits the redundant Reveal in Layers
+Panel command; Reveal on Canvas remains available.
+An open responsive drawer hides its own reveal launcher; a Layers or Inspector
+drawer also hides the desktop restore chip. Closing the drawer reveals its
+launcher and returns keyboard focus there.
+At wide tablet sizes the Resources launcher stays on the canvas side of the
+actual Inspector rail, with space for its own 44px target.
+
+The Layers right-click menu uses the editor canvas as its collision region
+when the canvas is present. It opens beside the Layers panel and scrolls within
+the canvas region outside the floating toolbar, preserving the menubar, panel
+controls, and tools. Detached Layers
+windows fall back to their own viewport. Its submenu remains portaled and
+flips at the viewport edge while inheriting the canvas and toolbar bounds.
+
 `tests/e2e/responsive/tablet-toolbar-geometry.spec.ts` forces tablet preference
 with browser touch emulation and checks toolbar bounds, 44px targets, launcher
 collisions, and the open Editing controls popover at 820×520, 899×640,
-900×700, and 1024×768. It also checks that the bounded portal remains in the
-viewport and that the gesture guide can be scrolled into view and hit-tested on
-short windows. Captures of the opened, scrolled, and dismissed states live in
+900×700, and 1024×768. It also checks that the bounded portal remains inside
+the canvas region, avoids the toolbar, launchers, and visible side panels, and that the gesture guide can
+be scrolled into view and hit-tested on short windows. The test measures the
+panel control paint widths, the switcher bar's height, and each mode button's
+width. `tests/e2e/responsive/context-menu-geometry.spec.ts` checks the
+opened, scrolled, and submenu states at 1280×720. Earlier captures
+of the opened, scrolled, and dismissed states live in
 `docs/screenshots/2026-10-19-tablet-toolbar-review/`. This covers browser
 geometry and interaction, not a physical tablet device.
+
+The 2026-10-20 visual review compares the
+[1536px desktop switcher](../screenshots/2026-10-20-responsive-controls/workspace-switcher-desktop-1536.png)
+with the [tablet switcher](../screenshots/2026-10-20-responsive-controls/workspace-switcher-tablet-1536.png),
+shows the [1024px Editing controls popover](../screenshots/2026-10-20-responsive-controls/tablet-toolbar-controls-open-1024.png),
+the [900px open](../screenshots/2026-10-20-responsive-controls/tablet-toolbar-controls-open-900.png)
+and [scrolled](../screenshots/2026-10-20-responsive-controls/tablet-toolbar-controls-scrolled-900.png)
+popover with a clear Resources launcher,
+and records the [bounded Layers menu](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-after.png)
+and its [Masking](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-submenu.png)
+and [bottom-row Color Tag](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-bottom-submenu.png)
+submenus.
 
 The former `min-width: 600px` floor predated drawer mode and caused horizontal
 drift in split-screen; it was removed in `f76d98eb1`.

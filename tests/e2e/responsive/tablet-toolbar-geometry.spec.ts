@@ -51,6 +51,42 @@ test.describe('tablet toolbar geometry', () => {
         const launchers = [...document.querySelectorAll<HTMLElement>('.editor__fab')]
           .filter((element) => getComputedStyle(element).display !== 'none')
           .map(rect);
+        const dock = document.querySelector<HTMLElement>('.workspace-dock__bar');
+        const activeWorkspace = document.querySelector<HTMLElement>(
+          '.workspace-dock__item--active',
+        );
+        const workspaceButtons = [
+          ...document.querySelectorAll<HTMLElement>(
+            '.workspace-dock__item:not(.workspace-dock__item--active), .workspace-dock__more',
+          ),
+        ].filter((element) => getComputedStyle(element).display !== 'none');
+        const moveHandles = [
+          ...document.querySelectorAll<HTMLButtonElement>('.workspace-dock-move-handle'),
+        ]
+          .filter((element) => getComputedStyle(element).visibility !== 'hidden')
+          .map((element) => ({
+            ...rect(element),
+            paintedWidth: Number.parseFloat(getComputedStyle(element, '::before').width),
+          }));
+        const panelActions = [
+          ...document.querySelectorAll<HTMLButtonElement>(
+            '.editor__collapse-btn, .panel-detach-btn',
+          ),
+        ]
+          .filter((element) => getComputedStyle(element).visibility !== 'hidden')
+          .filter((element) => element.getBoundingClientRect().width > 0)
+          .map((element) => ({
+            ...rect(element),
+            paintedWidth: Number.parseFloat(getComputedStyle(element, '::before').width),
+          }));
+        const layersHeaderButtons = [
+          ...document.querySelectorAll<HTMLButtonElement>('.layers-panel__header-btn'),
+        ]
+          .filter((element) => getComputedStyle(element).visibility !== 'hidden')
+          .map((element) => ({
+            ...rect(element),
+            paintedWidth: Number.parseFloat(getComputedStyle(element, '::before').width),
+          }));
         return {
           viewport: { width: innerWidth, height: innerHeight },
           toolbar: toolbarRect,
@@ -58,6 +94,12 @@ test.describe('tablet toolbar geometry', () => {
           toolbarClientWidth: toolbar.clientWidth,
           controls,
           launchers,
+          dock: dock ? rect(dock) : null,
+          activeWorkspace: activeWorkspace ? rect(activeWorkspace) : null,
+          workspaceButtons: workspaceButtons.map(rect),
+          moveHandles,
+          panelActions,
+          layersHeaderButtons,
         };
       });
       console.log(`TABLET-TOOLBAR ${JSON.stringify(geometry, null, 1)}`);
@@ -91,12 +133,77 @@ test.describe('tablet toolbar geometry', () => {
           launcher.bottom > geometry.toolbar.top;
         expect(overlapsToolbar, `panel launcher ${index} overlaps floating toolbar`).toBe(false);
       }
+      expect(geometry.dock).not.toBeNull();
+      expect(geometry.dock!.bottom - geometry.dock!.top).toBeLessThanOrEqual(40);
+      expect(geometry.activeWorkspace).not.toBeNull();
+      expect(geometry.activeWorkspace!.bottom - geometry.activeWorkspace!.top).toBe(32);
+      for (const button of geometry.workspaceButtons) {
+        expect(button.width).toBe(32);
+        expect(button.bottom - button.top).toBe(32);
+      }
+      for (const handle of geometry.moveHandles) {
+        expect(handle.width).toBeLessThanOrEqual(48);
+        expect(handle.paintedWidth).toBe(28);
+      }
+      for (const action of geometry.panelActions) {
+        expect(action.width).toBeLessThanOrEqual(44);
+        expect(action.paintedWidth).toBe(28);
+      }
+      for (const action of geometry.layersHeaderButtons) {
+        expect(action.width).toBeLessThanOrEqual(44);
+        expect(action.paintedWidth).toBe(28);
+      }
       const tabletControls = page.getByRole('button', { name: 'Tablet editing controls' });
       await tabletControls.click();
       const controlsPanel = page.getByRole('dialog', { name: 'Tablet editing controls' });
       await expect(controlsPanel).toBeVisible();
       const controlsPortalBox = await page.locator('.tablet-touch-controls__portal').boundingBox();
       expect(controlsPortalBox).not.toBeNull();
+      const canvasBox = await page.locator('.editor-canvas').boundingBox();
+      expect(canvasBox).not.toBeNull();
+      expect(controlsPortalBox!.x).toBeGreaterThanOrEqual(canvasBox!.x - 1);
+      expect(controlsPortalBox!.y).toBeGreaterThanOrEqual(canvasBox!.y - 1);
+      expect(controlsPortalBox!.x + controlsPortalBox!.width).toBeLessThanOrEqual(
+        canvasBox!.x + canvasBox!.width + 1,
+      );
+      expect(controlsPortalBox!.y + controlsPortalBox!.height).toBeLessThanOrEqual(
+        canvasBox!.y + canvasBox!.height + 1,
+      );
+      expect(
+        controlsPortalBox!.y + controlsPortalBox!.height,
+        'editing controls must leave the floating toolbar reachable',
+      ).toBeLessThanOrEqual(geometry.toolbar.top + 1);
+      for (const [index, launcher] of geometry.launchers.entries()) {
+        const overlaps =
+          controlsPortalBox!.x < launcher.right &&
+          controlsPortalBox!.x + controlsPortalBox!.width > launcher.left &&
+          controlsPortalBox!.y < launcher.bottom &&
+          controlsPortalBox!.y + controlsPortalBox!.height > launcher.top;
+        expect(overlaps, `editing controls obscure panel launcher ${index}`).toBe(false);
+      }
+      const protectedRegions = await page.evaluate(() => {
+        const rect = (element: Element) => {
+          const r = element.getBoundingClientRect();
+          return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+        };
+        return ['.editor__layers-panel', '.editor__inspector-panel']
+          .map((selector) => document.querySelector<HTMLElement>(selector))
+          .filter((element): element is HTMLElement => Boolean(element))
+          .filter((element) => {
+            const style = getComputedStyle(element);
+            const r = element.getBoundingClientRect();
+            return style.display !== 'none' && style.visibility !== 'hidden' && r.width > 0;
+          })
+          .map((element) => ({ selector: `.${element.classList[0]}`, ...rect(element) }));
+      });
+      for (const region of protectedRegions) {
+        const overlaps =
+          controlsPortalBox!.x < region.right &&
+          controlsPortalBox!.x + controlsPortalBox!.width > region.left &&
+          controlsPortalBox!.y < region.bottom &&
+          controlsPortalBox!.y + controlsPortalBox!.height > region.top;
+        expect(overlaps, `editing controls obscure essential ${region.selector}`).toBe(false);
+      }
       const popoverLayer = await page.evaluate(() => {
         const portal = document.querySelector('.tablet-touch-controls__portal');
         if (!portal) throw new Error('missing tablet controls portal');

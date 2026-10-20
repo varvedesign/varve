@@ -80,7 +80,14 @@
   }
 
   :root[data-layout-mode="tablet"] .editor__fab--library {
-    right: calc(var(--inspector-width) + var(--space-3));
+    /* The saved dock can make Inspector wider than --inspector-width. Reserve
+     * the launcher's own width as well so it stays on the canvas side. */
+    right: calc(
+      var(--inspector-width) +
+      var(--editor-panel-launcher-size) +
+      var(--space-3) +
+      var(--space-2)
+    );
   }
 
   :root[data-layout-mode="tablet"][data-tablet-controls-mirrored="true"] .editor__fab--layers {

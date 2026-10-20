@@ -1,5 +1,5 @@
 import { FloatingPortal, Icon, ToggleButton } from '@varve/ui';
-import { useId, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { useEditor } from '../../context';
 import { interactionSession } from '../../tools/InteractionContext';
 import './TabletTouchControls.css';
@@ -14,6 +14,60 @@ const ALIGNMENT_ACTIONS = [
   { label: 'Align bottom', axis: 'bottom' },
 ] as const;
 
+function safePortalPlacement(trigger: HTMLButtonElement | null, canvas: HTMLElement | null) {
+  if (!trigger || !canvas) return null;
+  const ownerDocument = trigger.ownerDocument;
+  const triggerRect = trigger.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+  const launchers = [...ownerDocument.querySelectorAll<HTMLElement>('.editor__fab')]
+    .map((element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return { style, rect };
+    })
+    .filter(
+      ({ style, rect }) =>
+        style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        rect.width > 0 &&
+        rect.left > canvasRect.left + canvasRect.width / 2 &&
+        rect.left < canvasRect.right &&
+        rect.top < triggerRect.top &&
+        rect.bottom > canvasRect.top,
+    );
+  const launcherLeft = launchers.reduce((left, { rect }) => Math.min(left, rect.left), Infinity);
+  const anchorX = Math.min(triggerRect.right, launcherLeft - 8);
+  const safeCanvasLeft = canvasRect.left + 8;
+  const portalWidth = Math.min(340, Math.max(0, canvasRect.width - 16));
+  const predictedRight = Math.max(safeCanvasLeft, anchorX - portalWidth) + portalWidth;
+  const blockingLauncherTop = launchers.reduce(
+    (top, { rect }) => (rect.left < predictedRight ? Math.min(top, rect.top) : top),
+    Infinity,
+  );
+  const anchorY = Math.min(triggerRect.top, blockingLauncherTop - 8);
+  const viewportHeight = ownerDocument.defaultView?.innerHeight ?? 480;
+  return {
+    anchor: {
+      kind: 'point' as const,
+      point: {
+        space: 'viewport' as const,
+        x: anchorX,
+        y: anchorY,
+      },
+      ownerDocument,
+      contextElement: trigger,
+    },
+    maxHeight: Math.max(
+      0,
+      Math.min(
+        Math.floor(viewportHeight * 0.72),
+        Math.floor(triggerRect.top - canvasRect.top - 16),
+        Math.floor(blockingLauncherTop - canvasRect.top - 24),
+      ),
+    ),
+  };
+}
+
 export function TabletTouchControls() {
   const editor = useEditor();
   const isTabletLayout = useTabletLayout();
@@ -23,12 +77,29 @@ export function TabletTouchControls() {
     interactionSession.getControlSnapshot,
   );
   const [open, setOpen] = useState(false);
+  const [, setViewportRevision] = useState(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const controlsId = `tablet-touch-controls-${useId().replace(/:/g, '')}`;
   const guideId = `${controlsId}-gestures`;
   const selectionCount = editor.state.selection.length;
   const hasSelection = selectionCount > 0;
   const canAlign = selectionCount > 1;
+  const collisionBoundary = open
+    ? (triggerRef.current?.ownerDocument.querySelector<HTMLElement>('.editor-canvas') ?? null)
+    : null;
+  const portalPlacement = open ? safePortalPlacement(triggerRef.current, collisionBoundary) : null;
+
+  useEffect(() => {
+    if (!open) return;
+    const view = triggerRef.current?.ownerDocument.defaultView;
+    const update = () => setViewportRevision((current) => current + 1);
+    view?.addEventListener('resize', update);
+    view?.visualViewport?.addEventListener('resize', update);
+    return () => {
+      view?.removeEventListener('resize', update);
+      view?.visualViewport?.removeEventListener('resize', update);
+    };
+  }, [open]);
 
   // The control exists only in the tablet layout. Rendering it off-tablet left
   // a `display: none` node in the palette's trailing cluster, which then had no
@@ -52,11 +123,13 @@ export function TabletTouchControls() {
       </button>
       <FloatingPortal
         anchorRef={triggerRef}
+        anchor={portalPlacement?.anchor}
         open={open}
         placement="top-end"
         fallbackPlacements={['bottom-end', 'top-start', 'bottom-start']}
+        collisionBoundary={collisionBoundary}
         offsetDistance={8}
-        maxHeight={typeof window === 'undefined' ? 480 : Math.floor(window.innerHeight * 0.72)}
+        maxHeight={portalPlacement?.maxHeight ?? 480}
         onClose={() => setOpen(false)}
         dismissOnEscape
         className="tablet-touch-controls__portal"

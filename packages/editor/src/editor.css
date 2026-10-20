@@ -2455,7 +2455,17 @@ input[type="number"] {
 
   .workspace-dock__bar {
     height: auto;
-    min-height: calc(var(--touch-target-min) + 8px);
+    min-height: var(--touch-target-min);
+  }
+
+  .editor-menubar .workspace-dock {
+    --dock-tab-gap: var(--space-1);
+    --dock-inset-inline: var(--space-1);
+    --dock-inset-block: 0px;
+  }
+
+  .editor-menubar .workspace-dock__item--active {
+    padding-inline: var(--space-2);
   }
 
   .workspace-dock__item,
@@ -2478,9 +2488,9 @@ input[type="number"] {
     min-height: 24px;
   }
 
-  /* Keep the whole top chrome on one touch scale. The switcher already grows
-   * to 44px on coarse pointers; menu, home, and history actions should not
-   * remain visually and physically smaller beside it. */
+  /* Keep the whole top chrome on one touch scale. Coarse pointers enlarge
+   * menu, home, and history actions; tablet mode applies a compact measured
+   * switcher geometry below so more modes fit this narrow strip. */
   .editor-menubar .editor-menubar__home,
   .editor-menubar .editor-menubar__item,
   .editor-menubar .editor-menubar__doc-name-text,
@@ -2536,12 +2546,28 @@ html[data-layout-mode="tablet"] .editor-menubar .editor-menubar__item {
   font-size: var(--font-size-xs);
 }
 
-html[data-layout-mode="tablet"] .workspace-dock__bar {
-  min-block-size: calc(var(--touch-target-min) + var(--space-2));
+html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
+  /* Match the desktop dock's 36px icon rhythm (32px control + 4px gap).
+   * The former 44px boxes made the entire segmented control much wider and
+   * taller than its desktop counterpart even after its fill was inset. */
+  --dock-item-size: 32px;
+  --dock-bar-height: 38px;
+  --dock-tab-gap: 4px;
+  --dock-inset-inline: 6px;
+  --dock-inset-block: 2px;
 }
 
-html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
-  --dock-item-size: var(--touch-target-min);
+html[data-layout-mode="tablet"] .workspace-dock__bar {
+  min-block-size: var(--dock-bar-height);
+}
+
+/* A compact 32px target keeps the whole switcher at the desktop visual scale
+ * while exceeding the 24px touch target floor. The 44px rule for toolbar and
+ * panel controls does not fit six adjacent modes inside the menubar. */
+html[data-layout-mode="tablet"] .workspace-dock__item,
+html[data-layout-mode="tablet"] .workspace-dock__more {
+  min-inline-size: var(--dock-item-size);
+  min-block-size: var(--dock-item-size);
 }
 
 /* ── Container queries for panels ── */
@@ -3702,6 +3728,62 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
 .editor__collapse-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
+}
+
+/* Panel header actions share the Move control's compact painted surface.
+ * Their 44px tablet boxes remain available for touch and drag. */
+html[data-layout-mode="tablet"] .editor__collapse-btn,
+html[data-layout-mode="tablet"] .panel-detach-btn {
+  position: relative;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+html[data-layout-mode="tablet"] .editor__collapse-btn::before,
+html[data-layout-mode="tablet"] .panel-detach-btn::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: 28px;
+  block-size: 28px;
+  transform: translate(-50%, -50%);
+  background: var(--elevation-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  pointer-events: none;
+}
+
+html[data-layout-mode="tablet"] .editor__collapse-btn:hover,
+html[data-layout-mode="tablet"] .panel-detach-btn:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+html[data-layout-mode="tablet"] .editor__collapse-btn:hover::before,
+html[data-layout-mode="tablet"] .panel-detach-btn:hover:not(:disabled)::before {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
+
+html[data-layout-mode="tablet"] .panel-detach-btn:disabled:not([data-transferring="true"])::before {
+  background: var(--color-interactive-disabled);
+  border-color: var(--color-border-subtle);
+}
+
+html[data-layout-mode="tablet"] .panel-detach-btn[data-transferring="true"]::before {
+  background: var(--color-surface-sunken);
+}
+
+html[data-layout-mode="tablet"] .panel-detach-btn--error::before {
+  border-color: var(--color-feedback-danger);
+}
+
+html[data-layout-mode="tablet"] .editor__collapse-btn > *,
+html[data-layout-mode="tablet"] .panel-detach-btn > * {
+  position: relative;
 }
 
 /* ── Collapsed panel state ── */
@@ -7526,4 +7608,16 @@ dialog.varve-dialog--workspace-customize[open] {
       var(--space-2)
     );
   }
+}
+
+/* A drawer can be opened while its persisted desktop rail is collapsed.
+ * Once it is visible, its launcher and the desktop restore chip are duplicate
+ * controls over the canvas. The drawer's own Close button remains available;
+ * closing it reveals and refocuses the launcher. */
+.editor-shell:has(.editor__layers-panel[data-visible]) .editor__fab--layers,
+.editor-shell:has(.editor__layers-panel[data-visible]) .editor__panel-restore-btn--left,
+.editor-shell:has(.editor__inspector-panel[data-visible]) .editor__fab--inspector,
+.editor-shell:has(.editor__inspector-panel[data-visible]) .editor__panel-restore-btn--right,
+.editor-shell:has(.editor__library-panel[data-visible]) .editor__fab--library {
+  display: none;
 }

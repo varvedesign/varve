@@ -91,8 +91,6 @@ function baseArgs(
     handleSelectAllOfType: vi.fn(),
     handleSoloFromMenu: vi.fn(),
     handleCanvasNavigation: vi.fn(),
-    revealSelectionInPanel: vi.fn(),
-    enableAutoReveal: vi.fn(),
     addMaskToSelected: vi.fn(),
     removeMaskFromSelected: vi.fn(),
     toggleMask: vi.fn(),
@@ -135,6 +133,12 @@ function findAction(items: readonly MenuEntry[], id: string): MenuItem | undefin
 }
 
 describe('buildLayerContextMenuItems — state-aware commands', () => {
+  it('does not offer a reveal-in-Layers command on an already visible row', () => {
+    const items = buildLayerContextMenuItems(baseArgs(makeNode('shape-1', 'Shape')));
+    expect(findItem(items, 'reveal-layers')).toBeUndefined();
+    expect(findAction(items, 'reveal-canvas')?.label).toBe('Reveal on Canvas');
+  });
+
   it('offers Guide Layouts for frame rows when a handler is provided', () => {
     const frame = makeNode('frame-1', 'Frame', 'frame');
     const handleOpenGuideLayoutsFromMenu = vi.fn();

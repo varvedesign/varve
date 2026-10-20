@@ -95,6 +95,8 @@ export interface FloatingPortalProps {
   matchAnchorWidth?: boolean;
   /** Optional element that bounds collision handling inside a workspace region. */
   collisionBoundary?: Element | null;
+  /** Visible chrome whose occupied vertical band is excluded from that region. */
+  avoidElement?: Element | null;
   /** Called when user clicks outside the floating layer. */
   onClose?: (reason: OverlayCloseReason) => void;
   /** Additional portaled descendants that count as inside for outside-click handling. */
@@ -163,7 +165,6 @@ function hiddenStyle(
     position: 'fixed',
     left: 0,
     top: 0,
-    width: 'max-content',
     maxHeight: maxHeight === undefined ? undefined : Math.max(0, maxHeight),
     boxSizing: 'border-box',
     visibility: 'hidden',
@@ -198,6 +199,46 @@ function floatingLayoutSize(floating: HTMLElement): { width: number; height: num
   return {
     width: floating.offsetWidth || rect.width,
     height: floating.offsetHeight || rect.height,
+  };
+}
+
+function collisionRegionOutsideChrome(
+  ownerDocument: Document,
+  boundary: Element | null | undefined,
+  avoidElement: Element | null | undefined,
+) {
+  const region = resolveCollisionRegion(ownerDocument, boundary, SAFE_VIEWPORT_PADDING);
+  if (!avoidElement?.isConnected || avoidElement.ownerDocument !== ownerDocument) return region;
+  const chrome = avoidElement.getBoundingClientRect();
+  if (
+    !Number.isFinite(chrome.top) ||
+    !Number.isFinite(chrome.bottom) ||
+    chrome.height <= 0 ||
+    chrome.right <= region.rect.left ||
+    chrome.left >= region.rect.right ||
+    chrome.top >= region.rect.bottom ||
+    chrome.bottom <= region.rect.top
+  ) {
+    return region;
+  }
+
+  const gap = 8;
+  const above = Math.min(region.rect.bottom, chrome.top - gap) - region.rect.top;
+  const below = region.rect.bottom - Math.max(region.rect.top, chrome.bottom + gap);
+  if (Math.max(above, below) <= 0) return region;
+  const top = below > above ? chrome.bottom + gap : region.rect.top;
+  const bottom = below > above ? region.rect.bottom : chrome.top - gap;
+  const rect = { ...region.rect, top, bottom, height: bottom - top };
+  // Floating UI accepts a viewport Rect as a boundary. Re-expand the padded
+  // safe rectangle so its own 8px middleware padding resolves to this region.
+  return {
+    rect,
+    boundary: {
+      x: rect.left - SAFE_VIEWPORT_PADDING,
+      y: rect.top - SAFE_VIEWPORT_PADDING,
+      width: rect.width + 2 * SAFE_VIEWPORT_PADDING,
+      height: rect.height + 2 * SAFE_VIEWPORT_PADDING,
+    },
   };
 }
 
@@ -250,6 +291,7 @@ export function FloatingPortal({
   scrollOwner = 'portal',
   matchAnchorWidth = false,
   collisionBoundary,
+  avoidElement,
   onClose,
   insideRefs,
   kind = 'popover',
@@ -436,10 +478,10 @@ export function FloatingPortal({
     );
     const update = () => {
       if (cancelled || generation !== generationRef.current || !floating.isConnected) return;
-      const collisionRegion = resolveCollisionRegion(
+      const collisionRegion = collisionRegionOutsideChrome(
         ownerDocument,
         collisionBoundary,
-        SAFE_VIEWPORT_PADDING,
+        avoidElement,
       );
       computePosition(reference, floating, {
         strategy: 'fixed',
@@ -592,10 +634,10 @@ export function FloatingPortal({
           if (cancelled || generation !== generationRef.current || !open || !floating.isConnected) {
             return;
           }
-          const fallbackRegion = resolveCollisionRegion(
+          const fallbackRegion = collisionRegionOutsideChrome(
             ownerDocument,
             collisionBoundary,
-            SAFE_VIEWPORT_PADDING,
+            avoidElement,
           );
           const fallback = fallbackPosition(
             reference,
@@ -709,6 +751,7 @@ export function FloatingPortal({
     zIndex,
     matchAnchorWidth,
     collisionBoundary,
+    avoidElement,
     logicalPlacement,
     overlayId,
     kind,

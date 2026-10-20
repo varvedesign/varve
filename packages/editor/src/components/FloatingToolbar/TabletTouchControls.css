@@ -23,11 +23,15 @@
 
 .tablet-touch-controls__portal {
   width: min(340px, calc(100vw - 16px));
+  min-width: 0;
   box-sizing: border-box;
 }
 
 .tablet-touch-controls__panel {
   display: grid;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   gap: var(--space-2);
   /* FloatingPortal owns the collision height and scroll container. Letting
    * this child inherit the same max-height created a nested scroller and
@@ -49,6 +53,7 @@
 .tablet-touch-controls__grid,
 .tablet-touch-controls__section {
   display: grid;
+  min-width: 0;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-1);
 }
