@@ -25,6 +25,9 @@ overrides:
   # in mocha (wdio) worker-pool serializer. 7.x output remains valid for
   # mocha's eval-based deserialization of options objects.
   "serialize-javascript": 7.1.0
+  # GHSA-698v-4r3x-3vcv: vite < 8.2.4 fails to escape % in Windows editor
+  # launch arguments. Keep Astro's peer instance and direct Vite installs patched.
+  "vite": 8.2.4
   # brace-expansion DoS advisories affect the WDIO/Stryker minimatch chains.
   "brace-expansion@1": 1.1.21
   "brace-expansion@2": 2.1.7
