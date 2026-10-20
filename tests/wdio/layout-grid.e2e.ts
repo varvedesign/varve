@@ -1,7 +1,7 @@
 /// <reference types="@wdio/globals/types" />
 
 import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { basename, dirname, extname, join } from 'node:path';
 import { expect } from '@wdio/globals';
 import type {} from '@wdio/tauri-service';
 
@@ -121,18 +121,50 @@ describe('Tauri layout grid workflow', () => {
       });
     };
 
-    const first = await readSelectedCard('Rectangle 1');
-    const second = await readSelectedCard('Rectangle 2');
-    expect(Math.abs(first.width - second.width)).toBeLessThan(2);
-    expect(second.x).toBeGreaterThan(first.x + first.width + 4);
-    expect(Math.abs(first.y - second.y)).toBeLessThan(2);
     expect(
       await browser
         .$('.first-run-content')
         .isDisplayed()
         .catch(() => false),
     ).toBe(false);
-
-    await browser.saveScreenshot(screenshotPath);
+    const screenshotBase = basename(screenshotPath, extname(screenshotPath));
+    for (const [width, height] of [
+      [900, 600],
+      [1280, 800],
+      [1600, 1000],
+    ] as const) {
+      await browser.setWindowSize(width, height);
+      await browser.pause(500);
+      const first = await readSelectedCard('Rectangle 1');
+      const second = await readSelectedCard('Rectangle 2');
+      if (width === 900) {
+        await browser.execute(() => {
+          const panel = document.querySelector<HTMLElement>('.editor-inspector > .insp-panel');
+          const heading = document.querySelector<HTMLElement>('.insp-grid-placement__title');
+          if (!panel || !heading) throw new Error('grid placement section is missing');
+          panel.scrollTop +=
+            heading.getBoundingClientRect().top - panel.getBoundingClientRect().top;
+        });
+        const placementVisible = await browser.execute(() => {
+          const panel = document.querySelector<HTMLElement>('.editor-inspector > .insp-panel');
+          const heading = document.querySelector<HTMLElement>('.insp-grid-placement__title');
+          if (!panel || !heading) return false;
+          const panelRect = panel.getBoundingClientRect();
+          const headingRect = heading.getBoundingClientRect();
+          return headingRect.top >= panelRect.top && headingRect.bottom <= panelRect.bottom;
+        });
+        expect(placementVisible).toBe(true);
+        await browser.execute(() => {
+          const panel = document.querySelector<HTMLElement>('.editor-inspector > .insp-panel');
+          if (panel) panel.scrollTop = 0;
+        });
+      }
+      expect(Math.abs(first.width - second.width)).toBeLessThan(2);
+      expect(second.x).toBeGreaterThan(first.x + first.width + 4);
+      expect(Math.abs(first.y - second.y)).toBeLessThan(2);
+      await browser.saveScreenshot(
+        join(dirname(screenshotPath), `${screenshotBase}-${width}x${height}.png`),
+      );
+    }
   });
 });
