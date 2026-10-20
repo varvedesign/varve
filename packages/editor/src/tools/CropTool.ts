@@ -288,8 +288,15 @@ export class CropTool extends BaseTool {
     return false;
   }
 
-  /** Ignore canvas pointer so overlay can capture handle drags. */
-  override onPointerDown(): { consumed: boolean } {
+  /** Let the crop overlay own its handles; outside clicks accept and exit. */
+  override onPointerDown(e: PointerEvent, ctx: ToolContext): { consumed: boolean } {
+    const world = ctx.canvasToWorld(e.clientX, e.clientY);
+    const hit = ctx.hitTest(world);
+    if (hit?.nodeId === this.nodeId) return { consumed: true };
+
+    if (this.cropState && this.commitHandler) this.commitHandler(this.cropState);
+    ctx.setTool('select');
+    ctx.setSelection(hit?.nodeId ?? null);
     return { consumed: true };
   }
 

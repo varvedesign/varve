@@ -26,6 +26,8 @@ function makeCtx(overrides: Record<string, unknown> = {}) {
     isolatedNodeId: null,
     setTool: vi.fn(),
     announce: vi.fn(),
+    canvasToWorld: vi.fn((x: number, y: number) => ({ x, y })),
+    hitTest: vi.fn(() => null),
     getNode: (id: string) => doc.nodes[id],
     setSelection: vi.fn(),
     ...overrides,
@@ -114,6 +116,49 @@ describe('CropTool', () => {
     const called = commit.mock.calls[0]![0]!;
     expect(called.viewport).toEqual({ x: 10, y: 10, w: 80, h: 40 });
     expect(ctx.setTool).toHaveBeenCalledWith('select');
+  });
+
+  it('keeps crop mode active when a pointer starts on the cropped shape', () => {
+    const tool = new CropTool();
+    const ctx = makeCtx({ hitTest: vi.fn(() => ({ nodeId: 'i1', node: {} })) });
+    tool.onActivate(ctx as never);
+
+    expect(
+      tool.onPointerDown({ clientX: 12, clientY: 34 } as PointerEvent, ctx as never).consumed,
+    ).toBe(true);
+    expect(ctx.setTool).not.toHaveBeenCalled();
+    expect(ctx.setSelection).not.toHaveBeenCalled();
+  });
+
+  it('commits crop and selects a different shape from one outside click', () => {
+    const tool = new CropTool();
+    const other = makeImageShapeNode('i2', { src: 'data:image/png;base64,AA', w: 40, h: 40 });
+    const ctx = makeCtx({
+      hitTest: vi.fn(() => ({ nodeId: 'i2', node: other })),
+    });
+    const commit = vi.fn();
+    tool.setCommitHandler(commit);
+    tool.onActivate(ctx as never);
+
+    tool.onPointerDown({ clientX: 12, clientY: 34 } as PointerEvent, ctx as never);
+
+    expect(commit).toHaveBeenCalledWith(tool.getCropState());
+    expect(ctx.setTool).toHaveBeenCalledWith('select');
+    expect(ctx.setSelection).toHaveBeenCalledWith('i2');
+  });
+
+  it('commits crop, exits, and clears selection when clicking empty canvas', () => {
+    const tool = new CropTool();
+    const ctx = makeCtx();
+    const commit = vi.fn();
+    tool.setCommitHandler(commit);
+    tool.onActivate(ctx as never);
+
+    tool.onPointerDown({ clientX: 12, clientY: 34 } as PointerEvent, ctx as never);
+
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(ctx.setTool).toHaveBeenCalledWith('select');
+    expect(ctx.setSelection).toHaveBeenCalledWith(null);
   });
 
   it('activates select when selection is empty', () => {

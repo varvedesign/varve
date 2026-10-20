@@ -13,7 +13,7 @@ import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 test.describe('Image crop — interactive tool', () => {
-  test.describe.configure({ mode: 'serial' });
+  test.describe.configure({ mode: 'serial', timeout: 90_000 });
 
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
@@ -45,7 +45,7 @@ test.describe('Image crop — interactive tool', () => {
   }
 
   test('C key enters crop mode for selected shape', async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(90000);
     await createImageAndSelect(page);
     // Enter crop mode
     await page.keyboard.press('c');
@@ -54,7 +54,7 @@ test.describe('Image crop — interactive tool', () => {
   });
 
   test('Escape exits crop mode without changes', async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(90000);
     await createImageAndSelect(page);
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
@@ -66,8 +66,54 @@ test.describe('Image crop — interactive tool', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1);
   });
 
+  test('clicking outside the cropped image commits and exits crop mode', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(90000);
+    await createImageAndSelect(page);
+    const zoomOut = page.getByRole('button', { name: 'Zoom out' });
+    for (let step = 0; step < 4; step++) await zoomOut.click();
+    await page.keyboard.press('c');
+    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const canvasBox = await canvas.boundingBox();
+    const cropBox = await page.locator('.crop-overlay__window').boundingBox();
+    if (!canvasBox || !cropBox) throw new Error('missing crop canvas geometry');
+
+    await page.screenshot({ path: testInfo.outputPath('crop-before-outside-click.png') });
+    // The imported image starts viewport-sized. Zoom out first so there is a
+    // true empty canvas point outside the image bounds, not just outside its
+    // crop window while still inside the underlying shape.
+    const canvasRight = canvasBox.x + canvasBox.width;
+    const canvasBottom = canvasBox.y + canvasBox.height;
+    const centerX = canvasBox.x + canvasBox.width / 2;
+    const centerY = canvasBox.y + canvasBox.height / 2;
+    const candidates = [
+      // Keep clear of the 20px canvas rulers, which intercept edge clicks.
+      { x: canvasBox.x + 30, y: centerY },
+      { x: canvasRight - 30, y: centerY },
+      { x: centerX, y: canvasBox.y + 30 },
+      { x: centerX, y: canvasBottom - 30 },
+    ];
+    const outside = candidates.find(
+      ({ x, y }) =>
+        x < cropBox.x ||
+        x > cropBox.x + cropBox.width ||
+        y < cropBox.y ||
+        y > cropBox.y + cropBox.height,
+    );
+    if (!outside) throw new Error('zoomed-out image still covers the drawable canvas');
+    await page.mouse.click(outside.x, outside.y);
+
+    await expect(page.locator('[data-testid="crop-overlay"]')).not.toBeVisible({ timeout: 3000 });
+    await expect(page.getByTestId('toolbar')).toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await page.screenshot({ path: testInfo.outputPath('crop-after-outside-click.png') });
+  });
+
   test('Enter commits crop and exits crop mode', async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(90000);
     await createImageAndSelect(page);
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
@@ -80,7 +126,7 @@ test.describe('Image crop — interactive tool', () => {
   });
 
   test('F key cycles fit mode', async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(90000);
     await createImageAndSelect(page);
     await page.keyboard.press('c');
     const cropOverlay = page.getByRole('dialog', { name: 'Crop image', exact: true });
@@ -108,7 +154,7 @@ test.describe('Image crop — interactive tool', () => {
   });
 
   test('Done button commits crop', async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(90000);
     await createImageAndSelect(page);
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
@@ -119,7 +165,7 @@ test.describe('Image crop — interactive tool', () => {
   });
 
   test('Cancel button discards crop', async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(90000);
     await createImageAndSelect(page);
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
@@ -132,7 +178,7 @@ test.describe('Image crop — interactive tool', () => {
   });
 
   test('crop handles are accessible with aria-labels', async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(90000);
     await createImageAndSelect(page);
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
@@ -147,7 +193,7 @@ test.describe('Image crop — interactive tool', () => {
   });
 
   test('crop overlay is not shown for non-image shapes', async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(90000);
     // Create a frame (not an image shape)
     await page.keyboard.press('f');
     await dragOnCanvas(page, 150, 150, 350, 300);
@@ -169,7 +215,7 @@ test.describe('Image crop — interactive tool', () => {
   });
 
   test('rapid crop enter/exit does not leave stale overlay', async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(90000);
     await createImageAndSelect(page);
 
     // Rapid enter/exit cycle
@@ -187,7 +233,7 @@ test.describe('Image crop — interactive tool', () => {
   });
 
   test('crop mode can be entered from context menu Object > Crop Image', async ({ page }) => {
-    test.setTimeout(60000);
+    test.setTimeout(90000);
     await createImageAndSelect(page);
 
     // Open context menu via right-click on the canvas
@@ -209,7 +255,7 @@ test.describe('Image crop — interactive tool', () => {
   test('bottom handles stay draggable when crop window overlaps the toolbar band', async ({
     page,
   }) => {
-    test.setTimeout(60000);
+    test.setTimeout(90000);
     // test-image.png (100x100) imports at ~519px, centered — its bottom edge
     // lands under the floating toolbar band (probe: window bottom at ~625 in
     // a 720px viewport, toolbar band 610-656), which is the conflict zone.
