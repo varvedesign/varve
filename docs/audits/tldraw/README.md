@@ -147,6 +147,8 @@ these states into one completion flag.
 
 | Review positions 2401–2450 | 50 issues (#9032–#9138), all 32 retrievable comments. Confirmed fixes, dotcom Sentry/operations reports, browser compatibility concerns, and SDK requests were separated. | Atomic ledger import accepted 50 individual assessments; no Varve behavior change was made from this evidence alone. See `ranges/2401-2450.md`. |
 | Ledger after position 2450 | 2452/2,950 reviewed, covering 6,847 accessible comments; 498 remain. | Atomic `ledger-import --assessments` accepted 50 individual reviews for positions 2401–2450. |
+| Review positions 2451–2470 | 20 issues (#9143–#9197), all 16 retrievable comments. Workspace, tablet-input, validator, and upstream dotcom design-system reports were separated from Varve evidence. | Atomic ledger import accepted 20 individual assessments; #9178 was checked against Varve packages, with no analogous validator API found. See `ranges/2451-2470.md`. |
+| Ledger after position 2470 | 2472/2,950 reviewed, covering 6,863 accessible comments; 478 remain. | Atomic `ledger-import --assessments` accepted 20 individual issue assessments for positions 2451–2470. |
 
 ## Validation and continuation
 
