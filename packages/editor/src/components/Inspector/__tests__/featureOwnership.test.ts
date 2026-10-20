@@ -45,6 +45,7 @@ describe('Inspector feature ownership', () => {
         'image-resolution',
         'image-perspective',
         'typography',
+        'text-frame',
         'callout',
         'layer-states',
         'text-on-path',

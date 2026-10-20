@@ -274,6 +274,44 @@ describe('scene raster masks', () => {
 });
 
 describe('scene text render geometry', () => {
+  it('persists frame appearance through save and reload', () => {
+    const node = makeTextNode('text-frame-persisted', 'Visible label', {
+      textResizing: 'fixed',
+      w: 140,
+      h: 44,
+    });
+    node.textFrame = {
+      fill: { space: 'rgb', r: 250, g: 249, b: 240, a: 255 },
+      border: { color: { space: 'rgb', r: 20, g: 30, b: 40, a: 255 }, width: 2 },
+    };
+    const decoded = DocumentCodec.decode(
+      DocumentCodec.encode(addNode(createDocument('Text frame'), node)),
+    );
+
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.document.nodes[node.id]).toMatchObject({ textFrame: node.textFrame });
+  });
+
+  it('carries text-frame paint separately from glyph paint', () => {
+    const node = makeTextNode('text-frame', 'Label', { w: 120, h: 40, textResizing: 'fixed' });
+    node.textFrame = {
+      fill: { space: 'rgb', r: 250, g: 249, b: 240, a: 255 },
+      border: { color: { space: 'rgb', r: 20, g: 30, b: 40, a: 255 }, width: 0 },
+    };
+
+    const converted = sceneNodeToEngineNode(node);
+    expect(converted.shape).toMatchObject({
+      kind: 'text',
+      textFrame: {
+        fill: { r: 250, g: 249, b: 240 },
+        border: { color: { r: 20, g: 30, b: 40 }, width: 0 },
+      },
+    });
+    expect(converted.fill).toEqual(node.fill);
+    expect(converted.strokes).toEqual(node.strokes);
+  });
+
   it.each([
     ['autoWidth', 'point'],
     ['autoHeight', 'area'],

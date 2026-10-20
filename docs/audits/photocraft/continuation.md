@@ -932,3 +932,265 @@ Escalations: none. The initial affected editor Vitest lane hit ENOSPC after 893 
 Full suite run: no.
 If yes, reason: n/a.
 ```
+
+## 2026-10-19 post-cutoff issue reconciliation — zoom settling
+
+- Re-read PdfCraft [#3266](https://github.com/storytold/pdfcraft/issues/3266)
+  after the cutoff-C snapshot. The issue is now closed by merged
+  [PR #3350](https://github.com/storytold/pdfcraft/pull/3350), commit
+  `9d23505`. The PR description confirms the page jump came from a zoom-anchor
+  scroll offset beyond the reader's content bounds; the UI toolkit clamped it
+  only after drawing the frame.
+- Varve's authoring canvas has no corresponding page-scroll bounds. Its
+  `zoomAboutPoint` solves pan from the world anchor, its wheel handler previews
+  each camera update directly, and the repository already tests anchor
+  preservation at unit and browser levels. This PdfCraft reader-specific
+  failure was not reproduced or mapped to a Varve defect. Findings §4.28 and
+  the recursive link frontier now include the merged source fix and this
+  product-boundary assessment. The frozen cutoff-C disposition remains intact.
+- The full research and engineering queue remains open: cutoff A still has
+  408 `screened-for-varve` records, cutoff B has 37, and cutoff C has four
+  additional `screened-for-varve` records after the zoom item was resolved as
+  an existing invariant / product-model difference. Recursive linked evidence,
+  user artifacts, and queued Varve workflows remain outstanding; this update
+  does not claim complete corpus review.
+
+## 2026-10-19 post-cutoff issue reconciliation — text-frame styling
+
+- Current source issue pages show PdfCraft #3284 and #3317 closed by merged
+  PR #3366 (`e503324`). The PR adds FreeText `/C` background persistence,
+  callout and text-box border width including zero, saved tool defaults,
+  appearance regeneration and automation editing. The report says the need is
+  readable callouts over floor-plan lines; both issue comments describe the
+  same two style controls. The merged source change, review note and merge
+  event were inspected. Source tests are recorded as source-project evidence,
+  not as Varve validation.
+- Varve already styles callout body shapes through standard fills/strokes, but
+  a generic TextNode has no frame fill or frame border; its node fills and
+  strokes paint glyphs. This remains a relevant Varve feature candidate, not
+  an established defect or an out-of-scope exclusion. Findings §4.29 records
+  the required end-to-end acceptance across persistence, text geometry,
+  editor controls, Canvas2D/native/WASM rendering and PDF export. Existing
+  marketing copy makes no text-frame styling claim, so no marketing text was
+  changed before the capability exists and is visually verified.
+- Current source-state follow-ups for #3284/#3317 are recorded separately in
+  `issue-ledger-post-cutoff-c-updates.jsonl`; frozen cutoff-C rows remain
+  unchanged. The next engineering slice is to implement and validate a
+  distinct frame-fill/frame-border property without changing glyph styling or
+  legacy document appearance. This requires updating the scene schema and
+  native/print bridges; do not merge it without migration/serialization and
+  visual evidence.
+- The first implementation slice now adds additive text-frame background and
+  border styling across scene schema, canvas replay, native/WASM transport,
+  SVG/PDF export, and Inspector controls. Schema 2.34 preserves unstyled v2.33
+  text. The affected plan currently selects 74 lanes and escalates to the full
+  gate because of the cross-package serialized/render contract. Targeted Rust
+  tests passed (varve-bridge 10, varve-core 76, varve-engine 9, varve-print
+  199); print-crate Clippy and the focused SVG suite pass. Canvas/Inspector
+  affected validation, other changed-crate Clippy, browser visual E2E,
+  native/WASM, and the exact-SHA full gate remain pending. The PDF probe was
+  independently rasterized and inspected, with searchable text confirmed.
+  Docs, emoji, token, and radius audits pass.
+  `audit:spacing` reported 16 raw values only in two
+  untouched files; `git diff --exit-code HEAD` confirmed no changes to those
+  files or the baseline. SVG paint order and per-paint opacity parity with
+  Canvas/PDF have also been added to the output matrix and focused tests.
+  Browser screenshot capture
+  was adjusted so the saved/reopened example retains the visible background.
+  The website now marks text-frame styling as In development and links to its
+  unreleased changelog entry; it does not imply availability in v0.5.1. Five
+  checked-in website demo documents were regenerated for schema 2.34; all 307
+  website unit tests and the 199-file Astro check pass, and the static website
+  builds 126 routes. Desktop/mobile website screenshot inspection remains
+  queued with the app's visual E2E behind the shared lease. The Text Frame
+  marketing claim remains limited to in-development status until supported
+  output paths pass and screenshots are inspected.
+- The review checkout is `/tmp/varve-photocraft-continuation` on
+  `codex/pdfcraft-zoom-reconciliation-20261019`; the working tree contains the
+  uncommitted implementation plus the earlier local zoom/docs commits. The
+  baseline full-gate and push checkpoints are documented above. Do not touch
+  the main checkout or reclaim another worktree's live lease.
+- Website deployment review: `.github/workflows/website-deploy.yml` runs on a
+  push to `master` when website or editor/engine/scene source paths change, and
+  deploys GitHub Pages to `varve.studio`. A marketing-page change plus the
+  requested master merge will therefore trigger public deployment. Keep the
+  site edit staged with the verified feature and resolve the deployment
+  authorization before the merge if the existing merge authorization does not
+  cover that automatic consequence.
+- The earlier `b9a8794f2` zoom-evidence commit remains local because the exact
+  push-target snapshot could not be created at 100% disk use. Once enough
+  shared space is available, rerun the push checkpoint and publish that branch
+  before opening its PR; do not skip the checkpoint.
+
+## 2026-10-20 continuation — shared visual lease handoff
+
+- The original canvas E2E owner (PID 2412632) completed. Before the queued
+  text-frame spec acquired the slot, another worktree started the canvas
+  affected closure under PID 2721630. Its Playwright worker (PID 2874195) was
+  still consuming CPU at the last check. The desktop app and that worktree were
+  left untouched. The prior waiter left no text-frame screenshot or test
+  report, so the visual check remains unrun. The current foreground queue waits
+  for the active `/dev/shm/hutch-publication-readiness` Playwright run and
+  another worktree's `pnpm verify:affected`, then enters the heavy-task lease
+  with a four-hour timeout. The active processes were left untouched.
+- This handoff has not changed the implementation. The focused 10-file JS
+  batch contained 378 tests; the 12 SVG cases passed after correcting their
+  fixed-height/page-background fixture assumptions, and the other 366 tests
+  passed in the initial run. The SVG suite passed again after correcting its
+  opacity contract to match Canvas/PDF (12/12). Other passing checks: 307 website tests,
+  changed-scope TypeScript checks, the 126-route website build, targeted Rust
+  tests, and docs/emoji/token/radius audits. Spacing audit reports 16 raw-value
+  drifts in two files unchanged from the review base. Print-crate Clippy passed;
+  other affected Rust Clippy lanes, native/WASM integration, browser visual
+  checks for the app and website, and
+  `pnpm verify:affected` remain outstanding. The independent PDF probe compiled
+  and ran, was rasterized by Poppler, and preserved searchable text; its
+  visually inspected output is saved at
+  `evidence/text-frame-pdf-render.png` (SHA-256
+  `dbe164ef571e91075deb60abbe483681ec0a58b48a59f60428dcb5593933cabd`). Ten
+  diagonal, floor-plan-like strokes behind the text frame confirm that its
+  fill masks busy artwork within the frame.
+
+### Agent Validation Report — zoom-settle reconciliation
+
+```text
+Changed scope: PdfCraft cutoff-C findings, recursive link frontier, and continuation record; documentation only.
+Validation plan: pnpm verify:plan selected format:touched, lint:touched, audit:emoji, and audit:docs; FULL-SUITE NO.
+Commands actually run: pnpm verify:plan; pnpm verify:affected; git diff --check.
+Passed: affected validation (emoji and docs audits; format/lint correctly skipped because no compatible source files changed); diff whitespace check; source issue and merged PR reviewed; existing camera unit and browser test paths inspected.
+Skipped as unrelated: application tests and visual E2E were not rerun because this batch changes only audit documentation and records existing coverage.
+Escalations: none. Full suite run: no.
+```
+
+## 2026-10-20 text-frame visual and validation update
+
+- App visual E2E completed under the shared heavy-task lease:
+  `VARVE_LEASE_TIMEOUT=14400000 node scripts/quality/heavy-lease.mjs 'PdfCraft text-frame visual regression' -- npx playwright test tests/e2e/inspector/text-frame-visual.spec.ts --project=chromium --workers=1 --reporter=list` — 1 passed. It creates the frame styling, saves and reopens the document, verifies the enabled fill and zero-width border persist, then captures desktop and 1024×768 views. Both captures were visually inspected; the latter confirms Inspector controls and canvas remain visible at compact width. Evidence and SHA-256 values are indexed in findings §4.29.
+- Marketing visual E2E completed under the shared lease:
+  `VARVE_LEASE_TIMEOUT=14400000 node scripts/quality/heavy-lease.mjs 'PdfCraft typography marketing visual regression' -- pnpm exec playwright test -c playwright.website.config.ts apps/website/tests/e2e/font-provider-marketing.spec.ts --project=ghpages --workers=1 --reporter=list` — 2 passed. Desktop and 390×844 mobile full-page captures were inspected; the development-status callout is legible and the page stays within the mobile viewport width. The source copy clearly says the feature is not in a released build. Captures and hashes are in findings §4.29.
+- Both `pnpm build:website` and `pnpm build:website:pages` completed; website output includes 126 routes. Website and website-E2E typechecks passed. Targeted Rust tests for bridge/core/engine/print and changed-crate Clippy passed; `cargo test -p varve-wasm` and `just wasm-build` passed (baseline and SIMD; optional `wasm-opt` is unavailable). Focused SVG tests passed 12/12. PDF render was independently rasterized with Poppler and text extraction confirmed.
+- The initial affected triage stopped at the large editor unit lane after two contention-sensitive tests failed. Each test passed in isolation. The engine/scene aggregate run had two expected canonical-golden mismatches from schema 2.34 (updated and canonical test passed 3/3) and two benchmark timing failures under load (each passed in isolated reruns). These do not count as a complete affected triage. `pnpm verify:plan` now selects 75 lanes and says FULL-SUITE ESCALATION: YES because the change spans the serialized/render contract. The exact-SHA full gate and a complete triage remain outstanding.
+- `pnpm audit:spacing` initially exposed 16 existing raw spacing values in two touched files; these values were replaced with existing semantic tokens, and the audit now passes. `audit:docs`, `audit:emoji`, `audit:tokens`, `audit:radius`, and the touched CSS sizing/inspector checks pass. E2E typecheck passed after adding the marketing screenshot assertions.
+- Validation report for this implementation slice: changed scope is the schema/migration, editor Inspector and replay, Rust bridge and print path, SVG/PDF export, five schema-2.34 demo fixtures, marketing page, E2E specs, and audit/docs evidence. The plan is 75 lanes with a full-gate escalation. Commands passed include targeted app and marketing Playwright visual runs (both lease-wrapped), website/Astro and E2E typechecks, both website builds, targeted Rust tests and changed-crate Clippy, WASM crate check/build, focused SVG suite, and the audits listed above. The 900-file editor aggregate and noisy engine/scene aggregate did not pass on first attempt; their four observed tests passed individually as described. The complete affected triage, exact-SHA full gate, and final review are not yet complete. Full suite run: no.
+- Main checkout and other worktrees were not touched. The shared lease was acquired only after the active owner completed; the ChatGPT Linux app remained open.
+- After refining multi-selection toggles to preserve each enabled text-frame color while filling only unset selections, the plan still selects 77 lanes. A fresh `pnpm verify:triage` passed formatting/lint, all listed audits, E2E typechecks, and typechecks for website, codegen, editor, engine, and scene. It was then externally sent SIGTERM during `typecheck:@varve/desktop` after 139.3 seconds; the verifier reported owned-process cleanup completed. No signal was sent by this task, and unrelated active worktrees were left running. The complete affected triage therefore remains incomplete. The editor package typecheck also passed separately after adding explicit mixed/unset guards. This UI review correction prevents enabling a mixed text selection from replacing existing custom colors with defaults.
+- A distinct read-only second-pass self-review of the current implementation found and fixed that mixed-selection color loss. This is not an independent review. A final review of the complete candidate remains required after validation and documentation settle.
+
+## 2026-10-20 pushed text-frame candidate — validation reconciliation
+
+This entry supersedes the earlier pending visual and push-checkpoint statements
+for the text-frame slice above. The source ledger cutoffs remain frozen as
+recorded; this is an implementation/validation update, not a corpus refresh.
+
+- App visual E2E passed under the shared heavy-task lease (1/1) and desktop
+  plus 1024×768 captures were inspected. Marketing visual E2E passed (2/2) and
+  desktop plus 390×844 mobile captures were inspected. The independent PDF
+  probe was rasterized and inspected; text extraction succeeded. Evidence and
+  SHA-256 hashes are recorded in `findings.md` §4.29.
+- After merging the then-current `origin/master` at
+  `5172718c6f0f2597466cd08d0839b53ccafefbd2`, the implementation candidate is
+  `fd18dea96eab9dd1086e4663cc00a8ecc1ed7b12` on
+  `codex/pdfcraft-zoom-reconciliation-20261019`. No main checkout or other
+  worktree was changed. The ChatGPT Linux app and other worktree processes
+  were left running.
+- The affected triage refreshed after the merge selected 77 lanes and reported
+  `FULL-SUITE ESCALATION: YES` for the serialized/render contract. It passed
+  Tier 0 audits, E2E typechecking, and typechecking for all listed changed
+  packages. The editor package suite passed (8,789 tests; 2 skipped). The
+  verifier stopped at the engine lane after three benchmark/timeout-sensitive
+  tests failed under contention; the other plan lanes were not reached. A
+  lease-wrapped isolated rerun of those exact three files passed all 14 tests.
+  This does not count as a complete affected triage or full-gate certification.
+- `pnpm verify:push --since origin/master` passed all local blocking lanes on
+  the merge candidate. The Git pre-push checkpoint passed again for the exact
+  pushed ref, including desktop and website unit tests, typechecks, workflow
+  validation, action pinning, product/version/security checks, docs/emoji
+  audits, and manifest validation. It explicitly deferred render benchmark,
+  native desktop, full JavaScript/Rust/typecheck, WASM, and browser E2E/visual
+  lanes to hosted CI; these are required evidence, not reported as passed.
+- The latest review-plan output selected 77 lanes and required the exact-SHA
+  full gate. That full gate and hosted deferred lanes remain outstanding.
+  The read-only second-pass self-review found no additional actionable issue;
+  it is not an independent reviewer approval. Re-run the required gate against
+  the final PR SHA and resolve any findings before merging to `master`.
+- The text-frame marketing copy remains explicitly in development until
+  released-build support is verified. Merging the website source to `master`
+  triggers the configured GitHub Pages deployment to `varve.studio`; this
+  expected deployment follows the user's earlier instruction to integrate the
+  complete batch after all required gates pass.
+
+## 2026-10-20 hosted CI findings and visual-baseline reconciliation
+
+- The exact-SHA integration run for PR #152 (`39384250680`, merge SHA
+  `6010de33594fb4d2468ef99448f72323cfa33b93`, head
+  `ce41c359782ee9e2ae7cf7dc83cb8c14f13fc2d4`) exposed two stale expectations:
+  the GitHub Pages typography screenshot did not include the 308-pixel
+  in-development callout, and the published-schema migration E2E still
+  expected saved schema `2.33` after the text-frame change bumped it to `2.34`.
+  The other completed integration lanes passed, including Rust on Linux,
+  macOS, and Windows; WASM, native desktop on all three platforms; JS; and
+  canvas visual regression. Browser shards 1–24 completed with one shard
+  failing only on the stale `2.33` assertion. The hosted gate is not green and
+  the candidate must not merge until a fresh exact-SHA run passes.
+- Refreshed `apps/website/tests/e2e/visual.spec.ts-snapshots/typography-light-ghpages-linux.png`
+  from the rendered GitHub Pages page and visually inspected the full-page
+  result. Updated the migrated document expectation to `2.34`; the focused
+  migration browser test passed, including save, undo, export, and offline
+  reopen. The GitHub Pages-only 26-case website visual spec passed, including
+  the updated typography page. Both static website builds passed.
+- The initial planner selected nine affected lanes for the two fixes: touched
+  format and lint, emoji audit, E2E and website-E2E typechecks, website
+  typecheck and unit tests, the published-release migration E2E, and the
+  website visual E2E. After this record added the docs audit, the planner
+  selected ten lanes.
+  The complete `pnpm verify:affected` run passed: 308 website unit tests, the
+  migration E2E, all audits and typechecks, and both static builds. An initial
+  26-case visual run passed after refreshing the typography snapshot; a later
+  full rerun found unstable full-element screenshot geometry in the typography
+  and download pages (11047/11048px and 6461/6473px respectively), although
+  their rendered content was unchanged.
+- Both long-page visual cases now use the existing `articleClip` helper with
+  full-page screenshots, fixing integer document-space bounds once the page is
+  settled. This removes the variable locator-stitch dimensions without
+  changing website CSS or clipping content. Their refreshed baselines were
+  visually inspected. The typography and download cases each passed three
+  consecutive runs (6/6). Full-suite escalation remains `NO` for this
+  snapshot, test expectation, and screenshot-boundary correction.
+- At this point, a fresh PR push checkpoint, full hosted integration run,
+  review, and merge remained outstanding. No main checkout, desktop app,
+  browser tab, or other active worktree was changed or closed.
+- The inspector visual E2E passed 2/2. Added coverage for mixed background
+  colors in a multi-selection, changed the mixed-color presentation into an
+  editable color control, and verified both the mixed and normalized states in
+  captured screenshots. At 1024×768, the canvas now fits the full text frame
+  after resizing rather than capturing a cropped object. Reviewed all four
+  new captures; text and frame edges are visible and the mixed-color control
+  is legible. The visually reviewed workspaces page baseline refresh passed;
+  its 5207px article is intact from the page heading through the Next Steps
+  footer. The full 26-case website visual run passed after the refresh,
+  including the long download, workspaces, and typography pages. The refreshed
+  download, workspaces, and typography full-page screenshots were inspected.
+- Final follow-up validation for this batch:
+  - `pnpm verify:plan`: 19 lanes selected; full-suite escalation `NO`.
+  - `pnpm verify:affected`: formatter/linter and audits passed; all three
+    package typechecks, E2E typechecks, website 308/308 unit tests, desktop
+    90/90 unit tests, migration E2E, and the website build lanes passed. The
+    editor unit lane had two unrelated asynchronous failures in PromptDialog
+    and FloatingToolbar; an exact rerun of those two test files passed 24/24.
+  - Inspector text-frame visual E2E: 2/2 passed. Website visual E2E:
+    26/26 passed after the baseline refresh. `git diff --check` and Biome
+    formatting of the four changed source files passed.
+  - The docs audit passed. The first `pnpm verify:push --since origin/master`
+    attempt passed outgoing-history checks, touched formatting, and the first
+    six targeted JS unit suites, then hit the 300-second timeout in
+    `typecheck:@varve/editor` while another worktree was running a full
+    TypeScript check and `/tmp` had 99% usage. It reported no source
+    diagnostics. The exact retry passed all local blocking lanes, including
+    the seven targeted JS suites, all five affected package typechecks, E2E
+    typechecks, docs/emoji/token audits, 308 website unit tests, and model
+    manifest validation. The pre-push hook passed again for the pushed ref.
+  - Read-only, defect-first self-review of the complete 59-file merge diff
+    from base `5172718c6f0f2597466cd08d0839b53ccafefbd2` found no actionable
+    findings. This is author self-review, not an independent reviewer
+    approval. Hosted exact-SHA integration and full-gate certification remain
+    outstanding before merge.

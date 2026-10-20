@@ -19,6 +19,7 @@ fn main() {
         transform: Affine::translate((0.0, 0.0)),
         shape: Shape::Text {
             text: sample.into(),
+            text_frame: None,
             font_size: 32.0,
             font_family: "Open Sans".into(),
             font_weight: 400,
