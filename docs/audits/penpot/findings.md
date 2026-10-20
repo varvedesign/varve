@@ -1,5 +1,20 @@
 # Findings and implementation batches
 
+## C1 issues #2185–#2208
+
+This range contains all 24 slots: 17 PRs and seven issues. All seven issue
+bodies and nine issue comments were read. PR #2198 and #2205 each list two
+comments, but those PR discussion pages are not present in the raw cache and
+remain unresolved frontier edges. #2194 and #2197 are translation workflow
+requests; #2196 concerns Penpot's Docker devenv setup; #2202 is served by
+Varve's dedicated shape tools. #2203 suggests an organization feature for
+text styles, but needs a product decision before adding group membership.
+#2207's artboard-title resize report is not established in Varve; its linked
+PR #2208 is evidence of the upstream fix, while a browser visual regression
+remains a follow-up lead. #2195 is a broad accessibility report whose linked
+axe archive and screenshot were not cached, so route-level conformance remains
+unresolved. No implementation batch is justified by these reports alone.
+
 ## C1 issues #2137–#2160
 
 This frozen page has 23 returned records: two issues and 21 PRs; #2143 is
