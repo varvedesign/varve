@@ -17,6 +17,7 @@ import { extractFontCollectionMember } from './font/fontCollectionMember';
 import type { FontReference, ParsedNamedInstance } from './font/fontIdentity';
 import { fontReferenceKey } from './font/fontIdentity';
 import { loadSystemFontFace } from './font/fontSystemBridge';
+import { probeResolvedFamiliesWithOverride } from './font/systemFontProbe';
 
 export interface FontEntry {
   family: string;
@@ -179,6 +180,17 @@ export class FontRegistry {
   private _revision = 0;
   /** Set while a coalesced notification is pending (see `_scheduleNotify`). */
   private _notifyScheduled = false;
+  /**
+   * Families the seed list asserts without evidence — `source: 'system'`
+   * entries from `DEFAULT_FONTS`. A real enumeration registering the family
+   * removes it from this set, because then the host proved it exists.
+   * Only these families are ever probed.
+   */
+  private seedSystemFamilies: Set<string> = new Set();
+  /** Memoised probe result, keyed on the registration revision it was taken at. */
+  private availabilityProbe: { revision: number; unresolvable: Set<string> } | null = null;
+  /** True only while the constructor registers the seed list. */
+  private seeding = false;
   /** The browser FontFaceSet is also a font source (not all faces are loaded by this registry). */
   private readonly handleFontSetChange = (event: Event): void => {
     const eventFaces = (event as Event & { fontfaces?: Iterable<{ family?: string }> }).fontfaces;
@@ -193,9 +205,12 @@ export class FontRegistry {
   };
 
   constructor(initial?: FontEntry[]) {
+    this.seeding = true;
     for (const entry of initial ?? DEFAULT_FONTS) {
+      if (entry.source === 'system') this.seedSystemFamilies.add(entry.family);
       this.register(entry);
     }
+    this.seeding = false;
     this.observeDocumentFonts();
   }
 
@@ -265,6 +280,11 @@ export class FontRegistry {
 
   /** Register a font entry (e.g., from system enumeration or Google Fonts API). */
   register(entry: FontEntry): void {
+    // A system family arriving from enumeration was observed on the host, so
+    // the seed list's unverified claim about it is settled.
+    if (entry.source === 'system' && !this.seeding) {
+      this.seedSystemFamilies.delete(entry.family);
+    }
     const existing = this.entries.get(entry.family) ?? [];
     if (existing.some((candidate) => fontEntryKey(candidate) === fontEntryKey(entry))) return;
     // Bundled variable families carry their fvar axes even when the caller
@@ -785,9 +805,47 @@ export class FontRegistry {
     return entries.some((e) => e.variableAxes || e.axisDefinitions?.length);
   }
 
-  /** Get available font entries as a Set of family names (for preflight). */
+  /**
+   * Families the host is known to resolve, for preflight and the missing-font
+   * sweep.
+   *
+   * Seed-list families that have never been enumerated are probed against the
+   * host; a family the probe cannot resolve is withheld, so a document using it
+   * reports a missing font instead of silently painting the fallback. Families
+   * registered from real enumeration and everything bundled with the app are
+   * taken as available without a probe — their bytes are known to be present.
+   *
+   * When the environment cannot measure text the probe answers "unknown" and
+   * every family stays available, which is the previous behaviour.
+   */
   availableFamilies(): Set<string> {
-    return new Set(this.entries.keys());
+    const unresolvable = this.unresolvableSeedFamilies();
+    if (unresolvable.size === 0) return new Set(this.entries.keys());
+    const available = new Set<string>();
+    for (const family of this.entries.keys()) {
+      if (!unresolvable.has(family)) available.add(family);
+    }
+    return available;
+  }
+
+  /**
+   * Seed families this host cannot resolve.
+   *
+   * Memoised per registration revision: the answer only changes when a family
+   * stops being a mere seed, which bumps the revision.
+   */
+  private unresolvableSeedFamilies(): Set<string> {
+    if (this.seedSystemFamilies.size === 0) return new Set();
+    if (this.availabilityProbe?.revision === this._revision) {
+      return this.availabilityProbe.unresolvable;
+    }
+    const probed = probeResolvedFamiliesWithOverride(this.seedSystemFamilies);
+    let unresolvable: Set<string> = new Set();
+    if (probed) {
+      unresolvable = new Set([...this.seedSystemFamilies].filter((family) => !probed.has(family)));
+    }
+    this.availabilityProbe = { revision: this._revision, unresolvable };
+    return unresolvable;
   }
 
   private metadata: Map<string, FontMetadata> = new Map();
