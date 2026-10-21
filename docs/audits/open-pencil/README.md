@@ -1,4 +1,12 @@
-# OpenPencil issue review — 2026-10-20
+# OpenPencil issue review — 2026-10-20 (superseded)
+
+> **Superseded.** The current record for this corpus is
+> [`CORPUS-2026-10-21.md`](./CORPUS-2026-10-21.md) with its per-issue ledger
+> [`issues-2026-10-21.json`](./issues-2026-10-21.json). This file is kept because
+> it records the original three-range reading pass that the current review
+> inherits (every frozen issue body and every comment page). Its dispositions
+> are bucket-level and its deferred "candidate-verify" buckets were resolved in
+> the 2026-10-21 record — do not plan work from this file.
 
 This audit records a frozen review of the public `open-pencil/open-pencil`
 issue corpus and the Varve follow-ups selected from it. The machine-readable

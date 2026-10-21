@@ -46,6 +46,20 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **One undo step per control gesture** — Dragging a slider or a colour picker, or holding an arrow
+  key, produced one undo entry per intermediate value, so a single `Ctrl+Z` stepped back one notch
+  instead of reverting the change and a drag could consume the whole history window. Mask density,
+  corner smoothing, the floating text bar's colour picker, and keyboard stepping in every colour
+  picker now commit one undo entry per gesture.
+- **Unsaved-work bookkeeping has one authority** — Some edits marked the document dirty for the tab
+  strip and save status but not for the close guard, so grouping layers (or any edit made through a
+  hook with its own setter) could close a tab or quit with no save prompt, and the crash-recovery
+  copy was then discarded on the resulting clean shutdown. Both flags now come from one place.
+- **Seeded system fonts are verified against the device** — Varve assumed a short list of common
+  system families (Arial, Helvetica, Meiryo, Noto Sans CJK, …) was installed. On a machine without
+  one, text was drawn in the fallback face while preflight, the Missing Fonts dialog, and the export
+  preflight all reported the typography as faithful. Those families are now measured against the
+  device, and a family it cannot resolve is reported as missing with a replacement path.
 - **Transparent PDF gradients** — a gradient that fades to transparent exported
   as a hard-edged solid block. It now carries a luminosity soft mask built from
   the alpha ramp, so the fade survives into the PDF. Opaque gradients are
