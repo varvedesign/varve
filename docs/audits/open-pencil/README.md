@@ -90,3 +90,37 @@ component slots and SVG visibility. No marketing layout or broad product
 claims were changed; the existing page design was retained. A dated second
 corpus cutoff, visual inspection evidence, review findings, commit/merge
 identifiers, and deployment confirmation are appended after those checks.
+
+## Validation checkpoint — 2026-10-21
+
+- Candidate-level `pnpm verify:plan` selected 24 affected lanes across the
+  editor, importer, and website; it did not request a full-suite escalation.
+  Candidate-level Tier 0 formatting, lint, emoji, radius, docs, spacing, and
+  sizing audits passed. All selected typechecks passed.
+- `pnpm verify:affected` completed 913 of 916 editor test files successfully
+  (8,991 passed, 2 skipped); one timing-sensitive `PromptDialog` accessible-name
+  query failed under the highly concurrent run. The exact dialog and raster
+  cache test files passed in an isolated one-worker rerun (77/77 tests). The
+  importer unit files passed (Figma 17/17, SVG 34/34), and the website suite
+  passed (308/308). This transient suite result remains visible; it is not
+  reported as a clean affected gate.
+- Heavy-lease Playwright runs passed the real SVG visibility import and the
+  mixed-subpath hole import. Their captured canvas snapshots are checked in
+  beside the spec. The run logged a failed WASM load and pure-TS stub-renderer
+  fallback; the image evidence confirms the tested browser output but does not
+  certify the WASM or native renderer.
+- `pnpm --filter @varve/website build` passed (126 routes built; 118 pages in
+  the search index). Desktop/light and mobile/dark page captures were inspected
+  at `/tmp/open-pencil-desktop-light.png` and
+  `/tmp/open-pencil-mobile-dark.png`; the changed format guidance remains
+  readable at both sizes and themes. `impeccable detect --json` reported no
+  findings for the affected file-format guide.
+- A separate read-only review of the complete candidate diff reported no
+  actionable findings. Its remaining validation caveat is the browser's
+  pure-TS renderer fallback recorded above.
+- After the history merge, `pnpm verify:plan` reports 550 changed files across
+  12 JavaScript packages and 9 Rust crates, and requests the full-suite
+  escalation. The required large-integration `pnpm verify:triage`, exact-SHA
+  full gate, `pnpm verify:push`, remote merge, live website deployment check,
+  and task-worktree cleanup are not yet complete. Do not treat this checkpoint
+  as release or merge certification.
