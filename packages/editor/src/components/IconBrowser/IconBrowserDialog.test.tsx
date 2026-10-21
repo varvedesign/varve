@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { getIconProviderRegistry, resetIconProviderRegistry } from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
+import { loadSettings } from '../../settings';
 import { IconBrowserDialog } from './IconBrowserDialog';
 import { writeIconRemoteSearchConsent } from './iconRemoteSearch';
 
@@ -60,6 +61,38 @@ beforeEach(() => {
 });
 
 describe('IconBrowserDialog', () => {
+  it('makes no collection-list request before consent', async () => {
+    editorMock();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const getPacks = vi.spyOn(getIconProviderRegistry(), 'getPacks');
+    render(<IconBrowserDialog open onClose={vi.fn()} />);
+    expect(await screen.findByText('Search online via Iconify?')).toBeTruthy();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(getPacks).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('hides the consent card after Not now and offers a later opt-in when a search has no local match', async () => {
+    editorMock();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    render(<IconBrowserDialog open onClose={vi.fn()} />);
+    expect(await screen.findByText('Search online via Iconify?')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    expect(screen.queryByText('Search online via Iconify?')).toBeNull();
+    expect(loadSettings().icons.remoteSearch).toBe('denied');
+
+    const input = await screen.findByLabelText('Search icons');
+    fireEvent.change(input, { target: { value: 'home' } });
+    expect(await screen.findByText('No icons match your search.')).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search online via Iconify' }));
+    expect(loadSettings().icons.remoteSearch).toBe('granted');
+    expect(screen.queryByText('Search online via Iconify?')).toBeNull();
+  });
+
   it('renders the browser, searches local icons without asking the network, and does not insert without a selection', async () => {
     const { insertIconAsset } = editorMock();
     const onClose = vi.fn();
@@ -69,7 +102,7 @@ describe('IconBrowserDialog', () => {
     expect(await screen.findByText('Search online via Iconify?')).toBeTruthy();
     const input = await screen.findByLabelText('Search icons');
     fireEvent.change(input, { target: { value: 'home' } });
-    expect(await screen.findByText(/no icons match/i)).toBeTruthy();
+    expect(await screen.findByText('No icons match your search.')).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(insertIconAsset).not.toHaveBeenCalled();

@@ -30,6 +30,7 @@ import { IconDiscoverySections } from './IconDiscoverySections';
 import { IconGrid, type IconGridItemView } from './IconGrid';
 import { getIconAcquisitionService, IconAcquisitionError } from './iconAcquisition';
 import {
+  ICON_REMOTE_SEARCH_CHANGED_EVENT,
   isIconRemoteSearchGranted,
   readIconRemoteSearchConsent,
   writeIconRemoteSearchConsent,
@@ -410,20 +411,22 @@ export function IconBrowser({
   // Search / pack browsing
   // -------------------------------------------------------------------------
 
-  const handleSearchChange = useCallback(
-    (value: string) => {
-      setQuery(value);
-      setBrowsingPack(null);
-      failedPreviewIdsRef.current.clear();
-      pendingBatchIdsRef.current.clear();
-      search.search(value);
-    },
-    [search],
-  );
+  const handleSearchChange = useCallback((value: string) => {
+    setQuery(value);
+    setBrowsingPack(null);
+    failedPreviewIdsRef.current.clear();
+    pendingBatchIdsRef.current.clear();
+  }, []);
 
   const chooseRemoteSearch = useCallback((value: 'granted' | 'denied') => {
     writeIconRemoteSearchConsent(value);
     setRemoteSearch(value);
+  }, []);
+
+  useEffect(() => {
+    const syncConsent = () => setRemoteSearch(readIconRemoteSearchConsent());
+    window.addEventListener(ICON_REMOTE_SEARCH_CHANGED_EVENT, syncConsent);
+    return () => window.removeEventListener(ICON_REMOTE_SEARCH_CHANGED_EVENT, syncConsent);
   }, []);
 
   const runRemoteSearch = search.search;
@@ -857,7 +860,7 @@ export function IconBrowser({
               Your downloaded icons are still available — switch to the Downloaded filter.
             </p>
           )}
-          <Button variant="secondary" size="sm" onClick={() => handleSearchChange(query)}>
+          <Button variant="secondary" size="sm" onClick={() => search.search(query)}>
             <Icon name="RefreshCw" size={14} /> Retry
           </Button>
         </div>
@@ -937,6 +940,15 @@ export function IconBrowser({
               <div className="icon-browser__empty">
                 <Icon name="SearchX" size={32} />
                 <p>{query ? 'No icons match your search.' : 'No icons here yet.'}</p>
+                {remoteSearch === 'denied' && query.trim().length >= MIN_QUERY_LENGTH && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => chooseRemoteSearch('granted')}
+                  >
+                    Search online via Iconify
+                  </Button>
+                )}
               </div>
             }
           />

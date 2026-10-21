@@ -117,11 +117,17 @@ describe('SettingsDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('keeps diagnostics and crash consent without a usage-analytics toggle', () => {
+  it('keeps crash consent and icon-search control without usage or diagnostics telemetry', () => {
     renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="privacy" />);
     expect(screen.queryByLabelText('Usage analytics consent')).toBeNull();
-    expect(screen.getByLabelText('Diagnostics telemetry consent')).toBeTruthy();
+    expect(screen.queryByLabelText('Diagnostics telemetry consent')).toBeNull();
     expect(screen.getByText('Crash reporting')).toBeTruthy();
+    const iconSearch = screen.getByLabelText('Search icons online via Iconify') as HTMLInputElement;
+    expect(iconSearch.checked).toBe(false);
+    fireEvent.click(iconSearch);
+    expect(loadSettings().icons.remoteSearch).toBe('granted');
+    fireEvent.click(iconSearch);
+    expect(loadSettings().icons.remoteSearch).toBe('denied');
   });
 
   it('links the About section to the changelog and the latest release SBOM assets', () => {

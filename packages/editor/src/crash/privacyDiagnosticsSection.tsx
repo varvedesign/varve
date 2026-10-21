@@ -7,11 +7,9 @@
  */
 
 import type { CrashReport } from '@varve/crash';
-import type { AnalyticsConsentState } from '@varve/shared';
-import { Select } from '@varve/ui';
 import { useEffect, useMemo, useState } from 'react';
-import { updateDesktopAnalyticsConsent } from '../analytics/desktopAnalytics';
 import { ContactLink } from '../components/ContactLink';
+import { writeIconRemoteSearchConsent } from '../components/IconBrowser/iconRemoteSearch';
 import { useSettings } from '../components/Settings/SettingsContext';
 import { getCrashController } from './controllerRegistry';
 
@@ -57,11 +55,10 @@ export function PrivacyDiagnosticsSection() {
     controller?.setStandingConsent(next);
   };
 
-  const setDiagnosticsConsent = (value: string) => {
-    if (value !== 'unknown' && value !== 'granted' && value !== 'denied') return;
-    const privacy = { ...settings.privacy, diagnostics: value as AnalyticsConsentState };
-    updateSettings({ privacy });
-    updateDesktopAnalyticsConsent(privacy);
+  const setIconRemoteSearch = (granted: boolean) => {
+    const value = granted ? 'granted' : 'denied';
+    writeIconRemoteSearchConsent(value);
+    updateSettings({ icons: { remoteSearch: value } });
   };
 
   const setExtendedFlag = (value: boolean) => {
@@ -114,26 +111,19 @@ export function PrivacyDiagnosticsSection() {
 
   return (
     <div className="privacy-section">
-      <h3 className="settings-section__title">Performance diagnostics</h3>
+      <h3 className="settings-section__title">Online icon search</h3>
       <p className="privacy-section__description">
-        Optional coarse performance and renderer-fallback measurements. Values are sent only as
-        buckets. Desktop builds do not send product-usage events.
+        Iconify search and pack listings stay off until you allow them. Local and bundled icons keep
+        working.
       </p>
-      <div className="settings-field-row">
-        <span className="settings-field-row__label">Diagnostics telemetry</span>
-        <div className="settings-field-row__control">
-          <Select
-            label="Diagnostics telemetry consent"
-            options={[
-              { value: 'unknown', label: 'Not decided (off)' },
-              { value: 'granted', label: 'On' },
-              { value: 'denied', label: 'Off' },
-            ]}
-            value={settings.privacy.diagnostics}
-            onChange={setDiagnosticsConsent}
-          />
-        </div>
-      </div>
+      <label className="settings-checkbox-row">
+        <input
+          type="checkbox"
+          checked={settings.icons.remoteSearch === 'granted'}
+          onChange={(e) => setIconRemoteSearch(e.target.checked)}
+        />
+        <span>Search icons online via Iconify</span>
+      </label>
 
       <h3 className="settings-section__title">Crash reporting</h3>
       <p className="privacy-section__description">{consentDescription}</p>
@@ -265,8 +255,8 @@ export function PrivacyDiagnosticsSection() {
 
       <p className="privacy-section__note">
         Crash reports are minimized and automatically scrubbed of file paths, names, and document
-        content — but technical information can still sometimes be identifying. Crash reporting is a
-        separate consent category and is never enabled by diagnostics telemetry.
+        content, but technical information can still sometimes be identifying. Crash reporting is a
+        separate consent category.
       </p>
       <p className="privacy-section__note">
         For privacy questions, contact <ContactLink channel="privacy" />. For product help, contact{' '}
