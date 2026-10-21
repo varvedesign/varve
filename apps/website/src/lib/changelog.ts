@@ -128,6 +128,13 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
   let current: ChangelogRelease | null = null;
   let currentSection: ChangelogSection | null = null;
   let listLines: string[] = [];
+  /**
+   * Paragraph lines between a version heading and its first `###` category.
+   * Varve writes a short release summary there; dropping it removed the only
+   * place some releases state what changed, so it is captured as a leading
+   * section instead of being ignored.
+   */
+  let preambleLines: string[] = [];
 
   /** Flush accumulated list lines into the current section as a single entry. */
   function flushList() {
@@ -135,6 +142,18 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
     const html = listToHtml(listLines);
     if (html) currentSection.entries.push({ html });
     listLines = [];
+  }
+
+  /** Turn collected summary paragraphs into the release's leading section. */
+  function flushPreamble() {
+    if (!current || preambleLines.length === 0) return;
+    const entries = preambleLines
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+      .map((paragraph) => ({ html: `<p>${inlineMd(paragraph)}</p>` }));
+    preambleLines = [];
+    if (entries.length === 0) return;
+    current.sections.push({ category: 'Summary', entries });
   }
 
   /** Close current section and push it to the current release. */
@@ -149,6 +168,7 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
   /** Close current release and push it to the results. */
   function closeRelease() {
     closeSection();
+    flushPreamble();
     if (current) {
       releases.push(current);
     }
@@ -184,10 +204,21 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
     const categoryMatch = trimmed.match(CATEGORY_RE);
     if (categoryMatch && current) {
       closeSection();
+      flushPreamble();
       currentSection = {
         category: categoryMatch[1].trim(),
         entries: [],
       };
+      continue;
+    }
+
+    // Summary paragraphs between the version heading and the first category.
+    if (current && !currentSection) {
+      if (trimmed === '') {
+        if (preambleLines.length > 0) preambleLines.push('');
+      } else {
+        preambleLines.push(trimmed);
+      }
       continue;
     }
 
@@ -235,21 +266,37 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
  * parses it, and returns structured data ready for JSON serialization.
  */
 export function parseChangelogFile(repoRoot?: string): ChangelogRelease[] {
-  // During Astro SSR builds, import.meta.url points to the bundled chunk,
-  // not the original source file. Try common root locations:
-  //   1. Explicit repoRoot argument (preferred)
-  //   2. Two levels up from process.cwd() (standard: cwd = apps/website)
-  //   3. process.cwd() itself (vitest from repo root)
-  const candidates = repoRoot ? [repoRoot] : [join(process.cwd(), '..', '..'), process.cwd()];
-
-  for (const root of candidates) {
+  // During Astro SSR builds, import.meta.url points at the bundled chunk, so
+  // the module location is not a reliable anchor. Walk up from the working
+  // directory instead, but accept a directory only when it is this project's
+  // root — identified by the website package beside the changelog. A looser
+  // check silently reads a parent checkout's changelog when the build runs in
+  // a nested worktree, which makes the page and its tests describe a different
+  // tree than the one being built.
+  const isRepoRoot = (dir: string) => {
     try {
-      const text = readFileSync(join(root, 'CHANGELOG.md'), 'utf-8');
-      return parseChangelog(text);
+      readFileSync(join(dir, 'CHANGELOG.md'), 'utf-8');
+      readFileSync(join(dir, 'apps', 'website', 'package.json'), 'utf-8');
+      return true;
     } catch {
-      // try next candidate
+      return false;
+    }
+  };
+  const candidates = repoRoot ? [repoRoot] : [];
+  if (!repoRoot) {
+    let dir = process.cwd();
+    for (;;) {
+      candidates.push(dir);
+      const parent = join(dir, '..');
+      if (parent === dir) break;
+      dir = parent;
     }
   }
-
-  throw new Error(`Could not find CHANGELOG.md. Searched: ${candidates.join(', ')}`);
+  const root = candidates.find(isRepoRoot);
+  if (!root) {
+    throw new Error(
+      `Could not find this project's CHANGELOG.md. Searched: ${candidates.join(', ')}`,
+    );
+  }
+  return parseChangelog(readFileSync(join(root, 'CHANGELOG.md'), 'utf-8'));
 }
