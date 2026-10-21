@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setFontAvailabilityProbeForTest } from './font/systemFontProbe';
 import {
   awaitExportsReady,
   FontRegistry,
@@ -17,6 +18,7 @@ function hasDom(): boolean {
 
 afterEach(() => {
   resetFontRegistry();
+  setFontAvailabilityProbeForTest(null);
 });
 
 describe('FontRegistry', () => {
@@ -453,6 +455,65 @@ describe('FontRegistry', () => {
     expect(available).toBeInstanceOf(Set);
     expect(available.has('Inter')).toBe(true);
     expect(available.has('Arial')).toBe(true);
+  });
+
+  describe('host verification of seed families', () => {
+    it('withholds a seed family the host cannot resolve', () => {
+      // The host resolves Arial but not Meiryo, which the seed list asserts.
+      setFontAvailabilityProbeForTest(
+        (families) => new Set([...families].filter((family) => family === 'Arial')),
+      );
+
+      const available = new FontRegistry().availableFamilies();
+
+      expect(available.has('Arial')).toBe(true);
+      expect(available.has('Meiryo')).toBe(false);
+      expect(available.has('Noto Sans CJK')).toBe(false);
+    });
+
+    it('never probes families the app bundles or the host enumerated', () => {
+      const probed: string[] = [];
+      setFontAvailabilityProbeForTest((families) => {
+        probed.push(...families);
+        return new Set(families);
+      });
+
+      const reg = new FontRegistry();
+      // A real enumeration observed this family on the host.
+      reg.register({ family: 'Meiryo', weight: 400, style: 'normal', source: 'system' });
+      reg.availableFamilies();
+
+      expect(probed).not.toContain('IBM Plex Sans Variable');
+      expect(probed).not.toContain('Geist Variable');
+      // Registration settled the seed claim, so Meiryo is no longer probed.
+      expect(probed).not.toContain('Meiryo');
+      expect(probed).toContain('Arial');
+    });
+
+    it('keeps every family available when the environment cannot measure text', () => {
+      setFontAvailabilityProbeForTest(() => null);
+
+      const available = new FontRegistry().availableFamilies();
+
+      expect(available.has('Meiryo')).toBe(true);
+      expect(available.has('Noto Sans CJK')).toBe(true);
+    });
+
+    it('memoises the probe per registration revision', () => {
+      const probe = vi.fn((families: Iterable<string>) => new Set(families));
+      setFontAvailabilityProbeForTest(probe);
+      const reg = new FontRegistry();
+
+      reg.availableFamilies();
+      reg.availableFamilies();
+      expect(probe).toHaveBeenCalledTimes(1);
+
+      // A new registration changes what can be resolved, so the verdict is
+      // taken again.
+      reg.register({ family: 'Newly Enumerated', weight: 400, style: 'normal', source: 'system' });
+      reg.availableFamilies();
+      expect(probe).toHaveBeenCalledTimes(2);
+    });
   });
 });
 

@@ -213,6 +213,53 @@ inventing a face. Choosing a family row clears an older exact reference and
 unsupported variation axes instead of leaving stale identity attached to new
 text.
 
+### Seed families are claims, and the host verifies them
+
+The registry seeds a short list of common system families (`Arial`,
+`Helvetica`, `Meiryo`, `Noto Sans CJK`, …) so a fresh document has something to
+resolve before the user has enumerated anything. Those seeds are *claims about
+the host*, not evidence: registration is membership, and until 2026-10-21
+`availableFamilies()` projected the registered map directly. On a host without
+a seeded family the canvas drew the CSS fallback while preflight, the Missing
+Fonts dialog, and the export preflight all reported the typography as
+faithful — the exact silent-substitution failure that
+`docs/architecture/text-pipeline.md` forbids.
+
+`font/systemFontProbe.ts` measures instead. An unknown family contributes no
+glyphs, so `"<family>", <generic>` is exactly as wide as `<generic>` alone; a
+family counts as resolved when any of the three generic fallbacks measures
+differently. That direction is the safe one — a real font yields one width and
+the three baselines are three distinct widths, so a metric coincidence cannot
+mark a real font missing, which is the failure users actually notice.
+
+`document.fonts.check()` is **not** used and must not be reintroduced here.
+Measured in Chromium on 2026-10-21 it reports `true` for a deliberately
+nonexistent family, because it answers "is a load pending for this descriptor"
+rather than "does this family exist". Every candidate in that run reported
+`true`.
+
+Scope and failure modes:
+
+- Only `DEFAULT_FONTS` entries with `source: 'system'` are probed. Bundled
+  faces ship with the app, and a family that arrives from real enumeration was
+  observed on the host, so neither is ever second-guessed. A spurious
+  missing-font dialog on every open is worse than the bug.
+- `availableFamilies()` withholds an unresolvable family, and
+  `createFontCatalogFromRegistry` omits it, so the missing-font sweep classifies
+  the reference as `missing-family` and the user is offered a replacement.
+- When the environment cannot shape text (no canvas, jsdom, a worker before
+  fonts load) the probe answers `null` and every family stays available. Unknown
+  is never treated as "none".
+- `probeResolvedFamilies` results are memoised per registry revision.
+
+**Known gap.** The probe is verified in Chromium and unverified in WebKitGTK,
+the desktop webview. If that engine resolves an unknown family to the default
+face for every generic, the width test reports it present — a false negative
+that preserves the old behaviour rather than inventing a wrong warning. The
+durable desktop fix is to verify the seed list against
+`enumerate_system_fonts` on first document open instead of relying on canvas
+metrics; that path is not implemented.
+
 ## Readiness boundary
 
 The useful capabilities are distinct: catalog presence, stored bytes, a
