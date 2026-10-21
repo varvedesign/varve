@@ -104,6 +104,25 @@ touched areas). The export documentation now states the flattening rule, the
 character/ reserved-name handling and the single-dialog limitation. No marketing
 claim changed.
 
+## Reproduction record — #3289 transparent shapes still intercept clicks
+
+Penpot #3289 ("can't select through stroke only rectangle") is **reproduced
+from source and not yet fixed**. `HitTestEngine` honours the click policy's
+`includeTransparentFill: false` only inside the expanded-bounds tolerance
+branch; the exact `shapeContains` interior test above it still reports a hit for
+a shape whose fill alpha is zero. A stroke-only rectangle therefore swallows
+clicks that should reach the object behind it.
+
+The obvious one-line fix — skipping the interior hit — would make stroke-only
+shapes unselectable: the tolerance branch also rejects transparent fills, and
+non-path primitives have no outline-distance test, so nothing would remain
+clickable apart from the halo outside the bounds. The correct slice is
+stroke-aware hit testing for the non-path primitives (distance to the
+rectangle/ellipse/polygon/star outline compared against the existing
+`strokeToleranceWorld`), with engine-level outline-distance tests and a
+Chromium click-through regression proving that the interior passes through
+while the stroke remains selectable. Recorded rather than half-implemented.
+
 ## Earlier implementation checkpoint — #2276 and #2670
 
 The #2276 `currentColor` route now has unit regressions for the SVG default,
