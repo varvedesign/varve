@@ -58,7 +58,8 @@ Last updated: 2026-10-21 (session 1).
 | Visual: exported gradient document rendered in Chromium | before = flat dark rectangle, after = red→blue gradient |
 | `pnpm audit:emoji` / `audit:tokens` / `audit:claims` / `audit:docs` | clean |
 | `packages/editor/src/context/__tests__/librarySave.test.tsx` | 2/2 pass (editor-level failure and success) |
-| `tests/e2e/canvas/offset-path.spec.ts` | launched through `scripts/quality/heavy-lease.mjs` once the other agent's lease released; result recorded in the integration checkpoint |
+| `tests/e2e/canvas/offset-path.spec.ts` | **2/2 pass** through `scripts/quality/heavy-lease.mjs` (Chromium, web build, workers=1). Asserts Inspector dimensions: outward +200 adds 400 per axis, inward −60 removes 120. Captures inspected; see `evidence/`. |
+| Website `astro check` | 0 errors, 0 warnings, 0 hints (201 files) |
 
 ## Engineering status
 
@@ -111,11 +112,15 @@ review plus a Varve reproduction before it can be dispositioned.
 
 ## Exact next operation
 
-1. Wait for the heavy-task lease to free, then run:
-   `VARVE_E2E_PORT=1471 node scripts/quality/heavy-lease.mjs "e2e: offset path" -- npx playwright test tests/e2e/canvas/offset-path.spec.ts --project=chromium --workers=1 --reporter=list`
-   Inspect `reports/vectorcraft/offset-path-round.png`; fix the spec or the
-   geometry if it fails.
-2. Reviewer findings: resolved — inner-corner arcs (high), global ceiling
+1. Push `feat/vectorcraft-corpus` and open a pull request against `master`,
+   then merge it (the repository's recent history uses merged PRs; `master` is
+   unprotected and admin permission is confirmed). Merging touches
+   `apps/website/**`, so `website-deploy.yml` publishes the docs page — a Pages
+   deploy, not a release.
+2. Record the merge commit and the remote state here; do not describe the work
+   as released.
+3. Remove the worktree only after the merge is confirmed on the remote.
+4. Reviewer findings: resolved — inner-corner arcs (high), global ceiling
    (medium-high), call-site regression test (medium-high), default font family
    (low). The miter-limit ratio (low) is pre-existing and left unchanged; it is
    recorded in `findings.md` as a follow-up rather than silently altered.
