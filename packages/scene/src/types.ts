@@ -108,7 +108,7 @@ export interface StoryOutline {
 
 // ── Constraints types (Figma-style responsive positioning) ─────────────────
 
-export type ConstraintAxis = 'min' | 'max' | 'center' | 'stretch' | 'scale';
+export type ConstraintAxis = 'min' | 'max' | 'center' | 'centerOffset' | 'stretch' | 'scale';
 
 export interface Constraints {
   horizontal: ConstraintAxis;
@@ -2011,6 +2011,8 @@ export type FlexDirection = 'row' | 'column' | 'rowReverse' | 'columnReverse';
 
 export interface LayoutStyle {
   mode: LayoutMode;
+  /** Optional versioned layout semantics. Missing values preserve legacy document behavior. */
+  layoutSemanticsVersion?: 1 | 2;
   direction: FlexDirection;
   gap: number;
   wrap: boolean;
@@ -2023,8 +2025,12 @@ export interface LayoutStyle {
   justifyContent?: 'start' | 'center' | 'end' | 'spaceBetween' | 'spaceAround' | 'spaceEvenly';
   /** P3: Grid template columns (e.g., "1fr 200px 1fr", "repeat(3, 1fr)"). */
   gridTemplateColumns?: string;
+  /** Stable per-track identity; when present this array is authoritative over the template string. */
+  gridColumnTracks?: GridTrack[];
   /** P3: Grid template rows (e.g., "auto 1fr auto"). */
   gridTemplateRows?: string;
+  /** Stable per-track identity; when present this array is authoritative over the template string. */
+  gridRowTracks?: GridTrack[];
   /** P3: Grid auto-flow: "row" | "column" | "row-dense" | "column-dense". */
   gridAutoFlow?: 'row' | 'column' | 'rowDense' | 'columnDense';
   /** P3: Row gap (separate from `gap` for grid). */
@@ -2042,12 +2048,22 @@ export type LayoutSizing = 'fixed' | 'hug' | 'fill' | 'relative';
 export type LayoutPosition = 'flow' | 'absolute';
 export type LayoutAlign = 'inherit' | 'start' | 'center' | 'end' | 'stretch';
 
+/** A persisted grid track definition with an identity that survives reorder and resize. */
+export interface GridTrack {
+  id: string;
+  size: string;
+}
+
 /** Grid item placement (column/row start/end or span). */
 export interface GridItemPlacement {
   gridColumnStart?: number;
   gridColumnEnd?: number;
+  gridColumnStartTrackId?: string;
+  gridColumnSpan?: number;
   gridRowStart?: number;
   gridRowEnd?: number;
+  gridRowStartTrackId?: string;
+  gridRowSpan?: number;
 }
 
 export interface FrameNode extends NodeBase {
