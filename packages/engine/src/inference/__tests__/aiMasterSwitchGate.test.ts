@@ -34,9 +34,9 @@ describe('AI master switch choke point', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     localStorage.clear();
     resetModelLoader();
-    vi.unstubAllGlobals();
   });
 
   it('refuses download and session load for every registered model when ai.enabled is false', async () => {
@@ -127,5 +127,54 @@ describe('AI master switch choke point', () => {
     ).rejects.toSatisfy(
       (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
     );
+  });
+
+  it('treats a missing localStorage as enabled so worker-side asserts are no-ops', async () => {
+    const { getAiFeaturesEnabled, assertAiFeaturesEnabled } = await import('../aiFeaturesGate');
+    vi.stubGlobal('localStorage', undefined);
+    expect(getAiFeaturesEnabled()).toBe(true);
+    expect(() => assertAiFeaturesEnabled()).not.toThrow();
+  });
+
+  it('refuses AI worker-host dispatch on the main thread when the switch is off', async () => {
+    disableAi();
+    const posted: unknown[] = [];
+    class FakeWorker {
+      onmessage: ((e: unknown) => void) | null = null;
+      onerror: ((e: unknown) => void) | null = null;
+      postMessage(msg: unknown) {
+        posted.push(msg);
+      }
+      addEventListener() {}
+      removeEventListener() {}
+      terminate() {}
+    }
+    vi.stubGlobal('Worker', FakeWorker);
+
+    const { runUpscaleInWorker, runUpscaleInWorkerWithMetadata, resetEnhancementWorkerForTests } =
+      await import('../../upscaleProviders/enhancementWorkerHost');
+    resetEnhancementWorkerForTests();
+    const image = new ImageData(1, 1);
+    await expect(
+      runUpscaleInWorkerWithMetadata(image, { method: 'ai', scale: 2 }),
+    ).rejects.toSatisfy(
+      (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
+    );
+    await expect(runUpscaleInWorker(image, { method: 'ai', scale: 2 })).rejects.toSatisfy(
+      (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
+    );
+    expect(posted).toHaveLength(0);
+
+    const { runPooledInference, terminateWorkerPool } = await import(
+      '../../backgroundRemoval/workerPool'
+    );
+    await expect(
+      runPooledInference(image, { method: 'ai-balanced' }, '/tmp/u2netp.onnx', 'u2netp'),
+    ).rejects.toSatisfy(
+      (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
+    );
+    expect(posted).toHaveLength(0);
+    terminateWorkerPool();
+    resetEnhancementWorkerForTests();
   });
 });

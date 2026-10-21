@@ -1118,9 +1118,16 @@ fn require_allowed_model_download_url(url: &str, model_id: &str) -> Result<(), S
     }
 }
 
+fn model_download_redirect_hop_limit_reached(previous_hops: usize) -> bool {
+    previous_hops >= 10
+}
+
 fn follow_allowed_model_download_redirect(
     attempt: reqwest::redirect::Attempt<'_>,
 ) -> reqwest::redirect::Action {
+    if model_download_redirect_hop_limit_reached(attempt.previous().len()) {
+        return attempt.error("too many redirects");
+    }
     if is_allowed_model_download_url(attempt.url().as_str()) {
         attempt.follow()
     } else {
@@ -6257,6 +6264,14 @@ mod tests {
         assert!(!is_allowed_model_download_url(
             "https://github.com/evil/repo/archive/refs/heads/main.zip"
         ));
+    }
+
+    #[test]
+    fn model_download_redirects_stop_after_ten_hops() {
+        assert!(!model_download_redirect_hop_limit_reached(0));
+        assert!(!model_download_redirect_hop_limit_reached(9));
+        assert!(model_download_redirect_hop_limit_reached(10));
+        assert!(model_download_redirect_hop_limit_reached(11));
     }
 
     #[test]

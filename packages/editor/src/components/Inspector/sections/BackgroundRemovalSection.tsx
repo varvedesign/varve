@@ -39,7 +39,7 @@ import {
   type ObjectSelectionPreviewMode,
   objectSelectionCandidateReviewKey,
 } from '../../../context/objectSelectionTypes';
-import { getAiFeaturesEnabled } from '../../../features/useAiFeaturesEnabled';
+import { AI_DISABLED_HINT, getAiFeaturesEnabled } from '../../../features/useAiFeaturesEnabled';
 import { prepareImageMaskMapper } from '../../../tools/imageMaskCoordinates';
 import type {
   Sam2PromptMode,
@@ -467,7 +467,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const startObjectSelection = useCallback(() => {
     if (!node) return;
     if (!getAiFeaturesEnabled()) {
-      announce('Object Selection requires AI features. Enable them in Settings.');
+      announce(AI_DISABLED_HINT);
       return;
     }
     setTool('sam2Segment');

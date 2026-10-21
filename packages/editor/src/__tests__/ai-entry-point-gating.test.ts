@@ -249,6 +249,24 @@ describe('AI Entry Point Gating Audit', () => {
     }
   });
 
+  it('uses the standard AI-disabled hint at leftover toast and announce sites', () => {
+    const hint = 'Turn on AI features in Settings to use this';
+    const context = readFileSync(join(process.cwd(), 'packages/editor/src/context.tsx'), 'utf-8');
+    const bgRemoval = readFileSync(
+      join(
+        process.cwd(),
+        'packages/editor/src/components/Inspector/sections/BackgroundRemovalSection.tsx',
+      ),
+      'utf-8',
+    );
+    const cafBody = extractEntryBody(context, 'openCafDialog');
+    const objectBody = extractEntryBody(bgRemoval, 'startObjectSelection');
+    expect(cafBody).toContain(hint);
+    expect(cafBody).not.toContain('Enable AI features in Settings to use Generative Edit.');
+    expect(objectBody).toContain('AI_DISABLED_HINT');
+    expect(objectBody).not.toContain('Object Selection requires AI features');
+  });
+
   it('verifies the gating helper functions exist', () => {
     const helperFile = join(process.cwd(), 'packages/editor/src/features/useAiFeaturesEnabled.ts');
     const content = readFileSync(helperFile, 'utf-8');
