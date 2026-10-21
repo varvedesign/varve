@@ -30,6 +30,24 @@ low effective-PPI finding is advisory and leaves the user to choose a smaller
 placement, lower output PPI, conventional resampling, or the existing image
 enhancement workflow.
 
+### Minification quality is a surface contract
+
+A placed image drawn smaller than its pixel size is minified by whichever
+surface paints it. The canvas default (`imageSmoothingQuality: 'low'`) is a
+cheap filter: scans and fine linework come out raggeder than the same artwork
+on screen, where the interactive compositor asks for `'high'`. Export must not
+be the poorer sibling, so every raster surface that replays scene content
+calls `applyRasterSmoothingPolicy` (`packages/engine/src/raster.ts`) — the
+same policy the compositor applies. `antiAlias: false` remains an explicit
+request for nearest-neighbour output (pixel-art upscaling) and is honoured.
+
+PDF is a different contract: the writer embeds the full-resolution image data
+and the reading application chooses its own resampling, so export does not
+claim a minification filter there. `/Interpolate` is deliberately not set: it
+is a reader hint that also smooths *upscaled* artwork, which destroys crisp
+pixel art, and it does not reduce file size. A PDF that must be small has to
+resample the embedded data, which is a separate, explicit operation.
+
 Tile fills do not receive a fabricated whole-object PPI; their tile scale is a
 different diagnostic. Non-uniform transforms expose axis-specific values and
 preflight uses the lower axis. Rotation and translation do not lower density.

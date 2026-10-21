@@ -6,6 +6,7 @@
 import { exportNodeToSvg } from '@varve/codegen';
 import {
   applyRasterizationTransform,
+  applyRasterSmoothingPolicy,
   awaitExportsReady,
   collectFontData,
   convertExportImageData,
@@ -482,6 +483,9 @@ export async function exportNodeAsRaster(
   const matteColor = opts.matteColor ?? (!transparent ? defaultFlattenMatte : undefined);
   const surface = createRasterSurface(w, h, { alpha: transparent });
   const ctx = surface.context;
+  // Export and screen must sample placed images the same way; the canvas
+  // default would minify scans with a cheaper filter than the compositor uses.
+  applyRasterSmoothingPolicy(ctx);
 
   if (!transparent && matteColor) {
     const [r, g, b, a] = matteColor;

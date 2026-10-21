@@ -80,6 +80,29 @@ function mimeForFormat(format: RasterFormat): string {
 }
 
 /**
+ * Smoothing policy for every raster surface that replays scene content.
+ *
+ * A placed image drawn smaller than its pixel size is minified by the canvas,
+ * and the canvas default (`imageSmoothingQuality: 'low'`) is a cheap filter:
+ * scanned text and fine linework come out raggeder than the same artwork on
+ * screen, where the interactive compositor asks for `'high'`. Export and
+ * screen must not disagree about how an image is sampled, so both set the
+ * same policy here. `antiAlias: false` is an explicit request for
+ * nearest-neighbour output (pixel-art upscaling) and is honoured as such.
+ */
+export function applyRasterSmoothingPolicy(
+  ctx: Pick<CanvasRenderingContext2D, 'imageSmoothingEnabled' | 'imageSmoothingQuality'>,
+  options: { antiAlias?: boolean } = {},
+): void {
+  if (options.antiAlias === false) {
+    ctx.imageSmoothingEnabled = false;
+    return;
+  }
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+}
+
+/**
  * Render a render-IR to a raster blob using OffscreenCanvas or HTMLCanvasElement.
  */
 export async function renderRaster(
@@ -92,10 +115,8 @@ export async function renderRaster(
   const surface = createRasterSurface(width, height, { alpha: format === 'png' });
   const ctx = surface.context;
 
-  // Anti-aliasing control
-  if (antiAlias === false) {
-    ctx.imageSmoothingEnabled = false;
-  }
+  // Anti-aliasing and minification quality
+  applyRasterSmoothingPolicy(ctx, { antiAlias });
 
   // Background fill
   if (background) {
