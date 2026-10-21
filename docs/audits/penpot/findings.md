@@ -1897,3 +1897,37 @@ is zooming while the color picker is active. Other candidates and their exact
 triggers are recorded in the ledger. No marketing claim is warranted by these
 upstream reports alone; update help or demonstrations only after a verified
 Varve behavior ships.
+
+## C1 issues #3228–#3421 (pages 31–32)
+
+The two reviewed pages contain 53 issues and 147 separate PR records. All 53
+issue bodies and 229 captured comments were read; the declared comment counts
+match every cached page. PR #3391 confirms Penpot fixes for HSV editing and
+slash-containing export names; PR #3382 fixes nested grid clipping, comment
+marker behavior, and image pattern seams; PR #3414 sets conditional smooth
+layer autoscroll. These upstream fixes do not substitute for Varve route
+verification.
+
+High-priority Varve reproduction work includes #3289 (a no-fill/no-stroke
+rectangle may intercept canvas clicks instead of allowing selection through),
+#3233 (dragging over hidden or locked nested parents), #3254 (ungroup while
+zoomed with nested text groups), and #3276 (slash/traversal characters in batch
+export names). Keep #3230's inconsistent undo report separate: reports span
+Brave/Firefox on Linux and Chrome on Windows, and no original document or
+repeatable transaction sequence is available. #3293 is a distinct import/export
+naming consistency condition for SVG versus PNG/JPG source extensions. #3305
+may justify more specific per-corner radius names for accessibility and
+inspectability. All remain candidates until reproduced in Varve.
+
+Page 32 adds a strong visual-output candidate: #3365's inner layout grid
+extends beyond a clipping ancestor, while the overlay renderer is separate
+from scene clipping. #3372 must preserve both the original opposite-edge seam
+and the later C1 residual seam in poster output after the upstream pattern fix.
+#3387 describes a recent-color selection crash while creating a gradient
+asset. #3340 distinguishes numeric SVG dimension entry from K-handle scaling
+when deciding whether stroke appearance should scale. #3421 reports a negative
+shadow-spread visual case; Varve already has alpha morphology support, but a
+matching browser render remains to verify. #3326/#3394 ask for stable external
+format guidance and need an explicit compatibility promise before docs or
+schema are expanded. No marketing change follows from these external reports;
+website claims should track only verified shipped and released behavior.
