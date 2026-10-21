@@ -201,6 +201,61 @@ jobs:
   );
 }
 
+// ubuntu-latest is Ubuntu 26.04; libgdk-pixbuf2.0-dev has no install candidate there.
+{
+  const floatingPixbuf = `name: Build
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          sudo apt-get install -y --no-install-recommends \\
+            libwebkit2gtk-4.1-dev libgdk-pixbuf2.0-dev
+`;
+  assert.ok(
+    validateVarveRules(floatingPixbuf, 'build.yml').some((error) =>
+      error.includes('libgdk-pixbuf2.0-dev'),
+    ),
+    'a pixbuf-installing job on ubuntu-latest must fail workflow validation',
+  );
+  const pinnedPixbuf = floatingPixbuf.replace('ubuntu-latest', 'ubuntu-24.04');
+  assert.deepEqual(validateVarveRules(pinnedPixbuf, 'build.yml'), []);
+  const floatingMatrix = `name: Build
+on: pull_request
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'matrix={"os":["ubuntu-latest"]}' >> "$GITHUB_OUTPUT"
+  build:
+    runs-on: \${{ matrix.os }}
+    steps:
+      - run: sudo apt-get install -y libgdk-pixbuf2.0-dev
+`;
+  assert.ok(
+    validateVarveRules(floatingMatrix, 'build.yml').some((error) =>
+      error.includes('ubuntu-latest matrix'),
+    ),
+    'a dynamic Linux matrix that still emits ubuntu-latest must fail',
+  );
+  const commentOnly = `name: Build
+on: workflow_dispatch
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          # mentions libgdk-pixbuf2.0-dev but does not install it
+          echo 'matrix={"os":["ubuntu-24.04"]}'
+`;
+  assert.deepEqual(
+    validateVarveRules(commentOnly, 'build.yml'),
+    [],
+    'a comment that names the package is not an apt install',
+  );
+}
+
 const RELEASE_GOOD = `name: Release
 on:
   push:

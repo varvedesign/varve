@@ -35,6 +35,9 @@ overrides:
   # source-map-js event-loop DoS through indexed source-map section offsets.
   # Fixed upstream in 1.2.2.
   "source-map-js": 1.2.2
+  # Vite 8.2.4 fixes the 2026-10-20 Windows editor-launch command advisories
+  # reached through Astro's production dependency graph.
+  "vite": 8.2.4
   # PostCSS flat-selector CPU exhaustion. Only the 7.x line is overridden: the
   # patched release is a major bump, and Tailwind 3 (via @astrojs/tailwind)
   # pins ^6 for its build, where no fix exists. The Tailwind chain is build-time

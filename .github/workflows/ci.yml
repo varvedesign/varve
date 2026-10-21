@@ -829,8 +829,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Pin to 24.04: ubuntu-latest is 26.04 and dropped libgdk-pixbuf2.0-dev.
           - name: linux-x11
-            os: ubuntu-latest
+            os: ubuntu-24.04
             xvfb: true
           - name: windows-x64
             os: windows-latest

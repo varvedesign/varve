@@ -26,48 +26,50 @@ update, not for someone reading the commit log.
   newer Mesa stacks do not white-screen. GStreamer plugins are not bundled
   (`bundleMediaFramework` stays false). The published filename is
   `Varve-<version>-x86_64.AppImage` (no `linux` segment). The Tauri updater
-  platform key remains `linux-x86_64`, so 0.5.1 clients follow the new URL
-  from `stable.json` on the next release.
+  platform key remains `linux-x86_64`, so installed 0.5.1 clients resolve the
+  new artifact URL from `stable.json`.
+- **AUR `varve-desktop-bin`**: package hashes and source URLs now match the
+  published 0.5.1 AppImages.
 
 ### Fixed
 
 - **AppImageHub launch**: 0.5.1 failed with
   `libwebkit2gtk-4.1.so.0: cannot open shared object file` on a clean offline
-  VM. The next AppImage carries WebKitGTK in the payload.
+  VM. The AppImage now carries WebKitGTK in the payload.
 - **Text save integrity** — Save and close now include buffered text drafts, including the visible
   value during IME composition, without ending the active edit session.
 - **PDF export fidelity** — PDF export preserves PDF-supported blend modes. PDF/X-1a now stops with
   actionable guidance when artwork contains transparency or a blend mode it cannot represent;
   PDF/X-4 retains live transparency and supported blend modes. Text outside WinAnsi is outlined
   to preserve its glyphs; those outlines are not searchable as text.
+- **PDF styled text**: Native PDF export keeps authored text style instead of
+  flattening it away.
+- **PDF text transparency**: Standard PDF and PDF/X-4 exports preserve text
+  fill transparency with the node opacity.
 - **PDF stroke transparency** — Standard PDF and PDF/X-4 exports now preserve each stroke color's
   alpha together with the node opacity. PDF/X-1a continues to stop when a stroke is translucent.
 - **PDF drop-shadow blending** — Authored drop shadows now retain PDF-supported blend modes and
   combine effect opacity, shadow-colour alpha, and node opacity. PDF/X-1a stops when an effect uses
   transparency or a blend mode it cannot represent.
+- **SVG import**: `use` instances keep fill opacity, and dropped Inkscape
+  live path effects are reported instead of silently omitted.
+
+### Security
+
+- Desktop `zip` 9.0.4 (RUSTSEC-2026-0367 through 0369) via the vendored
+  updater crate pin.
+- Vite and TLS advisory patches from 2026-10-20.
 
 ## [0.5.1] - 2026-10-15
 
 Patch over public-beta 0.5.0. The document schema is still 2.33. This
 release replaces the bundled ICC profiles, adds AI disclosure controls,
-fixes crash-screen false positives and email export/preview bugs, and
-records Generative Edit, which shipped in 0.5.0 but was missing from those
-notes.
+and fixes crash-screen false positives, an AI settings crash, and email
+export/preview bugs. The shipped desktop app includes the Tauri updater;
+update checks run only after you enable them.
 
 ### Added
 
-- **Generative Edit** — Select one image and reconstruct painted pixels
-  (Fill), rebuild a painted object's background without deleting the layer
-  (Remove / Generative Subtract), or add pixels beyond the current bounds
-  (Expand). Draft Fill/Remove uses PatchMatch with no model download;
-  higher quality uses an optional local LaMa inpainting model. Desktop
-  Expand has limited Linux x86_64 photo review; browser Expand needs LaMa,
-  and Fast/PatchMatch Expand stays disabled after visible edge striping.
-  Replace and prompt-conditioned Fill/Expand remain gated until a local
-  model passes qualification. Accepting writes one undoable transaction
-  and keeps an immutable source snapshot. Open it from the image
-  inspector, Crop & Bounds, the Layers or canvas context menu,
-  Object → Generative Edit…, or the command palette.
 - **AI transparency controls** — Settings → AI features is on by default
   (`Ctrl+Alt+Shift+A` toggles it). Layers mark AI-edited nodes; the
   Inspector shows AI Edit History; export can attach disclosure metadata
@@ -94,9 +96,15 @@ notes.
   are world-readable so AppImageHub and firejail mounts can run the
   image. The AUR `varve-desktop-bin` package resets extract modes instead
   of copying `0700` trees into pacman.
+- **Desktop updater**: the shipped app includes the Tauri updater pointed at
+  `https://varve.studio/updates/stable.json`. Update checks run only after
+  you enable them. Debian/RPM packages and non-writable copies still update
+  by installing a newer package or file.
 
 ### Fixed
 
+- **AI settings crash**: toggling Settings → AI features no longer opens the
+  crash dialog, and the setting persists.
 - **Crash screen false positives** — Recovered WebGL context loss,
   aborted jobs, and other diagnostics no longer open "Varve closed
   unexpectedly".
@@ -144,6 +152,18 @@ marked.
   Liquify, depth-aware masks, bracket merging, and verified Ultra HDR sharing
   join image tuning and colorization. RAW development is limited to the
   documented camera subset; model-based features may require optional downloads.
+- **Generative Edit** — Select one image and reconstruct painted pixels
+  (Fill), rebuild a painted object's background without deleting the layer
+  (Remove / Generative Subtract), or add pixels beyond the current bounds
+  (Expand). Draft Fill/Remove uses PatchMatch with no model download;
+  higher quality uses an optional local LaMa inpainting model. Desktop
+  Expand has limited Linux x86_64 photo review; browser Expand needs LaMa,
+  and Fast/PatchMatch Expand stays disabled after visible edge striping.
+  Replace and prompt-conditioned Fill/Expand remain gated until a local
+  model passes qualification. Accepting writes one undoable transaction
+  and keeps an immutable source snapshot. Open it from the image
+  inspector, Crop & Bounds, the Layers or canvas context menu,
+  Object → Generative Edit…, or the command palette.
 - **Vector and type tools** — Shape Builder, compound-path editing, more precise
   tracing, path text, variable-font controls, and shaped-glyph outlines improve
   illustration and lettering workflows.
