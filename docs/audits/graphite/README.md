@@ -64,8 +64,16 @@ Dispositions: `applicable-work-required`, `already-handled`, `duplicate-of`,
   unstaged and untracked work that is unrelated to this branch.
 - Inventory and discussion coverage complete (above).
 - Per-issue ledger: `issue-ledger.jsonl` (1,604 rows). Link frontier:
-  `link-frontier.jsonl` (1,054 deduplicated references).
+  `link-frontier.jsonl` (1,054 deduplicated references), triaged in
+  `frontier-triage.md`.
 - Findings and engineering state: `findings.md`.
+- A pre-existing repository failure unrelated to this work: the website
+  `changelog.test.ts` "parses the actual CHANGELOG.md" case fails on
+  `origin/master` before any change here. The parser drops the release summary
+  paragraph under a version heading and lets `## [Unreleased]` list entries
+  leak into the following release, so the 0.5.1 page omits its summary. It is
+  recorded as a separate opportunity rather than fixed inside this branch,
+  because it is not traceable to a Graphite finding.
 
 ## Verified batches
 

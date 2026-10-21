@@ -54,6 +54,17 @@ stop the perpendicular edge from following the pointer). This gives the
 existing `axisLock` field its first real consumer instead of adding a second
 parallel concept.
 
+**Second root cause found while validating (same finding).** A constraint is
+only useful if the gesture survives to use it. `SelectTool.beginMoveGesture`
+routed the pointer-down through the ordinary hit-selection path, where Shift
+*removes* an already-selected node. Pressing Shift before the drag therefore
+deselected the object and left the move with no targets — the constraint
+would have been unreachable for the documented workflow ("select, then
+Shift-drag"). The drag path now treats Shift as "keep this target in the move"
+and leaves the toggle to the click path, which still toggles exactly as
+before. Independent review flagged this as a blocker for the change; it is
+fixed in the same batch.
+
 **Acceptance criteria.**
 1. Near-axis Shift-drag: perpendicular component is zero, along-axis travel
    tracks the pointer.
@@ -65,7 +76,11 @@ parallel concept.
 **Evidence.** `packages/editor/src/tools/axisConstraint.ts`,
 `packages/editor/src/tools/__tests__/axisConstraint.test.ts` (10 cases),
 `tests/e2e/canvas/shift-constrained-move.spec.ts` (4 Chromium cases),
-`SelectTool`/`PageTool`/`ToolManager` suites (97 tests).
+`SelectTool`/`PageTool`/`ToolManager` suites (97 tests). The E2E spec draws
+with the rectangle tool and must return to Select (`v`) before the gesture
+under test; shape tools stay active after drawing, so without that the drag
+creates squares instead of moving a selection. An earlier revision of the spec
+omitted it and failed, which is why the case is now explicit.
 
 ---
 
@@ -116,6 +131,28 @@ Enter can never create a document the button would refuse.
 
 **Evidence.** `packages/home/src/NewDesignDialog.tsx`, five new cases in
 `packages/home/src/NewDesignDialog.test.tsx` (21 total, package suite 215).
+
+---
+
+## F2b — Enter in the preset search must not create the document (implemented, found in review)
+
+**Origin.** Independent review of the F2 change.
+
+**Problem.** `PresetPicker`'s search field is a `combobox` that consumes Enter
+to select the highlighted preset and calls `preventDefault()` without stopping
+propagation. F2's first revision excluded only textareas, buttons and listbox
+roles, so typing a query and pressing Enter both applied the preset and created
+the document — a regression against the previous "Enter does nothing in
+inputs" behaviour and a violation of F2's own acceptance criterion that
+controls owning Enter keep it.
+
+**Fix.** The handler returns when the event was already default-prevented,
+after the number-field branch (whose `NumberInput` also prevents default and
+must still submit). Covered by a jsdom case that types into the preset search
+and asserts the preset is selected without creating a document.
+
+**Evidence.** `packages/home/src/NewDesignDialog.tsx`,
+`packages/home/src/NewDesignDialog.test.tsx` (22 cases).
 
 ---
 
