@@ -22,6 +22,7 @@ import {
   pathTextSvgContent,
   pathTextSvgDef,
   pathTextSvgId,
+  svgFontFamilyValue,
   svgPatternFillForNode,
   svgRect,
 } from './svg';
@@ -831,7 +832,7 @@ function nodeToSvg(
         node.textMode === 'path' && node.pathTextSettings && !pathDef
           ? `<!-- varve: path text — referenced path ${node.pathTextSettings.pathNodeId} not found, exported as flat text -->\n${indent}`
           : '';
-      const tag = `${indent}${missingComment}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" font-family="${node.fontFamily ?? 'Inter'}" font-weight="${node.fontWeight ?? 400}" transform="${transform}"${pathAttrs}${compositingSuffix}>${pathContent}</text>`;
+      const tag = `${indent}${missingComment}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" font-family="${escapeXml(svgFontFamilyValue(node.fontFamily ?? 'Inter'))}" font-weight="${node.fontWeight ?? 400}" transform="${transform}"${pathAttrs}${compositingSuffix}>${pathContent}</text>`;
       if (maskUri) {
         return `${indent}<g ${maskAttr}="${maskUri}" transform="${transform}">\n${tag}\n${indent}</g>`;
       }
