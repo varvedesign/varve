@@ -850,7 +850,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     drawingInput: normalizeDrawingInputSettings({ ...current.drawingInput, ...patch.drawingInput }),
     collab: { ...current.collab, ...patch.collab },
     ai: normalizeAiSettings({ ...current.ai, ...patch.ai }),
-    privacy: { ...current.privacy, ...patch.privacy },
+    privacy: { ...DEFAULT_PRIVACY_SETTINGS },
     icons: {
       remoteSearch: normalizeAnalyticsConsent(
         patch.icons?.remoteSearch ?? current.icons.remoteSearch,
