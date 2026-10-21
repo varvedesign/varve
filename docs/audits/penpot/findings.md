@@ -1777,7 +1777,7 @@ The frozen pages contribute 21 records in this numeric interval: ten issues and 
 
 #2920 requests prototype links to artboards on other pages to reduce large-page performance cost. Discussion #960 and Taiga #2768/#1704 confirm this remains a design decision, so page-qualified target identity, page loading, transition state, and back-stack behavior must be specified before any schema or runtime change. #2924 asks for pointer-anchored keyboard zoom; Taiga #4825 says Penpot fixed it, while Varve's viewport-centered Ctrl+=/- behavior differs and remains a usability feature candidate. #2926 reports a Bungee Shade text export shift caused by Linux/Windows font metrics; upstream could not reproduce. Test Varve text layout and export with the supplied font on both platforms before classifying a defect.
 
-PR #2914's auto-width/space-around and moving-shapes layout changes, #2917 tooltip overflow, #2922 middle-button guide dragging, and #2927 auto-size bounds remain comparison evidence. The #2922 patch and duplicate #2369 provide a concrete real-browser pointer candidate against Varve's GuideOverlay; exercise middle-button movement and cancellation before deciding whether Varve needs a repair. Website impact: no marketing claim or demo change is supported by this evidence. If the style-library or cross-page-prototype opportunities are accepted and shipped, update the corresponding help and demonstrations then; current published guidance remains accurate. C1 is incomplete and C2 is not frozen.
+PR #2914's auto-width/space-around and moving-shapes layout changes, #2917 tooltip overflow, #2922 middle-button guide dragging, and #2927 auto-size bounds remain comparison evidence. The #2922 patch and duplicate #2369 led to a real-browser reproduction: before the fix, middle-button drag over a guide changed the guide position while camera panX stayed at -295.5. The fix routes only a middle drag beginning on a guide hit target through the existing canvas input pipeline; the guide component ignores non-primary pointer downs. The Chromium regression failed on the baseline and passes after the change, asserting camera movement and guide screen movement consistent with that camera delta. Exact before/after screenshots are retained under `test-results/run-1439201-1420/`; the after image confirms the guide stays in view while the canvas pans. Targeted browser verification is complete; broader affected validation, independent review, and integration remain pending. Website impact: this is interaction guidance, not a new marketing capability. The source interface help now documents primary-button guide movement, middle-button pan, and right-click context actions. If the style-library or cross-page-prototype opportunities are accepted and shipped, update their help and demonstrations then. C1 is incomplete and C2 is not frozen.
 
 ## C1 issues and PR evidence #2929–#2952
 
@@ -1786,3 +1786,81 @@ The frozen page contributes 21 records in this interval: eight issues and 13 PRs
 #2930 is the strongest candidate: a pixel-grid zoom path-node drag appears offset in Penpot; Varve `NodeEditTool` applies raw pointer deltas while `SelectTool` has a snapping route. Reproduce with a real browser pointer at pixel-grid zoom before deciding how to snap node anchors while retaining relative handle offsets. #2931’s imported font appearance issue was resolved by correcting family/style metadata and re-exporting the OTF; no Varve failure is established. #2933’s absolute-positioned child is already supported by Varve `layoutPosition: flow|absolute`; responsive anchoring constraints are a separate feature idea. #2934’s anonymous comments on shared views were deferred by Penpot over moderation and security concerns; Varve has no hosted shared-view/comment route. #2936 requests nested, collapsible page groups; Varve has page navigation but not nested folders. This is a significant feature opportunity requiring a stable schema, ordering/history, prototype-link, keyboard, and migration decision. #2937 duplicates #2918's self-hosted media/deployment issue and should retain its distinct cache/release condition. #2949 provides an exact `.penpot.tar.gz` fixture for testing nested component override preservation during parent/child sync, save/reopen, and undo/redo. #2950's optional remote-font-provider disable/local-host policy is a privacy/admin feature idea; Varve editing is offline and catalog downloads are explicit, but catalog search remains online. Do not claim remote font catalog access is wholly disabled.
 
 PR comparison evidence includes #2939 transaction grouping, #2940 `space-evenly` (already supported), #2941 frame opacity, #2942/#2945 duplicate spacing predictions, #2944 frame resize, #2946 layout containment, #2947 frame hit-test ordering, #2948 CSS variables, #2951 WIP layout/paste/accessibility work, and #2952 dashboard accessibility; these titles alone do not establish Varve defects. Website impact: existing offline-first and explicit font-download guidance remains accurate. No marketing claim or demo change is justified. If nested page folders or provider privacy controls are selected and shipped, update the relevant help and demonstrations then. C1 remains incomplete and C2 unfrozen.
+
+## C1 issues and PR evidence #2953–#2976
+
+This frozen page range contains 15 issues and eight PRs; #2962 is absent. All
+15 issue bodies and 33 comments were assessed. The page and comment requests
+arrived shortly after C1, but body/state comparisons against later direct
+reads found no material drift; this timing is retained as a cutoff limitation.
+Linked Taiga records, PR discussions, reviews, files, commits, and available
+attachments were read. Duplicate comment-page requests are preserved in the
+raw cache and deduplicated in the derived ledger.
+
+#2953's component swap is already available through Varve's local component
+swap selector, but compatible overrides are reset; preserving them is a
+feature candidate, not a confirmed defect. #2956's prototype hotspot visibility
+request calls for a reproduction with nested overlays and a decision about
+preview versus player behavior. #2957 and #2958 motivate constrained-viewport
+and touch layer-reorder tests; Varve has responsive panels and a pointer-based
+DnD sensor, but those exact device routes remain unverified. #2960 is a broad
+Safari iPad clipboard support report without a Varve-specific repro. #2965
+requests semantic IDs in exported SVG; stable, XML-safe name-derived IDs would
+need compatibility acceptance separate from internal mask/gradient identifiers.
+PR #2970 adds on-canvas auto-layout padding controls, a viable interaction
+improvement over Varve's current numeric inspector fields. PR #2976 adds
+absolute-positioned flex children and z-index behavior; Varve has absolute
+layout position and child paint order but no independent z-index field, so this
+needs a bounded schema and ordering decision. The screenshot linked from Taiga
+#4689 redirects to an unrelated sales page and remains inaccessible. No
+marketing claim is warranted; if these workflow improvements are accepted and
+shipped, update the relevant docs and demo then.
+
+## C1 issues and PR evidence #2977–#3000
+
+The frozen range contains 23 records: six issues and 17 PRs; #2999 is absent.
+All six issue bodies and ten advertised comments were read. All 17 PR bodies,
+files, commits, comments, reviews, and inline review comments were inspected.
+Original response metadata and attachment retries, including a corrected URL
+after a 403, remain in the external cache.
+
+#2998 is a significant prototype feature opportunity: the upstream workflow
+requires per-file vertical, horizontal, or bidirectional board overflow, saved
+in the file and available in the prototype viewer. Varve clips prototype
+screens but has no persisted scrolling behavior. This requires a document
+schema, viewer semantics, overflow-edge, and compatibility decision before
+changes; the linked Taiga screenshot is inaccessible. Keep #4564's
+scroll-to-anchor and #3083's sticky flex items distinct. #2991's focus/caret
+behavior is already handled by `NumberField`, but lacks an equivalent browser
+reproduction. #2995's malformed zero-height SVG maps to a Varve importer that
+defaults missing line coordinates and rejects an invalid zero viewBox; verify
+its exact 259-byte fixture in the existing regression route. #2990's rectangle
+shift remains blocked on the missing `.penpot` reproduction. Server-side deploy
+and Docker reports are outside Varve's local product boundary. No marketing
+claim change is supported; prototype overflow guidance and demos should change
+only if the feature is accepted and implemented.
+
+## C1 issues and PR evidence #3001–#3024
+
+All 24 numeric positions were reconciled as 12 issues and 12 PRs, and all 12
+issue bodies and 68 advertised comments were read. PR reviews covered 178
+changed-file records, 34 commits, ten reviews, and 15 inline comments. C1-only
+assessment excludes later replies in community topic #595.
+
+Varve already models and edits per-side stroke widths. Penpot's issue/PR chain
+and its Figma exporter specify the `strokePerSide` plus
+`strokeWidthTop/Right/Bottom/Left` import fields, while Varve's Figma importer
+currently reads scalar width and its SVG/PDF capability tables report
+per-side output unsupported. This is a grounded fidelity improvement with a
+bounded first step: test the exact external payload, then assess SVG export
+separately from PDF and token-binding semantics. PR #3023's interactive
+layout-gap/padding/margin controls are another viable feature over numeric
+inspector fields. #3003's nested overlay anchor and #3004's SVG source-structure
+preservation require product decisions and import/export reproductions. The
+merged PR #3019 is a regression checklist across malformed SVG, hidden-layer
+selection, bulk-color undo, empty-board selection, and text-edit undo; it does
+not itself establish Varve defects. Penpot's declined parallel upload change
+is not a reason to increase Varve's local import concurrency. Website impact:
+no new marketing claim is justified by upstream-only feature evidence; update
+prototype/export help and demos only as those capabilities become real and
+verified in Varve.

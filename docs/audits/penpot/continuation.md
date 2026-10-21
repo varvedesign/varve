@@ -388,3 +388,54 @@ website claim or demo change is supported. C1 remains incomplete; C2 is unfrozen
 - #2929–#2952 includes eight issues and 13 PRs. All eight issue bodies and 32 comments were read. The exact #2949 nested-component fixture and #2930 pixel-grid video are cached; #2934's eight-post community discussion and relevant Taiga histories were reviewed. High-priority Varve follow-ups are #2930 path-node grid snapping and #2949 nested override preservation; feature decisions #2936 page folders and #2950 remote-font provider policy remain separate. Existing website offline/font guidance is accurate, so no marketing claim change is due.
 - The exact browser test `Canvas guides › middle-button drag over a guide pans the canvas without moving the guide` is queued through `heavy-lease` to prove the pre-fix behavior. Do not apply the pointer-button guard until the previous behavior is shown by the real browser test. A one-worker editor package Vitest probe without the lease showed failures/timeouts in ShortcutPalette, FloatingToolbar, and GradientEditor under concurrency; that manual probe was stopped and is not validation evidence. The actual affected validation run remains incomplete and must complete through the repository verifier/lease.
 - After the baseline test, implement the minimal primary-button guard in GuideOverlay, update guide usage help, and rerun its exact Playwright regression with screenshots inspected. Then run the full current `verify:plan`/`verify:affected` plan, classify failures, capture website visual results, request independent `review-agent` review, and commit a coherent implementation batch. Keep the current worktree and original checkout until C1/C2, integration, remote confirmation, and any site deployment check are complete.
+
+### Continuation checkpoint — C1 #2881–#3024 (2026-10-21)
+
+- The coordinator integrated the read-only #2953–#3024 research handoffs. The added intervals contribute 33 individually reviewed issues and 33 distinct PR records; page evidence includes the noted #2953–#2976 post-cutoff retrieval timing (no material issue-body/state drift), one absent census slot each at #2962 and #2999, and later community replies after C1 held out of the frozen assessment. Latest C1 totals should be confirmed with `node scripts/research/penpot-audit.mjs status --cutoff C1`; C1 remains incomplete and C2 unfrozen.
+- The #2922/#2369 middle-button guide issue was reproduced in Chromium against pre-fix code: the guide moved during middle drag and camera panX stayed at -295.5. The fix routes a middle drag starting on a guide hit-area into the established canvas pointer pipeline, and GuideOverlay ignores non-primary pointer downs. The exact one-worker Chromium regression now passes and compares guide screen movement with committed camera pan. Before/after screenshots were inspected and show the guide remaining visible during pan; artifacts are in `test-results/run-1439201-1420/`. Website interface help now explains primary-button guide drag, middle-button pan, and right-click context actions. No new marketing claim or demo is warranted.
+- New product leads worth a grounded decision: preserve compatible component overrides on swap (#2953); expose on-canvas layout padding controls (#2970/#3023); prototype board scrolling with per-file overflow semantics (#2998, requires schema and compatibility decisions); and per-side stroke Figma import/SVG export fidelity (#9854, with PDF and token behavior separate). These remain unimplemented candidates pending investigation and bounded acceptance. Touch reorder (#2958), constrained viewport layout (#2957), semantic SVG IDs (#2965), nested prototype anchors (#3003), and source-structure-preserving SVG output (#3004) remain separate research/testing or product decisions. Marketing changes follow verified shipped behavior only.
+- Changed application scope now also includes `CanvasArea.tsx` system pointer routing and its capture/cancel lifecycle. Run fresh `pnpm verify:plan`, then complete `pnpm verify:affected` under the lease with bounded workers, plus `node scripts/audit-architecture.mjs --ci`. The prior affected run did not finish editor package unit tests, so it remains incomplete. Check focused unit/E2E test lanes, inspect the latest successful before/after screenshots from `run-1439201-1420`, and exercise the full guides spec for primary drag, deletion, visibility, keyboard nudge, and context-menu regression.
+- Then inspect the interface-doc page visually, reconcile/check the audit ledger, complete one coherent app/docs/audit commit, run `pnpm verify:push`, request final independent `review-agent` review, and resolve findings. Refresh remote master and current PR/rule/CI evidence before integration. Do not delete this worktree until C1/C2, review, merge, remote ancestry, and triggered website deployment are confirmed.
+
+### Execution checkpoint: 2026-10-21 — import fidelity and interaction batch
+
+The application checkpoint is `2e9002d56` on `codex/penpot-corpus`; audit
+ledger edits remain uncommitted. Latest remote `master` advanced after the
+original worktree refresh to `f0b82567d`; integrate that commit before pushing.
+The original checkout and other worktrees remain preserved, and no open PR
+currently overlaps this batch.
+
+Application increments committed: `fb068e0d5` preserves SVG `currentColor`,
+named colors, and inline text styles; `9c0412d3b` restores middle-button guide
+panning and adds frame-to-component creation and primary-button resize routes;
+`457b55fb7` separates file preparation from import progress and retains visible
+cancellation; `2cd8c7950` explains clipboard read capability failures; and
+`2e9002d56` adds browser-reserved shortcut regressions. The independent review
+of the implementation diff found no actionable findings. Website impact is
+limited to accurate file-format and interface guidance; no homepage or demo
+claim is warranted.
+
+Inspected visual evidence: SVG inherited-color and inline-text browser
+snapshots, and before/after guide-pan captures showing the guide stays anchored
+while the camera pans. Changed website routes passed in both GitHub Pages and
+custom-domain builds. The broad website E2E run reached 583/692 tests before
+the runner session was terminated; it remains incomplete. The affected plan
+selected 40 validation lanes without full-suite escalation. Formatting,
+affected package typechecks, editor tests (8,815 passed, two skipped), import
+tests (403 passed), desktop package tests (90 passed), website unit tests
+(308 passed), focused app E2E, keyboard/navigation E2E (28), adjacent import
+E2E (12), and export E2E (15) passed. `audit-architecture.mjs --ci` reported
+14 known cycles and no layer violations, within enforced ceilings. Browser
+runs used the TypeScript renderer fallback after WASM failed to load; native
+GUI and real-WASM behavior remain unverified. No native code changed.
+
+`reconcile --cutoff C1` passes. The frozen inventory holds 3,659 issues and
+8,391 PR records, with zero duplicate IDs/numbers and no unresolved issue
+comments in the cache. Current status: 903/3,659 page-listed issues assessed,
+2,756 research-pending, and 3,371 engineering-pending; supplemental #437 is
+separately assessed. The checker exits 1 for the expected remaining corpus and
+applicable engineering findings. The evidence frontier currently has 885
+edges, including inaccessible external evidence and Varve reproductions still
+to perform. C1 pages 29 and 30 are assigned for independent read-only evidence
+review. C2 is not frozen. Next: integrate those reports, refresh validation on
+the current master base, and select the next bounded candidate for reproduction.
