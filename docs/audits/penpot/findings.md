@@ -1,6 +1,110 @@
 # Findings and implementation batches
 
-## Current implementation checkpoint — #2276 and #2670
+## Current implementation checkpoint — #3157 guide snapping to object geometry
+
+Penpot #3157 ("snap top object on guidelines") reports that a 1080x1350 layout
+needs its 135px top/bottom margins expressed as guides, but guide placement is
+free-form: there is no way to drop a guide exactly on an object edge. The
+maintainer accepted it as a high-priority enhancement rather than a defect, and
+a follow-up comment in 2025 confirms the capability is still absent in Penpot.
+The two linked Taiga items (5192, 4245) are inaccessible and remain recorded as
+unresolved frontier edges; the issue thread itself states the requirement
+clearly, so the reproduction did not depend on them.
+
+Varve already snapped objects *onto* guides (`tools/snapping.ts`) but not guides
+onto geometry, so a guide could not be aligned to a 135px margin exactly. The
+implementation:
+
+- `components/GuideOverlay/guideSnapTargets.ts` enumerates edges, centers and
+  vector path points. The walk **starts from the resolved editing surface**
+  (`resolveEditorSceneScope().authoredNodeIds`) rather than the active page:
+  master edit excludes master roots from `activePageNodes`, and a design-canvas
+  document lives outside page children, so a page-rooted walk silently produced
+  zero targets there. A whole-document parent index keeps ancestor transforms
+  and avoids per-node ancestor resolution. Hidden nodes (and nodes under a
+  hidden ancestor) and `snapExcluded` nodes are skipped; **locked nodes stay
+  eligible**, matching the object-snap pipeline, because locking protects
+  editing rather than hiding artwork and locked frames are the usual alignment
+  reference.
+- Targets are built **on demand on the first pointer move of a drag**, never
+  during render, never per pointer sample, and not on a pointer-down that turns
+  out to be a plain click. An eager `useMemo`/prop would re-walk the page on
+  every document mutation (each text keystroke, each undo) for a value only a
+  guide drag reads. Measured cost (`__benchmarks__/guideSnapTargets.bench.test.ts`):
+  8.6 ms for 1k objects and 15.6 ms for 5k, against per-gesture budgets of 16 ms
+  and 80 ms.
+- `guideSnapResolver.ts` is the single gesture-scoped resolver used by **both**
+  guide routes: creating a guide by dragging it out of a ruler (`Ruler.tsx`)
+  and re-dragging an existing guide (`GuideOverlay`). It reads the snapping
+  preference once, returns `null` when snapping is off, and otherwise returns
+  the exact target coordinate or the established whole-pixel free position.
+  This matters because ruler-drag creation is the primary route; snapping only
+  on re-drag would have made the documented feature look broken.
+- `snapGuidePosition` returns a hit object (`position`, `target`) rather than a
+  bare number, so a **perfect** hit is not mistaken for "no snap" and rounded
+  off the geometry it acquired.
+- Acquisition distance is the shared screen-space tolerance (`zoom`-scaled), so
+  zooming in tightens the world range. Ctrl on Linux/Windows and Cmd on macOS
+  (without Shift, via the same rule as `InteractionContext`) bypass snapping for
+  the current sample on **both** routes without changing the drag origin.
+- Feedback: while a target holds the guide it renders solid in the accent
+  colour and the existing position readout shows the exact value; release,
+  cancel, or leaving the tolerance restores the dashed line.
+
+Evidence: `guideSnapTargets.test.ts` (targets, hidden/excluded/locked,
+hidden-ancestor, scope-restricted walk, scope outside the page walk (master
+edit), move pickup, nearest target, zoom scaling, exact hit),
+`guideSnapResolver.test.ts` (settings gates, rounding, exact hit, axis, zoom,
+scope, empty scene), six snapping regressions plus bypass/emphasis/lazy
+resolution in `GuideOverlay.test.tsx`, three creation regressions in
+`Ruler.test.tsx`, and the benchmark above. The real Chromium route is covered by
+`guides.spec.ts` "creating and re-dragging a guide snaps it onto an object
+edge": the guide is created by pressing and releasing on the ruler 3 px past the
+edge (no move sample), so the creation sample itself must land on the edge; a
+re-drag then releases 5 px past the same edge and must land on the same
+coordinate. Both assertions were confirmed to fail against the pre-fix build
+(creation 302.5 vs edge 300, and a 2 px difference between the two re-drag
+releases) before the fix was restored.
+All seven guide specs pass under the heavy-task lease, and the captured
+`guide-held-on-object-edge` screenshot shows the solid guide on the rectangle
+edge with a fractional readout (595.5) preserved. The website
+precision-placement guide now describes both routes, the locked/hidden target
+rules, exactness and the bypass modifier; no marketing claim changed.
+
+## Implementation batch — #3276 export names that create paths
+
+Penpot #3276 ("slashes in board name cause directories to be created in zip
+export") was reproduced in Varve from source inspection and a failing unit test.
+`formatFileName` sanitized each segment **after** splitting the resolved
+template, so a slash that arrived inside a token value was indistinguishable
+from a folder separator: an object named `Hero/Mobile` exported as
+`Hero/Mobile.png`, and `../secrets` produced `_/secrets.png` — still a nested
+path, and a folder the user never asked for. Penpot fixed the upstream case in
+PR #3391; Varve's per-segment sanitizer looked like the same protection but sat
+on the wrong side of the split.
+
+The fix flattens token values (object, page, preset, variant names and the
+suffix) to one path segment before substitution, so only the template's own
+separators create directories. The same batch hardened the write boundary:
+
+- `BufferedExportArchive.flush` sanitizes the archive name, which the browser
+  route derives from the document name (`<name>-exports`). Separators, reserved
+  characters and `..` no longer reach the save dialog or download.
+- `createExportSaveFile` suggests only the sanitized final file name to a
+  single-file save dialog. A folder template still groups archive entries, but
+  one dialog cannot create folders, so passing `Section/Page/Logo.svg` as a
+  default path was wrong on both platforms.
+
+Evidence: four new `formatFileName` regressions (slash object name, slash page
+name with a folder template, traversal input, separator suffix) failed before
+the change and pass after it; four adapter regressions cover the archive name
+(including an already-`.zip` name), basename suggestion and traversal input. The
+scene export and editor export suites pass unchanged (269 + 192 tests across the
+touched areas). The export documentation now states the flattening rule, the
+character/ reserved-name handling and the single-dialog limitation. No marketing
+claim changed.
+
+## Earlier implementation checkpoint — #2276 and #2670
 
 The #2276 `currentColor` route now has unit regressions for the SVG default,
 root/group inheritance, gradient-definition inheritance, standard CSS named
@@ -1874,12 +1978,11 @@ received evidence-based no-change dispositions for Penpot hosting, identity,
 localization, deployment, or behavior already covered by Varve. Eighteen
 retain a concrete Varve route or product decision in the per-issue ledger.
 
-The strongest feature opportunity is #3157: guide dragging should snap to
-object edges or vector points. Varve currently snaps objects to authored guides,
-not guides to geometry. This is a precision workflow that can fit the existing
-snap preference without changing the document schema; reproduce it in the real
-browser and inspect tolerance at different zoom and rotation before deciding
-acceptance. #3107 confirms Penpot's Alt/Option-click palette route; verify
+The strongest feature opportunity was #3157: guide dragging should snap to
+object edges or vector points. It is now implemented and validated (see the
+current implementation checkpoint): Varve previously snapped objects to
+authored guides but never guides to geometry, so a 135px margin could not be
+expressed exactly. #3107 confirms Penpot's Alt/Option-click palette route; verify
 Varve's route and discoverability before proposing a parity improvement.
 #3172 asks for box-model visualization, while
 #3198/#3199 ask for curve-point radius and numeric coordinates; these remain
