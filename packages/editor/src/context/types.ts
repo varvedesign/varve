@@ -1006,7 +1006,9 @@ export interface EditorContextValue {
   setSelectedLayoutRelativeHeight: (value: number) => void;
   setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
   setSelectedLayoutAlign: (value: import('@varve/scene').LayoutAlign) => void;
-  setSelectedGridPlacement: (value: GridItemPlacement) => void;
+  setSelectedGridPlacement: (
+    update: (placement: GridItemPlacement, node: SceneNode) => GridItemPlacement,
+  ) => void;
   setCanvasWidth: (value: number) => void;
   setCanvasHeight: (value: number) => void;
   setCanvasBackground: (value: import('@varve/scene').ManagedColor) => void;
@@ -1157,6 +1159,14 @@ export interface EditorContextValue {
 
   // Layout
   setNodeLayout: (id: NodeId, layout: LayoutStyle | undefined) => void;
+  /** Apply track edits only against the document snapshot used to compute placements. */
+  setGridTrackLayout: (
+    id: NodeId,
+    layout: LayoutStyle,
+    placements: Record<NodeId, GridItemPlacement>,
+    expectedStyle: LayoutStyle,
+    expectedDocument: Document,
+  ) => void;
   setLayoutGrid: (frameId: NodeId, grid: LayoutGrid) => void;
   removeLayoutGrid: (frameId: NodeId, gridId?: string) => void;
 

@@ -1,3 +1,4 @@
+import { checkLayoutCycle } from '@varve/layout';
 import type { LayoutAlign, LayoutPosition, LayoutSizing, SceneNode } from '@varve/scene';
 import { getParent } from '@varve/scene';
 import { Select } from '@varve/ui';
@@ -50,6 +51,15 @@ export function LayoutChildSection({ nodes }: { nodes: SceneNode[] }) {
     const candidate = parentIds[0] ? state.document.nodes[parentIds[0]] : undefined;
     return candidate?.kind === 'frame' && candidate.layoutStyle ? candidate : undefined;
   }, [nodes, state.document]);
+  const cycleWarning = useMemo(
+    () =>
+      parent
+        ? nodes
+            .map((node) => checkLayoutCycle(state.document, node.id))
+            .find((result) => result.verdict === 'cycle_detected')
+        : undefined,
+    [nodes, parent, state.document],
+  );
 
   const hasAuthoredGridPlacement = nodes.some((node) => node.gridPlacement != null);
   if (!parent && !hasAuthoredGridPlacement) return null;
@@ -78,6 +88,11 @@ export function LayoutChildSection({ nodes }: { nodes: SceneNode[] }) {
     <DisclosureSection title="Layout child" sectionId="layout-child">
       {parent && (
         <>
+          {cycleWarning?.verdict === 'cycle_detected' && (
+            <p className="insp-hint insp-hint--warning" role="status" aria-live="polite">
+              {cycleWarning.description}
+            </p>
+          )}
           <FieldRow label="Position">
             <Select
               label="Layout position"

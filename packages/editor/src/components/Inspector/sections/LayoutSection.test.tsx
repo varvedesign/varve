@@ -97,6 +97,57 @@ describe('LayoutSection per-node Width/Height sizing controls', () => {
     expect(screen.queryByText('Grid placement')).not.toBeInTheDocument();
   });
 
+  it('explains invalid grid definitions and confirms existing positions were retained', async () => {
+    const getCtx = setup();
+    getCtx().applyFramePreset({ name: 'Test Frame', w: 400, h: 300 });
+    await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
+    const frameId = getCtx().state.selection[0] as string;
+    getCtx().setNodeLayout(frameId, {
+      mode: 'grid',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      gridTemplateColumns: 'minmax(10px, 1fr)',
+      gridTemplateRows: '1fr',
+    });
+    getCtx().createTextNodeAt({ x: 20, y: 30 }, { w: 80, h: 24 }, frameId, 'kept');
+    getCtx().setSelection(frameId);
+
+    expect(
+      await screen.findByText(
+        'Grid tracks use unsupported or invalid syntax. Existing child positions were kept.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('reports flex main-axis overflow when item shrinking is disabled', async () => {
+    const getCtx = setup();
+    getCtx().applyFramePreset({ name: 'Compact Frame', w: 120, h: 160 });
+    await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
+    const frameId = getCtx().state.selection[0] as string;
+    getCtx().setNodeLayout(frameId, {
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    getCtx().createTextNodeAt({ x: 0, y: 0 }, { w: 100, h: 24 }, frameId, 'one');
+    getCtx().createTextNodeAt({ x: 0, y: 0 }, { w: 100, h: 24 }, frameId, 'two');
+    getCtx().setSelection(frameId);
+
+    expect(
+      await screen.findByText(
+        'Flex items exceed the available main-axis space; overflow remains visible.',
+      ),
+    ).toHaveClass('insp-hint--warning');
+  });
+
   it('setting both axes independently keeps them independent', async () => {
     const getCtx = setup();
     getCtx().applyFramePreset({ name: 'Test Frame', w: 400, h: 300 });
