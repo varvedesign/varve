@@ -649,7 +649,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux, os: ubuntu-latest }
+          # Pin to 24.04: ubuntu-latest is 26.04 and dropped libgdk-pixbuf2.0-dev.
+          - { name: linux, os: ubuntu-24.04 }
           - { name: macos, os: macos-latest }
           - { name: windows, os: windows-latest }
     steps:
