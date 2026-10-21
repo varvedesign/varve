@@ -61,6 +61,70 @@ describe('offsetPath', () => {
     expect(expanded).toBe(true);
   });
 
+  it('keeps offset work bounded for an extreme distance (no hang or OOM)', () => {
+    // vectorcraft#1028: a user-supplied distance multiplied the per-vertex arc
+    // steps, so offsetting a many-vertex outline froze the app until it ran out
+    // of memory. Work must stay bounded by the geometry, not by the distance.
+    const pts = Array.from({ length: 512 }, (_, i) => {
+      const a = (i / 512) * Math.PI * 2;
+      return { x: Math.cos(a) * 100, y: Math.sin(a) * 100, handleIn: null, handleOut: null };
+    });
+    const startedAt = performance.now();
+    const result = offsetPath(pts, true, 1_000_000, 'round');
+    const elapsed = performance.now() - startedAt;
+
+    expect(result.length).toBeLessThanOrEqual(200_000);
+    expect(elapsed).toBeLessThan(2_000);
+    for (const p of result) {
+      expect(Number.isFinite(p.x)).toBe(true);
+      expect(Number.isFinite(p.y)).toBe(true);
+    }
+  });
+
+  it('tessellates a round join into an arc instead of a single miter point', () => {
+    // Choosing "round" used to return one miter point per corner, because the
+    // arc branch was unreachable for a normal corner.
+    const pts = rectPath(0, 0, 100, 100);
+    const distance = 10;
+    const result = offsetPath(pts, true, distance, 'round');
+    // Four corners, each an arc: strictly more points than the miter result.
+    expect(result.length).toBeGreaterThan(4);
+    // Every arc point sits at the offset radius from some original corner.
+    const corners = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 100 },
+      { x: 0, y: 100 },
+    ];
+    const arcPoints = result.filter((p) =>
+      corners.some((c) => Math.abs(Math.hypot(p.x - c.x, p.y - c.y) - distance) < 1e-6),
+    );
+    expect(arcPoints.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('keeps a sharp miter corner when the miter limit allows it', () => {
+    const pts = rectPath(0, 0, 100, 100);
+    const result = offsetPath(pts, true, 10, 'miter', 10);
+    // The four mitered corners sit at (-10,-10) and friends: outside both
+    // offset edges, which a bevel corner would never reach.
+    expect(result.some((p) => p.x < -9.9 && p.y < -9.9)).toBe(true);
+  });
+
+  it('offsets an open path without bridging its two ends', () => {
+    const pts = [
+      { x: 0, y: 0, handleIn: null, handleOut: null },
+      { x: 50, y: 0, handleIn: null, handleOut: null },
+      { x: 100, y: 0, handleIn: null, handleOut: null },
+    ];
+    const result = offsetPath(pts, false, 10);
+    // A straight open path has no joins: one point per segment boundary, and
+    // no arc bridging the far end back to the start.
+    expect(result).toHaveLength(3);
+    expect(result[0]!.x).toBeCloseTo(0);
+    expect(result[result.length - 1]!.x).toBeCloseTo(100);
+    for (const p of result) expect(p.y).toBeCloseTo(-10);
+  });
+
   it('offsets a closed rectangle inward (negative)', () => {
     const pts = rectPath(0, 0, 100, 50);
     const result = offsetPath(pts, true, -5);
