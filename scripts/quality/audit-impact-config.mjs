@@ -52,6 +52,7 @@ const STATIC_LANES = new Set([
   'audit:tokens',
   'audit:emoji',
   'audit:docs',
+  'audit:claims',
   'audit:health',
   'audit:architecture',
   'audit:typecheck-regression',

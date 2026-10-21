@@ -168,9 +168,8 @@ When a new phrase is proposed, check it against both lists before it ships.
   text-to-image service. Link the
   [generative capability boundary](../architecture/generative-editing-system.md#current-capability-boundary)
   when discussing these features.
-- “No telemetry by default” means no analytics or crash reporting is sent
-  unless the user opts in; name the opt-in aggregate measurement and what it
-  transmits rather than claiming zero.
+- “Nothing is sent unless you say yes” is the privacy line. Name the consented
+  aggregate measurement and what it transmits rather than claiming zero.
 - “Print production” means the implemented CMYK/ICC, PDF/X, marks, and
   preflight workflows, with beta caveats and a recommendation to test before
   critical work.
@@ -201,8 +200,8 @@ When a new phrase is proposed, check it against both lists before it ships.
 - “Zero telemetry” or unconditional “no telemetry”; an opt-in aggregate
   measurement path exists.
 - “AI-free”, “no AI”, or “100% AI-free”; on-device model features ship today.
-- “No generative AI on your work”; local generative editing is an explicit
-  opt-in workflow, so that blanket promise contradicts the implemented features.
+- “No generative AI on your work”; AI features are on by default and can be
+  turned off in Settings, so that blanket promise contradicts the implemented features.
 - “Fully accessible”, “WCAG 2.2 AA compliant”, or screen-reader claims for the
   canvas. The token contrast gate is not a product-conformance audit, and the
   canvas screen-reader gap is published on `/support/known-issues`.

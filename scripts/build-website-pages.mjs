@@ -25,6 +25,9 @@ function run(command, args, options = {}) {
  * Build the GitHub Pages project-site variant with the base path that the
  * deployment and dual-host browser tests actually serve.
  */
+run(process.execPath, [fileURLToPath(new URL('./website/generate-llms-txt.mjs', import.meta.url))], {
+  cwd: websiteRoot,
+});
 run(process.execPath, [validateEnvScript, '--app', 'website'], { cwd: websiteRoot });
 run('pnpm', ['exec', 'astro', 'build', '--outDir', 'dist-pages'], {
   cwd: websiteRoot,

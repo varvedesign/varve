@@ -4,7 +4,7 @@ Varve provides comprehensive controls over AI features and clear disclosure of A
 
 ## Global AI Features Toggle
 
-Control all AI/ML features from a single switch.
+AI features are on by default, run on your device with no Varve AI server, and can be turned off in Settings.
 
 ### How to Access
 
@@ -18,31 +18,22 @@ Control all AI/ML features from a single switch.
 - Search for "Toggle AI Features"
 - Or use the keyboard shortcut: `Ctrl+Alt+Shift+A`
 
-### What's Controlled
+### What the switch does
 
-When AI features are **disabled**, the following operations are blocked:
-
-1. **Generative Edit** — AI-powered fill, remove, replace, and expand tools
-2. **Background Removal** — AI-powered object segmentation and masking
-3. **Image Upscaling** — AI-enhanced resolution upscaling
-4. **Object Selection** — SAM2 intelligent selection tool
-5. **Depth Map Generation** — AI depth estimation for lens blur effects
-6. **Semantic Search** — AI-powered content indexing and search
-7. **Model Downloads** — Downloading optional AI models
-8. **Cloud AI Providers** — Any cloud-based AI services (when configured)
+The Settings switch is the documented kill switch for on-device AI that already checks `ai.enabled`. It does not yet cover every AI surface in 0.5.1. Several Adjustments-panel AI sections, SAM2 object selection, and face-detect crop still run when the switch is off.
 
 ### What's NOT Affected
 
-- **Existing AI-edited content** — Layers that were previously edited with AI tools remain visible and fully editable. The toggle only prevents *new* AI operations.
+- **Existing AI-edited content** — Layers that were previously edited with AI tools remain visible and fully editable. The toggle only prevents *new* AI operations on gated surfaces.
 - **Manual tools** — Vector drawing, text, shapes, transformations, and all non-AI editing features work normally.
 - **Imports and exports** — You can still import and export files regardless of AI settings.
 
 ### Default State
 
-AI features are **enabled by default**. Disable them if you:
-- Need to ensure no AI was used in a project (for contests, client requirements, etc.)
-- Want to work offline without optional model downloads
-- Prefer manual control over all editing operations
+AI features are on by default. Turn them off in Settings if you:
+- Need to avoid new AI edits in a project (for contests, client requirements, etc.)
+- Want to work offline without model downloads
+- Prefer manual control over editing operations
 
 ## AI-Edited Layer Badges
 
@@ -133,8 +124,8 @@ Most image viewers and photo managers can display embedded metadata:
 ### What's NOT Stored
 
 - **Pixel data** — Export metadata describes *that* AI was used, not the actual image content
-- **Model weights** — Optional models are stored locally, never uploaded
-- **Usage analytics** — Varve does not track which AI features you use or how often
+- **Model weights** — Downloaded models are stored locally, never uploaded
+- **Usage analytics** — Varve does not track which AI features you use or how often. Nothing is sent unless you say yes.
 
 ### Data Transmission
 
@@ -248,7 +239,7 @@ XMP/IPTC example (PNG/JPEG):
 
 ### Audit Test
 
-The codebase includes an automated test (`packages/editor/src/__tests__/ai-entry-point-gating.test.ts`) that verifies all AI entry points check the `ai.enabled` setting. This runs in CI and fails if a new AI feature bypasses the gate.
+The codebase includes `packages/editor/src/__tests__/ai-entry-point-gating.test.ts` for the surfaces that already check `ai.enabled`. That test is not a proof that every AI feature honors the Settings switch.
 
 ## See Also
 

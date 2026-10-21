@@ -1,0 +1,37 @@
+[
+  {
+    "file": "docs/ai-transparency.md",
+    "includes": "Disabled by default",
+    "reason": "Cloud AI providers stay off until configured. That is not the on-device AI default."
+  },
+  {
+    "file": "docs/marketing/positioning-and-discovery.md",
+    "includes": "no telemetry",
+    "reason": "Internal copy guide names the banned phrase so writers do not publish it."
+  },
+  {
+    "file": "docs/marketing/positioning-and-discovery.md",
+    "includes": "opt-in",
+    "reason": "Internal copy guide names banned telemetry and AI wording."
+  },
+  {
+    "file": "docs/marketing/positioning-and-discovery.md",
+    "includes": "Open source",
+    "reason": "License rule telling writers not to call Varve open source."
+  },
+  {
+    "file": "docs/brand/github-repository-presence.md",
+    "includes": "not open source",
+    "reason": "Canonical license wording: Varve is source-available, not open source."
+  },
+  {
+    "file": "docs/release/linux-ecosystem-readiness.md",
+    "includes": "open source",
+    "reason": "Packaging rule that forbids marking Varve open source."
+  },
+  {
+    "file": "docs/licensing/decision-research-2026-08-18.md",
+    "includes": "open source",
+    "reason": "License research explaining FSL is not OSI open source."
+  }
+]

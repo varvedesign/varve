@@ -19,7 +19,10 @@ describe('how-its-built disclosure', () => {
   it('states AI-assisted development and the in-app AI default', () => {
     expect(page).toMatch(/AI coding assistants/);
     expect(page).toMatch(/on by default/);
-    expect(page).toMatch(/single switch/);
-    expect(page).toMatch(/Settings turns them all off/);
+    expect(page).toMatch(
+      /AI features are on by default, run on your device with no Varve AI server, and can be turned off in Settings/,
+    );
+    expect(page).not.toMatch(/single switch/);
+    expect(page).not.toMatch(/Settings turns them all off/);
   });
 });
