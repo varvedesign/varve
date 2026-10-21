@@ -238,9 +238,12 @@ export function parseChangelogFile(repoRoot?: string): ChangelogRelease[] {
   // During Astro SSR builds, import.meta.url points to the bundled chunk,
   // not the original source file. Try common root locations:
   //   1. Explicit repoRoot argument (preferred)
-  //   2. Two levels up from process.cwd() (standard: cwd = apps/website)
-  //   3. process.cwd() itself (vitest from repo root)
-  const candidates = repoRoot ? [repoRoot] : [join(process.cwd(), '..', '..'), process.cwd()];
+  //   2. process.cwd() itself (Vitest from the repository root)
+  //   3. Two levels up (Astro SSR from apps/website)
+  // Prefer the current directory when it already contains a changelog. In a
+  // worktree, two levels up can be the original checkout, whose changelog may
+  // describe a different release state.
+  const candidates = repoRoot ? [repoRoot] : [process.cwd(), join(process.cwd(), '..', '..')];
 
   for (const root of candidates) {
     try {
