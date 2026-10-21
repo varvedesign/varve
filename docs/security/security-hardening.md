@@ -215,3 +215,16 @@ artifact is scanned after the build:
   backend location is unreachable from client code.
 - Run locally with `pnpm audit:secrets`, `pnpm audit:clientenv`,
   `pnpm audit:artifacts`, `pnpm audit:boundaries`.
+
+## 9. Dependency advisory gate
+
+CI runs `node scripts/security/dependency-advisories.mjs` against the
+production npm dependency graph, the root `Cargo.lock`, and the desktop
+`apps/desktop/src-tauri/Cargo.lock`. Vulnerability findings fail the pipeline;
+the gate does not permit advisory ignores. Informational Cargo warnings are
+reported separately from vulnerabilities.
+
+The native optional model downloader uses `hf-hub` with the `ureq` backend.
+Keep its TLS and root-certificate dependencies current alongside the desktop
+lockfile; remote model downloads remain explicit user actions as documented in
+[offline-first architecture](../architecture/offline-first.md).

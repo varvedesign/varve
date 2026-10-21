@@ -1,6 +1,161 @@
 # Continuation record
 
-Last updated: 2026-10-20 (session 9).
+Last updated: 2026-10-21 (session 13).
+
+## Current checkpoint (authoritative)
+
+- The user resolved the brief's source mismatch in favor of PdfCraft:
+  `storytold/pdfcraft`. Do not switch the audit to PhotoCraft.
+- Current task worktree:
+  `/home/kevina/CodingProjects/varve-callout-followup`; branch
+  `codex/pdfcraft-callout-direct-manipulation-20261020`; last pushed at
+  `3f4811c1f` (Devanagari text report mapping).
+  The shared main checkout and other worktrees are not owned by this task.
+- PR #155 targets `master` and is open at `3f4811c1f`. Hosted E2E shard 21/24 failed in an existing motion timeline setup (`timeline-ruler` never appeared after “Create timeline”); the certification adoption job consequently failed for a 23/24 receipt count. Build + Package, Website Lighthouse, 23 of 24 Playwright shards, visual
+  regression, desktop E2E on Linux/macOS/Windows, Rust, JS, WASM, and pipeline
+  checks passed at this exact SHA. `CI / certification` failed downstream of
+  the missing shard receipt; recheck all status on the next exact head.
+- Callout improvement commits: `a62262d` (body drag with anchored tails,
+  canvas handles plus Inspector, scene/Playwright regressions, docs/website),
+  `c5069f5` (documentation correction after review). Integration/validation
+  support commits: `6857493` (merged Vite override cleanup), `d0cdf60` (Git
+  fixture cwd fix), and `e7acb45` (lease-aware screenshot discovery and a
+  fixture-root regression assertion). The current PR includes a merge from
+  `master` at `20d9fad`.
+- The callout batch's real UI and website visual E2E checks passed earlier:
+  canvas body/resize/tail handles, anchored tail movement, keyboard and undo;
+  website pages were inspected at desktop and mobile sizes. Its screenshot
+  artifacts and detailed checks are recorded in `findings.md` and the PR.
+  Later commits only changed validation tooling/tests and documentation.
+- Local validation for `e7acb45`: push checkpoint passed (format/lint,
+  emoji, policy, Cargo format, 308/308 website tests, model manifest);
+  operation-history and validation-receipt tests passed; `audit:docs`,
+  `audit:emoji`, and `audit:tokens` passed. Required `verify:full --local`
+  failed twice at the repository-wide architecture audit because `ts-prune`
+  timed out after its fixed 60-second budget on the editor package (first at
+  595s total, retry at 746s total); earlier format/lint, emoji, and health
+  lanes passed. Do not claim the full gate passed. The affected planner
+  escalates because this branch changes validation infrastructure.
+- Use the installed pnpm 11.9.0 binary from
+  `/home/kevina/.local/share/pnpm/store/v11/links/@/pnpm/11.9.0/de87af087473104f74fb4e5966112ecbe21c04dfff71e27f915a34a7c815cf82/bin`
+  at the front of `PATH`; `/usr/bin/pnpm` stalled during earlier checks.
+  Keep the ChatGPT Linux app open and leave unrelated agent/worktree
+  processes and leases untouched.
+- **Cutoff D is the frozen second reconciliation:** issue API crawl
+  `2026-10-21T07:33:12Z`–`07:34:00Z`; 1,727 issues (984 open / 743 closed),
+  2,068 unique pull requests, 38 issue pages, 21 pull pages, no duplicate
+  IDs, no missing prior IDs, and Search API open/closed counts match with
+  `incomplete_results=false`. The new issue set is 203 IDs (184 open / 19
+  closed). Full comment pages for all 203 threads (356 comments) were fetched
+  with zero failures/count mismatches. Raw snapshots and per-thread responses
+  remain under `/tmp/pdfcraft-cutoff-d-*`; hashes/manifest references are in
+  `issue-ledger-follow-on-d.summary.json`.
+- Cutoff-D issue bodies and all 356 comments across 203 threads have now been
+  read. Three review cohorts covered #3407–3520, #3521–3650, and #3651–3783;
+  the remaining four new issue IDs (#3792, #3793, #3795, #3797) were read
+  directly. The ledger marks source reading as `thread`, while each engineering
+  disposition remains pending until Varve paths and relevant linked evidence
+  are checked. Pull request review threads and attachments are not implied by
+  issue-thread coverage. Initial screening priorities and product boundaries
+  are recorded in `findings.md` §5.
+- The four last issues concern PDF spread view/native editing (#3792), a
+  Synaptics touchpad scroll/pinch report on KDE Plasma (#3793), middle-button
+  auto-scroll (#3795), and spaces in text editing inside an existing PDF
+  (#3797). Varve already has a native Linux pinch bridge; #3793 is therefore a
+  hardware validation lead, not a confirmed gap. The other three are reader or
+  PDF-content workflows without an established direct Varve analogue.
+- Thirteen Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
+  concern is already covered by Varve's different persistence model: page
+  deletion removes the subtree and prunes unreferenced image assets, while
+  Save serializes the current `.varve` scene as a complete snapshot. PdfCraft
+  #2165 describes the same earlier-revision retention; DesignCraft #566 was
+  closed after the reporter identified a corrupt image. Its ticket image URL
+  could not be read through the available web reader and was not downloaded.
+  #3410's Acrobat-filled/signed PDF workflow is outside Varve's partial PDF
+  artwork importer. Its linked #3339/#2149/#2348 evidence describes optional
+  annotation flattening in PdfCraft; #1696 asks for inline form filling, and
+  #2804 is an unrelated unreproduced text-edit report. The PDF file-formats
+  guide now removes its unsupported multi-page conversion claim and states
+  that Varve does not edit source PDF forms or signatures. Its screenshot was
+  inaccessible; no media was downloaded.
+  #3460's requested accent-insensitive Find behavior is already implemented
+  for Varve-authored text: diacritics are ignored by default, while the visible
+  “Match diacritics” option enables canonical-normalized exact matching. Its
+  linked #814/#1315 issues concern phrase-spacing and glyph-range boundaries;
+  #3249 concerns replacing the current match and is separately mapped as
+  already handled. New search/UI regressions now pin both default and exact
+  matching across precomposed and decomposed accents.
+  #3713's widely spaced CJK characters are a PdfCraft reader glyph-order and
+  copy/Find issue. Varve's partial importer concatenates literal `Tj`/`TJ`
+  strings and has no PDF-page selection/copy path; it does not derive word
+  spaces from glyph positions. The inline repro and linked PR #3722 were
+  reviewed, with no matching Varve defect demonstrated.
+  #3597's specific stale macOS Devanagari paths do not apply to Varve's native
+  OS font enumeration; this does not prove automatic fallback or replace a
+  macOS runtime check. #3769 concerns editing PDF source text, which Varve
+  does not support. Its authored-text Devanagari shaping oracle covers both
+  conjunct formation and pre-base matra positioning.
+  #3409 matches an unchecked
+  staging-file close limitation and has an implementation plus passing
+  injected-failure test in the pushed branch; #3496 and #3755 map to existing
+  Varve save and history protections; #3555 is an adjacent cross-restart
+  viewport opportunity; #3793 remains device-specific validation. #3414's
+  issue thread says the original
+  copyrighted, annotated book PDF could not be attached. The linked PR bodies
+  #2220, #1634, #3415, and #3416 were read: xref recovery and open-queue
+  improvements are partial, remain open under synthetic-only evidence, and
+  retain caps/single-worker or two-stalled-worker limits. Varve has no PDF
+  reader or OS-open-PDF handoff equivalent; `packages/import/src/pdf.ts`
+  synchronously decodes/scans the whole file as a heuristic artwork importer.
+  This makes responsiveness a separate test opportunity, not a matching xref
+  defect. The immediate linked issues #625, #2458, #1937, #2384, and #1449
+  were also read; they cover portable file association, the reader corpus, PDF
+  xref repair, interactive PDF forms, and CMS envelopes. Deeper links from the
+  corpus/signature issues remain queued.
+- Targeted native validation passed:
+  `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib atomic_write_does_not_publish_when_staging_close_fails`
+  (1 passed). `verify:plan` requires a full gate for the desktop dependency
+  change. The exact local `pnpm verify:full --local` operation passed
+  format/lint, emoji, and health, then ended during `audit-architecture.mjs
+  --ci` without a terminal result. Its target process was verified absent and
+  only this task's stale record was reconciled to `incomplete`; do not report
+  the full gate as passed.
+- The pushed `35829278a` checkpoint passed all local blocking lanes: 90/90
+  desktop unit tests, desktop typecheck, 308/308 website unit tests, docs and
+  emoji audits, release/product-truth checks, Cargo format, model manifest,
+  and touched-file format/lint. Remote WASM, AppImage, and Lighthouse checks
+  are still in progress. No visual surface changed in the atomic-close commit;
+  the earlier callout canvas and desktop/mobile marketing visual checks remain
+  the visual evidence for this batch.
+- The docs-only source-mapping pushes `172d6e85c` and `8aa9287f9` passed their
+  exact-ref push checkpoints (format/lint, docs/emoji audits, secret and
+  policy scans). The current local slice corrects the file-formats guide after
+  source review found its multi-page PDF claim unsupported, adds copy checks,
+  and records #3410's scope in the audit. The page passed the focused E2E flow;
+  the affected website E2E run passed all 694 cases across GitHub Pages and
+  custom-domain builds. Its updated full-page screenshot was inspected at
+  desktop width and shows the new PDF boundary copy within the document column.
+  Website E2E and package typechecks, 308 unit tests, production and GitHub
+  Pages builds, docs/emoji/radius audits, formatting/lint, and diff checks have
+  passed for this slice. The full-gate operation remains incomplete as stated
+  above. The workflow dependency repair in `b9fd329ed` corrects the prior
+  Build + Package failure: Ubuntu 26.04 no longer provides the old
+  `libgdk-pixbuf2.0-dev` name, while the current `libgdk-pixbuf-2.0-dev` name
+  is installed successfully by the hosted Linux and AppImage jobs. The
+  planner-escalated local full gate at `b9fd329ed` was interrupted during
+  comprehensive Vitest and reconciled to `incomplete` after confirming the
+  process had exited. Two timing benchmarks exceeded limits under concurrent
+  tests (`guides1k`: ~1.4 s vs 100 ms; `selectionRefinement`: ~16.8 s); no
+  terminal full-suite summary was produced. Hosted render benchmarks passed.
+  The #3460 regression slice passed `pnpm verify:plan` and `pnpm
+  verify:affected`: touched format/lint, emoji/docs/radius audits, the
+  FindReplaceBar component test (5/5), and find/replace safety tests (39/39).
+- Next: commit and push the #3460 audit/test slice. Recheck PR #155 at the new
+  exact head. Continue mapping the remaining save/undo and Unicode/text
+  candidates against Varve source and linked fixes/samples; inspect Wacom and
+  Synaptics paths before changing anything. Record per-issue dispositions,
+  keep marketing claims tied to verified capability, and continue the reviewed
+  batches through the permitted `master` workflow with exact-SHA validation.
 
 ## Frozen baseline
 
@@ -1241,3 +1396,6 @@ close the PdfCraft corpus review or mark the local affected triage as passed.
   evidence and sample files, and unresolved workflow findings remain in
   `findings.md` and `link-frontier.jsonl`. Continue those queues and complete a
   new reconciled cutoff before calling the overall assignment complete.
+
+- #3481 now maps PdfCraft's Arabic PDF comment-editor report (duplicate of #1851) to Varve's adjacent authored-text textarea, which uses `dir="auto"`; no PDF comment UI or Varve defect was found. Added a focused Arabic caret/insertion E2E regression. Planner format/lint/emoji and E2E typecheck passed; the exact Chromium E2E passed both tests after scoping the assertion to the selection information region. The canvas screenshot was visually inspected and saved as `evidence/arabic-rtl-caret-chromium.png` (SHA-256 `87953206d5a648245040ab68b4d8dc26876e96292fc80e57c1555283dfa33863`). Earlier iterations failed only on a stale reopen assumption and then an ambiguous locator; both were corrected. The E2E covers Varve-authored text, not PDF comments.
+- The run at PR SHA `3f4811c1f` has one hosted E2E failure in shard 21/24: `tests/e2e/motion/timeline-keyframe-drag.spec.ts` timed out waiting for `.timeline-ruler` after clicking Create timeline. Its CI certification failure is downstream of that missing shard receipt. Investigate this test separately; do not infer the newer Arabic change caused the earlier failure.

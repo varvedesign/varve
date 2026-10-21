@@ -15,6 +15,7 @@ mod updates;
 
 use base64::Engine as _;
 use image::load_from_memory;
+use io_close::Close;
 use notify::Watcher;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -263,12 +264,20 @@ fn resolve_user_path(raw: &str) -> Result<std::path::PathBuf, String> {
 }
 
 /// Write bytes to `path` atomically: write to a temporary sibling file,
-/// flush to disk (`sync_all`), then `rename` over the target. A crash
+/// sync it, check the close result, then replace the target. A crash
 /// mid-write leaves the original file intact; only the temp is abandoned
 /// (cleaned up by the OS or next successful write).
-///
-/// Pattern already proven for ONNX model download (line ~279-354).
 fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
+    write_file_atomic_with_close(path, data, |file| {
+        file.close().map_err(|error| error.to_string())
+    })
+}
+
+fn write_file_atomic_with_close(
+    path: &std::path::Path,
+    data: &[u8],
+    close_staged: impl FnOnce(std::fs::File) -> Result<(), String>,
+) -> Result<(), String> {
     let Some(parent) = path.parent() else {
         return Err("Invalid path: no parent directory".to_string());
     };
@@ -290,7 +299,7 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
             .map_err(|e| format!("Failed to write temp file: {e}"))?;
         file.sync_all()
             .map_err(|e| format!("Failed to flush temp file: {e}"))?;
-        drop(file);
+        close_staged(file).map_err(|e| format!("Failed to close temp file: {e}"))?;
         filesystem::replace_file(&tmp, path).map_err(|error| error.message)?;
         Ok(())
     })();
@@ -7530,6 +7539,39 @@ mod tests {
             leftovers, 0,
             "successful writes should consume their staging file"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn atomic_write_does_not_publish_when_staging_close_fails() {
+        let dir = std::env::temp_dir().join(format!("varve_atomic_close_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        std::fs::write(&target, b"original").expect("write initial content");
+
+        let error = write_file_atomic_with_close(&target, b"replacement", |file| {
+            drop(file);
+            Err("injected close failure".to_string())
+        })
+        .expect_err("a staging close error must fail the atomic write");
+
+        assert!(error.contains("Failed to close temp file"));
+        assert_eq!(
+            std::fs::read(&target).expect("read original content"),
+            b"original",
+            "a close failure must leave the published destination untouched"
+        );
+        let leftovers = std::fs::read_dir(&dir)
+            .expect("read test dir")
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".varve-write-")
+            })
+            .count();
+        assert_eq!(leftovers, 0, "failed staging files should be cleaned up");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

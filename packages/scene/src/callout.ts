@@ -426,6 +426,32 @@ export function calloutTailTip(node: SceneNode | undefined): PathPoint | undefin
   return node.closed ? node.points[node.points.length - 1] : node.points[1];
 }
 
+/** Control point used by the two bezier sides of a bent pointed tail. */
+export function calloutTailBendPoint(
+  doc: Document,
+  groupId: NodeId,
+  tailId: NodeId,
+): { x: number; y: number } | null {
+  const group = calloutGroup(doc, groupId);
+  if (!group) return null;
+  const tail = calloutTails(group).find((candidate) => candidate.nodeIds.includes(tailId));
+  const body = doc.nodes[group.callout.bodyNodeId];
+  const nodeId = tail?.nodeIds[0];
+  const node = nodeId ? doc.nodes[nodeId] : undefined;
+  const tip = calloutTailTip(node);
+  if (tail?.style !== 'pointed' || body?.kind !== 'shape' || body.shape.kind !== 'rect' || !tip)
+    return null;
+  const strokeWeight = calloutStyle(group.callout.kind).strokeWeight;
+  return tailControlPoint(
+    {
+      x: body.shape.w / 2,
+      y: tailAnchorHeight(group, body, doc.nodes) - strokeWeight - 1,
+    },
+    tip,
+    tail.curve ?? 0,
+  );
+}
+
 /**
  * A thought tail is a chain of decreasing circles from the balloon edge to
  * the target, matching the convention that it points at a character's head
@@ -1197,6 +1223,77 @@ export function updateCalloutTailEndpoint(
     };
   }
   return { ...doc, nodes };
+}
+
+/**
+ * Move a callout body and its text in callout-local units while keeping every
+ * tail endpoint fixed in world space. The group carries the body and each
+ * tail base; the authored endpoints move by the inverse local delta.
+ */
+export function moveCalloutBodyKeepingTailTips(
+  doc: Document,
+  groupId: NodeId,
+  dx: number,
+  dy: number,
+): Document {
+  const group = calloutGroup(doc, groupId);
+  if (!group?.callout.parametric || !Number.isFinite(dx) || !Number.isFinite(dy)) return doc;
+  if (dx === 0 && dy === 0) return doc;
+  const body = doc.nodes[group.callout.bodyNodeId];
+  if (body?.kind !== 'shape' || body.shape.kind !== 'rect') return doc;
+
+  const [a, b, c, d, e, f] = group.transform;
+  let next: Document = {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [groupId]: {
+        ...group,
+        transform: [a, b, c, d, e + a * dx + c * dy, f + b * dx + d * dy],
+      },
+    },
+  };
+  for (const tail of calloutTails(group)) {
+    const endpoint = tailEndpointFor(tail, doc.nodes, body.shape);
+    const tailId = tail.nodeIds[0];
+    if (!tailId) continue;
+    next = updateCalloutTailEndpoint(next, groupId, tailId, {
+      x: endpoint.x - dx,
+      y: endpoint.y - dy,
+    });
+  }
+  return next;
+}
+
+/** Move a pointed tail's bend handle in callout-local coordinates. */
+export function updateCalloutTailBendPoint(
+  doc: Document,
+  groupId: NodeId,
+  tailId: NodeId,
+  control: { x: number; y: number },
+): Document {
+  const group = calloutGroup(doc, groupId);
+  if (!group) return doc;
+  const tail = calloutTails(group).find((candidate) => candidate.nodeIds.includes(tailId));
+  const body = doc.nodes[group.callout.bodyNodeId];
+  const nodeId = tail?.nodeIds[0];
+  const node = nodeId ? doc.nodes[nodeId] : undefined;
+  const tip = calloutTailTip(node);
+  if (tail?.style !== 'pointed' || body?.kind !== 'shape' || body.shape.kind !== 'rect' || !tip)
+    return doc;
+  const base = {
+    x: body.shape.w / 2,
+    y: tailAnchorHeight(group, body, doc.nodes) - calloutStyle(group.callout.kind).strokeWeight - 1,
+  };
+  const dx = tip.x - base.x;
+  const dy = tip.y - base.y;
+  const length = Math.hypot(dx, dy) || 1;
+  const curve =
+    ((control.x - (base.x + tip.x) / 2) * -dy + (control.y - (base.y + tip.y) / 2) * dx) /
+    (length * length);
+  return updateTailSetting(doc, groupId, tailId, {
+    curve: Math.max(-1, Math.min(1, Number.isFinite(curve) ? curve : 0)),
+  });
 }
 
 /** Add a second or subsequent tail to an existing callout group. */

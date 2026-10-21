@@ -14,6 +14,8 @@ hardening Varve.
 | `issue-ledger-cutoff-c-updates.jsonl` | Cutoff C changes to the 266 existing issues updated since B, including post-B comment IDs and review hashes |
 | `issue-ledger-follow-on-c.summary.json` | Cutoff C crawl, reconciliation, review counts, and raw-page hashes |
 | `issue-ledger-post-cutoff-c-updates.jsonl` | Later source-state changes and follow-up evidence for frozen cutoff-C issues |
+| `issue-ledger-follow-on-d.jsonl` | Cutoff D inventory for all 203 issue IDs added since C; body hashes, full-thread reading status, and open per-issue Varve mapping |
+| `issue-ledger-follow-on-d.summary.json` | Cutoff D provenance, pagination/search reconciliation, comment-fetch coverage, and review status |
 | `link-frontier.jsonl` | Deduplicated recursive evidence edges and their review dispositions |
 | `issue-ledger-follow-on-b.summary.json` | Cutoff B inventory counts and review coverage |
 | `issue-ledger.summary.json` | Counts for frozen cutoff A |
@@ -26,10 +28,16 @@ hardening Varve.
 | **Cutoff A (frozen)** | `2026-10-17T04:41:35Z` → `2026-10-17T04:42:17Z` | 1 296 issues (827 open / 469 closed) + 1 682 PRs | Full enumeration, reconciled against the search totals |
 | **Cutoff B (frozen)** | `2026-10-18T12:28:21Z` → `2026-10-18T12:28:46Z` | 1 454 issues (936 open / 518 closed) + 1 795 PRs | Reconciled by pagination and issue search totals; 158 new issues reviewed; 40 existing issues changed state |
 | **Cutoff C (frozen)** | `2026-10-19T04:55:46Z` → `2026-10-19T04:56:35Z` | 1 524 issues (828 open / 696 closed) + 1 879 PRs | Reconciled by pagination and issue search; 70 new issue bodies and fetched current comments read; all 189 post-B comment candidates across 146 threads read; 166 open→closed and no closed→open transitions |
+| **Cutoff D (frozen)** | `2026-10-21T07:33:12Z` → `2026-10-21T07:34:00Z` | 1 727 issues (984 open / 743 closed) + 2 068 PRs | 38 issue pages and 21 pull pages; zero duplicate or missing prior issue IDs; open/closed counts match Search API (`incomplete_results=false`); 203 new issues since C (184 open / 19 closed); 356 comments fetched and read across all 203 threads with no failures or count mismatches; Varve source mapping and recursive evidence follow-up remain open |
 
 Issues created after a frozen cutoff are recorded in a follow-on ledger; they do not
-change earlier frozen ledgers. Cutoff C is the current source-reconciliation boundary. All 70 new issue bodies and
-fetched current comment threads have been read. The 189 comment candidates added after B
+change earlier frozen ledgers. Cutoff D is the current source-reconciliation boundary.
+Its issue bodies and current comment threads have been fetched, hashed, and read
+for every new issue. Per-issue engineering dispositions remain pending while
+Varve source mapping and recursive evidence are verified; see the separate
+coverage totals in the cutoff-D summary. The 70
+cutoff-C issue bodies and fetched current comment threads have been read. The
+189 comment candidates added after B
 were read across all 146 changed discussion threads; 120 other updated issue rows
 changed state or metadata without new comments. The issue-list and comment refresh
 requests were not atomic: #3354 and #3403 each gained a comment after the issue row
@@ -63,6 +71,7 @@ Research status and engineering status are separate fields in the ledger.
 
 | Research | Meaning |
 |---|---|
+| `pending` | Source captured; body/thread review not yet recorded |
 | `thread` | Issue body plus its full comment thread read |
 | `body` | Title plus full body read |
 | `title-and-body` | Individually screened residue (no rule matched) |
@@ -70,6 +79,7 @@ Research status and engineering status are separate fields in the ledger.
 
 | Engineering | Meaning |
 |---|---|
+| `pending-review` | Inventory row created; relevance and Varve behavior have not yet been assessed |
 | `already-handled` | Verified in Varve source; the verifying file is named |
 | `implemented` | A change in this branch with regression coverage |
 | `screened-for-varve` | The class reaches a Varve subsystem; queued, no failure claimed |

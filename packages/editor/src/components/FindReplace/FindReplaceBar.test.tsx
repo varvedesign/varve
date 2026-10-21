@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_FIND_REPLACE_STATE } from '../../findReplace/types';
 import type { FindReplaceAPI } from '../../findReplace/useFindReplace';
@@ -36,6 +36,17 @@ function makeApi(): FindReplaceAPI {
 }
 
 describe('FindReplaceBar', () => {
+  it('defaults to accent-insensitive search and exposes an exact matching toggle', () => {
+    const api = makeApi();
+    render(<FindReplaceBar api={api} />);
+
+    const matchDiacritics = screen.getByRole('checkbox', { name: 'Match diacritics' });
+    expect(matchDiacritics).not.toBeChecked();
+
+    fireEvent.click(matchDiacritics);
+    expect(api.setOption).toHaveBeenCalledWith('matchDiacritics', true);
+  });
+
   it('uses the accessible shared Select instead of a native select', () => {
     const { container } = render(<FindReplaceBar api={makeApi()} />);
 

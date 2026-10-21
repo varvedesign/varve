@@ -53,7 +53,14 @@ a second text engine:
   Shout, Burst, and Cloud recipes; text padding; line shape (Balloon contour /
   Rectangle); fit policy (`reflow` / `fit-balloon` / `overflow`) with a derived
   fit status; the first tail's endpoint, curve, and base width; Add/Flip/Remove
-  tail; and Detach geometry.
+  tail; and Detach geometry. When a parametric pointed-tail callout is selected
+  with the Select tool, 24 CSS-pixel canvas handles drag its tip and bend
+  independently; keyboard arrows move them by 1 callout-local unit
+  (Shift+Arrow: 10 units).
+  A separate body handle moves the balloon body and text while translating the
+  tail geometry to keep each tip anchored in world space; it supports pointer
+  dragging and arrow-key nudging. Eight-way body resizing remains open.
+  The numeric Inspector controls remain available for precise values.
 - Burst and Cloud are **shaped** balloons: an ordinary star outline painted
   behind the tail/body/text recipe, resized with the body on fit. No new node
   kind and no imported SVG path; the star's inner radius tracks the text box
@@ -110,10 +117,13 @@ text identities never change.
 
 ### Selection and editing
 
-The group is selected as a whole on the canvas; the body, each tail, and the
-text are reached through the layer tree, and the text node remains a normal
-editable `TextNode`. This is the existing scene container/deep-selection
-model, not a comic-only selection mode. Double-clicking anywhere on a balloon —
+The group is selected as a whole on the canvas; pointed-tail tip and bend
+handles appear for direct adjustment, while the body and text are reached
+through the layer tree, and the text node remains a normal editable `TextNode`.
+The body and text can also be moved independently with the body handle while
+each tail tip stays anchored; independent body resize handles remain follow-up
+work. This is the existing scene container/deep-selection model, not a
+comic-only selection mode. Double-clicking anywhere on a balloon —
 the group, the body, or a tail — starts editing the bound dialogue directly
 (the canvas hit-test returns the callout group, so the ancestor walk resolves
 the recipe instead of entering group isolation).

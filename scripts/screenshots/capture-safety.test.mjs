@@ -28,8 +28,12 @@ import { SOURCE_SCENES } from './source-scenes.mjs';
 test('owning browser specs can load the producer helper through Playwright', () => {
   const root = fileURLToPath(new URL('../..', import.meta.url));
   const result = spawnSync(
-    'pnpm',
+    process.execPath,
     [
+      'scripts/quality/heavy-lease.mjs',
+      'e2e: screenshot capture safety Playwright discovery',
+      '--',
+      'pnpm',
       'exec',
       'playwright',
       'test',
@@ -37,7 +41,7 @@ test('owning browser specs can load the producer helper through Playwright', () 
       '--project=chromium',
       '--list',
     ],
-    { cwd: root, encoding: 'utf8', timeout: 30_000 },
+    { cwd: root, encoding: 'utf8' },
   );
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /Total: [1-9]\d* tests? in 1 file/);

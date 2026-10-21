@@ -50,3 +50,41 @@ test('renders multilingual text in the editor canvas', async ({ page }, testInfo
   expect(inkPixels).toBeGreaterThan(100);
   await canvas.screenshot({ path: `${outputDir}/editor-multilingual-text.png` });
 });
+
+test('Arabic text keeps its logical order when editing from the visual start', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await navigateToEditor(page);
+
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  await canvas.waitFor({ state: 'visible', timeout: 15000 });
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('editor canvas has no bounds');
+
+  await page.keyboard.press('t');
+  await page.mouse.click(box.x + 180, box.y + 180);
+  const editor = page.getByRole('textbox', { name: /editing text/i });
+  await expect(editor).toBeFocused();
+  await page.keyboard.insertText('مرحبا');
+  await expect(editor).toHaveValue('مرحبا');
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Edit text', exact: true }).click();
+  await expect(editor).toBeFocused();
+  await expect
+    .poll(() => editor.evaluate((element) => getComputedStyle(element).direction))
+    .toBe('rtl');
+  // At the start of an RTL line, Left moves visually left and advances one
+  // logical grapheme. Inserting there must not reverse the stored source.
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.insertText('X');
+  await expect(editor).toHaveValue('مXرحبا');
+  await page.keyboard.press('Escape');
+  await expect(editor).toBeHidden();
+  await expect(
+    page.getByLabel('Selection information').getByText('Text: مXرحبا', { exact: true }),
+  ).toBeVisible();
+  await canvas.screenshot({ path: testInfo.outputPath('editor-arabic-caret.png') });
+  await page.screenshot({ path: testInfo.outputPath('editor-arabic-caret-full.png') });
+});

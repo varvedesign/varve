@@ -3,10 +3,12 @@
 /** Exact identity and common-Git-directory receipt regression tests. */
 
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  commonGitDirectory,
   laneReceiptIdentity,
   readLaneReceipt,
   readReceipt,
@@ -17,6 +19,7 @@ import {
 } from './validation-receipts.mjs';
 
 const commonDir = mkdtempSync(join(tmpdir(), 'varve-receipts-common-'));
+const fixtureRoot = mkdtempSync(join(tmpdir(), 'varve-receipts-repo-'));
 const tools = {
   node: 'v-test',
   pnpm: 'pnpm-test',
@@ -50,6 +53,9 @@ const basePlan = {
 };
 
 try {
+  execFileSync('git', ['init', '-q'], { cwd: fixtureRoot });
+  assert.equal(commonGitDirectory({ cwd: fixtureRoot }), join(fixtureRoot, '.git'));
+
   const now = Date.parse('2026-08-31T12:00:00Z');
   const written = writeReceipt(basePlan, { commonDir, tools, now, commands: [['pnpm', 'test']] });
   assert.ok(existsSync(written.path));
@@ -191,4 +197,5 @@ try {
   console.log('validation receipt tests passed');
 } finally {
   rmSync(commonDir, { recursive: true, force: true });
+  rmSync(fixtureRoot, { recursive: true, force: true });
 }

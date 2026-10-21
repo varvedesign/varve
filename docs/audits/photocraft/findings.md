@@ -1177,19 +1177,23 @@ called complete merely because its source issue is closed or a source PR is open
   corrects that assessment. The Browser Demo guide now says that Firefox and
   Safari downloads cannot be confirmed and keep the document modified; no new
   public capability is claimed.
-- **Callout repositioning — partial workflow match; interaction gap retained.**
+- **Callout repositioning — direct tail and independent body movement implemented; resizing remains open.**
   PdfCraft [#1152](https://github.com/storytold/pdfcraft/issues/1152) and its
   new floor-plan user comment ask to move the callout body/text independently
   while its arrow tip stays anchored; the commenter says canvas drags currently
   move the whole callout. Varve has separate body, text, and tail nodes, a
-  layer-tree deep-selection path, numeric tail endpoint controls, and ordinary
-  path node editing. However, its documented canvas contract selects the group
-  as a whole; it does not provide the requested direct drag handles for the
-  body, knee, and arrow tip. The previous cutoff-B ledger disposition and
-  rationale (“PDF interchange metadata”) were incorrect. This is now recorded
-  as a relevant usability gap for a later focused design/interaction slice;
-  no claim is made that layer-tree and inspector work equal direct canvas
-  manipulation, and no speculative handle UI was added in this pass.
+  layer-tree deep-selection path and numeric Inspector controls. A selected
+  parametric pointed callout now has direct canvas handles for its arrow tip
+  and bend, with fixed 24 CSS-pixel hit targets, keyboard nudging, and pointer
+  regression coverage. The body handle now moves the balloon body and text
+  independently while preserving each tail tip's world-space position, with
+  undoable pointer dragging and keyboard nudging. The eight-way resize behavior
+  requested by #1152 remains absent, so the issue is only partially addressed.
+  The previous cutoff-B disposition and rationale (“PDF interchange
+  metadata”) were incorrect. Adobe user reports also warn that grouped handles
+  can be hard to reach and unreliable below 100% zoom; the zoom-independent hit
+  target is an intentional response, but cross-platform native-app validation
+  remains a follow-up.
 - **Additional Varve-adjacent reports — screened, not reproduced.** PdfCraft
   [#3266](https://github.com/storytold/pdfcraft/issues/3266) reports a page
   that jumps after zoom settles. Its later
@@ -1290,3 +1294,157 @@ called complete merely because its source issue is closed or a source PR is open
 The website's Browser Demo guide was updated to explain the download-only save
 state; no other marketing or capability claim needed revision. The menu and
 wheel controls are existing behaviors.
+
+## 5. Cutoff D review (203 new issues; engineering mapping in progress)
+
+Cutoff D was reconciled against pagination and Search API totals, then every
+new issue body and all 356 comments in its current thread were read. This is
+source-review coverage, not 203 verified Varve defects. The per-issue ledger
+records `review_depth: thread`; its separate Varve mapping/disposition remains
+pending until the corresponding source path and relevant linked evidence are
+checked. Pull requests in the issue endpoint were counted separately; their PR
+discussion and review comments were not part of this issue-thread pass.
+
+The reviews surfaced these strongest candidates for source-level follow-up:
+
+| Reports | Transferable failure family | Varve check / current boundary |
+|---|---|---|
+| #3407, #3409, #3496, #3555, #3755 | Save success, removed content, dirty state, file-watcher races, and undo continuity | #3407's deleted-PDF-revision behavior has no matching Varve file model: deleting a page removes its scene subtree and unreferenced image assets, and Save encodes a fresh snapshot of the current document. #3496 is already handled by the pending-edit drain (§4.1). #3755's false conflict and undo-loss family is guarded by content-hash comparison and persistent history; no ctime-based active-file reload path was found. #3409 exposed an unchecked staging close and is fixed in this branch (details below). #3555 is a distinct persistent viewport-restoration opportunity. |
+| #3410 | Filling or editing content already inside a signed/filled PDF | Varve's PDF path is a partial artwork importer, not a semantic PDF editor or form/signature workflow. It extracts simple text and rectangle operators; the file-formats guide now states this limit and no longer claims multi-page reconstruction. The attached sample image was inaccessible, and the report has no PDF reproduction file. |
+| #3414 | Slow or stalled document preparation blocks later opens | Varve has no PDF-reader document-open or single-instance PDF handoff path. Its limited PDF import in `packages/import/src/pdf.ts` synchronously decodes the whole byte buffer and scans it with regexes; this is an adjacent main-thread responsiveness surface, but it does not parse xref tables or share PdfCraft's repeated COS object scan. No Varve defect was established from this report. |
+| #3460 | Accent-insensitive Find with opt-in exact diacritic matching | Already implemented for Varve-authored text in Find and Replace: diacritics are ignored by default and the “Match diacritics” option enables canonical-normalized exact matching. It does not search inside source PDFs. New regressions pin precomposed and decomposed accents plus the visible option. |
+| #3597 | macOS Devanagari fallback paths point to missing files | Varve's desktop font discovery enumerates the native OS font collection rather than maintaining per-script macOS path lists, so the reported stale filename/folder failure mode does not apply. No macOS runtime validation was performed here; this does not certify automatic script fallback in every text-render path. |
+| #3713 | Widely spaced Chinese PDF glyphs copied with inserted word spaces | PdfCraft's report and proposed fix concern positioned glyph runs in a full PDF reader. Varve's partial PDF importer concatenates literal `Tj`/`TJ` strings and exposes no PDF page selection/copy path; it does not infer spaces from glyph positions, so no matching defect was established. The inline synthetic repro and linked PR #3722 were reviewed. |
+| #3769 | Hindi matras and conjuncts corrupted in PDF-content editing | Varve has no PDF-content editor. Its authored-text Devanagari shaping oracle uses a checked-in Noto face and verifies conjunct formation and pre-base matra positioning; this does not certify cross-platform UI rendering. |
+| #3421, #3444, #3481, #3505, #3519, #3592, #3601, #3604, #3684, #3687, #3707 | Unicode entry, bidi caret movement, glyph coverage, and text selection | Varve has a distinct text/font/shaping path. Treat PDF font/resource failures as evidence for tests and diagnostics, not proof of a Varve defect; inspect Arabic/Indic/CJK fallback and spaces in Varve's supported text path. #3481 is mapped below: the authored-text textarea uses `dir=auto`, and a focused Arabic caret/insertion E2E was added; no PDF comment UI or Varve defect is established. |
+| #3446, #3464, #3650, #3665, #3736, #3793 | Canvas input, touchpad gestures, device-specific pointer handling, and window presentation | Varve already has a native Linux touchpad pinch bridge and pointer-type policy. #3793's user clarifies that a Synaptics touchpad scrolls too slowly and pinch does not work on KDE Plasma 6.8 / Arch; this remains a device-level validation gap, not a confirmed Varve failure. #3650's Wacom report likewise needs comparison with Varve's Tauri event path and supported hardware. |
+| #3437, #3474, #3518, #3541, #3620, #3651, #3693, #3747, #3780 | Direct manipulation, live feedback, transformed hit testing, and selection/deletion invariants | Map only after inspecting the exact Varve tool and whether the reported PDF operation has a native analogue. The callout body/tail drag improvement is already implemented and visually validated in this branch. |
+| #3429, #3499, #3507, #3511, #3644, #3645, #3646, #3647, #3732 | Destructive changes, hidden content, dependency reachability, and truthful partial results | Varve is not a PDF sanitizer or redaction tool. Check only shared export/visibility invariants; do not infer a need for PDF security features. |
+| #3570, #3590, #3666, #3675, #3744, #3776 | Visible geometry versus hit testing, text layout preservation, UI layout, and color compositing | Follow concrete samples or synthetic reproductions before mapping to Varve. #3776 is specifically DeviceCMYK PDF blend-space behavior, outside Varve's present color model unless the renderer supports an equivalent contract. |
+
+Examples screened out of the current product boundary include PDF signatures,
+forms/XFA, redaction, PDF page organization, reader-only preferences, PDF
+content-stream rewriting, and OS-specific PDF printer controls. These remain
+source-product bugs or requests, not Varve defects. Bot-generated “possibly
+related” links were not treated as verified duplicates or fixes. In particular,
+the four issue IDs beyond the reviewers' initial numeric cohorts were read
+directly: #3792 concerns PDF spread layout and native PDF editing; #3793 is the
+touchpad report above; #3795 requests browser-style middle-button auto-scroll,
+which is not established as a Varve requirement; and #3797 concerns editing
+text already inside a PDF, which Varve's limited importer does not support.
+
+The next source-review pass should resolve the remaining high-risk save/undo
+and text-input candidates, then the platform input reports. It must inspect
+linked fixes/PRs and attachments where they contain the only reproduction,
+and verify current Varve behavior before changing code or marketing claims.
+
+### Focused source checks completed
+
+- **#3409, atomic save close errors — implemented in this branch.**
+  `apps/desktop/src-tauri/src/lib.rs::write_file_atomic` now checks the
+  staging-file close before atomic replacement. Rust documents that ordinary
+  `File` drop ignores close errors ([`std::fs::File::sync_all`](https://doc.rust-lang.org/std/fs/struct.File.html#method.sync_all)).
+  Varve uses [`io-close` 0.3.7](https://docs.rs/io-close/0.3.7/io_close/)'s
+  safe `Close` trait for Unix file descriptors and Windows handles. A close
+  error prevents publication; the existing cleanup removes the staging file
+  and preserves the original destination. The injected regression
+  `atomic_write_does_not_publish_when_staging_close_fails` passed. The crate
+  contains the OS-specific unsafe operations internally; Varve adds no unsafe
+  close code. The local full-gate operation was interrupted during the
+  architecture audit before completion, so that gate is not reported as
+  passed.
+- **#3407, deleted PDF pages remain in earlier revisions — no matching Varve
+  persistence behavior.** The user's follow-up confirms the PDF case is an
+  incremental-revision policy, not unused-image garbage collection. Its
+  linked [PdfCraft #2165](https://github.com/storytold/pdfcraft/issues/2165)
+  describes the same earlier-revision retention; its Save As workaround was
+  scoped to unsigned files. The linked
+  [DesignCraft #566](https://github.com/storytold/designcraft/issues/566)
+  was closed after the reporter said the slowdown came from a corrupt image,
+  so it is not evidence of a general resource-retention bug. In Varve,
+  `deletePageWithPolicy` removes the page content subtree through
+  `removeNode`; `removeNode` recursively deletes descendants and collects
+  unreferenced embedded image assets while retaining shared references
+  (`packages/scene/src/document-pages.ts`, `document-nodes.ts`, `assets.ts`).
+  The save path serializes the current scene with `DocumentCodec.encode` and
+  publishes a fresh file through the atomic writer; the `.varve` destination
+  does not append prior document revisions. Existing asset-collection tests
+  cover removal and shared-use retention. This supports a source-level
+  already-handled disposition for the shared concern, not a claim that Varve
+  supports editing PDF pages.
+- **#3410, editing Acrobat-filled and signed PDF content — outside the
+  current product boundary; public capability copy corrected.** The report
+  gives no steps beyond opening a file filled/signed in Acrobat, and its
+  referenced screenshot was inaccessible through the available web reader.
+  Its immediate linked [#3339](https://github.com/storytold/pdfcraft/issues/3339)
+  clarifies that PdfCraft's Fill & Sign annotations can remain movable and
+  hidden unless the user flattens them. Its tracking issue
+  [#2149](https://github.com/storytold/pdfcraft/issues/2149), open
+  [PR #2348](https://github.com/storytold/pdfcraft/pull/2348), and inline-form
+  request [#1696](https://github.com/storytold/pdfcraft/issues/1696) describe
+  distinct PDF workflows; the source PR keeps flattening opt-in and explains
+  that existing fields use a separate Forms tool. The sibling
+  [#2804](https://github.com/storytold/pdfcraft/issues/2804) text-edit report
+  also lacks its source PDF; a synthetic Windows attempt did not reproduce it.
+  Varve's `packages/import/src/pdf.ts` extracts simple text/rectangle
+  operators into a scene fragment and advertises no multipage support in its
+  parser capabilities. It does not edit or re-save the source PDF, fill its
+  AcroForm fields, preserve signatures, or flatten PDF annotations. The
+  website guide at `/docs/file-formats/` now describes that boundary and
+  removes an unsupported multi-page conversion claim. This is a truthful
+  capability clarification, not a new PDF form/signature feature.
+- **#3414, malformed-PDF open stalls — adjacent import responsiveness risk; no
+  matching xref failure.** The report has no attached source PDF because it is
+  a copyrighted book with personal annotations. Its issue thread describes
+  synthetic stale-xref probes and two distinct open-queue failures. I read the
+  linked PR descriptions: [#2220](https://github.com/storytold/pdfcraft/pull/2220)
+  repairs only selected xref anomalies; [#1634](https://github.com/storytold/pdfcraft/pull/1634)
+  bounds background preparation but does not interrupt an active parse;
+  [#3415](https://github.com/storytold/pdfcraft/pull/3415) indexes fallback
+  candidates but retains a capped repeated-scan path; and
+  [#3416](https://github.com/storytold/pdfcraft/pull/3416) adds a second bounded
+  worker while documenting that two stalled workers still block the queue.
+  The PRs use synthetic fixtures, not the reporter's Windows file. Varve's
+  PDF importer is a heuristic artwork importer, not a reader or OS-open
+  document path; its current synchronous whole-file decode is a separate
+  responsiveness boundary worth testing for large PDFs. The stale-xref/COS
+  scan and single-instance failure do not transfer directly, so no code change
+  is claimed. Issues #625, #2458, #1937, #2384, and #1449 mentioned as
+  were read: #625 is about portable Windows file association and is not a
+  confirmed app crash; #2458 records a 350-file PDF-reader corpus and explicitly
+  reports no damaged-xref cases in that run; #1937 is PDF xref repair behavior;
+  #2384 concerns interactive PDF forms; and #1449 is a CMS `.p7m` envelope
+  outside plain-PDF opening. This closes those immediate issue edges, but
+  deeper links from the corpus/signature reports remain in the recursive
+  evidence queue. #3414 itself had no PDF attachment; the #2384 ticket image
+  URL was inaccessible through the available web reader and was not
+  downloaded.
+- **#3496, active text draft omitted by Save — already handled.** The editor
+  drains registered pending edits before save revision capture, and lifecycle
+  paths drain before termination decisions. See §4.1 and
+  `packages/editor/src/context/usePersistence.ts`.
+- **#3555, resume viewport after reopening — adjacent opportunity.** Varve
+  snapshots and restores a viewport while switching among already-open editor
+  sessions (`packages/editor/src/context.tsx`), but a newly opened document is
+  fit-to-content rather than restoring its previous camera across application
+  restarts. The source ticket was closed as a duplicate of #1178; this is a
+  separate UX choice for an infinite canvas and is not included in the current
+  callout batch.
+- **#3755, false external-change prompt and lost undo — no matching mechanism
+  found.** Native save compares the current file's content hash against the
+  last successful read/write baseline (`usePersistence.ts`); a ctime-only
+  change is not the identity check. Persistent editor history is independent
+  of file saving (`packages/editor/src/history/editorHistorySession.ts`), and
+  the native filesystem watcher found in `apps/desktop/src-tauri/src/lib.rs`
+  watches the Home index rather than auto-reloading an active user document.
+  The macOS metadata race was not reproduced on Varve, so this is a source
+  defense check, not a runtime platform certification.
+- **#3793, slow Synaptics scrolling and missing pinch — validation lead.** The
+  canvas normalizes wheel inputs and resolves sensitivity/mode in
+  `packages/editor/src/canvas/wheelClassifier.ts`; Linux touchpad pinch is
+  bridged from GTK into the canvas in `apps/desktop/src-tauri/src/lib.rs`.
+  The reported Synaptics CF00 device and KDE Plasma 6.8 environment are not
+  available in this validation environment. This does not establish that
+  Varve's specific hardware path works or fails.
+
+- **#3481, Arabic comment-editor direction/caret — adjacent Varve text path covered.** The complete issue thread marks this as a duplicate of PdfCraft #1851, a PDF comment editor workflow that Varve does not provide. Varve's authored-text canvas editor is a related input surface: `packages/editor/src/components/TextEditOverlay.tsx` renders the native textarea with `dir="auto"`. Added an E2E regression in `tests/e2e/canvas/text-multilingual-visual.spec.ts` that types Arabic, reopens the canvas editor, inserts from the visual start, and checks the stored logical string and rendered canvas. The focused Chromium run passed (2/2 tests), and the screenshot was visually inspected and saved as [`arabic-rtl-caret-chromium.png`](evidence/arabic-rtl-caret-chromium.png) (SHA-256 `87953206d5a648245040ab68b4d8dc26876e96292fc80e57c1555283dfa33863`). This is adjacent authored-text input coverage, not PDF-comment feature parity.

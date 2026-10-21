@@ -1,8 +1,12 @@
+import { applyAffine } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { deepCloneSubtree } from './clone';
+import { nodeWorldTransform } from './coordinateService';
+import { buildParentIndexMap } from './document';
 import {
   addCalloutTail,
   addNode,
+  calloutTailBendPoint,
   createCallout,
   createDocument,
   detachCalloutRecipe,
@@ -11,12 +15,14 @@ import {
   getCalloutFitReport,
   getParent,
   makeTextNode,
+  moveCalloutBodyKeepingTailTips,
   removeCalloutTail,
   setCalloutTailBaseWidth,
   setCalloutTailCurve,
   setCalloutWrapShape,
   updateCalloutKind,
   updateCalloutPadding,
+  updateCalloutTailBendPoint,
   updateCalloutTailEndpoint,
   wrapTextInCallout,
 } from './index';
@@ -103,6 +109,78 @@ describe('comic callouts', () => {
     });
     const tail = moved.nodes[secondTail!];
     expect(tail?.kind === 'path' ? tail.points[1] : undefined).toMatchObject({ x: 88, y: 124 });
+  });
+
+  it('moves the tail bend handle without moving its authored endpoint', () => {
+    const created = createCallout(createDocument('bend-handle', true), {
+      x: 0,
+      y: 0,
+      w: 120,
+      h: 64,
+      tailEndpoint: { x: 50, y: 124 },
+    });
+    const tailId = created.tailNodeIds[0]!;
+    const beforeBend = calloutTailBendPoint(created.document, created.groupId, tailId);
+    const beforeTail = created.document.nodes[tailId];
+    if (!beforeBend || beforeTail?.kind !== 'path') throw new Error('tail geometry is missing');
+    const endpoint = beforeTail.points[1];
+    if (!endpoint) throw new Error('tail endpoint is missing');
+    const dx = endpoint.x - 60;
+    const dy = endpoint.y - 61;
+    const length = Math.hypot(dx, dy);
+    const requested = {
+      x: beforeBend.x + (-dy / length) * 12,
+      y: beforeBend.y + (dx / length) * 12,
+    };
+
+    const moved = updateCalloutTailBendPoint(created.document, created.groupId, tailId, requested);
+    const afterTail = moved.nodes[tailId];
+    const afterBend = calloutTailBendPoint(moved, created.groupId, tailId);
+    const afterTip = afterTail?.kind === 'path' ? afterTail.points[1] : undefined;
+    expect(afterTip?.x).toBe(endpoint.x);
+    expect(afterTip?.y).toBe(endpoint.y);
+    expect(afterBend?.x).toBeCloseTo(requested.x, 6);
+    expect(afterBend?.y).toBeCloseTo(requested.y, 6);
+  });
+
+  it('moves the body and text while keeping every tail tip anchored', () => {
+    const created = createCallout(createDocument('body-anchor', true), {
+      x: 20,
+      y: 30,
+      w: 120,
+      h: 64,
+      tailEndpoint: { x: 44, y: 132 },
+    });
+    const initialGroup = created.document.nodes[created.groupId] as GroupNode;
+    const transformed = {
+      ...created.document,
+      nodes: {
+        ...created.document.nodes,
+        [created.groupId]: {
+          ...initialGroup,
+          transform: [0, 2, -2, 0, 40, 60] as const,
+        },
+      },
+    };
+    const tailId = created.tailNodeIds[0]!;
+    const tipWorld = (doc: typeof transformed) => {
+      const tail = doc.nodes[tailId];
+      if (tail?.kind !== 'path') throw new Error('callout tail is not a path');
+      const tip = tail.points[1];
+      if (!tip) throw new Error('callout tail tip is missing');
+      const world = nodeWorldTransform(doc, created.groupId, buildParentIndexMap(doc));
+      if (!world) throw new Error('callout world transform is missing');
+      return applyAffine(world, [tip.x, tip.y]);
+    };
+    const beforeTip = tipWorld(transformed);
+    const beforeGroup = transformed.nodes[created.groupId] as GroupNode;
+    const moved = moveCalloutBodyKeepingTailTips(transformed, created.groupId, 12, -7);
+    const afterGroup = moved.nodes[created.groupId] as GroupNode;
+
+    expect(tipWorld(moved)).toEqual(beforeTip);
+    expect(afterGroup.transform[4]).toBe(beforeGroup.transform[4] + 14);
+    expect(afterGroup.transform[5]).toBe(beforeGroup.transform[5] + 24);
+    expect(moved.nodes[created.textId]).toEqual(transformed.nodes[created.textId]);
   });
 
   it('marks a callout detached while retaining ordinary geometry', () => {

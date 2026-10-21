@@ -130,6 +130,37 @@ describe('projection: normalized comparison maps back to original offsets', () =
 });
 
 describe('unicode offsets: matches apply to the authored text', () => {
+  it('ignores diacritics by default and can match precomposed and decomposed accents exactly', () => {
+    const doc = docWith('Café cafe\u0301 cafe CAFE');
+
+    expect(find(doc, 'cafe').map((result) => result.original)).toEqual([
+      'Café',
+      'cafe\u0301',
+      'cafe',
+      'CAFE',
+    ]);
+    expect(find(doc, 'cafe', { caseSensitive: true }).map((result) => result.original)).toEqual([
+      'cafe\u0301',
+      'cafe',
+    ]);
+    expect(find(doc, 'cafe', { matchDiacritics: true }).map((result) => result.original)).toEqual([
+      'cafe',
+      'CAFE',
+    ]);
+    expect(find(doc, 'café', { matchDiacritics: true }).map((result) => result.original)).toEqual([
+      'Café',
+      'cafe\u0301',
+    ]);
+  });
+
+  it('keeps case sensitivity independent from diacritic sensitivity', () => {
+    const doc = docWith('Café café cafe');
+
+    expect(
+      find(doc, 'cafe', { caseSensitive: true, matchDiacritics: true }).map((r) => r.original),
+    ).toEqual(['cafe']);
+  });
+
   it('reports the original offset for a match after a decomposed sequence', () => {
     const results = find(docWith('cafe\u0301 x'), 'x');
     expect(results).toHaveLength(1);
