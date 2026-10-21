@@ -305,8 +305,24 @@ describe('parseChangelogFile', () => {
 
     // Should contain known versions
     const versions = releases.filter((r) => !r.isUnreleased).map((r) => r.version);
+    expect(versions).toContain('0.5.1');
+    expect(versions).toContain('0.5.0');
     expect(versions).toContain('0.2.1');
     expect(versions).toContain('0.1.0');
+
+    const v051 = releases.find((r) => r.version === '0.5.1');
+    expect(v051?.date).toBe('2026-10-15');
+    const v051Text =
+      v051?.sections.map((s) => s.entries.map((e) => e.html).join(' ')).join(' ') ?? '';
+    expect(v051Text).toMatch(/Tauri updater/);
+    expect(v051Text).not.toMatch(/Generative Edit/);
+
+    const v050 = releases.find((r) => r.version === '0.5.0');
+    expect(v050?.date).toBe('2026-10-09');
+    const v050Text =
+      v050?.sections.map((s) => s.entries.map((e) => e.html).join(' ')).join(' ') ?? '';
+    expect(v050Text).toMatch(/Generative Edit/);
+    expect(v050Text).toMatch(/Consent-first desktop updates/);
   });
 
   it('Unreleased is first when present', async () => {
