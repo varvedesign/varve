@@ -63,6 +63,20 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **PDF import no longer invents content the page does not show.** Text set in
+  an invisible or clip-only render mode (`3 Tr` / `7 Tr` — how a searchable OCR
+  layer is attached to a scan) is no longer imported as visible text, and
+  content inside an optional-content group that the document's default
+  configuration hides (a PDF layer, as layered CAD exports ship) is left out
+  rather than painted on top of the visible page. Both are counted in Import
+  Results, and hidden layers are named.
+- **Encrypted PDFs are reported instead of imported as a blank document.** A
+  password-protected or permission-restricted file is refused with an
+  explanation and the next step, instead of decoding ciphertext into an empty
+  page that looks like a successful import.
+- **An inline image no longer swallows the rest of the page** when its `EI`
+  terminator is followed directly by a delimiter (`EI/OC`) rather than white
+  space.
 - **PDF import now reads real documents.** Content streams are decoded
   (zlib `FlateDecode`, ASCIIHex, ASCII85) and tokenized instead of being
   pattern-matched, so a compressed PDF — which is nearly every PDF — imports

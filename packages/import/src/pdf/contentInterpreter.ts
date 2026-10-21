@@ -39,6 +39,11 @@ interface TextState {
   horizScale: number;
   leading: number;
   rise: number;
+  /**
+   * `Tr` text rendering mode. 3 (invisible) and 7 (clip) paint no glyphs, so
+   * their text is not part of the page's appearance.
+   */
+  renderMode: number;
   matrix: Mat;
   lineMatrix: Mat;
 }
@@ -57,6 +62,12 @@ export interface InterpretContext {
   readonly rotate: number;
   readonly fonts: Map<string, PdfFont>;
   readonly extGStates: Map<string, ExtGState>;
+  /**
+   * Optional-content property names (`/OC /MC0 BDC` → `/Properties /MC0`) that
+   * the document's default configuration hides, with the layer name used in
+   * the import report.
+   */
+  readonly hiddenPropertyNames?: ReadonlyMap<string, string>;
 }
 
 export interface ContentResult {
@@ -79,6 +90,7 @@ export function interpretContent(
   const interpreter = new ContentInterpreter(context, diagnostics);
   interpreter.run(tokens);
   diagnostics.outsidePage += interpreter.outsidePage;
+  for (const name of interpreter.hiddenLayerNames) diagnostics.hiddenLayers.add(name);
   return { runs: interpreter.runs, rects: interpreter.rects, diagnostics };
 }
 
@@ -99,6 +111,10 @@ export class ContentInterpreter {
   private path: Array<{ x: number; y: number; w: number; h: number }> = [];
   private pathIsRectOnly = true;
   private outsidePageCount = 0;
+  /** One entry per open marked-content section; true when it is hidden. */
+  private markedContent: boolean[] = [];
+  private hiddenDepth = 0;
+  private readonly hiddenLayers = new Set<string>();
 
   constructor(
     private readonly context: InterpretContext,
@@ -117,6 +133,11 @@ export class ContentInterpreter {
   /** Text runs whose display position fell outside the visible page box. */
   get outsidePage(): number {
     return this.outsidePageCount;
+  }
+
+  /** Names of hidden optional-content layers that had content on this page. */
+  get hiddenLayerNames(): string[] {
+    return [...this.hiddenLayers];
   }
 
   run(tokens: ContentToken[]): void {
@@ -167,9 +188,53 @@ export class ContentInterpreter {
 
   private dispatch(operator: string): void {
     const handled =
-      this.handleGraphicsState(operator) || this.handleText(operator) || this.handlePath(operator);
+      this.handleGraphicsState(operator) ||
+      this.handleText(operator) ||
+      this.handlePath(operator) ||
+      this.handleMarkedContent(operator);
     if (!handled && operator === 'Do') this.diagnostics.formXObjects += 1;
     this.operands = [];
+  }
+
+  // ── Marked content (optional-content visibility) ──────────────────────
+
+  /**
+   * Optional-content sections are the PDF mechanism behind "layers". A section
+   * whose group is off is not shown by any conforming reader, so importing its
+   * content as visible artwork would add things the document does not display
+   * — the class that makes a layered CAD drawing arrive with every hidden sheet
+   * on top of the visible one.
+   */
+  private handleMarkedContent(operator: string): boolean {
+    switch (operator) {
+      case 'BDC':
+      case 'BMC':
+        this.markedContent.push(this.enterMarkedContent(operator));
+        return true;
+      case 'EMC':
+        if (this.markedContent.pop() === true) this.hiddenDepth -= 1;
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private enterMarkedContent(operator: string): boolean {
+    const tag = this.operands[0];
+    if (tag !== '/OC') return false;
+    const property = this.operands[1];
+    if (operator !== 'BDC' || typeof property !== 'string' || !property.startsWith('/')) {
+      // `/OC` given a direct dictionary (or `BMC` with no property list) needs
+      // an object graph this interpreter deliberately does not carry. Report
+      // that the section could not be resolved rather than guessing.
+      this.diagnostics.unresolvedOptionalContent += 1;
+      return false;
+    }
+    const hiddenLayer = this.context.hiddenPropertyNames?.get(property);
+    if (hiddenLayer === undefined) return false;
+    this.hiddenLayers.add(hiddenLayer);
+    this.hiddenDepth += 1;
+    return true;
   }
 
   // ── Graphics state ────────────────────────────────────────────────────
@@ -298,6 +363,9 @@ export class ContentInterpreter {
       case 'Ts':
         this.state.text.rise = this.numberAt(0);
         return true;
+      case 'Tr':
+        this.state.text.renderMode = Math.trunc(this.numberAt(0));
+        return true;
       case 'Tj':
         this.showStrings(false);
         return true;
@@ -380,23 +448,36 @@ export class ContentInterpreter {
     }
 
     const trimmed = trimTrailingSpace(content);
-    if (trimmed.length > 0 && this.runs.length < MAX_RUNS) {
-      const display = toDisplaySpace(this.pageBox, position.x, position.y);
-      this.runs.push({
-        text: trimmed,
-        x: display.x,
-        y: display.y,
-        fontSize: position.fontSize,
-        fontResource: font.resourceName,
-        fontBase: font.baseFont,
-        estimatedAdvance: estimated,
-      });
-      if (this.isOutsidePage(display.x, display.y)) this.outsidePageCount += 1;
-    }
     if (unmappedCodes > 0) {
       this.diagnostics.unmappedRuns += 1;
       this.diagnostics.unmappedCodes += unmappedCodes;
     }
+    if (trimmed.length === 0) return;
+    if (this.hiddenDepth > 0) {
+      // The document's default configuration hides this layer, so the user
+      // does not see this text; report the count instead of importing it.
+      this.diagnostics.hiddenRuns += 1;
+      return;
+    }
+    if (!paintsGlyphs(text.renderMode)) {
+      // `3 Tr` (invisible) and `7 Tr` (clip only) paint no glyphs. A searchable
+      // OCR layer is exactly this text: importing it as visible would put a
+      // duplicate, editable copy of the scan over the image.
+      this.diagnostics.invisibleRuns += 1;
+      return;
+    }
+    if (this.runs.length >= MAX_RUNS) return;
+    const display = toDisplaySpace(this.pageBox, position.x, position.y);
+    this.runs.push({
+      text: trimmed,
+      x: display.x,
+      y: display.y,
+      fontSize: position.fontSize,
+      fontResource: font.resourceName,
+      fontBase: font.baseFont,
+      estimatedAdvance: estimated,
+    });
+    if (this.isOutsidePage(display.x, display.y)) this.outsidePageCount += 1;
   }
 
   /** Position and effective size of the next glyph run, in user space. */
@@ -500,9 +581,13 @@ export class ContentInterpreter {
   private paintFill(): void {
     const fill = this.state.fill;
     if (fill && this.pathIsRectOnly && !this.state.alphaUnknown) {
-      for (const rect of this.path) {
-        if (this.rects.length >= MAX_RECTS) break;
-        this.rects.push(this.toRectFill(rect, fill));
+      if (this.hiddenDepth > 0) {
+        this.diagnostics.hiddenRects += this.path.length;
+      } else {
+        for (const rect of this.path) {
+          if (this.rects.length >= MAX_RECTS) break;
+          this.rects.push(this.toRectFill(rect, fill));
+        }
       }
     }
     this.resetPath();
@@ -569,6 +654,7 @@ function freshGraphicsState(): GraphicsState {
       horizScale: 1,
       leading: 0,
       rise: 0,
+      renderMode: 0,
       matrix: IDENTITY,
       lineMatrix: IDENTITY,
     },
@@ -585,6 +671,15 @@ function matrixFrom(values: number[]): Mat {
 
 function numbersOf(operands: Operand[]): number[] {
   return operands.filter((operand): operand is number => typeof operand === 'number');
+}
+
+/**
+ * Text rendering modes that paint glyphs: 0 fill, 1 stroke, 2 fill+stroke,
+ * 4-6 the same with clipping added. Modes 3 (invisible) and 7 (clip only)
+ * leave no mark on the page.
+ */
+function paintsGlyphs(renderMode: number): boolean {
+  return renderMode >= 0 && renderMode <= 6 && renderMode !== 3;
 }
 
 function grayFill(value: number): { r: number; g: number; b: number } {

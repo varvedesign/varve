@@ -35,6 +35,7 @@ import type { ImportCapabilities, ImportOptions, ImportParser, ImportResult } fr
 import type { RectFill, TextRun } from './content';
 import { type ContentDiagnostics, createDiagnostics } from './content';
 import { interpretContent } from './contentInterpreter';
+import { detectEncryption, type EncryptionInfo } from './encryption';
 import {
   createDecodeReport,
   type DecodeReport,
@@ -87,6 +88,9 @@ export function parsePdf(data: string | Uint8Array, options: Partial<ImportOptio
     );
   }
 
+  const encryption = detectEncryption(index);
+  if (encryption) return encryptedResult(encryption);
+
   const collection = collectPages(index, report);
   if (collection.pages.length === 0) return emptyResult(report, warnings, unsupportedFeatures);
 
@@ -121,6 +125,32 @@ function failedResult(reason: string): ImportResult {
     nodeIds: [],
     warnings: [reason],
     unsupportedFeatures: ['The document could not be read at all'],
+    capabilities: capabilitiesFor({
+      multipage: false,
+      pageDimensions: false,
+      text: false,
+      notes: [reason],
+    }),
+  };
+}
+
+/**
+ * An encrypted document is refused, not guessed at.
+ *
+ * The standard security handler encrypts strings and streams; without it the
+ * importer would read ciphertext as page content and produce an empty or
+ * nonsense document that looks like a successful import. Saying so is the only
+ * honest outcome, and it tells the user what to do next.
+ */
+function encryptedResult(encryption: EncryptionInfo): ImportResult {
+  const how =
+    encryption.filter && encryption.filter !== 'Standard' ? ` with ${encryption.filter}` : '';
+  const reason = `This PDF is encrypted${how}. Varve cannot open encrypted PDFs (password-protected or permission-restricted); export an unencrypted copy from a PDF reader, then import that.`;
+  return {
+    document: createDocument('Imported PDF'),
+    nodeIds: [],
+    warnings: [reason],
+    unsupportedFeatures: ['The document is encrypted, so its pages, text and images were not read'],
     capabilities: capabilitiesFor({
       multipage: false,
       pageDimensions: false,
@@ -221,7 +251,13 @@ function buildPageNodes(
     if (!bytes) continue;
     const interpreted = interpretContent(
       bytes,
-      { box: page.box, rotate: page.rotate, fonts: page.fonts, extGStates: page.extGStates },
+      {
+        box: page.box,
+        rotate: page.rotate,
+        fonts: page.fonts,
+        extGStates: page.extGStates,
+        hiddenPropertyNames: page.hiddenProperties,
+      },
       diagnostics,
     );
     for (const run of interpreted.runs) {
@@ -334,6 +370,23 @@ function reportDiagnostics(
   if (diagnostics.undecodableRuns > 0) {
     unsupportedFeatures.push(
       `${diagnostics.undecodableRuns} text run(s) use a font with no readable encoding (composite fonts need a /ToUnicode map)`,
+    );
+  }
+  if (diagnostics.invisibleRuns > 0) {
+    unsupportedFeatures.push(
+      `${diagnostics.invisibleRuns} text run(s) are painted with an invisible or clip-only render mode and were not imported (a searchable text layer over a scan looks like this)`,
+    );
+  }
+  if (diagnostics.hiddenRuns > 0 || diagnostics.hiddenRects > 0) {
+    const layers = [...diagnostics.hiddenLayers];
+    const named = layers.length > 0 ? ` from hidden layer(s): ${layers.join(', ')}` : '';
+    unsupportedFeatures.push(
+      `${diagnostics.hiddenRuns} text run(s) and ${diagnostics.hiddenRects} fill(s)${named} are hidden in the document's default layer configuration and were not imported`,
+    );
+  }
+  if (diagnostics.unresolvedOptionalContent > 0) {
+    unsupportedFeatures.push(
+      `${diagnostics.unresolvedOptionalContent} optional-content section(s) could not be resolved; their content was imported as visible`,
     );
   }
   if (diagnostics.unmappedRuns > 0) {

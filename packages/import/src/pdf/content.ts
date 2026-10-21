@@ -47,6 +47,19 @@ export interface ContentDiagnostics {
   unmappedCodes: number;
   /** Runs skipped because the font published no encoding at all. */
   undecodableRuns: number;
+  /** Runs the document paints with nothing (`3 Tr` invisible, `7 Tr` clip). */
+  invisibleRuns: number;
+  /**
+   * Runs and fills inside an optional-content group the document's default
+   * configuration hides. They are not imported, because the page does not
+   * show them; the layer names are reported instead.
+   */
+  hiddenRuns: number;
+  hiddenRects: number;
+  /** Optional-content sections whose visibility could not be resolved. */
+  unresolvedOptionalContent: number;
+  /** Display names of hidden optional-content layers that carried content. */
+  hiddenLayers: Set<string>;
   inlineImages: number;
   formXObjects: number;
   strokedPaths: number;
@@ -78,6 +91,11 @@ export function createDiagnostics(): ContentDiagnostics {
     unmappedRuns: 0,
     unmappedCodes: 0,
     undecodableRuns: 0,
+    invisibleRuns: 0,
+    hiddenRuns: 0,
+    hiddenRects: 0,
+    unresolvedOptionalContent: 0,
+    hiddenLayers: new Set<string>(),
     inlineImages: 0,
     formXObjects: 0,
     strokedPaths: 0,
@@ -182,6 +200,11 @@ export function tokenizeContent(bytes: Uint8Array): {
  * Skip an inline image. Its data runs from after `ID` to the first `EI` that
  * stands alone, so a byte sequence inside the image can never be re-read as
  * page content.
+ *
+ * `EI` must be preceded by white space. What follows it is either white space,
+ * end of data, or a delimiter — producers do emit `EI/OC` with no gap, and
+ * treating that as image data swallows every operator after the image, which
+ * loses the rest of the page.
  */
 function skipInlineImage(bytes: Uint8Array, start: number): number {
   let i = start;
@@ -189,8 +212,9 @@ function skipInlineImage(bytes: Uint8Array, start: number): number {
   while (i + 1 < bytes.length) {
     if (bytes[i] === 0x45 && bytes[i + 1] === 0x49) {
       const before = bytes[i - 1] ?? 0x20;
-      const after = bytes[i + 2] ?? 0x20;
-      if (isWhitespace(before) && (isWhitespace(after) || i + 2 >= bytes.length)) return i + 2;
+      const after = bytes[i + 2];
+      const endsHere = after === undefined || isWhitespace(after) || isDelimiter(after);
+      if (isWhitespace(before) && endsHere) return i + 2;
     }
     i += 1;
   }

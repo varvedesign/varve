@@ -13,10 +13,19 @@
  */
 
 import type { ExtGState } from './content';
-import { buildFont, type PdfFont } from './encoding';
+import {
+  buildFont,
+  decodeHexStringBytes,
+  decodeLiteralStringBytes,
+  decodeUtf16Be,
+  hasUtf16Bom,
+  type PdfFont,
+} from './encoding';
 import {
   type DecodeReport,
   dictArrayBody,
+  dictName,
+  dictOperand,
   type PdfIndex,
   type PdfObject,
   parseNumberList,
@@ -46,6 +55,12 @@ export interface PdfPage {
   readonly contents: PdfObject[];
   readonly fonts: Map<string, PdfFont>;
   readonly extGStates: Map<string, ExtGState>;
+  /**
+   * `/Properties` names on this page whose optional-content group the
+   * document's default configuration hides, mapped to the layer's display
+   * name. Content inside them is not part of the page's appearance.
+   */
+  readonly hiddenProperties: Map<string, string>;
 }
 
 export interface PageCollection {
@@ -205,6 +220,7 @@ function materialize(
     contents: readContents(index, node, report),
     fonts: readFonts(index, inherited.resourcesHeader, report),
     extGStates: readExtGStates(index, inherited.resourcesHeader),
+    hiddenProperties: readHiddenProperties(index, inherited.resourcesHeader),
   };
 }
 
@@ -268,6 +284,140 @@ function readAlpha(header: string | undefined): number | null {
   if (!match) return null;
   const value = Number(match[1]);
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : null;
+}
+
+/**
+ * Resolve the page's `/Properties` names against the document's default
+ * optional-content configuration (`/OCProperties /D`).
+ *
+ * A PDF "layer" is an optional-content group. The document states which groups
+ * its default configuration shows; a conforming reader paints nothing from a
+ * group that is off. Only the *hidden* names are returned: everything else is
+ * visible and needs no special handling.
+ */
+function readHiddenProperties(
+  index: PdfIndex,
+  resourcesHeader: string | null,
+): Map<string, string> {
+  const hidden = new Map<string, string>();
+  if (!resourcesHeader) return hidden;
+  const properties = inlineDictBody(resourcesHeader, 'Properties');
+  if (properties === null) return hidden;
+  const configuration = readDefaultConfiguration(index);
+  for (const entry of properties.matchAll(/\/([A-Za-z0-9#._-]+)\s+(\d+)\s+\d+\s+R/g)) {
+    const name = entry[1]!;
+    const object = index.objects.get(Number(entry[2]));
+    if (!object) continue;
+    if (isVisibleUnder(index, object, configuration)) continue;
+    hidden.set(`/${name}`, optionalContentName(object));
+  }
+  return hidden;
+}
+
+interface DefaultConfiguration {
+  /** Object numbers of groups the default configuration hides. */
+  readonly off: Set<number>;
+  /** Object numbers of groups it shows; overrides `off` and `baseOff`. */
+  readonly on: Set<number>;
+  readonly baseOff: boolean;
+}
+
+function readDefaultConfiguration(index: PdfIndex): DefaultConfiguration {
+  const cached = configurationCache.get(index);
+  if (cached) return cached;
+  const catalog = findObject(index, /\/Type\s*\/Catalog/);
+  const header = catalog ? optionalContentConfigurationHeader(index, catalog.header) : null;
+  const configuration: DefaultConfiguration =
+    header === null
+      ? { off: new Set(), on: new Set(), baseOff: false }
+      : {
+          off: refNumbersIn(header, 'OFF'),
+          on: refNumbersIn(header, 'ON'),
+          baseOff: dictName(header, 'BaseState') === 'OFF',
+        };
+  configurationCache.set(index, configuration);
+  return configuration;
+}
+
+/** One document-wide lookup, reused by every page's `/Properties` dictionary. */
+const configurationCache = new WeakMap<PdfIndex, DefaultConfiguration>();
+
+function optionalContentConfigurationHeader(index: PdfIndex, catalogHeader: string): string | null {
+  const referenced = resolveRef(index, refAfter(catalogHeader, 'OCProperties'));
+  if (referenced) return referenced.header;
+  return inlineDictBody(catalogHeader, 'OCProperties');
+}
+
+/** Object numbers inside a `[...]` array of references, e.g. `/OFF [6 0 R]`. */
+function refNumbersIn(header: string, key: string): Set<number> {
+  const body = dictArrayBody(header, key);
+  if (body === null) return new Set();
+  return new Set([...body.matchAll(/(\d+)\s+\d+\s+R/g)].map((match) => Number(match[1])));
+}
+
+/** True when the default configuration shows the content this object governs. */
+function isVisibleUnder(
+  index: PdfIndex,
+  object: PdfObject,
+  configuration: DefaultConfiguration,
+): boolean {
+  const groups = optionalContentGroups(index, object);
+  if (groups.length === 0) return true;
+  const visible = (number: number): boolean => {
+    if (configuration.on.has(number)) return true;
+    if (configuration.off.has(number)) return false;
+    return !configuration.baseOff;
+  };
+  const policy = dictName(object.header, 'P') ?? 'AnyOn';
+  switch (policy) {
+    case 'AllOn':
+      return groups.every(visible);
+    case 'AnyOff':
+      return groups.some((number) => !visible(number));
+    case 'AllOff':
+      return groups.every((number) => !visible(number));
+    default:
+      return groups.some(visible);
+  }
+}
+
+/**
+ * The groups an optional-content dictionary governs: an OCMD lists them in
+ * `/OCGs`, a plain OCG is itself the group.
+ */
+function optionalContentGroups(index: PdfIndex, object: PdfObject): number[] {
+  const body = dictArrayBody(object.header, 'OCGs');
+  if (body === null) return [object.number];
+  const groups = [...body.matchAll(/(\d+)\s+\d+\s+R/g)].map((match) => Number(match[1]));
+  // A directly embedded OCG (not a reference) is one group of its own; it has
+  // no state in `/OCProperties`, so it is treated as shown.
+  return groups.filter((number) => index.objects.has(number));
+}
+
+function optionalContentName(object: PdfObject): string {
+  const raw = dictOperand(object.header, 'Name');
+  if (raw === null) return 'Untitled layer';
+  if (raw.startsWith('(')) return literalStringBody(raw) || 'Untitled layer';
+  if (raw.startsWith('<')) return textFromBytes(decodeHexStringBytes(raw.replace(/[<>]/g, '')));
+  return raw || 'Untitled layer';
+}
+
+function literalStringBody(raw: string): string {
+  const end = raw.lastIndexOf(')');
+  const body = end > 0 ? raw.slice(1, end) : raw.slice(1);
+  return textFromBytes(decodeLiteralStringBytes(body));
+}
+
+/** A PDF text string is PDFDocEncoding (≈ Latin-1) or UTF-16BE with a BOM. */
+function textFromBytes(bytes: Uint8Array): string {
+  if (hasUtf16Bom(bytes)) return decodeUtf16Be(bytes);
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    let out = '';
+    for (const byte of bytes) out += String.fromCharCode(byte);
+    return out;
+  }
 }
 
 function readBox(index: PdfIndex, header: string, key: string): PdfPageBox | null {
