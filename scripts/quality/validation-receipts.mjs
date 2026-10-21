@@ -20,14 +20,14 @@ function stable(value) {
   return JSON.stringify(value);
 }
 
-function gitText(git, args) {
-  const result = git.run(args);
+function gitText(git, args, cwd = process.cwd()) {
+  const result = (git ?? createGitAdapter(cwd)).run(args);
   if (result.status !== 0) throw new Error(result.stderr.trim() || `git ${args.join(' ')} failed`);
   return result.stdout.trim();
 }
 
-export function commonGitDirectory({ git = createGitAdapter(), cwd = process.cwd() } = {}) {
-  const value = gitText(git, ['rev-parse', '--git-common-dir']);
+export function commonGitDirectory({ git = null, cwd = process.cwd() } = {}) {
+  const value = gitText(git, ['rev-parse', '--git-common-dir'], cwd);
   return isAbsolute(value) ? value : resolve(cwd, value);
 }
 

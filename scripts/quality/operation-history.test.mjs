@@ -3,12 +3,14 @@
 /** Operation journal tests: atomic lifecycle, retries, recovery, and redaction. */
 
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   classifySyncState,
   classifyWorktreeStatus,
+  commonGitDirectory,
   finishOperation,
   formatOperation,
   listOperations,
@@ -18,7 +20,11 @@ import {
 } from './operation-history.mjs';
 
 const commonDir = mkdtempSync(join(tmpdir(), 'varve-operation-history-'));
+const fixtureRoot = mkdtempSync(join(tmpdir(), 'varve-operation-history-repo-'));
 try {
+  execFileSync('git', ['init', '-q'], { cwd: fixtureRoot });
+  assert.equal(commonGitDirectory({ cwd: fixtureRoot }), join(fixtureRoot, '.git'));
+
   assert.equal(
     sanitizeRemoteUrl('https://user:token@example.test/varve.git?access_token=secret'),
     'https://example.test/varve.git',
@@ -113,4 +119,5 @@ try {
   console.log('operation history tests passed');
 } finally {
   rmSync(commonDir, { recursive: true, force: true });
+  rmSync(fixtureRoot, { recursive: true, force: true });
 }
