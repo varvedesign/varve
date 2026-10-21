@@ -33,7 +33,10 @@ Last updated: 2026-10-21 (session 1).
 | `54c5e8e21` | `fix(persistence)`: library save confirms the write before marking clean |
 | `8e0523450` | `fix(engine)`: bounded Offset Path tessellation, real round joins, open-path endpoints |
 | `f87e66c1d` | `fix(codegen)`: generic `font-family` fallback in exported SVG (quoted so it parses) |
-| (pending) | `docs`: vectorcraft audit area, ledger, findings, website export guidance |
+| `c6f479aa5` | `docs`: vectorcraft audit area, ledger, findings, website export guidance |
+| `683153357` | `fix(codegen)`: whole-document SVG export keeps gradient fills |
+| `e79389c3a` | `fix(engine)`: round only the outside of a turn (review finding), global point ceiling |
+| `9cee9e7c8` | `test(persistence)`: editor-level library-save failure; codegen emits the engine default family |
 
 ## Validation evidence
 
@@ -49,7 +52,10 @@ Last updated: 2026-10-21 (session 1).
 | `pnpm audit:claims` | clean |
 | `pnpm audit:docs` | clean (1148 docs) |
 | Visual: exported SVG rendered in Chromium | before = Times New Roman (serif), after = `'Source Sans 3', sans-serif` → sans-serif; **this check caught that the unquoted form did not work** |
-| `tests/e2e/canvas/offset-path.spec.ts` | **not run yet** — heavy-task lease held by another agent's `verify:affected` (pid 1792255). Must run through `scripts/quality/heavy-lease.mjs`. |
+| Visual: exported gradient document rendered in Chromium | before = flat dark rectangle, after = red→blue gradient |
+| `pnpm audit:emoji` / `audit:tokens` / `audit:claims` / `audit:docs` | clean |
+| `packages/editor/src/context/__tests__/librarySave.test.tsx` | 2/2 pass (editor-level failure and success) |
+| `tests/e2e/canvas/offset-path.spec.ts` | launched through `scripts/quality/heavy-lease.mjs` once the other agent's lease released; result recorded in the integration checkpoint |
 
 ## Engineering status
 
@@ -58,6 +64,8 @@ Implemented and locally validated, awaiting integration:
 - **F1** library save truthfulness (vectorcraft #1693 / #1685).
 - **F2** bounded offset path + round joins + open-path endpoints (#1028).
 - **F3** SVG generic font fallback (#3135).
+- **F8** whole-document SVG export keeps gradients (export/canvas agreement;
+  visual before/after in Chromium).
 
 Verified as already correct:
 
@@ -95,7 +103,10 @@ review plus a Varve reproduction before it can be dispositioned.
    `VARVE_E2E_PORT=1471 node scripts/quality/heavy-lease.mjs "e2e: offset path" -- npx playwright test tests/e2e/canvas/offset-path.spec.ts --project=chromium --workers=1 --reporter=list`
    Inspect `reports/vectorcraft/offset-path-round.png`; fix the spec or the
    geometry if it fails.
-2. Resolve the reviewer's findings, re-run the affected suites.
+2. Reviewer findings: resolved — inner-corner arcs (high), global ceiling
+   (medium-high), call-site regression test (medium-high), default font family
+   (low). The miter-limit ratio (low) is pre-existing and left unchanged; it is
+   recorded in `findings.md` as a follow-up rather than silently altered.
 3. Commit the audit docs and the e2e spec.
 4. `pnpm verify:plan` then `pnpm verify:affected` on the integrated candidate.
 5. Merge `feat/vectorcraft-corpus` into `master` and push; verify the pushed
