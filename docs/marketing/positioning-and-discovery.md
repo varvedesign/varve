@@ -199,6 +199,8 @@ When a new phrase is proposed, check it against both lists before it ships.
   separate engine crates are OSI-licensed.
 - “Zero telemetry” or unconditional “no telemetry”; an opt-in aggregate
   measurement path exists.
+- “Usage isn't measured” or “we don't measure usage”; release desktop builds
+  send anonymous event names to Plausible only after Settings consent.
 - “AI-free”, “no AI”, or “100% AI-free”; on-device model features ship today.
 - “No generative AI on your work”; AI features are on by default and can be
   turned off in Settings, so that blanket promise contradicts the implemented features.

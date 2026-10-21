@@ -4,6 +4,7 @@ import {
   findLatestVersionClaims,
   inspectLine,
   isAiDefaultClaim,
+  isUsageNotMeasuredClaim,
   isVarveOpenSourceClaim,
 } from './check-claims.mjs';
 import { buildLlmsTxt } from './website/generate-llms-txt.mjs';
@@ -11,7 +12,9 @@ import { buildLlmsTxt } from './website/generate-llms-txt.mjs';
 test('rejects Varve described as open source and allows the negation', () => {
   assert.equal(isVarveOpenSourceClaim('Varve is open source and free.'), true);
   assert.equal(
-    isVarveOpenSourceClaim('Varve is source-available under FSL-1.1-MIT, not OSI-approved open source.'),
+    isVarveOpenSourceClaim(
+      'Varve is source-available under FSL-1.1-MIT, not OSI-approved open source.',
+    ),
     false,
   );
   assert.equal(isVarveOpenSourceClaim('Is Varve open source?'), false);
@@ -23,7 +26,10 @@ test('rejects opt-in or optional only when the line is about AI', () => {
   assert.equal(isAiDefaultClaim('optional AI models you download later'), true);
   assert.equal(isAiDefaultClaim('AI-assisted operations are optional.'), true);
   assert.equal(isAiDefaultClaim('Line snapping is a separate, opt-in mode.'), false);
-  assert.equal(isAiDefaultClaim('AI features are on by default and can be turned off in Settings.'), false);
+  assert.equal(
+    isAiDefaultClaim('AI features are on by default and can be turned off in Settings.'),
+    false,
+  );
   assert.equal(
     isAiDefaultClaim('Native AI sessions prefer the optional ONNX Runtime WebGPU provider.'),
     false,
@@ -45,15 +51,24 @@ test('latest-version claims ignore historical 0.5.0 mentions', () => {
   );
 });
 
+test('rejects claims that usage is not measured', () => {
+  assert.equal(isUsageNotMeasuredClaim("usage isn't measured"), true);
+  assert.equal(isUsageNotMeasuredClaim("we don't measure usage"), true);
+  assert.equal(isUsageNotMeasuredClaim('product usage are not measured'), true);
+  assert.equal(isUsageNotMeasuredClaim('unique visitors are not measured'), false);
+  assert.equal(isUsageNotMeasuredClaim('It is not measured Kelvin'), false);
+});
+
 test('inspectLine covers the banned product phrases', () => {
   const hits = inspectLine(
     'apps/website/src/pages/index.astro',
-    'First-class desktop support with a Rust rendering engine and no telemetry.',
+    'First-class desktop support with a Rust rendering engine, no telemetry, and usage is not measured.',
     '0.5.1',
     [],
   );
   assert.ok(hits.includes('Rust rendering engine'));
   assert.ok(hits.includes('no telemetry'));
+  assert.ok(hits.includes("usage isn't measured"));
   assert.deepEqual(
     inspectLine(
       'apps/website/src/pages/index.astro',

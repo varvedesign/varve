@@ -12,7 +12,12 @@
  *     reason   — why this line is not a product overclaim
  *   Use this for genuine exceptions only: copy guides that name a banned
  *   phrase so writers avoid it, or docs about a different default (for
- *   example cloud providers that stay "Disabled by default").
+ *   example cloud providers that stay "Disabled by default"). Banned
+ *   phrases include "open source" for Varve, "off by default"/"opt-in"/
+ *   "optional" near AI, "Rust rendering engine", "no telemetry",
+ *   "certified PDF/X", "usage isn't measured" / "we don't measure usage",
+ *   competitor names in llms.txt, and a latest/current version that
+ *   disagrees with package.json.
  *
  *   node scripts/check-claims.mjs
  */
@@ -103,9 +108,7 @@ export function listClaimFiles(root = repoRoot) {
 }
 
 function isAllowlisted(relPath, line, allowlist) {
-  return allowlist.some(
-    (entry) => entry.file === relPath && line.includes(entry.includes),
-  );
+  return allowlist.some((entry) => entry.file === relPath && line.includes(entry.includes));
 }
 
 export function isVarveOpenSourceClaim(line) {
@@ -118,9 +121,18 @@ export function isVarveOpenSourceClaim(line) {
   if (/source-available.{0,80}not.{0,40}open[\s-]source/i.test(line)) return false;
   if (/\bVarve\b(?:'s)? is\b.{0,40}open[\s-]source/i.test(line)) return true;
   if (/\bVarve\b.{0,20}\bis an?\b.{0,30}open[\s-]source/i.test(line)) return true;
-  if (/\bopen[\s-]source\b.{0,30}\bVarve\b/i.test(line) && !/fonts?|icons?|sets?|crates?/i.test(line)) {
+  if (
+    /\bopen[\s-]source\b.{0,30}\bVarve\b/i.test(line) &&
+    !/fonts?|icons?|sets?|crates?/i.test(line)
+  ) {
     return true;
   }
+  return false;
+}
+
+export function isUsageNotMeasuredClaim(line) {
+  if (/\bwe (?:do not|don't) measure usage\b/i.test(line)) return true;
+  if (/\b(?:product )?usage (?:is|are|isn't|aren't)(?: not)? measured\b/i.test(line)) return true;
   return false;
 }
 
@@ -154,15 +166,30 @@ export function findLatestVersionClaims(line, expectedVersion) {
 
 export function inspectLine(relPath, line, expectedVersion, allowlist) {
   const findings = [];
-  const skip = (rule) => isAllowlisted(relPath, line, allowlist.filter((e) => !e.rule || e.rule === rule));
+  const skip = (rule) =>
+    isAllowlisted(
+      relPath,
+      line,
+      allowlist.filter((e) => !e.rule || e.rule === rule),
+    );
 
   if (/Rust rendering engine/i.test(line) && !skip('rust-rendering-engine')) {
     findings.push('Rust rendering engine');
   }
-  if (/\bno telemetry\b/i.test(line) && !/no design telemetry/i.test(line) && !skip('no-telemetry')) {
+  if (
+    /\bno telemetry\b/i.test(line) &&
+    !/no design telemetry/i.test(line) &&
+    !skip('no-telemetry')
+  ) {
     findings.push('no telemetry');
   }
-  if (/certified PDF\/X|validated PDF\/X|PDF\/X compliance/i.test(line) && !skip('pdfx-certified')) {
+  if (isUsageNotMeasuredClaim(line) && !skip('usage-not-measured')) {
+    findings.push("usage isn't measured");
+  }
+  if (
+    /certified PDF\/X|validated PDF\/X|PDF\/X compliance/i.test(line) &&
+    !skip('pdfx-certified')
+  ) {
     findings.push('certified or validated PDF/X');
   }
   if (isVarveOpenSourceClaim(line) && !skip('open-source')) {
@@ -188,7 +215,9 @@ export function checkClaims(root = repoRoot) {
 
   const generated = llmsTxtIsCurrent(root);
   if (!generated.ok) {
-    problems.push('apps/website/public/llms.txt is stale; run node scripts/website/generate-llms-txt.mjs');
+    problems.push(
+      'apps/website/public/llms.txt is stale; run node scripts/website/generate-llms-txt.mjs',
+    );
   }
 
   for (const relPath of listClaimFiles(root)) {
@@ -208,7 +237,9 @@ export function checkClaims(root = repoRoot) {
 if (isMainModule(import.meta.url)) {
   const { expectedVersion, problems } = checkClaims();
   if (problems.length > 0) {
-    process.stderr.write(`check-claims — ${problems.length} violation(s) (app version ${expectedVersion}):\n`);
+    process.stderr.write(
+      `check-claims — ${problems.length} violation(s) (app version ${expectedVersion}):\n`,
+    );
     for (const problem of problems) process.stderr.write(`  ${problem}\n`);
     process.stderr.write(
       '\nIf this line is a genuine exception, add it to scripts/claims-allowlist.json with a reason.\n',
