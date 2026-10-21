@@ -251,8 +251,8 @@ review:
 |---|---|
 | `svg-font-fallback-chromium.png` | The same exported SVG text rendered in Chromium with and without the generic fallback: serif (before) versus sans-serif (after). This is the capture that revealed the unquoted form did not work. |
 | `svg-gradient-whole-document.png` | `exportDocumentToSvgAdvanced` output rendered in Chromium: flat dark rectangle (before) versus the red-to-blue gradient (after). |
-| `offset-path-round.png` | Canvas-only capture of the outward Offset Path result from the browser spec (written by the spec run into `reports/`, copied here). |
-| `offset-path-inward.png` | Canvas-only capture of the inward Offset Path result. |
+| `offset-path-round.png` | Outward Offset Path result driven through Object → Path → Offset Path. The rounded corner arc is visible at the top-left; a miter join would show a sharp corner there. A menubar panel remains over the left edge of the capture. |
+| `offset-path-inward.png` | Inward Offset Path result from the same spec. |
 
 Screenshots are evidence of a specific run, not a claim about every platform:
 the SVG captures are Chromium on Linux at the recorded viewport, and the canvas

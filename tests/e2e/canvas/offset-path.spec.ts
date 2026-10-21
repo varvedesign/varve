@@ -26,13 +26,14 @@ async function applyOffset(page: Page, distance: string): Promise<void> {
   await field.fill(distance);
   await field.press('Enter');
   await expect(dialog).toBeHidden({ timeout: 10000 });
-  // Close any menu that re-opened and leave the object selected but unedited.
-  await page.keyboard.press('Escape');
+  // The object stays selected, so the Inspector still reports its size. Do not
+  // press Escape here: it deselects and removes the Position & Size fields.
 }
 
 async function readSize(page: Page): Promise<{ w: number; h: number }> {
-  const w = Number(await page.getByLabel('W', { exact: true }).inputValue());
-  const h = Number(await page.getByLabel('H', { exact: true }).inputValue());
+  // NumberField folds the unit into the accessible name: "W (px)".
+  const w = Number(await page.getByLabel(/^W\b/).first().inputValue());
+  const h = Number(await page.getByLabel(/^H\b/).first().inputValue());
   return { w, h };
 }
 
@@ -63,6 +64,10 @@ test.describe('Offset Path — bounded and rounded', () => {
     expect(after.w).toBeGreaterThan(before.w + 380);
     expect(after.h).toBeGreaterThan(before.h + 380);
 
+    // Close the menu and clear the selection so the capture shows the shape.
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
     const canvas = page.locator('.editor-canvas canvas').first();
     await canvas.screenshot({ path: 'reports/vectorcraft/offset-path-round.png' });
   });
@@ -83,6 +88,9 @@ test.describe('Offset Path — bounded and rounded', () => {
     expect(after.w).toBeGreaterThan(0);
     expect(after.h).toBeGreaterThan(0);
 
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
     const canvas = page.locator('.editor-canvas canvas').first();
     await canvas.screenshot({ path: 'reports/vectorcraft/offset-path-inward.png' });
   });
