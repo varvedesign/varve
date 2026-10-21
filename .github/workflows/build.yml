@@ -68,10 +68,13 @@ jobs:
     steps:
       - id: pick
         run: |
+          # Linux build/package cells stay on 24.04. ubuntu-latest is 26.04
+          # (resolute) and has no install candidate for libgdk-pixbuf2.0-dev,
+          # the package this job's WebKitGTK 4.1 setup still names.
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo 'matrix={"os":["ubuntu-latest"]}' >> "$GITHUB_OUTPUT"
+            echo 'matrix={"os":["ubuntu-24.04"]}' >> "$GITHUB_OUTPUT"
           else
-            echo 'matrix={"os":["ubuntu-latest","macos-latest","windows-latest"]}' >> "$GITHUB_OUTPUT"
+            echo 'matrix={"os":["ubuntu-24.04","macos-latest","windows-latest"]}' >> "$GITHUB_OUTPUT"
           fi
 
   build:
