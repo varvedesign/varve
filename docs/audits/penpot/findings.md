@@ -2017,3 +2017,54 @@ sections, #3908 project-level archives, #3909 operation history, #3928 overlay
 placement if confirmed, #4010 code-driven components, and #3833 panel resizing.
 No website claim follows from upstream reports; only verified released
 capabilities should change public marketing copy.
+
+## C1 issues #4045–#4224 (pages 39–40)
+
+These pages contain 22 issue records, 178 PR records, and 94 comments (42 on
+page 39 and 52 on page 40); every issue body and comment count reconciles.
+Linked upstream work includes the Draft.js/CJK IME update (#4134), raster color
+picker correction (#4231), and accessibility follow-up (#4118). The IME
+conditions in #4062 and #4163 remain distinct: selection during active
+composition versus starting composition in a fresh text node.
+
+#4128 is a focused render/sampling candidate: sample color differed from the
+raster target, with a stronger Retina symptom and a residual standard-monitor
+symptom. Test browser backing-store scaling/device-pixel ratio and zoom, and
+keep screen-composited sampling separate from source-image pixel sampling. The
+private document remains unavailable. #4119 likewise needs its missing nested
+flex fixture to compare hover/editing output with exported PNG. #4084 needs one
+emoji fixture across SVG/PDF/PNG/JPEG; no format failure is yet established.
+
+Feature opportunities include expand/collapse all layers (#4045), general
+stroke outlining (#4099), scoped variable/context inheritance (#4100), and
+SVG-text-to-native-text import (#4181). Each changes a product workflow or
+format contract and remains a decision until its acceptance and compatibility
+semantics are defined. Website impact: no marketing change is justified by
+upstream reports; update help or public claims only after a verified release.
+
+## C1 issues #4240–#4443 (pages 41–42)
+
+The pages contain 56 issue records, 144 separate PR records, and 186 comments;
+all issue bodies and comment totals reconcile. The reports include separate
+IME failures (#4062 click-away during active composition, #4163 fresh text-node
+composition, #4385 leading emoji crash, and #4386 single-emoji geometry on
+blur) and distinct component/layout cases (#4377 cross-file nested component
+movement, #4379 nested-copy rejection, and #4395 grid placement/undo). Do not
+merge those into one generic text or component issue.
+
+Priority reproduction candidates are #4252 opacity compositing with a text
+node beside an icon component, #4368 two separate post-upgrade label-loss
+fixtures, #4369 path hit testing for horizontal/vertical segments, #4382 image
+fill assignment, #4409 Bézier-handle pointer movement, #4432 export failure,
+#4433 image blur, and #4440 selection versus drag start. Source attachments and
+exact browser/device details remain unavailable for several; no Varve defect
+is claimed. #4336 needs official OpenType `fsSelection` metric semantics and a
+Varve preflight comparison before any warning-policy change.
+
+Feature opportunities include layout-preserving paste-to-replace (#4240),
+blocked app-wide browser back gestures (#4246), icon-font outlining in SVG
+(#4247), system font-stack support (#4335), local-library grouping/bulk rename
+(#4397), component swap retaining local text (#4404), text overflow (#4426),
+and explicit onboarding disablement (#4421). These require product decisions
+and compatibility contracts. Website impact: no public claim follows from
+unverified upstream reports or feature requests.

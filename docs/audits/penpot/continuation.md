@@ -474,6 +474,20 @@ to perform. C1 pages 29–34 are assessed individually, including pages 33–34 
 
 ### Continuation checkpoint — C1 pages 37–38 (2026-10-21)
 
-- Read-only reviewers assessed 34 issue rows, 166 separate PR rows, and all 81 comments. Linked PRs #9005 and #4020 were followed. Updated totals: 1,162/3,659 issues assessed, 2,497 research-pending and 3,211 engineering-pending; supplemental #437 remains separate.
+- Read-only reviewers assessed 34 issue rows, 166 separate PR rows, and all 81 comments. Linked PRs #9005 and #4020 were followed. Updated totals: 1,240/3,659 issues assessed, 2,419 research-pending and 3,175 engineering-pending; supplemental #437 remains separate.
 - #3928 fixed-source prototype overlay placement has a concrete Varve runtime path to reproduce next; #3885, #3905, and #3941 retain their independent conditions and missing evidence. Existing capabilities and explicit product decisions are recorded individually. C1 remains frozen; C2 is not frozen.
 - Website impact remains no public claims before verification and release. The #3157 E2E remains queued behind the same active website lease; its typecheck passed and docs/emoji audits pass after the new checkpoints. Continue to hold code classification until the browser test executes.
+
+
+### Continuation checkpoint — C1 pages 39–40 (2026-10-21)
+
+- Read-only review assessed 22 issue rows, 178 separate PR rows, and all 94 comments across pages 39–40. PRs #4134, #4231 and #4118 were followed. C1 totals: 1,184/3,659 issues assessed; 2,475 research-pending; 3,206 engineering-pending; supplemental #437 separate. Reconciliation passes.
+- New reproduction candidates preserve distinct causes: #4062 versus #4163 IME conditions, #4119 nested-flex stale canvas/export, #4124 repeated SVG clipPaths, #4125 group-title change after layout, and #4128 device-scaled raster eyedropper sampling. Missing private fixtures remain explicit.
+- #3157 browser validation is still waiting behind the live website E2E lease. It has not yet reached the snap assertion. Website impact remains no new claims until a capability is verified and released. C2 remains unfrozen.
+
+
+### Continuation checkpoint — C1 pages 41–42 (2026-10-21)
+
+- Independent read-only review assessed 56 issue rows, 144 separate PR rows and 186 comments across pages 41–42. C1 totals are 1,240/3,659 issues assessed, 2,419 research-pending and 3,178 engineering-pending; supplemental #437 remains separate. Reconcile/checksum validation remains expected to report only incomplete remaining corpus/findings.
+- Linked-source pages had no directly referenced issue PRs; comment-linked external Taiga stories, OpenType specification, and unavailable report attachments are listed in the frontier. Page 41/42 reproductions preserve distinct text, layout, export and pointer conditions. C1 frozen; C2 not frozen.
+- #3157 guide browser test remains queued behind the live 690-test website run; do not classify it until the test reaches its snap assertion. Preserve the worktree.
