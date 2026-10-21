@@ -1864,3 +1864,35 @@ is not a reason to increase Varve's local import concurrency. Website impact:
 no new marketing claim is justified by upstream-only feature evidence; update
 prototype/export help and demos only as those capabilities become real and
 verified in Varve.
+
+## C1 issues #3013–#3214 (pages 29–30)
+
+Pages 29 and 30 contain 76 issue records and 124 separate pull-request
+records. Five issue assessments were already present; the remaining 71 issue
+bodies and all advertised issue-comment pages were reviewed. Forty-six issues
+received evidence-based no-change dispositions for Penpot hosting, identity,
+localization, deployment, or behavior already covered by Varve. Twenty-five
+retain a concrete Varve route or product decision in the per-issue ledger.
+
+The strongest feature opportunity is #3157: guide dragging should snap to
+object edges or vector points. Varve currently snaps objects to authored guides,
+not guides to geometry. This is a precision workflow that can fit the existing
+snap preference without changing the document schema; reproduce it in the real
+browser and inspect tolerance at different zoom and rotation before deciding
+acceptance. #3107 asks for palette-based stroke/shadow color parity and needs a
+route/discoverability decision. #3172 asks for box-model visualization, while
+#3198/#3199 ask for curve-point radius and numeric coordinates; these remain
+product opportunities rather than defects.
+
+Varve reproduction candidates preserve their original conditions: #3026
+reports an applied color asset unlinking on Windows 10/Firefox when focusing
+or copying the HEX field; #3027 reports remote-save 408 recovery and stale
+unsaved status; #3114 is nested flex positioning, distinct from #3113's
+post-deletion reflow; #3162 is intermittent typography-definition disconnection;
+#3182 concerns a manually created no-fill shape but its historical fixture is
+unavailable; #3200 is layer reorder through the left toolbar on Samsung DeX /
+Android; #3210 is flex auto-parenting through overlapping content; and #3214
+is zooming while the color picker is active. Other candidates and their exact
+triggers are recorded in the ledger. No marketing claim is warranted by these
+upstream reports alone; update help or demonstrations only after a verified
+Varve behavior ships.
