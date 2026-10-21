@@ -4,6 +4,8 @@ import {
   findLatestVersionClaims,
   inspectLine,
   isAiDefaultClaim,
+  isAiUsageNotTrackedClaim,
+  isAllAiOffSwitchClaim,
   isUsageNotMeasuredClaim,
   isVarveOpenSourceClaim,
 } from './check-claims.mjs';
@@ -48,6 +50,27 @@ test('latest-version claims ignore historical 0.5.0 mentions', () => {
   assert.deepEqual(
     findLatestVersionClaims('The latest published application release is Varve 0.5.1', '0.5.1'),
     [],
+  );
+});
+
+test('rejects claims that AI feature use is never tracked', () => {
+  assert.equal(
+    isAiUsageNotTrackedClaim('Varve does not track which AI features you use or how often.'),
+    true,
+  );
+  assert.equal(
+    isAiUsageNotTrackedClaim(
+      'Nothing is sent unless the user turns usage analytics on in Settings.',
+    ),
+    false,
+  );
+});
+
+test('rejects one-switch-covers-all-AI wording', () => {
+  assert.equal(isAllAiOffSwitchClaim('A single switch in Settings turns them all off.'), true);
+  assert.equal(
+    isAllAiOffSwitchClaim('AI features are on by default and can be turned off in Settings.'),
+    false,
   );
 });
 

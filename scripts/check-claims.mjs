@@ -16,6 +16,7 @@
  *   phrases include "open source" for Varve, "off by default"/"opt-in"/
  *   "optional" near AI, "Rust rendering engine", "no telemetry",
  *   "certified PDF/X", "usage isn't measured" / "we don't measure usage",
+ *   "does not track which AI features", "one switch turns all AI off",
  *   competitor names in llms.txt, and a latest/current version that
  *   disagrees with package.json.
  *
@@ -136,6 +137,17 @@ export function isUsageNotMeasuredClaim(line) {
   return false;
 }
 
+export function isAiUsageNotTrackedClaim(line) {
+  return /(?:does not|doesn't|do not|don't|never)\s+track(?:s)?\s+which AI features/i.test(line);
+}
+
+export function isAllAiOffSwitchClaim(line) {
+  if (/\bsingle switch\b.{0,40}\b(turns them all off|turns all AI)\b/i.test(line)) return true;
+  if (/\bone switch\b.{0,40}\b(turns|covers)\b.{0,20}\ball AI\b/i.test(line)) return true;
+  if (/\bturns them all off\b/i.test(line)) return true;
+  return false;
+}
+
 export function isAiDefaultClaim(line) {
   if (/\bvisual search is opt-in\b/i.test(line)) return true;
   if (/\bAI-assisted.{0,30}\boptional\b/i.test(line)) return true;
@@ -185,6 +197,12 @@ export function inspectLine(relPath, line, expectedVersion, allowlist) {
   }
   if (isUsageNotMeasuredClaim(line) && !skip('usage-not-measured')) {
     findings.push("usage isn't measured");
+  }
+  if (isAiUsageNotTrackedClaim(line) && !skip('ai-usage-not-tracked')) {
+    findings.push('does not track which AI features');
+  }
+  if (isAllAiOffSwitchClaim(line) && !skip('ai-all-off-switch')) {
+    findings.push('one switch turns all AI off');
   }
   if (
     /certified PDF\/X|validated PDF\/X|PDF\/X compliance/i.test(line) &&

@@ -201,6 +201,10 @@ When a new phrase is proposed, check it against both lists before it ships.
   measurement path exists.
 - “Usage isn't measured” or “we don't measure usage”; release desktop builds
   send anonymous event names to Plausible only after Settings consent.
+- “Does not track which AI features”; consented `feature_used` events include
+  `upscale` and `image_trace`.
+- “A single switch turns them all off”; the Settings AI switch does not yet
+  cover every AI surface.
 - “AI-free”, “no AI”, or “100% AI-free”; on-device model features ship today.
 - “No generative AI on your work”; AI features are on by default and can be
   turned off in Settings, so that blanket promise contradicts the implemented features.

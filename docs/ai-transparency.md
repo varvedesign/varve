@@ -24,7 +24,7 @@ The Settings switch is the documented kill switch for on-device AI that already 
 
 ### What's NOT Affected
 
-- **Existing AI-edited content** — Layers that were previously edited with AI tools remain visible and fully editable. The toggle only prevents *new* AI operations on gated surfaces.
+- **Existing AI-edited content**: Layers that were previously edited with AI tools remain visible and fully editable. The toggle only prevents *new* AI operations on gated surfaces.
 - **Manual tools** — Vector drawing, text, shapes, transformations, and all non-AI editing features work normally.
 - **Imports and exports** — You can still import and export files regardless of AI settings.
 
@@ -124,8 +124,8 @@ Most image viewers and photo managers can display embedded metadata:
 ### What's NOT Stored
 
 - **Pixel data** — Export metadata describes *that* AI was used, not the actual image content
-- **Model weights** — Downloaded models are stored locally, never uploaded
-- **Usage analytics** — Varve does not track which AI features you use or how often. Nothing is sent unless you say yes.
+- **Model weights**: Downloaded models are stored locally, never uploaded
+- **Usage analytics**: nothing is sent unless the user turns usage analytics on in Settings. If that setting is on, release desktop builds can send anonymous `feature_used` events, including `upscale` and `image_trace`.
 
 ### Data Transmission
 
@@ -139,14 +139,14 @@ Most image viewers and photo managers can display embedded metadata:
 For contests, clients, or organizations that prohibit AI-generated content:
 
 1. **Before starting:**
-   - Disable AI features in Settings
-   - Verify the toggle shows "Disabled"
+   - Turn AI features off in Settings
+   - Know that the switch does not yet cover every AI surface
 2. **During work:**
-   - AI tools are unavailable (grayed out or hidden)
-   - If you accidentally try to use one, a toast notification reminds you AI is disabled
+   - Surfaces that already check `ai.enabled` stay off
+   - Adjustments-panel AI, SAM2 object selection, and face-detect crop still run in 0.5.1
 3. **Before export:**
-   - Confirm no layers have the AI badge (none should, if toggle was off from the start)
-   - Export with "Include AI Disclosure" enabled (will show no AI was used)
+   - Check the Layers panel for AI badges
+   - Export with "Include AI Disclosure" enabled if you need that metadata
 
 ### Transparent AI Usage
 
@@ -171,7 +171,7 @@ If you used AI during editing but want to deliver without metadata:
 ## FAQ
 
 **Q: Can I selectively allow only some AI features?**  
-A: Not yet. The toggle is all-or-nothing. Granular control (e.g., "allow Background Removal but not Generative Edit") may be added in a future version if users request it.
+A: Not yet. The Settings switch is one control for the surfaces that already check it. It does not yet cover every AI feature, and there is no per-feature toggle.
 
 **Q: Does disabling AI features delete my existing AI-edited layers?**  
 A: No. Disabling AI only prevents *new* AI operations. Your existing artwork remains untouched and fully editable.
