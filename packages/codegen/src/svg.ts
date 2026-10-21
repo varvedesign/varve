@@ -1192,9 +1192,14 @@ ${shapeInner}`
       ];
       const textStrokeAttrs = strokeAttrsForNode(textNode, textNode.id);
       if (textStrokeAttrs) attrs.push(textStrokeAttrs.trim());
-      if (textNode.fontFamily) {
-        attrs.push(`font-family="${escapeXml(svgFontFamilyValue(textNode.fontFamily))}"`);
-      }
+      // Always name a family: the engine renders a node without one in
+      // DEFAULT_ARTWORK_FONT_FAMILY (engine.ts), so omitting the attribute let
+      // the viewer pick its own default (usually serif) for the same document.
+      attrs.push(
+        `font-family="${escapeXml(
+          svgFontFamilyValue(textNode.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY),
+        )}"`,
+      );
       if (textNode.fontWeight) attrs.push(`font-weight="${textNode.fontWeight}"`);
       if (textNode.fontStyle === 'italic') attrs.push(`font-style="italic"`);
       if (textNode.textAlign)

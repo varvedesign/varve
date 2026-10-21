@@ -40,7 +40,11 @@ than relabelled.
   the returned issue says the work is still unsaved; quota errors are named;
   the success path still commits once, in order.
 - **Validation:** `packages/editor/src/persistence/librarySave.test.ts` (5
-  cases). Filesystem behaviour deliberately unchanged.
+  cases, helper ordering) and
+  `packages/editor/src/context/__tests__/librarySave.test.tsx` (2 cases that
+  drive the real `EditorProvider` save: a rejected library write must leave
+  `dirty` true, `saveState` `error` and `lastSavedAt` null; a successful one
+  must clear them). Filesystem behaviour deliberately unchanged.
 - **Adjacent, not fixed here:** autosave failures (`useAutoBackupServices`,
   `AutoSaveService`) are still only logged — `onStateChange` has no production
   consumer, so a user whose recovery writes keep failing is not told. The
@@ -72,8 +76,17 @@ than relabelled.
   round; open paths stay open.
 - **Implementation:** chord-tolerance tessellation
   (`2·acos(1 − tol/r)`, 0.25 unit tolerance), a 64-step per-join and 200,000
-  point global ceiling, a real round join on the outside of the corner, and
-  explicit handling of open-path endpoints.
+  point global ceiling, a round join applied **only on the outside of a turn**
+  (an inner corner uses the offset lines' intersection), and explicit handling
+  of open-path endpoints.
+- **Review finding (fixed before integration):** the first version drew the arc
+  on inner corners too. For the default inward offset (−8) that scooped
+  `|distance|·(√2−1)` out of every corner — 3.3 px on a 10 px offset — so the
+  result was not an offset curve at all. Caught by independent review; the
+  side test (`cross × distance > 0`) and a regression test for the inward case
+  are now in place. The global ceiling was also only enforced per join, so the
+  total could still grow past it; the vertex loop now stops at the ceiling and
+  never emits a truncated arc.
 - **Acceptance criteria:** 512-vertex outline at distance 1,000,000 completes
   in under 2 s with ≤ 200,000 finite points; a rounded square produces arc
   points at exactly the offset radius around each corner; a miter corner still
@@ -126,6 +139,35 @@ than relabelled.
 - **Outcome:** already handled. A regression test now pins the invariant so a
   future unit change that starts emitting points without a unit fails.
 - **Validation:** `svg-font-fallback.test.ts` → "SVG physical size".
+
+## F8 — Whole-document SVG export flattened gradients
+
+- **External evidence:** the corpus records repeated "the export does not match
+  the canvas" paint defects: #3135 (text paint fallback), #2011 (SVG export
+  loses colours in Blender), #1292 (round-trip element semantics), #3192.
+  The shared mechanism is an export route that bypasses paint-server
+  definitions.
+- **User problem:** exporting the document to SVG produced flat-coloured shapes
+  where the canvas showed gradients, with no warning.
+- **Varve workflow and code:** Export → SVG, whole document
+  (`packages/editor/src/components/Shell/ExportLayer.tsx` →
+  `exportDocumentToSvgAdvanced` → `packages/codegen/src/index.ts`).
+- **Observed behavior (before):** the document exporter collected mask,
+  path-text and pattern definitions only, and filled each node from
+  `rgba(node.fill)`. The per-node exporter (`exportNodeToSvg`) already emitted
+  `url(#grad-…)`, so the two routes disagreed for the same document.
+- **Implementation:** gradient definitions are collected for every visible root
+  subtree (deduplicated by id) and the node emitter references the topmost
+  linear/radial paint server. Angular and diamond gradients keep the flat
+  fallback, which the per-node route already reports as a limitation.
+- **Acceptance criteria:** a document with a linear gradient fill contains
+  `<linearGradient` and `url(#grad-<id>-0)`; a solid document contains neither;
+  the rendered SVG visually shows the gradient.
+- **Validation:** `packages/codegen/src/document-svg-gradient.test.ts` (2
+  cases), full `@varve/codegen` suite (385 pass), and a rendered comparison in
+  Chromium (flat before, gradient after).
+- **Not covered:** gradient strokes in the document route, and per-stop
+  transparency (see F6).
 
 ## F5 — Area-text overset is computed and thrown away (open)
 

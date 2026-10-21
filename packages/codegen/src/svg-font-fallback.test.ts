@@ -83,3 +83,14 @@ describe('SVG physical size', () => {
     expect((w / 96) * 25.4).toBeCloseTo(210, 0);
   });
 });
+
+describe('SVG text without an explicit family', () => {
+  it('still names the engine default family and its generic fallback', () => {
+    // The engine renders a node with no fontFamily in DEFAULT_ARTWORK_FONT_FAMILY.
+    // Omitting the attribute made the viewer choose its own default instead.
+    const doc = createDocument('No family');
+    const node = makeTextNode('t2', 'Default', { name: 'Body' });
+    const svg = exportNodeToSvg(node, doc);
+    expect(svg).toMatch(/font-family="'[^']+', sans-serif"/);
+  });
+});
