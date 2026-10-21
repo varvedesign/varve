@@ -1310,6 +1310,7 @@ The reviews surfaced these strongest candidates for source-level follow-up:
 | Reports | Transferable failure family | Varve check / current boundary |
 |---|---|---|
 | #3407, #3409, #3496, #3555, #3755 | Save success, removed content, dirty state, file-watcher races, and undo continuity | #3407's deleted-PDF-revision behavior has no matching Varve file model: deleting a page removes its scene subtree and unreferenced image assets, and Save encodes a fresh snapshot of the current document. #3496 is already handled by the pending-edit drain (§4.1). #3755's false conflict and undo-loss family is guarded by content-hash comparison and persistent history; no ctime-based active-file reload path was found. #3409 exposed an unchecked staging close and is fixed in this branch (details below). #3555 is a distinct persistent viewport-restoration opportunity. |
+| #3410 | Filling or editing content already inside a signed/filled PDF | Varve's PDF path is a partial artwork importer, not a semantic PDF editor or form/signature workflow. It extracts simple text and rectangle operators; the file-formats guide now states this limit and no longer claims multi-page reconstruction. The attached sample image was inaccessible, and the report has no PDF reproduction file. |
 | #3414 | Slow or stalled document preparation blocks later opens | Varve has no PDF-reader document-open or single-instance PDF handoff path. Its limited PDF import in `packages/import/src/pdf.ts` synchronously decodes the whole byte buffer and scans it with regexes; this is an adjacent main-thread responsiveness surface, but it does not parse xref tables or share PdfCraft's repeated COS object scan. No Varve defect was established from this report. |
 | #3421, #3444, #3481, #3505, #3519, #3592, #3597, #3601, #3604, #3684, #3687, #3707, #3713, #3769 | Unicode entry, bidi caret movement, glyph coverage, and text selection | Varve has a distinct text/font/shaping path. Treat PDF font/resource failures as evidence for tests and diagnostics, not proof of a Varve defect; inspect Arabic/Indic/CJK fallback and spaces in Varve's supported text path. |
 | #3446, #3464, #3650, #3665, #3736, #3793 | Canvas input, touchpad gestures, device-specific pointer handling, and window presentation | Varve already has a native Linux touchpad pinch bridge and pointer-type policy. #3793's user clarifies that a Synaptics touchpad scrolls too slowly and pinch does not work on KDE Plasma 6.8 / Arch; this remains a device-level validation gap, not a confirmed Varve failure. #3650's Wacom report likewise needs comparison with Varve's Tauri event path and supported hardware. |
@@ -1367,6 +1368,27 @@ and verify current Varve behavior before changing code or marketing claims.
   cover removal and shared-use retention. This supports a source-level
   already-handled disposition for the shared concern, not a claim that Varve
   supports editing PDF pages.
+- **#3410, editing Acrobat-filled and signed PDF content — outside the
+  current product boundary; public capability copy corrected.** The report
+  gives no steps beyond opening a file filled/signed in Acrobat, and its
+  referenced screenshot was inaccessible through the available web reader.
+  Its immediate linked [#3339](https://github.com/storytold/pdfcraft/issues/3339)
+  clarifies that PdfCraft's Fill & Sign annotations can remain movable and
+  hidden unless the user flattens them. Its tracking issue
+  [#2149](https://github.com/storytold/pdfcraft/issues/2149), open
+  [PR #2348](https://github.com/storytold/pdfcraft/pull/2348), and inline-form
+  request [#1696](https://github.com/storytold/pdfcraft/issues/1696) describe
+  distinct PDF workflows; the source PR keeps flattening opt-in and explains
+  that existing fields use a separate Forms tool. The sibling
+  [#2804](https://github.com/storytold/pdfcraft/issues/2804) text-edit report
+  also lacks its source PDF; a synthetic Windows attempt did not reproduce it.
+  Varve's `packages/import/src/pdf.ts` extracts simple text/rectangle
+  operators into a scene fragment and advertises no multipage support in its
+  parser capabilities. It does not edit or re-save the source PDF, fill its
+  AcroForm fields, preserve signatures, or flatten PDF annotations. The
+  website guide at `/docs/file-formats/` now describes that boundary and
+  removes an unsupported multi-page conversion claim. This is a truthful
+  capability clarification, not a new PDF form/signature feature.
 - **#3414, malformed-PDF open stalls — adjacent import responsiveness risk; no
   matching xref failure.** The report has no attached source PDF because it is
   a copyrighted book with personal annotations. Its issue thread describes

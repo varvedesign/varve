@@ -148,13 +148,11 @@ const figmaImportFaq = {
 
         <h3>PDF</h3>
         <p>
-          PDF import via a bounded local parser with <code>%PDF-</code> header detection. Extracts:
+          PDF import is a partial artwork extraction path with <code>%PDF-</code> header detection,
+          not an in-place PDF editor. It can extract simple text and rectangle operators into one
+          editable scene fragment; it does not reconstruct PDF pages, images, annotations, AcroForm
+          fields, or signatures. Use a dedicated PDF editor for form filling or signature workflows.
         </p>
-        <ul>
-          <li>Text content from BT...ET blocks</li>
-          <li>Rectangle path operators</li>
-          <li>Multi-page conversion (each page becomes a Varve frame)</li>
-        </ul>
 
         <h3>PSD and PSB (Photoshop)</h3>
         <p>

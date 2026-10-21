@@ -1,6 +1,6 @@
 # Continuation record
 
-Last updated: 2026-10-21 (session 10).
+Last updated: 2026-10-21 (session 11).
 
 ## Current checkpoint (authoritative)
 
@@ -9,13 +9,12 @@ Last updated: 2026-10-21 (session 10).
 - Current task worktree:
   `/home/kevina/CodingProjects/varve-callout-followup`; branch
   `codex/pdfcraft-callout-direct-manipulation-20261020`; last pushed at
-  `172d6e85c` (Cutoff-D source mapping plus the atomic-close fix).
+  `8aa9287f9` (Cutoff-D source mapping plus the atomic-close fix).
   The shared main checkout and other worktrees are not owned by this task.
-- PR #155 targets `master` and is open at exact head `35829278a`. The latest
-  required Build + Package (WASM/AppImage) and Website Lighthouse jobs are
-  queued; qualification-only WebGL checks are skipped by their conditions.
-  Do not cancel, duplicate, bypass, or merge while required checks are
-  pending. Recheck the existing runs.
+- PR #155 targets `master` and is open. The local website/docs correction below
+  is not yet committed; verify the final pushed head and its required checks
+  before merge. Do not cancel, duplicate, bypass, or merge while required
+  checks are pending.
 - Callout improvement commits: `a62262d` (body drag with anchored tails,
   canvas handles plus Inspector, scene/Playwright regressions, docs/website),
   `c5069f5` (documentation correction after review). Integration/validation
@@ -65,13 +64,20 @@ Last updated: 2026-10-21 (session 10).
   (#3797). Varve already has a native Linux pinch bridge; #3793 is therefore a
   hardware validation lead, not a confirmed gap. The other three are reader or
   PDF-content workflows without an established direct Varve analogue.
-- Seven Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
+- Eight Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
   concern is already covered by Varve's different persistence model: page
   deletion removes the subtree and prunes unreferenced image assets, while
   Save serializes the current `.varve` scene as a complete snapshot. PdfCraft
   #2165 describes the same earlier-revision retention; DesignCraft #566 was
   closed after the reporter identified a corrupt image. Its ticket image URL
   could not be read through the available web reader and was not downloaded.
+  #3410's Acrobat-filled/signed PDF workflow is outside Varve's partial PDF
+  artwork importer. Its linked #3339/#2149/#2348 evidence describes optional
+  annotation flattening in PdfCraft; #1696 asks for inline form filling, and
+  #2804 is an unrelated unreproduced text-edit report. The PDF file-formats
+  guide now removes its unsupported multi-page conversion claim and states
+  that Varve does not edit source PDF forms or signatures. Its screenshot was
+  inaccessible; no media was downloaded.
   #3409 matches an unchecked
   staging-file close limitation and has an implementation plus passing
   injected-failure test in the pushed branch; #3496 and #3755 map to existing
@@ -92,11 +98,11 @@ Last updated: 2026-10-21 (session 10).
 - Targeted native validation passed:
   `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib atomic_write_does_not_publish_when_staging_close_fails`
   (1 passed). `verify:plan` requires a full gate for the desktop dependency
-  change. `pnpm verify:full --local` passed format/lint, emoji, and health, then
-  its tool session disappeared during `audit-architecture.mjs --ci`; process
-  inspection confirmed the gate/audit processes had exited, but the durable
-  operation record still says `running` with no terminal result. Do not report
-  it as passed or restart until the operation record is properly reconciled.
+  change. The exact local `pnpm verify:full --local` operation passed
+  format/lint, emoji, and health, then ended during `audit-architecture.mjs
+  --ci` without a terminal result. Its target process was verified absent and
+  only this task's stale record was reconciled to `incomplete`; do not report
+  the full gate as passed.
 - The pushed `35829278a` checkpoint passed all local blocking lanes: 90/90
   desktop unit tests, desktop typecheck, 308/308 website unit tests, docs and
   emoji audits, release/product-truth checks, Cargo format, model manifest,
@@ -104,9 +110,20 @@ Last updated: 2026-10-21 (session 10).
   are still in progress. No visual surface changed in the atomic-close commit;
   the earlier callout canvas and desktop/mobile marketing visual checks remain
   the visual evidence for this batch.
-- Next: finish the linked issue recursion for #3414 and #3409, reconcile the
-  stale local full-gate operation after its timeout threshold, and recheck PR
-  #155's current-head CI. Then map the remaining save/undo and Unicode/text
+- The docs-only source-mapping pushes `172d6e85c` and `8aa9287f9` passed their
+  exact-ref push checkpoints (format/lint, docs/emoji audits, secret and
+  policy scans). The current local slice corrects the file-formats guide after
+  source review found its multi-page PDF claim unsupported, adds copy checks,
+  and records #3410's scope in the audit. The page passed the focused E2E flow;
+  the affected website E2E run passed all 694 cases across GitHub Pages and
+  custom-domain builds. Its updated full-page screenshot was inspected at
+  desktop width and shows the new PDF boundary copy within the document column.
+  Website E2E and package typechecks, 308 unit tests, production and GitHub
+  Pages builds, docs/emoji/radius audits, formatting/lint, and diff checks have
+  passed for this slice. The full-gate operation remains incomplete as stated
+  above.
+- Next: commit and push this slice, then
+  recheck PR #155 CI at the new exact head. Map the remaining save/undo and Unicode/text
   candidates against Varve source and linked fixes/samples; inspect Wacom and
   Synaptics paths before changing anything. Record per-issue dispositions,
   keep marketing claims tied to verified capability, and continue the reviewed

@@ -12,6 +12,14 @@ test('file formats documentation explains local file actions', async ({ page }) 
   await expect(
     page.getByText(/Inkscape live path effects keep their visible SVG path geometry/i),
   ).toBeVisible();
+  await expect(
+    page.getByText(/PDF import is a partial artwork extraction path.*not an in-place PDF editor/i),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      /does not reconstruct PDF pages, images, annotations, AcroForm fields, or signatures/i,
+    ),
+  ).toBeVisible();
   await page.screenshot({
     path: test.info().outputPath('file-formats-local-actions.png'),
     fullPage: true,
