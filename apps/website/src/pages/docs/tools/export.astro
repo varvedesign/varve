@@ -60,13 +60,26 @@ import '../../../styles/docs-prose.css';
         </p>
         <ul>
           <li>Shape geometry (rect, circle, ellipse, line, polygon, path)</li>
-          <li>Text elements with font family and styling</li>
+          <li>
+            Text elements with font family, weight, style and size. Every exported
+            <code>font-family</code> list ends in a generic family
+            (<code>serif</code>, <code>sans-serif</code> or <code>monospace</code>), so a
+            viewer without the design face keeps the intended classification instead of
+            falling back to its default serif
+          </li>
           <li>Gradient and solid fills</li>
           <li>Stroke properties (dash, cap, join, weight)</li>
           <li>Transform matrices (position, rotation, scale)</li>
         </ul>
         <p>
           SVG export supports optional <code>boundsOverride</code> for focused sub-region export and multi-page document support.
+        </p>
+        <p>
+          SVG text is referenced by name; the exporter does not embed or subset fonts. A
+          recipient without the design face will substitute it — the generic fallback keeps
+          the substitution in the right classification, but glyph metrics can still change.
+          Expand text to outlines when exact metrics matter, and open the exported file in a
+          viewer that lacks the font when the result will be published.
         </p>
       </section>
 

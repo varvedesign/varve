@@ -2,6 +2,7 @@ import { canHaveSmartFilters, isImageShape } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import type { ReactNode } from 'react';
 import { useEditor } from '../../../context';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../../features/useAiFeaturesEnabled';
 import { AdjustmentPanel } from '../../AdjustmentLayer/AdjustmentPanel';
 import { AdjustmentLayerAccessSection } from '../sections/AdjustmentLayerAccessSection';
 import { AIDenoiseSection } from '../sections/AIDenoiseSection';
@@ -30,6 +31,7 @@ import { SmartFiltersSection } from '../sections/SmartFiltersSection';
  */
 export function AdjustmentsPanel() {
   const { selectedNodes, openCafDialog } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const nodes = selectedNodes();
   const node = nodes[0];
 
@@ -37,7 +39,11 @@ export function AdjustmentsPanel() {
     return (
       <>
         <AdjustmentPanel />
-        <DepthMaskSection nodes={[node]} targetNode={node} />
+        {aiEnabled ? (
+          <DepthMaskSection nodes={[node]} targetNode={node} />
+        ) : (
+          <p className="insp-hint">{AI_DISABLED_HINT}</p>
+        )}
       </>
     );
   }
@@ -81,21 +87,38 @@ export function AdjustmentsPanel() {
           <AdjustmentGroup label="Enhance and restore">
             <ImageEnhancementSection nodes={nodes} />
             <BackgroundRemovalSection nodes={nodes} />
-            <AIDenoiseSection nodes={nodes} />
+            {aiEnabled ? (
+              <AIDenoiseSection nodes={nodes} />
+            ) : (
+              <p className="insp-hint">{AI_DISABLED_HINT}</p>
+            )}
             <ContentAwareFillSection nodes={nodes} onOpenDialog={openCafDialog} />
           </AdjustmentGroup>
           <AdjustmentGroup label="Creative">
-            <ColorizeSection nodes={nodes} />
-            <LineArtSection nodes={nodes} />
-            <DepthMaskSection nodes={nodes} />
-            <LensBlurSection nodes={nodes} />
-            <FrameInterpolationSection nodes={nodes} />
+            {aiEnabled ? (
+              <>
+                <ColorizeSection nodes={nodes} />
+                <LineArtSection nodes={nodes} />
+                <DepthMaskSection nodes={nodes} />
+                <LensBlurSection nodes={nodes} />
+                <FrameInterpolationSection nodes={nodes} />
+              </>
+            ) : (
+              <>
+                <p className="insp-hint">{AI_DISABLED_HINT}</p>
+                <LensBlurSection nodes={nodes} />
+              </>
+            )}
           </AdjustmentGroup>
-          <AdjustmentGroup label="Text and analysis">
-            <DetectTextSection nodes={nodes} />
-            <OcrSection nodes={nodes} />
-            <FontDetectSection nodes={nodes} />
-          </AdjustmentGroup>
+          {aiEnabled ? (
+            <AdjustmentGroup label="Text and analysis">
+              <DetectTextSection nodes={nodes} />
+              <OcrSection nodes={nodes} />
+              <FontDetectSection nodes={nodes} />
+            </AdjustmentGroup>
+          ) : (
+            <p className="insp-hint">{AI_DISABLED_HINT}</p>
+          )}
         </>
       )}
     </>

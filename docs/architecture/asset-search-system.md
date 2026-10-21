@@ -120,15 +120,15 @@ The Home UI labels the always-available lanes as filename, OCR, tags, and
 visual. The editor Similar panel additionally exposes image queries and
 natural-language descriptions after explicit model download. Missing OCR
 metadata or semantic models simply removes those optional lanes. Model
-downloads are opt-in, checksum-verified, cancellable, and never required at
+downloads happen only when you ask, are checksum-verified, cancellable, and never required at
 application startup.
 
 ## Privacy
 
 Semantic search is fully local: queries, tokenization, text encoding, image
 encoding, embeddings, and ranking run inside the app. No artwork, query text,
-OCR text, embeddings, or asset paths leave the device — no telemetry payload
-includes them and no remote inference endpoint exists in the search path.
+OCR text, embeddings, or asset paths leave the device. No usage event includes
+them, and no remote inference endpoint exists in the search path.
 Embeddings and OCR text are stored in the same local storage as the rest of
 the app's derived data (IndexedDB in the webview), are excluded from sync, and
 are deleted when the asset is deleted or the index is cleared. The only

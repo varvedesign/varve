@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "node ../../scripts/security/validate-client-env.mjs --app website && astro check && astro build",
+    "build": "node ../../scripts/website/generate-llms-txt.mjs && node ../../scripts/security/validate-client-env.mjs --app website && astro check && astro build",
     "build:pages": "node ../../scripts/build-website-pages.mjs",
     "preview": "astro preview",
     "astro": "astro",

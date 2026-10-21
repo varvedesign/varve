@@ -476,6 +476,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Website unit tests
         run: pnpm test:website
+      - name: Check public claims
+        run: pnpm audit:claims
       # The website must build and pass its whole suite in BOTH deployment
       # modes from the same source: the /varve GitHub Pages project site and a
       # root custom domain. The e2e servers mount the project-site build beneath

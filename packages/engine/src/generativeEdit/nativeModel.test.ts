@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { invoke, listen, isTauri } = vi.hoisted(() => ({
@@ -34,6 +35,16 @@ describe('downloadNativeGenerativeModel', () => {
     isTauri.mockReset();
     isTauri.mockReturnValue(true);
     listen.mockResolvedValue(vi.fn());
+    localStorage.clear();
+  });
+
+  it('refuses to invoke native download when AI features are off', async () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    const { InferenceError } = await import('../inference/core/InferenceError');
+    await expect(downloadNativeGenerativeModel()).rejects.toSatisfy(
+      (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
+    );
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it('rejects an already-aborted request before importing or invoking Tauri APIs', async () => {

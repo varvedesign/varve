@@ -33,6 +33,21 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **Varve Library saves that fail no longer report Saved** — when the library
+  write itself fails, the document stays modified, keeps its recovery point and
+  says the work is still unsaved. Previously only the status line changed and
+  closing could discard the document.
+- **Offset Path** — rounded joins now round only the outside of a corner, so an
+  inward offset no longer scoops material out of every corner. Work is bounded
+  by a chord tolerance instead of the entered distance, so a very large offset
+  can no longer freeze the app, and an open path no longer bridges its ends.
+- **SVG text names a generic font family** — exported `font-family` values end
+  in `serif`, `sans-serif` or `monospace` and are quoted so viewers parse the
+  list, so a viewer without the design font keeps the right classification
+  instead of drawing the design in its default serif. Text without an explicit
+  family uses the engine default.
+- **Whole-document SVG export keeps gradients** — Export → SVG (whole document)
+  wrote gradient fills as one flat colour.
 - **AppImageHub launch**: 0.5.1 failed with
   `libwebkit2gtk-4.1.so.0: cannot open shared object file` on a clean offline
   VM. The AppImage now carries WebKitGTK in the payload.

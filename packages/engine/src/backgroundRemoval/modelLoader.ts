@@ -1,3 +1,4 @@
+import { assertAiFeaturesEnabled } from '../inference/aiFeaturesGate';
 import { getModelStorage, type StagedModelWrite } from '../inference/core/ModelStorage';
 import { repairSam2EncoderGraph } from '../inference/models/sam2GraphRepair';
 import { getUpscaleModel } from '../upscaleModels';
@@ -879,6 +880,7 @@ class ModelLoader {
     signal?: AbortSignal,
     onStage?: (stage: ModelDownloadStage) => void,
   ): Promise<void> {
+    assertAiFeaturesEnabled();
     const active = this.activeDownloads.get(modelId);
     if (active) return active;
 

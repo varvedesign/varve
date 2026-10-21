@@ -26,6 +26,113 @@ function dot(ax: number, ay: number, bx: number, by: number): number {
 
 // ── Point helpers ───────────────────────────────────────────────────────────
 
+/**
+ * Round-join tessellation limits.
+ *
+ * A join's step count must depend on how far the arc is allowed to deviate
+ * from a straight chord, never on the offset distance alone: a linear
+ * `distance × constant` rule both under-tessellates small offsets (visible
+ * facets at the default 6 pt) and explodes on large ones. The previous rule
+ * could emit hundreds of thousands of points per vertex for a user-supplied
+ * distance, freezing the app until it ran out of memory — the failure
+ * reported as vectorcraft#1028 ("Offset Path with miter joins never finishes
+ * on some outlines, freezing the app until it runs out of memory").
+ */
+const ARC_TOLERANCE = 0.25;
+const MAX_ARC_STEPS_PER_JOIN = 64;
+/** Hard ceiling on emitted points. A synchronous main-thread effect must
+ *  terminate predictably even for an extreme distance. */
+const MAX_OFFSET_POINTS = 200_000;
+
+/**
+ * Steps needed to keep a circular arc within `ARC_TOLERANCE` of its chords.
+ *
+ * `2·acos(1 − tol/r)` is the largest angle whose sagitta stays inside the
+ * tolerance, so the count follows from the radius and the sweep instead of
+ * scaling linearly with the offset.
+ */
+function arcStepsFor(sweep: number, radius: number): number {
+  const r = Math.max(Math.abs(radius), 1e-9);
+  const tolerance = Math.min(ARC_TOLERANCE, r * 0.5);
+  const ratio = Math.max(-1, Math.min(1, 1 - tolerance / r));
+  const maxAngle = Math.max(1e-3, 2 * Math.acos(ratio));
+  const steps = Math.ceil(Math.abs(sweep) / maxAngle);
+  return Math.min(MAX_ARC_STEPS_PER_JOIN, Math.max(1, steps));
+}
+
+/**
+ * Append a round join: the arc from the previous edge's offset endpoint to
+ * this edge's offset start point, centred on the original vertex.
+ *
+ * Round joins previously produced a single miter point (or a bevel) because
+ * the arc branch was only reachable when the offset lines were parallel.
+ * Choosing "round" therefore did not round a normal corner.
+ */
+function pushRoundJoin(
+  result: PathPoint[],
+  prev: { ax: number; ay: number; bx: number; by: number },
+  curr: { ax: number; ay: number; bx: number; by: number; nx: number; ny: number },
+  distance: number,
+): void {
+  const prevDirX = prev.bx - prev.ax;
+  const prevDirY = prev.by - prev.ay;
+  const currDirX = curr.bx - curr.ax;
+  const currDirY = curr.by - curr.ay;
+  const cross = prevDirX * currDirY - prevDirY * currDirX;
+
+  // A round join rounds the OUTSIDE of a turn. On the inside the two offset
+  // lines converge and the boundary is their intersection: drawing an arc
+  // there scoops material out of the shape. The default inward offset (-8) hit
+  // this at every corner, losing |distance|·(√2−1) — 3.3 px on a 10 px offset.
+  if (cross * distance <= 0) {
+    const int = lineIntersection(
+      prev.bx,
+      prev.by,
+      prev.ax,
+      prev.ay,
+      curr.ax,
+      curr.ay,
+      curr.bx,
+      curr.by,
+    );
+    result.push(
+      int
+        ? { x: int[0], y: int[1], handleIn: null, handleOut: null }
+        : { x: curr.ax, y: curr.ay, handleIn: null, handleOut: null },
+    );
+    return;
+  }
+
+  const cx = curr.ax - curr.nx * distance;
+  const cy = curr.ay - curr.ny * distance;
+  const fromAngle = Math.atan2(prev.by - cy, prev.bx - cx);
+  const toAngle = Math.atan2(curr.ay - cy, curr.ax - cx);
+  let sweep = toAngle - fromAngle;
+  while (sweep > Math.PI) sweep -= 2 * Math.PI;
+  while (sweep < -Math.PI) sweep += 2 * Math.PI;
+
+  const budget = MAX_OFFSET_POINTS - result.length - 1;
+  const radius = Math.abs(distance);
+  const idealSteps = arcStepsFor(sweep, radius);
+  if (Math.abs(sweep) < 1e-4 || idealSteps > budget) {
+    // Never emit a truncated sweep: a partial arc ends on a straight jump to
+    // the next join. Fall back to the corner instead.
+    result.push({ x: curr.ax, y: curr.ay, handleIn: null, handleOut: null });
+    return;
+  }
+
+  const steps = idealSteps;
+  for (let s = 0; s <= steps; s++) {
+    const angle = fromAngle + (s / steps) * sweep;
+    result.push({
+      x: cx + Math.cos(angle) * radius,
+      y: cy + Math.sin(angle) * radius,
+      handleIn: null,
+      handleOut: null,
+    });
+  }
+}
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /**
@@ -94,59 +201,48 @@ export function offsetPath(
     const prev = offsetLines[(i - 1 + m) % m]!;
     const curr = offsetLines[i]!;
 
+    if (!closed && i === 0) {
+      // The first vertex of an open path is an endpoint, not a join. Joining it
+      // to the last segment would bridge the two ends of the offset curve.
+      result.push({ x: curr.ax, y: curr.ay, handleIn: null, handleOut: null });
+      continue;
+    }
+
+    if (joinStyle === 'round') {
+      pushRoundJoin(result, prev, curr, distance);
+      if (result.length >= MAX_OFFSET_POINTS) break;
+      continue;
+    }
+
+    // Miter and bevel both need the intersection of the two offset lines.
     // Intersect prev's line (from endpoint to startpoint, reversed direction)
     // with curr's line (from startpoint to endpoint).
-    const int = lineIntersection(
-      prev.bx,
-      prev.by,
-      prev.ax,
-      prev.ay,
-      curr.ax,
-      curr.ay,
-      curr.bx,
-      curr.by,
-    );
+    const int =
+      joinStyle === 'miter'
+        ? lineIntersection(prev.bx, prev.by, prev.ax, prev.ay, curr.ax, curr.ay, curr.bx, curr.by)
+        : null;
 
-    if (int && joinStyle !== 'bevel') {
+    if (int) {
       // Check miter ratio
       const edgeLen = vecLen(curr.bx - curr.ax, curr.by - curr.ay);
       const miterLen = vecLen(int[0] - curr.ax, int[1] - curr.ay);
       const ratio = edgeLen > 0 ? miterLen / edgeLen : 0;
-
-      if (ratio <= miterLimit) {
-        result.push({ x: int[0], y: int[1], handleIn: null, handleOut: null });
-      } else if (joinStyle === 'round') {
-        // Bevel + arc fallback when miter exceeds limit
-        result.push({ x: curr.ax, y: curr.ay, handleIn: null, handleOut: null });
-      } else {
-        // Miter clipped to bevel
-        result.push({ x: curr.ax, y: curr.ay, handleIn: null, handleOut: null });
-      }
-    } else if (joinStyle === 'round') {
-      // Round join
-      const angle = Math.atan2(
-        offsetLines[(i + 1) % m]!.ay - curr.ay,
-        offsetLines[(i + 1) % m]!.ax - curr.ax,
+      // A miter beyond the limit is clipped to a bevel corner.
+      result.push(
+        ratio <= miterLimit
+          ? { x: int[0], y: int[1], handleIn: null, handleOut: null }
+          : { x: curr.ax, y: curr.ay, handleIn: null, handleOut: null },
       );
-      const prevAngle = Math.atan2(curr.ay - prev.ay, curr.ax - prev.ax);
-      let da = angle - prevAngle;
-      if (da > Math.PI) da -= 2 * Math.PI;
-      if (da < -Math.PI) da += 2 * Math.PI;
-      const arcSteps = Math.max(2, Math.ceil(Math.abs(da) * Math.abs(distance) * 0.1));
-      for (let s = 0; s <= arcSteps; s++) {
-        const t = s / arcSteps;
-        const a = prevAngle + t * da;
-        result.push({
-          x: curr.ax + Math.cos(a) * Math.abs(distance),
-          y: curr.ay + Math.sin(a) * Math.abs(distance),
-          handleIn: null,
-          handleOut: null,
-        });
-      }
     } else {
-      // Bevel join
+      // Bevel join (parallel edges have no intersection to miter to).
       result.push({ x: curr.ax, y: curr.ay, handleIn: null, handleOut: null });
     }
+  }
+
+  if (!closed && offsetLines.length > 0) {
+    // The open path's far endpoint was never a join candidate.
+    const last = offsetLines[offsetLines.length - 1]!;
+    result.push({ x: last.bx, y: last.by, handleIn: null, handleOut: null });
   }
 
   return result;

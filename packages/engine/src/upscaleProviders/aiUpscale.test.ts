@@ -24,6 +24,7 @@ const { getBestOnnxProviders } = vi.hoisted(() => ({
 }));
 vi.mock('../backgroundRemoval/environmentCapabilities', () => ({ getBestOnnxProviders }));
 
+import { InferenceError } from '../inference/core/InferenceError';
 import {
   copyUpscaledTileCore,
   packRgbChw,
@@ -32,6 +33,18 @@ import {
 } from './aiUpscale';
 
 describe('Real-ESRGAN worker helpers', () => {
+  it('refuses to create an ONNX session when AI features are off', async () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    createSession.mockClear();
+    await expect(
+      upscaleWithRealEsrgan(new ImageData(1, 1), '/models/realesr.onnx', () => false),
+    ).rejects.toSatisfy(
+      (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
+    );
+    expect(createSession).not.toHaveBeenCalled();
+    localStorage.clear();
+  });
+
   it('uses the shared single-threaded ORT runtime configuration', async () => {
     getBestOnnxProviders.mockResolvedValue(['wasm']);
     createSession.mockResolvedValueOnce({
