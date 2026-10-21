@@ -1,3 +1,4 @@
+import { assertAiFeaturesEnabled } from '../aiFeaturesGate';
 import { InferenceError } from './InferenceError';
 import type { ModelArtifactHandle, ModelStorage } from './ModelStorage';
 import { getModelStorage, migrateFromLocalStorage } from './ModelStorage';
@@ -194,6 +195,7 @@ export class DownloadManager {
   }
 
   async startDownload(modelId: string, signal?: AbortSignal): Promise<void> {
+    assertAiFeaturesEnabled();
     const entry = this.modelMeta.get(modelId);
     if (!entry) throw new InferenceError('model_not_installed');
     if (this.activeDownloads.has(modelId)) {

@@ -1,3 +1,5 @@
+import { assertAiFeaturesEnabled } from './aiFeaturesGate';
+
 /**
  * Generic ONNX Runtime session manager with caching, lifecycle, and
  * memory-safety preflight gating.
@@ -105,6 +107,7 @@ export class SessionManager {
     modelPath: string,
     modelId: string,
   ): Promise<{ session: OrtInferenceSession; executionProvider: string }> {
+    assertAiFeaturesEnabled();
     const ort = await this.getOrt();
     const providers = await this.getProviders();
 
@@ -138,6 +141,7 @@ export class SessionManager {
 
   /** Get or create a cached session for the given model path. */
   async getSession(modelPath: string, modelId: string): Promise<ManagedSession> {
+    assertAiFeaturesEnabled();
     const cached = this.sessions.get(modelPath);
     if (cached) return cached;
 

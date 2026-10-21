@@ -70,6 +70,18 @@ export interface SettingsContextValue {
 
 const SettingsCtx = createContext<SettingsContextValue | null>(null);
 
+function syncAiEnabledToNative(enabled: boolean): void {
+  void import('@varve/platform').then(({ isTauriRuntime }) => {
+    if (!isTauriRuntime()) return;
+    void import('@tauri-apps/api/core').then(({ invoke }) => {
+      void invoke('app_set_setting', {
+        key: 'ai.enabled',
+        value: enabled ? 'true' : 'false',
+      }).catch(() => undefined);
+    });
+  });
+}
+
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<EditorSettings>(loadEditorSettings);
   const layoutPreferenceRef = useRef(settings.appearance.layoutPreference);
@@ -112,6 +124,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings(next);
     saveEditorSettings(next);
   }, []);
+
+  useEffect(() => {
+    syncAiEnabledToNative(settings.ai.enabled);
+  }, [settings.ai.enabled]);
 
   const updateSettings = useCallback(
     (patch: EditorSettingsPatch) => {
@@ -198,8 +214,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   );
 }
 
+export function useOptionalSettings(): SettingsContextValue | null {
+  return useContext(SettingsCtx);
+}
+
 export function useSettings(): SettingsContextValue {
-  const ctx = useContext(SettingsCtx);
+  const ctx = useOptionalSettings();
   if (!ctx) throw new Error('useSettings must be used within a SettingsProvider');
   return ctx;
 }
