@@ -110,17 +110,27 @@ F1–F7 and the highest-severity integrity threads. The 830 `screened-relevant`
 rows are **not** a verdict and **not** a completion signal; each needs a thread
 review plus a Varve reproduction before it can be dispositioned.
 
-## Exact next operation
+## Integration record
 
-1. Push `feat/vectorcraft-corpus` and open a pull request against `master`,
-   then merge it (the repository's recent history uses merged PRs; `master` is
-   unprotected and admin permission is confirmed). Merging touches
-   `apps/website/**`, so `website-deploy.yml` publishes the docs page — a Pages
-   deploy, not a release.
-2. Record the merge commit and the remote state here; do not describe the work
-   as released.
-3. Remove the worktree only after the merge is confirmed on the remote.
-4. Reviewer findings: resolved — inner-corner arcs (high), global ceiling
+- Branch `feat/vectorcraft-corpus` pushed and merged through
+  **PR #165** (`https://github.com/varvedesign/varve/pull/165`).
+- Merge commit on `master`: **`335b4ce966466624b474d072a8dbf8d9f28bccfd`**
+  ("Merge pull request #165 from varvedesign/feat/vectorcraft-corpus"),
+  verified on `origin/master` with `git fetch` + `git log`. 24 files,
+  2,720 insertions.
+- CI at merge time: `Change lanes` passed; the WASM/AppImage/Lighthouse lanes
+  were still queued in a saturated runner pool. `master` has no branch
+  protection and no required checks, so the merge was not gated by them. The
+  pending lanes are **not** claimed as passing.
+- `website-deploy.yml` run `39681379730` was queued for the merge SHA, so the
+  docs page publishes to GitHub Pages. That is a site deploy, not a release:
+  no tag, no installer, no version bump.
+- Ledger dispositions for the four implemented findings are now
+  `integrated-verified` with the merge reference.
+
+## Remaining work
+
+Reviewer findings: resolved — inner-corner arcs (high), global ceiling
    (medium-high), call-site regression test (medium-high), default font family
    (low). The miter-limit ratio (low) is pre-existing and left unchanged; it is
    recorded in `findings.md` as a follow-up rather than silently altered.
