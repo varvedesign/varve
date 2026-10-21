@@ -28,7 +28,10 @@ import {
   setLayoutPreference,
   setTabletControlsMirrored,
 } from '../../settings/layoutPresentation';
-import { ICON_REMOTE_SEARCH_CHANGED_EVENT } from '../IconBrowser/iconRemoteSearch';
+import {
+  dispatchIconRemoteSearchChanged,
+  ICON_REMOTE_SEARCH_CHANGED_EVENT,
+} from '../IconBrowser/iconRemoteSearch';
 import './layoutPresentation.css';
 
 export type Settings = EditorSettings;
@@ -114,7 +117,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     (patch: EditorSettingsPatch) => {
       // Delegate to the store's canonical merge so the dialog and every other
       // caller of `updateSettings` produce the same result for the same patch.
-      persist(applyEditorSettingsPatch(patch));
+      const next = applyEditorSettingsPatch(patch);
+      persist(next);
+      if (patch.icons !== undefined) {
+        // Home and the editor each mount a SettingsProvider. Notify the other
+        // copy without going through persist again, so the listener below
+        // cannot recurse into updateSettings.
+        dispatchIconRemoteSearchChanged(next.icons.remoteSearch);
+      }
       if (
         patch.viewport?.wheelMode !== undefined ||
         patch.viewport?.wheelSensitivity !== undefined ||
@@ -192,4 +202,64 @@ export function useSettings(): SettingsContextValue {
   const ctx = useContext(SettingsCtx);
   if (!ctx) throw new Error('useSettings must be used within a SettingsProvider');
   return ctx;
+}
+
+/**
+ * Settings for surfaces that may mount outside SettingsProvider (detached
+ * panel windows, IconBrowser in tests). Reads and writes the persisted store
+ * and listens for icon-search consent events when no provider is present.
+ */
+export function useOptionalSettings(): SettingsContextValue {
+  const ctx = useContext(SettingsCtx);
+  const [stored, setStored] = useState(loadEditorSettings);
+
+  useEffect(() => {
+    if (ctx) return undefined;
+    const sync = () => setStored(loadEditorSettings());
+    window.addEventListener(ICON_REMOTE_SEARCH_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(ICON_REMOTE_SEARCH_CHANGED_EVENT, sync);
+  }, [ctx]);
+
+  const updateSettings = useCallback((patch: EditorSettingsPatch) => {
+    const next = applyEditorSettingsPatch(patch);
+    setStored(next);
+    if (patch.icons !== undefined) {
+      dispatchIconRemoteSearchChanged(next.icons.remoteSearch);
+    }
+    if (
+      patch.viewport?.wheelMode !== undefined ||
+      patch.viewport?.wheelSensitivity !== undefined ||
+      patch.viewport?.wheelInertia !== undefined
+    ) {
+      refreshNavigationSettings();
+    }
+    if (patch.render?.interactivePreview !== undefined) {
+      refreshInteractivePreviewSettings();
+    }
+  }, []);
+
+  const updateSection = useCallback((section: SettingsSection, values: Record<string, unknown>) => {
+    const latest = loadEditorSettings();
+    const current = (latest as unknown as Record<string, unknown>)[section] as
+      | Record<string, unknown>
+      | undefined;
+    if (!current) return;
+    const next = {
+      ...latest,
+      [section]: { ...current, ...values },
+    } as EditorSettings;
+    setStored(next);
+    saveEditorSettings(next);
+  }, []);
+
+  const resetSettings = useCallback(() => {
+    const next = { ...DEFAULT_EDITOR_SETTINGS };
+    setStored(next);
+    saveEditorSettings(next);
+    refreshNavigationSettings();
+    refreshInteractivePreviewSettings();
+  }, []);
+
+  if (ctx) return ctx;
+  return { settings: stored, updateSettings, updateSection, resetSettings };
 }

@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
 import { loadSettings } from '../../settings';
 import { SettingsProvider, useSettings } from '../Settings/SettingsContext';
+import { IconBrowser } from './IconBrowser';
 import { IconBrowserDialog } from './IconBrowserDialog';
 import { writeIconRemoteSearchConsent } from './iconRemoteSearch';
 
@@ -231,5 +232,14 @@ describe('IconBrowserDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Change theme' }));
     expect(loadSettings().appearance.theme).toBe('dark');
     expect(loadSettings().icons.remoteSearch).toBe('granted');
+  });
+
+  it('renders IconBrowser without a SettingsProvider and can grant consent', async () => {
+    editorMock();
+    render(<IconBrowser onInsert={vi.fn()} />);
+    expect(await screen.findByText('Search online via Iconify?')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    expect(loadSettings().icons.remoteSearch).toBe('granted');
+    expect(screen.queryByText('Search online via Iconify?')).toBeNull();
   });
 });

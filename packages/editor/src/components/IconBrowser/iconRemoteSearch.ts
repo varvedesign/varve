@@ -10,13 +10,16 @@ export function readIconRemoteSearchConsent(): IconRemoteSearchConsent {
   }
 }
 
+export function dispatchIconRemoteSearchChanged(value: IconRemoteSearchConsent): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(ICON_REMOTE_SEARCH_CHANGED_EVENT, { detail: value }));
+}
+
 export function writeIconRemoteSearchConsent(
   value: Exclude<IconRemoteSearchConsent, 'unknown'>,
 ): IconRemoteSearchConsent {
   updateSettings({ icons: { remoteSearch: value } });
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(ICON_REMOTE_SEARCH_CHANGED_EVENT, { detail: value }));
-  }
+  dispatchIconRemoteSearchChanged(value);
   return value;
 }
 
