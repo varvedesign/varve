@@ -44,7 +44,7 @@ function imageNode() {
   return { node, doc: d };
 }
 
-function gradientShapeNode() {
+function gradientShapeNode(gradientType: 'linear' | 'angular' | 'diamond' = 'linear') {
   let d = doc();
   const { id, doc: d2 } = nextNodeId(d);
   d = d2;
@@ -59,7 +59,7 @@ function gradientShapeNode() {
         blendMode: 'normal' as const,
         visible: true,
         gradient: {
-          type: 'linear' as const,
+          type: gradientType,
           stops: [
             { position: 0, color: base.fill },
             { position: 1, color: base.fill },
@@ -221,8 +221,14 @@ describe('flutterTargetGaps', () => {
     expect(gaps.some((g) => g.severity === 'error')).toBe(true);
   });
 
-  it('warns for a gradient fill', () => {
+  it('no longer warns for a linear gradient — BoxDecoration paints it natively', () => {
     const { node, doc: d } = gradientShapeNode();
+    const gaps = flutterTargetGaps(node, d);
+    expect(gaps.some((g) => g.feature.includes('gradient'))).toBe(false);
+  });
+
+  it('warns for an angular/diamond gradient — no sweep gradient in the widget library', () => {
+    const { node, doc: d } = gradientShapeNode('angular');
     const gaps = flutterTargetGaps(node, d);
     expect(gaps.some((g) => g.feature.includes('gradient'))).toBe(true);
   });
@@ -248,8 +254,14 @@ describe('swiftuiTargetGaps', () => {
     expect(gaps.some((g) => g.feature.includes('image'))).toBe(true);
   });
 
-  it('warns for a gradient fill', () => {
+  it('no longer warns for a linear gradient — SwiftUI paints it natively', () => {
     const { node, doc: d } = gradientShapeNode();
+    const gaps = swiftuiTargetGaps(node, d);
+    expect(gaps.some((g) => g.feature.includes('gradient'))).toBe(false);
+  });
+
+  it('warns for a diamond gradient — no diamond shape style exists', () => {
+    const { node, doc: d } = gradientShapeNode('diamond');
     const gaps = swiftuiTargetGaps(node, d);
     expect(gaps.some((g) => g.feature.includes('gradient'))).toBe(true);
   });

@@ -11,6 +11,7 @@
  */
 
 import type { Document as SceneDocument, SceneNode } from '@varve/scene';
+import { assertBundleAssetsComplete, resolveBundleAssets } from './bundle-assets';
 import { type CssExportOptions, collectCssRules, cssTargetGaps } from './css';
 import { styleKeyAccess, toComponentName, toFileStem } from './naming';
 import { unstableImageSourceReason } from './shared';
@@ -29,6 +30,12 @@ export interface CssModulesExportOptions extends CssExportOptions {
   fileStem?: string;
   /** Directory prefix for emitted paths. Default: '' (files sit together). */
   directory?: string;
+  /**
+   * `'inline'` (default) keeps raster bytes as data URLs in the stylesheet;
+   * `'files'` writes them as content-addressed files under `assets/` and
+   * attaches them to the bundle.
+   */
+  assetMode?: 'inline' | 'files';
 }
 
 type Rules = ReturnType<typeof collectCssRules>;
@@ -182,7 +189,13 @@ export function exportNodeToCssModulesBundle(
   doc: SceneDocument,
   opts?: CssModulesExportOptions,
 ): GeneratedBundle {
-  const pair = buildPair(node, doc, opts);
+  const resolved = resolveBundleAssets({
+    rasterAssets: opts?.rasterAssets,
+    assetMode: opts?.assetMode,
+  });
+  assertBundleAssetsComplete(resolved.failedNodeIds);
+  const emissionOpts = { ...opts, assetPaths: resolved.assetPaths };
+  const pair = buildPair(node, doc, emissionOpts);
   const directory = opts?.directory ?? '';
   const prefix = directory.length > 0 ? `${directory.replace(/\/+$/, '')}/` : '';
   const hasRaster = pair.rules.some((rule) => Boolean(opts?.rasterAssets?.[rule.node.id]));
@@ -201,17 +214,27 @@ export function exportNodeToCssModulesBundle(
     entry: true,
   };
 
+  const setup = [
+    `Copy ${tsxFile.path} and ${cssFile.path} into your project, keeping both files together.`,
+    `Render <${pair.componentName} /> — it takes no props.`,
+    'Requires a bundler with CSS Modules support (Vite, Next.js, or webpack with css-loader).',
+  ];
+  if (resolved.assets && resolved.assets.length > 0) {
+    setup.splice(
+      1,
+      0,
+      'Keep the assets/ folder beside the stylesheet — the rules reference those files by relative path.',
+    );
+  }
+
   return {
     target: 'react-cssmodules',
     deliverable: 'component',
     files: [tsxFile, cssFile],
+    assets: resolved.assets,
     dependencies: { react: '>=18' },
-    setup: [
-      `Copy ${tsxFile.path} and ${cssFile.path} into your project, keeping both files together.`,
-      `Render <${pair.componentName} /> — it takes no props.`,
-      'Requires a bundler with CSS Modules support (Vite, Next.js, or webpack with css-loader).',
-    ],
-    diagnostics: diagnosticsFor(node, doc, opts),
+    setup,
+    diagnostics: diagnosticsFor(node, doc, emissionOpts),
   };
 }
 

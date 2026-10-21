@@ -6,11 +6,13 @@
  */
 
 import {
+  assertBundleAssetsComplete,
   exportNodeToCssModulesBundle,
   exportNodeToFlutter,
   exportNodeToSvg,
   exportNodeToSwiftUI,
   exportNodeToTailwindBundle,
+  resolveBundleAssets,
   svgPatternFillForNode,
 } from '@varve/codegen';
 import type { Engine } from '@varve/engine';
@@ -152,11 +154,46 @@ function bundleToFiles(
   bundle: import('@varve/codegen').GeneratedBundle,
   jobStem?: string,
 ): RenderedFile[] {
-  return bundle.files.map((file) => ({
+  const codeFiles = bundle.files.map((file) => ({
     fileName: jobStem ? renameToJobStem(file.path, jobStem) : file.path,
     bytes: encode(file.contents),
     mimeType: file.mimeType,
   }));
+  const assetFiles = (bundle.assets ?? []).map((asset) => ({
+    fileName: asset.path,
+    bytes: asset.bytes,
+    mimeType: asset.mimeType,
+  }));
+  return [...codeFiles, ...assetFiles];
+}
+
+/**
+ * Hard raster-composition failures. `effect-degraded` warns; these three
+ * mean the fallback surface is missing or empty — shipping the export would
+ * put a placeholder where real pixels belong, so the job fails instead.
+ */
+const HARD_RASTER_FAILURE_CODES = new Set([
+  'pixel-budget-exceeded',
+  'surface-unavailable',
+  'encode-failed',
+]);
+
+/**
+ * A deliverable that needed a rasterized fallback must fail with a specific
+ * explanation when the fallback cannot be produced — never succeed as an
+ * empty image or a checkerboard.
+ */
+export function assertRasterCompositionComplete(
+  diagnostics: import('./export/compositor').RasterizationDiagnostic[],
+): void {
+  const hard = diagnostics.filter((d) => HARD_RASTER_FAILURE_CODES.has(d.code));
+  if (hard.length > 0) {
+    throw new Error(
+      `Export failed: the pre-rasterized fallback could not be produced. ${hard
+        .map((d) => d.message)
+        .join('; ')}`,
+    );
+  }
 }
 
 /** Filename stem of a job (`Card.tsx` → `Card`). */
@@ -322,40 +359,82 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         ],
       };
     }
-    case 'react-tailwind': {
-      const bundle = exportNodeToTailwindBundle(node, context.document);
-      const files = bundleToFiles(bundle, jobStem(job.fileName));
-      return {
-        bytes: files[0]?.bytes ?? encode(''),
-        mimeType: 'text/tsx',
-        files,
-        diagnostics: bundle.diagnostics,
-        warnings: collectMissingFontWarnings(node),
-      };
-    }
+    case 'react-tailwind':
     case 'react-cssmodules': {
-      const bundle = exportNodeToCssModulesBundle(node, context.document);
+      const rasterDiagnostics: import('./export/compositor').RasterizationDiagnostic[] = [];
+      const rasterAssets = await composeFlattenedRasterAssetsForNode(
+        node,
+        context.document,
+        'css',
+        {
+          scale: 1,
+          engine: context.engine ?? undefined,
+          onRasterizationDiagnostic: (diagnostic) => rasterDiagnostics.push(diagnostic),
+        },
+      );
+      assertRasterCompositionComplete(rasterDiagnostics);
+      const bundle =
+        job.format === 'react-tailwind'
+          ? exportNodeToTailwindBundle(node, context.document, {
+              rasterAssets,
+              assetMode: 'files',
+            })
+          : exportNodeToCssModulesBundle(node, context.document, {
+              rasterAssets,
+              assetMode: 'files',
+            });
       const files = bundleToFiles(bundle, jobStem(job.fileName));
       return {
         bytes: files[0]?.bytes ?? encode(''),
         mimeType: 'text/tsx',
         files,
         diagnostics: bundle.diagnostics,
-        warnings: collectMissingFontWarnings(node),
+        warnings: [...collectMissingFontWarnings(node), ...rasterDiagnostics.map((d) => d.message)],
       };
     }
     case 'flutter':
-      return {
-        bytes: encode(exportNodeToFlutter(node, context.document)),
-        mimeType: 'text/x-dart',
-        warnings: collectMissingFontWarnings(node),
+    case 'swiftui': {
+      const rasterDiagnostics: import('./export/compositor').RasterizationDiagnostic[] = [];
+      const rasterAssets = await composeFlattenedRasterAssetsForNode(
+        node,
+        context.document,
+        job.format === 'flutter' ? 'flutter' : 'swiftui',
+        {
+          scale: 1,
+          engine: context.engine ?? undefined,
+          onRasterizationDiagnostic: (diagnostic) => rasterDiagnostics.push(diagnostic),
+        },
+      );
+      assertRasterCompositionComplete(rasterDiagnostics);
+      const resolved = resolveBundleAssets({ rasterAssets, assetMode: 'files' });
+      assertBundleAssetsComplete(resolved.failedNodeIds);
+      const code =
+        job.format === 'flutter'
+          ? exportNodeToFlutter(node, context.document, {
+              rasterAssets,
+              assetPaths: resolved.assetPaths,
+            })
+          : exportNodeToSwiftUI(node, context.document, {
+              rasterAssets,
+              assetPaths: resolved.assetPaths,
+            });
+      const assetFiles = (resolved.assets ?? []).map((asset) => ({
+        fileName: asset.path,
+        bytes: asset.bytes,
+        mimeType: asset.mimeType,
+      }));
+      const entryFile = {
+        fileName: job.fileName,
+        bytes: encode(code),
+        mimeType: job.format === 'flutter' ? 'text/x-dart' : 'text/x-swift',
       };
-    case 'swiftui':
       return {
-        bytes: encode(exportNodeToSwiftUI(node, context.document)),
-        mimeType: 'text/x-swift',
-        warnings: collectMissingFontWarnings(node),
+        bytes: entryFile.bytes,
+        mimeType: entryFile.mimeType,
+        files: assetFiles.length > 0 ? [entryFile, ...assetFiles] : undefined,
+        warnings: [...collectMissingFontWarnings(node), ...rasterDiagnostics.map((d) => d.message)],
       };
+    }
     case 'pdf-screen': {
       const result = await exportNodeAsPdf(node, context.document, 1, context.engine ?? undefined, {
         includeAiDisclosure: context.includeAiDisclosure,
