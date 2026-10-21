@@ -9,14 +9,13 @@ Last updated: 2026-10-21 (session 10).
 - Current task worktree:
   `/home/kevina/CodingProjects/varve-callout-followup`; branch
   `codex/pdfcraft-callout-direct-manipulation-20261020`; last pushed at
-  `f7e640e16` (Cutoff-D source review docs are now being extended locally).
+  `35829278a` (atomic staged-file close errors now fail before publication).
   The shared main checkout and other worktrees are not owned by this task.
-- PR #155 targets `master` and is open/mergeable at `e7acb45`. The latest
-  required CI, Build + Package, and Website Lighthouse workflows are queued
-  with no jobs assigned. `just ci-health` classifies the CI and build queues
-  as `STUCK` with cause unconfirmed; do not cancel, duplicate, bypass, or
-  merge without required checks. GitHub Status reported Actions operational
-  and no incident on 2026-10-21. Recheck the existing runs.
+- PR #155 targets `master` and is open at exact head `35829278a`. The latest
+  required Build + Package (WASM/AppImage) and Website Lighthouse jobs are
+  queued; qualification-only WebGL checks are skipped by their conditions.
+  Do not cancel, duplicate, bypass, or merge while required checks are
+  pending. Recheck the existing runs.
 - Callout improvement commits: `a62262d` (body drag with anchored tails,
   canvas handles plus Inspector, scene/Playwright regressions, docs/website),
   `c5069f5` (documentation correction after review). Integration/validation
@@ -66,11 +65,20 @@ Last updated: 2026-10-21 (session 10).
   (#3797). Varve already has a native Linux pinch bridge; #3793 is therefore a
   hardware validation lead, not a confirmed gap. The other three are reader or
   PDF-content workflows without an established direct Varve analogue.
-- Five Cutoff-D rows now have source mapping: #3409 matches an unchecked
+- Six Cutoff-D rows now have source mapping. #3409 matches an unchecked
   staging-file close limitation and has an implementation plus passing
-  injected-failure test in the current local diff; #3496 and #3755 map to existing Varve save
-  and history protections; #3555 is an adjacent cross-restart viewport
-  opportunity; #3793 remains device-specific validation.
+  injected-failure test in the pushed branch; #3496 and #3755 map to existing
+  Varve save and history protections; #3555 is an adjacent cross-restart
+  viewport opportunity; #3793 remains device-specific validation. #3414's
+  issue thread says the original
+  copyrighted, annotated book PDF could not be attached. The linked PR bodies
+  #2220, #1634, #3415, and #3416 were read: xref recovery and open-queue
+  improvements are partial, remain open under synthetic-only evidence, and
+  retain caps/single-worker or two-stalled-worker limits. Varve has no PDF
+  reader or OS-open-PDF handoff equivalent; `packages/import/src/pdf.ts`
+  synchronously decodes/scans the whole file as a heuristic artwork importer.
+  This makes responsiveness a separate test opportunity, not a matching xref
+  defect. Related issues #625, #2458, #1937, #2384, and #1449 remain queued.
 - Targeted native validation passed:
   `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib atomic_write_does_not_publish_when_staging_close_fails`
   (1 passed). `verify:plan` requires a full gate for the desktop dependency
@@ -79,14 +87,20 @@ Last updated: 2026-10-21 (session 10).
   inspection confirmed the gate/audit processes had exited, but the durable
   operation record still says `running` with no terminal result. Do not report
   it as passed or restart until the operation record is properly reconciled.
-- Next: recursively follow #3409's linked error-handling evidence and verify
-  the new Unix/Windows close paths in CI; then verify the remaining high-risk
-  save/undo and Unicode/text-input candidates against Varve source and linked
-  PRs/samples;
-  separately inspect the Wacom and Synaptics input paths before considering
-  changes. Update per-issue dispositions with file-backed evidence, then
-  continue monitoring PR #155 without bypassing required checks. Integrate the
-  reviewed batches through the permitted `master` workflow and revalidate.
+- The pushed `35829278a` checkpoint passed all local blocking lanes: 90/90
+  desktop unit tests, desktop typecheck, 308/308 website unit tests, docs and
+  emoji audits, release/product-truth checks, Cargo format, model manifest,
+  and touched-file format/lint. Remote WASM, AppImage, and Lighthouse checks
+  are still in progress. No visual surface changed in the atomic-close commit;
+  the earlier callout canvas and desktop/mobile marketing visual checks remain
+  the visual evidence for this batch.
+- Next: finish the linked issue recursion for #3414 and #3409, reconcile the
+  stale local full-gate operation after its timeout threshold, and recheck PR
+  #155's current-head CI. Then map the remaining save/undo and Unicode/text
+  candidates against Varve source and linked fixes/samples; inspect Wacom and
+  Synaptics paths before changing anything. Record per-issue dispositions,
+  keep marketing claims tied to verified capability, and continue the reviewed
+  batches through the permitted `master` workflow with exact-SHA validation.
 
 ## Frozen baseline
 

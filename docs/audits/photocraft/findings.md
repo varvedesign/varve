@@ -1310,6 +1310,7 @@ The reviews surfaced these strongest candidates for source-level follow-up:
 | Reports | Transferable failure family | Varve check / current boundary |
 |---|---|---|
 | #3409, #3496, #3555, #3755 | Save success, dirty state, file-watcher races, and undo continuity | #3496 is already handled by the pending-edit drain (§4.1). #3755's false conflict and undo-loss family is guarded by content-hash comparison and persistent history; no ctime-based active-file reload path was found. #3409 exposed an unchecked staging close and is fixed in this branch (details below). #3555 is a distinct persistent viewport-restoration opportunity, not a PDF reader defect. |
+| #3414 | Slow or stalled document preparation blocks later opens | Varve has no PDF-reader document-open or single-instance PDF handoff path. Its limited PDF import in `packages/import/src/pdf.ts` synchronously decodes the whole byte buffer and scans it with regexes; this is an adjacent main-thread responsiveness surface, but it does not parse xref tables or share PdfCraft's repeated COS object scan. No Varve defect was established from this report. |
 | #3421, #3444, #3481, #3505, #3519, #3592, #3597, #3601, #3604, #3684, #3687, #3707, #3713, #3769 | Unicode entry, bidi caret movement, glyph coverage, and text selection | Varve has a distinct text/font/shaping path. Treat PDF font/resource failures as evidence for tests and diagnostics, not proof of a Varve defect; inspect Arabic/Indic/CJK fallback and spaces in Varve's supported text path. |
 | #3446, #3464, #3650, #3665, #3736, #3793 | Canvas input, touchpad gestures, device-specific pointer handling, and window presentation | Varve already has a native Linux touchpad pinch bridge and pointer-type policy. #3793's user clarifies that a Synaptics touchpad scrolls too slowly and pinch does not work on KDE Plasma 6.8 / Arch; this remains a device-level validation gap, not a confirmed Varve failure. #3650's Wacom report likewise needs comparison with Varve's Tauri event path and supported hardware. |
 | #3437, #3474, #3518, #3541, #3620, #3651, #3693, #3747, #3780 | Direct manipulation, live feedback, transformed hit testing, and selection/deletion invariants | Map only after inspecting the exact Varve tool and whether the reported PDF operation has a native analogue. The callout body/tail drag improvement is already implemented and visually validated in this branch. |
@@ -1347,6 +1348,25 @@ and verify current Varve behavior before changing code or marketing claims.
   close code. The local full-gate operation was interrupted during the
   architecture audit before completion, so that gate is not reported as
   passed.
+- **#3414, malformed-PDF open stalls — adjacent import responsiveness risk; no
+  matching xref failure.** The report has no attached source PDF because it is
+  a copyrighted book with personal annotations. Its issue thread describes
+  synthetic stale-xref probes and two distinct open-queue failures. I read the
+  linked PR descriptions: [#2220](https://github.com/storytold/pdfcraft/pull/2220)
+  repairs only selected xref anomalies; [#1634](https://github.com/storytold/pdfcraft/pull/1634)
+  bounds background preparation but does not interrupt an active parse;
+  [#3415](https://github.com/storytold/pdfcraft/pull/3415) indexes fallback
+  candidates but retains a capped repeated-scan path; and
+  [#3416](https://github.com/storytold/pdfcraft/pull/3416) adds a second bounded
+  worker while documenting that two stalled workers still block the queue.
+  The PRs use synthetic fixtures, not the reporter's Windows file. Varve's
+  PDF importer is a heuristic artwork importer, not a reader or OS-open
+  document path; its current synchronous whole-file decode is a separate
+  responsiveness boundary worth testing for large PDFs. The stale-xref/COS
+  scan and single-instance failure do not transfer directly, so no code change
+  is claimed. Issues #625, #2458, #1937, #2384, and #1449 mentioned as
+  possibly-related remain in the recursive evidence queue; the thread had no
+  PDF attachment to follow.
 - **#3496, active text draft omitted by Save — already handled.** The editor
   drains registered pending edits before save revision capture, and lifecycle
   paths drain before termination decisions. See §4.1 and
