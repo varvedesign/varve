@@ -1960,3 +1960,60 @@ Varve toggle; #3609's Snap-only dropdown report does not establish a native
 webview defect. Website impact: no public marketing claim follows from these
 upstream reports. If #3614 ships, update relevant typography help only after
 review and release; avoid changing homepage/demo claims before then.
+
+## C1 issues #3631–#3833 (pages 35–36)
+
+The two pages contribute 51 issues, 149 separate PR records, and 103 comments;
+all bodies and comment pages reconcile. Upstream-linked fixes were checked for
+flex-child z-index (#3641), WOFF2 (#8367, preceding batch), eyedropper alpha
+sampling (#3814), and JSON serialization truncation (#4760). Varve already has
+ruler-unit preferences and drawing snap preferences; those are route checks,
+not inferred gaps.
+
+High-risk distinct reproductions include #3661 pixelated/broken image boards
+while zooming or panning, #3662 transient flex dismantling after navigating
+away and back, #3681 locked-board pixelation, #3683 inactive-page typography
+asset invalidation, #3684 fit-content geometry after deletion, #3778 items
+missing after delete/undo/reload, #3782 mixed-style auto-width shrink, #3784
+flex child geometry after copy/paste then delete/hide, #3810 touch coordinates
+and pinch, and #3824 missing thumbnails versus moved multipage geometry. Their
+original files or device details are unavailable; no Varve defect is claimed.
+
+#3754 is a grounded feature opportunity: copy/paste selected style properties,
+including a multi-shadow stack, with predictable selection behavior and one
+undoable operation. It maps to a new style-transfer command using the existing
+clipboard/command history instead of duplicating whole scene objects. This is a
+strong candidate for a bounded implementation batch after corpus evidence and
+route checks. Other feature requests (#3751 canvas destination selection,
+#3774 component history visualization, #3818 searchable board presets, #3833
+resizable inspector) remain product decisions. Website impact: these upstream
+reports do not justify new marketing claims; a verified style-transfer feature
+would first update in-app help/docs and only affect public website copy if it is
+included in a published release.
+
+## C1 issues #3839–#4031 (pages 37–38)
+
+The two pages contain 34 issue records, 166 separate PR records, and 81
+comments; all bodies and comment totals reconcile. Upstream fixes for custom
+stroke dashes (#9005), board/group palette traversal and open-path continuation
+(#4020) were reviewed. Varve already provides custom dash patterns, group
+shadows, automatic backups, Playwright E2E, and endpoint continuation; exact
+route parity is retained where the reported interaction differs.
+
+#3928 is the clearest potential defect: Penpot's fixed-position prototype
+source opened an overlay at the top-left despite a configured position. Varve's
+prototype action path carries overlay position, but the runtime may drop it
+when applying the action result. Reproduce with a fixed source and separately
+positioned target in the shipping preview before making the smallest runtime
+repair. #3885 eyedropper reports conflict on whether a board is present; #3905
+lacks the failing file; #3941 is a narrow direct palette-to-unfilled-board
+interaction, not a general color-paint failure. Keep those conditions intact.
+
+Page 38 also reports open-path continuation (#3998), already implemented in
+Varve's PenTool, and color swatch application to unfilled boards (#3941), which
+warrants one direct inspector check. Other feature opportunities are searchable
+style-scope product requests: #3884 API automation, #3901 semantic export
+sections, #3908 project-level archives, #3909 operation history, #3928 overlay
+placement if confirmed, #4010 code-driven components, and #3833 panel resizing.
+No website claim follows from upstream reports; only verified released
+capabilities should change public marketing copy.
