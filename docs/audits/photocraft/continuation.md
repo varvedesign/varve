@@ -67,13 +67,22 @@ Last updated: 2026-10-21 (session 10).
   hardware validation lead, not a confirmed gap. The other three are reader or
   PDF-content workflows without an established direct Varve analogue.
 - Five Cutoff-D rows now have source mapping: #3409 matches an unchecked
-  staging-file close limitation; #3496 and #3755 map to existing Varve save
+  staging-file close limitation and has an implementation plus passing
+  injected-failure test in the current local diff; #3496 and #3755 map to existing Varve save
   and history protections; #3555 is an adjacent cross-restart viewport
-  opportunity; #3793 remains device-specific validation. The bounded docs
-  validation passes; no code change followed from these source checks yet.
-- Next: follow the cross-platform close-error design for #3409 and verify the
-  remaining high-risk save/undo and Unicode/text-input candidates against
-  Varve source and recursively follow their concrete PRs/samples;
+  opportunity; #3793 remains device-specific validation.
+- Targeted native validation passed:
+  `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib atomic_write_does_not_publish_when_staging_close_fails`
+  (1 passed). `verify:plan` requires a full gate for the desktop dependency
+  change. `pnpm verify:full --local` passed format/lint, emoji, and health, then
+  its tool session disappeared during `audit-architecture.mjs --ci`; process
+  inspection confirmed the gate/audit processes had exited, but the durable
+  operation record still says `running` with no terminal result. Do not report
+  it as passed or restart until the operation record is properly reconciled.
+- Next: recursively follow #3409's linked error-handling evidence and verify
+  the new Unix/Windows close paths in CI; then verify the remaining high-risk
+  save/undo and Unicode/text-input candidates against Varve source and linked
+  PRs/samples;
   separately inspect the Wacom and Synaptics input paths before considering
   changes. Update per-issue dispositions with file-backed evidence, then
   continue monitoring PR #155 without bypassing required checks. Integrate the

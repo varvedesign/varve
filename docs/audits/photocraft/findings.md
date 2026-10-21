@@ -1309,7 +1309,7 @@ The reviews surfaced these strongest candidates for source-level follow-up:
 
 | Reports | Transferable failure family | Varve check / current boundary |
 |---|---|---|
-| #3409, #3496, #3555, #3755 | Save success, dirty state, file-watcher races, and undo continuity | #3496 is already handled by the pending-edit drain (§4.1). #3755's false conflict and undo-loss family is guarded by content-hash comparison and persistent history; no ctime-based active-file reload path was found. #3409 does expose a matching limitation in Varve's writer (details below). #3555 is a distinct persistent viewport-restoration opportunity, not a PDF reader defect. |
+| #3409, #3496, #3555, #3755 | Save success, dirty state, file-watcher races, and undo continuity | #3496 is already handled by the pending-edit drain (§4.1). #3755's false conflict and undo-loss family is guarded by content-hash comparison and persistent history; no ctime-based active-file reload path was found. #3409 exposed an unchecked staging close and is fixed in this branch (details below). #3555 is a distinct persistent viewport-restoration opportunity, not a PDF reader defect. |
 | #3421, #3444, #3481, #3505, #3519, #3592, #3597, #3601, #3604, #3684, #3687, #3707, #3713, #3769 | Unicode entry, bidi caret movement, glyph coverage, and text selection | Varve has a distinct text/font/shaping path. Treat PDF font/resource failures as evidence for tests and diagnostics, not proof of a Varve defect; inspect Arabic/Indic/CJK fallback and spaces in Varve's supported text path. |
 | #3446, #3464, #3650, #3665, #3736, #3793 | Canvas input, touchpad gestures, device-specific pointer handling, and window presentation | Varve already has a native Linux touchpad pinch bridge and pointer-type policy. #3793's user clarifies that a Synaptics touchpad scrolls too slowly and pinch does not work on KDE Plasma 6.8 / Arch; this remains a device-level validation gap, not a confirmed Varve failure. #3650's Wacom report likewise needs comparison with Varve's Tauri event path and supported hardware. |
 | #3437, #3474, #3518, #3541, #3620, #3651, #3693, #3747, #3780 | Direct manipulation, live feedback, transformed hit testing, and selection/deletion invariants | Map only after inspecting the exact Varve tool and whether the reported PDF operation has a native analogue. The callout body/tail drag improvement is already implemented and visually validated in this branch. |
@@ -1327,26 +1327,26 @@ touchpad report above; #3795 requests browser-style middle-button auto-scroll,
 which is not established as a Varve requirement; and #3797 concerns editing
 text already inside a PDF, which Varve's limited importer does not support.
 
-The next source-review pass should resolve the highest-risk save/undo and text
-input candidates first, then the platform input reports. It must inspect
+The next source-review pass should resolve the remaining high-risk save/undo
+and text-input candidates, then the platform input reports. It must inspect
 linked fixes/PRs and attachments where they contain the only reproduction,
 and verify current Varve behavior before changing code or marketing claims.
 
 ### Focused source checks completed
 
-- **#3409, atomic save close errors — matching limitation found.**
-  `apps/desktop/src-tauri/src/lib.rs::write_file_atomic` checks `write_all`
-  and `sync_all`, then drops the staging `File` and publishes it with rename.
-  As in the PdfCraft report, Rust's ordinary file drop cannot return a close
-  error, so Varve cannot currently turn that failure into a failed save before
-  publication. The issue asks for safe, cross-platform checked close behavior.
-  [Nix offers a safe consuming close API on Unix](https://docs.rs/nix/latest/nix/unistd/fn.close.html),
-  but Varve does not depend on Nix directly; [Rustix's default close
-  intentionally ignores close errors](https://docs.rs/rustix/latest/rustix/io/fn.close.html).
-  A Windows implementation needs its own safe handle contract. This pass records
-  the defect class but does not add a partial Unix-only workaround. A real fix
-  needs a reviewed cross-platform abstraction and fault-injected tests proving
-  close failure prevents rename and preserves the original destination.
+- **#3409, atomic save close errors — implemented in this branch.**
+  `apps/desktop/src-tauri/src/lib.rs::write_file_atomic` now checks the
+  staging-file close before atomic replacement. Rust documents that ordinary
+  `File` drop ignores close errors ([`std::fs::File::sync_all`](https://doc.rust-lang.org/std/fs/struct.File.html#method.sync_all)).
+  Varve uses [`io-close` 0.3.7](https://docs.rs/io-close/0.3.7/io_close/)'s
+  safe `Close` trait for Unix file descriptors and Windows handles. A close
+  error prevents publication; the existing cleanup removes the staging file
+  and preserves the original destination. The injected regression
+  `atomic_write_does_not_publish_when_staging_close_fails` passed. The crate
+  contains the OS-specific unsafe operations internally; Varve adds no unsafe
+  close code. The local full-gate operation was interrupted during the
+  architecture audit before completion, so that gate is not reported as
+  passed.
 - **#3496, active text draft omitted by Save — already handled.** The editor
   drains registered pending edits before save revision capture, and lifecycle
   paths drain before termination decisions. See §4.1 and

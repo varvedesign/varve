@@ -32,6 +32,7 @@ chrono = "0.4"
 varve-core = { path = "../../../crates/varve-core" }
 varve-engine = { path = "../../../crates/varve-engine" }
 notify = "8"
+io-close = "0.3.7"
 font-enumeration = "0.9"
 varve-sync = { path = "../../../crates/varve-sync" }
 varve-print = { path = "../../../crates/varve-print" }

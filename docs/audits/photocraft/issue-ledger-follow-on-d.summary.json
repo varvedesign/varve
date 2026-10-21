@@ -127,10 +127,11 @@
   },
   "new_issue_dispositions": {
     "pending_varve_mapping": 198,
-    "screened_for_varve": 3,
-    "already_handled": 2
+    "screened_for_varve": 2,
+    "already_handled": 2,
+    "implemented": 1
   },
   "non_atomic_caveat": "Issue, search, pull-request, and comment endpoints were retrieved sequentially rather than atomically; record their actual timestamps. Issue enumeration and open/closed counts reconcile, and all prior ledger IDs remain present.",
-  "note": "Cutoff-D bodies and full current comment threads have now been individually read for all 203 new issue IDs. This is source review coverage only: Varve subsystem mapping, recursive linked evidence/attachments, and engineering dispositions remain pending per issue. Raw issue pages, pull pages, search responses, and comment JSON remain outside Git under /tmp. Earlier issue pages and comments were read from the timestamped snapshot; no release or fix status is inferred from tracker state or bot-suggested links. Source mapping has been completed for five representative rows: #3496 and #3755 match existing Varve defenses; #3409 exposes the same unchecked staging-file close limitation; #3555 is a separate persistent viewport-restoration opportunity; and #3793 remains hardware-specific validation.",
+  "note": "Cutoff-D bodies and full current comment threads have now been individually read for all 203 new issue IDs. This is source review coverage only: Varve subsystem mapping, recursive linked evidence/attachments, and engineering dispositions remain pending per issue. Raw issue pages, pull pages, search responses, and comment JSON remain outside Git under /tmp. Earlier issue pages and comments were read from the timestamped snapshot; no release or fix status is inferred from tracker state or bot-suggested links. Source mapping has been completed for five representative rows: #3496 and #3755 match existing Varve defenses; #3409 exposes the same unchecked staging-file close limitation; #3555 is a separate persistent viewport-restoration opportunity; and #3793 remains hardware-specific validation. #3409 is implemented with a cross-platform checked close before staging-file publication; the focused injected-failure native regression passes. The planner-required local full gate remains incomplete after the architecture audit process ended without a terminal result.",
   "source_reviewed_issue_ids": [3409, 3496, 3555, 3755, 3793]
 }
