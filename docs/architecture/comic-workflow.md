@@ -120,9 +120,10 @@ text identities never change.
 The group is selected as a whole on the canvas; pointed-tail tip and bend
 handles appear for direct adjustment, while the body and text are reached
 through the layer tree, and the text node remains a normal editable `TextNode`.
-The body still moves and resizes with the group as a whole; independent body
-move/resize handles remain follow-up work. This is the existing scene
-container/deep-selection model, not a comic-only selection mode. Double-clicking anywhere on a balloon —
+The body and text can also be moved independently with the body handle while
+each tail tip stays anchored; independent body resize handles remain follow-up
+work. This is the existing scene container/deep-selection model, not a
+comic-only selection mode. Double-clicking anywhere on a balloon —
 the group, the body, or a tail — starts editing the bound dialogue directly
 (the canvas hit-test returns the callout group, so the ancestor walk resolves
 the recipe instead of entering group isolation).
