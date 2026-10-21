@@ -13,6 +13,7 @@ import {
   commonGitDirectory,
   finishOperation,
   formatOperation,
+  gitOperationState,
   listOperations,
   recoverInterruptedOperations,
   sanitizeRemoteUrl,
@@ -24,6 +25,7 @@ const fixtureRoot = mkdtempSync(join(tmpdir(), 'varve-operation-history-repo-'))
 try {
   execFileSync('git', ['init', '-q'], { cwd: fixtureRoot });
   assert.equal(commonGitDirectory({ cwd: fixtureRoot }), join(fixtureRoot, '.git'));
+  assert.equal(gitOperationState({ cwd: fixtureRoot }).gitDir, join(fixtureRoot, '.git'));
 
   assert.equal(
     sanitizeRemoteUrl('https://user:token@example.test/varve.git?access_token=secret'),
