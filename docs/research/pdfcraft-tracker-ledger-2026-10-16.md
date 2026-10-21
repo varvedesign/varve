@@ -13,6 +13,12 @@ Issues were read through the GitHub REST API (authenticated `gh`) on
 labels (**1,296 issues** across open/duplicate/rejected/historical reports,
 plus 1,682 pull requests retained as linked evidence), and every one of the 883
 issues carrying comments had its discussion fetched (1,717 comments).
+
+**Cutoff 2** re-crawled the whole tracker on 2026-10-21T19:31:27Z→19:32:41Z:
+3,903 records (1,790 issues, 2,113 pull requests), 494 new issues, 184
+closures, and 5,990 comments including pull-request threads. Its findings and
+the decisions they changed are in the [Cutoff 2](#cutoff-2--2026-10-21) section
+at the end of this document.
 Inventory, coverage accounting, cluster verdicts and the machine-readable
 per-issue ledger live in [`docs/audits/pdfcraft/`](../audits/pdfcraft/README.md)
 (`issue-ledger.tsv`).
@@ -97,3 +103,41 @@ These hold across the whole backlog and are independent of any single issue.
 | pdfcraft #2684, #2873, #2922, #2430, #2536, #2472, #2850, #2830, #2676, #2692, #2563 | open, *reproduced* | Crashes and failures sending a document to a print queue; printers missing; print capabilities unparsable on specific drivers | Device printing is a platform capability with a long tail | **Outside Varve's scope today, verified:** there is no device-printing workflow to break — `Platform.printPdf` and `listPrinters` are implemented and *uncalled* (`packages/platform/src/tauri.ts:814`). Recorded so that a future print-to-device surface starts from this backlog rather than from scratch |
 | pdfcraft #2806, #526 | open/closed, *reproduced* | Export to Word drops text after a web address and drops text colour | Office interchange has its own fidelity contract | **Outside Varve's scope.** No `.docx` reader or writer. Varve's interchange claims are limited to SVG/PSD/Sketch/Figma/PDF import and its own formats |
 | pdfcraft #2413, #2457, #2488, #1821 | open/closed, *reproduced* | OCR text layers: a line edit reports nothing, `Tz`-condensed text loses repeated letters, the browser build offers OCR it cannot run | A text layer is not a text model; and an offered capability must be runnable where it is offered | **Outside Varve's scope for OCR** (no OCR surface). Two parts *do* transfer and are recorded: `#2457`'s letter-dropping is a heuristic-dedup defect Varve's tokenizer cannot produce (batch 1 tokenizes `Tz` arithmetic instead of deduplicating), and `#2488`'s "offered but non-functional in the browser build" is the same product-truth rule Varve applies to its `/try/` demo (`docs/architecture/browser-demo.md`) |
+
+## Cutoff 2 — 2026-10-21
+
+The tracker was re-crawled through the same listing endpoint with Link
+pagination at `2026-10-21T19:31:27Z`–`19:32:41Z`: 3,903 records (1,790 issues,
+2,113 pull requests), reconciled exactly against the repository's
+`open_issues_count` (1,044 open issues + 843 open PRs = 1,887). **494 issues
+were created after cutoff 1** (2,981–3,905), 184 cutoff-1 issues closed, and
+338 were updated. The repository-wide comments endpoint returned 5,990
+comments, which also covers pull-request threads — the cutoff-1 gap.
+
+Per-issue rows: [`../audits/pdfcraft/issue-ledger-cutoff2.tsv`](../audits/pdfcraft/issue-ledger-cutoff2.tsv).
+
+### What the new issues added
+
+| Family | New evidence | What it changed here |
+|---|---|---|
+| Glyph coverage (largest family again: ~50 new reports) | 2981 Thai, 3127 Korean, 3167 Bengali, 3196 Hebrew fallback missing from a *shipped build*, 3202 Polish diacritics, 3258 Cyrillic, 3389/3505 CJK tofu, 3601 U+2002 falling back to a box, 3604 Greek invisible, 3707 Japanese kana, 3845 characters vanishing after edit | Confirmed the class is still open in a sibling app and sharpened the Varve finding: the canvas falls back per glyph, the PDF writer outlines the authored face, and the registry-derived catalog carried an empty `unicodeRanges` list so the existing `missing-glyph` status could never fire. Batch 2 reads the coverage of the exact embedded binaries and reports the gap. |
+| Minification quality | 2984, 3250 ("over-sharpened"), 3267, 3351, 3461, 3687, 3872 | Batch 3: export now applies the compositor's `imageSmoothingQuality: 'high'` policy. The "over-sharpened" report is what made `/Interpolate` a deliberate *non*-change: a reader hint that smooths upscaled artwork would trade one artefact for another and does not shrink the file. |
+| Hidden / non-painting content | 2986 (CAD layers drawn), 3029 (OCR layer leaves `3 Tr` set), 3109, 3115, 3211/3213/3214, 3429, 3644 | Batch 9: `/OCProperties /D` visibility and `Tr` render modes are honoured on import, with counts and layer names in Import Results. |
+| Encrypted documents | 3450, 3904 (RC4 R=3, no password prompt) | Batch 9 refuses `/Encrypt` with an explanation. The refusal exposed a reporting defect — "imported with fidelity changes" for a file whose pages were never read — fixed by an explicit `failure` field on `ImportResult`. |
+| Inline-image termination | 3107, 3108, 3578, 3579 | Varve already skipped image data as opaque bytes; batch 9 additionally terminates at `EI` followed by a delimiter, which is how a real producer ends the image. |
+| Mixed orientation | 3884 (orientation-changing pages crash the renderer) | Batch 6 verified Varve's model: per-page width/height, with a round-trip test covering three orientations in one document. |
+| Text identity | 3496 (save mid-edit reported success), 3577, 3744 | Already handled upstream by authored-id targeting and the pending-edit flush; verified, not re-implemented. |
+| Vertical writing | 3216 (`Identity-V` measured horizontally), 3711 (tate-chu-yoko digits), 3712 (upright glyph placement), 3713 (character spacing) | **Recorded as a real Varve import gap**, not an exclusion: Varve authors vertical text, but the PDF importer maps every run horizontally. Queued as the next fidelity batch. |
+
+### Decisions that are deliberately *not* implementations
+
+- **`/Interpolate` is not set on PDF images.** It is a reader hint that also
+  smooths upscaled artwork (pixel art), and it does not reduce file size. The
+  PDF contract is now stated in `docs/architecture/export-resolution.md`:
+  full-resolution data is embedded and the reader resamples.
+- **Glyph coverage is reported, not repaired.** Substituting a face would change
+  the document's appearance without being asked; the warning names the
+  characters, the font and the number of objects so the user can decide.
+- **Closures are not proof.** The 184 cutoff-1 closures were checked against the
+  cluster map; the closed classes are redaction, printing, forms, signature and
+  Office interchange — all still outside Varve's scope.

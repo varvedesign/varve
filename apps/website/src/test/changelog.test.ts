@@ -310,6 +310,16 @@ describe('parseChangelogFile', () => {
     expect(versions).toContain('0.2.1');
     expect(versions).toContain('0.1.0');
 
+    // The lookup must read *this* checkout. A worktree nested under the
+    // primary checkout used to resolve `cwd/../..` to that other checkout, so
+    // the site could publish a different branch's changelog.
+    const unreleasedText =
+      releases
+        .find((r) => r.isUnreleased)
+        ?.sections.map((s) => s.entries.map((e) => e.html).join(' '))
+        .join(' ') ?? '';
+    expect(unreleasedText).toMatch(/PDF import no longer invents content/);
+
     const v051 = releases.find((r) => r.version === '0.5.1');
     expect(v051?.date).toBe('2026-10-15');
     const v051Text =

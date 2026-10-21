@@ -1,0 +1,50 @@
+{
+  "source": "storytold/pdfcraft",
+  "cutoff": 2,
+  "retrieved": {
+    "list_started": "2026-10-21T19:31:27Z",
+    "list_finished": "2026-10-21T19:32:05Z",
+    "comments_finished": "2026-10-21T19:32:41Z"
+  },
+  "method": {
+    "list_endpoint": "GET /repos/storytold/pdfcraft/issues?state=all&per_page=100&sort=created&direction=asc",
+    "pagination": "Link-header pagination via gh api --paginate; 40 pages, no per_page shortcut",
+    "comments_endpoint": "GET /repos/storytold/pdfcraft/issues/comments?per_page=100&sort=created&direction=asc",
+    "search_endpoint_used": false
+  },
+  "totals": {
+    "records": 3903,
+    "issues": 1790,
+    "pull_requests": 2113,
+    "open_issues": 1044,
+    "open_pull_requests": 843,
+    "open_issues_plus_open_prs": 1887,
+    "repository_open_issues_count": 1887,
+    "issue_comments_retrieved": 5990
+  },
+  "cutoff1_comparison": {
+    "issues_at_cutoff1": 1296,
+    "new_issues": 494,
+    "new_issue_numbers": "2981..3905",
+    "new_issues_open": 401,
+    "new_issues_closed": 93,
+    "new_issues_with_body": 493,
+    "new_issues_with_comments": 487,
+    "old_issues_closed_since_cutoff1": 184,
+    "old_issues_updated_since_cutoff1": 338,
+    "issues_missing_from_cutoff2": 0
+  },
+  "new_issue_dispositions": {
+    "implemented-validated": 47,
+    "outside-varve-scope": 165,
+    "cluster-assessed": 254,
+    "candidate": 18,
+    "verified-already-correct-": 9,
+    "deferred": 1
+  },
+  "reconciliation": {
+    "open_issues_plus_open_prs_equals_reported_count": true,
+    "duplicate_issue_numbers": 0,
+    "failed_requests": 0
+  }
+}

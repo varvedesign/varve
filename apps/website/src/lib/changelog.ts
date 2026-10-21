@@ -235,12 +235,16 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
  * parses it, and returns structured data ready for JSON serialization.
  */
 export function parseChangelogFile(repoRoot?: string): ChangelogRelease[] {
-  // During Astro SSR builds, import.meta.url points to the bundled chunk,
-  // not the original source file. Try common root locations:
-  //   1. Explicit repoRoot argument (preferred)
-  //   2. Two levels up from process.cwd() (standard: cwd = apps/website)
-  //   3. process.cwd() itself (vitest from repo root)
-  const candidates = repoRoot ? [repoRoot] : [join(process.cwd(), '..', '..'), process.cwd()];
+  // During Astro SSR builds, import.meta.url points to the bundled chunk, not
+  // the original source file, so the root has to come from the filesystem.
+  //
+  // Walking up from the working directory — instead of assuming a fixed
+  // `../..` depth — keeps the lookup correct when the checkout is nested. A
+  // git worktree created under `.worktrees/<name>` sits two levels below the
+  // primary checkout, so `cwd/../..` resolves to *that* checkout and the site
+  // would publish another branch's changelog. The nearest directory that has
+  // both a CHANGELOG.md and a package.json is the repository root.
+  const candidates = repoRoot ? [repoRoot] : repositoryRootCandidates();
 
   for (const root of candidates) {
     try {
@@ -252,4 +256,17 @@ export function parseChangelogFile(repoRoot?: string): ChangelogRelease[] {
   }
 
   throw new Error(`Could not find CHANGELOG.md. Searched: ${candidates.join(', ')}`);
+}
+
+/** Working directory and its ancestors, nearest first. */
+function repositoryRootCandidates(maxDepth = 8): string[] {
+  const roots: string[] = [];
+  let directory = process.cwd();
+  for (let depth = 0; depth < maxDepth; depth += 1) {
+    roots.push(directory);
+    const parent = join(directory, '..');
+    if (parent === directory) break;
+    directory = parent;
+  }
+  return roots;
 }

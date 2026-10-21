@@ -24,6 +24,15 @@ same defect. Every row below that claims Varve behaviour cites Varve code.
 | Labels | `priority: critical` 24, `high` 73, `medium` 149, `low` 65, none 985; `multiple issues` 66, `bug` 62, `duplicate` 49, `enhancement` 42, `needs info` 41, `regression` 1 |
 | Reconciliation | 827 open issues + 583 open PRs = 1,410, which equals the repository's reported `open_issues_count` — the inventory is complete for the cutoff, not merely the highest issue number |
 | Growth | the tracker was created 2026-09-30 and grew to 2,978 records in 17 days, so a second cutoff is required for completion (see Limitations) |
+| **Cutoff 2 — inventory** | `2026-10-21T19:31:27Z` → `2026-10-21T19:32:05Z`, same endpoint and Link pagination, 40 pages |
+| **Cutoff 2 — discussions** | `2026-10-21T19:32:41Z`; the repository-wide comments endpoint returned 5,990 comments, which covers issue *and* pull-request threads (cutoff 1 had crawled issue threads only) |
+| Cutoff 2 records | 3,903 (1,790 issues + 2,113 pull requests) |
+| Cutoff 2 reconciliation | 1,044 open issues + 843 open PRs = 1,887 = the repository's reported `open_issues_count`; 0 duplicate numbers, 0 failed requests, 0 cutoff-1 issues missing |
+| Cutoff 2 delta | **494 new issues** (401 open, 93 closed, numbers 2,981–3,905; 493 with bodies, 487 with comments), 184 cutoff-1 issues closed since, 338 cutoff-1 issues updated since |
+
+Cutoff-2 rows are in [`issue-ledger-cutoff2.tsv`](issue-ledger-cutoff2.tsv) with a
+`cutoff2` marker; cutoff-1 rows are never rewritten. Machine-readable totals:
+[`issue-ledger-cutoff2.summary.json`](issue-ledger-cutoff2.summary.json).
 
 Pull requests returned by the issue endpoints were separated from issues.
 1,682 PRs were retained as linked evidence; their own discussions (1,113 PRs
@@ -72,6 +81,15 @@ Counts at cutoff 1: `cluster-assessed` 1,156 · `candidate` 75 ·
 `verified-already-correct-` 6 · `deferred` 4. 166 rows are individually
 adjudicated; the rest inherit a cluster verdict.
 
+Counts for the 494 cutoff-2 issues: `cluster-assessed` 254 ·
+`outside-varve-scope` 165 · `implemented-validated` 47 · `candidate` 18 ·
+`verified-already-correct-` 9 · `deferred` 1. 92 of those rows are
+individually adjudicated (title, labels, body, and the discussion where it
+changed the reading); the rest inherit a cluster verdict with a stated reason.
+The 184 cutoff-1 closures were checked against the cluster map: none changed a
+Varve disposition, because the closed classes are redaction, printing, forms,
+signature and Office interchange, all of which remain outside Varve's scope.
+
 ## Cluster verdicts
 
 | Cluster | Issues | Verdict |
@@ -100,60 +118,67 @@ adjudicated; the rest inherit a cluster verdict.
 | Batch | Finding | Status |
 |---|---|---|
 | 1 | PDF import cannot read a real PDF; mirrored geometry; dropped encodings; merged pages; unreported omissions | **implemented and validated** — `packages/import/src/pdf/`, commit `21f059e8d` |
-| 2 | Text that a resolved font cannot cover renders as `.notdef`/blank on canvas, raster export and PDF export with no warning | candidate, verified class-present |
-| 3 | Export surfaces minify full-resolution images with browser-default smoothing, and the PDF writer embeds full-resolution data with no `/Interpolate` | candidate, verified partially-present |
-| 4 | Blend modes over a transparent backdrop | verified sound; pinning tests queued |
-| 5 | Preflight/audit reporting "clean" for artwork the user cannot see | verification in progress |
-| 6 | Page rotation, page count and output size surviving save/reopen/export | verification in progress |
-| 7 | Text edit identity (paragraph indices, property loss on re-edit) | candidate |
-| 8 | Autosave scheduling tied to repaint; failed-autosave retry suppression | deferred — `packages/editor/src/context/usePersistence.ts` is being edited by another session; two writers on one file is worse than a delay |
+| 2 | Text that a resolved font cannot cover renders as `.notdef`/blank in PDF export with no warning | **implemented and validated** — `packages/editor/src/export/glyphCoverage.ts`; the canvas already falls back per glyph, so the defect was the silent canvas/PDF disagreement, not a blank canvas. Commit `90f1e01d6` |
+| 3 | Export surfaces minify full-resolution images with browser-default smoothing | **implemented and validated** — `applyRasterSmoothingPolicy` (`packages/engine/src/raster.ts`) is now shared by `renderRaster` and the editor export surface. `/Interpolate` is deliberately not set: it is a reader hint that also smooths upscaled artwork and does not reduce file size; the PDF contract is documented in `docs/architecture/export-resolution.md`. Commit `3ed8e6a03` |
+| 4 | Blend modes over a transparent backdrop | **verified sound and pinned** — every separable mode over alpha 0, the transparent-source direction, and the opaque-white-matte contrast case. Commit `3bfe7c04b` |
+| 5 | Preflight/audit reporting "clean" for artwork the user cannot see | verified at the rule level: no Varve preflight result may read as a completeness guarantee the check does not provide (ADR-0242 §6). No Varve check was found that reports a false clean for imported content, because hidden content is no longer imported (batch 9) |
+| 6 | Page rotation, page count and output size surviving save/reopen/export | **verified for save/reopen** — Varve's page-rotation model is per-page width/height, and a mixed-orientation document round-trips with order and node positions intact (commit `340262b60`). Export page geometry is the native writer's contract and is covered by `tests/e2e/export/native-pdf-contract.spec.ts`, not by a browser unit test |
+| 7 | Text edit identity (paragraph indices, property loss on re-edit) | already handled upstream: edits target authored node ids (ADR-0242), and the draft/target-switch paths are covered by `context/pendingEdits.ts` with `tests/e2e/save/text-draft-save.spec.ts` and `text-target-switch.spec.ts` |
+| 8 | Autosave scheduling tied to repaint; failed-autosave retry suppression | deferred — `packages/editor/src/context/usePersistence.ts` belongs to another session; two writers on one file is worse than a delay |
+| 9 | PDF import invents content the page does not show: invisible/clip-only text, hidden optional-content layers, encrypted files imported as blank pages, and an inline image whose `EI` is followed by a delimiter | **implemented and validated** — `/OCProperties` visibility, `Tr` render modes, `/Encrypt` refusal with a failure status, and delimiter-terminated `EI`. Commits `3bdd3e336`, `bb2f53d24`; browser evidence in `tests/e2e/import/pdf-import-integrity.spec.ts` and `docs/screenshots/pdfcraft/` |
 
 ## Limitations (unresolved)
 
 These are honest gaps, not completions:
 
-1. **Second cutoff not taken.** The tracker grows by roughly 170 records a day.
-   Completion requires a reconciliation pass at a later cutoff for issues
-   created or materially changed after `2026-10-17T04:41:58Z`. They are not
-   covered by this record.
-2. **Pull-request discussions not crawled.** 1,113 PRs have comments; only PRs
-   referenced by an issue were considered. A fix described in a PR thread is
-   therefore evidence this record has not read.
-3. **Attachments not retrieved.** 431 body references point at screenshots,
-   recordings and reproduction files. Bodies were read as text, so a claim that
-   exists only in an image was not assessed.
-4. **No PDFCraft runtime reproduction.** No PDFCraft build was installed:
+1. **Cutoff 2 is the final corpus boundary for this pass.** 494 new issues and
+   184 closures were adjudicated through `2026-10-21T19:32:41Z`. The tracker
+   grows by roughly 170 records a day; anything created after cutoff 2 is a
+   follow-on queue, not part of this coverage claim.
+2. **Attachments not retrieved.** Body references point at screenshots,
+   recordings and reproduction files. Bodies, labels, states and discussion
+   text were read; a claim that exists only inside an image was not assessed.
+3. **No PDFCraft runtime reproduction.** No PDFCraft build was installed:
    every PDFCraft-side statement is *reported* or *code-anchored*, never
    reproduced here. Varve-side statements marked `audit` were read from source;
-   only batch 1 is `reproduced-in-varve`.
-5. **Priority is skewed.** 985 of 1,296 issues carry no priority label, so
-   adjudication could not be restricted to a labelled high-severity set; the
-   second-pass title scan (69 issues) covers the mechanism-bearing subset but
-   not every unlabelled body.
-6. **In-flight work is not evidence.** `packages/editor/src/persistence/saveTruthfulness.ts`,
-   `packages/scene/src/nodeResize.ts` and other uncommitted files in the shared
-   checkout belong to another session. They are referenced as context for
-   *which* classes are already being handled, never as proof that a class is
-   closed; nothing was marked verified on their strength.
-7. **Native/platform surfaces unverified.** No Tauri desktop build was run, so
-   print-to-device, WebKitGTK rendering and native export paths are
-   source-inspected only.
+   batches 1, 2, 3, 4, 6 and 9 are `reproduced-in-varve` (unit or browser
+   evidence).
+4. **Priority is skewed.** Most issues carry no priority label, so adjudication
+   could not be restricted to a labelled high-severity set. Cutoff 2 read every
+   title and label, and adjudicated individually every row whose title stated a
+   mechanism in a class Varve has.
+5. **Native/platform surfaces unverified.** No Tauri desktop build was run, so
+   print-to-device, WebKitGTK rendering, the native PDF writer's `/Interpolate`
+   decision and platform-specific pointer behaviour are source-inspected only.
+6. **Vertical writing is a recorded gap.** Identity-V (`-v`) text is imported
+   as horizontal runs (rows 3216, 3711, 3712). Varve authors vertical text, so
+   this is a real import limitation, not an exclusion; it is queued rather than
+   implemented.
+7. **Two candidates are deferred, not closed.** The native atomic-save close
+   error path (`3409`) and autosave scheduling (`batch 8`) live in files owned
+   by another session in the shared checkout.
 
 ## Continuation record
 
-Next operations, in order:
+Cutoff 2 is taken and reconciled; batches 1–6 and 9 are complete or recorded
+with reasons. What remains, in priority order:
 
-1. Take **cutoff 2** (`state=all` reconciliation against the frozen ID set) and
-   adjudicate only new or materially changed issues; add them to the ledger
-   with a `cutoff2` marker rather than mutating cutoff-1 rows.
-2. Land batch 2 (glyph coverage / fallback) after the measurement-parity
-   verification returns; the acceptance criteria are in the research ledger.
-3. Land batch 3 (export minification quality and `/Interpolate`).
-4. Add the batch-4 pinning tests for blend-over-transparent.
-5. Close out batches 5–8 or record them as unresolved with reasons.
-6. Re-run the affected validation, then `pnpm verify:push` for anything leaving
-   the machine.
+1. **Vertical-writing import** (rows 3216/3711/3712): map `Identity-V` runs and
+   `Tz`-upright placement into Varve's vertical text model, with a round-trip
+   test. This is the largest remaining fidelity gap found in the corpus.
+2. **Batch 8 (interaction)**: verify cursor ownership over chrome (rows 3001,
+   3383, 3871), overlay placement with two menus (3190), and small-window
+   clipping (3097, 3557, 3559). Each is a verification first; no UI change is
+   assumed.
+3. **Row 3409 / batch 8 save paths**: land once the owning session releases
+   `usePersistence.ts` and the native save path.
+4. **Row 3309**: add a bounded-depth guard to scene traversal for deeply nested
+   imported groups, with a fixture that would otherwise recurse without bound.
+5. **Row 3634/3504**: a per-node export deadline and a single decode-cap
+   contract shared by render and export, if measurement shows they diverge.
 
-State at handoff: branch `master`, batch 1 committed as `21f059e8d`; the shared
-checkout also carries another session's uncommitted work, which this review did
-not touch, stage, or revert.
+State at handoff: branch `codex/pdfcraft-continuation-20261021`, cut from
+`origin/master` at `2e8c5b018`, with the cutoff-1 batch cherry-picked onto it so
+the review is reviewable without the unpushed local history. Commits: batch 9
+`3bdd3e336`, batch 2 `90f1e01d6`, batch 3 `3ed8e6a03`, batch 4 `3bfe7c04b`,
+batch 6 `340262b60`, refusal reporting `bb2f53d24`.
