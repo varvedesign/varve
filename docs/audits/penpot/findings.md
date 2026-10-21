@@ -1931,3 +1931,32 @@ matching browser render remains to verify. #3326/#3394 ask for stable external
 format guidance and need an explicit compatibility promise before docs or
 schema are expanded. No marketing change follows from these external reports;
 website claims should track only verified shipped and released behavior.
+
+## C1 issues #3425–#3627 (pages 33–34)
+
+The reviewed pages contain 50 issue records, 150 distinct PR records, and 139
+issue comments; each issue body and comment count was checked. The linked WOFF2
+implementation chain (#8248 replaced by merged #8367) confirms that Varve
+already accepts, parses, renders, and converts WOFF2 fonts, so #3521 needs no
+change. The Magic Wand (#3531) and Slice tool (#3580) are also already present
+in Varve.
+
+The strongest remaining route checks are #3483 clone/undo integrity, #3449
+zoom-dependent z-order, #3482/#3485 large shadow export, #3522 named-color
+identity through `.penpot` round-trip, and #3523 view-mode pointer targeting.
+Their source files or hosted documents were unavailable or require synthetic
+reproductions; keep those limitations explicit. #3495 is a separate M3 asset
+text-visibility condition from #3429. #3545's many-flow chooser is a possible
+viewport/accessibility improvement only after mapping Varve's presentation
+entry point. #3562 needs separate browser and native eyedropper checks. #3614
+is a grounded feature opportunity: superscript and subscript are already
+represented in Varve text data, but editor controls are absent; verify the
+codec, renderer and mixed-selection semantics before implementing controls.
+
+Other dispositions are recorded per issue: #3430 `foreignObject` remains
+excluded by Varve's SVG trust boundary; #3541's unused backend subsystem has no
+Varve equivalent; #3547's upstream asset-view persistence fix does not imply a
+Varve toggle; #3609's Snap-only dropdown report does not establish a native
+webview defect. Website impact: no public marketing claim follows from these
+upstream reports. If #3614 ships, update relevant typography help only after
+review and release; avoid changing homepage/demo claims before then.
