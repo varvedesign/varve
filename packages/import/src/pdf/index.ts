@@ -124,6 +124,7 @@ function failedResult(reason: string): ImportResult {
     document: createDocument('Imported PDF'),
     nodeIds: [],
     warnings: [reason],
+    failure: reason,
     unsupportedFeatures: ['The document could not be read at all'],
     capabilities: capabilitiesFor({
       multipage: false,
@@ -150,6 +151,7 @@ function encryptedResult(encryption: EncryptionInfo): ImportResult {
     document: createDocument('Imported PDF'),
     nodeIds: [],
     warnings: [reason],
+    failure: reason,
     unsupportedFeatures: ['The document is encrypted, so its pages, text and images were not read'],
     capabilities: capabilitiesFor({
       multipage: false,
@@ -378,10 +380,13 @@ function reportDiagnostics(
     );
   }
   if (diagnostics.hiddenRuns > 0 || diagnostics.hiddenRects > 0) {
+    const parts: string[] = [];
+    if (diagnostics.hiddenRuns > 0) parts.push(`${diagnostics.hiddenRuns} text run(s)`);
+    if (diagnostics.hiddenRects > 0) parts.push(`${diagnostics.hiddenRects} fill(s)`);
     const layers = [...diagnostics.hiddenLayers];
-    const named = layers.length > 0 ? ` from hidden layer(s): ${layers.join(', ')}` : '';
+    const named = layers.length > 0 ? ` (hidden layers: ${layers.join(', ')})` : '';
     unsupportedFeatures.push(
-      `${diagnostics.hiddenRuns} text run(s) and ${diagnostics.hiddenRects} fill(s)${named} are hidden in the document's default layer configuration and were not imported`,
+      `${parts.join(' and ')} were not imported: the document's default layer configuration hides them${named}`,
     );
   }
   if (diagnostics.unresolvedOptionalContent > 0) {
