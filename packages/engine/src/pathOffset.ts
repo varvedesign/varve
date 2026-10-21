@@ -70,10 +70,39 @@ function arcStepsFor(sweep: number, radius: number): number {
  */
 function pushRoundJoin(
   result: PathPoint[],
-  prev: { bx: number; by: number },
-  curr: { ax: number; ay: number; nx: number; ny: number },
+  prev: { ax: number; ay: number; bx: number; by: number },
+  curr: { ax: number; ay: number; bx: number; by: number; nx: number; ny: number },
   distance: number,
 ): void {
+  const prevDirX = prev.bx - prev.ax;
+  const prevDirY = prev.by - prev.ay;
+  const currDirX = curr.bx - curr.ax;
+  const currDirY = curr.by - curr.ay;
+  const cross = prevDirX * currDirY - prevDirY * currDirX;
+
+  // A round join rounds the OUTSIDE of a turn. On the inside the two offset
+  // lines converge and the boundary is their intersection: drawing an arc
+  // there scoops material out of the shape. The default inward offset (-8) hit
+  // this at every corner, losing |distance|·(√2−1) — 3.3 px on a 10 px offset.
+  if (cross * distance <= 0) {
+    const int = lineIntersection(
+      prev.bx,
+      prev.by,
+      prev.ax,
+      prev.ay,
+      curr.ax,
+      curr.ay,
+      curr.bx,
+      curr.by,
+    );
+    result.push(
+      int
+        ? { x: int[0], y: int[1], handleIn: null, handleOut: null }
+        : { x: curr.ax, y: curr.ay, handleIn: null, handleOut: null },
+    );
+    return;
+  }
+
   const cx = curr.ax - curr.nx * distance;
   const cy = curr.ay - curr.ny * distance;
   const fromAngle = Math.atan2(prev.by - cy, prev.bx - cx);
@@ -83,13 +112,16 @@ function pushRoundJoin(
   while (sweep < -Math.PI) sweep += 2 * Math.PI;
 
   const budget = MAX_OFFSET_POINTS - result.length - 1;
-  if (Math.abs(sweep) < 1e-4 || budget < 1) {
+  const radius = Math.abs(distance);
+  const idealSteps = arcStepsFor(sweep, radius);
+  if (Math.abs(sweep) < 1e-4 || idealSteps > budget) {
+    // Never emit a truncated sweep: a partial arc ends on a straight jump to
+    // the next join. Fall back to the corner instead.
     result.push({ x: curr.ax, y: curr.ay, handleIn: null, handleOut: null });
     return;
   }
 
-  const radius = Math.abs(distance);
-  const steps = Math.min(arcStepsFor(sweep, radius), budget);
+  const steps = idealSteps;
   for (let s = 0; s <= steps; s++) {
     const angle = fromAngle + (s / steps) * sweep;
     result.push({
@@ -178,6 +210,7 @@ export function offsetPath(
 
     if (joinStyle === 'round') {
       pushRoundJoin(result, prev, curr, distance);
+      if (result.length >= MAX_OFFSET_POINTS) break;
       continue;
     }
 

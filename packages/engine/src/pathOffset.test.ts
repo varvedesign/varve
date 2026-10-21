@@ -102,6 +102,46 @@ describe('offsetPath', () => {
     expect(arcPoints.length).toBeGreaterThanOrEqual(8);
   });
 
+  it('rounds only the outside: an inward round offset keeps sharp corners', () => {
+    // Regression: the arc was drawn on inner corners too, scooping
+    // |distance|*(sqrt(2)-1) out of every corner. The default Offset Path
+    // prompt is -8, so this was the default user path.
+    const pts = rectPath(0, 0, 100, 100);
+    const distance = 10;
+    const result = offsetPath(pts, true, -distance, 'round');
+
+    for (const p of result) {
+      expect(p.x).toBeGreaterThan(distance - 1e-6);
+      expect(p.y).toBeGreaterThan(distance - 1e-6);
+    }
+    // The eroded corner is the intersection of the two offset edges.
+    expect(
+      result.some((p) => Math.abs(p.x - distance) < 1e-6 && Math.abs(p.y - distance) < 1e-6),
+    ).toBe(true);
+  });
+
+  it('enforces the point ceiling across the whole path, not per join', () => {
+    // A spiky outline with enough vertices that per-join arcs exceed the global
+    // ceiling. Without the loop-level check the total grew with the vertex
+    // count even after the ceiling was reached.
+    const count = 8192;
+    const pts = Array.from({ length: count }, (_, i) => {
+      const a = (i / count) * Math.PI * 2;
+      const r = i % 2 === 0 ? 100 : 2;
+      return { x: Math.cos(a) * r, y: Math.sin(a) * r, handleIn: null, handleOut: null };
+    });
+    const result = offsetPath(pts, true, 10_000, 'round');
+
+    expect(result.length).toBeLessThanOrEqual(200_000);
+    // The cap was actually reached, so the assertion above is not vacuous.
+    expect(result.length).toBeGreaterThan(150_000);
+    expect(result.length).toBeGreaterThan(0);
+    for (const p of result) {
+      expect(Number.isFinite(p.x)).toBe(true);
+      expect(Number.isFinite(p.y)).toBe(true);
+    }
+  });
+
   it('keeps a sharp miter corner when the miter limit allows it', () => {
     const pts = rectPath(0, 0, 100, 100);
     const result = offsetPath(pts, true, 10, 'miter', 10);
