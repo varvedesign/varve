@@ -1,6 +1,6 @@
 # Continuation record
 
-Last updated: 2026-10-21 (session 12).
+Last updated: 2026-10-21 (session 13).
 
 ## Current checkpoint (authoritative)
 
@@ -9,13 +9,12 @@ Last updated: 2026-10-21 (session 12).
 - Current task worktree:
   `/home/kevina/CodingProjects/varve-callout-followup`; branch
   `codex/pdfcraft-callout-direct-manipulation-20261020`; last pushed at
-  `b9fd329ed` (Ubuntu 26.04 package-name repair).
+  `3f4811c1f` (Devanagari text report mapping).
   The shared main checkout and other worktrees are not owned by this task.
-- PR #155 targets `master` and is open at `b9fd329ed`. Build + Package,
-  Website Lighthouse, all 24 Playwright shards, visual regression, desktop
-  E2E on Linux/macOS/Windows, Rust, JS, WASM, and pipeline checks have passed
-  at this exact SHA. The final `CI / certification` adoption job is still
-  pending; recheck it before any merge.
+- PR #155 targets `master` and is open at `3f4811c1f`. Hosted E2E shard 21/24 failed in an existing motion timeline setup (`timeline-ruler` never appeared after “Create timeline”); the certification adoption job consequently failed for a 23/24 receipt count. Build + Package, Website Lighthouse, 23 of 24 Playwright shards, visual
+  regression, desktop E2E on Linux/macOS/Windows, Rust, JS, WASM, and pipeline
+  checks passed at this exact SHA. `CI / certification` failed downstream of
+  the missing shard receipt; recheck all status on the next exact head.
 - Callout improvement commits: `a62262d` (body drag with anchored tails,
   canvas handles plus Inspector, scene/Playwright regressions, docs/website),
   `c5069f5` (documentation correction after review). Integration/validation
@@ -65,7 +64,7 @@ Last updated: 2026-10-21 (session 12).
   (#3797). Varve already has a native Linux pinch bridge; #3793 is therefore a
   hardware validation lead, not a confirmed gap. The other three are reader or
   PDF-content workflows without an established direct Varve analogue.
-- Twelve Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
+- Thirteen Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
   concern is already covered by Varve's different persistence model: page
   deletion removes the subtree and prunes unreferenced image assets, while
   Save serializes the current `.varve` scene as a complete snapshot. PdfCraft
@@ -1397,3 +1396,6 @@ close the PdfCraft corpus review or mark the local affected triage as passed.
   evidence and sample files, and unresolved workflow findings remain in
   `findings.md` and `link-frontier.jsonl`. Continue those queues and complete a
   new reconciled cutoff before calling the overall assignment complete.
+
+- #3481 now maps PdfCraft's Arabic PDF comment-editor report (duplicate of #1851) to Varve's adjacent authored-text textarea, which uses `dir="auto"`; no PDF comment UI or Varve defect was found. Added a focused Arabic caret/insertion E2E regression. Planner format/lint/emoji and E2E typecheck passed; its browser phase is queued behind the active `e2e: adjacent export routes` shared lease (PID 1563043). The initial browser run reached the expected Arabic value assertion but failed later when the test tried to reopen a committed text edit; the assertion now checks committed layer text and captures the canvas. Re-run under the lease before claiming coverage.
+- The run at PR SHA `3f4811c1f` has one hosted E2E failure in shard 21/24: `tests/e2e/motion/timeline-keyframe-drag.spec.ts` timed out waiting for `.timeline-ruler` after clicking Create timeline. Its CI certification failure is downstream of that missing shard receipt. Investigate this test separately; do not infer the newer Arabic change caused the earlier failure.
