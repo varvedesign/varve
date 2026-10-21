@@ -241,3 +241,20 @@ Merging these changes touches `apps/website/**`, which triggers
 not a release: no tag, no installer, no version bump. It is covered by the
 instruction to update the marketing site and merge; it is reported separately
 from any release.
+
+## Committed visual evidence
+
+`docs/audits/vectorcraft/evidence/` holds the captures inspected during this
+review:
+
+| File | What it shows |
+|---|---|
+| `svg-font-fallback-chromium.png` | The same exported SVG text rendered in Chromium with and without the generic fallback: serif (before) versus sans-serif (after). This is the capture that revealed the unquoted form did not work. |
+| `svg-gradient-whole-document.png` | `exportDocumentToSvgAdvanced` output rendered in Chromium: flat dark rectangle (before) versus the red-to-blue gradient (after). |
+| `offset-path-round.png` | Canvas-only capture of the outward Offset Path result from the browser spec (written by the spec run into `reports/`, copied here). |
+| `offset-path-inward.png` | Canvas-only capture of the inward Offset Path result. |
+
+Screenshots are evidence of a specific run, not a claim about every platform:
+the SVG captures are Chromium on Linux at the recorded viewport, and the canvas
+captures are the Vite web build (stub renderer warning is visible in the run
+log), not the native Tauri path.
