@@ -315,6 +315,11 @@ describe('parseChangelogFile', () => {
     const v051Text =
       v051?.sections.map((s) => s.entries.map((e) => e.html).join(' ')).join(' ') ?? '';
     expect(v051Text).toMatch(/Tauri updater/);
+    expect(v051Text).toMatch(/toggling Settings/);
+    expect(v051Text).toMatch(/crash dialog/);
+    expect(v051Text).toMatch(/setting persists/);
+    expect(v051Text).not.toMatch(/honored at inference/);
+    expect(v051Text).not.toMatch(/background-removal entry points/);
     expect(v051Text).not.toMatch(/Generative Edit/);
 
     const v050 = releases.find((r) => r.version === '0.5.0');

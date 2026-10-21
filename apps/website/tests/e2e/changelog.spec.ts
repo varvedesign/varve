@@ -15,6 +15,10 @@ test.describe('changelog', () => {
     await expect(latest.locator('time')).toHaveAttribute('datetime', '2026-10-15');
     await expect(latest.getByText(/Tauri updater/)).toBeVisible();
     await expect(latest.getByText(/Update checks run only after/)).toBeVisible();
+    await expect(latest.getByText(/toggling Settings/)).toBeVisible();
+    await expect(latest.getByText(/crash dialog/)).toBeVisible();
+    await expect(latest.getByText(/setting persists/)).toBeVisible();
+    await expect(latest.getByText(/honored at inference/)).toHaveCount(0);
     await expect(latest.getByText(/Generative Edit/)).toHaveCount(0);
 
     const previous = page.locator('[id="v0.5.0"]');

@@ -56,6 +56,19 @@ describe('prepared notes versus published installers', () => {
     expect(history[1]).toMatchObject({ published: true, latest: false });
   });
 
+  it('makes 0.5.1 the sole latest entry once publication data includes it', () => {
+    const published = { hasRelease: true, version: '0.5.1' };
+    const history = ['0.5.1', '0.5.0'].map((version) => ({
+      version,
+      ...changelogReleaseState(version, published),
+    }));
+    expect(history.filter((entry) => entry.latest).map((entry) => entry.version)).toEqual([
+      '0.5.1',
+    ]);
+    expect(history[0]?.releaseUrl).toBe('https://github.com/varvedesign/varve/releases/tag/v0.5.1');
+    expect(history[1]).toMatchObject({ published: true, latest: false });
+  });
+
   it('does not advertise a candidate when release data is absent, malformed or only an RC', () => {
     for (const manifest of [
       { hasRelease: false, version: '0.5.0' },

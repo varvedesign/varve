@@ -24,7 +24,7 @@ test.describe('known issues', () => {
     await expect(page.getByText(/libfuse2/)).toBeVisible();
     await expect(
       page.getByText(
-        /A fix that bundles WebKitGTK is on the main branch and will ship in a future release/,
+        /A fix that bundles WebKitGTK has already landed and will ship in a future release/,
       ),
     ).toBeVisible();
     await expect(

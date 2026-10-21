@@ -42,16 +42,16 @@ update, not for someone reading the commit log.
   actionable guidance when artwork contains transparency or a blend mode it cannot represent;
   PDF/X-4 retains live transparency and supported blend modes. Text outside WinAnsi is outlined
   to preserve its glyphs; those outlines are not searchable as text.
-- **PDF styled text** — Native PDF export keeps authored text style instead of
+- **PDF styled text**: Native PDF export keeps authored text style instead of
   flattening it away.
-- **PDF text transparency** — Standard PDF and PDF/X-4 exports preserve text
+- **PDF text transparency**: Standard PDF and PDF/X-4 exports preserve text
   fill transparency with the node opacity.
 - **PDF stroke transparency** — Standard PDF and PDF/X-4 exports now preserve each stroke color's
   alpha together with the node opacity. PDF/X-1a continues to stop when a stroke is translucent.
 - **PDF drop-shadow blending** — Authored drop shadows now retain PDF-supported blend modes and
   combine effect opacity, shadow-colour alpha, and node opacity. PDF/X-1a stops when an effect uses
   transparency or a blend mode it cannot represent.
-- **SVG import** — `use` instances keep fill opacity, and dropped Inkscape
+- **SVG import**: `use` instances keep fill opacity, and dropped Inkscape
   live path effects are reported instead of silently omitted.
 
 ### Security
@@ -104,8 +104,7 @@ update checks run only after you enable them.
 ### Fixed
 
 - **AI settings crash**: toggling Settings → AI features no longer opens the
-  crash dialog. The switch persists on/off and is honored at inference and
-  background-removal entry points.
+  crash dialog, and the setting persists.
 - **Crash screen false positives** — Recovered WebGL context loss,
   aborted jobs, and other diagnostics no longer open "Varve closed
   unexpectedly".
