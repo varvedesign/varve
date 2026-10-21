@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { EN_ONLY_REC_CONFIG, PADDLE_REC_V4_CONFIG } from './modelMetadata';
 
-const COMMIT_SHA = /^https:\/\/raw\.githubusercontent\.com\/PaddlePaddle\/PaddleOCR\/[0-9a-f]{40}\//;
+const COMMIT_SHA =
+  /^https:\/\/raw\.githubusercontent\.com\/PaddlePaddle\/PaddleOCR\/[0-9a-f]{40}\//;
 const SHA256 = /^[0-9a-f]{64}$/;
 
 describe('OCR dictionary pinning', () => {

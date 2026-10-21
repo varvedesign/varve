@@ -1,4 +1,4 @@
-import { loadSettings, updateSettings, type IconRemoteSearchConsent } from '../../settings';
+import { type IconRemoteSearchConsent, loadSettings, updateSettings } from '../../settings';
 
 export function readIconRemoteSearchConsent(): IconRemoteSearchConsent {
   try {

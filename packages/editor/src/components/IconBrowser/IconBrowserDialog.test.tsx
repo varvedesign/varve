@@ -4,8 +4,8 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { getIconProviderRegistry, resetIconProviderRegistry } from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
-import { writeIconRemoteSearchConsent } from './iconRemoteSearch';
 import { IconBrowserDialog } from './IconBrowserDialog';
+import { writeIconRemoteSearchConsent } from './iconRemoteSearch';
 
 vi.mock('../../context', () => ({
   useEditor: vi.fn(),
