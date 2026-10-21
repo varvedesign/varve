@@ -1309,7 +1309,7 @@ The reviews surfaced these strongest candidates for source-level follow-up:
 
 | Reports | Transferable failure family | Varve check / current boundary |
 |---|---|---|
-| #3409, #3496, #3555, #3755 | Save success, dirty state, file-watcher races, and undo continuity | #3496 is already handled by the pending-edit drain (§4.1). #3755's false conflict and undo-loss family is guarded by content-hash comparison and persistent history; no ctime-based active-file reload path was found. #3409 exposed an unchecked staging close and is fixed in this branch (details below). #3555 is a distinct persistent viewport-restoration opportunity, not a PDF reader defect. |
+| #3407, #3409, #3496, #3555, #3755 | Save success, removed content, dirty state, file-watcher races, and undo continuity | #3407's deleted-PDF-revision behavior has no matching Varve file model: deleting a page removes its scene subtree and unreferenced image assets, and Save encodes a fresh snapshot of the current document. #3496 is already handled by the pending-edit drain (§4.1). #3755's false conflict and undo-loss family is guarded by content-hash comparison and persistent history; no ctime-based active-file reload path was found. #3409 exposed an unchecked staging close and is fixed in this branch (details below). #3555 is a distinct persistent viewport-restoration opportunity. |
 | #3414 | Slow or stalled document preparation blocks later opens | Varve has no PDF-reader document-open or single-instance PDF handoff path. Its limited PDF import in `packages/import/src/pdf.ts` synchronously decodes the whole byte buffer and scans it with regexes; this is an adjacent main-thread responsiveness surface, but it does not parse xref tables or share PdfCraft's repeated COS object scan. No Varve defect was established from this report. |
 | #3421, #3444, #3481, #3505, #3519, #3592, #3597, #3601, #3604, #3684, #3687, #3707, #3713, #3769 | Unicode entry, bidi caret movement, glyph coverage, and text selection | Varve has a distinct text/font/shaping path. Treat PDF font/resource failures as evidence for tests and diagnostics, not proof of a Varve defect; inspect Arabic/Indic/CJK fallback and spaces in Varve's supported text path. |
 | #3446, #3464, #3650, #3665, #3736, #3793 | Canvas input, touchpad gestures, device-specific pointer handling, and window presentation | Varve already has a native Linux touchpad pinch bridge and pointer-type policy. #3793's user clarifies that a Synaptics touchpad scrolls too slowly and pinch does not work on KDE Plasma 6.8 / Arch; this remains a device-level validation gap, not a confirmed Varve failure. #3650's Wacom report likewise needs comparison with Varve's Tauri event path and supported hardware. |
@@ -1348,6 +1348,25 @@ and verify current Varve behavior before changing code or marketing claims.
   close code. The local full-gate operation was interrupted during the
   architecture audit before completion, so that gate is not reported as
   passed.
+- **#3407, deleted PDF pages remain in earlier revisions — no matching Varve
+  persistence behavior.** The user's follow-up confirms the PDF case is an
+  incremental-revision policy, not unused-image garbage collection. Its
+  linked [PdfCraft #2165](https://github.com/storytold/pdfcraft/issues/2165)
+  describes the same earlier-revision retention; its Save As workaround was
+  scoped to unsigned files. The linked
+  [DesignCraft #566](https://github.com/storytold/designcraft/issues/566)
+  was closed after the reporter said the slowdown came from a corrupt image,
+  so it is not evidence of a general resource-retention bug. In Varve,
+  `deletePageWithPolicy` removes the page content subtree through
+  `removeNode`; `removeNode` recursively deletes descendants and collects
+  unreferenced embedded image assets while retaining shared references
+  (`packages/scene/src/document-pages.ts`, `document-nodes.ts`, `assets.ts`).
+  The save path serializes the current scene with `DocumentCodec.encode` and
+  publishes a fresh file through the atomic writer; the `.varve` destination
+  does not append prior document revisions. Existing asset-collection tests
+  cover removal and shared-use retention. This supports a source-level
+  already-handled disposition for the shared concern, not a claim that Varve
+  supports editing PDF pages.
 - **#3414, malformed-PDF open stalls — adjacent import responsiveness risk; no
   matching xref failure.** The report has no attached source PDF because it is
   a copyrighted book with personal annotations. Its issue thread describes
@@ -1365,8 +1384,15 @@ and verify current Varve behavior before changing code or marketing claims.
   responsiveness boundary worth testing for large PDFs. The stale-xref/COS
   scan and single-instance failure do not transfer directly, so no code change
   is claimed. Issues #625, #2458, #1937, #2384, and #1449 mentioned as
-  possibly-related remain in the recursive evidence queue; the thread had no
-  PDF attachment to follow.
+  were read: #625 is about portable Windows file association and is not a
+  confirmed app crash; #2458 records a 350-file PDF-reader corpus and explicitly
+  reports no damaged-xref cases in that run; #1937 is PDF xref repair behavior;
+  #2384 concerns interactive PDF forms; and #1449 is a CMS `.p7m` envelope
+  outside plain-PDF opening. This closes those immediate issue edges, but
+  deeper links from the corpus/signature reports remain in the recursive
+  evidence queue. #3414 itself had no PDF attachment; the #2384 ticket image
+  URL was inaccessible through the available web reader and was not
+  downloaded.
 - **#3496, active text draft omitted by Save — already handled.** The editor
   drains registered pending edits before save revision capture, and lifecycle
   paths drain before termination decisions. See §4.1 and

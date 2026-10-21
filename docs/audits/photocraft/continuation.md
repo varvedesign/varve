@@ -9,7 +9,7 @@ Last updated: 2026-10-21 (session 10).
 - Current task worktree:
   `/home/kevina/CodingProjects/varve-callout-followup`; branch
   `codex/pdfcraft-callout-direct-manipulation-20261020`; last pushed at
-  `35829278a` (atomic staged-file close errors now fail before publication).
+  `172d6e85c` (Cutoff-D source mapping plus the atomic-close fix).
   The shared main checkout and other worktrees are not owned by this task.
 - PR #155 targets `master` and is open at exact head `35829278a`. The latest
   required Build + Package (WASM/AppImage) and Website Lighthouse jobs are
@@ -65,7 +65,14 @@ Last updated: 2026-10-21 (session 10).
   (#3797). Varve already has a native Linux pinch bridge; #3793 is therefore a
   hardware validation lead, not a confirmed gap. The other three are reader or
   PDF-content workflows without an established direct Varve analogue.
-- Six Cutoff-D rows now have source mapping. #3409 matches an unchecked
+- Seven Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
+  concern is already covered by Varve's different persistence model: page
+  deletion removes the subtree and prunes unreferenced image assets, while
+  Save serializes the current `.varve` scene as a complete snapshot. PdfCraft
+  #2165 describes the same earlier-revision retention; DesignCraft #566 was
+  closed after the reporter identified a corrupt image. Its ticket image URL
+  could not be read through the available web reader and was not downloaded.
+  #3409 matches an unchecked
   staging-file close limitation and has an implementation plus passing
   injected-failure test in the pushed branch; #3496 and #3755 map to existing
   Varve save and history protections; #3555 is an adjacent cross-restart
@@ -78,7 +85,10 @@ Last updated: 2026-10-21 (session 10).
   reader or OS-open-PDF handoff equivalent; `packages/import/src/pdf.ts`
   synchronously decodes/scans the whole file as a heuristic artwork importer.
   This makes responsiveness a separate test opportunity, not a matching xref
-  defect. Related issues #625, #2458, #1937, #2384, and #1449 remain queued.
+  defect. The immediate linked issues #625, #2458, #1937, #2384, and #1449
+  were also read; they cover portable file association, the reader corpus, PDF
+  xref repair, interactive PDF forms, and CMS envelopes. Deeper links from the
+  corpus/signature issues remain queued.
 - Targeted native validation passed:
   `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib atomic_write_does_not_publish_when_staging_close_fails`
   (1 passed). `verify:plan` requires a full gate for the desktop dependency
