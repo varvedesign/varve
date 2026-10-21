@@ -18,9 +18,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 export function buildLlmsTxt(app = readPublishedApp()) {
   const { version, releaseDate, repoUrl, releaseUrl } = app;
-  const published = releaseDate
-    ? `Varve ${version} (${releaseDate})`
-    : `Varve ${version}`;
+  const published = releaseDate ? `Varve ${version} (${releaseDate})` : `Varve ${version}`;
 
   return `# Varve
 
