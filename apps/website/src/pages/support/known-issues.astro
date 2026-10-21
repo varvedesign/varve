@@ -15,6 +15,14 @@ interface KnownIssue {
 
 const issues: KnownIssue[] = [
   {
+    title: 'Linux AppImage for 0.5.1 can fail to start without WebKitGTK 4.1 or FUSE 2',
+    status: 'partial',
+    description: 'The Linux AppImage for 0.5.1 can fail to start on systems that do not have WebKitGTK 4.1 (libwebkit2gtk-4.1) installed. The AppImage also needs FUSE 2 (libfuse2) to run. A fix that bundles WebKitGTK has already landed and will ship in a future release.',
+    workaround: 'Install WebKitGTK 4.1 and FUSE 2 from your distribution, or use the .deb or .rpm package instead.',
+    category: 'Platform & packaging',
+    related: [{ href: '/download', label: 'Download and install guidance' }],
+  },
+  {
     title: 'Prompt-conditioned generative Fill, Replace, and Expand are not shipped',
     status: 'partial',
     description: 'The current local Fill and Remove paths perform promptless reconstruction; entering a prompt does not make those models follow a natural-language instruction. Prompt-conditioned modes remain gated. Browser AI-quality Expand requires the user to install the local LaMa model and still awaits independent real-photo qualification; the browser Fast/PatchMatch route stays disabled after visible edge striping.',
@@ -176,7 +184,7 @@ const categories = [...new Set(issues.map((i) => i.category))];
         Current implementation gaps, experimental workflows, and platform or format limits. Status labels distinguish incomplete foundations from workflows that are gated or still experimental; linked guides describe what works today.
       </p>
       <p class="known-issues-review">
-        Reviewed 9 October 2026 against the v0.5.0 source tag, retained implementation, release notes, and linked guides. The color entry distinguishes native document values and working precision from browser display surfaces; print entries reflect the current export pipeline: bleed is configurable per page, visualized on the canvas, and honored by PDF/X. “Partial” means foundations exist but the complete user-facing path is not yet guaranteed. Some limits below are deliberate or qualification-dependent, not promised fixes for the next release.
+        Reviewed 21 October 2026 against the v0.5.1 source tag, retained implementation, release notes, and linked guides. The color entry distinguishes native document values and working precision from browser display surfaces; print entries reflect the current export pipeline: bleed is configurable per page, visualized on the canvas, and honored by PDF/X. “Partial” means foundations exist but the complete user-facing path is not yet guaranteed. Some limits below are deliberate or qualification-dependent, not promised fixes for the next release.
       </p>
 
       {categories.map((category) => (
