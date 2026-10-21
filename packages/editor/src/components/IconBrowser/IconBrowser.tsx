@@ -26,14 +26,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import type { IconRemoteSearchConsent } from '../../settings';
 import { IconDetailsPanel } from './IconDetailsPanel';
+import { IconDiscoverySections } from './IconDiscoverySections';
+import { IconGrid, type IconGridItemView } from './IconGrid';
+import { getIconAcquisitionService, IconAcquisitionError } from './iconAcquisition';
 import {
   isIconRemoteSearchGranted,
   readIconRemoteSearchConsent,
   writeIconRemoteSearchConsent,
 } from './iconRemoteSearch';
-import { IconDiscoverySections } from './IconDiscoverySections';
-import { IconGrid, type IconGridItemView } from './IconGrid';
-import { getIconAcquisitionService, IconAcquisitionError } from './iconAcquisition';
 import './IconBrowser.css';
 import {
   getStoredIcon,
@@ -432,25 +432,28 @@ export function IconBrowser({
     runRemoteSearch(query);
   }, [remoteAllowed, query, runRemoteSearch]);
 
-  const handleOpenPack = useCallback(async (prefix: string) => {
-    if (!remoteAllowed) return;
-    setBrowsingPack(prefix);
-    setPackPage([]);
-    setPackTotal(0);
-    setPackExhausted(false);
-    setPackLoading(true);
-    try {
-      const { getIconProviderRegistry } = await import('@varve/engine');
-      const provider = getIconProviderRegistry().get('iconify');
-      if (!provider?.getPackIcons) return;
-      const page = await provider.getPackIcons(prefix, { limit: 96, start: 0 });
-      setPackPage(page.items);
-      setPackTotal(page.total);
-      setPackExhausted(page.exhausted);
-    } finally {
-      setPackLoading(false);
-    }
-  }, [remoteAllowed]);
+  const handleOpenPack = useCallback(
+    async (prefix: string) => {
+      if (!remoteAllowed) return;
+      setBrowsingPack(prefix);
+      setPackPage([]);
+      setPackTotal(0);
+      setPackExhausted(false);
+      setPackLoading(true);
+      try {
+        const { getIconProviderRegistry } = await import('@varve/engine');
+        const provider = getIconProviderRegistry().get('iconify');
+        if (!provider?.getPackIcons) return;
+        const page = await provider.getPackIcons(prefix, { limit: 96, start: 0 });
+        setPackPage(page.items);
+        setPackTotal(page.total);
+        setPackExhausted(page.exhausted);
+      } finally {
+        setPackLoading(false);
+      }
+    },
+    [remoteAllowed],
+  );
 
   const handleLoadMorePack = useCallback(async () => {
     if (!remoteAllowed || !browsingPack || packLoading || packExhausted) return;
@@ -734,7 +737,7 @@ export function IconBrowser({
       </div>
 
       {remoteSearch === 'unknown' && (
-        <div className="icon-browser__consent" role="region" aria-label="Online icon search">
+        <section className="icon-browser__consent" aria-label="Online icon search">
           <p>Search online via Iconify?</p>
           <div className="icon-browser__consent-actions">
             <Button variant="default" size="sm" onClick={() => chooseRemoteSearch('granted')}>
@@ -744,7 +747,7 @@ export function IconBrowser({
               Not now
             </Button>
           </div>
-        </div>
+        </section>
       )}
 
       {browsingPack && (

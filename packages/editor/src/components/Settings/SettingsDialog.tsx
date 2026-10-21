@@ -856,7 +856,12 @@ function AboutSection() {
           >
             View changelog
           </a>
-          <a className="settings-about__link" href={VARVE_URLS.sbom} target="_blank" rel="noreferrer">
+          <a
+            className="settings-about__link"
+            href={VARVE_URLS.sbom}
+            target="_blank"
+            rel="noreferrer"
+          >
             Software bill of materials (SBOM)
           </a>
         </div>

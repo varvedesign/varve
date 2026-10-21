@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 
-import { getIconProviderRegistry, resetIconProviderRegistry } from '@varve/engine';
 import { act, renderHook } from '@testing-library/react';
+import { getIconProviderRegistry, resetIconProviderRegistry } from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEBOUNCE_MS, useIconSearch } from './useIconSearch';
 
 afterEach(() => {
   resetIconProviderRegistry();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -15,25 +16,20 @@ beforeEach(() => {
   resetIconProviderRegistry();
 });
 
-function registerSearchSpy() {
-  const search = vi.fn(async () => ({ items: [], total: 0, start: 0, exhausted: true }));
-  getIconProviderRegistry().register({
-    id: 'iconify',
-    name: 'Iconify',
-    kind: 'public-api',
-    enabled: true,
-    requiresNetwork: true,
-    capabilities: ['search', 'fetch-svg'],
-    search,
-    getSvg: vi.fn(async () => null),
+function stubRegistrySearch() {
+  const registry = getIconProviderRegistry();
+  return vi.spyOn(registry, 'search').mockResolvedValue({
+    items: [],
+    total: 0,
+    start: 0,
+    exhausted: true,
   });
-  return search;
 }
 
 describe('useIconSearch remote consent', () => {
   it('makes no provider request before remote search is allowed', async () => {
     vi.useFakeTimers();
-    const search = registerSearchSpy();
+    const search = stubRegistrySearch();
     const { result } = renderHook(() => useIconSearch(false));
 
     await act(async () => {
@@ -45,9 +41,9 @@ describe('useIconSearch remote consent', () => {
     expect(result.current.results).toEqual([]);
   });
 
-  it('searches the provider after remote search is allowed', async () => {
+  it('searches the registry after remote search is allowed', async () => {
     vi.useFakeTimers();
-    const search = registerSearchSpy();
+    const search = stubRegistrySearch();
     const { result, rerender } = renderHook(({ allowed }) => useIconSearch(allowed), {
       initialProps: { allowed: false },
     });
