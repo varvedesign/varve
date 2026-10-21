@@ -58,7 +58,6 @@ describe('AI master switch choke point', () => {
         (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
       );
 
-      downloads.registerModel(entry);
       await expect(
         downloads.startDownload(entry.id),
         `DownloadManager.startDownload(${entry.id})`,
