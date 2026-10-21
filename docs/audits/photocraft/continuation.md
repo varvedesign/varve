@@ -65,7 +65,7 @@ Last updated: 2026-10-21 (session 12).
   (#3797). Varve already has a native Linux pinch bridge; #3793 is therefore a
   hardware validation lead, not a confirmed gap. The other three are reader or
   PDF-content workflows without an established direct Varve analogue.
-- Nine Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
+- Ten Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
   concern is already covered by Varve's different persistence model: page
   deletion removes the subtree and prunes unreferenced image assets, while
   Save serializes the current `.varve` scene as a complete snapshot. PdfCraft
@@ -86,6 +86,11 @@ Last updated: 2026-10-21 (session 12).
   #3249 concerns replacing the current match and is separately mapped as
   already handled. New search/UI regressions now pin both default and exact
   matching across precomposed and decomposed accents.
+  #3713's widely spaced CJK characters are a PdfCraft reader glyph-order and
+  copy/Find issue. Varve's partial importer concatenates literal `Tj`/`TJ`
+  strings and has no PDF-page selection/copy path; it does not derive word
+  spaces from glyph positions. The inline repro and linked PR #3722 were
+  reviewed, with no matching Varve defect demonstrated.
   #3409 matches an unchecked
   staging-file close limitation and has an implementation plus passing
   injected-failure test in the pushed branch; #3496 and #3755 map to existing
