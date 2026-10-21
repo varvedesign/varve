@@ -68,11 +68,11 @@ Need to wrap all AI feature entry points to check `useAiFeaturesEnabled()`:
 - [ ] Show clear error message if attempted
 
 ### 7. Export Metadata
-- [ ] Research XMP metadata schema for AI disclosure
-- [ ] Implement PNG/JPEG/WebP XMP writing (via `exiftool` or pure JS)
-- [ ] Implement SVG `<metadata>` block for AI disclosure
-- [ ] Add export dialog checkbox: "Include AI disclosure metadata" (default: checked)
-- [ ] Implement C2PA feasibility research document
+- [x] Research XMP metadata schema for AI disclosure
+- [x] Implement PNG/JPEG/WebP XMP writing
+- [x] Implement SVG `<metadata>` block for AI disclosure
+- [x] Add export dialog checkbox: "Include AI disclosure metadata" (default: checked)
+- [x] C2PA feasibility research document (evaluation only; not shipped)
 
 ### 8. Inspector Section
 - [ ] Create "AI Provenance" inspector section

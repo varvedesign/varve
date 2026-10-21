@@ -4,7 +4,7 @@ import { sitePath } from '../../lib/siteUrl';
 import '../../styles/docs-prose.css';
 ---
 
-<Layout title="Architecture Overview — Varve Docs" description="Varve architecture: native Rust engine, IR-replay rendering, WASM web backend, and the Tauri 2 desktop shell.">
+<Layout title="Architecture Overview | Varve Docs" description="Varve architecture: Rust scene and IR, webview canvas replay, WASM web backend, and the Tauri 2 desktop shell.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -13,7 +13,7 @@ import '../../styles/docs-prose.css';
 
       <h1 class="site-page-title">Architecture Overview</h1>
       <p class="docs-intro">
-        Varve is a local-first, cross-platform design suite with a native Rust engine powering the rendering pipeline. Desktop builds use Tauri 2, while the web target uses WebAssembly behind the same facade. A hosted public web editor is not available yet. This document describes the high-level architecture and data flow.
+        Varve is a local-first, cross-platform design suite. Rust computes geometry, colour, print, and a compact render IR; the webview draws the canvas. Desktop builds use Tauri 2, while the web target uses WebAssembly behind the same facade. A hosted public web editor is not available yet. This document describes the high-level architecture and data flow.
       </p>
 
       <section class="docs-section">

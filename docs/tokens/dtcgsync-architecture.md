@@ -79,7 +79,7 @@ resolver, merge engine, or synchronization mechanism.
 | `@varve/platform` | Local filesystem source plumbing, watchers, atomic writes, secure credential storage (later), Git process boundary (later), OS capability detection. |
 | `@varve/editor` | Token Sync Center, source setup, token tree, detail view, diff UI, conflict UI, inspector binding integration, notifications, commands, accessibility. |
 | `@varve/codegen` | Platform output profiles (CSS/SCSS/TS/JSON/Android/Swift/Dart), naming/unit/color transforms, generated-file ownership policy. |
-| `@varve/ai` | Optional typed multimodal proposals only (classification, extraction, naming suggestions). Never parsing/merging. |
+| `@varve/ai` | Typed multimodal proposals only (classification, extraction, naming suggestions). Never parsing/merging. |
 
 Dependency direction: `tokens` is a leaf with no package dependencies;
 `scene` imports its standards functions and types; `editor` imports both; `platform`

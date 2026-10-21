@@ -19,6 +19,8 @@ on:
       - 'playwright.website.config.ts'
       - 'playwright.demo-dist.config.mts'
       - 'scripts/website/**'
+      - 'scripts/check-claims.mjs'
+      - 'scripts/claims-allowlist.json'
       # Only the release-data fetcher and its inputs affect website output.
       # Release verification helpers do not change the published site.
       - 'scripts/release/fetch-website-release.mjs'
@@ -123,6 +125,9 @@ jobs:
 
       - name: Type check + unit tests (incl. release-data states)
         run: pnpm test:website
+
+      - name: Check public claims
+        run: pnpm audit:claims
 
       # Both deployment modes must build from the same source: the production
       # custom-domain build (base /, built from the astro.config.mjs defaults)

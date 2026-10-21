@@ -32,19 +32,19 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <h2>Desktop events</h2>
       <p>
-        The existing application event schema is listed below for reference. The website's
-        GoatCounter account does not receive product-usage or diagnostics events. These remain
-        separate application controls and provider configuration; their collection status is
-        not established by the website analytics setup.
+        The website's GoatCounter account does not receive desktop product-usage events. Release
+        desktop builds can send anonymous event names to Plausible only if you turn usage
+        analytics on in Settings. Nothing is sent unless you say yes. Diagnostics telemetry
+        and crash reporting stay on separate controls.
       </p>
       <table>
         <thead><tr><th>Event</th><th>Fields</th><th>Purpose</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td>app_launched</td><td>surface</td><td>Count opted-in product sessions.</td><td>separate application configuration</td></tr>
-          <tr><td>document_created</td><td>blank, template, or import source</td><td>Understand activation without seeing the document.</td><td>separate application configuration</td></tr>
-          <tr><td>feature_used</td><td>closed feature category</td><td>Prioritize features with meaningful adoption.</td><td>separate application configuration</td></tr>
-          <tr><td>export_completed / export_failed</td><td>format and coarse duration or error category</td><td>Find export reliability and performance problems.</td><td>separate application configuration</td></tr>
-          <tr><td>renderer_fallback</td><td>from, to, reason</td><td>Find platform-specific renderer fallback issues.</td><td>separate application configuration</td></tr>
+          <tr><td>app_launched</td><td>surface</td><td>Count consented product sessions.</td><td>Plausible after Settings consent</td></tr>
+          <tr><td>document_created</td><td>blank, template, or import source</td><td>Understand activation without seeing the document.</td><td>Plausible after Settings consent</td></tr>
+          <tr><td>feature_used</td><td>closed feature category</td><td>Prioritize features with meaningful adoption.</td><td>Plausible after Settings consent</td></tr>
+          <tr><td>export_completed / export_failed</td><td>format and coarse duration or error category</td><td>Find export reliability and performance problems.</td><td>Plausible after Settings consent</td></tr>
+          <tr><td>renderer_fallback</td><td>from, to, reason</td><td>Find platform-specific renderer fallback issues.</td><td>Plausible after Settings consent</td></tr>
           <tr><td>browser_demo_desktop_download</td><td>release, platform, architecture, package type</td><td>Count installer-link clicks on the website demo route.</td><td>website click only; not product conversion</td></tr>
         </tbody>
       </table>
