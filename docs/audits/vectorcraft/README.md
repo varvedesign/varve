@@ -30,9 +30,11 @@ nothing in the main checkout.
   `2026-10-21T19:30:05Z` – `2026-10-21T19:31:11Z`.
   The frozen issue-ID set is every issue in `issue-ledger.jsonl`. Do not move
   cutoff A.
-- **Cutoff B (incremental reconciliation):** recorded in `continuation.md`
-  after the first implementation pass. Issues created after cutoff B belong to
-  the follow-on queue and must not move the completion boundary.
+- **Cutoff B (incremental reconciliation):** `2026-10-21T20:41:01Z`.
+  Four new issues (#3465, #3467, #3470, #3471) and two upstream status changes
+  (#3446, #2523) are recorded in `issue-ledger-cutoff-b.jsonl`. Issues created
+  after cutoff B belong to the follow-on queue and must not move the
+  completion boundary.
 
 ## Inventory and reconciliation
 

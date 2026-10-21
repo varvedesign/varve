@@ -224,3 +224,20 @@ than relabelled.
 
 The `screened-relevant` count is the honest size of the remaining corpus. It is
 not a claim that those issues do not apply, and it is not a completion signal.
+
+---
+
+## Website and marketing impact review
+
+| Page | Decision |
+|---|---|
+| `apps/website/src/pages/docs/tools/export.astro` | **Changed.** States that exported `font-family` lists end in a generic family, and that SVG text is referenced by name rather than embedded or subset — so a recipient without the face substitutes it and metrics can change. Also tells the reader to expand text to outlines when exact metrics matter. |
+| `apps/website/src/pages/features/export.astro` | **No change.** It claims SVG output "for supported shapes, paths, text, and transforms" and lists no font-embedding capability. The gradient claim ("Gradient and solid fills") is now true for the whole-document route as well; tightening it would overstate nothing, but there is no false statement to correct. |
+| Pricing, compare, FAQ, download, release pages | **No change.** No capability, platform, compatibility, performance or standards claim moved. The fixes are fidelity and safety corrections inside capabilities already advertised. |
+| Changelog | **Changed.** Four user-facing entries under `Unreleased → Fixed`, written for someone deciding whether to install the update. |
+
+Merging these changes touches `apps/website/**`, which triggers
+`website-deploy.yml` (GitHub Pages) on `master`. That is a docs-page deploy,
+not a release: no tag, no installer, no version bump. It is covered by the
+instruction to update the marketing site and merge; it is reported separately
+from any release.

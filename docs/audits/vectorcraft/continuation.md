@@ -10,8 +10,11 @@ Last updated: 2026-10-21 (session 1).
   - Raw pages are outside Git at `/tmp/opencode/vectorcraft/raw/`, aggregate
     issue-page SHA-256 `59eb7225874acf08886b85c940d09cd9cf0443676f91030caa7d736f45702ef2`.
   - Do not move cutoff A.
-- **Cutoff B:** not yet taken. It will be recorded here after the first
-  integration pass, together with any newly created issues.
+- **Cutoff B:** `2026-10-21T20:41:01Z`. Four issues created after cutoff A
+  (#3465, #3467, #3470, #3471) and two older issues whose status changed
+  (#3446, #2523, both closed upstream). The four new records are reviewed in
+  `issue-ledger-cutoff-b.jsonl`; they do not move cutoff A, and anything
+  created after cutoff B belongs to the follow-on queue.
 
 ## Repository and ownership
 
@@ -81,6 +84,15 @@ Open, recorded, not implemented:
   told. Separate finding from F1.
 - `HitTestEngine.queryWithTolerance` whole-document scan in master-placement
   mode.
+
+## Cutoff B arrivals (reviewed)
+
+| Issue | Disposition |
+|---|---|
+| #3465 `.ase` palette files missing from the picker | outside scope — Varve has no palette import UI (parsers exist unused in `@varve/shared`) |
+| #3467 drag stroke colour onto fill does nothing | screened-relevant (paint/UI); unverified in Varve, same request as #2223 |
+| #3470 masked artwork not rendered after save | uncertain — report needs the screenshots and a reproduction |
+| #3471 taskbar treated as app area in full screen | outside scope — Tauri window chrome, not egui viewport |
 
 ## Corpus status
 
