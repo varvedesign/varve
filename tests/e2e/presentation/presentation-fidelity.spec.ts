@@ -149,43 +149,47 @@ test.describe('presentation cross-surface fidelity', () => {
 
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     const audience = page.getByRole('dialog', { name: /audience preview/ });
-    const slideImage = audience.locator('.presentation-audience__image');
-    await expect(slideImage).toBeVisible({ timeout: 30000 });
+    const stageCanvas = audience.locator('.presentation-audience__canvas');
+    await expect(stageCanvas).toBeVisible({ timeout: 30000 });
 
-    const preview = await slideImage.evaluate(async (element) => {
-      const image = element as HTMLImageElement;
-      const stage = image.closest('.presentation-audience__stage') as HTMLElement | null;
-      const stageRect = (stage ?? image.parentElement!).getBoundingClientRect();
-      const imageRect = image.getBoundingClientRect();
-      const stageStyle = getComputedStyle(stage ?? image.parentElement!);
+    // The static stage draws the shared capture; its object URL is published
+    // on the canvas so the pixel-parity contract stays inspectable.
+    await expect
+      .poll(() =>
+        stageCanvas.evaluate(
+          (element) => (element as HTMLCanvasElement).dataset.presentationCaptureSrc ?? '',
+        ),
+      )
+      .not.toBe('');
+    const preview = await stageCanvas.evaluate(async (element) => {
+      const canvas = element as HTMLCanvasElement;
+      const stage = canvas.closest('.presentation-audience__stage') as HTMLElement;
+      const stageRect = stage.getBoundingClientRect();
+      const stageStyle = getComputedStyle(stage);
       const inset = {
         top: Number.parseFloat(stageStyle.paddingTop) || 0,
         left: Number.parseFloat(stageStyle.paddingLeft) || 0,
       };
-      const response = await fetch(image.src);
+      const src = canvas.dataset.presentationCaptureSrc ?? '';
+      const response = await fetch(src);
       const bytes = new Uint8Array(await response.arrayBuffer());
       return {
-        naturalWidth: image.naturalWidth,
-        naturalHeight: image.naturalHeight,
         bytes: Array.from(bytes),
-        // The slide must fit the stage's content box, not be cropped by it.
+        // The canvas fills the stage's content box; letterboxing happens in
+        // the draw path, so containment is asserted against the canvas.
         container: {
           top: stageRect.top + inset.top,
           left: stageRect.left + inset.left,
           right: stageRect.right - inset.left,
           bottom: stageRect.bottom - inset.top,
         },
-        rect: {
-          top: imageRect.top,
-          left: imageRect.left,
-          right: imageRect.right,
-          bottom: imageRect.bottom,
-        },
+        rect: canvas.getBoundingClientRect().toJSON(),
       };
     });
 
-    expect(preview.naturalWidth).toBe(1280);
-    expect(preview.naturalHeight).toBe(720);
+    const previewPixels = decodePng(Uint8Array.from(preview.bytes));
+    expect(previewPixels.width).toBe(1280);
+    expect(previewPixels.height).toBe(720);
     // The navigator thumbnail is a deliberately smaller raster, but it must
     // describe the same slide geometry as preview and delivery. Integer raster
     // rounding is expected (a 230px-wide thumbnail cannot be 129.375px tall).
@@ -198,10 +202,6 @@ test.describe('presentation cross-surface fidelity', () => {
     expect(preview.rect.left).toBeGreaterThanOrEqual(preview.container.left - tolerance);
     expect(preview.rect.right).toBeLessThanOrEqual(preview.container.right + tolerance);
     expect(preview.rect.bottom).toBeLessThanOrEqual(preview.container.bottom + tolerance);
-    // Containment must not be achieved by shrinking one axis independently.
-    const renderedAspect =
-      (preview.rect.right - preview.rect.left) / (preview.rect.bottom - preview.rect.top);
-    expect(renderedAspect).toBeCloseTo(preview.naturalWidth / preview.naturalHeight, 2);
 
     await audience.getByRole('button', { name: 'Exit' }).click();
     await expect(audience).toBeHidden();
@@ -225,12 +225,6 @@ test.describe('presentation cross-surface fidelity', () => {
       width: 1280,
       height: 720,
     });
-    const previewPixels = decodePng(Uint8Array.from(preview.bytes));
-    expect({ width: previewPixels.width, height: previewPixels.height }).toEqual({
-      width: 1280,
-      height: 720,
-    });
-
     // Same slide, same raster: the preview is not a separate renderer.
     expect(pixelDigest(previewPixels.pixels)).toBe(pixelDigest(delivered.pixels));
 

@@ -66,6 +66,7 @@ import {
   normalizeLayerColors,
   normalizeLegacyBackgroundRemoval,
   rehydrateEmbeddedAssetSrc,
+  resolveDocumentVersion,
   serializeDocument as serializeVersionedDocument,
 } from './version';
 
@@ -132,6 +133,32 @@ function warning(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * A version field Varve cannot read is not a reason to refuse the file.
+ *
+ * Varve writes `formatVersion` as a numeric string; a JSON number, boolean,
+ * array or object in that position means foreign or corrupted bytes. The
+ * document is still opened — without migrations — and the reason is reported
+ * instead of failing the open (storytold/designcraft #1049, #744).
+ */
+function unrecognizedVersionWarnings(raw: Record<string, unknown>): DocumentCodecWarning[] {
+  const resolution = resolveDocumentVersion(raw.formatVersion);
+  if (resolution.kind !== 'unrecognized') return [];
+  const shown = Array.isArray(resolution.raw)
+    ? 'an array'
+    : isRecord(resolution.raw)
+      ? 'an object'
+      : `${typeof resolution.raw} ${String(resolution.raw)}`;
+  return [
+    warning(
+      'document.unrecognized-version',
+      `The document's version field is not a version Varve can read (${shown}). The file was opened without running migrations, so features from a newer or unknown version may not be supported.`,
+      'warning',
+      'formatVersion',
+    ),
+  ];
 }
 
 function validateShape(raw: Record<string, unknown>): string | null {
@@ -1691,6 +1718,7 @@ export const DocumentCodec = {
     }
 
     const legacyWarnings = isRecord(parsed) ? malformedLegacyBackgroundRemovalWarnings(parsed) : [];
+    const versionWarnings = isRecord(parsed) ? unrecognizedVersionWarnings(parsed) : [];
 
     if (isRecord(parsed)) {
       const runtimeError = validateRuntimeCollections(parsed);
@@ -1703,7 +1731,22 @@ export const DocumentCodec = {
       }
     }
 
-    const migration = migrateDocumentDetailed(parsed);
+    // The migration table reads fields of bytes we did not write. A throw here
+    // would escape the codec's result contract entirely, so an unforeseeable
+    // input shape fails this document instead of the open path.
+    let migration: ReturnType<typeof migrateDocumentDetailed>;
+    try {
+      migration = migrateDocumentDetailed(parsed);
+    } catch (error) {
+      const message = `Document migration failed: ${
+        error instanceof Error ? error.message : 'unknown error'
+      }`;
+      return {
+        ok: false,
+        error: message,
+        warnings: [warning('document.migration-failed', message, 'error')],
+      };
+    }
     if (!migration) {
       return {
         ok: false,
@@ -1805,6 +1848,7 @@ export const DocumentCodec = {
         warning('document.forward-compatibility', message, 'warning'),
       ),
     );
+    warnings.unshift(...versionWarnings);
 
     const repaired = validateAndRepairDocument(normalized.document);
     if (repaired.repaired.changed) {

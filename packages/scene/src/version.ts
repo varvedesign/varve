@@ -1186,7 +1186,42 @@ export interface MigrationResult {
   warnings: string[];
 }
 
-function parseVersion(v: string): number[] {
+/** The version given to documents written before Varve stamped a version. */
+const LEGACY_UNVERSIONED = '0.9';
+
+const NUMERIC_VERSION_PATTERN = /^\d+(?:\.\d+)*$/;
+
+/**
+ * How the `formatVersion` field of bytes we did not write was read.
+ *
+ * - `declared`: a plain numeric version string, Varve's own representation.
+ * - `legacy`: missing, `null` or empty. Carries no information, so the
+ *   historical `0.9` reading applies and the migration table runs.
+ * - `unrecognized`: present but not a plain numeric string (a JSON number,
+ *   boolean, array or object). Guessing a version from it would run an
+ *   arbitrary subset of the migration table over bytes of unknown vintage,
+ *   so callers load without migrating and say so.
+ *
+ * Callers narrow on `kind`.
+ */
+type DocumentVersionResolution =
+  | { kind: 'declared'; version: string }
+  | { kind: 'legacy'; version: string }
+  | { kind: 'unrecognized'; raw: unknown };
+
+export function resolveDocumentVersion(raw: unknown): DocumentVersionResolution {
+  if (raw === undefined || raw === null || raw === '') {
+    return { kind: 'legacy', version: LEGACY_UNVERSIONED };
+  }
+  if (typeof raw === 'string' && NUMERIC_VERSION_PATTERN.test(raw.trim())) {
+    return { kind: 'declared', version: raw.trim() };
+  }
+  return { kind: 'unrecognized', raw };
+}
+
+/** Version fields that cannot be read are reported, never thrown. */
+function parseVersion(v: unknown): number[] {
+  if (typeof v !== 'string') return [0, 0];
   return v.split('.').map((s) => {
     const n = parseInt(s, 10);
     return Number.isNaN(n) ? 0 : n;
@@ -1239,15 +1274,60 @@ export function normalizeLayerColors(raw: Record<string, unknown>): Record<strin
   return changed ? { ...raw, nodes } : raw;
 }
 
+/**
+ * One or more values in a document cannot be represented in JSON.
+ *
+ * `JSON.stringify` writes a non-finite number as `null`, which is not a value
+ * any schema field accepts: a coordinate written that way reopens as `null`
+ * instead of failing. Documents that reach this error are corrupt, and the
+ * path to writing them is through a bug elsewhere (or bytes from outside);
+ * the save path reports it instead of writing the file.
+ *
+ * Evidence class: storytold/designcraft #1050 — a saved document the app can
+ * no longer open, written with `null` where a coordinate belonged.
+ */
+export class NonFiniteDocumentError extends Error {
+  readonly paths: string[];
+
+  constructor(paths: string[]) {
+    super(
+      `Document contains values that are not finite numbers: ${paths.join(', ')}. ` +
+        'JSON cannot represent them, so writing this file would silently replace them with null.',
+    );
+    this.name = 'NonFiniteDocumentError';
+    this.paths = paths;
+  }
+}
+
+const MAX_REPORTED_NON_FINITE_PATHS = 8;
+
 export function serializeDocument(doc: Record<string, unknown> | unknown): string {
   const target = doc as Record<string, unknown>;
-  return JSON.stringify(
+  const offenders: string[] = [];
+  // The replacer sees one holder at a time, so the walk records where each
+  // object was found and appends its keys to that path. A non-finite value is
+  // then reported as the JSON path a reader can look up (`nodes.n1.shape.y`),
+  // not as a bare key name.
+  const paths = new WeakMap<object, string>();
+  const json = JSON.stringify(
     stripEmbeddedAssetPayloads(
       stampVersion(
         normalizeLegacyBackgroundRemoval(serializeRasterTiles(normalizeLayerColors(target))),
       ),
     ),
+    function (this: unknown, key: string, value: unknown) {
+      const holder = this && typeof this === 'object' ? paths.get(this as object) : undefined;
+      const path = holder ? `${holder}.${key}` : key;
+      if (value && typeof value === 'object') paths.set(value as object, path);
+      if (typeof value === 'number' && !Number.isFinite(value)) {
+        if (offenders.length < MAX_REPORTED_NON_FINITE_PATHS) offenders.push(path);
+        return null;
+      }
+      return value;
+    },
   );
+  if (offenders.length > 0) throw new NonFiniteDocumentError(offenders);
+  return json;
 }
 
 function serializeRasterTiles(doc: Record<string, unknown>): Record<string, unknown> {
@@ -1484,7 +1564,9 @@ export function detectForwardCompatWarning(fileVersion: string): string | null {
 export function migrateDocument(raw: unknown): Record<string, unknown> | null {
   if (!raw || typeof raw !== 'object') return null;
   const doc = raw as Record<string, unknown>;
-  const currentVersion = (doc.formatVersion as string) || '0.9';
+  const resolution = resolveDocumentVersion(doc.formatVersion);
+  const unrecognized = resolution.kind === 'unrecognized';
+  const currentVersion = unrecognized ? CURRENT_DOCUMENT_VERSION : resolution.version;
 
   let result = { ...doc };
 
@@ -1497,7 +1579,7 @@ export function migrateDocument(raw: unknown): Record<string, unknown> | null {
     }
   }
 
-  if (!result.formatVersion) {
+  if (!result.formatVersion || unrecognized) {
     result.formatVersion = CURRENT_DOCUMENT_VERSION;
   }
 
@@ -1507,10 +1589,12 @@ export function migrateDocument(raw: unknown): Record<string, unknown> | null {
 export function migrateDocumentDetailed(raw: unknown): MigrationResult | null {
   if (!raw || typeof raw !== 'object') return null;
   const doc = raw as Record<string, unknown>;
-  const fromVersion = (doc.formatVersion as string) || '0.9';
+  const resolution = resolveDocumentVersion(doc.formatVersion);
+  const unrecognized = resolution.kind === 'unrecognized';
+  const fromVersion = unrecognized ? CURRENT_DOCUMENT_VERSION : resolution.version;
   const warnings: string[] = [];
 
-  const fwdWarn = detectForwardCompatWarning(fromVersion);
+  const fwdWarn = unrecognized ? null : detectForwardCompatWarning(fromVersion);
   if (fwdWarn) warnings.push(fwdWarn);
 
   let result = { ...doc };
@@ -1526,7 +1610,7 @@ export function migrateDocumentDetailed(raw: unknown): MigrationResult | null {
     }
   }
 
-  if (!result.formatVersion) {
+  if (!result.formatVersion || unrecognized) {
     result.formatVersion = CURRENT_DOCUMENT_VERSION;
   }
 

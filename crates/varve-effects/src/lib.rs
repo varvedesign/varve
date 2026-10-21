@@ -53,6 +53,49 @@ pub enum EffectKind {
     Caustics,
 }
 
+/// ABI revision of the kernel set below. Bump when a kernel's *output bytes*
+/// change for the same input and parameters, so a caller that cached results
+/// (or paired a stale JS bundle with a fresh artifact) can reject them instead
+/// of presenting pixels this crate would no longer produce.
+///
+/// History:
+/// - 1 — initial: the ten kernels as ported from the TypeScript reference.
+pub const EFFECT_KERNEL_ABI_VERSION: u32 = 1;
+
+/// Every effect kind this build implements, in a stable order. The WASM
+/// boundary publishes this so a caller can check a specific kind before
+/// routing pixels to it rather than discovering support from a failed call.
+pub const IMPLEMENTED_EFFECTS: [EffectKind; 10] = [
+    EffectKind::Dither,
+    EffectKind::PaletteSnap,
+    EffectKind::Bloom,
+    EffectKind::RgbSplit,
+    EffectKind::Crt,
+    EffectKind::Vhs,
+    EffectKind::LightShafts,
+    EffectKind::LensFlare,
+    EffectKind::LightLeak,
+    EffectKind::Caustics,
+];
+
+impl EffectKind {
+    /// The camelCase wire name, matching the TS `LiveEffectKind` union.
+    pub const fn wire_name(self) -> &'static str {
+        match self {
+            EffectKind::Dither => "dither",
+            EffectKind::PaletteSnap => "paletteSnap",
+            EffectKind::Bloom => "bloom",
+            EffectKind::RgbSplit => "rgbSplit",
+            EffectKind::Crt => "crt",
+            EffectKind::Vhs => "vhs",
+            EffectKind::LightShafts => "lightShafts",
+            EffectKind::LensFlare => "lensFlare",
+            EffectKind::LightLeak => "lightLeak",
+            EffectKind::Caustics => "caustics",
+        }
+    }
+}
+
 /// Render quality tier — mirrors `liveEffects/quality.ts` `EffectQuality`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

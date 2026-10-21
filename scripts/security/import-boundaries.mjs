@@ -59,6 +59,7 @@ const WORKSPACE_ALIASES = new Map([
   ['@varve/tokens', 'packages/tokens'],
   ['@varve/history', 'packages/history'],
   ['@varve/cli', 'packages/cli'],
+  ['@varve/automation', 'packages/automation'],
   ['@varve/website', 'apps/website'],
   ['@varve/desktop', 'apps/desktop'],
 ]);

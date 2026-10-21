@@ -22,6 +22,7 @@ import {
   getPersistenceFontCatalog,
   serializeDocumentSnapshot as serializeDocumentSnapshotPure,
 } from '../persistence/documentRevision';
+import { decideSaveSuccess, encodeVerifiedDocument } from '../persistence/saveTruthfulness';
 import { type SaveIntent, type SaveOutcome, saveTargetFromSession } from '../persistence/saveTypes';
 import type { RecoveryManager } from '../recovery';
 import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
@@ -119,7 +120,11 @@ export function usePersistence(
         }
         if (intent === 'save-copy') {
           const outcome = await performSaveCopy(platform, stateRef, patch, revision);
-          patch({ saveState: prevSaveState, saveIssue: null });
+          // Only a copy that completed may restore the previous status. A
+          // failed copy keeps the failure visible: restoring here would clear
+          // the error and report the document as it was before — a save that
+          // never happened.
+          if (outcome.status !== 'failed') patch({ saveState: prevSaveState, saveIssue: null });
           return outcome;
         }
         return await performSave(platform, stateRef, recoveryRef, patch, revision);
@@ -161,7 +166,7 @@ export function usePersistence(
         const doc = decoded.document;
         const result = validateDocument(doc);
         if (!result.valid && typeof console !== 'undefined') {
-          console.warn('[Strata] loadDocument: validation warnings:', result.errors);
+          console.warn('[Varve] loadDocument: validation warnings:', result.errors);
         }
         const resolvedDoc = resolveFontManifest(doc);
         const name = meta?.name ?? doc.name;
@@ -241,7 +246,9 @@ async function performSave(
     return { status: 'failed', issue: e };
   }
   const target = saveTargetFromSession(meta);
-  const json = DocumentCodec.encode(s.document);
+  const encoded = encodeVerifiedDocument(s.document);
+  if (!encoded.ok) return writeFailure(patch, encoded.issue);
+  const json = encoded.json;
 
   // First save: the user picks a location. Never silently fall into
   // internal storage — recovery may keep running, but the UI may only say
@@ -265,7 +272,11 @@ async function performSave(
     // destination the user never chose, which is what the branch above
     // deliberately avoids.
     if (meta.fileId) await mirror(patch, platform, meta.fileId, meta.name, json);
-    patch({ lastSavedAt: Date.now() });
+    // Settle the status the same way the first hand-off does: this branch runs
+    // inside the save service's transient 'saving' state, and leaving it there
+    // would show "Saving…" for the rest of the session.
+    const handoff = decideSaveSuccess({ durable: false, clean: false });
+    patch({ saveState: handoff.settleSaveState, lastSavedAt: Date.now() });
     return { status: 'saved' };
   }
 
@@ -306,7 +317,16 @@ async function performSave(
     const fileId = meta.fileId ?? crypto.randomUUID();
     await mirror(patch, platform, fileId, meta.name, json, { filePath: target.path });
     const update: SessionUpdate = { diskContentHash: contentHash(json), fileId };
-    return afterPrimaryWrite(platform, stateRef, recoveryRef, patch, revision, update, meta.name);
+    return afterPrimaryWrite(
+      platform,
+      stateRef,
+      recoveryRef,
+      patch,
+      revision,
+      json,
+      update,
+      meta.name,
+    );
   }
 
   if (target.kind === 'web-file-handle') {
@@ -317,7 +337,16 @@ async function performSave(
     // Establish the baseline for external-change detection: the next save
     // refuses to overwrite a file whose bytes no longer match this hash.
     const update: SessionUpdate = { fileId, diskContentHash: contentHash(json) };
-    return afterPrimaryWrite(platform, stateRef, recoveryRef, patch, revision, update, meta.name);
+    return afterPrimaryWrite(
+      platform,
+      stateRef,
+      recoveryRef,
+      patch,
+      revision,
+      json,
+      update,
+      meta.name,
+    );
   }
 
   // app-storage — the user explicitly chose Varve Library as the document's
@@ -325,7 +354,16 @@ async function performSave(
   const fileId = meta.fileId ?? target.fileId;
   await mirror(patch, platform, fileId, meta.name, json);
   const update: SessionUpdate = { fileId };
-  return afterPrimaryWrite(platform, stateRef, recoveryRef, patch, revision, update, meta.name);
+  return afterPrimaryWrite(
+    platform,
+    stateRef,
+    recoveryRef,
+    patch,
+    revision,
+    json,
+    update,
+    meta.name,
+  );
 }
 
 /** Save As / first Save: choose a destination, write, adopt only on success. */
@@ -355,7 +393,9 @@ async function chooseAndAdopt(
   const target = choice.target;
   const s = stateRef.current;
   const meta = s.sessions.find((sess) => sess.id === s.activeId);
-  const json = DocumentCodec.encode(s.document);
+  const encoded = encodeVerifiedDocument(s.document);
+  if (!encoded.ok) return writeFailure(patch, encoded.issue);
+  const json = encoded.json;
   const written = await platform.writeSaveTarget(target, json);
   if (written.kind !== 'written') {
     // The new destination failed — the CURRENT destination stays untouched.
@@ -379,6 +419,12 @@ async function chooseAndAdopt(
   }
   const cur = stateRef.current;
   const clean = cur.document === revision;
+  // A browser snapshot download is a hand-off to the browser, not a
+  // destination the app can read back. It must not clear dirty state, must
+  // not be announced as a file save, and must not acknowledge the revision to
+  // autosave/backup: doing so stops protecting a document that was never
+  // written anywhere (storytold/designcraft #708).
+  const decision = decideSaveSuccess({ durable: adopted.persistent, clean });
   const update: SessionUpdate = {
     ...adopted.session,
     fileId,
@@ -388,13 +434,15 @@ async function chooseAndAdopt(
     ...(adopted.persistent ? { diskContentHash: contentHash(json) } : {}),
   };
   const sessions = cur.sessions.map((sess) =>
-    sess.id === cur.activeId ? { ...sess, ...update, dirty: clean ? false : sess.dirty } : sess,
+    sess.id === cur.activeId
+      ? { ...sess, ...update, dirty: decision.marksClean ? false : sess.dirty }
+      : sess,
   );
   patch({
-    dirty: clean ? false : cur.dirty,
-    saveState: 'saved',
-    lastSavedAt: Date.now(),
+    ...(decision.marksClean ? { dirty: false } : {}),
+    saveState: decision.settleSaveState,
     saveIssue: null,
+    lastSavedAt: Date.now(),
     sessions,
   });
   if (clean) {
@@ -420,7 +468,9 @@ async function performSaveCopy(
 ): Promise<SaveOutcome> {
   const s = stateRef.current;
   const meta = s.sessions.find((sess) => sess.id === s.activeId);
-  const json = DocumentCodec.encode(s.document);
+  const encoded = encodeVerifiedDocument(s.document);
+  if (!encoded.ok) return writeFailure(patch, encoded.issue);
+  const json = encoded.json;
   const choice = await platform.chooseDocumentSaveTarget(meta?.name ?? 'Untitled');
   if (choice.kind === 'cancelled') {
     patch({ saveState: 'idle' });
@@ -451,14 +501,15 @@ async function afterPrimaryWrite(
   recoveryRef: React.MutableRefObject<RecoveryManager | null>,
   patch: (partial: Partial<EditorState>) => void,
   revision: Document,
+  json: string,
   update: SessionUpdate,
   name: string,
 ): Promise<SaveOutcome> {
   await recoveryRef.current?.deleteSession(stateRef.current.activeId);
   const cur = stateRef.current;
-  const json = DocumentCodec.encode(cur.document);
-  // Revision-aware clean: if the user edited while the write was in flight,
-  // the save covered an older revision — the document stays dirty.
+  // The text that was written is the text that was verified; re-encoding here
+  // could only differ by an edit made during the write, and would throw on a
+  // document the write already committed.
   const clean = cur.document === revision;
   const sessions = cur.sessions.map((sess) =>
     sess.id === cur.activeId

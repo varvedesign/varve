@@ -81,3 +81,35 @@ describe('evaluate — error cases', () => {
     expect(() => evaluate('(2 + 3', {})).toThrow('Mismatched parentheses');
   });
 });
+
+/**
+ * A non-finite result must never leave this function: the document codec
+ * rejects non-finite numbers at save time, so returning one would create a
+ * document that can never be saved again. These are the regression tests for
+ * that guarantee (photocraft #5752 / #6424 / #6862 — same failure class).
+ */
+describe('evaluate — refuses results that cannot be stored in a document', () => {
+  it('throws when a numeric literal overflows to Infinity', () => {
+    // 10^400 overflows the double range (1e308 is the last finite decade).
+    expect(() => evaluate('1' + '0'.repeat(400), {})).toThrow('not a finite number');
+  });
+
+  it('throws when a multiplication chain overflows', () => {
+    // 40 factors of 1e10 = 1e400, past the double range.
+    const chain = Array.from({ length: 40 }, () => '10000000000').join(' * ');
+    expect(() => evaluate(chain, {})).toThrow('not a finite number');
+  });
+
+  it('throws when an alias resolves to a non-finite value', () => {
+    expect(() => evaluate('{x} * 2', { x: Number.POSITIVE_INFINITY })).toThrow(
+      'not a finite number',
+    );
+  });
+
+  it('still accepts large but representable values', () => {
+    // 10^300 is finite, and 7 factors of 1e10 = 1e70.
+    expect(evaluate('1' + '0'.repeat(300), {})).toBe(1e300);
+    const chain = Array.from({ length: 7 }, () => '10000000000').join(' * ');
+    expect(evaluate(chain, {})).toBe(1e70);
+  });
+});

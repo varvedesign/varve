@@ -661,3 +661,79 @@ describe('blendPixels', () => {
     }
   });
 });
+
+/**
+ * Blend over a fully transparent backdrop.
+ *
+ * W3C Compositing and Blending Level 1: when the backdrop alpha is 0 the
+ * result is the source colour unchanged — a transparent backdrop is not white
+ * paper. An implementation that composites against an opaque white surface
+ * makes a `screen` green come out white and a `difference` green come out
+ * magenta, which is exactly the failure reported against another PDF
+ * application (storytold/pdfcraft#2970) and the reason this is pinned here.
+ */
+describe('blend over a transparent backdrop', () => {
+  const TRANSPARENT = [0, 0, 0, 0] as const;
+  const EVERY_MODE = [
+    'normal',
+    'multiply',
+    'screen',
+    'overlay',
+    'darken',
+    'lighten',
+    'colorDodge',
+    'colorBurn',
+    'hardLight',
+    'softLight',
+    'difference',
+    'exclusion',
+    'hue',
+    'saturation',
+    'color',
+    'luminosity',
+    'plusLighter',
+  ] as const;
+
+  it('returns the source colour unchanged for every mode', () => {
+    const green = [0, 1, 0, 1] as const;
+    for (const mode of EVERY_MODE) {
+      for (const space of ['legacy-srgb', 'linear-srgb'] as const) {
+        const [r, g, b, a] = blend(TRANSPARENT, green, mode, 1, space);
+        const label = `${mode} in ${space}`;
+        // The linear-light path round-trips sRGB, so equality is to a tight
+        // tolerance rather than exact. What must never appear is any pull
+        // toward white: a screen green over nothing is green, not white.
+        expect(r, label).toBeCloseTo(0, 6);
+        expect(g, label).toBeCloseTo(1, 6);
+        expect(b, label).toBeCloseTo(0, 6);
+        expect(a, label).toBeCloseTo(1, 6);
+      }
+    }
+  });
+
+  it('keeps the source colour through the pixel helper', () => {
+    const backdrop = makePixelData(0, 0, 0, 0);
+    const source = makePixelData(0, 255, 0, 255);
+    for (const mode of ['screen', 'difference'] as const) {
+      const result = blendPixels(backdrop, source, mode, 1);
+      const [r, g, b, a] = [result.data[0], result.data[1], result.data[2], result.data[3]];
+      expect([r, g, b, a], mode).toEqual([0, 255, 0, 255]);
+    }
+  });
+
+  it('still blends once there is a backdrop, so the mode is not ignored', () => {
+    // Guard against a vacuous pass: with an opaque red backdrop the same
+    // green `screen` must change the result. Screen(red, green) is yellow.
+    const [r, g, b, a] = blend([1, 0, 0, 1], [0, 1, 0, 1], 'screen', 1);
+    expect(r).toBeCloseTo(1, 5);
+    expect(g).toBeCloseTo(1, 5);
+    expect(b).toBeCloseTo(0, 5);
+    expect(a).toBeCloseTo(1, 5);
+  });
+
+  it('honours source opacity over a transparent backdrop', () => {
+    const [r, g, b, a] = blend(TRANSPARENT, [0, 1, 0, 1], 'screen', 0.5);
+    expect([r, g, b]).toEqual([0, 1, 0]);
+    expect(a).toBeCloseTo(0.5, 5);
+  });
+});

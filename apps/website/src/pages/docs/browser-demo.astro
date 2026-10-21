@@ -87,18 +87,21 @@ import '../../styles/docs-prose.css';
         <p>
           The demo follows your browser's file capabilities. In Chromium browsers it can keep
           writing to a file you chose (File System Access API), re-asking for permission when the
-          browser requires it. In Firefox and Safari, Save produces a fresh snapshot download each
-          time and the browser-local copy is updated as well, because a download is not a
-          persistent location.
+          browser requires it. In Firefox and Safari, Save downloads a fresh snapshot each time: a
+          download is not a location the demo can write to again, so it cannot confirm the file
+          landed. The document stays marked <em>Modified</em> until it reaches a destination the
+          demo can read back. A document that already has a Varve Library identity is also copied
+          into browser storage when you save; a brand-new document is not copied until a later save.
         </p>
         <p>
           <strong>Saved means the write to the destination actually finished.</strong> The status
           bar reports <em>Saving…</em>, <em>Saved</em>, <em>Modified</em>, <em>Not saved</em>, or{' '}
           <em>Save failed</em> with the reason in its tooltip. A cancelled file picker changes
-          nothing and does not mark the document saved. While edits have not reached a destination,
-          the demo writes <strong>recovery copies</strong> into this browser's storage; they are
-          offered after a crash or a discarded tab and are removed when the document is saved, when
-          you discard it intentionally, or after seven days.
+          nothing and does not mark the document saved, and a download the browser took over is not
+          reported as saved either. While edits have not reached a destination, the demo writes{' '}
+          <strong>recovery copies</strong> into this browser's storage; they are offered after a
+          crash or a discarded tab and are removed when the document is saved, when you discard it
+          intentionally, or after seven days.
         </p>
         <p>
           The demo does not auto-save to disk. Set your own save rhythm, or use the desktop app's

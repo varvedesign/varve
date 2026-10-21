@@ -45,7 +45,9 @@ fn registry() -> &'static Mutex<Option<HostedServer>> {
 }
 
 fn lock_registry() -> MutexGuard<'static, Option<HostedServer>> {
-    registry().lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    registry()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 static ROOM_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -253,9 +255,8 @@ mod tests {
         let Ok(mut stream) = tokio::net::TcpStream::connect(("127.0.0.1", port)).await else {
             return false;
         };
-        let request = format!(
-            "GET /health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
-        );
+        let request =
+            format!("GET /health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
         if stream.write_all(request.as_bytes()).await.is_err() {
             return false;
         }

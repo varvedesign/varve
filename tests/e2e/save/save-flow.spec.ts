@@ -291,3 +291,85 @@ test('Save remains available when a responsive Inspector command has focus', asy
   expect(await pickerCalls(page)).toBe(1);
   await expect(inspector).toBeVisible();
 });
+
+/**
+ * Firefox/Safari shape: no File System Access API at all.
+ *
+ * `chooseWebSaveTarget` falls back to a download-only target. A download is a
+ * hand-off to the browser, not a destination the app can read back, so the
+ * document must stay Modified and the status bar must never say "Saved". A
+ * hand-off that cleared dirty state would also stop acknowledging the saved
+ * revision to autosave/backup, which is what protects the edits while nothing
+ * has actually reached a destination (storytold/designcraft #708, #1055).
+ */
+async function installNoFileSystemAccessStub(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const win = window as unknown as Record<string, unknown>;
+    Object.defineProperty(win, 'showSaveFilePicker', {
+      configurable: true,
+      writable: true,
+      value: undefined,
+    });
+    Object.defineProperty(win, 'showOpenFilePicker', {
+      configurable: true,
+      writable: true,
+      value: undefined,
+    });
+  });
+}
+
+test('without File System Access, Save hands off a download and never claims Saved', async ({
+  page,
+}, testInfo) => {
+  await installNoFileSystemAccessStub(page);
+  await navigateToCleanEditor(page);
+  await startUnboundDocument(page);
+  await makeDirty(page);
+
+  const handoff = page.waitForEvent('download');
+  await page.keyboard.press(`${mod('s')}`);
+  const first = await handoff;
+
+  // The hand-off happened, with the document's own name and extension...
+  expect(first.suggestedFilename()).toMatch(/\.varve$/);
+  // ...and the document is still Modified, because nothing durable was
+  // written. This is the assertion that failed before the repair: the first
+  // save adopted the download and cleared dirty state.
+  await expect(saveStatus(page)).toHaveText('Modified');
+  await page.screenshot({ path: testInfo.outputPath('download-handoff-stays-modified.png') });
+
+  // A later Save repeats the hand-off and still does not claim Saved.
+  const secondHandoff = page.waitForEvent('download');
+  await page.keyboard.press(`${mod('s')}`);
+  await secondHandoff;
+  await expect(saveStatus(page)).toHaveText('Modified');
+});
+
+test('a failed Save a Copy reports the failure instead of restoring the previous status', async ({
+  page,
+}) => {
+  await installSavePickerStub(page);
+  await navigateToCleanEditor(page);
+  await startUnboundDocument(page);
+
+  await page.keyboard.press(`${mod('s')}`);
+  await expect(saveStatus(page)).toHaveText('Saved');
+
+  await makeDirty(page);
+
+  // The copy's write fails. The status bar must not fall back to the
+  // document's own (successful, older) status: that would report a copy that
+  // never happened. Before the repair the hook cleared the error for
+  // save-copy and the bar read "Modified" with no failure anywhere.
+  await page.evaluate(() => {
+    (window as unknown as Record<string, unknown>).__varveFailWrites = true;
+  });
+  await openFileMenu(page);
+  await page
+    .locator('.editor-menubar__menu-item')
+    .filter({ hasText: /^Save a Copy/ })
+    .click();
+
+  await expect(saveStatus(page)).toHaveText('Save failed');
+  expect(await pickerCalls(page)).toBe(2);
+});

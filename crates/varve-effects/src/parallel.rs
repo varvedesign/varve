@@ -21,10 +21,21 @@
 //! No `unsafe` and no explicit SIMD: `unsafe_code` is denied workspace-wide and
 //! `std::simd` is unstable. Whether the compiler vectorizes a loop is neither
 //! claimed nor relied on here.
+//!
+//! # wasm32
+//!
+//! `wasm32-unknown-unknown` has no threads: `std::thread::spawn` is unsupported
+//! and `std::thread::available_parallelism` returns `Err`. The crate therefore
+//! *compiles* for wasm32 but must never reach the spawning path, which is why
+//! the platform decision is made explicitly here rather than left to
+//! `available_parallelism` returning `Err` by accident. Every kernel in
+//! `varve-wasm` runs on the calling thread as a single band — the same code, the
+//! same arithmetic order, the same bytes as [`Execution::scalar`] on native.
 
+#[cfg(not(target_family = "wasm"))]
 use std::num::NonZeroUsize;
+#[cfg(not(target_family = "wasm"))]
 use std::sync::OnceLock;
-
 /// How a kernel may use threads. `Copy`, so it threads through call sites cheaply.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Execution {
@@ -111,18 +122,27 @@ impl Default for Execution {
 }
 
 fn default_threads() -> usize {
-    static THREADS: OnceLock<usize> = OnceLock::new();
-    *THREADS.get_or_init(|| {
-        let available = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
-        let mut threads = available.saturating_sub(1).clamp(1, Execution::MAX_THREADS);
-        if let Some(limit) = std::env::var("VARVE_EFFECT_THREADS")
-            .ok()
-            .and_then(|value| value.trim().parse::<usize>().ok())
-        {
-            threads = threads.min(limit.max(1));
-        }
-        threads
-    })
+    // wasm32-unknown-unknown has no thread runtime. Committing to one band here
+    // is a platform decision, not a fallback: nothing downstream may spawn.
+    #[cfg(target_family = "wasm")]
+    {
+        1
+    }
+    #[cfg(not(target_family = "wasm"))]
+    {
+        static THREADS: OnceLock<usize> = OnceLock::new();
+        *THREADS.get_or_init(|| {
+            let available = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
+            let mut threads = available.saturating_sub(1).clamp(1, Execution::MAX_THREADS);
+            if let Some(limit) = std::env::var("VARVE_EFFECT_THREADS")
+                .ok()
+                .and_then(|value| value.trim().parse::<usize>().ok())
+            {
+                threads = threads.min(limit.max(1));
+            }
+            threads
+        })
+    }
 }
 
 /// Run `f(first_row, band)` over disjoint bands of whole rows of `data`.
@@ -146,6 +166,11 @@ where
         "data is not a whole number of rows"
     );
     let rows = data.len() / row_len;
+    // On wasm there is no thread runtime, so the policy's thread count cannot
+    // override `scalar`: the bands stay at one and the loop below never spawns.
+    #[cfg(target_family = "wasm")]
+    let bands = 1;
+    #[cfg(not(target_family = "wasm"))]
     let bands = exec.bands_for(rows, data.len());
     if bands <= 1 {
         f(0, data);

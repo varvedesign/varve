@@ -1,4 +1,5 @@
 mod acceleration;
+mod collab_host;
 mod crash;
 mod file_open;
 mod filesystem;
@@ -6,7 +7,6 @@ mod font;
 mod font_storage;
 mod generative_qualification;
 mod generative_resources;
-mod collab_host;
 mod lifecycle;
 mod logs;
 mod menu;

@@ -4,8 +4,9 @@ import {
   createDocument,
   DocumentCodec,
   makeFrameNode,
+  makeShapeNode,
 } from '@varve/scene';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
 
 function mount(initialDocumentJson?: string) {
@@ -89,7 +90,7 @@ describe('EditorProvider owned-transaction history', () => {
     await waitFor(() => expect(get()).toBeDefined());
 
     const layout = {
-      mode: 'stack' as const,
+      mode: 'flex' as const,
       direction: 'row' as const,
       gap: 8,
       wrap: false,
@@ -100,7 +101,7 @@ describe('EditorProvider owned-transaction history', () => {
     act(() => get().setNodeLayout(frame.id, layout));
     await waitFor(() => {
       const node = get().state.document.nodes[frame.id];
-      expect(node?.kind === 'frame' ? node.layoutStyle?.mode : undefined).toBe('stack');
+      expect(node?.kind === 'frame' ? node.layoutStyle?.mode : undefined).toBe('flex');
     });
 
     act(() => get().undo());
@@ -150,6 +151,51 @@ describe('EditorProvider owned-transaction history', () => {
       expect(node?.kind === 'frame' ? node.layoutStyle?.gridTemplateColumns : undefined).toBe(
         '1fr 1fr',
       );
+    });
+  });
+
+  it('records a constraint edit as one undoable document transaction', async () => {
+    const source = createDocument('Constraint history', true);
+    const frame = makeFrameNode('constraint-history-frame', {
+      w: 400,
+      h: 300,
+      children: ['constraint-history-child'],
+    });
+    const child = {
+      ...makeShapeNode('constraint-history-child', {
+        kind: 'rect',
+        x: 24,
+        y: 32,
+        w: 80,
+        h: 60,
+      }),
+      constraints: { horizontal: 'min' as const, vertical: 'min' as const },
+    };
+    const initial = {
+      ...source,
+      nodes: { ...source.nodes, [frame.id]: frame, [child.id]: child },
+      rootChildren: [...source.rootChildren, frame.id],
+    };
+    const get = mount(DocumentCodec.encode(initial));
+    await waitFor(() => expect(get()).toBeDefined());
+    act(() => get().setSelection(child.id));
+    await waitFor(() => expect(get().state.selection).toEqual([child.id]));
+
+    const historyWarning = vi.spyOn(console, 'warn');
+    act(() => get().setSelectedConstraint({ horizontal: 'max', vertical: 'min' }));
+    await waitFor(() => {
+      const node = get().state.document.nodes[child.id];
+      expect(node?.constraints?.horizontal).toBe('max');
+    });
+    expect(historyWarning).not.toHaveBeenCalledWith(
+      '[history] updateDoc called outside transaction — this mutation bypasses persistent history capture',
+    );
+    historyWarning.mockRestore();
+
+    act(() => get().undo());
+    await waitFor(() => {
+      const node = get().state.document.nodes[child.id];
+      expect(node?.constraints).toEqual({ horizontal: 'min', vertical: 'min' });
     });
   });
 
