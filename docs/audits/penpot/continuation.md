@@ -6,8 +6,8 @@
 - Planning observed Varve remote `master` at `5172718c6f0f2597466cd08d0839b53ccafefbd2`; execution refreshed it to `b6a91a320b3dfef7b046b80fa3e0f8c69ec210b7` and merged that baseline into `codex/penpot-corpus` as `65059b5d0`. The isolated worktree is `/home/kevina/CodingProjects/varve/.worktrees/penpot-corpus`; the original dirty checkout and other worktrees remain untouched.
 - C1 froze at `2026-10-20T02:39:22.818Z` UTC, source Penpot `develop` SHA `be2e117f670fdc3fe440e55bea541df28f1c76d9`. Do not change C1. Do not freeze C2 until C1 issues and applicable evidence frontier are exhausted or individually blocked.
 - C1 listing: 12,050 records across 121 pages: 3,659 issues (757 open / 2,902 closed), 8,391 PRs (87 open / 8,304 closed), no duplicate IDs or issue numbers, 35 null issue bodies, and all 2,559 non-empty issue discussion threads captured with zero unresolved comments. Page inventory omitted issue #437 despite its pre-C1 `updated_at`; its full record/comments are kept separately in `snapshots/C1/supplemental.ndjson` and the common Git cache.
-- Current ledger at checkpoint 2026-10-20: 696 page-listed issue assessments are completed and 2,963 remain research-pending; supplemental #437 is separately assessed (697 unique issue IDs total). Engineering pending count is 3,411. C1 checker correctly remains incomplete for these corpus-wide counts; `node scripts/research/penpot-audit.mjs status --cutoff C1` is authoritative.
-- Ranges assessed individually through #2448, including recursive #2715: selected early ranges through #696, then sampled/bounded ranges through #2448, with numeric gaps retained. Coverage is not contiguous; see the per-issue ledger and `frontier.ndjson`. All issue bodies/comments in assigned returned ranges were read; pull requests remain separately classified. PR discussion comments missing from the cache are explicitly retained as unresolved frontier edges.
+- Current ledger at checkpoint 2026-10-21: 820 page-listed issue assessments are completed and 2,839 remain research-pending; supplemental #437 is separately assessed (821 unique issue IDs total). Engineering pending count is 3,386. C1 checker correctly remains incomplete for these corpus-wide counts; `node scripts/research/penpot-audit.mjs status --cutoff C1` is authoritative.
+- Ranges have been assessed individually through #2760, including recursive #2715, with numeric gaps retained. Coverage is not contiguous; see the per-issue ledger and `frontier.ndjson`. All issue bodies/comments in assigned returned ranges were read; pull requests remain separately classified. PR discussion comments missing from the cache are explicitly retained as unresolved frontier edges.
 
 ## Durable evidence and ownership
 
@@ -24,7 +24,7 @@
 - Import progress (#1793): browser file preparation and parser progress are now separate, file counts describe prepared/completed files, the latest completed filename is explicit, ETA is omitted, and cancellation remains available. Focused unit coverage passes 12/12. The browser progress/cancellation check is queued behind another active lease task; architecture and website file-format guidance have been updated.
 - Safari theme metadata (#1803): the marketing site's `theme-color` metadata now follows its resolved manual Light/Dark theme and updates on live theme changes, with a media-query fallback when JavaScript is unavailable. Exact regressions passed in GitHub Pages and custom-domain builds, including reload persistence and both metadata states; the dark header screenshot was inspected. Safari's visible browser chrome itself still needs a Safari-specific check.
 - Current research tooling: `scripts/research/penpot-audit.mjs` and tests, dependency-free. No classifier marks issues reviewed. The `check` command now validates each inventory row against the source-page item, page pointer, response ETag, body checksum, identity, timestamps, labels, state, and comment count.
-- C1 #2353–#2448 returned ranges: 42 additional issues individually assessed (52 PR records kept separate), including all 109 issue comments. `status --cutoff C1` reports 696 page-listed assessed, 2,963 research-pending, and 3,411 engineering-pending; #437 remains the separate assessed supplement. The consistency checker now reports only the expected incomplete-corpus/applicable-finding state, with no checksum or source-pointer mismatch. New high-priority reproduction candidates are #2369 (middle-button guide capture), #2422 (embedded SVG CSS class colors), and #2447 (first-click text caret position).
+- C1 #2353–#2544 returned ranges: 90 additional issues individually assessed (89 PR records kept separate), including all 241 issue comments. `status --cutoff C1` reports 744 page-listed assessed, 2,915 research-pending, and 3,390 engineering-pending; #437 remains the separate assessed supplement. The consistency checker reports only expected incomplete-corpus/applicable-finding state, with no checksum, source-pointer, timestamp, or identity mismatch. High-priority reproduction candidates include #2369 (middle-button guide capture), #2422 (embedded SVG CSS class colors), #2447 (first-click text caret position), #2482/#2487 (distinct text-run spacing conditions), #2503 (large-SVG responsiveness), and #2542 (gradient-stop color integrity).
 - Independent review of the full current working-tree implementation diff at `e3481b819554fd1ed00552ca20a956ffaf195ab0` found no actionable code or documentation findings. Review covered cancellation/atomicity, SVG text styles, clipboard feedback, shortcuts, pointer handling, accessibility, website claims, and untracked E2E specs. The reviewer did not run tests; current affected validation is still in progress.
 - C1 #2353–#2448 returned ranges: 42 additional issues individually assessed (52 PR records kept separate), including all 109 issue comments. `status --cutoff C1` reports 696 page-listed assessed, 2,963 research-pending, and 3,411 engineering-pending; #437 remains the separate assessed supplement. The consistency checker now reports only the expected incomplete-corpus/applicable-finding state, with no checksum or source-pointer mismatch. New high-priority reproduction candidates are #2369 (middle-button guide capture), #2422 (embedded SVG CSS class colors), and #2447 (first-click text caret position).
 - Independent review of the full current working-tree implementation diff at `e3481b819554fd1ed00552ca20a956ffaf195ab0` found no actionable code or documentation findings. Review covered cancellation/atomicity, SVG text styles, clipboard feedback, shortcuts, pointer handling, accessibility, website claims, and untracked E2E specs. The reviewer did not run tests; current affected validation is still in progress.
@@ -36,26 +36,72 @@
 
 ## Validation and integration state
 
-- Latest affected plan selected 36 lanes (full-suite escalation: no) for the website/editor/import scope. `pnpm verify:affected` passed touched formatting/lint, emoji, radius, and docs audits, then stopped at the spacing audit due to 16 raw-spacing drifts in untouched `FirstRunOverlay.css` and `DownloadRedirect.astro`; no implementation test had run at that point. Earlier affected runs found the same pre-existing drift. Re-run after integrating current `origin/master`, which advanced to `b6a91a320b3dfef7b046b80fa3e0f8c69ec210b7` and may contain baseline corrections.
-- The import preparation browser E2E waited 600 seconds for the shared lease owner `pid 361720` (website E2E started 2026-10-20T19:53:50.971Z) and expired before starting. A second affected run is serialized behind the same lease. Do not kill or reclaim a live lease. Guide and theme visual runs from the earlier checkpoint passed and their screenshots were inspected; the current import/clipboard/mouse-resize/shortcut browser tests still require their exact runs and screenshot review.
-- A separate review caught that synchronous parsers block browser cancellation, and then the atomic-import contract: cancellation discards the entire uncommitted batch. The service now yields between completed files when an abort signal exists so progress can paint and cancellation can stop queued parser work; active synchronous parsers finish first. The UI and website help consistently describe whole-batch cancellation. Independent follow-up review found no remaining contract inconsistency; service and browser regression tests are included but await validation.
-- C1 #2313 supplies a retrieved 9.3 MiB SVG robustness fixture with a large embedded pattern. Varve's source-byte cap does not bound XML element count/tree allocation, so memory/time reproduction is the next high-priority importer investigation. #2276/#2348 `currentColor` and #2183 Unicode numeric input remain concrete repair candidates; preserve each issue's distinct reproduction conditions.
-
-- Workspace instructions are in `/home/kevina/CodingProjects/varve/AGENTS.md`. Toolchain baseline recorded Rust 1.97, pnpm 11.9, Node 26, wasm32 target, and Linux GTK/WebKit dependencies; this worktree currently resolves Node v22.23.2, so the runtime differs from the documented baseline. Latest host snapshot during concurrent work: 5.0 GiB available RAM, swap fully used, 65 GiB free disk; other worktrees are using disk and shared memory.
-- Latest `pnpm verify:plan` selected 41 lanes across @varve/website, @varve/editor, and @varve/import, with no full-suite escalation. Latest `pnpm verify:affected` stopped at the spacing audit's 16 pre-existing raw-spacing drifts in two untouched files (`FirstRunOverlay.css`, `DownloadRedirect.astro`); format, lint, emoji, radius, and docs lanes passed before that failure. Focused unit coverage passed 365 tests; editor/import/desktop typechecks, website typecheck, and browser E2E typecheck passed. `pnpm audit:tokens` passed 324 pairs across three themes and no token-use violations. `audit:architecture.mjs --ci` completed with 14 cycles (under 17), zero layer violations, report-only instability/unused-export counts, and existing Shell/Menubar/context budget warnings; health audit passed. Fresh docs and emoji audits passed. Exact theme-color and FOUC E2Es passed in GitHub Pages and custom-domain projects (4/4); the dark-header screenshot was inspected. Mobile delivery at 390px passed in both site builds; the screenshot was inspected and cards stack without clipping. The navbar visual passes with an increased timeout and its dark landscape menu screenshot is legible and unclipped. Guide interaction E2Es pass 5/5 and guide visuals pass 3/3 in light/dark/high-contrast; all three actual screenshots were inspected. One earlier combined guide/clipboard/resize E2E queue expired after 600 seconds waiting behind another lease task and did not start. The current import browser E2E is queued behind an active website lease task. A fresh remote fetch found `origin/master` advanced to `b6a91a320b3dfef7b046b80fa3e0f8c69ec210b7`; its shortcut, scene-validation, website-theme, and Penpot-audit-path changes overlap this branch and must be reconciled before integration.
-- The latest independent research-tool test run passes 16/16; `node --check scripts/research/penpot-audit.mjs` passes. `check --cutoff C1` currently fails only for expected pending issue coverage/applicable findings, with zero inventory pointer, checksum, timestamp, or identity errors. The checker now treats a missing after-cutoff marker as pending for unreviewed rows, while requiring an exact marker for reviewed rows; reviewed rows carry the explicit marker.
-- Another worktree's full-gate/triage state must be rechecked before scheduling the next heavy browser run; never reclaim a live lease. Re-run the affected plan after the next implementation slice, then `pnpm verify:affected`; resolve the current untouched spacing-audit baseline failure or record its exact pre-existing evidence before committing. Fresh docs, emoji, and token audits are required after ledger/site edits. No full suite unless the planner escalates or a release checkpoint applies.
-- Commits `5c8c95f0e` (audit tooling/evidence), `35c4fef86` (scene document recovery), `23eba88fa` (C1 ledger through #1800), `eef2fb66b` (browser-safe shortcuts plus docs), and `aa01d57c9` (C1 ledger through #1896) are on the task branch. The scene commit checkpoint passed 66 focused tests. The current guide, import-progress, website theme metadata, clipboard feedback, mouse-button, and expanded audit ledger remain uncommitted. No push checkpoint, PR, merge, site deploy, or app release has occurred. After validation/review, run `pnpm verify:push`, then use repository controls for focused PR/integration and verify any triggered deployment.
+- `pnpm verify:plan` currently selects 36 lanes across @varve/website, @varve/editor, and @varve/import; no full-suite escalation. `pnpm audit:docs` and `git diff --check` pass after the latest audit updates. `node scripts/research/penpot-audit.mjs check --cutoff C1` reports only expected incomplete-corpus/applicable-finding state; it finds no checksum, source-pointer, timestamp, or identity mismatch. Reconciliation is refreshed to 2,848 research-pending and 3,386 engineering-pending.
+- Exact one-worker browser validation completed through the heavy-task lease: `node scripts/quality/heavy-lease.mjs "e2e: Penpot-derived importer clipboard resize shortcut regressions" -- npx playwright test tests/e2e/canvas/file-import.spec.ts tests/e2e/canvas/clipboard-capabilities.spec.ts tests/e2e/canvas/selection-resize-mouse-buttons.spec.ts tests/e2e/shortcuts/browser-reserved.spec.ts --project=chromium --workers=1 --reporter=list`; all 15 tests passed. The WebAssembly load warning falls back to the TypeScript renderer in this browser environment. I inspected the preparation-state screenshot: the canvas remains usable while the “Preparing files: 0 of 1 ready” progress and Cancel action are visible. SVG text style and resize screenshots were also inspected earlier.
+- Earlier affected verification passed formatting, lint, emoji, radius, and docs checks, then stopped on 16 raw-spacing drifts in untouched `FirstRunOverlay.css` and `DownloadRedirect.astro`. Focused unit coverage passed 365 tests; affected package/browser typechecks passed. An affected editor-suite run had two failures in untouched PromptDialog and SelectionSourcesPanel tests under concurrent load; both passed in a targeted one-worker rerun. Record these as pre-existing/transient and classify any new failure before rerunning. Do not claim the latest 36-lane plan complete until its required lanes are resolved or the exact pre-existing blockers are confirmed again.
+- `pnpm audit:tokens` passed 324 contrast pairs across three themes and the token-use scan; architecture audit reported 14 cycles (under 17) and zero layer violations, with report-only instability/unused-export metrics and the documented hub-budget warnings. These remain the latest recorded values; repeat if the plan or code changes select them.
+- Independent review of the current diff found two P2s: this stale reconciliation line (now corrected), and SVG inline-style property names not being normalized case-insensitively. The casing issue will be fixed with a regression test, then the final diff will receive another review before committing. Other reviewed flows appeared coherent; the reviewer did not rerun tests, audit Penpot sources, or re-inspect screenshots.
+- Workspace instructions are in `/home/kevina/CodingProjects/varve/AGENTS.md`. Documented toolchain baseline: Rust 1.97, pnpm 11.9, Node 26, wasm32 target, Linux GTK/WebKit dependencies; this worktree resolves Node v22.23.2. Latest earlier host snapshot had 5.0 GiB available RAM, swap fully used, and 65 GiB free disk; check current lease/memory before additional browser work.
+- Current `origin/master` is `20d9fadc480d4dc2035c777ff161be6d06d25361`, two commits ahead of the refreshed worktree base `b6a91a320b3dfef7b046b80fa3e0f8c69ec210b7`; inspect and integrate those dependency-advisory changes before any PR/master integration. Working branch is `codex/penpot-corpus`, HEAD `fb8c3cc7af9c9eaffa8d64e3f0022231b7987b1c`, with application, website-help, and audit-ledger changes currently uncommitted. No push checkpoint, PR, merge, site deploy, or application release has occurred. Website help now describes import feedback/cancellation; no marketing capability claim change is justified by the current evidence.
 
 ## Next operations
 
-1. Complete the queued 390px website regression, then the exact import-progress, guide, clipboard, mouse-resize, and browser-shortcut E2Es through the shared lease; inspect every generated screenshot. Check Safari chrome separately if that runtime is available.
-2. Re-run the final affected checks after any fixes, review native/browser evidence separately, refresh this checkpoint with exact test outcomes, then commit the implementation/documentation and research ledgers in coherent increments.
-3. Run `pnpm verify:push`, inspect current repository branch rules, and integrate via focused PR controls; confirm remote ancestry and any triggered website deployment. Manual app releases remain separate.
-4. Validate #1870 clipboard feedback across browser secure/insecure contexts and native fallback. Reproduce #1891 horizontal gesture/history behavior on MacOS/Brave before changing it; strengthen PDF assertions only if a meaningful gap is demonstrated.
-5. Finish the reproduced SVG inline-font fidelity improvement from #1990 against the cached source fixture, with parser tests, browser rendering and visual comparison. Implement the layer-row hover outline as a discrete feature slice grounded in merged Penpot PR #2114, with canvas pointer/focus/keyboard and visual regression coverage. Continue bounded read-only issue reviews from #2137 and reconcile each range into the ledger/findings/frontier.
-6. Continue C1 until every issue is individually assessed and relevant frontier edges are resolved or explicitly blocked; then freeze C2 exactly once, reconcile changed evidence, and finish its applicable reviews. Later arrivals stay in the follow-on queue.
+1. Let the other worktree's active full-gate JavaScript unit lease finish; do not reclaim or interrupt it. Run the new SVG and component-menu unit regressions, then rerun `pnpm verify:plan` and the selected affected lanes. The inherited currentColor and component-menu browser regressions are queued through the lease; inspect both actual screenshots before accepting them.
+2. Finish engineering checks for #2276, #2348's separate grouped-Material-icon/low-zoom trigger, and #2670. Refresh each issue's engineering evidence only after validation and review. Reproduce the remaining browser leads #2660, #2672, #2684, and #2685 while preserving their distinct triggers.
+3. Request an independent review of the complete current diff after the queued checks pass; resolve findings, commit the verified application/docs changes and audit checkpoint, refresh `origin/master`, run `pnpm verify:push`, then integrate through current repository controls. Confirm remote ancestry and any automatic site deployment; manual application releases remain separate.
+4. Continue C1 in resumable batches after #2712, resolve the applicable evidence frontier (Taiga, upstream PR diffs/reviews, and inaccessible sources), then freeze C2 once and reconcile its applicable changes. Keep later arrivals in follow-on.
+5. Retain this worktree and the original checkout until every accessible issue through C2 and each applicable finding is complete or explicitly blocked. Only then validate the final candidate, confirm merge/deployment, and clear the stale worktree.
+
 This is a partial checkpoint. C1 remains incomplete; C2 is not frozen.
+
+### Latest completed evidence range: #2665–#2712
+
+The #2665–#2688 interval contains 14 issue objects and nine PRs; #2680 is
+absent from the C1 page and a later GET returned 404. All 14 issue bodies and
+43 comments were read. #2670 is a grounded discoverability opportunity: frame
+component creation existed in Varve but was absent from the canvas context
+menu. A frame-only menu action and undo/redo browser regression are in
+progress, with help documentation updated; final validation and review remain
+pending. #2672, #2684, and #2685 remain real-browser reproduction leads;
+#2673 follows an existing IME composition route. Other reports concern
+Penpot-only dashboard, invitation, localization, copy, development, or
+private self-hosted handoff routes. PR metadata/comments and 11 attachments
+were captured after C1; these are supplemental evidence, not cutoff-time
+captures.
+
+The #2689–#2712 interval contains four issues and 20 PRs. All four issue
+bodies and six issue comments were read. #2690's nested-text keyboard movement
+is a targeted browser comparison against Varve's hierarchy-aware nudge and
+renderer route; no Varve failure is established. #2691 is a substantial RTL
+localization/product decision, distinct from the existing RTL text primitives.
+#2712 has no shared-link identity defect because Varve uses stable string IDs
+and has no hosted share URL route. Related issue #2276 and merged PR #2710
+provide a strong SVG `currentColor` import lead: Varve previously ignored the
+keyword and left its default fill. The parser change now covers inherited
+element/group color for fills, strokes, and gradient stops; unit regressions
+pass, while the editor-import screenshot check and independent review remain
+pending. SVG-import help now documents the supported subset. Merged PR #2711 also
+supports the #2670 canvas component-discoverability opportunity. Page and
+comment caches and linked post-cutoff sources retain their exact provenance
+in the ledger/frontier. Coverage is 811/3,659 page-listed issue assessments;
+C1 remains incomplete and C2 remains unfrozen.
+
+### Latest completed evidence range: #2617–#2664
+
+The #2641–#2664 handoff assessed seven issue records and 17 PR records. All
+seven issue bodies and comment histories were read; comments total 12 across
+the four non-empty threads. #2641's missing template/server diagnostics,
+#2643's notification copy, #2644's self-hosted deployment guidance, and
+#2649's comment-thread assertion have no matching Varve route. #2646 and #2656
+are broad localization product decisions. #2660 is a static trace candidate:
+the prototype action stores an authored overlay position, but the runtime
+appears to drop it before rendering. This has not been reproduced in Varve.
+Its screenshots and Taiga #4610 status history were captured after C1; no
+upstream fixing commit is identified. PR #2659's layout feedback and
+import/export are retained as adjacent comparison work; #4577's Taiga status
+conflicts with PR #2654's “fixes” reference. No landing-page claim change is
+supported. Coverage is 793/3,659 page-listed issue assessments; C1 remains
+incomplete and C2 remains unfrozen.
 
 ### Latest completed evidence range: #1753–#1776
 
@@ -138,6 +184,7 @@ verification. Taiga #3712/#3685/#3844/#3855/#3832 returned only the generic
 app shell. PR #2074's fix discussion points to #2070; exact landed evidence
 remains open.
 
+
 ### Latest completed evidence ranges: #2089–#2112 and #2113–#2136
 
 The first range has 21 page records (16 PRs, five issues; gaps #2104–#2106); all five issue bodies and nine comments were reviewed. The next range has all 24 records (16 PRs, eight issues); all eight issue bodies and 21 comments were reviewed. The C1 ledger now has 568/3,659 page-listed issues assessed (3,091 research-pending); supplemental #437 brings the unique assessed count to 569. Engineering pending remains 3,413.
@@ -145,3 +192,156 @@ The first range has 21 page records (16 PRs, five issues; gaps #2104–#2106); a
 #2098's typography-asset edit issue was fixed upstream in PR #2097 and is distinct from #2073's grouping-creation issue; Varve's lack of a shared asset-group UI is a product decision. #2101's apostrophe font-name report has a standards-backed CSS rule and Varve appears to quote/escape family names, but a real browser font fixture is useful. #2102 remains an unverified physical iPadOS/Pencil check. #2115's F2 rename and #2134's round/bevel joins are already supported in source. #2117 grid-cell alignment, #2118 grid-split export, and #2127 font-provider configuration are possible improvements that need precise workflow/security acceptance. #2120's nested-component ZIP is missing and its reported inheritance needs reproduction. #2126 is localization investment; #2136 is a hosted demo-user route absent from Varve.
 
 PR #2107's layer-row outline is superseded by merged PR #2114 and is now a concrete improvement batch for Varve. PR #2111 closes #1159; its two comments and GIF were reviewed, and Varve already has layer-icon zoom, pending a browser UI check. PR #2122's four comments and video establish that moving a group child outside its frame intentionally removes it from the group; merged PR #2131 is its upstream fix, distinct from #2081's reported Chrome freeze. The video/GIF and all relevant PR discussion responses have checksummed copies outside source history. Taiga #3763/#3918/#3954/#3919/#3929/#3955/#3956/#3957/#3958/#3932/#3629/#1617 and the missing nested-component ZIP remain on the frontier. Next range: #2137–#2160.
+
+### Latest completed evidence range: #2449–#2472
+
+The frozen pages contain 21 records: 11 issues and ten PRs; #2460, #2461,
+and #2467 are absent. All 11 issue bodies and 30 comments were read. PR
+bodies were reviewed; #2454's relevant patch and discussion comments on
+#2465/#2471 were followed. Their original C1 responses were not persisted; a
+post-cutoff HTTP capture is retained with validators/checksums but does not
+replace C1 provenance. The ledger now reports 707 page-listed issues
+assessed, 2,952 research-pending, and 3,407 engineering-pending. #2450's
+Zoom-to-100 command, #2452's paste destination, #2457's NumLock aliases, and
+#2466's numeric scrubbing have matching Varve routes but retain browser/real
+keyboard verification states. #2451's Mac/Edge trackpad-back condition remains
+unreproduced; #2468's selected-frame-relative rulers are a product decision.
+Upstream OAuth, self-host configuration, and contributor setup routes have no
+Varve analogue. Six attachment groups and the linked Taiga records remain in
+the frontier; no website claim change is indicated. C2 remains unfrozen.
+
+### Latest completed evidence ranges: #2473–#2496 and #2497–#2520
+
+The first interval contains 22 records (seven issues, 15 PRs; #2493 and
+#2494 are absent); the next has 21 records (16 issues, five PRs; #2504,
+#2507, and #2508 are absent). All 23 issue bodies and 56 comments across the
+ranges were read; zero-comment issues are marked `not-needed`. Page 23 and 24
+response validators and checksums are represented in their issue rows. The
+ledger reports 730/3,659 page-listed issues assessed, 2,929 research-pending,
+and 3,394 engineering-pending, plus the separate #437 supplement. C1 remains
+incomplete and C2 remains unfrozen.
+
+#2482's auto-width trailing-space condition and #2487's rich-text run-boundary
+space loss are distinct text-layout reproductions, despite sharing run
+measurement code. #2483 suggests an optional persistent eyedropper state;
+#2489 preserves cross-platform font/export evidence whose original font
+archives are unavailable; #2492's CSS pixel-density proposal is only an
+optional performance lead for Varve's canvas architecture. #2503 is a high
+priority large-SVG import/resize responsiveness candidate with its fixture and
+recording unavailable. #2513 is a reversible blend-mode hover-preview feature
+opportunity. Existing selection subtract, layer-tree keyboard navigation,
+effect reorder, automatic text naming, 1.2 line-height default, home search
+focus, and numeric select-all behaviors are already represented in Varve.
+Twelve Taiga/external source edges, missing screenshots/videos/ZIP files, and
+unpersisted linked PR discussions are tracked in `frontier.ndjson`.
+
+### Latest completed evidence range: #2521–#2544
+
+The interval contains 21 records: 14 issues and seven PRs; #2530, #2532, and
+#2538 are absent. All 14 issue bodies and 46 comments were reviewed; #2523 had
+no comments, and the other 13 comment pages reconcile with their counts. The
+ledger now has 744/3,659 page-listed issues assessed, 2,915 research-pending,
+and 3,390 engineering-pending. #2524's late-Alt duplicate behavior appears in
+Varve's live drag modifiers but still needs a real browser check. #2531's
+Samsung tablet pen/touch route, #2539's justified-text/selection alignment,
+#2541's wide Firefox scrollbar, #2542's gradient-stop library color, and
+#2543's draggable rename caret all need reproduction before repair. #2540's
+semantic per-board HTML export is a product decision. No website claim change
+is indicated. C1 remains incomplete; C2 remains unfrozen.
+
+
+### Latest completed evidence range: #2545–#2568
+
+This interval contains 24 contiguous records: 11 issues and 13 PRs. All 11
+issue bodies and 41 comments were reviewed from complete single-page caches.
+The page response and each issue/comment checksum are recorded in the C1
+ledger; linked PR comment responses and Taiga/source attachments that were
+read live but not preserved remain explicit frontier gaps. The ledger now
+reports 755/3,659 page-listed issues assessed, 2,904 research-pending, and
+3,389 engineering-pending.
+
+#2548's symbol-only SVG produced no Varve failure reproduction; retain empty or
+unsupported SVG feedback as a defensive candidate. #2552's pixelation report
+needs renderer reproduction. #2556's offline-desktop request is already served
+by Varve's local-first Tauri app. Self-hosted authentication/SMTP, Cloudron
+packaging, Penpot onboarding copy, subscribe layout, and cloud Drafts navigation
+have no matching Varve route. #2567's Enter-to-submit request becomes relevant
+if Varve adds the corresponding asset-group dialog. #2546 suggests a
+board-relative prototype-overlay position feature; #2554 suggests better flex
+layout context-menu discoverability. Both need product and behavior decisions
+before implementation. No website copy change is indicated. C1 remains
+incomplete; C2 remains unfrozen.
+
+
+### Latest completed evidence range: #2569–#2592
+
+This interval contains 24 records: ten issues and 14 PRs. All ten issue bodies
+and 28 comments across nine complete comment pages were reviewed; #2581 has no
+comments. The ledger reports 765/3,659 page-listed issues assessed, 2,894
+research-pending, and 3,387 engineering-pending.
+
+#2569's Tab/Shift+Tab rename cycle and #2570's expanded row hit area are already
+handled for Varve layer rows; renameable assets are not exposed by LibraryPanel.
+#2571's Shift-axis drift merits real-browser reproduction because snapping may
+run after axis locking; the report is intermittent and its video is unavailable.
+#2577's corner-radius error is more specific: Enter triggers it while blur
+commits successfully, across the reporter's web and PWA routes. Varve has a
+matching FrameNode control, so test its Enter path before changing it.
+#2581's “Edit individual corners” terminology is already clear. Nested asset
+folders, persistent component-library view mode, hosted login copy, team
+invitations, and self-hosted Docker/database issues have no matching Varve
+workflow. Linked PR discussions, referenced images/video, Taiga entries, and
+the WIP compose gist remain in the frontier. No website claim change is
+indicated. C1 remains incomplete; C2 remains unfrozen.
+
+
+### Latest completed evidence range: #2593–#2616
+
+This interval contains 24 records: ten issues and 14 PRs. All ten issue bodies
+and 24 comments were reviewed; page 24 contributes #2593–#2600 and page 25
+contributes #2601–#2616, with response validators recorded in the ledger.
+Comments were fetched shortly after the C1 freeze; their issue/comment content
+predates C1. Coverage is now 786/3,659 page-listed issues assessed, 2,873 research-pending,
+and 3,386 engineering-pending.
+
+#2603's Firefox/macOS caret-loss report has a cached video but has not been
+reproduced in Varve's TextEditOverlay. #2605 is a credible SVG import-fidelity
+gap for CSS class rules: Varve supports presentation attributes and inline
+style, but not class selector resolution. The original SVG URL returned 429;
+construct a representative standards-backed fixture before implementation.
+#2609's ruler-to-object snapping is a feature candidate, distinct from #2291's
+guide disappearance at board boundaries. #2611's stroke:none case appears
+guarded in Varve and was fixed in Penpot PR #3493, whose merge is in the pinned
+source history. Self-hosted setup and translation-access reports have no
+matching Varve route. If #2605 is implemented, update the SVG import help; no
+landing-page claim change is indicated. C1 remains incomplete and C2 unfrozen.
+
+
+### Latest completed evidence range: #2617–#2640
+
+This interval contains 24 records: 11 issues and 13 PRs. All 11 issue bodies
+and 21 comments were reviewed. Relevant screenshots and the linked SVG fix PR
+were fetched after C1 and cached with ETag/checksum sidecars; they supplement
+the source review but are not C1-time captures. Coverage is now 786/3,659
+page-listed issues assessed; the status tool is authoritative for remaining
+engineering and research counts.
+
+#2622 reports SVG/icon placement followed by a crash and remains distinct from
+#2548's zero-size symbol-only SVG paste/autosave trigger. Merged PR #2626 changes
+SVG placement parent selection, but Varve reproduction is still open. #2633's
+per-side padding issue maps to an existing T/R/B/L LayoutSection control and
+needs a field-to-scene browser check. #2634 is a separate Samsung DeX Android
+touch/desktop-mode layer DnD report; Varve has pointer DnD and keyboard reparent
+options, but no device reproduction. #2624's offline remote gallery, hosted
+configuration and translation administration have no current Varve route. No
+website claim or demo change is supported. C1 remains incomplete; C2 is unfrozen.
+
+### Continuation checkpoint — C1 additions #2713–#2760 (2026-10-21)
+
+- The coordinator integrated the read-only #2713–#2736 handoff and the #2737–#2760 handoff into the issue findings and ledger. Current `status --cutoff C1`: 3,659 page-listed issues, 820 assessed, 2,839 research-pending, 3,386 engineering-pending; #437 remains a separately assessed supplement. The counts are authoritative from `scripts/research/penpot-audit.mjs status --cutoff C1`; C1 is incomplete and C2 is not frozen.
+- #2713–#2736 contains 23 records in its page, of which four are issues (#2715, #2720, #2721, #2727); all four bodies and 15 comments were read. PR #2719 issue-comments were also captured. #2727's binary fixture is cached but opaque/unparsed; linked PR/Taiga follow-up remains partial. #2735 is an absent slot.
+- #2737–#2760 contains six issues and 18 PRs; all six issue bodies and 67 comments were read. Captured attachment images/GIFs are supplemental post-cutoff evidence; the #2751 proxy screenshot returned a gateway error. Linked PR discussion and Taiga edges are not all resolved. Per-issue dispositions and distinct reproduction conditions are in `findings.md` and `snapshots/C1/issues.ndjson`.
+- Current implementation work remains in `/home/kevina/CodingProjects/varve/.worktrees/penpot-corpus`, branch `codex/penpot-corpus`, HEAD `fb8c3cc7af9c9eaffa8d64e3f0022231b7987b1c`. The original checkout and other worktrees are preserved. Do not clear this worktree while C1/C2 work or integration remains outstanding.
+- Current uncommitted batch includes earlier import progress/cancellation, clipboard capability feedback, primary-pointer resize gating, browser-reserved shortcut handling, guide deletion, and current #2276 `currentColor` / #2670 component-menu work. The parser resolves inherited attributes/inline style and paints gradient stops using the gradient definition tree's computed `color`; the new different-inheritance-context regression is still unrun. The component action is frame-only and reuses the existing component/history API. Website help is updated for import/currentColor and component creation; no landing-page claim change is supported.
+- A shared heavy JavaScript unit gate in the separate `tldraw-integration` worktree is active (last observed Vitest PID 798975, lease PID 797522). The browser E2E invocation was cancelled before launch after a prolonged wait; it must be requeued through the lease. Do not bypass or reclaim the active lease. After it releases, complete browser visual checks and inspect screenshots, run focused unit regressions, then rerun `pnpm verify:plan` and `pnpm verify:affected` with a long lease timeout. The most recent planner selected 38 affected lanes with no full-suite escalation. Earlier affected validation stopped after editor tests (8,808 pass, two unrelated failures: flaky PromptDialog accessibility and guides1k benchmark); exact one-worker reruns passed. Other affected lanes remain incomplete.
+- Next: capture the newly retrieved attachment provenance in the link frontier; settle gradient inheritance with an explicit fixture/browser oracle; finish the queued browser visual run; get independent `review-agent` review of the complete diff; resolve findings; record exact validation; commit a coherent batch; run `pnpm verify:push`; refresh origin/master, integrate under current repository controls, verify ancestry and any website deployment. Then continue C1 issue/comment and recursive-link review. Do not freeze C2 until C1's applicable frontier is exhausted or individually blocked.
