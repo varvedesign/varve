@@ -13,13 +13,13 @@
  */
 
 import { openTypeFeaturesToCss } from '@varve/shared';
+import { layoutToCss, sizeValue } from './html-layout-css';
 import type {
   AppearanceSpec,
   FidelityWarning,
   FillSpec,
   FlattenInfo,
   IRDocument,
-  LayoutSpec,
   SemanticNode,
   TypographySpec,
 } from './ir-types';
@@ -48,11 +48,6 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
-}
-
-function sizeValue(px: number, unit: string, base: number): string {
-  if (unit === 'rem' && base > 0) return `${(px / base).toFixed(3)}rem`;
-  return `${px}px`;
 }
 
 function colorValue(fill: FillSpec): string {
@@ -92,105 +87,6 @@ function fillToCss(fills: FillSpec[]): string | undefined {
   return top.opacity < 1
     ? `color-mix(in srgb, ${colorValue(top)} ${top.opacity * 100}%, transparent)`
     : colorValue(top);
-}
-
-// ── Layout to CSS ─────────────────────────────────────────────────────────────
-
-function layoutToCss(layout: LayoutSpec, unit: string, base: number): Record<string, string> {
-  const props: Record<string, string> = {};
-
-  if (layout.mode === 'flex') {
-    props.display = 'flex';
-    switch (layout.direction) {
-      case 'row':
-        props['flex-direction'] = 'row';
-        break;
-      case 'column':
-        props['flex-direction'] = 'column';
-        break;
-      case 'row-reverse':
-        props['flex-direction'] = 'row-reverse';
-        break;
-      case 'column-reverse':
-        props['flex-direction'] = 'column-reverse';
-        break;
-    }
-    const gapH = layout.gap.left || layout.gap.right;
-    const gapV = layout.gap.top || layout.gap.bottom;
-    const resolvedGap = Math.max(0, gapH, gapV);
-    if (resolvedGap > 0) props.gap = sizeValue(resolvedGap, unit, base);
-    if (layout.wrap) props['flex-wrap'] = 'wrap';
-
-    const ai = layout.alignItems;
-    if (ai === 'start') props['align-items'] = 'flex-start';
-    else if (ai === 'end') props['align-items'] = 'flex-end';
-    else if (ai === 'center') props['align-items'] = 'center';
-    else if (ai === 'stretch') props['align-items'] = 'stretch';
-
-    const jc = layout.justifyContent;
-    if (jc === 'start') props['justify-content'] = 'flex-start';
-    else if (jc === 'end') props['justify-content'] = 'flex-end';
-    else if (jc === 'center') props['justify-content'] = 'center';
-    else if (jc === 'stretch') props['justify-content'] = 'stretch';
-  }
-
-  if (layout.mode === 'grid') {
-    props.display = 'grid';
-  }
-
-  const pad = layout.padding;
-  if (pad.top || pad.right || pad.bottom || pad.left) {
-    props.padding = [pad.top, pad.right, pad.bottom, pad.left]
-      .map((v) => sizeValue(v, unit, base))
-      .join(' ');
-  }
-
-  const pos = layout.position;
-  if (pos && pos.type === 'absolute') {
-    props.position = 'absolute';
-    if (pos.left !== undefined) props.left = sizeValue(pos.left, unit, base);
-    if (pos.top !== undefined) props.top = sizeValue(pos.top, unit, base);
-    if (pos.right !== undefined) props.right = sizeValue(pos.right, unit, base);
-    if (pos.bottom !== undefined) props.bottom = sizeValue(pos.bottom, unit, base);
-  } else if (pos && pos.type === 'relative') {
-    props.position = 'relative';
-  } else if (layout.mode !== 'flex' && layout.mode !== 'grid') {
-    props.position = 'relative';
-  }
-
-  if (layout.width.mode === 'fixed' && layout.width.value > 0) {
-    props.width = sizeValue(layout.width.value, unit, base);
-  } else if (layout.width.mode === 'fill') {
-    props.width = '100%';
-  } else if (layout.width.mode === 'percent' || layout.width.mode === 'relative') {
-    props.width = `${layout.width.value}%`;
-  } else if (layout.width.mode === 'hug') {
-    props.width = 'fit-content';
-  }
-
-  if (layout.height.mode === 'fixed' && layout.height.value > 0) {
-    props.height = sizeValue(layout.height.value, unit, base);
-  } else if (layout.height.mode === 'fill') {
-    props.height = '100%';
-  } else if (layout.height.mode === 'percent' || layout.height.mode === 'relative') {
-    props.height = `${layout.height.value}%`;
-  } else if (layout.height.mode === 'hug') {
-    props.height = 'fit-content';
-  }
-
-  const ox = layout.overflow;
-  if (ox.x !== 'visible' || ox.y !== 'visible') {
-    props.overflow = ox.x === ox.y ? ox.x : `${ox.x} ${ox.y}`;
-  }
-
-  if (layout.flex) {
-    const f = layout.flex;
-    props.flex = `${f.grow} ${f.shrink} ${f.basis === 'auto' ? 'auto' : typeof f.basis === 'number' ? sizeValue(f.basis, unit, base) : f.basis}`;
-    if (f.alignSelf) props['align-self'] = f.alignSelf;
-    if (f.order && f.order !== 0) props.order = String(f.order);
-  }
-
-  return props;
 }
 
 // ── Appearance to CSS ─────────────────────────────────────────────────────────
@@ -409,7 +305,7 @@ export function exportIrToHtml(
   // ── Atomic class building ──────────────────────────────────────────────────
   function buildNodeCss(
     node: SemanticNode,
-    parentIsFlex: boolean,
+    parentIsFlow: boolean,
   ): { className: string; css: string; htmlTag: string } {
     const baseName = makeClassName(node.name || node.kind || 'el');
     let className = baseName;
@@ -425,7 +321,7 @@ export function exportIrToHtml(
 
     // Only emit position: absolute or relative when the parent is a stacking context
     // If parent is flex, remove absolute positioning from children
-    if (parentIsFlex && layoutProps.position) {
+    if (parentIsFlow && layoutProps.position) {
       delete layoutProps.position;
     }
 
@@ -459,8 +355,8 @@ export function exportIrToHtml(
   }
 
   // ── Recursive HTML emitter ─────────────────────────────────────────────────
-  function emitNode(node: SemanticNode, parentIsFlex: boolean, depth: number): string {
-    const { className, css, htmlTag } = buildNodeCss(node, parentIsFlex);
+  function emitNode(node: SemanticNode, parentIsFlow: boolean, depth: number): string {
+    const { className, css, htmlTag } = buildNodeCss(node, parentIsFlow);
     if (css) cssLines.push(css);
 
     const innerIndent = indent.repeat(depth + 1);
@@ -481,7 +377,9 @@ export function exportIrToHtml(
     // Children
     const childrenHtml = node.children
       .filter((c) => c.visible !== false)
-      .map((c) => emitNode(c, node.layout.mode === 'flex', depth + 1))
+      .map((c) =>
+        emitNode(c, node.layout.mode === 'flex' || node.layout.mode === 'grid', depth + 1),
+      )
       .join('\n');
 
     // Flattened image content

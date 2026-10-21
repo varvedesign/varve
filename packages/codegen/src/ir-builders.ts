@@ -348,7 +348,7 @@ function buildAutoLayoutSpec(node: FrameNode): LayoutSpec {
   const layout: LayoutSpec = { ...DEFAULT_LAYOUT_SPEC };
 
   if (node.layoutStyle) {
-    layout.mode = 'flex';
+    layout.mode = node.layoutStyle.mode === 'grid' ? 'grid' : 'flex';
     layout.direction =
       node.layoutStyle.direction === 'row'
         ? 'row'
@@ -358,6 +358,14 @@ function buildAutoLayoutSpec(node: FrameNode): LayoutSpec {
             ? 'column-reverse'
             : 'column';
     layout.wrap = node.layoutStyle.wrap;
+    if (node.layoutStyle.mode === 'grid') {
+      layout.gridTemplateColumns =
+        node.layoutStyle.gridColumnTracks?.map((track) => track.size).join(' ') ||
+        node.layoutStyle.gridTemplateColumns;
+      layout.gridTemplateRows =
+        node.layoutStyle.gridRowTracks?.map((track) => track.size).join(' ') ||
+        node.layoutStyle.gridTemplateRows;
+    }
     const rowGap = node.layoutStyle.rowGap ?? node.layoutStyle.gap;
     const columnGap = node.layoutStyle.columnGap ?? node.layoutStyle.gap;
     layout.gap = { top: rowGap, right: columnGap, bottom: rowGap, left: columnGap };
@@ -487,7 +495,14 @@ function computeNodePosition(node: SceneNode): { x: number; y: number; w: number
 function guessLayoutMode(node: SceneNode, children: string[], doc: Document): LayoutMode {
   if (node.kind === 'frame') {
     const fn = node as FrameNode;
-    if (fn.layoutStyle?.gridTemplateColumns || fn.layoutStyle?.gridTemplateRows) return 'grid';
+    if (
+      fn.layoutStyle?.mode === 'grid' ||
+      fn.layoutStyle?.gridTemplateColumns ||
+      fn.layoutStyle?.gridTemplateRows ||
+      fn.layoutStyle?.gridColumnTracks?.length ||
+      fn.layoutStyle?.gridRowTracks?.length
+    )
+      return 'grid';
     if (fn.layoutStyle) return 'flex';
     if (children.length <= 1) return 'absolute';
     const positions = children
@@ -652,6 +667,7 @@ function convertToSemanticNode(
   doc: Document,
   analysis: SceneAnalysisResult,
   context: InferenceContext,
+  parent?: SceneNode,
 ): SemanticNode {
   const node = doc.nodes[nodeId];
   if (!node) throw new Error(`Node ${nodeId} not found`);
@@ -678,6 +694,37 @@ function convertToSemanticNode(
     position: buildPositionLayout(pos, layoutMode),
     flex: buildFlexChildSpec(node),
   };
+  if (node.gridPlacement) {
+    const placement = node.gridPlacement;
+    const parentStyle = parent?.kind === 'frame' ? parent.layoutStyle : undefined;
+    const colTrackIndex = placement.gridColumnStartTrackId
+      ? parentStyle?.gridColumnTracks?.findIndex(
+          (track) => track.id === placement.gridColumnStartTrackId,
+        )
+      : undefined;
+    const rowTrackIndex = placement.gridRowStartTrackId
+      ? parentStyle?.gridRowTracks?.findIndex((track) => track.id === placement.gridRowStartTrackId)
+      : undefined;
+    layout.gridPlacement = {
+      column:
+        colTrackIndex != null && colTrackIndex >= 0
+          ? colTrackIndex + 1
+          : (placement.gridColumnStart ?? 'auto'),
+      row:
+        rowTrackIndex != null && rowTrackIndex >= 0
+          ? rowTrackIndex + 1
+          : (placement.gridRowStart ?? 'auto'),
+      columnSpan: Math.max(
+        1,
+        placement.gridColumnSpan ??
+          ((placement.gridColumnEnd ?? 0) - (placement.gridColumnStart ?? 0) || 1),
+      ),
+      rowSpan: Math.max(
+        1,
+        placement.gridRowSpan ?? ((placement.gridRowEnd ?? 0) - (placement.gridRowStart ?? 0) || 1),
+      ),
+    };
+  }
 
   const appearance: AppearanceSpec = {
     ...DEFAULT_APPEARANCE_SPEC,
@@ -709,7 +756,7 @@ function convertToSemanticNode(
       parentRoles: [...context.parentRoles, role],
       depth: context.depth + 1,
     };
-    childNodes.push(convertToSemanticNode(childId, doc, analysis, childContext));
+    childNodes.push(convertToSemanticNode(childId, doc, analysis, childContext, node));
   }
 
   const semanticNode: SemanticNode = {
