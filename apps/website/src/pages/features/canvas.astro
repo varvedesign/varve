@@ -58,6 +58,13 @@ import { sitePath } from '../../lib/siteUrl';
           continuation are available in the existing Settings panel.
         </p>
         <p>
+          Shift constrains the gesture you are already in. Dragging a selection with Shift
+          projects the move onto the nearest 45° direction, so a mostly horizontal or vertical
+          drag stays on that axis while a deliberate diagonal keeps its angle; resizing with
+          Shift keeps proportions. The tablet Constrain control applies the same rule, and
+          page placement on the pasteboard follows it too.
+        </p>
+        <p>
           Persistence respects the gesture: automatic document snapshots yield to active pointer,
           wheel, pinch, and keyboard input, then serialize the latest immutable revision on the
           background lane. Manual Save and Backup Now remain immediate. Responsiveness figures are
