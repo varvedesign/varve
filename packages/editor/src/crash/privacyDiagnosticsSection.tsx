@@ -9,19 +9,13 @@
 import type { CrashReport } from '@varve/crash';
 import { useEffect, useMemo, useState } from 'react';
 import { ContactLink } from '../components/ContactLink';
-import {
-  ICON_REMOTE_SEARCH_CHANGED_EVENT,
-  readIconRemoteSearchConsent,
-  writeIconRemoteSearchConsent,
-} from '../components/IconBrowser/iconRemoteSearch';
 import { useSettings } from '../components/Settings/SettingsContext';
 import { getCrashController } from './controllerRegistry';
 
 type ConsentChoice = 'askEachTime' | 'automaticAllowed' | 'denied';
 
 export function PrivacyDiagnosticsSection() {
-  const { settings } = useSettings();
-  const [remoteSearch, setRemoteSearch] = useState(() => readIconRemoteSearchConsent());
+  const { settings, updateSettings } = useSettings();
   const controller = getCrashController();
   const [consent, setConsent] = useState(controller?.getState().consent);
   const [queued, setQueued] = useState<CrashReport[]>([]);
@@ -60,18 +54,8 @@ export function PrivacyDiagnosticsSection() {
     controller?.setStandingConsent(next);
   };
 
-  useEffect(() => {
-    setRemoteSearch(settings.icons.remoteSearch);
-  }, [settings.icons.remoteSearch]);
-
-  useEffect(() => {
-    const sync = () => setRemoteSearch(readIconRemoteSearchConsent());
-    window.addEventListener(ICON_REMOTE_SEARCH_CHANGED_EVENT, sync);
-    return () => window.removeEventListener(ICON_REMOTE_SEARCH_CHANGED_EVENT, sync);
-  }, []);
-
   const setIconRemoteSearch = (granted: boolean) => {
-    writeIconRemoteSearchConsent(granted ? 'granted' : 'denied');
+    updateSettings({ icons: { remoteSearch: granted ? 'granted' : 'denied' } });
   };
 
   const setExtendedFlag = (value: boolean) => {
@@ -132,7 +116,7 @@ export function PrivacyDiagnosticsSection() {
       <label className="settings-checkbox-row">
         <input
           type="checkbox"
-          checked={remoteSearch === 'granted'}
+          checked={settings.icons.remoteSearch === 'granted'}
           onChange={(e) => setIconRemoteSearch(e.target.checked)}
         />
         <span>Search icons online via Iconify</span>

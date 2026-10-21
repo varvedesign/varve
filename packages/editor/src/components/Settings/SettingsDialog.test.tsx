@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { setThemePreference } from '@varve/ui/tokens';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableDrawDiagnostics, isDiagnosticsEnabled } from '../../canvas/drawDiagnostics';
 import { EditorProvider } from '../../context';
@@ -19,6 +20,7 @@ function renderWithProvider(ui: React.ReactElement) {
 
 beforeEach(() => {
   localStorage.clear();
+  setThemePreference('system');
   enableDrawDiagnostics(false);
   setCompositorDiagnostics(null);
 });
@@ -127,6 +129,21 @@ describe('SettingsDialog', () => {
     fireEvent.click(iconSearch);
     expect(loadSettings().icons.remoteSearch).toBe('granted');
     fireEvent.click(iconSearch);
+    expect(loadSettings().icons.remoteSearch).toBe('denied');
+  });
+
+  it('keeps a revoked icon-search consent when the theme is changed', async () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="privacy" />);
+    const iconSearch = screen.getByLabelText('Search icons online via Iconify') as HTMLInputElement;
+    fireEvent.click(iconSearch);
+    expect(loadSettings().icons.remoteSearch).toBe('granted');
+    fireEvent.click(iconSearch);
+    expect(loadSettings().icons.remoteSearch).toBe('denied');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Theme' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Dark' }));
+    expect(loadSettings().appearance.theme).toBe('dark');
     expect(loadSettings().icons.remoteSearch).toBe('denied');
   });
 

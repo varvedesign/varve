@@ -6,9 +6,11 @@ import {
   type IconSourceDescriptor,
   resetIconProviderRegistry,
 } from '@varve/engine';
+import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
 import { loadSettings } from '../../settings';
+import { SettingsProvider, useSettings } from '../Settings/SettingsContext';
 import { IconBrowserDialog } from './IconBrowserDialog';
 import { writeIconRemoteSearchConsent } from './iconRemoteSearch';
 
@@ -41,6 +43,19 @@ function stubRemoteSearch() {
     start: 0,
     exhausted: true,
   });
+}
+
+function renderDialog(ui: ReactElement) {
+  return render(<SettingsProvider>{ui}</SettingsProvider>);
+}
+
+function ChangeAppearanceTheme() {
+  const { updateSection } = useSettings();
+  return (
+    <button type="button" onClick={() => updateSection('appearance', { theme: 'dark' })}>
+      Change theme
+    </button>
+  );
 }
 
 function editorMock() {
@@ -94,7 +109,7 @@ describe('IconBrowserDialog', () => {
     editorMock();
     const fetchMock = vi.mocked(globalThis.fetch);
     const getPacks = vi.spyOn(getIconProviderRegistry(), 'getPacks');
-    render(<IconBrowserDialog open onClose={vi.fn()} />);
+    renderDialog(<IconBrowserDialog open onClose={vi.fn()} />);
     expect(await screen.findByText('Search online via Iconify?')).toBeTruthy();
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -106,7 +121,7 @@ describe('IconBrowserDialog', () => {
   it('hides the consent card after Not now and offers a later opt-in when a search has no local match', async () => {
     editorMock();
     const fetchMock = vi.mocked(globalThis.fetch);
-    render(<IconBrowserDialog open onClose={vi.fn()} />);
+    renderDialog(<IconBrowserDialog open onClose={vi.fn()} />);
     expect(await screen.findByText('Search online via Iconify?')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
     expect(screen.queryByText('Search online via Iconify?')).toBeNull();
@@ -126,7 +141,7 @@ describe('IconBrowserDialog', () => {
     const { insertIconAsset } = editorMock();
     const onClose = vi.fn();
     const fetchMock = vi.mocked(globalThis.fetch);
-    render(<IconBrowserDialog open onClose={onClose} />);
+    renderDialog(<IconBrowserDialog open onClose={onClose} />);
 
     expect(await screen.findByText('Search online via Iconify?')).toBeTruthy();
     const input = await screen.findByLabelText('Search icons');
@@ -142,7 +157,7 @@ describe('IconBrowserDialog', () => {
     writeIconRemoteSearchConsent('granted');
     editorMock();
     const onClose = vi.fn();
-    render(<IconBrowserDialog open onClose={onClose} />);
+    renderDialog(<IconBrowserDialog open onClose={onClose} />);
     const input = await screen.findByLabelText('Search icons');
     fireEvent.change(input, { target: { value: 'home' } });
     // ensureIconProviders() bootstraps the built-in provider, so an empty
@@ -159,7 +174,7 @@ describe('IconBrowserDialog', () => {
     writeIconRemoteSearchConsent('granted');
     editorMock();
     stubRemoteSearch();
-    render(<IconBrowserDialog open onClose={vi.fn()} />);
+    renderDialog(<IconBrowserDialog open onClose={vi.fn()} />);
     const input = await screen.findByLabelText('Search icons');
     fireEvent.change(input, { target: { value: 'home' } });
     expect(await screen.findByText('1 icon', {}, { timeout: 5000 })).toBeTruthy();
@@ -175,7 +190,7 @@ describe('IconBrowserDialog', () => {
     editorMock();
     stubRemoteSearch();
     const getIconData = vi.spyOn(getIconProviderRegistry(), 'getIconData');
-    render(<IconBrowserDialog open onClose={vi.fn()} />);
+    renderDialog(<IconBrowserDialog open onClose={vi.fn()} />);
     const input = await screen.findByLabelText('Search icons');
     fireEvent.change(input, { target: { value: 'home' } });
     expect(await screen.findByText('1 icon', {}, { timeout: 5000 })).toBeTruthy();
@@ -195,10 +210,26 @@ describe('IconBrowserDialog', () => {
   it('closes on dialog dismiss', async () => {
     editorMock();
     const onClose = vi.fn();
-    render(<IconBrowserDialog open onClose={onClose} />);
+    renderDialog(<IconBrowserDialog open onClose={onClose} />);
     await act(async () => {
       fireEvent.click(screen.getByLabelText('Close dialog'));
     });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('keeps a grant from the icon browser when another setting is saved', async () => {
+    editorMock();
+    renderDialog(
+      <>
+        <IconBrowserDialog open onClose={vi.fn()} />
+        <ChangeAppearanceTheme />
+      </>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept' }));
+    expect(loadSettings().icons.remoteSearch).toBe('granted');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change theme' }));
+    expect(loadSettings().appearance.theme).toBe('dark');
+    expect(loadSettings().icons.remoteSearch).toBe('granted');
   });
 });

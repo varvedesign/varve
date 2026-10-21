@@ -28,6 +28,7 @@ import {
   setLayoutPreference,
   setTabletControlsMirrored,
 } from '../../settings/layoutPresentation';
+import { ICON_REMOTE_SEARCH_CHANGED_EVENT } from '../IconBrowser/iconRemoteSearch';
 import './layoutPresentation.css';
 
 export type Settings = EditorSettings;
@@ -139,18 +140,39 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       window.removeEventListener(LAYOUT_PREFERENCE_REQUEST_EVENT, handleLayoutPreferenceRequest);
   }, [updateSettings]);
 
+  // Consent writers that persist through the settings store (tests, non-React
+  // helpers) must refresh this in-memory copy. Otherwise updateSection would
+  // write the stale icons.remoteSearch back and silently undo a grant or revoke.
+  useEffect(() => {
+    const syncRemoteSearchConsent = () => {
+      const stored = loadEditorSettings().icons.remoteSearch;
+      setSettings((current) =>
+        current.icons.remoteSearch === stored
+          ? current
+          : { ...current, icons: { remoteSearch: stored } },
+      );
+    };
+    window.addEventListener(ICON_REMOTE_SEARCH_CHANGED_EVENT, syncRemoteSearchConsent);
+    return () =>
+      window.removeEventListener(ICON_REMOTE_SEARCH_CHANGED_EVENT, syncRemoteSearchConsent);
+  }, []);
+
   const updateSection = useCallback(
     (section: SettingsSection, values: Record<string, unknown>) => {
-      const current = (settings as unknown as Record<string, unknown>)[section] as
+      // Always merge onto the persisted snapshot. Out-of-band writers (for
+      // example writeIconRemoteSearchConsent) can update storage while this
+      // provider still holds a previous in-memory copy.
+      const latest = loadEditorSettings();
+      const current = (latest as unknown as Record<string, unknown>)[section] as
         | Record<string, unknown>
         | undefined;
       if (!current) return;
       persist({
-        ...settings,
+        ...latest,
         [section]: { ...current, ...values },
       } as EditorSettings);
     },
-    [settings, persist],
+    [persist],
   );
 
   const resetSettings = useCallback(() => {

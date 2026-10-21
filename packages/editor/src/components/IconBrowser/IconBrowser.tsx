@@ -24,17 +24,12 @@ import {
 import { Button, Icon, LoadingLabel, SearchField, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import type { IconRemoteSearchConsent } from '../../settings';
+import { useSettings } from '../Settings/SettingsContext';
 import { IconDetailsPanel } from './IconDetailsPanel';
 import { IconDiscoverySections } from './IconDiscoverySections';
 import { IconGrid, type IconGridItemView } from './IconGrid';
 import { getIconAcquisitionService, IconAcquisitionError } from './iconAcquisition';
-import {
-  ICON_REMOTE_SEARCH_CHANGED_EVENT,
-  isIconRemoteSearchGranted,
-  readIconRemoteSearchConsent,
-  writeIconRemoteSearchConsent,
-} from './iconRemoteSearch';
+import { isIconRemoteSearchGranted } from './iconRemoteSearch';
 import './IconBrowser.css';
 import {
   getStoredIcon,
@@ -104,9 +99,8 @@ export function IconBrowser({
   maxHeight,
   onOpenPackManager,
 }: IconBrowserProps) {
-  const [remoteSearch, setRemoteSearch] = useState<IconRemoteSearchConsent>(() =>
-    readIconRemoteSearchConsent(),
-  );
+  const { settings, updateSettings } = useSettings();
+  const remoteSearch = settings.icons.remoteSearch;
   const remoteAllowed = isIconRemoteSearchGranted(remoteSearch);
   const search = useIconSearch(remoteAllowed);
   const editorCtx = useEditor();
@@ -429,16 +423,12 @@ export function IconBrowser({
     pendingBatchIdsRef.current.clear();
   }, []);
 
-  const chooseRemoteSearch = useCallback((value: 'granted' | 'denied') => {
-    writeIconRemoteSearchConsent(value);
-    setRemoteSearch(value);
-  }, []);
-
-  useEffect(() => {
-    const syncConsent = () => setRemoteSearch(readIconRemoteSearchConsent());
-    window.addEventListener(ICON_REMOTE_SEARCH_CHANGED_EVENT, syncConsent);
-    return () => window.removeEventListener(ICON_REMOTE_SEARCH_CHANGED_EVENT, syncConsent);
-  }, []);
+  const chooseRemoteSearch = useCallback(
+    (value: 'granted' | 'denied') => {
+      updateSettings({ icons: { remoteSearch: value } });
+    },
+    [updateSettings],
+  );
 
   const runRemoteSearch = search.search;
   useEffect(() => {
