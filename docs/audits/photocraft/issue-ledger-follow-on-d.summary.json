@@ -121,18 +121,18 @@
   "review_status": {
     "body_and_thread_reviewed": 203,
     "pending_review": 0,
-    "varve_mapping_and_disposition_pending": 195,
+    "varve_mapping_and_disposition_pending": 194,
     "attachments_followed": 0,
-    "varve_mapped": 8
+    "varve_mapped": 9
   },
   "new_issue_dispositions": {
-    "pending_varve_mapping": 195,
+    "pending_varve_mapping": 194,
     "screened_for_varve": 3,
-    "already_handled": 3,
+    "already_handled": 4,
     "out_of_scope": 1,
     "implemented": 1
   },
   "non_atomic_caveat": "Issue, search, pull-request, and comment endpoints were retrieved sequentially rather than atomically; record their actual timestamps. Issue enumeration and open/closed counts reconcile, and all prior ledger IDs remain present.",
-  "note": "Cutoff-D bodies and full current comment threads have now been individually read for all 203 new issue IDs. This is source review coverage only: Varve subsystem mapping, recursive linked evidence/attachments, and engineering dispositions remain pending per issue. Raw issue pages, pull pages, search responses, and comment JSON remain outside Git under /tmp. Earlier issue pages and comments were read from the timestamped snapshot; no release or fix status is inferred from tracker state or bot-suggested links. Source mapping has been recorded for eight rows: #3407, #3496, and #3755 match existing Varve deletion/save/history defenses; #3410 is outside Varve’s PDF form/signature capabilities and led to a correction of the public importer limits; #3409 exposes the unchecked staging-file close limitation and is implemented with a cross-platform checked close before publication plus an injected-failure regression; #3414 is an adjacent responsiveness risk in Varve’s synchronous heuristic PDF importer, not a matching xref or PDF-reader path; #3555 is a persistent viewport-restoration opportunity; and #3793 remains hardware-specific validation. The planner-required local full gate remains incomplete after the architecture audit process ended without a terminal result.",
-  "source_reviewed_issue_ids": [3407, 3409, 3410, 3414, 3496, 3555, 3755, 3793]
+  "note": "Cutoff-D bodies and full current comment threads have now been individually read for all 203 new issue IDs. This is source review coverage only: Varve subsystem mapping, recursive linked evidence/attachments, and engineering dispositions remain pending per issue. Raw issue pages, pull pages, search responses, and comment JSON remain outside Git under /tmp. Earlier issue pages and comments were read from the timestamped snapshot; no release or fix status is inferred from tracker state or bot-suggested links. Source mapping has been recorded for nine rows: #3407, #3496, and #3755 match existing Varve deletion/save/history defenses; #3410 is outside Varve’s PDF form/signature capabilities and led to a correction of the public importer limits; #3409 exposes the unchecked staging-file close limitation and is implemented with a cross-platform checked close before publication plus an injected-failure regression; #3414 is an adjacent responsiveness risk in Varve’s synchronous heuristic PDF importer, not a matching xref or PDF-reader path; #3460 requested diacritic-insensitive Find by default with an exact-match option; Varve already implements that contract and new regression tests pin precomposed/decomposed accents plus the UI toggle. #3555 is a persistent viewport-restoration opportunity; and #3793 remains hardware-specific validation. The planner-required local full gate remains incomplete after the architecture audit process ended without a terminal result.",
+  "source_reviewed_issue_ids": [3407, 3409, 3410, 3414, 3460, 3496, 3555, 3755, 3793]
 }

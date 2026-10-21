@@ -1,6 +1,6 @@
 # Continuation record
 
-Last updated: 2026-10-21 (session 11).
+Last updated: 2026-10-21 (session 12).
 
 ## Current checkpoint (authoritative)
 
@@ -9,12 +9,13 @@ Last updated: 2026-10-21 (session 11).
 - Current task worktree:
   `/home/kevina/CodingProjects/varve-callout-followup`; branch
   `codex/pdfcraft-callout-direct-manipulation-20261020`; last pushed at
-  `8aa9287f9` (Cutoff-D source mapping plus the atomic-close fix).
+  `b9fd329ed` (Ubuntu 26.04 package-name repair).
   The shared main checkout and other worktrees are not owned by this task.
-- PR #155 targets `master` and is open. The local website/docs correction below
-  is not yet committed; verify the final pushed head and its required checks
-  before merge. Do not cancel, duplicate, bypass, or merge while required
-  checks are pending.
+- PR #155 targets `master` and is open at `b9fd329ed`. Build + Package,
+  Website Lighthouse, all 24 Playwright shards, visual regression, desktop
+  E2E on Linux/macOS/Windows, Rust, JS, WASM, and pipeline checks have passed
+  at this exact SHA. The final `CI / certification` adoption job is still
+  pending; recheck it before any merge.
 - Callout improvement commits: `a62262d` (body drag with anchored tails,
   canvas handles plus Inspector, scene/Playwright regressions, docs/website),
   `c5069f5` (documentation correction after review). Integration/validation
@@ -64,7 +65,7 @@ Last updated: 2026-10-21 (session 11).
   (#3797). Varve already has a native Linux pinch bridge; #3793 is therefore a
   hardware validation lead, not a confirmed gap. The other three are reader or
   PDF-content workflows without an established direct Varve analogue.
-- Eight Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
+- Nine Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
   concern is already covered by Varve's different persistence model: page
   deletion removes the subtree and prunes unreferenced image assets, while
   Save serializes the current `.varve` scene as a complete snapshot. PdfCraft
@@ -78,6 +79,13 @@ Last updated: 2026-10-21 (session 11).
   guide now removes its unsupported multi-page conversion claim and states
   that Varve does not edit source PDF forms or signatures. Its screenshot was
   inaccessible; no media was downloaded.
+  #3460's requested accent-insensitive Find behavior is already implemented
+  for Varve-authored text: diacritics are ignored by default, while the visible
+  “Match diacritics” option enables canonical-normalized exact matching. Its
+  linked #814/#1315 issues concern phrase-spacing and glyph-range boundaries;
+  #3249 concerns replacing the current match and is separately mapped as
+  already handled. New search/UI regressions now pin both default and exact
+  matching across precomposed and decomposed accents.
   #3409 matches an unchecked
   staging-file close limitation and has an implementation plus passing
   injected-failure test in the pushed branch; #3496 and #3755 map to existing
@@ -121,9 +129,20 @@ Last updated: 2026-10-21 (session 11).
   Website E2E and package typechecks, 308 unit tests, production and GitHub
   Pages builds, docs/emoji/radius audits, formatting/lint, and diff checks have
   passed for this slice. The full-gate operation remains incomplete as stated
-  above.
-- Next: commit and push this slice, then
-  recheck PR #155 CI at the new exact head. Map the remaining save/undo and Unicode/text
+  above. The workflow dependency repair in `b9fd329ed` corrects the prior
+  Build + Package failure: Ubuntu 26.04 no longer provides the old
+  `libgdk-pixbuf2.0-dev` name, while the current `libgdk-pixbuf-2.0-dev` name
+  is installed successfully by the hosted Linux and AppImage jobs. The
+  planner-escalated local full gate at `b9fd329ed` was interrupted during
+  comprehensive Vitest and reconciled to `incomplete` after confirming the
+  process had exited. Two timing benchmarks exceeded limits under concurrent
+  tests (`guides1k`: ~1.4 s vs 100 ms; `selectionRefinement`: ~16.8 s); no
+  terminal full-suite summary was produced. Hosted render benchmarks passed.
+  The #3460 regression slice passed `pnpm verify:plan` and `pnpm
+  verify:affected`: touched format/lint, emoji/docs/radius audits, the
+  FindReplaceBar component test (5/5), and find/replace safety tests (39/39).
+- Next: commit and push the #3460 audit/test slice. Recheck PR #155 at the new
+  exact head. Continue mapping the remaining save/undo and Unicode/text
   candidates against Varve source and linked fixes/samples; inspect Wacom and
   Synaptics paths before changing anything. Record per-issue dispositions,
   keep marketing claims tied to verified capability, and continue the reviewed
