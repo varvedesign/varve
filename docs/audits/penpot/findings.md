@@ -3,11 +3,11 @@
 ## Current implementation checkpoint — #2276 and #2670
 
 The #2276 `currentColor` route now has unit regressions for the SVG default,
-inherited group color, and case-insensitive inline CSS property names. The
-parser resolves paint keywords from the inherited SVG `color` attribute or
-inline style and uses black when no color is specified. A real-editor import
-visual regression is queued behind the shared heavy-task lease; validation,
-independent review, and integration remain pending. Standards basis: [SVG 2
+root/group inheritance, gradient-definition inheritance, standard CSS named
+colors, and case-insensitive inline CSS property names. The parser resolves
+paint keywords from inherited SVG `color` attributes or inline styles and uses
+black when no color is specified. The focused Chromium import test passed and
+its actual screenshot was inspected. Standards basis: [SVG 2
 painting](https://www.w3.org/TR/SVG/latest/painting.html) defines `currentColor`
 as the potential indirect value for fill, stroke, and stop-color and requires
 CSS Color 3 color syntax; [CSS Color 3](https://www.w3.org/TR/css-color-3/)
@@ -16,10 +16,77 @@ defines its used value from the computed `color` property and inheritance.
 The #2670 discoverability improvement adds a frame-only canvas context-menu
 command that creates a component using the existing frame name, component
 definition API, and document history. It has unit coverage for selection
-gating, action, and menu closure, plus a real-editor undo/redo regression in
-the queued browser lane. The getting-started interface guide now documents the
-command. The marketing site impact is limited to that help text; no feature
-claim or homepage demonstration has changed. Both changes remain unreleased.
+gating, action, and menu closure, plus a real-editor create/undo/redo regression
+whose screenshot was inspected. The getting-started interface guide now
+documents the command. The marketing site impact is limited to that help text;
+no feature claim or homepage demonstration has changed. Both changes remain
+unreleased pending affected validation, review, and integration.
+
+## C1 issues #2353–#2448 (reviewed returned ranges)
+
+## C1 issues and PR evidence #2833–#2856
+
+The frozen page 27 contains all 24 numeric slots: 23 PR records and issue
+#2836. The issue body and both comments were read. #2836 concerns an Nginx
+upstream setting for a hosted Lightsail container deployment; the maintainer
+clarifies Penpot's Docker services are intended to run together. Varve has no
+hosted service/container deployment route, so this issue is excluded from
+product engineering. The PR records are retained separately as comparative
+evidence; their full bodies, changed-file metadata, and available linked Taiga
+items were reviewed. Protected Taiga media returned HTTP 403 and is unresolved
+in the frontier.
+
+No new Varve defect is established by this page. Candidate checks include
+#2833 local component-instance versus shared-library update; #2834 copying
+selected Code-panel text; #2837/#2844 frame thumbnails; #2838 component override
+dirtiness; #2839 undo labels; #2840/#2847 generated SVG/text correctness;
+#2845 grouped text-format shortcuts; #2846 selection bounds for large corner
+radii; #2848 text line-height metrics; #2851 library-modal counts; #2853
+duplicate frames; #2854 undo across active pages; and #2856 transforms near
+zero. Each needs its own Varve reproduction and acceptance decision before
+implementation. Other reports concern collaboration, flex/layout semantics,
+hosted handoff, migrations, or deployment routes that Varve does not provide,
+or lack the source trigger needed to verify the reported behavior. #2848's
+referenced test instructions and the underlying triggers for #2852/#2853/#2855
+remain unavailable. No website claim or demo change is justified by these
+reports.
+
+## C1 issues and PR evidence #2857–#2880
+
+Page 27 contributes 23 records in this interval: 13 PRs and ten issues. The
+ten issue bodies and 55 comments were read; each issue's single comment page
+was complete. Thirteen PR records were read separately; their issue and review
+comment counts are zero. #2870 is absent from this page and both direct issue
+and pull lookups returned 404. Recursive #2553/#1979 account/login discussions
+and #2660 scrolling-overlay comments were read and cached; a Taiga by-reference
+lookup for #2660 returned 406. Two protected Taiga attachments referenced by
+#4750 and #4769 returned 403, with request failure metadata retained.
+
+#2863 is a self-hosted installation/server issue and does not map to Varve's
+local desktop installation. #2871 reports the top bar moving outside a short
+or displaced browser viewport after board selection; #2872 separately reports
+pointer selection missing the visible text bounds, with discussion connecting
+the observed condition to #2871's blank viewport. Inspect Varve's visual
+viewport/resize and canvas-rect paths before declaring a match. #2877 reports
+Cmd+Z undo leaving the Zoom tool active; Varve's bindings are analogous but
+the state change remains unreproduced. #2879 concerns a manually positioned
+prototype overlay shifting after shadow is applied to its destination, a
+different trigger from #2660's scroll-induced displacement; Varve's comparable
+anchor workflow is not established. #2880 is a grounded feature opportunity:
+absolute line-height input would let users enter design-system values directly
+instead of calculating Varve's current ratio. It requires a decision on ratio
+versus absolute-unit semantics and a versioned persistence/compatibility design
+before any schema change.
+
+The other issues concern Penpot flex layout, self-hosted OIDC/template services,
+or hosted installation. PR evidence includes separate candidates for copying
+external typography-linked text (#2860), refreshing older document thumbnails
+(#2861), and prototype overlay positioning (#2879); these are not established
+Varve defects. Remaining changes are Penpot deployment, website, release, or
+flex-model work without a Varve user route. No marketing claim is warranted;
+the existing website already documents local installation and short viewport
+troubleshooting. If absolute line-height is selected and shipped, update the
+typography help then. C1 remains open and C2 is not frozen.
 
 ## C1 issues #2353–#2448 (reviewed returned ranges)
 
@@ -1627,3 +1694,87 @@ canvas context-menu action reuses existing component creation and history.
 Unit coverage and a real-editor undo/redo screenshot regression are in the
 worktree; browser validation and independent review are pending. The getting-
 started help page documents the action; no broader marketing claim changes.
+
+## C1 evidence ranges #2761–#2832
+
+These three assigned ranges contain 69 returned records across 72 numeric
+slots: 53 PRs and 16 issues; #2779, #2796, and #2800 are absent. The 16 issue
+bodies and 65 comments were reviewed. Linked PR API
+objects for the reviewed ranges report merged status; PR reviews/files and
+Taiga attachments were captured selectively after C1 and retain their own
+provenance. Remaining recursive edges are listed in `frontier.ndjson`.
+
+#2770 and #2780 match existing Varve behavior: position fields already have
+useful labels, and the shortcut palette focuses search on open, closes on
+Escape, and restores focus. #2774's fixed 50×10px tracks plus 49 one-pixel
+gutters cannot fit a 100px board (549px required); Varve already reports
+overflow rather than silently shrinking. A clearer overflow explanation or
+stretch/count suggestion is an optional UX improvement, not a matching bug.
+#2781's history drawer obscuring design tabs does not map directly to Varve's
+separate HistoryPanel and responsive Inspector tabs; narrow-window
+discoverability merits a product/UI review. Hosted login, OIDC, MinIO/S3,
+container restart, and viewer-Handoff reports have no matching Varve service
+routes. Export-copy and localization reports do not establish a Varve defect
+or currently inaccurate website claim.
+
+#2794 and #2795 preserve distinct component-update conditions: nested child
+geometry/layout reverting versus a deleted text child reappearing. #2727 is a
+third, distinct text-content override/touched-state condition; #2807 reports
+nested layout propagation. Together these are a grounded feature opportunity
+for recursive component synchronization in a design suite, but no Varve
+failure is reproduced and the cached Penpot fixtures were not imported. Keep
+this as a separate, high-scope feature decision with explicit acceptance for
+geometry, text content, deletion/tombstones, nested layout, save/reopen,
+update, cancellation, and undo before changing the current frame-level sync
+contract.
+
+#2813's merged PR discussion provides an especially relevant SVG sample using
+`stroke="currentColor"`; the baseline parser dropped it. The current #2276
+slice adds SVG `currentColor` fill/stroke/gradient support, root and definition
+tree inheritance, all CSS named colors, a test that confirms `rebeccapurple`,
+and an unsupported-color notice for values the parser does not recognize.
+Exact browser visual and unit validation remain pending. The #2813 SVG export
+round-trip whitespace concern is a separate import/export dimension check.
+No marketing claim changes are indicated until this behavior is validated and
+released; the file-format help is updated in source.
+
+
+## C1 issues and PR evidence #2881–#2904
+
+This interval contributes 24 records: five issues and 19 PRs. All five issue
+bodies and their available comments were read; PR bodies, changed-file records,
+and relevant discussions were inspected separately. The Penpot issue video for
+#2881 is cached. Recursive #2525 evidence and #2901's fixing PR #2908 were
+reviewed. The #2881 range cache includes duplicate historical fetches; original
+responses and validators are retained outside source history, with a normalized
+canonical page envelope for audit consistency.
+
+#2881's Windows Chrome clipboard/delete/undo sequence ended after a cache clear;
+it remains a distinct unverified Varve clipboard/history route. #2887's initial
+Cmd+Z report was said to be fixed, while later comments describe separate
+mask-resize and text-move undo failures; #2890 reports copy/paste then undo
+leaving Zoom active. Keep all sequences distinct from #2877. #2899 reports a
+Fedora Wayland nested-flex freeze; discussion says fixed but does not identify
+the upstream PR. Varve's nested-layout manipulation/deletion route remains
+unreproduced. #2901 is a self-hosted OIDC configuration issue fixed by #2908
+and has no Varve server-auth route.
+
+PR #2893 exposes a candidate interaction route where lens zoom drags can move a
+shape, and #2896 concerns pasting a frame inside itself; both need Varve
+reproduction. PR #2902's negative shadow spread is already supported by Varve's
+ShadowSection, shadow source model, renderer, and scene bounds, so no repair is
+indicated. PR #2883's component-name display is comparative evidence only; it
+does not establish a Varve need. Other PRs concern Penpot backend webhooks,
+account/dashboard behavior, or broader layout/page work. The website impact is
+none for this batch: no marketing claim or demo should change from unverified
+comparative reports. C1 remains open and C2 is not frozen.
+
+## C1 issues and PR evidence #2905–#2928
+
+The frozen pages contribute 21 records in this numeric interval: ten issues and eleven PRs; #2906, #2916, and #2928 are absent from the complete census, not failed requests. All ten issue bodies and 43 unique comments were read. PR bodies, linked issue/review discussions, changed-file records, commits, and available recursive Taiga histories were reviewed. One image linked from #2918 returned HTTP 403; its response and retrieval metadata remain unresolved in the external cache. Duplicate issue #2369 is linked to PR #2922 as separate source evidence.
+
+#2907's German team-invite text/icon layout was addressed upstream in #2921/#2923 and has no corresponding Varve team onboarding route. #2910's overlay option order was resolved through Taiga #4837; Varve's simpler overlay choices do not reproduce it. #2911 is a Firefox-specific color-picker pointer-release candidate, but Varve's analogous color/gradient popover route has not been reproduced. #2912 requests a reusable color/text style library and #2913 search/scroll persistence in Assets; both are feature opportunities for Varve's document styles and LibraryPanel that need workflow validation. #2915 concerns browsers below Chrome 88/Firefox 85, outside Varve's support matrix. #2918 is self-hosted asset ownership and Nginx proxy configuration, resolved by fixing filesystem ownership; it is outside Varve's local-first storage boundary.
+
+#2920 requests prototype links to artboards on other pages to reduce large-page performance cost. Discussion #960 and Taiga #2768/#1704 confirm this remains a design decision, so page-qualified target identity, page loading, transition state, and back-stack behavior must be specified before any schema or runtime change. #2924 asks for pointer-anchored keyboard zoom; Taiga #4825 says Penpot fixed it, while Varve's viewport-centered Ctrl+=/- behavior differs and remains a usability feature candidate. #2926 reports a Bungee Shade text export shift caused by Linux/Windows font metrics; upstream could not reproduce. Test Varve text layout and export with the supplied font on both platforms before classifying a defect.
+
+PR #2914's auto-width/space-around and moving-shapes layout changes, #2917 tooltip overflow, #2922 middle-button guide dragging, and #2927 auto-size bounds remain comparison evidence. The #2922 patch and duplicate #2369 provide a concrete real-browser pointer candidate against Varve's GuideOverlay; exercise middle-button movement and cancellation before deciding whether Varve needs a repair. Website impact: no marketing claim or demo change is supported by this evidence. If the style-library or cross-page-prototype opportunities are accepted and shipped, update the corresponding help and demonstrations then; current published guidance remains accurate. C1 is incomplete and C2 is not frozen.
