@@ -833,6 +833,7 @@ function nativeNode(
   const rawConstraints = asRecord(raw.constraints);
   const componentPropertyDefinitions = asRecord(raw.componentPropertyDefinitions);
   const componentProperties = asRecord(raw.componentProperties);
+  const componentPropertyReferences = asRecord(fieldValue(node, 'componentPropertyReferences'));
   const source: FigmaSourceNode = {
     sourceId: id,
     type,
@@ -929,6 +930,15 @@ function nativeNode(
             }),
           )
         : undefined,
+    componentPropertyReferences:
+      Object.keys(componentPropertyReferences).length > 0
+        ? Object.fromEntries(
+            Object.entries(componentPropertyReferences).flatMap(([key, value]) => {
+              const reference = stringValue(value);
+              return reference ? [[key, reference]] : [];
+            }),
+          )
+        : undefined,
     reactions: arrayValue(raw.reactions ?? raw.prototypeInteractions).filter(
       (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null,
     ),
@@ -938,6 +948,7 @@ function nativeNode(
       'DOCUMENT',
       'CANVAS',
       'FRAME',
+      'SLOT',
       'GROUP',
       'TEXT',
       'RECTANGLE',

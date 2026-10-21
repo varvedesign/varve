@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { applyGridLayout, computeFlexLayout } from '@varve/layout';
-import { DocumentCodec, validateDocument } from '@varve/scene';
+import { DocumentCodec, instantiate, validateDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   createFigmaParser,
@@ -543,6 +543,82 @@ describe('Figma JSON importer', () => {
     expect(Object.values(result.document.components)[0]?.variants).toEqual([
       expect.objectContaining({ name: 'Size=Small', propertyValues: { Size: 'Small' } }),
     ]);
+  });
+
+  it('imports direct Figma slot properties as editable component slots', () => {
+    const input = JSON.parse(fixture()) as Record<string, unknown>;
+    const document = input.document as Record<string, unknown>;
+    const page = (document.children as Array<Record<string, unknown>>)[0]!;
+    const children = page.children as Array<Record<string, unknown>>;
+    children.push({
+      id: 'component:slot-card',
+      type: 'COMPONENT',
+      name: 'Slot card',
+      componentPropertyDefinitions: {
+        Content: { type: 'SLOT', defaultValue: 'content-slot' },
+      },
+      absoluteBoundingBox: { x: 20, y: 400, width: 200, height: 120 },
+      children: [
+        {
+          id: 'content-slot',
+          type: 'SLOT',
+          name: 'Content area',
+          componentPropertyReferences: { slotContentId: 'Content' },
+          absoluteBoundingBox: { x: 20, y: 400, width: 200, height: 120 },
+          children: [
+            {
+              id: 'slot-default',
+              type: 'RECTANGLE',
+              name: 'Default content',
+              absoluteBoundingBox: { x: 28, y: 408, width: 40, height: 40 },
+            },
+          ],
+        },
+      ],
+    });
+    input.components = {
+      ...(input.components as Record<string, unknown>),
+      'component:slot-card': { name: 'Slot card' },
+    };
+
+    const result = createFigmaParser().parse(JSON.stringify(input));
+    const component = Object.values(result.document.components).find(
+      (candidate) => candidate.name === 'Slot card',
+    );
+    const slotFrame = Object.values(result.document.nodes).find(
+      (node) => node.name === 'Content area',
+    );
+
+    expect(component?.slots).toEqual([
+      {
+        id: `${component?.id}-slot-0`,
+        name: 'Content',
+        kind: 'multiple',
+        defaultContentId: slotFrame?.id,
+      },
+    ]);
+    expect(slotFrame?.kind).toBe('frame');
+    expect(component?.properties).toEqual([]);
+    if (!component) throw new Error('Slot component was not imported');
+    const instantiated = instantiate(result.document, component);
+    const slotId = component.slots[0]!.id;
+    const instanceSlotId = instantiated.node.slots?.[slotId];
+    expect(instanceSlotId).toBeDefined();
+    const instanceSlot = instantiated.doc.nodes[instanceSlotId!];
+    expect(instanceSlot?.kind).toBe('frame');
+    if (instanceSlot?.kind !== 'frame') throw new Error('Slot content was not instantiated');
+    expect(instanceSlot.children).toHaveLength(1);
+    const reopened = DocumentCodec.decode(DocumentCodec.encode(instantiated.doc));
+    expect(reopened.ok).toBe(true);
+    if (!reopened.ok) throw new Error('Imported slot component could not be reopened');
+    const reopenedInstance = reopened.document.nodes[instantiated.node.id];
+    expect(reopenedInstance?.kind).toBe('frame');
+    if (reopenedInstance?.kind !== 'frame') throw new Error('Slot instance was not reopened');
+    expect(reopenedInstance.slots?.[slotId]).toBe(instanceSlotId);
+    const reopenedSlot = reopened.document.nodes[instanceSlotId!];
+    expect(reopenedSlot?.kind).toBe('frame');
+    if (reopenedSlot?.kind !== 'frame') throw new Error('Slot content was not reopened');
+    expect(reopenedSlot.children).toHaveLength(1);
   });
 
   it('applies import scale at the page-content boundary', () => {

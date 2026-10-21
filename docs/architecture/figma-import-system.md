@@ -112,9 +112,17 @@ Auto Layout:
 
 Components and variants:
 
-- COMPONENT nodes create `ComponentDefinition` with empty slots (Figma
-  slots don't map 1:1 to Varve slot semantics).
-- componentPropertyDefinitions are preserved as typed properties.
+- COMPONENT nodes create `ComponentDefinition` records. Direct Figma `SLOT`
+  properties whose referenced slot frame is a direct child of the component
+  root map to Varve multiple-content slots, including their default content.
+  Nested/unbound slot areas remain in the imported tree and are called out in
+  the Import Report because Varve's component slot contract currently anchors
+  slots at the component root.
+- Figma slot advisory settings (preferred instances, child-count limits, and
+  insertion defaults) are not represented by Varve's slot model and are not
+  claimed as preserved.
+- Supported component property definitions remain typed properties; `SLOT`
+  definitions are represented as slots rather than being mislabeled as text.
 - Instance propertyOverrides are captured from componentProperties.
 - Component sets become frame containers with structured component variants.
 

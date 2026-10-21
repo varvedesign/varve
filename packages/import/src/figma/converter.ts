@@ -860,6 +860,7 @@ function convertNode(
     node = applyCommon(state, node, source, parent, nodeFills, layoutParent);
   } else if (
     source.type === 'FRAME' ||
+    source.type === 'SLOT' ||
     source.type === 'COMPONENT' ||
     source.type === 'INSTANCE' ||
     source.type === 'COMPONENT_SET'
@@ -870,7 +871,8 @@ function convertNode(
       h: source.bounds.h,
       children: childIds,
       transform,
-      clipContent: source.type === 'FRAME' ? source.clipsContent : undefined,
+      clipContent:
+        source.type === 'FRAME' || source.type === 'SLOT' ? source.clipsContent : undefined,
       layoutStyle: layoutStyle(source, state),
       strokes: strokes(source),
       effects: effects(source, state),
@@ -1166,8 +1168,35 @@ function buildComponents(
     const master = setNode ?? nodes.find((node) => node.sourceId === first.sourceId);
     const masterRootId = master ? state.sourceToVarve.get(master.sourceId) : undefined;
     if (!id || !masterRootId) continue;
+    const slots = Object.entries(master?.componentPropertyDefinitions ?? {}).flatMap(
+      ([name, definition], index) => {
+        if (definition.type !== 'SLOT') return [];
+        const slotNode = nodes.find(
+          (node) => node.componentPropertyReferences?.slotContentId === name,
+        );
+        if (!slotNode || !master?.children.some((child) => child.sourceId === slotNode.sourceId)) {
+          addWarning(
+            state,
+            `Slot property "${name}" on component "${first.name}" is preserved visually but cannot be edited as a Varve slot because its slot frame is not a direct child of the component root`,
+          );
+          addUnsupported(state, 'nested or unbound Figma component slots');
+          return [];
+        }
+        const defaultContentId = state.sourceToVarve.get(slotNode.sourceId);
+        if (!defaultContentId) return [];
+        return [
+          {
+            id: `${id}-slot-${index}`,
+            name: name.replace(/#\d+$/u, ''),
+            kind: 'multiple' as const,
+            defaultContentId,
+          },
+        ];
+      },
+    );
     const properties = Object.entries(master?.componentPropertyDefinitions ?? {}).flatMap(
       ([name, definition], index) => {
+        if (definition.type === 'SLOT') return [];
         const type: 'boolean' | 'instanceSwap' | 'variant' | 'text' =
           definition.type === 'BOOLEAN'
             ? 'boolean'
@@ -1199,7 +1228,7 @@ function buildComponents(
     result[id] = {
       id,
       name: source.componentSets.find((set) => set.sourceId === componentSetId)?.name ?? first.name,
-      slots: [],
+      slots,
       masterRootId,
       properties,
       ...(variants.length > 0 ? { variants } : {}),

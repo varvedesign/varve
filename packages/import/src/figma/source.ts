@@ -145,6 +145,7 @@ export interface FigmaSourceNode {
     { type?: string; defaultValue?: unknown; variantOptions?: string[] }
   >;
   componentProperties?: Record<string, { type?: string; value?: unknown }>;
+  componentPropertyReferences?: Record<string, string>;
   styleRefs?: Record<string, string>;
   boundVariables?: Record<string, { id?: string } | Array<{ id?: string }>>;
   reactions?: Array<Record<string, unknown>>;
@@ -587,6 +588,13 @@ function normalizeNode(
             const record = isRecord(value) ? value : {};
             return [key, { type: stringValue(record.type), value: record.value }];
           }),
+        )
+      : undefined,
+    componentPropertyReferences: isRecord(raw.componentPropertyReferences)
+      ? Object.fromEntries(
+          Object.entries(raw.componentPropertyReferences).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
+          ),
         )
       : undefined,
     styleRefs: isRecord(raw.styles)
