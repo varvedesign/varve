@@ -114,19 +114,9 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
 
   const defs = collectDefs(root);
 
-  for (const child of root.children) {
-    const { doc: d, ids } = convertElement(
-      child,
-      doc,
-      defs,
-      rootTransforms,
-      opts,
-      warnings,
-      unsupported,
-    );
-    doc = d;
-    nodeIds.push(...ids);
-  }
+  const converted = convertElement(root, doc, defs, rootTransforms, opts, warnings, unsupported);
+  doc = converted.doc;
+  nodeIds.push(...converted.ids);
 
   return {
     document: doc,
