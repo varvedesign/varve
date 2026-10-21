@@ -215,7 +215,13 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
     // Summary paragraphs between the version heading and the first category.
     if (current && !currentSection) {
       if (trimmed === '') {
-        if (preambleLines.length > 0) preambleLines.push('');
+        if (preambleLines.length > 0 && preambleLines[preambleLines.length - 1] !== '') {
+          preambleLines.push('');
+        }
+      } else if (preambleLines.length > 0 && preambleLines[preambleLines.length - 1] !== '') {
+        // Markdown treats consecutive lines as one paragraph; joining them keeps
+        // sentences (and phrases a reader searches for) intact.
+        preambleLines[preambleLines.length - 1] += ` ${trimmed}`;
       } else {
         preambleLines.push(trimmed);
       }
