@@ -63,9 +63,19 @@ Dispositions: `applicable-work-required`, `already-handled`, `duplicate-of`,
   with 314 local commits, 16 remote-only commits, and pre-existing staged,
   unstaged and untracked work that is unrelated to this branch.
 - Inventory and discussion coverage complete (above).
-- Per-issue ledger: `issue-ledger.jsonl` (1,604 rows). Link frontier:
-  `link-frontier.jsonl` (1,054 deduplicated references), triaged in
-  `frontier-triage.md`.
+- Per-issue ledger: `issue-ledger.jsonl`, **1,604 of 1,604 issues reviewed**,
+  covering all 2,734 retrievable comments. Every row has a disposition and a
+  reason; pull-request references stay as linked evidence rather than review
+  targets. Link frontier: `link-frontier.jsonl` (1,054 deduplicated
+  references), triaged in `frontier-triage.md`.
+- Dispositions at C2: 546 `already-handled`, 589 `out-of-scope`,
+  220 `uncertain-needs-investigation`, 47 `duplicate-of`,
+  192 `applicable-work-required`, 10 `blocked`. Research coverage is
+  complete for the cutoff; the 192 applicable and 220 uncertain rows are
+  **open engineering work**, not exclusions, and are the resumable backlog.
+  `out-of-scope` is used only where the issue depends on a subsystem Varve
+  does not have (Graphene node graph, GPU node buffers, Graphite-internal
+  tooling, web-only stack), and each reason names that subsystem.
 - Findings and engineering state: `findings.md`.
 - A pre-existing repository failure unrelated to this work: the website
   `changelog.test.ts` "parses the actual CHANGELOG.md" case fails on
@@ -83,4 +93,6 @@ Dispositions: `applicable-work-required`, `already-handled`, `duplicate-of`,
 | Shift-constrained movement (`#4246`) | Implemented: Shift (or a latched/programmatic axis lock) now constrains a move to the nearest 45° direction, so near-axis drags stay on the axis and deliberate diagonals keep their 45° travel. Snapping can no longer pull the gesture off the constrained direction. | `packages/editor/src/tools/axisConstraint.ts` + 10 unit tests; `tests/e2e/canvas/shift-constrained-move.spec.ts` (4 Chromium cases); Select/Page/ToolManager suites (97 tests) pass. |
 | Enter confirms the New Design dialog (`#3601`) | Implemented: Enter in the document-name or dimension fields creates the design; Enter in the preset-name row still saves the preset; an active IME composition and controls that own Enter are left alone. | 5 new jsdom tests in `packages/home/src/NewDesignDialog.test.tsx` (21 total); `@varve/home` suite (215 tests) passes. |
 | Nudge history coalescing (`#2617`) | **Blocked, not implemented.** Varve already coalesces a *held* arrow key into one undo entry, but repeated taps each commit. Undo is routed through the persistent revision store whenever it is attached, so a snapshot-stack merge is invisible to the user; the store is an append-only DAG whose captures are replay-hash verified, and it exposes no amend/coalesce operation. | Source inspection of `context.tsx` `undo`/`commitTransaction`, `history/editorHistorySession.ts`, and `@varve/history` `HistoryStore`. A prototype in-memory merge changed nothing user-visible, which is why it was reverted rather than shipped. |
+| Shift-press selection bug exposed by F1 | Fixed: a press that becomes a drag keeps an already-selected target instead of toggling it out of the selection, so Shift-drag can actually move what the user selected. Click-without-drag still toggles. | `SelectTool.applyHitSelection` drag path; covered by the same E2E cases as F1. |
+| Preset-search regression in the Enter change | Found by independent review and fixed: Enter in the preset search selects a preset and no longer creates a document. | jsdom case typing into the search combobox and asserting no creation. |
 | Existing protections verified | Zero-area/zero-scale geometry, aborted-marquee selection restore, and Delete with a drawing tool active are already correct in Varve. | Chromium reproduction probe plus source: `SelectTool.onKeyDown` Escape path keeps the committed selection until pointer-up; Inspector clamps W/H; layer delete works with the pen tool active. |
