@@ -13,6 +13,44 @@ Varve has four different kinds of canvas guidance, each with an explicit owner:
 Auto layout is not a grid overlay. `FrameNode.layoutStyle` and `@varve/layout` arrange
 children; they must not be used as a proxy for visual layout-guide geometry.
 
+## Auto-layout grid tracks
+
+Grid track arrays on `FrameNode.layoutStyle` provide stable track identity while
+the readable template remains the serialized CSS-like source. Child placements
+may anchor to a track ID and span rows or columns. Reordering keeps those anchors
+attached to their tracks. Track removal uses a before/after preview and only
+applies a deterministic rehome when the resulting placements are valid. These
+edits travel through one document update so undo restores the entire grid edit.
+The apply command checks the document snapshot and layout style observed when
+the preview opened; if another edit changes the document, the preview stays
+visible with a stale state warning and cannot overwrite newer placements.
+The inspector resolves identity anchors back to visible row and column indices;
+changing one axis preserves the other axis, each selected layer's own placement,
+and its existing span.
+Persisted track lists are bounded to 128 entries per axis. Each ID must be
+nonblank, unique within the axis, and at most 256 characters; each size must
+resolve to one supported track. A malformed imported list cannot be edited
+until repaired, and the solver reports a diagnostic instead of replacing the
+last valid scene geometry.
+
+`computeGridLayoutDetailed` returns resolved row/column starts, sizes, IDs,
+implicit flags and child placements alongside item rectangles. It also resolves
+explicit tracks when the grid is empty. The selected-frame overlay and grid
+snap targets consume those same resolved track edges, transformed through the
+frame's world transform. The derived line model is shared for the immutable
+document and frame revision, so camera-only draws do not repeat placement work.
+Track display is transient; it is never serialized as
+an authored guide or exported as artwork. Invalid grid layouts expose a
+diagnostic and yield no track snap targets. Auto-grid track snapping follows
+the editor's global snap switch; authored layout guides retain their separate
+guide snap preference and per-guide switch.
+
+Auto-layout grid semantics are versioned independently from visual guide
+geometry. Missing or version-1 layout semantics keep the legacy track sizing;
+version 2 resolves intrinsic and spanning contributions before fractional tracks.
+See the [auto-layout contract](auto-layout-system.md#dependable-layout-contract-2026-10-15)
+and [ADR-0245](../adr/0245-dependable-layout-contract.md).
+
 ## Coordinate and state contract
 
 All canvas overlays project through the shared `screenToWorld` / `worldToScreen` camera
