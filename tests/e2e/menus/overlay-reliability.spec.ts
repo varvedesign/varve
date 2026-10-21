@@ -173,19 +173,28 @@ test.describe('Overlay geometry and event reliability', () => {
     await expect(contextLayer).toHaveCount(1);
     const contextRect = await rect(page, '[data-overlay-kind="context-menu"]');
     assertInsideViewport(contextRect, viewport);
-    // Compare the menu with the exact viewport point sent to the real mouse.
-    // A locator click may recalculate its center after the row box is read.
-    expect(Math.abs(contextRect.left - invocation.x)).toBeLessThanOrEqual(3);
-    // A tall context menu can flip above the point and shift to the safe
-    // viewport edge. Measure distance to its visible interval: zero inside
-    // the menu, otherwise distance to the nearer edge.
+    const canvasRect = await rect(page, '.editor-canvas');
+    const toolbarRect = await rect(page, '.floating-toolbar');
+    // The Layers click is outside the canvas. Keep the menu beside its source
+    // while moving it into the canvas's 8px safe inset so it leaves the panel
+    // and toolbar usable.
+    expect(contextRect.left).toBeGreaterThanOrEqual(canvasRect.left - 1);
+    expect(
+      Math.abs(contextRect.left - Math.max(invocation.x, canvasRect.left + 8)),
+    ).toBeLessThanOrEqual(3);
+    expect(contextRect.bottom).toBeLessThanOrEqual(toolbarRect.top - 4);
+    // A tall context menu can end above the click when the toolbar owns the
+    // space below it. Its distance from the click should be no more than the
+    // toolbar clearance requires, allowing a small placement tolerance.
     const distanceToAnchor =
       invocation.y < contextRect.top
         ? contextRect.top - invocation.y
         : invocation.y > contextRect.bottom
           ? invocation.y - contextRect.bottom
           : 0;
-    expect(distanceToAnchor).toBeLessThanOrEqual(12);
+    expect(distanceToAnchor).toBeLessThanOrEqual(
+      Math.max(12, invocation.y - (toolbarRect.top - 4) + 6),
+    );
 
     const selectItem = contextLayer.getByRole('menuitem', { name: /^Select/ });
     await expect(selectItem).toBeVisible();
@@ -230,9 +239,10 @@ test.describe('Overlay geometry and event reliability', () => {
     await expect(contextLayer).toHaveCount(1);
     const keyboardContextRect = await rect(page, '[data-overlay-kind="context-menu"]');
     assertInsideViewport(keyboardContextRect, viewport);
-    // The focused-row anchor is an element anchor. A tall menu may be flipped
-    // and shifted to the safe edge, so allow a small collision-padding gap
-    // while still requiring attachment to the focused row.
+    expect(keyboardContextRect.left).toBeGreaterThanOrEqual(canvasRect.left - 1);
+    expect(keyboardContextRect.bottom).toBeLessThanOrEqual(toolbarRect.top - 4);
+    // Keyboard invocation uses the focused row. The toolbar may require the
+    // tall menu to end above it, so account for that clearance here too.
     const rowTop = rowBox!.y;
     const rowBottom = rowBox!.y + rowBox!.height;
     const distanceToFocusedRow =
@@ -241,7 +251,9 @@ test.describe('Overlay geometry and event reliability', () => {
         : keyboardContextRect.top > rowBottom
           ? keyboardContextRect.top - rowBottom
           : 0;
-    expect(distanceToFocusedRow).toBeLessThanOrEqual(12);
+    expect(distanceToFocusedRow).toBeLessThanOrEqual(
+      Math.max(12, rowTop - (toolbarRect.top - 4) + 6),
+    );
     await page.keyboard.press('Escape');
     await expect(contextLayer).toHaveCount(0);
     await expect(row).toBeFocused();

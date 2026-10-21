@@ -90,8 +90,6 @@ export interface BuildLayerMenuItemsArgs {
   handleSoloFromMenu: () => void;
   handleCanvasNavigation: (behavior: 'reveal' | 'center' | 'fit') => void;
   /** Expand and scroll the panel's own tree to the selection. */
-  revealSelectionInPanel: () => void;
-  enableAutoReveal: () => void;
   addMaskToSelected: (type: 'alpha' | 'clip' | 'luminance', sourceNodeId?: string) => void;
   removeMaskFromSelected: () => void;
   toggleMask: () => void;
@@ -185,8 +183,6 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
     handleSelectAllOfType,
     handleSoloFromMenu,
     handleCanvasNavigation,
-    revealSelectionInPanel,
-    enableAutoReveal,
     addMaskToSelected,
     removeMaskFromSelected,
     toggleMask,
@@ -663,17 +659,6 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
       description: 'Center and fit the selected layers',
       shortcut: menuShortcutForAction('fitSelection'),
       onAction: () => handleCanvasNavigation('fit'),
-    },
-    {
-      id: 'reveal-layers',
-      label: 'Reveal in Layers Panel',
-      onAction: () => {
-        if (selection.length > 0) {
-          enableAutoReveal();
-          revealSelectionInPanel();
-        }
-        closeMenu();
-      },
     },
   );
 

@@ -23,24 +23,29 @@ import { expect, test } from '@playwright/test';
 import { worldToScreen } from '@varve/shared';
 import { navigateToEditor } from '../shared';
 
+async function openAutoRevealSetting(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: 'Layer navigation settings' }).click();
+  return page.getByRole('menuitemcheckbox', {
+    name: /Reveal canvas selection in Layers panel/,
+  });
+}
+
 test.describe('Artboard-local coordinates', () => {
   test.describe.configure({ mode: 'serial' });
   let autoRevealWasEnabled = false;
 
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page, '/?perf=1');
-    const autoReveal = page.getByRole('button', {
-      name: 'Auto-reveal canvas selection',
-    });
-    autoRevealWasEnabled = (await autoReveal.getAttribute('aria-pressed')) === 'true';
+    const autoReveal = await openAutoRevealSetting(page);
+    autoRevealWasEnabled = (await autoReveal.getAttribute('aria-checked')) === 'true';
+    await page.keyboard.press('Escape');
   });
 
   test.afterEach(async ({ page }) => {
     if (!autoRevealWasEnabled) return;
-    const autoReveal = page.getByRole('button', {
-      name: 'Auto-reveal canvas selection',
-    });
-    if ((await autoReveal.getAttribute('aria-pressed')) === 'false') await autoReveal.click();
+    const autoReveal = await openAutoRevealSetting(page);
+    if ((await autoReveal.getAttribute('aria-checked')) === 'false') await autoReveal.click();
+    await page.keyboard.press('Escape');
   });
 
   async function projectWorldPoints(
@@ -231,11 +236,10 @@ test.describe('Artboard-local coordinates', () => {
     // Use real screen geometry for setup. Artboard creation can change the
     // camera, so fixed canvas-origin coordinates can put a shape into a
     // different artboard even when the pointer gesture itself is valid.
-    const autoReveal = page.getByRole('button', {
-      name: 'Auto-reveal canvas selection',
-    });
+    const autoReveal = await openAutoRevealSetting(page);
     if (autoRevealWasEnabled) await autoReveal.click();
-    await expect(autoReveal).toHaveAttribute('aria-pressed', 'false');
+    await expect(autoReveal).toHaveAttribute('aria-checked', 'false');
+    await page.keyboard.press('Escape');
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await page.keyboard.press('f');

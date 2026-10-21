@@ -126,6 +126,10 @@ export interface ContextMenuProps {
   items: readonly MenuEntry[];
   /** Explicit element or viewport-point anchor. */
   anchor?: OverlayAnchor | null;
+  /** Optional workspace region that the menu must fit inside. */
+  collisionBoundary?: Element | null;
+  /** Visible workspace chrome that the menu must avoid. */
+  avoidElement?: Element | null;
   /**
    * Compatibility adapter for older callers. Values are interpreted as
    * viewport/client coordinates and converted to a point anchor immediately.
@@ -300,6 +304,8 @@ interface MenuInternalProps {
   menuClassName: string;
   menuStyle?: React.CSSProperties;
   maxVisibleItems?: number;
+  collisionBoundary?: Element | null;
+  avoidElement?: Element | null;
   /**
    * Top-level Tab handler: closes the whole tree and walks the tab order
    * from the top-level anchor. Submenus delegate Tab to it so the anchor is
@@ -339,6 +345,8 @@ function MenuInternal({
   menuClassName,
   menuStyle,
   maxVisibleItems,
+  collisionBoundary,
+  avoidElement,
   topTabHandler,
   cancelParentClose,
   focusRestoreSuppressionRef,
@@ -836,6 +844,8 @@ function MenuInternal({
           {submenuOpen && open && (
             <FloatingPortal
               anchorRef={submenuAnchorRef}
+              collisionBoundary={collisionBoundary}
+              avoidElement={avoidElement}
               open
               kind="submenu"
               scrollOwner="content"
@@ -862,6 +872,8 @@ function MenuInternal({
                 triggerRef={submenuAnchorRef}
                 size={size}
                 menuClassName={`varve-menu varve-menu--${size} varve-menu--portaled`}
+                collisionBoundary={collisionBoundary}
+                avoidElement={avoidElement}
                 topTabHandler={handleTopTab}
                 cancelParentClose={clearSubmenuClose}
                 focusRestoreSuppressionRef={suppressFocusRestore}
@@ -1002,6 +1014,8 @@ export function Menu({
 export function ContextMenu({
   items,
   anchor,
+  collisionBoundary,
+  avoidElement,
   position,
   contextElement,
   ownerDocument,
@@ -1030,6 +1044,8 @@ export function ContextMenu({
   return (
     <FloatingPortal
       anchor={resolvedAnchor}
+      collisionBoundary={collisionBoundary}
+      avoidElement={avoidElement}
       open
       onClose={onClose}
       kind="context-menu"
@@ -1050,6 +1066,8 @@ export function ContextMenu({
         size={size}
         id={id}
         menuClassName={`varve-menu varve-menu--${size} varve-ctxmenu varve-menu--portaled`}
+        collisionBoundary={collisionBoundary}
+        avoidElement={avoidElement}
       />
     </FloatingPortal>
   );

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRef, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -206,6 +206,7 @@ describe('Menu', () => {
     const onClose = vi.fn();
     render(<TestMenu open onClose={onClose} />);
     const btn = document.body.querySelector('[role="menuitem"]') as HTMLElement;
+    await waitFor(() => expect(getComputedStyle(btn).pointerEvents).toBe('auto'));
     await user.click(btn);
     expect(onClose).toHaveBeenCalledTimes(1);
   });

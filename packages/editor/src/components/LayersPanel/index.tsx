@@ -168,6 +168,10 @@ function LayersPanelContent({
   // document: a detached Layers window lives in a different Document, where
   // `document.querySelector('.layers-panel__tree')` finds nothing.
   const panelRootRef = useRef<HTMLDivElement>(null);
+  const contextMenuCanvas = contextMenu
+    ? (panelRootRef.current?.ownerDocument.querySelector('.editor-canvas') ?? null)
+    : null;
+  const contextMenuToolbar = contextMenuCanvas?.ownerDocument.querySelector('.floating-toolbar');
 
   // Parent index cache for O(1) lookups
   const parentCacheRef = useRef<ParentIndexCache | null>(null);
@@ -602,15 +606,6 @@ function LayersPanelContent({
     dndRef?.current?.collapseAll();
   }, [dndRef]);
 
-  const revealSelectionInPanel = useCallback(() => {
-    const root = panelRootRef.current;
-    if (!root) return;
-    root
-      .querySelector('.layers-panel__tree')
-      ?.querySelector('[role="treeitem"][aria-selected="true"]')
-      ?.scrollIntoView({ block: 'nearest' });
-  }, []);
-
   const handleCollapseOthers = useCallback(() => {
     if (contextMenu) {
       dndRef?.current?.collapseOthers(contextMenu.id);
@@ -814,23 +809,6 @@ function LayersPanelContent({
                   size="rich"
                 />
               )}
-              <Tooltip
-                label={
-                  layerSettings.autoReveal
-                    ? 'Disable auto-reveal in Layers panel'
-                    : 'Enable auto-reveal in Layers panel'
-                }
-              >
-                <button
-                  type="button"
-                  className={`layers-panel__header-btn ${layerSettings.autoReveal ? 'layers-panel__header-btn--active' : ''}`}
-                  onClick={() => updateLayerSettings({ autoReveal: !layerSettings.autoReveal })}
-                  aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
-                  aria-pressed={layerSettings.autoReveal}
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
-                </button>
-              </Tooltip>
               <Tooltip label="Collapse all layers">
                 <button
                   type="button"
@@ -959,8 +937,6 @@ function LayersPanelContent({
             handleSelectAllOfType,
             handleSoloFromMenu,
             handleCanvasNavigation,
-            revealSelectionInPanel,
-            enableAutoReveal: () => updateLayerSettings({ autoReveal: true }),
             addMaskToSelected,
             removeMaskFromSelected,
             toggleMask,
@@ -991,6 +967,8 @@ function LayersPanelContent({
             COLOR_LABELS: LAYER_COLOR_LABELS,
           })}
           anchor={contextMenu.anchor}
+          collisionBoundary={contextMenuCanvas}
+          avoidElement={contextMenuToolbar}
           onClose={closeMenu}
           label="Layer context menu"
           size="default"

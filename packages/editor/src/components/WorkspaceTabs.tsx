@@ -122,7 +122,7 @@ function resolveIconButtonWidth(el: HTMLElement): number {
     return Math.max(WORKSPACE_ICON_BUTTON_WIDTH, configuredWidth);
   }
   return document.documentElement.dataset.layoutMode === 'tablet'
-    ? 44
+    ? 32
     : WORKSPACE_ICON_BUTTON_WIDTH;
 }
 

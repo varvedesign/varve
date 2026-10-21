@@ -137,19 +137,21 @@ test.describe('Deep Selection', () => {
   });
 
   test('6. Auto-reveal preference can be toggled', async ({ page }) => {
-    // Open layers panel and find the auto-reveal toggle
-    const autoRevealBtn = page.getByRole('button', { name: 'Auto-reveal canvas selection' });
-    await expect(autoRevealBtn).toBeAttached();
+    // The preference lives with the other navigation policies, not in a
+    // second header eye button that competes with the panel controls.
+    await page.getByRole('button', { name: 'Layer navigation settings' }).click();
+    const autoRevealItem = page.getByRole('menuitemcheckbox', {
+      name: /Reveal canvas selection in Layers panel/,
+    });
+    await expect(autoRevealItem).toHaveAttribute('aria-checked', 'true');
 
     // Click to toggle off
-    await autoRevealBtn.click();
-    await page.waitForTimeout(100);
-    await expect(autoRevealBtn).toHaveAttribute('aria-pressed', 'false');
+    await autoRevealItem.click();
+    await expect(autoRevealItem).toHaveAttribute('aria-checked', 'false');
 
     // Click to toggle back on
-    await autoRevealBtn.click();
-    await page.waitForTimeout(100);
-    await expect(autoRevealBtn).toHaveAttribute('aria-pressed', 'true');
+    await autoRevealItem.click();
+    await expect(autoRevealItem).toHaveAttribute('aria-checked', 'true');
   });
 
   test('7. Breadcrumb appears when object is selected', async ({ page }) => {
@@ -240,13 +242,15 @@ test.describe('Deep Selection', () => {
   test('11. Auto-reveal disabled preserves scroll position', async ({ page }) => {
     const { canvasBox } = await createFrameWithChild(page);
 
-    // Toggle auto-reveal off
-    const autoRevealBtn = page.getByRole('button', {
-      name: 'Auto-reveal canvas selection',
+    // Toggle auto-reveal off through Layer navigation settings.
+    const navigationButton = page.getByRole('button', { name: 'Layer navigation settings' });
+    await navigationButton.click();
+    const autoRevealItem = page.getByRole('menuitemcheckbox', {
+      name: /Reveal canvas selection in Layers panel/,
     });
-    await autoRevealBtn.click();
-    await page.waitForTimeout(100);
-    await expect(autoRevealBtn).toHaveAttribute('aria-pressed', 'false');
+    await autoRevealItem.click();
+    await expect(autoRevealItem).toHaveAttribute('aria-checked', 'false');
+    await page.keyboard.press('Escape');
 
     // Select the frame
     await page.mouse.click(canvasBox.x + 400, canvasBox.y + 350);
@@ -259,9 +263,9 @@ test.describe('Deep Selection', () => {
     await expect(frameItem).toHaveCount(1);
 
     // Toggle auto-reveal back on
-    await autoRevealBtn.click();
-    await page.waitForTimeout(100);
-    await expect(autoRevealBtn).toHaveAttribute('aria-pressed', 'true');
+    await navigationButton.click();
+    await autoRevealItem.click();
+    await expect(autoRevealItem).toHaveAttribute('aria-checked', 'true');
   });
 
   test('12. Deep selection does not move objects', async ({ page }) => {

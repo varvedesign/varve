@@ -85,23 +85,52 @@
 .workspace-dock-move-handle {
   display: grid;
   place-items: center;
+  position: relative;
+  inline-size: var(--touch-target-min);
+  block-size: var(--component-default-height);
   min-inline-size: var(--touch-target-min);
   min-block-size: var(--component-default-height);
-  padding: 0 var(--space-2);
+  padding: 0;
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  background: var(--elevation-surface-raised);
-  border: var(--border-micro);
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-control-compact);
-  box-shadow: var(--shadow-sm);
   cursor: grab;
   touch-action: none;
   user-select: none;
 }
 
+/* The full button is the drag hit area; only the centered 28px control is
+ * painted. This keeps the panel chrome compact at touch sizes. */
+.workspace-dock-move-handle::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: 28px;
+  block-size: 28px;
+  transform: translate(-50%, -50%);
+  background: var(--elevation-surface-raised);
+  border: var(--border-micro);
+  border-radius: var(--radius-control-compact);
+  box-shadow: var(--shadow-sm);
+}
+
+.workspace-dock-move-handle:hover::before {
+  background: var(--color-surface-hover);
+}
+
+.workspace-dock-move-handle > svg {
+  position: relative;
+  pointer-events: none;
+}
+
 @media (pointer: coarse), (any-pointer: coarse) {
   .workspace-dock-move-handle {
+    inline-size: var(--touch-target-min);
+    block-size: var(--touch-target-min);
     min-inline-size: var(--touch-target-min);
     min-block-size: var(--touch-target-min);
   }
