@@ -10,7 +10,7 @@
 import { createDocument } from '@varve/scene';
 import { Gunzip } from 'fflate';
 import { registerParser } from './registry';
-import { convertElement } from './svg/elements';
+import { convertElement, resolveSvgCurrentColor } from './svg/elements';
 import {
   collectDefs,
   composeTransforms,
@@ -112,7 +112,7 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
     }
   }
 
-  const defs = collectDefs(root);
+  const defs = collectDefs(root, unsupported);
 
   for (const child of root.children) {
     const { doc: d, ids } = convertElement(
@@ -123,6 +123,8 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
       opts,
       warnings,
       unsupported,
+      undefined,
+      resolveSvgCurrentColor(root, undefined, unsupported),
     );
     doc = d;
     nodeIds.push(...ids);

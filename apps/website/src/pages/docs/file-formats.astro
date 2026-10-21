@@ -111,6 +111,12 @@ const figmaImportFaq = {
           <li>Fill, stroke, opacity, and style attributes</li>
         </ul>
         <p>
+          SVG <code>currentColor</code> paints use the inherited SVG <code>color</code> value from the root, parent group, or gradient definition; standard CSS named colors are supported, and an unspecified color imports as black. Stylesheet selectors remain outside the supported editable subset.
+        </p>
+        <p>
+          SVG text preserves inline font family, size, weight, and text-anchor styles when those values fit Varve's editable text model. Rich styling across separate <code>&lt;tspan&gt;</code> runs is not retained.
+        </p>
+        <p>
           Imported SVG keeps the source's ordered sibling roots and nested groups as logical artifacts. Their transforms (including nested scale and rotation), viewBox origin, and relative spacing are resolved once before placement, so separate groups are not pasted as an unordered stack or given independent offsets. Unsupported effects and semantics remain visible in Import Results instead of being silently flattened.
         </p>
         <p>
@@ -253,8 +259,15 @@ const figmaImportFaq = {
           </li>
           <li>Files are placed at the drop position with proper world-coordinate conversion</li>
           <li>Multiple files are tiled with spacing</li>
-          <li>Batch import decodes at most two files concurrently, restores selection order, and reports progress per completed file</li>
+          <li>Batch import prepares files separately, parses up to two concurrently, identifies active and completed files, and restores selection order</li>
         </ul>
+        <p>
+          File &gt; Import shows a preparation phase while selected files are read, then identifies
+          the file being imported. You can cancel preparation immediately or cancel the batch
+          between completed imports; a file already being parsed must finish first. Cancellation
+          discards the whole uncommitted batch, including files already parsed. Progress reports
+          completed files and does not estimate a finish time.
+        </p>
         <p>
           Each picker and drop is bound to the document and session that started it. A newer
           transfer cancels an older decode before commit, so stale artwork cannot appear in a

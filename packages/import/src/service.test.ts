@@ -151,18 +151,68 @@ describe('ImportService', () => {
 
   it('preserves input order while progress follows completed work', async () => {
     const progress: string[] = [];
+    const started: string[] = [];
     const report = await ImportService.importFiles(
       [
         { name: 'first.svg', text: '<svg><rect width="2" height="2"/></svg>', source: 'drop' },
         { name: 'second.xyz', text: 'unsupported', source: 'drop' },
         { name: 'third.svg', text: '<svg><circle r="1"/></svg>', source: 'drop' },
       ],
-      { onProgress: (_completed, _total, file) => progress.push(file.name) },
+      {
+        onFileStart: (file) => started.push(file.name),
+        onProgress: (_completed, _total, file) => progress.push(file.name),
+      },
     );
 
     expect(report.files.map((file) => file.name)).toEqual(['first.svg', 'second.xyz', 'third.svg']);
     expect(progress).toHaveLength(3);
+    expect(started).toEqual(['first.svg', 'second.xyz', 'third.svg']);
     expect(report.totalFiles).toBe(3);
+  });
+
+  it('yields between completed files so cancellation stops queued parser work', async () => {
+    const controller = new AbortController();
+    const started: string[] = [];
+
+    await expect(
+      ImportService.importFiles(
+        [
+          { name: 'first.svg', text: '<svg><rect width="2" height="2"/></svg>', source: 'drop' },
+          { name: 'second.svg', text: '<svg><circle r="1"/></svg>', source: 'drop' },
+          { name: 'queued.svg', text: '<svg><path d="M0 0 L1 1"/></svg>', source: 'drop' },
+        ],
+        {
+          onFileStart: (file) => started.push(file.name),
+          onProgress: () => setTimeout(() => controller.abort(), 0),
+        },
+        controller.signal,
+      ),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(started).toEqual(['first.svg', 'second.svg']);
+  });
+
+  it('yields after publishing the active file so cancellation can stop parser work', async () => {
+    const controller = new AbortController();
+    const started: string[] = [];
+    const progress: string[] = [];
+
+    await expect(
+      ImportService.importFiles(
+        [{ name: 'active.svg', text: '<svg><rect width="2" height="2"/></svg>', source: 'drop' }],
+        {
+          onFileStart: (file) => {
+            started.push(file.name);
+            setTimeout(() => controller.abort(), 0);
+          },
+          onProgress: (_completed, _total, file) => progress.push(file.name),
+        },
+        controller.signal,
+      ),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(started).toEqual(['active.svg']);
+    expect(progress).toEqual([]);
   });
 
   it('honors an already-aborted signal before parsing files', async () => {
