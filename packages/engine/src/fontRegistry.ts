@@ -283,7 +283,11 @@ export class FontRegistry {
     // A system family arriving from enumeration was observed on the host, so
     // the seed list's unverified claim about it is settled.
     if (entry.source === 'system' && !this.seeding) {
-      this.seedSystemFamilies.delete(entry.family);
+      // A settled claim changes what must be probed. Drop the memo explicitly:
+      // a duplicate registration returns below without bumping the revision,
+      // so the revision-keyed cache alone would keep withholding a family the
+      // host has already proved it can resolve.
+      if (this.seedSystemFamilies.delete(entry.family)) this.availabilityProbe = null;
     }
     const existing = this.entries.get(entry.family) ?? [];
     if (existing.some((candidate) => fontEntryKey(candidate) === fontEntryKey(entry))) return;

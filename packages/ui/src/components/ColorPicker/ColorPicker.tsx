@@ -676,6 +676,8 @@ export function ColorPicker({
   // repeats, and every repeat would otherwise be its own undo entry.
   const gestureActiveRef = useRef(false);
   const keyboardGestureRef = useRef(false);
+  /** A pointer drag owns the boundary; keys pressed during it must not end it. */
+  const pointerGestureRef = useRef(false);
   const detachKeyboardReleaseRef = useRef<(() => void) | null>(null);
 
   const detachKeyboardRelease = useCallback(() => {
@@ -693,11 +695,14 @@ export function ColorPicker({
   const handleRootPointerDown = useCallback(() => {
     if (gestureActiveRef.current) return;
     gestureActiveRef.current = true;
+    pointerGestureRef.current = true;
     onInteractionStart?.();
   }, [onInteractionStart]);
   const endGesture = useCallback(() => {
     if (!gestureActiveRef.current) return;
     gestureActiveRef.current = false;
+    pointerGestureRef.current = false;
+    keyboardGestureRef.current = false;
     onInteractionEnd?.();
   }, [onInteractionEnd]);
   const handleRootPointerUp = useCallback(() => endGesture(), [endGesture]);
@@ -711,9 +716,14 @@ export function ColorPicker({
         return;
       }
       if (!PICKER_STEP_KEYS.has(event.key)) return;
+      // While a pointer drag is in flight the pointer owns the boundary: an
+      // arrow key pressed then must not open a second gesture, and its release
+      // must not end the drag early.
+      if (pointerGestureRef.current) return;
       if (!keyboardGestureRef.current) {
         keyboardGestureRef.current = true;
-        handleRootPointerDown();
+        gestureActiveRef.current = true;
+        onInteractionStart?.();
       }
       if (detachKeyboardReleaseRef.current) return;
       // The key may be released after focus has moved on, so the release is
@@ -736,12 +746,13 @@ export function ColorPicker({
         window.removeEventListener('blur', onBlur);
       };
     },
-    [detachKeyboardRelease, endGesture, handleRootPointerDown],
+    [detachKeyboardRelease, endGesture, onInteractionStart],
   );
 
   const handleRootKeyUp = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (!PICKER_STEP_KEYS.has(event.key)) return;
+      if (!keyboardGestureRef.current) return;
       detachKeyboardRelease();
       keyboardGestureRef.current = false;
       endGesture();

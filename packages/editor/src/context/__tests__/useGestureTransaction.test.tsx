@@ -172,6 +172,51 @@ describe('useGestureTransaction', () => {
     expect(calls).toEqual(['begin', 'commit']);
   });
 
+  it('commits when the control unmounts mid-drag and the release lands on the window', () => {
+    // Corner smoothing disappears when the shape has no rounding left, and
+    // dragging it to 0 is exactly that. A removed input receives no
+    // `pointerup`, so without a window-level release the transaction would stay
+    // open and every later edit would merge into one undo step.
+    const { host, calls } = makeHost();
+    const { result } = renderHook(() => useGestureTransaction(host));
+
+    act(() => result.current.rangeProps.onRangePointerDown(pointerEvent()));
+    expect(calls).toEqual(['begin']);
+
+    // The element is gone by the time the pointer is released.
+    act(() => {
+      window.dispatchEvent(new Event('pointerup'));
+    });
+
+    expect(calls).toEqual(['begin', 'commit']);
+  });
+
+  it('commits on a window-level pointercancel too', () => {
+    const { host, calls } = makeHost();
+    const { result } = renderHook(() => useGestureTransaction(host));
+
+    act(() => result.current.rangeProps.onRangePointerDown(pointerEvent()));
+    act(() => {
+      window.dispatchEvent(new Event('pointercancel'));
+    });
+
+    expect(calls).toEqual(['begin', 'commit']);
+  });
+
+  it('does not leave the gesture open when the element handler never fires', () => {
+    // Reproduces the leak shape directly: begin via the pointer path, then only
+    // the window sees the release.
+    const { host } = makeHost();
+    const { result } = renderHook(() => useGestureTransaction(host));
+
+    act(() => result.current.rangeProps.onRangePointerDown(pointerEvent()));
+    act(() => {
+      window.dispatchEvent(new Event('pointerup'));
+    });
+
+    expect(result.current.isActive()).toBe(false);
+  });
+
   it('leaves no window listener behind after a burst completes', () => {
     const { host } = makeHost();
     const { result } = renderHook(() => useGestureTransaction(host));

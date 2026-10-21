@@ -880,6 +880,32 @@ describe('ColorPicker — swatch selection precision', () => {
       expect(onInteractionEnd).toHaveBeenCalledTimes(1);
     });
 
+    it('does not let a key release end an in-flight pointer drag', () => {
+      const onInteractionStart = vi.fn();
+      const onInteractionEnd = vi.fn();
+      render(
+        <ColorPicker
+          value={color}
+          onChange={() => {}}
+          onInteractionStart={onInteractionStart}
+          onInteractionEnd={onInteractionEnd}
+        />,
+      );
+      const root = document.querySelector('.color-picker') as HTMLElement;
+
+      fireEvent.pointerDown(root, { button: 0, pointerId: 1 });
+      // Still dragging: an arrow key must not open a second gesture or end the
+      // first one.
+      fireEvent.keyDown(root, { key: 'ArrowRight' });
+      fireEvent.keyUp(root, { key: 'ArrowRight' });
+
+      expect(onInteractionStart).toHaveBeenCalledTimes(1);
+      expect(onInteractionEnd).not.toHaveBeenCalled();
+
+      fireEvent.pointerUp(root, { button: 0, pointerId: 1 });
+      expect(onInteractionEnd).toHaveBeenCalledTimes(1);
+    });
+
     it('ignores keys that are not value steps', () => {
       const onInteractionStart = vi.fn();
       render(

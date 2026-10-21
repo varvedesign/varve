@@ -108,12 +108,6 @@ export function useGestureTransaction(
     cleanupRef.current = null;
   }, []);
 
-  const begin = useCallback(() => {
-    if (!enabled || activeRef.current) return;
-    activeRef.current = true;
-    hostRef.current.beginTransaction('edit');
-  }, [enabled]);
-
   const commit = useCallback(() => {
     detachListeners();
     if (!activeRef.current) return;
@@ -130,24 +124,49 @@ export function useGestureTransaction(
 
   const isActive = useCallback(() => activeRef.current, []);
 
-  // A keyboard burst ends on a window-level keyup/blur: the range input may
-  // not receive either once focus moves.
-  const watchKeyboardRelease = useCallback(() => {
+  /**
+   * End the gesture when the release happens anywhere.
+   *
+   * The element's own `pointerup` is the fast path, but it is not sufficient:
+   * a control can unmount between `pointerdown` and `pointerup` because the
+   * value it edits is also what decides whether it is rendered — corner
+   * smoothing disappears when the shape has no rounding left, and dragging it
+   * to 0 is exactly that. A removed element receives no `pointerup`, its
+   * pointer capture is released by the browser, and without a window-level
+   * fallback the transaction would stay open, silently merging every later
+   * edit into one undo step. Keyboard releases are observed on the window for
+   * the same reason.
+   */
+  const watchRelease = useCallback(() => {
     if (cleanupRef.current) return;
+    const onPointerRelease = () => commit();
     const onKeyUp = (event: KeyboardEvent) => {
-      if (RANGE_STEP_KEYS.has(event.key) || event.key === 'Escape') {
-        if (event.key === 'Escape') abort();
-        else commit();
-      }
+      if (event.key === 'Escape') abort();
+      else if (RANGE_STEP_KEYS.has(event.key)) commit();
     };
     const onBlur = () => commit();
+    // Capture phase: the release is seen even when an inner control claims the
+    // event, and before React's delegated listener runs the element handler.
+    window.addEventListener('pointerup', onPointerRelease, true);
+    window.addEventListener('pointercancel', onPointerRelease, true);
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
     cleanupRef.current = () => {
+      window.removeEventListener('pointerup', onPointerRelease, true);
+      window.removeEventListener('pointercancel', onPointerRelease, true);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
     };
   }, [abort, commit]);
+
+  const begin = useCallback(() => {
+    if (!enabled || activeRef.current) return;
+    activeRef.current = true;
+    hostRef.current.beginTransaction('edit');
+    // Attached for both entry points: a pointer gesture can also lose its
+    // element, and the keyboard path already relies on a window-level release.
+    watchRelease();
+  }, [enabled, watchRelease]);
 
   const onRangePointerDown = useCallback<React.PointerEventHandler<HTMLInputElement>>(
     (event) => {
@@ -202,9 +221,8 @@ export function useGestureTransaction(
       }
       if (!RANGE_STEP_KEYS.has(event.key)) return;
       begin();
-      watchKeyboardRelease();
     },
-    [abort, begin, watchKeyboardRelease],
+    [abort, begin],
   );
 
   const onRangeKeyUp = useCallback<React.KeyboardEventHandler<HTMLInputElement>>(

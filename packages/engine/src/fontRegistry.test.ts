@@ -490,6 +490,22 @@ describe('FontRegistry', () => {
       expect(probed).toContain('Arial');
     });
 
+    it('re-probes after a duplicate system registration settles a claim', () => {
+      // The duplicate path returns without bumping the revision, so the memo
+      // must be dropped explicitly or a settled family stays withheld.
+      setFontAvailabilityProbeForTest(
+        (families) => new Set([...families].filter((family) => family !== 'Meiryo')),
+      );
+      const reg = new FontRegistry();
+      expect(reg.availableFamilies().has('Meiryo')).toBe(false);
+
+      // The host now reports the family; settlement must be re-measured.
+      setFontAvailabilityProbeForTest((families) => new Set(families));
+      reg.register({ family: 'Meiryo', weight: 400, style: 'normal', source: 'system' });
+
+      expect(reg.availableFamilies().has('Meiryo')).toBe(true);
+    });
+
     it('keeps every family available when the environment cannot measure text', () => {
       setFontAvailabilityProbeForTest(() => null);
 
