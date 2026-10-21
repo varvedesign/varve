@@ -70,6 +70,7 @@ describe('canvasMode', () => {
     expect(def).toBeDefined();
     expect(def.binding.ctrl).toBe(true);
     expect(def.binding.shift).toBe(true);
+    expect(def.binding.alt).toBe(true);
     expect(def.binding.key).toBe('o');
   });
 
@@ -92,6 +93,7 @@ describe('canvasMode', () => {
     const event = new KeyboardEvent('keydown', {
       key: 'o',
       ctrlKey: true,
+      altKey: true,
       shiftKey: true,
     });
     expect(bindingMatchesEvent(event, binding)).toBe(true);

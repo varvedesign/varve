@@ -113,6 +113,8 @@ Current behavior:
 - Ruler-drop removal is an ordinary document edit and can be undone/redone.
 - Alt/Option while dragging a guide duplicates it (Figma convention).
 - Right-clicking a guide opens the guide context menu for lock/unlock and delete.
+- Middle-button dragging pans the canvas even when the pointer starts over a
+  guide; only the primary button moves or selects a guide.
 - Locked guides cannot be dragged, but they remain visible and snap targets.
 - `Ctrl+;` toggles guide visibility (`guidesVisible`); guides remain in the
   document and continue to snap when hidden.

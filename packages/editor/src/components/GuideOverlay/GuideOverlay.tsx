@@ -87,7 +87,7 @@ export function GuideOverlay({
 
   const handlePointerDown = useCallback(
     (guide: Guide, e: React.PointerEvent) => {
-      if (e.button === 2) return;
+      if (e.button !== 0) return;
       if (guide.locked) {
         onSelectGuide?.(guide.id);
         return;

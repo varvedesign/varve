@@ -72,8 +72,39 @@ function renderGuide(guide: Guide, onDuplicateGuide = vi.fn(() => `${guide.id}-c
         />
       </>,
     );
-  return { ...view, hitArea, onMoveGuide, onRemoveGuide, onDuplicateGuide, renderGuides };
+  return {
+    ...view,
+    hitArea,
+    onMoveGuide,
+    onRemoveGuide,
+    onSelectGuide,
+    onDuplicateGuide,
+    renderGuides,
+  };
 }
+
+describe('guide pointer button ownership', () => {
+  it('leaves non-primary pointer buttons available to canvas gestures', () => {
+    const { hitArea, onSelectGuide } = renderGuide({
+      id: 'guide-1',
+      axis: 'vertical',
+      position: 120,
+      locked: false,
+    });
+    const capture = (hitArea as HTMLElement & { setPointerCapture: ReturnType<typeof vi.fn> })
+      .setPointerCapture;
+
+    fireEvent.pointerDown(hitArea, {
+      pointerId: 1,
+      button: 1,
+      clientX: 120,
+      clientY: 100,
+    });
+
+    expect(onSelectGuide).not.toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+  });
+});
 
 describe('guide ruler deletion', () => {
   it('emphasizes the guide while its pointer drag is active', () => {
