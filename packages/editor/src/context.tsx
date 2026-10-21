@@ -1269,7 +1269,12 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   /** Batch-set flow/absolute position on all selected layout children. */
   setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
   /** P3: batch-set grid item placement on all selected nodes. */
-  setSelectedGridPlacement: (value: import('@varve/scene').GridItemPlacement) => void;
+  setSelectedGridPlacement: (
+    update: (
+      placement: import('@varve/scene').GridItemPlacement,
+      node: SceneNode,
+    ) => import('@varve/scene').GridItemPlacement,
+  ) => void;
   /** P3: set the document canvas width. */
   setCanvasWidth: (value: number) => void;
   /** P3: set the document canvas height. */
@@ -9117,14 +9122,35 @@ export function EditorProvider({
         }),
 
       setNodeLayout: (id, layout) => {
-        updateDoc((doc) => {
-          const node = doc.nodes[id];
-          if (node?.kind !== 'frame') return doc;
-          const updated = {
-            ...doc,
-            nodes: { ...doc.nodes, [id]: { ...node, layoutStyle: layout } },
-          };
-          return layout ? reflowLayoutChildren(updated, id) : updated;
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => {
+            const node = doc.nodes[id];
+            if (node?.kind !== 'frame') return doc;
+            const updated = {
+              ...doc,
+              nodes: { ...doc.nodes, [id]: { ...node, layoutStyle: layout } },
+            };
+            return layout ? reflowLayoutChildren(updated, id) : updated;
+          });
+        });
+      },
+
+      setGridTrackLayout: (id, layout, placements, expectedStyle, expectedDocument) => {
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => {
+            if (doc !== expectedDocument) return doc;
+            const frame = doc.nodes[id];
+            if (frame?.kind !== 'frame' || frame.layoutStyle?.mode !== 'grid') return doc;
+            if (frame.layoutStyle !== expectedStyle) return doc;
+            const nodes = { ...doc.nodes, [id]: { ...frame, layoutStyle: layout } };
+            for (const [childId, gridPlacement] of Object.entries(placements)) {
+              const child = nodes[childId];
+              if (child && frame.children.includes(childId)) {
+                nodes[childId] = { ...child, gridPlacement };
+              }
+            }
+            return reflowLayoutChildren({ ...doc, nodes }, id);
+          });
         });
       },
 
@@ -9212,7 +9238,7 @@ export function EditorProvider({
           applySelectedLayoutChildField(doc, state.selection, 'layoutAlign', value),
         ),
 
-      setSelectedGridPlacement: (value) => {
+      setSelectedGridPlacement: (update) => {
         const sel = state.selection;
         if (sel.length === 0) return;
         updateDoc((doc) => {
@@ -9220,7 +9246,8 @@ export function EditorProvider({
           for (const id of sel) {
             const node = nodes[id];
             if (!node) continue;
-            nodes[id] = { ...node, gridPlacement: value } as SceneNode;
+            const gridPlacement = update(node.gridPlacement ?? {}, node);
+            nodes[id] = { ...node, gridPlacement } as SceneNode;
           }
           return { ...doc, nodes };
         });
@@ -11069,6 +11096,7 @@ export function EditorProvider({
       setNodeClipContent: value.setNodeClipContent,
       setLayerColor: value.setLayerColor,
       setNodeLayout: value.setNodeLayout,
+      setGridTrackLayout: value.setGridTrackLayout,
       guides: value.guides,
       addGuide: value.addGuide,
       removeGuide: value.removeGuide,
