@@ -117,11 +117,22 @@ describe('SettingsDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('keeps usage, diagnostics, and crash consent in separate controls', () => {
+  it('keeps diagnostics and crash consent without a usage-analytics toggle', () => {
     renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="privacy" />);
-    expect(screen.getByLabelText('Usage analytics consent')).toBeTruthy();
+    expect(screen.queryByLabelText('Usage analytics consent')).toBeNull();
     expect(screen.getByLabelText('Diagnostics telemetry consent')).toBeTruthy();
     expect(screen.getByText('Crash reporting')).toBeTruthy();
+  });
+
+  it('links the About section to the changelog and the latest release SBOM assets', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="about" />);
+    const changelog = screen.getByRole('link', { name: 'View changelog' });
+    expect(changelog).toHaveAttribute(
+      'href',
+      'https://github.com/varvedesign/varve/blob/master/CHANGELOG.md',
+    );
+    const sbom = screen.getByRole('link', { name: 'Software bill of materials (SBOM)' });
+    expect(sbom).toHaveAttribute('href', 'https://github.com/varvedesign/varve/releases/latest');
   });
 
   it('validates, persists, and resets nudge amounts', () => {

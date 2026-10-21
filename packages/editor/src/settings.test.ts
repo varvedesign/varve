@@ -39,8 +39,9 @@ describe('loadSettings', () => {
       pressureEnabled: true,
       pressureCurve: 1,
     });
-    expect(s.privacy.usageAnalytics).toBe('unknown');
-    expect(s.privacy.diagnostics).toBe('unknown');
+    expect(s.privacy).toEqual({ diagnostics: 'unknown' });
+    expect(s.icons.remoteSearch).toBe('unknown');
+    expect(s.ai.model).toBe('varve-default');
   });
 
   it('merges a partial performance/render patch without dropping unrelated fields', () => {
@@ -134,15 +135,28 @@ describe('loadSettings', () => {
     expect(loaded.export.defaultBleedMm).toBe(5);
   });
 
-  it('keeps analytics consent granular and preserves unknown as the default', () => {
-    saveSettings({
-      ...loadSettings(),
-      privacy: { usageAnalytics: 'granted', diagnostics: 'denied' },
-    });
-    expect(loadSettings().privacy).toEqual({ usageAnalytics: 'granted', diagnostics: 'denied' });
-    localStorage.removeItem('varve-editor-settings');
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ privacy: { usageAnalytics: 'invalid' } }));
-    expect(loadSettings().privacy).toEqual({ usageAnalytics: 'unknown', diagnostics: 'unknown' });
+  it('ignores a stored usageAnalytics key and keeps diagnostics', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ privacy: { usageAnalytics: 'granted', diagnostics: 'denied' } }),
+    );
+    expect(loadSettings().privacy).toEqual({ diagnostics: 'denied' });
+    expect(loadSettings().privacy).not.toHaveProperty('usageAnalytics');
+  });
+
+  it('migrates retired cloud model names to the on-device default', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ai: { model: 'gpt-4' } }));
+    expect(loadSettings().ai.model).toBe('varve-default');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ai: { model: 'claude-3-sonnet' } }));
+    expect(loadSettings().ai.model).toBe('varve-default');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ai: { model: 'gpt-4o' } }));
+    expect(loadSettings().ai.model).toBe('varve-default');
+  });
+
+  it('persists icon remote-search consent and defaults to not asked', () => {
+    expect(loadSettings().icons.remoteSearch).toBe('unknown');
+    saveSettings({ ...loadSettings(), icons: { remoteSearch: 'granted' } });
+    expect(loadSettings().icons.remoteSearch).toBe('granted');
   });
 
   it('handles corrupt JSON gracefully', () => {

@@ -49,7 +49,6 @@ export function invalidateNodeThumbnail(nodeId: string): void {
   invalidateThumbnailHandler?.(nodeId);
 }
 
-import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
 import {
@@ -3048,7 +3047,6 @@ export function EditorProvider({
   const newDocument = useCallback(() => {
     const created = createNewDocument({});
     openInNewSession(created.ok ? created.result.document : createDocument('Untitled', true));
-    getDesktopAnalytics().track('document_created', { source: 'blank' });
   }, [openInNewSession]);
 
   // After each render, sync canUndo/canRedo/undoLabel/redoLabel if they
@@ -10098,7 +10096,6 @@ export function EditorProvider({
           announcerRef.current?.announce(
             `Image ${operationLabel} to ${outputImage.width} by ${outputImage.height} pixels`,
           );
-          getDesktopAnalytics().track('feature_used', { feature: 'upscale' });
         } catch (error) {
           if (controller.signal.aborted) throw new Error('cancelled');
           // Tauri rejects with a bare string, so preserve it as an Error rather

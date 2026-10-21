@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { getIconProviderRegistry, resetIconProviderRegistry } from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
+import { writeIconRemoteSearchConsent } from './iconRemoteSearch';
 import { IconBrowserDialog } from './IconBrowserDialog';
 
 vi.mock('../../context', () => ({
@@ -36,6 +37,7 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  localStorage.clear();
   // Deterministic provider (no network) + hard network ban: unit tests must
   // never hit the live Iconify API.
   vi.stubGlobal(
@@ -58,20 +60,24 @@ beforeEach(() => {
 });
 
 describe('IconBrowserDialog', () => {
-  it('renders the browser, searches deterministically, and does not insert without a selection', async () => {
+  it('renders the browser, searches local icons without asking the network, and does not insert without a selection', async () => {
     const { insertIconAsset } = editorMock();
     const onClose = vi.fn();
+    const fetchMock = vi.mocked(globalThis.fetch);
     render(<IconBrowserDialog open onClose={onClose} />);
 
+    expect(await screen.findByText('Search online via Iconify?')).toBeTruthy();
     const input = await screen.findByLabelText('Search icons');
     fireEvent.change(input, { target: { value: 'home' } });
     expect(await screen.findByText(/no icons match/i)).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(insertIconAsset).not.toHaveBeenCalled();
   });
 
   it('shows an actionable error state when the icon service is unreachable', async () => {
     resetIconProviderRegistry();
+    writeIconRemoteSearchConsent('granted');
     editorMock();
     const onClose = vi.fn();
     render(<IconBrowserDialog open onClose={onClose} />);

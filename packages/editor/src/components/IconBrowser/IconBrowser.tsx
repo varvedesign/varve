@@ -24,7 +24,13 @@ import {
 import { Button, Icon, LoadingLabel, SearchField, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import type { IconRemoteSearchConsent } from '../../settings';
 import { IconDetailsPanel } from './IconDetailsPanel';
+import {
+  isIconRemoteSearchGranted,
+  readIconRemoteSearchConsent,
+  writeIconRemoteSearchConsent,
+} from './iconRemoteSearch';
 import { IconDiscoverySections } from './IconDiscoverySections';
 import { IconGrid, type IconGridItemView } from './IconGrid';
 import { getIconAcquisitionService, IconAcquisitionError } from './iconAcquisition';
@@ -97,7 +103,11 @@ export function IconBrowser({
   maxHeight,
   onOpenPackManager,
 }: IconBrowserProps) {
-  const search = useIconSearch();
+  const [remoteSearch, setRemoteSearch] = useState<IconRemoteSearchConsent>(() =>
+    readIconRemoteSearchConsent(),
+  );
+  const remoteAllowed = isIconRemoteSearchGranted(remoteSearch);
+  const search = useIconSearch(remoteAllowed);
   const editorCtx = useEditor();
   const acquisition = useRef(getIconAcquisitionService());
 
@@ -154,6 +164,11 @@ export function IconBrowser({
   }, [refreshLocal]);
 
   useEffect(() => {
+    if (!remoteAllowed) {
+      setPacks([]);
+      setPacksLoading(false);
+      return;
+    }
     ensureIconProviders();
     if (!browsingPack) {
       setPacksLoading(true);
@@ -169,7 +184,7 @@ export function IconBrowser({
         }
       })();
     }
-  }, [browsingPack]);
+  }, [browsingPack, remoteAllowed]);
 
   // -------------------------------------------------------------------------
   // Descriptor helpers
@@ -274,8 +289,19 @@ export function IconBrowser({
       items = items.filter((i) => recentIds.has(i.descriptor.canonicalId));
     }
     if (sourceFilter === 'online') items = items.filter((i) => !i.descriptor.isOfflineAvailable);
+    const needle = query.trim().toLowerCase();
+    if (!remoteAllowed && needle.length >= MIN_QUERY_LENGTH) {
+      items = items.filter((item) => {
+        const d = item.descriptor;
+        return (
+          d.name.toLowerCase().includes(needle) ||
+          d.canonicalId.toLowerCase().includes(needle) ||
+          d.keywords.some((keyword) => keyword.toLowerCase().includes(needle))
+        );
+      });
+    }
     return items.filter(matchesFilters);
-  }, [allItems, sourceFilter, favourites, recents, matchesFilters]);
+  }, [allItems, sourceFilter, favourites, recents, matchesFilters, query, remoteAllowed]);
 
   // -------------------------------------------------------------------------
   // Preview acquisition (visible range only, batched by pack)
@@ -395,7 +421,19 @@ export function IconBrowser({
     [search],
   );
 
+  const chooseRemoteSearch = useCallback((value: 'granted' | 'denied') => {
+    writeIconRemoteSearchConsent(value);
+    setRemoteSearch(value);
+  }, []);
+
+  const runRemoteSearch = search.search;
+  useEffect(() => {
+    if (!remoteAllowed || query.trim().length < MIN_QUERY_LENGTH) return;
+    runRemoteSearch(query);
+  }, [remoteAllowed, query, runRemoteSearch]);
+
   const handleOpenPack = useCallback(async (prefix: string) => {
+    if (!remoteAllowed) return;
     setBrowsingPack(prefix);
     setPackPage([]);
     setPackTotal(0);
@@ -412,10 +450,10 @@ export function IconBrowser({
     } finally {
       setPackLoading(false);
     }
-  }, []);
+  }, [remoteAllowed]);
 
   const handleLoadMorePack = useCallback(async () => {
-    if (!browsingPack || packLoading || packExhausted) return;
+    if (!remoteAllowed || !browsingPack || packLoading || packExhausted) return;
     setPackLoading(true);
     try {
       const { getIconProviderRegistry } = await import('@varve/engine');
@@ -428,7 +466,7 @@ export function IconBrowser({
     } finally {
       setPackLoading(false);
     }
-  }, [browsingPack, packLoading, packExhausted, packPage.length]);
+  }, [remoteAllowed, browsingPack, packLoading, packExhausted, packPage.length]);
 
   const handleClosePack = useCallback(() => {
     setBrowsingPack(null);
@@ -694,6 +732,20 @@ export function IconBrowser({
           </button>
         </div>
       </div>
+
+      {remoteSearch === 'unknown' && (
+        <div className="icon-browser__consent" role="region" aria-label="Online icon search">
+          <p>Search online via Iconify?</p>
+          <div className="icon-browser__consent-actions">
+            <Button variant="default" size="sm" onClick={() => chooseRemoteSearch('granted')}>
+              Accept
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => chooseRemoteSearch('denied')}>
+              Not now
+            </Button>
+          </div>
+        </div>
+      )}
 
       {browsingPack && (
         <div className="icon-browser__pack-bar">

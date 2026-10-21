@@ -31,6 +31,10 @@ async function openResourcesPanel(page: import('@playwright/test').Page) {
   }
   await page.getByRole('tab', { name: /icons/i }).waitFor({ timeout: 10000 });
   await page.getByRole('tab', { name: /icons/i }).click();
+  const accept = page.getByRole('button', { name: 'Accept' });
+  if (await accept.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await accept.click();
+  }
 }
 
 /** Mock every Iconify endpoint with saved fixtures; ban live network. */

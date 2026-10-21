@@ -397,7 +397,7 @@ export async function exportNodeAsRaster(
     mediaFrameResolver: posterFrameResolver,
   });
   // Guard against exporting mid-font-swap: a font requested via fontFamily
-  // may still be loading (bundled FontFace fetch, Google Fonts injection, or
+  // may still be loading (bundled FontFace fetch, Fontsource install, or
   // a race right after the user picks a new typeface). Without this, text
   // silently renders with the fallback font and the export looks correct at
   // a glance but is wrong — deterministic export requires settled fonts.
