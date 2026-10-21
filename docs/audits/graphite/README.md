@@ -77,13 +77,12 @@ Dispositions: `applicable-work-required`, `already-handled`, `duplicate-of`,
   does not have (Graphene node graph, GPU node buffers, Graphite-internal
   tooling, web-only stack), and each reason names that subsystem.
 - Findings and engineering state: `findings.md`.
-- A pre-existing repository failure unrelated to this work: the website
-  `changelog.test.ts` "parses the actual CHANGELOG.md" case fails on
-  `origin/master` before any change here. The parser drops the release summary
-  paragraph under a version heading and lets `## [Unreleased]` list entries
-  leak into the following release, so the 0.5.1 page omits its summary. It is
-  recorded as a separate opportunity rather than fixed inside this branch,
-  because it is not traceable to a Graphite finding.
+- A pre-existing failure on `origin/master` surfaced while validating the
+  website copy change and was fixed here because it blocked the affected gate
+  and published wrong release notes: the changelog parser dropped every
+  release summary written under a version heading, and its root resolver could
+  read a parent checkout's `CHANGELOG.md` when run from a nested worktree. See
+  finding F6.
 
 ## Verified batches
 
@@ -95,6 +94,7 @@ Dispositions: `applicable-work-required`, `already-handled`, `duplicate-of`,
 | Nudge history coalescing (`#2617`) | **Blocked, not implemented.** Varve already coalesces a *held* arrow key into one undo entry, but repeated taps each commit. Undo is routed through the persistent revision store whenever it is attached, so a snapshot-stack merge is invisible to the user; the store is an append-only DAG whose captures are replay-hash verified, and it exposes no amend/coalesce operation. | Source inspection of `context.tsx` `undo`/`commitTransaction`, `history/editorHistorySession.ts`, and `@varve/history` `HistoryStore`. A prototype in-memory merge changed nothing user-visible, which is why it was reverted rather than shipped. |
 | Shift-press selection bug exposed by F1 | Fixed: a press that becomes a drag keeps an already-selected target instead of toggling it out of the selection, so Shift-drag can actually move what the user selected. Click-without-drag still toggles. | `SelectTool.applyHitSelection` drag path; covered by the same E2E cases as F1. |
 | Browser and visual validation of F1/F2 | 4/4 Chromium cases for constrained movement; 82/82 Home cases for the dialog flows. Visual evidence: after an axis-constrained drag the Inspector reads X 736 / Y 250 from X 632.5 / Y 250 (dy exactly 0, dx +103.5), and a diagonal drag lands at X 799 / Y 313 (+63/+63). Selection survives the gesture. | `tests/e2e/canvas/shift-constrained-move.spec.ts`; `docs/screenshots/graphite-corpus/shift-constrain-axis.png`, `...-diagonal.png`. |
-| Website copy change validation | Theme `canvas` page built and inspected at 1440x1000 and 390x844: the new paragraph is visible in both, no horizontal overflow (`scrollWidth == innerWidth`), no console errors. Claims guard, docs audit and emoji audit clean; website unit tests 309/310 with the one failure pre-existing (changelog parser, see below). | `docs/screenshots` not needed for a text paragraph; measurements recorded here and in the batch table. |
+| Website copy change validation | `canvas` page built and inspected at 1440x1000 and 390x844: the new paragraph is visible in both, no horizontal overflow (`scrollWidth == innerWidth`), no console errors. Claims guard, docs audit and emoji audit clean; website unit tests 310/310. | Measurements recorded here; the edited page is text-only. |
+| Changelog parser and root resolution (F6) | Fixed: release summaries now reach the page, and the parser reads this checkout's `CHANGELOG.md` instead of a parent's. Changelog page rebuilt and inspected: the 0.5.1 summary is visible, no "Summary" heading is rendered, no console errors. | `apps/website/src/lib/changelog.ts`, `apps/website/src/pages/changelog.astro`; 24 changelog tests (one new) and 310 website unit tests pass. |
 | Preset-search regression in the Enter change | Found by independent review and fixed: Enter in the preset search selects a preset and no longer creates a document. | jsdom case typing into the search combobox and asserting no creation. |
 | Existing protections verified | Zero-area/zero-scale geometry, aborted-marquee selection restore, and Delete with a drawing tool active are already correct in Varve. | Chromium reproduction probe plus source: `SelectTool.onKeyDown` Escape path keeps the committed selection until pointer-up; Inspector clamps W/H; layer delete works with the pen tool active. |

@@ -217,6 +217,42 @@ Graphite finding class is absent from Varve.
 
 ---
 
+## F6 — The public changelog hid every release summary (implemented)
+
+**Origin.** Not a Graphite finding. Found while validating the F2 website
+change: the website unit lane failed on `origin/master` before this branch
+touched anything, and the failure blocked the repository's affected gate.
+
+**User problem.** Every release's summary paragraph — the part that says what
+the release changes and any migration consequence — was missing from
+`varve.studio/changelog`. The 0.5.1 page never mentioned the updater behaviour
+its own source text describes.
+
+**Root cause.** `parseChangelog` ignored all lines between a version heading
+and its first `###` category, which is exactly where Varve writes summaries.
+Separately, `parseChangelogFile` resolved the repository root by walking two
+levels up from the working directory and accepting the first readable
+`CHANGELOG.md`; in a nested worktree that is the *parent* checkout, so the page
+and its test could describe a different tree than the one being built.
+
+**Fix.** Summary paragraphs become a leading `Summary` section (rendered
+without a category heading, so it reads as an introduction), and root
+resolution walks up but accepts only a directory containing both `CHANGELOG.md`
+and `apps/website/package.json`.
+
+**Acceptance criteria.**
+1. A summary under a version heading appears in that release's parsed output.
+2. The parser resolves this checkout's changelog when run from a worktree.
+3. The changelog page shows the 0.5.1 summary with no new heading.
+4. Existing releases and categories parse unchanged.
+
+**Evidence.** `apps/website/src/lib/changelog.ts`,
+`apps/website/src/pages/changelog.astro`,
+`apps/website/src/test/changelog.test.ts` (24 cases, one new), website unit
+suite 310/310, rebuilt page inspected at 1440x1200.
+
+---
+
 ## F5 — Observations that are not (yet) Varve work
 
 - `InteractionContext.axisLock` was dead code until F1 gave it a consumer.
