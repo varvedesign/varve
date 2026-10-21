@@ -175,24 +175,25 @@ stripped by the release profile, and distro libraries ship stripped.
 This is set in `justfile` (`package-linux`, `package-appimage`) and in
 `release.yml`'s Tauri build step.
 
-**WebKit EGL white screen (AppImage only).** The AppImage bundles GTK/WebKit
-support libraries built on the ubuntu-22.04 baseline. On distros with a newer
-Mesa/EGL stack (Arch, CachyOS, Fedora) the bundled WebKitWebProcess fails EGL
-display creation (`EGL_BAD_PARAMETER`) and aborts while the window stays open
-— a white screen. The in-app `WEBKIT_DISABLE_DMABUF_RENDERER=1` workaround
-(`APPIMAGE`-gated in `apps/desktop/src-tauri/src/lib.rs`) is NOT sufficient:
-the EGL display failure happens before renderer selection. The real fix is
-build-time: `scripts/release/prune-appimage-bundled-libs.mjs` removes the
-bundled `usr/lib` stack from the AppImage payload and re-assembles it with
-linuxdeploy + the AppImage output plugin (`--exclude-library '*'`, so the
-host's libraries are used — verified 2026-08-11 on a CachyOS host: the
-pruned AppImage renders real content, the released one aborted). The
-AppImage then uses the host's WebKit/GTK/GStreamer/Mesa — the
-same libraries the `.deb` depends on. The release launch smoke fails on the
-EGL/abort signature and requires a live `WebKitWebProcess`, so a white screen
-cannot pass the gate; it runs on the ubuntu-22.04 CI baseline, so it does
-NOT exercise the modern-Mesa path — the prune step exists because of that
-gap, not despite it.
+**WebKit EGL vs AppImageHub (AppImage only).** linuxdeploy-plugin-gtk bundles
+the GTK/WebKit closure from the ubuntu-22.04 baseline, including Mesa/EGL
+when the host has them. `bundleMediaFramework` stays false, so GStreamer
+plugins and `gst-plugin-scanner` are not shipped. On distros with a newer
+Mesa stack the bundled `libEGL` fails display creation (`EGL_BAD_PARAMETER`)
+and the window stays white. v0.1.1 through v0.5.1 deleted the entire
+`usr/lib` toolkit so the AppImage used host WebKit like the `.deb`. That
+fixed the white screen and failed AppImageHub: a clean offline VM has no
+`libwebkit2gtk-4.1.so.0`.
+
+The next pack keeps WebKitGTK/GTK and deletes host GPU/EGL/Mesa/DRI/Vulkan
+libraries plus system-sensitive copies (`libstdc++`, `libgcc_s`,
+`libwayland-*`). It then re-assembles with `--exclude-library '*'` so
+linuxdeploy cannot copy Mesa back in. Bundled WebKit talks to host `libEGL`.
+`WEBKIT_DISABLE_DMABUF_RENDERER=1` (`APPIMAGE`-gated in
+`apps/desktop/src-tauri/src/lib.rs`) remains the compositor fallback. libc
+is unbundled (glibc 2.35 floor). The release smoke launches the AppImage in
+ubuntu:22.04 and fedora:latest containers without `libwebkit2gtk` and with
+`--network none`.
 
 The `just package-linux`, `just package-appimage`, and
 `just package-linux-dev` recipes run this prune step automatically after Tauri
@@ -227,15 +228,15 @@ host and travel with the file:
    `version 'GLIBC_2.44' not found` (Ubuntu 24.04 is 2.39). For a build that
    runs on the release compatibility baseline, use the `ubuntu-22.04` runner
    in `release.yml`.
-2. **Host WebKit/GTK.** The prune step removes the bundled GTK/WebKit stack,
-   so the AppImage uses the target machine's libraries — the same set the
-   `.deb` depends on (`libwebkit2gtk-4.1-0`, `libgtk-3-0`, `librsvg2-2`,
-   …). The target needs modern Mesa/EGL. On a FUSE-less machine, run it with
-   `--appimage-extract-and-run`.
+2. **Bundled WebKit, host Mesa.** The pack keeps WebKitGTK/GTK and drops
+   bundled Mesa/EGL, so a machine without `libwebkit2gtk-4.1` can still
+   launch, and a newer host GPU stack is not shadowed. On a FUSE-less
+   machine, run with `--appimage-extract-and-run`.
 
-Both machines can verify the current published transfer with
-`sha256sum Varve-0.5.0-linux-x86_64.AppImage`. The build measurements above
-remain the historical 2026-08-04 host snapshot.
+Both machines can verify a published transfer with `sha256sum` on the
+AppImage name from that release (`Varve-0.5.0-linux-x86_64.AppImage` for
+v0.5.0; `Varve-<version>-x86_64.AppImage` from the next release). The
+build measurements above remain the historical 2026-08-04 host snapshot.
 
 ### All Linux formats at once
 

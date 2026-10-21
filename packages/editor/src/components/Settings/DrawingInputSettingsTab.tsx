@@ -199,6 +199,24 @@ export function DrawingInputSettingsTab() {
         Turn dynamics off for a constant-width/opacity fallback on runtimes without useful pressure.
       </p>
 
+      <div className="settings-divider" />
+
+      <h3 className="settings-section__title">Creation tools</h3>
+      <p className="settings-section__hint">
+        Choose whether placing a shape or text returns to Select or keeps the current tool ready for
+        another object.
+      </p>
+      <SwitchField
+        label="Return to Select after creating"
+        description="Turn this off to draw several shapes or add several text objects without reselecting the tool. Pen, Pencil, and Panel already stay active."
+        checked={settings.toolBehavior.returnToSelectAfterCreation}
+        onChange={(event) =>
+          updateSettings({
+            toolBehavior: { returnToSelectAfterCreation: event.target.checked },
+          })
+        }
+      />
+
       <div
         className="settings-input-probe"
         data-testid="drawing-input-probe"
@@ -258,6 +276,13 @@ export function DrawingInputSettingsTab() {
         available.
       </p>
 
+      <SwitchField
+        label="Invert wheel zoom direction"
+        description="Reverses zoom in and out for wheel gestures that zoom the canvas. Panning direction is unchanged."
+        checked={settings.viewport.invertWheelZoom}
+        onChange={(event) => updateNavigation({ invertWheelZoom: event.target.checked })}
+      />
+
       <div className="settings-field-row">
         <span className="settings-field-row__label">Wheel sensitivity</span>
         <div className="settings-field-row__control">
@@ -295,6 +320,7 @@ export function DrawingInputSettingsTab() {
           updateNavigation({
             wheelMode: DEFAULT_VIEWPORT_SETTINGS.wheelMode,
             wheelSensitivity: DEFAULT_VIEWPORT_SETTINGS.wheelSensitivity,
+            invertWheelZoom: DEFAULT_VIEWPORT_SETTINGS.invertWheelZoom,
             wheelInertia: DEFAULT_VIEWPORT_SETTINGS.wheelInertia,
             twistRotationEnabled: DEFAULT_VIEWPORT_SETTINGS.twistRotationEnabled,
           })

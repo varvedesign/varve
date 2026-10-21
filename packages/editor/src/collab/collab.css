@@ -25,15 +25,15 @@
   position: absolute;
   display: flex;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--space-1);
   pointer-events: none;
   will-change: transform;
 }
 
 .collab-presence-layer__name {
-  margin-top: 14px;
-  margin-left: 2px;
-  padding: 1px 7px;
+  margin-top: var(--space-4);
+  margin-left: var(--space-1);
+  padding: var(--space-05) var(--space-3);
   border-radius: var(--radius-pill);
   color: var(--color-text-on-accent);
   font-size: var(--font-size-xs);
@@ -46,14 +46,14 @@
   bottom: 26px;
   left: 0;
   max-width: 240px;
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-3);
   border: 1.5px solid var(--color-border-subtle);
   border-radius: var(--radius-floating) var(--radius-floating) var(--radius-floating)
     var(--radius-control-compact);
   background: var(--color-surface-default);
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-05);
 }
 
 .collab-presence-layer__bubble.is-composing {
@@ -80,8 +80,8 @@
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
   background: var(--color-surface-default);
@@ -134,8 +134,8 @@
 .collab-header-control__status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 10px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-pill);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -167,7 +167,7 @@
   height: 24px;
   border-radius: var(--radius-pill);
   border: 2px solid var(--color-surface-app);
-  margin-left: -6px;
+  margin-left: calc(var(--space-2) * -1);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -188,7 +188,7 @@
 }
 
 .collab-avatars__overflow {
-  margin-left: -6px;
+  margin-left: calc(var(--space-2) * -1);
   width: 24px;
   height: 24px;
   border-radius: var(--radius-pill);
@@ -208,12 +208,12 @@
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   pointer-events: none;
 }
 
 .collab-notices__item {
-  padding: 4px 12px;
+  padding: var(--space-1) var(--space-4);
   border-radius: var(--radius-control);
   border: 1px solid var(--color-border-subtle);
   background: var(--color-surface-default);
@@ -232,13 +232,13 @@
 
 .collab-share__tabs {
   display: inline-flex;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .collab-share__tab {
   border: 1px solid transparent;
   border-radius: var(--radius-control);
-  padding: 4px 14px;
+  padding: var(--space-1) var(--space-4);
   background: transparent;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
@@ -275,7 +275,7 @@
 }
 
 .collab-share__grid input {
-  padding: 5px 8px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-default);
@@ -310,7 +310,7 @@
 }
 
 .collab-share__hosted input {
-  padding: 5px 8px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);

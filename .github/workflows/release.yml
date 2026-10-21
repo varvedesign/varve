@@ -778,6 +778,10 @@ jobs:
         if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: node scripts/release/prune-foreign-runtimes.mjs
 
+      - name: Pin linuxdeploy-plugin-gtk
+        if: matrix.enabled && runner.os == 'Linux' && env.REUSE_PLATFORM != 'true'
+        run: node scripts/release/ensure-linuxdeploy-plugin-gtk.mjs --tools-dir "$HOME/.cache/tauri"
+
       # ── macOS: import the Developer ID certificate into a temp keychain ──
       # Only runs when the signing preflight resolved macos -> signed. The
       # temporary keychain dies with the runner; nothing is uploaded.
@@ -973,12 +977,9 @@ jobs:
         run: |
           node scripts/secret-scan.mjs --dir apps/desktop/dist --canary "$VARVE_PRIVATE_TEST_CANARY"
 
-      # The AppImage's bundled WebKit/GTK/GStreamer closure (from the
-      # ubuntu-22.04 build baseline) fails EGL display creation on newer
-      # Mesa/EGL stacks and renders a blank window — see
-      # scripts/release/prune-appimage-bundled-libs.mjs for the measured
-      # reproduction and fix. Prune it BEFORE collection so the artifact,
-      # manifest and checksums describe the shipped bytes.
+      # Keep WebKit/GTK in the AppImage; drop only the host GPU/EGL/Mesa
+      # stack so a clean VM can launch and a newer host Mesa is not
+      # shadowed. See scripts/release/prune-appimage-bundled-libs.mjs.
       - name: Prune bundled libraries from AppImage
         if: matrix.enabled && runner.os == 'Linux' && env.REUSE_PLATFORM != 'true'
         run: |
@@ -1330,7 +1331,10 @@ jobs:
             echo "::error::No AppImage found in staged/linux-${{ matrix.arch_slug }}"
             exit 1
           fi
-          node scripts/release/verify-appimage-permissions.mjs --appimage "$(realpath "${IMG}")"
+          IMG="$(realpath "${IMG}")"
+          # download-artifact writes 0644. --appimage-offset execs the image.
+          chmod +x "${IMG}"
+          node scripts/release/verify-appimage-permissions.mjs --appimage "${IMG}"
 
       - name: Launch smoke (AppImage under Xvfb)
         if: matrix.enabled
@@ -1383,6 +1387,19 @@ jobs:
             cat "${LOG}" | head -20
             exit 1
           fi
+
+      - name: Launch smoke (AppImage self-contained, offline)
+        if: matrix.enabled
+        run: |
+          set -euo pipefail
+          IMG="$(find staged/linux-${{ matrix.arch_slug }} -name '*.AppImage' | head -1)"
+          if [[ -z "${IMG}" ]]; then
+            echo "::error::No AppImage found in staged/linux-${{ matrix.arch_slug }}"
+            exit 1
+          fi
+          IMG="$(realpath "${IMG}")"
+          chmod +x "${IMG}"
+          bash scripts/release/smoke-appimage-self-contained.sh --appimage "${IMG}" --distro all
 
   # ── 3c. Native runner smoke (Windows NSIS, macOS DMG) ──────────────────────
   # The matrix builds the packages; these jobs prove the packaged artifacts
@@ -1778,7 +1795,7 @@ jobs:
             --dir dist/release \
             --version '${{ needs.preflight.outputs.version }}' \
             --channel '${{ needs.preflight.outputs.channel }}' \
-            --base-url 'https://github.com/K-Arthur/varve/releases/download/${{ needs.preflight.outputs.tag }}'
+            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ needs.preflight.outputs.tag }}"
 
       # Verify every feed entry's cryptographic signature against the
       # embedded pubkey and the on-disk artifacts.  This catches the class

@@ -39,6 +39,36 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
     await expect(page.getByRole('treeitem').first()).toContainText(/rect/i);
   });
 
+  test('repeat creation preference keeps the rectangle tool active for the next drag', async ({
+    page,
+  }, testInfo) => {
+    await page.keyboard.press('Control+,');
+    const settings = page.locator('dialog.varve-dialog--settings[open]');
+    await expect(settings).toBeVisible();
+    await settings.getByRole('tab', { name: 'Drawing Input' }).click();
+    const repeatToggle = settings.getByRole('switch', {
+      name: 'Return to Select after creating',
+    });
+    await expect(repeatToggle).toBeChecked();
+    await settings.screenshot({
+      path: testInfo.outputPath('drawing-input-return-to-select-on.png'),
+    });
+    await repeatToggle.click();
+    await expect(repeatToggle).not.toBeChecked();
+    await settings.screenshot({
+      path: testInfo.outputPath('drawing-input-return-to-select-off.png'),
+    });
+    await settings.getByRole('button', { name: 'Close dialog' }).click();
+
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 150, 150, 260, 240);
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+    await expect(page.locator('[data-tool="rect"]')).toHaveAttribute('aria-pressed', 'true');
+
+    await dragOnCanvas(page, 350, 150, 460, 240);
+    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
+  });
+
   test('Ellipse tool creates an ellipse node on drag', async ({ page }) => {
     await page.keyboard.press('o');
     await dragOnCanvas(page, 150, 150, 350, 300);

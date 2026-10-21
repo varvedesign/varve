@@ -17,6 +17,7 @@ import {
 export interface NavigationRuntimeSettings {
   wheelMode: WheelNavigationMode;
   wheelSensitivity: number;
+  invertWheelZoom: boolean;
   wheelInertia: boolean;
   twistRotationEnabled: boolean;
 }
@@ -29,6 +30,7 @@ function readNavigation(): NavigationRuntimeSettings {
   return {
     wheelMode: viewport.wheelMode,
     wheelSensitivity: viewport.wheelSensitivity,
+    invertWheelZoom: viewport.invertWheelZoom,
     wheelInertia: viewport.wheelInertia,
     twistRotationEnabled: viewport.twistRotationEnabled,
   };
@@ -56,6 +58,7 @@ export function resetNavigationRuntime(): void {
   cachedNavigation = {
     wheelMode: DEFAULT_VIEWPORT_SETTINGS.wheelMode,
     wheelSensitivity: DEFAULT_VIEWPORT_SETTINGS.wheelSensitivity,
+    invertWheelZoom: DEFAULT_VIEWPORT_SETTINGS.invertWheelZoom,
     wheelInertia: DEFAULT_VIEWPORT_SETTINGS.wheelInertia,
     twistRotationEnabled: DEFAULT_VIEWPORT_SETTINGS.twistRotationEnabled,
   };

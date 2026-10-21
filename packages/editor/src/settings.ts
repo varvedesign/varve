@@ -155,6 +155,8 @@ export interface ViewportSettingsStore {
   wheelMode: WheelNavigationMode;
   /** Multiplier for normalized wheel deltas; bounded to keep input predictable. */
   wheelSensitivity: number;
+  /** Reverse the zoom direction for wheel gestures that zoom the canvas. */
+  invertWheelZoom: boolean;
   /** Allow app-side continuation for detented mouse wheels; trackpad tails never use it. */
   wheelInertia: boolean;
   /** Two-finger twist rotates the view during a pinch; off leaves pinch as pan+zoom only. */
@@ -202,6 +204,12 @@ export interface DrawingInputSettingsStore {
   pressureEnabled: boolean;
   /** Exponent applied to normalized pressure; 1 is the neutral curve. */
   pressureCurve: number;
+}
+
+/** Behavior after a creation tool commits an object to the document. */
+export interface ToolBehaviorSettingsStore {
+  /** Return to Select after creating shapes or text; false keeps that tool active. */
+  returnToSelectAfterCreation: boolean;
 }
 
 /**
@@ -260,6 +268,7 @@ export interface EditorSettings {
   layers: LayersSettingsStore;
   nudge: NudgeSettingsStore;
   drawingInput: DrawingInputSettingsStore;
+  toolBehavior: ToolBehaviorSettingsStore;
   collab: CollabSettingsStore;
   ai: AiSettingsStore;
   privacy: PrivacySettingsStore;
@@ -371,6 +380,7 @@ export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
   snapToGuides: true,
   wheelMode: 'auto',
   wheelSensitivity: 1,
+  invertWheelZoom: false,
   wheelInertia: true,
   twistRotationEnabled: true,
   pixelGridEnabled: false,
@@ -428,6 +438,10 @@ export const DEFAULT_DRAWING_INPUT_SETTINGS: DrawingInputSettingsStore = {
   pressureCurve: 1,
 };
 
+export const DEFAULT_TOOL_BEHAVIOR_SETTINGS: ToolBehaviorSettingsStore = {
+  returnToSelectAfterCreation: true,
+};
+
 export const NUDGE_MIN = 0.01;
 export const NUDGE_MAX = 10000;
 
@@ -452,6 +466,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   layers: { ...DEFAULT_LAYERS_SETTINGS },
   nudge: { ...DEFAULT_NUDGE_SETTINGS },
   drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
+  toolBehavior: { ...DEFAULT_TOOL_BEHAVIOR_SETTINGS },
   collab: { ...DEFAULT_COLLAB_SETTINGS },
   ai: { ...DEFAULT_AI_SETTINGS },
   privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -528,6 +543,7 @@ export function loadSettings(): EditorSettings {
         layers: { ...DEFAULT_LAYERS_SETTINGS },
         nudge: { ...DEFAULT_NUDGE_SETTINGS },
         drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
+        toolBehavior: { ...DEFAULT_TOOL_BEHAVIOR_SETTINGS },
         collab: { ...DEFAULT_COLLAB_SETTINGS },
         ai: { ...DEFAULT_AI_SETTINGS },
         privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -572,6 +588,7 @@ export function loadSettings(): EditorSettings {
       return result;
     }
     const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const toolBehavior = parsed.toolBehavior as Partial<ToolBehaviorSettingsStore> | undefined;
     const exportSettings = mergePartial(
       DEFAULT_EXPORT_SETTINGS,
       parsed.export as Partial<ExportSettingsStore>,
@@ -636,6 +653,12 @@ export function loadSettings(): EditorSettings {
       drawingInput: normalizeDrawingInputSettings(
         parsed.drawingInput as Partial<DrawingInputSettingsStore>,
       ),
+      toolBehavior: {
+        returnToSelectAfterCreation:
+          typeof toolBehavior?.returnToSelectAfterCreation === 'boolean'
+            ? toolBehavior.returnToSelectAfterCreation
+            : DEFAULT_TOOL_BEHAVIOR_SETTINGS.returnToSelectAfterCreation,
+      },
       collab: mergePartial(DEFAULT_COLLAB_SETTINGS, parsed.collab as Partial<CollabSettingsStore>),
       ai: mergePartial(DEFAULT_AI_SETTINGS, parsed.ai as Partial<AiSettingsStore>),
       privacy,
@@ -662,6 +685,7 @@ export function loadSettings(): EditorSettings {
       layers: { ...DEFAULT_LAYERS_SETTINGS },
       nudge: { ...DEFAULT_NUDGE_SETTINGS },
       drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
+      toolBehavior: { ...DEFAULT_TOOL_BEHAVIOR_SETTINGS },
       collab: { ...DEFAULT_COLLAB_SETTINGS },
       ai: { ...DEFAULT_AI_SETTINGS },
       privacy: { ...DEFAULT_PRIVACY_SETTINGS },
@@ -755,6 +779,10 @@ function normalizeViewportSettings(
         ? viewport.wheelMode
         : DEFAULT_VIEWPORT_SETTINGS.wheelMode,
     wheelSensitivity,
+    invertWheelZoom:
+      typeof viewport.invertWheelZoom === 'boolean'
+        ? viewport.invertWheelZoom
+        : DEFAULT_VIEWPORT_SETTINGS.invertWheelZoom,
     wheelInertia:
       typeof viewport.wheelInertia === 'boolean'
         ? viewport.wheelInertia
@@ -804,6 +832,7 @@ export interface EditorSettingsPatch {
   layers?: Partial<LayersSettingsStore>;
   nudge?: Partial<NudgeSettingsStore>;
   drawingInput?: Partial<DrawingInputSettingsStore>;
+  toolBehavior?: Partial<ToolBehaviorSettingsStore>;
   collab?: Partial<CollabSettingsStore>;
   ai?: Partial<AiSettingsStore>;
   privacy?: Partial<PrivacySettingsStore>;
@@ -829,6 +858,11 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     layers: { ...current.layers, ...patch.layers },
     nudge: normalizeNudgeSettings({ ...current.nudge, ...patch.nudge }),
     drawingInput: normalizeDrawingInputSettings({ ...current.drawingInput, ...patch.drawingInput }),
+    toolBehavior: {
+      returnToSelectAfterCreation:
+        patch.toolBehavior?.returnToSelectAfterCreation ??
+        current.toolBehavior.returnToSelectAfterCreation,
+    },
     collab: { ...current.collab, ...patch.collab },
     ai: { ...current.ai, ...patch.ai },
     privacy: { ...current.privacy, ...patch.privacy },
@@ -853,6 +887,7 @@ export function resetSettings(): EditorSettings {
     layers: { ...DEFAULT_LAYERS_SETTINGS },
     nudge: { ...DEFAULT_NUDGE_SETTINGS },
     drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
+    toolBehavior: { ...DEFAULT_TOOL_BEHAVIOR_SETTINGS },
     collab: { ...DEFAULT_COLLAB_SETTINGS },
     ai: { ...DEFAULT_AI_SETTINGS },
     privacy: { ...DEFAULT_PRIVACY_SETTINGS },

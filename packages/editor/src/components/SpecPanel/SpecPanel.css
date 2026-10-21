@@ -1069,7 +1069,7 @@
 /* ── Codegen preview (SVG / HTML targets) ─────────────── */
 .spec-codegen__preview-toggle {
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   padding: var(--space-1) var(--space-2);
@@ -1089,7 +1089,7 @@
 
 .spec-codegen__preview-widths button {
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-raised);
   color: var(--color-text-muted);
   padding: var(--space-1) var(--space-2);
@@ -1106,7 +1106,7 @@
   width: 100%;
   min-height: 220px;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: #ffffff;
 }
 

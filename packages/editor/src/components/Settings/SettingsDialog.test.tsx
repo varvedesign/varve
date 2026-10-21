@@ -92,6 +92,22 @@ describe('SettingsDialog', () => {
     expect(
       JSON.parse(localStorage.getItem('varve-editor-settings')!).viewport.wheelSensitivity,
     ).toBe(1.5);
+
+    const invertZoom = screen.getByRole('switch', { name: 'Invert wheel zoom direction' });
+    fireEvent.click(invertZoom);
+    expect(
+      JSON.parse(localStorage.getItem('varve-editor-settings')!).viewport.invertWheelZoom,
+    ).toBe(true);
+  });
+
+  it('persists the repeat creation tool preference', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="input" />);
+    const toggle = screen.getByRole('switch', { name: 'Return to Select after creating' });
+    expect((toggle as HTMLInputElement).checked).toBe(true);
+
+    fireEvent.click(toggle);
+    expect((toggle as HTMLInputElement).checked).toBe(false);
+    expect(loadSettings().toolBehavior.returnToSelectAfterCreation).toBe(false);
   });
 
   it('toggles the AI features switch without crashing and persists it', () => {

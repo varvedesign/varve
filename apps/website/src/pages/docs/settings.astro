@@ -24,7 +24,7 @@ import '../../styles/docs-prose.css';
         </p>
         <ul>
           <li><strong>Appearance</strong> — Theme, workspace layout, grid, and snap preferences</li>
-          <li><strong>Drawing Input</strong> — Finger ownership, wheel policy, sensitivity, and optional mouse-wheel continuation</li>
+          <li><strong>Drawing Input</strong> — Finger ownership, wheel policy and sensitivity, optional zoom-direction inversion, and mouse-wheel continuation</li>
           <li><strong>Performance</strong> — Interactive preview quality, diagnostics, and platform capability checks</li>
           <li><strong>Export</strong> — Default export format, scale, ICC profile, bleed, and text outlining</li>
           <li><strong>Updates</strong> — Update consent, channel, and install-on-quit preferences on supported desktop builds</li>
@@ -221,6 +221,9 @@ import '../../styles/docs-prose.css';
           <li><strong>Rendering Intent</strong> — Perceptual, Relative Colorimetric, Absolute Colorimetric, or Saturation</li>
           <li><strong>Color Profile</strong> — Document color space for PDF (RGB or CMYK)</li>
         </ul>
+        <p>
+          On desktop, PDF export rasterizes text whose weight differs from 400 or whose style is italic to preserve the canvas appearance. Rasterized text is image-based, not selectable or searchable; the Outline Text setting controls path conversion for text that stays on the native vector route.
+        </p>
 
         <h3>Naming</h3>
         <p>

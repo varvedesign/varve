@@ -17,6 +17,8 @@ const PNG_1X1_BASE64 =
 
 const SIMPLE_SVG =
   '<svg><rect x="10" y="10" width="100" height="60" fill="#1f8a70" /><circle cx="60" cy="40" r="24" fill="#ffd166" /></svg>';
+const CLONED_FILL_OPACITY_SVG =
+  '<svg xmlns:xlink="http://www.w3.org/1999/xlink"><defs><rect id="opacity-source" width="100" height="60" fill="#e5e" fill-opacity=".1" /></defs><use xlink:href="#opacity-source" /><use xlink:href="#opacity-source" x="110" /></svg>';
 
 async function openImportFromMenu(page: import('@playwright/test').Page): Promise<void> {
   await page.getByRole('menubar').getByRole('menuitem', { name: 'File' }).click();
@@ -128,6 +130,32 @@ test.describe('File → Import', () => {
       // Canvas worker startup can leave the SVG paint one frame behind while
       // the imported scene and selection are already authoritative.
       maxDiffPixels: 7000,
+    });
+  });
+
+  test('renders fractional fill opacity on repeated SVG use instances', async ({ page }) => {
+    await openImportFromMenu(page);
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'clone-opacity.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(CLONED_FILL_OPACITY_SVG, 'utf-8'),
+    });
+
+    const layers = page.locator('.layers-panel');
+    // Each <use> becomes a shape node; the filename is not a separate layer.
+    await expect(layers.locator('[role="treeitem"]')).toHaveCount(2, { timeout: 30000 });
+    const dismissHint = page.getByRole('button', { name: 'Dismiss hint' });
+    if (await dismissHint.isVisible().catch(() => false)) await dismissHint.click();
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.click({ position: { x: 40, y: 40 } });
+    await page.evaluate(() => {
+      (
+        window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
+      ).__varvePerf?.forceFullRedraw?.();
+    });
+    await page.waitForTimeout(700);
+    await expect(canvas).toHaveScreenshot('file-import-svg-use-opacity.png', {
+      maxDiffPixels: 100,
     });
   });
 

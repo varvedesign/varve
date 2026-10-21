@@ -3,6 +3,7 @@ import { ImportService } from '@varve/import';
 import {
   activePageNodes,
   addChild,
+  addPage,
   createDesignCanvas,
   createDocument,
   DocumentCodec,
@@ -918,6 +919,82 @@ describe('Editor native clipboard paste (Varve-format data)', () => {
     if (!inPlaceBounds) throw new Error('Expected in-place pasted bounds');
     expect(inPlaceBounds.x + inPlaceBounds.w / 2).toBeCloseTo(40, 6);
     expect(inPlaceBounds.y + inPlaceBounds.h / 2).toBeCloseTo(45, 6);
+  });
+
+  it('uses destination placement for same-document rich paste across publishing pages', async () => {
+    let initial = createDocument('Cross-page paste', true);
+    initial = addPage(initial, { width: 300, height: 200, name: 'Source page' });
+    const sourcePage = initial.pages?.[0];
+    if (!sourcePage) throw new Error('Expected source page');
+    initial = addPage(initial, { width: 300, height: 200, name: 'Target page' });
+    const targetPage = initial.pages?.[1];
+    if (!targetPage) throw new Error('Expected target page');
+    const targetPageId = targetPage.id;
+    const targetContentRoot = targetPage.contentRoot;
+    const source = makeShapeNode(
+      'cross-page-source',
+      { kind: 'rect', x: 0, y: 0, w: 40, h: 30 },
+      { transform: [1, 0, 0, 1, 25, 35] },
+    );
+    initial = addChild(initial, sourcePage.contentRoot, source);
+    const sourceBounds = nodeWorldBounds(initial, source.id);
+    if (!sourceBounds) throw new Error('Expected source bounds');
+    captureClipboardEvent(
+      createClipboardEventWithVarveNodes([source], {
+        format: 'varve-clipboard',
+        version: 5,
+        rootIds: [source.id],
+        sourceDocumentId: initial.id,
+        sourcePageId: sourcePage.id,
+        worldAnchor: { [source.id]: nodeWorldTransform(initial, source.id) },
+      }),
+    );
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              ctx?.__setWorkspaceModeUnsafe('print');
+              ctx?.setActivePage(targetPageId);
+            }}
+          >
+            switch to target page
+          </button>
+          <button type="button" onClick={() => void ctx?.paste()}>
+            paste on target page
+          </button>
+        </>
+      );
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={DocumentCodec.encode(initial)}>
+        <Test />
+      </EditorProvider>,
+    );
+    screen.getByText('switch to target page').click();
+    await waitFor(() => expect(ctx?.state.document.activePageId).toBe(targetPageId));
+    await waitFor(() => expect(ctx?.state.workspaceMode).toBe('print'));
+    screen.getByText('paste on target page').click();
+    await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
+    const pastedId = ctx?.state.selection[0];
+    if (!ctx || !pastedId) throw new Error('Expected cross-page pasted selection');
+    const pastedBounds = nodeWorldBounds(ctx.state.document, pastedId);
+    expect(getParent(ctx.state.document, pastedId)).toBe(targetContentRoot);
+    expect(pastedBounds).not.toBeNull();
+    if (!pastedBounds) throw new Error('Expected cross-page pasted bounds');
+    expect(pastedBounds.x + pastedBounds.w / 2).not.toBeCloseTo(
+      sourceBounds.x + sourceBounds.w / 2,
+      3,
+    );
+    expect(pastedBounds.y + pastedBounds.h / 2).not.toBeCloseTo(
+      sourceBounds.y + sourceBounds.h / 2,
+      3,
+    );
   });
 
   it('cancels a delayed paste when the destination selection changes', async () => {

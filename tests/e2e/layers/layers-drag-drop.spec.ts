@@ -52,6 +52,19 @@ function rowByName(page: Page, name: string): Locator {
   return page.locator('[role="treeitem"]').filter({ hasText: name }).first();
 }
 
+async function selectedCanvasCenter(page: Page) {
+  const topLeft = page.getByLabel('Top-left resize handle');
+  const bottomRight = page.getByLabel('Bottom-right resize handle');
+  await expect(topLeft).toBeAttached();
+  await expect(bottomRight).toBeAttached();
+  const [tl, br] = await Promise.all([topLeft.boundingBox(), bottomRight.boundingBox()]);
+  if (!tl || !br) throw new Error('selection handles not measurable');
+  return {
+    x: (tl.x + tl.width / 2 + br.x + br.width / 2) / 2,
+    y: (tl.y + tl.height / 2 + br.y + br.height / 2) / 2,
+  };
+}
+
 async function drawEmptyFrame(page: Page) {
   const canvas = page.locator('canvas.editor-canvas__content-layer');
   const box = await canvas.boundingBox();
@@ -184,6 +197,33 @@ test.describe('Layers Panel — real drag & drop', () => {
   test.afterEach(async ({ page }) => {
     await expectNoCrashDialog(page);
     expect(errors, 'uncaught page errors during DnD').toEqual([]);
+  });
+
+  test('canvas selection stays synced with the Layers tree after row reorder', async ({
+    page,
+  }, testInfo) => {
+    await dragRowToRow(page, 'Rectangle 1', 'Rectangle 3', -0.35, 'layers-selection-after-reorder');
+    await expect.poll(() => rowNames(page)).toEqual(['Rectangle 1', 'Rectangle 3', 'Rectangle 2']);
+
+    const targetRow = rowByName(page, 'Rectangle 1');
+    await targetRow.click();
+    const targetCenter = await selectedCanvasCenter(page);
+    const otherRow = rowByName(page, 'Rectangle 3');
+    await otherRow.click();
+    await expect(otherRow).toHaveAttribute('aria-selected', 'true');
+
+    // Re-select the reordered object through the real canvas pointer path.
+    await page.mouse.click(targetCenter.x, targetCenter.y);
+    await expect(targetRow).toHaveAttribute('aria-selected', 'true');
+    await expect(otherRow).not.toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(1);
+
+    await page.locator('canvas.editor-canvas__content-layer').screenshot({
+      path: testInfo.outputPath('canvas-selection-after-row-reorder.png'),
+    });
+    await page.getByTestId('layers-panel').screenshot({
+      path: testInfo.outputPath('layers-selection-after-row-reorder.png'),
+    });
   });
 
   test('dragging a row above another reorders the tree', async ({ page }) => {

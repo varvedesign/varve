@@ -89,7 +89,7 @@ describe('EditorProvider owned-transaction history', () => {
     await waitFor(() => expect(get()).toBeDefined());
 
     const layout = {
-      mode: 'stack' as const,
+      mode: 'flex' as const,
       direction: 'row' as const,
       gap: 8,
       wrap: false,
@@ -100,7 +100,7 @@ describe('EditorProvider owned-transaction history', () => {
     act(() => get().setNodeLayout(frame.id, layout));
     await waitFor(() => {
       const node = get().state.document.nodes[frame.id];
-      expect(node?.kind === 'frame' ? node.layoutStyle?.mode : undefined).toBe('stack');
+      expect(node?.kind === 'frame' ? node.layoutStyle?.mode : undefined).toBe('flex');
     });
 
     act(() => get().undo());

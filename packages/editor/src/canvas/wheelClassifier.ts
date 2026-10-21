@@ -135,6 +135,8 @@ export function resolveWheelAction(e: {
   wheelMode?: 'auto' | 'pan' | 'zoom';
   /** Bounded multiplier applied after DOM delta normalization. */
   wheelSensitivity?: number;
+  /** Reverse the direction of wheel gestures that zoom the canvas. */
+  invertWheelZoom?: boolean;
   /** App continuation is only eligible for mouse-classified input. */
   wheelInertia?: boolean;
 }): ResolvedWheelAction {
@@ -151,7 +153,8 @@ export function resolveWheelAction(e: {
   // converts trackpad pinch into ctrlKey+wheel sequences; some mice also bind
   // it as zoom).
   if (wheelMode === 'zoom' || (wheelMode === 'auto' && (e.ctrlKey || e.metaKey))) {
-    const d = Math.max(-ZOOM_DELTA_CLAMP, Math.min(ZOOM_DELTA_CLAMP, normY));
+    const zoomDelta = e.invertWheelZoom ? -normY : normY;
+    const d = Math.max(-ZOOM_DELTA_CLAMP, Math.min(ZOOM_DELTA_CLAMP, zoomDelta));
     return {
       kind: 'zoom',
       source,

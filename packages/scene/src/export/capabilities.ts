@@ -355,7 +355,10 @@ export const FORMAT_CAPABILITIES: Record<ExportFormat, FormatCapability> = {
     lossless: true,
     highBitDepth: false,
     masks: 'blocked',
-    blendModes: 'rasterized',
+    // PDF/X-1a forbids live transparency, so a blend
+    // mode cannot be written and nothing flattens it: the exporter reports the
+    // objects instead of printing them as Normal.
+    blendModes: 'blocked',
     filters: 'rasterized',
     adjustmentLayers: 'rasterize',
     maxDimensions: 0,
@@ -427,7 +430,8 @@ export const FORMAT_CAPABILITIES: Record<ExportFormat, FormatCapability> = {
     lossless: true,
     highBitDepth: false,
     masks: 'blocked',
-    blendModes: 'rasterized',
+    // PDF/X-4 permits live transparency and the exporter writes /BM.
+    blendModes: 'native',
     filters: 'rasterized',
     adjustmentLayers: 'rasterize',
     maxDimensions: 0,

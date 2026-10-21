@@ -261,6 +261,55 @@ test.describe('Wheel navigation', () => {
       Math.abs(afterCanvas.y + after.y + after.height * anchorFraction.y - wheelAnchor.clientY),
     ).toBeLessThanOrEqual(1);
   });
+
+  test('inverts ctrl+wheel zoom when the drawing-input preference is enabled', async ({
+    page,
+  }, testInfo) => {
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 80, 60, 180, 160);
+    await page.keyboard.press('v');
+    await canvas.focus();
+    await selectionRect(page);
+
+    await page.keyboard.press('Control+,');
+    const settings = page.locator('dialog.varve-dialog--settings[open]');
+    await expect(settings).toBeVisible();
+    await settings.getByRole('tab', { name: 'Drawing Input' }).click();
+    const invertZoom = settings.getByRole('switch', { name: 'Invert wheel zoom direction' });
+    await expect(invertZoom).not.toBeChecked();
+    await invertZoom.scrollIntoViewIfNeeded();
+    const screenshotPath = testInfo.outputPath('invert-wheel-zoom-setting.png');
+    await settings.screenshot({ path: screenshotPath });
+    await testInfo.attach('invert-wheel-zoom-setting', {
+      path: screenshotPath,
+      contentType: 'image/png',
+    });
+    await invertZoom.click();
+    await expect(invertZoom).toBeChecked();
+    await settings.getByRole('button', { name: 'Close dialog' }).click();
+
+    await canvas.focus();
+    const before = await selectionRect(page);
+    await canvas.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      for (let i = 0; i < 3; i += 1) {
+        element.dispatchEvent(
+          new WheelEvent('wheel', {
+            bubbles: true,
+            cancelable: true,
+            clientX: bounds.left + 100,
+            clientY: bounds.top + 100,
+            ctrlKey: true,
+            deltaY: -15,
+          }),
+        );
+      }
+    });
+    await expect
+      .poll(async () => (await selectionRect(page)).width, { timeout: 5000 })
+      .toBeLessThan(before.width);
+  });
 });
 
 test.describe('Navigation visual contract', () => {

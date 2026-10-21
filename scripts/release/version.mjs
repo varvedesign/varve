@@ -29,6 +29,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { releaseDownloadBaseUrl } from './product.mjs';
 
 // Test hook: point VARVE_VERSION_ROOT at a fixture tree so `set`/`bump` write
 // there instead of the real repo (release-pipeline.test.mjs uses this).
@@ -205,15 +206,12 @@ function writeTarget(target, version) {
     if (!existsSync(abs)) return;
     let updated = text.replace(/^(\tpkgver\s*=\s*).+$/m, (_m, prefix) => `${prefix}${version}`);
     // Replace version strings inside source = lines (e.g.
-    // Varve-0.1.0-linux-x86_64.AppImage::…/download/v0.1.0/Varve-0.1.0-…).
+    // Varve-0.1.0-x86_64.AppImage::…/download/v0.1.0/Varve-0.1.0-x86_64.AppImage).
     updated = updated.replace(
-      /(\tsource\s*=\s*Varve-)[^:]+(-linux)/g,
-      (_m, prefix, suffix) => `${prefix}${version}${suffix}`,
+      /Varve-\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:-linux)?-(x86_64|aarch64)\.AppImage/g,
+      (_m, arch) => `Varve-${version}-${arch}.AppImage`,
     );
-    updated = updated.replace(
-      /(releases\/download\/v)[^/]+(\/Varve-)[^"']+(")/g,
-      (_m, prefix, mid, suf) => `${prefix}${version}${mid}${version}-linux-x86_64.AppImage${suf}`,
-    );
+    updated = updated.replace(/(releases\/download\/v)[0-9][^/]+(\/Varve-)/g, `$1${version}$2`);
     if (updated === text && readTarget(target).value !== version) {
       throw new Error(`Could not locate pkgver or source in ${target.path}`);
     }
@@ -316,7 +314,7 @@ function applyVersion(version, actionLabel) {
   process.stdout.write(
     'After publishing the release, refresh AUR sha256sums from the published\n' +
       'SHA256SUMS.txt:\n' +
-      `  curl -sL https://github.com/K-Arthur/varve/releases/download/v${version}/SHA256SUMS.txt | grep x86_64.AppImage\n` +
+      `  curl -sL ${releaseDownloadBaseUrl(version)}/SHA256SUMS.txt | grep x86_64.AppImage\n` +
       'then update packaging/aur/varve-desktop-bin/PKGBUILD sha256sums and run\n' +
       'makepkg --printsrcinfo > packaging/aur/varve-desktop-bin/.SRCINFO\n',
   );

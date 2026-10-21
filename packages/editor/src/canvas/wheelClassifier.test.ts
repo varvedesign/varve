@@ -90,6 +90,7 @@ describe('resolveWheelAction', () => {
       clientHeight?: number;
       wheelMode?: 'auto' | 'pan' | 'zoom';
       wheelSensitivity?: number;
+      invertWheelZoom?: boolean;
       wheelInertia?: boolean;
     } = {},
   ) {
@@ -117,6 +118,15 @@ describe('resolveWheelAction', () => {
     const action = resolveWheelAction(wheel({ ctrlKey: true, deltaY: 10 }));
     expect(action.kind).toBe('zoom');
     expect(action.scale).toBeLessThan(1);
+  });
+
+  it('reverses wheel zoom without changing the default direction', () => {
+    const standard = resolveWheelAction(wheel({ wheelMode: 'zoom', deltaY: -10 }));
+    const inverted = resolveWheelAction(
+      wheel({ wheelMode: 'zoom', deltaY: -10, invertWheelZoom: true }),
+    );
+    expect(standard.scale).toBeGreaterThan(1);
+    expect(inverted.scale).toBeLessThan(1);
   });
 
   it('recognizes metaKey as zoom too (macOS)', () => {

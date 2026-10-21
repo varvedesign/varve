@@ -107,15 +107,22 @@ export class ActionTracker {
   }
 
   private load(): void {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      this.fromJSON(stored);
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) this.fromJSON(stored);
+    } catch {
+      // Shortcut suggestions are optional; storage denial must not block startup.
+      this.records = [];
     }
   }
 
   private save(): void {
     this.prune();
-    localStorage.setItem(STORAGE_KEY, this.toJSON());
+    try {
+      localStorage.setItem(STORAGE_KEY, this.toJSON());
+    } catch {
+      // Keep recording for this session when browser storage is unavailable.
+    }
   }
 
   private prune(): void {

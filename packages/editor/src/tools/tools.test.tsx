@@ -232,4 +232,39 @@ describe('Tool system regression tests', () => {
       expect(getCtx().state.tool).toBe('select');
     });
   });
+
+  it('keeps shape and text creation tools active when repeat creation is enabled', async () => {
+    localStorage.setItem(
+      'varve-editor-settings',
+      JSON.stringify({ toolBehavior: { returnToSelectAfterCreation: false } }),
+    );
+    let ctx: ReturnType<typeof useEditor> | undefined;
+
+    function TestComponent() {
+      ctx = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <TestComponent />
+      </EditorProvider>,
+    );
+
+    if (!ctx) throw new Error('ctx not found');
+    const getCtx = (): NonNullable<typeof ctx> => ctx as NonNullable<typeof ctx>;
+    getCtx().setTool('rect' as ToolId);
+    const initialNodes = Object.keys(getCtx().state.document.nodes).length;
+    getCtx().createShapeAt({ x: 100, y: 100 }, { w: 50, h: 30 });
+    await waitFor(() => expect(getCtx().state.tool).toBe('rect'));
+    getCtx().createShapeAt({ x: 200, y: 200 }, { w: 50, h: 30 });
+    await waitFor(() =>
+      expect(Object.keys(getCtx().state.document.nodes)).toHaveLength(initialNodes + 2),
+    );
+
+    getCtx().setTool('text' as ToolId);
+    getCtx().createTextNodeAt({ x: 300, y: 300 });
+    await waitFor(() => expect(getCtx().state.tool).toBe('text'));
+    localStorage.removeItem('varve-editor-settings');
+  });
 });

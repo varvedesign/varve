@@ -5,6 +5,7 @@ import type { SaveOutcome } from './saveTypes';
 function outcome(status: SaveOutcome['status']): SaveOutcome {
   if (status === 'saved') return { status: 'saved' };
   if (status === 'saved-copy') return { status: 'saved-copy' };
+  if (status === 'download-started') return { status: 'download-started' };
   if (status === 'cancelled') return { status: 'cancelled' };
   return { status: 'failed', issue: { category: 'unknown-io', message: 'boom' } };
 }

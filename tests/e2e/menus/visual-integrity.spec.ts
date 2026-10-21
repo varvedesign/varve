@@ -99,6 +99,37 @@ test.describe('Menubar visual integrity', () => {
     await menuLayer.screenshot({ path: testInfo.outputPath('editor-menu-object-overflow.png') });
   });
 
+  test('long menus stay scrollable inside a short viewport', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1366, height: 400 });
+    await openMenu(page, 'Object');
+    const menuLayer = page.locator('.editor-menubar__menu');
+    const menu = menuLayer.getByRole('menu', { name: 'Object' });
+    const finalCommand = menu.getByRole('menuitem', { name: 'Detect Duplicates' });
+
+    await finalCommand.scrollIntoViewIfNeeded();
+    await expect(finalCommand).toBeVisible();
+    const geometry = await menuLayer.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+        scrollTop: element.scrollTop,
+      };
+    });
+    expect(geometry.top).toBeGreaterThanOrEqual(0);
+    expect(geometry.bottom).toBeLessThanOrEqual(400);
+    expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
+    expect(geometry.scrollTop).toBeGreaterThan(0);
+    const finalRect = await finalCommand.evaluate((element) => element.getBoundingClientRect());
+    expect(finalRect.top).toBeGreaterThanOrEqual(geometry.top);
+    expect(finalRect.bottom).toBeLessThanOrEqual(geometry.bottom);
+    await menuLayer.screenshot({
+      path: testInfo.outputPath('editor-menu-object-short-viewport.png'),
+    });
+  });
+
   for (const theme of ['light', 'dark', 'high-contrast'] as const) {
     test(`active menu rows pass contrast checks in the ${theme} theme`, async ({
       page,

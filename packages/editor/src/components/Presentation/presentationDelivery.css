@@ -121,7 +121,7 @@
 
 .presentation-delivery__limit {
   padding: var(--space-2) var(--space-3);
-  border-inline-start: 3px solid var(--color-border-strong);
+  border: 1px solid var(--color-border-subtle);
   background: var(--color-surface-sunken);
 }
 
@@ -207,7 +207,7 @@
   gap: var(--space-2);
   padding: var(--space-3);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   overflow: auto;
 }
 

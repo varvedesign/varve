@@ -8,6 +8,7 @@ import type {
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  canPreserveClipboardWorldPose,
   captureClipboardEvent,
   claimPendingTransferRequest,
   clearCapturedClipboardEvent,
@@ -24,6 +25,63 @@ import {
   writeClipboardOutcome,
   writeClipboardRepresentation,
 } from './clipboard';
+
+describe('clipboard page pose policy', () => {
+  it('preserves same-page pose and rejects cross-page or legacy page pose reuse', () => {
+    const base = {
+      sourceDocumentId: 'doc-1',
+      targetDocumentId: 'doc-1',
+      sourcePageId: undefined,
+      targetPageId: undefined,
+      targetIsPublishingPage: true,
+      targetFrameSelected: false,
+      items: [
+        {
+          rootIds: ['shape-1'],
+          worldAnchors: { 'shape-1': [1, 0, 0, 1, 0, 0] as Affine },
+        },
+      ],
+    };
+    expect(
+      canPreserveClipboardWorldPose({
+        ...base,
+        sourcePageId: 'page-1',
+        targetPageId: 'page-1',
+      }),
+    ).toBe(true);
+    expect(
+      canPreserveClipboardWorldPose({
+        ...base,
+        sourcePageId: 'page-1',
+        targetPageId: 'page-2',
+      }),
+    ).toBe(false);
+    expect(
+      canPreserveClipboardWorldPose({ ...base, sourcePageId: undefined, targetPageId: 'page-1' }),
+    ).toBe(false);
+    expect(
+      canPreserveClipboardWorldPose({
+        ...base,
+        sourcePageId: undefined,
+        targetPageId: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      canPreserveClipboardWorldPose({
+        ...base,
+        targetIsPublishingPage: false,
+        sourcePageId: undefined,
+        targetPageId: undefined,
+      }),
+    ).toBe(true);
+    expect(
+      canPreserveClipboardWorldPose({
+        ...base,
+        items: [{ rootIds: ['shape-1'], worldAnchors: {} }],
+      }),
+    ).toBe(false);
+  });
+});
 
 const { storeFontOnFilesystemMock } = vi.hoisted(() => ({
   storeFontOnFilesystemMock: vi.fn(),
@@ -689,24 +747,39 @@ describe('readFromClipboardEvent', () => {
     });
 
     try {
-      await expect(
-        writeClipboard(
-          [node],
-          undefined,
-          undefined,
-          undefined,
-          anchor,
-          undefined,
-          undefined,
-          undefined,
-          'source-document-1',
-        ),
-      ).resolves.toBe(true);
+      const payloadArgs: Parameters<typeof writeClipboard> = [
+        [node],
+        undefined,
+        undefined,
+        undefined,
+        anchor,
+        undefined,
+        undefined,
+        undefined,
+        'source-document-1',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'source-page-1',
+      ];
+      await expect(writeClipboard(...payloadArgs)).resolves.toBe(true);
       const blob = await written?.[0]?.getType('web application/vnd.varve+json');
       expect(blob).toBeDefined();
       const payload = JSON.parse(await blob!.text());
+      expect(payload.version).toBe(5);
       expect(payload.worldAnchor).toEqual(anchor);
       expect(payload.sourceDocumentId).toBe('source-document-1');
+      expect(payload.sourcePageId).toBe('source-page-1');
     } finally {
       Object.defineProperty(globalThis, 'ClipboardItem', {
         configurable: true,

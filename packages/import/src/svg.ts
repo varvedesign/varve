@@ -18,6 +18,7 @@ import {
   parseSingleElement,
   parseUnit,
 } from './svg/shared';
+import { collectUnsupportedSvgMetadata } from './svg/unsupportedMetadata';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 
 export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportResult {
@@ -39,7 +40,7 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
   }
 
   const warnings: string[] = [];
-  const unsupported: string[] = [];
+  const unsupported: string[] = collectUnsupportedSvgMetadata(root);
   let doc = createDocument('Imported SVG');
   const nodeIds: string[] = [];
 

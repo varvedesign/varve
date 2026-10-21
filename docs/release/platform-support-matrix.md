@@ -31,8 +31,9 @@ they do not imply code signing or a warranty.
 | macOS 13+ Apple Silicon | `.dmg` | Native installed-app qualification passed on the macOS ARM64 runner; no maintainer-owned Mac for ongoing hardware coverage | **Tier 2 — Best effort** | Installed writable app can self-update; mounted or translocated copies cannot |
 | macOS Intel | — | No artifact is built or published | **Not supported** | — |
 
-The minimum Linux ABI baseline is glibc 2.35. Linux AppImages use the host's
-WebKitGTK libraries and may require FUSE2; see
+The minimum Linux ABI baseline is glibc 2.35. musl-based distributions such as
+Alpine are not supported by the published Linux builds. Linux AppImages use
+the host's WebKitGTK libraries and may require FUSE2; see
 [Linux build requirements](platform-build-requirements.md) and the
 [download page](https://varve.studio/download) for per-package requirements.
 Windows and macOS installers are unsigned; the macOS DMG is also not
@@ -178,7 +179,7 @@ received long-term or human-operated GUI testing.
 | Format | Decision | Reasoning |
 |---|---|---|
 | **`.deb`** | **Ship — primary** | Declares its full dependency list (incl. `libwebkit2gtk-4.1-0`), installs cleanly, verified on Ubuntu 22.04 + Fedora 38 containers and real hosts. The most reliable Linux path |
-| **AppImage** | **Ship — secondary** | Portable single file, but NOT dependency-free: bundling WebKit/GTK broke on modern Mesa (white screen, fixed by pruning the bundled libs — the AppImage now uses host WebKitGTK like the .deb). Needs FUSE2; on FUSE-less systems `--appimage-extract-and-run`. See `scripts/release/prune-appimage-bundled-libs.mjs` |
+| **AppImage** | **Ship (secondary)** | Portable single file. From the next release after 0.5.1, bundles WebKitGTK/GTK so a clean host without `libwebkit2gtk-4.1` can launch; GPU/EGL/Mesa stay on the host so newer Mesa stacks do not white-screen. GStreamer plugins are not bundled. 0.5.x AppImages still need host WebKitGTK. Needs FUSE2; on FUSE-less systems `--appimage-extract-and-run`. Filename becomes `Varve-<version>-x86_64.AppImage` (no `linux`). See `scripts/release/prune-appimage-bundled-libs.mjs` |
 | **`.rpm`** | **Ship — secondary** | Same `depends` list present |
 | **Flatpak / Flathub** | **Defer** | `packaging/flatpak/dev.varve.desktop.yml` exists but is unvalidated. Flathub review is a multi-week process with a real maintenance burden (runtime upgrades, sandbox holes for printing + font access). Excellent *second* channel, wrong *first* channel |
 | **AUR** | **Defer to post-release** | Cannot exist before there is a release to point at (see RB-2). `varve-desktop-bin` PKGBUILD is already written (`packaging/aur/varve-desktop-bin`) and parses under `makepkg`; it needs the real SHA-256 from a published `SHA256SUMS.txt` before submission |
@@ -200,7 +201,7 @@ Untested and needing a VM pass before Tier 2 is claimed:
 
 - WebKitGTK 2.40–2.46 behaviour (Ubuntu 22.04/24.04 ship older versions than CachyOS)
 - Software rendering fallback where no GPU/WebGPU is available
-- XDG desktop portal file dialogs under GNOME vs KDE vs wlroots
+- Native GTK3 file dialogs under GNOME vs KDE vs wlroots (the current Tauri dialog plugin uses its default GTK3/rfd backend; portal-specific failures observed in other apps are not evidence for this configured path)
 - CUPS discovery via `lpstat` (`print_linux.rs:7`) where CUPS is absent
 - Fontconfig behaviour with a minimal font set
 - AppImage on a FUSE-less host

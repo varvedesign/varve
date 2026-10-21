@@ -50,6 +50,24 @@ describe('ComicWorkspaceSuggestion', () => {
     expect(requestWorkspaceSwitch).not.toHaveBeenCalled();
   });
 
+  it('shows the suggestion when localStorage access is denied', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new DOMException('Access is denied for this document.', 'SecurityError');
+      },
+    });
+
+    try {
+      mockEditor({});
+      expect(() => render(<ComicWorkspaceSuggestion />)).not.toThrow();
+      expect(screen.getByText(/matching workspace layout/i)).toBeTruthy();
+    } finally {
+      if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
+    }
+  });
+
   it('applies the comic layout only after the user accepts', async () => {
     const { requestWorkspaceSwitch, applyWorkspaceLayout } = mockEditor({});
     render(<ComicWorkspaceSuggestion />);

@@ -692,7 +692,7 @@
   margin-top: var(--space-2);
   padding: var(--space-2);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
 }
 
 .presentation-motion__group {
@@ -784,7 +784,7 @@
   width: 100%;
   padding: var(--space-1);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   background: transparent;
   cursor: pointer;
   text-align: left;
@@ -802,9 +802,9 @@
 }
 
 .presentation-navigator__swatch:first-child {
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-radius: var(--radius-control-compact) 0 0 var(--radius-control-compact);
 }
 
 .presentation-navigator__swatch:last-child {
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: 0 var(--radius-control-compact) var(--radius-control-compact) 0;
 }

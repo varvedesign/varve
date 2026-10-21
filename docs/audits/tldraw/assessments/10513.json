@@ -1,0 +1,24 @@
+{
+  "number": 10513,
+  "bodyReviewed": true,
+  "commentsReviewed": 0,
+  "disposition": "no-change-currently",
+  "reason": "The issue describes a plausible but unconfirmed loss during tldraw's 350 ms TLLocalSyncClient throttle. The linked upstream fix adds lifecycle flushes that Varve already has. Varve's browser termination save is asynchronous and recovery waits for its idle threshold, but this batch did not reproduce loss or establish a concrete defect. Preserve as a durability edge for later real-browser testing; do not port the fix without evidence.",
+  "relatedIssues": [],
+  "evidence": [
+    "https://github.com/tldraw/tldraw/issues/10513",
+    "https://github.com/tldraw/tldraw/pull/10526",
+    "https://github.com/tldraw/tldraw/commit/53900ead3015a423f0731d27ae38e3876381b44e",
+    "packages/editor/src/lifecycle/LifecycleProvider.tsx",
+    "packages/editor/src/lifecycle/coordinator.ts",
+    "packages/editor/src/context/usePersistence.ts",
+    "packages/editor/src/autoSaveService.ts",
+    "packages/editor/src/recovery.ts"
+  ],
+  "varveAssessment": {
+    "sourceInspected": true,
+    "reproducedInVarve": false,
+    "tests": "pnpm exec vitest run packages/editor/src/lifecycle/__tests__/coordinator.test.ts packages/editor/src/lifecycle/__tests__/pageHideBoundary.test.ts packages/editor/src/persistence/lifecycleFlush.test.ts packages/editor/src/autoSaveService.test.ts packages/editor/src/recovery.test.ts --reporter=dot — 5 files, 90 tests passed; browser forced-shutdown behavior not covered.",
+    "remainingQuestion": "Does a real browser persist the last edit when forced to terminate before asynchronous lifecycle and idle recovery writes complete?"
+  }
+}

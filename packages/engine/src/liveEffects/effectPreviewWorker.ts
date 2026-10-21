@@ -1,8 +1,14 @@
 import { cpuEffectProvider } from './cpuProvider';
 import type {
+  EffectPreviewBackend,
   EffectPreviewWorkerRequest,
   EffectPreviewWorkerResponse,
 } from './effectPreviewRunner';
+import {
+  applyWasmEffect,
+  canUseWasmEffect,
+  loadWasmEffectsBeforeDeadline,
+} from './wasmEffectsLoader';
 
 interface EffectWorkerScope {
   onmessage: ((event: MessageEvent<EffectPreviewWorkerRequest>) => void) | null;
@@ -24,9 +30,9 @@ scope.onmessage = (event) => {
     ) {
       throw new Error('Effect worker received invalid dimensions or RGBA bytes.');
     }
-    void cpuEffectProvider.apply(request, source).then(
-      (result) => {
-        try {
+    void runEffect(request, source)
+      .then(
+        ({ result, backend }) => {
           const output = result.buffer;
           if (
             !(output instanceof ArrayBuffer) ||
@@ -35,21 +41,21 @@ scope.onmessage = (event) => {
           ) {
             throw new Error('Canonical effect provider returned a non-transferable buffer.');
           }
-          scope.postMessage({ type: 'result', id, rgba: output }, [output]);
-        } catch (error) {
+          scope.postMessage({ type: 'result', id, rgba: output, backend }, [output]);
+        },
+        (error: unknown) => {
           scope.postMessage(
             { type: 'error', id, message: error instanceof Error ? error.message : String(error) },
             [],
           );
-        }
-      },
-      (error: unknown) => {
+        },
+      )
+      .catch((error: unknown) => {
         scope.postMessage(
           { type: 'error', id, message: error instanceof Error ? error.message : String(error) },
           [],
         );
-      },
-    );
+      });
   } catch (error) {
     scope.postMessage(
       { type: 'error', id, message: error instanceof Error ? error.message : String(error) },
@@ -57,3 +63,23 @@ scope.onmessage = (event) => {
     );
   }
 };
+
+async function runEffect(
+  request: EffectPreviewWorkerRequest['request'],
+  source: Uint8ClampedArray,
+): Promise<{ readonly result: Uint8ClampedArray; readonly backend: EffectPreviewBackend }> {
+  const wasm = canUseWasmEffect(request) ? await loadWasmEffectsBeforeDeadline() : null;
+  if (wasm) {
+    try {
+      const output = applyWasmEffect(
+        wasm,
+        request,
+        new Uint8Array(source.buffer, source.byteOffset, source.byteLength),
+      );
+      return { result: new Uint8ClampedArray(output), backend: 'wasm-effects' };
+    } catch {
+      // A corrupt or incompatible optional module never blocks the CPU reference.
+    }
+  }
+  return { result: await cpuEffectProvider.apply(request, source), backend: 'cpu-effects' };
+}

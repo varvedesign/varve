@@ -25,6 +25,66 @@ pub fn wasm_engine_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
+// ── WASM live-effect kernels ────────────────────────────────────────────
+
+/// Small, versioned capability contract consumed by the effect preview
+/// worker before it sends pixels across the WASM boundary.
+#[wasm_bindgen]
+pub fn wasm_effects_abi_json() -> String {
+    let effects: Vec<&str> = varve_effects::IMPLEMENTED_EFFECTS
+        .iter()
+        .map(|kind| kind.wire_name())
+        .collect();
+    serde_json::json!({
+        "engineVersion": env!("CARGO_PKG_VERSION"),
+        "kernelAbi": varve_effects::EFFECT_KERNEL_ABI_VERSION,
+        "pixelFormat": "rgba8-straight-srgb",
+        "maxDimension": 16_384,
+        "maxPixels": 4_194_304,
+        "effects": effects,
+    })
+    .to_string()
+}
+
+/// Apply one live effect to an owned, exact-size RGBA working buffer.
+///
+/// The caller's document pixels must not be passed here: wasm-bindgen takes
+/// ownership of the JS bytes for the call, and the returned vector is a new
+/// result buffer. The binary boundary accepts 8-bit straight-alpha sRGB only;
+/// callers must convert elsewhere before claiming other precision or profiles.
+#[wasm_bindgen]
+pub fn wasm_apply_effect_json(request_json: &str, mut rgba: Vec<u8>) -> Result<Vec<u8>, JsValue> {
+    const MAX_REQUEST_BYTES: usize = 64 * 1024;
+    const MAX_DIMENSION: u32 = 16_384;
+    const MAX_PIXELS: u64 = 4_194_304;
+
+    if request_json.len() > MAX_REQUEST_BYTES {
+        return Err(JsValue::from_str(
+            "Effect request JSON exceeds the 64 KiB limit",
+        ));
+    }
+    let request: varve_effects::EffectRequest = serde_json::from_str(request_json)
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    if request.width > MAX_DIMENSION || request.height > MAX_DIMENSION {
+        return Err(JsValue::from_str(
+            "Effect dimensions exceed the 16,384-pixel axis limit",
+        ));
+    }
+    let pixels = u64::from(request.width)
+        .checked_mul(u64::from(request.height))
+        .ok_or_else(|| JsValue::from_str("Effect dimensions overflow"))?;
+    if pixels > MAX_PIXELS {
+        return Err(JsValue::from_str(
+            "Effect surface exceeds the 4,194,304-pixel limit",
+        ));
+    }
+    varve_effects::validate_surface(request.width, request.height, rgba.len())
+        .map_err(|error| JsValue::from_str(&error))?;
+    varve_effects::apply_effect_in_place(&request, &mut rgba)
+        .map_err(|error| JsValue::from_str(&error))?;
+    Ok(rgba)
+}
+
 // ── WASM trace bindings ─────────────────────────────────────────────────
 
 /// JSON-serializable path point for the wasm trace result.

@@ -870,7 +870,9 @@ jobs:
             ci-certification.json
           retention-days: 90
   certification:
-    name: Release Candidate / certification
+    # Keep the Actions job check distinct from the API-published exact-SHA check
+    # below; both names matching makes the verifier select this unbound job check.
+    name: Candidate evidence publication
     permissions:
       contents: read
       actions: read

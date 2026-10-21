@@ -26,8 +26,13 @@ const lanes = selection.commands.map((entry) => entry.lane);
 assert.ok(lanes.includes('format-lint:staged'));
 assert.ok(lanes.includes('import-boundaries'));
 assert.ok(lanes.includes('typecheck:e2e'));
+assert.equal(
+  selection.commands.find((entry) => entry.lane === 'typecheck:e2e')?.timeoutMs,
+  240_000,
+);
 assert.ok(lanes.includes('audit:e2e-interactions'));
 assert.ok(lanes.includes('direct-unit'));
+assert.equal(selection.commands.find((entry) => entry.lane === 'direct-unit')?.timeoutMs, 360_000);
 assert.ok(!selection.commands.some((entry) => entry.argv.includes('playwright')));
 assert.ok(!selection.commands.some((entry) => entry.argv.includes('cargo')));
 for (const entry of selection.commands.filter((item) => item.argv.includes('vitest'))) {

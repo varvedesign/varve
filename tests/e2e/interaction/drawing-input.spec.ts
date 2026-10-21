@@ -208,4 +208,64 @@ test.describe('drawing pointer ownership', () => {
 
     await expect(page.getByRole('treeitem')).toHaveCount(0);
   });
+
+  test('pointer cancellation discards the interrupted stroke and the next stroke starts cleanly', async ({
+    page,
+  }) => {
+    await dispatchPointer(page, {
+      type: 'pointerdown',
+      pointerId: 21,
+      pointerType: 'pen',
+      x: 150,
+      y: 150,
+      pressure: 0.25,
+    });
+    await dispatchPointer(page, {
+      type: 'pointermove',
+      pointerId: 21,
+      pointerType: 'pen',
+      x: 210,
+      y: 190,
+      pressure: 0.8,
+    });
+    await dispatchPointer(page, {
+      type: 'pointercancel',
+      pointerId: 21,
+      pointerType: 'pen',
+      x: 210,
+      y: 190,
+      buttons: 0,
+    });
+
+    await expect(page.getByRole('treeitem')).toHaveCount(0);
+    await overlayScreenshot(page, 'pointer-cancel-clears-provisional-stroke');
+
+    await dispatchPointer(page, {
+      type: 'pointerdown',
+      pointerId: 22,
+      pointerType: 'pen',
+      x: 280,
+      y: 230,
+      pressure: 0.25,
+    });
+    await dispatchPointer(page, {
+      type: 'pointermove',
+      pointerId: 22,
+      pointerType: 'pen',
+      x: 330,
+      y: 270,
+      pressure: 0.8,
+    });
+    await dispatchPointer(page, {
+      type: 'pointerup',
+      pointerId: 22,
+      pointerType: 'pen',
+      x: 330,
+      y: 270,
+      pressure: 0,
+    });
+
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await overlayScreenshot(page, 'pointer-cancel-followed-by-new-stroke');
+  });
 });

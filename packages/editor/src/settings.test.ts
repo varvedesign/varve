@@ -27,6 +27,7 @@ describe('loadSettings', () => {
     expect(s.render.interactivePreview).toBe('automatic');
     expect(s.viewport.wheelMode).toBe('auto');
     expect(s.viewport.wheelSensitivity).toBe(1);
+    expect(s.viewport.invertWheelZoom).toBe(false);
     expect(s.viewport.wheelInertia).toBe(true);
     expect(s.performance.reducedMotionOverride).toBe('system');
     expect(s.performance.showPerformanceDiagnostics).toBe(false);
@@ -39,6 +40,7 @@ describe('loadSettings', () => {
       pressureEnabled: true,
       pressureCurve: 1,
     });
+    expect(s.toolBehavior).toEqual({ returnToSelectAfterCreation: true });
     expect(s.privacy.usageAnalytics).toBe('unknown');
     expect(s.privacy.diagnostics).toBe('unknown');
   });
@@ -271,23 +273,30 @@ describe('loadSettings', () => {
       STORAGE_KEY,
       JSON.stringify({
         render: { interactivePreview: 'invalid' },
-        viewport: { wheelMode: 'invalid', wheelSensitivity: 99, wheelInertia: false },
+        viewport: {
+          wheelMode: 'invalid',
+          wheelSensitivity: 99,
+          invertWheelZoom: 'invalid',
+          wheelInertia: false,
+        },
       }),
     );
     expect(loadSettings().render.interactivePreview).toBe('automatic');
     expect(loadSettings().viewport).toMatchObject({
       wheelMode: 'auto',
       wheelSensitivity: 4,
+      invertWheelZoom: false,
       wheelInertia: false,
     });
 
     const updated = updateSettings({
       render: { interactivePreview: 'full' },
-      viewport: { wheelMode: 'zoom', wheelSensitivity: 0.01 },
+      viewport: { wheelMode: 'zoom', wheelSensitivity: 0.01, invertWheelZoom: true },
     });
     expect(updated.render.interactivePreview).toBe('full');
     expect(updated.viewport.wheelMode).toBe('zoom');
     expect(updated.viewport.wheelSensitivity).toBe(0.25);
+    expect(updated.viewport.invertWheelZoom).toBe(true);
   });
 
   it('normalizes drawing input preferences without rejecting older settings files', () => {
@@ -300,6 +309,23 @@ describe('loadSettings', () => {
       pressureEnabled: true,
       pressureCurve: 4,
     });
+  });
+
+  it('normalizes and persists tool behavior while preserving the default for older settings', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ drawingInput: { fingerMode: 'navigate' } }));
+    expect(loadSettings().toolBehavior).toEqual({ returnToSelectAfterCreation: true });
+
+    expect(
+      updateSettings({ toolBehavior: { returnToSelectAfterCreation: false } }).toolBehavior,
+    ).toEqual({ returnToSelectAfterCreation: false });
+    expect(loadSettings().toolBehavior.returnToSelectAfterCreation).toBe(false);
+
+    localStorage.removeItem('varve-editor-settings');
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ toolBehavior: { returnToSelectAfterCreation: 'no' } }),
+    );
+    expect(loadSettings().toolBehavior).toEqual({ returnToSelectAfterCreation: true });
   });
 });
 
@@ -382,5 +408,10 @@ describe('resetSettings', () => {
       pressureEnabled: true,
       pressureCurve: 1,
     });
+  });
+
+  it('restores tool behavior to its factory default', () => {
+    updateSettings({ toolBehavior: { returnToSelectAfterCreation: false } });
+    expect(resetSettings().toolBehavior).toEqual({ returnToSelectAfterCreation: true });
   });
 });

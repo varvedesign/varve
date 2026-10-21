@@ -14,6 +14,7 @@
     clippy::derivable_impls
 )]
 
+pub mod blend;
 pub mod cmyk;
 pub mod icc;
 pub mod marks;
@@ -22,6 +23,8 @@ pub mod profiles;
 pub mod resources;
 pub mod shaper;
 pub mod subset;
+
+pub use blend::{blend_mode_label, needs_blend_graphics_state, pdf_blend_name, UnrepresentedBlend};
 
 /// Shared cross-platform test-font resolver. Kept non-`cfg(test)` so the
 /// desktop crate's test module can reuse the bundled fixture instead of
@@ -69,8 +72,8 @@ pub struct PdfOptions {
     pub color_bar: bool,
     /// Print profile for CMYK conversion (None = RGB).
     pub print_profile: Option<PrintProfile>,
-    /// When true, subset each font to only the characters used in the document
-    /// and embed the subset font programs in the PDF (searchable text).
+    /// When true, subset and embed fonts for text runs representable by the
+    /// PDF writer's WinAnsi text path. Other Unicode runs are outlined.
     pub subset_fonts: bool,
     /// How to handle fonts whose OS/2 fsType restricts embedding.
     pub embedding_restriction_handling: EmbeddingRestriction,
@@ -451,8 +454,14 @@ pub(crate) struct ImageRenderState<'a> {
     pub doc: &'a mut Document,
     pub counter: u32,
     pub refs: Vec<(String, Object)>,
-    /// Graphics state dictionaries for fill opacity (opacity -> GS name).
+    /// Graphics state dictionaries for alpha (opacity -> GS name).
     gs_cache: HashMap<u32, String>,
+    /// Graphics state dictionaries for blend modes (PDF name -> GS name).
+    blend_gs_cache: HashMap<&'static str, String>,
+    /// False for formats that forbid live transparency (PDF/X-1a), where a
+    /// `/BM` entry would break the declared conformance. Blend modes are then
+    /// reported by `unrepresented_blend_modes` instead of written.
+    pub allow_blend_modes: bool,
 }
 
 impl<'a> ImageRenderState<'a> {
@@ -462,11 +471,15 @@ impl<'a> ImageRenderState<'a> {
             counter: 0,
             refs: Vec::new(),
             gs_cache: HashMap::new(),
+            blend_gs_cache: HashMap::new(),
+            allow_blend_modes: true,
         }
     }
 
-    /// Get-or-create an ExtGState dictionary for a given fill opacity.
-    /// Returns the GS name (e.g. "GS075") to use with `gs` in the content stream.
+    /// Get-or-create an ExtGState dictionary for a given alpha value.
+    /// Sets both non-stroking (`ca`) and stroking (`CA`) alpha so a node's
+    /// global opacity applies to fills and strokes. Returns the GS name (e.g.
+    /// "GS075") to use with `gs` in the content stream.
     pub fn get_or_create_opacity_gs(&mut self, opacity: f64) -> String {
         let key = (opacity.clamp(0.0, 1.0) * 1000.0) as u32;
         if let Some(name) = self.gs_cache.get(&key) {
@@ -476,10 +489,64 @@ impl<'a> ImageRenderState<'a> {
         let gs = dictionary! {
             "Type" => "ExtGState",
             "ca" => opacity.clamp(0.0, 1.0),
+            "CA" => opacity.clamp(0.0, 1.0),
         };
         self.refs.push((name.clone(), Object::Dictionary(gs)));
         self.gs_cache.insert(key, name.clone());
         name
+    }
+
+    /// Get-or-create an ExtGState dictionary for a PDF blend mode.
+    ///
+    /// Returns the GS name (e.g. "BMMultiply") to use with `gs` in the content
+    /// stream, or `None` when `mode` has no PDF representation — the caller
+    /// reports that instead of writing `Normal`, which would export a
+    /// different composition than the canvas shows. A blend ExtGState and an
+    /// opacity ExtGState stack: PDF applies the entries each one defines and
+    /// leaves every other graphics-state parameter untouched.
+    pub fn get_or_create_blend_gs(&mut self, mode: &varve_core::BlendMode) -> Option<String> {
+        if !self.allow_blend_modes {
+            return None;
+        }
+        let pdf_name = blend::pdf_blend_name(mode)?;
+        if pdf_name == "Normal" {
+            return None;
+        }
+        if let Some(name) = self.blend_gs_cache.get(pdf_name) {
+            return Some(name.clone());
+        }
+        let name = format!("BM{pdf_name}");
+        let gs = dictionary! {
+            "Type" => "ExtGState",
+            "BM" => Object::Name(pdf_name.as_bytes().to_vec()),
+        };
+        self.refs.push((name.clone(), Object::Dictionary(gs)));
+        self.blend_gs_cache.insert(pdf_name, name.clone());
+        Some(name)
+    }
+
+    /// Get-or-create an effect blend state, including `/BM /Normal`.
+    ///
+    /// A drop shadow's blend mode is local to the effect and can override a
+    /// non-Normal node mode. The regular node/fill helper omits Normal because
+    /// the page default is Normal; effects need an explicit Normal entry when
+    /// the surrounding node state selected another mode.
+    fn get_or_create_effect_blend_gs(&mut self, mode: &varve_core::BlendMode) -> Option<String> {
+        if !self.allow_blend_modes {
+            return None;
+        }
+        let pdf_name = blend::pdf_blend_name(mode)?;
+        if let Some(name) = self.blend_gs_cache.get(pdf_name) {
+            return Some(name.clone());
+        }
+        let name = format!("BM{pdf_name}");
+        let gs = dictionary! {
+            "Type" => "ExtGState",
+            "BM" => Object::Name(pdf_name.as_bytes().to_vec()),
+        };
+        self.refs.push((name.clone(), Object::Dictionary(gs)));
+        self.blend_gs_cache.insert(pdf_name, name.clone());
+        Some(name)
     }
 }
 
@@ -1384,7 +1451,6 @@ fn render_fills(
                         y: fill_y,
                         scale: fill_scale,
                         fit: fill_fit,
-                        opacity,
                         alpha_mask,
                         crop,
                         rotation: fill_rotation,
@@ -1396,6 +1462,16 @@ fn render_fills(
                         match &mut image_state {
                             Some(state) => {
                                 buf.extend_from_slice(b"q\n");
+
+                                // Image fills have their own canvas blend mode,
+                                // independent of the node's blend state. Apply
+                                // it before painting either a regular image or
+                                // the perspective triangle mesh.
+                                if let Some(name) =
+                                    state.get_or_create_blend_gs(fill_blend_mode(fill))
+                                {
+                                    buf.extend(format!("/{name} gs\n").as_bytes());
+                                }
 
                                 // Every image fill is clipped to its object.
                                 // Rectangles use the complete object affine;
@@ -1530,7 +1606,7 @@ fn render_fills(
                                                             fill_rotation.unwrap_or(0.0),
                                                             *flip_h == Some(true),
                                                             *flip_v == Some(true),
-                                                            *opacity,
+                                                            effective_fill_alpha(node, fill),
                                                             &perspective.quad,
                                                             state,
                                                         );
@@ -1591,9 +1667,11 @@ fn render_fills(
                                                     }
 
                                                     // Apply per-fill opacity via ExtGState
-                                                    if *opacity < 1.0 {
+                                                    let fill_alpha =
+                                                        effective_fill_alpha(node, fill);
+                                                    if fill_alpha < 1.0 {
                                                         let gs_name = state
-                                                            .get_or_create_opacity_gs(*opacity);
+                                                            .get_or_create_opacity_gs(fill_alpha);
                                                         buf.extend(
                                                             format!("/{gs_name} gs\n").as_bytes(),
                                                         );
@@ -1647,9 +1725,10 @@ fn render_fills(
                                                 let sy = bh / PH as f64;
 
                                                 // Apply per-fill opacity via ExtGState
-                                                if *opacity < 1.0 {
+                                                let fill_alpha = effective_fill_alpha(node, fill);
+                                                if fill_alpha < 1.0 {
                                                     let gs_name =
-                                                        state.get_or_create_opacity_gs(*opacity);
+                                                        state.get_or_create_opacity_gs(fill_alpha);
                                                     buf.extend(
                                                         format!("/{gs_name} gs\n").as_bytes(),
                                                     );
@@ -1896,13 +1975,22 @@ fn render_fills(
                                         let (shape_x, shape_y, shape_w, shape_h) =
                                             shape_pdf_bounds(node, page_height);
                                         buf.extend_from_slice(b"q\n");
-                                        buf.extend(&path_ops);
-                                        buf.extend_from_slice(path_clip_operator(node));
-                                        if *opacity < 1.0 {
+                                        // Fill-scoped graphics state, exactly as
+                                        // the canvas applies per-fill alpha and
+                                        // blend for a pattern paint.
+                                        if let Some(name) = image_state
+                                            .get_or_create_blend_gs(fill_blend_mode(fill))
+                                        {
+                                            buf.extend(format!("/{name} gs\n").as_bytes());
+                                        }
+                                        let pattern_alpha = effective_fill_alpha(node, fill);
+                                        if pattern_alpha < 1.0 {
                                             let gs_name =
-                                                image_state.get_or_create_opacity_gs(*opacity);
+                                                image_state.get_or_create_opacity_gs(pattern_alpha);
                                             buf.extend(format!("/{gs_name} gs\n").as_bytes());
                                         }
+                                        buf.extend(&path_ops);
+                                        buf.extend_from_slice(path_clip_operator(node));
 
                                         // Tile the image across shape bounds
                                         let x_step = step_x;
@@ -1974,14 +2062,17 @@ fn render_fills(
                     }
                     FillIR::Solid { .. } => {
                         buf.extend_from_slice(b"q\n");
+                        // The canvas multiplies the fill's opacity by the
+                        // item's and applies the fill's blend mode in place of
+                        // the item's, so both belong to this fill's own state.
+                        // A graphics state only affects the operators that
+                        // follow it, so it must precede the paint.
+                        write_fill_graphics_state(&mut buf, &mut image_state, node, fill);
                         let color_str = fill_to_color_string(fill, use_cmyk, profile, lossy);
                         buf.extend(color_str.as_bytes());
                         buf.extend(b"\n");
                         buf.extend(&path_ops);
                         buf.extend_from_slice(path_fill_operator(node));
-                        if fill_opacity(fill) < 1.0 {
-                            buf.extend(format!("% opacity={:.3}\n", fill_opacity(fill)).as_bytes());
-                        }
                         buf.extend_from_slice(b"Q\n");
                     }
                     FillIR::Gradient {
@@ -1992,6 +2083,7 @@ fn render_fills(
                         ..
                     } => {
                         buf.extend_from_slice(b"q\n");
+                        write_fill_graphics_state(&mut buf, &mut image_state, node, fill);
                         let use_shading = stops.len() >= 2;
                         if use_shading {
                             if let Some(registry) = shading_registry.as_mut() {
@@ -2021,9 +2113,10 @@ fn render_fills(
                             buf.extend(&path_ops);
                             buf.extend_from_slice(path_fill_operator(node));
                         }
-                        if fill_opacity(fill) < 1.0 {
-                            buf.extend(format!("% opacity={:.3}\n", fill_opacity(fill)).as_bytes());
-                        }
+                        // The canvas multiplies the fill's opacity by the
+                        // item's and applies the fill's blend mode in place of
+                        // the item's, so both belong to this fill's own state.
+                        write_fill_graphics_state(&mut buf, &mut image_state, node, fill);
                         buf.extend_from_slice(b"Q\n");
                     }
                 }
@@ -2042,9 +2135,8 @@ fn render_fills(
     buf.extend(b"\n");
     buf.extend(&path_ops);
     buf.extend_from_slice(path_fill_operator(node));
-    if node.opacity < 1.0 {
-        buf.extend(format!("% opacity={:.3}\n", node.opacity).as_bytes());
-    }
+    // Node opacity and blend mode are applied once by `shape_to_pdf_content`
+    // for the whole node, which is the scope the canvas uses too.
     buf.extend_from_slice(b"Q\n");
     buf
 }
@@ -2055,6 +2147,7 @@ fn render_strokes(
     page_height: f64,
     use_cmyk: bool,
     profile: Option<PrintProfile>,
+    mut image_state: Option<&mut ImageRenderState<'_>>,
 ) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
     if path_ops.is_empty() || node.strokes.is_empty() {
@@ -2067,6 +2160,19 @@ fn render_strokes(
             continue;
         }
         buf.extend_from_slice(b"q\n");
+
+        // PDF alpha is a graphics-state value rather than a component of the
+        // stroke colour. Match the canvas by multiplying the node opacity by
+        // the color alpha before setting the stroking alpha.
+        let stroke_alpha = (node.opacity.clamp(0.0, 1.0)
+            * (f64::from(engine_color_rgba(&stroke.color).3) / 255.0).clamp(0.0, 1.0))
+        .clamp(0.0, 1.0);
+        if stroke_alpha < 1.0 {
+            if let Some(state) = image_state.as_deref_mut() {
+                let name = state.get_or_create_opacity_gs(stroke_alpha);
+                buf.extend_from_slice(format!("/{name} gs\n").as_bytes());
+            }
+        }
 
         // Line width
         buf.extend(format!("{:.2} w\n", stroke.weight).as_bytes());
@@ -2124,6 +2230,7 @@ fn render_effects(
     page_height: f64,
     use_cmyk: bool,
     profile: Option<PrintProfile>,
+    mut image_state: Option<&mut ImageRenderState>,
 ) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
     let has_filters = node
@@ -2145,6 +2252,7 @@ fn render_effects(
                 spread: _,
                 color,
                 opacity,
+                blend_mode,
                 visible,
                 ..
             } => {
@@ -2152,6 +2260,20 @@ fn render_effects(
                     continue;
                 }
                 buf.extend_from_slice(b"q\n");
+
+                if let Some(state) = image_state.as_deref_mut() {
+                    if let Some(name) = state.get_or_create_effect_blend_gs(blend_mode) {
+                        buf.extend(format!("/{name} gs\n").as_bytes());
+                    }
+                    let color_alpha = f64::from(engine_color_rgba(color).3) / 255.0;
+                    let effect_alpha =
+                        (node.opacity.clamp(0.0, 1.0) * opacity.clamp(0.0, 1.0) * color_alpha)
+                            .clamp(0.0, 1.0);
+                    if effect_alpha < 1.0 {
+                        let name = state.get_or_create_opacity_gs(effect_alpha);
+                        buf.extend(format!("/{name} gs\n").as_bytes());
+                    }
+                }
 
                 // Apply shadow offset translation
                 let blur_approx = blur.max(0.0);
@@ -2171,9 +2293,6 @@ fn render_effects(
                 buf.extend(&path_ops);
                 buf.extend_from_slice(path_fill_operator(node));
 
-                if *opacity < 1.0 {
-                    buf.extend(format!("% opacity={:.3}\n", opacity).as_bytes());
-                }
                 if *blur > 0.0 {
                     buf.extend(format!("% blur={:.2}\n", blur).as_bytes());
                 }
@@ -2396,27 +2515,36 @@ pub fn rgba_to_rgb(data: &[u8]) -> Vec<u8> {
 fn shape_to_pdf_content(
     node: &SceneNode,
     page_height: f64,
-    image_state: Option<&mut ImageRenderState>,
+    mut image_state: Option<&mut ImageRenderState>,
     manifest: Option<&resources::ExportManifest>,
     use_cmyk: bool,
     profile: Option<PrintProfile>,
 ) -> Vec<u8> {
     let mut buf = Vec::new();
     buf.extend_from_slice(b"q\n");
-    let effects = render_effects(node, page_height, use_cmyk, profile);
+    if let Some(state) = image_state.as_mut() {
+        write_node_graphics_state(&mut buf, state, node);
+    }
+    let effects = render_effects(
+        node,
+        page_height,
+        use_cmyk,
+        profile,
+        image_state.as_deref_mut(),
+    );
     buf.extend(&effects);
     let fills = render_fills(
         node,
         page_height,
         use_cmyk,
-        image_state,
+        image_state.as_deref_mut(),
         manifest,
         profile,
         None,
         false,
     );
     buf.extend(&fills);
-    let strokes = render_strokes(node, page_height, use_cmyk, profile);
+    let strokes = render_strokes(node, page_height, use_cmyk, profile, image_state);
     buf.extend(&strokes);
     buf.extend_from_slice(b"Q\n");
     buf
@@ -2540,6 +2668,168 @@ fn fill_opacity(fill: &FillIR) -> f64 {
     }
 }
 
+fn fill_blend_mode(fill: &FillIR) -> &varve_core::BlendMode {
+    match fill {
+        FillIR::Solid { blend_mode, .. } => blend_mode,
+        FillIR::Gradient { blend_mode, .. } => blend_mode,
+        FillIR::Image { blend_mode, .. } => blend_mode,
+        FillIR::Pattern { blend_mode, .. } => blend_mode,
+    }
+}
+
+/// True when the writer can reproduce `mode` for a target that may (`true`) or
+/// may not (`false`) carry live transparency.
+///
+/// One predicate, used both to decide what to write and to decide what to
+/// report, so the two can never disagree:
+///
+/// - `Normal` is the PDF page default.
+/// - `passThrough` is a group policy whose node-level effect is also `Normal`.
+/// - every other mode needs a `/BM` entry, which PDF/X-1a forbids because it
+///   does not permit live transparency.
+/// - `plusLighter` has a Canvas2D equivalent (`lighter`) but no PDF name, and
+///   `plusDarker` is a legacy mode with no Canvas2D equivalent either.
+pub fn blend_is_representable(mode: &varve_core::BlendMode, allow_blend_modes: bool) -> bool {
+    match blend::pdf_blend_name(mode) {
+        Some("Normal") => true,
+        None => matches!(mode, varve_core::BlendMode::PassThrough),
+        Some(_) => allow_blend_modes,
+    }
+}
+
+/// Every node in `nodes` whose paint the writer cannot reproduce faithfully: a
+/// node or a visible fill whose blend mode is not representable for a target
+/// with the given transparency capability.
+///
+/// Callers that must not ship a silently different composition — the PDF/X-1a
+/// route, where the format forbids transparency outright — use this to refuse
+/// or disclose instead of returning a page that looks like a successful
+/// export and composites differently from the canvas.
+pub fn unrepresented_blend_modes(
+    nodes: &[SceneNode],
+    allow_blend_modes: bool,
+) -> Vec<UnrepresentedBlend> {
+    let mut out = Vec::new();
+    for node in nodes {
+        if !blend_is_representable(&node.blend_mode, allow_blend_modes) {
+            out.push(UnrepresentedBlend {
+                node_name: node.name.clone(),
+                mode: blend::blend_mode_label(&node.blend_mode),
+            });
+        }
+        if let Some(fills) = &node.fills {
+            for fill in fills {
+                if !fill_visible(fill) {
+                    continue;
+                }
+                let mode = fill_blend_mode(fill);
+                if !blend_is_representable(mode, allow_blend_modes) {
+                    out.push(UnrepresentedBlend {
+                        node_name: node.name.clone(),
+                        mode: blend::blend_mode_label(mode),
+                    });
+                }
+            }
+        }
+        for effect in &node.effects {
+            if let Effect::DropShadow {
+                blend_mode,
+                visible: true,
+                ..
+            } = effect
+            {
+                if !blend_is_representable(blend_mode, allow_blend_modes) {
+                    out.push(UnrepresentedBlend {
+                        node_name: node.name.clone(),
+                        mode: blend::blend_mode_label(blend_mode),
+                    });
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Refuse direct PDF API calls when a scene contains a mode without a PDF
+/// equivalent. Editor preflight performs the same check for user-facing
+/// exports; keeping it here prevents library callers from silently getting
+/// Normal-composited artwork.
+pub(crate) fn assert_pdf_blends_are_representable(
+    nodes: &[SceneNode],
+    format_label: &str,
+) -> Result<(), String> {
+    let unsupported = unrepresented_blend_modes(nodes, true);
+    if unsupported.is_empty() {
+        return Ok(());
+    }
+    let details = unsupported
+        .iter()
+        .map(|entry| format!("'{}' ({})", entry.node_name, entry.mode))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Err(format!(
+        "{format_label} export stopped: these objects use blend modes PDF cannot carry: {details}. Flatten the complete composite against its background or export it as a raster image."
+    ))
+}
+
+/// Effective alpha of one fill, matching the canvas: the node's opacity
+/// multiplies the fill's own opacity (`packages/engine/src/replay.ts` sets
+/// `globalAlpha = itemAlpha * fill.opacity`). PDF `/ca` is a single value, so
+/// the product is what must be written — emitting both graphics states
+/// separately would leave only the inner one in effect and paint the fill
+/// twice as opaque as the canvas did.
+fn effective_fill_alpha(node: &SceneNode, fill: &FillIR) -> f64 {
+    (node.opacity.clamp(0.0, 1.0) * fill_opacity(fill).clamp(0.0, 1.0)).clamp(0.0, 1.0)
+}
+
+/// Write one fill's own graphics state (blend mode, then alpha) into `buf`.
+///
+/// Called inside the fill's own `q`/`Q`, so the state applies to that fill
+/// alone. The node-level state written by [`write_node_graphics_state`] stays
+/// in effect for the fills that do not override it, which is the same fallback
+/// the canvas uses (`fill.blendMode` wins, otherwise the item's mode).
+fn write_fill_graphics_state(
+    buf: &mut Vec<u8>,
+    image_state: &mut Option<&mut ImageRenderState>,
+    node: &SceneNode,
+    fill: &FillIR,
+) {
+    let Some(state) = image_state.as_mut() else {
+        return;
+    };
+    if let Some(name) = state.get_or_create_blend_gs(fill_blend_mode(fill)) {
+        buf.extend_from_slice(format!("/{name} gs\n").as_bytes());
+    }
+    let alpha = effective_fill_alpha(node, fill);
+    if alpha < 1.0 {
+        let name = state.get_or_create_opacity_gs(alpha);
+        buf.extend_from_slice(format!("/{name} gs\n").as_bytes());
+    }
+}
+
+/// Write the node-scoped graphics state (blend mode, then opacity) into `buf`.
+///
+/// The canvas applies a node's `opacity` and `blendMode` to everything the node
+/// paints — `globalAlpha` and `globalCompositeOperation` wrap the fills,
+/// strokes and effects of one render item (`packages/engine/src/replay.ts`) —
+/// so both entries are set once, inside the node's own `q`/`Q`. A mode with no
+/// PDF name writes nothing and is reported by [`unrepresented_blend_modes`]
+/// rather than being passed off as `Normal`.
+///
+/// Either writer that renders a node must call this: the vector-export loop in
+/// [`export_pdf`] and [`shape_to_pdf_content`] are separate code paths, and a
+/// node painted without its graphics state is exactly the defect this exists
+/// to prevent.
+fn write_node_graphics_state(buf: &mut Vec<u8>, state: &mut ImageRenderState, node: &SceneNode) {
+    if let Some(name) = state.get_or_create_blend_gs(&node.blend_mode) {
+        buf.extend_from_slice(format!("/{name} gs\n").as_bytes());
+    }
+    if node.opacity < 1.0 {
+        let name = state.get_or_create_opacity_gs(node.opacity);
+        buf.extend_from_slice(format!("/{name} gs\n").as_bytes());
+    }
+}
+
 /// Convert a glyph outline to PDF path content bytes.
 ///
 /// Each `PathCommand` is mapped to the equivalent PDF path operator
@@ -2595,10 +2885,6 @@ struct EmbeddedFontEntry {
     family: String,
     /// Object ID of the font dictionary in the PDF document.
     dict_id: ObjectId,
-    /// Whether this font is embedded as a CIDFont2 (Identity-H) for
-    /// non-WinAnsi/CJK text. When true, the font dictionary uses
-    /// /Subtype /CIDFontType2 and a /CIDSystemInfo entry.
-    is_cid: bool,
 }
 
 /// Build a PDF TJ array string with per-glyph character hex codes.
@@ -2648,8 +2934,8 @@ pub fn requires_outline(text: &str) -> bool {
     text.chars().any(|c| (c as u32) > 0xFF)
 }
 
-/// Check whether text contains any character outside WinAnsi range
-/// (i.e., needs CID font or outline).
+/// Check whether text contains any character outside the PDF writer's
+/// WinAnsi text path (i.e., it needs the Unicode outline fallback).
 pub fn has_non_winansi(text: &str) -> bool {
     requires_outline(text)
 }
@@ -2871,145 +3157,12 @@ fn embed_font_program(
         res_name,
         family: family.to_string(),
         dict_id: font_dict_id,
-        is_cid: false,
     })
 }
 
-/// Embed a font program as a CIDFont2 (Type 0 font with Identity-H CMap).
-/// Used for non-WinAnsi text (CJK, Arabic, Hebrew, etc.) where the font
-/// cannot use WinAnsiEncoding but can be referenced by CID (character ID).
-fn embed_cid_font_program(
-    doc: &mut Document,
-    family: &str,
-    base_font: &str,
-    font_data: &[u8],
-    font_idx: usize,
-) -> Result<EmbeddedFontEntry, String> {
-    let metrics = read_font_metrics(font_data, 0);
-
-    // 1. Font program stream (FontFile2)
-    let font_stream_id = doc.new_object_id();
-    let font_stream = Stream::new(
-        dictionary! { "Length1" => font_data.len() as i64 },
-        font_data.to_vec(),
-    );
-    doc.objects
-        .insert(font_stream_id, Object::Stream(font_stream));
-
-    // 2. FontDescriptor
-    let descriptor_id = doc.new_object_id();
-    let font_name_bytes = base_font.as_bytes().to_vec();
-    let descriptor = dictionary! {
-        "Type" => "FontDescriptor",
-        "FontName" => Object::Name(font_name_bytes.clone()),
-        "Flags" => metrics.flags,
-        "FontBBox" => vec![
-            Object::Real(metrics.bbox[0] as f32),
-            Object::Real(metrics.bbox[1] as f32),
-            Object::Real(metrics.bbox[2] as f32),
-            Object::Real(metrics.bbox[3] as f32),
-        ],
-        "ItalicAngle" => metrics.italic_angle as i32,
-        "Ascent" => metrics.ascent as i32,
-        "Descent" => metrics.descent as i32,
-        "CapHeight" => metrics.cap_height as i32,
-        "StemV" => metrics.stem_v as i32,
-        "FontFile2" => Object::Reference(font_stream_id),
-    };
-    doc.objects
-        .insert(descriptor_id, Object::Dictionary(descriptor));
-
-    // 3. CIDSystemInfo
-    let cid_system_info_id = doc.new_object_id();
-    let cid_system_info = dictionary! {
-        "Registry" => Object::string_literal("Strata"),
-        "Ordering" => Object::string_literal("Identity"),
-        "Supplement" => 0,
-    };
-    doc.objects
-        .insert(cid_system_info_id, Object::Dictionary(cid_system_info));
-
-    // 4. CIDFont dictionary (CIDFontType2 for TrueType outlines)
-    let cid_font_dict_id = doc.new_object_id();
-    let tag = get_subset_tag(family);
-    let cid_base_font = format!("{}{}", tag, base_font);
-    let cid_font_dict = dictionary! {
-        "Type" => "Font",
-        "Subtype" => "CIDFontType2",
-        "BaseFont" => Object::Name(cid_base_font.as_bytes().to_vec()),
-        "CIDSystemInfo" => Object::Reference(cid_system_info_id),
-        "FontDescriptor" => Object::Reference(descriptor_id),
-        "DW" => 1000, // Default glyph width
-    };
-    doc.objects
-        .insert(cid_font_dict_id, Object::Dictionary(cid_font_dict));
-
-    // 5. CMap stream (Identity-H)
-    let cmap_id = doc.new_object_id();
-    let cmap_data = build_identity_h_cmap();
-    doc.objects.insert(
-        cmap_id,
-        Object::Stream(Stream::new(dictionary! {}, cmap_data)),
-    );
-
-    // 6. Type 0 font dictionary referencing CIDFont + CMap
-    let font_dict_id = doc.new_object_id();
-    let res_name = format!("F{}", font_idx + 1);
-    let font_dict = dictionary! {
-        "Type" => "Font",
-        "Subtype" => "Type0",
-        "BaseFont" => Object::Name(cid_base_font.as_bytes().to_vec()),
-        "Encoding" => Object::Reference(cmap_id),
-        "DescendantFonts" => vec![Object::Reference(cid_font_dict_id)],
-    };
-    doc.objects
-        .insert(font_dict_id, Object::Dictionary(font_dict));
-
-    // 7. ToUnicode CMap for text extraction
-    let to_unicode_id = doc.new_object_id();
-    let to_unicode_stream = build_to_unicode_cmap(font_data, 0);
-    doc.objects.insert(
-        to_unicode_id,
-        Object::Stream(Stream::new(dictionary! {}, to_unicode_stream)),
-    );
-    if let Object::Dictionary(dict) = doc.objects.get_mut(&font_dict_id).unwrap() {
-        dict.set("ToUnicode", Object::Reference(to_unicode_id));
-    }
-
-    Ok(EmbeddedFontEntry {
-        res_name,
-        family: family.to_string(),
-        dict_id: font_dict_id,
-        is_cid: true,
-    })
-}
-
-/// Build an Identity-H CMap stream for CIDFont keying.
-/// Maps 2-byte character codes directly to CIDs (identity mapping).
-fn build_identity_h_cmap() -> Vec<u8> {
-    let mut cmap = Vec::new();
-    cmap.extend_from_slice(b"/CIDInit /ProcSet findresource begin\n");
-    cmap.extend_from_slice(b"12 dict begin\n");
-    cmap.extend_from_slice(b"begincmap\n");
-    cmap.extend_from_slice(
-        b"/CIDSystemInfo << /Registry (Strata) /Ordering (Identity) /Supplement 0 >> def\n",
-    );
-    cmap.extend_from_slice(b"/CMapName /Strata-Identity def\n");
-    cmap.extend_from_slice(b"/CMapType 2 def\n");
-    cmap.extend_from_slice(b"1 begincodespacerange\n");
-    cmap.extend_from_slice(b"<0000> <FFFF>\n");
-    cmap.extend_from_slice(b"endcodespacerange\n");
-    cmap.extend_from_slice(b"1 beginbfrange\n");
-    cmap.extend_from_slice(b"<0000> <FFFF> <0000>\n");
-    cmap.extend_from_slice(b"endbfrange\n");
-    cmap.extend_from_slice(b"endcmap\n");
-    cmap.extend_from_slice(b"end\n");
-    cmap
-}
-
-/// Build a ToUnicode CMap stream for CIDFont-based text extraction.
-/// Maps character codes (0x00-0xFF for WinAnsi) to Unicode values
-/// using the font's cmap table.
+/// Build a ToUnicode CMap stream for the simple WinAnsi font path.
+/// Maps one-byte WinAnsi character codes to Unicode values using the
+/// embedded font's cmap table.
 fn build_to_unicode_cmap(font_data: &[u8], face_index: u32) -> Vec<u8> {
     // Build bfrange entries: character code → Unicode
     let mut ranges: Vec<(u8, u8, u32)> = Vec::new();
@@ -3148,6 +3301,7 @@ fn render_rich_text_to_pdf(
     opts: &PdfOptions,
     embedded_fonts: &[EmbeddedFontEntry],
     page_height: f64,
+    image_state: &mut ImageRenderState,
 ) -> Option<Vec<u8>> {
     let Shape::Text {
         text: _,
@@ -3241,6 +3395,7 @@ fn render_rich_text_to_pdf(
                 &current_x,
                 &current_y,
                 opts,
+                image_state,
             ) {
                 content.append(&mut cmd);
                 current_x += run_width;
@@ -3292,6 +3447,7 @@ fn render_rich_text_to_pdf(
 /// searchable text. The new pipeline respects stacked fills, strokes, and
 /// effects.
 pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, String> {
+    assert_pdf_blends_are_representable(nodes, "PDF")?;
     let mut doc = Document::new();
     let page_id = doc.new_object_id();
 
@@ -3299,15 +3455,19 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
 
     let mut content = Vec::new();
     content.extend_from_slice(b"q\n");
-    // White background
-    if use_cmyk {
-        content.extend_from_slice(b"0 0 0 0 k\n");
-    } else {
-        content.extend_from_slice(b"1 1 1 rg\n");
-    }
-    content.extend_from_slice(
-        format!("0 0 {:.2} {:.2} re\nf\n", opts.page_width, opts.page_height).as_bytes(),
-    );
+    // The page keeps its neutral initial backdrop. Painting an opaque white
+    // rectangle here would make every blend mode composite with white instead
+    // of with the same backdrop the canvas uses, so a `Screen` or `Lighten`
+    // object over an unpainted area would come out white in the file while it
+    // shows its own colour on screen. Verified against poppler and
+    // Ghostscript: with nothing painted first, `Screen` over an empty area
+    // returns the source colour, which is what
+    // `packages/engine/src/blendConformance.ts` pins as the transparent-backdrop
+    // case. A document that wants paper paints the page-background nodes it
+    // already owns (`Document.pages[].backgrounds`), which are part of `nodes`.
+    //
+    // The document's own backdrop is whatever those nodes paint; a viewer
+    // still presents the unpainted page as white paper.
 
     // ── Font subsetting / embedding ─────────────────────────────────────
     let embedded_fonts: Vec<EmbeddedFontEntry> = if opts.subset_fonts && !opts.fonts.is_empty() {
@@ -3381,16 +3541,6 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             // Embed as WinAnsi font for Latin text
             let entry = embed_font_program(&mut doc, family, &base_font, &subset_data, font_idx)?;
             entries.push(entry);
-
-            // Also embed as CID font for non-WinAnsi text (CJK, Arabic, etc.)
-            // if the family text contains non-Latin characters
-            let used_text = family_text.get(family).map(|s| s.as_str()).unwrap_or("");
-            if has_non_winansi(used_text) {
-                let cid_idx = entries.len() + font_idx;
-                let cid_entry =
-                    embed_cid_font_program(&mut doc, family, &base_font, &subset_data, cid_idx)?;
-                entries.push(cid_entry);
-            }
         }
 
         entries
@@ -3399,30 +3549,6 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
     };
 
     let do_outline = opts.outline_text && (opts.font_data.is_some() || !opts.fonts.is_empty());
-    // Build a map from family → font entry for quick lookup (also CID variants)
-    fn build_font_map(
-        entries: &[EmbeddedFontEntry],
-    ) -> (
-        std::collections::HashMap<String, &EmbeddedFontEntry>,
-        std::collections::HashMap<String, &EmbeddedFontEntry>,
-    ) {
-        let mut winansi_map = std::collections::HashMap::new();
-        let mut cid_map = std::collections::HashMap::new();
-        for ef in entries {
-            if ef.is_cid {
-                cid_map.entry(ef.family.clone()).or_insert(ef);
-            } else {
-                winansi_map.entry(ef.family.clone()).or_insert(ef);
-            }
-        }
-        (winansi_map, cid_map)
-    }
-    let (font_map, cid_font_map) = build_font_map(&embedded_fonts);
-    let _ = font_map;
-    let _ = cid_font_map;
-
-    let mut need_bt = false;
-
     // ── Build content with image rendering support ──────────────────────
     let (image_refs, shading_registry) = {
         let mut image_state = ImageRenderState::new(&mut doc);
@@ -3442,15 +3568,19 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             );
 
             if is_text_node && has_rich_text {
-                // Flush any pending BT first
-                if need_bt {
-                    content.extend_from_slice(b"ET\n");
-                    need_bt = false;
-                }
-                if let Some(mut rich_content) =
-                    render_rich_text_to_pdf(node, opts, &embedded_fonts, opts.page_height)
-                {
+                if let Some(mut rich_content) = render_rich_text_to_pdf(
+                    node,
+                    opts,
+                    &embedded_fonts,
+                    opts.page_height,
+                    &mut image_state,
+                ) {
+                    // Scope native text and outlined rich-text runs with the
+                    // same node state as the general shape renderer.
+                    content.extend_from_slice(b"q\n");
+                    write_node_graphics_state(&mut content, &mut image_state, node);
                     content.append(&mut rich_content);
+                    content.extend_from_slice(b"Q\n");
                     continue;
                 }
                 // If rich text rendering fails (no runs), fall through to
@@ -3472,9 +3602,7 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                 if !text.is_empty() && !embedded_fonts.is_empty() {
                     // Try WinAnsi font for Latin text
                     if !is_non_winansi && can_encode_win_ansi(text) {
-                        if let Some(ef) = embedded_fonts
-                            .iter()
-                            .find(|ef| ef.family == *font_family && !ef.is_cid)
+                        if let Some(ef) = embedded_fonts.iter().find(|ef| ef.family == *font_family)
                         {
                             let tx = node.transform.as_coeffs();
                             let x_off = tx[4];
@@ -3492,10 +3620,9 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                             let pdf_x = x + x_off;
                             let pdf_y = opts.page_height - y - asc - y_off;
 
-                            if !need_bt {
-                                content.extend_from_slice(b"BT\n");
-                                need_bt = true;
-                            }
+                            content.extend_from_slice(b"q\n");
+                            write_node_graphics_state(&mut content, &mut image_state, node);
+                            content.extend_from_slice(b"BT\n");
                             // Use TJ array with kerning when font binary is available
                             let font_data_ref = opts
                                 .fonts
@@ -3518,66 +3645,18 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                                 )
                                 .as_bytes(),
                             );
-                            continue;
-                        }
-                    }
-
-                    // Try CID font for non-WinAnsi text (CJK, Arabic, Hebrew, etc.)
-                    if is_non_winansi {
-                        if let Some(ef) = embedded_fonts
-                            .iter()
-                            .find(|ef| ef.family == *font_family && ef.is_cid)
-                        {
-                            let tx = node.transform.as_coeffs();
-                            let x_off = tx[4];
-                            let y_off = tx[5];
-
-                            let asc = font_ascender(
-                                opts.fonts
-                                    .iter()
-                                    .find(|(n, _)| n == font_family)
-                                    .map(|(_, d)| d.as_slice())
-                                    .unwrap_or_default(),
-                                *font_size,
-                            );
-
-                            let pdf_x = x + x_off;
-                            let pdf_y = opts.page_height - y - asc - y_off;
-
-                            // Emit as CID-keyed text with hex string encoding
-                            // Each character becomes a 2-byte hex CID
-                            let hex_cids: String = text
-                                .chars()
-                                .map(|c| format!("{:04X}", c as u32))
-                                .collect::<Vec<_>>()
-                                .join("");
-
-                            if !need_bt {
-                                content.extend_from_slice(b"BT\n");
-                                need_bt = true;
-                            }
-                            content.extend(
-                                format!(
-                                    "/{} {} Tf\n1 0 0 1 {:.2} {:.2} Tm\n<{}> Tj\n",
-                                    ef.res_name, font_size, pdf_x, pdf_y, hex_cids
-                                )
-                                .as_bytes(),
-                            );
+                            content.extend_from_slice(b"ET\nQ\n");
                             continue;
                         }
                     }
                 }
             }
 
-            // Flush BT if we were in text mode
-            if need_bt {
-                content.extend_from_slice(b"ET\n");
-                need_bt = false;
-            }
-
-            // Try outline mode — or forced outline for non-WinAnsi text
-            // (Arabic, Hebrew, CJK cannot be encoded in WinAnsiEncoding and MUST
-            // be outlined even when opts.outline_text is false).
+            // Non-WinAnsi text is outlined even when opts.outline_text is
+            // false. The current PDF text writer has no verified Unicode to
+            // CID/GID mapping; emitting Unicode values as Identity-H CIDs
+            // paints missing or unrelated glyphs. Paths preserve appearance,
+            // while searchable text remains available for WinAnsi runs.
             if do_outline || shape_text(node).is_some_and(|t| !t.is_empty() && requires_outline(t))
             {
                 if let Shape::Text {
@@ -3590,10 +3669,21 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                 } = &node.shape
                 {
                     if !text.is_empty() {
-                        let outlined =
-                            try_outline_node(node, text, *font_size, font_family, x, y, opts);
+                        let outlined = try_outline_node(
+                            node,
+                            text,
+                            *font_size,
+                            font_family,
+                            x,
+                            y,
+                            opts,
+                            &mut image_state,
+                        );
                         if let Some(mut cmd) = outlined {
+                            content.extend_from_slice(b"q\n");
+                            write_node_graphics_state(&mut content, &mut image_state, node);
                             content.append(&mut cmd);
+                            content.extend_from_slice(b"Q\n");
                             continue;
                         }
                     }
@@ -3601,7 +3691,14 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             }
             // New pipeline: effects + fills + strokes
             content.extend_from_slice(b"q\n");
-            let effects = render_effects(node, opts.page_height, use_cmyk, opts.print_profile);
+            write_node_graphics_state(&mut content, &mut image_state, node);
+            let effects = render_effects(
+                node,
+                opts.page_height,
+                use_cmyk,
+                opts.print_profile,
+                Some(&mut image_state),
+            );
             content.extend(&effects);
             let fills = render_fills(
                 node,
@@ -3614,7 +3711,13 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                 opts.lossy,
             );
             content.extend(&fills);
-            let strokes = render_strokes(node, opts.page_height, use_cmyk, opts.print_profile);
+            let strokes = render_strokes(
+                node,
+                opts.page_height,
+                use_cmyk,
+                opts.print_profile,
+                Some(&mut image_state),
+            );
             content.extend(&strokes);
             content.extend_from_slice(b"Q\n");
         }
@@ -3622,9 +3725,6 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
         (std::mem::take(&mut image_state.refs), shading_registry)
     };
 
-    if need_bt {
-        content.extend_from_slice(b"ET\n");
-    }
     content.extend_from_slice(b"Q\n");
 
     let content_stream = Stream::new(dictionary! {}, content);
@@ -3710,6 +3810,7 @@ fn try_outline_node(
     x: &f64,
     y: &f64,
     opts: &PdfOptions,
+    image_state: &mut ImageRenderState,
 ) -> Option<Vec<u8>> {
     let tx = node.transform.as_coeffs();
     let x_off = tx[4];
@@ -3747,7 +3848,13 @@ fn try_outline_node(
     content.extend_from_slice(b"q\n");
 
     // Drop shadow for text
-    let shadow = render_effects(node, opts.page_height, use_cmyk, opts.print_profile);
+    let shadow = render_effects(
+        node,
+        opts.page_height,
+        use_cmyk,
+        opts.print_profile,
+        Some(image_state),
+    );
     content.extend(&shadow);
 
     for glyph in &glyphs {
@@ -4312,9 +4419,28 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }]);
-        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_fills(
+            &node,
+            100.0,
+            false,
+            Some(&mut state),
+            None,
+            None,
+            None,
+            false,
+        );
         let s = String::from_utf8_lossy(&result);
-        assert!(s.contains("opacity=0.500"), "should emit opacity comment");
+        assert!(
+            s.contains("/GS500 gs"),
+            "a 0.5 solid fill must be painted through an ExtGState, not a comment: {s}"
+        );
+        assert_every_graphics_state_precedes_a_paint(&s);
+        assert!(
+            !s.contains("opacity="),
+            "opacity must not survive as a non-rendering PDF comment: {s}"
+        );
     }
 
     #[test]
@@ -4857,6 +4983,7 @@ mod tests {
     #[test]
     fn render_fills_image_perspective_subdivides_into_pdf_triangles() {
         let mut node = image_fill_node(1, 0.0, 0.0, 100.0, 80.0);
+        node.opacity = 0.5;
         node.fills = Some(vec![FillIR::Image {
             src: "perspective-src".into(),
             fit: "stretch".into(),
@@ -4865,8 +4992,8 @@ mod tests {
             scale: 1.0,
             image_width: Some(32.0),
             image_height: Some(32.0),
-            opacity: 0.8,
-            blend_mode: BlendMode::Normal,
+            opacity: 0.5,
+            blend_mode: BlendMode::Multiply,
             visible: true,
             alpha_mask: None,
             crop: None,
@@ -4906,8 +5033,12 @@ mod tests {
         );
         assert!(content.matches("cm").count() >= PERSPECTIVE_GRID * PERSPECTIVE_GRID * 2);
         assert!(
-            content.contains("/GS800 gs"),
-            "per-fill opacity should remain applied"
+            content.contains("/GS250 gs"),
+            "node and fill opacity should multiply for perspective image fills: {content}"
+        );
+        assert!(
+            content.contains("/BMMultiply gs"),
+            "image fill blend mode should be applied to the perspective mesh: {content}"
         );
         assert!(!content.contains("image fill not rendered"));
     }
@@ -5402,10 +5533,42 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("5.00 w"), "should set line width to 5");
         assert!(s.contains("S\n"), "should stroke");
+    }
+
+    #[test]
+    fn render_strokes_preserves_stroke_color_alpha() {
+        let stroke = Stroke {
+            color: EngineColor::Rgb {
+                r: 0.0,
+                g: 0.0,
+                b: 255.0,
+                a: 127.5,
+                bit_depth: None,
+                profile: None,
+            },
+            visible: true,
+            ..Default::default()
+        };
+        let mut node = node_with_stroke(stroke);
+        node.opacity = 0.5;
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_strokes(&node, 100.0, false, None, Some(&mut state));
+        let content = String::from_utf8_lossy(&result);
+        assert!(
+            content.contains("/GS249 gs"),
+            "node opacity and near-50% stroke color alpha must multiply: {content}"
+        );
+        assert!(state.refs.iter().any(|(name, object)| {
+            name == "GS249"
+                && matches!(object, Object::Dictionary(gs)
+                    if gs.get(b"CA").ok().and_then(|alpha| alpha.as_float().ok())
+                        .is_some_and(|alpha| (alpha - 0.249).abs() < 0.001))
+        }));
     }
 
     #[test]
@@ -5416,7 +5579,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("1 J"), "round cap = 1");
     }
@@ -5429,7 +5592,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("2 j"), "bevel join = 2");
     }
@@ -5443,7 +5606,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("["), "dash pattern should have bracket");
         assert!(s.contains("d\n"), "should set dash");
@@ -5456,7 +5619,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         assert!(
             result.is_empty(),
             "invisible stroke should produce no output"
@@ -5466,7 +5629,7 @@ mod tests {
     #[test]
     fn render_strokes_empty() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_strokes(&node, 100.0, false, None);
+        let result = render_strokes(&node, 100.0, false, None, None);
         assert!(result.is_empty(), "no strokes should produce no output");
     }
 
@@ -5493,7 +5656,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }];
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("cm"), "shadow should use translation matrix");
         assert!(s.contains("0.000 0.000 0.000 rg"), "shadow should be black");
@@ -5501,9 +5664,108 @@ mod tests {
     }
 
     #[test]
+    fn drop_shadow_pdf_uses_its_blend_mode_and_combined_alpha() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.opacity = 0.5;
+        node.effects = vec![Effect::DropShadow {
+            id: None,
+            x: 5.0,
+            y: 5.0,
+            blur: 0.0,
+            spread: 0.0,
+            color: EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 128.0,
+                bit_depth: None,
+                profile: None,
+            },
+            opacity: 0.5,
+            blend_mode: BlendMode::Screen,
+            visible: true,
+        }];
+
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("PDF with screen shadow");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert!(
+            content.contains("/BMScreen gs"),
+            "shadow blend state: {content}"
+        );
+        assert!(
+            content.contains("/GS125 gs"),
+            "node × effect alpha: {content}"
+        );
+        assert_every_graphics_state_precedes_a_paint(&content);
+
+        let ext = resources
+            .get(b"ExtGState")
+            .expect("ExtGState resources")
+            .as_dict()
+            .expect("ExtGState dictionary");
+        let alpha = ext
+            .get(b"GS125")
+            .expect("combined alpha state")
+            .as_dict()
+            .expect("alpha dictionary");
+        let expected_alpha = 0.5 * 0.5 * 128.0 / 255.0;
+        assert!(
+            (alpha.get(b"ca").unwrap().as_float().unwrap() - expected_alpha).abs() < 1e-12,
+            "node × effect × shadow-colour alpha"
+        );
+        let blend = ext
+            .get(b"BMScreen")
+            .expect("Screen blend state")
+            .as_dict()
+            .expect("blend dictionary");
+        assert_eq!(blend.get(b"BM").unwrap().as_name().unwrap(), b"Screen");
+    }
+
+    #[test]
+    fn normal_drop_shadow_overrides_its_nodes_non_normal_blend_mode() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.blend_mode = BlendMode::Screen;
+        node.effects = vec![Effect::DropShadow {
+            id: None,
+            x: 5.0,
+            y: 5.0,
+            blur: 0.0,
+            spread: 0.0,
+            color: EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                bit_depth: None,
+                profile: None,
+            },
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }];
+
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("PDF with normal shadow");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert!(content.contains("/BMScreen gs"));
+        assert!(content.contains("/BMNormal gs"));
+        assert_every_graphics_state_precedes_a_paint(&content);
+        let ext = resources
+            .get(b"ExtGState")
+            .expect("ExtGState resources")
+            .as_dict()
+            .expect("ExtGState dictionary");
+        let normal = ext
+            .get(b"BMNormal")
+            .expect("explicit Normal effect mode")
+            .as_dict()
+            .expect("Normal blend dictionary");
+        assert_eq!(normal.get(b"BM").unwrap().as_name().unwrap(), b"Normal");
+    }
+
+    #[test]
     fn render_effects_no_effects() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         assert!(result.is_empty(), "no effects should produce no output");
     }
 
@@ -5514,7 +5776,7 @@ mod tests {
         // rather than silently vanishing from print export.
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.filters = Some(vec![serde_json::json!({ "kind": "halftone" })]);
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("nondestructive adjustment stack"),
@@ -5526,7 +5788,7 @@ mod tests {
     fn render_effects_empty_filters_produce_no_output() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.filters = Some(vec![]);
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         assert!(
             result.is_empty(),
             "an empty filters array should not produce a spurious comment"
@@ -5554,7 +5816,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }];
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("innerShadow"), "should have comment");
     }
@@ -5577,7 +5839,7 @@ mod tests {
             edge_protection: 0.035,
             visible: true,
         }];
-        let result = render_effects(&node, 100.0, false, None);
+        let result = render_effects(&node, 100.0, false, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("depthBlur depthMapId=depth-map-1"), "got: {s}");
         assert!(s.contains("not rendered in basic PDF"), "got: {s}");
@@ -5969,6 +6231,39 @@ mod tests {
         );
     }
 
+    #[test]
+    fn export_pdf_subsets_extended_latin_as_glyph_paths() {
+        // Unicode code points are not TrueType glyph IDs. Until the PDF writer
+        // has an explicit Unicode-to-CID-to-GID map, this text must retain its
+        // actual outlines rather than being emitted as Identity-H character
+        // codes that happen to equal Unicode values.
+        let font_data = test_font_data();
+        let nodes = vec![text_node(1, 10.0, 10.0, "Łódź: zażółć gęślą jaźń", 24.0)];
+        let opts = PdfOptions {
+            subset_fonts: true,
+            fonts: vec![("DejaVu Sans".into(), font_data)],
+            ..Default::default()
+        };
+
+        let bytes = export_pdf(&nodes, &opts).expect("extended Latin PDF");
+        let pdf = String::from_utf8_lossy(&bytes);
+        let (_, content) = page_resources_and_content(&bytes);
+        assert!(
+            !pdf.contains("/CIDFontType2") && !pdf.contains("/Identity-H"),
+            "extended Latin text must not use the unverified identity CID path"
+        );
+        assert!(
+            content
+                .lines()
+                .any(|line| matches!(line.trim(), "f" | "f*")),
+            "extended Latin text should retain filled glyph paths: {content}"
+        );
+        assert!(
+            !content.contains(" Tj\n") && !content.contains(" TJ\n"),
+            "the unsearchable fallback must be explicit outlines, not text operators"
+        );
+    }
+
     // ── CMYK export integration ────────────────────────────────────────
 
     #[test]
@@ -6139,5 +6434,390 @@ mod tests {
                 assert_eq!(data[i], 255, "K channel must stay pure");
             }
         }
+    }
+
+    // ── Blend modes and opacity reach the page, or are reported ──────────
+    //
+    // The canvas paints a node's blend mode and opacity
+    // (`globalCompositeOperation` / `globalAlpha`), so the exported page has
+    // to carry them too. Before these tests the writer never read
+    // `blend_mode`, node opacity and solid-fill opacity were emitted as PDF
+    // comments, and every page started with an opaque white rectangle that
+    // blend modes then composited against.
+
+    /// Resources + content of the single page in `bytes`.
+    fn page_resources_and_content(bytes: &[u8]) -> (lopdf::Dictionary, String) {
+        let doc = Document::load_mem(bytes).expect("parse exported PDF");
+        let page_id = *doc.get_pages().values().next().expect("PDF has a page");
+        let page = doc.get_object(page_id).unwrap().as_dict().unwrap().clone();
+        let resources = page
+            .get(b"Resources")
+            .ok()
+            .and_then(|value| value.as_dict().ok())
+            .cloned()
+            .unwrap_or_default();
+        (
+            resources,
+            String::from_utf8_lossy(&doc.get_page_content(page_id)).into_owned(),
+        )
+    }
+
+    /// A PDF graphics state affects only the operators that follow it, so a
+    /// `gs` inside a `q`/`Q` block that paints nothing is silently inert.
+    ///
+    /// This is not hypothetical: the first version of the blend and fill-alpha
+    /// support emitted `/BM… gs` after the `f` of its own fill. Every
+    /// "the content contains the state" assertion passed, and poppler and
+    /// Ghostscript both rendered the unblended colour. Only rendering the file
+    /// caught it, so the ordering is asserted here from now on.
+    fn assert_every_graphics_state_precedes_a_paint(content: &str) {
+        // One entry per open `q` block: states selected in that block that no
+        // later paint in the same block has consumed.
+        let mut unresolved: Vec<Vec<&str>> = vec![Vec::new()];
+        for line in content.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            match line {
+                "q" => unresolved.push(Vec::new()),
+                "Q" => {
+                    let pending = unresolved.pop().unwrap_or_default();
+                    assert!(
+                        pending.is_empty(),
+                        "graphics state {pending:?} is selected in a block that never paints \
+                         with it, so it has no effect\n{content}"
+                    );
+                }
+                _ => {
+                    if line.ends_with(" gs") {
+                        unresolved.last_mut().expect("balanced q/Q").push(line);
+                    } else if is_paint_operator(line) {
+                        // A paint inside a nested `q` block inherits — and so
+                        // consumes — the state selected in every enclosing
+                        // block.
+                        for block in unresolved.iter_mut() {
+                            block.clear();
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            unresolved.iter().all(|block| block.is_empty()),
+            "unbalanced or inert graphics state\n{content}"
+        );
+    }
+
+    /// Painting operators that consume the current graphics state.
+    fn is_paint_operator(line: &str) -> bool {
+        line == "f"
+            || line == "F"
+            || line.starts_with("f*")
+            || line.starts_with("S")
+            || line.starts_with("B")
+            || line.ends_with(" sh")
+            || line.ends_with(" Do")
+            || line.ends_with(" Tj")
+            || line.ends_with(" TJ")
+            || line.ends_with("'")
+            || line.ends_with('"')
+    }
+
+    fn blend_state_names(resources: &lopdf::Dictionary) -> Vec<String> {
+        let Some(states) = resources
+            .get(b"ExtGState")
+            .ok()
+            .and_then(|value| value.as_dict().ok())
+        else {
+            return Vec::new();
+        };
+        states
+            .iter()
+            .filter_map(|(name, value)| {
+                let dict = value.as_dict().ok()?;
+                let blend = dict.get(b"BM").ok()?.as_name().ok()?;
+                Some(format!(
+                    "{}={}",
+                    String::from_utf8_lossy(name),
+                    String::from_utf8_lossy(blend)
+                ))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn blend_mode_is_written_as_pdf_graphics_state() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.blend_mode = BlendMode::Multiply;
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (resources, content) = page_resources_and_content(&bytes);
+        let states = blend_state_names(&resources);
+        assert_eq!(
+            states,
+            vec!["BMMultiply=Multiply".to_string()],
+            "a Multiply node must carry a /BM /Multiply graphics state: {states:?}"
+        );
+        assert!(
+            content.contains("/BMMultiply gs"),
+            "the node must select its blend state: {content}"
+        );
+        assert_every_graphics_state_precedes_a_paint(&content);
+    }
+
+    #[test]
+    fn searchable_text_fast_path_preserves_node_blend_mode() {
+        let font_data = test_font_data();
+        let mut node = text_node(1, 10.0, 10.0, "Multiply text", 24.0);
+        node.blend_mode = BlendMode::Multiply;
+        let opts = PdfOptions {
+            subset_fonts: true,
+            fonts: vec![("DejaVu Sans".into(), font_data)],
+            ..Default::default()
+        };
+
+        let bytes = export_pdf(&[node], &opts).expect("searchable text pdf");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert_eq!(
+            blend_state_names(&resources),
+            vec!["BMMultiply=Multiply".to_string()]
+        );
+        assert!(content.contains("/BMMultiply gs"));
+        assert!(content.contains("TJ"));
+    }
+
+    #[test]
+    fn outlined_text_fast_path_preserves_node_blend_mode() {
+        let mut node = text_node(1, 10.0, 10.0, "Multiply text", 24.0);
+        node.blend_mode = BlendMode::Multiply;
+        let opts = PdfOptions {
+            outline_text: true,
+            font_data: Some(test_font_data()),
+            ..Default::default()
+        };
+
+        let bytes = export_pdf(&[node], &opts).expect("outlined text pdf");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert_eq!(
+            blend_state_names(&resources),
+            vec!["BMMultiply=Multiply".to_string()]
+        );
+        assert!(content.contains("/BMMultiply gs"));
+        assert!(content.contains("f\n"));
+    }
+
+    #[test]
+    fn normal_blend_mode_writes_no_blend_state() {
+        let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert!(
+            blend_state_names(&resources).is_empty(),
+            "Normal is the page default and needs no /BM entry"
+        );
+        assert!(
+            !content.contains(" gs\n"),
+            "no blend state selected: {content}"
+        );
+    }
+
+    #[test]
+    fn fill_blend_mode_overrides_the_node_blend_mode() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        let mut fill = solid_fill(0, 128, 255, 255, true);
+        if let FillIR::Solid { blend_mode, .. } = &mut fill {
+            *blend_mode = BlendMode::Screen;
+        }
+        node.fills = Some(vec![fill]);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert_eq!(
+            blend_state_names(&resources),
+            vec!["BMScreen=Screen".to_string()],
+            "a fill's own blend mode must be written"
+        );
+        assert!(content.contains("/BMScreen gs"));
+        assert_every_graphics_state_precedes_a_paint(&content);
+    }
+
+    #[test]
+    fn node_and_fill_opacity_multiply_like_the_canvas() {
+        // `replay.ts` paints with `globalAlpha = itemAlpha * fill.opacity`, and
+        // PDF `/ca` is a single value, so 0.5 * 0.5 must reach the page as
+        // 0.25 — writing two states would leave only the inner one in effect.
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.opacity = 0.5;
+        let mut fill = solid_fill(255, 0, 0, 255, true);
+        if let FillIR::Solid { opacity, .. } = &mut fill {
+            *opacity = 0.5;
+        }
+        node.fills = Some(vec![fill]);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (_, content) = page_resources_and_content(&bytes);
+        assert!(
+            content.contains("/GS500 gs") && content.contains("/GS250 gs"),
+            "node 0.5 selects GS500 and the fill resolves to 0.25 (GS250): {content}"
+        );
+        assert_every_graphics_state_precedes_a_paint(&content);
+        assert!(
+            !content.contains("opacity="),
+            "opacity must not survive as a non-rendering comment: {content}"
+        );
+    }
+
+    #[test]
+    fn node_opacity_is_applied_not_commented() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.opacity = 0.4;
+        node.strokes.push(Stroke {
+            weight: 2.0,
+            visible: true,
+            ..Default::default()
+        });
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (resources, content) = page_resources_and_content(&bytes);
+        assert!(
+            content.contains("/GS400 gs"),
+            "node opacity applied: {content}"
+        );
+        assert_every_graphics_state_precedes_a_paint(&content);
+        assert!(
+            resources
+                .get(b"ExtGState")
+                .ok()
+                .and_then(|value| value.as_dict().ok())
+                .is_some_and(|states| states.has(b"GS400")),
+            "the selected opacity state must resolve in the page resources"
+        );
+        let opacity_state = resources
+            .get(b"ExtGState")
+            .ok()
+            .and_then(|value| value.as_dict().ok())
+            .and_then(|states| states.get(b"GS400").ok())
+            .and_then(|value| value.as_dict().ok())
+            .expect("the node opacity state");
+        assert_eq!(opacity_state.get(b"ca").unwrap().as_float().unwrap(), 0.4);
+        assert_eq!(opacity_state.get(b"CA").unwrap().as_float().unwrap(), 0.4);
+        assert!(
+            content.contains("S\n"),
+            "the node stroke is present: {content}"
+        );
+    }
+
+    #[test]
+    fn page_keeps_its_neutral_backdrop_instead_of_inventing_paper() {
+        // A white rectangle painted first becomes the backdrop every blend mode
+        // composites against, so `Screen` over an unpainted area would export
+        // white while the canvas shows the source colour. Verified against
+        // poppler and Ghostscript (see the module doc).
+        let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (_, content) = page_resources_and_content(&bytes);
+        assert!(
+            !content.contains("1.000 1.000 1.000 rg"),
+            "the exporter must not paint white paper the document does not contain: {content}"
+        );
+    }
+
+    #[test]
+    fn screen_over_an_unpainted_area_keeps_the_source_colour() {
+        // The page there is what a `Screen`-blended object composites with.
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.blend_mode = BlendMode::Screen;
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("pdf export");
+        let (_, content) = page_resources_and_content(&bytes);
+        assert!(content.contains("/BMScreen gs"));
+        assert_every_graphics_state_precedes_a_paint(&content);
+        assert!(
+            !content.contains("1.000 1.000 1.000 rg"),
+            "nothing may be painted under the blend: {content}"
+        );
+    }
+
+    #[test]
+    fn a_mode_without_a_pdf_name_is_reported_not_silently_normalised() {
+        let mut lighter = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        lighter.name = "Glow".into();
+        lighter.blend_mode = BlendMode::PlusLighter;
+        let mut fill_only = rect_node(2, 100.0, 0.0, 10.0, 10.0);
+        fill_only.name = "Tint".into();
+        let mut fill = solid_fill(0, 0, 0, 255, true);
+        if let FillIR::Solid { blend_mode, .. } = &mut fill {
+            *blend_mode = BlendMode::PlusDarker;
+        }
+        fill_only.fills = Some(vec![fill]);
+
+        let error = export_pdf(
+            &[lighter.clone(), fill_only.clone()],
+            &PdfOptions::default(),
+        )
+        .unwrap_err();
+        assert!(error.contains("PDF export stopped"));
+        assert!(error.contains("Glow"));
+        assert!(error.contains("Plus Lighter"));
+        assert!(error.contains("Tint"));
+        assert!(error.contains("Plus Darker"));
+
+        let reported = unrepresented_blend_modes(&[lighter, fill_only], true);
+        assert_eq!(
+            reported,
+            vec![
+                UnrepresentedBlend {
+                    node_name: "Glow".into(),
+                    mode: "Plus Lighter",
+                },
+                UnrepresentedBlend {
+                    node_name: "Tint".into(),
+                    mode: "Plus Darker",
+                },
+            ],
+            "the export must be able to name what it could not represent"
+        );
+    }
+
+    #[test]
+    fn drop_shadow_with_a_mode_without_a_pdf_name_is_reported() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.name = "Glow".into();
+        node.effects = vec![Effect::DropShadow {
+            id: None,
+            x: 0.0,
+            y: 0.0,
+            blur: 0.0,
+            spread: 0.0,
+            color: EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 255.0,
+                bit_depth: None,
+                profile: None,
+            },
+            opacity: 1.0,
+            blend_mode: BlendMode::PlusLighter,
+            visible: true,
+        }];
+        let error = export_pdf(&[node.clone()], &PdfOptions::default()).unwrap_err();
+        assert!(error.contains("Glow"));
+        assert!(error.contains("Plus Lighter"));
+        assert_eq!(
+            unrepresented_blend_modes(&[node], true),
+            vec![UnrepresentedBlend {
+                node_name: "Glow".into(),
+                mode: "Plus Lighter",
+            }]
+        );
+    }
+
+    #[test]
+    fn representable_modes_are_never_reported_as_unrepresented() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.blend_mode = BlendMode::Luminosity;
+        let mut fill = solid_fill(0, 0, 0, 255, true);
+        if let FillIR::Solid { blend_mode, .. } = &mut fill {
+            *blend_mode = BlendMode::Overlay;
+        }
+        node.fills = Some(vec![fill]);
+        assert!(unrepresented_blend_modes(&[node], true).is_empty());
     }
 }

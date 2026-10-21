@@ -214,9 +214,11 @@ export async function fetchWasmAsset(
     if (response.ok) return response;
     throw new Error(`WASM asset request failed (${response.status})`);
   } catch (error) {
+    if (init?.signal?.aborted) throw error;
     if (typeof caches !== 'undefined') {
       try {
         const cached = await caches.match(input);
+        if (init?.signal?.aborted) throw error;
         if (cached?.ok) return cached;
       } catch {
         // Cache Storage can be unavailable in private or restricted contexts.

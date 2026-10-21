@@ -19,7 +19,6 @@ const PROFILE_LAYOUT = {
 } as const;
 
 function readDismissed(): string[] {
-  if (typeof localStorage === 'undefined') return [];
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
     return Array.isArray(parsed)

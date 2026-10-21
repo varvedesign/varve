@@ -1,0 +1,26 @@
+{
+  "number": 10024,
+  "bodyReviewed": true,
+  "commentsReviewed": 0,
+  "disposition": "no-matching-varve-defect",
+  "reason": "The tldraw report is concrete, but Varve uses container child lists, recursively deletes a subtree, and restores full document revisions for undo. Its currently implemented merge path returns an edit-vs-delete conflict, drops the deleted parent and child together, and validates cleanly. Live remote collaboration is not implemented, so the concurrent undo trigger is not currently applicable. The failed upstream cleanup approach also dropped surviving content; no production fix is justified.",
+  "relatedIssues": [9581, 9755, 9790],
+  "evidence": [
+    "https://github.com/tldraw/tldraw/issues/10024",
+    "https://github.com/tldraw/tldraw/pull/9581",
+    "https://github.com/tldraw/tldraw/pull/9755",
+    "https://github.com/tldraw/tldraw/pull/9790",
+    "packages/scene/src/document-nodes.ts",
+    "packages/editor/src/history/editorHistorySession.ts",
+    "packages/collab/src/index.ts",
+    "packages/history/src/merge.ts",
+    "packages/scene/src/document-utils.ts"
+  ],
+  "varveAssessment": {
+    "sourceInspected": true,
+    "reproducedInVarve": true,
+    "reproduction": "Base frame+child; ours edits child; theirs deletes frame; mergeDocuments returned edit-vs-delete, with frame:false, child:false, and validateDocument(...).valid true.",
+    "tests": "pnpm exec vitest run packages/history/src/__tests__/merge.test.ts packages/history/src/__tests__/resolveMerge.test.ts packages/scene/src/document-validation.test.ts packages/scene/src/document-nodes.test.ts — 3 files, 47 tests passed.",
+    "remainingQuestion": "No live collaboration backend exists; reevaluate if concurrent remote history is introduced."
+  }
+}
