@@ -6,7 +6,8 @@
  * leaves the application, and pin the rule that an unparseable font makes no
  * claim rather than a false one.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { FontDataRecord } from '@varve/engine';
 import { makeTextNode, type SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
@@ -14,8 +15,25 @@ import { detectExportGlyphGaps, glyphGapWarnings } from './glyphCoverage';
 
 /** A Latin-subset variable face: it has no CJK coverage by construction. */
 const GEIST_LATIN = new Uint8Array(
-  readFileSync('packages/engine/src/font/__fixtures__/geist/geist-latin-wght-normal.woff2'),
+  readFileSync(
+    join(
+      repositoryRoot(),
+      'packages/engine/src/font/__fixtures__/geist/geist-latin-wght-normal.woff2',
+    ),
+  ),
 );
+
+/** jsdom gives `import.meta.url` an http scheme, so find the root on disk. */
+function repositoryRoot(): string {
+  let directory = process.cwd();
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (existsSync(join(directory, 'pnpm-workspace.yaml'))) return directory;
+    const parent = dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+  throw new Error('Could not find the repository root from ' + process.cwd());
+}
 
 function record(family: string, data: Uint8Array = GEIST_LATIN): FontDataRecord {
   return { family, data };

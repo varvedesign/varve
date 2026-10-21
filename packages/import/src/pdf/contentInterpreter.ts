@@ -84,19 +84,48 @@ export function interpretContent(
   context: InterpretContext,
   diagnostics: ContentDiagnostics,
 ): ContentResult {
+  const interpreter = createContentInterpreter(context, diagnostics);
+  runContentStream(interpreter, bytes, diagnostics);
+  diagnostics.outsidePage += interpreter.outsidePage;
+  return { runs: interpreter.runs, rects: interpreter.rects, diagnostics };
+}
+
+/**
+ * One interpreter for a whole page. A page's `/Contents` may be an array of
+ * streams, and the format treats that array as a single concatenated program:
+ * graphics state, text state and marked-content sections opened in one element
+ * continue in the next. Creating an interpreter per element would lose a
+ * hidden section's nesting and paint its content.
+ */
+export function createContentInterpreter(
+  context: InterpretContext,
+  diagnostics: ContentDiagnostics,
+): ContentInterpreter {
+  return new ContentInterpreter(context, diagnostics);
+}
+
+/** Interpret one stream into an existing page interpreter. */
+export function runContentStream(
+  interpreter: ContentInterpreter,
+  bytes: Uint8Array,
+  diagnostics: ContentDiagnostics,
+): void {
   const { tokens, truncated, inlineImages } = tokenizeContent(bytes);
   if (truncated) diagnostics.truncated = true;
   diagnostics.inlineImages += inlineImages;
-  const interpreter = new ContentInterpreter(context, diagnostics);
   interpreter.run(tokens);
-  diagnostics.outsidePage += interpreter.outsidePage;
   for (const name of interpreter.hiddenLayerNames) diagnostics.hiddenLayers.add(name);
-  return { runs: interpreter.runs, rects: interpreter.rects, diagnostics };
 }
 
 export class ContentInterpreter {
   readonly runs: TextRun[] = [];
   readonly rects: RectFill[] = [];
+  /**
+   * Emission order across both lists. A page's content is painted in stream
+   * order, and a fill emitted before a text run must stay below it after the
+   * page is converted into nodes.
+   */
+  private readonly emissions: Array<{ readonly kind: 'run' | 'rect'; readonly at: number }> = [];
   private readonly pageBox: {
     width: number;
     height: number;
@@ -114,6 +143,12 @@ export class ContentInterpreter {
   /** One entry per open marked-content section; true when it is hidden. */
   private markedContent: boolean[] = [];
   private hiddenDepth = 0;
+  /**
+   * True when `/OC` was followed by a direct dictionary. The tokenizer does
+   * not build dictionary values, so the members would otherwise be read as
+   * operands and the section would look like a name lookup that missed.
+   */
+  private ocDictionaryPending = false;
   private readonly hiddenLayers = new Set<string>();
 
   constructor(
@@ -140,6 +175,11 @@ export class ContentInterpreter {
     return [...this.hiddenLayers];
   }
 
+  /** Runs and fills in the order the page painted them. */
+  get emissionOrder(): ReadonlyArray<{ readonly kind: 'run' | 'rect'; readonly at: number }> {
+    return this.emissions;
+  }
+
   run(tokens: ContentToken[]): void {
     for (const token of tokens) {
       switch (token.kind) {
@@ -157,6 +197,12 @@ export class ContentInterpreter {
           break;
         case 'arrayClose':
           this.closeArray();
+          break;
+        case 'dictOpen':
+          if (this.operands[0] === '/OC') {
+            this.ocDictionaryPending = true;
+            this.operands = [];
+          }
           break;
         case 'operator':
           this.dispatch(token.value);
@@ -220,13 +266,19 @@ export class ContentInterpreter {
   }
 
   private enterMarkedContent(operator: string): boolean {
-    const tag = this.operands[0];
-    if (tag !== '/OC') return false;
-    const property = this.operands[1];
+    if (this.ocDictionaryPending) {
+      this.ocDictionaryPending = false;
+      this.diagnostics.unresolvedOptionalContent += 1;
+      return false;
+    }
+    if (this.operands[0] !== '/OC') return false;
+    // `BDC` takes a tag and exactly one property-list operand. A direct
+    // dictionary arrives here as its members (`/Type`, `/OCGs`, …) because the
+    // tokenizer does not build dictionary values; that section's visibility
+    // needs an object graph this interpreter deliberately does not carry, so
+    // it is reported as unresolved rather than assumed visible.
+    const property = this.operands.length === 2 ? this.operands[1] : undefined;
     if (operator !== 'BDC' || typeof property !== 'string' || !property.startsWith('/')) {
-      // `/OC` given a direct dictionary (or `BMC` with no property list) needs
-      // an object graph this interpreter deliberately does not carry. Report
-      // that the section could not be resolved rather than guessing.
       this.diagnostics.unresolvedOptionalContent += 1;
       return false;
     }
@@ -468,6 +520,7 @@ export class ContentInterpreter {
     }
     if (this.runs.length >= MAX_RUNS) return;
     const display = toDisplaySpace(this.pageBox, position.x, position.y);
+    this.emissions.push({ kind: 'run', at: this.runs.length });
     this.runs.push({
       text: trimmed,
       x: display.x,
@@ -586,6 +639,7 @@ export class ContentInterpreter {
       } else {
         for (const rect of this.path) {
           if (this.rects.length >= MAX_RECTS) break;
+          this.emissions.push({ kind: 'rect', at: this.rects.length });
           this.rects.push(this.toRectFill(rect, fill));
         }
       }

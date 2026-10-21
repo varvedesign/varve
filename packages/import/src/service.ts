@@ -198,13 +198,17 @@ function unsupportedFeature(feature: string): UnsupportedFeature {
 function collapseByMessage(warnings: FidelityIssue[]): FidelityIssue[] {
   const byMessage = new Map<string, FidelityIssue>();
   for (const item of warnings) {
-    const existing = byMessage.get(item.message);
+    // Path is part of the identity: two nodes with the same problem are two
+    // problems. The parser/preflight pair that motivated this collapse carries
+    // no path on either side, so it still merges.
+    const key = `${item.path ?? ''}\u0000${item.message}`;
+    const existing = byMessage.get(key);
     if (!existing) {
-      byMessage.set(item.message, item);
+      byMessage.set(key, item);
       continue;
     }
     if (existing.severity !== 'error' && item.severity === 'error') {
-      byMessage.set(item.message, { ...existing, severity: 'error' });
+      byMessage.set(key, { ...existing, severity: 'error' });
     }
   }
   return [...byMessage.values()];

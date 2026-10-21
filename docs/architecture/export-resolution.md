@@ -32,14 +32,34 @@ enhancement workflow.
 
 ### Minification quality is a surface contract
 
-A placed image drawn smaller than its pixel size is minified by whichever
-surface paints it. The canvas default (`imageSmoothingQuality: 'low'`) is a
-cheap filter: scans and fine linework come out raggeder than the same artwork
-on screen, where the interactive compositor asks for `'high'`. Export must not
-be the poorer sibling, so every raster surface that replays scene content
-calls `applyRasterSmoothingPolicy` (`packages/engine/src/raster.ts`) — the
-same policy the compositor applies. `antiAlias: false` remains an explicit
-request for nearest-neighbour output (pixel-art upscaling) and is honoured.
+A placed image drawn smaller than its pixel size is minified somewhere between
+its decoded pixels and the output. Two mechanisms do that work, and both are
+required:
+
+1. **At-size decode.** `paintImageFill` asks the image cache for a bitmap
+   sized to the projected draw size (`resolveReplayImage` +
+   `createImageBitmap(..., resizeQuality: 'high')`), so the canvas usually
+   receives an already-minified bitmap and draws it 1:1.
+2. **An explicit canvas policy.** Any draw that *does* scale — group and frame
+   surface compositing, effects, a source that could not be decoded at size —
+   must not inherit the browser default. `applyRasterSmoothingPolicy`
+   (`packages/engine/src/raster.ts`) holds that policy and is called by
+   `renderRaster`, the editor export surface, and the thumbnail renderer, so
+   they match the interactive compositor. The deprecated `thumbnail.ts`
+   renderer stays untouched: it is exported as `legacyRenderThumbnail` for
+   compatibility and has no product caller.
+
+Measured in Chromium (2026-10-21): for a large downscale (4:1) of a one-pixel
+checkerboard, `'low'` and `'high'` are identical (both average to 127), so the
+at-size decode alone is enough there. For a 3px checkerboard at 4:1 — the
+regime that matters for scanned text — `'low'` aliases to 0..255 while
+`'high'` stays inside 95..159. That measurement is why the canvas policy is
+kept explicit rather than assumed, and why `tests/e2e/export/raster-minification.spec.ts`
+asserts the *outcome* (no pure black/white in a minified export) instead of
+which mechanism produced it.
+
+`antiAlias: false` remains an explicit request for nearest-neighbour output
+(pixel-art upscaling) and is honoured.
 
 PDF is a different contract: the writer embeds the full-resolution image data
 and the reading application chooses its own resampling, so export does not

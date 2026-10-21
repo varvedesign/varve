@@ -1051,7 +1051,7 @@ export async function exportNodeAsPdfX(
   doc: SceneDocument,
   standard: PdfXStandard,
   options: PdfXExportOptions = {},
-): Promise<{ bytes: Uint8Array; filename: string }> {
+): Promise<{ bytes: Uint8Array; filename: string; warnings: string[] }> {
   ({ node, document: doc } = prepareArtworkExport(node, doc));
   // Press export must never silently drop a mockup: the PDF/X route feeds
   // `flattenSceneToEngine` straight to the Rust print pipeline, which never
@@ -1096,6 +1096,9 @@ export async function exportNodeAsPdfX(
     signal: undefined,
   });
   assertExportFontData(fontRequests, fontRecords);
+  // Press output embeds the authored faces, so a character the face cannot
+  // draw becomes .notdef here exactly as it does on the standard PDF path.
+  const glyphGaps = await detectExportGlyphGaps(subtree.nodes, fontRecords);
   const fonts: Array<[string, number[]]> = fontRecords.map((r) => [r.family, Array.from(r.data)]);
 
   // Press output embeds real image pixels: without a manifest the Rust print
@@ -1148,6 +1151,7 @@ export async function exportNodeAsPdfX(
   return {
     bytes: maybeDisclosePdf(new Uint8Array(bytes), doc, node.id, options.includeAiDisclosure),
     filename: buildFilename(node.name, 'pdf'),
+    warnings: glyphGapWarnings(glyphGaps),
   };
 }
 

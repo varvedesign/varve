@@ -34,7 +34,7 @@ import {
 import type { ImportCapabilities, ImportOptions, ImportParser, ImportResult } from '../types';
 import type { RectFill, TextRun } from './content';
 import { type ContentDiagnostics, createDiagnostics } from './content';
-import { interpretContent } from './contentInterpreter';
+import { createContentInterpreter, runContentStream } from './contentInterpreter';
 import { detectEncryption, type EncryptionInfo } from './encryption';
 import {
   createDecodeReport,
@@ -248,30 +248,35 @@ function buildPageNodes(
   let current = doc;
   const nodeIds: string[] = [];
 
+  // One interpreter for the whole page: a `/Contents` array is a single
+  // concatenated program, so state and marked-content nesting cross the
+  // boundary between its streams.
+  const interpreter = createContentInterpreter(
+    {
+      box: page.box,
+      rotate: page.rotate,
+      fonts: page.fonts,
+      extGStates: page.extGStates,
+      hiddenPropertyNames: page.hiddenProperties,
+    },
+    diagnostics,
+  );
   for (const content of page.contents) {
     const bytes = decodeStream(index, content, report);
     if (!bytes) continue;
-    const interpreted = interpretContent(
-      bytes,
-      {
-        box: page.box,
-        rotate: page.rotate,
-        fonts: page.fonts,
-        extGStates: page.extGStates,
-        hiddenPropertyNames: page.hiddenProperties,
-      },
-      diagnostics,
-    );
-    for (const run of interpreted.runs) {
-      const { node, document } = textNodeFor(run, current, opts);
-      current = addChild(document, contentRoot, node);
-      nodeIds.push(node.id);
-    }
-    for (const rect of interpreted.rects) {
-      const { node, document } = rectNodeFor(rect, current, opts);
-      current = addChild(document, contentRoot, node);
-      nodeIds.push(node.id);
-    }
+    runContentStream(interpreter, bytes, diagnostics);
+  }
+  diagnostics.outsidePage += interpreter.outsidePage;
+  // Paint order is stream order: a fill emitted before a run stays below it.
+  for (const item of interpreter.emissionOrder) {
+    const source = item.kind === 'run' ? interpreter.runs[item.at] : interpreter.rects[item.at];
+    if (!source) continue;
+    const { node, document } =
+      item.kind === 'run'
+        ? textNodeFor(source as TextRun, current, opts)
+        : rectNodeFor(source as RectFill, current, opts);
+    current = addChild(document, contentRoot, node);
+    nodeIds.push(node.id);
   }
 
   return { document: current, nodeIds };

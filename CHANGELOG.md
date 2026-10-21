@@ -63,11 +63,6 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
-- **Raster export samples placed images as carefully as the canvas does.**
-  Images drawn smaller than their pixel size were minified with the browser's
-  cheap default filter, so a scan exported at half size came out raggeder than
-  the same artwork on screen. Export now applies the compositor's high-quality
-  sampling policy; an explicit nearest-neighbour request is still honoured.
 - **PDF export names characters the chosen font cannot draw.** The canvas falls
   back per glyph, but the PDF writer outlines the authored face, so a character
   that face does not map exported as a blank box while the editor showed it

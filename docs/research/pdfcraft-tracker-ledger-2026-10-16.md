@@ -141,3 +141,20 @@ Per-issue rows: [`../audits/pdfcraft/issue-ledger-cutoff2.tsv`](../audits/pdfcra
 - **Closures are not proof.** The 184 cutoff-1 closures were checked against the
   cluster map; the closed classes are redaction, printing, forms, signature and
   Office interchange — all still outside Varve's scope.
+
+### Correction: export minification (batch 3)
+
+The cutoff-1 audit claimed the export family minified with the browser default.
+That was true of the canvas setting and wrong about the outcome: image fills are
+decoded at the projected draw size with `resizeQuality: 'high'` before the
+canvas ever draws them, so an exported scan was already area-averaged. Measured
+in Chromium on 2026-10-21, `imageSmoothingQuality: 'low'` and `'high'` produce
+identical output for a 4:1 downscale of a one-pixel checkerboard, and differ
+only for detail near the destination pixel scale (a 3px checkerboard aliases to
+0..255 under `'low'` and stays within 95..159 under `'high'`).
+
+The policy is now explicit on every surface that really scales, and the browser
+test asserts the outcome (no pure black/white in a minified export) rather than
+which mechanism produced it. The lesson recorded for future audits: "the code
+does not set property X" is not evidence that the *outcome* differs — measure
+the output before writing a fix.

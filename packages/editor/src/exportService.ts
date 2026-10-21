@@ -389,7 +389,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       return {
         bytes: result.bytes,
         mimeType: 'application/pdf',
-        warnings: collectMissingFontWarnings(node),
+        warnings: [...collectMissingFontWarnings(node), ...result.warnings],
       };
     }
     case 'avif': {
