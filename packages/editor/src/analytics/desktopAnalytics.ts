@@ -1,25 +1,15 @@
 import {
   AnalyticsClient,
-  type AnalyticsConsent,
   type AnalyticsPlatform,
   DEFAULT_ANALYTICS_CONSENT,
   NoopAnalyticsProvider,
 } from '@varve/shared';
 import { getReleaseInfo } from '../crash/releaseInfo';
-import type { PrivacySettingsStore } from '../settings';
 
 let client: AnalyticsClient | null = null;
 let flushIntervalId: ReturnType<typeof setInterval> | null = null;
 
 const FLUSH_INTERVAL_MS = 30_000;
-
-function consentFromSettings(settings: PrivacySettingsStore): AnalyticsConsent {
-  return {
-    website: 'denied',
-    usage: 'denied',
-    diagnostics: settings.diagnostics,
-  };
-}
 
 function flushNow(): void {
   if (!client) return;
@@ -87,10 +77,6 @@ export function reportRendererFallback(
     to: 'canvas2d',
     reason: /failed|unavailable|probe/i.test(detail) ? 'initialization_failed' : 'unavailable',
   });
-}
-
-export function updateDesktopAnalyticsConsent(settings: PrivacySettingsStore): void {
-  getDesktopAnalytics().updateConsent(consentFromSettings(settings));
 }
 
 export function resetDesktopAnalyticsForTests(): void {

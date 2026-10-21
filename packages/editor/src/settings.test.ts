@@ -39,7 +39,7 @@ describe('loadSettings', () => {
       pressureEnabled: true,
       pressureCurve: 1,
     });
-    expect(s.privacy).toEqual({ diagnostics: 'unknown' });
+    expect(s.privacy).toEqual({});
     expect(s.icons.remoteSearch).toBe('unknown');
     expect(s.ai.model).toBe('varve-default');
   });
@@ -135,13 +135,14 @@ describe('loadSettings', () => {
     expect(loaded.export.defaultBleedMm).toBe(5);
   });
 
-  it('ignores a stored usageAnalytics key and keeps diagnostics', () => {
+  it('ignores stored usageAnalytics and diagnostics keys', () => {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ privacy: { usageAnalytics: 'granted', diagnostics: 'denied' } }),
     );
-    expect(loadSettings().privacy).toEqual({ diagnostics: 'denied' });
+    expect(loadSettings().privacy).toEqual({});
     expect(loadSettings().privacy).not.toHaveProperty('usageAnalytics');
+    expect(loadSettings().privacy).not.toHaveProperty('diagnostics');
   });
 
   it('migrates retired cloud model names to the on-device default', () => {

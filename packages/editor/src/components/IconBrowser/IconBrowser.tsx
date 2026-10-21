@@ -168,6 +168,8 @@ export function IconBrowser({
     if (!remoteAllowed) {
       setPacks([]);
       setPacksLoading(false);
+      setPackPage([]);
+      setBrowsingPack(null);
       return;
     }
     ensureIconProviders();
@@ -234,7 +236,7 @@ export function IconBrowser({
         licenceWarning: record.spdxId === undefined,
       });
     }
-    const online = browsingPack ? packPage : search.results;
+    const online = remoteAllowed ? (browsingPack ? packPage : search.results) : [];
     for (const descriptor of online) {
       if (seen.has(descriptor.canonicalId)) continue;
       seen.add(descriptor.canonicalId);
@@ -258,6 +260,7 @@ export function IconBrowser({
     loadingPreviews,
     favourites,
     descriptorFromRecord,
+    remoteAllowed,
   ]);
 
   // -------------------------------------------------------------------------
@@ -373,6 +376,14 @@ export function IconBrowser({
     return () => previewSignalRef.current?.abort();
   }, []);
 
+  const clearRemoteSearch = search.clear;
+  useEffect(() => {
+    if (remoteAllowed) return;
+    previewSignalRef.current?.abort();
+    previewSignalRef.current = null;
+    clearRemoteSearch();
+  }, [remoteAllowed, clearRemoteSearch]);
+
   // -------------------------------------------------------------------------
   // Selection / details
   // -------------------------------------------------------------------------
@@ -431,7 +442,7 @@ export function IconBrowser({
 
   const runRemoteSearch = search.search;
   useEffect(() => {
-    if (!remoteAllowed || query.trim().length < MIN_QUERY_LENGTH) return;
+    if (!remoteAllowed) return;
     runRemoteSearch(query);
   }, [remoteAllowed, query, runRemoteSearch]);
 

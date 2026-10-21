@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { getIconProviderRegistry, resetIconProviderRegistry } from '@varve/engine';
+import {
+  getIconProviderRegistry,
+  type IconSourceDescriptor,
+  resetIconProviderRegistry,
+} from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
 import { loadSettings } from '../../settings';
@@ -13,6 +17,31 @@ vi.mock('../../context', () => ({
 }));
 
 const mockedUseEditor = vi.mocked(useEditor);
+
+const REMOTE_HOME: IconSourceDescriptor = {
+  canonicalId: 'iconify:mdi:home',
+  providerId: 'iconify',
+  packId: 'mdi',
+  iconId: 'home',
+  name: 'home',
+  displayName: 'Remote Home',
+  aliases: [],
+  keywords: [],
+  categories: [],
+  styles: ['outline'],
+  paletteType: 'monotone',
+  licence: {},
+  isOfflineAvailable: false,
+};
+
+function stubRemoteSearch() {
+  return vi.spyOn(getIconProviderRegistry(), 'search').mockResolvedValue({
+    items: [REMOTE_HOME],
+    total: 1,
+    start: 0,
+    exhausted: true,
+  });
+}
 
 function editorMock() {
   const insertIconAsset = vi.fn().mockResolvedValue('n9');
@@ -125,6 +154,43 @@ describe('IconBrowserDialog', () => {
     ).toBeGreaterThan(0);
     expect(await screen.findByRole('button', { name: /retry/i })).toBeTruthy();
   }, 20000);
+
+  it('clears granted Iconify results when the query is emptied', async () => {
+    writeIconRemoteSearchConsent('granted');
+    editorMock();
+    stubRemoteSearch();
+    render(<IconBrowserDialog open onClose={vi.fn()} />);
+    const input = await screen.findByLabelText('Search icons');
+    fireEvent.change(input, { target: { value: 'home' } });
+    expect(await screen.findByText('1 icon', {}, { timeout: 5000 })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Online' }));
+    fireEvent.change(input, { target: { value: '' } });
+    expect(await screen.findByText('0 icons', {}, { timeout: 5000 })).toBeTruthy();
+    expect(screen.queryByText('Remote Home')).toBeNull();
+  });
+
+  it('drops remote results and makes no further fetch after consent is revoked', async () => {
+    writeIconRemoteSearchConsent('granted');
+    editorMock();
+    stubRemoteSearch();
+    const getIconData = vi.spyOn(getIconProviderRegistry(), 'getIconData');
+    render(<IconBrowserDialog open onClose={vi.fn()} />);
+    const input = await screen.findByLabelText('Search icons');
+    fireEvent.change(input, { target: { value: 'home' } });
+    expect(await screen.findByText('1 icon', {}, { timeout: 5000 })).toBeTruthy();
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockClear();
+    getIconData.mockClear();
+    await act(async () => {
+      writeIconRemoteSearchConsent('denied');
+    });
+    expect(await screen.findByText('No icons match your search.')).toBeTruthy();
+    expect(screen.queryByText('Remote Home')).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(getIconData).not.toHaveBeenCalled();
+  });
 
   it('closes on dialog dismiss', async () => {
     editorMock();

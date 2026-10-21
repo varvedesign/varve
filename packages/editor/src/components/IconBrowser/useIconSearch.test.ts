@@ -61,4 +61,42 @@ describe('useIconSearch remote consent', () => {
     });
     expect(search).toHaveBeenCalled();
   });
+
+  it('clears previous results when the query is shortened below two characters', async () => {
+    vi.useFakeTimers();
+    stubRegistrySearch().mockResolvedValue({
+      items: [
+        {
+          canonicalId: 'iconify:mdi:home',
+          providerId: 'iconify',
+          packId: 'mdi',
+          iconId: 'home',
+          name: 'home',
+          displayName: 'Remote Home',
+          aliases: [],
+          keywords: [],
+          categories: [],
+          styles: ['outline'],
+          paletteType: 'monotone',
+          licence: {},
+          isOfflineAvailable: false,
+        },
+      ],
+      total: 1,
+      start: 0,
+      exhausted: true,
+    });
+    const { result } = renderHook(() => useIconSearch(true));
+
+    await act(async () => {
+      result.current.search('home');
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    });
+    expect(result.current.results).toHaveLength(1);
+
+    await act(async () => {
+      result.current.search('h');
+    });
+    expect(result.current.results).toEqual([]);
+  });
 });

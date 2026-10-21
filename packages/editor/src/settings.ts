@@ -230,10 +230,8 @@ export interface AiSettingsStore {
   shareUsageData: boolean;
 }
 
-/** Product diagnostics consent. Crash reporting is separate. Usage analytics were removed. */
-export interface PrivacySettingsStore {
-  diagnostics: AnalyticsConsentState;
-}
+/** Desktop usage and diagnostics telemetry were removed. Stored leftover keys are ignored. */
+export type PrivacySettingsStore = Record<string, never>;
 
 /** One-time Iconify remote-search consent. Unknown means no network request yet. */
 export type IconRemoteSearchConsent = AnalyticsConsentState;
@@ -329,9 +327,7 @@ export const DEFAULT_AI_SETTINGS: AiSettingsStore = {
   shareUsageData: false,
 };
 
-export const DEFAULT_PRIVACY_SETTINGS: PrivacySettingsStore = {
-  diagnostics: 'unknown',
-};
+export const DEFAULT_PRIVACY_SETTINGS: PrivacySettingsStore = {};
 
 export const DEFAULT_ICONS_SETTINGS: IconsSettingsStore = {
   remoteSearch: 'unknown',
@@ -614,11 +610,7 @@ export function loadSettings(): EditorSettings {
     if (exportSettings.defaultFormat === 'avif') {
       exportSettings.defaultFormat = 'png';
     }
-    const privacy = {
-      diagnostics: normalizeAnalyticsConsent(
-        (parsed.privacy as Partial<PrivacySettingsStore> | undefined)?.diagnostics,
-      ),
-    };
+    const privacy = { ...DEFAULT_PRIVACY_SETTINGS };
     const icons = {
       remoteSearch: normalizeAnalyticsConsent(
         (parsed.icons as Partial<IconsSettingsStore> | undefined)?.remoteSearch,
