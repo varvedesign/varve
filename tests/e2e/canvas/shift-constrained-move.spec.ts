@@ -41,12 +41,16 @@ test.describe('Shift-constrained movement', () => {
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
     await drawRect(page);
-    await page.mouse.move(0, 0);
-    // Select the shape on the canvas so the Inspector reports its position.
-    const box = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
-    if (!box) throw new Error('canvas not mounted');
-    await page.mouse.click(box.x + CENTER.x, box.y + CENTER.y);
-    await expect(page.getByRole('treeitem').first()).toHaveAttribute('aria-selected', 'true');
+    // Select through the Layers row: a canvas click at a computed point is an
+    // extra thing to get wrong, and this spec is about the drag, not hit
+    // testing. The Inspector's X field appearing proves the editor (not just
+    // the panel) treats the shape as selected.
+    await page.getByRole('treeitem').first().click();
+    await expect(page.getByRole('spinbutton', { name: 'X (px)', exact: true }).first()).toBeVisible(
+      {
+        timeout: 15000,
+      },
+    );
   });
 
   test('a near-axis Shift-drag moves along that axis only', async ({ page }) => {
