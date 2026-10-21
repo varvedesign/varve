@@ -369,7 +369,9 @@ export function NewDesignDialog({
   // refreshed on every render, and a number field flushes its pending commit
   // before this is read (see below).
   const latestActionsRef = useRef({ create: handleCreate, disabled: createDisabled });
-  latestActionsRef.current = { create: handleCreate, disabled: createDisabled };
+  useLayoutEffect(() => {
+    latestActionsRef.current = { create: handleCreate, disabled: createDisabled };
+  });
 
   const handleDialogKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
