@@ -32,7 +32,7 @@ function repositoryRoot(): string {
     if (parent === directory) break;
     directory = parent;
   }
-  throw new Error('Could not find the repository root from ' + process.cwd());
+  throw new Error(`Could not find the repository root from ${process.cwd()}`);
 }
 
 function record(family: string, data: Uint8Array = GEIST_LATIN): FontDataRecord {

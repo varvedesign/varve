@@ -1,5 +1,8 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseChangelog } from '../lib/changelog.js';
+import { parseChangelog, parseChangelogFile } from '../lib/changelog.js';
 
 /* -------------------------------------------------------------------------- */
 /* Test fixtures                                                               */
@@ -298,6 +301,36 @@ describe('parseChangelog', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('parseChangelogFile', () => {
+  it('reads the nearest checkout when the working directory is nested', () => {
+    // A git worktree under `.worktrees/<name>` sits two levels below the
+    // primary checkout. Resolving `cwd/../..` there reads the *other*
+    // checkout's changelog, so the site could publish another branch's
+    // release notes. The nearest directory with CHANGELOG.md + package.json
+    // must win.
+    const outer = mkdtempSync(join(tmpdir(), 'varve-changelog-outer-'));
+    const inner = join(outer, '.worktrees', 'inner');
+    mkdirSync(inner, { recursive: true });
+    for (const [directory, version] of [
+      [outer, '9.9.9'],
+      [inner, '1.2.3'],
+    ] as const) {
+      writeFileSync(join(directory, 'package.json'), '{"name":"fixture"}');
+      writeFileSync(
+        join(directory, 'CHANGELOG.md'),
+        `# Changelog\n\n## [${version}] - 2026-01-01\n\n### Fixed\n\n- Fixture entry.\n`,
+      );
+    }
+    const previous = process.cwd();
+    try {
+      process.chdir(inner);
+      const releases = parseChangelogFile();
+      expect(releases.map((release) => release.version)).toEqual(['1.2.3']);
+    } finally {
+      process.chdir(previous);
+      rmSync(outer, { recursive: true, force: true });
+    }
+  });
+
   it('parses the actual CHANGELOG.md', async () => {
     const { parseChangelogFile } = await import('../lib/changelog.js');
     const releases = parseChangelogFile();
@@ -309,16 +342,6 @@ describe('parseChangelogFile', () => {
     expect(versions).toContain('0.5.0');
     expect(versions).toContain('0.2.1');
     expect(versions).toContain('0.1.0');
-
-    // The lookup must read *this* checkout. A worktree nested under the
-    // primary checkout used to resolve `cwd/../..` to that other checkout, so
-    // the site could publish a different branch's changelog.
-    const unreleasedText =
-      releases
-        .find((r) => r.isUnreleased)
-        ?.sections.map((s) => s.entries.map((e) => e.html).join(' '))
-        .join(' ') ?? '';
-    expect(unreleasedText).toMatch(/PDF import no longer invents content/);
 
     const v051 = releases.find((r) => r.version === '0.5.1');
     expect(v051?.date).toBe('2026-10-15');
