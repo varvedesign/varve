@@ -4,7 +4,7 @@ for (const viewport of [
   { name: 'desktop', width: 1280, height: 900 },
   { name: 'mobile', width: 390, height: 844 },
 ]) {
-  test(`comic lettering feature explains direct tail editing at ${viewport.name} size`, async ({
+  test(`comic lettering feature explains direct callout editing at ${viewport.name} size`, async ({
     page,
     baseURL,
   }, testInfo) => {
@@ -21,9 +21,14 @@ for (const viewport of [
 
     const feature = page.locator('.comic-page');
     await expect(feature.getByRole('heading', { name: /letter the page/i })).toBeVisible();
-    await expect(feature).toContainText('Adjust tails on the canvas');
-    await expect(feature).toContainText('Drag a selected balloon’s tip and bend handles');
-    await expect(feature).toContainText('use the Inspector for exact values');
+    await expect(feature).toContainText('Move body, anchor the tail');
+    await expect(feature).toContainText(
+      'Drag the body handle to move balloon and text with the tail tip anchored',
+    );
+    await expect(feature).toContainText('drag tip and bend handles to aim');
+    await expect(feature).toContainText(
+      'Use the Inspector for exact values, width, flip, and extra tails',
+    );
     await expect(feature).toContainText('Built foundation');
     await page.evaluate(() => document.fonts.ready);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(

@@ -67,7 +67,8 @@ Answering the required questions directly:
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Ellipse/speech balloon | Baseline workflow | CSP/lettering conventions | Group + shape + text | Inspector section (exists) | Recipe only | O(1) | Implemented |
 | Curved/width tail | Tails welded to balloon, only taper | CSP tail complaints; Blambot conventions | Path node + handles | Slider/field + flip/remove | `CalloutTail` | O(1) | Implemented |
-| Direct tail point and bend editing | Inspector-only targeting makes exact callout placement slow | PdfCraft #1152; Adobe users report hard-to-reach grouped callout handles and zoom-sensitive editing | Parametric path and callout recipe | 24 CSS-pixel canvas handles; arrow keys; Inspector retained | Existing scene geometry | O(1) | Implemented; body move/resize remain open |
+| Direct tail point and bend editing | Inspector-only targeting makes exact callout placement slow | PdfCraft #1152; Adobe users report hard-to-reach grouped callout handles and zoom-sensitive editing | Parametric path and callout recipe | 24 CSS-pixel canvas handles; arrow keys; Inspector retained | Existing scene geometry | O(1) | Implemented |
+| Independent body movement | Moving a callout also moves its tip away from the intended speaker or target | PdfCraft #1152 user report | Callout group transform + authored tail endpoints | Canvas handle; pointer drag; arrow keys | Scene helper preserves each endpoint in world space | O(tails) | Implemented; resizing remains open |
 | Thought chain | Three decreasing circles convention | Blambot grammar | Circle nodes | Kind switch | Chain geometry | O(1) | Implemented |
 | Caption/whisper/shout recipes | Voice conventions | Blambot; lettering practice | Existing styles | Kind select | None new | O(1) | Implemented |
 | Contour-aware wrap | Rectangular wrap in round balloons | CSP/Krita complaints; 94% line rule | Canonical layout, both engines | Line shape select | One profile derivation | 0.024 ms/balloon at 500 | Implemented |
@@ -97,7 +98,7 @@ Answering the required questions directly:
 5. **Visual validation** (2026-09-20): five real-flow E2E scenarios and the
    capture set in `docs/screenshots/comic-lettering/`.
 6. **Remaining** (not started): canvas balloon-drawing tool, independent body
-   move/resize handles, joined balloons, per-glyph deterministic SFX effects, vertical
+   resize handles, joined balloons, per-glyph deterministic SFX effects, vertical
    contour columns, comic-specific RTL fixtures, batch lettering navigation,
    script import decision.
 7. **Shaped balloons, presets, and direct editing** (2026-09-20): Burst and
@@ -108,11 +109,11 @@ Answering the required questions directly:
    vocabulary: `docs/research/comic-preset-svg-research-2026-09-20.md`.
 8. **Known defect**: live canvas loses shape corner radii despite correct IR
    (see the audit); fix in the editor frame path.
-9. **Direct tail editing** (2026-10-20): selected pointed callouts expose
+9. **Direct callout editing** (2026-10-20): selected pointed callouts expose
    independent tip and bend handles with CSS-pixel hit targets and keyboard
-   nudging. The PdfCraft request for moving/resizing the body while preserving
-   the leader’s authored tip and knee remains open; this slice does not claim
-   the complete interaction.
+   nudging. The body handle moves body and text while keeping tail tips anchored
+   in world space, with undoable pointer drags and keyboard nudges. Eight-way
+   body resizing remains open.
 
 ## Validation economy
 

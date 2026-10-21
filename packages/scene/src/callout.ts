@@ -1225,6 +1225,46 @@ export function updateCalloutTailEndpoint(
   return { ...doc, nodes };
 }
 
+/**
+ * Move a callout body and its text in callout-local units while keeping every
+ * tail endpoint fixed in world space. The group carries the body and each
+ * tail base; the authored endpoints move by the inverse local delta.
+ */
+export function moveCalloutBodyKeepingTailTips(
+  doc: Document,
+  groupId: NodeId,
+  dx: number,
+  dy: number,
+): Document {
+  const group = calloutGroup(doc, groupId);
+  if (!group?.callout.parametric || !Number.isFinite(dx) || !Number.isFinite(dy)) return doc;
+  if (dx === 0 && dy === 0) return doc;
+  const body = doc.nodes[group.callout.bodyNodeId];
+  if (body?.kind !== 'shape' || body.shape.kind !== 'rect') return doc;
+
+  const [a, b, c, d, e, f] = group.transform;
+  let next: Document = {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [groupId]: {
+        ...group,
+        transform: [a, b, c, d, e + a * dx + c * dy, f + b * dx + d * dy],
+      },
+    },
+  };
+  for (const tail of calloutTails(group)) {
+    const endpoint = tailEndpointFor(tail, doc.nodes, body.shape);
+    const tailId = tail.nodeIds[0];
+    if (!tailId) continue;
+    next = updateCalloutTailEndpoint(next, groupId, tailId, {
+      x: endpoint.x - dx,
+      y: endpoint.y - dy,
+    });
+  }
+  return next;
+}
+
 /** Move a pointed tail's bend handle in callout-local coordinates. */
 export function updateCalloutTailBendPoint(
   doc: Document,

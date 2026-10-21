@@ -44,6 +44,12 @@
   transform: rotate(45deg);
 }
 
+.callout-manipulation-overlay__mark--body {
+  border-radius: var(--radius-control-compact);
+  background: var(--color-canvas-selection);
+  box-shadow: inset 0 0 0 2px var(--color-canvas-handle-fill);
+}
+
 .callout-manipulation-overlay__guide {
   position: absolute;
   inset: 0;

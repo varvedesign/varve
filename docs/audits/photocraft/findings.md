@@ -1177,7 +1177,7 @@ called complete merely because its source issue is closed or a source PR is open
   corrects that assessment. The Browser Demo guide now says that Firefox and
   Safari downloads cannot be confirmed and keep the document modified; no new
   public capability is claimed.
-- **Callout repositioning — partial improvement; body movement and resizing remain open.**
+- **Callout repositioning — direct tail and independent body movement implemented; resizing remains open.**
   PdfCraft [#1152](https://github.com/storytold/pdfcraft/issues/1152) and its
   new floor-plan user comment ask to move the callout body/text independently
   while its arrow tip stays anchored; the commenter says canvas drags currently
@@ -1185,9 +1185,11 @@ called complete merely because its source issue is closed or a source PR is open
   layer-tree deep-selection path and numeric Inspector controls. A selected
   parametric pointed callout now has direct canvas handles for its arrow tip
   and bend, with fixed 24 CSS-pixel hit targets, keyboard nudging, and pointer
-  regression coverage. The separate body/text move and eight-way resize
-  behaviors requested by #1152 are still absent, so the issue is only partially
-  addressed. The previous cutoff-B disposition and rationale (“PDF interchange
+  regression coverage. The body handle now moves the balloon body and text
+  independently while preserving each tail tip's world-space position, with
+  undoable pointer dragging and keyboard nudging. The eight-way resize behavior
+  requested by #1152 remains absent, so the issue is only partially addressed.
+  The previous cutoff-B disposition and rationale (“PDF interchange
   metadata”) were incorrect. Adobe user reports also warn that grouped handles
   can be hard to reach and unreliable below 100% zoom; the zoom-independent hit
   target is an intentional response, but cross-platform native-app validation

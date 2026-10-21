@@ -57,6 +57,9 @@ a second text engine:
   with the Select tool, 24 CSS-pixel canvas handles drag its tip and bend
   independently; keyboard arrows move them by 1 callout-local unit
   (Shift+Arrow: 10 units).
+  A separate body handle moves the balloon body and text while translating the
+  tail geometry to keep each tip anchored in world space; it supports pointer
+  dragging and arrow-key nudging. Eight-way body resizing remains open.
   The numeric Inspector controls remain available for precise values.
 - Burst and Cloud are **shaped** balloons: an ordinary star outline painted
   behind the tail/body/text recipe, resized with the body on fit. No new node

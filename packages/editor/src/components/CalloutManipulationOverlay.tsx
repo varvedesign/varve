@@ -4,6 +4,7 @@ import {
   calloutTails,
   calloutTailTip,
   isCalloutGroup,
+  moveCalloutBodyKeepingTailTips,
   updateCalloutTailBendPoint,
   updateCalloutTailEndpoint,
 } from '@varve/scene';
@@ -16,25 +17,27 @@ import { useEditor, useViewport } from '../context';
 import { isNodeEffectivelyLocked, nodeWorldTransform } from '../scene/world';
 import './CalloutManipulationOverlay.css';
 
-type HandleMode = 'tip' | 'bend';
+type HandleMode = 'body' | 'tip' | 'bend';
 
 interface ActiveDrag {
   mode: HandleMode;
   pointerId: number;
   groupId: string;
-  tailId: string;
+  tailId?: string;
   groupInverse: Affine;
   canvasLeft: number;
   canvasTop: number;
   startClient: Point;
+  lastLocal: Point;
   started: boolean;
 }
 
 interface HandlePoint {
   mode: HandleMode;
-  tailId: string;
+  tailId?: string;
   index: number;
   point: { x: number; y: number };
+  screenOffset?: Point;
   label: string;
 }
 
@@ -83,6 +86,16 @@ export function CalloutManipulationOverlay({
   const handles = useMemo<HandlePoint[]>(() => {
     if (!group || !groupWorld || editor.state.tool !== 'select') return [];
     const result: HandlePoint[] = [];
+    const body = document.nodes[group.callout.bodyNodeId];
+    if (group.callout.parametric && body?.kind === 'shape' && body.shape.kind === 'rect') {
+      result.push({
+        mode: 'body',
+        index: 0,
+        point: { x: body.shape.w / 2, y: 0 },
+        screenOffset: [26, -22],
+        label: 'Move balloon body; keep tail tips anchored',
+      });
+    }
     tails.forEach((tail, index) => {
       if (tail.style !== 'pointed') return;
       const tailId = tail.nodeIds[0];
@@ -130,7 +143,12 @@ export function CalloutManipulationOverlay({
   );
 
   const updateFromKeyboard = useCallback(
-    (mode: HandleMode, tailId: string, point: Point, event: KeyboardEvent<HTMLButtonElement>) => {
+    (
+      mode: HandleMode,
+      tailId: string | undefined,
+      point: Point,
+      event: KeyboardEvent<HTMLButtonElement>,
+    ) => {
       const directions: Record<string, Point> = {
         ArrowLeft: [-1, 0],
         ArrowRight: [1, 0],
@@ -141,16 +159,24 @@ export function CalloutManipulationOverlay({
       if (!direction || !group) return;
       event.preventDefault();
       const step = event.shiftKey ? 10 : 1;
-      const next = { x: point[0] + direction[0]! * step, y: point[1] + direction[1]! * step };
+      const dx = direction[0]! * step;
+      const dy = direction[1]! * step;
+      const next = { x: point[0] + dx, y: point[1] + dy };
       editor.beginTransaction();
-      editor.updateDoc((doc) =>
-        mode === 'tip'
+      editor.updateDoc((doc) => {
+        if (mode === 'body') return moveCalloutBodyKeepingTailTips(doc, group.id, dx, dy);
+        if (!tailId) return doc;
+        return mode === 'tip'
           ? updateCalloutTailEndpoint(doc, group.id, tailId, next)
-          : updateCalloutTailBendPoint(doc, group.id, tailId, next),
-      );
+          : updateCalloutTailBendPoint(doc, group.id, tailId, next);
+      });
       editor.commitTransaction();
       editor.announceOperation(
-        mode === 'tip' ? 'Move balloon tail point' : 'Bend balloon tail',
+        mode === 'body'
+          ? 'Move balloon body, keep tail tips anchored'
+          : mode === 'tip'
+            ? 'Move balloon tail point'
+            : 'Bend balloon tail',
         group.name,
       );
     },
@@ -161,6 +187,15 @@ export function CalloutManipulationOverlay({
     (event: PointerEvent<HTMLButtonElement>, handle: HandlePoint) => {
       if (!group || !groupInverse || isNodeEffectivelyLocked(document, group.id)) return;
       const rect = canvasRef.current?.getBoundingClientRect();
+      const canvasLeft = rect?.left ?? 0;
+      const canvasTop = rect?.top ?? 0;
+      const pointerWorld = screenToWorld(
+        camera,
+        event.clientX - canvasLeft,
+        event.clientY - canvasTop,
+        viewport,
+      );
+      const pointerLocal = applyAffine(groupInverse, pointerWorld);
       event.preventDefault();
       event.stopPropagation();
       event.currentTarget.focus({ preventScroll: true });
@@ -169,15 +204,16 @@ export function CalloutManipulationOverlay({
         mode: handle.mode,
         pointerId: event.pointerId,
         groupId: group.id,
-        tailId: handle.tailId,
+        ...(handle.tailId ? { tailId: handle.tailId } : {}),
         groupInverse,
-        canvasLeft: rect?.left ?? 0,
-        canvasTop: rect?.top ?? 0,
+        canvasLeft,
+        canvasTop,
         startClient: [event.clientX, event.clientY],
+        lastLocal: pointerLocal,
         started: false,
       };
     },
-    [canvasRef, document, group, groupInverse],
+    [camera, canvasRef, document, group, groupInverse, viewport],
   );
 
   const handlePointerMove = useCallback(
@@ -195,18 +231,28 @@ export function CalloutManipulationOverlay({
       const screenY = event.clientY - drag.canvasTop;
       const world = screenToWorld(camera, screenX, screenY, viewport);
       const local = applyAffine(drag.groupInverse, world);
+      if (drag.mode === 'body') {
+        const dx = local[0] - drag.lastLocal[0];
+        const dy = local[1] - drag.lastLocal[1];
+        drag.lastLocal = local;
+        editor.updateDoc((doc) => moveCalloutBodyKeepingTailTips(doc, drag.groupId, dx, dy));
+        setPreview(null);
+        return;
+      }
+      if (!drag.tailId) return;
+      const tailId = drag.tailId;
       editor.updateDoc((doc) =>
         drag.mode === 'tip'
-          ? updateCalloutTailEndpoint(doc, drag.groupId, drag.tailId, { x: local[0], y: local[1] })
-          : updateCalloutTailBendPoint(doc, drag.groupId, drag.tailId, {
+          ? updateCalloutTailEndpoint(doc, drag.groupId, tailId, { x: local[0], y: local[1] })
+          : updateCalloutTailBendPoint(doc, drag.groupId, tailId, {
               x: local[0],
               y: local[1],
             }),
       );
       const fromLocal =
         drag.mode === 'tip'
-          ? calloutTailBendPoint(document, drag.groupId, drag.tailId)
-          : calloutTailTip(document.nodes[drag.tailId]);
+          ? calloutTailBendPoint(document, drag.groupId, tailId)
+          : calloutTailTip(document.nodes[tailId]);
       setPreview({
         groupId: drag.groupId,
         from: fromLocal ? toScreen(fromLocal) : toScreen({ x: local[0], y: local[1] }),
@@ -272,15 +318,22 @@ export function CalloutManipulationOverlay({
       {handles.map((handle) => {
         const [x, y] = toScreen(handle.point);
         const bend = handle.mode === 'bend';
+        const body = handle.mode === 'body';
+        const testId = body
+          ? 'callout-body-handle'
+          : `callout-${handle.mode}-handle-${handle.index + 1}`;
         return (
           <button
-            key={`${handle.mode}-${handle.tailId}`}
+            key={`${handle.mode}-${handle.tailId ?? group.id}`}
             type="button"
             className="callout-manipulation-overlay__hit"
-            style={{ left: x, top: y }}
+            style={{
+              left: x + (handle.screenOffset?.[0] ?? 0),
+              top: y + (handle.screenOffset?.[1] ?? 0),
+            }}
             aria-label={handle.label}
             aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight Shift+ArrowUp Shift+ArrowDown"
-            data-testid={`callout-${handle.mode}-handle-${handle.index + 1}`}
+            data-testid={testId}
             onPointerDown={(event) => handlePointerDown(event, handle)}
             onKeyDown={(event) =>
               updateFromKeyboard(
@@ -293,7 +346,7 @@ export function CalloutManipulationOverlay({
           >
             <span
               aria-hidden="true"
-              className={`callout-manipulation-overlay__mark ${bend ? 'callout-manipulation-overlay__mark--bend' : 'callout-manipulation-overlay__mark--tip'}`}
+              className={`callout-manipulation-overlay__mark ${body ? 'callout-manipulation-overlay__mark--body' : bend ? 'callout-manipulation-overlay__mark--bend' : 'callout-manipulation-overlay__mark--tip'}`}
             />
           </button>
         );
