@@ -807,4 +807,108 @@ describe('ColorPicker — swatch selection precision', () => {
       expect(emitted.k).toBe(64);
     }
   });
+
+  describe('gesture lifecycle', () => {
+    const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
+
+    it('opens one gesture for a whole pointer drag', () => {
+      const onInteractionStart = vi.fn();
+      const onInteractionEnd = vi.fn();
+      render(
+        <ColorPicker
+          value={color}
+          onChange={() => {}}
+          onInteractionStart={onInteractionStart}
+          onInteractionEnd={onInteractionEnd}
+        />,
+      );
+      const root = document.querySelector('.color-picker') as HTMLElement;
+
+      fireEvent.pointerDown(root, { button: 0, pointerId: 1 });
+      fireEvent.pointerMove(root, { pointerId: 1 });
+      fireEvent.pointerMove(root, { pointerId: 1 });
+      fireEvent.pointerUp(root, { button: 0, pointerId: 1 });
+
+      expect(onInteractionStart).toHaveBeenCalledTimes(1);
+      expect(onInteractionEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it('treats a held arrow key as one gesture, not one per repeat', () => {
+      const onInteractionStart = vi.fn();
+      const onInteractionEnd = vi.fn();
+      render(
+        <ColorPicker
+          value={color}
+          onChange={() => {}}
+          onInteractionStart={onInteractionStart}
+          onInteractionEnd={onInteractionEnd}
+        />,
+      );
+      const root = document.querySelector('.color-picker') as HTMLElement;
+
+      fireEvent.keyDown(root, { key: 'ArrowRight' });
+      fireEvent.keyDown(root, { key: 'ArrowRight' });
+      fireEvent.keyDown(root, { key: 'ArrowRight' });
+
+      expect(onInteractionStart).toHaveBeenCalledTimes(1);
+      expect(onInteractionEnd).not.toHaveBeenCalled();
+
+      fireEvent.keyUp(root, { key: 'ArrowRight' });
+      expect(onInteractionEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it('ends the gesture when the key is released after focus has moved away', () => {
+      const onInteractionStart = vi.fn();
+      const onInteractionEnd = vi.fn();
+      render(
+        <ColorPicker
+          value={color}
+          onChange={() => {}}
+          onInteractionStart={onInteractionStart}
+          onInteractionEnd={onInteractionEnd}
+        />,
+      );
+      const root = document.querySelector('.color-picker') as HTMLElement;
+
+      fireEvent.keyDown(root, { key: 'PageUp' });
+      // The release lands on the window, not on the picker subtree.
+      act(() => {
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: 'PageUp' }));
+      });
+
+      expect(onInteractionStart).toHaveBeenCalledTimes(1);
+      expect(onInteractionEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores keys that are not value steps', () => {
+      const onInteractionStart = vi.fn();
+      render(
+        <ColorPicker value={color} onChange={() => {}} onInteractionStart={onInteractionStart} />,
+      );
+      const root = document.querySelector('.color-picker') as HTMLElement;
+
+      fireEvent.keyDown(root, { key: 'Tab' });
+      fireEvent.keyDown(root, { key: 'a' });
+
+      expect(onInteractionStart).not.toHaveBeenCalled();
+    });
+
+    it('closes an in-flight gesture when the picker unmounts', () => {
+      const onInteractionEnd = vi.fn();
+      const { unmount } = render(
+        <ColorPicker
+          value={color}
+          onChange={() => {}}
+          onInteractionStart={() => {}}
+          onInteractionEnd={onInteractionEnd}
+        />,
+      );
+      const root = document.querySelector('.color-picker') as HTMLElement;
+
+      fireEvent.pointerDown(root, { button: 0, pointerId: 1 });
+      unmount();
+
+      expect(onInteractionEnd).toHaveBeenCalledTimes(1);
+    });
+  });
 });
