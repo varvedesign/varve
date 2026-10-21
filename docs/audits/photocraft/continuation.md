@@ -8,8 +8,8 @@ Last updated: 2026-10-21 (session 10).
   `storytold/pdfcraft`. Do not switch the audit to PhotoCraft.
 - Current task worktree:
   `/home/kevina/CodingProjects/varve-callout-followup`; branch
-  `codex/pdfcraft-callout-direct-manipulation-20261020`; clean at
-  `e7acb45ed9ed008aaed2d9e3b0be88d57c62cf84`, tracking the same pushed head.
+  `codex/pdfcraft-callout-direct-manipulation-20261020`; last pushed at
+  `f7e640e16` (Cutoff-D source review docs are now being extended locally).
   The shared main checkout and other worktrees are not owned by this task.
 - PR #155 targets `master` and is open/mergeable at `e7acb45`. The latest
   required CI, Build + Package, and Website Lighthouse workflows are queued
@@ -66,8 +66,14 @@ Last updated: 2026-10-21 (session 10).
   (#3797). Varve already has a native Linux pinch bridge; #3793 is therefore a
   hardware validation lead, not a confirmed gap. The other three are reader or
   PDF-content workflows without an established direct Varve analogue.
-- Next: verify the highest-risk save/undo and Unicode/text-input candidates
-  against Varve source and recursively follow their concrete PRs/samples;
+- Five Cutoff-D rows now have source mapping: #3409 matches an unchecked
+  staging-file close limitation; #3496 and #3755 map to existing Varve save
+  and history protections; #3555 is an adjacent cross-restart viewport
+  opportunity; #3793 remains device-specific validation. The bounded docs
+  validation passes; no code change followed from these source checks yet.
+- Next: follow the cross-platform close-error design for #3409 and verify the
+  remaining high-risk save/undo and Unicode/text-input candidates against
+  Varve source and recursively follow their concrete PRs/samples;
   separately inspect the Wacom and Synaptics input paths before considering
   changes. Update per-issue dispositions with file-backed evidence, then
   continue monitoring PR #155 without bypassing required checks. Integrate the
