@@ -1869,9 +1869,9 @@ verified in Varve.
 
 Pages 29 and 30 contain 76 issue records and 124 separate pull-request
 records. Five issue assessments were already present; the remaining 71 issue
-bodies and all advertised issue-comment pages were reviewed. Forty-six issues
+bodies and all advertised issue-comment pages were reviewed. Fifty-three issues
 received evidence-based no-change dispositions for Penpot hosting, identity,
-localization, deployment, or behavior already covered by Varve. Twenty-five
+localization, deployment, or behavior already covered by Varve. Eighteen
 retain a concrete Varve route or product decision in the per-issue ledger.
 
 The strongest feature opportunity is #3157: guide dragging should snap to
@@ -1879,8 +1879,9 @@ object edges or vector points. Varve currently snaps objects to authored guides,
 not guides to geometry. This is a precision workflow that can fit the existing
 snap preference without changing the document schema; reproduce it in the real
 browser and inspect tolerance at different zoom and rotation before deciding
-acceptance. #3107 asks for palette-based stroke/shadow color parity and needs a
-route/discoverability decision. #3172 asks for box-model visualization, while
+acceptance. #3107 confirms Penpot's Alt/Option-click palette route; verify
+Varve's route and discoverability before proposing a parity improvement.
+#3172 asks for box-model visualization, while
 #3198/#3199 ask for curve-point radius and numeric coordinates; these remain
 product opportunities rather than defects.
 
