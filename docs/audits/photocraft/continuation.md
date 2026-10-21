@@ -65,7 +65,7 @@ Last updated: 2026-10-21 (session 12).
   (#3797). Varve already has a native Linux pinch bridge; #3793 is therefore a
   hardware validation lead, not a confirmed gap. The other three are reader or
   PDF-content workflows without an established direct Varve analogue.
-- Ten Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
+- Twelve Cutoff-D rows now have source mapping. #3407's deleted-PDF-content
   concern is already covered by Varve's different persistence model: page
   deletion removes the subtree and prunes unreferenced image assets, while
   Save serializes the current `.varve` scene as a complete snapshot. PdfCraft
@@ -91,6 +91,11 @@ Last updated: 2026-10-21 (session 12).
   strings and has no PDF-page selection/copy path; it does not derive word
   spaces from glyph positions. The inline repro and linked PR #3722 were
   reviewed, with no matching Varve defect demonstrated.
+  #3597's specific stale macOS Devanagari paths do not apply to Varve's native
+  OS font enumeration; this does not prove automatic fallback or replace a
+  macOS runtime check. #3769 concerns editing PDF source text, which Varve
+  does not support. Its authored-text Devanagari shaping oracle covers both
+  conjunct formation and pre-base matra positioning.
   #3409 matches an unchecked
   staging-file close limitation and has an implementation plus passing
   injected-failure test in the pushed branch; #3496 and #3755 map to existing
