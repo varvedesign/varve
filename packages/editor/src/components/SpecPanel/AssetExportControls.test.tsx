@@ -612,6 +612,7 @@ describe('AssetExportControls', () => {
         const pdf = vi.spyOn(exportHelpers, 'exportNodeAsPdf').mockResolvedValue({
           bytes: new Uint8Array([37, 80, 68, 70]),
           filename: 'Banner.pdf',
+          warnings: [],
         });
         const saveBinaryFile = vi.fn(async () => '/tmp/Banner.pdf');
         try {

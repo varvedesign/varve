@@ -57,6 +57,7 @@ import {
   findFlattenBoundaries,
 } from '../../export/compositor';
 import { prepareArtworkExport } from '../../export/conceptArtReferencePolicy';
+import { detectExportGlyphGaps, glyphGapWarnings } from '../../export/glyphCoverage';
 import {
   buildPrintImageManifestForSrcs,
   buildPrintImageManifestFromPngBlob,
@@ -903,7 +904,7 @@ export async function exportNodeAsPdf(
   scale: number,
   eng?: Engine,
   options: { includeAiDisclosure?: boolean } = {},
-): Promise<{ bytes: Uint8Array; filename: string }> {
+): Promise<{ bytes: Uint8Array; filename: string; warnings: string[] }> {
   ({ node, document: doc } = prepareArtworkExport(node, doc));
   const subtree = flattenSceneToEngine(doc, [node.id]);
   assertPdfPatternSources(subtree.nodes, 'PDF');
@@ -930,13 +931,18 @@ export async function exportNodeAsPdf(
     return {
       bytes: maybeDisclosePdf(result.bytes, doc, node.id, options.includeAiDisclosure),
       filename,
+      warnings: [],
     };
   }
 
   if (needsRaster) {
     const engine = eng ?? (await createEngine('stub'));
     const bytes = await rasterizeSubtreeToPdfViaPrintEngine(node, doc, scale, engine, tauri);
-    return { bytes: maybeDisclosePdf(bytes, doc, node.id, options.includeAiDisclosure), filename };
+    return {
+      bytes: maybeDisclosePdf(bytes, doc, node.id, options.includeAiDisclosure),
+      filename,
+      warnings: [],
+    };
   }
 
   // ── Vector path (pure solid-fill shapes, no effects) ─────────────────
@@ -956,6 +962,10 @@ export async function exportNodeAsPdf(
     signal: undefined,
   });
   assertExportFontData(fontRequests, fontRecords);
+  // The PDF writer outlines the authored face; a character that face does not
+  // map becomes .notdef, while the canvas drew it with a fallback. Report the
+  // difference here, where the user can still change the font.
+  const glyphGaps = await detectExportGlyphGaps(subtree.nodes, fontRecords);
   const fontDataForIpc: Array<[string, number[]]> = fontRecords.map((r) => [
     r.family,
     Array.from(r.data),
@@ -999,6 +1009,7 @@ export async function exportNodeAsPdf(
   return {
     bytes: maybeDisclosePdf(new Uint8Array(bytes), doc, node.id, options.includeAiDisclosure),
     filename,
+    warnings: glyphGapWarnings(glyphGaps),
   };
 }
 

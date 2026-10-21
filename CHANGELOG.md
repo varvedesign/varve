@@ -63,6 +63,12 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **PDF export names characters the chosen font cannot draw.** The canvas falls
+  back per glyph, but the PDF writer outlines the authored face, so a character
+  that face does not map exported as a blank box while the editor showed it
+  normally. The export now reads the coverage of the exact font binaries it
+  embeds and reports the affected characters, font and text objects in Export
+  Results, instead of leaving the difference to be discovered after delivery.
 - **PDF import no longer invents content the page does not show.** Text set in
   an invisible or clip-only render mode (`3 Tr` / `7 Tr` — how a searchable OCR
   layer is attached to a scan) is no longer imported as visible text, and

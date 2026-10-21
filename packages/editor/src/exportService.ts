@@ -366,6 +366,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         mimeType: 'application/pdf',
         warnings: [
           ...fontWarnings,
+          ...result.warnings,
           ...collectGradientMapFlattenWarnings(node, context.document, 'pdf'),
         ],
       };
