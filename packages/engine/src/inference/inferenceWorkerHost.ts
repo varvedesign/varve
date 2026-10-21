@@ -12,6 +12,7 @@ import {
   type InferenceAdmission,
   type InferenceLease,
 } from './admission';
+import { assertAiFeaturesEnabled } from './aiFeaturesGate';
 import { InferenceError } from './core/InferenceError';
 import type {
   WorkerInferRequest,
@@ -343,6 +344,7 @@ export class InferenceWorkerHost {
     request: Omit<WorkerInferRequest, 'requestId'>,
     options: InferenceJobOptions = {},
   ): Promise<WorkerInferResult> {
+    assertAiFeaturesEnabled();
     const model = getModelById(request.modelId);
     const sessionEstimateBytes = request.sessionPeakBytes ?? estimateModelMemory(request.modelId);
     if (!Number.isSafeInteger(sessionEstimateBytes) || sessionEstimateBytes < 0) {

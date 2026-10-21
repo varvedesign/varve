@@ -15,6 +15,7 @@ import {
 } from '@varve/engine';
 import { Button, Icon, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 
 interface ModelRow {
   entry: ModelManifestEntry;
@@ -88,6 +89,7 @@ function qualityLabel(q: number): string {
 }
 
 export function ModelManager() {
+  const aiEnabled = useAiFeaturesEnabled();
   const [rows, setRows] = useState<ModelRow[]>([]);
   const [caps, setCaps] = useState<RuntimeCapabilities | null>(null);
   const [loading, setLoading] = useState(true);
@@ -302,6 +304,7 @@ export function ModelManager() {
           app's data directory. Models marked as unavailable have no trusted public ONNX source and
           require manual export from their original framework.
         </p>
+        {!aiEnabled && <p className="settings-section__hint">{AI_DISABLED_HINT}</p>}
 
         {totalStorage > 0 && (
           <p className="settings-section__hint">
@@ -380,7 +383,9 @@ export function ModelManager() {
               const isReady = row.state === 'ready';
               const isDownloading = row.state === 'downloading';
               const canDownload =
-                !row.entry.bundled && Boolean(row.entry.remoteUrl && row.entry.checksum);
+                aiEnabled &&
+                !row.entry.bundled &&
+                Boolean(row.entry.remoteUrl && row.entry.checksum);
               const progress = row.downloadProgress;
               const progressPercent =
                 progress && progress.total > 0

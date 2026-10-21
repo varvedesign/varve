@@ -30,6 +30,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getBackupService, useOptionalEditor } from '../../context';
 import { PrivacyDiagnosticsSection } from '../../crash';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { PluginManager } from '../../plugins/PluginManager';
 import { PluginRuntimeBridge } from '../../plugins/PluginRuntimeBridge';
 import type { ThemeMode, UnitType } from '../../settings';
@@ -306,13 +307,7 @@ export function SettingsDialog({
             {activeSection === 'storage' && <StorageSettingsTab />}
             {activeSection === 'nudge' && <NudgeSection />}
             {activeSection === 'input' && <DrawingInputSettingsTab />}
-            {activeSection === 'models' && (
-              <>
-                <BgRemovalModelsTab />
-                <ColorizationModelsTab />
-                <SemanticSearchTab />
-              </>
-            )}
+            {activeSection === 'models' && <OfflineModelsSection />}
             {activeSection === 'plugins' && <PluginManager />}
             {activeSection === 'collab' && <CollabSection />}
             {activeSection === 'ai' && <AISection />}
@@ -786,6 +781,18 @@ function CollabSection() {
   );
 }
 
+function OfflineModelsSection() {
+  const aiEnabled = useAiFeaturesEnabled();
+  return (
+    <>
+      {!aiEnabled && <p className="settings-section__hint">{AI_DISABLED_HINT}</p>}
+      <BgRemovalModelsTab />
+      <ColorizationModelsTab />
+      <SemanticSearchTab />
+    </>
+  );
+}
+
 function AISection() {
   const { settings, updateSection } = useSettings();
 
@@ -793,9 +800,10 @@ function AISection() {
     <div className="settings-section">
       <h3 className="settings-section__title">On-device Assistants</h3>
       <p className="settings-section__description">
-        Varve's design assistants (contrast checks, design-debt scans, layer-name suggestions,
-        spacing harmonization) run entirely on your device. Nothing is sent to a server and no model
-        downloads are required — the assistants work offline and never leave your document.
+        Contrast checks, design-debt scans, and spacing harmonization stay on this device and do not
+        download models. Layer-name suggestions use an on-device classification model when AI
+        features are on. The switch below also controls every on-device AI model, including
+        downloads from Offline Models.
       </p>
       <SettingsFieldRow label="AI features">
         <SwitchField
@@ -806,8 +814,10 @@ function AISection() {
         />
       </SettingsFieldRow>
       <p className="settings-section__hint">
-        When off, all AI and ML features are disabled: generative edit, background removal, upscale,
-        object selection, depth blur, semantic search, and model downloads.
+        When off, Varve will not download or run any on-device AI model. That includes generative
+        edit, background removal, upscale, object selection, denoise, colorize, depth, OCR, font
+        detect, line art, blend images, face-aware crop, text discovery, semantic search, and
+        Offline Models.
       </p>
       <SettingsFieldRow label="Usage & diagnostics">
         <span className="settings-section__description">
