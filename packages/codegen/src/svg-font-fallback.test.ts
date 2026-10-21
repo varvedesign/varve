@@ -39,7 +39,7 @@ describe('svgFontFamilyValue', () => {
 describe('SVG text export', () => {
   it('writes the generic fallback into an exported text node', () => {
     const doc = createDocument('Font fallback');
-    const node = makeTextNode('t1', 'Hello', { x: 10, y: 20 }, { name: 'Title' });
+    const node = makeTextNode('t1', 'Hello', { name: 'Title', transform: [1, 0, 0, 1, 10, 20] });
     (node as unknown as Record<string, unknown>).fontFamily = 'Source Sans 3';
     (node as unknown as Record<string, unknown>).fontSize = 24;
 
