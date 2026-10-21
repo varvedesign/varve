@@ -14,6 +14,7 @@ import {
 } from '@varve/engine';
 import { Button, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { modelRequirementLabel } from '../../modelRequirements';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
@@ -111,6 +112,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function BgRemovalModelsTab() {
+  const aiEnabled = useAiFeaturesEnabled();
   const [allRows, setAllRows] = useState<InstalledModelRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadModelId, setDownloadModelId] = useState<string | null>(null);
@@ -220,6 +222,7 @@ export function BgRemovalModelsTab() {
         All AI models run locally on your device. Downloads require explicit consent and are stored
         in {storageLabel()}. Bundled models ship with the app and need no download.
       </p>
+      {!aiEnabled && <p className="settings-section__hint">{AI_DISABLED_HINT}</p>}
 
       {bundleStatus === 'corrupt' && (
         <p className="bg-models-list__bundle-warning" role="alert">
@@ -283,7 +286,7 @@ export function BgRemovalModelsTab() {
                         {busyId === row.id ? 'Removing...' : 'Remove'}
                       </Button>
                     )}
-                    {!row.installed && row.downloadable && row.componentIds ? (
+                    {!row.installed && aiEnabled && row.downloadable && row.componentIds ? (
                       compositeDownload?.id === row.id ? (
                         <Button
                           variant="ghost"
@@ -303,6 +306,7 @@ export function BgRemovalModelsTab() {
                       )
                     ) : (
                       !row.installed &&
+                      aiEnabled &&
                       row.downloadable && (
                         <Button
                           variant="default"

@@ -11,6 +11,7 @@ import { DownloadManager, listAllModels, type ModelManifestEntry } from '@varve/
 import { IndexedDbSemanticEmbeddingStore } from '@varve/platform';
 import { Button, Icon, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { modelRequirementLabel } from '../../modelRequirements';
 
 interface SemanticModelRow {
@@ -74,6 +75,7 @@ function stateLabel(state: SemanticModelRow['state']): string {
 }
 
 export function SemanticSearchTab() {
+  const aiEnabled = useAiFeaturesEnabled();
   const managerRef = useRef<DownloadManager | null>(null);
   const [rows, setRows] = useState<SemanticModelRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -203,6 +205,7 @@ export function SemanticSearchTab() {
         filename, OCR, tags, and metadata search work without them. Queries, embeddings, and ranking
         never leave this device.
       </p>
+      {!aiEnabled && <p className="settings-section__hint">{AI_DISABLED_HINT}</p>}
 
       <h3 className="settings-section__title">Models</h3>
       <RegionLoader label="Loading semantic search model status" loading={loading}>
@@ -252,7 +255,7 @@ export function SemanticSearchTab() {
                     <Icon name="Trash2" label={undefined} size="0.875rem" />
                     Remove
                   </Button>
-                ) : (
+                ) : aiEnabled ? (
                   <Button
                     variant="secondary"
                     size="sm"
@@ -262,7 +265,7 @@ export function SemanticSearchTab() {
                     <Icon name="Download" label={undefined} size="0.875rem" />
                     {row.state === 'paused' ? 'Resume' : 'Download'}
                   </Button>
-                )}
+                ) : null}
               </div>
             </li>
           ))}

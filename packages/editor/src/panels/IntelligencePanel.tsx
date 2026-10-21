@@ -74,6 +74,7 @@ import {
 import { AuditWorkerPool, type ScanProgress } from '../audit/auditWorker';
 import { useEditor } from '../context';
 import type { IntelligenceTab } from '../context/types';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../features/useAiFeaturesEnabled';
 import { suggestAutoLayout } from '../intelligence/autoLayoutSuggestor';
 import {
   autoName,
@@ -1434,6 +1435,7 @@ const EFFICIENTNET_MODEL_ID = 'efficientnet-lite4';
 
 function NamingTab() {
   const { selectedNodes, state, updateDoc } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const sel = selectedNodes();
   const [onlyDefault, setOnlyDefault] = useState(true);
   const [suggestions, setSuggestions] = useState<NamingSuggestion[]>([]);
@@ -1447,6 +1449,7 @@ function NamingTab() {
     const labels = new Map<NodeId, string>();
     if (imageNodes.length === 0) return labels;
 
+    if (!aiEnabled) return labels;
     const loader = getModelLoader();
     if (!(await loader.isModelAvailable(EFFICIENTNET_MODEL_ID))) {
       setStatus('downloading');
@@ -1509,7 +1512,7 @@ function NamingTab() {
 
     setStatus('idle');
     return labels;
-  }, [sel]);
+  }, [aiEnabled, sel]);
 
   const handleSuggest = useCallback(async () => {
     const labels = await classifyImages();
@@ -2661,6 +2664,7 @@ function loadImageToImageDataForAI(src: string): Promise<ImageData> {
 
 function SimilarTab() {
   const { state, setSelection, announce } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const abortRef = useRef<AbortController | null>(null);
   const downloadAbortRef = useRef<AbortController | null>(null);
   const embeddingCacheRef = useRef<Map<string, EmbeddingVector>>(new Map());
@@ -2721,6 +2725,7 @@ function SimilarTab() {
   }, []);
 
   const handleDownload = useCallback(async () => {
+    if (!aiEnabled) return;
     setStatus('downloading');
     setErrorMessage(null);
     setDownloadProgress(0);
@@ -2748,13 +2753,14 @@ function SimilarTab() {
     } finally {
       downloadAbortRef.current = null;
     }
-  }, [announce]);
+  }, [aiEnabled, announce]);
 
   const handleCancelDownload = useCallback(() => {
     downloadAbortRef.current?.abort();
   }, []);
 
   const handleDownloadTextModel = useCallback(async () => {
+    if (!aiEnabled) return;
     setStatus('downloading');
     setErrorMessage(null);
     setDownloadProgress(0);
@@ -2781,7 +2787,7 @@ function SimilarTab() {
     } finally {
       downloadAbortRef.current = null;
     }
-  }, [announce]);
+  }, [aiEnabled, announce]);
 
   const embed = useCallback(
     async (
@@ -3002,6 +3008,14 @@ function SimilarTab() {
   const needsDownload = !modelAvailable && !usingTestEmbedder && status !== 'downloading';
   const needsTextDownload =
     Boolean(queryText.trim()) && modelAvailable && !textModelAvailable && status !== 'downloading';
+
+  if (!aiEnabled) {
+    return (
+      <div className="intelligence-tab-content">
+        <p className="intelligence-hint">{AI_DISABLED_HINT}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="intelligence-tab-content">

@@ -1083,6 +1083,39 @@ fn cancel_background_removal_model_download(request_id: String) -> Result<(), St
     Ok(())
 }
 
+fn ai_features_enabled_from_store(store: &varve_sync::DocumentStore) -> bool {
+    store
+        .get_view_state("app-setting:ai.enabled")
+        .ok()
+        .flatten()
+        .map(|value| value != "false")
+        .unwrap_or(true)
+}
+
+fn require_ai_features_flag(enabled: bool) -> Result<(), String> {
+    if enabled {
+        Ok(())
+    } else {
+        Err("AI features are disabled. Turn them on in Settings to download models.".into())
+    }
+}
+
+fn require_ai_features_enabled(store: &varve_sync::DocumentStore) -> Result<(), String> {
+    require_ai_features_flag(ai_features_enabled_from_store(store))
+}
+
+fn is_allowed_model_download_url(url: &str) -> bool {
+    varve_bgremove::is_allowed_model_download_url(url)
+}
+
+fn require_allowed_model_download_url(url: &str, model_id: &str) -> Result<(), String> {
+    if is_allowed_model_download_url(url) {
+        Ok(())
+    } else {
+        Err(format!("Refusing model URL outside the download allowlist for {model_id}"))
+    }
+}
+
 #[tauri::command]
 fn delete_background_removal_model(model_id: String) -> Result<(), String> {
     background_removal_model_info(&model_id)?;
@@ -1092,9 +1125,11 @@ fn delete_background_removal_model(model_id: String) -> Result<(), String> {
 #[tauri::command]
 async fn download_background_removal_model(
     app: tauri::AppHandle,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     request_id: String,
     model_id: String,
 ) -> Result<u64, String> {
+    require_ai_features_enabled(&store)?;
     if !valid_download_request_id(&request_id) {
         return Err("Invalid model-download request id".into());
     }
@@ -1112,6 +1147,7 @@ async fn download_background_removal_model(
     let model = background_removal_model_info(&model_id)?.clone();
     let artifacts = model.artifacts();
     for artifact in &artifacts {
+        require_allowed_model_download_url(&artifact.remote_url, &model.id)?;
         if !artifact.remote_url.starts_with("https://") {
             return Err(format!(
                 "Refusing insecure model URL for {} ({})",
@@ -1134,7 +1170,7 @@ async fn download_background_removal_model(
     let result = async {
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if attempt.url().scheme() == "https" {
+                if is_allowed_model_download_url(attempt.url().as_str()) {
                     attempt.follow()
                 } else {
                     attempt.stop()
@@ -1355,17 +1391,17 @@ fn cancel_inference_model_download(request_id: String) -> Result<(), String> {
 #[tauri::command]
 async fn download_inference_model(
     app: tauri::AppHandle,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     request_id: String,
     model_id: String,
     url: String,
     sha256: String,
     size_bytes: Option<u64>,
 ) -> Result<String, String> {
+    require_ai_features_enabled(&store)?;
     let destination = inference_model_destination(&model_id)?;
     validate_inference_sha256(&sha256)?;
-    if !url.starts_with("https://") {
-        return Err(format!("Refusing insecure model URL for {model_id}"));
-    }
+    require_allowed_model_download_url(&url, &model_id)?;
     if destination.is_file() {
         let _ = app.emit(
             "inference-model-progress",
@@ -1381,7 +1417,7 @@ async fn download_inference_model(
     let result = async {
         let client = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if attempt.url().scheme() == "https" {
+                if is_allowed_model_download_url(attempt.url().as_str()) {
                     attempt.follow()
                 } else {
                     attempt.stop()
@@ -6151,6 +6187,36 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn model_download_urls_are_restricted_to_the_allowlist() {
+        assert!(is_allowed_model_download_url(
+            "https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model.onnx"
+        ));
+        assert!(is_allowed_model_download_url(
+            "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
+        ));
+        assert!(is_allowed_model_download_url(
+            "https://objects.githubusercontent.com/github-production-release-asset-2e65be/u2netp.onnx"
+        ));
+        assert!(!is_allowed_model_download_url(
+            "http://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model.onnx"
+        ));
+        assert!(!is_allowed_model_download_url(
+            "https://evil.example/models/steal.onnx"
+        ));
+        assert!(!is_allowed_model_download_url(
+            "https://github.com/evil/repo/archive/refs/heads/main.zip"
+        ));
+    }
+
+    #[test]
+    fn ai_features_flag_blocks_native_model_downloads() {
+        assert!(require_ai_features_flag(true).is_ok());
+        assert!(require_ai_features_flag(false)
+            .unwrap_err()
+            .contains("AI features are disabled"));
+    }
+
     fn inference_sha256_requires_lowercase_hex() {
         assert!(validate_inference_sha256(
             "1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47"
