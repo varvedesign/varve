@@ -42,6 +42,19 @@ a controlled `pHYs` chunk when the export has an explicit output PPI. JPEG and
 WebP density metadata are not currently authored, so the UI must not claim it
 was embedded for those formats.
 
+## Code bundle raster assets
+
+Code snippets inline composed raster fallbacks as data URLs. File-mode bundles
+include decoded bytes under content-addressed `assets/` paths and deduplicate
+identical bytes. The export fails if a required raster surface cannot be
+composed or its data URL cannot be decoded; it must not emit a missing file
+reference or a checkerboard as a successful deliverable. CSS Modules URL paths
+are relative to the generated stylesheet. Tailwind JSX and arbitrary-value URLs
+resolve at the consuming application's runtime URL, so its setup instructions
+require the host to serve `assets/` at that URL base or adjust the emitted paths
+for routing and non-root deployments. Flutter and SwiftUI consumers must also
+register the emitted image files with their platform resource bundles.
+
 ## Raster crop transform and pixel convention
 
 Every raster surface is an output-space crop, never an antialiased vector

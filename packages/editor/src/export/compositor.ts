@@ -113,7 +113,7 @@ export interface FlattenCapability {
 }
 
 /** Export target format. */
-export type ExportTarget = 'svg' | 'pdf' | 'raster';
+export type ExportTarget = 'svg' | 'pdf' | 'raster' | 'css' | 'flutter' | 'swiftui';
 
 /** The level at which to rasterize unsupported subtrees. */
 export type FlattenBoundary = 'node' | 'group' | 'page';
@@ -248,6 +248,34 @@ const SVG_NATIVE_GRADIENTS = new Set(['linear', 'radial']);
 const PDF_NATIVE_GRADIENTS = new Set(['linear']);
 
 /**
+ * CSS-family code targets paint boxes (`border-radius` covers rounded rects)
+ * and lower angular fields to `conic-gradient`; every other shape kind —
+ * ellipses, stars, arbitrary paths — has no faithful box representation and
+ * keeps the raster boundary.
+ */
+const CSS_NATIVE_SHAPES = new Set(['rect']);
+
+const CSS_NATIVE_GRADIENTS = new Set(['linear', 'radial', 'angular']);
+
+const CSS_NATIVE_EFFECTS: ReadonlySet<string> = new Set([
+  'dropShadow',
+  'innerShadow',
+  'layerBlur',
+  'backgroundBlur',
+]);
+
+/**
+ * Widget targets (Flutter/SwiftUI) paint rect containers; ellipses and
+ * freeform geometry route through the composed surface. Linear and radial
+ * gradients have native widget types, as does the drop shadow.
+ */
+const WIDGET_NATIVE_SHAPES = new Set(['rect']);
+
+const WIDGET_NATIVE_GRADIENTS = new Set(['linear', 'radial']);
+
+const WIDGET_NATIVE_EFFECTS: ReadonlySet<string> = new Set(['dropShadow']);
+
+/**
  * The basic Rust PDF writer can emit an offset path for a drop shadow, but it
  * cannot represent the canonical alpha blur/spread result. Treat every effect
  * as unsupported so the structural compositor rasterizes the affected subtree
@@ -340,6 +368,75 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
     supportsMasks: false,
     supportsEffectMasks: false,
     supportsTransforms: false, // only axis-aligned
+    supportsOpacity: true,
+  },
+  css: {
+    nativeShapeKinds: CSS_NATIVE_SHAPES,
+    nativeGradientTypes: CSS_NATIVE_GRADIENTS,
+    supportsGradientStrokes: false,
+    supportsMultipleStrokes: false,
+    supportsStrokeAlignment: false,
+    supportsPerSideStrokes: false,
+    supportsPressureStrokes: false,
+    supportsStrokeMarkers: false,
+    supportsTextStrokes: false,
+    supportsText: true,
+    supportsGroups: true,
+    supportsImages: true,
+    nativeEffectTypes: CSS_NATIVE_EFFECTS,
+    supportsStackedFills: true,
+    supportsPatternFills: false,
+    supportsComplexBlend: false,
+    supportsAdjustments: false,
+    supportsMasks: false,
+    supportsEffectMasks: false,
+    supportsTransforms: true,
+    supportsOpacity: true,
+  },
+  flutter: {
+    nativeShapeKinds: WIDGET_NATIVE_SHAPES,
+    nativeGradientTypes: WIDGET_NATIVE_GRADIENTS,
+    supportsGradientStrokes: false,
+    supportsMultipleStrokes: false,
+    supportsStrokeAlignment: false,
+    supportsPerSideStrokes: false,
+    supportsPressureStrokes: false,
+    supportsStrokeMarkers: false,
+    supportsTextStrokes: false,
+    supportsText: true,
+    supportsGroups: true,
+    supportsImages: true,
+    nativeEffectTypes: WIDGET_NATIVE_EFFECTS,
+    supportsStackedFills: false,
+    supportsPatternFills: false,
+    supportsComplexBlend: false,
+    supportsAdjustments: false,
+    supportsMasks: false,
+    supportsEffectMasks: false,
+    supportsTransforms: true,
+    supportsOpacity: true,
+  },
+  swiftui: {
+    nativeShapeKinds: WIDGET_NATIVE_SHAPES,
+    nativeGradientTypes: new Set(['linear', 'radial', 'angular']),
+    supportsGradientStrokes: false,
+    supportsMultipleStrokes: false,
+    supportsStrokeAlignment: false,
+    supportsPerSideStrokes: false,
+    supportsPressureStrokes: false,
+    supportsStrokeMarkers: false,
+    supportsTextStrokes: false,
+    supportsText: true,
+    supportsGroups: true,
+    supportsImages: true,
+    nativeEffectTypes: WIDGET_NATIVE_EFFECTS,
+    supportsStackedFills: false,
+    supportsPatternFills: false,
+    supportsComplexBlend: false,
+    supportsAdjustments: false,
+    supportsMasks: false,
+    supportsEffectMasks: false,
+    supportsTransforms: true,
     supportsOpacity: true,
   },
   raster: {
