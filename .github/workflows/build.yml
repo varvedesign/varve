@@ -110,7 +110,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
             libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
-            libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
+            libgdk-pixbuf-2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config patchelf
 
       - name: Install macOS Rust targets
@@ -216,7 +216,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
             libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
-            libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
+            libgdk-pixbuf-2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config patchelf file \
             squashfs-tools xdg-utils
 
