@@ -8,6 +8,7 @@ import {
   screenToGuidePosition,
 } from '../../canvas/guideGeometry';
 import { GuideContextMenu } from './GuideContextMenu';
+import { type GuideSnapResolver, isGuideSnapBypass } from './guideSnapResolver';
 import { PerspectiveGuideOverlay } from './PerspectiveGuideOverlay';
 import './GuideOverlay.css';
 
@@ -18,6 +19,11 @@ interface GuideOverlayProps {
   cameraRotation?: number;
   visible?: boolean;
   selectedGuideId?: string | null;
+  /**
+   * Builds the snap resolver for one drag, or `null` when snapping is off.
+   * Called once on pointer down; never during render.
+   */
+  beginGuideSnap?: (axis: 'vertical' | 'horizontal') => GuideSnapResolver | null;
   onMoveGuide: (id: string, position: number) => void;
   onRemoveGuide: (id: string) => void;
   onToggleLock: (id: string) => void;
@@ -53,6 +59,7 @@ export function GuideOverlay({
   cameraRotation = 0,
   visible = true,
   selectedGuideId = null,
+  beginGuideSnap,
   onMoveGuide,
   onRemoveGuide,
   onToggleLock,
@@ -70,6 +77,30 @@ export function GuideOverlay({
   const draggingRef = useRef<{ guideId: string; pointerId: number } | null>(null);
   const altDuplicateRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Snap preferences and candidates are resolved once when a drag first moves,
+  // matching the SelectionOverlay handle-drag contract: the resolver parses
+  // localStorage and walks the scene, so it must never run per pointer sample
+  // — nor on a pointer-down that turns out to be a plain click.
+  const dragSnapRef = useRef<{
+    axis: 'vertical' | 'horizontal';
+    resolved: boolean;
+    resolver: GuideSnapResolver | null;
+  } | null>(null);
+  const resolveDragSnap = useCallback(
+    (axis: 'vertical' | 'horizontal'): GuideSnapResolver | null => {
+      const pending = dragSnapRef.current;
+      if (pending && pending.axis === axis) {
+        if (!pending.resolved) {
+          pending.resolver = beginGuideSnap?.(axis) ?? null;
+          pending.resolved = true;
+        }
+        return pending.resolver;
+      }
+      return beginGuideSnap?.(axis) ?? null;
+    },
+    [beginGuideSnap],
+  );
+  const [snappedGuideId, setSnappedGuideId] = useState<string | null>(null);
 
   const camState = { zoom, pan, cameraRotation };
 
@@ -94,6 +125,8 @@ export function GuideOverlay({
       }
       altDuplicateRef.current = e.altKey;
       draggingRef.current = { guideId: guide.id, pointerId: e.pointerId };
+      dragSnapRef.current = { axis: guide.axis, resolved: false, resolver: null };
+      setSnappedGuideId(null);
       onSelectGuide?.(guide.id);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     },
@@ -172,15 +205,16 @@ export function GuideOverlay({
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
       const viewport = getEditorViewport();
-      const world = Math.round(
-        screenToGuidePosition(
-          { axis: activeGuide.axis, position: activeGuide.position },
-          screenX,
-          screenY,
-          camState,
-          viewport,
-        ),
+      const rawWorld = screenToGuidePosition(
+        { axis: activeGuide.axis, position: activeGuide.position },
+        screenX,
+        screenY,
+        camState,
+        viewport,
       );
+      const resolver = resolveDragSnap(activeGuide.axis);
+      const resolved = resolver?.(rawWorld, { bypass: isGuideSnapBypass(e) });
+      const world = resolved ? resolved.position : Math.round(rawWorld);
       if (altDuplicateRef.current && onDuplicateGuide) {
         const newId = onDuplicateGuide(activeGuide.id, world);
         altDuplicateRef.current = false;
@@ -189,8 +223,11 @@ export function GuideOverlay({
       } else {
         onMoveGuide(activeGuide.id, world);
       }
+      // Resolve after the Alt-duplicate branch: the drag now owns the new guide.
+      const activeId = draggingRef.current?.guideId ?? activeGuide.id;
+      setSnappedGuideId(resolved?.snapped ? activeId : null);
     },
-    [guides, camState, onMoveGuide, onDuplicateGuide, onSelectGuide],
+    [guides, camState, resolveDragSnap, onMoveGuide, onDuplicateGuide, onSelectGuide],
   );
 
   const handlePointerUp = useCallback(
@@ -205,6 +242,8 @@ export function GuideOverlay({
       if (!activeGuide) {
         draggingRef.current = null;
         altDuplicateRef.current = false;
+        dragSnapRef.current = null;
+        setSnappedGuideId(null);
         return;
       }
       if (
@@ -221,6 +260,8 @@ export function GuideOverlay({
       }
       draggingRef.current = null;
       altDuplicateRef.current = false;
+      dragSnapRef.current = null;
+      setSnappedGuideId(null);
     },
     [guides, onRemoveGuide],
   );
@@ -229,6 +270,8 @@ export function GuideOverlay({
     if (draggingRef.current?.pointerId !== e.pointerId) return;
     draggingRef.current = null;
     altDuplicateRef.current = false;
+    dragSnapRef.current = null;
+    setSnappedGuideId(null);
   }, []);
 
   const handleOverlayPointerMove = useCallback(
@@ -281,7 +324,10 @@ export function GuideOverlay({
           const line = lineForGuide(guide);
           const isHover = hoveredId === guide.id || draggingRef.current?.guideId === guide.id;
           const isSelected = selectedGuideId === guide.id;
-          const color = guide.color ?? 'var(--color-canvas-guide)';
+          const isSnapped = snappedGuideId === guide.id;
+          const color = isSnapped
+            ? 'var(--color-accent-primary)'
+            : (guide.color ?? 'var(--color-canvas-guide)');
           const midX = (line.x1 + line.x2) / 2;
           const midY = (line.y1 + line.y2) / 2;
 
@@ -294,8 +340,8 @@ export function GuideOverlay({
                 x2={line.x2}
                 y2={line.y2}
                 stroke={color}
-                strokeWidth={isSelected ? 2.5 : isHover ? 2 : 1}
-                strokeDasharray={guide.locked ? '4 2' : '2 2'}
+                strokeWidth={isSelected ? 2.5 : isSnapped ? 2 : isHover ? 2 : 1}
+                strokeDasharray={guide.locked ? '4 2' : isSnapped ? undefined : '2 2'}
                 style={{ pointerEvents: 'none' }}
               />
               {/* Invisible hit stroke for drag + context menu */}

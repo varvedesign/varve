@@ -27,6 +27,70 @@ test.describe('Canvas guides', () => {
     await expect(guideLines.first()).toHaveAttribute('x1', /^(179|180|181)(\.\d+)?$/);
   });
 
+  test('creating and re-dragging a guide snaps it onto an object edge', async ({
+    page,
+  }, testInfo) => {
+    const canvas = page.locator('.editor-canvas');
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('canvas not found');
+
+    await page.keyboard.press('r');
+    await page.mouse.move(canvasBox.x + 300, canvasBox.y + 220);
+    await page.mouse.down();
+    await page.mouse.move(canvasBox.x + 380, canvasBox.y + 300, { steps: 4 });
+    await page.mouse.up();
+
+    const line = page.locator('.guide-overlay__line').first();
+    // Overlays are inset into the same canvas container, so the selection
+    // overlay measures the coordinate origin the guide line uses.
+    const overlayBox = await page.locator('svg:has(.selection-overlay__dim)').first().boundingBox();
+    if (!overlayBox) throw new Error('canvas overlay origin not found');
+    // The rectangle's left edge is at canvasBox.x + 300 in overlay coordinates.
+    const edgeX = canvasBox.x + 300 - overlayBox.x;
+
+    // Creating the guide from the ruler is the primary route. Press and
+    // release without moving: the creation sample itself must land on the edge
+    // 3px away, which is what the pre-fix build failed to do.
+    const topRuler = page.locator('.ruler-canvas--top');
+    const rulerBox = await topRuler.boundingBox();
+    if (!rulerBox) throw new Error('top ruler not found');
+    await page.mouse.move(canvasBox.x + 303, rulerBox.y + rulerBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.up();
+
+    await expect(line).toHaveCount(1);
+    const created = Number(await line.getAttribute('x1'));
+    expect(created).toBeCloseTo(edgeX, 0);
+    expect(Math.abs(created - (canvasBox.x + 303 - overlayBox.x))).toBeGreaterThan(1);
+
+    // Re-dragging the existing guide must snap too, and releasing 5px past the
+    // same edge must land on it rather than 2px away from the previous release.
+    const dragGuideTo = async (screenX: number, beforeRelease?: () => Promise<void>) => {
+      const current = Number(await line.getAttribute('x1'));
+      const y = overlayBox.y + 80;
+      await page.mouse.move(overlayBox.x + current, y);
+      await page.mouse.down();
+      await page.mouse.move(screenX, y, { steps: 5 });
+      await beforeRelease?.();
+      await page.mouse.up();
+    };
+
+    await dragGuideTo(canvasBox.x + 303, async () => {
+      await testInfo.attach('guide-held-on-object-edge', {
+        body: await canvas.screenshot({
+          path: testInfo.outputPath('guide-held-on-object-edge.png'),
+        }),
+        contentType: 'image/png',
+      });
+    });
+    const first = Number(await line.getAttribute('x1'));
+    await dragGuideTo(canvasBox.x + 305);
+    const second = Number(await line.getAttribute('x1'));
+
+    expect(second).toBeCloseTo(first, 5);
+    expect(Math.abs(second - (canvasBox.x + 305 - overlayBox.x))).toBeGreaterThan(1);
+  });
+
   test('middle-button drag over a guide pans the canvas without moving the guide', async ({
     page,
   }, testInfo) => {
