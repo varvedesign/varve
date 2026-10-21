@@ -1,6 +1,77 @@
 # Continuation record
 
-Last updated: 2026-10-20 (session 9).
+Last updated: 2026-10-21 (session 10).
+
+## Current checkpoint (authoritative)
+
+- The user resolved the brief's source mismatch in favor of PdfCraft:
+  `storytold/pdfcraft`. Do not switch the audit to PhotoCraft.
+- Current task worktree:
+  `/home/kevina/CodingProjects/varve-callout-followup`; branch
+  `codex/pdfcraft-callout-direct-manipulation-20261020`; clean at
+  `e7acb45ed9ed008aaed2d9e3b0be88d57c62cf84`, tracking the same pushed head.
+  The shared main checkout and other worktrees are not owned by this task.
+- PR #155 targets `master` and is open/mergeable at `e7acb45`. The latest
+  required CI, Build + Package, and Website Lighthouse workflows are queued
+  with no jobs assigned. `just ci-health` classifies the CI and build queues
+  as `STUCK` with cause unconfirmed; do not cancel, duplicate, bypass, or
+  merge without required checks. GitHub Status reported Actions operational
+  and no incident on 2026-10-21. Recheck the existing runs.
+- Callout improvement commits: `a62262d` (body drag with anchored tails,
+  canvas handles plus Inspector, scene/Playwright regressions, docs/website),
+  `c5069f5` (documentation correction after review). Integration/validation
+  support commits: `6857493` (merged Vite override cleanup), `d0cdf60` (Git
+  fixture cwd fix), and `e7acb45` (lease-aware screenshot discovery and a
+  fixture-root regression assertion). The current PR includes a merge from
+  `master` at `20d9fad`.
+- The callout batch's real UI and website visual E2E checks passed earlier:
+  canvas body/resize/tail handles, anchored tail movement, keyboard and undo;
+  website pages were inspected at desktop and mobile sizes. Its screenshot
+  artifacts and detailed checks are recorded in `findings.md` and the PR.
+  Later commits only changed validation tooling/tests and documentation.
+- Local validation for `e7acb45`: push checkpoint passed (format/lint,
+  emoji, policy, Cargo format, 308/308 website tests, model manifest);
+  operation-history and validation-receipt tests passed; `audit:docs`,
+  `audit:emoji`, and `audit:tokens` passed. Required `verify:full --local`
+  failed twice at the repository-wide architecture audit because `ts-prune`
+  timed out after its fixed 60-second budget on the editor package (first at
+  595s total, retry at 746s total); earlier format/lint, emoji, and health
+  lanes passed. Do not claim the full gate passed. The affected planner
+  escalates because this branch changes validation infrastructure.
+- Use the installed pnpm 11.9.0 binary from
+  `/home/kevina/.local/share/pnpm/store/v11/links/@/pnpm/11.9.0/de87af087473104f74fb4e5966112ecbe21c04dfff71e27f915a34a7c815cf82/bin`
+  at the front of `PATH`; `/usr/bin/pnpm` stalled during earlier checks.
+  Keep the ChatGPT Linux app open and leave unrelated agent/worktree
+  processes and leases untouched.
+- **Cutoff D is the frozen second reconciliation:** issue API crawl
+  `2026-10-21T07:33:12Z`–`07:34:00Z`; 1,727 issues (984 open / 743 closed),
+  2,068 unique pull requests, 38 issue pages, 21 pull pages, no duplicate
+  IDs, no missing prior IDs, and Search API open/closed counts match with
+  `incomplete_results=false`. The new issue set is 203 IDs (184 open / 19
+  closed). Full comment pages for all 203 threads (356 comments) were fetched
+  with zero failures/count mismatches. Raw snapshots and per-thread responses
+  remain under `/tmp/pdfcraft-cutoff-d-*`; hashes/manifest references are in
+  `issue-ledger-follow-on-d.summary.json`.
+- Cutoff-D issue bodies and all 356 comments across 203 threads have now been
+  read. Three review cohorts covered #3407–3520, #3521–3650, and #3651–3783;
+  the remaining four new issue IDs (#3792, #3793, #3795, #3797) were read
+  directly. The ledger marks source reading as `thread`, while each engineering
+  disposition remains pending until Varve paths and relevant linked evidence
+  are checked. Pull request review threads and attachments are not implied by
+  issue-thread coverage. Initial screening priorities and product boundaries
+  are recorded in `findings.md` §5.
+- The four last issues concern PDF spread view/native editing (#3792), a
+  Synaptics touchpad scroll/pinch report on KDE Plasma (#3793), middle-button
+  auto-scroll (#3795), and spaces in text editing inside an existing PDF
+  (#3797). Varve already has a native Linux pinch bridge; #3793 is therefore a
+  hardware validation lead, not a confirmed gap. The other three are reader or
+  PDF-content workflows without an established direct Varve analogue.
+- Next: verify the highest-risk save/undo and Unicode/text-input candidates
+  against Varve source and recursively follow their concrete PRs/samples;
+  separately inspect the Wacom and Synaptics input paths before considering
+  changes. Update per-issue dispositions with file-backed evidence, then
+  continue monitoring PR #155 without bypassing required checks. Integrate the
+  reviewed batches through the permitted `master` workflow and revalidate.
 
 ## Frozen baseline
 

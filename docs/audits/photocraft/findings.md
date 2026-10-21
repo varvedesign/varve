@@ -1294,3 +1294,40 @@ called complete merely because its source issue is closed or a source PR is open
 The website's Browser Demo guide was updated to explain the download-only save
 state; no other marketing or capability claim needed revision. The menu and
 wheel controls are existing behaviors.
+
+## 5. Cutoff D review (203 new issues; engineering mapping in progress)
+
+Cutoff D was reconciled against pagination and Search API totals, then every
+new issue body and all 356 comments in its current thread were read. This is
+source-review coverage, not 203 verified Varve defects. The per-issue ledger
+records `review_depth: thread`; its separate Varve mapping/disposition remains
+pending until the corresponding source path and relevant linked evidence are
+checked. Pull requests in the issue endpoint were counted separately; their PR
+discussion and review comments were not part of this issue-thread pass.
+
+The reviews surfaced these strongest candidates for source-level follow-up:
+
+| Reports | Transferable failure family | Varve check / current boundary |
+|---|---|---|
+| #3409, #3496, #3555, #3755 | Save success, dirty state, file-watcher races, and undo continuity | Inspect atomic-save finalization, open text draft drains, external-file detection, and undo persistence together. #3496 is consistent with the already-reviewed pending-edit defense; the other cases require separate verification. |
+| #3421, #3444, #3481, #3505, #3519, #3592, #3597, #3601, #3604, #3684, #3687, #3707, #3713, #3769 | Unicode entry, bidi caret movement, glyph coverage, and text selection | Varve has a distinct text/font/shaping path. Treat PDF font/resource failures as evidence for tests and diagnostics, not proof of a Varve defect; inspect Arabic/Indic/CJK fallback and spaces in Varve's supported text path. |
+| #3446, #3464, #3650, #3665, #3736, #3793 | Canvas input, touchpad gestures, device-specific pointer handling, and window presentation | Varve already has a native Linux touchpad pinch bridge and pointer-type policy. #3793's user clarifies that a Synaptics touchpad scrolls too slowly and pinch does not work on KDE Plasma 6.8 / Arch; this remains a device-level validation gap, not a confirmed Varve failure. #3650's Wacom report likewise needs comparison with Varve's Tauri event path and supported hardware. |
+| #3437, #3474, #3518, #3541, #3620, #3651, #3693, #3747, #3780 | Direct manipulation, live feedback, transformed hit testing, and selection/deletion invariants | Map only after inspecting the exact Varve tool and whether the reported PDF operation has a native analogue. The callout body/tail drag improvement is already implemented and visually validated in this branch. |
+| #3429, #3499, #3507, #3511, #3644, #3645, #3646, #3647, #3732 | Destructive changes, hidden content, dependency reachability, and truthful partial results | Varve is not a PDF sanitizer or redaction tool. Check only shared export/visibility invariants; do not infer a need for PDF security features. |
+| #3570, #3590, #3666, #3675, #3744, #3776 | Visible geometry versus hit testing, text layout preservation, UI layout, and color compositing | Follow concrete samples or synthetic reproductions before mapping to Varve. #3776 is specifically DeviceCMYK PDF blend-space behavior, outside Varve's present color model unless the renderer supports an equivalent contract. |
+
+Examples screened out of the current product boundary include PDF signatures,
+forms/XFA, redaction, PDF page organization, reader-only preferences, PDF
+content-stream rewriting, and OS-specific PDF printer controls. These remain
+source-product bugs or requests, not Varve defects. Bot-generated “possibly
+related” links were not treated as verified duplicates or fixes. In particular,
+the four issue IDs beyond the reviewers' initial numeric cohorts were read
+directly: #3792 concerns PDF spread layout and native PDF editing; #3793 is the
+touchpad report above; #3795 requests browser-style middle-button auto-scroll,
+which is not established as a Varve requirement; and #3797 concerns editing
+text already inside a PDF, which Varve's limited importer does not support.
+
+The next source-review pass should resolve the highest-risk save/undo and text
+input candidates first, then the platform input reports. It must inspect
+linked fixes/PRs and attachments where they contain the only reproduction,
+and verify current Varve behavior before changing code or marketing claims.

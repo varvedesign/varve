@@ -1,0 +1,132 @@
+{
+  "cutoff": "D",
+  "repo": "storytold/pdfcraft",
+  "crawl_start_utc": "2026-10-21T07:33:12.390Z",
+  "crawl_end_utc": "2026-10-21T07:34:00.252Z",
+  "issue_pages": 38,
+  "api_records": 3795,
+  "issues": 1727,
+  "pull_request_records": 2068,
+  "unique_issue_ids": 1727,
+  "duplicate_issue_ids": 0,
+  "open": 984,
+  "closed": 743,
+  "issue_snapshot": {
+    "path": "/tmp/pdfcraft-cutoff-d-20261021.json",
+    "sha256": "c78d156085c8454df514b472e85e6e82fd99e0031781032f8bdf27a73a1e5902",
+    "page_record_counts": [
+      100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+      100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 95
+    ],
+    "page_sha256": [
+      "2628fc6cc5baf635727e8b4018423f9ee27df16ae42bd7fdf28f173f6c8835f3",
+      "43386ffefdd30b9be96be4084ea3902512dd7e605a5b954a52d062e203062ce1",
+      "7038dff2d2f307347bf85b3255a883d7cc093504c765b740186098dd2d5b26cb",
+      "b5c79574fca050d368ecd7c525dfbd56602b834f711e5a437166813ba092c99b",
+      "cc1f8ee129d51b1b243ee0b7691deb81acee66255835fd17a8c8d6da451ac641",
+      "1266756c9bd1eec9075202c94bf75b2c7ff6214173dd965a273695082237f7ee",
+      "981b0e157907c303d06b47331d4849dbbb6776350a2a186652b04726b741a8cb",
+      "e1925f0913259058f6512d027a8fe9192b6e6e62f5e5a077a1b583083613e16b",
+      "1e7c434e449826e1f71d0638a26c11a8fba9843ad4a49d2ef8fcab37cd361638",
+      "66306693a75c94a8520330769623f0d1a9e2a4c1dad09f59b0a20c15507c9318",
+      "b9207e8d801c2c6397eee176e852fb1f1c64573a0ec024788be036643dedc5bb",
+      "5e60d796153c29ec91cdd305abbb4bd44df6130d91e2c25657fa3bc20c1d51d4",
+      "58fd0351410b075b490435ef253a3d83331cb45e6c1d7cbad4f67b44278cabce",
+      "f2006c10db876d4a960ae6d517d13dd82796810aff3b0242a951c85c2a3333d7",
+      "fc99e0d69433f45b7faeb8d5132ebd924847716dee3d0844e14696528e61d15f",
+      "818ac0d6e7d6b0450e3da8402e5b651ec9b96cdb45f04e332f7cbd95ae50e88f",
+      "dd44e6cbe89960b9d6672c7356cd76f6c440f89190ff4a7f6f3aaf411c4f53e5",
+      "26b0d3c1928a07c719c7ecc71e2ba6a797c0b2e0d15ee192215396d7a8d0e212",
+      "5c7e6ca40a49258679a7581256b0b99b9d1b4db954de025c17cdbeeccbf53614",
+      "910051d058d66253d9d4dd8b8331589895d74e062822c071294667bcc5a327bf",
+      "079972b757fa21d0101215d1a6ffdfec75fac8e00a81e988f4e52e985523537c",
+      "922e0edf9e662cf6bd59efd753927db80ecdeb25c9ec0a4aa97a7ce980bf9a13",
+      "da6f70df44deabab5f568b7b1bc781a305debdf34face82f827641dc7e5f7a0d",
+      "3daa55716f48d09c0deae1ff186f5ce7070d4d0da48b3b852cb8db93b9459edd",
+      "ca3b98d708da9602b5daf70ca799c37affed979b6655f5aba7bf15249b96658f",
+      "e3a85a12de5afb63476a1e945ed50a4418da0924b99c790f86a3f0a96b1f3970",
+      "bf34a97fa1d1e57b6851c7536788420520dd46efec90217e73b1e367cffa6a4c",
+      "e7e84553d05557290becb2f3860069f492cb029737f3c6c7b700ebebc8848abe",
+      "59001af78a0ca1edd1cee403a7660f0fb52ae9984c03731430318308d03ead49",
+      "e62fa44b05eb6e0e643b1778f32d73ac61c940d72e2897172b7ae35064896bff",
+      "9cad7cf1650991021355856a2a2465f386e9eab175ef06b67cc5bd00a6cfcd8d",
+      "34095d911b1226d74b180b5b5915c74f20e4d6f7a98785e75d8d45a57b7fd666",
+      "19f90256e25dd79004a4683e5f1daeacb6e95bc97a0495869180d1958f86825f",
+      "14efc5e95a67eb15dbf45258ff1a9be3fbeac58938dfa7a8d0265226e25cc81c",
+      "9e0c6760c9e7c7870baf6880ad9fbaf49b1e851c41b1f72dad1591ce1773a299",
+      "f7264ae3d04a388b212c6231d8138eb7953dd36d6bba82517acad66de0b2ebd6",
+      "f588dc7c4a24843bf41d5f850237db5df23dadaca3cafa09b5ec79530a91d7e2",
+      "776c90a5a02bc3f2a4c494882d96d92e291b32341beb66f94f1518fcab4d227a"
+    ]
+  },
+  "pull_crawl": {
+    "start_utc": "2026-10-21T07:34:39.491Z",
+    "end_utc": "2026-10-21T07:35:12.210Z",
+    "path": "/tmp/pdfcraft-cutoff-d-prs-20261021.json",
+    "pages": 21,
+    "records": 2068,
+    "unique_numbers": 2068,
+    "duplicates": 0,
+    "open": 800,
+    "closed": 1268,
+    "sha256": "926bbc669586ebcfe8cde2bc31618143268f1530c730241c8e6297f37c348d96"
+  },
+  "search_reconciliation": {
+    "retrieved_utc": "2026-10-21T07:34:26Z",
+    "open": {
+      "total_count": 984,
+      "incomplete_results": false,
+      "sha256": "9af33f0a4b6be4d3be3f816f9cde7f2fae5d304d6211f6836e32115055d0ace9"
+    },
+    "closed": {
+      "total_count": 743,
+      "incomplete_results": false,
+      "sha256": "db05ea71ac09bc55d5f40289ea17efe5f814e3dda2501070148520a965bdf396"
+    },
+    "incomplete_results": false,
+    "counts_match_inventory": true,
+    "raw_paths": {
+      "open": "/tmp/pdfcraft-cutoff-d-search-open.json",
+      "closed": "/tmp/pdfcraft-cutoff-d-search-closed.json"
+    }
+  },
+  "cutoff_c_issues": 1524,
+  "new_issue_count": 203,
+  "new_issue_ids": [
+    3407, 3409, 3410, 3414, 3417, 3418, 3419, 3421, 3422, 3424, 3425, 3429, 3430, 3432, 3433, 3434,
+    3436, 3437, 3439, 3441, 3442, 3443, 3444, 3445, 3446, 3448, 3449, 3450, 3453, 3455, 3456, 3458,
+    3460, 3461, 3463, 3464, 3466, 3467, 3470, 3472, 3474, 3480, 3481, 3482, 3485, 3487, 3489, 3490,
+    3493, 3496, 3499, 3501, 3502, 3503, 3504, 3505, 3507, 3508, 3509, 3510, 3511, 3512, 3513, 3514,
+    3516, 3518, 3519, 3524, 3529, 3530, 3531, 3532, 3533, 3534, 3535, 3536, 3537, 3538, 3541, 3548,
+    3553, 3555, 3556, 3557, 3559, 3560, 3564, 3565, 3566, 3568, 3569, 3570, 3572, 3573, 3574, 3576,
+    3577, 3578, 3579, 3581, 3583, 3586, 3587, 3588, 3590, 3591, 3592, 3593, 3594, 3597, 3599, 3600,
+    3601, 3602, 3604, 3606, 3607, 3609, 3610, 3611, 3612, 3613, 3614, 3615, 3616, 3617, 3618, 3620,
+    3626, 3629, 3632, 3634, 3638, 3640, 3644, 3645, 3646, 3647, 3649, 3650, 3651, 3655, 3656, 3657,
+    3658, 3659, 3660, 3661, 3665, 3666, 3671, 3672, 3673, 3675, 3677, 3678, 3679, 3682, 3684, 3685,
+    3687, 3688, 3693, 3698, 3699, 3700, 3701, 3707, 3709, 3711, 3712, 3713, 3715, 3724, 3726, 3732,
+    3736, 3737, 3738, 3739, 3741, 3742, 3744, 3745, 3747, 3751, 3752, 3754, 3755, 3758, 3759, 3767,
+    3769, 3770, 3771, 3774, 3776, 3780, 3783, 3792, 3793, 3795, 3797
+  ],
+  "previous_ids_missing": [],
+  "comments": {
+    "retrieval_start_utc": "2026-10-21T07:35:31.052Z",
+    "retrieval_end_utc": "2026-10-21T07:36:31.227Z",
+    "issue_threads": 203,
+    "failed": 0,
+    "comments": 356,
+    "comment_count_mismatches": [],
+    "manifest_path": "/tmp/pdfcraft-cutoff-d-comments-20261021/manifest.json",
+    "thread_manifest_sha256": "6bb411ad004060a672aa477fcaec899f2405eeb25426ed66aab276672f75c970"
+  },
+  "review_status": {
+    "body_and_thread_reviewed": 203,
+    "pending_review": 0,
+    "varve_mapping_and_disposition_pending": 203,
+    "attachments_followed": 0
+  },
+  "new_issue_dispositions": {
+    "pending_varve_mapping": 203
+  },
+  "non_atomic_caveat": "Issue, search, pull-request, and comment endpoints were retrieved sequentially rather than atomically; record their actual timestamps. Issue enumeration and open/closed counts reconcile, and all prior ledger IDs remain present.",
+  "note": "Cutoff-D bodies and full current comment threads have now been individually read for all 203 new issue IDs. This is source review coverage only: Varve subsystem mapping, recursive linked evidence/attachments, and engineering dispositions remain pending per issue. Raw issue pages, pull pages, search responses, and comment JSON remain outside Git under /tmp. Earlier issue pages and comments were read from the timestamped snapshot; no release or fix status is inferred from tracker state or bot-suggested links."
+}
