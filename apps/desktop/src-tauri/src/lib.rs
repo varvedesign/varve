@@ -1096,7 +1096,7 @@ fn require_ai_features_flag(enabled: bool) -> Result<(), String> {
     if enabled {
         Ok(())
     } else {
-        Err("AI features are disabled. Turn them on in Settings to download models.".into())
+        Err("AI features are disabled. Turn them on in Settings to download or run models.".into())
     }
 }
 
@@ -1112,7 +1112,44 @@ fn require_allowed_model_download_url(url: &str, model_id: &str) -> Result<(), S
     if is_allowed_model_download_url(url) {
         Ok(())
     } else {
-        Err(format!("Refusing model URL outside the download allowlist for {model_id}"))
+        Err(format!(
+            "Refusing model URL outside the download allowlist for {model_id}"
+        ))
+    }
+}
+
+fn follow_allowed_model_download_redirect(
+    attempt: reqwest::redirect::Attempt<'_>,
+) -> reqwest::redirect::Action {
+    if is_allowed_model_download_url(attempt.url().as_str()) {
+        attempt.follow()
+    } else {
+        let refused = attempt.url().clone();
+        attempt.error(format!(
+            "Refusing redirect outside the download allowlist: {refused}"
+        ))
+    }
+}
+
+fn require_successful_download_response(
+    response: reqwest::Response,
+) -> Result<reqwest::Response, String> {
+    let status = response.status();
+    if status.is_success() {
+        Ok(response)
+    } else {
+        Err(format!("Model download failed with HTTP {status}"))
+    }
+}
+
+fn require_ai_for_background_method(
+    store: &varve_sync::DocumentStore,
+    method: &str,
+) -> Result<(), String> {
+    if method == "quick" {
+        Ok(())
+    } else {
+        require_ai_features_enabled(store)
     }
 }
 
@@ -1169,13 +1206,7 @@ async fn download_background_removal_model(
         .map_err(|error| format!("Failed to create native model directory: {error}"))?;
     let result = async {
         let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if is_allowed_model_download_url(attempt.url().as_str()) {
-                    attempt.follow()
-                } else {
-                    attempt.stop()
-                }
-            }))
+            .redirect(reqwest::redirect::Policy::custom(follow_allowed_model_download_redirect))
             .build()
             .map_err(|error| format!("Failed to create model downloader: {error}"))?;
         let mut loaded = 0u64;
@@ -1206,13 +1237,13 @@ async fn download_background_removal_model(
             }
             let temporary = destination.with_extension(format!("download-{request_id}"));
             let artifact_result: Result<(), String> = async {
-                let mut response = client
-                    .get(&artifact.remote_url)
-                    .send()
-                    .await
-                    .map_err(|error| format!("Model download failed: {error}"))?
-                    .error_for_status()
-                    .map_err(|error| format!("Model download failed: {error}"))?;
+                let mut response = require_successful_download_response(
+                    client
+                        .get(&artifact.remote_url)
+                        .send()
+                        .await
+                        .map_err(|error| format!("Model download failed: {error}"))?,
+                )?;
                 let mut file = std::fs::File::create(&temporary)
                     .map_err(|error| format!("Failed to create model file: {error}"))?;
                 let mut digest = Sha256::new();
@@ -1416,23 +1447,19 @@ async fn download_inference_model(
     }
     let result = async {
         let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if is_allowed_model_download_url(attempt.url().as_str()) {
-                    attempt.follow()
-                } else {
-                    attempt.stop()
-                }
-            }))
+            .redirect(reqwest::redirect::Policy::custom(
+                follow_allowed_model_download_redirect,
+            ))
             .build()
             .map_err(|error| format!("Failed to create model downloader: {error}"))?;
         let temporary = destination.with_extension(format!("download-{request_id}"));
-        let mut response = client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|error| format!("Model download failed: {error}"))?
-            .error_for_status()
-            .map_err(|error| format!("Model download failed: {error}"))?;
+        let mut response = require_successful_download_response(
+            client
+                .get(&url)
+                .send()
+                .await
+                .map_err(|error| format!("Model download failed: {error}"))?,
+        )?;
         let total = size_bytes
             .or_else(|| response.content_length())
             .unwrap_or(0);
@@ -1538,9 +1565,11 @@ async fn download_inference_model(
 #[tauri::command]
 async fn remove_background(
     app: tauri::AppHandle,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     image_data: Vec<u8>,
     options: BgRemoveOptions,
 ) -> Result<BgRemoveResult, String> {
+    require_ai_for_background_method(&store, &options.method)?;
     remove_background_command(app, image_data, options).await
 }
 
@@ -1551,6 +1580,7 @@ async fn remove_background(
 #[tauri::command]
 async fn remove_background_binary(
     app: tauri::AppHandle,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     request: tauri::ipc::Request<'_>,
 ) -> Result<Response, String> {
     const OPTIONS_HEADER: &str = "x-varve-bg-remove-options";
@@ -1571,6 +1601,7 @@ async fn remove_background_binary(
         .to_owned();
     let options: BgRemoveOptions = serde_json::from_str(&options_json)
         .map_err(|error| format!("Invalid background-removal options: {error}"))?;
+    require_ai_for_background_method(&store, &options.method)?;
     let result = remove_background_command(app, image_data, options).await?;
     encode_bg_remove_binary(result)
 }
@@ -1690,9 +1721,11 @@ pub struct NativeDenoiseResult {
 #[tauri::command]
 async fn denoise_image(
     app: tauri::AppHandle,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     image_data: Vec<u8>,
     options: NativeDenoiseOptions,
 ) -> Result<NativeDenoiseResult, String> {
+    require_ai_features_enabled(&store)?;
     let model_id = options.model_id.unwrap_or_else(|| "scunet".to_string());
     if !varve_bgremove::is_image_model(&model_id) {
         return Err(format!(
@@ -2586,9 +2619,12 @@ async fn download_generative_model_attempt_inner(
             response.status()
         ));
     }
-    response = response
-        .error_for_status()
-        .map_err(|error| format!("Generative model download failed: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Generative model download failed with HTTP {}",
+            response.status()
+        ));
+    }
     if generative_model_download_cancelled(request_id) {
         return Err("Download cancelled".into());
     }
@@ -2684,8 +2720,10 @@ fn begin_generative_model_download(request_id: &str) -> Result<(), String> {
 #[tauri::command]
 async fn download_generative_edit_model(
     app: tauri::AppHandle,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     request_id: String,
 ) -> Result<GenerativeModelStatus, String> {
+    require_ai_features_enabled(&store)?;
     if !valid_download_request_id(&request_id) {
         return Err("Invalid model-download request id".into());
     }
@@ -2717,13 +2755,7 @@ async fn download_generative_edit_model(
             }
         }
         let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if attempt.url().scheme() == "https" {
-                    attempt.follow()
-                } else {
-                    attempt.stop()
-                }
-            }))
+            .redirect(reqwest::redirect::Policy::custom(follow_allowed_model_download_redirect))
             .build()
             .map_err(|error| format!("Could not create model downloader: {error}"))?;
         let mut last_error = String::from("Generative model download failed");
@@ -2806,8 +2838,10 @@ fn cancel_generative_edit_model_download(request_id: String) -> Result<(), Strin
 #[tauri::command]
 fn import_generative_edit_model(
     app: tauri::AppHandle,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     path: String,
 ) -> Result<GenerativeModelStatus, String> {
+    require_ai_features_enabled(&store)?;
     ensure_generative_model_import_supported()?;
     let source = resolve_user_path_approved(&path)?;
     let extension = source
@@ -3360,8 +3394,10 @@ fn generative_edit_blocking_with_requirement(
 #[tauri::command]
 async fn generative_edit(
     app: tauri::AppHandle,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     options: GenerativeEditOptions,
 ) -> Result<GenerativeEditResult, String> {
+    require_ai_features_enabled(&store)?;
     tauri::async_runtime::spawn_blocking(move || generative_edit_blocking(app, options))
         .await
         .map_err(|error| format!("Generative edit task failed: {error}"))?
@@ -3627,10 +3663,11 @@ fn default_upscale_method() -> String {
 #[tauri::command]
 async fn upscale_image(
     app: tauri::AppHandle,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     image_data: Vec<u8>,
     options: UpscaleImageOptions,
 ) -> Result<Response, String> {
-    upscale_image_command(app, image_data, options).await
+    upscale_image_command(app, store, image_data, options).await
 }
 
 /// Raw binary IPC variant. Options remain a small JSON header while the PNG
@@ -3638,6 +3675,7 @@ async fn upscale_image(
 #[tauri::command]
 async fn upscale_image_binary(
     app: tauri::AppHandle,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     request: tauri::ipc::Request<'_>,
 ) -> Result<Response, String> {
     const OPTIONS_HEADER: &str = "x-varve-upscale-options";
@@ -3656,14 +3694,18 @@ async fn upscale_image_binary(
         .to_owned();
     let options: UpscaleImageOptions =
         serde_json::from_str(&options_json).map_err(|e| format!("Invalid upscale options: {e}"))?;
-    upscale_image_command(app, image_data, options).await
+    upscale_image_command(app, store, image_data, options).await
 }
 
 async fn upscale_image_command(
     app: tauri::AppHandle,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     image_data: Vec<u8>,
     options: UpscaleImageOptions,
 ) -> Result<Response, String> {
+    if options.method == "ai" {
+        require_ai_features_enabled(&store)?;
+    }
     #[cfg(not(feature = "ai"))]
     let _ = &app;
 
@@ -6187,7 +6229,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn model_download_urls_are_restricted_to_the_allowlist() {
         assert!(is_allowed_model_download_url(
             "https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model.onnx"
@@ -6197,6 +6238,15 @@ mod tests {
         ));
         assert!(is_allowed_model_download_url(
             "https://objects.githubusercontent.com/github-production-release-asset-2e65be/u2netp.onnx"
+        ));
+        assert!(is_allowed_model_download_url(
+            "https://us.aws.cdn.hf.co/xet-bridge-us/model.onnx"
+        ));
+        assert!(!is_allowed_model_download_url(
+            "https://huggingface.co.evil.com/Xenova/model.onnx"
+        ));
+        assert!(!is_allowed_model_download_url(
+            "https://user@huggingface.co/Xenova/model.onnx"
         ));
         assert!(!is_allowed_model_download_url(
             "http://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model.onnx"
@@ -6214,9 +6264,39 @@ mod tests {
         assert!(require_ai_features_flag(true).is_ok());
         assert!(require_ai_features_flag(false)
             .unwrap_err()
-            .contains("AI features are disabled"));
+            .contains("download or run models"));
     }
 
+    #[test]
+    fn ai_features_store_blocks_when_disabled() {
+        let path = std::env::temp_dir().join(format!(
+            "varve-ai-gate-{}-{}.sqlite",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let store = varve_sync::DocumentStore::new(&path).expect("open store");
+        assert!(
+            require_ai_features_enabled(&store).is_ok(),
+            "AI stays on when the setting is unset"
+        );
+        store
+            .set_view_state("app-setting:ai.enabled", "false")
+            .expect("persist disabled");
+        assert!(require_ai_features_enabled(&store)
+            .unwrap_err()
+            .contains("download or run models"));
+        store
+            .set_view_state("app-setting:ai.enabled", "true")
+            .expect("persist enabled");
+        assert!(require_ai_features_enabled(&store).is_ok());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
     fn inference_sha256_requires_lowercase_hex() {
         assert!(validate_inference_sha256(
             "1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47"

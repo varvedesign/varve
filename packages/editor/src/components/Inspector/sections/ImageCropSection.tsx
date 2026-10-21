@@ -501,7 +501,7 @@ function TrimControls({
                     <p className="insp-hint" aria-live="polite">
                       {detections.length === 1
                         ? `Detected ${detections[0]!.label} (${Math.round(detections[0]!.confidence * 100)}% confidence).`
-                        : `${detections.length} objects detected — choose the bounds to use.`}
+                        : `${detections.length} objects detected: choose the bounds to use.`}
                     </p>
                     {detections.length > 1 && (
                       <fieldset className="insp-actions">

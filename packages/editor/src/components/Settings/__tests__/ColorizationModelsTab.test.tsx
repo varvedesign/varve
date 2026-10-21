@@ -97,6 +97,7 @@ afterEach(cleanup);
 
 describe('ColorizationModelsTab', () => {
   beforeEach(() => {
+    localStorage.clear();
     mocks.mockIsModelAvailable.mockResolvedValue(false);
     mocks.mockHasDownloadedBlob.mockResolvedValue(false);
   });
@@ -126,7 +127,7 @@ describe('ColorizationModelsTab', () => {
   it('disables downloads when AI features are off', async () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
     render(<ColorizationModelsTab />);
-    expect(await screen.findByText('Turn on AI features in Settings to use this')).toBeTruthy();
+    expect(screen.queryByText('Turn on AI features in Settings to use this')).toBeNull();
     expect(screen.queryAllByText('Download')).toHaveLength(0);
   });
 

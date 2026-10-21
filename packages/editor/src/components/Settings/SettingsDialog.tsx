@@ -800,9 +800,10 @@ function AISection() {
     <div className="settings-section">
       <h3 className="settings-section__title">On-device Assistants</h3>
       <p className="settings-section__description">
-        Contrast checks, design-debt scans, layer-name suggestions, and spacing harmonization stay
-        on this device and do not download models. The switch below also controls every on-device AI
-        model, including optional downloads from Offline Models.
+        Contrast checks, design-debt scans, and spacing harmonization stay on this device and do not
+        download models. Layer-name suggestions use an on-device classification model when AI
+        features are on. The switch below also controls every on-device AI model, including
+        downloads from Offline Models.
       </p>
       <SettingsFieldRow label="AI features">
         <SwitchField

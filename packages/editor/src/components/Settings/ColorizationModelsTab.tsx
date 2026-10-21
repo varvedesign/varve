@@ -2,7 +2,7 @@ import type { ModelAcquisition } from '@varve/engine';
 import { getModelLoaderReady, listAllModels, resolveAcquisition } from '@varve/engine';
 import { Button, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
+import { useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { modelRequirementLabel } from '../../modelRequirements';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
@@ -88,7 +88,6 @@ export function ColorizationModelsTab() {
         reference workflows do not need a model; line-art colorization is a separate, currently
         deferred workflow.
       </p>
-      {!aiEnabled && <p className="colorization-models-section__hint">{AI_DISABLED_HINT}</p>}
       <RegionLoader label="Loading model status" loading={loading}>
         <ul className="bg-models-list" aria-label="Colorization models">
           {rows.map((row) => (

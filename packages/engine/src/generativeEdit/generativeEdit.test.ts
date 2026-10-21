@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import {
   assessGenerativeEditResources,
@@ -34,6 +35,17 @@ function request(overrides: Partial<Parameters<typeof runGenerativeEdit>[0]> = {
     ...overrides,
   };
 }
+
+describe('AI master switch', () => {
+  it('refuses runGenerativeEdit when ai.enabled is false', async () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    const { InferenceError } = await import('../inference/core/InferenceError');
+    await expect(runGenerativeEdit(request())).rejects.toSatisfy(
+      (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
+    );
+    localStorage.clear();
+  });
+});
 
 describe('generative edit capabilities', () => {
   it('preserves the observed native backend in the persisted runtime classification', () => {

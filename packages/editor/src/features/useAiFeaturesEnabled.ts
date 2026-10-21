@@ -58,9 +58,7 @@ export function checkAiFeaturesEnabled(
   featureName?: string,
 ): boolean {
   if (!getAiFeaturesEnabled()) {
-    const message = featureName
-      ? `${featureName} requires AI features. Enable them in Settings to continue.`
-      : 'AI features are disabled. Enable them in Settings to use this feature.';
+    const message = featureName ? `${featureName}: ${AI_DISABLED_HINT}` : AI_DISABLED_HINT;
     toastHandler?.({ message, type: 'info' });
     return false;
   }

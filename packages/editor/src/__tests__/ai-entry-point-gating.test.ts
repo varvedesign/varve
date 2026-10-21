@@ -98,6 +98,21 @@ const AI_ENTRY_POINTS = [
     function: 'applySam2Segmentation',
     description: 'SAM2 object selection',
   },
+  {
+    file: 'packages/engine/src/generativeEdit/pipeline.ts',
+    function: 'runGenerativeEdit',
+    description: 'Generative edit pipeline',
+  },
+  {
+    file: 'packages/engine/src/generativeEdit/nativeModel.ts',
+    function: 'downloadNativeGenerativeModel',
+    description: 'Native generative model download',
+  },
+  {
+    file: 'packages/engine/src/upscaleProviders/aiUpscale.ts',
+    function: 'createSession',
+    description: 'Real-ESRGAN ONNX session',
+  },
 ] as const;
 
 /** Take the source from `start` through the matching closing brace. */

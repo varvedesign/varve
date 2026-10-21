@@ -93,4 +93,39 @@ describe('AI master switch choke point', () => {
     expect(session.modelId).toBe('u2netp');
     expect(create).toHaveBeenCalled();
   });
+
+  it('refuses generative edit and native model download when ai.enabled is false', async () => {
+    disableAi();
+    const { runGenerativeEdit } = await import('../../generativeEdit/pipeline');
+    const { downloadNativeGenerativeModel } = await import('../../generativeEdit/nativeModel');
+    const mask = new Uint8Array(144);
+    mask[65] = 255;
+
+    await expect(
+      runGenerativeEdit({
+        mode: 'remove',
+        imageData: new ImageData(12, 12),
+        mask,
+        maskWidth: 12,
+        maskHeight: 12,
+        quality: 'draft',
+        seed: 1,
+      }),
+    ).rejects.toSatisfy(
+      (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
+    );
+    await expect(downloadNativeGenerativeModel()).rejects.toSatisfy(
+      (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
+    );
+  });
+
+  it('refuses Real-ESRGAN upscale session creation when ai.enabled is false', async () => {
+    disableAi();
+    const { upscaleWithRealEsrgan } = await import('../../upscaleProviders/aiUpscale');
+    await expect(
+      upscaleWithRealEsrgan(new ImageData(1, 1), '/models/realesr.onnx', () => false),
+    ).rejects.toSatisfy(
+      (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
+    );
+  });
 });

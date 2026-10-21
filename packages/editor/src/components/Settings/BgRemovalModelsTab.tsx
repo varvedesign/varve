@@ -14,7 +14,7 @@ import {
 } from '@varve/engine';
 import { Button, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
+import { useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { modelRequirementLabel } from '../../modelRequirements';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
@@ -222,8 +222,6 @@ export function BgRemovalModelsTab() {
         All AI models run locally on your device. Downloads require explicit consent and are stored
         in {storageLabel()}. Bundled models ship with the app and need no download.
       </p>
-      {!aiEnabled && <p className="settings-section__hint">{AI_DISABLED_HINT}</p>}
-
       {bundleStatus === 'corrupt' && (
         <p className="bg-models-list__bundle-warning" role="alert">
           Bundled starter model (U&sup2;-Net Light) failed integrity check. Reinstall the app or
