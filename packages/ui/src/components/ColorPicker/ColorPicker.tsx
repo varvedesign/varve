@@ -16,6 +16,7 @@ import {
   rgbToLab,
   xyzD65ToLinearRgb,
 } from '@varve/shared';
+import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SegmentedOption } from '../SegmentedControl';
 import { SegmentedControl } from '../SegmentedControl';
@@ -36,6 +37,18 @@ import { type LchChannelValues, LchColorFields } from './LchColorFields';
 import { SpotColorBrowser } from './SpotColorBrowser';
 import { SwatchPalette } from './SwatchPalette';
 
+/** Keys a picker slider or field consumes as a value step. */
+const PICKER_STEP_KEYS = new Set([
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowUp',
+  'ArrowDown',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+]);
+
 export interface ColorPickerProps {
   value: ManagedColor;
   onChange: (color: ManagedColor) => void;
@@ -49,8 +62,10 @@ export interface ColorPickerProps {
   /**
    * Optional gesture hooks. When provided, `onInteractionStart` fires on the
    * first pointerdown inside the picker and `onInteractionEnd` fires when the
-   * gesture completes (pointerup / pointercancel / dialog dismissal). Hosts
-   * use these to group a continuous drag into a single undo transaction.
+   * gesture completes (pointerup / pointercancel / key release / window blur).
+   * Keyboard stepping is part of the same gesture: a held arrow key repeats,
+   * and each repeat would otherwise be its own undo entry. Hosts use these to
+   * group a continuous gesture into a single undo transaction.
    */
   onInteractionStart?: () => void;
   onInteractionEnd?: () => void;
@@ -657,7 +672,24 @@ export function ColorPicker({
   );
 
   // Gesture lifecycle: hosts wrap a continuous drag in one undo transaction.
+  // Keyboard stepping is part of the same gesture contract — a held arrow key
+  // repeats, and every repeat would otherwise be its own undo entry.
   const gestureActiveRef = useRef(false);
+  const keyboardGestureRef = useRef(false);
+  const detachKeyboardReleaseRef = useRef<(() => void) | null>(null);
+
+  const detachKeyboardRelease = useCallback(() => {
+    detachKeyboardReleaseRef.current?.();
+    detachKeyboardReleaseRef.current = null;
+  }, []);
+
+  // Read through a ref so an unmount during a gesture still calls the host's
+  // latest end handler without re-subscribing the effect.
+  const onInteractionEndRef = useRef(onInteractionEnd);
+  useEffect(() => {
+    onInteractionEndRef.current = onInteractionEnd;
+  }, [onInteractionEnd]);
+
   const handleRootPointerDown = useCallback(() => {
     if (gestureActiveRef.current) return;
     gestureActiveRef.current = true;
@@ -669,6 +701,67 @@ export function ColorPicker({
     onInteractionEnd?.();
   }, [onInteractionEnd]);
   const handleRootPointerUp = useCallback(() => endGesture(), [endGesture]);
+
+  const handleRootKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Escape') {
+        detachKeyboardRelease();
+        keyboardGestureRef.current = false;
+        endGesture();
+        return;
+      }
+      if (!PICKER_STEP_KEYS.has(event.key)) return;
+      if (!keyboardGestureRef.current) {
+        keyboardGestureRef.current = true;
+        handleRootPointerDown();
+      }
+      if (detachKeyboardReleaseRef.current) return;
+      // The key may be released after focus has moved on, so the release is
+      // observed on the window rather than only on this subtree.
+      const onKeyUp = (upEvent: KeyboardEvent) => {
+        if (!PICKER_STEP_KEYS.has(upEvent.key)) return;
+        detachKeyboardRelease();
+        keyboardGestureRef.current = false;
+        endGesture();
+      };
+      const onBlur = () => {
+        detachKeyboardRelease();
+        keyboardGestureRef.current = false;
+        endGesture();
+      };
+      window.addEventListener('keyup', onKeyUp);
+      window.addEventListener('blur', onBlur);
+      detachKeyboardReleaseRef.current = () => {
+        window.removeEventListener('keyup', onKeyUp);
+        window.removeEventListener('blur', onBlur);
+      };
+    },
+    [detachKeyboardRelease, endGesture, handleRootPointerDown],
+  );
+
+  const handleRootKeyUp = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!PICKER_STEP_KEYS.has(event.key)) return;
+      detachKeyboardRelease();
+      keyboardGestureRef.current = false;
+      endGesture();
+    },
+    [detachKeyboardRelease, endGesture],
+  );
+
+  // Unmounting mid-gesture (the host popover dismissed while a drag or key
+  // burst was in flight) must not strand an open transaction: everything
+  // after it would silently merge into the same undo step.
+  useEffect(
+    () => () => {
+      detachKeyboardRelease();
+      if (gestureActiveRef.current) {
+        gestureActiveRef.current = false;
+        onInteractionEndRef.current?.();
+      }
+    },
+    [detachKeyboardRelease],
+  );
 
   const overlayColor: Color = [rgbTuple[0], rgbTuple[1], rgbTuple[2], 255];
   // `bitDepth` is the output precision requested by the host. The incoming
@@ -769,6 +862,8 @@ export function ColorPicker({
       onPointerDownCapture={handleRootPointerDown}
       onPointerUpCapture={handleRootPointerUp}
       onPointerCancelCapture={handleRootPointerUp}
+      onKeyDownCapture={handleRootKeyDown}
+      onKeyUpCapture={handleRootKeyUp}
     >
       <div className="color-picker__format-bar">
         <ColorSpaceSelector active={space} onChange={handleSpaceChange} />

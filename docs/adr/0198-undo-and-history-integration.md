@@ -31,6 +31,21 @@ D4 — Cancellation restores page geometry, ownership, threads, story ranges,
 overrides, selection, active page, and spread membership (the transaction
 coordinator with rollback, `operations/transaction.ts:80-191`).
 
+D5 — A continuous control gesture is one meaningful user action (2026-10-21).
+D2's boundary rule applies to the *gesture*, not to the DOM events a gesture
+produces: a native range input or colour picker emits one change event per
+pointer move, and a held arrow key repeats, so a control that writes the
+document from `onChange` would otherwise push one history step per event and
+consume the 50-deep window with a single drag. Continuous controls therefore
+open exactly one transaction per gesture — pointerdown→pointerup/cancel, or
+first step key→key release — through the shared
+`context/useGestureTransaction.ts` hook (`ColorPicker` carries the equivalent
+lifecycle for its own subtree). Pointer capture keeps a release outside the
+control inside the same gesture; a key release observed on the window, a
+window blur, and unmount all close it so a transaction is never stranded
+open. The boundary stays gesture-based rather than time-based: a merge window
+would also fuse two separate, intentional edits made in quick succession.
+
 ## Alternatives
 
 - Rewriting undo to ops-only immediately — rejected: snapshot undo works and
