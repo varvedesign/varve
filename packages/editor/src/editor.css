@@ -2260,6 +2260,20 @@ input[type="number"] {
 
 /* ── Panel overlays (responsive) ── */
 @media (max-width: 899px) {
+  /* The document name is present in the tab strip below. Give its reserved
+   * width back to the menu rail and workspace controls in tablet landscape;
+   * otherwise the last application menu clips while unused space remains. */
+  .editor-menubar__center {
+    display: none;
+  }
+
+  /* At 641–899px the application labels need about 40px more than an equal
+   * split. The document title is already in the tab strip, so assign that
+   * space to the menu rail while retaining the compact workspace controls. */
+  .editor-menubar__side {
+    flex-grow: 1.25;
+  }
+
   .editor-shell {
     grid-template-columns: 0 1fr 0;
   }

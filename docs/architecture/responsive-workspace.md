@@ -14,7 +14,7 @@ handled.
 | `> 899px` width, tablet presentation | The tablet shell reserves a stable Inspector rail and opens Layers as a dismissible side drawer. User-customized floating docks remain in place. |
 | `<= 899px` width | Compact drawer layout. Layers and Resources use dismissible drawers; the canvas fills the available grid width. Primary panel controls remain separate, at least 44×44 CSS px. |
 | `<= 899px` + portrait | Two-tier top bar: application menus stay on the first line, with the workspace switcher and undo/redo grouped on the second line. The active workspace keeps its name when it fits, then compacts to its icon in the narrowest strips. Menu, home, workspace, and history actions use a consistent 44px target rhythm; the menu strip can scroll rather than clip. The duplicate document title and zoom controls are hidden. Inspector uses a shallow nonmodal lower pane; Resources remains a modal sheet. |
-| `<= 1094px` width | Hide the duplicate menubar document title so the application menu rail and workspace/history controls never compete for the same space; the document tab retains its name. |
+| `<= 899px` width | Hide the duplicate menubar document title so the application menu rail and workspace/history controls do not compete for the same space; the document tab retains its name. In compact landscape, the menu side receives a larger share of the row so Help remains visible and clickable at 820px. |
 | `<= 640px` width | Compact menu labels. Portrait keeps the two-tier navigation/control grouping; landscape retains one row and allows the menu rail to scroll. Zoom has one control, in the status bar. |
 | `html { min-width: 320px }` | Absolute floor only. 320 CSS px is the WCAG 1.4.10 reflow width; the shell must never force horizontal page scrolling at supported viewport sizes, including split-screen. Asserted by the `reflow-floor-320x640` entry of the viewport matrix. |
 
@@ -103,8 +103,11 @@ popover with a clear Resources launcher,
 and records the [bounded Layers menu](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-after.png)
 and its [Masking](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-submenu.png)
 and [bottom-row Color Tag](../screenshots/2026-10-20-responsive-controls/layer-context-menu-1280-bottom-submenu.png)
-submenus. The [820px tablet menubar](../screenshots/2026-10-20-responsive-controls/tablet-menubar-labels-820.png)
-shows the application labels at their full widths before the rail scrolls.
+submenus. The [820px tablet menubar before the final split correction](../screenshots/2026-10-20-responsive-controls/tablet-menubar-labels-820.png)
+shows the labels at full width but clips Help at the rail boundary. The
+[corrected 820px interaction frame](../screenshots/2026-10-20-responsive-controls/tablet-menubar-and-controls-820-after.png)
+shows Help and the compact workspace switcher together while Editing controls
+stay inside the canvas and clear the toolbar.
 The browser regression set also covers full editor captures in light, dark,
 and high-contrast themes, plus Email workspace and Enhance dialog captures
 where the compact panel headers remain visible. These baselines were reviewed
@@ -146,10 +149,12 @@ the name stays in the tooltip and the accessible name.
 The application menu rail is constrained at **every** width, not only in the
 compact tiers (`.editor-menubar__left { min-width: 0; flex-shrink: 1;
 overflow-x: auto; scrollbar-width: none }`, hidden scrollbar).
-`.editor-menubar__side` and `.editor-menubar__controls` are both `flex: 1 1 0`
-so the document title sits on the bar's true midpoint; below 900px the title is
-hidden but the symmetry still gives the menus half the bar, which is less than
-their min-content width between 641px and ~750px. Without `min-width: 0` the
+`.editor-menubar__side` and `.editor-menubar__controls` share equal flex growth
+while the document title is visible. At `<= 899px`, the duplicate title is
+hidden; compact landscape gives the menu side 1.25 times the controls' flex
+growth. At 820px the
+resolved menu rail ends at 445.6px, enclosing Help, and the controls end at
+814.7px inside the viewport. Without `min-width: 0` the
 rail painted outside its own box and, because the controls follow it in the DOM,
 the switcher won hit-testing — the last 50px of the Help label activated a
 workspace at 641px (F6). The menu strip scrolls rather than spilling.

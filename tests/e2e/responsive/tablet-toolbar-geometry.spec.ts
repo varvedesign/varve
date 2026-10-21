@@ -52,6 +52,19 @@ test.describe('tablet toolbar geometry', () => {
           .filter((element) => getComputedStyle(element).display !== 'none')
           .map(rect);
         const dock = document.querySelector<HTMLElement>('.workspace-dock__bar');
+        const menuRail = document.querySelector<HTMLElement>('.editor-menubar__left');
+        const menuControls = document.querySelector<HTMLElement>('.editor-menubar__controls');
+        const helpMenu = [...document.querySelectorAll<HTMLElement>('.editor-menubar__item')].find(
+          (item) => item.textContent?.trim() === 'Help',
+        );
+        const helpBox = helpMenu?.getBoundingClientRect();
+        const helpHit = helpBox
+          ? document.elementFromPoint(
+              helpBox.left + helpBox.width / 2,
+              helpBox.top + helpBox.height / 2,
+            )
+          : null;
+        const documentTitle = document.querySelector<HTMLElement>('.editor-menubar__center');
         const activeWorkspace = document.querySelector<HTMLElement>(
           '.workspace-dock__item--active',
         );
@@ -95,6 +108,11 @@ test.describe('tablet toolbar geometry', () => {
           controls,
           launchers,
           dock: dock ? rect(dock) : null,
+          menuRail: menuRail ? rect(menuRail) : null,
+          menuControls: menuControls ? rect(menuControls) : null,
+          helpMenu: helpMenu ? rect(helpMenu) : null,
+          helpHitBelongs: Boolean(helpHit && helpMenu?.contains(helpHit)),
+          documentTitleDisplay: documentTitle ? getComputedStyle(documentTitle).display : null,
           activeWorkspace: activeWorkspace ? rect(activeWorkspace) : null,
           workspaceButtons: workspaceButtons.map(rect),
           moveHandles,
@@ -134,6 +152,16 @@ test.describe('tablet toolbar geometry', () => {
         expect(overlapsToolbar, `panel launcher ${index} overlaps floating toolbar`).toBe(false);
       }
       expect(geometry.dock).not.toBeNull();
+      if (viewport.width === 820 || viewport.width === 899) {
+        expect(geometry.documentTitleDisplay).toBe('none');
+        expect(geometry.menuRail).not.toBeNull();
+        expect(geometry.helpMenu).not.toBeNull();
+        expect(geometry.helpMenu!.right).toBeLessThanOrEqual(geometry.menuRail!.right + 1);
+        expect(geometry.helpHitBelongs).toBe(true);
+        expect(geometry.menuControls).not.toBeNull();
+        expect(geometry.dock!.right).toBeLessThanOrEqual(geometry.menuControls!.right + 1);
+        expect(geometry.menuControls!.right).toBeLessThanOrEqual(viewport.width + 1);
+      }
       expect(geometry.dock!.bottom - geometry.dock!.top).toBeLessThanOrEqual(40);
       expect(geometry.activeWorkspace).not.toBeNull();
       expect(geometry.activeWorkspace!.bottom - geometry.activeWorkspace!.top).toBe(32);

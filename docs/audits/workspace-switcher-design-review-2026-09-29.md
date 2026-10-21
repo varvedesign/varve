@@ -469,3 +469,21 @@ are [tablet workspace](../screenshots/product/tablet-workspace-light.png) and
 They show a cohesive switcher/menu/history bar and touch-sized modifier,
 selection, alignment, and layer-order controls. This is Linux Chromium browser
 emulation, not physical tablet certification.
+
+## 2026-10-21 compact landscape correction
+
+At 820×520 in tablet presentation, the document title appeared in the tab
+strip but its duplicate still reserved width in the menubar.
+The Help item ended at 445.6px while its containing menu rail ended at 408.7px,
+so the last application menu was clipped despite free space between the menus
+and workspace controls. The 899×640, 900×700, and 1024×768 interaction cases
+passed, making 820px the measured failure boundary in this run.
+
+The compact menubar now hides the duplicate title through 899px and gives the
+menu side 1.25 times the controls' flex growth in landscape. The focused
+Chromium touch-emulation rerun at 820×520 passed: Help and the rail both end at
+445.6px, Help wins hit-testing at its center, and the workspace controls end
+at 814.7px inside the 820px viewport. The inspected
+[open-controls frame](../screenshots/2026-10-20-responsive-controls/tablet-menubar-and-controls-820-after.png)
+shows the menu, compact switcher, bounded Editing controls popover, and floating
+toolbar together. Physical tablet hardware remains unverified.
