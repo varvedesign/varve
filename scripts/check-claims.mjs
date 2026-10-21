@@ -13,9 +13,10 @@
  *   Use this for genuine exceptions only: copy guides that name a banned
  *   phrase so writers avoid it, or docs about a different default (for
  *   example cloud providers that stay "Disabled by default"). Banned
- *   phrases include "open source" for Varve, "off by default"/"opt-in"/
- *   "optional" near AI, "Rust rendering engine", "no telemetry",
- *   "certified PDF/X", "usage isn't measured" / "we don't measure usage",
+ *   phrases include "open source" for Varve, "becomes fully open-source",
+ *   "built in the open", "off by default"/"opt-in"/"optional" near AI,
+ *   "Rust rendering engine", "no telemetry", "certified PDF/X",
+ *   "usage isn't measured" / "we don't measure usage",
  *   "does not track which AI features", "one switch turns all AI off",
  *   competitor names in llms.txt, and a latest/current version that
  *   disagrees with package.json.
@@ -110,6 +111,14 @@ export function listClaimFiles(root = repoRoot) {
 
 function isAllowlisted(relPath, line, allowlist) {
   return allowlist.some((entry) => entry.file === relPath && line.includes(entry.includes));
+}
+
+export function isBuiltInTheOpenClaim(line) {
+  return /built in the open/i.test(line);
+}
+
+export function isBecomesFullyOpenSourceClaim(line) {
+  return /becomes fully open[\s-]source/i.test(line);
 }
 
 export function isVarveOpenSourceClaim(line) {
@@ -212,6 +221,12 @@ export function inspectLine(relPath, line, expectedVersion, allowlist) {
   }
   if (isVarveOpenSourceClaim(line) && !skip('open-source')) {
     findings.push('open source used to describe Varve');
+  }
+  if (isBuiltInTheOpenClaim(line) && !skip('built-in-the-open')) {
+    findings.push('built in the open');
+  }
+  if (isBecomesFullyOpenSourceClaim(line) && !skip('becomes-fully-open-source')) {
+    findings.push('becomes fully open-source');
   }
   if (isAiDefaultClaim(line) && !skip('ai-default')) {
     findings.push('off by default / opt-in / optional near AI');

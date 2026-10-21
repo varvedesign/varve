@@ -6,6 +6,8 @@ import {
   isAiDefaultClaim,
   isAiUsageNotTrackedClaim,
   isAllAiOffSwitchClaim,
+  isBecomesFullyOpenSourceClaim,
+  isBuiltInTheOpenClaim,
   isUsageNotMeasuredClaim,
   isVarveOpenSourceClaim,
 } from './check-claims.mjs';
@@ -21,6 +23,22 @@ test('rejects Varve described as open source and allows the negation', () => {
   );
   assert.equal(isVarveOpenSourceClaim('Is Varve open source?'), false);
   assert.equal(isVarveOpenSourceClaim('Icons come from open-source sets (Lucide).'), false);
+});
+
+test('rejects built in the open and becomes fully open-source', () => {
+  assert.equal(isBuiltInTheOpenClaim('Varve is built in the open.'), true);
+  assert.equal(isBuiltInTheOpenClaim('Source-available, developed on GitHub'), false);
+  assert.equal(
+    isBecomesFullyOpenSourceClaim(
+      'the code converts to the MIT license and becomes fully open-source.',
+    ),
+    true,
+  );
+  assert.equal(isBecomesFullyOpenSourceClaim('the code becomes fully open source.'), true);
+  assert.equal(
+    isBecomesFullyOpenSourceClaim('that code is available under the MIT licence.'),
+    false,
+  );
 });
 
 test('rejects opt-in or optional only when the line is about AI', () => {
@@ -100,6 +118,22 @@ test('inspectLine covers the banned product phrases', () => {
       [],
     ),
     [],
+  );
+  assert.ok(
+    inspectLine(
+      'apps/website/src/pages/about.astro',
+      'Built in the open so the code becomes fully open-source.',
+      '0.5.1',
+      [],
+    ).includes('built in the open'),
+  );
+  assert.ok(
+    inspectLine(
+      'apps/website/src/pages/about.astro',
+      'Built in the open so the code becomes fully open-source.',
+      '0.5.1',
+      [],
+    ).includes('becomes fully open-source'),
   );
 });
 

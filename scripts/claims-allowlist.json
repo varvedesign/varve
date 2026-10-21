@@ -48,5 +48,10 @@
     "file": "docs/licensing/decision-research-2026-08-18.md",
     "includes": "open source",
     "reason": "License research explaining FSL is not OSI open source."
+  },
+  {
+    "file": "docs/development/contributing.md",
+    "includes": "built in the open",
+    "reason": "Contributor-facing docs; public site copy is the surface this rule locks."
   }
 ]
