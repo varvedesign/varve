@@ -34,19 +34,30 @@ async function typeSpecimen(page: import('@playwright/test').Page, family: strin
   // Set the family through the inspector's own font control.
   // After the host-font probe, system seeds such as Times New Roman stay in
   // the virtual list. A pointer click on the filtered row can land on a
-  // recycled row that still paints the previous family.
+  // recycled row that still paints the previous family. Enter commits the
+  // highlighted match. The option's accessible name also includes the
+  // expand-faces control and classification badges, so it is never exactly
+  // the family string.
   const fontInput = page.getByRole('combobox', { name: /font/i }).first();
   await fontInput.click();
   const listbox = page.getByRole('listbox', { name: 'Font families' });
   await expect(listbox).toBeVisible();
   await fontInput.fill(family);
-  const option = listbox.getByRole('option', { name: new RegExp(`^${family}$`, 'i') }).first();
-  await expect(option).toBeVisible({ timeout: 10000 });
-  await option.scrollIntoViewIfNeeded();
-  await expect(option).toBeInViewport();
+  const optionLabel = listbox.locator('.font-selector__option-name', {
+    hasText: new RegExp(`^${family}$`, 'i'),
+  });
+  await expect(optionLabel).toBeVisible({ timeout: 10000 });
   await expect
-    .poll(async () => listbox.getByRole('option').count(), { timeout: 5000 })
-    .toBeGreaterThan(0);
+    .poll(
+      async () => {
+        const activeId = await fontInput.getAttribute('aria-activedescendant');
+        if (!activeId) return '';
+        const activeName = page.locator(`[id="${activeId}"] .font-selector__option-name`);
+        return ((await activeName.textContent()) ?? '').trim();
+      },
+      { timeout: 5000 },
+    )
+    .toBe(family);
   await fontInput.press('Enter');
   await expect(listbox).toBeHidden({ timeout: 5000 });
   await expect(fontInput).toHaveValue(family);
