@@ -3,6 +3,43 @@ import type { Page } from '@playwright/test';
 const FIRST_RUN_OVERLAY_FORCE_KEY = 'varve:first-run-overlay:force';
 
 /**
+ * Close Missing Fonts when an import names a family the host cannot resolve.
+ *
+ * `layers-mobile-app.svg` and `layers-stress-board.svg` request Inter. After
+ * the registry started probing seeded system families against the host, a
+ * runner without Inter raises the dialog. The overlay captures pointer
+ * events, so later treeitem / handle actions time out even though the
+ * controls are visible. Product behaviour is correct; tests must dismiss.
+ *
+ * Import Results keeps the prompt suspended (`promptSuspended` on
+ * MissingFontController). Close that report first or the overlay appears
+ * only after the helper has already given up.
+ */
+export async function dismissMissingFontsDialogIfPresent(page: Page): Promise<boolean> {
+  const importResults = page.getByRole('dialog', { name: /import results/i });
+  if (await importResults.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await importResults
+      .getByRole('button', { name: 'Close', exact: true })
+      .click({ timeout: 5000 });
+    await importResults.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined);
+  }
+
+  const dialog = page.getByRole('dialog', { name: 'Missing Fonts' });
+  let dismissed = false;
+  // Catalog probe can finish after the layers tree is already populated.
+  if (await dialog.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await dialog.getByRole('button', { name: 'Dismiss' }).click({ timeout: 5000 });
+    await dialog.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined);
+    dismissed = true;
+    if (await dialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await dialog.getByRole('button', { name: 'Dismiss' }).click({ timeout: 5000 });
+      await dialog.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined);
+    }
+  }
+  return dismissed;
+}
+
+/**
  * Close the first-run overlay when it is on the page.
  *
  * Coverage specs set `varve:first-run-overlay:force` and must keep it.

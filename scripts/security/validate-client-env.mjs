@@ -141,7 +141,7 @@ const ALLOWED = {
     },
     ANALYTICS_DOMAIN: {
       test: (v) => v === '' || /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(v),
-      hint: "an empty value or a bare hostname (e.g. 'plausible.io')",
+      hint: "an empty value or a bare hostname (e.g. 'varve.studio')",
     },
   },
   desktop: {

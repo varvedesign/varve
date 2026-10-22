@@ -35,7 +35,7 @@ Three things made it unshippable, all now fixed:
 |---|---|---|
 | `site: 'https://strata.design'`, `base: '/'` | Domain not owned. On GitHub Pages a project repo serves from `/<repo>/`, so every absolute asset path 404'd and every canonical URL and `og:url` pointed at a host that does not resolve | `SITE_URL`/`SITE_BASE` env vars, defaulting to the Pages URL that actually exists |
 | `download.astro` never read `releases.json` | Hardcoded "Get it on GitHub" buttons, invented sizes, version `0.0.0`, and `yay -S varve-desktop` for a package that does not exist | Renders entirely from a generated manifest |
-| Plausible loaded unconditionally | A paid subscription pointed at a non-existent domain: cost, no data, third-party request on every page | Varve-owned consent-gated Events API adapter; `ANALYTICS_DOMAIN` unset means no prompt or request |
+| Plausible loaded unconditionally | A paid subscription pointed at a non-existent domain: cost, no data, third-party request on every page | Consent-gated GoatCounter only after Allow; `ANALYTICS_DOMAIN` unset means no prompt or request |
 
 A hand-maintained `public/sitemap.xml` listed 28 absolute URLs under the same
 dead domain; it is now generated from the configured site and the actual page
@@ -57,7 +57,7 @@ apps/website/
     ├── scripts/search-index.mjs     build hook: anchors + search-index.json
     ├── layouts/Layout.astro         meta, OG, CSP, consent surface, active nav
     ├── components/SearchDialog.astro  native <dialog> combobox search
-    ├── lib/analytics.ts              normalized routes + explicit Plausible adapter
+    ├── lib/analytics.ts              normalized routes + consent-gated GoatCounter
     ├── pages/
     │   ├── download.astro           renders from src/data/release-manifest.json
     │   ├── sitemap.xml.ts           generated from site + base + page files

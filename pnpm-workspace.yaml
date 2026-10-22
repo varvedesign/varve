@@ -106,4 +106,4 @@ patchedDependencies:
 peerDependencyRules:
   allowedVersions:
     "madge>typescript": "6.0.3"
-    "@astrojs/tailwind>astro": "~7.2.10"
+    "@astrojs/tailwind>astro": "~7.3.3"

@@ -78,7 +78,7 @@ test.describe('browser demo (/try)', () => {
     const intro = banner.locator('.varve-demo-banner__intro');
     await expect(intro).toContainText(/browser demo/i);
     await expect(intro).toContainText(/nothing uploaded/i);
-    await expect(banner.locator('.varve-demo-banner__consent')).toHaveCount(0);
+    await expect(banner.locator('.varve-demo-banner__consent')).toBeVisible();
 
     // The download-desktop CTA links to the website.
     const cta = banner.getByRole('link', { name: /download desktop/i });
@@ -149,18 +149,24 @@ test.describe('browser demo (/try)', () => {
     });
   }
 
-  test('does not offer desktop usage-analytics consent', async ({ page }) => {
-    await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
-    await waitForEditorReady(page);
+  for (const choice of ['granted', 'denied'] as const) {
+    test(`hides website GoatCounter consent when the shared key is ${choice}`, async ({ page }) => {
+      await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
+        key: 'varve:website-analytics-consent:goatcounter-v1',
+        value: choice,
+      });
+      await page.goto(DEMO_URL, { timeout: 120000, waitUntil: 'domcontentloaded' });
+      await waitForEditorReady(page);
 
-    await expect(page.locator('.varve-demo-banner')).toBeVisible();
-    await expect(page.locator('.varve-demo-banner__consent')).toHaveCount(0);
-    const stored = await page.evaluate(() => {
-      const raw = localStorage.getItem('varve-editor-settings');
-      return raw ? JSON.parse(raw).privacy?.usageAnalytics : undefined;
+      await expect(page.locator('.varve-demo-banner')).toBeVisible();
+      await expect(page.locator('.varve-demo-banner__consent')).toHaveCount(0);
+      const stored = await page.evaluate(() => {
+        const raw = localStorage.getItem('varve-editor-settings');
+        return raw ? JSON.parse(raw).privacy?.usageAnalytics : undefined;
+      });
+      expect(stored).toBeUndefined();
     });
-    expect(stored).toBeUndefined();
-  });
+  }
 
   test('WASM engine loads in the demo', async ({ page }) => {
     const wasmUrls: string[] = [];

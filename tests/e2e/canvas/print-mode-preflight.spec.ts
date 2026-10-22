@@ -90,8 +90,9 @@ test.describe('Print Mode — Preflight panel', () => {
     await expect(panel).toBeVisible();
     // A brand-new document has no bleed configured — that is an error by default.
     await expect(panel.getByText(/no bleed configured/i)).toBeVisible();
-    // Checks that require data this app can't yet supply must say so, not stay silent.
-    await expect(panel.getByText('Overset text')).toBeVisible();
+    // Overset is measured now. An empty document is verified, so the check
+    // is omitted from Not verified (same contract as PreflightWarnings.test).
+    await expect(panel.getByText('Overset text')).toHaveCount(0);
     await expect(panel.getByText('Printable-area violations')).toBeVisible();
   });
 

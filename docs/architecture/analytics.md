@@ -23,11 +23,11 @@ default where no approved endpoint is configured.
 
 ## Consent
 
-Desktop settings may still persist a leftover `privacy.diagnostics` key; the
-desktop app ignores it. Usage-analytics consent is no longer stored. The
-existing crash UI keeps its own versioned consent state. Website consent is
-stored separately in `varve:website-analytics-consent`; GPC and DNT fail
-closed for the page.
+The desktop app sends no usage stats. Leftover `privacy.diagnostics` keys may
+still persist in settings; the desktop app ignores them for transmission. The
+existing crash UI keeps its own versioned consent state. Website and browser-demo
+consent share `varve:website-analytics-consent:goatcounter-v1`. GPC and DNT fail
+closed for those surfaces.
 
 Revocation updates the client immediately, drops queued events in revoked
 categories, and shuts down the provider when no category remains granted.
@@ -37,15 +37,16 @@ categories, and shuts down the provider when no category remains granted.
 Feature code uses `AnalyticsClient.track(name, payload)`. It never imports a
 vendor. `NoopAnalyticsProvider` is the default. `HttpAnalyticsProvider` exists
 for a future Varve-owned aggregate endpoint and accepts only HTTPS endpoints.
-The website loads the supplied Plausible script only after website consent. Its
-automatic pageviews, file-download, outbound-link, and form-submission capture
-are disabled; Varve sends only the manually normalized events registered in the
-shared schema. The loader is therefore not present in denied or unknown states.
+
+The website and the `/try` browser demo send consented counts to GoatCounter
+only after the visitor clicks Allow. There is no remote analytics script.
+Automatic pageviews, file-download, outbound-link, and form-submission capture
+are disabled; Varve sends only the manually normalized events listed in
+`docs/privacy/analytics.md`. Denied, unknown, DNT, and GPC states send nothing.
 
 The production desktop app sends no usage analytics. There is no desktop
-Plausible script, Events API call, or `VITE_VARVE_ANALYTICS_DOMAIN` wiring.
-Stored leftover consent keys are ignored. Website analytics stay on the
-separate website consent path above.
+collector and no `VITE_VARVE_ANALYTICS_DOMAIN` wiring. Stored leftover consent
+keys are ignored.
 
 ## Adding an event
 

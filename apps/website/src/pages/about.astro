@@ -66,10 +66,9 @@ import { CONTACTS } from '@varve/shared';
         <h2>Privacy policy</h2>
         <p>
           Varve does not track users across sites or require cloud accounts. Optional website
-          analytics is consent-based, uses no cookies or fingerprinting, and is disabled unless a
-          production deployment explicitly configures it. The desktop app can send anonymous usage
-          events to Plausible only if you turn it on in Settings. Nothing is sent unless you say
-          yes. The application keeps design data local.
+          and browser-demo analytics use GoatCounter only after you click Allow, with no cookies
+          or fingerprinting, and never anything about the design. The desktop app sends no usage
+          stats. The application keeps design data local.
         </p>
         <Button variant="secondary" href={sitePath('/about/privacy')}>Read the privacy policy</Button>
       </section>

@@ -160,24 +160,24 @@ the GUI-launch-on-VM smoke test and a first green three-OS CI run.
 **Decision: ship with no analytics by default; provide a consent-gated adapter for
 deliberate production activation. Updated 2026-08-13.**
 
-`apps/website/src/layouts/Layout.astro` previously hardcoded the Plausible
-script, pointed at `strata.design` — a domain not owned, so it cost money and
-collected nothing. The website now uses a Varve-owned, consent-gated Events API
-adapter behind `ANALYTICS_DOMAIN` (empty by default, so there is no prompt or
-analytics request). Desktop usage, diagnostics, and crash reporting are
-independent categories with unknown/denied fail-closed defaults. Privacy policy
-and the technical disclosure match the implementation.
+`apps/website/src/layouts/Layout.astro` previously hardcoded a Plausible
+script, pointed at `strata.design`, a domain not owned, so it cost money and
+collected nothing. The website and /try demo now use consent-gated GoatCounter
+behind `ANALYTICS_DOMAIN` (empty by default, so there is no prompt or
+analytics request). The desktop app sends no usage stats. Diagnostics and
+crash reporting stay independent categories. Privacy policy and the technical
+disclosure match the implementation.
 
-GitHub Releases still reports per-asset download counts via the API for free. The optional
-consent-gated Plausible measurement adds only normalized website routes, release/platform
-download categories, and approved outbound categories; it does not use a third-party script,
-cookies, personal identifiers, or design data.
+GitHub Releases still reports per-asset download counts via the API for free.
+Consented GoatCounter counts cover normalized website routes, installer-link
+categories, demo launches, export formats, and demo download clicks. There is
+no third-party script, cookie, personal identifier, or design data.
 
-The production website deployment sets `ANALYTICS_DOMAIN=varve.studio` and uses
-the matching Plausible site. Consent is still required before any request.
-Local and unconfigured builds leave the variable empty, so no prompt or request
-is emitted. Provider retention, access, deletion, and legal review remain
-operational responsibilities.
+The production website deployment sets `ANALYTICS_DOMAIN=varve.studio` and
+uses the `varvestudio.goatcounter.com` account. Consent is still required
+before any request. Local and unconfigured builds leave the variable empty,
+so no prompt or request is emitted. Provider retention, access, deletion, and
+legal review remain operational responsibilities.
 
 ---
 

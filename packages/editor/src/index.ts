@@ -1,5 +1,12 @@
 import './workspace/bootstrap';
 
+export type { DemoExportFormat } from './analytics/demoExportAnalytics';
+export {
+  notifyDemoExportAnalytics,
+  notifySuccessfulDemoExport,
+  notifySuccessfulDemoExportBatch,
+  setDemoExportAnalyticsListener,
+} from './analytics/demoExportAnalytics';
 export {
   configureDesktopAnalytics,
   getDesktopAnalytics,

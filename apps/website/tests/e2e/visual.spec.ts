@@ -177,7 +177,7 @@ const THEMES = [
 async function expectCurrentHomepageCopy(page: import('@playwright/test').Page) {
   await expect(page.locator('.hero-title')).toContainText('Design locally.');
   await expect(page.locator('.hero-title')).toContainText('One canvas.');
-  await expect(page.locator('.hero-subtitle')).toContainText('no account, no subscription');
+  await expect(page.locator('.hero-subtitle')).toContainText('No account, no subscription');
 }
 
 const HERO_EYEBROW_VIEWPORTS = [320, 360, 375, 390, 414, 640, 641, 768, 1024, 1280, 1440];
@@ -296,6 +296,25 @@ async function getPageHorizontalOverflow(page: import('@playwright/test').Page) 
       }),
     };
   });
+}
+
+async function expectHeroSubtitleClearsDecorativeCards(page: import('@playwright/test').Page) {
+  const overlap = await page.evaluate(() => {
+    const subtitle = document.querySelector('.hero-subtitle')?.getBoundingClientRect();
+    if (!subtitle) throw new Error('Homepage hero is missing .hero-subtitle.');
+    return [...document.querySelectorAll('.hc-card')].some((card) => {
+      const bounds = card.getBoundingClientRect();
+      return (
+        bounds.width > 1 &&
+        bounds.height > 1 &&
+        subtitle.right > bounds.left + 8 &&
+        subtitle.left < bounds.right - 8 &&
+        subtitle.bottom > bounds.top + 8 &&
+        subtitle.top < bounds.bottom - 8
+      );
+    });
+  });
+  expect(overlap, 'hero subtitle must not run under decorative cards').toBe(false);
 }
 
 function expectHeroEyebrowContained(geometry: Awaited<ReturnType<typeof getHeroEyebrowGeometry>>) {
@@ -510,6 +529,7 @@ for (const theme of THEMES) {
       }
       expectHeroEyebrowContained(await getHeroEyebrowGeometry(page));
       if (width <= 640) expectMobileHeroGutter(await getMobileHeroContentGeometry(page));
+      if (width >= 1100) await expectHeroSubtitleClearsDecorativeCards(page);
     }
 
     if (theme.name === 'light') {

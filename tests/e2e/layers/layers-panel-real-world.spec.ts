@@ -17,7 +17,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, type Locator, type Page, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { dismissMissingFontsDialogIfPresent, navigateToEditor } from '../shared';
 
 const REPORT_DIR = path.resolve('reports/layers-review');
 const SVG_APP = path.resolve('tests/e2e/fixtures/layers-mobile-app.svg');
@@ -46,6 +46,7 @@ async function layerCount(page: Page): Promise<number> {
 async function importFixture(page: Page, filePath: string, expected: number, timeout = 60_000) {
   await page.locator('#file-import-input').setInputFiles(filePath);
   await expect.poll(async () => layerCount(page), { timeout }).toBeGreaterThanOrEqual(expected);
+  await dismissMissingFontsDialogIfPresent(page);
   await page.waitForTimeout(300);
 }
 
@@ -80,6 +81,8 @@ async function buildRealisticDocument(page: Page) {
   await importFixture(page, SVG_APP, 35);
   const before = await layerCount(page);
   await importFixture(page, PHOTO, before + 1);
+  // Import results can keep Missing Fonts suspended; dismiss once it can show.
+  await dismissMissingFontsDialogIfPresent(page);
   // Wait for the tree to settle after import.
   await page.waitForTimeout(500);
 }
