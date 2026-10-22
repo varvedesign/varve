@@ -20,7 +20,9 @@
   },
   "reviewDepth": {
     "deepReadThisSession": [186, 145, 142, 200, 169, 220, 57, 28, 1035, 168, 79, 503, 48, 291, 346],
-    "codeVerifiedThisSession": [186, 698, 503, 48, 291, 346, 145, 142, 200, 169, 220, 28, 1035, 79],
+    "codeVerifiedThisSession": [
+      186, 698, 503, 48, 291, 346, 145, 142, 200, 169, 220, 28, 1035, 79, 1267, 539
+    ],
     "reproducedInRealBrowserThisSession": [503, 48, 291, 346],
     "rangeReviewInherited": "The prior session read every frozen issue body and every comment page across three independent ranges (119 issues each). That coverage is inherited; this session re-crawled the corpus for completeness and independently read the behavioural subset above.",
     "deferredCandidatesDispositionedThisSession": 72
@@ -28,7 +30,7 @@
   "knownLimitations": [
     "External attachments, Figma archives and recordings referenced by issues were not retrieved; links were followed only where they carried the failure mechanism.",
     "Linked pull-request diffs were not exhaustively inspected.",
-    "WebKitGTK (desktop webview) behaviour of the font availability probe is unverified \u2014 Playwright WebKit cannot launch on this host (missing libicu74/libxml2/libflite1) and installing system packages was not authorised.",
+    "WebKitGTK (desktop webview) behaviour of the font availability probe is unverified — Playwright WebKit cannot launch on this host (missing libicu74/libxml2/libflite1) and installing system packages was not authorised.",
     "The browser E2E ran with the WASM engine falling back to the pure-TS stub renderer, which was already the case before these changes; the captured evidence therefore certifies the editor UI and font resolution, not the WASM renderer."
   ],
   "records": [
@@ -135,7 +137,7 @@
       "disposition": "already-handled",
       "status": "verified-by-inspection",
       "varveWorkflow": "Drop-shadow rendering",
-      "finding": "Varve casts shadows from the item's true alpha silhouette (`itemNeedsAlphaShadow` \u2192 `paintAlphaAwareDropShadow`) whenever a fill is partially or fully transparent, so a 0%-opacity fill produces an empty silhouette and no shadow.",
+      "finding": "Varve casts shadows from the item's true alpha silhouette (`itemNeedsAlphaShadow` → `paintAlphaAwareDropShadow`) whenever a fill is partially or fully transparent, so a 0%-opacity fill produces an empty silhouette and no shadow.",
       "outcome": "No change.",
       "evidence": "packages/engine/src/shadowSource.ts:156-175, packages/engine/src/replay.ts:1330-1340"
     },
@@ -277,7 +279,7 @@
     {
       "number": 47,
       "url": "https://github.com/open-pencil/open-pencil/issues/47",
-      "title": "Feature: Live MCP \u2194 App bridge for real-time AI design feedback loop",
+      "title": "Feature: Live MCP ↔ App bridge for real-time AI design feedback loop",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-03-04T22:06:35Z",
@@ -369,7 +371,7 @@
     {
       "number": 63,
       "url": "https://github.com/open-pencil/open-pencil/issues/63",
-      "title": "@open-pencil/mcp not installable from npm \u2014 unresolved workspace:* dependency",
+      "title": "@open-pencil/mcp not installable from npm — unresolved workspace:* dependency",
       "state": "closed",
       "labels": ["duplicate"],
       "createdAt": "2026-03-06T17:55:10Z",
@@ -553,7 +555,7 @@
     {
       "number": 98,
       "url": "https://github.com/open-pencil/open-pencil/issues/98",
-      "title": "Extract shared Figma\u2192code mapping from overlapping prompt files",
+      "title": "Extract shared Figma→code mapping from overlapping prompt files",
       "state": "closed",
       "labels": ["enhancement"],
       "createdAt": "2026-03-11T14:07:02Z",
@@ -824,7 +826,7 @@
     {
       "number": 133,
       "url": "https://github.com/open-pencil/open-pencil/issues/133",
-      "title": "TEXT nodes created via SceneGraph have no default fill \u2014 invisible in Figma",
+      "title": "TEXT nodes created via SceneGraph have no default fill — invisible in Figma",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-03-16T18:14:45Z",
@@ -934,7 +936,7 @@
     {
       "number": 149,
       "url": "https://github.com/open-pencil/open-pencil/issues/149",
-      "title": "\ud83d\udcc8 Proposal: Add GROWTH.md - Launch Strategy for Open-Source Figma Alternative",
+      "title": "📈 Proposal: Add GROWTH.md - Launch Strategy for Open-Source Figma Alternative",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-03-21T02:03:39Z",
@@ -949,7 +951,7 @@
     {
       "number": 151,
       "url": "https://github.com/open-pencil/open-pencil/issues/151",
-      "title": "Desktop app rendering crash \u2014 canvas shows blank after batch_design operations",
+      "title": "Desktop app rendering crash — canvas shows blank after batch_design operations",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-03-21T12:24:35Z",
@@ -994,7 +996,7 @@
     {
       "number": 154,
       "url": "https://github.com/open-pencil/open-pencil/issues/154",
-      "title": "Feature\uff1aSupport Table",
+      "title": "Feature：Support Table",
       "state": "open",
       "labels": ["enhancement"],
       "createdAt": "2026-03-23T04:29:53Z",
@@ -1009,7 +1011,7 @@
     {
       "number": 160,
       "url": "https://github.com/open-pencil/open-pencil/issues/160",
-      "title": "Clipboard paste: text nodes not rendered \u2014 derivedTextData missing glyph data for textUserLayoutVersion 4",
+      "title": "Clipboard paste: text nodes not rendered — derivedTextData missing glyph data for textUserLayoutVersion 4",
       "state": "closed",
       "labels": ["bug"],
       "createdAt": "2026-03-27T03:31:25Z",
@@ -1065,7 +1067,7 @@
       "status": "reviewed-no-varve-change",
       "reason": "Rotated container hover/hit area. Varve hit tests by inverting each node's own composed affine transform, so rotation is part of the test rather than an axis-aligned approximation.",
       "reviewSource": "prior range review (bodies + all comment pages)",
-      "evidence": "packages/engine/src/geometry.ts:451-459 (hitTest \u2192 invertAffine)"
+      "evidence": "packages/engine/src/geometry.ts:451-459 (hitTest → invertAffine)"
     },
     {
       "number": 169,
@@ -1132,7 +1134,7 @@
     {
       "number": 173,
       "url": "https://github.com/open-pencil/open-pencil/issues/173",
-      "title": "Cannot save as .pen \u2014 only .fig is offered, blocking AI agent workflows",
+      "title": "Cannot save as .pen — only .fig is offered, blocking AI agent workflows",
       "state": "open",
       "labels": ["enhancement"],
       "createdAt": "2026-03-31T23:09:54Z",
@@ -1147,7 +1149,7 @@
     {
       "number": 174,
       "url": "https://github.com/open-pencil/open-pencil/issues/174",
-      "title": "\u5728\u57fa\u7840\u4e0a,\u6211\u8fdb\u884c\u4e86svg\u7684\u8865\u5145,\u8fd8\u6709\u4e00\u4e9b\u4ea4\u4e92\u4f18\u5316",
+      "title": "在基础上,我进行了svg的补充,还有一些交互优化",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-04-01T02:29:09Z",
@@ -1574,7 +1576,7 @@
     {
       "number": 223,
       "url": "https://github.com/open-pencil/open-pencil/issues/223",
-      "title": "\u521b\u5efa\u7ec4\u4ef6\u540e\uff0c\u53f3\u952e\u83dc\u5355\u4e2d\u7684\"\u521b\u5efa\u5b9e\u4f8b\"\u9009\u9879\u663e\u793a\u4e3a\u7070\u8272\uff0c\u65e0\u6cd5\u70b9\u51fb\u3002",
+      "title": "创建组件后，右键菜单中的\"创建实例\"选项显示为灰色，无法点击。",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-04-22T09:42:23Z",
@@ -2055,7 +2057,7 @@
     {
       "number": 284,
       "url": "https://github.com/open-pencil/open-pencil/issues/284",
-      "title": "@open-pencil/mcp@0.13.1 (latest) ships no `bin/` dir \u2014 `bin` map points at non-existent files, breaking global installs",
+      "title": "@open-pencil/mcp@0.13.1 (latest) ships no `bin/` dir — `bin` map points at non-existent files, breaking global installs",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-05-30T15:39:47Z",
@@ -2070,7 +2072,7 @@
     {
       "number": 285,
       "url": "https://github.com/open-pencil/open-pencil/issues/285",
-      "title": "Published @open-pencil/mcp tarball is missing its bin/ scripts \u2014 desktop app cannot start MCP hub",
+      "title": "Published @open-pencil/mcp tarball is missing its bin/ scripts — desktop app cannot start MCP hub",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-05-30T15:55:27Z",
@@ -2126,7 +2128,7 @@
       "status": "addressed-by-503",
       "varveWorkflow": "Korean glyph coverage",
       "finding": "NO GLYPH boxes with a \"supported\" font installed is family-availability for the requested family; Varve additionally checks glyph coverage only when a face publishes unicode ranges, which registry-projected seeds do not.",
-      "outcome": "Family availability is now verified. Glyph-range coverage for registry-projected seeds remains unverified \u2014 recorded as an open gap.",
+      "outcome": "Family availability is now verified. Glyph-range coverage for registry-projected seeds remains unverified — recorded as an open gap.",
       "evidence": "commit 16daae2f4; docs/architecture/font-system.md"
     },
     {
@@ -2162,7 +2164,7 @@
     {
       "number": 300,
       "url": "https://github.com/open-pencil/open-pencil/issues/300",
-      "title": "\u26a1 improve(collab): yjs-sync \u306e wire byte \u3068 CPU cost \u3092 skip-equal \u3067\u524a\u6e1b",
+      "title": "⚡ improve(collab): yjs-sync の wire byte と CPU cost を skip-equal で削減",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-06-04T07:33:39Z",
@@ -2177,7 +2179,7 @@
     {
       "number": 302,
       "url": "https://github.com/open-pencil/open-pencil/issues/302",
-      "title": "\u26a1 improve(scene-graph): hit-test \u306b AABB fast path \u3092\u8ffd\u52a0\u3057 1000 node \u3067 371ms spike \u3092\u89e3\u6d88",
+      "title": "⚡ improve(scene-graph): hit-test に AABB fast path を追加し 1000 node で 371ms spike を解消",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-06-04T07:40:57Z",
@@ -2192,7 +2194,7 @@
     {
       "number": 304,
       "url": "https://github.com/open-pencil/open-pencil/issues/304",
-      "title": "\u26a1 improve(renderer): render:volatile \u7d4c\u8def\u3067 subtreePictureCache \u3092\u6d3b\u7528\u3057 1000 node frame max \u3092 9.7ms \u2192 5.3ms \u306b\u5727\u7e2e",
+      "title": "⚡ improve(renderer): render:volatile 経路で subtreePictureCache を活用し 1000 node frame max を 9.7ms → 5.3ms に圧縮",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-06-04T07:44:26Z",
@@ -2207,7 +2209,7 @@
     {
       "number": 306,
       "url": "https://github.com/open-pencil/open-pencil/issues/306",
-      "title": "\u26a1 improve(autosave): bytes fingerprint \u3067\u540c\u5024\u518d autosave \u306e write \u3092 skip",
+      "title": "⚡ improve(autosave): bytes fingerprint で同値再 autosave の write を skip",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-06-04T08:01:35Z",
@@ -2222,7 +2224,7 @@
     {
       "number": 308,
       "url": "https://github.com/open-pencil/open-pencil/issues/308",
-      "title": "\ud83e\uddea test(perf): large-doc fixture \u3092 2000 node \u307e\u3067\u62e1\u5f35\u3057\u9650\u754c\u70b9\u3092\u53ef\u8996\u5316",
+      "title": "🧪 test(perf): large-doc fixture を 2000 node まで拡張し限界点を可視化",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-06-04T08:30:16Z",
@@ -2237,7 +2239,7 @@
     {
       "number": 310,
       "url": "https://github.com/open-pencil/open-pencil/issues/310",
-      "title": "\ud83e\uddea test(collab): 2-client drag scenario \u3067 partial sync \u306e real-world \u52b9\u679c\u3092 unit-level \u3067\u5b9f\u8a3c",
+      "title": "🧪 test(collab): 2-client drag scenario で partial sync の real-world 効果を unit-level で実証",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-06-04T08:38:45Z",
@@ -2252,7 +2254,7 @@
     {
       "number": 323,
       "url": "https://github.com/open-pencil/open-pencil/issues/323",
-      "title": "Feature request: Figma Premium-style bitmap tracing (image \u2192 editable vector)",
+      "title": "Feature request: Figma Premium-style bitmap tracing (image → editable vector)",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-06-05T23:04:25Z",
@@ -2464,7 +2466,7 @@
     {
       "number": 373,
       "url": "https://github.com/open-pencil/open-pencil/issues/373",
-      "title": "bug: Desktop app: Copy fails with \u201cClipboard access is blocked in this browser context\u201d",
+      "title": "bug: Desktop app: Copy fails with “Clipboard access is blocked in this browser context”",
       "state": "closed",
       "labels": ["bug"],
       "createdAt": "2026-07-01T06:15:01Z",
@@ -2704,7 +2706,7 @@
     {
       "number": 403,
       "url": "https://github.com/open-pencil/open-pencil/issues/403",
-      "title": "wayfinder:map \u2014 car-rental-app \u2194 open-pencil round-trip",
+      "title": "wayfinder:map — car-rental-app ↔ open-pencil round-trip",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-07-17T02:12:25Z",
@@ -2734,7 +2736,7 @@
     {
       "number": 405,
       "url": "https://github.com/open-pencil/open-pencil/issues/405",
-      "title": "[Research] open-pencil export \u2014 JSX/Tailwind output for car-rental-app",
+      "title": "[Research] open-pencil export — JSX/Tailwind output for car-rental-app",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-07-17T02:19:27Z",
@@ -2779,7 +2781,7 @@
     {
       "number": 408,
       "url": "https://github.com/open-pencil/open-pencil/issues/408",
-      "title": "[Research] open-pencil export \u2014 JSX/Tailwind output for car-rental-app",
+      "title": "[Research] open-pencil export — JSX/Tailwind output for car-rental-app",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-07-17T02:20:02Z",
@@ -3154,7 +3156,7 @@
     {
       "number": 486,
       "url": "https://github.com/open-pencil/open-pencil/issues/486",
-      "title": "Renderer crashes on non-Latin text/font enumeration \u2014 Arabic, Korean, Russian all crash; list_available_fonts alone crashes too (Windows, v0.14.0)",
+      "title": "Renderer crashes on non-Latin text/font enumeration — Arabic, Korean, Russian all crash; list_available_fonts alone crashes too (Windows, v0.14.0)",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-08-12T01:17:03Z",
@@ -3184,7 +3186,7 @@
     {
       "number": 488,
       "url": "https://github.com/open-pencil/open-pencil/issues/488",
-      "title": "MCP automation orphan server never self-heals after a renderer crash \u2014 no_app status is ignored on reuse (Windows)",
+      "title": "MCP automation orphan server never self-heals after a renderer crash — no_app status is ignored on reuse (Windows)",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-08-12T01:17:30Z",
@@ -3375,10 +3377,11 @@
       "updatedAt": "2026-08-19T18:18:52Z",
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
-      "disposition": "relevant-open",
-      "status": "open-work",
-      "reason": "Text selection highlight offset when text is not aligned top-left. Varve draws the on-canvas caret/selection from the text layout snapshot; not reproduced against a non-top-left-aligned frame in this pass.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "disposition": "already-handled",
+      "status": "verified-by-inspection",
+      "reason": "Canvas selection geometry is derived from the shaped layout snapshot — per-line top, glyph x and advance, and the line x recorded for vertical modes — rather than from the text frame origin, so a centre- or right-aligned line yields a correctly positioned highlight. Caveat recorded: the in-editor overlay is a native textarea whose CSS selection is a separate path and was not reproduced.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "packages/engine/src/textLayoutSnapshot.ts:1627 selectionRects"
     },
     {
       "number": 544,
@@ -3428,7 +3431,7 @@
     {
       "number": 567,
       "url": "https://github.com/open-pencil/open-pencil/issues/567",
-      "title": "bug: Desktop app: Copy and paste fails with and \"Clipboard access is blocked in this browser context\" \u201cClipboard does not contain design data\u201d",
+      "title": "bug: Desktop app: Copy and paste fails with and \"Clipboard access is blocked in this browser context\" “Clipboard does not contain design data”",
       "state": "closed",
       "labels": ["bug"],
       "createdAt": "2026-08-20T07:49:24Z",
@@ -3578,7 +3581,7 @@
     {
       "number": 589,
       "url": "https://github.com/open-pencil/open-pencil/issues/589",
-      "title": "bug: desktop app 0.14.0 (Windows) never establishes MCP bridge \u2014 neither self-spawn nor reuse-existing-server path completes",
+      "title": "bug: desktop app 0.14.0 (Windows) never establishes MCP bridge — neither self-spawn nor reuse-existing-server path completes",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-08-24T14:28:54Z",
@@ -3638,7 +3641,7 @@
     {
       "number": 613,
       "url": "https://github.com/open-pencil/open-pencil/issues/613",
-      "title": "bug: .fig import crashes \u2014 TypeError on componentPropAssignment without value, then unbounded instance-swap repopulation cascade",
+      "title": "bug: .fig import crashes — TypeError on componentPropAssignment without value, then unbounded instance-swap repopulation cascade",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-08-31T11:41:01Z",
@@ -3743,7 +3746,7 @@
     {
       "number": 659,
       "url": "https://github.com/open-pencil/open-pencil/issues/659",
-      "title": "fig worker parse (parseViaWorker) has no timeout \u2014 a wedged worker hangs import forever",
+      "title": "fig worker parse (parseViaWorker) has no timeout — a wedged worker hangs import forever",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-09-07T05:15:07Z",
@@ -3845,7 +3848,7 @@
       "varveWorkflow": "Lifecycle / termination coordinator, tab close guard, autosave",
       "finding": "Dirty state had two flags. `state.dirty` and `sessions[].dirty` were written by different code paths, and several mutation helpers set only the state flag. The close guard and termination collector read the session flag, so a real edit could close or quit with no prompt, and the recovery point was deleted on the resulting clean shutdown. `useLogoGeometry` writes the document with no transaction at all.",
       "outcome": "One authority (`markDocumentDirty`) for the unsaved flag, a document setter that applies it, and a reconciliation guard for hand-written sites.",
-      "evidence": "commit 13014f0ed; unsavedWorkAuthority.test.tsx \u2014 the stale-state shape yields zero documents for `collectUnsavedDocuments`"
+      "evidence": "commit 13014f0ed; unsavedWorkAuthority.test.tsx — the stale-state shape yields zero documents for `collectUnsavedDocuments`"
     },
     {
       "number": 710,
@@ -3940,7 +3943,7 @@
     {
       "number": 736,
       "url": "https://github.com/open-pencil/open-pencil/issues/736",
-      "title": "`dropShadow({ blur: \u2026 })` is silently ignored, though the `shadow` shorthand and the `blur` prop both call that value the blur",
+      "title": "`dropShadow({ blur: … })` is silently ignored, though the `shadow` shorthand and the `blur` prop both call that value the blur",
       "state": "closed",
       "labels": ["bug"],
       "createdAt": "2026-09-20T13:19:34Z",
@@ -4270,7 +4273,7 @@
     {
       "number": 787,
       "url": "https://github.com/open-pencil/open-pencil/issues/787",
-      "title": "bug: openpencil query / MCP query_nodes crash on Node \u2014 evaluateXPathToNodes is not a function (fontoxpath CJS interop)",
+      "title": "bug: openpencil query / MCP query_nodes crash on Node — evaluateXPathToNodes is not a function (fontoxpath CJS interop)",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-09-29T23:18:25Z",
@@ -4285,7 +4288,7 @@
     {
       "number": 788,
       "url": "https://github.com/open-pencil/open-pencil/issues/788",
-      "title": "bug: openpencil import never computes layout \u2014 children stay at (0,0)/100x100, design renders collapsed in CLI and app",
+      "title": "bug: openpencil import never computes layout — children stay at (0,0)/100x100, design renders collapsed in CLI and app",
       "state": "closed",
       "labels": [],
       "createdAt": "2026-09-29T23:18:33Z",
@@ -4677,7 +4680,7 @@
     {
       "number": 975,
       "url": "https://github.com/open-pencil/open-pencil/issues/975",
-      "title": "bug: document-mutation MCP tools sporadically wedge the WebView \u2014 rAF/microtask spin at 100% CPU, SIGTERM ignored, unsaved state lost",
+      "title": "bug: document-mutation MCP tools sporadically wedge the WebView — rAF/microtask spin at 100% CPU, SIGTERM ignored, unsaved state lost",
       "state": "open",
       "labels": [],
       "createdAt": "2026-10-08T08:51:06Z",
@@ -4692,7 +4695,7 @@
     {
       "number": 976,
       "url": "https://github.com/open-pencil/open-pencil/issues/976",
-      "title": "bug: WASM heap corruption after render/delete churn \u2014 all mutations and saves fail with Out of bounds/call_indirect until restart",
+      "title": "bug: WASM heap corruption after render/delete churn — all mutations and saves fail with Out of bounds/call_indirect until restart",
       "state": "open",
       "labels": [],
       "createdAt": "2026-10-08T08:51:30Z",
@@ -4737,7 +4740,7 @@
     {
       "number": 979,
       "url": "https://github.com/open-pencil/open-pencil/issues/979",
-      "title": "bug: desktop WebView suspends when occluded/minimized \u2014 MCP/RPC silently dead while window hidden (fix: backgroundThrottling disabled)",
+      "title": "bug: desktop WebView suspends when occluded/minimized — MCP/RPC silently dead while window hidden (fix: backgroundThrottling disabled)",
       "state": "open",
       "labels": [],
       "createdAt": "2026-10-08T08:52:33Z",
@@ -5303,12 +5306,13 @@
       "updatedAt": "2026-10-19T23:24:26Z",
       "commentsDeclared": 0,
       "commentsRetrieved": 0,
-      "disposition": "open-uncertain",
-      "status": "not-investigated",
+      "disposition": "already-handled",
+      "status": "verified-by-inspection",
       "varveWorkflow": "Shortcut matching",
       "finding": "Undo shortcut vs keyboard layout. Not investigated in this pass.",
       "outcome": "Recorded as unresolved relevant work.",
-      "evidence": ""
+      "evidence": "packages/editor/src/input/physicalKey.ts (physicalKeyFromEvent, canonicalShortcutKey); packages/editor/src/shortcuts/ShortcutManager.ts:809-826",
+      "reason": "Shortcut matching is layout-correct by construction. A dedicated physical-key module resolves digits and numpad keys from KeyboardEvent.code (so Shift+1 and NumLock states behave), while letters resolve from KeyboardEvent.key — the printed character — which is what a user reading their own keycaps expects for Ctrl+Z on AZERTY or QWERTZ. The single implementation is shared by the global registry and the canvas-local handler."
     },
     {
       "number": 1269,
@@ -5450,6 +5454,6 @@
   "unaccounted": [1327],
   "openWork": {
     "note": "Plausibly applicable findings that were NOT verified. These remain open; they are not exclusions.",
-    "issues": [147, 170, 180, 182, 225, 246, 255, 374, 395, 486, 500, 539, 580, 587, 1267]
+    "issues": [147, 170, 180, 182, 225, 246, 255, 374, 395, 486, 500, 580, 587]
   }
 }
