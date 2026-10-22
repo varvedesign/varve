@@ -473,17 +473,40 @@ showpage
   });
 
   test('identifies the file during asynchronous PSD decoding', async ({ page }) => {
-    await openImportFromMenu(page);
-    await page.locator('#file-import-input').setInputFiles({
-      name: 'example.psd',
-      mimeType: 'image/vnd.adobe.photoshop',
-      buffer: await readFile('tests/fixtures/import-corpus/example.psd'),
+    const psd = await readFile('tests/fixtures/import-corpus/example.psd');
+    // The importing stage can be shorter than one Playwright poll on a fast
+    // machine, so record every progress mutation from before the selection
+    // instead of racing the label. A three-file batch guarantees at least one
+    // decode runs while the progress surface is mounted.
+    await page.evaluate(() => {
+      const target = window as unknown as { __importProgressLog?: string[] };
+      target.__importProgressLog = [];
+      new MutationObserver(() => {
+        const element = document.querySelector('.import-progress');
+        if (!element) return;
+        target.__importProgressLog?.push(
+          `${element.getAttribute('data-stage')}|${element.textContent ?? ''}`,
+        );
+      }).observe(document.body, { childList: true, subtree: true, characterData: true });
     });
 
-    const progress = page.locator('.import-progress[data-stage="importing"]');
-    await expect(progress).toContainText('Parsing: example.psd', { timeout: 15000 });
+    await openImportFromMenu(page);
+    await page.locator('#file-import-input').setInputFiles([
+      { name: 'example.psd', mimeType: 'image/vnd.adobe.photoshop', buffer: psd },
+      { name: 'example-2.psd', mimeType: 'image/vnd.adobe.photoshop', buffer: psd },
+      { name: 'example-3.psd', mimeType: 'image/vnd.adobe.photoshop', buffer: psd },
+    ]);
+
     await expect(page.locator('.layers-panel [role="treeitem"]').first()).toBeVisible({
       timeout: 30000,
     });
+
+    const log = await page.evaluate(
+      () => (window as unknown as { __importProgressLog?: string[] }).__importProgressLog ?? [],
+    );
+    const parsingStates = log.filter(
+      (entry) => entry.startsWith('importing|') && entry.includes('Parsing: example'),
+    );
+    expect(parsingStates.length).toBeGreaterThan(0);
   });
 });
