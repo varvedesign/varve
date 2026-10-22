@@ -1617,9 +1617,10 @@
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
       "disposition": "blocked",
-      "status": "blocked-environment",
-      "reason": "A Wayland crash in the packaged desktop app needs a native Tauri session on Wayland. Playwright exercises the webview but not the native shell, so this cannot be reproduced here.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "status": "blocked-native-build",
+      "reason": "The report is a crash in the packaged desktop app on Wayland, so it can only be reproduced by running the native shell — the browser harness drives the webview, not the Tauri process. Varve's Wayland-specific surface is clipboard I/O: the shell reads and writes the Wayland clipboard through a bounded out-of-process pipe worker (`read_wayland_pipe_bounded`), which is the code that would have to fail for a Wayland-only crash. No equivalent Varve crash was reproduced. A native build was started here and aborted: the desktop crate is outside the root workspace, and the build competes with other agents for a shared 230 GB disk that was already at 90% (a temporary worktree on `/tmp` — a 12 GB tmpfs — filled it mid-build). Reproduce with: `cd apps/desktop/src-tauri && CARGO_TARGET_DIR=<disk-backed-dir> cargo run` under a Wayland session, then exercise clipboard copy/paste.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "apps/desktop/src-tauri/src/lib.rs:531-730 (Wayland clipboard pipe worker); no reproduction"
     },
     {
       "number": 226,
