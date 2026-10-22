@@ -156,6 +156,14 @@ test('one-glyph-per-Tj placement becomes one column per column, not one layer pe
   await expect(
     dialog.getByText(/7 vertical text run\(s\) were imported as 2 vertical column\(s\)/),
   ).toBeVisible({ timeout: 10000 });
+  const shotDir = process.env.VARVE_SHOT_DIR;
+  if (shotDir) {
+    mkdirSync(shotDir, { recursive: true });
+    await page.screenshot({
+      path: join(shotDir, 'import-vertical-writing-results.png'),
+      fullPage: true,
+    });
+  }
   await dialog.getByRole('button', { name: /^close$/i }).click();
 
   const layers = page.locator('.layers-panel');
@@ -174,4 +182,13 @@ test('one-glyph-per-Tj placement becomes one column per column, not one layer pe
     'Vertical, right to left',
     { timeout: 5000 },
   );
+  if (shotDir) {
+    await page
+      .locator('canvas.editor-canvas__content-layer')
+      .screenshot({ path: join(shotDir, 'import-vertical-writing-canvas.png') });
+    await page.screenshot({
+      path: join(shotDir, 'import-vertical-writing-editor.png'),
+      fullPage: true,
+    });
+  }
 });
