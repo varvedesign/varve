@@ -390,7 +390,8 @@ const REVIEWED = {
   },
   1140: {
     research: 'reviewed-thread',
-    engineering: 'applicable-requires-work',
+    engineering: 'integrated-verified',
+    integrated_in: '89a2fac4 (sampled-function range) + b5b92eef (alpha soft mask)',
     varve_area: 'paint-color',
     varve_code:
       'crates/varve-print/src/lib.rs (ShadingRegistry), packages/engine/src/replayGradient.ts',
