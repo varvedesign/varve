@@ -1,4 +1,5 @@
 import type { Document } from '@varve/scene';
+import { isXmlChar } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import {
   applyAiDisclosureToSvg,
@@ -184,5 +185,40 @@ describe('applyAiDisclosureToSvg', () => {
   it('returns the original markup when there is no disclosure', () => {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>';
     expect(applyAiDisclosureToSvg(svg, null)).toBe(svg);
+  });
+});
+
+/**
+ * Evidence: storytold/lightcraft#2131 — an XML writer that emits characters
+ * XML 1.0 forbids makes downstream tools reject the whole packet. Disclosure
+ * text is built from tool/model identifiers, but it also travels through the
+ * same SVG embed, so the sanitizer must hold for every field.
+ */
+describe('AI disclosure XML character integrity', () => {
+  const illegal = (source: string) =>
+    Array.from(source).filter((character) => !isXmlChar(character.codePointAt(0) as number));
+
+  it('XMP stays well-formed for a description carrying control characters', () => {
+    const xmp = generateAiDisclosureXmp({
+      digitalSourceType:
+        'http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia',
+      description: 'AI tools used: fill\u0000 (models: \u0007lama\uFFFE)',
+      tools: ['fill'],
+    });
+    expect(illegal(xmp)).toEqual([]);
+    const parsed = new DOMParser().parseFromString(xmp, 'application/xml');
+    expect(parsed.querySelector('parsererror')?.textContent ?? null).toBeNull();
+  });
+
+  it('SVG metadata stays well-formed inside a real svg root', () => {
+    const svg = applyAiDisclosureToSvg('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>', {
+      digitalSourceType:
+        'http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia',
+      description: 'AI tools used: fill\u001F',
+      tools: ['fill'],
+    });
+    expect(illegal(svg)).toEqual([]);
+    const parsed = new DOMParser().parseFromString(svg, 'application/xml');
+    expect(parsed.querySelector('parsererror')?.textContent ?? null).toBeNull();
   });
 });
