@@ -33,7 +33,6 @@ update, not for someone reading the commit log.
   creates the document with the values you typed, instead of requiring the
   mouse. Enter in the preset-name row still saves the preset, and Enter during
   an IME composition is left to the input method.
-
 - **Linux AppImage**: ships bundled WebKitGTK and GTK so it launches on a
   clean host without `libwebkit2gtk-4.1`. GPU/EGL/Mesa stay on the system so
   newer Mesa stacks do not white-screen. GStreamer plugins are not bundled
@@ -44,8 +43,19 @@ update, not for someone reading the commit log.
 - **AUR `varve-desktop-bin`**: package hashes and source URLs now match the
   published 0.5.1 AppImages.
 
+### Added
+
+- **Ctrl+Enter starts editing the selected text** — With the Text tool active and
+  one text layer selected, Ctrl+Enter (Cmd+Enter on macOS) begins editing it, so
+  the keyboard path from "text selected" to "typing" no longer needs a
+  double-click. Plain Enter still renames the layer.
+
 ### Fixed
 
+- **Hiding a fill now hides it** — Turning off a shape's last visible fill
+  removes it from the canvas and from its click target. Previously the shape
+  kept painting its original colour, because the render pipeline treated an
+  all-hidden fill stack as "no stack" and fell back to the node's legacy fill.
 - **One undo step per control gesture** — Dragging a slider or a colour picker, or holding an arrow
   key, produced one undo entry per intermediate value, so a single `Ctrl+Z` stepped back one notch
   instead of reverting the change and a drag could consume the whole history window. Mask density,
