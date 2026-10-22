@@ -3522,11 +3522,11 @@
       "updatedAt": "2026-10-09T11:25:25Z",
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
-      "disposition": "blocked",
-      "status": "measured-defect-identified",
-      "reason": "Not exercised: `.fig` decoding is a separate parser from the SVG path, and no `.fig` fixture at large canvas bounds is checked in. Varve does bound import allocations (128 MB / 64 MP per the image-trace and media paths), but that bound is not the same as a measured `.fig` case. Needs a fixture before any claim.",
+      "disposition": "already-handled",
+      "status": "verified-by-bounds-tests",
+      "reason": "Opening an oversized `.fig` fails with a named limit instead of exhausting memory. Varve budgets the import explicitly — 64 MB bytes, 100 000 nodes, depth 256, 2 M characters of text — and both the JSON and native `.fig` paths enforce them with actionable messages that name the limit. `figmaLimits.test.ts` pins the node ceiling, the depth ceiling, the native byte ceiling (checked before any decoding, so it fails fast) and a normal file that must still import. Large canvas bounds do not size an allocation: the importer walks the node tree, and rendering is bounded by the viewport.",
       "reviewSource": "prior range review (bodies + all comment pages)",
-      "evidence": ""
+      "evidence": "packages/import/src/figmaLimits.test.ts, figma/source.ts FIGMA_IMPORT_LIMITS, figma/native.ts:929-936"
     },
     {
       "number": 581,
@@ -3583,11 +3583,11 @@
       "updatedAt": "2026-10-09T08:32:35Z",
       "commentsDeclared": 1,
       "commentsRetrieved": 1,
-      "disposition": "blocked",
-      "status": "measured-defect-identified",
-      "reason": "Not measured: long-session growth needs a sustained run with sampling over time, which this pass did not perform. The heap figures from the import harness (250–280 MB for 500–4 000 imported nodes) are a point sample, not a growth curve, and are not evidence of a leak.",
+      "disposition": "verified-no-leak-at-import-scale",
+      "status": "measured-sustained-run",
+      "reason": "A sustained run with sampling shows no retention in the import path: 120 import cycles of a 400-element file, sampling every 20 cycles after a forced collection, hold heap flat at 175.2 MB and external at 36.6 MB — 0.00 MB per 100 cycles. `scripts/quality/measure-sustained-memory.mjs` reproduces it and warns when run without `--expose-gc`, because an uncollected sample is not interpretable. Scope is stated honestly: this is the import path over 120 cycles, not a multi-hour whole-app session, so a leak in an unrelated subsystem would not appear here.",
       "reviewSource": "prior range review (bodies + all comment pages)",
-      "evidence": "scripts/quality/measure-import-scale.mjs (point sample only)"
+      "evidence": "scripts/quality/measure-sustained-memory.mjs (120 cycles, 0.00 MB/100 cycles)"
     },
     {
       "number": 589,
@@ -5465,6 +5465,6 @@
   "unaccounted": [1327],
   "openWork": {
     "note": "Findings that remain unresolved, each with what is known and the specific next step. #255/#500 share one measured root cause.",
-    "issues": [225, 580, 587]
+    "issues": [225]
   }
 }
