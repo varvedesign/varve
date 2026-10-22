@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { notifyDemoExportAnalytics } from '@varve/editor';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   canSendDemoAnalytics,
   readDemoAnalyticsChoice,
