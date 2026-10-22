@@ -43,6 +43,13 @@ update, not for someone reading the commit log.
 - **AUR `varve-desktop-bin`**: package hashes and source URLs now match the
   published 0.5.1 AppImages.
 
+### Added
+
+- **Ctrl+Enter starts editing the selected text** — With the Text tool active and
+  one text layer selected, Ctrl+Enter (Cmd+Enter on macOS) begins editing it, so
+  the keyboard path from "text selected" to "typing" no longer needs a
+  double-click. Plain Enter still renames the layer.
+
 ### Fixed
 
 - **Hiding a fill now hides it** — Turning off a shape's last visible fill

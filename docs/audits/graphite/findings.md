@@ -311,7 +311,61 @@ The reverted work is recorded here so the same idea is not re-implemented.
 
 ---
 
-## F5 — Observations that are not (yet) Varve work
+## F8 — Keyboard path from "text selected" to "typing" (implemented)
+
+**External evidence.** Graphite #3637 ("With the Text tool active and a text
+layer selected, Enter should begin editing it") and the pull request that
+closes it, GraphiteEditor/Graphite#4756, which maps Enter in the Text tool's
+ready state to the tool's edit action and notes that Ctrl+Enter does the same in
+Graphite's Select tool. Varve had no keyboard path: the only ways into a text
+session were a click that creates new text, or a double-click on existing text.
+
+**User problem.** A keyboard user who has selected a text layer has to reach for
+the mouse to start typing, which is the same papercut class as F2.
+
+**Varve-specific constraint (why plain Enter was not taken).** Varve binds Enter
+and F2 to *renaming the selected layer* in the canvas input pipeline. Taking
+plain Enter for text editing would remove a documented shortcut, so the text
+path uses **Ctrl/Cmd+Enter** instead — the chord Graphite's own PR notes as
+working in its Select tool. The Text tool runs before the rename branch, so the
+modifier decides which action wins, and a browser case pins that plain Enter
+still renames with the Text tool active.
+
+**Implementation decision.** `TextTool.onKeyDown` claims Ctrl/Cmd+Enter when
+exactly one text layer is selected, flushes buffered edits, closes any open
+transaction, and sets the edit target — the same entry the click path uses. A
+multi-selection and an already-editing target are left alone.
+
+**Acceptance criteria.**
+1. Ctrl/Cmd+Enter with the Text tool active and one text layer selected opens
+   the editing surface.
+2. Plain Enter still opens the rename dialog and opens no text session.
+3. A multi-selection, a non-text selection, a repeat key and an already-editing
+   target all decline the chord.
+
+**Evidence.** `packages/editor/src/tools/TextTool.ts`,
+`packages/editor/src/tools/__tests__/TextTool.test.ts` (7 cases),
+`tests/e2e/canvas/text-tool-enter-edits.spec.ts` (2 Chromium cases).
+
+**Operational note for future browser specs.** Tool key handlers are routed from
+the *focused canvas*. Selecting a layer through the Layers panel leaves focus on
+the row, so a spec that then presses a tool key observes nothing — the handler
+never runs. `tests/e2e/canvas/object-marquee-selection.spec.ts` already calls
+`canvas.focus()` for this reason; this spec does too. The failure mode is silent
+(no error, no effect), which cost several runs here, so it is recorded rather
+than rediscovered.
+
+**Not done, and why (candidate from the same PR set).** GraphiteEditor/
+Graphite#4499 puts an `image/svg+xml` flavour on the clipboard when copying a
+selection, so other applications receive vectors instead of only text. Varve
+writes `application/vnd.varve+json` and `text/plain` on copy, and has a separate
+"Copy as SVG" command that already builds the right payload
+(`exportNodeToSvg` per node with `background: 'transparent'`, plus
+`unionSvgBounds`) — so the work is to reuse that builder inside the copy path
+rather than to invent one. It is recorded here as the next candidate, not
+implemented in this batch.
+
+
 
 - `InteractionContext.axisLock` was dead code until F1 gave it a consumer.
   Any future modifier feature should check whether an existing field is

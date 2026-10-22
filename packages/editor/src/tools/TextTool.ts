@@ -42,6 +42,38 @@ export class TextTool extends BaseTool {
     });
   }
 
+  /**
+   * Ctrl/Cmd+Enter begins editing the selected text layer, so a keyboard user
+   * can go from "text selected" to "typing" without a double-click. Graphite
+   * added the same entry point in GraphiteEditor/Graphite#4756 for the same
+   * reason, where it also notes Ctrl+Enter works in its Select tool.
+   *
+   * Varve does not take plain Enter for this: the canvas already binds Enter
+   * (and F2) to renaming the selected layer, which is a documented shortcut
+   * users rely on. Ctrl+Enter adds the text path without removing that one, and
+   * the tool runs before the rename branch, so the modifier decides which
+   * action wins.
+   *
+   * A multi-selection is left alone: there is no single caret to place. An
+   * already-editing target is left alone too, so a stray chord inside the
+   * editor cannot re-enter and lose the caret position.
+   */
+  override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
+    if (e.key !== 'Enter' || e.repeat) return false;
+    if (!e.ctrlKey && !e.metaKey) return false;
+    if (ctx.selection.length !== 1) return false;
+    const nodeId = ctx.selection[0]!;
+    const node = ctx.getNode(nodeId);
+    if (!node || node.kind !== 'text') return false;
+    if (ctx.textEditTargetId === nodeId) return false;
+    // Commit anything buffered first: the inline editor takes over the node,
+    // and a draft left open would otherwise be applied to the new session.
+    ctx.flushPendingEdits?.();
+    ctx.commitTransaction();
+    ctx.setTextEditTargetId(nodeId);
+    return true;
+  }
+
   override onDragEnd(ctx: ToolContext): void {
     ctx.setDraft(null);
     const rect = this.computeDragRect(ctx);
