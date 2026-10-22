@@ -5,11 +5,11 @@
   "open": 531,
   "closed": 706,
   "by_disposition": {
-    "screened-relevant": 826,
+    "screened-relevant": 825,
     "outside-varve-scope": 398,
     "verified-existing": 7,
-    "integrated-verified": 4,
-    "applicable-requires-work": 2
+    "applicable-requires-work": 3,
+    "integrated-verified": 4
   },
   "by_area_or_reason": {
     "paint-color": 77,

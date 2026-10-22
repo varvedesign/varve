@@ -331,3 +331,31 @@ log), not the native Tauri path.
   real quota failure in the browser build is not scriptable without a dev hook,
   so the chip reuses the already-shipped `save-status--error` skin and is
   covered at component level. Recorded as a limitation.
+
+## F10 — A file that cannot be read opens as an empty document (open)
+
+- **External evidence:** vectorcraft#861 — opening certain files "does nothing:
+  no document appears and no error is shown". The same complaint appears as
+  #1151 (file drag-and-drop fails on Fedora) and #2177 (large PDF/AI files fail
+  to load): the failure is invisible to the user.
+- **Varve code:** `packages/editor/src/context.tsx:9548` (`openFile`) and
+  `packages/editor/src/context/usePersistence.ts:225` (`loadDocument`).
+- **Observed behavior:** when JSON is supplied but fails to decode or fails
+  validation, `openFile` falls back to `createDocument(name)` — a **blank
+  document under the requested file's name**. `loadDocument` swallows invalid
+  JSON entirely. Either way the user sees no error; in the `openFile` case the
+  canvas looks like the file opened, and the next save writes over the real
+  document.
+- **Why this is high severity:** it is a data-loss vector, not just a missing
+  message — the wrong document is bound to the file's identity.
+- **Intended outcome:** a file that cannot be read leaves the current document
+  untouched, reports failure to the caller, and shows a persistent, dismissible
+  message naming the file and the reason.
+- **Status:** `applicable-requires-work`. Not implemented here: the repository
+  has no visible error surface for open failures (the canvas announcer is
+  visually hidden), so a truthful fix needs a small error-banner/dialog
+  primitive first. Implementing only the "don't substitute a blank document"
+  half would remove the data-loss vector while leaving the user staring at
+  nothing, which is still the reported complaint — the two should land
+  together.
+

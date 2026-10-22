@@ -21,7 +21,7 @@ import { navigateToEditor } from '../shared';
  * Object numbers: 1 catalog, 2 page tree, 3 page, 4 content, 5 font,
  * 6 font resource name is in the page's `/Resources`, 7 descendant, 8 CMap.
  */
-function verticalPdf(): Buffer {
+function verticalPdf(content = 'BT /F1 24 Tf 300 700 Td <000300040005> Tj ET'): Buffer {
   const cmapLines = [
     '/CIDInit /ProcSet findresource begin',
     '12 dict begin',
@@ -29,20 +29,15 @@ function verticalPdf(): Buffer {
     '1 begincodespacerange',
     '<0000> <FFFF>',
     'endcodespacerange',
-    '1 beginbfchar',
-    '<0003> <0041>',
-    'endbfchar',
-    '1 beginbfchar',
-    '<0004> <0042>',
-    'endbfchar',
-    '1 beginbfchar',
-    '<0005> <0043>',
-    'endbfchar',
+    ...['A', 'B', 'C', 'D', 'E', 'F'].flatMap((letter, offset) => [
+      '1 beginbfchar',
+      `<000${offset + 3}> <00${(letter.codePointAt(0) ?? 0).toString(16).toUpperCase()}>`,
+      'endbfchar',
+    ]),
     'endcmap',
     'end',
   ];
   const cmap = cmapLines.join('\n');
-  const content = 'BT /F1 24 Tf 300 700 Td <000300040005> Tj ET';
   const parts = [
     '%PDF-1.7\n',
     '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
@@ -130,4 +125,70 @@ test('a vertical-writing PDF imports as a column, not a line', async ({ page }) 
     path: join(shotDir, 'vertical-import.png'),
     clip: { x: 0, y: 0, width: 1280, height: 800 },
   });
+});
+
+test('one-glyph-per-Tj placement becomes one column per column, not one layer per glyph', async ({
+  page,
+}) => {
+  await navigateToEditor(page);
+
+  const directory = mkdtempSync(join(tmpdir(), 'varve-vertical-columns-'));
+  const source = join(directory, 'vertical-columns.pdf');
+  // First column: one Tj with six glyphs. Second column: six separate Tj
+  // operators, which is how many producers position upright glyphs.
+  writeFileSync(
+    source,
+    verticalPdf(
+      [
+        'BT /F1 20 Tf 500 700 Td <000300040005000600070008> Tj ET',
+        'BT /F1 20 Tf 460 700 Td <0003> Tj <0004> Tj <0005> Tj <0006> Tj <0007> Tj <0008> Tj ET',
+      ].join('\n'),
+    ),
+  );
+
+  await page.getByRole('menubar').getByRole('menuitem', { name: 'File' }).click();
+  await page.getByRole('menuitem', { name: /import/i }).click();
+  await page.locator('#file-import-input').setInputFiles(source);
+
+  const dialog = page.getByRole('dialog', { name: /import results/i });
+  await dialog.waitFor({ state: 'visible', timeout: 30000 });
+  await dialog.getByRole('button', { name: /^show details \(/i }).click();
+  await expect(
+    dialog.getByText(/7 vertical text run\(s\) were imported as 2 vertical column\(s\)/),
+  ).toBeVisible({ timeout: 10000 });
+  const shotDir = process.env.VARVE_SHOT_DIR;
+  if (shotDir) {
+    mkdirSync(shotDir, { recursive: true });
+    await page.screenshot({
+      path: join(shotDir, 'import-vertical-writing-results.png'),
+      fullPage: true,
+    });
+  }
+  await dialog.getByRole('button', { name: /^close$/i }).click();
+
+  const layers = page.locator('.layers-panel');
+  await expect(layers.locator('[role="treeitem"]')).toHaveCount(2, { timeout: 15000 });
+  await expect(layers.getByText(/^Vertical text \(Noto\)$/)).toHaveCount(2);
+
+  // Each column is independently selectable and reports the editable property.
+  await layers
+    .getByRole('treeitem', { name: /Vertical text \(Noto\)/ })
+    .first()
+    .click();
+  const advanced = page.getByRole('button', { name: 'Advanced typography', exact: true });
+  await advanced.scrollIntoViewIfNeeded();
+  if ((await advanced.getAttribute('aria-expanded')) !== 'true') await advanced.click();
+  await expect(page.getByRole('combobox', { name: 'Writing mode (not rotation)' })).toHaveText(
+    'Vertical, right to left',
+    { timeout: 5000 },
+  );
+  if (shotDir) {
+    await page
+      .locator('canvas.editor-canvas__content-layer')
+      .screenshot({ path: join(shotDir, 'import-vertical-writing-canvas.png') });
+    await page.screenshot({
+      path: join(shotDir, 'import-vertical-writing-editor.png'),
+      fullPage: true,
+    });
+  }
 });

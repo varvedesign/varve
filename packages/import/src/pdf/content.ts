@@ -29,6 +29,12 @@ export interface TextRun {
    * it as a horizontal run would put a column of text on one line.
    */
   readonly vertical: boolean;
+  /**
+   * Display-space displacement of the pen after showing this run, in points.
+   * The next run in the same column starts at `x + advanceX, y + advanceY`.
+   */
+  readonly advanceX: number;
+  readonly advanceY: number;
 }
 
 export interface RectFill {
@@ -57,6 +63,8 @@ export interface ContentDiagnostics {
   invisibleRuns: number;
   /** Runs set in a vertical writing mode, imported as vertical text. */
   verticalRuns: number;
+  /** Editable vertical columns created from those runs after merging. */
+  verticalColumns: number;
   /**
    * Runs and fills inside an optional-content group the document's default
    * configuration hides. They are not imported, because the page does not
@@ -101,6 +109,7 @@ export function createDiagnostics(): ContentDiagnostics {
     undecodableRuns: 0,
     invisibleRuns: 0,
     verticalRuns: 0,
+    verticalColumns: 0,
     hiddenRuns: 0,
     hiddenRects: 0,
     unresolvedOptionalContent: 0,
