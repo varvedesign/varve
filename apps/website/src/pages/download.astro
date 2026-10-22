@@ -2344,6 +2344,10 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
       if (next) {
         activatePlatform(next);
         next.focus();
+        // The strip scrolls below ~340px, so the selected tab can sit outside
+        // the visible box. Keep it in view; `block: 'nearest'` avoids moving the
+        // page vertically for a tab that is already on screen.
+        next.scrollIntoView({ inline: 'nearest', block: 'nearest' });
       }
     });
   });
