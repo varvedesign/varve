@@ -35,6 +35,19 @@ Last updated: 2026-10-22.
 divergence, deterministic export bytes, mask-overlay visibility while adjusting,
 settings-recovery notice, export overwrite decisions, GPU device-loss recovery.
 
+## Integration
+
+- Integrated to `origin/master` as `6da7d5ab9` on 2026-10-22 (fast-forward from
+  `3a8ef3694`; the task branch had merged origin's `3a8ef3694` cleanly first).
+  The pre-push checkpoint passed on the exact outgoing tree.
+- `CI` (run 39733544949) and `Website Deploy` (run 39733544917) were queued for
+  that SHA when this record was written. They were **not** waited on: no remote
+  result is claimed here. Website deployment is the normal consequence of a
+  master push touching `apps/website/**`; the copy change is a documentation
+  paragraph, not a release.
+- The task worktree was removed after the push. Recreate one if a follow-up is
+  needed: `git worktree add .worktrees/lightcraft-corpus -b <branch> origin/master`.
+
 ## Next operation
 
 1. Re-run `pnpm verify:plan` after the final documentation commit and run the
