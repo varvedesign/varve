@@ -4,6 +4,13 @@ export interface ImportResult {
   document: Document;
   nodeIds: string[];
   warnings: string[];
+  /**
+   * Set when the file could not be read at all (encrypted, truncated beyond
+   * recovery, not the format it claims to be). This is a refusal, not a
+   * fidelity loss: Import Results must report it as a failure rather than as
+   * "imported with fidelity changes".
+   */
+  failure?: string;
   /** Features deliberately omitted or degraded by the parser. */
   unsupportedFeatures?: string[];
   /**

@@ -1285,7 +1285,13 @@ export { applyPosterize, type PosterizeParams } from './posterize';
 export type { GradientPreset, TritonePreset } from './presets';
 export { GRADIENT_MAP_PRESETS, TRITONE_PRESETS } from './presets';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
-export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
+export {
+  applyRasterSmoothingPolicy,
+  computeOutputDimensions,
+  estimateFileSize,
+  renderRaster,
+  supportsFormat,
+} from './raster';
 export type {
   CmykaPixelBufferFormat,
   ExportColorSpaceChoice,

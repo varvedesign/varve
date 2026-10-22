@@ -154,13 +154,37 @@ const figmaImportFaq = {
 
         <h3>PDF</h3>
         <p>
-          PDF import via a bounded local parser with <code>%PDF-</code> header detection. Extracts:
+          PDF import uses a bounded local parser with <code>%PDF-</code> header detection. It
+          reads the page tree and each page's content stream rather than pattern-matching text:
         </p>
         <ul>
-          <li>Text content from BT...ET blocks</li>
-          <li>Rectangle path operators</li>
-          <li>Multi-page conversion (each page becomes a Varve frame)</li>
+          <li>
+            Text positioned by the text matrix composed with the CTM, with <code>/Rotate</code> and
+            inherited page boxes applied, so a line lands where the page puts it
+          </li>
+          <li>
+            Character codes resolved through the font's <code>/ToUnicode</code> map, or its named
+            base encoding plus <code>/Differences</code>, so accented and non-Latin text survives
+          </li>
+          <li>Plain axis-aligned rectangle fills</li>
+          <li>
+            One Varve page per PDF page, in <code>/Kids</code> order, up to 50 pages; the remainder
+            is named in Import Results
+          </li>
         </ul>
+        <p>
+          Content the page does not show is not imported: text in an invisible or clip-only render
+          mode (<code>3 Tr</code> / <code>7 Tr</code>, the shape of a searchable OCR layer over a
+          scan), and content inside an optional-content group the document's default configuration
+          hides (a PDF layer, as layered CAD exports ship). Both are counted, and hidden layers are
+          named in Import Results. Images, form XObjects, curves, strokes, gradients, CMYK and
+          pattern paints are reported rather than approximated.
+        </p>
+        <p>
+          An encrypted PDF (password-protected or permission-restricted) is refused with an
+          explanation instead of being imported as a blank page: Varve does not implement the PDF
+          security handler. Export an unencrypted copy from a PDF reader, then import that.
+        </p>
 
         <h3>PSD and PSB (Photoshop)</h3>
         <p>

@@ -13,6 +13,7 @@ import { textMeasureRevision } from '@varve/shared';
 import { createEngine } from '../engine';
 import { type CachedImage, getImageCache } from '../imageCache';
 import { resolveImageResourceHandle } from '../imageResourceRegistry';
+import { applyRasterSmoothingPolicy } from '../raster';
 import { createRasterSurface, encodeRasterSurface } from '../rasterSurface';
 import type { ReplayTarget } from '../replay';
 import { replayIr } from '../replay';
@@ -391,6 +392,9 @@ export async function generateThumbnail(
 
   const surface = createRasterSurface(cw, ch);
   const ctx = surface.context;
+  // A cover is a minified render of the page; sampling it with the canvas
+  // default makes fine linework and scans look raggeder than the canvas.
+  applyRasterSmoothingPolicy(ctx);
 
   applyBackground(ctx, cw, ch, opts.background ?? { type: 'transparent' });
 

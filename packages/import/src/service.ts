@@ -194,6 +194,31 @@ function unsupportedFeature(feature: string): UnsupportedFeature {
   };
 }
 
+/**
+ * One row per message. A refusal is reported by both the parser (error) and
+ * the preflight heuristics (warning) for the same sentence; showing it twice
+ * makes a single problem look like two. The higher severity wins, so a
+ * refusal never reads as a mere warning.
+ */
+function collapseByMessage(warnings: FidelityIssue[]): FidelityIssue[] {
+  const byMessage = new Map<string, FidelityIssue>();
+  for (const item of warnings) {
+    // Path is part of the identity: two nodes with the same problem are two
+    // problems. The parser/preflight pair that motivated this collapse carries
+    // no path on either side, so it still merges.
+    const key = `${item.path ?? ''}\u0000${item.message}`;
+    const existing = byMessage.get(key);
+    if (!existing) {
+      byMessage.set(key, item);
+      continue;
+    }
+    if (existing.severity !== 'error' && item.severity === 'error') {
+      byMessage.set(key, { ...existing, severity: 'error' });
+    }
+  }
+  return [...byMessage.values()];
+}
+
 function dedupeWarnings(warnings: FidelityIssue[]): FidelityIssue[] {
   const seen = new Set<string>();
   const result: FidelityIssue[] = [];
@@ -315,17 +340,23 @@ async function importOne(
       ...(validation?.unsupportedFeatures.map(unsupportedFeature) ?? []),
       ...(result.unsupportedFeatures?.map(unsupportedFeature) ?? []),
     ]);
-    const warnings = dedupeWarnings([
-      ...detection.warnings.map(detectionWarning),
-      ...(validation?.warnings.map(warning) ?? []),
-      ...result.warnings.map(warning),
-      ...normalized.warnings.map((w) => ({
-        code: w.code,
-        message: w.message,
-        severity: w.severity,
-        path: w.path,
-      })),
-    ]);
+    const warnings = collapseByMessage(
+      dedupeWarnings([
+        ...detection.warnings.map(detectionWarning),
+        ...(validation?.warnings.map(warning) ?? []),
+        ...result.warnings.map((message) =>
+          result.failure === undefined
+            ? warning(message)
+            : { code: 'parser.failure', message, severity: 'error' as const },
+        ),
+        ...normalized.warnings.map((w) => ({
+          code: w.code,
+          message: w.message,
+          severity: w.severity,
+          path: w.path,
+        })),
+      ]),
+    );
     const opaqueBinary = unsupportedFeatures.some(
       (feature) =>
         feature.feature === 'opaque native .fig binary' ||
@@ -333,7 +364,7 @@ async function importOne(
     );
     const status = opaqueBinary
       ? 'unsupported'
-      : isHardParseFailure(result)
+      : result.failure !== undefined || isHardParseFailure(result)
         ? 'failed'
         : result.nodeIds.length === 0
           ? unsupportedFeatures.length > 0

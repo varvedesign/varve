@@ -58,6 +58,36 @@ describe('ImportService', () => {
     expect(report.unsupportedCount).toBe(1);
   });
 
+  it('reports a refused file as failed with an error, not as a partial conversion', async () => {
+    // An encrypted PDF cannot be read at all. "Imported with fidelity changes"
+    // would describe a document that exists; this one has no pages.
+    const body = [
+      '%PDF-1.7',
+      '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj',
+      '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj',
+      '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj',
+      '4 0 obj\n<< /Length 0 >>\nstream\n\nendstream\nendobj',
+      'trailer\n<< /Root 1 0 R /Encrypt 5 0 R >>\n%%EOF',
+    ].join('\n');
+    const report = await ImportService.importFiles([
+      {
+        name: 'protected.pdf',
+        bytes: new TextEncoder().encode(body),
+        source: 'file-picker',
+      },
+    ]);
+
+    const file = report.files[0];
+    expect(file?.status).toBe('failed');
+    expect(file?.nodeCount).toBe(0);
+    const errorRow = file?.warnings.find((warning) => warning.severity === 'error');
+    expect(errorRow?.message).toMatch(/encrypted/i);
+    // One row for one problem: the parser and the preflight heuristic must not
+    // report the same sentence twice.
+    expect(file?.warnings.filter((warning) => /encrypted/i.test(warning.message))).toHaveLength(1);
+    expect(report.failureCount).toBe(1);
+  });
+
   it('classifies an undecodable native .fig as unsupported without import artifacts', async () => {
     const report = await ImportService.importFiles([
       {
