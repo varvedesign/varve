@@ -225,12 +225,13 @@ export function useSettings(): SettingsContextValue {
 }
 
 /**
- * Settings for surfaces that may mount outside SettingsProvider (detached
- * panel windows, IconBrowser in tests). Reads and writes the persisted store
- * and listens for icon-search consent events when no provider is present.
+ * Always returns a settings object. Uses the live provider when one is
+ * mounted; otherwise reads and writes the persisted store and listens for
+ * icon-search consent events. IconBrowser and Privacy use this so detached
+ * panel windows still work.
  */
-export function useOptionalSettings(): SettingsContextValue {
-  const ctx = useContext(SettingsCtx);
+export function useResolvedSettings(): SettingsContextValue {
+  const ctx = useOptionalSettings();
   const [stored, setStored] = useState(loadEditorSettings);
 
   useEffect(() => {

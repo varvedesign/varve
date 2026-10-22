@@ -3,7 +3,12 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadSettings } from '../../settings';
-import { SettingsProvider, useOptionalSettings, useSettings } from './SettingsContext';
+import {
+  SettingsProvider,
+  useOptionalSettings,
+  useResolvedSettings,
+  useSettings,
+} from './SettingsContext';
 
 afterEach(() => {
   cleanup();
@@ -27,11 +32,16 @@ function GrantButton() {
   );
 }
 
-function OptionalGrant() {
-  const { settings, updateSettings } = useOptionalSettings();
+function OptionalPeek() {
+  const ctx = useOptionalSettings();
+  return <span data-testid="peek">{ctx ? 'present' : 'absent'}</span>;
+}
+
+function ResolvedGrant() {
+  const { settings, updateSettings } = useResolvedSettings();
   return (
     <div>
-      <span data-testid="optional-consent">{settings.icons.remoteSearch}</span>
+      <span data-testid="resolved-consent">{settings.icons.remoteSearch}</span>
       <button type="button" onClick={() => updateSettings({ icons: { remoteSearch: 'denied' } })}>
         Deny
       </button>
@@ -57,11 +67,16 @@ describe('SettingsContext', () => {
     expect(screen.getByTestId('consent').textContent).toBe('granted');
   });
 
-  it('lets useOptionalSettings read and write consent without a provider', () => {
-    render(<OptionalGrant />);
-    expect(screen.getByTestId('optional-consent').textContent).toBe('unknown');
+  it('returns null from useOptionalSettings when no provider is mounted', () => {
+    render(<OptionalPeek />);
+    expect(screen.getByTestId('peek').textContent).toBe('absent');
+  });
+
+  it('lets useResolvedSettings read and write consent without a provider', () => {
+    render(<ResolvedGrant />);
+    expect(screen.getByTestId('resolved-consent').textContent).toBe('unknown');
     fireEvent.click(screen.getByRole('button', { name: 'Deny' }));
     expect(loadSettings().icons.remoteSearch).toBe('denied');
-    expect(screen.getByTestId('optional-consent').textContent).toBe('denied');
+    expect(screen.getByTestId('resolved-consent').textContent).toBe('denied');
   });
 });

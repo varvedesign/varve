@@ -24,7 +24,7 @@ import {
 import { Button, Icon, LoadingLabel, SearchField, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import { useOptionalSettings } from '../Settings/SettingsContext';
+import { useResolvedSettings } from '../Settings/SettingsContext';
 import { IconDetailsPanel } from './IconDetailsPanel';
 import { IconDiscoverySections } from './IconDiscoverySections';
 import { IconGrid, type IconGridItemView } from './IconGrid';
@@ -99,7 +99,7 @@ export function IconBrowser({
   maxHeight,
   onOpenPackManager,
 }: IconBrowserProps) {
-  const { settings, updateSettings } = useOptionalSettings();
+  const { settings, updateSettings } = useResolvedSettings();
   const remoteSearch = settings.icons.remoteSearch;
   const remoteAllowed = isIconRemoteSearchGranted(remoteSearch);
   const search = useIconSearch(remoteAllowed);

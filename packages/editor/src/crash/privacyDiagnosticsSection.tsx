@@ -9,13 +9,13 @@
 import type { CrashReport } from '@varve/crash';
 import { useEffect, useMemo, useState } from 'react';
 import { ContactLink } from '../components/ContactLink';
-import { useOptionalSettings } from '../components/Settings/SettingsContext';
+import { useResolvedSettings } from '../components/Settings/SettingsContext';
 import { getCrashController } from './controllerRegistry';
 
 type ConsentChoice = 'askEachTime' | 'automaticAllowed' | 'denied';
 
 export function PrivacyDiagnosticsSection() {
-  const { settings, updateSettings } = useOptionalSettings();
+  const { settings, updateSettings } = useResolvedSettings();
   const controller = getCrashController();
   const [consent, setConsent] = useState(controller?.getState().consent);
   const [queued, setQueued] = useState<CrashReport[]>([]);

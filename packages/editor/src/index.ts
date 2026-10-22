@@ -39,7 +39,11 @@ export {
   markFirstRunOverlayDismissed,
 } from './components/FirstRunOverlay/firstRunOverlayState';
 export { restoreStoredFonts } from './components/FontBrowser/restoreStoredFonts';
-export { SettingsProvider, useOptionalSettings } from './components/Settings/SettingsContext';
+export {
+  SettingsProvider,
+  useOptionalSettings,
+  useResolvedSettings,
+} from './components/Settings/SettingsContext';
 export type { SettingsDialogProps } from './components/Settings/SettingsDialog';
 export { SettingsDialog } from './components/Settings/SettingsDialog';
 export type { EditorContextValue, EditorState, SessionMeta, ToolId } from './context';
