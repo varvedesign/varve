@@ -756,7 +756,9 @@
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-surface);
-  box-shadow: var(--elevation-shadow-overlay);
+  /* Opens over raised panels of the same fill; the lit top edge and overlay
+   * shadow carry the separation. */
+  box-shadow: var(--elevation-edge-highlight), var(--elevation-shadow-overlay);
   color: var(--color-text-primary);
 }
 .varve-menu--default {
@@ -934,16 +936,6 @@
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
 }
-/* On a selected row the muted ink measured 4.33:1; secondary text takes the
- * row's selected foreground instead, whose pair is guarded at AA. */
-.varve-menu__item--current .varve-menu__shortcut,
-.varve-menu__item--current .varve-menu__submenu-arrow,
-.varve-menu__item:focus-visible .varve-menu__shortcut,
-.varve-menu__item:focus-visible .varve-menu__submenu-arrow,
-.varve-menu__item[aria-checked="true"] .varve-menu__shortcut,
-.varve-menu__item[aria-checked="true"] .varve-menu__submenu-arrow {
-  color: inherit;
-}
 
 .varve-menu__submenu-arrow {
   color: var(--color-text-muted);
@@ -954,6 +946,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* On a selected row the muted ink measured 4.33:1; secondary text takes the
+ * row's selected foreground instead, whose pair is guarded at AA. */
+.varve-menu__item--current .varve-menu__shortcut,
+.varve-menu__item--current .varve-menu__submenu-arrow,
+.varve-menu__item:focus-visible .varve-menu__shortcut,
+.varve-menu__item:focus-visible .varve-menu__submenu-arrow,
+.varve-menu__item[aria-checked="true"] .varve-menu__shortcut,
+.varve-menu__item[aria-checked="true"] .varve-menu__submenu-arrow {
+  color: inherit;
 }
 
 .varve-menu__label {

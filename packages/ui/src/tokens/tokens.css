@@ -475,6 +475,7 @@
   --elevation-shadow-small: 0 1px 2px oklch(0 0 0 / 0.1);
   --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.14);
   --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.2);
+  --elevation-edge-highlight: inset 0 0 0 0 transparent;
 
   /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
   --elevation-scrim: oklch(0 0 0 / 0.55);
@@ -495,7 +496,7 @@
   --color-surface-raised: oklch(0.22 0.006 260);
   --color-surface-sunken: oklch(0.12 0.008 260);
   --color-surface-overlay: oklch(0.27 0.005 260);
-  --color-surface-hover: oklch(0.22 0.02 263);
+  --color-surface-hover: oklch(0.2637 0.0265 262.61);
   --color-text-primary: oklch(0.9755 0.0045 258.32);
   --color-text-secondary: oklch(0.8948 0.0145 254.61);
   --color-text-subtle: oklch(0.6798 0.0281 259.04);
@@ -690,6 +691,7 @@
   --elevation-shadow-small: 0 1px 2px oklch(0 0 0 / 0.4);
   --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.3);
   --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.45);
+  --elevation-edge-highlight: inset 0 1px 0 oklch(1 0 0 / 0.06);
 
   /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
   --elevation-scrim: oklch(0 0 0 / 0.65);
@@ -905,6 +907,7 @@
   --elevation-shadow-small: 0 0 0 1px oklch(1 0 0);
   --elevation-shadow-raised: 0 0 0 2px oklch(1 0 0);
   --elevation-shadow-overlay: 0 0 0 3px oklch(1 0 0);
+  --elevation-edge-highlight: inset 0 0 0 0 transparent;
 
   /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
   --elevation-scrim: oklch(0 0 0 / 0.7);
@@ -927,7 +930,7 @@
     --color-surface-raised: oklch(0.22 0.006 260);
     --color-surface-sunken: oklch(0.12 0.008 260);
     --color-surface-overlay: oklch(0.27 0.005 260);
-    --color-surface-hover: oklch(0.22 0.02 263);
+    --color-surface-hover: oklch(0.2637 0.0265 262.61);
     --color-text-primary: oklch(0.9755 0.0045 258.32);
     --color-text-secondary: oklch(0.8948 0.0145 254.61);
     --color-text-subtle: oklch(0.6798 0.0281 259.04);
@@ -1122,6 +1125,7 @@
     --elevation-shadow-small: 0 1px 2px oklch(0 0 0 / 0.4);
     --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.3);
     --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.45);
+    --elevation-edge-highlight: inset 0 1px 0 oklch(1 0 0 / 0.06);
 
     /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
     --elevation-scrim: oklch(0 0 0 / 0.65);
@@ -1342,6 +1346,7 @@
     --elevation-shadow-small: 0 0 0 1px oklch(1 0 0);
     --elevation-shadow-raised: 0 0 0 2px oklch(1 0 0);
     --elevation-shadow-overlay: 0 0 0 3px oklch(1 0 0);
+    --elevation-edge-highlight: inset 0 0 0 0 transparent;
 
     /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
     --elevation-scrim: oklch(0 0 0 / 0.7);

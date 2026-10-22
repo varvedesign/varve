@@ -473,6 +473,13 @@ export interface ElevationShadows {
   small: string;
   raised: string;
   overlay: string;
+  /**
+   * Inset top-edge highlight for floating surfaces (light from above). Always
+   * a shadow, never `none`, so it can lead a comma-separated box-shadow list.
+   * Only dark uses it: on light surfaces a white edge is invisible, and High
+   * Contrast already draws outline rings.
+   */
+  edge: string;
 }
 
 export const ELEVATION_SHADOWS: Record<Theme, ElevationShadows> = {
@@ -481,18 +488,21 @@ export const ELEVATION_SHADOWS: Record<Theme, ElevationShadows> = {
     small: '0 1px 2px oklch(0 0 0 / 0.1)',
     raised: '0 4px 12px oklch(0 0 0 / 0.14)',
     overlay: '0 12px 32px oklch(0 0 0 / 0.2)',
+    edge: 'inset 0 0 0 0 transparent',
   },
   dark: {
     subtle: '0 1px 2px oklch(0 0 0 / 0.3)',
     small: '0 1px 2px oklch(0 0 0 / 0.4)',
     raised: '0 4px 12px oklch(0 0 0 / 0.3)',
     overlay: '0 12px 32px oklch(0 0 0 / 0.45)',
+    edge: 'inset 0 1px 0 oklch(1 0 0 / 0.06)',
   },
   'high-contrast': {
     subtle: '0 0 0 1px oklch(1 0 0)',
     small: '0 0 0 1px oklch(1 0 0)',
     raised: '0 0 0 2px oklch(1 0 0)',
     overlay: '0 0 0 3px oklch(1 0 0)',
+    edge: 'inset 0 0 0 0 transparent',
   },
 };
 
@@ -684,7 +694,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'surface-raised': ok(0.22, 0.006, 260),
     'surface-sunken': ok(0.12, 0.008, 260),
     'surface-overlay': ok(0.27, 0.005, 260),
-    'surface-hover': ok(0.22, 0.02, 263),
+    /* One step above surface-raised, where docked panels sit, so hover stays
+     * visible on them (it equalled raised at 0.22 and vanished there). Shares
+     * interactive-hover-surface's step. */
+    'surface-hover': N(11),
     'text-primary': N(2),
     'text-secondary': N(4),
     'text-subtle': N(6),
@@ -1194,6 +1207,16 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
    * ink (layers-row thumbnails for nodes with nothing authored to show), so it
    * must clear 3:1 on the raised row, not only on the app surround. */
   { name: 'text-muted on surface-raised', fg: 'text-muted', bg: 'surface-raised', grade: 'UI' },
+  /* Docked Layers and Inspector panels sit on surface-raised, so every text
+   * tier they paint must read at AA there, not only on the app surround. */
+  ...(['text-secondary', 'text-subtle', 'text-muted'] as const).map(
+    (fg): ContrastPair => ({
+      name: `${fg} text on surface-raised`,
+      fg,
+      bg: 'surface-raised',
+      grade: 'AA',
+    }),
+  ),
   { name: 'text-muted on surface-sunken', fg: 'text-muted', bg: 'surface-sunken', grade: 'UI' },
   { name: 'tree-indent-guide on tree-row', fg: 'tree-indent-guide', bg: 'tree-row', grade: 'UI' },
   { name: 'layer-accent-frame on tree-row', fg: 'layer-accent-frame', bg: 'tree-row', grade: 'UI' },

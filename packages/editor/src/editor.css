@@ -1100,7 +1100,7 @@ input[type="number"] {
   overflow: hidden;
   padding: 0;
   gap: 0;
-  background: var(--elevation-surface-default);
+  background: var(--elevation-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
 }
 
@@ -1135,7 +1135,9 @@ input[type="number"] {
   /* Same token as the shell row — never a taller literal, or the shell's
    * overflow:hidden clips the bottom of the bar (and its focus rings). */
   height: var(--statusbar-height);
-  background: var(--elevation-surface-sunken);
+  /* App frame tier (same as the menubar), so the bar frames the sunken
+   * canvas instead of reading as part of it. */
+  background: var(--elevation-surface-default);
   border-top: var(--border-micro);
   /* Informational text ellipsizes and priority tiers drop segments first;
    * if enlarged text or an unusually narrow window still exceeds the row,
@@ -3394,27 +3396,41 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
   }
 }
 
-/* ── Elevated container panel treatment ─────────────────
- * 100% opaque, instrument-grade elevated surface.
- * Retains .editor__panel--glass class for compatibility.
+/* ── Docked work panels ─────────────────────────────────
+ * Shell planes (docs/design/elevation-system.md § Shell planes): canvas on
+ * sunken, app frame (menubar, tabs, status) on default, docked Layers and
+ * Inspector one tier up on raised. Docked panels do not float, so they carry
+ * a hairline edge and no drop shadow. 100% opaque; the .editor__panel--glass
+ * class name is kept for compatibility only.
  */
 .editor__panel--glass {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+/* Inside a docked panel the base tier *is* the panel: sections, headers and
+ * rows written against the default tier meant "same as my panel", so the
+ * base-tier names resolve to raised here instead of painting frame-tier bands
+ * inside it. Each name is restated because custom properties resolve where
+ * they are declared (the root aliases are already computed). Wells keep
+ * sunken; floating children keep overlay. */
+.editor__layers-panel,
+.editor__inspector-panel {
+  --color-surface-app: var(--color-surface-raised);
+  --color-surface-base: var(--color-surface-raised);
+  --color-surface-default: var(--color-surface-raised);
+  --elevation-surface-default: var(--color-surface-raised);
+}
 .editor__layers-panel.editor__panel--glass {
-  background: var(--elevation-surface-default);
+  background: var(--elevation-surface-raised);
   border-right: var(--border-micro);
-  box-shadow: var(--elevation-shadow-raised);
 }
 .editor__inspector-panel.editor__panel--glass {
-  background: var(--elevation-surface-default);
+  background: var(--elevation-surface-raised);
   border-left: var(--border-micro);
-  box-shadow: var(--elevation-shadow-raised);
 }
 .editor__panel--glass .editor-layers,
 .editor__panel--glass .editor-inspector {
-  background: var(--elevation-surface-default);
+  background: var(--elevation-surface-raised);
 }
 
 @media (prefers-reduced-transparency) {
@@ -3423,16 +3439,16 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
     -webkit-backdrop-filter: none;
   }
   .editor__layers-panel.editor__panel--glass {
-    background: var(--elevation-surface-default);
+    background: var(--elevation-surface-raised);
   }
   .editor__inspector-panel.editor__panel--glass {
-    background: var(--elevation-surface-default);
+    background: var(--elevation-surface-raised);
   }
   .editor__panel--glass .editor-layers {
-    background: var(--elevation-surface-default);
+    background: var(--elevation-surface-raised);
   }
   .editor__panel--glass .editor-inspector {
-    background: var(--elevation-surface-default);
+    background: var(--elevation-surface-raised);
   }
 }
 
