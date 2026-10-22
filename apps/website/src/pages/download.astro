@@ -2500,13 +2500,38 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
   function activateFromHash() {
     const platform = platformFromDownloadHash(window.location.hash);
-    if (!platform) return false;
-    const tab = document.querySelector('.platform-tab[data-platform="' + platform + '"]');
-    if (tab instanceof HTMLButtonElement) {
-      activatePlatform(tab);
-      return true;
+    if (platform) {
+      const tab = document.querySelector('.platform-tab[data-platform="' + platform + '"]');
+      if (tab instanceof HTMLButtonElement) {
+        activatePlatform(tab);
+        return true;
+      }
+      return false;
     }
-    return false;
+
+    // The build indexes the headings inside each platform section, so the
+    // site's own search links to `/download#macos`, `#windows` and
+    // `#system-requirements-2`. Those sections are `hidden` until their tab is
+    // active: on a fresh load the target has no box, the browser has nothing to
+    // scroll to, and the visitor lands on the Linux panel regardless of what
+    // they searched for. Resolve the owning section, activate its tab, then
+    // scroll once the panel has layout.
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (!id) return false;
+    const target = document.getElementById(id);
+    const section = target?.closest<HTMLElement>('.platform-section');
+    const sectionPlatform = section?.id.replace(/^platform-/, '');
+    if (!target || !sectionPlatform) return false;
+    const sectionTab = document.querySelector(
+      '.platform-tab[data-platform="' + sectionPlatform + '"]',
+    );
+    if (!(sectionTab instanceof HTMLButtonElement)) return false;
+    activatePlatform(sectionTab);
+    // `html { scroll-padding-top }` keeps the heading clear of the sticky header.
+    requestAnimationFrame(function () {
+      target.scrollIntoView({ block: 'start' });
+    });
+    return true;
   }
 
   window.addEventListener('hashchange', function () {

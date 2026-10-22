@@ -237,6 +237,39 @@ const disciplines: Discipline[] = [
   window.addEventListener('pagehide', () => orientationQuery.removeEventListener('change', syncOrientation), {
     once: true,
   });
+
+  /**
+   * Reveal the panel that owns a deep-linked section.
+   *
+   * The build indexes every `h2`/`h3` inside `<main>`, including the headings of
+   * the inactive panels, so the site's own search offers results such as
+   * `/#text-that-reads-like-a-book`. An inactive panel is `hidden`, so that
+   * target has no box: the browser has nothing to scroll to and nothing
+   * activates the tab, and the visitor lands on an unchanged page.
+   *
+   * `hidden="until-found"` is the native answer to this and is deliberately not
+   * used here: it hides content with `content-visibility` rather than
+   * `display:none`, so the panel keeps its box in layout and all six panels
+   * would occupy space at once. Chrome's own guidance warns against pairing it
+   * with a `display` rule, which is exactly what this tab strip is built on.
+   * Activating the owning tab and then scrolling is the same shape the download
+   * page already uses for `#platform-*` links.
+   */
+  function revealFromHash() {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (!id) return;
+    const target = document.getElementById(id);
+    const panel = target?.closest<HTMLElement>('[data-discipline-panel]');
+    if (!panel) return;
+    const tab = tabs.find((t) => t.dataset.disciplineTab === panel.dataset.disciplinePanel);
+    if (!tab) return;
+    activate(tab);
+    // `html { scroll-padding-top }` clears the sticky header, so `start` is safe.
+    requestAnimationFrame(() => target.scrollIntoView({ block: 'start' }));
+  }
+
+  revealFromHash();
+  window.addEventListener('hashchange', revealFromHash);
 </script>
 
 <style>
