@@ -205,8 +205,16 @@ export function collectIds(html: string): Set<string> {
  * 147 KB gzip — inside the 150 KB target — without dropping a page, a section or
  * a heading from search.
  *
- * The cut lands on a word boundary so a half word ("typograph") can never be
- * indexed, which would also poison fuzzy matching.
+ * The cut prefers a word boundary, because indexing half a word ("typograph")
+ * also poisons fuzzy matching. When no space falls in the retained tail (a long
+ * URL, a code run, or a script that does not separate words with spaces) the cut
+ * is hard at the limit — a split token is acceptable, a short section is not.
+ *
+ * Recall cost, stated so it is not discovered later: `rank.ts` requires every
+ * query term to appear in a page's haystack, so a term whose only occurrence sat
+ * past the limit in every section makes that page stop matching rather than rank
+ * lower. The cap was chosen against the measured budget; if a query that used to
+ * hit stops hitting, this is the first place to look.
  */
 export const MAX_SECTION_TEXT = 300;
 

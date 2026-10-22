@@ -360,6 +360,22 @@
     --pill-planned-text: var(--text-muted);
     --pill-planned-border: var(--border-default);
 
+    /* Kept in step with the [data-theme="dark"] block above. Without these the
+       no-script / pre-paint dark path kept the light category colours on a dark
+       card, which is the 1.3:1 case this audit found. */
+    --changelog-added: oklch(0.8 0.1 156);
+    --changelog-changed: oklch(0.8 0.1 60);
+    --changelog-deprecated: oklch(0.8 0.09 40);
+    --changelog-removed: oklch(0.8 0.1 25);
+    --changelog-fixed: oklch(0.8 0.09 250);
+    --changelog-security: oklch(0.8 0.07 300);
+    --changelog-added-border: var(--changelog-added);
+    --changelog-changed-border: var(--changelog-changed);
+    --changelog-deprecated-border: var(--changelog-deprecated);
+    --changelog-removed-border: var(--changelog-removed);
+    --changelog-fixed-border: var(--changelog-fixed);
+    --changelog-security-border: var(--changelog-security);
+
     --grid-line: oklch(0.7 0.02 260 / 0.1);
     --grid-line-strong: oklch(0.7 0.02 260 / 0.18);
   }

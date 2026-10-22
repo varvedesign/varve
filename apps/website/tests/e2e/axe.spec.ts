@@ -43,10 +43,19 @@ const SCANS = [
   { route: '/404', name: '404' },
 ];
 
-/** Routes with a wide table or strip, re-scanned where it actually overflows. */
+/**
+ * Routes with a wide table or strip, re-scanned where it actually overflows.
+ *
+ * `/download` pins its platform with a fragment on purpose. The page
+ * pre-selects a platform from the user agent, and the runner's Chromium reports
+ * a Windows UA even on Linux, so a plain `/download` scan only ever exercises
+ * the Windows panel — the distro table, which is the widest thing on the site,
+ * would never be scanned. Both panels are covered explicitly.
+ */
 const NARROW_SCANS = [
   { route: '/', name: 'home' },
-  { route: '/download', name: 'download' },
+  { route: '/download#platform-linux', name: 'download-linux' },
+  { route: '/download#platform-windows', name: 'download-windows' },
   { route: '/compare', name: 'compare' },
   { route: '/docs', name: 'docs' },
 ];
@@ -95,4 +104,23 @@ test.describe('narrow viewport (768px)', () => {
       });
     }
   }
+
+  // The axe pass above only catches a regression while the distro table still
+  // overflows in the running font environment. Pin the properties directly so a
+  // font change or a manifest change cannot quietly retire the guard.
+  test('the distro table keeps its scroll region contract', async ({ page }) => {
+    // The table lives in the Linux panel, which is only active by default when
+    // the UA says Linux; pin it so this does not depend on the runner's UA.
+    await page.goto('/download#platform-linux');
+    const picker = page.locator('.distro-picker');
+    await expect(picker).toHaveAttribute('tabindex', '0');
+    await expect(picker).toHaveAttribute('role', 'region');
+    // Assert through the role engine: it resolves the name from `aria-label` the
+    // same way assistive technology does (verified against the CDP accessibility
+    // tree), which `toHaveAccessibleName` does not do for this role.
+    await expect(page.getByRole('region', { name: 'Which package should I choose' })).toHaveCount(
+      1,
+    );
+    expect(await picker.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  });
 });
