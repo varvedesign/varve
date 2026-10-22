@@ -6,8 +6,10 @@ import {
   extractSections,
   findUndecodedEntities,
   htmlToText,
+  MAX_SECTION_TEXT,
   normalizeRoute,
   slugifyHeading,
+  truncateForIndex,
 } from '../lib/search/extract';
 import {
   boundedDamerauLevenshtein,
@@ -129,6 +131,36 @@ describe('extractSections', () => {
   it('never reuses an id reserved elsewhere in the document', () => {
     const { html } = extractSections('<h2>Overview</h2>', new Set(['overview']));
     expect(html).toContain('id="overview-2"');
+  });
+});
+
+describe('truncateForIndex', () => {
+  it('leaves text inside the budget untouched', () => {
+    expect(truncateForIndex('Short section.', 300)).toBe('Short section.');
+  });
+
+  it('cuts on a word boundary and never exceeds the limit', () => {
+    const text = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet';
+    const out = truncateForIndex(text, 30);
+    expect(out.length).toBeLessThanOrEqual(30);
+    expect(out).toBe('alpha bravo charlie delta');
+    expect(text.startsWith(out)).toBe(true);
+    // The next character in the source is a space, so no word was split.
+    expect(text[out.length]).toBe(' ');
+  });
+
+  it('cuts hard rather than throwing the budget away when no boundary is near', () => {
+    const out = truncateForIndex('x'.repeat(400), 300);
+    expect(out.length).toBe(300);
+    expect(out.endsWith('x')).toBe(true);
+  });
+
+  it('caps every section the extractor produces', () => {
+    const longBody = `<h2>Long</h2><p>${'word '.repeat(400)}</p>`;
+    const { sections } = extractSections(longBody, new Set());
+    for (const section of sections) {
+      expect(section.text.length).toBeLessThanOrEqual(MAX_SECTION_TEXT);
+    }
   });
 });
 
