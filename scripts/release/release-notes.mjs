@@ -16,9 +16,9 @@
  *   node scripts/release/release-notes.mjs \
  *     --version 0.1.0 --manifest dist/release/release-manifest.json --out RELEASE_NOTES.md
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { documentExtension, productSlug } from './product.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -61,7 +61,7 @@ function changelogSection(version) {
   if (start === -1) {
     throw new Error(
       `CHANGELOG.md has no '## [${version}]' section. ` +
-        'A commented-out template does not count — write a real one.',
+        'A commented-out template does not count: write a real one.',
     );
   }
   const rest = lines.slice(start + 1);
@@ -74,7 +74,7 @@ function changelogSection(version) {
   const hasProse = cleaned.split('\n').some((l) => l.trim() !== '' && !/^#{2,6}\s/.test(l.trim()));
   if (!cleaned || !hasProse) {
     throw new Error(
-      `CHANGELOG.md section '## [${version}]' has no content. Release notes need real prose — ` +
+      `CHANGELOG.md section '## [${version}]' has no content. Release notes need real prose: ` +
         'describe what changed for someone deciding whether to install this update.',
     );
   }
@@ -266,7 +266,8 @@ function main() {
 }
 
 const invokedAsCli =
-  process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+  process.argv[1] !== undefined &&
+  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
 if (invokedAsCli) {
   try {
     main();
