@@ -404,7 +404,8 @@ const REVIEWED = {
   },
   1471: {
     research: 'reviewed-thread',
-    engineering: 'implemented-pending-integration',
+    engineering: 'integrated-verified',
+    integrated_in: '321cf7c9 (PR #180)',
     varve_area: 'typography',
     varve_code: 'packages/editor/src/render/textOverset.ts, packages/scene/src/preflight.ts',
     observed:
@@ -417,7 +418,8 @@ const REVIEWED = {
   },
   2323: {
     research: 'reviewed-thread',
-    engineering: 'implemented-pending-integration',
+    engineering: 'integrated-verified',
+    integrated_in: '321cf7c9 (PR #180)',
     duplicate_of: 1471,
     observed:
       'Same defect as 1471 from a different reporter: the overflow indicator only appeared once the frame was selected.',
@@ -428,7 +430,8 @@ const REVIEWED = {
   },
   2769: {
     research: 'reviewed-thread',
-    engineering: 'implemented-pending-integration',
+    engineering: 'integrated-verified',
+    integrated_in: '321cf7c9 (PR #180)',
     duplicate_of: 1471,
     observed:
       'CJK area text clipped its last line with no indicator. Same mechanism as 1471, with a CJK case whose baseline offset made the clip easy to miss.',
