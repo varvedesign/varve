@@ -81,3 +81,20 @@ describe('evaluate — error cases', () => {
     expect(() => evaluate('(2 + 3', {})).toThrow('Mismatched parentheses');
   });
 });
+
+describe('evaluate — non-finite results', () => {
+  it('rejects a result the document cannot store', () => {
+    // A 400-digit literal parses to Infinity; min() with no arguments returns
+    // Infinity. Either value would make the canonicalizer reject every save.
+    expect(() => evaluate('9'.repeat(400), {})).toThrow(/finite/i);
+    expect(() => evaluate('min()', {})).toThrow(/finite/i);
+  });
+
+  it('keeps division by zero as its own error', () => {
+    expect(() => evaluate('1/0', {})).toThrow(/Division by zero/);
+  });
+
+  it('still returns finite arithmetic', () => {
+    expect(evaluate('1/2', {})).toBe(0.5);
+  });
+});
