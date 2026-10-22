@@ -42,6 +42,9 @@ update, not for someone reading the commit log.
   write itself fails, the document stays modified, keeps its recovery point and
   says the work is still unsaved. Previously only the status line changed and
   closing could discard the document.
+- **Offset Path miter limit** — the limit was compared against the edge length
+  instead of the join width, so long edges never clipped and acute spikes
+  survived a miter limit of 4. It now follows the SVG/PostScript definition.
 - **Offset Path** — rounded joins now round only the outside of a corner, so an
   inward offset no longer scoops material out of every corner. Work is bounded
   by a chord tolerance instead of the entered distance, so a very large offset

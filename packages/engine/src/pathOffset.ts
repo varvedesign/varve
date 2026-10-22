@@ -223,10 +223,15 @@ export function offsetPath(
         : null;
 
     if (int) {
-      // Check miter ratio
-      const edgeLen = vecLen(curr.bx - curr.ax, curr.by - curr.ay);
-      const miterLen = vecLen(int[0] - curr.ax, int[1] - curr.ay);
-      const ratio = edgeLen > 0 ? miterLen / edgeLen : 0;
+      // Miter ratio, as SVG/PostScript define it: the distance from the
+      // original vertex to the miter tip over the join width (the offset
+      // distance). Dividing by the edge length instead made the ratio
+      // dimensionally wrong and scale-dependent — a long edge could never
+      // clip, so an acute spike survived miterLimit=4.
+      const vx = curr.ax - curr.nx * distance;
+      const vy = curr.ay - curr.ny * distance;
+      const miterLen = vecLen(int[0] - vx, int[1] - vy);
+      const ratio = miterLen / Math.abs(distance);
       // A miter beyond the limit is clipped to a bevel corner.
       result.push(
         ratio <= miterLimit
