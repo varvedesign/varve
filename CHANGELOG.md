@@ -70,6 +70,13 @@ update, not for someone reading the commit log.
   one, text was drawn in the fallback face while preflight, the Missing Fonts dialog, and the export
   preflight all reported the typography as faithful. Those families are now measured against the
   device, and a family it cannot resolve is reported as missing with a replacement path.
+- **Preflight findings are visible** — the badge counted issues, but the panel
+  opened inside the status bar and was clipped, so its contents could not be
+  seen. It is now a portal-backed popover above the bar.
+- **Overset text is reported** — an area text frame too small for its content
+  now produces a preflight warning instead of clipping or bleeding silently.
+  Frames that use contour or vertical layout are reported as not measured, so
+  the check never claims a document is clear when part of it was not inspected.
 - **Transparent PDF gradients** — a gradient that fades to transparent exported
   as a hard-edged solid block. It now carries a luminosity soft mask built from
   the alpha ramp, so the fade survives into the PDF. Opaque gradients are
