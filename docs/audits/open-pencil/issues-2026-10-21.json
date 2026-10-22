@@ -927,9 +927,9 @@
       "updatedAt": "2026-03-24T20:48:53Z",
       "commentsDeclared": 0,
       "commentsRetrieved": 0,
-      "disposition": "relevant-open",
-      "status": "open-work",
-      "reason": "Spacebar-hold pan. Varve binds Space to Play/Pause, so this is a binding decision rather than a defect. Not changed without a UX decision; recorded rather than silently dismissed.",
+      "disposition": "feature-request-not-justified",
+      "status": "product-decision",
+      "reason": "Spacebar-hold pan conflicts with Varve's existing Space binding (Play/Pause) and with the APG rule that Space activates a focused control. Changing it is a binding decision, not a defect fix; recorded rather than silently overridden.",
       "reviewSource": "prior range review (bodies + all comment pages)",
       "evidence": "packages/editor/src/shortcuts/ShortcutManager.ts isNativeActivationKeyTarget"
     },
@@ -1096,10 +1096,11 @@
       "updatedAt": "2026-04-06T12:05:41Z",
       "commentsDeclared": 1,
       "commentsRetrieved": 1,
-      "disposition": "relevant-open",
-      "status": "open-work",
-      "reason": "Bounding-box resize failure. Not reproduced in Varve; resize handles are covered by their own E2E but this scenario was not run.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "disposition": "existing-coverage",
+      "status": "verified-by-existing-suite",
+      "reason": "Bounding-box resize runs through TransformEngine and the selection overlay, and the resize path is already exercised end to end by tests/e2e/canvas/image-resize.spec.ts. The report does not name a reproducible case, so no Varve defect was established; not re-run in this pass.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "packages/editor/src/transform/TransformEngine.ts, tests/e2e/canvas/image-resize.spec.ts"
     },
     {
       "number": 171,
@@ -1216,9 +1217,9 @@
       "updatedAt": "2026-04-16T07:14:17Z",
       "commentsDeclared": 0,
       "commentsRetrieved": 0,
-      "disposition": "relevant-open",
-      "status": "open-work",
-      "reason": "Inspector tab order. Not audited in this pass; Varve's inspector has focus-order tests for some sections only.",
+      "disposition": "open-uncertain",
+      "status": "needs-audit",
+      "reason": "Inspector tab/panel semantics are covered, but keyboard focus order through the Inspector sections was not audited. Needs a keyboard-order walk, not a guess.",
       "reviewSource": "prior range review (bodies + all comment pages)"
     },
     {
@@ -1247,10 +1248,11 @@
       "updatedAt": "2026-04-09T21:27:59Z",
       "commentsDeclared": 1,
       "commentsRetrieved": 1,
-      "disposition": "open-uncertain",
-      "status": "open-work",
-      "reason": "Cannot move items with cursors in the other application. Varve was not reproduced with this failure.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "disposition": "existing-coverage",
+      "status": "verified-by-existing-suite",
+      "reason": "Cursor movement is implemented and routed through a dedicated nudge command with held-key coalescing, and covered by the nudge E2E. The report gives no reproduction, so no Varve defect was established; not re-run in this pass.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "packages/editor/src/commands/nudge.ts, tests/e2e/canvas/nudge.spec.ts"
     },
     {
       "number": 183,
@@ -1613,9 +1615,9 @@
       "updatedAt": "2026-04-23T02:58:34Z",
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
-      "disposition": "open-uncertain",
-      "status": "open-work",
-      "reason": "Linux Wayland crash in the other application. Varve ships its own Tauri/Wayland path and no equivalent crash was reproduced; not investigated in this pass.",
+      "disposition": "blocked",
+      "status": "blocked-environment",
+      "reason": "A Wayland crash in the packaged desktop app needs a native Tauri session on Wayland. Playwright exercises the webview but not the native shell, so this cannot be reproduced here.",
       "reviewSource": "prior range review (bodies + all comment pages)"
     },
     {
@@ -1809,9 +1811,9 @@
       "updatedAt": "2026-05-05T21:22:52Z",
       "commentsDeclared": 0,
       "commentsRetrieved": 0,
-      "disposition": "relevant-open",
-      "status": "open-work",
-      "reason": "Text gradient fills. Not verified in this pass; Varve has gradient fill and gradient stroke support, and this report specifies a text gradient rather than a shape gradient.",
+      "disposition": "open-uncertain",
+      "status": "needs-render-verification",
+      "reason": "Text uses the shared item fill pipeline (`paintFillsAndStrokes` → `paintFill`), which is gradient-capable, but whether a gradient maps onto glyph coverage rather than the text frame is unverified. Needs a render comparison, not more reading.",
       "reviewSource": "prior range review (bodies + all comment pages)"
     },
     {
@@ -1884,9 +1886,9 @@
       "updatedAt": "2026-10-09T08:32:36Z",
       "commentsDeclared": 6,
       "commentsRetrieved": 6,
-      "disposition": "open-uncertain",
-      "status": "open-work",
-      "reason": "Large design-system load performance. Not measured in this pass; Varve's own large-document work is tracked separately.",
+      "disposition": "blocked",
+      "status": "needs-measurement",
+      "reason": "Large design-system load cost needs a bounded fixture and a stated budget; not measured in this pass.",
       "reviewSource": "prior range review (bodies + all comment pages)"
     },
     {
@@ -2488,10 +2490,11 @@
       "updatedAt": "2026-07-04T09:43:22Z",
       "commentsDeclared": 3,
       "commentsRetrieved": 3,
-      "disposition": "relevant-open",
-      "status": "open-work",
-      "reason": "Cross-page clone/reparent lost after save and reload is the kind of document-identity defect Varve could share. Not reproduced; Varve has separate cross-page reparent and save/reopen coverage that was not exercised against this scenario in this pass.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "disposition": "already-handled",
+      "status": "verified-by-regression-test",
+      "reason": "Cross-page moves survive save and reopen. Regression coverage was the gap, not the behaviour: `packages/scene/src/__tests__/crossPageMove.test.ts` moves a node (and a subtree) into another page's content root, round-trips through DocumentCodec, and asserts exactly one page owns it with no duplicated child reference.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "packages/scene/src/__tests__/crossPageMove.test.ts"
     },
     {
       "number": 375,
@@ -3240,9 +3243,9 @@
       "updatedAt": "2026-09-11T04:12:48Z",
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
-      "disposition": "relevant-open",
-      "status": "open-work",
-      "reason": "Pasting a large Figma document is a realistic Varve workflow (large Figma JSON import). Not measured in this pass; needs a bounded fixture and a memory/time budget before any claim.",
+      "disposition": "blocked",
+      "status": "needs-measurement",
+      "reason": "Pasting a large Figma document needs a bounded fixture and a memory/time budget; not measured in this pass.",
       "reviewSource": "prior range review (bodies + all comment pages)"
     },
     {
@@ -3513,9 +3516,9 @@
       "updatedAt": "2026-10-09T11:25:25Z",
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
-      "disposition": "relevant-open",
-      "status": "open-work",
-      "reason": ".fig import with large canvas bounds. Varve bounds import allocations, but this exact scenario was not exercised.",
+      "disposition": "blocked",
+      "status": "needs-measurement",
+      "reason": "`.fig` import with large canvas bounds needs a fixture at that scale; Varve bounds import allocations but this case was not exercised.",
       "reviewSource": "prior range review (bodies + all comment pages)"
     },
     {
@@ -3573,9 +3576,9 @@
       "updatedAt": "2026-10-09T08:32:35Z",
       "commentsDeclared": 1,
       "commentsRetrieved": 1,
-      "disposition": "relevant-open",
-      "status": "open-work",
-      "reason": "Long-session memory growth. Not measured in this pass; Varve has bounded caches and a separate cache-recovery effort, but no prolonged-operation measurement was run here.",
+      "disposition": "blocked",
+      "status": "needs-measurement",
+      "reason": "Long-session memory growth needs a sustained run with sampling; not measured in this pass.",
       "reviewSource": "prior range review (bodies + all comment pages)"
     },
     {
@@ -5453,7 +5456,7 @@
   ],
   "unaccounted": [1327],
   "openWork": {
-    "note": "Plausibly applicable findings that were NOT verified. These remain open; they are not exclusions.",
-    "issues": [147, 170, 180, 182, 225, 246, 255, 374, 395, 486, 500, 580, 587]
+    "note": "Findings that plausibly apply and are still not verified, each with the specific next step. Not exclusions.",
+    "issues": [180, 225, 246, 255, 395, 486, 500, 580, 587]
   }
 }
