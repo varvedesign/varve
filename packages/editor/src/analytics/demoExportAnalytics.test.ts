@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   notifyDemoExportAnalytics,
   notifySuccessfulDemoExport,
+  notifySuccessfulDemoExportBatch,
   setDemoExportAnalyticsListener,
 } from './demoExportAnalytics';
 
@@ -31,5 +32,12 @@ describe('demo export analytics sink', () => {
     notifySuccessfulDemoExport('pdf');
     notifySuccessfulDemoExport('svg');
     expect(listener.mock.calls).toEqual([['svg']]);
+  });
+
+  it('sends one event per format in a batch, not per file', () => {
+    const listener = vi.fn();
+    setDemoExportAnalyticsListener(listener);
+    notifySuccessfulDemoExportBatch(['png', 'png', 'svg', 'pdf', 'png', 'jpeg']);
+    expect(listener.mock.calls).toEqual([['png'], ['svg'], ['jpeg']]);
   });
 });

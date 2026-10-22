@@ -27,3 +27,18 @@ export function notifySuccessfulDemoExport(
     notifyDemoExportAnalytics(format);
   }
 }
+
+/** Batch export: one event per format, not per file. */
+export function notifySuccessfulDemoExportBatch(
+  formats: Iterable<AnalyticsExportFormat | string>,
+): void {
+  const seen = new Set<DemoExportFormat>();
+  for (const format of formats) {
+    if (format !== 'png' && format !== 'jpeg' && format !== 'webp' && format !== 'svg') {
+      continue;
+    }
+    if (seen.has(format)) continue;
+    seen.add(format);
+    listener?.(format);
+  }
+}

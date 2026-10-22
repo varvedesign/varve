@@ -4,9 +4,11 @@ import { notifyDemoExportAnalytics } from '@varve/editor';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   canSendDemoAnalytics,
+  demoAnalyticsTransportAllowed,
   readDemoAnalyticsChoice,
   resetDemoAnalyticsForTests,
   setDemoAnalyticsChoice,
+  setDemoAnalyticsConfiguredDomainForTests,
   startDemoAnalytics,
   trackDemoDownloadClick,
   trackDemoExport,
@@ -24,6 +26,7 @@ function collectorQuery(input: unknown): Record<string, string> {
 
 beforeEach(() => {
   resetDemoAnalyticsForTests();
+  setDemoAnalyticsConfiguredDomainForTests('varve.studio');
   localStorage.clear();
   window.history.replaceState({}, '', '/try/');
   Object.defineProperty(navigator, 'globalPrivacyControl', {
@@ -130,6 +133,19 @@ describe('demo GoatCounter analytics', () => {
     startDemoAnalytics();
     await trackDemoLaunched();
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('sends nothing from local, preview, or fork hosts without the production switch', async () => {
+    setDemoAnalyticsConfiguredDomainForTests('');
+    localStorage.setItem(WEBSITE_ANALYTICS_CONSENT_KEY, 'granted');
+    await trackDemoLaunched();
+    await trackDemoExport('png');
+    expect(fetch).not.toHaveBeenCalled();
+    expect(demoAnalyticsTransportAllowed('localhost', '')).toBe(false);
+    expect(demoAnalyticsTransportAllowed('example.github.io', '')).toBe(false);
+    expect(demoAnalyticsTransportAllowed('varve.studio', '')).toBe(true);
+    expect(demoAnalyticsTransportAllowed('localhost', 'varve.studio')).toBe(true);
+    expect(demoAnalyticsTransportAllowed('localhost', 'other.example')).toBe(false);
   });
 
   it('honors DNT even if the visitor clicks Allow', async () => {

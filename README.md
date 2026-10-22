@@ -204,7 +204,8 @@ and may be used for:
   document data or device identifiers.
 - **Optional cloud providers**, only when you configure and invoke one (for
   example, a user-supplied background-removal endpoint).
-- **Consent-gated aggregate analytics**. Crash reports remain local unless a
+- **Website and browser-demo analytics**, GoatCounter only after Allow. The
+  desktop app sends no usage stats. Crash reports remain local unless a
   build explicitly configures an upload endpoint; the public build does not.
 
 ## Develop Varve

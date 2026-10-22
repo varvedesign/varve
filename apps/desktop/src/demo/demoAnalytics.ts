@@ -21,6 +21,7 @@ const EXPORT_FORMATS = new Set<string>(['png', 'jpeg', 'webp', 'svg']);
 
 let launchSent = false;
 let started = false;
+let configuredDomainForTests: string | null = null;
 
 function privacySignalBlocks(): boolean {
   if (typeof navigator === 'undefined') return false;
@@ -28,7 +29,39 @@ function privacySignalBlocks(): boolean {
   return nav.globalPrivacyControl === true || nav.doNotTrack === '1';
 }
 
+/** Same production switch as the website: ANALYTICS_DOMAIN=varve.studio. */
+export function demoAnalyticsTransportAllowed(hostname: string, configuredDomain: string): boolean {
+  return hostname === 'varve.studio' || configuredDomain === 'varve.studio';
+}
+
+function currentHostname(): string {
+  try {
+    return window.location.hostname;
+  } catch {
+    return '';
+  }
+}
+
+function configuredAnalyticsDomain(): string {
+  if (configuredDomainForTests !== null) return configuredDomainForTests;
+  try {
+    const defined = (globalThis as { __VARVE_ANALYTICS_DOMAIN__?: string })
+      .__VARVE_ANALYTICS_DOMAIN__;
+    if (defined === 'varve.studio') return defined;
+  } catch {
+    // Define is absent in unit tests that do not go through Vite.
+  }
+  const env = (
+    import.meta as ImportMeta & {
+      env?: { VITE_ANALYTICS_DOMAIN?: string; ANALYTICS_DOMAIN?: string };
+    }
+  ).env;
+  const value = env?.VITE_ANALYTICS_DOMAIN ?? env?.ANALYTICS_DOMAIN ?? '';
+  return value === 'varve.studio' ? value : '';
+}
+
 function collectorEndpoint(): string | null {
+  if (!demoAnalyticsTransportAllowed(currentHostname(), configuredAnalyticsDomain())) return null;
   const domain = safeGoatCounterDomain(VARVE_GOATCOUNTER_DOMAIN);
   return domain ? `https://${domain}/count` : null;
 }
@@ -128,8 +161,13 @@ export function startDemoAnalytics(): void {
   void trackDemoLaunched();
 }
 
+export function setDemoAnalyticsConfiguredDomainForTests(domain: string | null): void {
+  configuredDomainForTests = domain;
+}
+
 export function resetDemoAnalyticsForTests(): void {
   launchSent = false;
   started = false;
+  configuredDomainForTests = null;
   setDemoExportAnalyticsListener(null);
 }

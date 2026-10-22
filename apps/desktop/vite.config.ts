@@ -175,6 +175,14 @@ function demoSeoPlugin() {
 export default defineConfig({
   define: {
     __VARVE_ASSET_BASE__: JSON.stringify(process.env.VITE_BASE_URL ?? '/'),
+    // Same production switch as the website. Anything other than varve.studio
+    // stays empty so local, preview, and fork demo builds send nothing.
+    __VARVE_ANALYTICS_DOMAIN__: JSON.stringify(
+      process.env.ANALYTICS_DOMAIN === 'varve.studio' ||
+        process.env.VITE_ANALYTICS_DOMAIN === 'varve.studio'
+        ? 'varve.studio'
+        : '',
+    ),
     // Release stamp for crash reports. Unset in dev; production CI sets it
     // from the tag/channel. Never contains secrets.
     __VARVE_RELEASE__: JSON.stringify({

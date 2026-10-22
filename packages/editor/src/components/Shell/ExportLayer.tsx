@@ -6,8 +6,8 @@ import type { Document, ExportBatch, ExportFormat, SceneNode, ShapeNode } from '
 import { isExportRegion, resolveNodePaints } from '@varve/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
-  notifyDemoExportAnalytics,
   notifySuccessfulDemoExport,
+  notifySuccessfulDemoExportBatch,
 } from '../../analytics/demoExportAnalytics';
 import { durationBucket, getDesktopAnalytics } from '../../analytics/desktopAnalytics';
 import {
@@ -386,6 +386,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
         }
       }
       const analytics = getDesktopAnalytics();
+      const successfulFormats: Array<ReturnType<typeof mapExportFormat>> = [];
       for (const file of report.files) {
         const analyticsFormat = mapExportFormat(file.format);
         if (file.status === 'success') {
@@ -393,7 +394,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
             format: analyticsFormat,
             durationBucket: durationBucket(file.durationMs),
           });
-          notifyDemoExportAnalytics(analyticsFormat);
+          successfulFormats.push(analyticsFormat);
         } else {
           analytics.track('export_failed', {
             format: analyticsFormat,
@@ -401,6 +402,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
           });
         }
       }
+      notifySuccessfulDemoExportBatch(successfulFormats);
       void analytics.flush();
       return report;
     },

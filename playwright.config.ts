@@ -8,10 +8,11 @@ const nodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10
 // Node 26's V8 fast-API deoptimizer can abort Vite's response path under the
 // full Chromium matrix. Keep the workaround scoped to the dev server process;
 // application and browser code still run with their normal JIT settings.
+const viteAnalyticsDomain = 'ANALYTICS_DOMAIN=varve.studio';
 const viteServerCommand =
   nodeMajor >= 26
-    ? `pnpm --filter @varve/desktop exec node --no-turbofan node_modules/vite/bin/vite.js --port ${e2ePort} --strictPort`
-    : `pnpm --filter @varve/desktop exec vite --port ${e2ePort} --strictPort`;
+    ? `${viteAnalyticsDomain} pnpm --filter @varve/desktop exec node --no-turbofan node_modules/vite/bin/vite.js --port ${e2ePort} --strictPort`
+    : `${viteAnalyticsDomain} pnpm --filter @varve/desktop exec vite --port ${e2ePort} --strictPort`;
 // Canvas E2E includes software-rendered canvases and on-device model
 // inference. Two local browser workers can contend for those resources hard
 // enough to terminate an unrelated page mid-test. Keep the reliable default

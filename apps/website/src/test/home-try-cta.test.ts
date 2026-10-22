@@ -16,9 +16,9 @@ describe('home try-in-browser CTAs', () => {
 
   it('adds the same button to ClosingCTA and renders that section on home', () => {
     expect(closing).toMatch(/Try it in your browser/);
-    expect(closing).toMatch(/\/try\/\?ref=home-closing/);
+    expect(closing).toMatch(/tryRef/);
+    expect(closing).toMatch(/showTryBrowser\s*=\s*false/);
     expect(closing).toMatch(/data-analytics-demo-launch/);
-    expect(closing).toMatch(/showTryBrowser/);
-    expect(index).toMatch(/<ClosingCTA/);
+    expect(index).toMatch(/<ClosingCTA\s+showTryBrowser\s+tryRef="home-closing"/);
   });
 });

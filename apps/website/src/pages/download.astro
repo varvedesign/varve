@@ -215,7 +215,7 @@ const REQUIREMENTS: Record<string, string[]> = {
   ],
   macos: [
     'OS: macOS 13 Ventura or later',
-    'CPU: Apple Silicon only. There is no Intel macOS build. The on-device AI depends on ONNX Runtime, whose upstream discontinued macOS Intel binaries; see the FAQ for details.',
+    'CPU: Apple Silicon only. There is no Intel macOS build. On-device image tools such as background removal depend on ONNX Runtime, whose upstream discontinued macOS Intel binaries; see the FAQ for details.',
     'RAM: 4 GB minimum, 8 GB recommended',
     'Storage: 500 MB minimum free disk',
   ],
@@ -959,7 +959,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 &gt; About (Windows) and pick the matching label above.
               </li>
               <li>
-                <strong>Linux: AppImage will not start (FUSE2 missing):</strong> install the{' '}
+                <strong>Linux: AppImage will not start (FUSE2 missing).</strong> Install the{' '}
                 <code>fuse2</code> package on Arch (<code>sudo pacman -S fuse2</code>),
                 <code>libfuse2</code> on Debian 12 or Ubuntu 22.04
                 (<code>sudo apt install libfuse2</code>), or <code>libfuse2t64</code> on Debian 13
@@ -980,9 +980,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 <code>.deb</code> / <code>.rpm</code> instead.
               </li>
               <li>
-                <strong>Linux: .deb fails to install or start:</strong> the package needs the
-                system WebKitGTK library. <code>sudo apt install libwebkit2gtk-4.1-0</code>, then
-                reinstall the package.
+                <strong>Linux: .deb fails to install or start.</strong> The package needs the
+                system WebKitGTK library. Install it with{' '}
+                <code>sudo apt install libwebkit2gtk-4.1-0</code>, then reinstall the package.
               </li>
               <li>
                 <strong>ChromeOS: the Linux app does not install, launch, or see files:</strong>{' '}
