@@ -19,6 +19,16 @@ const SURFACES = [
   'apps/desktop/src/demo/DemoBanner.tsx',
 ] as const;
 
+/** Captions and alts ProductShowcase actually interpolates on the homepage. */
+const HOMEPAGE_SHOWCASE_SCENES = [
+  'workspace',
+  'workspace-dark',
+  'vector',
+  'typography',
+  'workspace-shared-workflows',
+  'tablet-workspace',
+] as const;
+
 /** Drop comments and style/script so remaining dashes are user-facing copy. */
 function visibleSource(text: string): string {
   return text
@@ -36,6 +46,29 @@ describe('home, download, and demo-banner copy', () => {
       const source = fs.readFileSync(path.join(repoRoot, rel), 'utf8');
       const visible = visibleSource(source);
       expect(visible, rel).not.toMatch(/\u2014|&mdash;/);
+    }
+  });
+
+  it('keeps a space on both sides of the hero eyebrow separator', () => {
+    const source = fs.readFileSync(
+      path.join(repoRoot, 'apps/website/src/components/Hero.astro'),
+      'utf8',
+    );
+    expect(source).toMatch(/hero-eyebrow-prefix">Local-first design suite &middot; <\/span>/);
+  });
+
+  it('has no em dash in homepage ProductShowcase captions or alts', () => {
+    const manifest = JSON.parse(
+      fs.readFileSync(
+        path.join(repoRoot, 'apps/website/src/data/screenshot-manifest.json'),
+        'utf8',
+      ),
+    ) as { scenes: Record<string, { caption?: string; alt?: string }> };
+    for (const id of HOMEPAGE_SHOWCASE_SCENES) {
+      const scene = manifest.scenes[id];
+      expect(scene, id).toBeDefined();
+      expect(scene.caption ?? '', `${id} caption`).not.toMatch(/\u2014|&mdash;/);
+      expect(scene.alt ?? '', `${id} alt`).not.toMatch(/\u2014|&mdash;/);
     }
   });
 });

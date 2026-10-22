@@ -131,7 +131,7 @@ import { PRODUCT_STATUS } from '@varve/shared';
     <p class="hero-eyebrow">
       <span class="hero-eyebrow-dot" aria-hidden="true"></span>
       <span class="hero-eyebrow-copy">
-        <span class="hero-eyebrow-prefix">Local-first design suite &middot;</span>
+        <span class="hero-eyebrow-prefix">Local-first design suite &middot; </span>
         <span class="hero-eyebrow-status">{PRODUCT_STATUS.label.toLowerCase()}</span>
       </span>
     </p>
@@ -544,6 +544,15 @@ import { PRODUCT_STATUS } from '@varve/shared';
     color: var(--text-secondary);
     margin: 0 auto var(--space-7);
     max-width: 58ch;
+  }
+
+  /* Decorative cards occupy the left/right gutters from 1100px up. Keep the
+     subtitle inside the scrim so a wrap such as "No account" cannot run under
+     the right-hand card. */
+  @media (min-width: 1100px) {
+    .hero-subtitle {
+      max-width: min(42ch, 34rem);
+    }
   }
 
   .hero-ctas {
