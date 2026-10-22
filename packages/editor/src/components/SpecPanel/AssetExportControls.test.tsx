@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createDocument, type ExportPreset, makeShapeNode, type SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
+import { setDemoExportAnalyticsListener } from '../../analytics/demoExportAnalytics';
 import { AssetExportControls } from './AssetExportControls';
 import * as exportHelpers from './export';
 
@@ -49,6 +50,70 @@ describe('AssetExportControls', () => {
     expect(saved[0]).toMatchObject({ mime: 'image/svg+xml', ext: '.svg' });
     expect(text).toContain('<svg');
     expect(text.startsWith('\uFFFDPNG')).toBe(false);
+  });
+
+  it('notifies demo analytics after successful inspector PNG and SVG downloads', async () => {
+    const listener = vi.fn();
+    setDemoExportAnalyticsListener(listener);
+    const raster = vi.spyOn(exportHelpers, 'exportNodeAsRaster').mockResolvedValue({
+      blob: new Blob(['png'], { type: 'image/png' }),
+      warnings: [],
+    });
+    const download = vi.spyOn(exportHelpers, 'downloadBlob').mockImplementation(() => {});
+    const doc = createDocument('Export', true);
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Logo' });
+
+    try {
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          engine={{ id: 'stub' } as never}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('radio', { name: 'PNG' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Download PNG' }));
+      await waitFor(() => expect(listener).toHaveBeenCalledWith('png'));
+
+      fireEvent.click(screen.getByRole('radio', { name: 'SVG' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Download SVG' }));
+      await waitFor(() => expect(listener).toHaveBeenCalledWith('svg'));
+      expect(listener.mock.calls).toEqual([['png'], ['svg']]);
+    } finally {
+      raster.mockRestore();
+      download.mockRestore();
+      setDemoExportAnalyticsListener(null);
+    }
+  });
+
+  it('does not notify demo analytics when a Tauri SVG save is cancelled', async () => {
+    const listener = vi.fn();
+    setDemoExportAnalyticsListener(listener);
+    const doc = createDocument('Export', true);
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Logo' });
+
+    try {
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          platform={
+            {
+              kind: 'tauri',
+              saveBinaryFile: vi.fn(async () => null),
+            } as never
+          }
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('radio', { name: 'SVG' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Export SVG' }));
+      await waitFor(() => expect(screen.getByText('Export cancelled')).toBeInTheDocument());
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      setDemoExportAnalyticsListener(null);
+    }
   });
 
   it('pre-fills the format from exportAdvisor.suggestExportFormat', () => {

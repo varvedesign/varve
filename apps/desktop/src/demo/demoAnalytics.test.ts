@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { notifyDemoExportAnalytics } from '@varve/editor';
 import {
   canSendDemoAnalytics,
   readDemoAnalyticsChoice,
@@ -108,6 +109,19 @@ describe('demo GoatCounter analytics', () => {
       expect(String(request)).not.toContain('.varve');
       expect(String(request)).not.toMatch(/filename|layer|text=/i);
     }
+  });
+
+  it('forwards editor export notifications to GoatCounter in demo mode', async () => {
+    window.history.replaceState({}, '', '/try/?try=1');
+    localStorage.setItem(WEBSITE_ANALYTICS_CONSENT_KEY, 'granted');
+    startDemoAnalytics();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    notifyDemoExportAnalytics('png');
+    await vi.waitFor(() =>
+      expect(vi.mocked(fetch).mock.calls.map((call) => collectorPath(call[0]))).toContain(
+        'demo-export-png',
+      ),
+    );
   });
 
   it('does not send from a non-demo page even with granted consent', async () => {

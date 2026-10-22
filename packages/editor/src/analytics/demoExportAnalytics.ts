@@ -16,3 +16,14 @@ export function notifyDemoExportAnalytics(format: AnalyticsExportFormat): void {
     listener?.(format);
   }
 }
+
+/** Inspector / File-menu exports share this so cancelled saves send nothing. */
+export function notifySuccessfulDemoExport(
+  format: AnalyticsExportFormat | 'pdf' | string,
+  cancelled = false,
+): void {
+  if (cancelled) return;
+  if (format === 'png' || format === 'jpeg' || format === 'webp' || format === 'svg') {
+    notifyDemoExportAnalytics(format);
+  }
+}

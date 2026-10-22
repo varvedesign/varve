@@ -5,7 +5,10 @@ import type { Platform } from '@varve/platform';
 import type { Document, ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@varve/scene';
 import { isExportRegion, resolveNodePaints } from '@varve/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { notifyDemoExportAnalytics } from '../../analytics/demoExportAnalytics';
+import {
+  notifyDemoExportAnalytics,
+  notifySuccessfulDemoExport,
+} from '../../analytics/demoExportAnalytics';
 import { durationBucket, getDesktopAnalytics } from '../../analytics/desktopAnalytics';
 import {
   commitPreparedBackgroundRemoval,
@@ -301,6 +304,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
           latest.announce('SVG export cancelled');
           return;
         }
+        notifySuccessfulDemoExport('svg');
         const diagnostics = snapshots.svg.diagnostics;
         if (diagnostics.length > 0) {
           latest.showToast({
