@@ -94,6 +94,12 @@ than relabelled.
   point.
 - **Validation:** `packages/engine/src/pathOffset.test.ts` (16 cases, 4 new).
   Visual check recorded in `continuation.md`.
+- **Follow-up resolved:** the miter limit divided the miter length by the
+  *edge length*, which is dimensionally wrong and scale-dependent: a long edge
+  could never clip, so an acute spike survived `miterLimit=4`. It now uses the
+  SVG/PostScript definition (distance from the original vertex to the miter tip
+  over the offset distance), and a test proves the decision depends on the
+  angle, not the edge length.
 - **Not covered:** VectorCraft's hang was inside their geometry library's
   sweep; Varve has no sweep phase, so the specific non-terminating
   intersection loop does not exist here. The bounded-work property is what

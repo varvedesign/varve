@@ -261,3 +261,34 @@ describe('roundCorners', () => {
     }
   });
 });
+
+describe('miter limit semantics', () => {
+  /** Closed triangle with a ~5.7 degree apex at (50, 0): ratio ~20. */
+  const spike = [
+    { x: 50, y: 0, handleIn: null, handleOut: null },
+    { x: 60, y: 200, handleIn: null, handleOut: null },
+    { x: 40, y: 200, handleIn: null, handleOut: null },
+  ];
+
+  it('clips an acute miter once the ratio exceeds the limit', () => {
+    // ratio = 1 / sin(2.86 deg) ~ 20, so miterLimit 4 must bevel the corner
+    // instead of letting the spike run past the offset edge.
+    const result = offsetPath(spike, true, 10, 'miter', 4);
+    expect(Math.min(...result.map((p) => p.y))).toBeGreaterThan(-10);
+  });
+
+  it('keeps the same miter when the limit allows it', () => {
+    const result = offsetPath(spike, true, 10, 'miter', 100);
+    expect(Math.min(...result.map((p) => p.y))).toBeLessThan(-100);
+  });
+
+  it('decides from the angle, not the edge length', () => {
+    // Uniform scaling preserves the angles, so the decision must not change.
+    // The pre-fix ratio divided by edge length, so longer edges never clipped.
+    const scaled = spike.map((p) => ({ ...p, x: p.x * 5, y: p.y * 5 }));
+    const short = offsetPath(spike, true, 10, 'miter', 4);
+    const long = offsetPath(scaled, true, 10, 'miter', 4);
+    expect(Math.min(...short.map((p) => p.y))).toBeGreaterThan(-10);
+    expect(Math.min(...long.map((p) => p.y))).toBeGreaterThan(-10);
+  });
+});
