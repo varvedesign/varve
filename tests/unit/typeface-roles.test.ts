@@ -14,13 +14,16 @@ import { describe, expect, it } from 'vitest';
  * face, mixing two faces inside one control row.
  */
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const GLOBAL = readFileSync(join(ROOT, 'apps', 'desktop', 'src', 'global.css'), 'utf8').replace(
-  /\/\*[\s\S]*?\*\//g,
-  '',
+const stripComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+const GLOBAL = stripComments(
+  readFileSync(join(ROOT, 'apps', 'desktop', 'src', 'global.css'), 'utf8'),
+);
+const EDITOR = stripComments(
+  readFileSync(join(ROOT, 'packages', 'editor', 'src', 'editor.css'), 'utf8'),
 );
 
-function declarationsFor(selectorPattern: RegExp): Map<string, string> {
-  for (const block of GLOBAL.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+function declarationsFor(selectorPattern: RegExp, css = GLOBAL): Map<string, string> {
+  for (const block of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     if (!selectorPattern.test((block[1] ?? '').trim())) continue;
     const out = new Map<string, string>();
     for (const declaration of (block[2] ?? '').split(';')) {
@@ -45,5 +48,19 @@ describe('application typeface roles', () => {
       .find((s) => s.startsWith(':where('));
     expect(selector).toMatch(/\bp\b/);
     expect(selector).toMatch(/\.varve-tooltip__body\b/);
+  });
+
+  // The editor shell and its menubar dropdowns restated the reading face on
+  // their own roots, which overrode the document default for every editor
+  // descendant.
+  it('does not put editor chrome containers back in the reading face', () => {
+    for (const container of [
+      /^\.editor-shell$/,
+      /^\.editor-menubar__menu$/,
+      /^\.editor-menubar__submenu$/,
+    ]) {
+      const family = declarationsFor(container, EDITOR).get('font-family');
+      expect(family, String(container)).not.toBe('var(--font-body)');
+    }
   });
 });

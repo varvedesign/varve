@@ -378,7 +378,8 @@ input[type="number"] {
   overflow: hidden;
   background: var(--color-surface-app);
   color: var(--color-text-primary);
-  font-family: var(--font-body);
+  /* Interface chrome; reading text opts in to the content role (global.css). */
+  font-family: var(--font-interface);
   font-size: var(--font-size-sm);
   transition: grid-template-columns var(--duration-base) var(--ease-out);
 }
@@ -663,7 +664,7 @@ input[type="number"] {
   border: var(--border-micro);
   border-radius: var(--radius-surface);
   box-shadow: var(--elevation-shadow-overlay);
-  font-family: var(--font-body);
+  font-family: var(--font-interface);
 }
 
 .editor-menubar__menu-sep {
@@ -772,7 +773,7 @@ input[type="number"] {
   border: var(--border-micro);
   border-radius: var(--radius-surface);
   box-shadow: var(--elevation-shadow-overlay);
-  font-family: var(--font-body);
+  font-family: var(--font-interface);
   z-index: auto;
 }
 
