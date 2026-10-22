@@ -129,6 +129,10 @@ describe('dock geometry', () => {
       ['main', 'column'],
     ]);
     expect(geometry.splitters[0]?.rect).toEqual({ x: 188, y: 0, width: 24, height: 600 });
+    expect(geometry.canvas?.x).toBe(200);
+    expect(geometry.splitters[0]!.rect.x + geometry.splitters[0]!.rect.width / 2).toBe(
+      geometry.canvas?.x,
+    );
     expect(geometry.splitters[1]?.rect).toEqual({ x: 200, y: 396, width: 600, height: 24 });
     expect(geometry.tabGroups).toEqual([
       {

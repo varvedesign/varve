@@ -604,6 +604,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, handleIndex: number) => {
       if (!hasInteractiveHandles || !box) return;
+      if (e.button !== 0) return;
       e.stopPropagation();
       (e.target as Element).setPointerCapture?.(e.pointerId);
 

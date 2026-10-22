@@ -6,6 +6,7 @@ import type { Affine, PathPoint } from '@varve/engine';
 import type { Document, ManagedColor, SceneNode } from '@varve/scene';
 import { nodeLocalBounds } from '@varve/scene';
 import { transformRect } from '@varve/shared';
+import { CSS_NAMED_COLORS } from './namedColors';
 
 /** Bounds for untrusted SVG source before XML parsing begins. */
 export const MAX_SVG_SOURCE_BYTES = 64 * 1024 * 1024;
@@ -17,6 +18,8 @@ export interface ParsedElement {
   attrs: Record<string, string>;
   children: ParsedElement[];
   textContent: string;
+  /** Computed SVG `color` captured from this element's definition-tree ancestry. */
+  computedSvgColor?: ManagedColor;
 }
 
 interface PathCommand {
@@ -534,33 +537,10 @@ export function parseSvgColor(colorStr: string): ManagedColor | null {
 
   if (colorStr.trim() === 'currentColor') return null;
 
-  const named: Record<string, ManagedColor> = {
-    black: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
-    white: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
-    red: { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 },
-    green: { space: 'rgb' as const, r: 0, g: 128, b: 0, a: 255 },
-    blue: { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 },
-    yellow: { space: 'rgb' as const, r: 255, g: 255, b: 0, a: 255 },
-    cyan: { space: 'rgb' as const, r: 0, g: 255, b: 255, a: 255 },
-    magenta: { space: 'rgb' as const, r: 255, g: 0, b: 255, a: 255 },
-    gray: { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 },
-    grey: { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 },
-    orange: { space: 'rgb' as const, r: 255, g: 165, b: 0, a: 255 },
-    purple: { space: 'rgb' as const, r: 128, g: 0, b: 128, a: 255 },
-    pink: { space: 'rgb' as const, r: 255, g: 192, b: 203, a: 255 },
-    transparent: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
-    silver: { space: 'rgb' as const, r: 192, g: 192, b: 192, a: 255 },
-    maroon: { space: 'rgb' as const, r: 128, g: 0, b: 0, a: 255 },
-    navy: { space: 'rgb' as const, r: 0, g: 0, b: 128, a: 255 },
-    olive: { space: 'rgb' as const, r: 128, g: 128, b: 0, a: 255 },
-    teal: { space: 'rgb' as const, r: 0, g: 128, b: 128, a: 255 },
-    lime: { space: 'rgb' as const, r: 0, g: 255, b: 0, a: 255 },
-    aqua: { space: 'rgb' as const, r: 0, g: 255, b: 255, a: 255 },
-    fuchsia: { space: 'rgb' as const, r: 255, g: 0, b: 255, a: 255 },
-  };
-
   const lower = colorStr.toLowerCase().trim();
-  if (named[lower]) return named[lower];
+  if (lower === 'transparent') return { space: 'rgb', r: 0, g: 0, b: 0, a: 0 };
+  const named = CSS_NAMED_COLORS[lower];
+  if (named) return { space: 'rgb', r: named[0], g: named[1], b: named[2], a: 255 };
 
   return null;
 }
@@ -612,7 +592,8 @@ export function parseCssStyle(styleStr: string): Record<string, string> {
   for (const decl of styleStr.split(';')) {
     const colon = decl.indexOf(':');
     if (colon > 0) {
-      const key = decl.slice(0, colon).trim();
+      const rawKey = decl.slice(0, colon).trim();
+      const key = rawKey.startsWith('--') ? rawKey : rawKey.toLowerCase();
       const value = decl.slice(colon + 1).trim();
       if (key && value) result[key] = value;
     }
@@ -697,18 +678,31 @@ export function nodeBounds(node: SceneNode): { x: number; y: number; w: number; 
   return local ? transformRect(node.transform, local) : { x: 0, y: 0, w: 0, h: 0 };
 }
 
-export function collectDefs(el: ParsedElement): Map<string, ParsedElement> {
+export function collectDefs(
+  el: ParsedElement,
+  unsupported: string[] = [],
+): Map<string, ParsedElement> {
   const defs = new Map<string, ParsedElement>();
-  function walk(e: ParsedElement): void {
+  const defaultSvgColor: ManagedColor = { space: 'rgb', r: 0, g: 0, b: 0, a: 255 };
+  function walk(e: ParsedElement, inheritedColor: ManagedColor): void {
+    const styleColor = parseCssStyle(e.attrs.style ?? '').color;
+    const specifiedColor = styleColor ?? e.attrs.color;
+    let computedColor = inheritedColor;
+    if (specifiedColor && specifiedColor.trim().toLowerCase() !== 'currentcolor') {
+      const parsed = parseSvgColor(specifiedColor);
+      if (parsed) computedColor = parsed;
+      else unsupported.push(`SVG color value is unsupported: ${specifiedColor}`);
+    }
+    e.computedSvgColor = computedColor;
     if (e.tag === 'defs') {
       for (const child of e.children) {
         const id = child.attrs.id ?? child.attrs['xml:id'];
         if (id) defs.set(id, child);
       }
     }
-    for (const child of e.children) walk(child);
+    for (const child of e.children) walk(child, computedColor);
   }
-  walk(el);
+  walk(el, defaultSvgColor);
   return defs;
 }
 

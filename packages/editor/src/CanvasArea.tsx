@@ -1099,6 +1099,48 @@ export function CanvasArea({
     canvasFocusedRef,
   });
 
+  // Guide hit targets sit above the canvas in the overlay stack. Route middle
+  // drags that begin on a guide through the regular canvas input pipeline so
+  // they keep the canvas's pointer-capture, pan, and cancellation behavior.
+  const guidePanPointerIdRef = useRef<number | null>(null);
+  const handleOverlayPointerDownCapture = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      if (
+        event.button !== 1 ||
+        !(event.target instanceof Element) ||
+        !event.target.closest('.guide-overlay__hit-area')
+      ) {
+        return;
+      }
+      guidePanPointerIdRef.current = event.pointerId;
+      input.handlePointerDown(event as unknown as React.PointerEvent<HTMLCanvasElement>);
+    },
+    [input.handlePointerDown],
+  );
+  const handleOverlayPointerMoveCapture = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      if (guidePanPointerIdRef.current !== event.pointerId) return;
+      input.handlePointerMove(event as unknown as React.PointerEvent<HTMLCanvasElement>);
+    },
+    [input.handlePointerMove],
+  );
+  const handleOverlayPointerUpCapture = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      if (guidePanPointerIdRef.current !== event.pointerId) return;
+      guidePanPointerIdRef.current = null;
+      input.handlePointerUp(event as unknown as React.PointerEvent<HTMLCanvasElement>);
+    },
+    [input.handlePointerUp],
+  );
+  const handleOverlayPointerCancelCapture = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      if (guidePanPointerIdRef.current !== event.pointerId) return;
+      guidePanPointerIdRef.current = null;
+      input.handlePointerCancel(event as unknown as React.PointerEvent<HTMLCanvasElement>);
+    },
+    [input.handlePointerCancel],
+  );
+
   // ─── Cursor ───────────────────────────────────────────────────────────────
 
   const cursor =
@@ -1514,6 +1556,10 @@ export function CanvasArea({
       tabIndex={-1}
       className={`editor-canvas gpu-layer${isDragOver ? ' editor-canvas--drag-over' : ''}${canvasDropClass}`}
       aria-label="Canvas"
+      onPointerDownCapture={handleOverlayPointerDownCapture}
+      onPointerMoveCapture={handleOverlayPointerMoveCapture}
+      onPointerUpCapture={handleOverlayPointerUpCapture}
+      onPointerCancelCapture={handleOverlayPointerCancelCapture}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

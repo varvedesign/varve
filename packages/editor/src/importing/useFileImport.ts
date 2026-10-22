@@ -34,9 +34,11 @@ import {
 const LUT_PATTERN = /\.(cube|3dl|clf|ctf)$/i;
 
 interface ImportProgressState {
+  stage: 'preparing' | 'importing';
   current: number;
   total: number;
   fileName: string;
+  activeFileNames: string[];
 }
 
 /** The slice of the editor context this module needs. Keeps the seam narrow. */
@@ -165,6 +167,58 @@ function reportHasIssues(report: ImportReport): boolean {
   return importReportHasIssues(report);
 }
 
+function readFileBytes(file: File, signal: AbortSignal): Promise<ArrayBuffer> {
+  if (typeof FileReader === 'undefined') {
+    return new Promise((resolve, reject) => {
+      const abort = () => {
+        cleanup();
+        reject(new DOMException('Import cancelled', 'AbortError'));
+      };
+      const cleanup = () => signal.removeEventListener('abort', abort);
+      if (signal.aborted) {
+        abort();
+        return;
+      }
+      signal.addEventListener('abort', abort, { once: true });
+      file.arrayBuffer().then(
+        (bytes) => {
+          cleanup();
+          resolve(bytes);
+        },
+        (error: unknown) => {
+          cleanup();
+          reject(error);
+        },
+      );
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException('Import cancelled', 'AbortError'));
+      return;
+    }
+    const reader = new FileReader();
+    const cleanup = () => signal.removeEventListener('abort', abortRead);
+    const abortRead = () => reader.abort();
+    reader.onload = () => {
+      cleanup();
+      if (reader.result instanceof ArrayBuffer) resolve(reader.result);
+      else reject(new TypeError(`Could not read ${file.name} as binary data`));
+    };
+    reader.onerror = () => {
+      cleanup();
+      reject(reader.error ?? new Error(`Could not read ${file.name}`));
+    };
+    reader.onabort = () => {
+      cleanup();
+      reject(new DOMException('Import cancelled', 'AbortError'));
+    };
+    signal.addEventListener('abort', abortRead, { once: true });
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 export function useFileImport(
   editor: FileImportEditor,
   canvasRef?: CanvasRef,
@@ -245,22 +299,71 @@ export function useFileImport(
 
         if (!isActiveOperation()) return;
         setReport(null);
-        setProgress({ current: 0, total: artwork.length, fileName: artwork[0]!.name });
+        setProgress({
+          stage: 'preparing',
+          current: 0,
+          total: artwork.length,
+          fileName: '',
+          activeFileNames: [],
+        });
 
+        let preparedFiles = 0;
+        const preparedInputs = await Promise.all(
+          artwork.map(async (file) => {
+            const bytes = new Uint8Array(await readFileBytes(file, abortController.signal));
+            if (isActiveOperation()) {
+              preparedFiles += 1;
+              setProgress({
+                stage: 'preparing',
+                current: preparedFiles,
+                total: artwork.length,
+                fileName: '',
+                activeFileNames: [],
+              });
+            }
+            return { name: file.name, source: 'file-picker' as const, size: file.size, bytes };
+          }),
+        );
+        if (!isActiveOperation()) return;
+        // The parser starts after every selected file has been read. Keep the
+        // stage boundary explicit even before the first file completes.
+        setProgress({
+          stage: 'importing',
+          current: 0,
+          total: artwork.length,
+          fileName: '',
+          activeFileNames: [],
+        });
+        const activeFiles = new Map<number, string>();
         const result = await ImportService.importFiles(
-          await Promise.all(
-            artwork.map(async (file) => ({
-              name: file.name,
-              source: 'file-picker' as const,
-              size: file.size,
-              bytes: new Uint8Array(await file.arrayBuffer()),
-            })),
-          ),
+          preparedInputs,
           {
             center: true,
             embedImages: true,
+            onFileStart: (file, index) => {
+              activeFiles.set(index, file.name);
+              if (isActiveOperation())
+                setProgress((previous) =>
+                  previous
+                    ? {
+                        ...previous,
+                        stage: 'importing',
+                        activeFileNames: [...activeFiles.values()],
+                      }
+                    : previous,
+                );
+            },
             onProgress: (current, total, file) => {
-              if (isActiveOperation()) setProgress({ current, total, fileName: file.name });
+              const matchingActiveFile = [...activeFiles].find(([, name]) => name === file.name);
+              if (matchingActiveFile) activeFiles.delete(matchingActiveFile[0]);
+              if (isActiveOperation())
+                setProgress({
+                  stage: 'importing',
+                  current,
+                  total,
+                  fileName: file.name,
+                  activeFileNames: [...activeFiles.values()],
+                });
             },
           },
           abortController.signal,

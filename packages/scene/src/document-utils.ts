@@ -1,6 +1,6 @@
 import type { Affine } from '@varve/engine';
 import { identity, multiplyAffine, rotateDeg } from '@varve/shared';
-import type { AdjustmentNode, FrameNode, GroupNode, NodeId, SceneNode } from './types';
+import type { AdjustmentNode, FrameNode, GroupNode, NodeId, SceneNode, Variant } from './types';
 
 /**
  * Minimal Document interface — only properties needed by validation/utility
@@ -17,7 +17,7 @@ export interface DocumentLike {
   activeDesignCanvasId?: NodeId;
   masters?: Record<NodeId, { contentRoot: NodeId }>;
   /** Component master definitions, keyed by component id. */
-  components?: Record<NodeId, { masterRootId: NodeId }>;
+  components?: Record<NodeId, { masterRootId: NodeId; variants?: Variant[] }>;
 }
 
 export interface DocValidationResult {
@@ -44,6 +44,21 @@ export function cryptoId(): string {
   // which is what these identifiers are for.
   fallbackIdCounter += 1;
   return `doc-${Date.now().toString(36)}-${fallbackIdCounter.toString(36)}`;
+}
+
+function isValidVariantDefinition(value: unknown): value is Variant {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const variant = value as Partial<Variant>;
+  return (
+    typeof variant.id === 'string' &&
+    typeof variant.name === 'string' &&
+    variant.propertyValues !== null &&
+    typeof variant.propertyValues === 'object' &&
+    !Array.isArray(variant.propertyValues) &&
+    Object.values(variant.propertyValues).every(
+      (entry) => typeof entry === 'string' || typeof entry === 'boolean',
+    )
+  );
 }
 
 export function makeGroupNode(
@@ -417,10 +432,39 @@ export function validateDocument(doc: DocumentLike): DocValidationResult {
   }
 
   const components = doc.components ?? {};
+  for (const [componentId, component] of Object.entries(components)) {
+    const masterRootId = component?.masterRootId;
+    if (typeof masterRootId !== 'string' || doc.nodes[masterRootId]?.kind !== 'frame') {
+      errors.push(
+        `Component ${componentId} references invalid component master ${String(masterRootId)}`,
+      );
+    }
+    const variants = component?.variants;
+    if (
+      variants !== undefined &&
+      (!Array.isArray(variants) || !variants.every(isValidVariantDefinition))
+    ) {
+      errors.push(`Component ${componentId} has malformed variant definitions`);
+    }
+  }
   for (const [nid, node] of Object.entries(doc.nodes)) {
     const compId = (node as { componentId?: NodeId }).componentId;
+    const variants = compId ? components[compId]?.variants : undefined;
     if (compId && !components[compId]) {
       errors.push(`Node ${nid} is a component instance referencing missing master ${compId}`);
+    } else if (
+      node.kind === 'frame' &&
+      compId &&
+      typeof (node as FrameNode).variant === 'string' &&
+      (!Array.isArray(variants) ||
+        !variants.some(
+          (variant) =>
+            isValidVariantDefinition(variant) && variant.id === (node as FrameNode).variant,
+        ))
+    ) {
+      errors.push(
+        `Node ${nid} is a component instance referencing missing variant ${(node as FrameNode).variant}`,
+      );
     }
   }
 
@@ -445,6 +489,27 @@ export function repairDocument(doc: DocumentLike): RepairResult {
   const next: DocumentLike = structuredClone(doc);
   const components = next.components ?? {};
   let changed = false;
+
+  for (const [componentId, component] of Object.entries(components)) {
+    const masterRootId = component?.masterRootId;
+    if (typeof masterRootId !== 'string' || next.nodes[masterRootId]?.kind !== 'frame') {
+      delete components[componentId];
+      changed = true;
+      continue;
+    }
+    if (component.variants !== undefined) {
+      const validVariants = Array.isArray(component.variants)
+        ? component.variants.filter(isValidVariantDefinition)
+        : [];
+      if (
+        !Array.isArray(component.variants) ||
+        validVariants.length !== component.variants.length
+      ) {
+        components[componentId] = { ...component, variants: validVariants };
+        changed = true;
+      }
+    }
+  }
 
   for (const nid of Object.keys(next.nodes)) {
     let current = next.nodes[nid]!;
@@ -503,6 +568,21 @@ export function repairDocument(doc: DocumentLike): RepairResult {
     const compId = (current as { componentId?: NodeId }).componentId;
     if (compId && !components[compId]) {
       const { componentId: _drop, ...rest } = current as { componentId?: NodeId };
+      current = rest as SceneNode;
+      changed = true;
+    }
+
+    const variantId =
+      (current as FrameNode).kind === 'frame' ? (current as FrameNode).variant : null;
+    const variants = compId ? components[compId]?.variants : undefined;
+    if (
+      compId &&
+      components[compId] &&
+      typeof variantId === 'string' &&
+      (!Array.isArray(variants) ||
+        !variants.some((variant) => isValidVariantDefinition(variant) && variant.id === variantId))
+    ) {
+      const { variant: _drop, ...rest } = current as FrameNode;
       current = rest as SceneNode;
       changed = true;
     }

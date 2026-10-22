@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmbeddedAsset } from './assets';
+import { createComponent } from './component';
 import type { Document } from './document';
 import {
   addNode,
@@ -26,6 +27,94 @@ const PNG_2X2_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACAQAAAABazTCJAAAADElEQVQI12M4wHAAAAMEAYHFO6KpAAAAAElFTkSuQmCC';
 
 describe('DocumentCodec', () => {
+  it('repairs a dangling component variant when opening and preserves the repair on save', () => {
+    let doc = createDocument('Missing component variant', true);
+    doc = addNode(doc, makeFrameNode('master', { name: 'Button', w: 120, h: 40 }));
+    const { component, doc: withComponent } = createComponent(doc, 'Button', 'master', []);
+    doc = addNode(
+      withComponent,
+      makeFrameNode('instance', {
+        name: 'Button instance',
+        w: 120,
+        h: 40,
+        componentId: component.id,
+        variant: 'deleted-variant',
+      }),
+    );
+
+    const opened = DocumentCodec.decode(DocumentCodec.encode(doc));
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    expect(opened.warnings.some((item) => item.code === 'document.repaired')).toBe(true);
+    expect(opened.document.nodes.instance).not.toHaveProperty('variant');
+    expect(opened.document.components[component.id]?.variants).toBeUndefined();
+
+    const reopened = DocumentCodec.decode(DocumentCodec.encode(opened.document));
+    expect(reopened.ok).toBe(true);
+    if (reopened.ok) expect(reopened.document.nodes.instance).not.toHaveProperty('variant');
+  });
+
+  it('recovers a component instance when its serialized variant collection is malformed', () => {
+    let doc = createDocument('Malformed component variants', true);
+    doc = addNode(doc, makeFrameNode('master', { name: 'Button', w: 120, h: 40 }));
+    const { component, doc: withComponent } = createComponent(doc, 'Button', 'master', []);
+    doc = addNode(
+      withComponent,
+      makeFrameNode('instance', {
+        name: 'Button instance',
+        w: 120,
+        h: 40,
+        componentId: component.id,
+        variant: 'variant-1',
+      }),
+    );
+    const serialized = JSON.parse(DocumentCodec.encode(doc)) as {
+      components: Record<string, { variants?: unknown }>;
+    };
+    serialized.components[component.id]!.variants = {};
+
+    const opened = DocumentCodec.decode(JSON.stringify(serialized));
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    expect(opened.warnings.some((item) => item.code === 'document.repaired')).toBe(true);
+    expect(opened.document.nodes.instance).not.toHaveProperty('variant');
+    expect(opened.document.components[component.id]?.variants).toEqual([]);
+  });
+
+  it('recovers instances whose serialized component master root is missing', () => {
+    let doc = createDocument('Missing component master', true);
+    doc = addNode(doc, makeFrameNode('master', { name: 'Button', w: 120, h: 40 }));
+    const { component, doc: withComponent } = createComponent(doc, 'Button', 'master', []);
+    doc = addNode(
+      withComponent,
+      makeFrameNode('instance', {
+        name: 'Button instance',
+        w: 120,
+        h: 40,
+        componentId: component.id,
+      }),
+    );
+    const serialized = JSON.parse(DocumentCodec.encode(doc)) as {
+      components: Record<string, { masterRootId: string }>;
+    };
+    serialized.components[component.id]!.masterRootId = 'missing-master';
+
+    const opened = DocumentCodec.decode(JSON.stringify(serialized));
+    expect(opened.ok).toBe(true);
+    if (!opened.ok) return;
+    expect(opened.warnings.some((item) => item.code === 'document.repaired')).toBe(true);
+    expect(opened.document.components[component.id]).toBeUndefined();
+    expect(opened.document.nodes.instance).not.toHaveProperty('componentId');
+    expect(opened.document.nodes.instance).toBeDefined();
+
+    const reopened = DocumentCodec.decode(DocumentCodec.encode(opened.document));
+    expect(reopened.ok).toBe(true);
+    if (reopened.ok) {
+      expect(reopened.document.components[component.id]).toBeUndefined();
+      expect(reopened.document.nodes.instance).not.toHaveProperty('componentId');
+    }
+  });
+
   it('round-trips explicit path node modes without a schema migration', () => {
     const path = makeShapeNode('path', {
       kind: 'path',

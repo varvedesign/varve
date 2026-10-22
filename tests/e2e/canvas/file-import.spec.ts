@@ -19,6 +19,10 @@ const SIMPLE_SVG =
   '<svg><rect x="10" y="10" width="100" height="60" fill="#1f8a70" /><circle cx="60" cy="40" r="24" fill="#ffd166" /></svg>';
 const CLONED_FILL_OPACITY_SVG =
   '<svg xmlns:xlink="http://www.w3.org/1999/xlink"><defs><rect id="opacity-source" width="100" height="60" fill="#e5e" fill-opacity=".1" /></defs><use xlink:href="#opacity-source" /><use xlink:href="#opacity-source" x="110" /></svg>';
+const INLINE_TEXT_STYLES_SVG =
+  '<svg width="240" height="100" viewBox="0 0 240 100"><text x="120" y="60" style="font-size:32px;font-family:DejaVu Serif;font-weight:bold;text-anchor:middle" fill="#1f8a70">Styled SVG</text></svg>';
+const CURRENT_COLOR_SVG =
+  '<svg width="160" height="120" viewBox="0 0 160 120"><g color="#123456"><rect x="20" y="20" width="120" height="80" fill="currentColor" /></g></svg>';
 
 async function openImportFromMenu(page: import('@playwright/test').Page): Promise<void> {
   await page.getByRole('menubar').getByRole('menuitem', { name: 'File' }).click();
@@ -133,6 +137,74 @@ test.describe('File → Import', () => {
     });
   });
 
+  test('preserves inline SVG font styles and renders imported text', async ({ page }, testInfo) => {
+    await openImportFromMenu(page);
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'inline-text-style.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(INLINE_TEXT_STYLES_SVG, 'utf-8'),
+    });
+
+    await expect(page.locator('.typography-controls')).toBeVisible({ timeout: 30000 });
+    const typography = page.locator('.typography-controls');
+    await expect(typography.getByRole('combobox', { name: 'Font family' })).toHaveValue(
+      'DejaVu Serif',
+    );
+    await expect(typography.getByRole('spinbutton', { name: 'Size (px)' })).toHaveValue('32');
+    await expect(typography.getByRole('combobox', { name: 'Font weight' })).toHaveText('700');
+    await expect(
+      typography
+        .getByRole('radiogroup', { name: 'Horizontal align', exact: true })
+        .getByRole('radio', {
+          name: 'Align right',
+        }),
+    ).not.toBeChecked();
+    await expect(
+      typography
+        .getByRole('radiogroup', { name: 'Horizontal align', exact: true })
+        .getByRole('radio', {
+          name: 'Align center',
+        }),
+    ).toBeChecked();
+
+    await page.keyboard.press('Escape');
+    const dismissHint = page.getByRole('button', { name: 'Dismiss hint' });
+    if (await dismissHint.isVisible().catch(() => false)) {
+      await dismissHint.click({ timeout: 1000 }).catch(() => undefined);
+    }
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await page.evaluate(() => {
+      (
+        window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
+      ).__varvePerf?.forceFullRedraw?.();
+    });
+    await page.waitForTimeout(700);
+    await expect(canvas).toHaveScreenshot('inline-svg-text-style.png', { maxDiffPixels: 0 });
+    await testInfo.attach('inline-svg-text-style-canvas', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+  });
+
+  test('resolves inherited currentColor paints in imported SVG artwork', async ({ page }) => {
+    await openImportFromMenu(page);
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'inherited-current-color.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(CURRENT_COLOR_SVG, 'utf-8'),
+    });
+
+    const layers = page.locator('.layers-panel');
+    await expect(layers.locator('[role="treeitem"]')).toHaveCount(2, { timeout: 30000 });
+    await page.keyboard.press('Escape');
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await page.evaluate(() => window.__varvePerf?.forceFullRedraw());
+    await page.waitForTimeout(700);
+    await expect(canvas).toHaveScreenshot('svg-inherited-current-color.png', {
+      maxDiffPixels: 0,
+    });
+  });
+
   test('renders fractional fill opacity on repeated SVG use instances', async ({ page }) => {
     await openImportFromMenu(page);
     await page.locator('#file-import-input').setInputFiles({
@@ -144,10 +216,12 @@ test.describe('File → Import', () => {
     const layers = page.locator('.layers-panel');
     // Each <use> becomes a shape node; the filename is not a separate layer.
     await expect(layers.locator('[role="treeitem"]')).toHaveCount(2, { timeout: 30000 });
-    const dismissHint = page.getByRole('button', { name: 'Dismiss hint' });
-    if (await dismissHint.isVisible().catch(() => false)) await dismissHint.click();
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await canvas.click({ position: { x: 40, y: 40 } });
+    const dismissHint = page.getByRole('button', { name: 'Dismiss hint' });
+    if (await dismissHint.isVisible().catch(() => false)) {
+      await dismissHint.click({ timeout: 1000 }).catch(() => undefined);
+    }
     await page.evaluate(() => {
       (
         window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
@@ -285,5 +359,154 @@ showpage
     const missingFonts = page.getByRole('dialog', { name: 'Missing Fonts' });
     await expect(missingFonts).toBeVisible();
     await missingFonts.getByRole('button', { name: 'Dismiss' }).click();
+  });
+
+  test('cancels file preparation before parsing begins', async ({ page }) => {
+    await page.evaluate(() => {
+      type PreparationProbe = Window & {
+        __filePreparationReadStarted?: boolean;
+        __filePreparationAborted?: boolean;
+        __filePreparationAbortEventFired?: boolean;
+        __filePreparationReaderState?: number;
+      };
+      const probe = window as PreparationProbe;
+      class ControlledFileReader {
+        static readonly EMPTY = 0;
+        static readonly LOADING = 1;
+        static readonly DONE = 2;
+        readyState: number = FileReader.EMPTY;
+        result: string | ArrayBuffer | null = null;
+        error: DOMException | null = null;
+        onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+        onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+        onabort: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+        onloadstart: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+        onloadend: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+
+        readAsArrayBuffer() {
+          this.readyState = FileReader.LOADING;
+          probe.__filePreparationReadStarted = true;
+          probe.__filePreparationReaderState = this.readyState;
+        }
+
+        abort() {
+          if (this.readyState !== FileReader.LOADING) return;
+          this.readyState = FileReader.DONE;
+          probe.__filePreparationAborted = true;
+          probe.__filePreparationReaderState = this.readyState;
+          this.onabort?.call(
+            this as unknown as FileReader,
+            new ProgressEvent('abort') as ProgressEvent<FileReader>,
+          );
+          probe.__filePreparationAbortEventFired = true;
+        }
+      }
+      Object.defineProperty(window, 'FileReader', {
+        configurable: true,
+        value: ControlledFileReader,
+      });
+    });
+    await openImportFromMenu(page);
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'delayed.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(SIMPLE_SVG, 'utf-8'),
+    });
+
+    const progress = page.locator('.import-progress');
+    await expect(progress).toHaveAttribute('data-stage', 'preparing');
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as Window & { __filePreparationReadStarted?: boolean })
+              .__filePreparationReadStarted,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as Window & { __filePreparationReaderState?: number })
+              .__filePreparationReaderState,
+        ),
+      )
+      .toBe(1);
+    await expect(progress.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow');
+    await expect(progress).toContainText('Preparing files: 0 of 1 ready');
+    await test.info().attach('import-preparation-state', {
+      body: await progress.screenshot(),
+      contentType: 'image/png',
+    });
+    await progress.getByRole('button', { name: 'Cancel import' }).click();
+    await expect(progress).toBeHidden();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as Window & { __filePreparationAborted?: boolean }).__filePreparationAborted,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as Window & { __filePreparationReaderState?: number })
+              .__filePreparationReaderState,
+        ),
+      )
+      .toBe(2);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as Window & { __filePreparationAbortEventFired?: boolean })
+              .__filePreparationAbortEventFired,
+        ),
+      )
+      .toBe(true);
+    await expect(page.getByRole('dialog', { name: 'Import results' })).toHaveCount(0);
+    await expect(page.locator('.layers-panel').getByText('delayed.svg')).toHaveCount(0);
+    await expect(page.getByRole('treeitem')).toHaveCount(0);
+  });
+
+  test('identifies the file during asynchronous PSD decoding', async ({ page }) => {
+    const psd = await readFile('tests/fixtures/import-corpus/example.psd');
+    // The importing stage can be shorter than one Playwright poll on a fast
+    // machine, so record every progress mutation from before the selection
+    // instead of racing the label. A three-file batch guarantees at least one
+    // decode runs while the progress surface is mounted.
+    await page.evaluate(() => {
+      const target = window as unknown as { __importProgressLog?: string[] };
+      target.__importProgressLog = [];
+      new MutationObserver(() => {
+        const element = document.querySelector('.import-progress');
+        if (!element) return;
+        target.__importProgressLog?.push(
+          `${element.getAttribute('data-stage')}|${element.textContent ?? ''}`,
+        );
+      }).observe(document.body, { childList: true, subtree: true, characterData: true });
+    });
+
+    await openImportFromMenu(page);
+    await page.locator('#file-import-input').setInputFiles([
+      { name: 'example.psd', mimeType: 'image/vnd.adobe.photoshop', buffer: psd },
+      { name: 'example-2.psd', mimeType: 'image/vnd.adobe.photoshop', buffer: psd },
+      { name: 'example-3.psd', mimeType: 'image/vnd.adobe.photoshop', buffer: psd },
+    ]);
+
+    await expect(page.locator('.layers-panel [role="treeitem"]').first()).toBeVisible({
+      timeout: 30000,
+    });
+
+    const log = await page.evaluate(
+      () => (window as unknown as { __importProgressLog?: string[] }).__importProgressLog ?? [],
+    );
+    const parsingStates = log.filter(
+      (entry) => entry.startsWith('importing|') && entry.includes('Parsing: example'),
+    );
+    expect(parsingStates.length).toBeGreaterThan(0);
   });
 });

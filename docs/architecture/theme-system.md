@@ -76,6 +76,11 @@ implicit first-visit mode and native `forced-colors` as its high-contrast path.
 This is a product-scope distinction, not a second colour foundation. On the
 site, `data-theme-mode` is `system` until a visitor chooses Light or Dark, and
 `data-theme` is always the resolved Light/Dark palette.
+The marketing site's Safari `theme-color` metadata follows that resolved
+palette, including a stored manual choice that differs from the device
+preference. The initial light/dark media declarations remain as a no-script
+fallback; the pre-paint theme controller makes only the selected declaration
+active and updates it when the site theme changes.
 
 ## Interface colour versus authored colour
 

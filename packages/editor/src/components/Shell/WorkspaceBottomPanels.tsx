@@ -233,7 +233,7 @@ export function WorkspaceBottomPanels({
         // biome-ignore lint/a11y/useSemanticElements: a focusable resizable pane divider is an ARIA window splitter, not a thematic break.
         <div
           key={splitter.nodeId}
-          className="workspace-dock-splitter"
+          className={`workspace-dock-splitter${splitter.rulerAdjacent ? ' workspace-dock-splitter--ruler-adjacent' : ''}`}
           data-testid={`dock-splitter-${splitter.nodeId}`}
           style={splitter.style}
           role="separator"

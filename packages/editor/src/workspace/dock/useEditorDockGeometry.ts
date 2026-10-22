@@ -54,6 +54,7 @@ import {
 export interface DockSplitView extends DockSplitPlacement {
   style: CSSProperties;
   orientation: 'horizontal' | 'vertical';
+  rulerAdjacent: boolean;
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -753,6 +754,10 @@ export function useEditorDockGeometry(
     const splitters: DockSplitView[] = geometry.splitters.map((splitter) => ({
       ...splitter,
       orientation: splitter.direction === 'row' ? 'vertical' : 'horizontal',
+      rulerAdjacent:
+        splitter.direction === 'row' &&
+        geometry.canvas !== undefined &&
+        Math.abs(splitter.rect.x + splitter.rect.width / 2 - geometry.canvas.x) < 1,
       style: {
         ...toStyle(splitter.rect),
         zIndex: 'var(--z-overlay)',

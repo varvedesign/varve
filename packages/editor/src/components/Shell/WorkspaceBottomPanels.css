@@ -209,6 +209,17 @@
   cursor: row-resize;
 }
 
+.workspace-dock-splitter--ruler-adjacent {
+  /* The editor's left ruler starts at the dock origin. Keep the splitter's
+   * 24px resize target on the panel side of the canvas edge. Its 2px grip
+   * remains centered on the divider. */
+  transform: translateX(-12px);
+}
+
+.workspace-dock-splitter--ruler-adjacent::after {
+  transform: translateX(12px);
+}
+
 .workspace-dock-splitter::after {
   position: absolute;
   inset: 0;

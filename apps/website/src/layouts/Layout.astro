@@ -231,8 +231,18 @@ const csp = [
     )}
     {/* A noindex page (e.g. 404) must not also declare itself canonical. */}
     {!noindex && <link rel="canonical" href={canonicalUrl} />}
-    <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta
+      name="theme-color"
+      content="#ffffff"
+      media="(prefers-color-scheme: light)"
+      data-theme-color="light"
+    />
+    <meta
+      name="theme-color"
+      content="#0d1117"
+      media="(prefers-color-scheme: dark)"
+      data-theme-color="dark"
+    />
 
     {/*
       Theme detection script (runs before paint).
@@ -282,6 +292,17 @@ const csp = [
         function resolve(mode) {
           return isExplicit(mode) ? mode : systemTheme();
         }
+        function applyThemeColor(theme) {
+          var colors = document.querySelectorAll('meta[name="theme-color"][data-theme-color]');
+          for (var i = 0; i < colors.length; i++) {
+            var meta = colors[i];
+            if (meta.getAttribute('data-theme-color') === theme) {
+              meta.removeAttribute('media');
+            } else {
+              meta.setAttribute('media', 'not all');
+            }
+          }
+        }
         function apply() {
           var previousMode = root.getAttribute('data-theme-mode');
           var previousTheme = root.getAttribute('data-theme');
@@ -289,6 +310,7 @@ const csp = [
           var theme = resolve(mode);
           root.setAttribute('data-theme-mode', mode);
           root.setAttribute('data-theme', theme);
+          applyThemeColor(theme);
           if (previousMode !== mode || previousTheme !== theme) {
             window.dispatchEvent(new CustomEvent('varve:theme-change', {
               detail: {

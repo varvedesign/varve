@@ -83,6 +83,65 @@ describe('clipboard page pose policy', () => {
   });
 });
 
+describe('clipboard read capability feedback', () => {
+  it('distinguishes a denied clipboard read from an empty clipboard', async () => {
+    const originalClipboard = navigator.clipboard;
+    const originalSecureContext = window.isSecureContext;
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { read: vi.fn().mockRejectedValue(new DOMException('blocked', 'NotAllowedError')) },
+    });
+    try {
+      const result = await readClipboardUnified();
+      expect(result.clipboardReadIssue).toBe('permission-denied');
+      expect(result.plainText).toBeUndefined();
+    } finally {
+      Object.defineProperty(window, 'isSecureContext', {
+        configurable: true,
+        value: originalSecureContext,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
+  it('identifies unavailable async reads on insecure origins', async () => {
+    const originalClipboard = navigator.clipboard;
+    const originalSecureContext = window.isSecureContext;
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: false });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      const result = await readClipboardUnified();
+      expect(result.clipboardReadIssue).toBe('insecure-context');
+    } finally {
+      Object.defineProperty(window, 'isSecureContext', {
+        configurable: true,
+        value: originalSecureContext,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
+  it('does not report a browser-read failure after the Tauri clipboard fallback', async () => {
+    const result = await readClipboardUnifiedWithFallback({
+      kind: 'tauri',
+      readClipboardData: vi.fn(async () => null),
+      readClipboardImage: vi.fn(async () => null),
+    });
+
+    expect(result.clipboardReadIssue).toBeUndefined();
+  });
+});
+
 const { storeFontOnFilesystemMock } = vi.hoisted(() => ({
   storeFontOnFilesystemMock: vi.fn(),
 }));
