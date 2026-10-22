@@ -156,7 +156,7 @@ and asserts the preset is selected without creating a document.
 
 ---
 
-## F3 — Repeated nudges cost one undo each (superseded by design; no work)
+## F3 — Repeated nudges cost one undo each (decided: keep per-press entries)
 
 **External evidence.** Graphite #2617 ("Nudges in the same direction should be
 combined in history", open, Architecture / Paper Cut): five Shift+Right taps and
@@ -165,33 +165,44 @@ change or any other edit starts a new point. A maintainer replies that the
 cloned-document history must be refactored first, because merging steps is not
 expressible in it.
 
-**What Varve does today.** A *held* arrow key is already one entry: the nudge
-controller opens one transaction while any direction is held and commits when
-all are released. Each discrete tap is its own transaction, so N taps produce N
-entries — the same shape of behaviour Graphite reports.
+**What Varve does today.** A *held* arrow key is one entry: the nudge controller
+opens one transaction while a direction is held and commits when it is released.
+Each discrete tap is its own entry, so N taps produce N entries.
 
-**Superseded while this branch was open.** Another change landed on `master`
-that addresses the wider undo-granularity class and, in doing so, records the
-maintainer's decision on the remaining case:
-`packages/editor/src/context/useGestureTransaction.ts` now gives sliders,
-colour pickers and keyboard stepping one undo entry per *gesture*, and its
-contract states: "Deliberately not time-based: a merge window would also fuse
-two separate, intentional edits made in quick succession. Gesture boundaries are
-what the user perceives as one action."
+**Decision: do not merge taps.** Per-press entries are the final behaviour. The
+reasons are specific to Varve, not a preference:
 
-That is a deliberate rejection of exactly the mechanism this finding proposed
-(a short idle window that merges consecutive same-direction nudges). The
-earlier version of this entry recorded it as `blocked` on a missing
-append-only-history amend capability; that is now only half the picture, and
-the more important half is that the repository has chosen gesture-scoped
-transactions instead.
+1. **The undo unit is a gesture.** `context/useGestureTransaction.ts` gives
+   sliders, colour pickers and keyboard stepping one entry per gesture and
+   states the rule explicitly: "Deliberately not time-based: a merge window
+   would also fuse two separate, intentional edits made in quick succession.
+   Gesture boundaries are what the user perceives as one action." A key press is
+   a complete gesture; merging a run of them needs a boundary that is not time.
+2. **The remaining boundary option fights the controller's contract.**
+   `planNudgeRepeat` validates each repeat against the positions the session
+   *expects next*, and the controller clears its session on key release. Keeping
+   a burst open therefore means either reworking that expected-position model or
+   leaving a transaction open across unrelated actions.
+3. **A half-working burst merge is worse than none.** Three implementations were
+   attempted in this work and each failed at a different boundary — the session
+   cleared on key-up, the next repeat declined because the expected position no
+   longer matched, and a burst split silently into two entries. Every variant
+   either lost a press or split a burst, and a user who cannot predict which
+   edits share an undo can lose an intended state. It was reverted rather than
+   shipped.
 
-**Status.** Not a defect by the current design. No work is scheduled. If
-tap-burst merging is ever wanted, it needs a non-time-based identity (for
-example "consecutive same-direction nudges with no intervening edit") and a
-deliberate reversal of the documented contract above — a design decision for
-the maintainer, not a mechanical fix. Recorded so the same idea is not
-re-proposed as an oversight.
+**What serves the underlying need instead.** The need behind #2617 is coarse
+movement without a stack of undos. Varve already answers it: holding the key is
+one gesture and one undo entry; Shift+Arrow moves by the large step (and the
+step is configurable in Settings); and the Inspector's X/Y fields take an exact
+value in one edit. The documentation now names those routes rather than implying
+that repeated taps should be free.
+
+**Prerequisite if this is ever revisited** — a scoped design task, not a fix:
+a nudge-session model that survives key release with per-repeat expectations, a
+transaction-boundary rule that closes on the next command while still
+finalizing the deferred commit and the persistent-history capture exactly once,
+and a deliberate change to the documented gesture contract above.
 
 ## F4 — Confirmed existing protections (no change needed)
 
