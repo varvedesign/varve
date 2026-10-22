@@ -461,7 +461,7 @@ function capabilityNotes(
   }
   if (diagnostics.verticalRuns > 0) {
     notes.push(
-      `${diagnostics.verticalRuns} vertical text run(s) were imported as vertical text; their per-glyph advance is one em because the font's /W2 metrics are not read`,
+      `${diagnostics.verticalRuns} vertical text run(s) were imported as vertical text; a run whose font declares neither /W2 nor /DW2 advances by one em`,
     );
   }
   if (report.unsupportedFilters.size > 0) notes.push('Unsupported stream filters were reported');

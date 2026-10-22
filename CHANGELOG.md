@@ -124,9 +124,9 @@ update, not for someone reading the commit log.
 - **PDF import keeps vertical writing vertical.** A PDF set in a vertical
   writing mode (`Identity-V`, or a CMap with `/WMode 1`) imported as one long
   horizontal line, so a Japanese or Chinese column arrived as the wrong
-  document. Those runs now become Varve vertical text (`vertical-rl`), with the
-  Import Report stating that each glyph advances one em because the font's
-  vertical metrics are not read.
+  document. Those runs now become Varve vertical text (`vertical-rl`), placed
+  with the font's own vertical metrics (`/W2`, then `/DW2`), so a 1.5 em advance
+  keeps the following glyphs where the source put them.
 - **PDF export names characters the chosen font cannot draw.** The canvas falls
   back per glyph, but the PDF writer outlines the authored face, so a character
   that face does not map exported as a blank box while the editor showed it

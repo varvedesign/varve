@@ -231,7 +231,7 @@
 3403	open	low	priority: low	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
 3405	open	low	priority: low	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3407	open	medium	bug,priority: medium	page-geometry	outside-varve-scope	File size unchanged after page deletion: Varve rewrites its own document, not a PDF container; the claim is about their writer.	cutoff2
-3409	closed	medium	priority: medium	save-io	deferred	Atomic save does not propagate staging-file close errors: the native save path is documented in docs/architecture/filesystem-boundary.md, but the file is being edited by another session; two writers on one path is worse than a delay.	cutoff2
+3409	closed	medium	priority: medium	save-io	verified-already-correct-	Atomic save propagates staging-file errors: write_file_atomic (apps/desktop/src-tauri/src/lib.rs) writes a unique temp, calls sync_all and returns its error before the rename, and removes the temp on failure. Residual: a filesystem that reports ENOSPC only at close(2) is not observed separately, which is the standard Rust File contract.	cutoff2
 3410	open	high	bug,priority: high,needs info	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3414	open	high	priority: high,multiple issues	save-io	verified-already-correct-	GUI hangs on a corrupt incremental-update xref: Varve does not trust the xref table; it scans objects with bounded budgets and reports truncation.	cutoff2
 3417	closed	medium	bug,duplicate,priority: medium	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
@@ -284,7 +284,7 @@
 3501	open	medium	priority: medium,multiple issues	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff2
 3502	open	medium	priority: medium	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff2
 3503	open	medium	priority: medium	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff2
-3504	open	medium	priority: medium	render	candidate	Readers use different decode caps, so they read different documents: Varve bounds decode in one place (objects.ts MAX_STREAM_BYTES) for the importer; render/export share the asset, so the class is structurally absent. Verified by inspection; test queued.	cutoff2
+3504	open	medium	priority: medium	render	verified-already-correct-	Readers disagreeing about content because of different decode caps: screen and export share one image cache (resolveReplayImage + getImageCache); the per-replay policy changes requested resolution, not readability, so the class is structurally absent.	cutoff2
 3505	open	medium	priority: medium	fonts-glyphs	implemented-validated	Korean tofu in UI: batch 2 covers the export contract; UI fallback is the browser's, already per-glyph.	cutoff2
 3507	open	high	priority: high	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3508	open	high	priority: high	text-edit	cluster-assessed	Varve edits authored text nodes, not extracted PDF runs; the identity rule is ADR-0242.	cutoff2
@@ -361,7 +361,7 @@
 3626	open	medium	priority: medium,needs info	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
 3629	open	low	priority: low	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
 3632	open	low	priority: low	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
-3634	open	medium	priority: medium	save-io	candidate	Export/OCR/print have no per-page time limit: Varve export has cancellation and resource timeouts (settleEngineImageResources), but no per-node deadline. Queued.	cutoff2
+3634	open	medium	priority: medium	save-io	candidate	Per-node export deadline: export is cancellable (AbortSignal threaded through exportService) and image resources have settlement timeouts, but there is no per-node render deadline, so a pathological effect at a very large output runs until cancelled. Implementing a deadline needs a measured case; kept as a candidate rather than guessed.	cutoff2
 3638	open	medium	enhancement,priority: medium	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3640	open	medium	priority: medium,shared	build-release	cluster-assessed	Their packaging and release tooling; Varve's pipeline has its own gates.	cutoff2
 3644	open	critical	priority: critical	pdf-structure	implemented-validated	Remove-hidden deletes a 7 Tr clip title: no such surface; clip-mode text is not imported.	cutoff2

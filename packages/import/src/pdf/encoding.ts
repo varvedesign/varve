@@ -36,6 +36,11 @@ export interface PdfFont {
   readonly decodable: boolean;
   /** Glyph advance in 1/1000 em, or null when the font publishes no widths. */
   widthOf(code: number): number | null;
+  /**
+   * Vertical advance magnitude in 1/1000 em (`/W2`, falling back to `/DW2`,
+   * then to one em). Null for fonts that are not set vertically.
+   */
+  verticalAdvanceOf(code: number): number | null;
   /** The code that renders a space, for word-gap detection. */
   readonly spaceCode: number;
   /** Resolve one character code to text; '' means this code is unmapped. */
@@ -166,6 +171,11 @@ export function buildFont(
   const vertical = readVerticalWriting(index, fontObject, report);
   const toUnicode = loadToUnicode(index, fontObject, report);
   const widthOf = loadWidths(index, fontObject, twoByteCodes);
+  const verticalAdvances = vertical ? loadVerticalAdvances(index, fontObject) : null;
+  const verticalAdvanceOf = (code: number): number | null =>
+    vertical
+      ? (verticalAdvances?.widths.get(code) ?? verticalAdvances?.defaultWidth ?? 1000)
+      : null;
 
   if (toUnicode) {
     return {
@@ -176,6 +186,7 @@ export function buildFont(
       vertical,
       decodable: true,
       widthOf,
+      verticalAdvanceOf,
       spaceCode: toUnicode.spaceCode,
       textFor: (code: number) => sanitizeMapped(toUnicode.textFor(code)),
     };
@@ -195,6 +206,7 @@ export function buildFont(
     vertical: false,
     decodable: true,
     widthOf,
+    verticalAdvanceOf,
     spaceCode: simple.spaceCode,
     textFor: (code: number) => sanitizeMapped(simple.textFor(code)),
   };
@@ -231,6 +243,67 @@ function readVerticalWriting(
   return /\/WMode\s+1\b/.test(latin1(bytes));
 }
 
+interface VerticalAdvances {
+  /** Magnitude of a code's vertical displacement, in 1/1000 em. */
+  readonly widths: Map<number, number>;
+  /** `/DW2` magnitude, or null when the font declares none. */
+  readonly defaultWidth: number | null;
+}
+
+/**
+ * Vertical metrics for a vertical composite font.
+ *
+ * `/DW2` gives the default vertical displacement (the second number is `w1y`,
+ * negative because the glyph advances down the page); `/W2` overrides it per
+ * code. The advance used here is the magnitude, since the interpreter already
+ * knows the direction from the writing mode.
+ *
+ * A font that publishes neither keeps one em, which is what the importer did
+ * before this existed. The difference matters: a 1.5 em advance places every
+ * following glyph one half-em lower than the source does.
+ */
+function loadVerticalAdvances(index: PdfIndex, fontObject: PdfObject): VerticalAdvances | null {
+  const reference = /\/DescendantFonts\s*\[\s*(\d+)\s+\d+\s+R/.exec(fontObject.header);
+  const descendant = reference ? index.objects.get(Number(reference[1])) : null;
+  if (!descendant) return null;
+  const widths = new Map<number, number>();
+  const w2 = dictArrayBody(descendant.header, 'W2');
+  if (w2 !== null) {
+    const tokens = w2.match(/\[[^\]]*\]|[-+]?\d*\.?\d+/g) ?? [];
+    let i = 0;
+    while (i < tokens.length) {
+      const first = Number(tokens[i]);
+      if (!Number.isFinite(first)) break;
+      const next = tokens[i + 1];
+      if (next === undefined) break;
+      if (next.startsWith('[')) {
+        // `c [w1y v1x v1y]` — one code.
+        const values = parseNumberList(next);
+        if (values.length >= 1) widths.set(first, Math.abs(values[0]!));
+        i += 2;
+        continue;
+      }
+      const second = Number(next);
+      const array = tokens[i + 2];
+      if (!Number.isFinite(second) || array === undefined || !array.startsWith('[')) {
+        i += 1;
+        continue;
+      }
+      // `c_first c_last [w1y v1x v1y w2y v2x v2y]` — the endpoints are stated;
+      // codes between them interpolate, which this importer does not model.
+      const values = parseNumberList(array);
+      if (values.length >= 1) widths.set(first, Math.abs(values[0]!));
+      if (values.length >= 4) widths.set(second, Math.abs(values[3]!));
+      i += 3;
+    }
+  }
+  const dw2 = dictArrayBody(descendant.header, 'DW2');
+  const dw2Values = dw2 === null ? [] : parseNumberList(dw2);
+  const defaultWidth = dw2Values.length >= 2 ? Math.abs(dw2Values[1]!) : null;
+  if (widths.size === 0 && defaultWidth === null) return null;
+  return { widths, defaultWidth };
+}
+
 function nonDecodableFont(
   resourceName: string,
   subtype: string | null,
@@ -244,6 +317,7 @@ function nonDecodableFont(
     vertical: false,
     decodable: false,
     widthOf: () => null,
+    verticalAdvanceOf: () => null,
     spaceCode: 32,
     textFor: () => '',
   };

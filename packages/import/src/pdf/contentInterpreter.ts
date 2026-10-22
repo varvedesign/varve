@@ -579,13 +579,14 @@ export class ContentInterpreter {
       if (width === null) estimated = true;
       if (mapped.length === 0) unmapped += 1;
       else out += mapped;
-      // A vertical run advances by the vertical displacement (`/W2` in the
-      // CIDFont, one em by default). The importer does not read `/W2`, so the
-      // advance is one em and the run is marked estimated.
+      // A vertical run advances by the font's vertical displacement (`/W2`,
+      // falling back to `/DW2`, then to one em). Falling back to the default
+      // is an estimate and is marked as one.
+      const verticalWidth = vertical ? (text.font?.verticalAdvanceOf(code) ?? null) : null;
+      if (vertical && verticalWidth === null) estimated = true;
       const advance = vertical
-        ? text.fontSize + text.charSpacing
+        ? ((verticalWidth ?? 1000) / 1000) * text.fontSize + text.charSpacing
         : ((width ?? FALLBACK_WIDTH) / 1000) * text.fontSize + text.charSpacing;
-      if (vertical) estimated = true;
       if (text.font && code === text.font.spaceCode) {
         this.advanceInTextSpace((advance + text.wordSpacing) * text.horizScale);
         continue;
