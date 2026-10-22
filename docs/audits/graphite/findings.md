@@ -156,7 +156,7 @@ and asserts the preset is selected without creating a document.
 
 ---
 
-## F3 — Repeated nudges cost one undo each (superseded by design; no work)
+## F3 — Repeated nudges cost one undo each (decided: keep per-press entries)
 
 **External evidence.** Graphite #2617 ("Nudges in the same direction should be
 combined in history", open, Architecture / Paper Cut): five Shift+Right taps and
@@ -165,33 +165,44 @@ change or any other edit starts a new point. A maintainer replies that the
 cloned-document history must be refactored first, because merging steps is not
 expressible in it.
 
-**What Varve does today.** A *held* arrow key is already one entry: the nudge
-controller opens one transaction while any direction is held and commits when
-all are released. Each discrete tap is its own transaction, so N taps produce N
-entries — the same shape of behaviour Graphite reports.
+**What Varve does today.** A *held* arrow key is one entry: the nudge controller
+opens one transaction while a direction is held and commits when it is released.
+Each discrete tap is its own entry, so N taps produce N entries.
 
-**Superseded while this branch was open.** Another change landed on `master`
-that addresses the wider undo-granularity class and, in doing so, records the
-maintainer's decision on the remaining case:
-`packages/editor/src/context/useGestureTransaction.ts` now gives sliders,
-colour pickers and keyboard stepping one undo entry per *gesture*, and its
-contract states: "Deliberately not time-based: a merge window would also fuse
-two separate, intentional edits made in quick succession. Gesture boundaries are
-what the user perceives as one action."
+**Decision: do not merge taps.** Per-press entries are the final behaviour. The
+reasons are specific to Varve, not a preference:
 
-That is a deliberate rejection of exactly the mechanism this finding proposed
-(a short idle window that merges consecutive same-direction nudges). The
-earlier version of this entry recorded it as `blocked` on a missing
-append-only-history amend capability; that is now only half the picture, and
-the more important half is that the repository has chosen gesture-scoped
-transactions instead.
+1. **The undo unit is a gesture.** `context/useGestureTransaction.ts` gives
+   sliders, colour pickers and keyboard stepping one entry per gesture and
+   states the rule explicitly: "Deliberately not time-based: a merge window
+   would also fuse two separate, intentional edits made in quick succession.
+   Gesture boundaries are what the user perceives as one action." A key press is
+   a complete gesture; merging a run of them needs a boundary that is not time.
+2. **The remaining boundary option fights the controller's contract.**
+   `planNudgeRepeat` validates each repeat against the positions the session
+   *expects next*, and the controller clears its session on key release. Keeping
+   a burst open therefore means either reworking that expected-position model or
+   leaving a transaction open across unrelated actions.
+3. **A half-working burst merge is worse than none.** Three implementations were
+   attempted in this work and each failed at a different boundary — the session
+   cleared on key-up, the next repeat declined because the expected position no
+   longer matched, and a burst split silently into two entries. Every variant
+   either lost a press or split a burst, and a user who cannot predict which
+   edits share an undo can lose an intended state. It was reverted rather than
+   shipped.
 
-**Status.** Not a defect by the current design. No work is scheduled. If
-tap-burst merging is ever wanted, it needs a non-time-based identity (for
-example "consecutive same-direction nudges with no intervening edit") and a
-deliberate reversal of the documented contract above — a design decision for
-the maintainer, not a mechanical fix. Recorded so the same idea is not
-re-proposed as an oversight.
+**What serves the underlying need instead.** The need behind #2617 is coarse
+movement without a stack of undos. Varve already answers it: holding the key is
+one gesture and one undo entry; Shift+Arrow moves by the large step (and the
+step is configurable in Settings); and the Inspector's X/Y fields take an exact
+value in one edit. The documentation now names those routes rather than implying
+that repeated taps should be free.
+
+**Prerequisite if this is ever revisited** — a scoped design task, not a fix:
+a nudge-session model that survives key release with per-repeat expectations, a
+transaction-boundary rule that closes on the next command while still
+finalizing the deferred commit and the persistent-history capture exactly once,
+and a deliberate change to the documented gesture contract above.
 
 ## F4 — Confirmed existing protections (no change needed)
 
@@ -355,17 +366,13 @@ never runs. `tests/e2e/canvas/object-marquee-selection.spec.ts` already calls
 (no error, no effect), which cost several runs here, so it is recorded rather
 than rediscovered.
 
-**Not done, and why (candidate from the same PR set).** GraphiteEditor/
-Graphite#4499 puts an `image/svg+xml` flavour on the clipboard when copying a
-selection, so other applications receive vectors instead of only text. Varve
-writes `application/vnd.varve+json` and `text/plain` on copy, and has a separate
-"Copy as SVG" command that already builds the right payload
-(`exportNodeToSvg` per node with `background: 'transparent'`, plus
-`unionSvgBounds`) — so the work is to reuse that builder inside the copy path
-rather than to invent one. It is recorded here as the next candidate, not
-implemented in this batch.
+**Related, now implemented.** The same PR set carried the clipboard flavour that
+lets other applications paste a Varve selection as vectors; that work is
+recorded as F9 below.
 
+---
 
+## F5 — Observations that are not (yet) Varve work
 
 - `InteractionContext.axisLock` was dead code until F1 gave it a consumer.
   Any future modifier feature should check whether an existing field is
@@ -380,3 +387,59 @@ implemented in this batch.
   (Graphene), GPU node buffers, web-only stack and Graphite-internal tooling.
   Those areas have no Varve counterpart; per-issue reasons are recorded in the
   ledger instead of being summarised away here.
+
+---
+
+## F9 — Copy offered other applications nothing they could paste (implemented)
+
+**External evidence.** Graphite #2373 ("Copy/pasting vector and raster content
+between other graphics apps") and GraphiteEditor/Graphite#4499, the open pull
+request that resolves it by putting an `image/svg+xml` representation on the
+clipboard beside the internal payload. The PR's discussion also records the
+host limitations: the type is not broadly supported by Firefox and Safari, and
+desktop wrappers need their own interception.
+
+**User problem.** Copying artwork in Varve and pasting into Inkscape, Krita,
+Illustrator or Figma produced layer *names* as text. The editable
+`application/vnd.varve+json` payload means nothing to those applications, and
+`text/plain` is the only other representation written. A separate "Copy as SVG"
+command existed, but a user who pressed the normal copy shortcut had no way to
+know that.
+
+**Implementation decision.** An ordinary Copy now also writes `image/svg+xml`:
+
+- The payload comes from the existing per-root exporter the "Copy as SVG"
+  command uses (`exportNodeToSvg` with `background: 'transparent'`, world
+  transform baked into each root, multiple roots grouped under a union
+  `viewBox`). Exporting a synthetic document instead emits the white page
+  backdrop and loses per-node identity, which is why that approach was
+  abandoned during implementation rather than shipped.
+- The flavour is optional at the writer: `writeClipboardOutcome` takes the
+  source document as a trailing argument, so callers without scene context
+  (tests, guides) keep the previous behaviour exactly.
+- It is bounded (`CLIPBOARD_SVG_MAX_NODES`, `CLIPBOARD_SVG_MAX_BYTES`) and
+  best-effort: any exporter failure, oversized selection or missing mask source
+  drops the flavour and never the editable payload. The browser path keeps its
+  unprefixed retry, so a host that rejects a type still gets an editable copy.
+- In-app paste is unchanged: readers already prefer the Varve payload, so the
+  extra representation cannot reduce fidelity.
+
+**Acceptance criteria.**
+1. Copy writes `image/svg+xml` alongside the editable payload when a source
+   document is available.
+2. The SVG contains the selected artwork only, uses world-space bounds, and
+   carries no page backdrop.
+3. Without a document the flavour is absent and behaviour is unchanged.
+4. The browser `ClipboardItem` carries the same type.
+5. An oversized selection drops only the flavour.
+
+**Evidence.** `packages/editor/src/clipboardSvg.ts` (6 unit cases),
+`packages/editor/src/clipboard.test.ts` (43 cases, including the native and
+browser write paths), `tests/e2e/canvas/clipboard-svg-flavour.spec.ts` (copies a
+rectangle in Chromium and reads the SVG back from the real clipboard; verified
+to fail before the change).
+
+**Website.** `apps/website/src/pages/features/clipboard.astro` described the
+separate command as the interoperability route; it now states that an ordinary
+Copy carries the SVG representation, with the size ceiling and the host's
+permission/MIME dependence disclosed.

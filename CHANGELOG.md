@@ -15,6 +15,15 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Copy now pastes as vectors in other design apps** — An ordinary Copy also
+  puts a transparent SVG representation on the clipboard, so Inkscape, Krita,
+  Illustrator, or Figma receive the selection as artwork instead of layer
+  names. In-app paste still uses the editable Varve payload, so nothing loses
+  fidelity; very large selections keep the editable payload only, and the
+  receiving application still needs to accept `image/svg+xml`.
+
+### Added
+
 - **Text frame background and border** — Give text its own optional backing fill
   and border without changing glyph fill or outline. The border can be set to
   zero to keep the background with no visible line. The style is saved with
