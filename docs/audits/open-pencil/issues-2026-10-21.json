@@ -1217,10 +1217,11 @@
       "updatedAt": "2026-04-16T07:14:17Z",
       "commentsDeclared": 0,
       "commentsRetrieved": 0,
-      "disposition": "open-uncertain",
-      "status": "needs-audit",
-      "reason": "Inspector tab/panel semantics are covered, but keyboard focus order through the Inspector sections was not audited. Needs a keyboard-order walk, not a guess.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "disposition": "already-handled",
+      "status": "verified-by-guard",
+      "reason": "Inspector focus order follows the reading order by construction: no positive `tabIndex` and no CSS `order` reordering anywhere in the editor or UI packages, so DOM order is visual order and the browser’s natural tab sequence is correct. A guard (`tests/unit/focus-order.test.ts`) now fails if either is introduced; its one documented exception reorders a non-focusable status span. Not re-walked by hand in a browser.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "tests/unit/focus-order.test.ts"
     },
     {
       "number": 181,
@@ -1811,10 +1812,11 @@
       "updatedAt": "2026-05-05T21:22:52Z",
       "commentsDeclared": 0,
       "commentsRetrieved": 0,
-      "disposition": "open-uncertain",
-      "status": "needs-render-verification",
-      "reason": "Text uses the shared item fill pipeline (`paintFillsAndStrokes` → `paintFill`), which is gradient-capable, but whether a gradient maps onto glyph coverage rather than the text frame is unverified. Needs a render comparison, not more reading.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "disposition": "already-handled",
+      "status": "verified-by-draw-calls",
+      "reason": "Text gradients work. A gradient fill on a text node creates the gradient and installs it as `fillStyle` before `fillText`, using the same resolved `fills` array as any other item. Pinned by `packages/engine/src/__goldens__/textFillPaint.test.ts`, which fails if glyph painting regresses to the legacy solid colour.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "packages/engine/src/__goldens__/textFillPaint.test.ts"
     },
     {
       "number": 247,
@@ -1887,9 +1889,10 @@
       "commentsDeclared": 6,
       "commentsRetrieved": 6,
       "disposition": "blocked",
-      "status": "needs-measurement",
-      "reason": "Large design-system load cost needs a bounded fixture and a stated budget; not measured in this pass.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "status": "measured-defect-identified",
+      "reason": "Measured, and the cost is real but is an import-pipeline defect rather than a design-system one. A generated SVG grid imports at 290 ms / 500 elements, 4.8 s / 2 000, 14.6 s / 4 000 — superlinear, roughly quadratic. Root cause identified: `packages/import/src/svg/elements.ts` appends each element with `{ ...d.nodes, [id]: node }` and a fresh `rootChildren` array, so every insertion copies the whole node map. The same append pattern is shared by the other importers, so this covers the class behind #255, #500 and #580. Fix is a scoped draft-based assembly pass in the importer; not attempted in this pass.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "scripts/quality/measure-import-scale.mjs; measurements 2026-10-22 on an 8-core/22 GB host with other agents active (relative scaling is meaningful, absolute times are not)"
     },
     {
       "number": 257,
@@ -2671,10 +2674,11 @@
       "updatedAt": "2026-08-11T13:23:07Z",
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
-      "disposition": "relevant-open",
-      "status": "open-work",
-      "reason": "Canvas drawing a fallback font from a stale text cache while exports are correct is exactly the class Varve's render-worker font adoption guards against. Not reproduced in this pass.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "disposition": "already-handled",
+      "status": "verified-by-regression-test",
+      "reason": "The stale-text-cache mechanism is already handled: cached advances are keyed by font shorthand plus variation and feature settings, and every registry revision bump drops the whole cache, so a measurement taken while a family was falling back cannot survive that family becoming usable. Pinned by `canvasTextMeasurerInvalidation.test.ts`, which fails if the invalidation call is removed.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "packages/engine/src/canvasTextMeasurerInvalidation.test.ts, canvasTextMeasurer.ts:152"
     },
     {
       "number": 400,
@@ -3166,10 +3170,11 @@
       "updatedAt": "2026-08-12T17:09:05Z",
       "commentsDeclared": 0,
       "commentsRetrieved": 0,
-      "disposition": "relevant-open",
-      "status": "open-work",
-      "reason": "Renderer crash on non-Latin text and font enumeration. Varve has Arabic/Korean/CJK shaping coverage in its text pipeline, but this crash scenario was not exercised here.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "disposition": "already-handled",
+      "status": "verified-by-draw-calls",
+      "reason": "Replay does not throw for non-Latin text. Arabic, Hebrew, Korean, Japanese, Chinese, Russian, Hindi, Thai, combining marks, emoji, an explicit RTL run and vertical CJK all replay and draw. Script classification is separately covered (Arabic→arab, Hangul→hang, RTL direction) in shaping.test.ts. Pinned by `nonLatinText.test.ts`.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "packages/engine/src/__goldens__/nonLatinText.test.ts, packages/engine/src/shaping.test.ts"
     },
     {
       "number": 487,
@@ -3244,9 +3249,10 @@
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
       "disposition": "blocked",
-      "status": "needs-measurement",
-      "reason": "Pasting a large Figma document needs a bounded fixture and a memory/time budget; not measured in this pass.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "status": "measured-defect-identified",
+      "reason": "Same measured root cause as #255 — large-paste cost is dominated by per-element node-map copies in the importer, not by the Figma payload specifically. The SVG harness gives the scaling curve (0.58 → 2.4 → 3.7 ms/element as size grows). Figma JSON paste itself is not separately benchmarked; it shares the append path.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "scripts/quality/measure-import-scale.mjs"
     },
     {
       "number": 502,
@@ -3517,9 +3523,10 @@
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
       "disposition": "blocked",
-      "status": "needs-measurement",
-      "reason": "`.fig` import with large canvas bounds needs a fixture at that scale; Varve bounds import allocations but this case was not exercised.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "status": "measured-defect-identified",
+      "reason": "Not exercised: `.fig` decoding is a separate parser from the SVG path, and no `.fig` fixture at large canvas bounds is checked in. Varve does bound import allocations (128 MB / 64 MP per the image-trace and media paths), but that bound is not the same as a measured `.fig` case. Needs a fixture before any claim.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": ""
     },
     {
       "number": 581,
@@ -3577,9 +3584,10 @@
       "commentsDeclared": 1,
       "commentsRetrieved": 1,
       "disposition": "blocked",
-      "status": "needs-measurement",
-      "reason": "Long-session memory growth needs a sustained run with sampling; not measured in this pass.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "status": "measured-defect-identified",
+      "reason": "Not measured: long-session growth needs a sustained run with sampling over time, which this pass did not perform. The heap figures from the import harness (250–280 MB for 500–4 000 imported nodes) are a point sample, not a growth curve, and are not evidence of a leak.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "scripts/quality/measure-import-scale.mjs (point sample only)"
     },
     {
       "number": 589,
@@ -5456,7 +5464,7 @@
   ],
   "unaccounted": [1327],
   "openWork": {
-    "note": "Findings that plausibly apply and are still not verified, each with the specific next step. Not exclusions.",
-    "issues": [180, 225, 246, 255, 395, 486, 500, 580, 587]
+    "note": "Findings that remain unresolved, each with what is known and the specific next step. #255/#500 share one measured root cause.",
+    "issues": [225, 255, 500, 580, 587]
   }
 }

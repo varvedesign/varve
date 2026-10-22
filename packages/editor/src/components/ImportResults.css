@@ -55,6 +55,7 @@
 }
 .import-results__file {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
@@ -89,12 +90,16 @@
   color: var(--color-feedback-warning);
 }
 .import-results__file-capabilities {
+  /* Full-width detail rows: the file row must wrap them onto their own line
+   * instead of shrinking all three into unreadable side-by-side columns. */
+  flex-basis: 100%;
   width: 100%;
   padding-left: var(--space-4);
   font-size: var(--font-size-xs);
   color: var(--color-text-subtle);
 }
 .import-results__file-warning-list {
+  flex-basis: 100%;
   width: 100%;
   list-style: none;
   margin: var(--space-1) 0 0;
@@ -104,4 +109,12 @@
 }
 .import-results__file-warning-list li[data-severity="error"] {
   color: var(--color-feedback-danger);
+}
+.import-results__file-notes {
+  flex-basis: 100%;
+  width: 100%;
+  margin: var(--space-1) 0 0;
+  padding: 0 0 0 var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
 }

@@ -12,6 +12,13 @@ test('file formats documentation explains local file actions', async ({ page }) 
   await expect(
     page.getByText(/Inkscape live path effects keep their visible SVG path geometry/i),
   ).toBeVisible();
+  // The PDF section names the vertical-writing contract the importer now meets.
+  await expect(
+    page.getByText(/imported as vertical columns with the writing mode set/i),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Import Results also lists what the parser did rather than what it lost/i),
+  ).toBeVisible();
   await page.screenshot({
     path: test.info().outputPath('file-formats-local-actions.png'),
     fullPage: true,

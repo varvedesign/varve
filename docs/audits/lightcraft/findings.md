@@ -124,6 +124,36 @@ source is reported. (c) Repeated loads do not replace an identical quarantine.
 surface, and inventing one is a design decision larger than this batch. The
 class stays in §4 for that half.
 
+## 3b. Home thumbnails ignored display density — implemented
+
+**Evidence.** storytold/lightcraft#1918 (*"After edit, Library thumbnail is
+blurry"*) and #709 (smart previews visibly different from the original). The
+transferable mechanism is a preview generated below the sampling of the surface
+that displays it.
+
+**Varve path.** `THUMBNAIL_VARIANTS` modelled `devicePixelRatio: 1 | 2` and the
+engine multiplies its output by it (`engine/src/thumbnail/service.ts`), but
+**every** registered variant was `1`. Home cards render wider than the 256 px
+`home-card` profile, so a 2x display upscaled an already-undersized bitmap.
+
+**Decision.** `thumbnailVariantForDevice(role, ratio)` in the shared contracts
+returns the 2x profile above 1.5. `useThumbnailLoader` requests the 2x identity
+first and the 1x identity second, so a thumbnail written by an older build (or a
+1x session) still displays instead of leaving the card empty. The editor's save
+path (`thumbnailManager`) persists covers at the display density, so a newly
+saved document is sharp on the machine that saved it.
+
+**Acceptance criteria.** (a) The selector keeps dimensions/background/fit and
+changes only density. (b) 1x and 2x identities differ, so a 1x bitmap is never
+served as 2x. (c) At 1x there is exactly one identity candidate; at 2x the 2x
+identity is first and the 1x identity second. Covered by
+`packages/shared/src/thumbnail/contracts.test.ts` and
+`packages/home/src/useThumbnailLoader.test.ts`.
+
+**Not run.** No HiDPI visual capture: the Home surface has no seeded project
+fixture in this environment, so the 2x path is covered by identity/generation
+tests rather than a screenshot.
+
 ## 4. Screened, not claimed
 
 These reach a Varve subsystem but need a reproduction before a defect can be
@@ -135,8 +165,9 @@ claimed. They stay on the queue; they are not reported as fixed.
 | Deterministic export bytes | #180, #1373 | Varve injects `pHYs` into PNG without a timestamp; PDF metadata dates were not audited. Needs a byte-diff of two exports. |
 | Mask overlay obscures the adjustment being made | #519, #1800, #1712, #1214 | Varve has a show-all-masks overlay; whether it hides while a slider is dragged was not verified. |
 | Settings reset silently when the stored blob is unreadable | #103 | Preservation is implemented (§3a); a user-visible recovery notice is still missing, so the class is not closed. |
-| Export overwrites an existing file without a decision | #93, #1405, #1944 | Varve's destination adapters were not audited for collision handling. Data-integrity concern; needs a test against the real write path. |
+| Export overwrites an existing file without a decision | #93, #1405, #1944 | **Resolved as a documented limitation, not a defect.** Varve tracks no originals, the destination is an explicit user choice (`DestinationPicker`), browser batches are auto-suffixed by the browser, and desktop batch writes replace same-named files in that folder. The lightcraft failure — an exporter replacing a *catalogued original* — cannot occur. |
 | GPU path renders wrong pixels after device loss | #78, #230, #1948, #1764 | Varve's WebGPU/WebGL2 paths fall back to Canvas2D, but no evidence was gathered for device-loss recovery. Needs a forced-loss run. |
+| HiDPI thumbnails are softer than the card they fill | #1918, #709 | **Implemented** (§3b). The 1x-only home-card profile was the Varve instance; it is now density-aware with a 1x cache fallback. |
 
 ## 5. Evidence limitations
 
@@ -225,3 +256,17 @@ What was adopted from the pass:
   (a file-dialog extension filter, not a decoder defect), #1093 (collapse, not
   close), #465 (verified working in a later comment), #2166 (a migration gap
   for old documents, not a live colour bug).
+
+
+## 10. Remaining queue (concrete next operations)
+
+Ordered by the brief's priority, each with the first check that would turn it
+into a finding:
+
+1. ~~HiDPI thumbnail variant (#1918/#709)~~ — implemented (§3b).
+2. **Deterministic export bytes** (#180) — export the same document twice and diff the bytes; then inspect `crates/varve-print` / `export/xmpInjection.ts` for a wall-clock date. Acceptance: equal bytes, or a documented, intentional timestamp.
+3. **Preview/export pixel parity** (#605/#787/#960) — capture the canvas at a fixed camera, export at the same scale, and compare; this is the only way to promote the screened class.
+4. **Export collision decision** (#93/#1405) — if a replacement decision is wanted later, add a destination preflight that reports existing names. Do not add a filesystem-existence probe that treats a failed call as "missing" (`checkFilesExist` currently swallows errors).
+5. **GPU device-loss recovery** (#78/#230/#1948) — force context loss (`WEBGL_lose_context`) and verify the next frame comes from the CPU replay.
+6. **Settings recovery notice** (§3a) — surface `readQuarantinedSettings()` through an existing status/banner surface.
+7. The 28 uncertain ids in §6.

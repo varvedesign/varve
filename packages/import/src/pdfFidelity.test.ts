@@ -146,10 +146,9 @@ function textNodesOf(result: ReturnType<ReturnType<typeof createPdfParser>['pars
  * three glyphs out as one horizontal line, `Identity-V` (or a CMap with
  * `/WMode 1`) puts them in a column.
  */
-function cjkFontObjects(encoding: string, descendantExtra = ''): string[] {
-  const extra = descendantExtra ? ` ${descendantExtra}` : '';
+function cjkFontObjects(encoding: string, verticalMetrics = ''): string[] {
   return [
-    `7 0 obj\n<< /Type /Font /Subtype /CIDFontType2 /BaseFont /Noto /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >>${extra} >>\nendobj`,
+    `7 0 obj\n<< /Type /Font /Subtype /CIDFontType2 /BaseFont /Noto /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >>${verticalMetrics ? ` ${verticalMetrics}` : ''} >>\nendobj`,
     cMapObject(8, [
       '/CIDInit /ProcSet findresource begin',
       '12 dict begin',
@@ -232,78 +231,63 @@ describe('PDF import — vertical writing', () => {
     expect(node).toHaveProperty('text', 'ABC');
   });
 
-  it('uses /DW2 for the vertical advance instead of assuming one em', () => {
-    // /DW2 [880 -1500]: each glyph advances 1.5 em down the page. At 12pt the
-    // second run starts 18pt (24 px at the fixed 96dpi unit) below the first.
-    const result = parser.parse(
-      buildPdf([
-        {
-          content: 'BT /F1 12 Tf 300 700 Td <0003> Tj <0004> Tj ET',
-          fontObject: type0Font('Identity-V'),
-          extraObjects: cjkFontObjects('Identity-V', '/DW2 [880 -1500]'),
-        },
-      ]),
-    );
-    const nodes = textNodesOf(result);
-    expect(nodes).toHaveLength(2);
-    const [, , , , , firstY] = nodes[0]!.transform;
-    const [, , , , , secondY] = nodes[1]!.transform;
-    expect(secondY - firstY).toBeCloseTo(24, 0);
-  });
-
-  it('lets /W2 override one code without changing the others', () => {
-    // Code 3 advances 2 em; code 4 falls back to /DW2's 1.25 em.
+  it('merges one-glyph Tj placement into one editable column', () => {
+    // Producers that position upright glyphs one at a time emit one `Tj` per
+    // character. Reading that as one node per character makes a column look
+    // like a row of objects; it is one column.
     const result = parser.parse(
       buildPdf([
         {
           content: 'BT /F1 12 Tf 300 700 Td <0003> Tj <0004> Tj <0005> Tj ET',
           fontObject: type0Font('Identity-V'),
-          extraObjects: cjkFontObjects('Identity-V', '/DW2 [880 -1250] /W2 [3 [-2000 250 880]]'),
-        },
-      ]),
-    );
-    const nodes = textNodesOf(result);
-    expect(nodes).toHaveLength(3);
-    const [, , , , , a] = nodes[0]!.transform;
-    const [, , , , , b] = nodes[1]!.transform;
-    const [, , , , , c] = nodes[2]!.transform;
-    expect(b - a).toBeCloseTo(32, 0); // 2 em at 12pt → 32 px
-    expect(c - b).toBeCloseTo(20, 0); // 1.25 em at 12pt → 20 px
-  });
-
-  it('marks a font with no vertical metrics as an estimate', () => {
-    const result = parser.parse(
-      buildPdf([
-        {
-          content: 'BT /F1 12 Tf 300 700 Td <0003> Tj <0004> Tj ET',
-          fontObject: type0Font('Identity-V'),
-          extraObjects: cjkFontObjects('Identity-V'),
-        },
-      ]),
-    );
-    const [, , , , , firstY] = textNodesOf(result)[0]!.transform;
-    const [, , , , , secondY] = textNodesOf(result)[1]!.transform;
-    expect(secondY - firstY).toBeCloseTo(16, 0); // one em at 12pt → 16 px
-    expect((result.capabilities?.notes ?? []).join(' ')).toMatch(/one em|vertical metrics/i);
-  });
-
-  it('advances a vertical run down the page between Tj operators', () => {
-    // Two columns: the first glyph is placed, then the text matrix moves and a
-    // second glyph follows. With horizontal advance the two would share a
-    // baseline; the assertion is on the run count and text, not on an inferred
-    // line box, because Varve lays out the column itself.
-    const result = parser.parse(
-      buildPdf([
-        {
-          content: 'BT /F1 12 Tf 300 700 Td <0003> Tj <0004> Tj ET',
-          fontObject: type0Font('Identity-V'),
           extraObjects: cjkFontObjects('Identity-V'),
         },
       ]),
     );
     const nodes = textNodesOf(result);
-    expect(nodes.map((node) => (node.kind === 'text' ? node.text : ''))).toEqual(['A', 'B']);
-    for (const node of nodes) expect(node).toHaveProperty('writingMode', 'vertical-rl');
+    expect(nodes.map((node) => (node.kind === 'text' ? node.text : ''))).toEqual(['ABC']);
+    expect(nodes[0]).toHaveProperty('writingMode', 'vertical-rl');
+    expect(result.capabilities?.notes.join(' ')).toMatch(
+      /3 vertical text run\(s\) were imported as 1 vertical column/,
+    );
+  });
+
+  it('keeps a neighbouring column separate when the next run starts a new column', () => {
+    const result = parser.parse(
+      buildPdf([
+        {
+          // Two glyphs down the first column, then a new column 40pt to the right.
+          content: 'BT /F1 12 Tf 300 700 Td <0003> Tj <0004> Tj 40 0 Td <0005> Tj ET',
+          fontObject: type0Font('Identity-V'),
+          extraObjects: cjkFontObjects('Identity-V'),
+        },
+      ]),
+    );
+    const texts = textNodesOf(result)
+      .filter((node) => node.kind === 'text')
+      .map((node) => (node.kind === 'text' ? node.text : ''));
+    expect(texts).toEqual(['AB', 'C']);
+  });
+
+  it('uses the font /W2 advance to place the next glyph', () => {
+    // The page puts the second glyph exactly half an em below the first. With
+    // the published /W2 advance (500) that is the continuation of the column;
+    // assuming the one-em default would leave a gap and keep them separate.
+    const fixture = (verticalMetrics: string) =>
+      parser.parse(
+        buildPdf([
+          {
+            content: 'BT /F1 12 Tf 300 700 Td <0003> Tj ET\nBT /F1 12 Tf 300 694 Td <0004> Tj ET',
+            fontObject: type0Font('Identity-V'),
+            extraObjects: cjkFontObjects('Identity-V', verticalMetrics),
+          },
+        ]),
+      );
+    const texts = (result: ReturnType<typeof fixture>) =>
+      textNodesOf(result).map((node) => (node.kind === 'text' ? node.text : ''));
+
+    expect(texts(fixture('/W2 [3 [500 250 880]]'))).toEqual(['AB']);
+    expect(texts(fixture(''))).toEqual(['A', 'B']);
   });
 });
 

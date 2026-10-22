@@ -32,15 +32,15 @@ export interface PdfFont {
   readonly twoByteCodes: boolean;
   /** True when the font's CMap selects vertical writing (`/WMode 1`). */
   readonly vertical: boolean;
+  /**
+   * Downward vertical advance in 1/1000 em, always positive. Uses `/W2` when
+   * the descendant CIDFont publishes it, otherwise the `/DW2` default.
+   */
+  verticalAdvanceOf(code: number): number;
   /** False when the font publishes no usable encoding; textFor returns ''. */
   readonly decodable: boolean;
   /** Glyph advance in 1/1000 em, or null when the font publishes no widths. */
   widthOf(code: number): number | null;
-  /**
-   * Vertical advance magnitude in 1/1000 em (`/W2`, falling back to `/DW2`,
-   * then to one em). Null for fonts that are not set vertically.
-   */
-  verticalAdvanceOf(code: number): number | null;
   /** The code that renders a space, for word-gap detection. */
   readonly spaceCode: number;
   /** Resolve one character code to text; '' means this code is unmapped. */
@@ -171,11 +171,9 @@ export function buildFont(
   const vertical = readVerticalWriting(index, fontObject, report);
   const toUnicode = loadToUnicode(index, fontObject, report);
   const widthOf = loadWidths(index, fontObject, twoByteCodes);
-  const verticalAdvances = vertical ? loadVerticalAdvances(index, fontObject) : null;
-  const verticalAdvanceOf = (code: number): number | null =>
-    vertical
-      ? (verticalAdvances?.widths.get(code) ?? verticalAdvances?.defaultWidth ?? 1000)
-      : null;
+  const verticalAdvanceOf = vertical
+    ? loadCidVerticalAdvances(index, fontObject)
+    : () => DEFAULT_VERTICAL_ADVANCE;
 
   if (toUnicode) {
     return {
@@ -184,9 +182,9 @@ export function buildFont(
       baseFont,
       twoByteCodes,
       vertical,
+      verticalAdvanceOf,
       decodable: true,
       widthOf,
-      verticalAdvanceOf,
       spaceCode: toUnicode.spaceCode,
       textFor: (code: number) => sanitizeMapped(toUnicode.textFor(code)),
     };
@@ -204,9 +202,9 @@ export function buildFont(
     baseFont,
     twoByteCodes: false,
     vertical: false,
+    verticalAdvanceOf: () => DEFAULT_VERTICAL_ADVANCE,
     decodable: true,
     widthOf,
-    verticalAdvanceOf,
     spaceCode: simple.spaceCode,
     textFor: (code: number) => sanitizeMapped(simple.textFor(code)),
   };
@@ -243,67 +241,6 @@ function readVerticalWriting(
   return /\/WMode\s+1\b/.test(latin1(bytes));
 }
 
-interface VerticalAdvances {
-  /** Magnitude of a code's vertical displacement, in 1/1000 em. */
-  readonly widths: Map<number, number>;
-  /** `/DW2` magnitude, or null when the font declares none. */
-  readonly defaultWidth: number | null;
-}
-
-/**
- * Vertical metrics for a vertical composite font.
- *
- * `/DW2` gives the default vertical displacement (the second number is `w1y`,
- * negative because the glyph advances down the page); `/W2` overrides it per
- * code. The advance used here is the magnitude, since the interpreter already
- * knows the direction from the writing mode.
- *
- * A font that publishes neither keeps one em, which is what the importer did
- * before this existed. The difference matters: a 1.5 em advance places every
- * following glyph one half-em lower than the source does.
- */
-function loadVerticalAdvances(index: PdfIndex, fontObject: PdfObject): VerticalAdvances | null {
-  const reference = /\/DescendantFonts\s*\[\s*(\d+)\s+\d+\s+R/.exec(fontObject.header);
-  const descendant = reference ? index.objects.get(Number(reference[1])) : null;
-  if (!descendant) return null;
-  const widths = new Map<number, number>();
-  const w2 = dictArrayBody(descendant.header, 'W2');
-  if (w2 !== null) {
-    const tokens = w2.match(/\[[^\]]*\]|[-+]?\d*\.?\d+/g) ?? [];
-    let i = 0;
-    while (i < tokens.length) {
-      const first = Number(tokens[i]);
-      if (!Number.isFinite(first)) break;
-      const next = tokens[i + 1];
-      if (next === undefined) break;
-      if (next.startsWith('[')) {
-        // `c [w1y v1x v1y]` — one code.
-        const values = parseNumberList(next);
-        if (values.length >= 1) widths.set(first, Math.abs(values[0]!));
-        i += 2;
-        continue;
-      }
-      const second = Number(next);
-      const array = tokens[i + 2];
-      if (!Number.isFinite(second) || array === undefined || !array.startsWith('[')) {
-        i += 1;
-        continue;
-      }
-      // `c_first c_last [w1y v1x v1y w2y v2x v2y]` — the endpoints are stated;
-      // codes between them interpolate, which this importer does not model.
-      const values = parseNumberList(array);
-      if (values.length >= 1) widths.set(first, Math.abs(values[0]!));
-      if (values.length >= 4) widths.set(second, Math.abs(values[3]!));
-      i += 3;
-    }
-  }
-  const dw2 = dictArrayBody(descendant.header, 'DW2');
-  const dw2Values = dw2 === null ? [] : parseNumberList(dw2);
-  const defaultWidth = dw2Values.length >= 2 ? Math.abs(dw2Values[1]!) : null;
-  if (widths.size === 0 && defaultWidth === null) return null;
-  return { widths, defaultWidth };
-}
-
 function nonDecodableFont(
   resourceName: string,
   subtype: string | null,
@@ -315,9 +252,9 @@ function nonDecodableFont(
     baseFont,
     twoByteCodes: subtype === 'Type0',
     vertical: false,
+    verticalAdvanceOf: () => DEFAULT_VERTICAL_ADVANCE,
     decodable: false,
     widthOf: () => null,
-    verticalAdvanceOf: () => null,
     spaceCode: 32,
     textFor: () => '',
   };
@@ -646,4 +583,73 @@ function loadCidWidths(index: PdfIndex, fontObject: PdfObject): (code: number) =
     }
     return null;
   };
+}
+
+/**
+ * `/DW2`'s second component is the downward advance, and its default is
+ * -1000: one em per glyph. Using the published default is exact, not an
+ * approximation, so a vertical run is only "estimated" when the font says
+ * nothing about its horizontal widths either.
+ */
+const DEFAULT_VERTICAL_ADVANCE = 1000;
+/** Refuse an advance beyond ten ems: no real vertical font is that wide. */
+const MAX_VERTICAL_ADVANCE = 10_000;
+
+/**
+ * `/W2 [ c [w1y vx vy …] cFirst cLast w1y vx vy ]` on the descendant CIDFont.
+ * Only the downward advance (`w1y`) is used; the vertical displacement vector
+ * positions the glyph inside its em box, which the text layout owns.
+ */
+function loadCidVerticalAdvances(index: PdfIndex, fontObject: PdfObject): (code: number) => number {
+  const descendants = dictArrayBody(fontObject.header, 'DescendantFonts');
+  const descendant = resolveRef(index, descendants ?? undefined);
+  const dw2 = descendant ? dictArrayBody(descendant.header, 'DW2') : null;
+  const dw2Values = dw2 === null ? [] : parseNumberList(dw2);
+  const publishedDefault = dw2Values[1];
+  const fallback =
+    publishedDefault !== undefined && Number.isFinite(publishedDefault)
+      ? boundVerticalAdvance(Math.abs(publishedDefault))
+      : DEFAULT_VERTICAL_ADVANCE;
+  const body = descendant ? dictArrayBody(descendant.header, 'W2') : null;
+  if (body === null) return () => fallback;
+
+  const ranges: Array<{ from: number; to: number; advance: number }> = [];
+  const tokens = [...body.matchAll(/\[[^\]]*\]|-?\d*\.?\d+/g)].map((m) => m[0]!);
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i]!;
+    if (token.startsWith('[')) {
+      const start = Number(tokens[i - 1]);
+      const triples = parseNumberList(token);
+      for (let at = 0; at + 2 < triples.length; at += 3) {
+        if (!Number.isFinite(start)) break;
+        ranges.push({
+          from: start + at / 3,
+          to: start + at / 3,
+          advance: boundVerticalAdvance(Math.abs(triples[at]!)),
+        });
+      }
+      continue;
+    }
+    const first = Number(token);
+    const next = tokens[i + 1];
+    if (next && !next.startsWith('[')) {
+      const last = Number(next);
+      const advance = Number(tokens[i + 2]);
+      if (Number.isFinite(first) && Number.isFinite(last) && Number.isFinite(advance)) {
+        ranges.push({ from: first, to: last, advance: boundVerticalAdvance(Math.abs(advance)) });
+        i += 4;
+      }
+    }
+  }
+  return (code: number) => {
+    for (const range of ranges) {
+      if (code >= range.from && code <= range.to) return range.advance;
+    }
+    return fallback;
+  };
+}
+
+function boundVerticalAdvance(advance: number): number {
+  if (!Number.isFinite(advance) || advance <= 0) return DEFAULT_VERTICAL_ADVANCE;
+  return Math.min(advance, MAX_VERTICAL_ADVANCE);
 }
