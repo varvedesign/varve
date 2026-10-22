@@ -37,7 +37,7 @@ const {
 } = Astro.props;
 const picture = scenePicture(scene, { sizes, loading, fetchpriority });
 const dialogId = `zoom-${scene.file.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
-const dialogLabel = `${scene.caption} — full size`;
+const dialogLabel = `${scene.caption} (full size)`;
 ---
 
 <div class="screenshot-zoom">

@@ -16,13 +16,13 @@ import { initializeThemeLifecycle } from '@varve/ui/tokens';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { startDemoAnalytics } from './demo/demoAnalytics';
 import { applyDemoCapabilities } from './demo/demoCapabilities';
 import { demoMode } from './demo/demoMode';
 import { suppressFirstRunOnboarding } from './demo/demoOnboarding';
 import { installDemoServiceWorker } from './demo/demoServiceWorker';
 import { installFrameGuard } from './demo/frameGuard';
 import { installStaleAssetGuard } from './demo/staleAssetGuard';
-import { createUsageTimeTracker } from './demoUsageTime';
 import { initCspDiagnostics } from './security/cspDiagnostics';
 import { dismissBootFallback } from './startup/revealMainWindow';
 
@@ -103,9 +103,7 @@ async function bootstrap() {
     // showing then retracting them.
     applyDemoCapabilities(demo);
     suppressFirstRunOnboarding();
-    // Start privacy-first usage time tracking (requires consent, respects DNT/GPC)
-    const usageTracker = createUsageTimeTracker();
-    usageTracker.start();
+    startDemoAnalytics();
   }
 
   createRoot(root).render(

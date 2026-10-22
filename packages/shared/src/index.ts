@@ -45,6 +45,14 @@ export {
   obbToAABB,
   orientedBBox,
 } from './align';
+export {
+  pathWithCampaign,
+  safeGoatCounterDomain,
+  VARVE_GOATCOUNTER_DOMAIN,
+  WEBSITE_CAMPAIGN_REF,
+  websiteCampaignRef,
+  websiteReferrer,
+} from './analytics/campaign';
 export type { AnalyticsProvider, HttpAnalyticsProviderOptions } from './analytics/client';
 export {
   AnalyticsClient,

@@ -520,7 +520,7 @@ The following dated files were moved from `docs/architecture/` to
 | Doc | Purpose |
 |-----|---------|
 | `privacy/consent-state.md` | Consent state for telemetry/crash reporting |
-| `privacy/analytics.md` | Analytics measurement plan and transmitted-data inventory (Plausible) |
+| `privacy/analytics.md` | Analytics measurement plan and transmitted-data inventory (GoatCounter) |
 | `privacy/crash-audit.md` | Crash reporting data audit |
 | `privacy/ingestion.md` | Data ingestion inventory |
 | `privacy/redaction.md` | Redaction rules |

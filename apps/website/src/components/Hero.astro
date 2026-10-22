@@ -140,14 +140,23 @@ import { PRODUCT_STATUS } from '@varve/shared';
       <span class="hero-title-line"><AnimatedText staticText="One canvas." /></span>
     </h1>
     <p class="hero-subtitle">
-      One application for vector, layout, typography, motion, and print
-      &mdash; no account, no subscription, with a native Linux app and
+      One application for vector, layout, typography, motion, and print.
+      No account, no subscription, with a native Linux app and
       files that stay on your machine.
     </p>
     <div class="hero-ctas">
       <DownloadCTA size="large" beta />
-      <Button variant="secondary" href={sitePath('/product')}>What is Varve?</Button>
+      <Button
+        variant="secondary"
+        href={sitePath('/try/?ref=home-hero')}
+        data-analytics-demo-launch
+      >
+        Try it in your browser
+      </Button>
     </div>
+    <p class="hero-more">
+      <a href={sitePath('/product')}>What is Varve?</a>
+    </p>
     <p class="hero-platforms">
       Linux &middot; macOS &middot; Windows. Built in Rust and TypeScript. Source-available under FSL-1.1-MIT.
     </p>
@@ -543,7 +552,23 @@ import { PRODUCT_STATUS } from '@varve/shared';
     justify-content: center;
     align-items: center;
     flex-wrap: wrap;
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-4);
+  }
+
+  .hero-more {
+    margin: 0 0 var(--space-6);
+    font-size: var(--type-interface-caption-size);
+    line-height: var(--type-interface-caption-line-height);
+  }
+
+  .hero-more a {
+    color: var(--text-secondary);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  .hero-more a:hover {
+    color: var(--text-link-hover);
   }
 
   .hero-platforms {

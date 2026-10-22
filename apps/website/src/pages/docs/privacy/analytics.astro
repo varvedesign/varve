@@ -4,17 +4,18 @@ import { sitePath } from '../../../lib/siteUrl';
 ---
 
 <Layout
-  title="Analytics Disclosure — Varve Docs"
+  title="Analytics Disclosure"
   description="Varve's technical analytics disclosure: the small, consent-gated event inventory and the data Varve never collects."
 >
   <div class="container-custom">
     <article class="analytics-page">
       <h1>Analytics disclosure</h1>
       <p class="lead">
-        Website analytics records consented pageviews, referring site origins, and installer-link
-        clicks using GoatCounter. Unknown consent fails closed. No remote tracking script,
-        autocapture, session replay, analytics cookie, or visitor fingerprint is used. Unique
-        visitors are not measured; repeated page loads count again.
+        The desktop app sends no usage stats. Website and browser-demo analytics record consented
+        pageviews, referring site origins, installer-link clicks, demo launches, export formats,
+        and demo download clicks using GoatCounter. Unknown consent fails closed. No remote
+        tracking script, autocapture, session replay, analytics cookie, or visitor fingerprint is
+        used. Unique visitors are not measured; repeated page loads count again.
       </p>
 
       <h2>Website events</h2>
@@ -23,63 +24,59 @@ import { sitePath } from '../../../lib/siteUrl';
         <tbody>
           <tr><td>website_page_viewed</td><td>normalized route</td><td>Understand which documentation and product pages are useful.</td><td>emitted</td></tr>
           <tr><td>website_download_started</td><td>release, platform, architecture, package type, release channel</td><td>Count installer-link clicks by route and package; not successful downloads or installations.</td><td>sent as website_download_clicked</td></tr>
-          <tr><td>browser_demo_launched</td><td>entry source</td><td>Count browser demo launches by entry point (website link or direct visit).</td><td>sent as demo-launch-[entry]</td></tr>
-          <tr><td>browser_demo_usage_time</td><td>time bucket (lt1m, 1-5m, 5-15m, 15-30m, 30m-plus)</td><td>Understand browser demo engagement duration. Counts only active time (tab visible, not idle &gt;60s). One bucketed event per session on page unload.</td><td>sent as demo-time-[bucket]</td></tr>
+          <tr><td>browser_demo_launched</td><td>entry source</td><td>Count website clicks into the browser demo.</td><td>sent as demo-launch-website</td></tr>
           <tr><td>website_outbound_clicked</td><td>destination category</td><td>Legacy schema category.</td><td>not sent by this website provider</td></tr>
           <tr><td>website_contact_clicked</td><td>channel category</td><td>Legacy schema category.</td><td>not sent by this website provider</td></tr>
         </tbody>
       </table>
 
-      <h2>Desktop events</h2>
+      <h2>Browser demo events</h2>
       <p>
-        The website's GoatCounter account does not receive desktop product-usage events. Release
-        desktop builds can send anonymous event names to Plausible only if you turn usage
-        analytics on in Settings. Nothing is sent unless you say yes. Diagnostics telemetry
-        and crash reporting stay on separate controls.
+        The public <code>/try</code> demo uses the same GoatCounter account and the same consent
+        key as the website. It sends nothing until the visitor clicks Allow, and nothing when
+        Global Privacy Control or Do Not Track is set. The desktop app is not involved.
       </p>
       <table>
         <thead><tr><th>Event</th><th>Fields</th><th>Purpose</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td>app_launched</td><td>surface</td><td>Count consented product sessions.</td><td>Plausible after Settings consent</td></tr>
-          <tr><td>document_created</td><td>blank, template, or import source</td><td>Understand activation without seeing the document.</td><td>Plausible after Settings consent</td></tr>
-          <tr><td>feature_used</td><td>closed feature category</td><td>Prioritize features with meaningful adoption.</td><td>Plausible after Settings consent</td></tr>
-          <tr><td>export_completed / export_failed</td><td>format and coarse duration or error category</td><td>Find export reliability and performance problems.</td><td>Plausible after Settings consent</td></tr>
-          <tr><td>renderer_fallback</td><td>from, to, reason</td><td>Find platform-specific renderer fallback issues.</td><td>Plausible after Settings consent</td></tr>
-          <tr><td>browser_demo_desktop_download</td><td>release, platform, architecture, package type</td><td>Count installer-link clicks on the website demo route.</td><td>website click only; not product conversion</td></tr>
+          <tr><td>try page view</td><td>allowlisted <code>ref</code> only</td><td>Count consented demo visits by first-party campaign tag.</td><td>sent as try or try?ref=tag</td></tr>
+          <tr><td>demo-launch-direct</td><td>none</td><td>Count a consented demo load, including a mid-session Allow.</td><td>emitted</td></tr>
+          <tr><td>demo-export-png / jpeg / webp / svg</td><td>format name only</td><td>Count which export formats the demo is used for.</td><td>emitted</td></tr>
+          <tr><td>demo-download-click</td><td>none</td><td>Count clicks on the demo banner Download desktop link.</td><td>emitted</td></tr>
         </tbody>
       </table>
+
+      <h2>Desktop events</h2>
+      <p>
+        Release desktop builds send no usage stats. There is no desktop collector, no usage
+        toggle that transmits events, and no leftover product-analytics endpoint. Diagnostics
+        telemetry and crash reporting stay on separate controls.
+      </p>
 
       <h2>Never collected</h2>
       <p>
         Documents, canvas pixels, screenshots, exported artwork, clipboard data, filenames, paths,
         project or layer names, user text, comments, URLs from designs, imported metadata, image
-        hashes, geometry, generated code, AI prompts, raw exception strings, raw stacks, device
+        hashes, geometry, generated code, prompts, raw exception strings, raw stacks, device
         identifiers, authentication identities, advertising identifiers, and arbitrary payload
         fields are prohibited by the schema and runtime privacy boundary.
       </p>
 
       <h2>Consent and transport</h2>
       <p>
-        Website consent is separate from desktop usage analytics, diagnostics telemetry, and crash
-        reporting. The client uses a bounded in-memory queue, never blocks editing or navigation,
-        and discards pending events when consent is revoked or the process ends. The production
-        website deployment maps the existing <code>varve.studio</code> switch to the private
-        <code>varvestudio.goatcounter.com</code> account. Local and unconfigured builds remain
-        endpoint-free. A new provider-specific consent choice is required; old refusals remain
-        respected, and Global Privacy Control or Do Not Track always blocks collection.
+        Website and demo consent are stored in
+        <code>varve:website-analytics-consent:goatcounter-v1</code>. The client uses a bounded
+        in-memory queue, never blocks editing or navigation, and discards pending events when
+        consent is revoked or the process ends. The production website and demo deployment maps
+        the existing <code>varve.studio</code> switch to the private
+        <code>varvestudio.goatcounter.com</code> account. Local and unconfigured website builds
+        remain endpoint-free. A new provider-specific consent choice is required; old refusals
+        remain respected, and Global Privacy Control or Do Not Track always blocks collection.
         Session identification, individual-pageview storage, and demographic/device collection
         are disabled. Only aggregate counts are retained. Normalized routes omit fragments and
         all query strings except an allowlisted first-party campaign tag; some sections share
         the home category, so that category is not a literal homepage count. Referrers are
-        reduced to site origins.
-      </p>
-      <p>
-        <strong>Browser demo usage time:</strong> The <code>/try/</code> browser demo tracks
-        active usage time (tab visible, not idle &gt;60s) and sends one bucketed event per
-        session on page unload via <code>navigator.sendBeacon</code>. Tracking respects the same
-        consent gate (Global Privacy Control, Do Not Track, or explicit localStorage consent). No
-        session IDs, device fingerprints, or exact timestamps are collected. The five time buckets
-        are: less than 1 minute, 1–5 minutes, 5–15 minutes, 15–30 minutes, and 30+ minutes.
+        reduced to site origins. Demo event paths never start with a slash.
       </p>
       <p><a href={sitePath('/about/privacy')}>Read the full privacy policy</a>.</p>
     </article>

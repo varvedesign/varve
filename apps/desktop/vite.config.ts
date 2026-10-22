@@ -81,7 +81,7 @@ const DEMO_CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  "connect-src 'self' blob:",
+  "connect-src 'self' blob: https://varvestudio.goatcounter.com",
 
   "base-uri 'self'",
   "form-action 'self'",

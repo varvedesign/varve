@@ -1,5 +1,6 @@
 ---
 import Button from '../components/Button.astro';
+import ClosingCTA from '../components/ClosingCTA.astro';
 import Layout from '../layouts/Layout.astro';
 import Hero from '../components/Hero.astro';
 import TrustStrip from '../components/TrustStrip.astro';
@@ -45,7 +46,7 @@ const homepageFaq = {
       name: 'Does Varve require an account or internet?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'No. Varve requires no account, no cloud sync, and no internet connection for core editing. Optional network features include model downloads, additional font downloads, and update checks — each is explicit and user-controlled.',
+        text: 'No. Varve requires no account, no cloud sync, and no internet connection for core editing. Optional network features include model downloads, additional font downloads, and update checks. Each is explicit and user-controlled.',
       },
     },
     {
@@ -218,7 +219,7 @@ const homepageFaq = {
         <p class="beta-text">
           The latest published release, Varve {publishedApp.version}, is out for Linux,
           macOS, and Windows. Core features work, but you should expect
-          rough edges and evolving file formats &mdash; great for exploring
+          rough edges and evolving file formats: great for exploring
           workflows, not yet for critical production deadlines. Keep
           backups of anything you care about.
         </p>
@@ -230,6 +231,8 @@ const homepageFaq = {
       </Reveal>
     </div>
   </section>
+
+  <ClosingCTA />
 
 </Layout>
 

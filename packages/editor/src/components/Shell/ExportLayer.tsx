@@ -5,6 +5,7 @@ import type { Platform } from '@varve/platform';
 import type { Document, ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@varve/scene';
 import { isExportRegion, resolveNodePaints } from '@varve/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { notifyDemoExportAnalytics } from '../../analytics/demoExportAnalytics';
 import { durationBucket, getDesktopAnalytics } from '../../analytics/desktopAnalytics';
 import {
   commitPreparedBackgroundRemoval,
@@ -388,6 +389,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
             format: analyticsFormat,
             durationBucket: durationBucket(file.durationMs),
           });
+          notifyDemoExportAnalytics(analyticsFormat);
         } else {
           analytics.track('export_failed', {
             format: analyticsFormat,
