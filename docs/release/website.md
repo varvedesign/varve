@@ -80,10 +80,32 @@ build produce identical artifacts:
   `global.css` already reserves `scroll-padding-top: 5.5rem` for the sticky
   header.
 - **`search-index.json`.** A versioned, compact JSON index of page titles,
-  descriptions, and heading-delimited section text (626 KB on disk). It is
-  fetched lazily the first time search opens or prefetched during idle time;
-  visitors who never search download none of it. The build fails below five
-  indexed pages and logs any undecoded HTML entity left in indexed text.
+  descriptions, and heading-delimited section text. It is fetched lazily the
+  first time search opens or prefetched during idle time; visitors who never
+  search download none of it. The build fails below five indexed pages and logs
+  any undecoded HTML entity left in indexed text.
+
+  **Payload is a latency budget, not a storage detail.** The index is fetched
+  whole before the first result can render, so its size is the user-visible
+  delay. Section body text is capped at `MAX_SECTION_TEXT` (300 characters, cut
+  on a word boundary) in `src/lib/search/extract.ts`; no page, section or
+  heading is dropped. Measured 2026-10-22 on a 390 px viewport with 150 ms RTT,
+  1.6 Mbps and 4× CPU throttling: 830 KB raw / 281 KB gzip cost **2 519 ms** to
+  the first result; the capped index is 443 KB raw / **147 KB gzip** and costs
+  **1 128 ms**, with desktop at 254 ms. The working budget is 150 KB gzip for
+  "instant" and 300 KB as the point where readers abandon the search box
+  (`docs/audits/website-audit-2026-10-22.md` records the source and the method).
+  Re-measure with a gzip-serving static server — the bundled
+  `apps/website/scripts/serve-dist.mjs` sends bodies uncompressed, so measuring
+  against it overstates the delay by roughly 2×.
+
+- **Panels are part of the deep-link contract.** Because every `h2`/`h3` is
+  indexed, a section anchor can point inside a tab panel that is `hidden` until
+  its tab is active (`DisciplineTabs` on `/`, the platform selector on
+  `/download`). Both surfaces resolve the fragment, activate the owning tab, and
+  then scroll; `tests/e2e/deep-links.spec.ts` asserts the heading is visible and
+  clear of the sticky header. A new tabbed section that adds headings must do the
+  same, or its search results become dead ends.
 
 The index and ranking code is dependency-free (`src/lib/search/`), because
 the site's CSP (`script-src 'self' 'unsafe-inline'`, no `wasm-unsafe-eval`,

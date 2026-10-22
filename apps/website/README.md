@@ -62,6 +62,26 @@ Website E2E covers axe-core, keyboard navigation, narrow-width overflow, and
 visual snapshots; mobile viewport runs are browser emulation and do not replace
 physical iOS/Android or screen-reader certification.
 
+The 2026-10-22 measured audit (`docs/audits/website-audit-2026-10-22.md`) added
+four guards worth knowing about when you touch the same surfaces:
+
+- **`deep-links.spec.ts`** — a section anchor can live inside a `hidden` tab
+  panel, because the build indexes every `h2`/`h3` in `<main>`. Any tabbed
+  section that adds headings must reveal the owning tab on load and on
+  `hashchange`, or its search results are dead ends. `DisciplineTabs.astro` and
+  `download.astro` implement this; do not add a third, divergent handler.
+- **`axe.spec.ts` at 768 px** — the existing scans run at the 1280 px desktop
+  viewport, where a wide table fits and `scrollable-region-focusable` has nothing
+  to report. Four routes are also scanned at 768 px for exactly that reason.
+- **Search payload budget** — `MAX_SECTION_TEXT` caps indexed section text at 300
+  characters. The index is fetched whole before the first result renders, so its
+  size is user-visible delay; 150 KB gzip is the working target. Measure against a
+  gzip-serving server: `apps/website/scripts/serve-dist.mjs` does not compress.
+- **Theme scope** — the site ships exactly two selectable themes (light, dark),
+  with OS forced-colors supported separately. `tokens.test.ts` asserts this. The
+  app's high-contrast theme is an editor capability, not a website one.
+
+
 The homepage hero eyebrow keeps the caption type token, fits its text, and
 reflows inside mobile gutters when space or text enlargement requires it. Its
 `public beta` status stays together. The nine-width light/dark visual matrix and
