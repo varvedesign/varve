@@ -125,7 +125,7 @@ signature and Office interchange, all of which remain outside Varve's scope.
 | 5 | Preflight/audit reporting "clean" for artwork the user cannot see | verified at the rule level: no Varve preflight result may read as a completeness guarantee the check does not provide (ADR-0242 §6). No Varve check was found that reports a false clean for imported content, because hidden content is no longer imported (batch 9) |
 | 6 | Page rotation, page count and output size surviving save/reopen/export | **verified for save/reopen** — Varve's page-rotation model is per-page width/height, and a mixed-orientation document round-trips with order and node positions intact (commit `340262b60`). Export page geometry is the native writer's contract and is covered by `tests/e2e/export/native-pdf-contract.spec.ts`, not by a browser unit test |
 | 7 | Text edit identity (paragraph indices, property loss on re-edit) | already handled upstream: edits target authored node ids (ADR-0242), and the draft/target-switch paths are covered by `context/pendingEdits.ts` with `tests/e2e/save/text-draft-save.spec.ts` and `text-target-switch.spec.ts` |
-| 8 | Interaction classes: cursor over chrome following the canvas, a second menu open on the first, a panel clipped in a small window | **verified absent and pinned** — `tests/e2e/ui/chrome-ownership.spec.ts`: the hand-tool cursor does not leak onto the menubar, opening a second menu leaves exactly one, and at 1024x600 the inspector has no horizontal overflow and the Export tab stays reachable through the "More inspector tabs" menu. No UI change was needed |
+| 8 | Interaction classes: cursor over chrome following the canvas, a second menu open on the first, a panel clipped in a small window | **verified absent and pinned** — `tests/e2e/ui/chrome-ownership.spec.ts`: the hand-tool cursor does not leak onto the menubar, opening a second menu leaves exactly one, at 1024x600 the inspector has no horizontal overflow and the Export tab stays reachable through the "More inspector tabs" menu, and the Settings dialog fits or scrolls instead of clipping. No UI change was needed |
 | 8b | Autosave scheduling tied to repaint; failed-autosave retry suppression | deferred — `packages/editor/src/context/usePersistence.ts` belongs to another session; two writers on one file is worse than a delay |
 | 10 | Vertical writing (`Identity-V`) imported as one horizontal line, so a CJK column became the wrong document | **implemented and validated** — `/WMode 1` (name or embedded CMap) is detected and the run becomes a `vertical-rl` text node; unit tests cover detection and the browser test asserts the rendered ink is a column. Per-glyph `/W2` metrics and one-glyph-per-`Tj` column merging follow in batch 11. Commit `codex/pdfcraft-remainder-20261022` |
 | 11 | Vertical import refinement: per-glyph `/W2` metrics, one-glyph-per-`Tj` placement arriving as one layer per character, and parser notes that were generated but never shown | **implemented and validated** — `/W2` advances with a bounded `/DW2` fallback, consecutive vertical runs merge into one editable column, Import Results shows the parser's notes and wraps long detail rows, and deeply nested SVG now names the artwork it refused (row 3309). Unit and browser regressions extend batch 10's fixture; evidence in `docs/screenshots/pdfcraft/import-vertical-writing-*.png` |
@@ -174,8 +174,11 @@ with reasons. What remains, in priority order:
    3383, 3871), overlay placement with two menus (3190), and small-window
    clipping (3097, 3557, 3559). Each is a verification first; no UI change is
    assumed.
-3. **Row 3409 / batch 8 save paths**: land once the owning session releases
-   `usePersistence.ts` and the native save path.
+3. **Row 3409 / batch 8 save paths**: the native save path is verified —
+   `write_file_atomic` (`apps/desktop/src-tauri/src/lib.rs`) writes a unique
+   temp, calls `sync_all` and **propagates its error** before the rename, and
+   removes the temp on failure. The remaining piece is autosave scheduling in
+   `usePersistence.ts`, which belongs to another session.
 4. **Row 3309**: the decoder was measured on a 5,000-level nested-group document
    and returns `ok` without throwing — `normalizeDocument` walks nodes flatly, so
    the reported stack overflow is not reachable at the decode boundary. What is
@@ -183,8 +186,14 @@ with reasons. What remains, in priority order:
    it belongs there, driven by a measured failure rather than a guess. The
    reachable import paths are bounded (SVG/Figma 256, PDF page tree 32) and the
    SVG ceiling now names refused artwork instead of importing nothing silently.
-5. **Row 3634/3504**: a per-node export deadline and a single decode-cap
-   contract shared by render and export, if measurement shows they diverge.
+5. **Row 3504** verified: screen and export consume one decoded bitmap from
+   `getImageCache()` via `resolveReplayImage`; the per-replay policy changes the
+   *resolution* requested, never whether the content can be read, so the
+   "readers disagree about what the document contains" class is absent.
+   **Row 3634** stays open with a precise gap: export is cancellable and image
+   resources have settlement timeouts, but there is no per-node render deadline,
+   so a pathological effect at a very large output can run until the user
+   cancels.
 
 State at handoff: branch `codex/pdfcraft-continuation-20261021`, cut from
 `origin/master` at `2e8c5b018`, with the cutoff-1 batch cherry-picked onto it so
