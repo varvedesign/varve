@@ -10,6 +10,7 @@
  */
 
 import type { MergeConflict, MergeResolution } from '@varve/history';
+import { truncateGraphemes } from '@varve/shared';
 import { Dialog } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -26,7 +27,7 @@ export interface ConflictResolverProps {
 function shortValue(value: unknown): string {
   if (value === undefined) return '(none)';
   if (value === null) return 'null';
-  if (typeof value === 'string') return value.length > 60 ? `${value.slice(0, 60)}…` : value;
+  if (typeof value === 'string') return truncateGraphemes(value, 60);
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   if (Array.isArray(value)) return `[${value.length} items]`;
   if (typeof value === 'object') {

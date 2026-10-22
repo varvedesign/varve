@@ -897,7 +897,57 @@ export function convertElement(
   unsupported: string[],
   visitedIds = new Set<string>(),
   inheritedColor: ManagedColor = DEFAULT_SVG_CURRENT_COLOR,
+  inheritedVisibility = true,
 ): { doc: Document; ids: string[] } {
+  const styles = parseCssStyle(el.attrs.style ?? '');
+  const display = (styles.display ?? el.attrs.display)?.trim().toLowerCase();
+  if (display === 'none') return { doc, ids: [] };
+  const visibility = (styles.visibility ?? el.attrs.visibility)?.trim().toLowerCase();
+  const effectiveVisibility =
+    visibility === 'hidden' ? false : visibility === 'visible' ? true : inheritedVisibility;
+
+  const result = convertElementContents(
+    el,
+    doc,
+    defs,
+    inheritedTransform,
+    opts,
+    warnings,
+    unsupported,
+    visitedIds,
+    effectiveVisibility,
+    inheritedColor,
+  );
+  if (el.tag === 'g' && result.preserveChildVisibility) return result;
+  if (result.ids.length === 0 || el.tag === 'svg') return result;
+
+  const nodes = { ...result.doc.nodes };
+  for (const id of result.ids) {
+    const node = nodes[id];
+    if (!node) continue;
+    if (el.tag === 'g') {
+      if (node.kind !== 'frame') continue;
+      const visibleChild = node.children.some((childId) => nodes[childId]?.visible !== false);
+      nodes[id] = { ...node, visible: effectiveVisibility || visibleChild };
+    } else {
+      nodes[id] = { ...node, visible: effectiveVisibility } as SceneNode;
+    }
+  }
+  return { doc: { ...result.doc, nodes }, ids: result.ids };
+}
+
+function convertElementContents(
+  el: ParsedElement,
+  doc: Document,
+  defs: Map<string, ParsedElement>,
+  inheritedTransform: string[],
+  opts: ImportOptions,
+  warnings: string[],
+  unsupported: string[],
+  visitedIds: Set<string>,
+  inheritedVisibility: boolean,
+  inheritedColor: ManagedColor,
+): { doc: Document; ids: string[]; preserveChildVisibility?: boolean } {
   const dropped = droppedElementFeature(el.tag);
   if (dropped) {
     // Inert either way — nothing here is inserted into the DOM — but a
@@ -923,6 +973,7 @@ export function convertElement(
         unsupported,
         visitedIds,
         currentColor,
+        inheritedVisibility,
       );
       doc = r.doc;
       ids.push(...r.ids);
@@ -947,6 +998,7 @@ export function convertElement(
         unsupported,
         visitedIds,
         currentColor,
+        inheritedVisibility,
       );
       gDoc = r.doc;
       gIds.push(...r.ids);
@@ -961,7 +1013,7 @@ export function convertElement(
         // the loss instead of applying the transform twice or producing a
         // frame that clips everything.
         warnings.push('SVG group transform is non-invertible; grouping was omitted');
-        return { doc: gDoc, ids: gIds };
+        return { doc: gDoc, ids: gIds, preserveChildVisibility: true };
       }
 
       const { id, doc: gDocWithId } = nextNodeId(gDoc);
@@ -1037,6 +1089,7 @@ export function convertElement(
           unsupported,
           visitedIds,
           currentColor,
+          inheritedVisibility,
         );
         visitedIds.delete(refId);
         return { doc: r.doc, ids: r.ids };

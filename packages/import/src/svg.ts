@@ -10,10 +10,11 @@
 import { createDocument } from '@varve/scene';
 import { Gunzip } from 'fflate';
 import { registerParser } from './registry';
-import { convertElement, resolveSvgCurrentColor } from './svg/elements';
+import { convertElement } from './svg/elements';
 import {
   collectDefs,
   composeTransforms,
+  MAX_SVG_NESTING_DEPTH,
   MAX_SVG_SOURCE_BYTES,
   parseSingleElement,
   parseUnit,
@@ -30,7 +31,8 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
   };
 
   const clean = svg.trim();
-  const root = parseSingleElement(clean);
+  const parseDiagnostics = { depthLimited: false };
+  const root = parseSingleElement(clean, parseDiagnostics);
   if (root?.tag !== 'svg') {
     return {
       document: createDocument('Import'),
@@ -40,6 +42,11 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
   }
 
   const warnings: string[] = [];
+  if (parseDiagnostics.depthLimited) {
+    warnings.push(
+      `SVG groups nested deeper than ${MAX_SVG_NESTING_DEPTH} levels were not imported; artwork inside them is missing`,
+    );
+  }
   const unsupported: string[] = collectUnsupportedSvgMetadata(root);
   let doc = createDocument('Imported SVG');
   const nodeIds: string[] = [];
@@ -114,21 +121,9 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
 
   const defs = collectDefs(root, unsupported);
 
-  for (const child of root.children) {
-    const { doc: d, ids } = convertElement(
-      child,
-      doc,
-      defs,
-      rootTransforms,
-      opts,
-      warnings,
-      unsupported,
-      undefined,
-      resolveSvgCurrentColor(root, undefined, unsupported),
-    );
-    doc = d;
-    nodeIds.push(...ids);
-  }
+  const converted = convertElement(root, doc, defs, rootTransforms, opts, warnings, unsupported);
+  doc = converted.doc;
+  nodeIds.push(...converted.ids);
 
   return {
     document: doc,

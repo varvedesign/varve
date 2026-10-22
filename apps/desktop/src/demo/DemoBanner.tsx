@@ -13,12 +13,6 @@
 
 import { Icon } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
-import {
-  type DemoAnalyticsChoice,
-  readDemoAnalyticsChoice,
-  setDemoAnalyticsChoice,
-  trackDemoLaunched,
-} from './demoAnalytics';
 import type { DemoConfig } from './demoMode';
 import {
   createInstallPromptController,
@@ -47,9 +41,6 @@ export interface DemoBannerProps {
 
 export function DemoBanner({ config }: DemoBannerProps) {
   const [dismissed, setDismissed] = useState(false);
-  // 'unknown' until the visitor decides, and 'unknown' is not consent — the
-  // analytics client treats anything but 'granted' as denied.
-  const [analyticsChoice, setAnalyticsChoice] = useState<DemoAnalyticsChoice>('unknown');
   // Chromium offers `beforeinstallprompt` when the manifest meets its install
   // criteria; nothing is shown if the browser never offers it.
   const [canInstall, setCanInstall] = useState(false);
@@ -63,10 +54,6 @@ export function DemoBanner({ config }: DemoBannerProps) {
       // sessionStorage can throw in strict privacy modes; the banner just
       // stays visible for the session.
     }
-    setAnalyticsChoice(readDemoAnalyticsChoice());
-    // Counting is attempted on every load, not only after a grant: the call is
-    // a no-op unless consent already exists from a previous visit.
-    trackDemoLaunched();
   }, []);
 
   useEffect(() => {
@@ -94,11 +81,6 @@ export function DemoBanner({ config }: DemoBannerProps) {
       installController.current = null;
     };
   }, []);
-
-  const choose = (choice: 'granted' | 'denied') => {
-    void setDemoAnalyticsChoice(choice);
-    setAnalyticsChoice(choice);
-  };
 
   if (dismissed) return null;
 
@@ -132,20 +114,6 @@ export function DemoBanner({ config }: DemoBannerProps) {
             ))}
           </ul>
         </details>
-        {analyticsChoice === 'unknown' && (
-          <fieldset className="varve-demo-banner__consent" aria-label="Usage measurement">
-            <span>
-              Count this visit? Anonymous totals only — no account, no cookies, nothing about your
-              design.
-            </span>
-            <button type="button" onClick={() => choose('granted')}>
-              Allow
-            </button>
-            <button type="button" onClick={() => choose('denied')}>
-              No thanks
-            </button>
-          </fieldset>
-        )}
         {canInstall && (
           <button
             type="button"

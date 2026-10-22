@@ -81,6 +81,13 @@ import '../../../styles/docs-prose.css';
           Expand text to outlines when exact metrics matter, and open the exported file in a
           viewer that lacks the font when the result will be published.
         </p>
+        <p>
+          Text is written as well-formed XML. Characters XML 1.0 cannot represent — the
+          control characters that can arrive with text pasted from another application —
+          are removed instead of being written raw, so the exported file still opens in
+          browsers, Illustrator and other XML consumers. An unpaired surrogate becomes
+          U+FFFD, the visible replacement character.
+        </p>
       </section>
 
       <section class="docs-section">

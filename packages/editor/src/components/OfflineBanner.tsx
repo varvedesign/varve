@@ -6,8 +6,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  *
  * Varve saves to local disk and runs all editing tools offline, so being
  * offline changes nothing about document safety. What offline actually
- * affects are the online conveniences: remote font providers (Google Fonts,
- * Fontsource), icon providers, and optional model downloads. The banner says
+ * affects are the online conveniences: remote font providers (Fontsource),
+ * icon providers, and optional model downloads. The banner says
  * exactly that — it must never imply that changes are at risk or that a
  * "sync" is pending (there is none in a local-first product).
  */

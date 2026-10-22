@@ -72,11 +72,12 @@ describe('IconSection', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('opens the replace dialog', () => {
+  it('opens the replace dialog without a SettingsProvider', () => {
     editorMock();
     render(<IconSection node={iconNode} />);
     fireEvent.click(screen.getByRole('button', { name: /replace/i }));
     expect(screen.getByLabelText('Search icons')).toBeTruthy();
+    expect(screen.getByText('Search online via Iconify?')).toBeTruthy();
     act(() => {
       fireEvent.click(screen.getByLabelText('Close dialog'));
     });

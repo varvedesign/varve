@@ -1,0 +1,121 @@
+{
+  "corpus": "https://github.com/open-pencil/open-pencil/issues",
+  "creationCutoff": "2026-10-20T08:05:56Z",
+  "retrieval": {
+    "method": "GitHub REST API paginated state=all; pull-request records excluded",
+    "recordsIncludingPullRequests": 1277,
+    "issues": 357,
+    "open": 75,
+    "closed": 282,
+    "commentReview": [
+      { "range": [5, 248], "issueRecords": 119, "comments": 222, "errors": 0 },
+      {
+        "range": [251, 610],
+        "issueRecords": 119,
+        "comments": 170,
+        "errors": 0,
+        "commentDiscrepancy": "#262 frozen inventory reports 4; current endpoint returns 3 (deleted comment likely)"
+      },
+      { "range": [613, 1324], "issueRecords": 119, "comments": 88, "errors": 0 }
+    ],
+    "linkedEvidenceLimitations": "Issue bodies and comments were reviewed by range reviewers. Linked PR diffs, external archives, and attached binaries were not exhaustively retrieved or inspected; see README.md."
+  },
+  "reconciliation": {
+    "secondCutoff": "2026-10-21T06:54:23Z",
+    "method": "Repeated paginated GitHub REST state=all retrieval; pull-request records excluded; compared issue numbers and updated_at against the frozen corpus.",
+    "issues": 358,
+    "newIssues": [
+      {
+        "number": 1327,
+        "title": "feat: MCP tool to move a page (or an index on create_page)",
+        "commentsRetrieved": 1,
+        "bodyAndCommentReviewed": true,
+        "disposition": "upstream-specific: Varve has accessible page-reordering UI and command but no MCP server/tool surface; no Varve change indicated"
+      }
+    ],
+    "materiallyUpdatedIssues": [],
+    "missingFrozenIssues": []
+  },
+  "finalOutcomes": {
+    "495": {
+      "status": "implemented",
+      "scope": "Directly-bound root Figma component slots import as editable Varve slots; nested or unbound cases warn and remain visible.",
+      "evidence": "packages/import/src/figma.test.ts; encode/decode save-reopen regression; docs/audits/open-pencil/README.md"
+    },
+    "1166": {
+      "status": "implemented",
+      "scope": "SVG display:none and inherited visibility are preserved, including descendant visible overrides and singular-transform fallback.",
+      "evidence": "packages/import/src/svg.test.ts; tests/e2e/canvas/file-import.spec.ts; docs/audits/open-pencil/README.md"
+    },
+    "1245": {
+      "status": "reviewed-no-equivalent-failure-established",
+      "scope": "OpenPencil .fig writer corruption was not reproduced in Varve; Varve slot persistence is covered under #495."
+    },
+    "1260": {
+      "status": "reviewed-no-equivalent-failure-established",
+      "scope": "OpenPencil slot override loss on save/reopen was not reproduced in Varve; direct root slot persistence is covered under #495."
+    },
+    "829": {
+      "status": "existing-contract-confirmed-by-rendered-regression",
+      "scope": "The exact mixed open/closed subpath reproduction imports as a compound path with two contours and renders the central hole; no importer behavior change was needed.",
+      "evidence": "packages/import/src/svg.test.ts; tests/e2e/canvas/file-import.spec.ts; tests/e2e/canvas/file-import.spec.ts-snapshots/file-import-svg-mixed-subpath-hole-chromium-linux.png"
+    },
+    "1171": {
+      "status": "reviewed-partial-existing-contract",
+      "scope": "Varve's Figma import maps frame clipContent and text characters from source JSON; OpenPencil CLI Windows path behavior is outside Varve's CLI contract. No equivalent text-override failure was established."
+    },
+    "1258": {
+      "status": "reviewed-different-persistence-contract",
+      "scope": "The report depends on OpenPencil's rescale API and .fig vector-region representation; no equivalent Varve save/reopen corruption was established."
+    },
+    "1297": {
+      "status": "source-review-no-equivalent-native-accelerators-established",
+      "scope": "Varve's native menu accelerators are modified combinations rather than the reported single-key GTK accelerators; no matching focus-stealing workflow was established."
+    }
+  },
+  "dispositions": {
+    "5-248-candidate-verify": [
+      29, 36, 42, 48, 69, 87, 91, 102, 131, 133, 134, 136, 160, 165, 192, 214, 243, 246, 44, 113,
+      124, 128, 153, 201, 206, 211, 212, 229, 23, 79, 88, 100, 145, 147, 168, 169, 170, 180, 181,
+      182, 186, 200, 220, 223, 106, 107, 127, 130, 171, 172, 173, 178, 188, 207, 218, 225, 227, 232,
+      241, 244, 247
+    ],
+    "5-248-present-or-different-scope": [7, 37, 46, 104, 152, 154, 239],
+    "5-248-related-duplicate-umbrella": [28, 59, 63, 66, 142, 208, 240],
+    "5-248-upstream-or-out-of-scope": [
+      5, 8, 18, 19, 34, 35, 43, 47, 55, 56, 57, 64, 65, 81, 83, 97, 98, 112, 114, 117, 119, 120,
+      126, 138, 149, 151, 163, 174, 177, 179, 184, 183, 185, 190, 193, 194, 213, 219, 224, 226, 228,
+      233, 236, 248
+    ],
+    "251-610-verify-or-fix-candidate": [
+      255, 374, 395, 450, 476, 486, 495, 500, 539, 567, 580, 581, 582, 587
+    ],
+    "251-610-verify-existing-coverage": [
+      254, 291, 324, 339, 344, 346, 366, 372, 385, 487, 491, 502, 503, 526, 527, 528, 530
+    ],
+    "251-610-duplicate-or-consolidated": [
+      284, 285, 300, 302, 304, 306, 308, 310, 403, 404, 405, 406, 407, 408, 409
+    ],
+    "251-610-upstream-or-no-change": [
+      251, 257, 258, 259, 261, 262, 263, 265, 267, 269, 271, 276, 286, 290, 292, 297, 323, 334, 342,
+      349, 353, 361, 364, 365, 373, 375, 376, 377, 378, 379, 380, 382, 383, 386, 393, 400, 401, 412,
+      415, 417, 420, 426, 427, 431, 432, 436, 439, 441, 442, 451, 452, 453, 454, 457, 471, 472, 475,
+      484, 488, 537, 538, 544, 563, 564, 573, 575, 578, 579, 584, 589, 606, 607, 610
+    ],
+    "613-1324-conditional-varve-verification": [829, 1166, 1171, 1245, 1258, 1260, 1297],
+    "613-1324-existing-or-different-contract": [
+      673, 698, 734, 737, 738, 742, 750, 765, 766, 828, 883, 888, 889, 890, 914, 1035, 1227
+    ],
+    "613-1324-upstream-or-out-of-scope": [
+      613, 624, 641, 658, 659, 660, 662, 663, 674, 710, 720, 726, 744, 746, 747, 752, 756, 786, 787,
+      788, 796, 830, 831, 836, 838, 840, 841, 849, 860, 861, 865, 882, 924, 977, 978, 979, 1110,
+      1167, 1168, 1169, 1281
+    ],
+    "613-1324-no-supported-gap-or-feature-request": [
+      735, 736, 739, 740, 741, 743, 748, 797, 798, 941, 974, 975, 976, 1001, 1132, 1134, 1138, 1154,
+      1212, 1253, 1267, 616, 623, 654, 733, 767, 770, 783, 784, 939, 1002, 1015, 1049, 1050, 1063,
+      1114, 1115, 1116, 1117, 1118, 1119, 1120, 1133, 1135, 1164, 1191, 1203, 1229, 1269, 1272,
+      1280, 1322, 1323, 1324
+    ]
+  }
+}

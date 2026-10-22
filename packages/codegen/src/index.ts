@@ -13,7 +13,7 @@ import { applyAffine, managedColorToRgba, multiplyAffine } from '@varve/shared';
 import { documentSceneRootIds } from './ir-converter';
 import { resolveLiveBooleanForExport } from './liveBooleanExport';
 import { buildPerspectiveImageSvg } from './perspectiveSvg';
-import { nodeEffectiveTransform, svgCompositing } from './shared';
+import { escapeXml, nodeEffectiveTransform, svgCompositing } from './shared';
 import {
   collectPathTextDefs,
   collectSvgPatternDefs,
@@ -176,14 +176,6 @@ function rgba(c: ManagedColor): string {
 
 function affineToSvg(t: Affine): string {
   return `matrix(${t[0]},${t[1]},${t[2]},${t[3]},${t[4]},${t[5]})`;
-}
-
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function fmtNum(n: number, precision: number): string {

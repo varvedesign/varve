@@ -831,12 +831,22 @@ function nextTagInfo(
   };
 }
 
+/** Parser outcomes a caller must disclose rather than silently truncating. */
+export interface SvgParseDiagnostics {
+  /** True when a subtree was refused because it exceeded the nesting ceiling. */
+  depthLimited: boolean;
+}
+
 function parseElement(
   xml: string,
   start: number,
-  depth = 0,
+  depth: number,
+  diagnostics?: SvgParseDiagnostics,
 ): { el: ParsedElement; endPos: number } | null {
-  if (depth > MAX_SVG_NESTING_DEPTH) return null;
+  if (depth > MAX_SVG_NESTING_DEPTH) {
+    if (diagnostics) diagnostics.depthLimited = true;
+    return null;
+  }
   const info = nextTagInfo(xml, start);
   if (!info || info.type === 'close') return null;
 
@@ -870,7 +880,7 @@ function parseElement(
       };
     }
 
-    const childResult = parseElement(xml, pos, depth + 1);
+    const childResult = parseElement(xml, pos, depth + 1, diagnostics);
     if (childResult) {
       children.push(childResult.el);
       pos = childResult.endPos;
@@ -886,7 +896,10 @@ function parseElement(
   };
 }
 
-export function parseSingleElement(xml: string): ParsedElement | null {
+export function parseSingleElement(
+  xml: string,
+  diagnostics?: SvgParseDiagnostics,
+): ParsedElement | null {
   const sourceBytes =
     typeof TextEncoder === 'undefined' ? xml.length : new TextEncoder().encode(xml).byteLength;
   if (sourceBytes > MAX_SVG_SOURCE_BYTES) return null;
@@ -916,7 +929,7 @@ export function parseSingleElement(xml: string): ParsedElement | null {
     }
     break;
   }
-  const result = parseElement(trimmed, start, 0);
+  const result = parseElement(trimmed, start, 0, diagnostics);
   return result?.el ?? null;
 }
 

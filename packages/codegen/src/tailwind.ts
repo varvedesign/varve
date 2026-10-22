@@ -9,7 +9,7 @@ import type { Document, SceneNode, VariableStore } from '@varve/scene';
 import { analyzeNodeFlattening } from './flattening';
 import type { IRDocument, SemanticNode } from './ir-types';
 import { toComponentName, toFileStem } from './naming';
-import { computeNodePos, hasAuthoredSizing, unstableImageSourceReason } from './shared';
+import { computeNodePos, escapeXml, hasAuthoredSizing, unstableImageSourceReason } from './shared';
 import { resolveTokenName } from './tokens';
 import type { BundleDiagnostic, GeneratedBundle, RasterAsset, TargetGap } from './types';
 import { mimeTypeForLanguage } from './types';
@@ -29,14 +29,6 @@ export interface TailwindExportOptions {
   componentName?: string;
   /** File stem for the bundle entry. Default: kebab-case of the node name. */
   fileStem?: string;
-}
-
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function sizeTw(px: number, av: boolean, prefix = 'w'): string {

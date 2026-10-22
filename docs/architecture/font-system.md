@@ -213,6 +213,72 @@ inventing a face. Choosing a family row clears an older exact reference and
 unsupported variation axes instead of leaving stale identity attached to new
 text.
 
+### Seed families are claims, and the host verifies them
+
+The registry seeds a short list of common system families (`Arial`,
+`Helvetica`, `Meiryo`, `Noto Sans CJK`, …) so a fresh document has something to
+resolve before the user has enumerated anything. Those seeds are *claims about
+the host*, not evidence: registration is membership, and until 2026-10-21
+`availableFamilies()` projected the registered map directly. On a host without
+a seeded family the canvas drew the CSS fallback while preflight, the Missing
+Fonts dialog, and the export preflight all reported the typography as
+faithful — the exact silent-substitution failure that
+`docs/architecture/text-pipeline.md` forbids.
+
+`font/systemFontProbe.ts` measures instead. An unknown family contributes no
+glyphs, so `"<family>", <generic>` is exactly as wide as `<generic>` alone; a
+family counts as resolved when any of the three generic fallbacks measures
+differently. That direction is the safe one — a real font yields one width and
+the three baselines are three distinct widths, so a metric coincidence cannot
+mark a real font missing, which is the failure users actually notice.
+
+`document.fonts.check()` is **not** used and must not be reintroduced here.
+Measured in Chromium on 2026-10-21 it reports `true` for a deliberately
+nonexistent family, because it answers "is a load pending for this descriptor"
+rather than "does this family exist". Every candidate in that run reported
+`true`.
+
+Scope and failure modes:
+
+- Only `DEFAULT_FONTS` entries with `source: 'system'` are probed. Bundled
+  faces ship with the app, and a family that arrives from real enumeration was
+  observed on the host, so neither is ever second-guessed. A spurious
+  missing-font dialog on every open is worse than the bug.
+- `availableFamilies()` withholds an unresolvable family, and
+  `createFontCatalogFromRegistry` omits it, so the missing-font sweep classifies
+  the reference as `missing-family` and the user is offered a replacement.
+- When the environment cannot shape text (no canvas, jsdom, a worker before
+  fonts load) the probe answers `null` and every family stays available. Unknown
+  is never treated as "none".
+- `probeResolvedFamilies` results are memoised per registry revision.
+
+**Verified on the desktop engine.** WebKitGTK 2.54.1 — the engine the Tauri
+app embeds — classifies the host identically to Chromium. Both engines report
+`Arial`, `Helvetica`, `Georgia`, `Times New Roman`, `Courier New`, `Verdana`,
+`Trebuchet MS`, `Noto Sans`, `DejaVu Sans` and `Carlito` as resolved, and
+`Inter`, `Noto Sans CJK`, `Meiryo` and a deliberate nonsense family as absent.
+The measured baselines differ (`serif` is 1050.98 px in WebKit versus 906.33 px
+in Chromium because their default faces differ), which is why the rule compares
+a family against the engine's own baselines rather than any fixed width. The
+`Meiryo` import raises the Missing Fonts dialog in the WebKit GTK build with the
+same copy and recovery path as in Chromium
+(`tests/e2e/canvas/font-availability.spec.ts --project=webkit-gtk`).
+
+So no native enumeration path is required for correctness. Verifying the seed
+list against `enumerate_system_fonts` would still be worth doing for a
+different reason — it can also confirm exact faces and collection members, which
+a width probe cannot — but it is an improvement, not a gap.
+
+**Running the WebKit lane.** Playwright's WebKit is the WPE build: headless
+only, and it needs a WPE stack (`libWPEWebKit-2.0`, `libwpe`,
+`libWPEBackend-fdo`) that a rolling distribution does not ship. The GTK build
+needs none of that, but its archive is linked against ICU 74 and several CMU
+flite voices; a distribution with ICU 78 cannot satisfy `_74` versioned symbols
+by symlinking. `node scripts/quality/prepare-playwright-webkit.mjs` provisions
+them in the user's cache without root, and
+`VARVE_WEBKIT_GTK=1 xvfb-run -a npx playwright test ... --project=webkit-gtk`
+runs the lane. It is opt-in because headed WebKit needs a display.
+
 ## Readiness boundary
 
 The useful capabilities are distinct: catalog presence, stored bytes, a

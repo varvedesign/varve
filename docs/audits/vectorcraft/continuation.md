@@ -80,7 +80,13 @@ Verified as already correct:
 Open, recorded, not implemented:
 
 - **F5** area-text overset is computed then discarded (#1471 / #2323 / #2769).
-- **F6** PDF gradient stop alpha discarded by the shading sampler (#1140).
+  Implementation path recorded: `layoutText`/`layoutRichTextSnapshot` already
+  produce the line stack, and `runTypographyPreflight` already accepts an
+  `oversetMap`; what is missing is a preflight-time measure context built from
+  the text node (the renderer's `ReplayTarget` provides one at paint time).
+  Half-wiring it would warn against the wrong metrics, so it is left open.
+- **F6** is now closed: both the blank-gradient `Range` defect and per-stop
+  alpha are fixed and rendered-verified (see `findings.md` F6).
 - Autosave failure visibility: `AutoSaveService.onStateChange` has no
   production consumer, so a user whose recovery writes keep failing is never
   told. Separate finding from F1.
@@ -146,6 +152,18 @@ review plus a Varve reproduction before it can be dispositioned.
   four more verified-existing issues, and the 455-row screened-defect index).
   The same integration caveat applies: `master` has no required checks, and the
   CI lanes were still queued when this record was written.
+
+## Later batches (merged)
+
+| PR | Merge SHA | Scope |
+|---|---|---|
+| #171 | `2e25230b` | Miter limit compared against the join width, not the edge length |
+| #173 | `89a2fac4` | PDF gradients rendered blank: sampled-function `Range` arity and 0-1 range |
+| #176 | `b5b92eef` | Transparent PDF gradients keep their fade via a luminosity `/SMask` |
+
+Evidence for the PDF work is committed under `evidence/`
+(`pdf-gradient-before.png`, `pdf-gradient-after.png`,
+`pdf-gradient-alpha-before.png`, `pdf-gradient-alpha-after.png`).
 
 ## Remaining work
 

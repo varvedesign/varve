@@ -23,6 +23,10 @@ const INLINE_TEXT_STYLES_SVG =
   '<svg width="240" height="100" viewBox="0 0 240 100"><text x="120" y="60" style="font-size:32px;font-family:DejaVu Serif;font-weight:bold;text-anchor:middle" fill="#1f8a70">Styled SVG</text></svg>';
 const CURRENT_COLOR_SVG =
   '<svg width="160" height="120" viewBox="0 0 160 120"><g color="#123456"><rect x="20" y="20" width="120" height="80" fill="currentColor" /></g></svg>';
+const SVG_VISIBILITY_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" visibility="hidden"><g visibility="hidden"><rect x="10" y="10" width="60" height="60" fill="#ef4444" /><rect x="50" y="10" width="60" height="60" visibility="visible" fill="#facc15" /></g><rect x="120" y="10" width="40" height="60" fill="#22c55e" style="display:none" /><rect x="170" y="10" width="60" height="60" visibility="visible" fill="#2563eb" /></svg>';
+const SVG_MIXED_SUBPATH_HOLE =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#2563eb" d="M0 0h24v24H0M6 6v12h12V6z" /></svg>';
 
 async function openImportFromMenu(page: import('@playwright/test').Page): Promise<void> {
   await page.getByRole('menubar').getByRole('menuitem', { name: 'File' }).click();
@@ -247,6 +251,57 @@ test.describe('File → Import', () => {
     });
     await page.waitForTimeout(700);
     await expect(canvas).toHaveScreenshot('file-import-svg-use-opacity.png', {
+      maxDiffPixels: 100,
+    });
+  });
+
+  test('preserves hidden SVG visibility and omits display-none artwork', async ({ page }) => {
+    await openImportFromMenu(page);
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'visibility.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(SVG_VISIBILITY_SVG, 'utf-8'),
+    });
+
+    const layers = page.locator('.layers-panel');
+    await expect(layers.locator('[role="treeitem"]')).toHaveCount(4, { timeout: 30000 });
+    await expect(
+      layers.getByRole('treeitem', { name: /Rectangle, Vector rectangle, hidden/ }),
+    ).toHaveCount(1);
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await page.evaluate(() => {
+      (
+        window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
+      ).__varvePerf?.forceFullRedraw?.();
+    });
+    await page.waitForTimeout(700);
+    await expect(canvas).toHaveScreenshot('file-import-svg-visibility.png', {
+      maxDiffPixels: 100,
+    });
+  });
+
+  test('renders a hole formed by mixed open and closed SVG subpaths', async ({ page }) => {
+    await openImportFromMenu(page);
+    await page.locator('#file-import-input').setInputFiles({
+      name: 'mixed-contour-hole.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(SVG_MIXED_SUBPATH_HOLE, 'utf-8'),
+    });
+
+    await expect(page.locator('.layers-panel [role="treeitem"]')).toHaveCount(1, {
+      timeout: 30000,
+    });
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await page.evaluate(() => {
+      (
+        window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
+      ).__varvePerf?.forceFullRedraw?.();
+    });
+    await page.waitForTimeout(700);
+    await canvas.click({ position: { x: 150, y: 150 } });
+    await page.waitForTimeout(100);
+    await expect(canvas).toHaveScreenshot('file-import-svg-mixed-subpath-hole.png', {
       maxDiffPixels: 100,
     });
   });

@@ -219,6 +219,9 @@ export const VARVE_URLS = {
   press: 'https://varve.studio/contact',
   license: 'https://varve.studio/about/license',
   repository: 'https://github.com/varvedesign/varve',
+  changelog: 'https://github.com/varvedesign/varve/blob/master/CHANGELOG.md',
+  /** Latest GitHub release page; CycloneDX SBOMs are attached as release assets. */
+  sbom: 'https://github.com/varvedesign/varve/releases/latest',
   issues: 'https://github.com/varvedesign/varve/issues',
   newBugReport: 'https://github.com/varvedesign/varve/issues/new?template=bug_report.yml',
   discussions: 'https://github.com/varvedesign/varve/discussions',

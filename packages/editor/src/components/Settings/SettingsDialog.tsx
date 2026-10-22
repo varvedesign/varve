@@ -14,8 +14,6 @@ import {
   SearchField,
   Select,
   SwitchField,
-  Tooltip,
-  TooltipProvider,
   VarveLogo,
 } from '@varve/ui';
 import {
@@ -860,25 +858,27 @@ function AboutSection() {
           <ContactLink channel="privacy" className="settings-about__link">
             Privacy
           </ContactLink>
-          <TooltipProvider>
-            <Tooltip
-              label="Not yet available in this build"
-              disabledReason="Not yet available in this build"
-            >
-              <button type="button" className="settings-about__link" disabled>
-                View changelog
-              </button>
-            </Tooltip>
-            <Tooltip
-              label="Not yet available in this build"
-              disabledReason="Not yet available in this build"
-            >
-              <button type="button" className="settings-about__link" disabled>
-                Software bill of materials (SBOM)
-              </button>
-            </Tooltip>
-          </TooltipProvider>
+          <a
+            className="settings-about__link"
+            href={VARVE_URLS.changelog}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View changelog
+          </a>
+          <a
+            className="settings-about__link"
+            href={VARVE_URLS.sbom}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Software bill of materials (SBOM)
+          </a>
         </div>
+        <p className="settings-desc">
+          CycloneDX SBOMs are attached to each GitHub release. The link opens the latest release
+          assets page.
+        </p>
       </div>
     </div>
   );

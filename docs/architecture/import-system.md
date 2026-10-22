@@ -143,6 +143,12 @@ hold, but that is an inference and not a measurement.
 
 ## SVG fidelity
 
+Inline styles and presentation attributes preserve inherited visibility:
+elements marked `visibility="hidden"` remain hidden unless a descendant
+explicitly restores `visibility="visible"`, while `display="none"` content
+(including inline `style="display:none"`) is omitted. Stylesheet-based CSS is
+outside the bounded SVG subset.
+
 | Feature | Support | Degradation |
 |---|---|---|
 | `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `path` | Full | — |

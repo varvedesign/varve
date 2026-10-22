@@ -7,6 +7,7 @@
  */
 
 import type { Document, NodeId } from '@varve/scene';
+import { escapeXmlText } from '@varve/shared';
 import { getNodeAiEditInfo } from '../components/LayersPanel/aiEditedBadge';
 
 export interface AiDisclosureMetadata {
@@ -90,11 +91,7 @@ export function getDocumentAiDisclosure(
  * Follows IPTC Extension schema.
  */
 export function generateAiDisclosureXmp(disclosure: AiDisclosureMetadata): string {
-  const escapedDesc = disclosure.description
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  const escapedDesc = escapeXmlText(disclosure.description);
 
   return `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
@@ -118,11 +115,7 @@ export function generateAiDisclosureXmp(disclosure: AiDisclosureMetadata): strin
  * Generate SVG metadata element for AI disclosure.
  */
 export function generateAiDisclosureSvgMetadata(disclosure: AiDisclosureMetadata): string {
-  const escapedDesc = disclosure.description
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  const escapedDesc = escapeXmlText(disclosure.description);
 
   return `<metadata>
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"

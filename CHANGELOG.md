@@ -33,7 +33,6 @@ update, not for someone reading the commit log.
   creates the document with the values you typed, instead of requiring the
   mouse. Enter in the preset-name row still saves the preset, and Enter during
   an IME composition is left to the input method.
-
 - **Linux AppImage**: ships bundled WebKitGTK and GTK so it launches on a
   clean host without `libwebkit2gtk-4.1`. GPU/EGL/Mesa stay on the system so
   newer Mesa stacks do not white-screen. GStreamer plugins are not bundled
@@ -44,8 +43,43 @@ update, not for someone reading the commit log.
 - **AUR `varve-desktop-bin`**: package hashes and source URLs now match the
   published 0.5.1 AppImages.
 
+### Added
+
+- **Ctrl+Enter starts editing the selected text** — With the Text tool active and
+  one text layer selected, Ctrl+Enter (Cmd+Enter on macOS) begins editing it, so
+  the keyboard path from "text selected" to "typing" no longer needs a
+  double-click. Plain Enter still renames the layer.
+
 ### Fixed
 
+- **Hiding a fill now hides it** — Turning off a shape's last visible fill
+  removes it from the canvas and from its click target. Previously the shape
+  kept painting its original colour, because the render pipeline treated an
+  all-hidden fill stack as "no stack" and fell back to the node's legacy fill.
+- **One undo step per control gesture** — Dragging a slider or a colour picker, or holding an arrow
+  key, produced one undo entry per intermediate value, so a single `Ctrl+Z` stepped back one notch
+  instead of reverting the change and a drag could consume the whole history window. Mask density,
+  corner smoothing, the floating text bar's colour picker, and keyboard stepping in every colour
+  picker now commit one undo entry per gesture.
+- **Unsaved-work bookkeeping has one authority** — Some edits marked the document dirty for the tab
+  strip and save status but not for the close guard, so grouping layers (or any edit made through a
+  hook with its own setter) could close a tab or quit with no save prompt, and the crash-recovery
+  copy was then discarded on the resulting clean shutdown. Both flags now come from one place.
+- **Seeded system fonts are verified against the device** — Varve assumed a short list of common
+  system families (Arial, Helvetica, Meiryo, Noto Sans CJK, …) was installed. On a machine without
+  one, text was drawn in the fallback face while preflight, the Missing Fonts dialog, and the export
+  preflight all reported the typography as faithful. Those families are now measured against the
+  device, and a family it cannot resolve is reported as missing with a replacement path.
+- **Transparent PDF gradients** — a gradient that fades to transparent exported
+  as a hard-edged solid block. It now carries a luminosity soft mask built from
+  the alpha ramp, so the fade survives into the PDF. Opaque gradients are
+  unchanged and pay no extra objects.
+- **PDF gradients now render** — an RGB gradient fill exported to a PDF whose
+  sampled function declared four 0-255 outputs for a three-component stream.
+  Poppler rejected it with "function with wrong output size" and drew nothing,
+  so gradient-filled shapes came out blank. The function now matches its colour
+  space and PDF's 0-1 colour range. Gradient stops that fade to transparent are
+  still flattened to opaque in PDF; that remains open.
 - **Autosave failures are visible** — when crash-recovery autosave cannot write
   a recovery copy, the status bar shows "Recovery paused" with the reason and
   the advice to save to a file, and clears itself on the next successful cycle.

@@ -416,6 +416,19 @@ const REVIEWED = {
     validation: 'none yet',
     doc_impact: 'print compatibility notes',
   },
+  861: {
+    research: 'reviewed-thread',
+    engineering: 'applicable-requires-work',
+    varve_area: 'persistence',
+    varve_code: 'packages/editor/src/context.tsx:9548 (openFile), context/usePersistence.ts:225',
+    observed:
+      'Varve substitutes a blank document when provided JSON fails to decode or validate, and loadDocument swallows invalid JSON entirely. A file that cannot be read therefore opens as an empty canvas under the same name, with no visible error — and saving over it is one keystroke away.',
+    outcome:
+      'Proposed: keep the current document, return a failure, and show a persistent, dismissible error naming the file and reason. Not implemented: it needs a visible error surface, not just the visually hidden announcer.',
+    priority: 'high',
+    validation: 'none yet',
+    doc_impact: 'troubleshooting docs',
+  },
   136: {
     research: 'reviewed-thread',
     engineering: 'verified-existing',
