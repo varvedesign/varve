@@ -159,7 +159,7 @@ function main() {
     out.push('');
     out.push(
       'These builds are **not code-signed**. That is a statement about this project’s ' +
-        'budget, not about the files — but your operating system cannot tell the ' +
+        'budget, not about the files, but your operating system cannot tell the ' +
         'difference, and neither can you without checking. Verify the SHA-256 checksum ' +
         'below against your download before running it.',
     );
@@ -167,7 +167,7 @@ function main() {
     if (platforms.includes('windows')) {
       out.push(
         '- **Windows** shows "Windows protected your PC". Choose **More info → Run anyway**. ' +
-          'Windows 11 Smart App Control can block unsigned apps with no override — use the ' +
+          'Windows 11 Smart App Control can block unsigned apps with no override. Use the ' +
           'browser version at https://varve.studio/try.',
       );
     }
@@ -176,7 +176,7 @@ function main() {
         out.push(
           '- **macOS (0.5.0)** shows "Varve is damaged and can\'t be opened" with no Open Anyway ' +
             'option. After dragging Varve to Applications, run ' +
-            '`xattr -dr com.apple.quarantine /Applications/Varve.app` — that removes the ' +
+            '`xattr -dr com.apple.quarantine /Applications/Varve.app`, which removes the ' +
             'download quarantine flag so macOS will open the app. Do not disable Gatekeeper.',
         );
       } else {
@@ -241,7 +241,7 @@ function main() {
         'See the [Updates guide](https://varve.studio/docs/updates).',
     );
   } else {
-    out.push('- Updates are manual — there is no in-app updater for this release.');
+    out.push('- Updates are manual. There is no in-app updater for this release.');
   }
   if (!platforms.includes('macos')) {
     out.push('- No macOS build in this release.');

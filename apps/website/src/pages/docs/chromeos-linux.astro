@@ -77,7 +77,7 @@ const appImageBundlesWebKit = appImageShipsBundledWebKit(release.version);
             <strong>Check the architecture.</strong> Open the Terminal and run{' '}
             <code class="code-block">uname -m</code>. ARM Chromebooks print{' '}
             <code>aarch64</code>; Intel/AMD Chromebooks print <code>x86_64</code>. Download
-            the matching build, do not mix them.
+            the matching build. Do not mix them.
           </li>
           <li>
             <strong>Check the container.</strong>
@@ -151,7 +151,7 @@ const appImageBundlesWebKit = appImageShipsBundledWebKit(release.version);
           The expected result is <code>{arm64Deb.filename}: OK</code>. The published SHA-256
           is <code>{arm64Deb.sha256}</code>; the checksum file remains the preferred check
           because it covers the exact download.
-          Then install, this is a system modification, so it asks for your password:
+          Then install. This is a system modification, so it asks for your password:
         </p>
         <code class="code-block">sudo apt update &amp;&amp; sudo apt install ./{arm64Deb.filename}</code>
         <p>
@@ -205,7 +205,7 @@ const appImageBundlesWebKit = appImageShipsBundledWebKit(release.version);
           it. To update, download the newer <code>.deb</code> from the release page, verify
           its checksum, and install it over the old version; documents and settings are
           preserved. Rolling back means installing an older <code>.deb</code>, which only
-          works while the document format remains compatible, keep backups.
+          works while the document format remains compatible. Keep backups.
         </p>
         <p>
           To remove the application without touching your documents:

@@ -26,6 +26,7 @@ const APP_COPY_SURFACES = [
   'packages/ui/src/components/ColorPicker/LchColorFields.tsx',
   'apps/desktop/src/demo/demoSeo.ts',
   'apps/desktop/src/demo/sampleDocument.ts',
+  'apps/desktop/src/demo/DemoBanner.tsx',
   'apps/desktop/src/App.tsx',
   'apps/desktop/public/varve-demo-sw.js',
   'packages/codegen/src/shared.ts',
@@ -44,7 +45,7 @@ function visibleSource(text: string): string {
     .replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1')
+    .replace(/(^|[ \t])\/\/.*$/gm, '$1')
     .replace(/^\s*\*.*$/gm, '');
 }
 
@@ -102,6 +103,15 @@ describe('rendered website and app copy', () => {
       const source = fs.readFileSync(path.join(repoRoot, rel), 'utf8');
       expect(visibleSource(source), rel).not.toMatch(/\u2014|&mdash;/);
     }
+  });
+
+  it('does not treat protocol or in-string slashes as comments', () => {
+    expect(visibleSource('const url = "https://varve.studio/try";')).toContain(
+      'https://varve.studio/try',
+    );
+    expect(visibleSource("const path = 'foo//bar';")).toContain('foo//bar');
+    expect(visibleSource('  // hidden — comment\nvisible copy')).toContain('visible copy');
+    expect(visibleSource('  // hidden — comment\nvisible copy')).not.toMatch(/\u2014/);
   });
 
   it('keeps a space on both sides of the hero eyebrow separator', () => {

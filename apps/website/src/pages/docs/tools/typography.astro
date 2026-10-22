@@ -19,7 +19,7 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Creating Text</h2>
         <p>
-          Press <code>T</code> to select the Text tool. Click anywhere on the canvas to create a text node at that position. Start typing immediately, the text appears on canvas as you type. Press <code>Escape</code> or click elsewhere to finish editing.
+          Press <code>T</code> to select the Text tool. Click anywhere on the canvas to create a text node at that position. Start typing immediately. The text appears on canvas as you type. Press <code>Escape</code> or click elsewhere to finish editing.
         </p>
         <p>
           The text box expands as you type. To create a fixed-width text area, click and drag to define its bounds.
@@ -43,7 +43,7 @@ import '../../../styles/docs-prose.css';
         <p>
           The floating text toolbar provides font family, weight, bold, italic,
           size, and color controls. While a text edit session is active this bar is
-          the single formatting surface, the contextual bar beside the menubar
+          the single formatting surface. The contextual bar beside the menubar
           points to it instead of showing a second copy of the same controls. Open
           <strong>More text formatting</strong> for
           alignment and lists. Font size changes apply when you press <code>Enter</code> or
@@ -110,8 +110,8 @@ import '../../../styles/docs-prose.css';
         <h2>Text Properties</h2>
         <p>
           The Typography section in the Inspector provides controls for every text property. The
-          common spine, content, family, weight, style, size, line height, letter spacing, and
-          alignment, stays visible, while tracking, paragraph spacing, vertical alignment,
+          common spine (content, family, weight, style, size, line height, letter spacing, and
+          alignment) stays visible, while tracking, paragraph spacing, vertical alignment,
           direction, writing mode, case, decoration, list style, overflow, and text sizing live
           in a collapsed <strong>Advanced typography</strong> subsection. Its header badge reports
           how many of those properties the current layer already uses, so nothing is silently
@@ -275,7 +275,7 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Export behavior</h2>
         <p>
-          SVG keeps editable text, feature settings, variable-axis settings, and native <code>textPath</code> semantics where the SVG viewer supports them. Browser PDF is a local raster PDF. Desktop PDF preserves simple eligible text through the native print path, but shaping-sensitive text, ligatures, non-Latin/script text, rich runs, feature values/ranges, axes, tracking, manual cluster edits, and path text, is rasterized from the live renderer so it cannot silently change shape. This preserves appearance but means that node is not searchable/editable text in the PDF. Convert to outlines when vector geometry is more important than PDF text semantics, and inspect the exported artifact before delivery.
+          SVG keeps editable text, feature settings, variable-axis settings, and native <code>textPath</code> semantics where the SVG viewer supports them. Browser PDF is a local raster PDF. Desktop PDF preserves simple eligible text through the native print path, but shaping-sensitive text (ligatures, non-Latin/script text, rich runs, feature values/ranges, axes, tracking, manual cluster edits, and path text) is rasterized from the live renderer so it cannot silently change shape. This preserves appearance but means that node is not searchable/editable text in the PDF. Convert to outlines when vector geometry is more important than PDF text semantics, and inspect the exported artifact before delivery.
         </p>
         <p>
           A character the chosen font cannot draw is a separate case. The canvas

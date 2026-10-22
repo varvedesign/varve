@@ -30,7 +30,7 @@ const workspaceLayoutReleaseVersion = publishedFeatureVersion('0.5.0');
         <p>
           Varve's workspaces are not separate apps or templates. Design, Print, Draw, Photo, Motion,
           and Email all operate on the same document, selection, viewport, and undo
-          history, switching workspaces never forks your work, and switching back restores what
+          history. Switching workspaces never forks your work, and switching back restores what
           you left. Switch from the menubar switcher, the View &gt; Workspace menu, the command
           palette, or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>6</kbd> in the same order
           as the switcher; hovering a tab names the workspace with its shortcut, the active
@@ -76,7 +76,7 @@ const workspaceLayoutReleaseVersion = publishedFeatureVersion('0.5.0');
 
       <FeatureVisual
         scene="workspaces"
-        caption="The Print workspace on a poster document, the switcher sits in the menubar, naming the active mode and keeping the rest one icon away, and the left panel carries the Masters, Pages, and Spreads controls print work needs."
+        caption="The Print workspace on a poster document. The switcher sits in the menubar, naming the active mode and keeping the rest one icon away, and the left panel carries the Masters, Pages, and Spreads controls print work needs."
       />
 
       <FeatureVisual
@@ -113,7 +113,7 @@ const workspaceLayoutReleaseVersion = publishedFeatureVersion('0.5.0');
       <section class="feature-section">
         <h2>Safe by default</h2>
         <p>
-          Customization cannot remove essential navigation, every stored preference is sanitized
+          Customization cannot remove essential navigation. Every stored preference is sanitized
           against corrupted or outdated data, Reset restores the built-in layout for the current
           mode, and Reset All asks before discarding every workspace's customizations at once.
         </p>

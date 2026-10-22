@@ -22,8 +22,8 @@ export function macosUnsignedCaveat(version: string | null | undefined): string 
     return (
       '0.5.0 has no bundle-wide signature, so a browser-downloaded copy shows ' +
       '"Varve is damaged and can\'t be opened" with no Open Anyway option. ' +
-      'After dragging Varve to Applications, run: xattr -dr com.apple.quarantine /Applications/Varve.app. ' +
-      'That removes the download quarantine flag so macOS will open the app. Do not disable Gatekeeper.'
+      'After dragging Varve to Applications, run `xattr -dr com.apple.quarantine /Applications/Varve.app`, which removes ' +
+      'the download quarantine flag so macOS will open the app. Do not disable Gatekeeper.'
     );
   }
   return (

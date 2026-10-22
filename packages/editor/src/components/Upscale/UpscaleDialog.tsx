@@ -1106,8 +1106,7 @@ export function UpscaleDialog({
                 </span>
                 {mode?.isAi && !previewDataUrl && (
                   <p className="upscale-preview__ai-hint">
-                    AI preview is opt-in. It generates a 512 px crop. Tap Generate to see real
-                    output.
+                    Tap Generate for a 512 px AI preview crop.
                   </p>
                 )}
                 {previewGenerating && (
