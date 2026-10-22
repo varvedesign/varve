@@ -64,7 +64,7 @@ export class TextTool extends BaseTool {
     if (ctx.selection.length !== 1) return false;
     const nodeId = ctx.selection[0]!;
     const node = ctx.getNode(nodeId);
-    if (!node || node.kind !== 'text') return false;
+    if (node?.kind !== 'text') return false;
     if (ctx.textEditTargetId === nodeId) return false;
     // Commit anything buffered first: the inline editor takes over the node,
     // and a draft left open would otherwise be applied to the new session.
