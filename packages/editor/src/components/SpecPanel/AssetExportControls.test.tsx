@@ -58,6 +58,7 @@ describe('AssetExportControls', () => {
     const raster = vi.spyOn(exportHelpers, 'exportNodeAsRaster').mockResolvedValue({
       blob: new Blob(['png'], { type: 'image/png' }),
       warnings: [],
+      resourceFailures: [],
     });
     const download = vi.spyOn(exportHelpers, 'downloadBlob').mockImplementation(() => {});
     const doc = createDocument('Export', true);
@@ -109,7 +110,11 @@ describe('AssetExportControls', () => {
 
       fireEvent.click(screen.getByRole('radio', { name: 'SVG' }));
       fireEvent.click(screen.getByRole('button', { name: 'Export SVG' }));
-      await waitFor(() => expect(screen.getByText('Export cancelled')).toBeInTheDocument());
+      await waitFor(() =>
+        expect(document.querySelector('.spec-export__message')).toHaveTextContent(
+          'Export cancelled',
+        ),
+      );
       expect(listener).not.toHaveBeenCalled();
     } finally {
       setDemoExportAnalyticsListener(null);
