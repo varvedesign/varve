@@ -14,11 +14,35 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { gunzipSync, gzipSync } from 'node:zlib';
 
 const REPOSITORY = 'penpot/penpot';
 const API = 'https://api.github.com';
 const DEFAULT_AUDIT = 'docs/audits/penpot';
 const USER_AGENT = 'Varve-Penpot-Audit/1.0';
+
+/**
+ * The issue ledger is gzip-compressed because its normalized provenance makes
+ * the plain form ~11 MB, above the repository's 10 MiB single-addition limit.
+ * `zcat` still yields line-delimited JSON, so ad-hoc inspection is unchanged.
+ */
+const LEDGER_BASENAME = 'issues.ndjson.gz';
+
+function readLedgerText(directory) {
+  const compressed = join(directory, LEDGER_BASENAME);
+  if (existsSync(compressed)) return gunzipSync(readFileSync(compressed)).toString('utf8');
+  const plain = join(directory, 'issues.ndjson');
+  return existsSync(plain) ? readFileSync(plain, 'utf8') : null;
+}
+
+function writeLedger(directory, content) {
+  const file = join(directory, LEDGER_BASENAME);
+  mkdirSync(dirname(file), { recursive: true });
+  const temporary = `${file}.${process.pid}.tmp`;
+  // Level 9 with a fixed header keeps the bytes reproducible for one payload.
+  writeFileSync(temporary, gzipSync(content, { level: 9 }), { mode: 0o600 });
+  renameSync(temporary, file);
+}
 
 function atomicWrite(file, contents) {
   mkdirSync(dirname(file), { recursive: true });
@@ -452,9 +476,9 @@ export function reconcileSupplemental(records, supplemental) {
 }
 
 function loadRecords(snapshotDir) {
-  const file = join(snapshotDir, 'issues.ndjson');
-  if (!existsSync(file)) return [];
-  return readFileSync(file, 'utf8')
+  const text = readLedgerText(snapshotDir);
+  if (text === null) return [];
+  return text
     .split('\n')
     .filter(Boolean)
     .map((line) => JSON.parse(line));
@@ -533,13 +557,13 @@ function validateSupplementalEvidence(record, manifest, cacheDirectory) {
 
 function persistRecords(snapshotDir, records) {
   const content = `${records.map((record) => JSON.stringify(record)).join('\n')}\n`;
-  atomicWrite(join(snapshotDir, 'issues.ndjson'), content);
+  writeLedger(snapshotDir, content);
   return sha256(content);
 }
 
 function writeCutoffDiff(auditDir, currentManifest, records) {
   const previousDirectory = scopeDir(auditDir, 'C1');
-  if (!existsSync(join(previousDirectory, 'issues.ndjson'))) return;
+  if (readLedgerText(previousDirectory) === null) return;
   const previousRecords = loadRecords(previousDirectory);
   const changes = compareInventories(previousRecords, records, currentManifest.cutoffAt);
   atomicWrite(
@@ -985,7 +1009,9 @@ function check({ auditDir, cutoff }) {
     if (record.includedAtCutoff && record.kind === 'issue')
       errors.push(...completionRecordErrors(record));
   }
-  const actualHash = sha256(readFileSync(join(directory, 'issues.ndjson')));
+  const ledgerText = readLedgerText(directory);
+  if (ledgerText === null) errors.push('issue ledger is missing');
+  const actualHash = ledgerText === null ? null : sha256(ledgerText);
   if (actualHash !== manifest.issuesLedgerSha256) errors.push('issue ledger checksum mismatch');
   const cacheDirectory = join(cacheRoot(), cutoff.toUpperCase(), 'issues');
   let cachedRecordCount = 0;

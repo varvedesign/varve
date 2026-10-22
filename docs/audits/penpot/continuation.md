@@ -610,7 +610,14 @@ The finding is the frozen machine-readable ledger: `issues.ndjson` was added in
 policy classifies additions by size only. Current size is 11,420,795 bytes, so
 the final blob is also over the limit; only an *addition* commit is flagged.
 
-Remediation options, both requiring a maintainer decision:
+Resolution applied: the ledger is now `snapshots/C1/issues.ndjson.gz`
+(1.68 MB, deterministic gzip; the research tool reads and writes it
+transparently and `zcat` still yields the same NDJSON). The manifest checksum
+tracks the uncompressed content. The work is published from a fresh
+`codex/penpot-corpus-integration` branch cut from `origin/master`, so the
+11 MB blob never enters remote history and no repository control is bypassed;
+the progressive 45-commit record stays on the local `codex/penpot-corpus`
+branch. The two options below are kept for the record:
 
 1. **Shard the ledger (preferred).** Split `issues.ndjson` into
    `snapshots/C1/issues/part-NN.ndjson` shards under 10 MiB each, teach

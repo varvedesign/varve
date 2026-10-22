@@ -54,8 +54,10 @@ Authentication uses an existing `gh auth token`, `GH_TOKEN`, or
 exponential retries; unrecoverable responses stop the run without marking a
 partial crawl complete.
 
-The tracked `snapshots/C1/manifest.json`, `issues.ndjson`, and
-`reconciliation.json` form the inventory record. `issues.ndjson` tracks
+The tracked `snapshots/C1/manifest.json`, `issues.ndjson.gz`, and
+`reconciliation.json` form the inventory record. The ledger is gzipped because
+its normalized provenance exceeds the repository's single-addition size limit;
+`zcat issues.ndjson.gz` yields the same line-delimited JSON. It tracks
 research status and engineering status independently. Status changes require
 evidence and a human decision; `check` rejects a reviewed issue without its
 source pointer, complete discussion capture, assessment, owner, and final
