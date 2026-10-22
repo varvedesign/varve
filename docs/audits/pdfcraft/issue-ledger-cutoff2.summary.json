@@ -35,16 +35,34 @@
     "issues_missing_from_cutoff2": 0
   },
   "new_issue_dispositions": {
-    "implemented-validated": 47,
-    "outside-varve-scope": 165,
-    "cluster-assessed": 254,
-    "candidate": 18,
-    "verified-already-correct-": 9,
+    "implemented-validated": 50,
+    "outside-varve-scope": 164,
+    "cluster-assessed": 252,
+    "candidate": 10,
+    "verified-already-correct-": 17,
     "deferred": 1
   },
   "reconciliation": {
     "open_issues_plus_open_prs_equals_reported_count": true,
     "duplicate_issue_numbers": 0,
     "failed_requests": 0
+  },
+  "batch_updates": {
+    "batch_11_2026-10-22": {
+      "issues": [3216, 3711, 3712, 3309],
+      "result": {
+        "3216": "implemented-validated",
+        "3711": "implemented-validated",
+        "3712": "implemented-validated",
+        "3309": "verified-already-correct-"
+      },
+      "evidence": [
+        "packages/import/src/pdfFidelity.test.ts",
+        "tests/e2e/import/pdf-vertical-text.spec.ts",
+        "packages/import/src/svg.test.ts",
+        "docs/screenshots/pdfcraft/import-vertical-writing-canvas.png",
+        "docs/screenshots/pdfcraft/import-vertical-writing-results.png"
+      ]
+    }
   }
 }

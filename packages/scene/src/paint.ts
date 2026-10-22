@@ -66,6 +66,21 @@ export function resolveNodePaints(
 }
 
 /**
+ * Would this fill paint anything the user can see?
+ *
+ * Hit testing has to agree with the replay path: a fill that is hidden, fully
+ * transparent, or a solid with no colour leaves no pixels, so it must not
+ * create a click target either. Gradient, image and pattern fills carry their
+ * own content and only need `visible`/`opacity` to be honoured.
+ */
+export function fillPaintsVisibleArea(fill: Fill): boolean {
+  if (fill.visible === false) return false;
+  if (!(fill.opacity > 0)) return false;
+  if (fill.type === 'solid') return (fill.color?.a ?? 0) > 0;
+  return true;
+}
+
+/**
  * Compute the derived geometry (Shape) for a shapeless node.
  *
  * When a ShapeNode has `shapeless: true`, its geometry is determined by its

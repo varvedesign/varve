@@ -191,6 +191,21 @@ export default defineConfig({
           },
         ]
       : []),
+    // Playwright's WebKit is the WPE build: headless-only, and it needs the
+    // whole WPE stack (libWPEWebKit-2.0, libwpe, libWPEBackend-fdo) which a
+    // rolling distribution does not ship. The GTK build is the engine the Tauri
+    // desktop app actually embeds, and it runs headed — so this lane is opt-in,
+    // needs a display (xvfb-run in CI), and needs
+    // `node scripts/quality/prepare-playwright-webkit.mjs` once to supply the
+    // ICU 74 / flite libraries the archive was built against.
+    ...(process.env.VARVE_WEBKIT_GTK
+      ? [
+          {
+            name: 'webkit-gtk',
+            use: { ...devices['Desktop Safari'], headless: false },
+          },
+        ]
+      : []),
     {
       name: 'firefox',
       use: {

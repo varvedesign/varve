@@ -156,53 +156,53 @@ and asserts the preset is selected without creating a document.
 
 ---
 
-## F3 — Repeated nudges cost one undo each (blocked)
+## F3 — Repeated nudges cost one undo each (decided: keep per-press entries)
 
 **External evidence.** Graphite #2617 ("Nudges in the same direction should be
-combined in history", open, Architecture / Paper Cut): five Shift+Right taps
-and three Right taps should collapse so one undo returns to the start; a
-direction change or any other edit starts a new point. A maintainer replies
-that the cloned-document history must be refactored first, because merging
-steps is not expressible in it — an explicit warning that this needs history
-identity, not a hack.
+combined in history", open, Architecture / Paper Cut): five Shift+Right taps and
+three Right taps should collapse so one undo returns to the start; a direction
+change or any other edit starts a new point. A maintainer replies that the
+cloned-document history must be refactored first, because merging steps is not
+expressible in it.
 
-**User problem.** Correcting an over-nudge costs as many undos as key presses,
-and every extra press consumes history depth.
+**What Varve does today.** A *held* arrow key is one entry: the nudge controller
+opens one transaction while a direction is held and commits when it is released.
+Each discrete tap is its own entry, so N taps produce N entries.
 
-**Applicable Varve workflow and code path.** `CanvasNudgeController` and the
-editor's history. A *held* arrow key is already one entry: the controller opens
-one transaction while any direction is held and commits when all are released.
-Each discrete tap is its own transaction, so N taps produce N entries.
+**Decision: do not merge taps.** Per-press entries are the final behaviour. The
+reasons are specific to Varve, not a preference:
 
-**Observed Varve behaviour (before).** Three ArrowRight taps produce three
-history steps.
+1. **The undo unit is a gesture.** `context/useGestureTransaction.ts` gives
+   sliders, colour pickers and keyboard stepping one entry per gesture and
+   states the rule explicitly: "Deliberately not time-based: a merge window
+   would also fuse two separate, intentional edits made in quick succession.
+   Gesture boundaries are what the user perceives as one action." A key press is
+   a complete gesture; merging a run of them needs a boundary that is not time.
+2. **The remaining boundary option fights the controller's contract.**
+   `planNudgeRepeat` validates each repeat against the positions the session
+   *expects next*, and the controller clears its session on key release. Keeping
+   a burst open therefore means either reworking that expected-position model or
+   leaving a transaction open across unrelated actions.
+3. **A half-working burst merge is worse than none.** Three implementations were
+   attempted in this work and each failed at a different boundary — the session
+   cleared on key-up, the next repeat declined because the expected position no
+   longer matched, and a burst split silently into two entries. Every variant
+   either lost a press or split a burst, and a user who cannot predict which
+   edits share an undo can lose an intended state. It was reverted rather than
+   shipped.
 
-**Investigation.** Undo in Varve does not read the in-memory snapshot stack
-whenever persistent history is attached; `undo()` routes to
-`persistentHistory.undo()`, which walks the revision store
-(`EditorHistorySession` over an `@varve/history` `HistoryStore`). That store is
-an **append-only** operation log plus revision DAG whose transaction captures
-are validated by replaying them and comparing hashes. It exposes no
-amend/coalesce operation, and fabricating one by rewriting a head revision
-would break the replay-hash invariant that makes recovery trustworthy.
+**What serves the underlying need instead.** The need behind #2617 is coarse
+movement without a stack of undos. Varve already answers it: holding the key is
+one gesture and one undo entry; Shift+Arrow moves by the large step (and the
+step is configurable in Settings); and the Inspector's X/Y fields take an exact
+value in one edit. The documentation now names those routes rather than implying
+that repeated taps should be free.
 
-A prototype that merged entries in the snapshot stack was written and reverted:
-with persistent history attached it changed nothing user-visible, which is the
-only behaviour that matters.
-
-**Intended outcome (not yet delivered).** Same-direction nudges inside a short
-idle window become one durable revision; a direction change, any other edit, or
-an undo closes the burst.
-
-**Blocker.** A durable-history capability: an explicit, invariant-preserving
-"extend the current revision" operation in `@varve/history` plus session
-support in `EditorHistorySession`, and a matching rule for the snapshot-stack
-fallback. This is a foundational history change and needs its own design and
-migration review (ADR-0019 territory), not a drive-by edit.
-
-**Status.** `blocked`. No user-visible change shipped. The finding stays open.
-
----
+**Prerequisite if this is ever revisited** — a scoped design task, not a fix:
+a nudge-session model that survives key release with per-repeat expectations, a
+transaction-boundary rule that closes on the next command while still
+finalizing the deferred commit and the persistent-history capture exactly once,
+and a deliberate change to the documented gesture contract above.
 
 ## F4 — Confirmed existing protections (no change needed)
 
@@ -253,6 +253,125 @@ suite 310/310, rebuilt page inspected at 1440x1200.
 
 ---
 
+## F7 — Hidden fill stayed painted and clickable (implemented)
+
+**External evidence.** Graphite #2554 ("Path tool click targets erroneously
+include hidden 'Path' node modifications", closed): "When generating click
+targets, hidden nodes such as the Path node need to be bypassed." Maintainers
+confirmed it was fixed upstream. The corpus also carries #1736 ("Filled but open
+shapes don't have click targets for their fill"), which turned out to be the
+opposite half of the same story in Varve — see the "already handled" note below.
+
+**User problem.** Turning a shape's fill off in the Inspector left it painted.
+The user hides a fill, sees no change, and the shape still takes clicks across
+its whole bounding box. Two independent mechanisms produced that:
+
+1. **Rendering.** `buildIr` filtered invisible fills out of the stack, so an
+   all-hidden stack arrived at replay as an empty array. Replay reads an empty
+   or absent stack as "this node has no fill stack" and falls back to the node's
+   legacy `fill` colour — painting exactly the fill the user had hidden. The
+   native builder (`crates/varve-engine`) clones the stack verbatim, so the two
+   renderers disagreed; the TypeScript path was the wrong one.
+2. **Hit testing.** `isTransparentFill` decided whether the bounding-box
+   fallback may claim a node, and it only looked at colour alpha. A fill that
+   was hidden, had zero opacity, or arrived through `paintRefs` therefore kept a
+   click target across the whole box even when nothing was painted.
+
+**Observed Varve behaviour (before).** With the fill toggled off in the
+Inspector, a canvas pixel read at the shape's interior was still the fill
+colour (`57,208,198,255`) after a camera nudge, a zoom reset and an unrelated
+edit — so it was not a stale-frame artifact. Clicking that interior selected the
+shape.
+
+**Intended outcome.** A hidden fill paints nothing and claims no target; the
+outline of a shape that still has a stroke remains clickable; a visible fill
+behaves as before.
+
+**Implementation decision.** Keep invisible entries in the IR stack so "stack
+exists but nothing is visible" is distinguishable from "no stack", and let
+replay skip them per fill — the behaviour the native builder already had.
+Replace the alpha-only transparency check with the renderer's own semantics
+(`resolveNodePaints` + `fillPaintsVisibleArea`: visible, non-zero opacity, and
+for solid fills a colour with alpha), so click targets follow painted pixels.
+
+**Acceptance criteria.**
+1. Hiding the last visible fill changes the canvas pixels at the shape interior.
+2. The same shape no longer takes a click there.
+3. Re-showing the fill restores both the pixels and the click target.
+4. A fill stack with a mix of hidden and visible entries still paints only the
+   visible ones.
+5. The IR keeps hidden entries (native/web parity), and replay paints nothing
+   for an all-hidden stack.
+
+**Evidence.** `packages/engine/src/engine.ts` (stack mapping),
+`packages/editor/src/hitTest/HitTestEngine.ts` (`paintsNoFill`),
+`packages/scene/src/paint.ts` (`fillPaintsVisibleArea`); unit coverage in
+`packages/engine/src/engine.test.ts`, `packages/engine/src/replay-fill.test.ts`,
+`packages/editor/src/hitTest/__tests__/HitTestEngine.test.ts`,
+`packages/scene/src/paint.test.ts`; browser coverage in
+`tests/e2e/canvas/hidden-fill-click-target.spec.ts`, which reads a canvas pixel
+as the rendering oracle and was verified to fail against the previous
+behaviour (the hidden-fill click selected the shape before the fix).
+
+**Already handled, with mechanism (checked, not assumed).** #1736 asks for a
+click target inside a filled *open* path. Varve already provides one: the click
+policy's bounding-box tolerance fallback accepts the interior of any node that
+paints a fill. A fill-aware interior test was written first and then reverted
+because the E2E passed with it disabled — it changed no user-visible behaviour.
+The reverted work is recorded here so the same idea is not re-implemented.
+
+---
+
+## F8 — Keyboard path from "text selected" to "typing" (implemented)
+
+**External evidence.** Graphite #3637 ("With the Text tool active and a text
+layer selected, Enter should begin editing it") and the pull request that
+closes it, GraphiteEditor/Graphite#4756, which maps Enter in the Text tool's
+ready state to the tool's edit action and notes that Ctrl+Enter does the same in
+Graphite's Select tool. Varve had no keyboard path: the only ways into a text
+session were a click that creates new text, or a double-click on existing text.
+
+**User problem.** A keyboard user who has selected a text layer has to reach for
+the mouse to start typing, which is the same papercut class as F2.
+
+**Varve-specific constraint (why plain Enter was not taken).** Varve binds Enter
+and F2 to *renaming the selected layer* in the canvas input pipeline. Taking
+plain Enter for text editing would remove a documented shortcut, so the text
+path uses **Ctrl/Cmd+Enter** instead — the chord Graphite's own PR notes as
+working in its Select tool. The Text tool runs before the rename branch, so the
+modifier decides which action wins, and a browser case pins that plain Enter
+still renames with the Text tool active.
+
+**Implementation decision.** `TextTool.onKeyDown` claims Ctrl/Cmd+Enter when
+exactly one text layer is selected, flushes buffered edits, closes any open
+transaction, and sets the edit target — the same entry the click path uses. A
+multi-selection and an already-editing target are left alone.
+
+**Acceptance criteria.**
+1. Ctrl/Cmd+Enter with the Text tool active and one text layer selected opens
+   the editing surface.
+2. Plain Enter still opens the rename dialog and opens no text session.
+3. A multi-selection, a non-text selection, a repeat key and an already-editing
+   target all decline the chord.
+
+**Evidence.** `packages/editor/src/tools/TextTool.ts`,
+`packages/editor/src/tools/__tests__/TextTool.test.ts` (7 cases),
+`tests/e2e/canvas/text-tool-enter-edits.spec.ts` (2 Chromium cases).
+
+**Operational note for future browser specs.** Tool key handlers are routed from
+the *focused canvas*. Selecting a layer through the Layers panel leaves focus on
+the row, so a spec that then presses a tool key observes nothing — the handler
+never runs. `tests/e2e/canvas/object-marquee-selection.spec.ts` already calls
+`canvas.focus()` for this reason; this spec does too. The failure mode is silent
+(no error, no effect), which cost several runs here, so it is recorded rather
+than rediscovered.
+
+**Related, now implemented.** The same PR set carried the clipboard flavour that
+lets other applications paste a Varve selection as vectors; that work is
+recorded as F9 below.
+
+---
+
 ## F5 — Observations that are not (yet) Varve work
 
 - `InteractionContext.axisLock` was dead code until F1 gave it a consumer.
@@ -268,3 +387,59 @@ suite 310/310, rebuilt page inspected at 1440x1200.
   (Graphene), GPU node buffers, web-only stack and Graphite-internal tooling.
   Those areas have no Varve counterpart; per-issue reasons are recorded in the
   ledger instead of being summarised away here.
+
+---
+
+## F9 — Copy offered other applications nothing they could paste (implemented)
+
+**External evidence.** Graphite #2373 ("Copy/pasting vector and raster content
+between other graphics apps") and GraphiteEditor/Graphite#4499, the open pull
+request that resolves it by putting an `image/svg+xml` representation on the
+clipboard beside the internal payload. The PR's discussion also records the
+host limitations: the type is not broadly supported by Firefox and Safari, and
+desktop wrappers need their own interception.
+
+**User problem.** Copying artwork in Varve and pasting into Inkscape, Krita,
+Illustrator or Figma produced layer *names* as text. The editable
+`application/vnd.varve+json` payload means nothing to those applications, and
+`text/plain` is the only other representation written. A separate "Copy as SVG"
+command existed, but a user who pressed the normal copy shortcut had no way to
+know that.
+
+**Implementation decision.** An ordinary Copy now also writes `image/svg+xml`:
+
+- The payload comes from the existing per-root exporter the "Copy as SVG"
+  command uses (`exportNodeToSvg` with `background: 'transparent'`, world
+  transform baked into each root, multiple roots grouped under a union
+  `viewBox`). Exporting a synthetic document instead emits the white page
+  backdrop and loses per-node identity, which is why that approach was
+  abandoned during implementation rather than shipped.
+- The flavour is optional at the writer: `writeClipboardOutcome` takes the
+  source document as a trailing argument, so callers without scene context
+  (tests, guides) keep the previous behaviour exactly.
+- It is bounded (`CLIPBOARD_SVG_MAX_NODES`, `CLIPBOARD_SVG_MAX_BYTES`) and
+  best-effort: any exporter failure, oversized selection or missing mask source
+  drops the flavour and never the editable payload. The browser path keeps its
+  unprefixed retry, so a host that rejects a type still gets an editable copy.
+- In-app paste is unchanged: readers already prefer the Varve payload, so the
+  extra representation cannot reduce fidelity.
+
+**Acceptance criteria.**
+1. Copy writes `image/svg+xml` alongside the editable payload when a source
+   document is available.
+2. The SVG contains the selected artwork only, uses world-space bounds, and
+   carries no page backdrop.
+3. Without a document the flavour is absent and behaviour is unchanged.
+4. The browser `ClipboardItem` carries the same type.
+5. An oversized selection drops only the flavour.
+
+**Evidence.** `packages/editor/src/clipboardSvg.ts` (6 unit cases),
+`packages/editor/src/clipboard.test.ts` (43 cases, including the native and
+browser write paths), `tests/e2e/canvas/clipboard-svg-flavour.spec.ts` (copies a
+rectangle in Chromium and reads the SVG back from the real clipboard; verified
+to fail before the change).
+
+**Website.** `apps/website/src/pages/features/clipboard.astro` described the
+separate command as the interoperability route; it now states that an ordinary
+Copy carries the SVG representation, with the size ceiling and the host's
+permission/MIME dependence disclosed.

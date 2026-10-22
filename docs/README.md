@@ -622,6 +622,9 @@ The following dated files were moved from `docs/architecture/` to
 accessibility, platform UX, inference, and more). They are point-in-time
 records; check the current code before acting on their findings.
 
+| `audits/open-pencil/README.md` | Frozen issue-corpus review, verified Varve improvements, evidence limitations, and completion record |
+| `audits/open-pencil/issues-2026-10-20.json` | Machine-readable issue IDs, review ranges, comment counts, and one disposition per frozen issue |
+
 | `audits/plugin-system-evidence-2026-09-25.md` | Baseline reconnaissance, official platform sources, user complaints, and mitigation trail |
 | `audits/plugin-system-validation-2026-09-25.md` | Local plugin scenario results, resource limits, visual evidence, and native hardware gap |
 | `audits/plugin-system-evidence-2026-09-27.md` | User-reported plugin/settings failure modes, replies and uncertainty, practical mitigations, and acceptance tests |

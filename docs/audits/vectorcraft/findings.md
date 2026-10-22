@@ -175,33 +175,90 @@ than relabelled.
 - **Not covered:** gradient strokes in the document route, and per-stop
   transparency (see F6).
 
-## F5 — Area-text overset is computed and thrown away (open)
+## F5 — Area-text overset is computed and thrown away (fixed)
 
 - **External evidence:** vectorcraft#1471 (area-type overflow is not reported;
-  `text.create`/`setStyle` return plain success), #2323 (overflow indicator
-  only appears once the box is selected), #2769 (CJK area text clips its last
+  create/set-style calls return plain success), #2323 (the overflow indicator
+  only appears once the frame is selected), #2769 (CJK area text clips its last
   line with no overset indicator).
-- **Varve code:** `packages/engine/src/replay.ts` computes
-  `hasVerticalOverflow` but uses it only for the ellipsis decision;
-  `packages/scene/src/typographyPreflight.ts` accepts an optional `oversetMap`
-  that nothing produces, and `preflight.ts` permanently marks `overset-text`
-  as `unavailable`.
-- **Status:** `applicable-requires-work`. Not implemented in this pass. The
-  smallest honest change is to derive an overset count per area-text node and
-  feed the existing preflight check, rather than inventing a new indicator.
+- **User problem:** text that does not fit its frame is either clipped or painted
+  past the frame with no warning, so a print or export surprises the author.
+- **Varve code:** `packages/engine/src/replay.ts` computed
+  `hasVerticalOverflow` and used it only for the ellipsis decision;
+  `packages/scene/src/preflight.ts` permanently reported `overset-text` as
+  unavailable, and `runTypographyPreflight` accepted an `oversetMap` that
+  nothing produced.
+- **Observed behavior (before):** a short area frame holding long text showed
+  no finding at all; preflight said the check could not be run.
+- **Implementation:** `packages/editor/src/render/textOverset.ts` lays each
+  measurable area frame out through the same canonical pipeline the renderer
+  uses (`layoutRichTextSnapshot`, supplied with a 2D measure context), and
+  compares each line's box against the frame height. Results are cached per
+  node by object identity, so an unchanged frame is measured once; the cache is
+  dropped when `document.fonts.ready` resolves, because fallback metrics would
+  otherwise produce false overset. `runCombinedPreflight` now accepts
+  `oversetMap` and `oversetUnmeasured`.
+- **Where it surfaces:** preflight is a Print-workspace status section, so the
+  warning appears there and not in Design — the existing product decision about
+  where preflight lives. Moving it (or adding a canvas overset marker) would be
+  a separate design change, not a side effect of measuring overflow.
+- **Honest limits:** frames that follow their text (`autoHeight`/`autoWidth`)
+  cannot be overset and are skipped. Contour-wrapped and vertical frames are
+  reported as **unmeasured**, and the check stays `unavailable` while any exist
+  — it never claims a document is clear when part of it was not inspected.
+- **Acceptance criteria:** a frame too short for its text yields one `overflow`
+  warning in preflight; a frame that fits yields none; the check reads
+  `verified` only when every area frame was measured.
+- **Validation:** `packages/editor/src/render/textOverset.test.ts` (5 cases,
+  fixed-width measure context), `packages/scene/src/preflight.test.ts` (3 new
+  cases), and `tests/e2e/canvas/preflight-overset.spec.ts` driving the real
+  editor (type tool → frame → text → preflight panel) in Chromium and WebKitGTK.
 
-## F6 — Gradient stop transparency is lost in PDF export (open)
+## F6 — PDF gradients: blank output (fixed) and stop transparency (open)
 
 - **External evidence:** vectorcraft#1140 (canvas blends gradient stop opacity
   premultiplied, unlike PDF export, SVG viewers and `Gradient::sample`), #827
   (raster-effect blend modes dropped in PDF), #3234 (blend between tints of one
   spot colour written as process CMYK).
-- **Varve code:** `packages/engine/src/replayGradient.ts` interpolates stops in
-  premultiplied alpha; `crates/varve-print/src/lib.rs` `ShadingRegistry` /
-  `create_sampled_function` discards the alpha component when sampling.
-- **Status:** `applicable-requires-work`. Not implemented in this pass: a
-  truthful fix needs per-stop alpha in the shading function plus an `/SMask`
-  (or equivalent) and a rendered-PDF comparison, which is its own batch.
+- **Varve code:** `crates/varve-print/src/lib.rs` — `ShadingRegistry`,
+  `create_sampled_function`, `sample_gradient`.
+- **Observed behavior (before), critical:** a Type 0 sampled function declared
+  `Range` with **four 0..255 outputs** regardless of colour space, while an RGB
+  stream carries **three** bytes per sample and PDF colour components are
+  **0..1**. Poppler reported `GfxUnivariateShading: function with wrong output
+  size` and drew **nothing**: every gradient-filled shape exported to PDF came
+  out blank. This was not limited to transparency — any RGB gradient was
+  affected.
+- **Intended outcome:** the function's output arity matches the shading colour
+  space (3 for DeviceRGB, 4 for DeviceCMYK) and its range is 0..1.
+- **Implementation:** the Range is now built from the colour-space component
+  count with `[0, 1]` pairs.
+- **Validation:** `gradient_sampled_function_range_matches_colour_space` and
+  `..._cmyk_space` assert the emitted dictionaries; the crate suite is 201/201.
+  Rendered with poppler 26.08: the exported red-to-blue gradient was a blank
+  page before and correct after — `evidence/pdf-gradient-before.png` and
+  `evidence/pdf-gradient-after.png`.
+- **Second defect, fixed here:** per-stop **alpha** was discarded when the
+  shading was sampled (`engine_color_rgba(&color)` drops the alpha component), so
+  a gradient fading to transparent exported as a hard-edged solid block.
+- **Implementation (alpha):** when any stop is translucent, the registry now
+  also emits a DeviceGray shading of the alpha ramp as a Type 0 function
+  (`Range [0 1]`, one component) and wraps it in a Form XObject registered as a
+  luminosity `/SMask` in an ExtGState; the content applies that state before
+  `sh`. Opaque gradients emit no mask, so the common case pays nothing. The
+  ExtGState dictionary is merged with the opacity/blend states already
+  installed rather than replacing them.
+- **Validation (alpha):** `gradient_stop_alpha_emits_luminosity_soft_mask` and
+  `opaque_gradient_emits_no_soft_mask`; the crate suite is 203/203. Rendered
+  with poppler 26.08: an opaque-red-to-transparent-red gradient was a solid red
+  block before and fades to the page after — `evidence/pdf-gradient-alpha-before.png`
+  and `evidence/pdf-gradient-alpha-after.png`.
+- **PDF/X-1a:** `hasPdfX1aTransparency` already reports gradient stop alpha in
+  the export panel, so an X-1a export of such artwork is disclosed before it
+  runs; the soft mask is emitted only on the paths that permit live
+  transparency, alongside the `/ca` opacity states this writer already used.
+- **Considered and rejected:** splitting the ramp into flat-alpha bands. It
+  needs no mask but bands visibly in the alpha channel for any smooth fade.
 
 ## F7 — Whole-document hover/selection scans (checked, already handled)
 
@@ -259,6 +316,8 @@ review:
 | `svg-gradient-whole-document.png` | `exportDocumentToSvgAdvanced` output rendered in Chromium: flat dark rectangle (before) versus the red-to-blue gradient (after). |
 | `offset-path-round.png` | Outward Offset Path result driven through Object → Path → Offset Path. The rounded corner arc is visible at the top-left; a miter join would show a sharp corner there. A menubar panel remains over the left edge of the capture. |
 | `offset-path-inward.png` | Inward Offset Path result from the same spec. |
+| `pdf-gradient-before.png` | Poppler render of a PDF exported from a gradient-filled rectangle **before** the sampled-function fix: the page is blank. |
+| `pdf-gradient-after.png` | The same export after the fix: the red-to-blue gradient renders. |
 
 Screenshots are evidence of a specific run, not a claim about every platform:
 the SVG captures are Chromium on Linux at the recorded viewport, and the canvas
@@ -296,3 +355,57 @@ log), not the native Tauri path.
   real quota failure in the browser build is not scriptable without a dev hook,
   so the chip reuses the already-shipped `save-status--error` skin and is
   covered at component level. Recorded as a limitation.
+
+## F10 — A file that cannot be read opens as an empty document (open)
+
+- **External evidence:** vectorcraft#861 — opening certain files "does nothing:
+  no document appears and no error is shown". The same complaint appears as
+  #1151 (file drag-and-drop fails on Fedora) and #2177 (large PDF/AI files fail
+  to load): the failure is invisible to the user.
+- **Varve code:** `packages/editor/src/context.tsx:9548` (`openFile`) and
+  `packages/editor/src/context/usePersistence.ts:225` (`loadDocument`).
+- **Observed behavior:** when JSON is supplied but fails to decode or fails
+  validation, `openFile` falls back to `createDocument(name)` — a **blank
+  document under the requested file's name**. `loadDocument` swallows invalid
+  JSON entirely. Either way the user sees no error; in the `openFile` case the
+  canvas looks like the file opened, and the next save writes over the real
+  document.
+- **Why this is high severity:** it is a data-loss vector, not just a missing
+  message — the wrong document is bound to the file's identity.
+- **Intended outcome:** a file that cannot be read leaves the current document
+  untouched, reports failure to the caller, and shows a persistent, dismissible
+  message naming the file and the reason.
+- **Status:** `applicable-requires-work`. Not implemented here: the repository
+  has no visible error surface for open failures (the canvas announcer is
+  visually hidden), so a truthful fix needs a small error-banner/dialog
+  primitive first. Implementing only the "don't substitute a blank document"
+  half would remove the data-loss vector while leaving the user staring at
+  nothing, which is still the reported complaint — the two should land
+  together.
+
+
+## F11 — The preflight findings panel could not be seen
+
+- **External evidence:** the corpus reports the same shape of defect repeatedly:
+  an indicator that appears but whose explanation is unreachable
+  (vectorcraft#2323 overflow indicator only on selection, #2086 menus that cover
+  the status bar, #3093 scrollbars that block controls).
+- **Varve code:** `packages/editor/src/components/PreflightWarnings.tsx` placed
+  an absolutely positioned panel inside the status bar, and
+  `packages/editor/src/editor.css` gives `.editor-status` `overflow-x: auto;
+  overflow-y: hidden`.
+- **Observed behavior:** the badge counted the warnings, but opening it showed
+  nothing — the panel was painted outside the status bar's clipped box. Visual
+  validation of F5 caught this: the canvas showed the overflow, the badge showed
+  "2", and the panel capture was just the sidebar behind it.
+- **Intended outcome:** the findings open above the badge, over the canvas, and
+  are reachable by keyboard.
+- **Implementation:** the panel is now the shared `@varve/ui` `Popover`
+  (portal-backed, Floating UI positioning), which is the repository's documented
+  popover contract. Escape, outside-click dismissal, focus order and collision
+  handling come from the primitive instead of a hand-rolled backdrop.
+- **Validation:** `PreflightWarnings.test.tsx` (4/4) and the browser spec in
+  Chromium and WebKitGTK, with the panel captured as evidence
+  (`evidence/preflight-overset-panel.png`).
+- **Note:** preflight remains a Print-workspace section, so the badge is not in
+  the Design status bar; that is the existing product decision, unchanged.

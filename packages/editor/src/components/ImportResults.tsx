@@ -246,6 +246,17 @@ export function ImportResults({ result, onClose, onRevealSelection }: ImportResu
                         ))}
                       </ul>
                     )}
+                    {expanded &&
+                      file.status !== 'failed' &&
+                      file.status !== 'unsupported' &&
+                      (file.capabilities?.notes.length ?? 0) > 0 && (
+                        <ul className="import-results__file-notes" aria-label="Import notes">
+                          {file.capabilities?.notes.map((note, j) => (
+                            // biome-ignore lint/suspicious/noArrayIndexKey: stateless note strings emitted by the parser
+                            <li key={j}>{note}</li>
+                          ))}
+                        </ul>
+                      )}
                   </li>
                 ))}
               </ul>

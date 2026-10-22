@@ -29,6 +29,7 @@ import {
 } from '@varve/engine';
 import type { SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape, resolveNodePaints } from '@varve/scene';
+import { truncateGraphemes } from '@varve/shared';
 import { Button, SegmentedControl, Select, ShineBorder, Switch } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRasterMask';
@@ -87,7 +88,7 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   if (message.includes('Model') || message.includes('model')) {
     return `Model failed to load: ${defaultMessage}`;
   }
-  return message.length > 180 ? `${message.slice(0, 180)}...` : message;
+  return truncateGraphemes(message, 180, '...');
 }
 
 function normalizeObjectSelectionDownloadError(error: unknown): string {

@@ -171,6 +171,25 @@ export const THUMBNAIL_VARIANTS: Record<ThumbnailRole, ThumbnailVariant> = {
   },
 };
 
+/**
+ * A role's profile at the display's pixel density.
+ *
+ * The variant dimensions are CSS pixels; `devicePixelRatio` is the extra
+ * sampling the engine applies (`service.ts` multiplies output by it). A 256 px
+ * card on a 2x display needs a 512 px bitmap or it is upscaled and soft, which
+ * is the Varve instance of the "preview is blurrier than the original" class
+ * (storytold/lightcraft#1918, #709).
+ *
+ * Pure: callers pass the ratio, so this module keeps its no-DOM contract.
+ */
+export function thumbnailVariantForDevice(
+  role: ThumbnailRole,
+  devicePixelRatio = 1,
+): ThumbnailVariant {
+  const base = THUMBNAIL_VARIANTS[role];
+  return devicePixelRatio >= 1.5 ? { ...base, devicePixelRatio: 2 } : base;
+}
+
 // ─── Lifecycle ──────────────────────────────────────────────────────────────
 
 /**

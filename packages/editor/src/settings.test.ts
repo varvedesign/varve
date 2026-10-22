@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { loadSettings, resetSettings, saveSettings, updateSettings } from './settings';
+import {
+  loadSettings,
+  readQuarantinedSettings,
+  resetSettings,
+  saveSettings,
+  updateSettings,
+} from './settings';
 
 const STORAGE_KEY = 'strata-editor-settings';
 
@@ -397,5 +403,43 @@ describe('resetSettings', () => {
       pressureEnabled: true,
       pressureCurve: 1,
     });
+  });
+});
+
+/**
+ * Evidence: storytold/lightcraft#103 — an unreadable settings file was reset to
+ * defaults with no trace. Varve cannot show a recovery notice yet, but the
+ * original bytes must survive the reset.
+ */
+describe('settings quarantine', () => {
+  it('preserves an unreadable blob verbatim before falling back to defaults', () => {
+    localStorage.setItem('varve-editor-settings', '{"appearance":{"theme":');
+    const settings = loadSettings();
+    expect(settings.appearance.theme).toBe('system');
+    const quarantined = readQuarantinedSettings();
+    expect(quarantined?.payload).toBe('{"appearance":{"theme":');
+    expect(quarantined?.source).toBe('varve-editor-settings');
+    expect(Number.isNaN(Date.parse(quarantined?.savedAt ?? ''))).toBe(false);
+  });
+
+  it('preserves a legacy blob and reports its source key', () => {
+    localStorage.setItem('strata-editor-settings', 'not json at all');
+    loadSettings();
+    expect(readQuarantinedSettings()).toMatchObject({
+      source: 'strata-editor-settings',
+      payload: 'not json at all',
+    });
+  });
+
+  it('keeps one quarantine slot instead of duplicating the same blob', () => {
+    localStorage.setItem('varve-editor-settings', 'broken');
+    loadSettings();
+    const first = readQuarantinedSettings();
+    loadSettings();
+    expect(readQuarantinedSettings()).toEqual(first);
+  });
+
+  it('returns null when nothing was quarantined', () => {
+    expect(readQuarantinedSettings()).toBeNull();
   });
 });

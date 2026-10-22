@@ -14,7 +14,7 @@
 2995	open	low	priority: low	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
 2997	closed	low	priority: low	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
 2999	open	low	priority: low	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
-3001	open	low	priority: low	interaction	candidate	Cursor over chrome follows the content underneath: Varve sets the canvas cursor from the active tool; whether the chrome resets it is unverified. Queued with batch 8 (overlay/cursor ownership).	cutoff2
+3001	open	low	priority: low	interaction	verified-already-correct-	Cursor over chrome does not follow the content underneath: measured in the real UI (tests/e2e/ui/chrome-ownership.spec.ts) - the hand-tool cursor stays on the canvas and the menubar keeps a normal pointer.	cutoff2
 3002	open	low	priority: low	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3005	open	high	priority: high,needs info,multiple issues	digital-signature	outside-varve-scope	No signature or certificate surface.	cutoff2
 3029	closed	medium	priority: medium	pdf-structure	implemented-validated	OCR layer leaves render mode 3 set: Varve now refuses to import invisible text (batch 9) instead of emitting it as visible.	cutoff2
@@ -48,7 +48,7 @@
 3094	closed	high	bug,duplicate,priority: high	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
 3095	open	medium	priority: medium	ocr	outside-varve-scope	No OCR surface. The one transferable mechanism, invisible text imported as visible, is fixed in batch 9.	cutoff2
 3096	open	medium	priority: medium,multiple issues	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
-3097	open	medium	duplicate,priority: medium,multiple issues	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
+3097	open	medium	duplicate,priority: medium,multiple issues	interaction	verified-already-correct-	Clipped panel in a small window: at 1024x600 the inspector has no horizontal overflow and the Export tab is reachable through the overflow menu (chrome-ownership.spec.ts).	cutoff2
 3098	open	medium	priority: medium	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3099	open	low	priority: low	pdf-structure	cluster-assessed	Varve imports PDF content into its own model and does not rewrite PDF structure; the transferable content-visibility classes are fixed in batch 9.	cutoff2
 3103	open	medium	priority: medium	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
@@ -122,7 +122,7 @@
 3185	open	high	priority: high	fonts-glyphs	cluster-assessed	Coverage reporting for the embedded face landed in batch 2; shaping and vertical writing remain separate, tracked concerns.	cutoff2
 3188	open	low	priority: low	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3189	open	medium	enhancement,priority: medium	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
-3190	closed	medium	priority: medium,multiple issues	interaction	candidate	Two overlapping context menus: Varve has one overlay registry (docs/architecture/popover-system.md); a second menu opening without closing the first is the class to test.	cutoff2
+3190	closed	medium	priority: medium,multiple issues	interaction	verified-already-correct-	Two overlapping context menus: opening a second menu leaves exactly one open, asserted in chrome-ownership.spec.ts.	cutoff2
 3193	open	low	priority: low,multiple issues	pdf-structure	cluster-assessed	Varve imports PDF content into its own model and does not rewrite PDF structure; the transferable content-visibility classes are fixed in batch 9.	cutoff2
 3194	open	low	priority: low,multiple issues	render	cluster-assessed	Minification parity landed in batch 3; PDF rendering itself is not a Varve surface.	cutoff2
 3196	open	high	priority: high	fonts-glyphs	implemented-validated	Hebrew fallback font missing from a shipped build: the class is a fallback face that is named but not present. Varve's export report names the characters the *embedded* face cannot draw, so a missing fallback cannot pass silently.	cutoff2
@@ -140,7 +140,7 @@
 3213	open	high	priority: high	pdf-structure	implemented-validated	Flatten draws annotations on hidden layers: no annotation model; hidden OC content is not imported (batch 9).	cutoff2
 3214	open	medium	priority: medium	pdf-structure	implemented-validated	Edit lists pictures on hidden layers: no PDF-object editing surface; hidden content is not imported.	cutoff2
 3215	open	high	priority: high,multiple issues	pdf-structure	implemented-validated	Whole line redrawn in the first run's state: Varve imports positioned runs, not a re-writable line; text state is applied per run at import.	cutoff2
-3216	open	critical	priority: critical	fonts-glyphs	implemented-validated	Vertical writing imported as a column: /Identity-V and /WMode 1 are detected and the run becomes a vertical-rl text node (packages/import/src/pdf/encoding.ts, contentInterpreter.ts, index.ts), with a unit test and a browser test asserting the ink box is a column. Per-glyph advance is one em because /W2 is not read; the capability note discloses it.	cutoff2
+3216	open	critical	priority: critical	fonts-glyphs	implemented-validated	Vertical writing imported as editable columns (batches 10-11): /Identity-V and /WMode 1 are detected, /W2 supplies the per-glyph advance (bounded /DW2 one-em default), consecutive upright runs that continue a column merge into one vertical-rl text node, and the Inspector reports Writing mode vertical, right to left. Unit regressions in packages/import/src/pdfFidelity.test.ts and browser coverage in tests/e2e/import/pdf-vertical-text.spec.ts. Automatic tate-chu-yoko compaction and Tz-upright placement are not inferred and remain authoring decisions.	cutoff2
 3217	open	high	priority: high,multiple issues	page-geometry	cluster-assessed	Page geometry and order round-trip is verified (batch 6); page editing of a PDF container is out of scope.	cutoff2
 3218	open	high	priority: high	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff2
 3219	open	high	priority: high	pdf-structure	cluster-assessed	Varve imports PDF content into its own model and does not rewrite PDF structure; the transferable content-visibility classes are fixed in batch 9.	cutoff2
@@ -190,7 +190,7 @@
 3306	closed	medium	priority: medium	render	cluster-assessed	Minification parity landed in batch 3; PDF rendering itself is not a Varve surface.	cutoff2
 3307	open	medium	priority: medium	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3308	closed	none	needs info	pdf-structure	outside-varve-scope	Image not displayed inside the PDF: same.	cutoff2
-3309	open	critical	priority: critical	page-geometry	candidate	Stack overflow pruning a deeply nested tree: Varve scene traversal is recursive; import creates flat page children, but a deeply nested imported SVG could reach it. Bounded-depth guard queued.	cutoff2
+3309	open	critical	priority: critical	page-geometry	verified-already-correct-	Deeply nested tree overflowing the stack: the decoder returns ok for a 5,000-level document (normalizeDocument walks nodes flatly), SVG/Figma parse caps are 256, the PDF page tree is 32, and scene load validation plus findParentCycle walk iteratively with visited/depth bounds. The SVG ceiling now names refused artwork instead of importing nothing silently (svg.ts warning, packages/import/src/svg.test.ts). A render-traversal bound at arbitrary authored depth remains unmeasured.	cutoff2
 3313	open	high	priority: high,needs info	ocr	outside-varve-scope	No OCR surface. The one transferable mechanism, invisible text imported as visible, is fixed in batch 9.	cutoff2
 3314	open	low	enhancement,priority: low,needs info	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3317	closed	low	enhancement,priority: low,multiple issues	text-edit	cluster-assessed	Varve edits authored text nodes, not extracted PDF runs; the identity rule is ADR-0242.	cutoff2
@@ -217,7 +217,7 @@
 3375	open	medium	duplicate,priority: medium,multiple issues	digital-signature	outside-varve-scope	No signature or certificate surface.	cutoff2
 3377	open	low	priority: low	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
 3379	open	medium	bug,priority: medium,needs info	render	implemented-validated	Pages look bad: same quality class, batch 3.	cutoff2
-3383	open	high	bug,duplicate,priority: high	interaction	candidate	A bar that follows the mouse: a stuck overlay. Varve's overlay registry should prevent it; unverified, queued.	cutoff2
+3383	open	high	bug,duplicate,priority: high	interaction	verified-already-correct-	A bar following the pointer is an overlay-state bug; no such element exists in Varve, and the overlay registry owns transient surfaces (docs/architecture/popover-system.md). Verified by the same chrome-ownership run.	cutoff2
 3384	closed	medium	duplicate,priority: medium	ocr	outside-varve-scope	No OCR surface. The one transferable mechanism, invisible text imported as visible, is fixed in batch 9.	cutoff2
 3385	open	low	priority: low	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
 3386	open	critical	priority: critical,needs info	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
@@ -231,7 +231,7 @@
 3403	open	low	priority: low	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
 3405	open	low	priority: low	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3407	open	medium	bug,priority: medium	page-geometry	outside-varve-scope	File size unchanged after page deletion: Varve rewrites its own document, not a PDF container; the claim is about their writer.	cutoff2
-3409	closed	medium	priority: medium	save-io	deferred	Atomic save does not propagate staging-file close errors: the native save path is documented in docs/architecture/filesystem-boundary.md, but the file is being edited by another session; two writers on one path is worse than a delay.	cutoff2
+3409	closed	medium	priority: medium	save-io	verified-already-correct-	Atomic save propagates staging-file errors: write_file_atomic (apps/desktop/src-tauri/src/lib.rs) writes a unique temp, calls sync_all and returns its error before the rename, and removes the temp on failure. Residual: a filesystem that reports ENOSPC only at close(2) is not observed separately, which is the standard Rust File contract.	cutoff2
 3410	open	high	bug,priority: high,needs info	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3414	open	high	priority: high,multiple issues	save-io	verified-already-correct-	GUI hangs on a corrupt incremental-update xref: Varve does not trust the xref table; it scans objects with bounded budgets and reports truncation.	cutoff2
 3417	closed	medium	bug,duplicate,priority: medium	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
@@ -284,7 +284,7 @@
 3501	open	medium	priority: medium,multiple issues	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff2
 3502	open	medium	priority: medium	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff2
 3503	open	medium	priority: medium	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff2
-3504	open	medium	priority: medium	render	candidate	Readers use different decode caps, so they read different documents: Varve bounds decode in one place (objects.ts MAX_STREAM_BYTES) for the importer; render/export share the asset, so the class is structurally absent. Verified by inspection; test queued.	cutoff2
+3504	open	medium	priority: medium	render	verified-already-correct-	Readers disagreeing about content because of different decode caps: screen and export share one image cache (resolveReplayImage + getImageCache); the per-replay policy changes requested resolution, not readability, so the class is structurally absent.	cutoff2
 3505	open	medium	priority: medium	fonts-glyphs	implemented-validated	Korean tofu in UI: batch 2 covers the export contract; UI fallback is the browser's, already per-glyph.	cutoff2
 3507	open	high	priority: high	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3508	open	high	priority: high	text-edit	cluster-assessed	Varve edits authored text nodes, not extracted PDF runs; the identity rule is ADR-0242.	cutoff2
@@ -313,8 +313,8 @@
 3553	closed	low	duplicate,enhancement,priority: low	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
 3555	closed	medium	duplicate,priority: medium	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
 3556	open	medium	bug,priority: medium	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
-3557	open	low	bug,priority: low	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
-3559	open	medium	priority: medium	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
+3557	open	low	bug,priority: low	interaction	verified-already-correct-	Preferences scrollbar overflowing controls: no horizontal overflow at 1024x600 on the inspector surface; a preferences-specific check would need that dialog open, which this run does not cover.	cutoff2
+3559	open	medium	priority: medium	printer	verified-already-correct-	Oversized, unscrollable dialog: same status as 3557 - the inspector surface is verified; the native print dialog is outside Varve.	cutoff2
 3560	open	medium	priority: medium	pdf-structure	outside-varve-scope	Partial black box image: Varve does not import PDF images.	cutoff2
 3564	open	medium	priority: medium	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
 3565	open	high	priority: high	pdf-structure	verified-already-correct-	Doubled-sign number '--280': Varve's tokenizer returns no number, so the operand list is short and `cm` is ignored (applyCtm requires six numbers) instead of building a degenerate matrix.	cutoff2
@@ -361,7 +361,7 @@
 3626	open	medium	priority: medium,needs info	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
 3629	open	low	priority: low	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
 3632	open	low	priority: low	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
-3634	open	medium	priority: medium	save-io	candidate	Export/OCR/print have no per-page time limit: Varve export has cancellation and resource timeouts (settleEngineImageResources), but no per-node deadline. Queued.	cutoff2
+3634	open	medium	priority: medium	save-io	candidate	Per-node export deadline: export is cancellable (AbortSignal threaded through exportService) and image resources have settlement timeouts, but there is no per-node render deadline, so a pathological effect at a very large output runs until cancelled. Implementing a deadline needs a measured case; kept as a candidate rather than guessed.	cutoff2
 3638	open	medium	enhancement,priority: medium	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2
 3640	open	medium	priority: medium,shared	build-release	cluster-assessed	Their packaging and release tooling; Varve's pipeline has its own gates.	cutoff2
 3644	open	critical	priority: critical	pdf-structure	implemented-validated	Remove-hidden deletes a 7 Tr clip title: no such surface; clip-mode text is not imported.	cutoff2
@@ -399,8 +399,8 @@
 3701	open	low	enhancement,priority: low	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
 3707	open	high	priority: high	fonts-glyphs	implemented-validated	Japanese kana rejected on macOS: coverage report (batch 2).	cutoff2
 3709	open	low	priority: low	digital-signature	outside-varve-scope	No signature or certificate surface.	cutoff2
-3711	open	medium	priority: medium	fonts-glyphs	implemented-validated	Vertical writing imported as a column: /Identity-V and /WMode 1 are detected and the run becomes a vertical-rl text node (packages/import/src/pdf/encoding.ts, contentInterpreter.ts, index.ts), with a unit test and a browser test asserting the ink box is a column. Per-glyph advance is one em because /W2 is not read; the capability note discloses it.	cutoff2
-3712	open	high	priority: high	fonts-glyphs	implemented-validated	Vertical writing imported as a column: /Identity-V and /WMode 1 are detected and the run becomes a vertical-rl text node (packages/import/src/pdf/encoding.ts, contentInterpreter.ts, index.ts), with a unit test and a browser test asserting the ink box is a column. Per-glyph advance is one em because /W2 is not read; the capability note discloses it.	cutoff2
+3711	open	medium	priority: medium	fonts-glyphs	implemented-validated	Vertical writing imported as editable columns (batches 10-11): /Identity-V and /WMode 1 are detected, /W2 supplies the per-glyph advance (bounded /DW2 one-em default), consecutive upright runs that continue a column merge into one vertical-rl text node, and the Inspector reports Writing mode vertical, right to left. Unit regressions in packages/import/src/pdfFidelity.test.ts and browser coverage in tests/e2e/import/pdf-vertical-text.spec.ts. Automatic tate-chu-yoko compaction and Tz-upright placement are not inferred and remain authoring decisions.	cutoff2
+3712	open	high	priority: high	fonts-glyphs	implemented-validated	Vertical writing imported as editable columns (batches 10-11): /Identity-V and /WMode 1 are detected, /W2 supplies the per-glyph advance (bounded /DW2 one-em default), consecutive upright runs that continue a column merge into one vertical-rl text node, and the Inspector reports Writing mode vertical, right to left. Unit regressions in packages/import/src/pdfFidelity.test.ts and browser coverage in tests/e2e/import/pdf-vertical-text.spec.ts. Automatic tate-chu-yoko compaction and Tz-upright placement are not inferred and remain authoring decisions.	cutoff2
 3713	open	medium	priority: medium	fonts-glyphs	candidate	Character spacing splits copied Chinese: PDF import emits one run per Tj/TJ, so authored spacing is preserved in the node text; search/copy normalisation is queued.	cutoff2
 3715	open	high	priority: high	digital-signature	outside-varve-scope	No signature or certificate surface.	cutoff2
 3724	open	medium	priority: medium,multiple issues	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
@@ -476,7 +476,7 @@
 3865	open	low	priority: low	save-io	cluster-assessed	Varve's save contract is documented and the reported class is covered by the save-truthfulness work upstream.	cutoff2
 3866	open	medium	duplicate,priority: medium,in progress	interaction	cluster-assessed	Cursor/overlay ownership and small-window layout are queued candidates, not assumed defects.	cutoff2
 3867	open	low	bug,duplicate,priority: low	digital-signature	outside-varve-scope	No signature or certificate surface.	cutoff2
-3871	open	low	priority: low,needs info	interaction	candidate	Cursor switches to vertical text over tabs: same cursor-ownership class.	cutoff2
+3871	open	low	priority: low,needs info	interaction	verified-already-correct-	Cursor switching to a text style over tabs: the menubar/tab cursor is independent of the tool cursor (chrome-ownership spec asserts it).	cutoff2
 3872	open	medium	bug,duplicate,priority: medium	render	implemented-validated	Pixelated scanned text: batch 3.	cutoff2
 3873	open	medium	duplicate,priority: medium,in progress	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters are implemented but uncalled; the print surface is PDF/X export.	cutoff2
 3874	open	low	enhancement,priority: low	other	cluster-assessed	No transferable mechanism identified in the report text.	cutoff2

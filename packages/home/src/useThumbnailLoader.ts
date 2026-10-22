@@ -17,16 +17,29 @@ import {
   computeThumbnailIdentity,
   THUMBNAIL_VARIANTS,
   type ThumbnailIdentity,
+  type ThumbnailVariant,
+  thumbnailVariantForDevice,
 } from '@varve/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const BATCH_SIZE = 4;
 const MAX_CACHE_SIZE = 100;
 
+/** Display density, read once per session (no DOM dependency in @varve/shared). */
+function displayPixelRatio(): number {
+  return typeof globalThis.devicePixelRatio === 'number' ? globalThis.devicePixelRatio : 1;
+}
+
+/** Home-card profile for this display: 2x on HiDPI, 1x elsewhere. */
+export const HOME_CARD_VARIANT: ThumbnailVariant = thumbnailVariantForDevice(
+  'home-card',
+  displayPixelRatio(),
+);
+
 interface QueueItem {
   entry: FileEntry;
   priority: number;
-  identity: ThumbnailIdentity;
+  identities: ThumbnailIdentity[];
 }
 
 export interface ThumbnailLoader {
@@ -44,14 +57,33 @@ export interface ThumbnailLoader {
 export type ThumbnailGenerator = (entry: FileEntry) => Promise<string | null>;
 
 /** Canonical identity for a file's home-card thumbnail. */
-export function fileThumbnailIdentity(entry: FileEntry): ThumbnailIdentity {
+export function fileThumbnailIdentity(
+  entry: FileEntry,
+  variant: ThumbnailVariant = HOME_CARD_VARIANT,
+): ThumbnailIdentity {
   return computeThumbnailIdentity({
     docKey: entry.id,
     revisionHash: entry.contentHash,
     source: entry.thumbnailPreference ?? { type: 'automatic' },
-    variant: THUMBNAIL_VARIANTS['home-card'],
+    variant,
     rendererVersion: THUMBNAIL_RENDERER_VERSION,
   });
+}
+
+/**
+ * Identities to try, in order, for one entry.
+ *
+ * On HiDPI the 2x identity is primary and the 1x identity is a fallback: a
+ * thumbnail saved by an older build (or a 1x session) must still display
+ * rather than leaving the card empty. At 1x there is exactly one candidate.
+ */
+export function thumbnailIdentityCandidates(
+  entry: FileEntry,
+  variant: ThumbnailVariant = HOME_CARD_VARIANT,
+): ThumbnailIdentity[] {
+  const primary = fileThumbnailIdentity(entry, variant);
+  if (variant.devicePixelRatio === 1) return [primary];
+  return [primary, fileThumbnailIdentity(entry, THUMBNAIL_VARIANTS['home-card'])];
 }
 
 /**
@@ -60,16 +92,18 @@ export function fileThumbnailIdentity(entry: FileEntry): ThumbnailIdentity {
  */
 async function loadUrl(
   platform: Platform,
-  identity: ThumbnailIdentity,
+  identities: ThumbnailIdentity[],
   entry: FileEntry,
   generate?: ThumbnailGenerator,
 ): Promise<string | null> {
   try {
-    const canonical = await platform.getThumbnail(identity.key);
-    if (canonical) return canonical;
+    for (const identity of identities) {
+      const canonical = await platform.getThumbnail(identity.key);
+      if (canonical) return canonical;
+    }
     // Legacy warm migration: bare content-hash entries from the
     // pre-canonical system are treated as disposable optimization state.
-    if (identity.key !== entry.contentHash) {
+    if (identities.every((identity) => identity.key !== entry.contentHash)) {
       const legacy = await platform.getThumbnail(entry.contentHash);
       if (legacy) return legacy;
     }
@@ -104,12 +138,12 @@ export function useThumbnailLoader(
 
   const processSingle = useCallback(
     async (item: QueueItem) => {
-      const { entry, identity } = item;
+      const { entry, identities } = item;
       if (thumbnails.has(entry.id) || loadingRef.current.has(entry.id)) return;
       loadingRef.current.add(entry.id);
 
       try {
-        const url = await loadUrl(platform, identity, entry, generate);
+        const url = await loadUrl(platform, identities, entry, generate);
         setThumbnails((prev) => {
           const next = new Map(prev);
           next.set(entry.id, url);
@@ -169,7 +203,11 @@ export function useThumbnailLoader(
   const load = useCallback(
     (entry: FileEntry) => {
       if (thumbnails.has(entry.id) || loadingRef.current.has(entry.id)) return;
-      queueRef.current.push({ entry, priority: 0, identity: fileThumbnailIdentity(entry) });
+      queueRef.current.push({
+        entry,
+        priority: 0,
+        identities: thumbnailIdentityCandidates(entry),
+      });
       processQueue();
     },
     [thumbnails, processQueue],
@@ -180,7 +218,7 @@ export function useThumbnailLoader(
       const added: QueueItem[] = [];
       for (const entry of entries) {
         if (thumbnails.has(entry.id) || loadingRef.current.has(entry.id)) continue;
-        added.push({ entry, priority: 0, identity: fileThumbnailIdentity(entry) });
+        added.push({ entry, priority: 0, identities: thumbnailIdentityCandidates(entry) });
       }
       if (added.length === 0) return;
       queueRef.current.push(...added);

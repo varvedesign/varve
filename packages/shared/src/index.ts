@@ -674,6 +674,7 @@ export {
   variationSettingsKey,
 } from './textMeasure';
 export * from './thumbnail/contracts';
+export { splitGraphemeClusters, truncateGraphemes } from './truncateText';
 export { DEFAULT_ARTWORK_FONT_FAMILY } from './typographyDefaults';
 export type {
   FeatureNormalizationResult,
@@ -762,6 +763,7 @@ export {
   ZOOM_STEP_FACTOR,
   zoomAboutPoint,
 } from './viewport';
+export { escapeXmlText, sanitizeXmlText } from './xmlText';
 
 /** Semantic Strata package marker. */
 export const PACKAGE = '@varve/shared' as const;

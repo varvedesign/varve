@@ -15,6 +15,15 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Copy now pastes as vectors in other design apps** — An ordinary Copy also
+  puts a transparent SVG representation on the clipboard, so Inkscape, Krita,
+  Illustrator, or Figma receive the selection as artwork instead of layer
+  names. In-app paste still uses the editable Varve payload, so nothing loses
+  fidelity; very large selections keep the editable payload only, and the
+  receiving application still needs to accept `image/svg+xml`.
+
+### Added
+
 - **Text frame background and border** — Give text its own optional backing fill
   and border without changing glyph fill or outline. The border can be set to
   zero to keep the background with no visible line. The style is saved with
@@ -33,7 +42,6 @@ update, not for someone reading the commit log.
   creates the document with the values you typed, instead of requiring the
   mouse. Enter in the preset-name row still saves the preset, and Enter during
   an IME composition is left to the input method.
-
 - **Linux AppImage**: ships bundled WebKitGTK and GTK so it launches on a
   clean host without `libwebkit2gtk-4.1`. GPU/EGL/Mesa stay on the system so
   newer Mesa stacks do not white-screen. GStreamer plugins are not bundled
@@ -44,8 +52,56 @@ update, not for someone reading the commit log.
 - **AUR `varve-desktop-bin`**: package hashes and source URLs now match the
   published 0.5.1 AppImages.
 
+### Added
+
+- **Ctrl+Enter starts editing the selected text** — With the Text tool active and
+  one text layer selected, Ctrl+Enter (Cmd+Enter on macOS) begins editing it, so
+  the keyboard path from "text selected" to "typing" no longer needs a
+  double-click. Plain Enter still renames the layer.
+
 ### Fixed
 
+- **SVG import is linear again** — Importing a large file took time proportional to the square of
+  its element count: the converter copied the entire node map once per element, and the append
+  copied it again. A 4 000-element file went from 14.6 s to 0.26 s, and 8 000 elements from 34 s to
+  0.28 s. Appends during import now go through `addNodeInPlace`, which requires the caller to own the
+  document while assembling it; `addNode` is unchanged for every other caller. A scaling test fails
+  if the quadratic behaviour returns.
+- **Hiding a fill now hides it** — Turning off a shape's last visible fill
+  removes it from the canvas and from its click target. Previously the shape
+  kept painting its original colour, because the render pipeline treated an
+  all-hidden fill stack as "no stack" and fell back to the node's legacy fill.
+- **One undo step per control gesture** — Dragging a slider or a colour picker, or holding an arrow
+  key, produced one undo entry per intermediate value, so a single `Ctrl+Z` stepped back one notch
+  instead of reverting the change and a drag could consume the whole history window. Mask density,
+  corner smoothing, the floating text bar's colour picker, and keyboard stepping in every colour
+  picker now commit one undo entry per gesture.
+- **Unsaved-work bookkeeping has one authority** — Some edits marked the document dirty for the tab
+  strip and save status but not for the close guard, so grouping layers (or any edit made through a
+  hook with its own setter) could close a tab or quit with no save prompt, and the crash-recovery
+  copy was then discarded on the resulting clean shutdown. Both flags now come from one place.
+- **Seeded system fonts are verified against the device** — Varve assumed a short list of common
+  system families (Arial, Helvetica, Meiryo, Noto Sans CJK, …) was installed. On a machine without
+  one, text was drawn in the fallback face while preflight, the Missing Fonts dialog, and the export
+  preflight all reported the typography as faithful. Those families are now measured against the
+  device, and a family it cannot resolve is reported as missing with a replacement path.
+- **Preflight findings are visible** — the badge counted issues, but the panel
+  opened inside the status bar and was clipped, so its contents could not be
+  seen. It is now a portal-backed popover above the bar.
+- **Overset text is reported** — an area text frame too small for its content
+  now produces a preflight warning instead of clipping or bleeding silently.
+  Frames that use contour or vertical layout are reported as not measured, so
+  the check never claims a document is clear when part of it was not inspected.
+- **Transparent PDF gradients** — a gradient that fades to transparent exported
+  as a hard-edged solid block. It now carries a luminosity soft mask built from
+  the alpha ramp, so the fade survives into the PDF. Opaque gradients are
+  unchanged and pay no extra objects.
+- **PDF gradients now render** — an RGB gradient fill exported to a PDF whose
+  sampled function declared four 0-255 outputs for a three-component stream.
+  Poppler rejected it with "function with wrong output size" and drew nothing,
+  so gradient-filled shapes came out blank. The function now matches its colour
+  space and PDF's 0-1 colour range. Gradient stops that fade to transparent are
+  still flattened to opaque in PDF; that remains open.
 - **Autosave failures are visible** — when crash-recovery autosave cannot write
   a recovery copy, the status bar shows "Recovery paused" with the reason and
   the advice to save to a file, and clears itself on the next successful cycle.
@@ -100,9 +156,10 @@ update, not for someone reading the commit log.
 - **PDF import keeps vertical writing vertical.** A PDF set in a vertical
   writing mode (`Identity-V`, or a CMap with `/WMode 1`) imported as one long
   horizontal line, so a Japanese or Chinese column arrived as the wrong
-  document. Those runs now become Varve vertical text (`vertical-rl`), with the
-  Import Report stating that each glyph advances one em because the font's
-  vertical metrics are not read.
+  document. Those runs now become Varve vertical text (`vertical-rl`), placed
+  with the font's own vertical metrics (`/W2`, then `/DW2`), and consecutive
+  runs that continue the pen position merge into one editable column instead of
+  one layer per character.
 - **PDF export names characters the chosen font cannot draw.** The canvas falls
   back per glyph, but the PDF writer outlines the authored face, so a character
   that face does not map exported as a blank box while the editor showed it
