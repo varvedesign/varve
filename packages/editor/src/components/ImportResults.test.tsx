@@ -208,6 +208,110 @@ describe('ImportResults', () => {
     expect(warningItems[0]?.getAttribute('data-code')).toBe('parser.warning');
   });
 
+  it('shows capability notes when expanded, separate from warnings', () => {
+    const result = {
+      startedAt: 0,
+      completedAt: 1,
+      durationMs: 1,
+      totalFiles: 1,
+      successCount: 0,
+      partialCount: 1,
+      failureCount: 0,
+      unsupportedCount: 0,
+      warnings: [],
+      files: [
+        {
+          name: 'vertical.pdf',
+          source: 'file-picker' as const,
+          format: 'pdf',
+          status: 'partial' as const,
+          byteCount: 1,
+          durationMs: 1,
+          nodeCount: 3,
+          artifacts: [],
+          warnings: [],
+          unsupportedFeatures: [],
+          capabilities: {
+            format: 'pdf',
+            multipage: false,
+            pageDimensions: true,
+            vectors: true,
+            text: true,
+            images: false,
+            masters: false,
+            textThreads: false,
+            notes: [
+              '16 vertical text run(s) were imported as upright vertical columns',
+              'Page rotation was applied to page size and to content positions',
+            ],
+          },
+        },
+      ],
+    };
+    const { container } = render(<ImportResults result={result} onClose={() => {}} />);
+    // Notes describe what the importer did; they are not losses, so they must
+    // not appear in the warning list or before the details are expanded.
+    expect(container.querySelector('.import-results__file-notes')).toBeNull();
+    const toggle = container.querySelector('.import-results__toggle') as HTMLButtonElement;
+    fireEvent.click(toggle);
+    const notes = screen.getByRole('list', { name: 'Import notes' });
+    expect(notes.querySelectorAll('li')).toHaveLength(2);
+    expect(notes.textContent).toMatch(/imported as upright vertical columns/);
+    expect(container.querySelectorAll('.import-results__file-warning-list li')).toHaveLength(0);
+  });
+
+  it('does not repeat a failure as an import note', () => {
+    const result = {
+      startedAt: 0,
+      completedAt: 1,
+      durationMs: 1,
+      totalFiles: 1,
+      successCount: 0,
+      partialCount: 0,
+      failureCount: 1,
+      unsupportedCount: 0,
+      warnings: [],
+      files: [
+        {
+          name: 'protected.pdf',
+          source: 'file-picker' as const,
+          format: 'pdf',
+          status: 'failed' as const,
+          byteCount: 1,
+          durationMs: 1,
+          nodeCount: 0,
+          artifacts: [],
+          warnings: [
+            {
+              code: 'parser.warning',
+              message: 'This PDF is encrypted and was not imported',
+              severity: 'error' as const,
+            },
+          ],
+          unsupportedFeatures: [],
+          capabilities: {
+            format: 'pdf',
+            multipage: false,
+            pageDimensions: false,
+            vectors: false,
+            text: false,
+            images: false,
+            masters: false,
+            textThreads: false,
+            notes: ['This PDF is encrypted and was not imported'],
+          },
+        },
+      ],
+    };
+    const { container } = render(<ImportResults result={result} onClose={() => {}} />);
+    const toggle = container.querySelector('.import-results__toggle') as HTMLButtonElement;
+    fireEvent.click(toggle);
+    // The failure already appears once as an error; a refused file has no
+    // conversion to describe, so its note is not repeated.
+    expect(screen.queryByRole('list', { name: 'Import notes' })).toBeNull();
+    expect(container.querySelectorAll('.import-results__file-warning-list li')).toHaveLength(1);
+  });
+
   it('handles all-failed result', () => {
     const result = makeResult({ successCount: 0, failCount: 4 });
     render(<ImportResults result={result} onClose={() => {}} />);

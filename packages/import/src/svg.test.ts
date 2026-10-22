@@ -28,6 +28,24 @@ describe('parseSvg', () => {
     expect(() => parseSvg(`<svg>${nested}</svg>`)).not.toThrow();
   });
 
+  it('discloses artwork refused by the nesting ceiling instead of importing nothing silently', () => {
+    let nested = '<rect width="1" height="1" />';
+    for (let index = 0; index < 300; index += 1) nested = `<g>${nested}</g>`;
+    const result = parseSvg(`<svg>${nested}</svg>`);
+    expect(result.nodeIds).toHaveLength(0);
+    expect(result.warnings.join(' ')).toMatch(
+      /nested deeper than 256 levels were not imported; artwork inside them is missing/,
+    );
+  });
+
+  it('imports nesting within the ceiling', () => {
+    let nested = '<rect width="1" height="1" />';
+    for (let index = 0; index < 250; index += 1) nested = `<g>${nested}</g>`;
+    const result = parseSvg(`<svg>${nested}</svg>`);
+    expect(result.nodeIds.length).toBeGreaterThan(0);
+    expect(result.warnings.join(' ')).not.toMatch(/nested deeper than/i);
+  });
+
   it('parses a rect element', () => {
     const result = parseSvg('<svg><rect x="10" y="20" width="100" height="50" fill="red" /></svg>');
     expect(result.nodeIds.length).toBe(1);
