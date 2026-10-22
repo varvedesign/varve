@@ -140,6 +140,117 @@ function textNodesOf(result: ReturnType<ReturnType<typeof createPdfParser>['pars
   return Object.values(result.document.nodes).filter((node) => node.kind === 'text');
 }
 
+/**
+ * A composite font whose CMap maps three codes to A, B and C. The writing mode
+ * is the only thing that differs between the fixtures: `Identity-H` lays the
+ * three glyphs out as one horizontal line, `Identity-V` (or a CMap with
+ * `/WMode 1`) puts them in a column.
+ */
+function cjkFontObjects(encoding: string): string[] {
+  return [
+    '7 0 obj\n<< /Type /Font /Subtype /CIDFontType2 /BaseFont /Noto /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> >>\nendobj',
+    cMapObject(8, [
+      '/CIDInit /ProcSet findresource begin',
+      '12 dict begin',
+      'begincmap',
+      '1 begincodespacerange',
+      '<0000> <FFFF>',
+      'endcodespacerange',
+      '1 beginbfchar',
+      '<0003> <0041>',
+      'endbfchar',
+      '1 beginbfchar',
+      '<0004> <0042>',
+      'endbfchar',
+      '1 beginbfchar',
+      '<0005> <0043>',
+      'endbfchar',
+      'endcmap',
+      'end',
+    ]),
+    ...(encoding === 'CMAP'
+      ? [
+          '9 0 obj\n<< /Length 96 >>\nstream\n/CIDInit /ProcSet findresource begin /WMode 1 def /CMapName /Test-V def\nendstream\nendobj',
+        ]
+      : []),
+  ];
+}
+
+describe('PDF import — vertical writing', () => {
+  const parser = createPdfParser();
+
+  const type0Font = (encoding: string): string =>
+    encoding === 'CMAP'
+      ? '<< /Type /Font /Subtype /Type0 /BaseFont /Noto /Encoding 9 0 R /DescendantFonts [7 0 R] /ToUnicode 8 0 R >>'
+      : `<< /Type /Font /Subtype /Type0 /BaseFont /Noto /Encoding /${encoding} /DescendantFonts [7 0 R] /ToUnicode 8 0 R >>`;
+
+  it('imports Identity-V text as vertical text, not as one horizontal line', () => {
+    const result = parser.parse(
+      buildPdf([
+        {
+          content: 'BT /F1 12 Tf 300 700 Td <000300040005> Tj ET',
+          fontObject: type0Font('Identity-V'),
+          extraObjects: cjkFontObjects('Identity-V'),
+        },
+      ]),
+    );
+    const [node] = textNodesOf(result);
+    expect(node).toBeDefined();
+    expect(node).toHaveProperty('text', 'ABC');
+    expect(node).toHaveProperty('writingMode', 'vertical-rl');
+    expect((result.capabilities?.notes ?? []).join(' ')).toMatch(/vertical text run/);
+  });
+
+  it('detects vertical writing from an embedded CMap with /WMode 1', () => {
+    const result = parser.parse(
+      buildPdf([
+        {
+          content: 'BT /F1 12 Tf 300 700 Td <000300040005> Tj ET',
+          fontObject: type0Font('CMAP'),
+          extraObjects: cjkFontObjects('CMAP'),
+        },
+      ]),
+    );
+    const [node] = textNodesOf(result);
+    expect(node).toHaveProperty('writingMode', 'vertical-rl');
+  });
+
+  it('leaves Identity-H text horizontal', () => {
+    const result = parser.parse(
+      buildPdf([
+        {
+          content: 'BT /F1 12 Tf 72 700 Td <000300040005> Tj ET',
+          fontObject: type0Font('Identity-H'),
+          extraObjects: cjkFontObjects('Identity-H'),
+        },
+      ]),
+    );
+    const [node] = textNodesOf(result);
+    // `makeTextNode` always writes the key; the value is what carries meaning.
+    expect(node?.kind === 'text' ? node.writingMode : 'missing').toBeUndefined();
+    expect(node).toHaveProperty('text', 'ABC');
+  });
+
+  it('advances a vertical run down the page between Tj operators', () => {
+    // Two columns: the first glyph is placed, then the text matrix moves and a
+    // second glyph follows. With horizontal advance the two would share a
+    // baseline; the assertion is on the run count and text, not on an inferred
+    // line box, because Varve lays out the column itself.
+    const result = parser.parse(
+      buildPdf([
+        {
+          content: 'BT /F1 12 Tf 300 700 Td <0003> Tj <0004> Tj ET',
+          fontObject: type0Font('Identity-V'),
+          extraObjects: cjkFontObjects('Identity-V'),
+        },
+      ]),
+    );
+    const nodes = textNodesOf(result);
+    expect(nodes.map((node) => (node.kind === 'text' ? node.text : ''))).toEqual(['A', 'B']);
+    for (const node of nodes) expect(node).toHaveProperty('writingMode', 'vertical-rl');
+  });
+});
+
 describe('PDF import — geometry', () => {
   const parser = createPdfParser();
 

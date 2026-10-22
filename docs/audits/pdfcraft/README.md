@@ -125,6 +125,7 @@ signature and Office interchange, all of which remain outside Varve's scope.
 | 6 | Page rotation, page count and output size surviving save/reopen/export | **verified for save/reopen** — Varve's page-rotation model is per-page width/height, and a mixed-orientation document round-trips with order and node positions intact (commit `340262b60`). Export page geometry is the native writer's contract and is covered by `tests/e2e/export/native-pdf-contract.spec.ts`, not by a browser unit test |
 | 7 | Text edit identity (paragraph indices, property loss on re-edit) | already handled upstream: edits target authored node ids (ADR-0242), and the draft/target-switch paths are covered by `context/pendingEdits.ts` with `tests/e2e/save/text-draft-save.spec.ts` and `text-target-switch.spec.ts` |
 | 8 | Autosave scheduling tied to repaint; failed-autosave retry suppression | deferred — `packages/editor/src/context/usePersistence.ts` belongs to another session; two writers on one file is worse than a delay |
+| 10 | Vertical writing (`Identity-V`) imported as one horizontal line, so a CJK column became the wrong document | **implemented and validated** — `/WMode 1` (name or embedded CMap) is detected and the run becomes a `vertical-rl` text node; unit tests cover detection and the browser test asserts the rendered ink is a column. Per-glyph advance is one em (`/W2` unread) and disclosed in the Import Report. Commit `codex/pdfcraft-remainder-20261022` |
 | 9 | PDF import invents content the page does not show: invisible/clip-only text, hidden optional-content layers, encrypted files imported as blank pages, and an inline image whose `EI` is followed by a delimiter | **implemented and validated** — `/OCProperties` visibility, `Tr` render modes, `/Encrypt` refusal with a failure status, and delimiter-terminated `EI`. Commits `3bdd3e336`, `bb2f53d24`; browser evidence in `tests/e2e/import/pdf-import-integrity.spec.ts` and `docs/screenshots/pdfcraft/` |
 
 ## Limitations (unresolved)
@@ -163,9 +164,9 @@ These are honest gaps, not completions:
 Cutoff 2 is taken and reconciled; batches 1–6 and 9 are complete or recorded
 with reasons. What remains, in priority order:
 
-1. **Vertical-writing import** (rows 3216/3711/3712): map `Identity-V` runs and
-   `Tz`-upright placement into Varve's vertical text model, with a round-trip
-   test. This is the largest remaining fidelity gap found in the corpus.
+1. ~~Vertical-writing import (rows 3216/3711/3712)~~ — landed as batch 10. The
+   remaining refinement is `/W2` per-glyph vertical metrics (currently one em)
+   and `Tz`-upright placement inside a vertical run.
 2. **Batch 8 (interaction)**: verify cursor ownership over chrome (rows 3001,
    3383, 3871), overlay placement with two menus (3190), and small-window
    clipping (3097, 3557, 3559). Each is a verification first; no UI change is

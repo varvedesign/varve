@@ -303,6 +303,10 @@ function textNodeFor(
     name: family ? `Text (${family})` : 'Text',
     transform: [1, 0, 0, 1, run.x * POINTS_TO_PX * scale, run.y * POINTS_TO_PX * scale] as Affine,
     fontSize: Math.max(run.fontSize * POINTS_TO_PX * scale, 0.1),
+    // A vertical run is a column, not a line. Varve authors vertical text
+    // natively, so the run keeps its writing mode instead of arriving as one
+    // long horizontal string.
+    ...(run.vertical ? { writingMode: 'vertical-rl' as const } : {}),
   });
   return { node, document: next };
 }
@@ -454,6 +458,11 @@ function capabilityNotes(
   }
   if (collection.pages.some((page) => page.cropBoxApplied)) {
     notes.push('The crop box was used as the page box where it differs from the media box');
+  }
+  if (diagnostics.verticalRuns > 0) {
+    notes.push(
+      `${diagnostics.verticalRuns} vertical text run(s) were imported as vertical text; their per-glyph advance is one em because the font's /W2 metrics are not read`,
+    );
   }
   if (report.unsupportedFilters.size > 0) notes.push('Unsupported stream filters were reported');
   if (diagnostics.outsidePage > 0) {

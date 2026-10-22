@@ -475,6 +475,7 @@ export class ContentInterpreter {
       return;
     }
     const position = this.displayPosition();
+    const vertical = font.vertical === true;
     const items = fromArray && Array.isArray(this.operands[0]) ? this.operands[0] : this.operands;
 
     let content = '';
@@ -519,6 +520,7 @@ export class ContentInterpreter {
       return;
     }
     if (this.runs.length >= MAX_RUNS) return;
+    if (vertical) this.diagnostics.verticalRuns += 1;
     const display = toDisplaySpace(this.pageBox, position.x, position.y);
     this.emissions.push({ kind: 'run', at: this.runs.length });
     this.runs.push({
@@ -529,6 +531,7 @@ export class ContentInterpreter {
       fontResource: font.resourceName,
       fontBase: font.baseFont,
       estimatedAdvance: estimated,
+      vertical,
     });
     if (this.isOutsidePage(display.x, display.y)) this.outsidePageCount += 1;
   }
@@ -565,6 +568,7 @@ export class ContentInterpreter {
       return { text: decoded, unmapped: 0, estimated: true };
     }
     const step = text.font?.twoByteCodes ? 2 : 1;
+    const vertical = text.font?.vertical === true;
     let out = '';
     let unmapped = 0;
     let estimated = false;
@@ -575,8 +579,17 @@ export class ContentInterpreter {
       if (width === null) estimated = true;
       if (mapped.length === 0) unmapped += 1;
       else out += mapped;
-      let advance = ((width ?? FALLBACK_WIDTH) / 1000) * text.fontSize + text.charSpacing;
-      if (text.font && code === text.font.spaceCode) advance += text.wordSpacing;
+      // A vertical run advances by the vertical displacement (`/W2` in the
+      // CIDFont, one em by default). The importer does not read `/W2`, so the
+      // advance is one em and the run is marked estimated.
+      const advance = vertical
+        ? text.fontSize + text.charSpacing
+        : ((width ?? FALLBACK_WIDTH) / 1000) * text.fontSize + text.charSpacing;
+      if (vertical) estimated = true;
+      if (text.font && code === text.font.spaceCode) {
+        this.advanceInTextSpace((advance + text.wordSpacing) * text.horizScale);
+        continue;
+      }
       this.advanceInTextSpace(advance * text.horizScale);
     }
     return { text: out, unmapped, estimated };
@@ -584,7 +597,10 @@ export class ContentInterpreter {
 
   private advanceInTextSpace(amount: number): void {
     if (amount === 0) return;
-    this.state.text.matrix = multiply(translation(amount, 0), this.state.text.matrix);
+    // Vertical writing advances down the page (negative y in text space), so a
+    // column of text is not laid out as one horizontal line.
+    const step = this.state.text.font?.vertical ? translation(0, -amount) : translation(amount, 0);
+    this.state.text.matrix = multiply(step, this.state.text.matrix);
   }
 
   // ── Paths ─────────────────────────────────────────────────────────────
