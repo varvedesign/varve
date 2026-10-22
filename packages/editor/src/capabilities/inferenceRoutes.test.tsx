@@ -122,6 +122,43 @@ describe('inference gating via EditorProvider.removeBackground', () => {
     expect(get().state.backgroundRemovalPreviewSession).toBeNull();
   });
 
+  it('still runs Quick background removal when the user AI master switch is off', async () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    controls.isolate.mockResolvedValue({
+      request: {
+        requestId: 'test',
+        documentId: 'doc',
+        nodeId: IMAGE_ID,
+        sourceFingerprint: 'fp',
+        sourceLocator: SOURCE,
+        placementRevision: 0,
+        sourceWidth: 1,
+        sourceHeight: 1,
+        imageData: new ImageData(1, 1),
+        options: { method: 'quick', feather: 0.5, decontaminate: false },
+      },
+      maskDataUrl: 'data:image/png;base64,result',
+      maskWidth: 1,
+      maskHeight: 1,
+      provenance: {
+        method: 'quick',
+        requestedMethod: 'quick',
+        runtime: '1ms',
+        generatedAt: 1,
+      },
+      confidence: 0.8,
+    });
+    const get = mountEditor();
+    await waitFor(() => expect(get()).toBeDefined());
+    act(() => get().setSelection(IMAGE_ID));
+
+    await act(async () => {
+      await get().removeBackground('quick');
+    });
+
+    expect(controls.isolate).toHaveBeenCalled();
+  });
+
   it('runs removeBackground when the user AI master switch is on', async () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: true } }));
     const get = mountEditor();

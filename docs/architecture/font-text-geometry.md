@@ -184,6 +184,36 @@ clamped to a usable minimum rather than discarded. A node created by a click
 that is left empty is discarded when editing ends, so an invisible node does
 not persist as a layers row, a hit target, and an exported element.
 
+## Export glyph coverage
+
+Canvas2D draws a character the authored family lacks by falling back to
+another installed face, so the editor shows the text. The PDF writer has no
+such fallback: it outlines the *authored* face, and a code point that face does
+not map becomes `.notdef` — blank or a box — in the exported file. Canvas and
+PDF therefore disagree, and the difference is only visible after the file has
+been sent somewhere.
+
+`packages/editor/src/export/glyphCoverage.ts` closes the reporting gap: it
+parses the coverage of the exact font binaries the PDF exporter is about to
+embed (`parseFontData(...).unicodeRanges`) and names the characters that will
+not be drawn, per family, with the number of affected text objects. The result
+travels in the export's `warnings` and appears in Export Results before the
+file is considered finished.
+
+Rules:
+
+- **Report, do not silently repair.** The exporter still writes the same file;
+  the user decides whether to change the font, convert the text to outlines, or
+  accept the difference. Substituting a different face would change the
+  document's appearance without being asked.
+- **No claim without evidence.** A family with no font record, or one whose
+  bytes cannot be parsed, produces no warning. An empty coverage list means
+  "unknown", never "supports nothing".
+- **The check is bounded** (400 k characters per export) so a hostile document
+  cannot stall it.
+- The raster and browser PDF fallbacks make no glyph claim: they render through
+  the canvas, which already drew the text with its own fallback.
+
 ## Invariants
 
 - Selecting text never changes its appearance.

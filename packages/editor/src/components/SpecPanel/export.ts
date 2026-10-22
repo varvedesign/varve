@@ -6,6 +6,7 @@
 import { exportNodeToSvg } from '@varve/codegen';
 import {
   applyRasterizationTransform,
+  applyRasterSmoothingPolicy,
   awaitExportsReady,
   collectFontData,
   convertExportImageData,
@@ -57,6 +58,7 @@ import {
   findFlattenBoundaries,
 } from '../../export/compositor';
 import { prepareArtworkExport } from '../../export/conceptArtReferencePolicy';
+import { detectExportGlyphGaps, glyphGapWarnings } from '../../export/glyphCoverage';
 import {
   buildPrintImageManifestForSrcs,
   buildPrintImageManifestFromPngBlob,
@@ -481,6 +483,9 @@ export async function exportNodeAsRaster(
   const matteColor = opts.matteColor ?? (!transparent ? defaultFlattenMatte : undefined);
   const surface = createRasterSurface(w, h, { alpha: transparent });
   const ctx = surface.context;
+  // Export and screen must sample placed images the same way; the canvas
+  // default would minify scans with a cheaper filter than the compositor uses.
+  applyRasterSmoothingPolicy(ctx);
 
   if (!transparent && matteColor) {
     const [r, g, b, a] = matteColor;
@@ -903,7 +908,7 @@ export async function exportNodeAsPdf(
   scale: number,
   eng?: Engine,
   options: { includeAiDisclosure?: boolean } = {},
-): Promise<{ bytes: Uint8Array; filename: string }> {
+): Promise<{ bytes: Uint8Array; filename: string; warnings: string[] }> {
   ({ node, document: doc } = prepareArtworkExport(node, doc));
   const subtree = flattenSceneToEngine(doc, [node.id]);
   assertPdfPatternSources(subtree.nodes, 'PDF');
@@ -930,13 +935,18 @@ export async function exportNodeAsPdf(
     return {
       bytes: maybeDisclosePdf(result.bytes, doc, node.id, options.includeAiDisclosure),
       filename,
+      warnings: [],
     };
   }
 
   if (needsRaster) {
     const engine = eng ?? (await createEngine('stub'));
     const bytes = await rasterizeSubtreeToPdfViaPrintEngine(node, doc, scale, engine, tauri);
-    return { bytes: maybeDisclosePdf(bytes, doc, node.id, options.includeAiDisclosure), filename };
+    return {
+      bytes: maybeDisclosePdf(bytes, doc, node.id, options.includeAiDisclosure),
+      filename,
+      warnings: [],
+    };
   }
 
   // ── Vector path (pure solid-fill shapes, no effects) ─────────────────
@@ -956,6 +966,10 @@ export async function exportNodeAsPdf(
     signal: undefined,
   });
   assertExportFontData(fontRequests, fontRecords);
+  // The PDF writer outlines the authored face; a character that face does not
+  // map becomes .notdef, while the canvas drew it with a fallback. Report the
+  // difference here, where the user can still change the font.
+  const glyphGaps = await detectExportGlyphGaps(subtree.nodes, fontRecords);
   const fontDataForIpc: Array<[string, number[]]> = fontRecords.map((r) => [
     r.family,
     Array.from(r.data),
@@ -999,6 +1013,7 @@ export async function exportNodeAsPdf(
   return {
     bytes: maybeDisclosePdf(new Uint8Array(bytes), doc, node.id, options.includeAiDisclosure),
     filename,
+    warnings: glyphGapWarnings(glyphGaps),
   };
 }
 
@@ -1036,7 +1051,7 @@ export async function exportNodeAsPdfX(
   doc: SceneDocument,
   standard: PdfXStandard,
   options: PdfXExportOptions = {},
-): Promise<{ bytes: Uint8Array; filename: string }> {
+): Promise<{ bytes: Uint8Array; filename: string; warnings: string[] }> {
   ({ node, document: doc } = prepareArtworkExport(node, doc));
   // Press export must never silently drop a mockup: the PDF/X route feeds
   // `flattenSceneToEngine` straight to the Rust print pipeline, which never
@@ -1081,6 +1096,9 @@ export async function exportNodeAsPdfX(
     signal: undefined,
   });
   assertExportFontData(fontRequests, fontRecords);
+  // Press output embeds the authored faces, so a character the face cannot
+  // draw becomes .notdef here exactly as it does on the standard PDF path.
+  const glyphGaps = await detectExportGlyphGaps(subtree.nodes, fontRecords);
   const fonts: Array<[string, number[]]> = fontRecords.map((r) => [r.family, Array.from(r.data)]);
 
   // Press output embeds real image pixels: without a manifest the Rust print
@@ -1133,6 +1151,7 @@ export async function exportNodeAsPdfX(
   return {
     bytes: maybeDisclosePdf(new Uint8Array(bytes), doc, node.id, options.includeAiDisclosure),
     filename: buildFilename(node.name, 'pdf'),
+    warnings: glyphGapWarnings(glyphGaps),
   };
 }
 

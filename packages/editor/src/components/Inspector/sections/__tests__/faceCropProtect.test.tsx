@@ -279,6 +279,16 @@ describe('ImageCropSection - Protect Faces', () => {
       expect(screen.getByRole('alert').textContent).toContain('worker crashed');
     });
   });
+
+  it('hides face-detect crop when AI features are off', () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    render(<ImageCropSection nodes={[makeImageNode()]} />);
+    expect(screen.queryByRole('button', { name: /detect faces/i })).toBeNull();
+    expect(
+      screen.getAllByText('Turn on AI features in Settings to use this').length,
+    ).toBeGreaterThan(0);
+    expect(mockDownloadModel).not.toHaveBeenCalled();
+  });
 });
 
 // Local import after mocks so the mocked modules are in effect.

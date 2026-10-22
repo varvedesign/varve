@@ -110,6 +110,7 @@ export {
   InferenceAdmissionError,
   resetInferenceAdmission,
 } from './admission';
+export { assertAiFeaturesEnabled, getAiFeaturesEnabled } from './aiFeaturesGate';
 export { DownloadManager } from './core/DownloadManager';
 export type { InferenceErrorCode, InferenceErrorDetails } from './core/InferenceError';
 export { InferenceError, isInferenceError, toUserMessage } from './core/InferenceError';

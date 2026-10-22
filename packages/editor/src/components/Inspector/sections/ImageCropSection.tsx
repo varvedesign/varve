@@ -20,6 +20,7 @@ import { getImageFill, isImageShape } from '@varve/scene';
 import { Button, Icon, SegmentedControl, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../../features/useAiFeaturesEnabled';
 import {
   analyzeFaceAwareCrop,
   type FaceCropAnalysis,
@@ -195,6 +196,7 @@ function TrimControls({
   imageSrc: string;
   announce?: (message: string) => void;
 }) {
+  const aiEnabled = useAiFeaturesEnabled();
   const [padding, setPadding] = useState(0);
   const [source, setSource] = useState<'mask' | 'alpha' | 'combined'>('mask');
   const [trimming, setTrimming] = useState(false);
@@ -457,85 +459,92 @@ function TrimControls({
               DETR supplies a box, not a pixel mask. Review the detected bounds before applying the
               non-destructive crop.
             </p>
-            <div className="insp-actions">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleDetectSubject}
-                loading={detecting}
-                disabled={detecting}
-                aria-label="Detect object bounds automatically"
-              >
-                Detect Object Bounds
-              </Button>
-              {detecting && (
-                <button type="button" className="insp-btn-sm" onClick={handleCancelDetection}>
-                  Cancel
-                </button>
-              )}
-            </div>
-            {detectingSlow && (
-              <p className="insp-hint" role="status" aria-live="polite">
-                Taking longer than expected on this device. You can cancel safely; nothing has been
-                changed.
-              </p>
-            )}
-            {downloadProgress !== null && (
-              <p className="insp-hint" aria-live="polite">
-                Downloading model… {downloadProgress}%
-              </p>
-            )}
-            {detectError && (
-              <p className="insp-hint insp-hint--error" role="alert">
-                {detectError}
-              </p>
-            )}
-            {detections.length > 0 && (
-              <fieldset className="insp-field-group">
-                <legend className="sr-only">Detected object bounds</legend>
-                <p className="insp-hint" aria-live="polite">
-                  {detections.length === 1
-                    ? `Detected ${detections[0]!.label} (${Math.round(detections[0]!.confidence * 100)}% confidence).`
-                    : `${detections.length} objects detected — choose the bounds to use.`}
-                </p>
-                {detections.length > 1 && (
-                  <fieldset className="insp-actions">
-                    <legend className="sr-only">Detected objects</legend>
-                    {detections.map((detection, index) => (
-                      <button
-                        type="button"
-                        className="insp-btn-sm"
-                        key={`${detection.label}-${detection.box.x}-${detection.box.y}-${detection.box.width}-${detection.box.height}-${detection.confidence}`}
-                        aria-pressed={selectedDetection === index}
-                        onClick={() => setSelectedDetection(index)}
-                      >
-                        {index + 1}. {detection.label} · {Math.round(detection.confidence * 100)}%
-                      </button>
-                    ))}
-                  </fieldset>
-                )}
+            {aiEnabled ? (
+              <>
                 <div className="insp-actions">
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
-                    onClick={handleApplyDetection}
-                    loading={trimming}
-                    disabled={trimming}
+                    onClick={handleDetectSubject}
+                    loading={detecting}
+                    disabled={detecting}
+                    aria-label="Detect object bounds automatically"
                   >
-                    Apply Detected Bounds
+                    Detect Object Bounds
                   </Button>
-                  <button
-                    type="button"
-                    className="insp-btn-sm"
-                    onClick={() => setDetections([])}
-                    disabled={trimming}
-                  >
-                    Clear
-                  </button>
+                  {detecting && (
+                    <button type="button" className="insp-btn-sm" onClick={handleCancelDetection}>
+                      Cancel
+                    </button>
+                  )}
                 </div>
-              </fieldset>
+                {detectingSlow && (
+                  <p className="insp-hint" role="status" aria-live="polite">
+                    Taking longer than expected on this device. You can cancel safely; nothing has
+                    been changed.
+                  </p>
+                )}
+                {downloadProgress !== null && (
+                  <p className="insp-hint" aria-live="polite">
+                    Downloading model… {downloadProgress}%
+                  </p>
+                )}
+                {detectError && (
+                  <p className="insp-hint insp-hint--error" role="alert">
+                    {detectError}
+                  </p>
+                )}
+                {detections.length > 0 && (
+                  <fieldset className="insp-field-group">
+                    <legend className="sr-only">Detected object bounds</legend>
+                    <p className="insp-hint" aria-live="polite">
+                      {detections.length === 1
+                        ? `Detected ${detections[0]!.label} (${Math.round(detections[0]!.confidence * 100)}% confidence).`
+                        : `${detections.length} objects detected: choose the bounds to use.`}
+                    </p>
+                    {detections.length > 1 && (
+                      <fieldset className="insp-actions">
+                        <legend className="sr-only">Detected objects</legend>
+                        {detections.map((detection, index) => (
+                          <button
+                            type="button"
+                            className="insp-btn-sm"
+                            key={`${detection.label}-${detection.box.x}-${detection.box.y}-${detection.box.width}-${detection.box.height}-${detection.confidence}`}
+                            aria-pressed={selectedDetection === index}
+                            onClick={() => setSelectedDetection(index)}
+                          >
+                            {index + 1}. {detection.label} ·{' '}
+                            {Math.round(detection.confidence * 100)}%
+                          </button>
+                        ))}
+                      </fieldset>
+                    )}
+                    <div className="insp-actions">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleApplyDetection}
+                        loading={trimming}
+                        disabled={trimming}
+                      >
+                        Apply Detected Bounds
+                      </Button>
+                      <button
+                        type="button"
+                        className="insp-btn-sm"
+                        onClick={() => setDetections([])}
+                        disabled={trimming}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </fieldset>
+                )}
+              </>
+            ) : (
+              <p className="insp-hint">{AI_DISABLED_HINT}</p>
             )}
           </div>
         )}
@@ -602,6 +611,7 @@ function FaceCropControls({
   const [detectError, setDetectError] = useState<string | null>(null);
   const [modelAvailable, setModelAvailable] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
+  const aiEnabled = useAiFeaturesEnabled();
   const [analysis, setAnalysis] = useState<FaceCropAnalysis | null>(null);
   const [excludedIds, setExcludedIds] = useState<ReadonlySet<string>>(new Set());
   /** Protection margin as a percentage of the larger face dimension. */
@@ -688,19 +698,23 @@ function FaceCropControls({
           {modelAvailable ? '' : ' (downloads a small ~233 KB AI model on first use)'}. Detected
           boxes are approximate face bounds for framing, not a face, hair, or person mask.
         </p>
-        <div className="insp-actions">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={handleAnalyze}
-            loading={detecting}
-            disabled={detecting || applying}
-            aria-label="Detect faces and reposition the crop to keep them in frame"
-          >
-            Detect Faces
-          </Button>
-        </div>
+        {aiEnabled ? (
+          <div className="insp-actions">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleAnalyze}
+              loading={detecting}
+              disabled={detecting || applying}
+              aria-label="Detect faces and reposition the crop to keep them in frame"
+            >
+              Detect Faces
+            </Button>
+          </div>
+        ) : (
+          <p className="insp-hint">{AI_DISABLED_HINT}</p>
+        )}
         {downloadProgress !== null && (
           <p className="insp-hint" aria-live="polite">
             Downloading model… {downloadProgress}%

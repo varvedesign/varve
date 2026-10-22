@@ -272,37 +272,37 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
  * parses it, and returns structured data ready for JSON serialization.
  */
 export function parseChangelogFile(repoRoot?: string): ChangelogRelease[] {
-  // During Astro SSR builds, import.meta.url points at the bundled chunk, so
-  // the module location is not a reliable anchor. Walk up from the working
-  // directory instead, but accept a directory only when it is this project's
-  // root — identified by the website package beside the changelog. A looser
-  // check silently reads a parent checkout's changelog when the build runs in
-  // a nested worktree, which makes the page and its tests describe a different
-  // tree than the one being built.
-  const isRepoRoot = (dir: string) => {
+  // During Astro SSR builds, import.meta.url points to the bundled chunk, not
+  // the original source file, so the root has to come from the filesystem.
+  //
+  // Walking up from the working directory — instead of assuming a fixed
+  // `../..` depth — keeps the lookup correct when the checkout is nested. A
+  // git worktree created under `.worktrees/<name>` sits two levels below the
+  // primary checkout, so `cwd/../..` resolves to *that* checkout and the site
+  // would publish another branch's changelog.
+  const candidates = repoRoot ? [repoRoot] : repositoryRootCandidates();
+
+  for (const root of candidates) {
     try {
-      readFileSync(join(dir, 'CHANGELOG.md'), 'utf-8');
-      readFileSync(join(dir, 'apps', 'website', 'package.json'), 'utf-8');
-      return true;
+      const text = readFileSync(join(root, 'CHANGELOG.md'), 'utf-8');
+      return parseChangelog(text);
     } catch {
-      return false;
-    }
-  };
-  const candidates = repoRoot ? [repoRoot] : [];
-  if (!repoRoot) {
-    let dir = process.cwd();
-    for (;;) {
-      candidates.push(dir);
-      const parent = join(dir, '..');
-      if (parent === dir) break;
-      dir = parent;
+      // try next candidate
     }
   }
-  const root = candidates.find(isRepoRoot);
-  if (!root) {
-    throw new Error(
-      `Could not find this project's CHANGELOG.md. Searched: ${candidates.join(', ')}`,
-    );
+
+  throw new Error(`Could not find CHANGELOG.md. Searched: ${candidates.join(', ')}`);
+}
+
+/** Working directory and its ancestors, nearest first. */
+function repositoryRootCandidates(maxDepth = 8): string[] {
+  const roots: string[] = [];
+  let directory = process.cwd();
+  for (let depth = 0; depth < maxDepth; depth += 1) {
+    roots.push(directory);
+    const parent = join(directory, '..');
+    if (parent === directory) break;
+    directory = parent;
   }
-  return parseChangelog(readFileSync(join(root, 'CHANGELOG.md'), 'utf-8'));
+  return roots;
 }

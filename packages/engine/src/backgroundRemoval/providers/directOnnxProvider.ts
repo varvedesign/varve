@@ -1,3 +1,4 @@
+import { assertAiFeaturesEnabled } from '../../inference/aiFeaturesGate';
 import { maskToDataUrl } from '../heuristic';
 import {
   computeMaskConfidence,
@@ -36,6 +37,7 @@ async function createOrtSession(
   session: import('onnxruntime-web').InferenceSession;
   executionProvider: string;
 }> {
+  assertAiFeaturesEnabled();
   configureOrtRuntime(ort);
 
   const providers = await getPreferredProviders(modelId);

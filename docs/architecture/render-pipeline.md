@@ -133,6 +133,23 @@ painted as one filled outline; dashed pressure paths split that outline by
 measured path length before filling so translucent tessellation segments do
 not darken one another.
 
+## Blend over an unpainted area (2026-10-21)
+
+A separable blend mode is defined between two colours. An area where nothing has
+been painted has no colour — its alpha is 0 — so blending must return the
+source, not a blend with white paper. `packages/engine/src/blendModes.ts`
+short-circuits `ba === 0` before the mode function runs; without that, `screen`
+over empty canvas returns white and `difference` returns magenta for artwork the
+user can see is a solid colour. `blendModes.test.ts` pins every separable mode
+over a transparent backdrop, the contrast case against an opaque white matte,
+and the transparent-source direction, so the shortcut cannot be removed as a
+"redundant" early return.
+
+The white backdrop a user does see is a real, opaque surface: the pasteboard is
+deliberately authoritative (`sceneCompositing.ts`) and raster export adds an
+explicit white matte for opaque formats, disclosed in the export warnings. Those
+paths are painted, so they blend.
+
 ## Render invariants (Session 45)
 
 Two invariants are load-bearing; violating either blanks part or all of the scene.

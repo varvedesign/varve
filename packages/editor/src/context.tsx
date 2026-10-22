@@ -652,8 +652,12 @@ function guardInference<A extends unknown[]>(
 ): (...args: A) => Promise<void> {
   return async (...args: A) => {
     if (sessionGlobals.isCapabilityRestricted('inference')) return;
-    const { checkAiFeaturesEnabled } = await import('./features/useAiFeaturesEnabled');
-    if (!checkAiFeaturesEnabled(toastHandler, 'Background removal')) return;
+    // Heuristic Quick cutout is not on-device inference. Match Rust:
+    // require_ai_for_background_method lets method === "quick" through.
+    if (args[0] !== 'quick') {
+      const { checkAiFeaturesEnabled } = await import('./features/useAiFeaturesEnabled');
+      if (!checkAiFeaturesEnabled(toastHandler, 'Background removal')) return;
+    }
     return action(...args);
   };
 }
@@ -7089,8 +7093,7 @@ export function EditorProvider({
         const settings = loadSettings();
         if (!settings.ai.enabled) {
           toastHandler?.({
-            message: 'AI features are disabled',
-            description: 'Enable AI features in Settings to use Generative Edit.',
+            message: 'Turn on AI features in Settings to use this',
             type: 'info',
             duration: 4000,
           });

@@ -94,6 +94,16 @@ describe('SettingsDialog', () => {
     ).toBe(1.5);
   });
 
+  it('describes that turning AI off blocks every on-device model', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="ai" />);
+    expect(screen.queryByText(/no model downloads are required/i)).toBeNull();
+    expect(
+      screen.getByText(/layer-name suggestions use an on-device classification model/i),
+    ).toBeTruthy();
+    expect(screen.getByText(/including downloads from Offline Models/i)).toBeTruthy();
+    expect(screen.getByText(/will not download or run any on-device AI model/i)).toBeTruthy();
+  });
+
   it('toggles the AI features switch without crashing and persists it', () => {
     renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="ai" />);
     const toggle = document.getElementById('ai-features-toggle') as HTMLInputElement;

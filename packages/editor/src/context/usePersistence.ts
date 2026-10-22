@@ -10,6 +10,7 @@ import {
 import { type Document, DocumentCodec, validateDocument } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
 import { useCallback, useRef } from 'react';
+import { commitLibrarySave } from '../persistence/librarySave';
 import { createSaveCoordinator } from '../persistence/saveCoordinator';
 import { flushPendingEdits } from './pendingEdits';
 
@@ -334,10 +335,27 @@ async function performSave(
 
   // app-storage — the user explicitly chose Varve Library as the document's
   // destination, so a successful library write legitimately marks clean.
+  // A FAILED library write is the primary failure here: there is no other
+  // copy, so it must not mark clean, drop recovery points, or let a close
+  // proceed (vectorcraft#1693 / #1685 class).
   const fileId = meta.fileId ?? target.fileId;
-  await mirror(patch, platform, fileId, meta.name, json);
-  const update: SessionUpdate = { fileId };
-  return afterPrimaryWrite(platform, stateRef, recoveryRef, patch, revision, update, meta.name);
+  let outcome: SaveOutcome = { status: 'saved' };
+  const libraryIssue = await commitLibrarySave({
+    write: () => upsertPreservingMeta(platform, fileId, meta.name, json),
+    commit: async () => {
+      outcome = await afterPrimaryWrite(
+        platform,
+        stateRef,
+        recoveryRef,
+        patch,
+        revision,
+        { fileId },
+        meta.name,
+      );
+    },
+  });
+  if (libraryIssue) return writeFailure(patch, libraryIssue);
+  return outcome;
 }
 
 /** Save As / first Save: choose a destination, write, adopt only on success. */
