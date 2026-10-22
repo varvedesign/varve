@@ -141,6 +141,11 @@ review plus a Varve reproduction before it can be dispositioned.
   no tag, no installer, no version bump.
 - Ledger dispositions for the four implemented findings are now
   `integrated-verified` with the merge reference.
+- Follow-up PR **#169** merged as
+  **`a2d6a22769ad8eb9a25c06d19dc00b55da241115`** (autosave failure visibility,
+  four more verified-existing issues, and the 455-row screened-defect index).
+  The same integration caveat applies: `master` has no required checks, and the
+  CI lanes were still queued when this record was written.
 
 ## Remaining work
 
