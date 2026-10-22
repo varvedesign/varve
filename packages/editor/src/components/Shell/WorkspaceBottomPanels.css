@@ -83,22 +83,28 @@
   white-space: nowrap;
 }
 
+/* A quiet grip, not a labelled button: the handle is a rarely used drag
+ * affordance in every panel header, so it carries no resting chrome. Its
+ * accessible name and tooltip say what it does. */
 .workspace-dock-move-handle {
   display: grid;
   place-items: center;
-  min-inline-size: var(--touch-target-min);
+  min-inline-size: var(--component-default-height);
   min-block-size: var(--component-default-height);
-  padding: 0 var(--space-2);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  background: var(--elevation-surface-raised);
-  border: var(--border-micro);
+  padding: 0;
+  color: var(--color-text-muted);
+  font-size: var(--icon-size-sm);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: var(--radius-control-compact);
-  box-shadow: var(--shadow-sm);
   cursor: grab;
   touch-action: none;
   user-select: none;
+}
+
+.workspace-dock-move-handle:hover {
+  color: var(--color-text-primary);
+  background: var(--color-interactive-hover-surface);
 }
 
 @media (pointer: coarse), (any-pointer: coarse) {

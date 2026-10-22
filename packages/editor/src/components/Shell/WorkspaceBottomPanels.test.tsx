@@ -89,4 +89,40 @@ describe('WorkspaceBottomPanels', () => {
     expect(screen.getByRole('button', { name: /retry saved layout/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /use default arrangement/i })).toBeInTheDocument();
   });
+
+  // F-03 (shell audit 2026-10-21): every panel header showed a permanent text
+  // button "Move". The handle is a grip now; its name, tooltip and keyboard
+  // path are unchanged.
+  it('draws the panel move handle as a named grip without visible text', () => {
+    const noop = () => {};
+    const handle = {
+      panelTypeId: 'layers' as const,
+      title: 'Layers',
+      style: {},
+      onPointerDown: noop,
+      onPointerMove: noop,
+      onPointerUp: noop,
+      onPointerCancel: noop,
+      onLostPointerCapture: noop,
+      onBlur: noop,
+      onKeyDown: noop,
+    };
+    render(
+      <WorkspaceBottomPanels
+        showEmailPreview={false}
+        dockPanelMoveHandles={[
+          { ...handle, instanceId: 'layers-header' },
+          { ...handle, instanceId: 'layers-tab', tabGroupNodeId: 'tab-group' },
+        ]}
+      />,
+    );
+
+    const grips = screen.getAllByRole('button', { name: 'Drag to move Layers panel' });
+    expect(grips).toHaveLength(2);
+    for (const grip of grips) {
+      expect(grip).toHaveTextContent(/^$/);
+      expect(grip.querySelector('svg')).not.toBeNull();
+      expect(grip).toHaveAttribute('title', expect.stringContaining('Customize Workspace'));
+    }
+  });
 });
