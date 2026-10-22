@@ -156,53 +156,42 @@ and asserts the preset is selected without creating a document.
 
 ---
 
-## F3 — Repeated nudges cost one undo each (blocked)
+## F3 — Repeated nudges cost one undo each (superseded by design; no work)
 
 **External evidence.** Graphite #2617 ("Nudges in the same direction should be
-combined in history", open, Architecture / Paper Cut): five Shift+Right taps
-and three Right taps should collapse so one undo returns to the start; a
-direction change or any other edit starts a new point. A maintainer replies
-that the cloned-document history must be refactored first, because merging
-steps is not expressible in it — an explicit warning that this needs history
-identity, not a hack.
+combined in history", open, Architecture / Paper Cut): five Shift+Right taps and
+three Right taps should collapse so one undo returns to the start; a direction
+change or any other edit starts a new point. A maintainer replies that the
+cloned-document history must be refactored first, because merging steps is not
+expressible in it.
 
-**User problem.** Correcting an over-nudge costs as many undos as key presses,
-and every extra press consumes history depth.
+**What Varve does today.** A *held* arrow key is already one entry: the nudge
+controller opens one transaction while any direction is held and commits when
+all are released. Each discrete tap is its own transaction, so N taps produce N
+entries — the same shape of behaviour Graphite reports.
 
-**Applicable Varve workflow and code path.** `CanvasNudgeController` and the
-editor's history. A *held* arrow key is already one entry: the controller opens
-one transaction while any direction is held and commits when all are released.
-Each discrete tap is its own transaction, so N taps produce N entries.
+**Superseded while this branch was open.** Another change landed on `master`
+that addresses the wider undo-granularity class and, in doing so, records the
+maintainer's decision on the remaining case:
+`packages/editor/src/context/useGestureTransaction.ts` now gives sliders,
+colour pickers and keyboard stepping one undo entry per *gesture*, and its
+contract states: "Deliberately not time-based: a merge window would also fuse
+two separate, intentional edits made in quick succession. Gesture boundaries are
+what the user perceives as one action."
 
-**Observed Varve behaviour (before).** Three ArrowRight taps produce three
-history steps.
+That is a deliberate rejection of exactly the mechanism this finding proposed
+(a short idle window that merges consecutive same-direction nudges). The
+earlier version of this entry recorded it as `blocked` on a missing
+append-only-history amend capability; that is now only half the picture, and
+the more important half is that the repository has chosen gesture-scoped
+transactions instead.
 
-**Investigation.** Undo in Varve does not read the in-memory snapshot stack
-whenever persistent history is attached; `undo()` routes to
-`persistentHistory.undo()`, which walks the revision store
-(`EditorHistorySession` over an `@varve/history` `HistoryStore`). That store is
-an **append-only** operation log plus revision DAG whose transaction captures
-are validated by replaying them and comparing hashes. It exposes no
-amend/coalesce operation, and fabricating one by rewriting a head revision
-would break the replay-hash invariant that makes recovery trustworthy.
-
-A prototype that merged entries in the snapshot stack was written and reverted:
-with persistent history attached it changed nothing user-visible, which is the
-only behaviour that matters.
-
-**Intended outcome (not yet delivered).** Same-direction nudges inside a short
-idle window become one durable revision; a direction change, any other edit, or
-an undo closes the burst.
-
-**Blocker.** A durable-history capability: an explicit, invariant-preserving
-"extend the current revision" operation in `@varve/history` plus session
-support in `EditorHistorySession`, and a matching rule for the snapshot-stack
-fallback. This is a foundational history change and needs its own design and
-migration review (ADR-0019 territory), not a drive-by edit.
-
-**Status.** `blocked`. No user-visible change shipped. The finding stays open.
-
----
+**Status.** Not a defect by the current design. No work is scheduled. If
+tap-burst merging is ever wanted, it needs a non-time-based identity (for
+example "consecutive same-direction nudges with no intervening edit") and a
+deliberate reversal of the documented contract above — a design decision for
+the maintainer, not a mechanical fix. Recorded so the same idea is not
+re-proposed as an oversight.
 
 ## F4 — Confirmed existing protections (no change needed)
 
