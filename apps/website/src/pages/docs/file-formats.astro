@@ -160,6 +160,11 @@ const figmaImportFaq = {
             Character codes resolved through the font's <code>/ToUnicode</code> map, or its named
             base encoding plus <code>/Differences</code>, so accented and non-Latin text survives
           </li>
+          <li>
+            Vertical writing (<code>/Identity-V</code>, or a CMap with <code>/WMode 1</code>)
+            imported as vertical columns with the writing mode set, including producers that
+            position one glyph per text-showing operator
+          </li>
           <li>Plain axis-aligned rectangle fills</li>
           <li>
             One Varve page per PDF page, in <code>/Kids</code> order, up to 50 pages; the remainder
@@ -172,7 +177,9 @@ const figmaImportFaq = {
           scan), and content inside an optional-content group the document's default configuration
           hides (a PDF layer, as layered CAD exports ship). Both are counted, and hidden layers are
           named in Import Results. Images, form XObjects, curves, strokes, gradients, CMYK and
-          pattern paints are reported rather than approximated.
+          pattern paints are reported rather than approximated. Import Results also lists what
+          the parser did rather than what it lost, such as page rotation being applied or vertical
+          runs becoming editable columns.
         </p>
         <p>
           An encrypted PDF (password-protected or permission-restricted) is refused with an

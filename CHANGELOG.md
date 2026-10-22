@@ -15,12 +15,24 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **PDF vertical text import** — A PDF whose font writes vertically
+  (`/Identity-V` or a CMap with `/WMode 1`) now imports as vertical columns
+  with the writing mode set, instead of horizontal rows that overlap along one
+  baseline. Producers that position one glyph per text-showing
+  operator become one editable column, not one layer per character. Import
+  Results now lists what the parser did, such as vertical runs becoming
+  columns, and wraps long detail rows so warnings are readable.
+
 - **Text frame background and border** — Give text its own optional backing fill
   and border without changing glyph fill or outline. The border can be set to
   zero to keep the background with no visible line. The style is saved with
   the document; existing text keeps its prior appearance.
 
 ### Changed
+
+- **Deeply nested SVG** — Artwork refused by the 256-level nesting ceiling is
+  now named in Import Results. Previously an SVG nested deeper than the ceiling
+  imported nothing and reported no warning.
 
 - **Linux AppImage**: ships bundled WebKitGTK and GTK so it launches on a
   clean host without `libwebkit2gtk-4.1`. GPU/EGL/Mesa stay on the system so
