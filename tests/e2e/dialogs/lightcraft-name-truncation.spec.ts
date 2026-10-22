@@ -49,6 +49,19 @@ test.describe('document-name truncation in the close dialog', () => {
     await page.locator('.layers-panel').waitFor({ timeout: 150000 });
     await dismissFirstRunOverlayIfPresent(page);
 
+    // Make the document genuinely dirty; an untouched new document closes
+    // without a prompt, which would bypass the dialog under test.
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.waitFor({ state: 'attached', timeout: 30000 });
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas not laid out');
+    await page.keyboard.press('r');
+    await page.mouse.move(box.x + 120, box.y + 120);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 260, box.y + 220, { steps: 8 });
+    await page.mouse.up();
+    await page.keyboard.press('v');
+
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+w' : 'Control+w');
     const dialog = page.locator('dialog[open]').last();
     await expect(dialog.getByRole('button', { name: 'Save' })).toBeVisible({ timeout: 15000 });
