@@ -595,7 +595,6 @@ jobs:
       # docs/security/trust-boundaries.md §Canary tests). Benign value with
       # no credential meaning.
       VARVE_PRIVATE_TEST_CANARY: VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP
-      VITE_VARVE_ANALYTICS_DOMAIN: 'varve.studio'
       TAURI_TARGET_DIR: apps/desktop/src-tauri/target/${{ matrix.rust_target }}
       TAURI_BUNDLE_DIR: apps/desktop/src-tauri/target/${{ matrix.rust_target }}/release/bundle
     steps:

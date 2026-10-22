@@ -437,8 +437,6 @@ jobs:
       - name: Build production browser demo for E2E
         if: matrix.shard == 1
         run: pnpm --filter @varve/desktop build:try
-        env:
-          VITE_VARVE_ANALYTICS_DOMAIN: varve.studio
       - name: Stage production demo for E2E
         if: matrix.shard == 1
         run: node scripts/website/stage-demo.mjs
