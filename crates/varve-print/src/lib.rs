@@ -1373,15 +1373,20 @@ fn create_sampled_function(
         }
     }
 
+    // A Type 0 function's Range declares one [min max] pair per output
+    // component, and the number of pairs IS the output arity. It must match the
+    // shading's colour space (3 for DeviceRGB, 4 for DeviceCMYK), and PDF colour
+    // components are 0..1 — not 0..255. Declaring four 0..255 outputs made the
+    // stream's 3-byte RGB samples misalign and every component clamp to 1, so
+    // poppler warned "function with wrong output size" and drew a blank page.
+    let components: usize = if use_cmyk { 4 } else { 3 };
+    let range: Vec<Object> = (0..components)
+        .flat_map(|_| [Object::Real(0.0), Object::Real(1.0)])
+        .collect();
     let func_dict = dictionary! {
         "FunctionType" => 0i64,
         "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
-        "Range" => vec![
-            Object::Real(0.0), Object::Real(255.0),
-            Object::Real(0.0), Object::Real(255.0),
-            Object::Real(0.0), Object::Real(255.0),
-            Object::Real(0.0), Object::Real(255.0),
-        ],
+        "Range" => range,
         "Size" => vec![Object::Integer(SAMPLES as i64)],
         "BitsPerSample" => 8i64,
         "Order" => 1i64,
@@ -4418,6 +4423,43 @@ mod tests {
             registry.definitions.len(),
             1,
             "should have one gradient definition"
+        );
+    }
+
+    /// Regression: an RGB gradient exported a Type 0 function whose Range
+    /// declared four 0..255 outputs. The output arity must equal the colour
+    /// space's component count, and PDF colour components are 0..1. With the
+    /// malformed dict, poppler reported "function with wrong output size" and
+    /// drew nothing, so every gradient-filled shape exported blank.
+    #[test]
+    fn gradient_sampled_function_range_matches_colour_space() {
+        let mut node = rect_node(1, 20.0, 20.0, 200.0, 120.0);
+        node.fills = Some(vec![gradient_fill(true)]);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("export");
+        let pdf = String::from_utf8_lossy(&bytes);
+        assert!(
+            pdf.contains("/Range[0 1 0 1 0 1]"),
+            "RGB shading must declare three 0..1 outputs"
+        );
+        assert!(
+            !pdf.contains("/Range[0 255"),
+            "colour components are 0..1, not 0..255"
+        );
+    }
+
+    #[test]
+    fn gradient_sampled_function_range_matches_cmyk_space() {
+        let mut node = rect_node(1, 20.0, 20.0, 200.0, 120.0);
+        node.fills = Some(vec![gradient_fill(true)]);
+        let opts = PdfOptions {
+            print_profile: Some(PrintProfile::Fogra39),
+            ..PdfOptions::default()
+        };
+        let bytes = export_pdf(&[node], &opts).expect("export");
+        let pdf = String::from_utf8_lossy(&bytes);
+        assert!(
+            pdf.contains("/Range[0 1 0 1 0 1 0 1]"),
+            "DeviceCMYK shading must declare four 0..1 outputs"
         );
     }
 

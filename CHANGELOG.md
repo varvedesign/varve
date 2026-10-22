@@ -46,6 +46,12 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **PDF gradients now render** — an RGB gradient fill exported to a PDF whose
+  sampled function declared four 0-255 outputs for a three-component stream.
+  Poppler rejected it with "function with wrong output size" and drew nothing,
+  so gradient-filled shapes came out blank. The function now matches its colour
+  space and PDF's 0-1 colour range. Gradient stops that fade to transparent are
+  still flattened to opaque in PDF; that remains open.
 - **Autosave failures are visible** — when crash-recovery autosave cannot write
   a recovery copy, the status bar shows "Recovery paused" with the reason and
   the advice to save to a file, and clears itself on the next successful cycle.
