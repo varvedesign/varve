@@ -92,7 +92,8 @@ export interface TextChain {
 }
 
 export interface OversetInfo {
-  chainId: string;
+  /** Absent for a standalone area frame that is not part of a text chain. */
+  chainId?: string;
   frameId: NodeId;
   oversetChars: number;
   isLastFrame: boolean;
