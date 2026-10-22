@@ -666,6 +666,7 @@ export {
   variationSettingsKey,
 } from './textMeasure';
 export * from './thumbnail/contracts';
+export { splitGraphemeClusters, truncateGraphemes } from './truncateText';
 export { DEFAULT_ARTWORK_FONT_FAMILY } from './typographyDefaults';
 export type {
   FeatureNormalizationResult,
