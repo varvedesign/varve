@@ -131,9 +131,13 @@ test.describe('Canvas guides', () => {
     const guideX = Number(await guide.getAttribute('x1'));
     const x = overlayBox.x + guideX;
     const y = overlayBox.y + overlayBox.height / 2;
+    // Keep the pan small enough that the guide stays on screen: where the
+    // ruler drop lands in screen space depends on the viewport, so a fixed
+    // -90px pan pushed the guide off the left edge on narrower CI runners.
+    const panX = Math.max(20, Math.min(90, guideX - 60));
     await page.mouse.move(x, y);
     await page.mouse.down({ button: 'middle' });
-    await page.mouse.move(x - 90, y - 55, {
+    await page.mouse.move(x - panX, y - 55, {
       steps: 5,
     });
     await page.mouse.up({ button: 'middle' });
