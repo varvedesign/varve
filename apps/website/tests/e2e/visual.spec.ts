@@ -177,7 +177,7 @@ const THEMES = [
 async function expectCurrentHomepageCopy(page: import('@playwright/test').Page) {
   await expect(page.locator('.hero-title')).toContainText('Design locally.');
   await expect(page.locator('.hero-title')).toContainText('One canvas.');
-  await expect(page.locator('.hero-subtitle')).toContainText('no account, no subscription');
+  await expect(page.locator('.hero-subtitle')).toContainText('No account, no subscription');
 }
 
 const HERO_EYEBROW_VIEWPORTS = [320, 360, 375, 390, 414, 640, 641, 768, 1024, 1280, 1440];

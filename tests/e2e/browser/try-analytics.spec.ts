@@ -1,18 +1,17 @@
 /**
  * /try GoatCounter: consent, DNT/GPC, launch, export, and campaign refs.
  *
- * Runs against the Vite editor with ?try=1 (or a served /try build when
- * VARVE_DEMO_DIST_URL is set). Collector requests are intercepted.
+ * Always hits the Playwright Vite server with `?try=1`. This spec is not a
+ * demo-dist owner; `VARVE_DEMO_DIST_URL` in other shards points at a host
+ * that is not running here (CI refused those /try navigations).
  */
 import { expect, type Page, test } from '@playwright/test';
 import { selectInspectorTab } from '../helpers/inspector-tabs';
 
-const DEMO_DIST_URL = process.env.VARVE_DEMO_DIST_URL?.replace(/\/+$/, '');
 const COLLECTOR = /https:\/\/(.*\.goatcounter\.com|gc\.zgo\.at)\//;
 const CONSENT_KEY = 'varve:website-analytics-consent:goatcounter-v1';
 
 function demoUrl(search = ''): string {
-  if (DEMO_DIST_URL) return `${DEMO_DIST_URL}/try/${search}`;
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
   params.set('try', '1');
   return `/?${params.toString()}`;
@@ -160,6 +159,9 @@ test.describe('browser demo GoatCounter', () => {
     const layer = page.getByRole('treeitem').filter({ hasText: 'Sun' }).first();
     await layer.click();
     await selectInspectorTab(page, 'Export');
+    await page.getByRole('button', { name: /Download (PNG|SVG|JPEG|WebP)/ }).waitFor({
+      timeout: 30000,
+    });
     await page
       .getByRole('radiogroup', { name: 'Export format', exact: true })
       .getByRole('radio', { name: 'PNG', exact: true })
@@ -183,8 +185,10 @@ test.describe('browser demo GoatCounter', () => {
       .toContain('demo-export-svg');
 
     for (const url of requests) {
-      expect(url).not.toMatch(/Sun|Poster|filename|layer|\.png|\.svg/i);
-      expect(new URL(url).searchParams.get('p')).not.toMatch(/^\//);
+      expect(url).not.toMatch(/Sun|Poster|filename|layer|\.varve/i);
+      const path = new URL(url).searchParams.get('p') ?? '';
+      expect(path).not.toMatch(/^\//);
+      expect(path).not.toMatch(/\.(png|svg|jpeg|webp)$/i);
     }
   });
 });
