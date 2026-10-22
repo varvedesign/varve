@@ -92,6 +92,10 @@ Research status and engineering status are separate fields in the ledger.
 | `out-of-scope` | Outside the product boundary, with the reason recorded |
 | `uncertain` | Needs a reproduction or a decision that is not available |
 
+`duplicate_of` names the canonical issue when a record repeats an established
+finding. A duplicate keeps its own reproduction conditions and is never counted
+as independent evidence.
+
 `screened-for-varve` is a queue position, not a finding. Nothing is reported as
 fixed because an issue is closed upstream, and nothing is reported as a Varve
 defect from an upstream report alone.

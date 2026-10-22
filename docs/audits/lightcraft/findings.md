@@ -95,6 +95,35 @@ verifying file is the evidence.
 | Slider values cannot be typed, and sliders have no reset | #1435, #1436, #532 | Handled. `RangeValueControl` pairs the range with a `NumberField` that edits the same value, and the shared `Slider` renders a reset button when `onReset` is provided. |
 | Library/catalog lock, catalog format versioning, journal recovery | #99–#102, #2124, #2130 | Out of scope: Varve has no photo catalog. The equivalent *document* concerns are owned by the lifecycle and history systems (`docs/architecture/lifecycle-system.md`, `docs/architecture/…` history docs) and were not changed from this evidence. |
 
+## 3a. Unreadable settings were discarded — preservation implemented
+
+**Evidence.** storytold/lightcraft#103 — *"Settings files: unreadable
+prefs/presets reset to defaults …"*. The thread records the upstream remedy:
+damaged files are kept as `.corrupt-<time>`, reported to the user, and never
+overwritten during that session.
+
+**Varve path.** `packages/editor/src/settings.ts` `loadSettings` caught the
+parse failure and returned defaults. The stored blob was left in place for the
+rest of that session, but the next settings save overwrote it, so a user's
+theme, panel layout and custom shortcuts were gone without a trace.
+
+**Decision.** The catch now calls `quarantineCorruptSettings()`, which writes
+the verbatim payload plus its source key (`varve-editor-settings` or the legacy
+`strata-editor-settings`) and a timestamp to `varve-editor-settings.corrupt`
+before returning defaults. `readQuarantinedSettings()` exposes the preserved
+copy for a future recovery surface. One slot is kept, and an identical payload
+is not rewritten, so repeated loads do not churn storage.
+
+**Acceptance criteria.** (a) An unreadable current blob is preserved verbatim
+and the caller still receives defaults. (b) A legacy blob is preserved and its
+source is reported. (c) Repeated loads do not replace an identical quarantine.
+(d) No quarantine exists when the stored settings are valid. Covered by
+`packages/editor/src/settings.test.ts` → "settings quarantine".
+
+**Not done.** There is no user-visible notice yet; Varve has no global notice
+surface, and inventing one is a design decision larger than this batch. The
+class stays in §4 for that half.
+
 ## 4. Screened, not claimed
 
 These reach a Varve subsystem but need a reproduction before a defect can be
@@ -105,7 +134,7 @@ claimed. They stay on the queue; they are not reported as fixed.
 | Preview/export divergence | #605, #787, #709, #960 | Varve exports through the same engine and settles fonts and image resources before replay (`SpecPanel/export.ts`), but no test compares a zoomed preview against the exported raster for the same camera. Needs a pixel comparison. |
 | Deterministic export bytes | #180, #1373 | Varve injects `pHYs` into PNG without a timestamp; PDF metadata dates were not audited. Needs a byte-diff of two exports. |
 | Mask overlay obscures the adjustment being made | #519, #1800, #1712, #1214 | Varve has a show-all-masks overlay; whether it hides while a slider is dragged was not verified. |
-| Settings reset silently when the stored blob is unreadable | #103 | Varve's `loadSettings` returns defaults on parse failure and does not preserve the corrupt payload. Preference loss only; the fix needs a user-visible notice surface, which does not exist yet. |
+| Settings reset silently when the stored blob is unreadable | #103 | Preservation is implemented (§3a); a user-visible recovery notice is still missing, so the class is not closed. |
 | Export overwrites an existing file without a decision | #93, #1405, #1944 | Varve's destination adapters were not audited for collision handling. Data-integrity concern; needs a test against the real write path. |
 | GPU path renders wrong pixels after device loss | #78, #230, #1948, #1764 | Varve's WebGPU/WebGL2 paths fall back to Canvas2D, but no evidence was gathered for device-loss recovery. Needs a forced-loss run. |
 
@@ -166,3 +195,33 @@ that exists.
   no page asserted byte-identical or lossless text preservation.
 - The gradient/pattern and PDF pages were reviewed and left unchanged — their
   stated limitations still match the code.
+
+## 9. Reconciliation with the independent classification pass
+
+A second, independent pass classified all 981 records from their bodies. It
+proposed 366 records as "applicable work"; this ledger keeps 90 in that queue.
+The difference is deliberate, not an oversight:
+
+- That pass counted capability requests as applicable work. A request is not a
+  failure, and Varve does not adopt a feature because another product has it.
+  The ledger files those under `feature-request` with an explicit reason.
+- It counted photo-catalog behaviour (culling, stacks, virtual copies, missing
+  file relinking, sidecar ownership) as applicable because the *mechanism*
+  reads as generic. Varve has no catalog, so there is no code path to fix.
+- It proposed `already-handled` for lightcraft-side fixes (for example #93,
+  #98, #103, #180). Those say what upstream shipped, not what Varve does; this
+  ledger verified Varve source separately and only then used that verdict.
+
+What was adopted from the pass:
+
+- **The duplicate map** (58 records) is now `duplicate_of` in the ledger, so
+  repeated reports cannot inflate the evidence for a finding.
+- **Two corrections** to the screened queue: #2462 records that the planar-TIFF
+  fix in #1983 was incomplete (so the resource-bound class stays open), and
+  #674 records that its submitted fix was reverted by its author (a closed
+  issue is not a landed fix).
+- **Title/body contradictions** worth remembering before citing an issue as
+  proof: #1952 (the alpha direction is the opposite of its summary), #342
+  (a file-dialog extension filter, not a decoder defect), #1093 (collapse, not
+  close), #465 (verified working in a later comment), #2166 (a migration gap
+  for old documents, not a live colour bug).

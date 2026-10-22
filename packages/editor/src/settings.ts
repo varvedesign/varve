@@ -282,6 +282,71 @@ export interface EditorSettings {
 }
 
 const STORAGE_KEY = 'varve-editor-settings';
+const LEGACY_STORAGE_KEY = 'strata-editor-settings';
+/**
+ * Where an unreadable settings blob is preserved before defaults replace it.
+ *
+ * Evidence: storytold/lightcraft#103 — damaged preferences were reset without
+ * trace; upstream now keeps them as `.corrupt-<time>` and reports them. Varve
+ * has no user-facing notice surface yet, but it must not destroy the only copy
+ * of a user's theme, panel layout and shortcuts while resetting.
+ */
+const CORRUPT_STORAGE_KEY = 'varve-editor-settings.corrupt';
+
+export interface QuarantinedSettings {
+  /** ISO timestamp of the load that found the blob unreadable. */
+  savedAt: string;
+  /** Storage key the blob came from. */
+  source: string;
+  /** Verbatim stored text, never re-serialized. */
+  payload: string;
+}
+
+function quarantineCorruptSettings(): void {
+  try {
+    const current = localStorage.getItem(STORAGE_KEY);
+    const legacy = current === null ? localStorage.getItem(LEGACY_STORAGE_KEY) : null;
+    const payload = current ?? legacy;
+    if (payload === null) return;
+    const existing = localStorage.getItem(CORRUPT_STORAGE_KEY);
+    if (existing) {
+      try {
+        if ((JSON.parse(existing) as Partial<QuarantinedSettings>).payload === payload) return;
+      } catch {
+        // An unreadable quarantine cannot preserve anything: replace it.
+      }
+    }
+    localStorage.setItem(
+      CORRUPT_STORAGE_KEY,
+      JSON.stringify({
+        savedAt: new Date().toISOString(),
+        source: current !== null ? STORAGE_KEY : LEGACY_STORAGE_KEY,
+        payload,
+      } satisfies QuarantinedSettings),
+    );
+  } catch {
+    // Storage is unavailable or full; there is nothing further to preserve.
+  }
+}
+
+/** Read the preserved copy of an unreadable settings blob, if one exists. */
+export function readQuarantinedSettings(): QuarantinedSettings | null {
+  try {
+    const raw = localStorage.getItem(CORRUPT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<QuarantinedSettings>;
+    if (
+      typeof parsed.savedAt !== 'string' ||
+      typeof parsed.source !== 'string' ||
+      typeof parsed.payload !== 'string'
+    ) {
+      return null;
+    }
+    return { savedAt: parsed.savedAt, source: parsed.source, payload: parsed.payload };
+  } catch {
+    return null;
+  }
+}
 
 export const DEFAULT_EXPORT_SETTINGS: ExportSettingsStore = {
   defaultScale: { type: 'factor', value: 2 },
@@ -670,6 +735,7 @@ export function loadSettings(): EditorSettings {
       },
     };
   } catch {
+    quarantineCorruptSettings();
     return {
       general: { ...DEFAULT_GENERAL_SETTINGS },
       export: { ...DEFAULT_EXPORT_SETTINGS },
