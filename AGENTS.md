@@ -91,6 +91,7 @@ pnpm verify:affected    # Tiers 0-4. Tier 0 already covers format+lint on the
                         # change; those belong to the full gate only.
 pnpm bench              # benchmark mode for .bench.ts files (optional, perf-sensitive)
 pnpm audit:docs         # docs naming/index/link drift — zero violations
+pnpm audit:imports      # every committed relative import has a committed target
 pnpm audit:emoji        # zero violations
 pnpm audit:tokens       # WCAG-AA pairs (3 themes) + undefined-token / literal-fallback scan
 ```
@@ -340,6 +341,14 @@ cleanup tooling, codemods).
   tokens. Override hooks that are undefined by design are listed in that script
   with a reason.
 - `pnpm audit:emoji` — zero-emoji gate
+- `pnpm audit:imports` — `scripts/quality/audit-committed-imports.mjs` reads
+  the committed tree and fails when a relative import has no committed target.
+  It exists because `packages/scene/src/index.ts` once barrelled
+  `./nodeResize` and `packages/codegen` imported `./bundle-assets` while
+  neither module was tracked: the working tree that produced the commits
+  resolved them, a fresh clone did not, and nothing noticed until typecheck
+  ran. Reading `HEAD` rather than the working tree keeps it from failing on
+  in-flight edits.
 - `pnpm audit:docs` — docs drift gate (stale "Strata"/dead-path references in current-state docs, ADR index coverage, broken internal links). Historical docs (dated audits/plans/perf/session history/ADRs/CLA/licensing, and files under `docs/implementation-memory/`) may reference the old name; current-state docs must not.
 - `pnpm --filter @varve/ui tokens:generate` — regenerate `tokens.css` from `color.ts`
 - `just gate` — full Cascade Review gate (format-check + lint + test + audits) — **full-suite operation, kept as the compatibility alias**
