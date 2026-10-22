@@ -148,6 +148,8 @@ test.describe('browser demo GoatCounter', () => {
   });
 
   test('exporting PNG and SVG sends format-only events', async ({ page }) => {
+    // Inspector quick-export (AssetExportControls), not ExportLayer batch and
+    // not desktop `export_completed` (that client is a Noop after #163).
     const requests = await interceptCollector(page);
     await page.addInitScript((key) => localStorage.setItem(key, 'granted'), CONSENT_KEY);
     await page.goto(demoUrl(), { waitUntil: 'domcontentloaded' });
@@ -159,27 +161,18 @@ test.describe('browser demo GoatCounter', () => {
     const layer = page.getByRole('treeitem').filter({ hasText: 'Sun' }).first();
     await layer.click();
     await selectInspectorTab(page, 'Export');
-    await page.getByRole('button', { name: /Download (PNG|SVG|JPEG|WebP)/ }).waitFor({
-      timeout: 30000,
-    });
-    await page
-      .getByRole('radiogroup', { name: 'Export format', exact: true })
-      .getByRole('radio', { name: 'PNG', exact: true })
-      .check();
-    const pngDownload = page.waitForEvent('download', { timeout: 60000 });
-    await page.getByRole('button', { name: /Download PNG/i }).click();
-    await pngDownload;
+    const inspector = page.getByRole('region', { name: 'Inspector', exact: true });
+    const download = inspector.locator('.spec-export__download');
+    await download.waitFor({ timeout: 30000 });
+
+    await downloadInspectorFormat(page, 'PNG');
+    await expect(inspector.locator('.spec-export__message')).toContainText(/Downloaded .+ as PNG/i);
     await expect
       .poll(() => requests.map(collectorPath), { timeout: 10000 })
       .toContain('demo-export-png');
 
-    await page
-      .getByRole('radiogroup', { name: 'Export format', exact: true })
-      .getByRole('radio', { name: 'SVG', exact: true })
-      .check();
-    const svgDownload = page.waitForEvent('download', { timeout: 60000 });
-    await page.getByRole('button', { name: /Download SVG/i }).click();
-    await svgDownload;
+    await downloadInspectorFormat(page, 'SVG');
+    await expect(inspector.locator('.spec-export__message')).toContainText(/Downloaded .+ as SVG/i);
     await expect
       .poll(() => requests.map(collectorPath), { timeout: 10000 })
       .toContain('demo-export-svg');
@@ -192,3 +185,17 @@ test.describe('browser demo GoatCounter', () => {
     }
   });
 });
+
+async function downloadInspectorFormat(page: Page, format: 'PNG' | 'SVG'): Promise<void> {
+  const inspector = page.getByRole('region', { name: 'Inspector', exact: true });
+  await inspector
+    .getByRole('radiogroup', { name: 'Export format', exact: true })
+    .getByRole('radio', { name: format, exact: true })
+    .check();
+  const button = inspector.getByRole('button', { name: new RegExp(`Download ${format}`, 'i') });
+  await button.waitFor({ timeout: 30000 });
+  const pending = page.waitForEvent('download', { timeout: 60000 });
+  await button.click();
+  const file = await pending;
+  expect(file.suggestedFilename().toLowerCase()).toContain(format.toLowerCase());
+}

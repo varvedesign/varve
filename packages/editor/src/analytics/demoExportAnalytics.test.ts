@@ -25,6 +25,16 @@ describe('demo export analytics sink', () => {
     expect(() => notifyDemoExportAnalytics('png')).not.toThrow();
   });
 
+  it('reads the listener from the shared globalThis registry', () => {
+    const listener = vi.fn();
+    const host = globalThis as typeof globalThis & {
+      [key: symbol]: ((format: 'png') => void) | null | undefined;
+    };
+    host[Symbol.for('varve.demoExportAnalyticsListener')] = listener;
+    notifyDemoExportAnalytics('png');
+    expect(listener).toHaveBeenCalledWith('png');
+  });
+
   it('skips cancelled or unsupported inspector saves', () => {
     const listener = vi.fn();
     setDemoExportAnalyticsListener(listener);

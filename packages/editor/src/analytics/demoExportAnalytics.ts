@@ -4,16 +4,30 @@ export type DemoExportFormat = 'png' | 'jpeg' | 'webp' | 'svg';
 
 type DemoExportListener = (format: DemoExportFormat) => void;
 
-let listener: DemoExportListener | null = null;
+/**
+ * Shared across Vite copies of this module. A module-level `let` is dropped
+ * when the editor barrel and a direct file import evaluate twice, which is
+ * what left /try sending launch events but no `demo-export-*` after a real
+ * Inspector download.
+ */
+const LISTENER_KEY = Symbol.for('varve.demoExportAnalyticsListener');
+
+type ListenerHost = typeof globalThis & {
+  [LISTENER_KEY]?: DemoExportListener | null;
+};
+
+function getListener(): DemoExportListener | null {
+  return (globalThis as ListenerHost)[LISTENER_KEY] ?? null;
+}
 
 /** Demo-only. Desktop release builds never register a listener. */
 export function setDemoExportAnalyticsListener(next: DemoExportListener | null): void {
-  listener = next;
+  (globalThis as ListenerHost)[LISTENER_KEY] = next;
 }
 
 export function notifyDemoExportAnalytics(format: AnalyticsExportFormat): void {
   if (format === 'png' || format === 'jpeg' || format === 'webp' || format === 'svg') {
-    listener?.(format);
+    getListener()?.(format);
   }
 }
 
@@ -33,6 +47,7 @@ export function notifySuccessfulDemoExportBatch(
   formats: Iterable<AnalyticsExportFormat | string>,
 ): void {
   const seen = new Set<DemoExportFormat>();
+  const listener = getListener();
   for (const format of formats) {
     if (format !== 'png' && format !== 'jpeg' && format !== 'webp' && format !== 'svg') {
       continue;
