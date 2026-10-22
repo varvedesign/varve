@@ -263,6 +263,15 @@ const REQUIRED_PAIRS: Array<[string, string, number, string]> = [
   ['--border-interactive', '--surface-page', 3.0, 'interactive border vs page'],
   ['--border-interactive', '--surface-card', 3.0, 'interactive border vs card'],
   ['--border-accent', '--surface-card', 3.0, 'accent border vs card'],
+  // Changelog release-note category labels. These were raw `oklch()` literals
+  // inside the page's own <style> block, so no gate could see them; in dark mode
+  // they measured 1.27-1.39:1 and were effectively invisible.
+  ['--changelog-added', '--surface-card', 4.5, 'changelog added label'],
+  ['--changelog-changed', '--surface-card', 4.5, 'changelog changed label'],
+  ['--changelog-deprecated', '--surface-card', 4.5, 'changelog deprecated label'],
+  ['--changelog-removed', '--surface-card', 4.5, 'changelog removed label'],
+  ['--changelog-fixed', '--surface-card', 4.5, 'changelog fixed label'],
+  ['--changelog-security', '--surface-card', 4.5, 'changelog security label'],
 ];
 
 const THEMES = ['light', 'dark'] as const;

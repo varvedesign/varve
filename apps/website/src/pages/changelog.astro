@@ -548,45 +548,45 @@ const pageDescription = 'Version history and release notes for Varve. See what c
 
   /* Category accent colors — subtle left border + muted background tint */
   .cat-added {
-    border-left: 3px solid oklch(0.65 0.12 156);
+    border-left: 3px solid var(--changelog-added-border);
     padding-left: 0.75rem;
     border-bottom: none;
-    color: oklch(0.5 0.12 156);
+    color: var(--changelog-added);
   }
 
   .cat-changed {
-    border-left: 3px solid oklch(0.65 0.12 60);
+    border-left: 3px solid var(--changelog-changed-border);
     padding-left: 0.75rem;
     border-bottom: none;
-    color: oklch(0.5 0.1 60);
+    color: var(--changelog-changed);
   }
 
   .cat-deprecated {
-    border-left: 3px solid oklch(0.6 0.1 40);
+    border-left: 3px solid var(--changelog-deprecated-border);
     padding-left: 0.75rem;
     border-bottom: none;
-    color: oklch(0.5 0.1 40);
+    color: var(--changelog-deprecated);
   }
 
   .cat-removed {
-    border-left: 3px solid oklch(0.55 0.14 25);
+    border-left: 3px solid var(--changelog-removed-border);
     padding-left: 0.75rem;
     border-bottom: none;
-    color: oklch(0.5 0.12 25);
+    color: var(--changelog-removed);
   }
 
   .cat-fixed {
-    border-left: 3px solid oklch(0.55 0.1 250);
+    border-left: 3px solid var(--changelog-fixed-border);
     padding-left: 0.75rem;
     border-bottom: none;
-    color: oklch(0.5 0.1 250);
+    color: var(--changelog-fixed);
   }
 
   .cat-security {
-    border-left: 3px solid oklch(0.6 0.08 300);
+    border-left: 3px solid var(--changelog-security-border);
     padding-left: 0.75rem;
     border-bottom: none;
-    color: oklch(0.5 0.08 300);
+    color: var(--changelog-security);
   }
 
   .cat-other {
@@ -595,12 +595,7 @@ const pageDescription = 'Version history and release notes for Varve. See what c
     border-bottom: none;
   }
 
-  [data-theme="dark"] .cat-added { color: oklch(0.78 0.1 156); border-left-color: oklch(0.78 0.1 156); }
-  [data-theme="dark"] .cat-changed { color: oklch(0.78 0.1 60); border-left-color: oklch(0.78 0.1 60); }
-  [data-theme="dark"] .cat-deprecated { color: oklch(0.75 0.09 40); border-left-color: oklch(0.75 0.09 40); }
-  [data-theme="dark"] .cat-removed { color: oklch(0.75 0.1 25); border-left-color: oklch(0.75 0.1 25); }
-  [data-theme="dark"] .cat-fixed { color: oklch(0.75 0.09 250); border-left-color: oklch(0.75 0.09 250); }
-  [data-theme="dark"] .cat-security { color: oklch(0.75 0.07 300); border-left-color: oklch(0.75 0.07 300); }
+  /* Dark values live in theme.css with the rest of the semantic layer. */
 
   @media (forced-colors: active) {
     .cat-added, .cat-changed, .cat-deprecated, .cat-removed, .cat-fixed, .cat-security, .cat-other {

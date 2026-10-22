@@ -165,10 +165,44 @@
   /* --- Grid / technical overlay --- */
   --grid-line: oklch(0.5 0.02 260 / 0.12);
   --grid-line-strong: oklch(0.5 0.02 260 / 0.22);
+
+  /* --- Changelog release-note categories ---
+     These six carry prose labels in the release history. They lived as raw
+     `oklch()` literals in the page's own <style> block, which kept them outside
+     `pnpm audit:tokens` and meant the dark theme needed six separate
+     `[data-theme="dark"]` overrides inside the page. Declared here they are part
+     of the semantic layer and can be audited like any other pair. */
+  --changelog-added: oklch(0.5 0.12 156);
+  --changelog-changed: oklch(0.5 0.1 60);
+  --changelog-deprecated: oklch(0.5 0.1 40);
+  --changelog-removed: oklch(0.5 0.12 25);
+  --changelog-fixed: oklch(0.5 0.1 250);
+  --changelog-security: oklch(0.5 0.08 300);
+  --changelog-added-border: oklch(0.65 0.12 156);
+  --changelog-changed-border: oklch(0.65 0.12 60);
+  --changelog-deprecated-border: oklch(0.6 0.1 40);
+  --changelog-removed-border: oklch(0.55 0.14 25);
+  --changelog-fixed-border: oklch(0.55 0.1 250);
+  --changelog-security-border: oklch(0.6 0.08 300);
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
+
+  /* 0.80 L across the six: the authored 0.75-0.78 values measured 3.90-5.69:1
+     against --surface-card, and two of them missed AA. */
+  --changelog-added: oklch(0.8 0.1 156);
+  --changelog-changed: oklch(0.8 0.1 60);
+  --changelog-deprecated: oklch(0.8 0.09 40);
+  --changelog-removed: oklch(0.8 0.1 25);
+  --changelog-fixed: oklch(0.8 0.09 250);
+  --changelog-security: oklch(0.8 0.07 300);
+  --changelog-added-border: var(--changelog-added);
+  --changelog-changed-border: var(--changelog-changed);
+  --changelog-deprecated-border: var(--changelog-deprecated);
+  --changelog-removed-border: var(--changelog-removed);
+  --changelog-fixed-border: var(--changelog-fixed);
+  --changelog-security-border: var(--changelog-security);
 
   --surface-card-hover: var(--color-interactive-hover-surface);
   --surface-muted: oklch(0.21 0.02 262);
