@@ -33,7 +33,6 @@ update, not for someone reading the commit log.
   creates the document with the values you typed, instead of requiring the
   mouse. Enter in the preset-name row still saves the preset, and Enter during
   an IME composition is left to the input method.
-
 - **Linux AppImage**: ships bundled WebKitGTK and GTK so it launches on a
   clean host without `libwebkit2gtk-4.1`. GPU/EGL/Mesa stay on the system so
   newer Mesa stacks do not white-screen. GStreamer plugins are not bundled
@@ -45,6 +44,11 @@ update, not for someone reading the commit log.
   published 0.5.1 AppImages.
 
 ### Fixed
+
+- **Hiding a fill now hides it** — Turning off a shape's last visible fill
+  removes it from the canvas and from its click target. Previously the shape
+  kept painting its original colour, because the render pipeline treated an
+  all-hidden fill stack as "no stack" and fell back to the node's legacy fill.
 
 - **Autosave failures are visible** — when crash-recovery autosave cannot write
   a recovery copy, the status bar shows "Recovery paused" with the reason and

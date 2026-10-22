@@ -253,6 +253,75 @@ suite 310/310, rebuilt page inspected at 1440x1200.
 
 ---
 
+## F7 — Hidden fill stayed painted and clickable (implemented)
+
+**External evidence.** Graphite #2554 ("Path tool click targets erroneously
+include hidden 'Path' node modifications", closed): "When generating click
+targets, hidden nodes such as the Path node need to be bypassed." Maintainers
+confirmed it was fixed upstream. The corpus also carries #1736 ("Filled but open
+shapes don't have click targets for their fill"), which turned out to be the
+opposite half of the same story in Varve — see the "already handled" note below.
+
+**User problem.** Turning a shape's fill off in the Inspector left it painted.
+The user hides a fill, sees no change, and the shape still takes clicks across
+its whole bounding box. Two independent mechanisms produced that:
+
+1. **Rendering.** `buildIr` filtered invisible fills out of the stack, so an
+   all-hidden stack arrived at replay as an empty array. Replay reads an empty
+   or absent stack as "this node has no fill stack" and falls back to the node's
+   legacy `fill` colour — painting exactly the fill the user had hidden. The
+   native builder (`crates/varve-engine`) clones the stack verbatim, so the two
+   renderers disagreed; the TypeScript path was the wrong one.
+2. **Hit testing.** `isTransparentFill` decided whether the bounding-box
+   fallback may claim a node, and it only looked at colour alpha. A fill that
+   was hidden, had zero opacity, or arrived through `paintRefs` therefore kept a
+   click target across the whole box even when nothing was painted.
+
+**Observed Varve behaviour (before).** With the fill toggled off in the
+Inspector, a canvas pixel read at the shape's interior was still the fill
+colour (`57,208,198,255`) after a camera nudge, a zoom reset and an unrelated
+edit — so it was not a stale-frame artifact. Clicking that interior selected the
+shape.
+
+**Intended outcome.** A hidden fill paints nothing and claims no target; the
+outline of a shape that still has a stroke remains clickable; a visible fill
+behaves as before.
+
+**Implementation decision.** Keep invisible entries in the IR stack so "stack
+exists but nothing is visible" is distinguishable from "no stack", and let
+replay skip them per fill — the behaviour the native builder already had.
+Replace the alpha-only transparency check with the renderer's own semantics
+(`resolveNodePaints` + `fillPaintsVisibleArea`: visible, non-zero opacity, and
+for solid fills a colour with alpha), so click targets follow painted pixels.
+
+**Acceptance criteria.**
+1. Hiding the last visible fill changes the canvas pixels at the shape interior.
+2. The same shape no longer takes a click there.
+3. Re-showing the fill restores both the pixels and the click target.
+4. A fill stack with a mix of hidden and visible entries still paints only the
+   visible ones.
+5. The IR keeps hidden entries (native/web parity), and replay paints nothing
+   for an all-hidden stack.
+
+**Evidence.** `packages/engine/src/engine.ts` (stack mapping),
+`packages/editor/src/hitTest/HitTestEngine.ts` (`paintsNoFill`),
+`packages/scene/src/paint.ts` (`fillPaintsVisibleArea`); unit coverage in
+`packages/engine/src/engine.test.ts`, `packages/engine/src/replay-fill.test.ts`,
+`packages/editor/src/hitTest/__tests__/HitTestEngine.test.ts`,
+`packages/scene/src/paint.test.ts`; browser coverage in
+`tests/e2e/canvas/hidden-fill-click-target.spec.ts`, which reads a canvas pixel
+as the rendering oracle and was verified to fail against the previous
+behaviour (the hidden-fill click selected the shape before the fix).
+
+**Already handled, with mechanism (checked, not assumed).** #1736 asks for a
+click target inside a filled *open* path. Varve already provides one: the click
+policy's bounding-box tolerance fallback accepts the interior of any node that
+paints a fill. A fill-aware interior test was written first and then reverted
+because the E2E passed with it disabled — it changed no user-visible behaviour.
+The reverted work is recorded here so the same idea is not re-implemented.
+
+---
+
 ## F5 — Observations that are not (yet) Varve work
 
 - `InteractionContext.axisLock` was dead code until F1 gave it a consumer.
