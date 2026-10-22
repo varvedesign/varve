@@ -47,7 +47,7 @@ assert.equal(
 // A real local lane failure remains a blocking result. The executor is
 // injected here so the regression test never starts a repository-wide suite.
 const failedLane = runLane(
-  'js-unit:file:tests/unit/failing.test.ts',
+  'js-unit:file:tests/unit/validationPolicy.test.ts',
   { union: { paths: [] } },
   { executeCommand: () => 1 },
 );
@@ -57,7 +57,28 @@ assert.deepEqual(failedLane.command, [
   'exec',
   'vitest',
   'run',
-  'tests/unit/failing.test.ts',
+  'tests/unit/validationPolicy.test.ts',
+]);
+
+let deletedExecuted = false;
+const deletedLane = runLane(
+  'js-unit:file:apps/desktop/src/demoUsageTime.test.ts',
+  { union: { paths: ['apps/desktop/src/demoUsageTime.test.ts'] } },
+  {
+    executeCommand: () => {
+      deletedExecuted = true;
+      return 1;
+    },
+  },
+);
+assert.equal(deletedLane.status, 0, 'a deleted unit test is not an executable lane');
+assert.equal(deletedExecuted, false, 'vitest must not be invoked for a deleted test path');
+assert.deepEqual(deletedLane.command, [
+  'pnpm',
+  'exec',
+  'vitest',
+  'run',
+  'apps/desktop/src/demoUsageTime.test.ts',
 ]);
 
 const formatCommands = [];
@@ -97,7 +118,7 @@ assert.equal(cargoLane.status, 0);
 // Execute is injected: these assertions never start Vitest, TSC or Cargo.
 for (const lane of [
   'js-unit:@varve/editor',
-  'js-unit:file:tests/unit/sample.test.ts',
+  'js-unit:file:tests/unit/validationPolicy.test.ts',
   'typecheck:@varve/editor',
   'typecheck:e2e',
   'rust-test:varve-print',

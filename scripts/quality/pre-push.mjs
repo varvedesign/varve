@@ -143,6 +143,13 @@ function chunk(values, size) {
   return chunks;
 }
 
+function fileLaneSourcePath(lane) {
+  for (const prefix of ['js-unit:file:', 'e2e:file:', 'website-e2e:file:']) {
+    if (lane.startsWith(prefix)) return lane.slice(prefix.length);
+  }
+  return null;
+}
+
 function existingBiomeFiles(paths, cwd = ROOT) {
   // Do not pass deleted paths to Biome; the deletion is still present in the
   // Git diff and is covered by the history/net-diff policy.
@@ -185,6 +192,13 @@ function runLane(lane, plan, options = {}) {
   if (!argv) {
     console.error(`    [FAIL] no executable command registered for ${lane}`);
     return { status: 1, durationMs: 0, command: [] };
+  }
+  const fileLanePath = fileLaneSourcePath(lane);
+  if (fileLanePath && !existsSync(join(ROOT, fileLanePath))) {
+    // Net diffs include deletions. Vitest/Playwright exit 1 on a missing
+    // path, so treat the deletion itself as the validation (same as Biome).
+    console.log(`    [PASS] ${lane} (deleted; not executable)`);
+    return { status: 0, durationMs: 0, command: argv };
   }
   const started = Date.now();
   const scopedEnv = { ...options.env };
