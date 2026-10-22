@@ -196,7 +196,7 @@ batch 6 `340262b60`, refusal reporting `bb2f53d24`.
 
 Branch `codex/pdfcraft-batch7`, worktree `.worktrees/pdfcraft-b7`, cut from
 `origin/master` at `13e97dde3` (which already contained batch 10's vertical
-writing fix). This batch is the refinement batch 10 deferred, plus two
+writing fix). Review: PR #172. This batch is the refinement batch 10 deferred, plus two
 honesty fixes found while validating it.
 
 **What changed**
