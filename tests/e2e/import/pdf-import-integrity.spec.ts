@@ -12,14 +12,22 @@
  *
  * Evidence: PDFCraft 2986/3211/3214 (hidden layers drawn as visible),
  * 3029/3109 (invisible text brought in as visible), 3450/3904 (encrypted
- * files opening as nothing). Screenshots land in docs/screenshots/pdfcraft/.
+ * files opening as nothing). Screenshots go to a temp directory; the checked-in
+ * copies in docs/screenshots/pdfcraft/ were captured with VARVE_SHOT_DIR.
  */
 import { mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
-const SHOT_DIR = join(process.cwd(), 'docs', 'screenshots', 'pdfcraft');
+/**
+ * Evidence screenshots go to a temporary directory by default. Writing into
+ * the checkout would dirty the source tree during a CI run, and the lane
+ * runner requires an unchanged clean source at the planned commit. Set
+ * `VARVE_SHOT_DIR` to capture into the repository for a documented review.
+ */
+const SHOT_DIR = process.env.VARVE_SHOT_DIR ?? join(tmpdir(), 'varve-pdfcraft-shots');
 
 /**
  * Assemble a small but structurally real PDF. Object numbers are fixed so a

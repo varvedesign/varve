@@ -23,6 +23,12 @@ export interface TextRun {
   readonly fontBase: string | null;
   /** True when the font published no widths and the advance was estimated. */
   readonly estimatedAdvance: boolean;
+  /**
+   * True when the run is set in a vertical writing mode (`Identity-V`, or a
+   * CMap whose `/WMode` is 1). Its glyphs advance down the page, so importing
+   * it as a horizontal run would put a column of text on one line.
+   */
+  readonly vertical: boolean;
 }
 
 export interface RectFill {
@@ -49,6 +55,8 @@ export interface ContentDiagnostics {
   undecodableRuns: number;
   /** Runs the document paints with nothing (`3 Tr` invisible, `7 Tr` clip). */
   invisibleRuns: number;
+  /** Runs set in a vertical writing mode, imported as vertical text. */
+  verticalRuns: number;
   /**
    * Runs and fills inside an optional-content group the document's default
    * configuration hides. They are not imported, because the page does not
@@ -92,6 +100,7 @@ export function createDiagnostics(): ContentDiagnostics {
     unmappedCodes: 0,
     undecodableRuns: 0,
     invisibleRuns: 0,
+    verticalRuns: 0,
     hiddenRuns: 0,
     hiddenRects: 0,
     unresolvedOptionalContent: 0,

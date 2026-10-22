@@ -30,6 +30,8 @@ export interface PdfFont {
   readonly baseFont: string | null;
   /** True for composite fonts whose codes are 2 bytes (Type0/Identity-H). */
   readonly twoByteCodes: boolean;
+  /** True when the font's CMap selects vertical writing (`/WMode 1`). */
+  readonly vertical: boolean;
   /** False when the font publishes no usable encoding; textFor returns ''. */
   readonly decodable: boolean;
   /** Glyph advance in 1/1000 em, or null when the font publishes no widths. */
@@ -161,6 +163,7 @@ export function buildFont(
   const subtype = dictName(fontObject.header, 'Subtype');
   const baseFont = dictName(fontObject.header, 'BaseFont');
   const twoByteCodes = subtype === 'Type0';
+  const vertical = readVerticalWriting(index, fontObject, report);
   const toUnicode = loadToUnicode(index, fontObject, report);
   const widthOf = loadWidths(index, fontObject, twoByteCodes);
 
@@ -170,6 +173,7 @@ export function buildFont(
       subtype,
       baseFont,
       twoByteCodes,
+      vertical,
       decodable: true,
       widthOf,
       spaceCode: toUnicode.spaceCode,
@@ -188,6 +192,7 @@ export function buildFont(
     subtype,
     baseFont,
     twoByteCodes: false,
+    vertical: false,
     decodable: true,
     widthOf,
     spaceCode: simple.spaceCode,
@@ -204,6 +209,28 @@ function sanitizeMapped(mapped: string): string {
   return mapped.includes(REPLACEMENT) ? '' : mapped;
 }
 
+/**
+ * A composite font's `/Encoding` is a CMap, and the CMap decides the writing
+ * mode: `Identity-V` (or any name ending in `-V`) is vertical, and an embedded
+ * CMap stream states it as `/WMode 1`. Vertical text advances down the page,
+ * so treating it as horizontal turns a column into one long line.
+ */
+function readVerticalWriting(
+  index: PdfIndex,
+  fontObject: PdfObject,
+  report: DecodeReport,
+): boolean {
+  const name = dictName(fontObject.header, 'Encoding');
+  if (name !== null && /-V$/.test(name)) return true;
+  const reference = /\/Encoding\s+(\d+)\s+\d+\s+R/.exec(fontObject.header);
+  if (!reference) return false;
+  const cmap = index.objects.get(Number(reference[1]));
+  if (!cmap?.stream) return false;
+  const bytes = decodeStream(index, cmap, report);
+  if (!bytes) return false;
+  return /\/WMode\s+1\b/.test(latin1(bytes));
+}
+
 function nonDecodableFont(
   resourceName: string,
   subtype: string | null,
@@ -214,6 +241,7 @@ function nonDecodableFont(
     subtype,
     baseFont,
     twoByteCodes: subtype === 'Type0',
+    vertical: false,
     decodable: false,
     widthOf: () => null,
     spaceCode: 32,
