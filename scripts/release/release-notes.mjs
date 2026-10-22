@@ -18,7 +18,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { documentExtension, productSlug } from './product.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -96,6 +96,25 @@ const INSTALL_HINT = {
   dmg: 'Open, drag to Applications.',
 };
 
+/** Published release-note fragments. Tests assert these stay free of em dashes. */
+export const RELEASE_NOTES_PUBLISHED = {
+  windowsSigned: (publisher) =>
+    `- **Windows**: Authenticode signature verified: ${publisher ?? '(publisher)'}. ` +
+    'SmartScreen may still warn until the publisher builds reputation.',
+  macosSigned: '- **macOS**: Developer ID signed, notarized by Apple, ticket stapled.',
+  linuxChecksums:
+    '- **Linux**: SHA-256 checksums, SBOM and GitHub build provenance are attached to this release.',
+  windowsNote:
+    '- **Windows note**: the installer is signed; the executable it installs is not ' +
+    '(NSIS payloads are not signed). Windows does not require it to run.',
+  unsignedIntro:
+    'These builds are **not code-signed**. That is a statement about this project’s ' +
+    'budget, not the files. Your operating system cannot tell the ' +
+    'difference, and neither can you without checking. Verify the SHA-256 checksum ' +
+    'below against your download before running it.',
+  unknownInstallHint: 'None',
+};
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const version = args.version;
@@ -136,33 +155,20 @@ function main() {
     out.push('### Release verification');
     out.push('');
     if (signing.windows?.signed) {
-      out.push(
-        `- **Windows** — Authenticode signature verified: ${signing.windows.publisher ?? '(publisher)'}. ` +
-          'SmartScreen may still warn until the publisher builds reputation.',
-      );
+      out.push(RELEASE_NOTES_PUBLISHED.windowsSigned(signing.windows.publisher));
     }
     if (signing.macos?.signed) {
-      out.push('- **macOS** — Developer ID signed, notarized by Apple, ticket stapled.');
+      out.push(RELEASE_NOTES_PUBLISHED.macosSigned);
     }
-    out.push(
-      '- **Linux** — SHA-256 checksums, SBOM and GitHub build provenance are attached to this release.',
-    );
+    out.push(RELEASE_NOTES_PUBLISHED.linuxChecksums);
     if (signing.windows && !signing.windows.innerExecutableSigned) {
-      out.push(
-        '- **Windows note** — the installer is signed; the executable it installs is not ' +
-          '(NSIS payloads are not signed). Windows does not require it to run.',
-      );
+      out.push(RELEASE_NOTES_PUBLISHED.windowsNote);
     }
     out.push('');
   } else {
     out.push('### Before you install');
     out.push('');
-    out.push(
-      'These builds are **not code-signed**. That is a statement about this project’s ' +
-        'budget, not about the files, but your operating system cannot tell the ' +
-        'difference, and neither can you without checking. Verify the SHA-256 checksum ' +
-        'below against your download before running it.',
-    );
+    out.push(RELEASE_NOTES_PUBLISHED.unsignedIntro);
     out.push('');
     if (platforms.includes('windows')) {
       out.push(
@@ -202,7 +208,7 @@ function main() {
   for (const a of manifest.artifacts) {
     const os = OS_LABEL[a.os] ?? a.os;
     out.push(
-      `| ${os} ${a.arch} | \`${a.filename}\` | ${a.size} | ${INSTALL_HINT[a.format] ?? '—'} |`,
+      `| ${os} ${a.arch} | \`${a.filename}\` | ${a.size} | ${INSTALL_HINT[a.format] ?? RELEASE_NOTES_PUBLISHED.unknownInstallHint} |`,
     );
   }
   out.push('');
@@ -259,9 +265,13 @@ function main() {
   process.stdout.write(`Release notes written to ${outPath}\n`);
 }
 
-try {
-  main();
-} catch (err) {
-  process.stderr.write(`${err.message}\n`);
-  process.exit(1);
+const invokedAsCli =
+  process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (invokedAsCli) {
+  try {
+    main();
+  } catch (err) {
+    process.stderr.write(`${err.message}\n`);
+    process.exit(1);
+  }
 }

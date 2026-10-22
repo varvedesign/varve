@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const websiteSrc = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -112,6 +112,37 @@ describe('rendered website and app copy', () => {
     expect(visibleSource("const path = 'foo//bar';")).toContain('foo//bar');
     expect(visibleSource('  // hidden — comment\nvisible copy')).toContain('visible copy');
     expect(visibleSource('  // hidden — comment\nvisible copy')).not.toMatch(/\u2014/);
+  });
+
+  it('has no em dash in release-script published strings', async () => {
+    const { macosUnsignedCaveat, windowsUnsignedCaveat, formatCopy } = await import(
+      pathToFileURL(path.join(repoRoot, 'scripts/release/website-release-data.mjs')).href
+    );
+    const { RELEASE_NOTES_PUBLISHED } = await import(
+      pathToFileURL(path.join(repoRoot, 'scripts/release/release-notes.mjs')).href
+    );
+    expect(macosUnsignedCaveat('0.5.0')).not.toMatch(/\u2014|&mdash;/);
+    expect(macosUnsignedCaveat('0.6.0')).not.toMatch(/\u2014|&mdash;/);
+    expect(windowsUnsignedCaveat()).not.toMatch(/\u2014|&mdash;/);
+    const copy = formatCopy('Varve', '0.6.0') as Record<string, Record<string, unknown>>;
+    for (const [format, entry] of Object.entries(copy)) {
+      for (const field of ['title', 'blurb', 'caveat', 'caveatSigned', 'install']) {
+        const value = entry[field];
+        if (typeof value !== 'string') continue;
+        expect(value, `${format}.${field}`).not.toMatch(/\u2014|&mdash;/);
+      }
+    }
+    expect(RELEASE_NOTES_PUBLISHED.windowsSigned('Example Publisher')).not.toMatch(
+      /\u2014|&mdash;/,
+    );
+    expect(RELEASE_NOTES_PUBLISHED.macosSigned).not.toMatch(/\u2014|&mdash;/);
+    expect(RELEASE_NOTES_PUBLISHED.linuxChecksums).not.toMatch(/\u2014|&mdash;/);
+    expect(RELEASE_NOTES_PUBLISHED.windowsNote).not.toMatch(/\u2014|&mdash;/);
+    expect(RELEASE_NOTES_PUBLISHED.unsignedIntro).not.toMatch(/\u2014|&mdash;/);
+    expect(RELEASE_NOTES_PUBLISHED.unknownInstallHint).not.toMatch(/\u2014|&mdash;/);
+    expect(RELEASE_NOTES_PUBLISHED.unsignedIntro).toContain(
+      'budget, not the files. Your operating system cannot tell the difference',
+    );
   });
 
   it('keeps a space on both sides of the hero eyebrow separator', () => {

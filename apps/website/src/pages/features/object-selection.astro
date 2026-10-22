@@ -25,7 +25,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li>Tap a prompt marker to remove just that prompt, drag it to move it, or press Backspace for the last one.</li>
           <li>Compare candidate masks before applying, with the panel arrows or the <strong>[</strong> / <strong>]</strong> keys while the tool is active; the candidate you reviewed is the one that is committed.</li>
           <li>Preview honestly: an overlay tint marks what the model highlighted, and a cutout preview fills what the mask will <em>remove</em> with checkerboard so you can see the applied result before committing to it.</li>
-          <li>Three outputs, all consuming the exact reviewed candidate: an editable non-destructive raster mask, a temporary pixel selection (with replace, add, subtract, or intersect), or an extracted copy of the image on its own layer, the source stays untouched and the extracted layer is selected and ready to move.</li>
+          <li>Three outputs, all consuming the exact reviewed candidate: an editable non-destructive raster mask, a temporary pixel selection (with replace, add, subtract, or intersect), or an extracted copy of the image on its own layer. The source stays untouched and the extracted layer is selected and ready to move.</li>
         </ul>
       </section>
 
@@ -33,7 +33,7 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Prompts are not object discovery</h2>
         <p>
           Candidate masks are alternative readings of the same prompt, not separate detected
-          instances. A single click is genuinely ambiguous, the same point can mean a part,
+          instances. A single click is genuinely ambiguous: the same point can mean a part,
           the whole object, or a group, so Varve keeps the competing readings and lets you
           choose, with the reviewed candidate pinned for Apply. A reviewed corpus of ambiguous
           real-photo prompts found the top-ranked candidate was acceptable in about two thirds of
@@ -115,8 +115,8 @@ import { sitePath } from '../../lib/siteUrl';
           it to its own layer, or use it as a temporary pixel selection without changing the artwork. When
           you only need a tighter image frame, Trim to Subject can suggest object bounds separately; it
           shows the detected box for review before applying a non-destructive crop, and if the source it
-          needs cannot be measured, an empty mask, unreadable pixels, a fully transparent image
-, the trim fails with an explanation and the document is left exactly as it was, instead
+          needs cannot be measured (an empty mask, unreadable pixels, or a fully transparent image),
+          the trim fails with an explanation and the document is left exactly as it was, instead
           of silently resetting your crop. The bounds workflow is not a hidden mask and does not claim
           semantic recognition.
         </p>

@@ -110,10 +110,10 @@ import { sitePath } from '../../lib/siteUrl';
           <h3>Heavy operations are slow, stall, or fail</h3>
           <p><strong>Symptom:</strong> background removal, upscaling, image tracing, large imports, or long pans take a long time or end in an error.</p>
           <p><strong>Likely causes:</strong> memory pressure from several large images at once, browser WASM running single-threaded on the demo host, a very large source image, or a model operation competing with foreground editing. The browser may also be about to discard the tab.</p>
-          <p><strong>Safe checks:</strong> watch the Storage &amp; Offline estimate and the capability report; confirm the document is saved; check Chrome Task Manager for the tab's memory. Save first, recovery copies are a safety net, not a destination.</p>
+          <p><strong>Safe checks:</strong> watch the Storage &amp; Offline estimate and the capability report; confirm the document is saved; check Chrome Task Manager for the tab's memory. Save first. Recovery copies are a safety net, not a destination.</p>
           <p><strong>Bounded action:</strong> run one heavy operation at a time, close unused tabs, and prefer smaller source images. Wait for an operation to finish or cancel it from its dialog before starting another.</p>
           <p><strong>Expected result:</strong> the operation completes or reports a bounded error; the document stays editable and the last save is untouched.</p>
-          <p><strong>If it still fails:</strong> note the operation, source image size in pixels, and the capability report; report it. Attach no private design content, describe the document instead.</p>
+          <p><strong>If it still fails:</strong> note the operation, source image size in pixels, and the capability report; report it. Attach no private design content. Describe the document instead.</p>
         </div>
 
         <div class="troubleshoot-item">

@@ -288,9 +288,9 @@ const tonalCurvesShot = scenes['tonal-curves']?.status === 'captured' ? scenes['
           <li><strong>Picker views:</strong> RGB with RGB/HSL/HSB formats, CMYK, grayscale, Lab, LCH, and Spot, with canonical values preserved during edits</li>
           <li><strong>Native document color:</strong> CMYK channels stay tagged as CMYK in the document model, ready for print-oriented editing and export</li>
           <li><strong>Precision-aware working:</strong> 16-bit integer and floating-point channel values stay distinct through supported conversions, gradients, effects, and proof transforms; quantization is explicit at a display or codec boundary</li>
-          <li><strong>Document color settings:</strong> Inspector controls for precision (8-bit, 16-bit, 16f, 32f) and blend space (sRGB or linear-light), plus an explicit Assign vs Convert dialog for mode changes, assign keeps values, convert rewrites them in one undoable step</li>
-          <li><strong>Precision-preserving editing:</strong> bit-depth-aware numeric fields (0-255 / 0-65535 / 0-1), float HSV drafts, and swatches that carry the full canonical color, editing one channel never quantizes the others, and 16-bit values survive save/reopen exactly</li>
-          <li><strong>Native CMYK in PDF export:</strong> authored CMYK channels are emitted directly with pure-K preserved, no CMYK→RGB→CMYK round trip turning black into a four-color build</li>
+          <li><strong>Document color settings:</strong> Inspector controls for precision (8-bit, 16-bit, 16f, 32f) and blend space (sRGB or linear-light), plus an explicit Assign vs Convert dialog for mode changes: assign keeps values; convert rewrites them in one undoable step</li>
+          <li><strong>Precision-preserving editing:</strong> bit-depth-aware numeric fields (0-255 / 0-65535 / 0-1), float HSV drafts, and swatches that carry the full canonical color. Editing one channel never quantizes the others, and 16-bit values survive save/reopen exactly</li>
+          <li><strong>Native CMYK in PDF export:</strong> authored CMYK channels are emitted directly with pure-K preserved: no CMYK→RGB→CMYK round trip turning black into a four-color build</li>
           <li><strong>ICC profiles:</strong> Bundled RGB and CMYK profiles (sRGB, Fogra39, GRACoL, SWOP) with rendering intents</li>
           <li><strong>Blend modes:</strong> 18 CSS blend modes plus 4 non-separable modes (hue, saturation, color, luminosity)</li>
           <li><strong>Effects:</strong> Alpha-aware drop/inner shadows, canonical Gaussian and Layer Blur, Field/Iris/Tilt-Shift/Path/Spin spatial blur, background blur, Depth Blur, solid or gradient outer/inner glow, glass material, RGB/custom chromatic split, and glitch</li>
@@ -314,7 +314,7 @@ const tonalCurvesShot = scenes['tonal-curves']?.status === 'captured' ? scenes['
           Native desktop export is the print authority: it can apply the selected document profile, rendering intent, bleed, marks, and PDF/X settings. Browser previews use the browser's sRGB display path and current RGBA8 canvas surfaces, so they are useful for layout and directional proofing, not a substitute for a calibrated monitor or an exported contract proof.
         </p>
         <p>
-          Authoring precision: 16-bit and floating-point vector colors, precision-aware picker fields, and high-precision persistence through save/reopen, is shipped. High-precision raster decode (16-bit PNG/TIFF pixels), CMYK raster planes, and high-precision GPU preview targets remain active integration areas. The document model and typed working-buffer boundaries are designed so those paths can be added without silently rewriting stored color values.
+          Authoring precision (16-bit and floating-point vector colors, precision-aware picker fields, and high-precision persistence through save/reopen) is shipped. High-precision raster decode (16-bit PNG/TIFF pixels), CMYK raster planes, and high-precision GPU preview targets remain active integration areas. The document model and typed working-buffer boundaries are designed so those paths can be added without silently rewriting stored color values.
         </p>
       </section>
 
