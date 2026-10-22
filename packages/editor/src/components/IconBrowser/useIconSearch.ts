@@ -40,7 +40,7 @@ export const DEBOUNCE_MS = 300;
 export const MIN_QUERY_LENGTH = 2;
 export const PAGE_SIZE = 48;
 
-export function useIconSearch() {
+export function useIconSearch(remoteAllowed = false) {
   const [state, setState] = useState<IconSearchState>({
     results: [],
     isLoading: false,
@@ -106,21 +106,27 @@ export function useIconSearch() {
     [],
   );
 
-  const runSearch = useCallback(async (query: string, start: number): Promise<IconSearchPage> => {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      throw new IconProviderError('You are offline', 'network-error', '');
-    }
-    ensureIconProviders();
-    const registry = getIconProviderRegistry();
-    const controller = new AbortController();
-    abortRef.current?.abort();
-    abortRef.current = controller;
-    return registry.search(query, {
-      limit: PAGE_SIZE,
-      start,
-      signal: controller.signal,
-    });
-  }, []);
+  const runSearch = useCallback(
+    async (query: string, start: number): Promise<IconSearchPage> => {
+      if (!remoteAllowed) {
+        return { items: [], total: 0, start, exhausted: true };
+      }
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        throw new IconProviderError('You are offline', 'network-error', '');
+      }
+      ensureIconProviders();
+      const registry = getIconProviderRegistry();
+      const controller = new AbortController();
+      abortRef.current?.abort();
+      abortRef.current = controller;
+      return registry.search(query, {
+        limit: PAGE_SIZE,
+        start,
+        signal: controller.signal,
+      });
+    },
+    [remoteAllowed],
+  );
 
   const search = useCallback(
     (rawQuery: string) => {

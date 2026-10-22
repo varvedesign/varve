@@ -190,18 +190,51 @@ than relabelled.
   smallest honest change is to derive an overset count per area-text node and
   feed the existing preflight check, rather than inventing a new indicator.
 
-## F6 — Gradient stop transparency is lost in PDF export (open)
+## F6 — PDF gradients: blank output (fixed) and stop transparency (open)
 
 - **External evidence:** vectorcraft#1140 (canvas blends gradient stop opacity
   premultiplied, unlike PDF export, SVG viewers and `Gradient::sample`), #827
   (raster-effect blend modes dropped in PDF), #3234 (blend between tints of one
   spot colour written as process CMYK).
-- **Varve code:** `packages/engine/src/replayGradient.ts` interpolates stops in
-  premultiplied alpha; `crates/varve-print/src/lib.rs` `ShadingRegistry` /
-  `create_sampled_function` discards the alpha component when sampling.
-- **Status:** `applicable-requires-work`. Not implemented in this pass: a
-  truthful fix needs per-stop alpha in the shading function plus an `/SMask`
-  (or equivalent) and a rendered-PDF comparison, which is its own batch.
+- **Varve code:** `crates/varve-print/src/lib.rs` — `ShadingRegistry`,
+  `create_sampled_function`, `sample_gradient`.
+- **Observed behavior (before), critical:** a Type 0 sampled function declared
+  `Range` with **four 0..255 outputs** regardless of colour space, while an RGB
+  stream carries **three** bytes per sample and PDF colour components are
+  **0..1**. Poppler reported `GfxUnivariateShading: function with wrong output
+  size` and drew **nothing**: every gradient-filled shape exported to PDF came
+  out blank. This was not limited to transparency — any RGB gradient was
+  affected.
+- **Intended outcome:** the function's output arity matches the shading colour
+  space (3 for DeviceRGB, 4 for DeviceCMYK) and its range is 0..1.
+- **Implementation:** the Range is now built from the colour-space component
+  count with `[0, 1]` pairs.
+- **Validation:** `gradient_sampled_function_range_matches_colour_space` and
+  `..._cmyk_space` assert the emitted dictionaries; the crate suite is 201/201.
+  Rendered with poppler 26.08: the exported red-to-blue gradient was a blank
+  page before and correct after — `evidence/pdf-gradient-before.png` and
+  `evidence/pdf-gradient-after.png`.
+- **Second defect, fixed here:** per-stop **alpha** was discarded when the
+  shading was sampled (`engine_color_rgba(&color)` drops the alpha component), so
+  a gradient fading to transparent exported as a hard-edged solid block.
+- **Implementation (alpha):** when any stop is translucent, the registry now
+  also emits a DeviceGray shading of the alpha ramp as a Type 0 function
+  (`Range [0 1]`, one component) and wraps it in a Form XObject registered as a
+  luminosity `/SMask` in an ExtGState; the content applies that state before
+  `sh`. Opaque gradients emit no mask, so the common case pays nothing. The
+  ExtGState dictionary is merged with the opacity/blend states already
+  installed rather than replacing them.
+- **Validation (alpha):** `gradient_stop_alpha_emits_luminosity_soft_mask` and
+  `opaque_gradient_emits_no_soft_mask`; the crate suite is 203/203. Rendered
+  with poppler 26.08: an opaque-red-to-transparent-red gradient was a solid red
+  block before and fades to the page after — `evidence/pdf-gradient-alpha-before.png`
+  and `evidence/pdf-gradient-alpha-after.png`.
+- **PDF/X-1a:** `hasPdfX1aTransparency` already reports gradient stop alpha in
+  the export panel, so an X-1a export of such artwork is disclosed before it
+  runs; the soft mask is emitted only on the paths that permit live
+  transparency, alongside the `/ca` opacity states this writer already used.
+- **Considered and rejected:** splitting the ramp into flat-alpha bands. It
+  needs no mask but bands visibly in the alpha channel for any smooth fade.
 
 ## F7 — Whole-document hover/selection scans (checked, already handled)
 
@@ -259,6 +292,8 @@ review:
 | `svg-gradient-whole-document.png` | `exportDocumentToSvgAdvanced` output rendered in Chromium: flat dark rectangle (before) versus the red-to-blue gradient (after). |
 | `offset-path-round.png` | Outward Offset Path result driven through Object → Path → Offset Path. The rounded corner arc is visible at the top-left; a miter join would show a sharp corner there. A menubar panel remains over the left edge of the capture. |
 | `offset-path-inward.png` | Inward Offset Path result from the same spec. |
+| `pdf-gradient-before.png` | Poppler render of a PDF exported from a gradient-filled rectangle **before** the sampled-function fix: the page is blank. |
+| `pdf-gradient-after.png` | The same export after the fix: the red-to-blue gradient renders. |
 
 Screenshots are evidence of a specific run, not a claim about every platform:
 the SVG captures are Chromium on Linux at the recorded viewport, and the canvas

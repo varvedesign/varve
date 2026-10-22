@@ -230,10 +230,14 @@ export interface AiSettingsStore {
   shareUsageData: boolean;
 }
 
-/** Product usage and diagnostics consent. Crash reporting is separate. */
-export interface PrivacySettingsStore {
-  usageAnalytics: AnalyticsConsentState;
-  diagnostics: AnalyticsConsentState;
+/** Desktop usage and diagnostics telemetry were removed. Stored leftover keys are ignored. */
+export type PrivacySettingsStore = Record<string, never>;
+
+/** One-time Iconify remote-search consent. Unknown means no network request yet. */
+export type IconRemoteSearchConsent = AnalyticsConsentState;
+
+export interface IconsSettingsStore {
+  remoteSearch: IconRemoteSearchConsent;
 }
 
 export interface LearningSettingsStore {
@@ -261,6 +265,7 @@ export interface EditorSettings {
   collab: CollabSettingsStore;
   ai: AiSettingsStore;
   privacy: PrivacySettingsStore;
+  icons: IconsSettingsStore;
   learning: LearningSettingsStore;
   features: {
     /** Enable finding navigation (deep-link + inspector section jump). */
@@ -318,13 +323,14 @@ export const DEFAULT_COLLAB_SETTINGS: CollabSettingsStore = {
 
 export const DEFAULT_AI_SETTINGS: AiSettingsStore = {
   enabled: true, // Default true to not break existing AI feature users
-  model: 'gpt-4',
+  model: 'varve-default',
   shareUsageData: false,
 };
 
-export const DEFAULT_PRIVACY_SETTINGS: PrivacySettingsStore = {
-  usageAnalytics: 'unknown',
-  diagnostics: 'unknown',
+export const DEFAULT_PRIVACY_SETTINGS: PrivacySettingsStore = {};
+
+export const DEFAULT_ICONS_SETTINGS: IconsSettingsStore = {
+  remoteSearch: 'unknown',
 };
 
 export const DEFAULT_LEARNING_SETTINGS: LearningSettingsStore = {
@@ -452,6 +458,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   collab: { ...DEFAULT_COLLAB_SETTINGS },
   ai: { ...DEFAULT_AI_SETTINGS },
   privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+  icons: { ...DEFAULT_ICONS_SETTINGS },
   learning: { ...DEFAULT_LEARNING_SETTINGS },
   features: { ...DEFAULT_FEATURES },
 };
@@ -504,6 +511,19 @@ function normalizeAnalyticsConsent(value: unknown): AnalyticsConsentState {
   return value === 'granted' || value === 'denied' ? value : 'unknown';
 }
 
+const RETIRED_AI_MODELS = new Set(['gpt-4', 'gpt-4o', 'claude-3-sonnet']);
+
+function normalizeAiModel(value: string): string {
+  return RETIRED_AI_MODELS.has(value) ? DEFAULT_AI_SETTINGS.model : value;
+}
+
+function normalizeAiSettings(settings: AiSettingsStore): AiSettingsStore {
+  return {
+    ...settings,
+    model: normalizeAiModel(settings.model),
+  };
+}
+
 export function loadSettings(): EditorSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('strata-editor-settings');
@@ -528,6 +548,7 @@ export function loadSettings(): EditorSettings {
         collab: { ...DEFAULT_COLLAB_SETTINGS },
         ai: { ...DEFAULT_AI_SETTINGS },
         privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+        icons: { ...DEFAULT_ICONS_SETTINGS },
         learning: { ...DEFAULT_LEARNING_SETTINGS },
         features: { ...DEFAULT_FEATURES },
       };
@@ -562,7 +583,7 @@ export function loadSettings(): EditorSettings {
         const ai = uiParsed.ai as Record<string, unknown> | undefined;
         if (ai) {
           if (typeof ai.enabled === 'boolean') result.ai.enabled = ai.enabled;
-          if (typeof ai.model === 'string') result.ai.model = ai.model;
+          if (typeof ai.model === 'string') result.ai.model = normalizeAiModel(ai.model);
           if (typeof ai.shareUsageData === 'boolean') result.ai.shareUsageData = ai.shareUsageData;
         }
       }
@@ -589,12 +610,12 @@ export function loadSettings(): EditorSettings {
     if (exportSettings.defaultFormat === 'avif') {
       exportSettings.defaultFormat = 'png';
     }
-    const privacy = mergePartial(
-      DEFAULT_PRIVACY_SETTINGS,
-      parsed.privacy as Partial<PrivacySettingsStore>,
-    );
-    privacy.usageAnalytics = normalizeAnalyticsConsent(privacy.usageAnalytics);
-    privacy.diagnostics = normalizeAnalyticsConsent(privacy.diagnostics);
+    const privacy = { ...DEFAULT_PRIVACY_SETTINGS };
+    const icons = {
+      remoteSearch: normalizeAnalyticsConsent(
+        (parsed.icons as Partial<IconsSettingsStore> | undefined)?.remoteSearch,
+      ),
+    };
     return {
       general: mergePartial(
         DEFAULT_GENERAL_SETTINGS,
@@ -634,8 +655,11 @@ export function loadSettings(): EditorSettings {
         parsed.drawingInput as Partial<DrawingInputSettingsStore>,
       ),
       collab: mergePartial(DEFAULT_COLLAB_SETTINGS, parsed.collab as Partial<CollabSettingsStore>),
-      ai: mergePartial(DEFAULT_AI_SETTINGS, parsed.ai as Partial<AiSettingsStore>),
+      ai: normalizeAiSettings(
+        mergePartial(DEFAULT_AI_SETTINGS, parsed.ai as Partial<AiSettingsStore>),
+      ),
       privacy,
+      icons,
       learning: mergePartial(
         DEFAULT_LEARNING_SETTINGS,
         parsed.learning as Partial<LearningSettingsStore>,
@@ -662,6 +686,7 @@ export function loadSettings(): EditorSettings {
       collab: { ...DEFAULT_COLLAB_SETTINGS },
       ai: { ...DEFAULT_AI_SETTINGS },
       privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+      icons: { ...DEFAULT_ICONS_SETTINGS },
       learning: { ...DEFAULT_LEARNING_SETTINGS },
       features: { ...DEFAULT_FEATURES },
     };
@@ -800,6 +825,7 @@ export interface EditorSettingsPatch {
   collab?: Partial<CollabSettingsStore>;
   ai?: Partial<AiSettingsStore>;
   privacy?: Partial<PrivacySettingsStore>;
+  icons?: Partial<IconsSettingsStore>;
   learning?: Partial<LearningSettingsStore>;
 }
 
@@ -823,8 +849,13 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     nudge: normalizeNudgeSettings({ ...current.nudge, ...patch.nudge }),
     drawingInput: normalizeDrawingInputSettings({ ...current.drawingInput, ...patch.drawingInput }),
     collab: { ...current.collab, ...patch.collab },
-    ai: { ...current.ai, ...patch.ai },
-    privacy: { ...current.privacy, ...patch.privacy },
+    ai: normalizeAiSettings({ ...current.ai, ...patch.ai }),
+    privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+    icons: {
+      remoteSearch: normalizeAnalyticsConsent(
+        patch.icons?.remoteSearch ?? current.icons.remoteSearch,
+      ),
+    },
     learning: { ...current.learning, ...patch.learning },
     features: { ...current.features },
   };
@@ -849,6 +880,7 @@ export function resetSettings(): EditorSettings {
     collab: { ...DEFAULT_COLLAB_SETTINGS },
     ai: { ...DEFAULT_AI_SETTINGS },
     privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+    icons: { ...DEFAULT_ICONS_SETTINGS },
     learning: { ...DEFAULT_LEARNING_SETTINGS },
     features: { ...DEFAULT_FEATURES },
   };

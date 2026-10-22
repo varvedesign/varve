@@ -327,7 +327,15 @@ export function FloatingTextBar({
           open={colorOpen}
           onOpenChange={setColorOpen}
           label="Text color picker"
-          popover={<ColorPicker value={fillColor} onChange={handleColorChange} />}
+          popover={
+            <ColorPicker
+              value={fillColor}
+              onChange={handleColorChange}
+              // One undo entry per colour gesture, not per pointer move.
+              onInteractionStart={beginPreview}
+              onInteractionEnd={commitPreview}
+            />
+          }
         >
           <button type="button" className="floating-text-bar__swatch" aria-label="Text color">
             <span

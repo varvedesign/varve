@@ -18,6 +18,11 @@
 
 const dictCache = new Map<string, string[]>();
 
+async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 /**
  * Load and cache a character dictionary by URL (or model id).
  *
@@ -29,6 +34,7 @@ export async function loadOcrDictionary(
   url: string,
   expectedLines = 0,
   signal?: AbortSignal,
+  options?: { sha256?: string },
 ): Promise<readonly string[]> {
   const cached = dictCache.get(url);
   if (cached) return cached;
@@ -37,7 +43,16 @@ export async function loadOcrDictionary(
   try {
     const res = await fetch(url, { signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    text = await res.text();
+    const bytes = await res.arrayBuffer();
+    if (options?.sha256) {
+      const actual = await sha256Hex(bytes);
+      if (actual !== options.sha256.toLowerCase()) {
+        throw new Error(
+          `OCR dictionary checksum mismatch for ${url}: expected ${options.sha256}, got ${actual}`,
+        );
+      }
+    }
+    text = new TextDecoder().decode(bytes);
   } catch (err) {
     if (signal?.aborted) throw new Error('cancelled');
     throw new Error(

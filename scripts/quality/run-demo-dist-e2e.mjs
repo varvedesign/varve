@@ -56,7 +56,6 @@ async function main() {
     VARVE_DEMO_DIST_URL: `http://127.0.0.1:${port}`,
     VARVE_DEMO_E2E_OUTPUT_DIR: suffix,
     ANALYTICS_DOMAIN: 'varve.studio',
-    VITE_VARVE_ANALYTICS_DOMAIN: 'varve.studio',
   };
 
   for (const argv of [

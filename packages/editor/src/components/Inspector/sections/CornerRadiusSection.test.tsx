@@ -31,6 +31,9 @@ function createMockEditor(doc: any) {
     hideInspectorSection: vi.fn(),
     setBindingField: vi.fn(),
     bindingField: null,
+    beginTransaction: vi.fn(),
+    commitTransaction: vi.fn(),
+    abortTransaction: vi.fn(),
   };
 }
 
@@ -105,5 +108,48 @@ describe('CornerRadiusSection', () => {
     render(<CornerRadiusSection nodes={[rect]} />);
 
     expect(screen.getByLabelText('Corner smoothing')).toBeInTheDocument();
+  });
+
+  it('coalesces a smoothing slider drag into one undo entry', () => {
+    const doc = createDocument('test doc');
+    const editor = createMockEditor(doc);
+    mocks.useEditor.mockReturnValue(editor);
+
+    const rect = makeShapeNode('rect-1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    rect.cornerRadius = 12;
+    doc.nodes['rect-1'] = rect;
+
+    render(<CornerRadiusSection nodes={[rect]} />);
+    const slider = screen.getByLabelText('Corner smoothing');
+
+    fireEvent.pointerDown(slider, { button: 0, pointerId: 1 });
+    for (const value of ['10', '20', '30', '40', '50', '60']) {
+      fireEvent.change(slider, { target: { value } });
+    }
+    fireEvent.pointerUp(slider, { button: 0, pointerId: 1 });
+
+    expect(editor.setSelectedCornerSmoothing).toHaveBeenCalledTimes(6);
+    expect(editor.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(editor.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces a keyboard smoothing burst into one undo entry', () => {
+    const doc = createDocument('test doc');
+    const editor = createMockEditor(doc);
+    mocks.useEditor.mockReturnValue(editor);
+
+    const rect = makeShapeNode('rect-1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    rect.cornerRadius = 12;
+    doc.nodes['rect-1'] = rect;
+
+    render(<CornerRadiusSection nodes={[rect]} />);
+    const slider = screen.getByLabelText('Corner smoothing');
+
+    fireEvent.keyDown(slider, { key: 'ArrowUp' });
+    fireEvent.keyDown(slider, { key: 'ArrowUp' });
+    fireEvent.keyUp(slider, { key: 'ArrowUp' });
+
+    expect(editor.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(editor.commitTransaction).toHaveBeenCalledTimes(1);
   });
 });

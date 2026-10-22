@@ -23,10 +23,11 @@ default where no approved endpoint is configured.
 
 ## Consent
 
-Desktop settings persist `privacy.usageAnalytics` and
-`privacy.diagnostics` as `unknown | granted | denied`. The existing crash UI
-keeps its own versioned consent state. Website consent is stored separately in
-`varve:website-analytics-consent`; GPC and DNT fail closed for the page.
+Desktop settings may still persist a leftover `privacy.diagnostics` key; the
+desktop app ignores it. Usage-analytics consent is no longer stored. The
+existing crash UI keeps its own versioned consent state. Website consent is
+stored separately in `varve:website-analytics-consent`; GPC and DNT fail
+closed for the page.
 
 Revocation updates the client immediately, drops queued events in revoked
 categories, and shuts down the provider when no category remains granted.
@@ -41,12 +42,10 @@ automatic pageviews, file-download, outbound-link, and form-submission capture
 are disabled; Varve sends only the manually normalized events registered in the
 shared schema. The loader is therefore not present in denied or unknown states.
 
-The production desktop build uses the public `varve.studio` domain with the
-Plausible Events API. `VITE_VARVE_ANALYTICS_DOMAIN` is public configuration;
-it is not a secret and must never be replaced with an administrative key. A
-custom Varve endpoint may still be supplied through
-`VITE_VARVE_ANALYTICS_ENDPOINT`, but requires a deliberate Tauri CSP change
-and operational review.
+The production desktop app sends no usage analytics. There is no desktop
+Plausible script, Events API call, or `VITE_VARVE_ANALYTICS_DOMAIN` wiring.
+Stored leftover consent keys are ignored. Website analytics stay on the
+separate website consent path above.
 
 ## Adding an event
 
