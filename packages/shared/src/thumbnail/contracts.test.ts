@@ -8,6 +8,7 @@ import {
   type ThumbnailSourceSpec,
   type ThumbnailVariant,
   thumbnailSourceKey,
+  thumbnailVariantForDevice,
   thumbnailVariantKey,
 } from './contracts';
 
@@ -205,5 +206,46 @@ describe('thumbnail policy', () => {
   it('denies network access structurally', () => {
     expect(DEFAULT_THUMBNAIL_POLICY.networkAccess).toBe('denied');
     expect(DEFAULT_THUMBNAIL_POLICY.encrypted).toBe(false);
+  });
+});
+
+/**
+ * Evidence: storytold/lightcraft#1918 / #709 — a preview generated below the
+ * display's pixel density is visibly softer than the artwork it stands for.
+ * Varve's contract models the density but every registered variant was 1x.
+ */
+describe('thumbnailVariantForDevice', () => {
+  it('keeps the registered 1x profile on standard displays', () => {
+    const variant = thumbnailVariantForDevice('home-card', 1);
+    expect(variant.devicePixelRatio).toBe(1);
+    expect(variant.width).toBe(THUMBNAIL_VARIANTS['home-card'].width);
+    expect(variant.height).toBe(THUMBNAIL_VARIANTS['home-card'].height);
+  });
+
+  it('asks for a 2x bitmap on HiDPI without changing the CSS profile', () => {
+    const variant = thumbnailVariantForDevice('home-card', 2);
+    expect(variant.devicePixelRatio).toBe(2);
+    expect(variant.width).toBe(256);
+    expect(variant.height).toBe(192);
+    expect(variant.fit).toBe(THUMBNAIL_VARIANTS['home-card'].fit);
+    expect(variant.background).toEqual(THUMBNAIL_VARIANTS['home-card'].background);
+  });
+
+  it('changes the cache identity, so a 1x bitmap is never served as 2x', () => {
+    const base = computeThumbnailIdentity({
+      docKey: 'doc',
+      revisionHash: 'rev',
+      source: { type: 'automatic' },
+      variant: THUMBNAIL_VARIANTS['home-card'],
+      rendererVersion: 'v1',
+    });
+    const hidpi = computeThumbnailIdentity({
+      docKey: 'doc',
+      revisionHash: 'rev',
+      source: { type: 'automatic' },
+      variant: thumbnailVariantForDevice('home-card', 2),
+      rendererVersion: 'v1',
+    });
+    expect(hidpi.key).not.toBe(base.key);
   });
 });
