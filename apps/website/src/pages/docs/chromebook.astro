@@ -8,8 +8,8 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
 ---
 
 <Layout
-  title="Varve on Chromebook — Varve Docs"
-  description="How to run Varve on a Chromebook: the browser route, the installed web app, and the optional ARM64 Linux environment — with tested status, requirements, and limitations."
+  title="Varve on Chromebook | Varve Docs"
+  description="How to run Varve on a Chromebook: the browser route, the installed web app, and the optional ARM64 Linux environment, with tested status, requirements, and limitations."
 >
   <div class="container-custom">
     <div class="docs-page">
@@ -83,7 +83,7 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
         <ul>
           <li><strong>Browser route:</strong> a current Chromium-based browser (Chrome or Edge). Chromebooks ship Chrome, so this is always present. Firefox and Safari work with the download save fallback.</li>
           <li><strong>Linux route:</strong> Linux enabled in Settings → About ChromeOS → Developers, an ARM64 or x86_64 Chromebook (Chromebooks are ARM64; Intel/AMD models are x86_64), Debian 12+ inside the container, and roughly 2 GB of free space before installing. The package itself is about 49 MB and installs about 85 MB of files.</li>
-          <li><strong>Memory:</strong> 8 GB Chromebooks are the reference target; 4 GB devices are expected to degrade through the adaptive profile rather than fail. Installed RAM is shared with ChromeOS, Android, and the Linux container — it is not what one tab receives.</li>
+          <li><strong>Memory:</strong> 8 GB Chromebooks are the reference target; 4 GB devices are expected to degrade through the adaptive profile rather than fail. Installed RAM is shared with ChromeOS, Android, and the Linux container, it is not what one tab receives.</li>
           <li><strong>No NPU or WebGPU guarantee:</strong> WebGPU is used only after a real adapter and device probe; Canvas2D is the authoritative fallback. The MediaTek NPU is not exposed to browsers or the Linux container and Varve does not use it.</li>
         </ul>
       </section>

@@ -117,7 +117,7 @@ const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
           they live on a dedicated Design Canvas and use bundled typography with no external stock
           media. On top of that, per-object override reporting, single-property and whole-slide
           geometry reset, and appearance-preserving detach are in the source build. Preview and the
-          delivered PNG are checked against each other in the test suite — the same slide rasterizes
+          delivered PNG are checked against each other in the test suite, the same slide rasterizes
           identically in both, at the deck's declared pixel size. Detailed readability analysis and
           formatting inheritance remain in development.
         </p>
@@ -134,7 +134,7 @@ const presentationReleaseVersion = publishedFeatureVersion('0.5.0');
           position, and artwork outside the deck is untouched.
         </p>
         <p>
-          A theme links each role — title, subtitle, body, caption, accent, background — to a real
+          A theme links each role (title, subtitle, body, caption, accent, background) to a real
           document colour variable. Editing that variable in the Variables panel recolours every
           slide that still follows it, so a brand change is one edit rather than a walk through the
           deck. Objects you deliberately recoloured are left alone when you switch, and

@@ -4,7 +4,7 @@ import { sitePath } from '../../../lib/siteUrl';
 import '../../../styles/docs-prose.css';
 ---
 
-<Layout title="Vector Tools — Varve Docs" description="Draw with Varve: shapes, pen and pencil, boolean operations, node editing, layers, groups, and frames.">
+<Layout title="Vector Tools | Varve Docs" description="Draw with Varve: shapes, pen and pencil, boolean operations, node editing, layers, groups, and frames.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -21,7 +21,7 @@ import '../../../styles/docs-prose.css';
 
         <h3>Rectangle <code>R</code></h3>
         <p>
-          The Rectangle tool creates rectangular shapes. Click and drag on the canvas to define the rectangle's bounds. Hold <code>Shift</code> while dragging to constrain to a perfect square. After creation, you can adjust corner radius in the Inspector — set uniform rounding or control each corner independently.
+          The Rectangle tool creates rectangular shapes. Click and drag on the canvas to define the rectangle's bounds. Hold <code>Shift</code> while dragging to constrain to a perfect square. After creation, you can adjust corner radius in the Inspector, set uniform rounding or control each corner independently.
         </p>
 
         <h3>Ellipse <code>O</code></h3>
@@ -43,7 +43,7 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Pen Tool <code>P</code></h2>
         <p>
-          The Pen tool creates bezier paths — the foundation of precise vector illustration. It works by placing anchor points and adjusting cubic bezier control handles:
+          The Pen tool creates bezier paths, the foundation of precise vector illustration. It works by placing anchor points and adjusting cubic bezier control handles:
         </p>
         <ul>
           <li><strong>Click</strong> to place a corner point (straight line segment)</li>
@@ -74,8 +74,8 @@ import '../../../styles/docs-prose.css';
           The Pencil tool enables freehand drawing. Click and drag to draw a path that follows your cursor. Behind the scenes, Varve applies two stages of refinement:
         </p>
         <ol>
-          <li><strong>Ramer-Douglas-Peucker simplification</strong> — Reduces collinear points while preserving shape</li>
-          <li><strong>Schneider least-squares cubic bezier fitting</strong> — Converts the simplified polyline into smooth bezier curves with automatic corner detection</li>
+          <li><strong>Ramer-Douglas-Peucker simplification</strong>: Reduces collinear points while preserving shape</li>
+          <li><strong>Schneider least-squares cubic bezier fitting</strong>: Converts the simplified polyline into smooth bezier curves with automatic corner detection</li>
         </ol>
         <p>
           The result is a clean, editable path with far fewer points than the raw input. You can further refine it using the Node Edit tool.
@@ -95,11 +95,11 @@ import '../../../styles/docs-prose.css';
           Frames are containers that clip their content. They're analogous to artboards in other design tools. Frames can contain other nodes as children and support:
         </p>
         <ul>
-          <li><strong>Automatic clipping</strong> — Content outside the frame bounds is hidden</li>
-          <li><strong>Frame presets</strong> — Place frames at standard screen sizes (phone, tablet, desktop, social, print) from the Inspector while the Frame tool is active, or resize frames in-place with the <strong>Resize to Preset</strong> dropdown in Position &amp; Size (with instant search, category chips, orientation swap, and batch multi-frame resizing)</li>
-          <li><strong>Flex layout</strong> — Enable auto-layout to distribute children using signed spacing, wrapping, constraints, and literal relative sizing</li>
-          <li><strong>Grid layout</strong> — Enable CSS Grid for complex responsive layouts with explicit tracks and spans; see the <a href={sitePath('/docs/tools/auto-layout')}>Auto Layout guide</a></li>
-          <li><strong>Clip content toggle</strong> — Choose whether children are clipped to the frame boundary</li>
+          <li><strong>Automatic clipping</strong>: Content outside the frame bounds is hidden</li>
+          <li><strong>Frame presets</strong>: Place frames at standard screen sizes (phone, tablet, desktop, social, print) from the Inspector while the Frame tool is active, or resize frames in-place with the <strong>Resize to Preset</strong> dropdown in Position &amp; Size (with instant search, category chips, orientation swap, and batch multi-frame resizing)</li>
+          <li><strong>Flex layout</strong>: Enable auto-layout to distribute children using signed spacing, wrapping, constraints, and literal relative sizing</li>
+          <li><strong>Grid layout</strong>: Enable CSS Grid for complex responsive layouts with explicit tracks and spans; see the <a href={sitePath('/docs/tools/auto-layout')}>Auto Layout guide</a></li>
+          <li><strong>Clip content toggle</strong>: Choose whether children are clipped to the frame boundary</li>
         </ul>
       </section>
 
@@ -109,10 +109,10 @@ import '../../../styles/docs-prose.css';
           Varve supports four boolean operations for combining paths and shapes. These are accessible from the Object menu (<code>Ctrl+Alt+U</code> for Union, <code>Ctrl+Alt+S</code> for Subtract, <code>Ctrl+Alt+I</code> for Intersect, <code>Ctrl+Alt+X</code> for Exclude) or from the floating toolbar's boolean flyout when multiple shapes are selected:
         </p>
         <ul>
-          <li><strong>Union</strong> — Combines shapes into a single shape using the union of their areas</li>
-          <li><strong>Subtract</strong> — Removes the top shape's area from the bottom shape</li>
-          <li><strong>Intersect</strong> — Keeps only the overlapping area</li>
-          <li><strong>Exclude</strong> — Keeps non-overlapping areas (XOR)</li>
+          <li><strong>Union</strong>: Combines shapes into a single shape using the union of their areas</li>
+          <li><strong>Subtract</strong>: Removes the top shape's area from the bottom shape</li>
+          <li><strong>Intersect</strong>: Keeps only the overlapping area</li>
+          <li><strong>Exclude</strong>: Keeps non-overlapping areas (XOR)</li>
         </ul>
         <p>
           Boolean operations use polygon-based Greiner-Hormann clipping for accurate results, operating on actual path geometry through adaptive bezier sampling.
@@ -132,13 +132,13 @@ import '../../../styles/docs-prose.css';
           The Select tool (<code>V</code>) is your primary tool for manipulating nodes:
         </p>
         <ul>
-          <li><strong>Move</strong> — Drag selected node(s) to reposition</li>
-          <li><strong>Resize</strong> — Drag corner or edge handles</li>
-          <li><strong>Rotate</strong> — Drag outside a corner handle</li>
-          <li><strong>Nudge</strong> — Arrow keys use the configurable small amount; Shift+Arrow uses the independent big amount, including positive fractions</li>
-          <li><strong>Multi-select</strong> — Shift+click or marquee drag</li>
-          <li><strong>Auto-reparent</strong> — Dragging a node into a container's bounds automatically reparents it</li>
-          <li><strong>Ctrl-bypass</strong> — Hold Ctrl during drag to suppress auto-reparenting</li>
+          <li><strong>Move</strong>: Drag selected node(s) to reposition</li>
+          <li><strong>Resize</strong>: Drag corner or edge handles</li>
+          <li><strong>Rotate</strong>: Drag outside a corner handle</li>
+          <li><strong>Nudge</strong>: Arrow keys use the configurable small amount; Shift+Arrow uses the independent big amount, including positive fractions</li>
+          <li><strong>Multi-select</strong>: Shift+click or marquee drag</li>
+          <li><strong>Auto-reparent</strong>: Dragging a node into a container's bounds automatically reparents it</li>
+          <li><strong>Ctrl-bypass</strong>: Hold Ctrl during drag to suppress auto-reparenting</li>
         </ul>
       </section>
 
@@ -152,10 +152,10 @@ import '../../../styles/docs-prose.css';
           snapping, and never reparents an object.
         </p>
         <ul>
-          <li><strong>Arrow</strong> — Small nudge</li>
-          <li><strong>Shift+Arrow</strong> — Big nudge</li>
-          <li><strong>Pointer drag</strong> — Uses scoped snapping and may reparent according to the drop target</li>
-          <li><strong>Ctrl/Cmd+Shift while dragging</strong> — Preserve the current parent</li>
+          <li><strong>Arrow</strong>: Small nudge</li>
+          <li><strong>Shift+Arrow</strong>: Big nudge</li>
+          <li><strong>Pointer drag</strong>: Uses scoped snapping and may reparent according to the drop target</li>
+          <li><strong>Ctrl/Cmd+Shift while dragging</strong>: Preserve the current parent</li>
         </ul>
         <p>
           Text fields, the Layers tree, vector editing, and other focused controls keep ownership
@@ -184,10 +184,10 @@ import '../../../styles/docs-prose.css';
           Control the stacking order of nodes with the Arrange menu or keyboard shortcuts:
         </p>
         <ul>
-          <li><strong>Bring to Front</strong> — <code>Ctrl+Shift+]</code></li>
-          <li><strong>Bring Forward</strong> — <code>Ctrl+]</code></li>
-          <li><strong>Send Backward</strong> — <code>Ctrl+[</code></li>
-          <li><strong>Send to Back</strong> — <code>Ctrl+Shift+[</code></li>
+          <li><strong>Bring to Front</strong>: <code>Ctrl+Shift+]</code></li>
+          <li><strong>Bring Forward</strong>: <code>Ctrl+]</code></li>
+          <li><strong>Send Backward</strong>: <code>Ctrl+[</code></li>
+          <li><strong>Send to Back</strong>: <code>Ctrl+Shift+[</code></li>
         </ul>
       </section>
 

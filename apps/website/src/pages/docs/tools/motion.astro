@@ -4,7 +4,7 @@ import { sitePath } from '../../../lib/siteUrl';
 import '../../../styles/docs-prose.css';
 ---
 
-<Layout title="Motion & Prototyping — Varve Docs" description="Animate in Varve: timelines, keyframes, easing, Smart Animate, prototype interactions, and export to CSS, Lottie, and SVG.">
+<Layout title="Motion & Prototyping | Varve Docs" description="Animate in Varve: timelines, keyframes, easing, Smart Animate, prototype interactions, and export to CSS, Lottie, and SVG.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -22,9 +22,9 @@ import '../../../styles/docs-prose.css';
           Press <code>Ctrl+Alt+T</code> to toggle the Timeline Panel. This panel is your central hub for all animation work. It consists of:
         </p>
         <ul>
-          <li><strong>Playback Controls</strong> — Play, pause, stop, and loop buttons with time display</li>
-          <li><strong>Timeline Ruler</strong> — Time axis with configurable zoom and scrubber head for frame-by-frame navigation</li>
-          <li><strong>Track Rows</strong> — One track per animated property, showing keyframes as diamonds on the timeline</li>
+          <li><strong>Playback Controls</strong>: Play, pause, stop, and loop buttons with time display</li>
+          <li><strong>Timeline Ruler</strong>: Time axis with configurable zoom and scrubber head for frame-by-frame navigation</li>
+          <li><strong>Track Rows</strong>: One track per animated property, showing keyframes as diamonds on the timeline</li>
         </ul>
       </section>
 
@@ -34,10 +34,10 @@ import '../../../styles/docs-prose.css';
           Animation in Varve is built on keyframes organized into tracks:
         </p>
         <ul>
-          <li><strong>Animation Track</strong> — A sequence of keyframes for a single property of a node (e.g., position, rotation, opacity, fill color, stroke color)</li>
-          <li><strong>Keyframe</strong> — A snapshot of a property value at a specific point in time. Keyframes can be moved, added, and deleted on the timeline.</li>
-          <li><strong>Target reference</strong> — Each track references a target node and property path using dot notation (e.g., <code>transform.x</code>, <code>fill</code>, <code>stroke</code>)</li>
-          <li><strong>Virtualized rendering</strong> — Large track lists use position-based virtualization: only visible tracks are rendered in the DOM, keeping the timeline responsive with hundreds of tracks</li>
+          <li><strong>Animation Track</strong>: A sequence of keyframes for a single property of a node (e.g., position, rotation, opacity, fill color, stroke color)</li>
+          <li><strong>Keyframe</strong>: A snapshot of a property value at a specific point in time. Keyframes can be moved, added, and deleted on the timeline.</li>
+          <li><strong>Target reference</strong>: Each track references a target node and property path using dot notation (e.g., <code>transform.x</code>, <code>fill</code>, <code>stroke</code>)</li>
+          <li><strong>Virtualized rendering</strong>: Large track lists use position-based virtualization: only visible tracks are rendered in the DOM, keeping the timeline responsive with hundreds of tracks</li>
         </ul>
         <p>
           To create an animation:
@@ -47,7 +47,7 @@ import '../../../styles/docs-prose.css';
           <li>In the Timeline Panel, click the "+" button to add a new track</li>
           <li>Choose the property you want to animate (position, size, rotation, opacity, fill color, stroke color, etc.)</li>
           <li>Move the scrubber to a new time position</li>
-          <li>Change the property value on the canvas or in the Inspector — a keyframe is automatically created</li>
+          <li>Change the property value on the canvas or in the Inspector, a keyframe is automatically created</li>
           <li>Repeat to build up your animation</li>
         </ol>
       </section>
@@ -58,11 +58,11 @@ import '../../../styles/docs-prose.css';
           Varve interpolates between keyframes using a type-safe interpolation engine that handles:
         </p>
         <ul>
-          <li><strong>Numeric values</strong> — Linear interpolation for position, size, rotation, opacity</li>
-          <li><strong>Colors</strong> — Interpolation in Oklab color space for perceptually uniform color transitions</li>
-          <li><strong>Arrays and objects</strong> — Recursive interpolation for complex property types</li>
-          <li><strong>Affine transforms</strong> — Decomposed interpolation for smooth transforms</li>
-          <li><strong>Path morphing</strong> — Interpolation between path shapes for shape morphing animations</li>
+          <li><strong>Numeric values</strong>: Linear interpolation for position, size, rotation, opacity</li>
+          <li><strong>Colors</strong>: Interpolation in Oklab color space for perceptually uniform color transitions</li>
+          <li><strong>Arrays and objects</strong>: Recursive interpolation for complex property types</li>
+          <li><strong>Affine transforms</strong>: Decomposed interpolation for smooth transforms</li>
+          <li><strong>Path morphing</strong>: Interpolation between path shapes for shape morphing animations</li>
         </ul>
         <p>
           Each keyframe has an <strong>easing function</strong> that controls the acceleration curve between keyframes. Varve supports:
@@ -81,10 +81,10 @@ import '../../../styles/docs-prose.css';
           Toggle the Graph Editor with the curve icon in the timeline panel header. The graph editor shows animation curves where the X axis is time and the Y axis is property value:
         </p>
         <ul>
-          <li><strong>Curve visualization</strong> — Each animated property renders as a colored curve with keyframe dots</li>
-          <li><strong>Tangent handles</strong> — Spatial bezier tangent arms are shown for keyframes with custom tangents</li>
-          <li><strong>Easing cycle</strong> — Shift+click on a keyframe cycles through easing types (linear, ease, ease-in, ease-out, ease-in-out)</li>
-          <li><strong>Keyboard</strong> — Arrow keys nudge keyframe progress, Delete removes keyframes</li>
+          <li><strong>Curve visualization</strong>: Each animated property renders as a colored curve with keyframe dots</li>
+          <li><strong>Tangent handles</strong>: Spatial bezier tangent arms are shown for keyframes with custom tangents</li>
+          <li><strong>Easing cycle</strong>: Shift+click on a keyframe cycles through easing types (linear, ease, ease-in, ease-out, ease-in-out)</li>
+          <li><strong>Keyboard</strong>: Arrow keys nudge keyframe progress, Delete removes keyframes</li>
         </ul>
       </section>
 
@@ -106,7 +106,7 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Smart Animate</h2>
         <p>
-          Smart Animate automatically generates animations between different states of a node group. When the same node exists in two different frames with modified properties, Varve can animate the transition — interpolating position, size, rotation, color, and other animatable properties automatically.
+          Smart Animate automatically generates animations between different states of a node group. When the same node exists in two different frames with modified properties, Varve can animate the transition, interpolating position, size, rotation, color, and other animatable properties automatically.
         </p>
       </section>
 
@@ -120,14 +120,14 @@ import '../../../styles/docs-prose.css';
           14 trigger types define what initiates an action:
         </p>
         <ul>
-          <li><strong>On Click / On Tap</strong> — Mouse click or touch tap</li>
-          <li><strong>On Hover</strong> — Mouse enter/exit</li>
-          <li><strong>On Drag</strong> — Drag gesture</li>
-          <li><strong>On Key Press</strong> — Keyboard input</li>
-          <li><strong>After Delay</strong> — Time-delayed trigger</li>
-          <li><strong>On Scroll</strong> — Scroll position change</li>
-          <li><strong>On Load</strong> — Screen load</li>
-          <li><strong>On Variable Change</strong> — Variable value change</li>
+          <li><strong>On Click / On Tap</strong>: Mouse click or touch tap</li>
+          <li><strong>On Hover</strong>: Mouse enter/exit</li>
+          <li><strong>On Drag</strong>: Drag gesture</li>
+          <li><strong>On Key Press</strong>: Keyboard input</li>
+          <li><strong>After Delay</strong>: Time-delayed trigger</li>
+          <li><strong>On Scroll</strong>: Scroll position change</li>
+          <li><strong>On Load</strong>: Screen load</li>
+          <li><strong>On Variable Change</strong>: Variable value change</li>
           <li>And more (focus, media query, pointer enter/leave)</li>
         </ul>
 
@@ -136,18 +136,18 @@ import '../../../styles/docs-prose.css';
           13 action types define what happens when a trigger fires:
         </p>
         <ul>
-          <li><strong>Navigate To</strong> — Go to another screen (with dissolve/slide/push/smart animate transition)</li>
-          <li><strong>Open Overlay</strong> — Show a screen as an overlay</li>
-          <li><strong>Close Overlay</strong> — Dismiss an overlay</li>
-          <li><strong>Play Animation</strong> — Start a timeline animation (wired to MotionFacade playback)</li>
-          <li><strong>Stop Animation</strong> — Stop a running timeline animation</li>
-          <li><strong>Set Variable</strong> — Set a variable value</li>
-          <li><strong>Toggle Variable</strong> — Toggle a boolean variable</li>
-          <li><strong>Scroll To</strong> — Scroll to a target element</li>
-          <li><strong>Open URL</strong> — Open an external link</li>
-          <li><strong>Toggle Visibility</strong> — Show/hide an element</li>
-          <li><strong>Dismiss</strong> — Close all overlays</li>
-          <li><strong>Go Back</strong> — Navigate to previous screen</li>
+          <li><strong>Navigate To</strong>: Go to another screen (with dissolve/slide/push/smart animate transition)</li>
+          <li><strong>Open Overlay</strong>: Show a screen as an overlay</li>
+          <li><strong>Close Overlay</strong>: Dismiss an overlay</li>
+          <li><strong>Play Animation</strong>: Start a timeline animation (wired to MotionFacade playback)</li>
+          <li><strong>Stop Animation</strong>: Stop a running timeline animation</li>
+          <li><strong>Set Variable</strong>: Set a variable value</li>
+          <li><strong>Toggle Variable</strong>: Toggle a boolean variable</li>
+          <li><strong>Scroll To</strong>: Scroll to a target element</li>
+          <li><strong>Open URL</strong>: Open an external link</li>
+          <li><strong>Toggle Visibility</strong>: Show/hide an element</li>
+          <li><strong>Dismiss</strong>: Close all overlays</li>
+          <li><strong>Go Back</strong>: Navigate to previous screen</li>
         </ul>
 
         <h3>Variables and Conditions</h3>
@@ -162,12 +162,12 @@ import '../../../styles/docs-prose.css';
           When navigating between screens, Varve supports six transition types:
         </p>
         <ul>
-          <li><strong>Dissolve</strong> — Cross-fade between screens</li>
-          <li><strong>Slide</strong> — Slide in from left, right, top, or bottom</li>
-          <li><strong>Push</strong> — Push the current screen off as the new one slides in</li>
-          <li><strong>Move In</strong> — New screen slides over the current</li>
-          <li><strong>Move Out</strong> — Current screen slides away to reveal the new screen below</li>
-          <li><strong>Instant</strong> — No transition (immediate switch)</li>
+          <li><strong>Dissolve</strong>: Cross-fade between screens</li>
+          <li><strong>Slide</strong>: Slide in from left, right, top, or bottom</li>
+          <li><strong>Push</strong>: Push the current screen off as the new one slides in</li>
+          <li><strong>Move In</strong>: New screen slides over the current</li>
+          <li><strong>Move Out</strong>: Current screen slides away to reveal the new screen below</li>
+          <li><strong>Instant</strong>: No transition (immediate switch)</li>
         </ul>
         <p>
           Each transition has configurable duration and easing. For accessibility, Varve respects <code>prefers-reduced-motion</code> and clamps durations to meet WCAG timing requirements.
@@ -193,11 +193,11 @@ import '../../../styles/docs-prose.css';
           Animations can be exported in multiple formats:
         </p>
         <ul>
-          <li><strong>CSS @keyframes</strong> — Standard CSS keyframe animation with per-keyframe timing functions, compatible with any web project</li>
-          <li><strong>SVG animate</strong> — SMIL-based SVG animation embedded in SVG files</li>
-          <li><strong>Lottie JSON</strong> — Lottie format for use with Lottie-web, Lottie-iOS, and Lottie-Android. Supports opacity, rotation, position (separate X/Y), scale, stroke width, corner radius, fill color, and stroke color with per-keyframe bezier easing</li>
-          <li><strong>MP4 / WebM video</strong> — WebCodecs-based video export with configurable frame rate</li>
-          <li><strong>Self-contained HTML prototype</strong> — Exports prototype interactions, state machines, variables, and screen transitions as a single HTML file with embedded CSS + JS runtime</li>
+          <li><strong>CSS @keyframes</strong>: Standard CSS keyframe animation with per-keyframe timing functions, compatible with any web project</li>
+          <li><strong>SVG animate</strong>: SMIL-based SVG animation embedded in SVG files</li>
+          <li><strong>Lottie JSON</strong>: Lottie format for use with Lottie-web, Lottie-iOS, and Lottie-Android. Supports opacity, rotation, position (separate X/Y), scale, stroke width, corner radius, fill color, and stroke color with per-keyframe bezier easing</li>
+          <li><strong>MP4 / WebM video</strong>: WebCodecs-based video export with configurable frame rate</li>
+          <li><strong>Self-contained HTML prototype</strong>: Exports prototype interactions, state machines, variables, and screen transitions as a single HTML file with embedded CSS + JS runtime</li>
         </ul>
         <p>
           See <a href={sitePath('/docs/tools/export')}>Export & Code Generation</a> for detailed export instructions.

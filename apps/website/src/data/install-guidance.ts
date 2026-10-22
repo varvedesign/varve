@@ -22,8 +22,8 @@ export function macosUnsignedCaveat(version: string | null | undefined): string 
     return (
       '0.5.0 has no bundle-wide signature, so a browser-downloaded copy shows ' +
       '"Varve is damaged and can\'t be opened" with no Open Anyway option. ' +
-      'After dragging Varve to Applications, run: xattr -dr com.apple.quarantine /Applications/Varve.app — ' +
-      'that removes the download quarantine flag so macOS will open the app. Do not disable Gatekeeper.'
+      'After dragging Varve to Applications, run: xattr -dr com.apple.quarantine /Applications/Varve.app. ' +
+      'That removes the download quarantine flag so macOS will open the app. Do not disable Gatekeeper.'
     );
   }
   return (
@@ -35,7 +35,7 @@ export function macosUnsignedCaveat(version: string | null | undefined): string 
 export function windowsUnsignedCaveat(): string {
   return (
     'Unsigned: Windows will show "Windows protected your PC". Choose More info, then Run anyway. ' +
-    'Windows 11 Smart App Control can block unsigned apps with no override — use the browser version at /try if that happens.'
+    'Windows 11 Smart App Control can block unsigned apps with no override. Use the browser version at /try if that happens.'
   );
 }
 

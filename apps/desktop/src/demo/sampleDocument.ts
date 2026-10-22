@@ -162,7 +162,7 @@ export function buildDemoSampleDocument(): Document {
   insert(
     makeTextNode(
       '',
-      'This is a real document — select the layers, move them, change the colors. Your edits stay in this browser and nothing is uploaded.',
+      'This is a real document. Select the layers, move them, change the colors. Your edits stay in this browser and nothing is uploaded.',
       {
         name: 'Body',
         transform: [1, 0, 0, 1, 94, 430],

@@ -14,7 +14,7 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1 class="site-page-title">Canvas & Rendering</h1>
       <p class="feature-intro">
-        Responsive IR-replay rendering with an infinite canvas, a clear starting surface, and precision tools — with behavior qualified by document and device.
+        Responsive IR-replay rendering with an infinite canvas, a clear starting surface, and precision tools, with behavior qualified by document and device.
       </p>
 
       <section class="feature-section">
@@ -97,7 +97,7 @@ import { sitePath } from '../../lib/siteUrl';
         <p>
           Canvas names and object labels belong to the Design Canvas you are viewing. Switch
           canvases and the labels, accessibility names, minimap, selection, and hit targets switch
-          with the artwork — a nearby canvas with the same coordinates or a duplicate name cannot
+          with the artwork, a nearby canvas with the same coordinates or a duplicate name cannot
           leak into the current view.
         </p>
         <p>
@@ -170,21 +170,21 @@ import { sitePath } from '../../lib/siteUrl';
         <p class="eyebrow">Isometric construction</p>
         <h2>Draw on a plane. Transform on purpose.</h2>
         <p>
-          The isometric grid is a construction aid, not a filter. Choose a preset — 30° true isometric
-          or the ratio-derived 2:1 game-art angle — then pick the plane you are building on. New
+          The isometric grid is a construction aid, not a filter. Choose a preset: 30° true isometric
+          or the ratio-derived 2:1 game-art angle, then pick the plane you are building on. New
           shapes are drawn in that plane: a rectangle comes out as a projected quad, and a circle
           becomes the exact affine image of a plane circle. Existing artwork is left alone until you
           deliberately fit it.
         </p>
         <div class="grid-systems__principles">
-          <article><span>01</span><h3>Planes</h3><p>Top, Front, Side — or Off. Changing the plane affects new construction only, and switching back restores ordinary 2-D drawing.</p></article>
+          <article><span>01</span><h3>Planes</h3><p>Top, Front, Side, or Off. Changing the plane affects new construction only, and switching back restores ordinary 2-D drawing.</p></article>
           <article><span>02</span><h3>Snapping that agrees</h3><p>The nearest intersection is resolved as a two-dimensional problem, so a real artwork anchor lands on the lattice instead of rounded coordinates. Line snapping is a separate, opt-in mode.</p></article>
           <article><span>03</span><h3>Explicit transforms</h3><p>Fit to Plane and Unproject are deliberate commands that apply one transform to the whole selection and keep geometry editable. Create Grid Artwork is a separate, bounded step.</p></article>
         </div>
         <p class="construction-note">
           Honest limits: 2:1 is exact as a ratio, but pixel-perfect output also depends on integer
           origin, spacing, and raster density. Arbitrary three-angle sets are drawn as directional
-          construction guides — they are not claimed to be a physically valid trimetric projection.
+          construction guides, they are not claimed to be a physically valid trimetric projection.
         </p>
       </section>
 
@@ -285,7 +285,7 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
-          The rendering pipeline is built on IR-replay (ADR-0001), validated empirically on Wayland Linux. The engine uses viewport culling, dirty-rect redraw, and spatial indexing for fast hit testing. The SubtreeReplayCache optimizes repeated rendering of unchanged subtrees. The minimap reuses the same world bounds, page placement, camera rotation, and live canvas dimensions as the main surface, so navigation remains an honest overview rather than a second approximation of the document. The overview's own ink is not eyeballed either: every object kind resolves from an audited token held to a 3:1 non-text contrast floor against the map backplate in Light, Dark, and High Contrast, and the viewport rectangle — the one mark you have to be able to find — has a minimum drawn size and a contrast ring so it stays readable and grabbable at any zoom.
+          The rendering pipeline is built on IR-replay (ADR-0001), validated empirically on Wayland Linux. The engine uses viewport culling, dirty-rect redraw, and spatial indexing for fast hit testing. The SubtreeReplayCache optimizes repeated rendering of unchanged subtrees. The minimap reuses the same world bounds, page placement, camera rotation, and live canvas dimensions as the main surface, so navigation remains an honest overview rather than a second approximation of the document. The overview's own ink is not eyeballed either: every object kind resolves from an audited token held to a 3:1 non-text contrast floor against the map backplate in Light, Dark, and High Contrast, and the viewport rectangle (the one mark you have to be able to find) has a minimum drawn size and a contrast ring so it stays readable and grabbable at any zoom.
         </p>
         <p>
           The same facade works on desktop (native Rust via Tauri IPC) and web (WASM), with the browser-side renderer retaining an authoritative replay fallback when an accelerated or worker path cannot provide a fresh frame.

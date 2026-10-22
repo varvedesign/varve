@@ -18,7 +18,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
 const faqs = [
   {
     q: 'Can I use Varve without an account or internet?',
-    a: 'Yes. Varve requires no account, no cloud sync, and no internet connection for core editing. Optional network features — model downloads, additional font downloads, and update checks — are each explicit and user-controlled. Documents are local files on your disk.',
+    a: 'Yes. Varve requires no account, no cloud sync, and no internet connection for core editing. Optional network features (model downloads, additional font downloads, and update checks) are each explicit and user-controlled. Documents are local files on your disk.',
   },
   {
     q: 'Is Varve a Figma alternative?',
@@ -56,21 +56,21 @@ const faqSchema = {
 
 <Layout
   title="Compare Varve to Other Design Tools"
-  description="How Varve compares to Figma, Illustrator, Affinity, Sketch, Inkscape, and Penpot on pricing, platform, license, and collaboration — compared honestly."
+  description="How Varve compares to Figma, Illustrator, Affinity, Sketch, Inkscape, and Penpot on pricing, platform, license, and collaboration, compared honestly."
   structuredData={faqSchema}
 >
   <div class="container-custom">
     <div class="compare-page">
       <h1 class="page-hero-title">How Varve compares</h1>
       <p class="page-hero-sub">
-        There's no single best design tool — only a better or worse fit for how you work. This
+        There's no single best design tool, only a better or worse fit for how you work. This
         page is the honest version: what actually differs, and where Varve currently falls short
         for people coming from something else.
       </p>
 
       <section class="compare-section">
         <h2>What to weigh, regardless of what you're switching from</h2>
-        <p>These are facts about Varve itself — the same ones on the <a href={sitePath('/product')}>product overview</a> and in the <a href={sitePath('/support/faq')}>FAQ</a>, gathered in one table.</p>
+        <p>These are facts about Varve itself, the same ones on the <a href={sitePath('/product')}>product overview</a> and in the <a href={sitePath('/support/faq')}>FAQ</a>, gathered in one table.</p>
         <div class="spec-table" role="table" aria-label="Varve at a glance">
           <div class="spec-row" role="row">
             <span class="spec-key" role="columnheader">Price</span>
@@ -90,22 +90,22 @@ const faqSchema = {
           </div>
           <div class="spec-row" role="row">
             <span class="spec-key" role="columnheader">License</span>
-            <span class="spec-val" role="cell">Source-available, FSL-1.1-MIT — each release converts to plain MIT two years after it ships.</span>
+            <span class="spec-val" role="cell">Source-available, FSL-1.1-MIT, each release converts to plain MIT two years after it ships.</span>
           </div>
           <div class="spec-row" role="row">
             <span class="spec-key" role="columnheader">Collaboration</span>
-            <span class="spec-val" role="cell">Not implemented yet — UI scaffolding only, single-user today.</span>
+            <span class="spec-val" role="cell">Not implemented yet. UI scaffolding only, single-user today.</span>
           </div>
           <div class="spec-row" role="row">
             <span class="spec-key" role="columnheader">Maturity</span>
-            <span class="spec-val" role="cell">Public beta — interfaces and the .varve format can still change.</span>
+            <span class="spec-val" role="cell">Public beta, interfaces and the .varve format can still change.</span>
           </div>
         </div>
       </section>
 
       <section class="compare-section">
         <h2>Category facts at a glance</h2>
-        <p class="compare-sub">Long-stable facts from each tool's public documentation. Pricing changes frequently — verify current details on each product's own site.</p>
+        <p class="compare-sub">Long-stable facts from each tool's public documentation. Pricing changes frequently, verify current details on each product's own site.</p>
         <div class="compare-table-wrap scroll-x" tabindex="0" role="region" aria-label="Design tool comparison">
           <table class="compare-table">
             <thead>
@@ -174,7 +174,7 @@ const faqSchema = {
             </tbody>
           </table>
         </div>
-        <p class="compare-table-note">[1] Varve is source-available under FSL-1.1-MIT; each release converts to MIT after two years. Varve does not cover every task these established tools handle — it trades breadth-of-maturity for a single-document, cross-discipline model.<br />[2] Affinity announced an iPad version "coming soon" alongside its October 2025 relaunch; it had not shipped as of this writing.</p>
+        <p class="compare-table-note">[1] Varve is source-available under FSL-1.1-MIT; each release converts to MIT after two years. Varve does not cover every task these established tools handle, it trades breadth-of-maturity for a single-document, cross-discipline model.<br />[2] Affinity announced an iPad version "coming soon" alongside its October 2025 relaunch; it had not shipped as of this writing.</p>
       </section>
 
       <section class="compare-section">
@@ -183,12 +183,12 @@ const faqSchema = {
           <div class="from-card">
             <h3>Figma</h3>
             <p class="from-what">Browser-based, built around real-time multi-user collaboration and UI design workflows.</p>
-            <p class="from-diff"><strong>Varve differs:</strong> a native desktop app with documents as local files, no account — and it runs natively on Linux, which Figma does not. No real-time collaboration yet.</p>
+            <p class="from-diff"><strong>Varve differs:</strong> a native desktop app with documents as local files, no account, and it runs natively on Linux, which Figma does not. No real-time collaboration yet.</p>
           </div>
           <div class="from-card">
             <h3>Adobe Illustrator</h3>
             <p class="from-what">Desktop vector illustration software, part of the wider Adobe Creative Cloud application suite.</p>
-            <p class="from-diff"><strong>Varve differs:</strong> one application that also covers layout, typography, motion, and print — not a suite of separate apps.</p>
+            <p class="from-diff"><strong>Varve differs:</strong> one application that also covers layout, typography, motion, and print, not a suite of separate apps.</p>
           </div>
           <div class="from-card">
             <h3>Affinity (formerly Designer, Photo, Publisher)</h3>
@@ -198,7 +198,7 @@ const faqSchema = {
           <div class="from-card">
             <h3>Sketch</h3>
             <p class="from-what">A macOS-only UI design tool.</p>
-            <p class="from-diff"><strong>Varve differs:</strong> cross-platform — Linux, macOS, and Windows from the same codebase.</p>
+            <p class="from-diff"><strong>Varve differs:</strong> cross-platform. Linux, macOS, and Windows from the same codebase.</p>
           </div>
           <div class="from-card">
             <h3>Inkscape</h3>
@@ -215,7 +215,7 @@ const faqSchema = {
           Varve is an independent project, not affiliated with, endorsed by, or sponsored by
           Figma, Adobe, Canva/Affinity, Sketch, Inkscape, or Penpot. Names are trademarks of
           their respective owners. Pricing and feature details for those products change
-          independently of this page — verify current specifics on their own sites; what's
+          independently of this page, verify current specifics on their own sites; what's
           verified here is Varve's own.
         </p>
       </section>
@@ -242,7 +242,7 @@ const faqSchema = {
       <ClosingCTA
         title="See it yourself"
         accentWord="for free."
-        text="Free and source-available under FSL-1.1-MIT. Public beta — expect rough edges."
+        text="Free and source-available under FSL-1.1-MIT. Public beta, expect rough edges."
       />
     </div>
   </div>

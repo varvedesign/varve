@@ -58,7 +58,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           A real editing pass recorded from the application: select a layer,
           inspect a B&eacute;zier path in node-edit mode, then open the export
           dialog. Like every image on this site, it is captured by a
-          deterministic pipeline from a seeded demo document &mdash; never
+          deterministic pipeline from a seeded demo document, never
           hand-edited.
         </p>
         <figure class="workflow-loop">
@@ -87,7 +87,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
             decoding="async"
           />
           <figcaption>
-            Select, node-edit, export &mdash; one pass through the real
+            Select, node-edit, export, one pass through the real
             interface. The recording is available on demand with native controls;
             the poster remains visible until you press play and is used as the
             still frame when your system asks for reduced motion.
@@ -98,7 +98,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       <section class="product-section">
         <h2>Local-first, your files, your machine</h2>
         <p>
-          Varve stores design data locally. No account or mandatory cloud sync is required, and core editing works offline. Optional model downloads, online font/icon search, user-configured providers, update checks, and aggregate measurements are separate network features; consented measurements do not include design content. You own your files, you control where they live, and the desktop application uses a native Rust engine. The same engine is compiled to WASM for the <a href={sitePath('/docs/browser-demo')}>browser demo</a> — a bounded subset, not a hosted replacement for the desktop app.
+          Varve stores design data locally. No account or mandatory cloud sync is required, and core editing works offline. Optional model downloads, online font/icon search, user-configured providers, update checks, and aggregate measurements are separate network features; consented measurements do not include design content. You own your files, you control where they live, and the desktop application uses a native Rust engine. The same engine is compiled to WASM for the <a href={sitePath('/docs/browser-demo')}>browser demo</a>: a bounded subset, not a hosted replacement for the desktop app.
         </p>
         <p>
           In Firefox and Safari, the browser demo saves snapshots as downloads. Since those
@@ -132,7 +132,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       <section class="product-section">
         <h2>Native desktop apps across platforms</h2>
         <p>
-          Varve runs natively on Linux (CachyOS, Arch, Ubuntu, Fedora — x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64). The rendering architecture separates scene computation from display, using an intermediate representation that replays efficiently to the canvas. The same codebase powers both the native desktop and WASM web builds.
+          Varve runs natively on Linux (CachyOS, Arch, Ubuntu, Fedora, x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64). The rendering architecture separates scene computation from display, using an intermediate representation that replays efficiently to the canvas. The same codebase powers both the native desktop and WASM web builds.
         </p>
         <p>
           Under sustained frame pressure, navigation may use a reduced-resolution render surface. Pan and zoom can also briefly reproject the last worker frame while a current frame is being prepared; that preview can look soft or incomplete until the replacement is painted. Once input stops, Varve requests an authoritative frame at the selected quality. The warm refinement targets are 500&nbsp;ms for ordinary work and 1&nbsp;s for heavy work after required assets are ready; these are targets, not timing guarantees. Cold image or font readiness can extend the wait and is not quantified in the published evidence. Rendering choices do not change document geometry or export settings. The optional WebGPU compositor can draw eligible solid-color rectangles, circles, and ellipses after device checks; other artwork uses Canvas2D or the render worker, and a ready GPU does not mean every frame uses it. Linux WebKitGTK keeps the Canvas2D display path.
@@ -176,7 +176,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       <section class="product-section">
         <h2>Source-available, shaped by its users</h2>
         <p>
-          Varve is licensed under FSL-1.1-MIT — free to use, with source code available on GitHub. Development is transparent: architecture decisions, known limitations, and progress are documented publicly. Community input influences priorities. No VC pressure and no feature-checklist deadlines — features are built when they work, not when they sound good in marketing copy.
+          Varve is licensed under FSL-1.1-MIT, free to use, with source code available on GitHub. Development is transparent: architecture decisions, known limitations, and progress are documented publicly. Community input influences priorities. No VC pressure and no feature-checklist deadlines, features are built when they work, not when they sound good in marketing copy.
         </p>
       </section>
 
@@ -237,7 +237,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
         </p>
         <ul>
           <li><strong>Critical production deadlines:</strong> expect bugs, incomplete tools, and workflow changes. Keep backups and test before relying on it for paid work.</li>
-          <li><strong>Teams needing real-time collaboration:</strong> collaboration is not implemented — this is a single-user tool today.</li>
+          <li><strong>Teams needing real-time collaboration:</strong> collaboration is not implemented, this is a single-user tool today.</li>
           <li><strong>Complex-script text:</strong> the engine has a canonical UAX #9 + paragraph layout pipeline (itemization, line breaking, visual run order, caret geometry), but live Canvas2D shaping and export parity for Arabic, Hebrew, Devanagari, Thai, and similar scripts remains in development.</li>
           <li><strong>Intel Macs:</strong> macOS builds target Apple Silicon only. The on-device AI depends on the ONNX Runtime, whose upstream discontinued Intel macOS binaries, and Apple has ended new Intel macOS support.</li>
         </ul>
@@ -247,7 +247,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
         <h2>Coming from another design tool?</h2>
         <p>
           See <a href={sitePath('/compare')}>how Varve compares</a> to Figma, Adobe Illustrator,
-          Affinity, Sketch, Inkscape, and Penpot &mdash; what's genuinely different, and where
+          Affinity, Sketch, Inkscape, and Penpot, what's genuinely different, and where
           Varve still falls short today.
         </p>
       </section>
@@ -265,7 +265,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
   <ClosingCTA
     title="Try Varve"
     accentWord="beta."
-    text="Free and source-available under FSL-1.1-MIT. Expect rough edges — it is an early release."
+    text="Free and source-available under FSL-1.1-MIT. Expect rough edges, it is an early release."
   />
     </div>
   </div>
@@ -401,7 +401,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
   }
 
   /* Icon badge: a small coloured tile above the title, one brand colour per
-     card in rotation (teal/sandstone/terracotta/ink) — the same palette the
+     card in rotation (teal/sandstone/terracotta/ink), the same palette the
      logo strata use, so the grid reads as branded rather than decorated. */
   .audience-icon {
     display: inline-flex;

@@ -1016,7 +1016,7 @@ export function UpscaleDialog({
               >
                 <img
                   src={previewBaselineUrl ?? (sourceDataUrl || undefined)}
-                  alt="Original preview — same crop as enhanced output"
+                  alt="Original preview: same crop as enhanced output"
                   className="upscale-preview__image upscale-preview__image--original"
                   style={{
                     ...previewSurfaceStyle,
@@ -1031,7 +1031,7 @@ export function UpscaleDialog({
                   {previewDataUrl ? (
                     <img
                       src={previewDataUrl}
-                      alt="Enhanced preview — same crop and output size as original"
+                      alt="Enhanced preview: same crop and output size as original"
                       className="upscale-preview__image upscale-preview__image--upscaled"
                       style={{
                         width: '100%',
@@ -1106,7 +1106,8 @@ export function UpscaleDialog({
                 </span>
                 {mode?.isAi && !previewDataUrl && (
                   <p className="upscale-preview__ai-hint">
-                    AI preview is opt-in — generates a 512 px crop. Tap Generate to see real output.
+                    AI preview is opt-in. It generates a 512 px crop. Tap Generate to see real
+                    output.
                   </p>
                 )}
                 {previewGenerating && (
@@ -1118,7 +1119,7 @@ export function UpscaleDialog({
             </div>
             <p className="upscale-preview__hint">
               {previewBaselineUrl
-                ? `Original crop vs enhanced output — ${previewComparisonLabel} (${usesUpscale ? (mode?.isAi ? 'AI' : (mode?.label ?? 'CPU')) : 'source'}). Drag or use left/right keys to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}x${outH}px`
+                ? `Original crop vs enhanced output: ${previewComparisonLabel} (${usesUpscale ? (mode?.isAi ? 'AI' : (mode?.label ?? 'CPU')) : 'source'}). Drag or use left/right keys to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}x${outH}px`
                 : `Drag or use left/right keys to compare. Output: ${outW}x${outH}px`}
             </p>
           </div>
@@ -1356,9 +1357,9 @@ export function UpscaleDialog({
                   {operation === 'deblur-upscale'
                     ? `Deblur strength ${deblurStrength} before upscale`
                     : deblurStrength <= 0.3
-                      ? 'Conservative — preserves original detail'
+                      ? 'Conservative: preserves original detail'
                       : deblurStrength >= 0.9
-                        ? 'Maximum — may create ringing on already-sharp images'
+                        ? 'Maximum: may create ringing on already-sharp images'
                         : `Deblur strength ${deblurStrength}`}
                 </p>
               </div>
@@ -1443,13 +1444,13 @@ export function UpscaleDialog({
               )}
               {autoAnalysis?.findings.some((f) => f.includes('pixel art')) && (
                 <span className="insp-hint">
-                  Hint: limited palette — Pixel Art mode will preserve hard edges (no photographic
+                  Hint: limited palette. Pixel Art mode will preserve hard edges (no photographic
                   smoothing).
                 </span>
               )}
               {usesUpscale && mode?.isAi && scale !== 4 && (
                 <span className="insp-hint">
-                  AI is fixed 4x — your {scale}x is served as 4x AI then high-quality lanczos3
+                  AI is fixed 4x. Your {scale}x is served as 4x AI then high-quality lanczos3
                   downsample to {outW}x{outH}px.
                 </span>
               )}

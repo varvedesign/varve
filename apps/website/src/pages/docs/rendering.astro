@@ -4,7 +4,7 @@ import { sitePath } from '../../lib/siteUrl';
 import '../../styles/docs-prose.css';
 ---
 
-<Layout title="Rendering Pipeline — Varve Docs" description="How Varve renders: scene computation in a native Rust engine, compact IR, and efficient canvas2D replay with culling.">
+<Layout title="Rendering Pipeline | Varve Docs" description="How Varve renders: scene computation in a native Rust engine, compact IR, and efficient canvas2D replay with culling.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -33,7 +33,7 @@ import '../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Which renderer draws a frame?</h2>
         <p>
-          Canvas2D is the default display path. Flat scenes can replay in a worker; frames and other structural content stay on the main-thread Canvas2D path. If you opt in to WebGPU and device initialization succeeds, shapes painted with a single solid color — rectangles, circles, and ellipses — can use an offscreen GPU surface when the frame reaches that compositor. Rounded corners, stacked or gradient paints, text, images, strokes, effects, masks, and other unsupported content keep their Canvas2D behavior. The present canvas remains Canvas2D so a GPU failure can fall back without losing the document.
+          Canvas2D is the default display path. Flat scenes can replay in a worker; frames and other structural content stay on the main-thread Canvas2D path. If you opt in to WebGPU and device initialization succeeds, shapes painted with a single solid color (rectangles, circles, and ellipses) can use an offscreen GPU surface when the frame reaches that compositor. Rounded corners, stacked or gradient paints, text, images, strokes, effects, masks, and other unsupported content keep their Canvas2D behavior. The present canvas remains Canvas2D so a GPU failure can fall back without losing the document.
         </p>
         <p>
           The setting expresses a preference, not a promise that every frame uses GPU drawing. The editor reports the active path and any initialization or device-loss fallback. If the GPU device is lost mid-session, Canvas2D keeps drawing and Varve retries WebGPU automatically (two bounded attempts) before asking for a reload. Export and print use their own full-quality paths; the WebGPU display preference does not accelerate them.
@@ -48,7 +48,7 @@ import '../../styles/docs-prose.css';
 
         <h3>1. Scene Graph</h3>
         <p>
-          The document is a tree of scene nodes (ShapeNode, TextNode, FrameNode, GroupNode, ImageNode, AdjustmentNode). Each node stores its local transform, fills, strokes, effects, and other properties. The editor maintains this as an immutable data structure — any change produces a new document tree.
+          The document is a tree of scene nodes (ShapeNode, TextNode, FrameNode, GroupNode, ImageNode, AdjustmentNode). Each node stores its local transform, fills, strokes, effects, and other properties. The editor maintains this as an immutable data structure, any change produces a new document tree.
         </p>
 
         <h3>2. IR Generation (buildRenderIr)</h3>
@@ -58,7 +58,7 @@ import '../../styles/docs-prose.css';
         <ul>
           <li>World-space affine transform (composed from ancestor chain)</li>
           <li>Primitive geometry (rect, ellipse, circle, line, arrow, polygon, star, path, text)</li>
-          <li>Fill stack (solid colors, gradients, image fills — each with opacity and blend mode)</li>
+          <li>Fill stack (solid colors, gradients, image fills, each with opacity and blend mode)</li>
           <li>Stroke stack (weight, color, dash, cap, join)</li>
           <li>Effect list (alpha-aware drop/inner shadows, blur, solid/gradient glows, RGB/custom chromatic split, and independent blend modes)</li>
           <li>Opacity and blend mode</li>
@@ -73,9 +73,9 @@ import '../../styles/docs-prose.css';
           Before individual items are replayed, the <code>CanvasArea</code> performs a recursive DFS <code>replaySubtree()</code> that handles containers:
         </p>
         <ul>
-          <li><strong>Frames</strong> — Paint background fill, save canvas state, clip to the frame's world-space polygon, recurse into children, restore state</li>
-          <li><strong>Groups</strong> — Transparent pass-through unless the group has a non-passThrough blend mode or opacity &lt; 1, in which case children render to an offscreen CompositeCanvas and composite with the group's blend mode</li>
-          <li><strong>Adjustment Nodes</strong> — Render children, then apply the adjustment (curves, levels, selective color) to the rendered result</li>
+          <li><strong>Frames</strong>: Paint background fill, save canvas state, clip to the frame's world-space polygon, recurse into children, restore state</li>
+          <li><strong>Groups</strong>: Transparent pass-through unless the group has a non-passThrough blend mode or opacity &lt; 1, in which case children render to an offscreen CompositeCanvas and composite with the group's blend mode</li>
+          <li><strong>Adjustment Nodes</strong>: Render children, then apply the adjustment (curves, levels, selective color) to the rendered result</li>
         </ul>
 
         <h3>4. Replay (replayIr)</h3>
@@ -102,7 +102,7 @@ import '../../styles/docs-prose.css';
           The canvas supports viewport culling to skip off-screen nodes during both IR build and replay. The culling system:
         </p>
         <ul>
-          <li>Checks <code>isWorldRectInViewport(bounds, viewportRect)</code> — uses intersection (not full containment) so partially visible nodes still render</li>
+          <li>Checks <code>isWorldRectInViewport(bounds, viewportRect)</code>: uses intersection (not full containment) so partially visible nodes still render</li>
           <li>Pre-builds a parent index map (<code>buildParentIndexMap(doc)</code>) for O(1) parent lookups during the world transform computation</li>
         </ul>
       </section>

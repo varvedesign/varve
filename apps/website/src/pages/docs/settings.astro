@@ -5,7 +5,7 @@ import { sitePath } from '../../lib/siteUrl';
 import '../../styles/docs-prose.css';
 ---
 
-<Layout title="Settings & Preferences — Varve Docs" description="Varve settings: theme, units, snapping, performance options, shortcuts, and per-platform preferences.">
+<Layout title="Settings & Preferences | Varve Docs" description="Varve settings: theme, units, snapping, performance options, shortcuts, and per-platform preferences.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -23,12 +23,12 @@ import '../../styles/docs-prose.css';
           Access settings from the menubar: <strong>File &gt; Settings</strong> (or press the keyboard shortcut if configured). The settings dialog has several focused sections:
         </p>
         <ul>
-          <li><strong>Appearance</strong> — Theme, workspace layout, grid, and snap preferences</li>
-          <li><strong>Drawing Input</strong> — Finger ownership, wheel policy, sensitivity, and optional mouse-wheel continuation</li>
-          <li><strong>Performance</strong> — Interactive preview quality, diagnostics, and platform capability checks</li>
-          <li><strong>Export</strong> — Default export format, scale, ICC profile, bleed, and text outlining</li>
-          <li><strong>Updates</strong> — Update consent, channel, and install-on-quit preferences on supported desktop builds</li>
-          <li><strong>Plugins</strong> — Install local packages, review access, search descriptions and commands, pin frequently used plugins, manage failed or disabled packages, and recover updates. The manager stays available in safe mode. See the <a href={sitePath('/docs/plugins')}>plugin guide</a>.</li>
+          <li><strong>Appearance</strong>: Theme, workspace layout, grid, and snap preferences</li>
+          <li><strong>Drawing Input</strong>: Finger ownership, wheel policy, sensitivity, and optional mouse-wheel continuation</li>
+          <li><strong>Performance</strong>: Interactive preview quality, diagnostics, and platform capability checks</li>
+          <li><strong>Export</strong>: Default export format, scale, ICC profile, bleed, and text outlining</li>
+          <li><strong>Updates</strong>: Update consent, channel, and install-on-quit preferences on supported desktop builds</li>
+          <li><strong>Plugins</strong>: Install local packages, review access, search descriptions and commands, pin frequently used plugins, manage failed or disabled packages, and recover updates. The manager stays available in safe mode. See the <a href={sitePath('/docs/plugins')}>plugin guide</a>.</li>
         </ul>
         <p>
           The section list has a filter: type part of a section name to narrow the list, and the
@@ -63,9 +63,9 @@ import '../../styles/docs-prose.css';
           desktop editor also includes High Contrast for accessibility.
         </p>
         <ul>
-          <li><strong>Light</strong> — Clean white-based interface with teal accent</li>
-          <li><strong>Dark</strong> — Dark background with lighter-on-dark hierarchy (front-lit: higher surfaces are brighter)</li>
-          <li><strong>High Contrast</strong> — Maximum contrast mode for accessibility, with distinctive colors per layer type (e.g., purple for image layers)</li>
+          <li><strong>Light</strong>: Clean white-based interface with teal accent</li>
+          <li><strong>Dark</strong>: Dark background with lighter-on-dark hierarchy (front-lit: higher surfaces are brighter)</li>
+          <li><strong>High Contrast</strong>: Maximum contrast mode for accessibility, with distinctive colors per layer type (e.g., purple for image layers)</li>
         </ul>
         <p>
           All themes use OKLCH color space for perceptually uniform color ramps. The 12-step neutral and teal ramps ensure consistent contrast across every surface and text combination.
@@ -73,8 +73,8 @@ import '../../styles/docs-prose.css';
 
         <h3>Canvas Grid</h3>
         <ul>
-          <li><strong>Pixel Grid</strong> — Toggle the pixel-level grid overlay on the canvas</li>
-          <li><strong>Layout Grid</strong> — Toggle layout grid overlay for alignment reference</li>
+          <li><strong>Pixel Grid</strong>: Toggle the pixel-level grid overlay on the canvas</li>
+          <li><strong>Layout Grid</strong>: Toggle layout grid overlay for alignment reference</li>
         </ul>
 
         <h3>Pointer snapping (Inspector → Document → Snapping)</h3>
@@ -84,12 +84,12 @@ import '../../styles/docs-prose.css';
           change them without changing the artwork.
         </p>
         <ul>
-          <li><strong>Enable snapping</strong> — Turn magnetic pointer assistance on or off for eligible canvas tools</li>
-          <li><strong>Tolerance</strong> — Set magnetic acquisition distance from 1–32 CSS pixels; zoom does not change the size of the hand movement</li>
-          <li><strong>Object geometry</strong> — Include visible object edges and centers in the active editing scope</li>
-          <li><strong>Pages and frames</strong> — Include page and containing-frame bounds</li>
-          <li><strong>Guides</strong> — Include ruler and authored layout guides</li>
-          <li><strong>Reset snapping</strong> — Restore these viewport preferences without changing document geometry</li>
+          <li><strong>Enable snapping</strong>: Turn magnetic pointer assistance on or off for eligible canvas tools</li>
+          <li><strong>Tolerance</strong>: Set magnetic acquisition distance from 1–32 CSS pixels; zoom does not change the size of the hand movement</li>
+          <li><strong>Object geometry</strong>: Include visible object edges and centers in the active editing scope</li>
+          <li><strong>Pages and frames</strong>: Include page and containing-frame bounds</li>
+          <li><strong>Guides</strong>: Include ruler and authored layout guides</li>
+          <li><strong>Reset snapping</strong>: Restore these viewport preferences without changing document geometry</li>
         </ul>
         <p>
           Document-grid snap and integer pixel snap remain explicit controls in the separate
@@ -215,11 +215,11 @@ import '../../styles/docs-prose.css';
 
         <h3>PDF Export Defaults</h3>
         <ul>
-          <li><strong>ICC Profile</strong> — Default color profile for PDF output (sRGB, Adobe RGB, Fogra39, GRACoL, SWOP)</li>
-          <li><strong>Bleed</strong> — Default bleed width in mm for print documents</li>
-          <li><strong>Outline Text</strong> — Whether to convert text to vector paths by default in PDF output</li>
-          <li><strong>Rendering Intent</strong> — Perceptual, Relative Colorimetric, Absolute Colorimetric, or Saturation</li>
-          <li><strong>Color Profile</strong> — Document color space for PDF (RGB or CMYK)</li>
+          <li><strong>ICC Profile</strong>: Default color profile for PDF output (sRGB, Adobe RGB, Fogra39, GRACoL, SWOP)</li>
+          <li><strong>Bleed</strong>: Default bleed width in mm for print documents</li>
+          <li><strong>Outline Text</strong>: Whether to convert text to vector paths by default in PDF output</li>
+          <li><strong>Rendering Intent</strong>: Perceptual, Relative Colorimetric, Absolute Colorimetric, or Saturation</li>
+          <li><strong>Color Profile</strong>: Document color space for PDF (RGB or CMYK)</li>
         </ul>
         <p>
           On desktop, PDF export rasterizes text whose weight differs from 400 or whose style is italic to preserve the canvas appearance. Rasterized text is image-based, not selectable or searchable; the Outline Text setting controls path conversion for text that stays on the native vector route.
@@ -251,10 +251,10 @@ import '../../styles/docs-prose.css';
           where supported.
         </p>
         <ul>
-          <li><strong>Save and auto-save</strong> — Stay quiet during normal background work; a failure is surfaced with a clear recovery path.</li>
-          <li><strong>Model and asset downloads</strong> — Show actual progress rather than an endless spinner.</li>
-          <li><strong>Panel refreshes</strong> — Keep the existing content in place and use a contextual loading state instead of blocking the whole editor.</li>
-          <li><strong>Startup</strong> — The branded startup loader is separate from in-editor task feedback and exits when the home surface is ready.</li>
+          <li><strong>Save and auto-save</strong>: Stay quiet during normal background work; a failure is surfaced with a clear recovery path.</li>
+          <li><strong>Model and asset downloads</strong>: Show actual progress rather than an endless spinner.</li>
+          <li><strong>Panel refreshes</strong>: Keep the existing content in place and use a contextual loading state instead of blocking the whole editor.</li>
+          <li><strong>Startup</strong>: The branded startup loader is separate from in-editor task feedback and exits when the home surface is ready.</li>
         </ul>
         <p>
           These choices are especially important for Varve's local-first workflow: offline

@@ -519,9 +519,9 @@ export function NewDesignDialog({
         {startMode === 'empty' && (
           <div className="new-design__body-section">
             <p className="new-design__empty-hint" role="note">
-              An empty Varve document is an infinite design canvas — there are no page bounds.
-              Create frames with the Frame tool (F) whenever you need a sized area, and add
-              publishing pages for print layouts.
+              An empty Varve document is an infinite design canvas. There are no page bounds. Create
+              frames with the Frame tool (F) whenever you need a sized area, and add publishing
+              pages for print layouts.
             </p>
           </div>
         )}
@@ -601,7 +601,7 @@ export function NewDesignDialog({
                   />
                 </div>
                 <p className="new-design__custom-hint">
-                  These dimensions create the first frame on an unbounded design canvas — the
+                  These dimensions create the first frame on an unbounded design canvas. The
                   document itself has no size.
                 </p>
               </div>
@@ -713,8 +713,8 @@ export function NewDesignDialog({
                 </div>
                 <p className="new-design__advanced-note" role="note">
                   Print documents store CMYK/ICC intent and are soft-proofed for export; on-screen
-                  preview always renders in RGB. Bit depth is 8-bit (uint8) — 16-bit rendering is
-                  not yet supported end-to-end.
+                  preview always renders in RGB. Bit depth is 8-bit (uint8). 16-bit rendering is not
+                  yet supported end-to-end.
                 </p>
                 {intent === 'print' && (
                   <div className="new-design__field-row">

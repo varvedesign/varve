@@ -79,7 +79,7 @@ import { sitePath } from '../../lib/siteUrl';
           </article>
           <article>
             <h3>External updates as a three-way merge</h3>
-            <p>Re-importing a connected source compares base, local, and source per token. An upstream edit applies, a local edit survives, and an edit on both sides becomes a conflict you decide — never a source-wins overwrite and never a timestamp race.</p>
+            <p>Re-importing a connected source compares base, local, and source per token. An upstream edit applies, a local edit survives, and an edit on both sides becomes a conflict you decide, never a source-wins overwrite and never a timestamp race.</p>
           </article>
           <article>
             <h3>Conflict review, one token at a time</h3>
@@ -144,7 +144,7 @@ import { sitePath } from '../../lib/siteUrl';
               <tr>
                 <th scope="row">Re-import an edited file</th>
                 <td>Base/local/source merge with added, updated, deleted, and unchanged counts</td>
-                <td>Manual re-import for now — there is no live file watcher yet</td>
+                <td>Manual re-import for now, there is no live file watcher yet</td>
                 <td>Browser spec asserting the exported bytes after an update</td>
               </tr>
               <tr>
@@ -163,13 +163,13 @@ import { sitePath } from '../../lib/siteUrl';
                 <th scope="row">Vendor formats</th>
                 <td>Standards DTCG input and output only</td>
                 <td>Tokens Studio and Figma dialects are not claimed as 2025.10 interop</td>
-                <td>Not implemented — no claim made</td>
+                <td>Not implemented, no claim made</td>
               </tr>
               <tr>
                 <th scope="row">Automatic source watching</th>
                 <td>Re-read on demand through the import workflow</td>
                 <td>No background watcher, no Git-backed source, no external write-back</td>
-                <td>Not implemented — no claim made</td>
+                <td>Not implemented, no claim made</td>
               </tr>
             </tbody>
           </table>
@@ -188,8 +188,8 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
         <p>
           The standards surface targets the DTCG 2025.10 Format, Color, and
-          Resolver reports — Final Community Group Reports, not W3C
-          Recommendations — and the interface says so. Where a native Varve
+          Resolver reports. Final Community Group Reports, not W3C
+          Recommendations, and the interface says so. Where a native Varve
           capability has no standardized representation, it is kept and
           labeled rather than renamed into a standard it does not implement.
           File watching, Git-backed sources, and vendor adapters are not

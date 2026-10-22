@@ -60,7 +60,7 @@ export function adjustmentStackTargetGaps(
         nodeName: node.name,
         feature: `nondestructive adjustment stack (${kinds})`,
         severity: 'info',
-        fallback: 'Rasterized at export resolution — output is pixel-accurate',
+        fallback: 'Rasterized at export resolution. Output is pixel-accurate',
       },
     ];
   }
@@ -136,7 +136,7 @@ export function colorToSvgValue(
     const bitDepth = color.bitDepth;
     return {
       value: rgba(color),
-      warning: `Warning: color uses ${bitDepth} precision but no ICC profile is assigned — fell back to sRGB rgb()`,
+      warning: `Warning: color uses ${bitDepth} precision but no ICC profile is assigned. Fell back to sRGB rgb()`,
     };
   }
 

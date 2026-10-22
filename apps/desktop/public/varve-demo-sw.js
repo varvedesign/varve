@@ -49,7 +49,7 @@ const OFFLINE_FALLBACK_HTML = `<!doctype html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Varve — offline</title>
+<title>Varve | offline</title>
 <style>
   :root { color-scheme: dark; }
   body {

@@ -4,7 +4,7 @@ import { sitePath } from '../../../lib/siteUrl';
 import '../../../styles/docs-prose.css';
 ---
 
-<Layout title="RAW & HDR Photo — Varve Docs" description="Use Varve's supported DNG development, bracket merge, retouch, precision, and export paths with explicit capability boundaries.">
+<Layout title="RAW & HDR Photo | Varve Docs" description="Use Varve's supported DNG development, bracket merge, retouch, precision, and export paths with explicit capability boundaries.">
   <div class="container-custom">
     <article class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -44,7 +44,7 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Share an extended-range JPEG</h2>
         <p>Scene-linear masters can be shared as an Ultra HDR gain-map JPEG. The stored SDR rendition becomes the base image, and a separate per-channel recovery map (default one quarter resolution) encodes the ratio between the SDR rendition and the master's display-linear values. Metadata is written in both the XMP form (<code>hdrgm</code> plus a GContainer directory) and the ISO 21496-1 binary form inside an MPF container, so legacy viewers show the SDR image and range-aware viewers can reconstruct the highlights.</p>
-        <p>The base image is never regenerated from the master: changing the tone-map exposure or white point requires applying a new SDR rendition first, and the export button stays disabled until you do. This is deliberate — a gain map whose base silently differs from the rendition you reviewed is the failure mode reported with other editors. Display-linear fusion masters report that there is no extra headroom to encode instead of producing an identity map.</p>
+        <p>The base image is never regenerated from the master: changing the tone-map exposure or white point requires applying a new SDR rendition first, and the export button stays disabled until you do. This is deliberate, a gain map whose base silently differs from the rendition you reviewed is the failure mode reported with other editors. Display-linear fusion masters report that there is no extra headroom to encode instead of producing an identity map.</p>
         <p>Varve verifies the actual encoded file before offering it: it decodes the base and gain-map JPEGs again, applies the parsed metadata, and reports the worst and 95th-percentile reconstruction error in stops alongside the JPEG byte delta of the SDR fallback. The map is 8-bit and the reconstruction is quantization-bounded; JPEG ringing at hard highlight edges can raise the worst sample while the 95th percentile stays near the quantization floor. A downloadable gain-map JPEG is a sharing format, not a replacement for the OpenEXR master.</p>
       </section>
 

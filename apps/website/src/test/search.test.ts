@@ -136,7 +136,7 @@ describe('extractPage', () => {
   const document = [
     '<!doctype html><html><head>',
     '<meta name="description" content="Install Varve on Linux, macOS, or Windows." />',
-    '<title>Getting Started — Varve Docs</title>',
+    '<title>Getting Started | Varve Docs</title>',
     '</head><body>',
     '<main id="main-content" class="site-main"><h1>Getting Started</h1>',
     '<h2>Install</h2><p>Download the package.</p>',
@@ -307,7 +307,7 @@ describe('searchPrepared', () => {
 describe('extract -> rank integration', () => {
   it('ranks a real docs page for a real query', () => {
     const html = [
-      '<html><head><title>Print Export — Varve Docs</title>',
+      '<html><head><title>Print Export | Varve Docs</title>',
       '<meta name="description" content="PDF/X and CMYK output." /></head><body>',
       '<main id="main-content"><h1>Print Export</h1>',
       '<h2>PDF/X output</h2><p>Emit distinct MediaBox, BleedBox, and TrimBox values.</p>',
