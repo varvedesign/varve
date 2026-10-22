@@ -214,15 +214,27 @@ than relabelled.
   Rendered with poppler 26.08: the exported red-to-blue gradient was a blank
   page before and correct after — `evidence/pdf-gradient-before.png` and
   `evidence/pdf-gradient-after.png`.
-- **Still open:** per-stop **alpha** is still discarded when the shading is
-  sampled (`engine_color_rgba(&color)` drops the alpha component), so a
-  gradient whose stops fade to transparent still exports opaque. A truthful fix
-  needs a luminosity `/SMask` whose content is a DeviceGray shading of the alpha
-  ramp, plus the PDF/X-1a flattening path reviewed for it. That is its own
-  batch and is not half-implemented here.
-- **Note on the canvas side:** `packages/engine/src/replayGradient.ts`
-  interpolates stops with premultiplied alpha, so canvas and SVG agree; only the
-  PDF shading sampler diverges now.
+- **Second defect, fixed here:** per-stop **alpha** was discarded when the
+  shading was sampled (`engine_color_rgba(&color)` drops the alpha component), so
+  a gradient fading to transparent exported as a hard-edged solid block.
+- **Implementation (alpha):** when any stop is translucent, the registry now
+  also emits a DeviceGray shading of the alpha ramp as a Type 0 function
+  (`Range [0 1]`, one component) and wraps it in a Form XObject registered as a
+  luminosity `/SMask` in an ExtGState; the content applies that state before
+  `sh`. Opaque gradients emit no mask, so the common case pays nothing. The
+  ExtGState dictionary is merged with the opacity/blend states already
+  installed rather than replacing them.
+- **Validation (alpha):** `gradient_stop_alpha_emits_luminosity_soft_mask` and
+  `opaque_gradient_emits_no_soft_mask`; the crate suite is 203/203. Rendered
+  with poppler 26.08: an opaque-red-to-transparent-red gradient was a solid red
+  block before and fades to the page after — `evidence/pdf-gradient-alpha-before.png`
+  and `evidence/pdf-gradient-alpha-after.png`.
+- **PDF/X-1a:** `hasPdfX1aTransparency` already reports gradient stop alpha in
+  the export panel, so an X-1a export of such artwork is disclosed before it
+  runs; the soft mask is emitted only on the paths that permit live
+  transparency, alongside the `/ca` opacity states this writer already used.
+- **Considered and rejected:** splitting the ramp into flat-alpha bands. It
+  needs no mask but bands visibly in the alpha channel for any smooth fade.
 
 ## F7 — Whole-document hover/selection scans (checked, already handled)
 

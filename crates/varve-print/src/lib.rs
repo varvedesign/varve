@@ -1183,7 +1183,7 @@ fn shape_pdf_bounds(node: &SceneNode, page_height: f64) -> (f64, f64, f64, f64) 
 ///
 /// A gradient shading definition collected during render.
 /// The actual PDF objects are created later (after the render borrow ends).
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 enum ShadingKind {
     Linear,
     Radial,
@@ -1198,71 +1198,110 @@ struct GradientShadingDef {
     matrix: [f64; 6],
 }
 
+/// Named PDF resource objects: `(resource_name, object_id)` pairs.
+type NamedObjects = Vec<(String, ObjectId)>;
+
+/// A soft mask carrying a gradient's per-stop alpha ramp.
+///
+/// A PDF shading has no per-stop alpha, so transparency-fading gradients are
+/// masked by a luminosity `/SMask` whose content is a DeviceGray shading of the
+/// same ramp. Without it every gradient exported opaque, so a fade to
+/// transparent became a hard edge of solid colour.
+struct SoftMaskDef {
+    kind: ShadingKind,
+    stops: Vec<GradientStop>,
+    matrix: [f64; 6],
+}
+
 /// Tracks gradient shading definitions during render. Collects gradient
 /// data without borrowing the document, then creates PDF objects in a
 /// deferred pass.
 struct ShadingRegistry {
     definitions: Vec<(String, GradientShadingDef)>,
+    soft_masks: Vec<(String, SoftMaskDef)>,
     next_id: u64,
+    next_mask_id: u64,
 }
 
 impl ShadingRegistry {
     fn new() -> Self {
         Self {
             definitions: Vec::new(),
+            soft_masks: Vec::new(),
             next_id: 1,
+            next_mask_id: 1,
         }
     }
 
-    /// Register a linear gradient. Returns the resource name (e.g., "Sh1").
+    /// Register a gradient and, when any stop is translucent, the soft mask
+    /// that carries its alpha ramp. Returns `(shading_name, soft_mask_gs)`.
+    fn register_gradient(
+        &mut self,
+        kind: ShadingKind,
+        stops: &[GradientStop],
+        use_cmyk: bool,
+        profile: Option<PrintProfile>,
+        matrix: [f64; 6],
+    ) -> (String, Option<String>) {
+        let name = format!("Sh{}", self.next_id);
+        self.next_id += 1;
+        self.definitions.push((
+            name.clone(),
+            GradientShadingDef {
+                kind,
+                stops: stops.to_vec(),
+                use_cmyk,
+                profile,
+                matrix,
+            },
+        ));
+        let translucent = stops.iter().any(|stop| color_alpha(&stop.color) < 1.0);
+        let soft_mask = if translucent {
+            let gs = format!("GSM{}", self.next_mask_id);
+            self.next_mask_id += 1;
+            self.soft_masks.push((
+                gs.clone(),
+                SoftMaskDef {
+                    kind,
+                    stops: stops.to_vec(),
+                    matrix,
+                },
+            ));
+            Some(gs)
+        } else {
+            None
+        };
+        (name, soft_mask)
+    }
+
     fn add_linear_gradient(
         &mut self,
         stops: &[GradientStop],
         use_cmyk: bool,
         profile: Option<PrintProfile>,
         matrix: [f64; 6],
-    ) -> String {
-        let name = format!("Sh{}", self.next_id);
-        self.next_id += 1;
-        self.definitions.push((
-            name.clone(),
-            GradientShadingDef {
-                kind: ShadingKind::Linear,
-                stops: stops.to_vec(),
-                use_cmyk,
-                profile,
-                matrix,
-            },
-        ));
-        name
+    ) -> (String, Option<String>) {
+        self.register_gradient(ShadingKind::Linear, stops, use_cmyk, profile, matrix)
     }
 
-    /// Register a radial gradient. Returns the resource name (e.g., "Sh1").
     fn add_radial_gradient(
         &mut self,
         stops: &[GradientStop],
         use_cmyk: bool,
         profile: Option<PrintProfile>,
         matrix: [f64; 6],
-    ) -> String {
-        let name = format!("Sh{}", self.next_id);
-        self.next_id += 1;
-        self.definitions.push((
-            name.clone(),
-            GradientShadingDef {
-                kind: ShadingKind::Radial,
-                stops: stops.to_vec(),
-                use_cmyk,
-                profile,
-                matrix,
-            },
-        ));
-        name
+    ) -> (String, Option<String>) {
+        self.register_gradient(ShadingKind::Radial, stops, use_cmyk, profile, matrix)
     }
 
     /// Create all PDF shading objects in the document and return resource refs.
-    fn create_pdf_objects(&self, doc: &mut Document) -> Vec<(String, ObjectId)> {
-        let mut resources = Vec::new();
+    fn create_pdf_objects(
+        &self,
+        doc: &mut Document,
+        page_width: f64,
+        page_height: f64,
+    ) -> (NamedObjects, NamedObjects) {
+        let mut shadings = Vec::new();
         for (name, def) in &self.definitions {
             let func_id = create_sampled_function(doc, &def.stops, def.use_cmyk, def.profile);
             let color_space = if def.use_cmyk {
@@ -1270,57 +1309,144 @@ impl ShadingRegistry {
             } else {
                 "DeviceRGB"
             };
-            match def.kind {
-                ShadingKind::Linear => {
-                    // Type 2 axial gradients accept page-space endpoints.
-                    // Transforming both endpoints preserves translation,
-                    // scale, reflection and skew instead of retaining only an
-                    // angle.
-                    let (x1, y1) = apply_pdf_affine(def.matrix, 0.0, 0.5);
-                    let (x2, y2) = apply_pdf_affine(def.matrix, 1.0, 0.5);
-                    let shading_dict = dictionary! {
-                        "ShadingType" => 2i64,
-                        "ColorSpace" => color_space,
-                        "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
-                        "Coords" => vec![
-                            Object::Real(x1 as f32), Object::Real(y1 as f32),
-                            Object::Real(x2 as f32), Object::Real(y2 as f32),
-                        ],
-                        "Function" => Object::Reference(func_id),
-                        "Extend" => vec![Object::Boolean(true), Object::Boolean(true)],
-                    };
-                    let shading_id = doc.new_object_id();
-                    doc.objects
-                        .insert(shading_id, Object::Dictionary(shading_dict));
-                    resources.push((name.clone(), shading_id));
-                }
-                ShadingKind::Radial => {
-                    // Type 3's canonical circles are mapped through the full
-                    // page-space matrix. PDF consumers that honour the
-                    // shading matrix retain elliptical/skewed radial fields;
-                    // targets without that capability are rasterized by the
-                    // compositor before reaching this writer.
-                    let shading_dict = dictionary! {
-                        "ShadingType" => 3i64,
-                        "ColorSpace" => color_space,
-                        "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
-                        "Coords" => vec![
-                            Object::Real(0.5), Object::Real(0.5), Object::Real(0.0),
-                            Object::Real(0.5), Object::Real(0.5), Object::Real(std::f64::consts::FRAC_1_SQRT_2 as f32),
-                        ],
-                        "Matrix" => def.matrix.iter().map(|value| Object::Real(*value as f32)).collect::<Vec<_>>(),
-                        "Function" => Object::Reference(func_id),
-                        "Extend" => vec![Object::Boolean(true), Object::Boolean(true)],
-                    };
-                    let shading_id = doc.new_object_id();
-                    doc.objects
-                        .insert(shading_id, Object::Dictionary(shading_dict));
-                    resources.push((name.clone(), shading_id));
-                }
+            let shading_dict = shading_dictionary(def.kind, def.matrix, color_space, func_id);
+            let shading_id = doc.new_object_id();
+            doc.objects
+                .insert(shading_id, Object::Dictionary(shading_dict));
+            shadings.push((name.clone(), shading_id));
+        }
+
+        let mut masks = Vec::new();
+        for (gs_name, mask) in &self.soft_masks {
+            let alpha_func = create_alpha_function(doc, &mask.stops);
+            let alpha_shading =
+                shading_dictionary(mask.kind, mask.matrix, "DeviceGray", alpha_func);
+            let alpha_shading_id = doc.new_object_id();
+            doc.objects
+                .insert(alpha_shading_id, Object::Dictionary(alpha_shading));
+
+            // The mask form paints the alpha ramp in page space. Its BBox is
+            // the page, because the colour shading's Extend paints beyond the
+            // gradient's unit square and the mask must cover whatever the
+            // clipped fill covers.
+            let form_dict = dictionary! {
+                "Type" => "XObject",
+                "Subtype" => "Form",
+                "BBox" => vec![
+                    Object::Real(0.0), Object::Real(0.0),
+                    Object::Real(page_width as f32), Object::Real(page_height as f32),
+                ],
+                "Group" => Object::Dictionary(dictionary! {
+                    "Type" => "Group",
+                    "S" => "Transparency",
+                    "CS" => "DeviceGray",
+                }),
+                "Resources" => Object::Dictionary(dictionary! {
+                    "Shading" => Object::Dictionary(dictionary! {
+                        "ShA" => Object::Reference(alpha_shading_id),
+                    }),
+                }),
+            };
+            let form_id = doc.new_object_id();
+            doc.objects.insert(
+                form_id,
+                Object::Stream(Stream::new(form_dict, b"q\n/ShA sh\nQ\n".to_vec())),
+            );
+
+            let gs_dict = dictionary! {
+                "Type" => "ExtGState",
+                "SMask" => Object::Dictionary(dictionary! {
+                    "Type" => "Mask",
+                    "S" => "Luminosity",
+                    "G" => Object::Reference(form_id),
+                }),
+            };
+            let gs_id = doc.new_object_id();
+            doc.objects.insert(gs_id, Object::Dictionary(gs_dict));
+            masks.push((gs_name.clone(), gs_id));
+        }
+
+        (shadings, masks)
+    }
+}
+
+/// Build a Type 2 (axial) or Type 3 (radial) shading dictionary for a
+/// canonical unit-fill matrix and a sampled colour/alpha function.
+fn shading_dictionary(
+    kind: ShadingKind,
+    matrix: [f64; 6],
+    color_space: &str,
+    func_id: ObjectId,
+) -> lopdf::Dictionary {
+    match kind {
+        ShadingKind::Linear => {
+            // Type 2 axial gradients accept page-space endpoints.
+            // Transforming both endpoints preserves translation,
+            // scale, reflection and skew instead of retaining only an
+            // angle.
+            let (x1, y1) = apply_pdf_affine(matrix, 0.0, 0.5);
+            let (x2, y2) = apply_pdf_affine(matrix, 1.0, 0.5);
+            dictionary! {
+                "ShadingType" => 2i64,
+                "ColorSpace" => color_space,
+                "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
+                "Coords" => vec![
+                    Object::Real(x1 as f32), Object::Real(y1 as f32),
+                    Object::Real(x2 as f32), Object::Real(y2 as f32),
+                ],
+                "Function" => Object::Reference(func_id),
+                "Extend" => vec![Object::Boolean(true), Object::Boolean(true)],
             }
         }
-        resources
+        ShadingKind::Radial => {
+            // Type 3's canonical circles are mapped through the full
+            // page-space matrix. PDF consumers that honour the
+            // shading matrix retain elliptical/skewed radial fields;
+            // targets without that capability are rasterized by the
+            // compositor before reaching this writer.
+            dictionary! {
+                "ShadingType" => 3i64,
+                "ColorSpace" => color_space,
+                "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
+                "Coords" => vec![
+                    Object::Real(0.5), Object::Real(0.5), Object::Real(0.0),
+                    Object::Real(0.5), Object::Real(0.5), Object::Real(std::f64::consts::FRAC_1_SQRT_2 as f32),
+                ],
+                "Matrix" => matrix.iter().map(|value| Object::Real(*value as f32)).collect::<Vec<_>>(),
+                "Function" => Object::Reference(func_id),
+                "Extend" => vec![Object::Boolean(true), Object::Boolean(true)],
+            }
+        }
     }
+}
+
+/// Alpha of an engine colour as 0..1.
+fn color_alpha(color: &EngineColor) -> f64 {
+    let (_, _, _, a) = engine_color_rgba(color);
+    a as f64 / 255.0
+}
+
+/// Create a Type 0 sampled function carrying a gradient's alpha ramp.
+fn create_alpha_function(doc: &mut Document, stops: &[GradientStop]) -> ObjectId {
+    const SAMPLES: usize = 256;
+    let mut samples: Vec<u8> = Vec::with_capacity(SAMPLES);
+    for i in 0..SAMPLES {
+        let t = i as f64 / (SAMPLES - 1) as f64;
+        let (_, _, _, a) = engine_color_rgba(&sample_gradient(stops, t));
+        samples.push(a);
+    }
+    let func_dict = dictionary! {
+        "FunctionType" => 0i64,
+        "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
+        "Range" => vec![Object::Real(0.0), Object::Real(1.0)],
+        "Size" => vec![Object::Integer(SAMPLES as i64)],
+        "BitsPerSample" => 8i64,
+        "Order" => 1i64,
+    };
+    let func_id = doc.new_object_id();
+    doc.objects
+        .insert(func_id, Object::Stream(Stream::new(func_dict, samples)));
+    func_id
 }
 
 /// Create a Type 0 sampled function for gradient color interpolation.
@@ -2134,7 +2260,7 @@ fn render_fills(
                             if let Some(registry) = shading_registry.as_mut() {
                                 let matrix =
                                     gradient_page_affine(node, page_height, *transform, *rotation);
-                                let shading_name = match gradient_type.as_str() {
+                                let (shading_name, soft_mask) = match gradient_type.as_str() {
                                     "radial" => registry
                                         .add_radial_gradient(stops, use_cmyk, profile, matrix),
                                     _ => registry
@@ -2142,6 +2268,9 @@ fn render_fills(
                                 };
                                 buf.extend(&path_ops);
                                 buf.extend_from_slice(path_clip_operator(node));
+                                if let Some(gs) = &soft_mask {
+                                    buf.extend(format!("/{gs} gs\n").as_bytes());
+                                }
                                 buf.extend(format!("/{shading_name} sh\n").as_bytes());
                             } else {
                                 let color_str =
@@ -3816,13 +3945,26 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
         "Font" => font_dict,
     };
     add_image_render_resources(&mut resources, &image_refs);
-    let shading_resources = shading_registry.create_pdf_objects(&mut doc);
+    let (shading_resources, soft_mask_states) =
+        shading_registry.create_pdf_objects(&mut doc, opts.page_width, opts.page_height);
     if !shading_resources.is_empty() {
         let mut sdict = lopdf::Dictionary::new();
         for (name, obj_id) in &shading_resources {
             sdict.set(name.as_bytes(), Object::Reference(*obj_id));
         }
         resources.set("Shading", sdict);
+    }
+    if !soft_mask_states.is_empty() {
+        // Merge with the opacity/blend states add_image_render_resources
+        // already installed; replacing the dictionary would drop them.
+        let mut gs = match resources.get(b"ExtGState").and_then(Object::as_dict) {
+            Ok(existing) => existing.clone(),
+            Err(_) => lopdf::Dictionary::new(),
+        };
+        for (name, obj_id) in &soft_mask_states {
+            gs.set(name.as_bytes(), Object::Reference(*obj_id));
+        }
+        resources.set("ExtGState", gs);
     }
 
     let pages_id = doc.new_object_id();
@@ -4460,6 +4602,46 @@ mod tests {
         assert!(
             pdf.contains("/Range[0 1 0 1 0 1 0 1]"),
             "DeviceCMYK shading must declare four 0..1 outputs"
+        );
+    }
+
+    /// Regression: a gradient that fades to transparent exported as solid
+    /// colour, because a PDF shading has no per-stop alpha. It must now carry a
+    /// luminosity soft mask whose DeviceGray shading is the alpha ramp.
+    #[test]
+    fn gradient_stop_alpha_emits_luminosity_soft_mask() {
+        let mut node = rect_node(1, 20.0, 20.0, 200.0, 120.0);
+        let mut fill = gradient_fill(true);
+        if let FillIR::Gradient { stops, .. } = &mut fill {
+            stops[1].color = EngineColor::Rgb {
+                r: 255.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.0,
+                bit_depth: None,
+                profile: None,
+            };
+        }
+        node.fills = Some(vec![fill]);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("export");
+        let pdf = String::from_utf8_lossy(&bytes);
+        assert!(pdf.contains("/SMask"), "alpha gradient needs a soft mask");
+        assert!(pdf.contains("/Luminosity"), "mask must be luminosity");
+        assert!(
+            pdf.contains("/DeviceGray"),
+            "alpha ramp is painted as a grayscale shading"
+        );
+    }
+
+    #[test]
+    fn opaque_gradient_emits_no_soft_mask() {
+        let mut node = rect_node(1, 20.0, 20.0, 200.0, 120.0);
+        node.fills = Some(vec![gradient_fill(true)]);
+        let bytes = export_pdf(&[node], &PdfOptions::default()).expect("export");
+        let pdf = String::from_utf8_lossy(&bytes);
+        assert!(
+            !pdf.contains("/SMask"),
+            "an opaque gradient must not pay for a soft mask"
         );
     }
 
