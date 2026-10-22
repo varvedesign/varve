@@ -19,15 +19,26 @@
  */
 import type { Document as SceneDoc } from '@varve/scene';
 import { createDocument, makeTextNode } from '@varve/scene';
-import { isXmlChar } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { exportNodeToSvg } from './svg';
 
-/** Every character XML 1.0 cannot represent, whatever the escaping. */
+/**
+ * Independent predicate for the XML 1.0 `Char` production. Deliberately not
+ * imported from the implementation: a regression in the sanitizer must show up
+ * as a test failure, not as agreement with itself.
+ */
 function illegalXmlCharacters(source: string): string[] {
   const illegal: string[] = [];
   for (const character of source) {
-    if (!isXmlChar(character.codePointAt(0) as number)) illegal.push(character);
+    const code = character.codePointAt(0) as number;
+    const legal =
+      code === 0x9 ||
+      code === 0xa ||
+      code === 0xd ||
+      (code >= 0x20 && code <= 0xd7ff) ||
+      (code >= 0xe000 && code <= 0xfffd) ||
+      (code >= 0x10000 && code <= 0x10ffff);
+    if (!legal) illegal.push(character);
   }
   return illegal;
 }

@@ -755,7 +755,7 @@ export {
   ZOOM_STEP_FACTOR,
   zoomAboutPoint,
 } from './viewport';
-export { escapeXmlText, isXmlChar, sanitizeXmlText } from './xmlText';
+export { escapeXmlText, sanitizeXmlText } from './xmlText';
 
 /** Semantic Strata package marker. */
 export const PACKAGE = '@varve/shared' as const;

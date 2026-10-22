@@ -173,7 +173,7 @@ Two (`2376`, `2489`) are reports with no actionable content.
 | Changed-component regression | `pnpm exec vitest run packages/editor/src/components/Inspector/sections/FontDetectSection.test.tsx …` | 48 passed across 6 files |
 | Type checking | `pnpm --filter @varve/shared --filter @varve/codegen --filter @varve/editor typecheck` | clean |
 | Format/lint/audits | commit checkpoint (Biome staged, emoji, health, contacts, docs, secrets, import boundaries, E2E typecheck) | passed |
-| Real workflow, browser | `tests/e2e/dialogs/lightcraft-name-truncation.spec.ts` (Chromium, Linux) | see `continuation.md` |
+| Real workflow, browser | `VARVE_HEAVY_TASK_PARALLELISM=0 VARVE_E2E_PORT=1433 npx playwright test tests/e2e/dialogs/lightcraft-name-truncation.spec.ts --project=chromium --workers=1` | passed (1 spec, 2026-10-22). Screenshot: `docs/screenshots/lightcraft-corpus/close-dialog-grapheme-name.png` — the dialog shows 24 CJK characters followed by whole family emoji and the truncation ellipsis. |
 | Documentation drift | `pnpm audit:docs` | clean |
 
 The full `@varve/editor` Vitest package and the Rust workspace were **not** run

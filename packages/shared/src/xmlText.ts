@@ -16,7 +16,7 @@
 /** U+FFFD REPLACEMENT CHARACTER: the visible, parseable stand-in. */
 const REPLACEMENT = '\uFFFD';
 
-export function isXmlChar(codePoint: number): boolean {
+function isXmlChar(codePoint: number): boolean {
   if (codePoint === 0x9 || codePoint === 0xa || codePoint === 0xd) return true;
   if (codePoint < 0x20) return false;
   if (codePoint <= 0xd7ff) return true;

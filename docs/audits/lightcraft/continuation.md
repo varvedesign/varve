@@ -28,7 +28,8 @@ Last updated: 2026-10-22.
 | Batch | Finding | Commit | State |
 |---|---|---|---|
 | 1 | Exported markup carries XML-illegal characters (`findings.md` §1) | see `git log --grep lightcraft` | implemented + unit-validated |
-| 2 | Name truncation splits grapheme clusters (`findings.md` §2) | see `git log --grep lightcraft` | implemented + unit-validated + E2E |
+| 2 | Name truncation splits grapheme clusters (`findings.md` §2) | see `git log --grep lightcraft` | implemented; unit and Chromium E2E passed 2026-10-22 |
+| 3 | Unreadable settings discarded (`findings.md` §3a) | see `git log --grep lightcraft` | implemented + unit-validated; recovery notice still missing |
 
 `screened-for-varve` queues from `findings.md` §4 stay open: preview/export
 divergence, deterministic export bytes, mask-overlay visibility while adjusting,

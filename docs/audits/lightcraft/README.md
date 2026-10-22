@@ -49,7 +49,7 @@ Review depth at cutoff A: **22 threads** (body plus every fetched comment),
 **954 full bodies**, **5 title-only** records (empty or unreadable body).
 Dispositions: **843 out-of-scope**, **90 screened-for-varve**, **18
 already-handled**, **28 uncertain**, **2 implemented**. The 28 uncertain
-records are listed in `findings.md` §4; they need a Varve reproduction before a
+records are listed in `findings.md` §6; they need a Varve reproduction before a
 defect can be claimed.
 
 

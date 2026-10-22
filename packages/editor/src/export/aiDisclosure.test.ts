@@ -1,5 +1,4 @@
 import type { Document } from '@varve/scene';
-import { isXmlChar } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import {
   applyAiDisclosureToSvg,
@@ -195,8 +194,19 @@ describe('applyAiDisclosureToSvg', () => {
  * same SVG embed, so the sanitizer must hold for every field.
  */
 describe('AI disclosure XML character integrity', () => {
+  // Independent XML 1.0 `Char` predicate (never the implementation's).
   const illegal = (source: string) =>
-    Array.from(source).filter((character) => !isXmlChar(character.codePointAt(0) as number));
+    Array.from(source).filter((character) => {
+      const code = character.codePointAt(0) as number;
+      return !(
+        code === 0x9 ||
+        code === 0xa ||
+        code === 0xd ||
+        (code >= 0x20 && code <= 0xd7ff) ||
+        (code >= 0xe000 && code <= 0xfffd) ||
+        (code >= 0x10000 && code <= 0x10ffff)
+      );
+    });
 
   it('XMP stays well-formed for a description carrying control characters', () => {
     const xmp = generateAiDisclosureXmp({

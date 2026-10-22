@@ -15,8 +15,13 @@ import { dismissFirstRunOverlayIfPresent } from '../helpers/nav';
 
 const REVIEW_DIR = 'reports/lightcraft-corpus';
 const FAMILY = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
-/** 44 CJK characters then family emoji: the 48-grapheme cut lands inside one. */
-const DOCUMENT_NAME = `${'\u4e2d'.repeat(44)}${FAMILY.repeat(6)}`;
+/**
+ * 24 CJK characters then 25 family emoji: 49 graphemes, so the 48-grapheme cut
+ * lands inside the emoji run. The CJK prefix is short enough that the first
+ * emoji survives wrapping in the screenshot, which is the point of the visual
+ * check — a cut that only appears off-screen proves nothing.
+ */
+const DOCUMENT_NAME = `${'\u4e2d'.repeat(24)}${FAMILY.repeat(25)}`;
 
 function loneSurrogates(text: string): string[] {
   const found: string[] = [];
@@ -62,9 +67,14 @@ test.describe('document-name truncation in the close dialog', () => {
     await page.mouse.up();
     await page.keyboard.press('v');
 
-    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+w' : 'Control+w');
+    // Use the menubar command rather than Ctrl+W: the browser reserves that
+    // accelerator, so a headless run cannot prove the app's own binding.
+    await page.getByRole('menuitem', { name: 'File' }).click();
+    await page.getByRole('menuitem', { name: /close document/i }).click();
     const dialog = page.locator('dialog[open]').last();
-    await expect(dialog.getByRole('button', { name: 'Save' })).toBeVisible({ timeout: 15000 });
+    await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeVisible({
+      timeout: 15000,
+    });
 
     const text = (await dialog.textContent()) ?? '';
     expect(loneSurrogates(text)).toEqual([]);
@@ -73,11 +83,12 @@ test.describe('document-name truncation in the close dialog', () => {
     let index = text.indexOf(man);
     expect(index).toBeGreaterThanOrEqual(0);
     while (index >= 0) {
-      expect(text.slice(index, index + 3)).toBe(`\u{1F468}\u200D\u{1F469}`);
+      // man (2 code units) + ZWJ (1) + woman (2): five units, one cluster.
+      expect(text.slice(index, index + 5)).toBe(`\u{1F468}\u200D\u{1F469}`);
       index = text.indexOf(man, index + 1);
     }
-    // The 48-grapheme budget is honoured: 44 CJK + 3 families + ellipsis.
-    expect(text).toContain(`${'\u4e2d'.repeat(44)}${FAMILY}${FAMILY}${FAMILY}\u2026`);
+    // The 48-grapheme budget is honoured: 24 CJK + 23 families + ellipsis.
+    expect(text).toContain(`${'\u4e2d'.repeat(24)}${FAMILY.repeat(23)}\u2026`);
 
     await page.screenshot({ path: `${REVIEW_DIR}/close-dialog-grapheme-name.png`, fullPage: true });
     // Leave no unsaved work behind for later specs in the same context.
