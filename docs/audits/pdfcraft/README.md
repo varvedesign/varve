@@ -234,6 +234,11 @@ honesty fixes found while validating it.
   vertical column(s)".
 - `packages/import/src/svg.test.ts`: 31 tests; the new disclosure regression
   fails without the warning and a 250-level document still imports.
+- The full CI E2E shard exposed a regression from showing notes: a refused
+  PDF displayed "This PDF is encrypted" twice, once as the error and once as a
+  capability note, which also broke the existing encrypted-PDF assertion.
+  Notes now render only for files that produced a document, with a unit
+  regression (`ImportResults.test.tsx`, 16 tests).
 - Visual: `docs/screenshots/pdfcraft/import-vertical-writing-canvas.png`
   shows 縦書きの試験, 隣の列の文章 (one glyph per operator) and 離れた列 as three
   top-to-bottom columns with no overlap; the editor capture shows the

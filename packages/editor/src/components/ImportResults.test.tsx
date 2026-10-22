@@ -260,6 +260,58 @@ describe('ImportResults', () => {
     expect(container.querySelectorAll('.import-results__file-warning-list li')).toHaveLength(0);
   });
 
+  it('does not repeat a failure as an import note', () => {
+    const result = {
+      startedAt: 0,
+      completedAt: 1,
+      durationMs: 1,
+      totalFiles: 1,
+      successCount: 0,
+      partialCount: 0,
+      failureCount: 1,
+      unsupportedCount: 0,
+      warnings: [],
+      files: [
+        {
+          name: 'protected.pdf',
+          source: 'file-picker' as const,
+          format: 'pdf',
+          status: 'failed' as const,
+          byteCount: 1,
+          durationMs: 1,
+          nodeCount: 0,
+          artifacts: [],
+          warnings: [
+            {
+              code: 'parser.warning',
+              message: 'This PDF is encrypted and was not imported',
+              severity: 'error' as const,
+            },
+          ],
+          unsupportedFeatures: [],
+          capabilities: {
+            format: 'pdf',
+            multipage: false,
+            pageDimensions: false,
+            vectors: false,
+            text: false,
+            images: false,
+            masters: false,
+            textThreads: false,
+            notes: ['This PDF is encrypted and was not imported'],
+          },
+        },
+      ],
+    };
+    const { container } = render(<ImportResults result={result} onClose={() => {}} />);
+    const toggle = container.querySelector('.import-results__toggle') as HTMLButtonElement;
+    fireEvent.click(toggle);
+    // The failure already appears once as an error; a refused file has no
+    // conversion to describe, so its note is not repeated.
+    expect(screen.queryByRole('list', { name: 'Import notes' })).toBeNull();
+    expect(container.querySelectorAll('.import-results__file-warning-list li')).toHaveLength(1);
+  });
+
   it('handles all-failed result', () => {
     const result = makeResult({ successCount: 0, failCount: 4 });
     render(<ImportResults result={result} onClose={() => {}} />);
