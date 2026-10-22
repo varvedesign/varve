@@ -491,3 +491,112 @@ to perform. C1 pages 29–34 are assessed individually, including pages 33–34 
 - Independent read-only review assessed 56 issue rows, 144 separate PR rows and 186 comments across pages 41–42. C1 totals are 1,240/3,659 issues assessed, 2,419 research-pending and 3,178 engineering-pending; supplemental #437 remains separate. Reconcile/checksum validation remains expected to report only incomplete remaining corpus/findings.
 - Linked-source pages had no directly referenced issue PRs; comment-linked external Taiga stories, OpenType specification, and unavailable report attachments are listed in the frontier. Page 41/42 reproductions preserve distinct text, layout, export and pointer conditions. C1 frozen; C2 not frozen.
 - #3157 guide browser test remains queued behind the live 690-test website run; do not classify it until the test reaches its snap assertion. Preserve the worktree.
+
+### Continuation checkpoint — guide snapping, export names (2026-10-21)
+
+## Checkpoint state
+
+- Worktree `/home/kevina/CodingProjects/varve/.worktrees/penpot-corpus`, branch `codex/penpot-corpus`.
+- Frozen corpus C1 unchanged: 12,050 records (3,659 issues, 8,391 PRs), 121 pages,
+  source SHA `be2e117f670fdc3fe440e55bea541df28f1c76d9`, cutoff
+  `2026-10-20T02:39:22.818Z`. Supplemental #437 assessed separately. C2 is **not** frozen.
+- Coverage: 1,240/3,659 page-listed issues assessed (2,419 research-pending). The
+  engineering counter is not a completion signal — it counts every issue whose
+  `engineeringStatus` is not `closed`.
+- Frontier: 898 edges. Recurring unresolved classes: Taiga stories that 404 for the
+  public, `tree.taiga.io` media returning 403, private report attachments, and hosted
+  reproduction pages that no longer exist.
+
+## Implementation batches completed in this session
+
+### 1. Penpot #3157 — ruler guides snap to object geometry
+- `components/GuideOverlay/guideSnapTargets.ts` (target enumeration, scope-rooted walk,
+  hidden/snapExcluded exclusion, locked nodes eligible).
+- `components/GuideOverlay/guideSnapResolver.ts` (gesture-scoped resolver shared by the
+  ruler-creation and re-drag routes; platform-aware Ctrl/Cmd bypass).
+- `GuideOverlay.tsx` lazy target resolution on the first pointer move, exact-coordinate
+  snapping, solid-while-held feedback; `Ruler.tsx` creation route.
+- Evidence: 11 target tests, 9 resolver tests, 8 component tests, 5 ruler tests, 2
+  benchmark budgets (8.6 ms/1k, 15.6 ms/5k), and `guides.spec.ts` creation+re-drag
+  regression that fails pre-fix (302.5 vs 300).
+
+### 2. Penpot #3276 — export names stay inside one path segment
+- `@varve/scene` `formatFileName` flattens token values before substitution, so a slash
+  in a name cannot create a folder; template separators remain the only structural ones.
+- `exportSaveAdapter` sanitizes the browser archive name and suggests only a sanitized
+  final file name to a single-file save dialog.
+- Evidence: 4 naming regressions + 4 adapter regressions, each failing before the fix.
+
+### 3. Recorded, not implemented
+- #3289 transparent-fill interiors still intercept clicks: the click policy excludes
+  transparent fills only from the tolerance halo. The correct slice needs stroke-aware
+  hit testing for non-path primitives; recorded with the planned acceptance in
+  `findings.md` rather than shipping a change that would make stroke-only shapes
+  unselectable.
+
+## Independent review
+
+Two read-only reviews of the guide-snap diff were run. The first raised five findings
+(eager render-time target build, locked targets, ruler-creation route, scene scope,
+exact-hit sentinel); all five were fixed and the second review verified them, then
+raised four more (traversal root for master edit, ruler-route bypass, platform-aware
+modifier, Alt-duplicate highlight, click-time resolution, weak E2E creation assertion).
+All of those were also fixed before commit, with regressions where the review showed a
+coverage gap.
+
+## Environment notes
+
+- Website E2E: one run aborted because the preview server on port 15992 died mid-run
+  (`ERR_CONNECTION_REFUSED` for 276 tests). A clean rerun of the same lane passed
+  696/696; the failure was infrastructure, not content.
+- `audit-architecture.mjs --ci` reaches the dead-code stage and fails because `ts-prune`
+  exceeds its hardcoded 60s budget on this host; cycle identities (14) and layer
+  violations (0) pass enforcement. Recorded as an environment limitation.
+- Browser evidence uses the TypeScript renderer; WASM failed to load in the E2E harness,
+  and the native Tauri GUI was not exercised.
+
+## Affected-gate record (merged candidate, 2026-10-21)
+
+`pnpm verify:affected` ran under the heavy-task lease on the merged candidate
+(`origin/master` merged as `286eee0a6`). 68 of 79 lanes reported before the first
+failure; the run aborts on the first failing lane, so the remainder were re-run
+individually through the same lease.
+
+Passed: format/lint on touched files, audit:emoji, audit:radius, audit:claims,
+audit:docs, audit:spacing, audit:sizing, typecheck:e2e, typecheck:website-e2e,
+typecheck for website/editor/import/scene/desktop/ai/cli/codegen/collab/history/
+home/layout/print/prototype/ui, the fourteen file-scoped unit lanes, the unit
+suites for website/editor/import/scene/desktop/ai/cli/codegen/history/home/
+layout/print/prototype/ui, website-unit, and the clipboard-capabilities,
+component-context-menu and file-import browser lanes.
+
+Re-run individually after the abort: guides-visual + guides + selection-resize +
+browser-reserved (pass), keyboard-nav + input-navigation (pass), table-import +
+lut-import + gradient-map import workflow (pass), export (pass), file-import
+(10/11, see below).
+
+Not green locally:
+- `file-import.spec.ts` "identifies the file during asynchronous PSD decoding"
+  failed because it polled for a transient progress label; the failure screenshot
+  shows the completed import. Rewritten to observe progress mutations and import a
+  three-file batch; passes deterministically (commit `122b0a02b`). This is a test
+  defect, not a product defect.
+- `editor-chrome-visual` (overlay-alignment, upscale-dialog-visual, email/visual,
+  workspace/visual) fails five screenshot comparisons in this environment. The
+  committed baselines are byte-identical to `origin/master`, the branch touches no
+  upscale/email/workspace component, and the diffs are font-metric offsets plus a
+  transient engine status word ("Processing" vs "Modified") captured in a baseline.
+  Classified as environment-sensitive baselines; CI is authoritative for that lane
+  and no baseline was updated.
+- `audit-architecture.mjs --ci` cannot complete its dead-code stage on this host
+  because `ts-prune` exceeds the script's 60s budget; enforced cycle identities (14)
+  and layer violations (0) pass. Unchanged from the earlier checkpoint.
+
+## Next operations
+
+1. `pnpm verify:push`, push `codex/penpot-corpus`, open a PR to `master`, and merge only
+   after the required checks are green for the exact candidate SHA.
+2. Continue C1 in ascending page order from page 43 and resolve the applicable frontier,
+   starting with the recorded high-priority candidates (#3114 nested flex placement,
+   #3162 typography identity, #3372 image seams, #3026 colour asset detachment, #3289
+   stroke-aware hit testing).
