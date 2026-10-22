@@ -175,20 +175,44 @@ than relabelled.
 - **Not covered:** gradient strokes in the document route, and per-stop
   transparency (see F6).
 
-## F5 — Area-text overset is computed and thrown away (open)
+## F5 — Area-text overset is computed and thrown away (fixed)
 
 - **External evidence:** vectorcraft#1471 (area-type overflow is not reported;
-  `text.create`/`setStyle` return plain success), #2323 (overflow indicator
-  only appears once the box is selected), #2769 (CJK area text clips its last
+  create/set-style calls return plain success), #2323 (the overflow indicator
+  only appears once the frame is selected), #2769 (CJK area text clips its last
   line with no overset indicator).
-- **Varve code:** `packages/engine/src/replay.ts` computes
-  `hasVerticalOverflow` but uses it only for the ellipsis decision;
-  `packages/scene/src/typographyPreflight.ts` accepts an optional `oversetMap`
-  that nothing produces, and `preflight.ts` permanently marks `overset-text`
-  as `unavailable`.
-- **Status:** `applicable-requires-work`. Not implemented in this pass. The
-  smallest honest change is to derive an overset count per area-text node and
-  feed the existing preflight check, rather than inventing a new indicator.
+- **User problem:** text that does not fit its frame is either clipped or painted
+  past the frame with no warning, so a print or export surprises the author.
+- **Varve code:** `packages/engine/src/replay.ts` computed
+  `hasVerticalOverflow` and used it only for the ellipsis decision;
+  `packages/scene/src/preflight.ts` permanently reported `overset-text` as
+  unavailable, and `runTypographyPreflight` accepted an `oversetMap` that
+  nothing produced.
+- **Observed behavior (before):** a short area frame holding long text showed
+  no finding at all; preflight said the check could not be run.
+- **Implementation:** `packages/editor/src/render/textOverset.ts` lays each
+  measurable area frame out through the same canonical pipeline the renderer
+  uses (`layoutRichTextSnapshot`, supplied with a 2D measure context), and
+  compares each line's box against the frame height. Results are cached per
+  node by object identity, so an unchanged frame is measured once; the cache is
+  dropped when `document.fonts.ready` resolves, because fallback metrics would
+  otherwise produce false overset. `runCombinedPreflight` now accepts
+  `oversetMap` and `oversetUnmeasured`.
+- **Where it surfaces:** preflight is a Print-workspace status section, so the
+  warning appears there and not in Design — the existing product decision about
+  where preflight lives. Moving it (or adding a canvas overset marker) would be
+  a separate design change, not a side effect of measuring overflow.
+- **Honest limits:** frames that follow their text (`autoHeight`/`autoWidth`)
+  cannot be overset and are skipped. Contour-wrapped and vertical frames are
+  reported as **unmeasured**, and the check stays `unavailable` while any exist
+  — it never claims a document is clear when part of it was not inspected.
+- **Acceptance criteria:** a frame too short for its text yields one `overflow`
+  warning in preflight; a frame that fits yields none; the check reads
+  `verified` only when every area frame was measured.
+- **Validation:** `packages/editor/src/render/textOverset.test.ts` (5 cases,
+  fixed-width measure context), `packages/scene/src/preflight.test.ts` (3 new
+  cases), and `tests/e2e/canvas/preflight-overset.spec.ts` driving the real
+  editor (type tool → frame → text → preflight panel) in Chromium and WebKitGTK.
 
 ## F6 — PDF gradients: blank output (fixed) and stop transparency (open)
 
@@ -359,3 +383,29 @@ log), not the native Tauri path.
   nothing, which is still the reported complaint — the two should land
   together.
 
+
+## F11 — The preflight findings panel could not be seen
+
+- **External evidence:** the corpus reports the same shape of defect repeatedly:
+  an indicator that appears but whose explanation is unreachable
+  (vectorcraft#2323 overflow indicator only on selection, #2086 menus that cover
+  the status bar, #3093 scrollbars that block controls).
+- **Varve code:** `packages/editor/src/components/PreflightWarnings.tsx` placed
+  an absolutely positioned panel inside the status bar, and
+  `packages/editor/src/editor.css` gives `.editor-status` `overflow-x: auto;
+  overflow-y: hidden`.
+- **Observed behavior:** the badge counted the warnings, but opening it showed
+  nothing — the panel was painted outside the status bar's clipped box. Visual
+  validation of F5 caught this: the canvas showed the overflow, the badge showed
+  "2", and the panel capture was just the sidebar behind it.
+- **Intended outcome:** the findings open above the badge, over the canvas, and
+  are reachable by keyboard.
+- **Implementation:** the panel is now the shared `@varve/ui` `Popover`
+  (portal-backed, Floating UI positioning), which is the repository's documented
+  popover contract. Escape, outside-click dismissal, focus order and collision
+  handling come from the primitive instead of a hand-rolled backdrop.
+- **Validation:** `PreflightWarnings.test.tsx` (4/4) and the browser spec in
+  Chromium and WebKitGTK, with the panel captured as evidence
+  (`evidence/preflight-overset-panel.png`).
+- **Note:** preflight remains a Print-workspace section, so the badge is not in
+  the Design status bar; that is the existing product decision, unchanged.
