@@ -185,6 +185,8 @@ const disciplines: Discipline[] = [
 </section>
 
 <script>
+  import { decodeHashId } from '../lib/hashFragment';
+
   const tabs = [...document.querySelectorAll<HTMLButtonElement>('[data-discipline-tab]')];
   const panels = [...document.querySelectorAll<HTMLElement>('[data-discipline-panel]')];
   const tabList = document.querySelector<HTMLElement>('.disciplines-tabs');
@@ -256,7 +258,7 @@ const disciplines: Discipline[] = [
    * page already uses for `#platform-*` links.
    */
   function revealFromHash() {
-    const id = decodeURIComponent(window.location.hash.slice(1));
+    const id = decodeHashId(window.location.hash);
     if (!id) return;
     const target = document.getElementById(id);
     const panel = target?.closest<HTMLElement>('[data-discipline-panel]');

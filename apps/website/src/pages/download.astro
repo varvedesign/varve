@@ -2185,6 +2185,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     platformFromDownloadHash,
     type DetectionResult,
   } from '../lib/download-detection';
+  import { decodeHashId } from '../lib/hashFragment';
 
   // Maps the manifest's arch identifiers to the two recommendation families.
   const ARCH_KEYS = {
@@ -2514,12 +2515,22 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     });
   });
 
+  // Both hash branches end the same way: activate the owning tab, then place the
+  // target below the sticky header once the panel has layout.
+  function scrollToFragmentTarget(target: HTMLElement | null) {
+    if (!target) return;
+    requestAnimationFrame(function () {
+      target.scrollIntoView({ block: 'start' });
+    });
+  }
+
   function activateFromHash() {
     const platform = platformFromDownloadHash(window.location.hash);
     if (platform) {
       const tab = document.querySelector('.platform-tab[data-platform="' + platform + '"]');
       if (tab instanceof HTMLButtonElement) {
         activatePlatform(tab);
+        scrollToFragmentTarget(document.getElementById(decodeHashId(window.location.hash)));
         return true;
       }
       return false;
@@ -2532,7 +2543,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     // scroll to, and the visitor lands on the Linux panel regardless of what
     // they searched for. Resolve the owning section, activate its tab, then
     // scroll once the panel has layout.
-    const id = decodeURIComponent(window.location.hash.slice(1));
+    const id = decodeHashId(window.location.hash);
     if (!id) return false;
     const target = document.getElementById(id);
     const section = target?.closest<HTMLElement>('.platform-section');
@@ -2544,9 +2555,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     if (!(sectionTab instanceof HTMLButtonElement)) return false;
     activatePlatform(sectionTab);
     // `html { scroll-padding-top }` keeps the heading clear of the sticky header.
-    requestAnimationFrame(function () {
-      target.scrollIntoView({ block: 'start' });
-    });
+    scrollToFragmentTarget(target);
     return true;
   }
 

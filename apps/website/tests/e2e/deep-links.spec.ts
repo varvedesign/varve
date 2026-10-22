@@ -19,6 +19,11 @@ const CASES = [
   { route: '/#born-for-print-production', heading: 'Born for print production' },
   { route: '/download#macos', heading: 'macOS' },
   { route: '/download#windows', heading: 'Windows' },
+  // Not a panel heading: a subsection that lives inside the hidden panel, which
+  // is the shape most search results take.
+  { route: '/download#system-requirements-2', heading: 'System requirements' },
+  // The `#platform-*` spelling goes through the older branch of activateFromHash.
+  { route: '/download#platform-windows', heading: 'Windows' },
 ];
 
 // `html { scroll-behavior: smooth }` is enabled unless the visitor asks for
@@ -39,19 +44,27 @@ for (const c of CASES) {
     });
     expect(panelHidden, 'owning tab panel must be shown').toBe(false);
 
-    // And the heading must be clear of the sticky header (WCAG 2.4.11).
+    // And the heading must be scrolled into view, clear of the sticky header
+    // (WCAG 2.4.11). Asserting "below the header" alone is not enough: the
+    // heading sits thousands of pixels down the page, so a page that never
+    // scrolled would also report a positive offset.
     await expect
       .poll(
         async () => {
           const box = await heading.boundingBox();
           const header = await page.locator('header.site-header').boundingBox();
-          if (!box) return -1;
+          const viewport = page.viewportSize();
+          if (!box || !viewport) return 'no-box';
           const headerBottom = header ? header.y + header.height : 0;
-          return Math.round(box.y - headerBottom);
+          const inView = box.y >= headerBottom && box.y < viewport.height * 0.75;
+          return inView ? 'in-view' : `y=${Math.round(box.y)} below=${Math.round(headerBottom)}`;
         },
-        { message: `${c.heading} should sit below the sticky header after the jump` },
+        { message: `${c.heading} should be scrolled into view under the sticky header` },
       )
-      .toBeGreaterThan(0);
+      .toBe('in-view');
+
+    // The scroll must be real, not incidental: the page has moved.
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
   });
 }
 
