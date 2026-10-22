@@ -32,6 +32,7 @@ on:
           - file-import-svg
           - micro-hint-rect
           - enhance-dialog-default
+          - enhance-dialog-dark
           - nested-groups-isolated-opacity
           - all-tools-canvas
           - email-workspace-tabs-light
@@ -228,6 +229,7 @@ jobs:
             "file-import-svg": {"spec": "tests/e2e/canvas/file-import.spec.ts", "title": "File → Import Import picker accepts PNG and SVG artwork and renders it in the document", "snapshots": ["tests/e2e/canvas/file-import.spec.ts-snapshots/file-import-svg-chromium-linux.png"]},
             "micro-hint-rect": {"spec": "tests/e2e/canvas/learning-system-visual.spec.ts", "title": "Learning system visual regression micro-hint — Rectangle tool first use", "snapshots": ["tests/e2e/canvas/learning-system-visual.spec.ts-snapshots/micro-hint-rect-chromium-linux.png"]},
             "enhance-dialog-default": {"spec": "tests/e2e/canvas/upscale-dialog-visual.spec.ts", "title": "Enhance dialog default (Auto) state", "snapshots": ["tests/e2e/canvas/upscale-dialog-visual.spec.ts-snapshots/enhance-dialog-default-chromium-linux.png"]},
+            "enhance-dialog-dark": {"spec": "tests/e2e/canvas/upscale-dialog-visual.spec.ts", "title": "Enhance dialog remains legible in dark theme", "snapshots": ["tests/e2e/canvas/upscale-dialog-visual.spec.ts-snapshots/enhance-dialog-dark-chromium-linux.png"]},
             "nested-groups-isolated-opacity": {"spec": "tests/e2e/canvas/visual-compositing.spec.ts", "title": "full-editor visual compositing nested groups preserve isolated opacity and container compositing", "snapshots": ["tests/e2e/canvas/visual-compositing.spec.ts-snapshots/nested-groups-isolated-opacity-chromium-linux.png", "tests/e2e/canvas/visual-compositing.spec.ts-snapshots/nested-groups-layer-tree-chromium-linux.png"]},
             "all-tools-canvas": {"spec": "tests/e2e/canvas/visual.spec.ts", "title": "Canvas visual regression all drawing tools render correctly on canvas", "snapshots": ["tests/e2e/canvas/visual.spec.ts-snapshots/all-tools-canvas-chromium-linux.png"]},
             "email-workspace-tabs-light": {"spec": "tests/e2e/email/visual.spec.ts", "title": "Email workspace visual — light email workspace tab visible", "snapshots": ["tests/e2e/email/visual.spec.ts-snapshots/email-workspace-tabs-light-chromium-linux.png"]},

@@ -1247,7 +1247,7 @@ assert.deepEqual(
       );
       selections.push(result);
     }
-    assert.equal(selections.length, 21);
+    assert.equal(selections.length, 22);
     assert.equal(
       selections.find((entry) => entry.plan.caseName === 'nested-groups-isolated-opacity').plan
         .originalSnapshots.length,

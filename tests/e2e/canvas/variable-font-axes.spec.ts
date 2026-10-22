@@ -32,15 +32,24 @@ async function typeSpecimen(page: import('@playwright/test').Page, family: strin
   await page.waitForTimeout(400);
 
   // Set the family through the inspector's own font control.
+  // After the host-font probe, system seeds such as Times New Roman stay in
+  // the virtual list. A pointer click on the filtered row can land on a
+  // recycled row that still paints the previous family.
   const fontInput = page.getByRole('combobox', { name: /font/i }).first();
   await fontInput.click();
+  const listbox = page.getByRole('listbox', { name: 'Font families' });
+  await expect(listbox).toBeVisible();
   await fontInput.fill(family);
-  await page.waitForTimeout(600);
-  await page
-    .getByRole('option', { name: new RegExp(family, 'i') })
-    .first()
-    .click();
-  await page.waitForTimeout(600);
+  const option = listbox.getByRole('option', { name: new RegExp(`^${family}$`, 'i') }).first();
+  await expect(option).toBeVisible({ timeout: 10000 });
+  await option.scrollIntoViewIfNeeded();
+  await expect(option).toBeInViewport();
+  await expect
+    .poll(async () => listbox.getByRole('option').count(), { timeout: 5000 })
+    .toBeGreaterThan(0);
+  await fontInput.press('Enter');
+  await expect(listbox).toBeHidden({ timeout: 5000 });
+  await expect(fontInput).toHaveValue(family);
 }
 
 async function openVariableAxes(page: import('@playwright/test').Page) {
