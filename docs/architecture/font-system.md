@@ -252,13 +252,32 @@ Scope and failure modes:
   is never treated as "none".
 - `probeResolvedFamilies` results are memoised per registry revision.
 
-**Known gap.** The probe is verified in Chromium and unverified in WebKitGTK,
-the desktop webview. If that engine resolves an unknown family to the default
-face for every generic, the width test reports it present — a false negative
-that preserves the old behaviour rather than inventing a wrong warning. The
-durable desktop fix is to verify the seed list against
-`enumerate_system_fonts` on first document open instead of relying on canvas
-metrics; that path is not implemented.
+**Verified on the desktop engine.** WebKitGTK 2.54.1 — the engine the Tauri
+app embeds — classifies the host identically to Chromium. Both engines report
+`Arial`, `Helvetica`, `Georgia`, `Times New Roman`, `Courier New`, `Verdana`,
+`Trebuchet MS`, `Noto Sans`, `DejaVu Sans` and `Carlito` as resolved, and
+`Inter`, `Noto Sans CJK`, `Meiryo` and a deliberate nonsense family as absent.
+The measured baselines differ (`serif` is 1050.98 px in WebKit versus 906.33 px
+in Chromium because their default faces differ), which is why the rule compares
+a family against the engine's own baselines rather than any fixed width. The
+`Meiryo` import raises the Missing Fonts dialog in the WebKit GTK build with the
+same copy and recovery path as in Chromium
+(`tests/e2e/canvas/font-availability.spec.ts --project=webkit-gtk`).
+
+So no native enumeration path is required for correctness. Verifying the seed
+list against `enumerate_system_fonts` would still be worth doing for a
+different reason — it can also confirm exact faces and collection members, which
+a width probe cannot — but it is an improvement, not a gap.
+
+**Running the WebKit lane.** Playwright's WebKit is the WPE build: headless
+only, and it needs a WPE stack (`libWPEWebKit-2.0`, `libwpe`,
+`libWPEBackend-fdo`) that a rolling distribution does not ship. The GTK build
+needs none of that, but its archive is linked against ICU 74 and several CMU
+flite voices; a distribution with ICU 78 cannot satisfy `_74` versioned symbols
+by symlinking. `node scripts/quality/prepare-playwright-webkit.mjs` provisions
+them in the user's cache without root, and
+`VARVE_WEBKIT_GTK=1 xvfb-run -a npx playwright test ... --project=webkit-gtk`
+runs the lane. It is opt-in because headed WebKit needs a display.
 
 ## Readiness boundary
 
