@@ -1257,7 +1257,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   .version-badge,
   .channel-badge {
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 600;
     letter-spacing: 0.02em;
     padding: 0.2em 0.6em;
@@ -1434,7 +1434,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     /* Keep the chip compact and its text metrics deterministic so the
        recommendation-to-download gap remains at least one spacing unit. */
     line-height: 1rem;
-    font-size: 0.6875rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -1537,7 +1537,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   }
 
   .distro-table td code {
-    font-size: 0.8125em;
+    /* `em` compounded with the table's readout size to 11.4px; the caption role
+       keeps install commands at a readable, predictable size. */
+    font-size: var(--type-interface-caption-size);
     background: var(--surface-card);
     border: 1px solid var(--border-subtle);
     border-radius: var(--website-radius-control-compact);
@@ -1547,7 +1549,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
   .format-badge {
     display: inline-block;
-    font-size: 0.625rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;

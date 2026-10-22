@@ -137,7 +137,9 @@ const fallbackLabel = label ?? (hasRelease ? (platformLabel ?? 'Download Varve')
 
   .download-cta-beta {
     display: inline-block;
-    font-size: 0.72em;
+    /* The micro role is the type floor; `em` compounded with the button label
+       to 10.8px, below it. */
+    font-size: var(--type-interface-micro-size);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;

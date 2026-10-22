@@ -820,7 +820,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.35em;
-    font-size: 0.72em;
+    font-size: var(--type-interface-micro-size);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
