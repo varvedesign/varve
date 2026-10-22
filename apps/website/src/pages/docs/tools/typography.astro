@@ -102,7 +102,7 @@ import '../../../styles/docs-prose.css';
         <p>
           In a fixed area, wrapping consumes the physical height of the frame as the vertical inline extent. New columns progress leftward for vertical-rl and rightward for vertical-lr; authored line breaks remain authored breaks. The browser renderer uses a stable measured fallback when font bytes are unavailable, and native ttb shaping remains a separate runtime capability. HTML/CSS and SVG exports preserve writing-mode semantics; native PDF vertical text is currently reported as a target limitation rather than silently rotated.
 
-          PDF import reads a vertical font CMap (<code>/Identity-V</code> or <code>/WMode 1</code>) as vertical text: each column opens as an editable layer with Writing mode set to Vertical, right to left and orientation Mixed (CJK clusters upright, Latin clusters sideways, as the page draws them). Consecutive upright glyphs that a producer placed one at a time are merged into that column, while neighbouring columns stay separate layers.
+          PDF import reads a vertical font CMap (<code>/Identity-V</code> or <code>/WMode 1</code>) as vertical text: each column opens as an editable layer with Writing mode set to Vertical, right to left and the default Mixed character orientation, which you can change independently. Consecutive upright glyphs that a producer placed one at a time are merged into that column, while neighbouring columns stay separate layers.
         </p>
       </section>
 

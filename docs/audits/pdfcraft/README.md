@@ -237,8 +237,8 @@ honesty fixes found while validating it.
 - Visual: `docs/screenshots/pdfcraft/import-vertical-writing-canvas.png`
   shows 縦書きの試験, 隣の列の文章 (one glyph per operator) and 離れた列 as three
   top-to-bottom columns with no overlap; the editor capture shows the
-  Inspector reading Vertical, right to left and Mixed; the results capture
-  shows the wrapped details and the column note.
+  Inspector reading Writing mode "Vertical, right to left"; the results
+  capture shows the wrapped details and the column note.
 
 **Validation (batch 11)**
 
