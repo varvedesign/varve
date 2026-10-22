@@ -46,6 +46,10 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **Transparent PDF gradients** — a gradient that fades to transparent exported
+  as a hard-edged solid block. It now carries a luminosity soft mask built from
+  the alpha ramp, so the fade survives into the PDF. Opaque gradients are
+  unchanged and pay no extra objects.
 - **PDF gradients now render** — an RGB gradient fill exported to a PDF whose
   sampled function declared four 0-255 outputs for a three-component stream.
   Poppler rejected it with "function with wrong output size" and drew nothing,
