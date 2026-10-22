@@ -12,6 +12,7 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+
 ### Added
 
 - **Text frame background and border** — Give text its own optional backing fill
@@ -74,6 +75,50 @@ update, not for someone reading the commit log.
 - Desktop `zip` 9.0.4 (RUSTSEC-2026-0367 through 0369) via the vendored
   updater crate pin.
 - Vite and TLS advisory patches from 2026-10-20.
+
+### Fixed
+
+- **PDF export names characters the chosen font cannot draw.** The canvas falls
+  back per glyph, but the PDF writer outlines the authored face, so a character
+  that face does not map exported as a blank box while the editor showed it
+  normally. The export now reads the coverage of the exact font binaries it
+  embeds and reports the affected characters, font and text objects in Export
+  Results, instead of leaving the difference to be discovered after delivery.
+- **PDF import no longer invents content the page does not show.** Text set in
+  an invisible or clip-only render mode (`3 Tr` / `7 Tr` — how a searchable OCR
+  layer is attached to a scan) is no longer imported as visible text, and
+  content inside an optional-content group that the document's default
+  configuration hides (a PDF layer, as layered CAD exports ship) is left out
+  rather than painted on top of the visible page. Both are counted in Import
+  Results, and hidden layers are named.
+- **Encrypted PDFs are reported instead of imported as a blank document.** A
+  password-protected or permission-restricted file is refused with an
+  explanation and the next step, instead of decoding ciphertext into an empty
+  page that looks like a successful import.
+- **An inline image no longer swallows the rest of the page** when its `EI`
+  terminator is followed directly by a delimiter (`EI/OC`) rather than white
+  space.
+- **PDF import now reads real documents.** Content streams are decoded
+  (zlib `FlateDecode`, ASCIIHex, ASCII85) and tokenized instead of being
+  pattern-matched, so a compressed PDF — which is nearly every PDF — imports
+  its text. Text position comes from the text matrix composed with the CTM and
+  is mapped into page space, so it lands where the page puts it instead of
+  mirrored from the bottom; `/Rotate` and inherited page boxes are applied.
+- **PDF text survives encoding.** Character codes resolve through the font's
+  `/ToUnicode` CMap, or the declared base encoding (WinAnsi/MacRoman) plus
+  `/Differences`, and string escapes and hex strings are parsed. Accented and
+  non-Latin text is no longer dropped or replaced.
+- **Word gaps in `TJ` arrays are preserved**, so words are no longer welded
+  together, and inline image bytes are skipped as opaque data rather than
+  re-read as page content.
+- **Each PDF page imports as its own Varve page**, bounded at 50, with page
+  order taken from the `/Kids` tree.
+- **PDF import reports what it did not import.** Images, form XObjects,
+  curves, strokes, gradients, CMYK and pattern paints, and composite-font runs
+  with no encoding are counted and named in Import Results; a page whose
+  content could not be decoded is reported as unread instead of appearing as
+  an empty page.
+
 
 ## [0.5.1] - 2026-10-15
 

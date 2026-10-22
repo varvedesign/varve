@@ -1,0 +1,1298 @@
+# PDFCraft issue ledger (frozen cutoff 1) - number, state, priority, labels, cluster, disposition, reason
+# source: https://github.com/storytold/pdfcraft/issues  retrieval: 2026-10-16T21:41Z (list), 2026-10-17T00:05Z (comments)
+8	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+28	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+34	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+37	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+40	closed	none		text-edit	cluster-assessed	Feature request: move/resize text fields
+57	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+60	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+61	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+70	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+72	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+73	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+74	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+76	closed	none		lifecycle-crash	cluster-assessed	cluster-verdict: assessed - graceful capability degradation and termination-path error handling are the transferable classes
+79	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+80	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+81	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+85	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+87	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+89	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+90	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+91	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+93	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+94	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+95	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+96	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+97	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+98	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+99	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+100	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+102	closed	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+103	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+107	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+108	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+117	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+119	open	none		other	cluster-assessed	Feature request: measure tool
+123	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+124	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+125	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+126	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+127	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+128	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+129	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+130	closed	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+131	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+132	closed	none		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+133	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+134	closed	none		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+135	closed	none		lifecycle-crash	cluster-assessed	cluster-verdict: assessed - graceful capability degradation and termination-path error handling are the transferable classes
+136	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+137	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+142	open	none		fonts-glyphs	candidate	Title/outline metadata must be decoded with the document encoding, not assumed ASCII; verify any Varve metadata read/write path
+143	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+146	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+147	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+148	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+149	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+152	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+155	closed	none		text-edit	candidate	Text split across content streams must rejoin: tokenizer state that survives stream boundaries (batch 1 keeps one state per page by concatenating page content; verify)
+156	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+157	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+158	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+159	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+160	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+161	closed	none		render	cluster-assessed	Their dialog render glitch on close
+163	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+166	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+167	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+168	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+169	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+170	closed	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+171	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+173	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+177	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+179	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+180	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+184	open	none		text-edit	candidate	Text identity: verify Varve commands target authored ids rather than inferred paragraph indices (ADR-0242 rule)
+185	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+186	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+187	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+188	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+189	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+190	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+193	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+194	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+195	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+199	closed	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+200	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+201	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+204	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+205	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+210	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+211	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+213	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+214	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+215	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+217	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+218	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+219	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+220	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+222	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+224	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+225	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+231	open	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+232	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+234	open	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+235	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+236	closed	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+238	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+240	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+244	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+247	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+248	closed	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+249	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+250	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+253	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+257	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+258	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+260	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+263	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+266	open	none		other	cluster-assessed	Feature request (retain settings on reopen); preference persistence, not a defect
+268	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+269	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+273	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+280	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+282	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+283	open	none		redaction	cluster-assessed	cluster-verdict: no redaction or sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one were added
+286	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+288	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+289	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+290	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+293	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+294	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+295	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+297	open	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+299	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+300	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+303	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+305	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+307	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+308	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+312	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+313	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+314	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+316	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+317	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+318	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+320	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+324	closed	none		image	cluster-assessed	Monitor-to-monitor DPI change behaviour; platform-specific
+326	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+330	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+331	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+333	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+336	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+340	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+342	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+343	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+345	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+346	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+347	open	none		other	cluster-assessed	Unspecific text editing report
+348	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+350	open	none		other	candidate	Batch 3 (image quality): export-family surfaces minify a full-resolution decode with browser-default smoothing; varve-print embeds full-res data with no /Interpolate
+352	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+354	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+358	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+367	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+369	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+373	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+377	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+378	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+379	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+380	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+381	closed	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+384	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+389	open	none		image	outside-varve-scope	Redaction-specific image retention; Varve has no redaction surface
+390	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+392	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+396	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+397	closed	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+398	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+399	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+401	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+407	open	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+410	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+413	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+418	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+420	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+422	open	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+423	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+425	closed	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+428	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+429	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+430	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+431	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+432	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+434	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+435	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+440	open	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+441	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+442	closed	none		other	cluster-assessed	Feature request (reopen last files at startup)
+444	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+445	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+446	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+448	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+449	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+452	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+454	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+456	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+458	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+460	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+461	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+465	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+474	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+475	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+476	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+479	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+488	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+489	closed	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+490	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+491	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+492	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+493	open	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+496	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+497	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+498	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+499	open	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+500	closed	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+503	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+506	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+517	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+519	closed	none		lifecycle-crash	cluster-assessed	cluster-verdict: assessed - graceful capability degradation and termination-path error handling are the transferable classes
+524	open	none		ocr	implemented-validated	Batch 1: accents resolve through the font encoding (WinAnsi/MacRoman/ToUnicode) instead of being replaced
+525	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+526	closed	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+527	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+531	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+533	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+534	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+537	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+538	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+539	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+542	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+553	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+563	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+566	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+568	closed	none		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+569	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+570	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+571	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+576	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+577	closed	none		lifecycle-crash	cluster-assessed	cluster-verdict: assessed - graceful capability degradation and termination-path error handling are the transferable classes
+585	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+586	open	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+589	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+594	closed	none		text-edit	cluster-assessed	Unspecific text box report
+603	open	none		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+606	open	none		lifecycle-crash	cluster-assessed	cluster-verdict: assessed - graceful capability degradation and termination-path error handling are the transferable classes
+611	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+623	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+624	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+625	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+626	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+629	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+632	open	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+633	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+634	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+638	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+640	closed	none		other	outside-varve-scope	Their CLI accepting unknown options
+644	closed	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+645	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+647	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+651	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+652	closed	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+654	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+655	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+657	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+659	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+664	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+665	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+666	closed	none		image	candidate	An embedded ICC profile dropped on document creation changes print colour silently; verify Varve's ICC survival through import and export
+667	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+668	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+671	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+682	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+683	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+684	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+685	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+686	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+688	closed	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+689	open	none		fonts-glyphs	cluster-assessed	Flatpak-only font visibility; packaging-specific
+691	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+693	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+694	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+718	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+721	closed	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+727	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+728	closed	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+730	open	none		fonts-glyphs	candidate	Batch 3 (image quality): export-family surfaces minify a full-resolution decode with browser-default smoothing; varve-print embeds full-res data with no /Interpolate
+737	closed	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+739	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+740	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+744	closed	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+745	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+746	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+747	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+752	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+755	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+756	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+758	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+759	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+766	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+773	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+774	closed	none		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+775	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+778	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+780	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+785	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+786	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+787	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+789	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+791	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+794	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+799	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+800	closed	none		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+801	closed	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+802	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+803	closed	none		other	outside-varve-scope	Their snap-target geometry
+804	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+805	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+806	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+807	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+808	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+809	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+810	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+811	closed	none		text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+812	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+813	closed	none		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+814	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+815	closed	none		save-io	deferred	Autosave scheduling: usePersistence.ts is being edited by another session; fix after that work lands
+816	closed	none		encoding	cluster-assessed	cluster-verdict: assessed - character-code resolution is the transferable class (batch 1 implemented; metadata decoding tracked separately)
+817	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+818	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+819	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+820	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+821	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+824	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+825	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+826	open	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+828	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+841	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+844	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+846	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+864	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+865	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+867	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+869	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+870	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+871	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+872	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+878	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+882	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+885	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+888	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+889	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+895	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+897	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+899	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+906	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+909	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+910	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+913	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+915	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+916	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+922	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+924	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+929	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+932	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+935	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+936	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+943	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+948	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+957	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+959	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+960	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+961	open	none		text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+962	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+970	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+971	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+976	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+981	closed	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+982	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+984	closed	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+985	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+988	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+991	open	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+993	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+995	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+996	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1000	open	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+1001	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1008	closed	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1009	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1014	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1020	open	none		text-edit	cluster-assessed	Unspecific text editing report
+1022	closed	none		image	candidate	Moving or resizing a clipped image leaves the old clipping rect: derived-clip invalidation after a geometry change
+1024	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1026	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1028	closed	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1029	open	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1031	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1034	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+1035	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1036	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1039	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1043	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1046	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1047	open	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+1056	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1058	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1060	closed	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1062	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1067	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1072	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1075	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+1077	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1078	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1079	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1080	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1084	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1085	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1092	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1093	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1095	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1102	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1103	open	none		printer	cluster-assessed	Feature request: default paper size for printing; Varve sets print size in the export panel
+1104	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1105	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1107	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1110	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1114	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1129	open	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1136	closed	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+1137	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1139	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1141	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1152	open	none		text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+1153	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1156	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1157	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1158	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1160	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1161	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1168	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1169	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1170	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1171	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1176	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1178	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1185	closed	none		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+1187	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1190	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1191	closed	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1192	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1193	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1195	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1196	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1200	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1201	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1202	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1203	closed	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1208	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1209	closed	none		lifecycle-crash	cluster-assessed	cluster-verdict: assessed - graceful capability degradation and termination-path error handling are the transferable classes
+1215	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1220	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1221	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1222	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1225	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1228	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1231	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1232	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1233	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1238	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1240	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1245	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1246	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1247	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1248	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1252	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1253	open	none		pdf-structure	cluster-assessed	Feature request: classic layout and RTL bookmark ordering
+1254	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1256	closed	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+1257	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1268	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1271	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1272	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1274	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1276	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1277	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1278	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1281	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1287	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1288	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1289	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1290	closed	none		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+1293	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1295	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1296	closed	none		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+1297	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1299	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1300	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1301	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1302	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1303	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1304	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1305	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1306	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1307	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1308	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1309	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1310	open	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+1311	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1312	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1313	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1314	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1315	closed	none		fonts-glyphs	cluster-assessed	Custom-match extension including the next glyph: their matcher, no Varve equivalent
+1316	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1317	closed	none		other	outside-varve-scope	Their flatten/comment path
+1318	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+1319	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1320	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1321	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1322	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1323	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1324	open	none		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+1325	closed	none		redaction	cluster-assessed	cluster-verdict: no redaction or sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one were added
+1326	closed	none		redaction	cluster-assessed	cluster-verdict: no redaction or sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one were added
+1327	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1328	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1329	closed	none		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+1330	closed	none		other	outside-varve-scope	Their CLI page destination handling
+1331	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1332	closed	none		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+1333	closed	none		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+1334	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1335	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1336	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1337	closed	none		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+1338	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1339	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1340	closed	none		redaction	cluster-assessed	cluster-verdict: no redaction or sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one were added
+1341	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1343	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1344	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1353	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1354	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1356	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1357	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1360	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1361	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1362	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1364	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1365	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1366	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1368	closed	none		text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+1379	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1384	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1387	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1388	open	none		fonts-glyphs	candidate	Font substitution that changes the face and metrics; same measure/paint parity question as 2378/2894 (batch 2)
+1395	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1396	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1398	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1399	open	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+1414	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1416	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1421	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1422	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1425	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1428	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1429	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1432	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1441	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1443	closed	none		other	candidate	Text identity: verify Varve commands target authored ids rather than inferred paragraph indices (ADR-0242 rule)
+1444	closed	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+1449	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1450	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1455	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1459	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1461	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1462	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1464	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1467	closed	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1468	closed	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1469	closed	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1470	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1472	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1479	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1483	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1485	open	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+1488	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1491	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1494	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1495	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1497	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1498	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1502	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1503	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1504	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1506	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1507	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1509	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1510	closed	none		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+1516	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1517	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1518	open	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+1519	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1520	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1522	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1524	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1526	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1531	open	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+1532	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+1534	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1535	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1537	closed	none		interaction	cluster-assessed	Feature request: reorder open tabs by drag
+1538	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1540	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1542	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1544	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1545	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1546	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1548	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1550	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1552	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1554	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1555	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1556	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1558	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1560	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1561	open	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1565	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1571	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1573	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1574	open	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1577	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1578	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1579	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1582	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1584	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1585	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1590	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1595	open	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1598	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1599	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1601	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1602	open	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+1608	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1613	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1617	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1618	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1619	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1620	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1623	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1628	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1637	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1640	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1643	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1644	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1645	open	none		forms	outside-varve-scope	XFA placeholder-page behaviour in their CLI
+1649	closed	none		other	candidate	Batch 3 (image quality): export-family surfaces minify a full-resolution decode with browser-default smoothing; varve-print embeds full-res data with no /Interpolate
+1652	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1656	closed	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+1659	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1660	open	none		text-edit	cluster-assessed	Feature request: extend the text box
+1661	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1662	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1665	open	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+1666	open	none		other	candidate	Substitution fonts applied wrongly; batch 2 with the fallback chain
+1668	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1669	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1670	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1671	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+1673	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1674	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1676	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1680	open	none		text-edit	candidate	Text identity: verify Varve commands target authored ids rather than inferred paragraph indices (ADR-0242 rule)
+1682	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1683	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1684	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1685	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1686	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1687	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1688	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1690	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1693	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1695	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1696	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1697	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1698	closed	none		save-io	candidate	A full rewrite that fails its reopen check must not replace the file: this is Varve's recorded 'every save-path change adds a reopen test' rule; verify the engine honours it
+1699	open	none		fonts-glyphs	implemented-validated	Batch 1: a composite font with no usable /ToUnicode is reported and its runs are skipped rather than decoded as glyph indices
+1700	open	none		render	candidate	Type 3 image-mask glyphs shrunk by picking pixels instead of averaging; same minification class as 2393 (batch 3)
+1703	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1705	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1707	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1708	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1713	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1714	open	none		text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+1715	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1716	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1719	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1721	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1726	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1728	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1736	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1738	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1741	open	none		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+1742	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1744	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1745	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1747	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1748	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1752	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1753	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1756	open	none		text-edit	candidate	Text identity: verify Varve commands target authored ids rather than inferred paragraph indices (ADR-0242 rule)
+1757	open	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1758	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1759	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1761	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1762	open	none		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+1763	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1767	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1768	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1769	open	none		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+1770	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1771	closed	none		redaction	cluster-assessed	cluster-verdict: no redaction or sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one were added
+1773	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1774	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1776	open	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1777	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1782	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1783	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+1786	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1787	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1788	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1789	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1790	open	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+1791	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1792	open	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+1793	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1794	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1795	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1796	closed	none		other	implemented-validated	Batch 1: stream decode is bounded (inflateBounded caps output and reports the overflow) instead of ignoring the caller's budget
+1797	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1798	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1799	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1800	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1801	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1802	closed	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+1803	open	none		save-io	deferred	Autosave retry suppression: same file conflict; deferred with 2663
+1804	closed	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+1805	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1806	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1807	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1808	closed	none		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+1809	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1810	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1811	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1812	open	none		image	candidate	Resampling mutating a soft mask shared with other images: verify Varve copy-on-write for shared mask surfaces
+1813	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1814	open	none		image	candidate	Image export silently dropping masks it cannot decode: verify Varve's export reports an undecodable mask instead of omitting it
+1815	open	none		other	outside-varve-scope	32-bit offset overflow in their COS reader
+1816	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1817	closed	none		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+1818	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1819	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1820	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1821	open	none		fonts-glyphs	candidate	Batch 2 (font/glyph coverage): canvas font shorthand appends only emoji fallbacks; no script fallback chain, and missing-glyph detection is not wired to render/export
+1823	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1825	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+1826	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1828	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1831	open	none		fonts-glyphs	candidate	No user control over which interface face is used: Varve bundles fonts and exposes font choice; verify the setting reaches every surface
+1833	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1834	closed	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+1835	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1838	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1839	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1842	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1844	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1845	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1846	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1847	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1848	closed	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1852	closed	none		interaction	candidate	A preferences dialog clipped with no scrollbars in a small window: verify Varve dialogs at small window sizes and display scaling
+1853	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1854	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1855	closed	none		page-geometry	cluster-assessed	Feature request: page size on hover
+1858	closed	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1859	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+1860	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1867	closed	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1868	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+1869	open	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+1884	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1885	open	none		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+1886	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1887	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1888	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1889	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1890	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1891	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1894	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1904	open	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+1905	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+1908	closed	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+1910	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1913	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1923	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1924	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1928	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1931	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1932	open	none		text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+1936	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+1937	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1940	open	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+1942	open	none	bug	forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+1955	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1956	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1958	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1961	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1963	closed	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+1968	closed	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1969	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+1970	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+1973	open	none		text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+1980	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+1992	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2001	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2003	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2004	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2006	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2007	closed	none	enhancement	interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+2010	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2011	closed	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2013	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2022	closed	none		other	candidate	Text identity: verify Varve commands target authored ids rather than inferred paragraph indices (ADR-0242 rule)
+2023	open	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+2032	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2033	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2034	open	none	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2036	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2038	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+2039	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2045	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2046	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2048	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2051	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2052	open	none	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2053	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2054	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2056	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2057	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2058	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2059	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2061	open	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+2063	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2069	closed	none		lifecycle-crash	cluster-assessed	cluster-verdict: assessed - graceful capability degradation and termination-path error handling are the transferable classes
+2072	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2077	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2078	open	none	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2080	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2082	open	none		printer	outside-varve-scope	Windows shell print-to handler
+2085	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2090	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+2091	closed	none		other	candidate	Deleting pages leaves stale numbering: verify Varve renumbers and rebuilds derived page identity on delete
+2095	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2096	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2098	open	none	bug	encoding	cluster-assessed	cluster-verdict: assessed - character-code resolution is the transferable class (batch 1 implemented; metadata decoding tracked separately)
+2101	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2102	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2104	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2105	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2110	open	none	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2114	open	none	bug	fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2117	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2119	open	none	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2120	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2121	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2123	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2124	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2127	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2128	closed	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+2129	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2130	open	none	bug	redaction	cluster-assessed	cluster-verdict: no redaction or sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one were added
+2131	open	none	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2134	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2140	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2142	open	none		text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+2143	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2145	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2148	open	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+2149	open	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+2150	open	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+2156	open	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+2157	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2159	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2160	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2165	open	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+2166	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2167	open	none		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+2168	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2170	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+2171	open	none	enhancement	interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2175	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+2177	open	none		redaction	cluster-assessed	Their audit of two overflow defects; no Varve mechanism in the report
+2179	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2180	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2184	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2185	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2188	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2191	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2192	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2193	open	none	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2194	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2196	closed	none		other	candidate	Batch 3 (image quality): export-family surfaces minify a full-resolution decode with browser-default smoothing; varve-print embeds full-res data with no /Interpolate
+2198	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2199	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2200	closed	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2203	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2204	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2206	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2207	open	none	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2208	open	none		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+2211	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2213	closed	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2214	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2219	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+2223	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2224	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2225	closed	none		page-geometry	cluster-assessed	Their tab drag indication
+2228	open	none		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+2229	open	none	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2231	open	none		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2234	open	none	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2237	open	none	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2246	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+2250	open	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2254	closed	none	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2255	open	none	bug	text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+2256	open	none	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2257	open	none	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2258	open	none		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+2259	closed	none		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2264	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2269	open	none		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2273	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2274	open	none		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2276	open	none	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2277	open	none	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2284	open	none		lifecycle-crash	cluster-assessed	cluster-verdict: assessed - graceful capability degradation and termination-path error handling are the transferable classes
+2285	open	none		ocr	cluster-assessed	cluster-verdict: no OCR surface
+2297	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2299	open	none	enhancement	interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+2301	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2306	open	none	bug	ocr	cluster-assessed	cluster-verdict: no OCR surface
+2307	open	none	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2310	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2311	open	none	duplicate,enhancement	printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2313	open	none	enhancement	render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2314	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2315	open	none		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+2316	open	none		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+2331	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2338	closed	none	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2339	open	none		fonts-glyphs	candidate	Right-to-left page order for two-page view: Varve has RTL text and facing-page spreads; verify reading order resolves for RTL documents
+2341	closed	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2343	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2349	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2350	open	none		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2352	open	none	bug	image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+2354	open	none	bug	text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+2360	open	none		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2361	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2363	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2364	open	medium		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+2365	open	high		other	candidate	Save dropping metadata: verify Varve preserves or reports document metadata on save
+2366	open	critical		save-io	candidate	A save that reports success while making content unreadable: same integrity class as the in-flight save-truthfulness work; verify, do not duplicate
+2367	open	high		save-io	candidate	Save dropping recoverable document-level structure: verify Varve's save path reports dropped structures
+2368	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2371	closed	medium		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2373	open	medium	needs info,multiple issues	pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+2377	open	high	multiple issues	text-edit	candidate	Rewritten paragraph painted before its backgrounds: z-order after an edit; verify Varve's text-edit commit path reinserts in place
+2378	open	high	multiple issues	fonts-glyphs	candidate	Font substitution changing line metrics: verify Varve's substitute path preserves measurement (batch 2, with 2894)
+2380	closed	critical	multiple issues	pdf-structure	outside-varve-scope	Varve has no redaction or PDF sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one is added
+2383	open	medium	shared	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2384	open	medium	bug,needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2385	open	high	multiple issues	pdf-structure	candidate	Preflight false-clean: under verification (see the preflight job); the general rule is that a zero-findings result must not read as a guarantee
+2387	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2390	open	low	duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2392	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2393	open	high		other	candidate	Batch 3: export-family surfaces minify a full-resolution decode with browser-default smoothing; varve-print embeds full-res RGBA with no /Interpolate
+2394	open	medium	multiple issues	image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+2395	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2396	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2401	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2403	open	low	needs info	interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2404	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2405	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2410	closed	medium	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2411	open	medium		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2413	open	high	multiple issues	ocr	outside-varve-scope	Varve has no OCR surface; scanned-image workflows are import/trace only
+2415	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2416	open	medium		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+2417	closed	high		security	outside-varve-scope	Varve has no PDF Standard Security Handler support (packages/editor/src/archive AES-GCM is a container mechanism, not the PDF handler)
+2418	open	high	bug,duplicate,shared	build-release	outside-varve-scope	VRR flickering in their launcher; platform/launcher-specific
+2422	open	medium		printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2423	open	high	needs info	render	candidate	Divide-by-zero in a render path: audit Varve's degenerate-geometry guards (shapeBuilder degeneracy tests exist) before claiming coverage
+2424	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2426	open	high		encoding	implemented-validated	Batch 1: literal-string escapes + WinAnsi/MacRoman/ToUnicode decoding in packages/import/src/pdf/encoding.ts; accented text no longer dropped
+2428	open	medium		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2430	open	high	multiple issues	printer	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2434	open	medium	multiple issues	render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2435	open	low	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2437	open	low	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2439	open	high	bug,duplicate,multiple issues	printer	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2440	open	high	duplicate	fonts-glyphs	candidate	Batch 2: missing-glyph diagnostics exist (fontResolver) but are not wired to render/export
+2441	closed	low	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2442	open	high	bug,needs info	other	cluster-assessed	Unspecific editing report
+2443	open	medium	duplicate,enhancement	build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+2444	open	low		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2445	closed	none	support	digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+2446	open	medium	needs info	fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2447	open	critical		pdf-structure	outside-varve-scope	Varve has no redaction or PDF sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one is added
+2448	open	critical		pdf-structure	outside-varve-scope	Varve has no redaction or PDF sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one is added
+2449	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2450	closed	medium	multiple issues	interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2451	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2455	closed	low	duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2456	open	high		image	implemented-validated	Batch 1: inline images are skipped as opaque data (tokenizeContent/skipInlineImage) with a regression test
+2457	open	high	regression	ocr	verified-already-correct-	Batch 1 tokenizes Tz/advance arithmetic instead of deduplicating repeated letters, so their heuristic-drop class has no Varve equivalent
+2458	open	high	multiple issues	save-io	verified-already-correct-	Method transfer, not a defect: their corpus run checks output with independent readers (qpdf/pypdf/pdftotext/pdftoppm); Varve's equivalent is scripts/validate-pdf.sh plus independent-reader verification
+2463	open	medium	bug,duplicate	printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2464	open	low	enhancement	build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+2465	open	medium		security	cluster-assessed	cluster-verdict: no PDF Standard Security Handler support (archive AES-GCM is a container mechanism, not the PDF handler)
+2469	open	medium	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2470	open	critical	duplicate	other	candidate	Crash when closing: audit TerminationCoordinator error paths
+2472	open	high	duplicate,multiple issues	other	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2474	open	high		fonts-glyphs	candidate	Batch 2: canvas font shorthand appends only emoji fallbacks (packages/engine/src/replay.ts replayFontString); no CJK/Arabic/Hebrew fallback chain
+2478	open	high		render	candidate	Table cell inline editing merges rows: structural identity across an inline edit
+2485	open	high	duplicate,multiple issues	ocr	implemented-validated	Batch 1: same encoding path; accents resolve through the font encoding instead of being replaced
+2486	open	high	needs info	fonts-glyphs	candidate	Batch 2: Arabic text depends on shaping plus a face that covers the script; the canvas chain does not substitute
+2488	closed	high	duplicate	ocr	outside-varve-scope	Varve has no OCR surface; scanned-image workflows are import/trace only
+2489	open	medium		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+2490	open	low		build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+2493	open	critical	bug,duplicate	lifecycle-crash	candidate	Launch-and-quit-instantly: startup failure reporting; same lifecycle area
+2494	open	low	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2495	open	medium	multiple issues	text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+2496	open	medium	enhancement,multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2497	closed	medium	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2507	open	low	duplicate,multiple issues	printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2508	open	medium	multiple issues	text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+2509	open	medium	needs info,multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2511	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2512	open	medium		text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+2514	open	medium	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2515	open	high		text-edit	candidate	Justification/width lost on re-edit: property preservation across text edits
+2516	open	critical		text-edit	candidate	Edit-by-index rewrites a different paragraph: verify Varve text commands target authored ids (ADR-0242 rule) rather than inferred indices
+2517	open	critical	multiple issues	text-edit	candidate	Blank-line paragraph merging deletes the neighbour: same identity class
+2519	open	low		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+2522	open	medium	bug,needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2526	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2527	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2531	open	low	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2534	open	medium	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2535	open	high	needs info,multiple issues	other	cluster-assessed	Unspecific regression range report
+2536	open	high		printer	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2537	open	high		render	candidate	Render regressions after a release: Varve's mitigation is the golden/visual lane; covered by the batch-1/batch-3 fixtures, no separate defect found
+2538	open	medium		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2540	open	medium	duplicate,enhancement	printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2542	open	high	bug	other	cluster-assessed	Language not supported for text entry, no mechanism stated
+2543	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2549	open	medium	duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2550	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2552	open	medium		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2553	closed	medium		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+2555	open	medium	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2561	open	low	enhancement,needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2563	open	high		other	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2564	open	critical		text-edit	candidate	Bulleted item grouped with the next items: same identity class
+2565	open	medium	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2566	open	high	multiple issues	forms	outside-varve-scope	Varve has no AcroForm/XFA model and does not plan one; form-engine semantics are out of scope
+2569	open	high		forms	outside-varve-scope	Varve has no AcroForm/XFA model and does not plan one; form-engine semantics are out of scope
+2570	open	medium		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2571	open	high		forms	candidate	Batch 2: glyph fallback for missing subsets is the same class inside a form surface Varve does not have
+2572	open	high	multiple issues	forms	outside-varve-scope	Varve has no AcroForm/XFA model and does not plan one; form-engine semantics are out of scope
+2574	open	high		forms	outside-varve-scope	Varve has no AcroForm/XFA model and does not plan one; form-engine semantics are out of scope
+2576	open	medium		text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+2578	open	medium		text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+2579	open	medium		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+2581	open	medium	multiple issues	text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+2582	open	high		text-edit	candidate	Right-aligned line grows past its edge: alignment/measure parity
+2583	open	low	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2586	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2589	open	medium		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2591	open	medium	needs info,multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2592	open	medium	multiple issues	fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2593	open	medium		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2596	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2597	open	none	needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2605	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2608	open	low		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2611	open	medium	needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2613	open	medium		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+2616	open	high	bug	interaction	candidate	Text editing latency: Varve has a perf harness; needs a measured baseline before any change
+2618	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2620	open	medium		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+2628	open	medium	duplicate,enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2629	open	medium	needs info	redaction	cluster-assessed	cluster-verdict: no redaction or sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one were added
+2630	open	critical	duplicate,shared	lifecycle-crash	outside-varve-scope	Windows system-DLL launch crash specific to their packaging
+2631	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2632	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2636	open	medium	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2637	open	high	duplicate,multiple issues	image	candidate	Overlapping context menus: verify against the popover/OverlayRegistry contract (docs/architecture/popover-system.md) before writing any UI change
+2639	open	medium	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2641	open	medium	bug,duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2645	open	medium		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+2646	open	low		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2649	open	medium	duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2651	open	high		printer	candidate	Output medium overriding the document's declared size: verified in the page-geometry job (page size/rotation/export)
+2654	open	medium	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2655	open	low	enhancement	page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+2657	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2658	open	high	multiple issues	save-io	verified-already-correct-	Atomic writes, READ_ONLY failure category, no filename lossy conversion: docs/architecture/filesystem-boundary.md:82-103; residual xattr/hard-link edges recorded there
+2659	open	critical		other	outside-varve-scope	Varve has no redaction or PDF sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one is added
+2660	open	critical	multiple issues	pdf-structure	candidate	Partial page failure must be reported: Varve's page/document load path is under verification in the page-geometry job
+2661	open	high		other	outside-varve-scope	Varve has no PDF Standard Security Handler support (packages/editor/src/archive AES-GCM is a container mechanism, not the PDF handler)
+2662	closed	high	multiple issues	pdf-structure	outside-varve-scope	Varve has no redaction or PDF sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one is added
+2663	open	high		save-io	deferred	Autosave tied to repaint: usePersistence.ts is being edited by another session (uncommitted); verify and fix after that work lands to avoid two writers on one file
+2664	open	medium	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2665	open	medium	multiple issues	page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+2666	open	medium		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+2667	open	medium		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2668	open	medium	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2669	open	medium	multiple issues	text-edit	cluster-assessed	cluster-verdict: assessed - edits must target authored identity, not inferred grouping (ADR-0242); per-issue rows cover the reproducible cases
+2670	open	high	multiple issues	security	candidate	Batch 1 applies the crop box and reports when it differs from the media box; the page-label/outline half has no Varve surface yet (planned slice)
+2671	open	low		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2674	open	high	bug	page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+2676	open	high		printer	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2684	open	critical		printer	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2691	open	medium	duplicate,enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2692	open	high	bug	other	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2695	open	critical	bug,duplicate,shared	lifecycle-crash	candidate	Same close/quit crash class; grouped with 2470
+2696	open	medium	multiple issues	forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2700	open	medium	bug	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2707	open	medium	multiple issues	printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2709	open	medium		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2713	open	medium	bug	printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2716	open	high	bug,needs info	text-edit	candidate	Doubled text after an operation: duplication class; verify text-edit and import paths do not add a second run
+2718	open	medium	bug,needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2719	open	low	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2721	open	low	duplicate,enhancement,multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2722	open	high	needs info	page-geometry	candidate	Missing pages after an operation: the page-count reporting class (grouped with 2660/2919)
+2725	open	low	enhancement,multiple issues	forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2726	open	high	shared	interaction	deferred	Pen/touch input: needs the affected hardware to verify; Varve tablet-mode work exists and the class is recorded, not dismissed
+2728	open	medium	needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2733	closed	none	support	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2734	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2735	open	low	duplicate,multiple issues	interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2738	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2739	open	low	needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2743	closed	low	support	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2746	open	medium		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2747	open	medium	duplicate	fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2749	open	low	enhancement,needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2750	open	medium		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2751	open	medium		save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+2752	open	medium	bug,needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2755	open	low		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2759	open	high	multiple issues	digital-signature	outside-varve-scope	Varve has no digital-signature surface and no certificate handling
+2762	open	medium		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2766	open	medium	bug,needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2767	open	high	bug	text-edit	cluster-assessed	Text editing report without a reproducible mechanism
+2768	open	low	duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2780	open	high		other	cluster-assessed	Issue body is only a link to the new-issue form
+2781	open	low		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2782	open	low	duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2784	closed	low	duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2786	open	high		pdf-structure	outside-varve-scope	Varve has no redaction or PDF sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one is added
+2787	open	high		pdf-structure	outside-varve-scope	Varve has no redaction or PDF sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one is added
+2788	open	medium	needs info	image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+2790	open	medium	multiple issues	interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2791	open	medium		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+2792	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2795	open	medium	duplicate	fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2796	open	medium		fonts-glyphs	cluster-assessed	cluster-verdict: assessed - missing-glyph fallback and substitution parity are the transferable class (batch 2); UI-embedding-specific reports are not
+2797	closed	none	support	ocr	cluster-assessed	cluster-verdict: no OCR surface
+2798	closed	medium		ocr	cluster-assessed	cluster-verdict: no OCR surface
+2800	open	high		fonts-glyphs	candidate	Batch 2: same missing-glyph fallback; no bundled CJK font and no script fallback chain
+2802	open	medium	duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2803	open	low		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+2804	open	high	bug	image	cluster-assessed	Unspecific modify-text-or-image report
+2806	open	high	multiple issues	interchange	outside-varve-scope	Varve has no Office interchange (no .docx/.xlsx reader or writer)
+2814	open	low	multiple issues	build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+2817	open	medium	needs info,multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2818	open	critical	duplicate	security	outside-varve-scope	Varve has no PDF Standard Security Handler support (packages/editor/src/archive AES-GCM is a container mechanism, not the PDF handler)
+2819	open	low		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+2820	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2821	open	low	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2823	open	low	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2824	open	low	duplicate,enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2826	open	medium	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2830	open	high	bug,duplicate	printer	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2831	open	low	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2833	open	high	multiple issues	digital-signature	outside-varve-scope	Varve has no digital-signature surface and no certificate handling
+2834	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2835	open	low		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2836	open	low	duplicate,enhancement	save-io	cluster-assessed	cluster-verdict: assessed - Varve's save architecture is documented in docs/architecture/filesystem-boundary.md and save-destinations.md; the in-flight save-truthfulness work covers the reported-success class
+2837	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2839	open	low		image	cluster-assessed	cluster-verdict: assessed - EXIF orientation is applied on import; minification quality and silent mask drops are the transferable classes
+2841	open	high		page-geometry	verified-already-correct-	Varve's documented rule 'never show pixels no fresh frame will replace' plus synchronous worker admission (admitWorkerImagePayload) is the designed guard for this class
+2842	open	medium	needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2843	open	low	duplicate	render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2845	open	low	duplicate,enhancement,multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2846	open	high	needs info	build-release	outside-varve-scope	Their launcher download workflow
+2847	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2848	open	medium		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2850	open	high	bug,duplicate	other	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2855	open	medium	enhancement,needs info	digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+2858	closed	medium		interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2860	open	medium	enhancement	printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2861	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2862	open	high	needs info,multiple issues	other	cluster-assessed	Text editing report without a reproducible mechanism
+2864	open	critical	bug,needs info	redaction	outside-varve-scope	Varve has no redaction or PDF sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one is added
+2866	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2867	open	low	duplicate,enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2868	open	medium	needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2871	open	medium		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+2873	open	critical	bug,needs info,multiple issues	printer	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2874	open	critical		other	outside-varve-scope	Varve has no redaction or PDF sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one is added
+2876	open	high	bug	other	candidate	Text turns white when saved: colour state lost/overwritten; verify Varve's text fill survives edit+save
+2878	open	critical	duplicate,multiple issues	fonts-glyphs	candidate	Batch 2: a run whose face lacks the script must not paint .notdef; shaping/fallback parity is the same fix
+2879	open	medium		interchange	cluster-assessed	cluster-verdict: no Office interchange surface; PDF export is covered by the print/export classes
+2881	open	low	duplicate,enhancement,multiple issues	interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2882	open	medium	bug,needs info	printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2884	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2887	open	medium	needs info	printer	cluster-assessed	cluster-verdict: no device-printing workflow (printPdf/listPrinters have no callers); the print surface is PDF/X export, and output-geometry honesty is tracked separately
+2889	open	medium	needs info	forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2891	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2892	open	medium		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2893	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2894	open	high		fonts-glyphs	candidate	Text measured with the wrong font's metrics: same class as Varve's measure/paint parity risk; verify in batch 2
+2895	open	medium	bug,duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2898	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2902	open	medium		pdf-structure	cluster-assessed	cluster-verdict: no PDF structure-editing surface (Varve writes PDF, it does not rewrite one)
+2903	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2904	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2906	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2907	open	medium	needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2908	open	high		fonts-glyphs	candidate	Batch 2: Cyrillic coverage gap in the same fallback chain
+2909	open	medium	bug,duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2911	open	high	duplicate	other	candidate	Batch 2: glyph coverage gap (SHX-derived text) resolves through the same fallback chain
+2915	open	medium	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2916	open	critical		lifecycle-crash	candidate	Launch failure on a specific GPU: verify Varve degrades per ADR-0237 stages instead of failing to start
+2917	open	medium	duplicate,enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2918	open	high	bug,multiple issues	other	verified-already-correct-	Varve text is Unicode internally and its PDF writer switches to outlining for non-WinAnsi runs (crates/varve-print requires_outline/has_non_winansi)
+2919	open	high	bug,needs info	other	implemented-validated	Batch 1: one Varve page per PDF page from the /Kids tree; page count no longer collapses to one
+2921	open	critical	bug,duplicate	other	cluster-assessed	Report has no diagnostic detail beyond 'saving problem'; no mechanism to verify
+2922	open	critical	bug,needs info	printer	outside-varve-scope	Varve has no device-printing workflow (printPdf/listPrinters have no callers); its print surface is PDF/X export
+2924	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2926	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2929	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2931	open	medium	multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2932	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2933	open	low		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2934	open	critical	bug	redaction	outside-varve-scope	Varve has no redaction or PDF sanitize surface; ADR-0242 s6 records the disclosure rule that would apply if one is added
+2936	open	medium	enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2937	open	medium		other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2938	open	low	enhancement,multiple issues	interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2941	open	medium	enhancement,multiple issues	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2942	open	high		forms	outside-varve-scope	Varve has no AcroForm/XFA model and does not plan one; form-engine semantics are out of scope
+2943	open	medium		forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2944	open	medium		page-geometry	cluster-assessed	cluster-verdict: assessed - page size, rotation, order and count must survive save/reopen/export; verified in the page-geometry job
+2946	open	high		fonts-glyphs	implemented-validated	Batch 1: import resolves codes through /ToUnicode or the declared encoding and never parses the embedded font program, so a rejected post table cannot blank the text
+2950	open	medium		digital-signature	cluster-assessed	cluster-verdict: no signature or certificate surface in Varve
+2952	open	medium	needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2954	open	medium	shared	build-release	cluster-assessed	cluster-verdict: their packaging and release-tooling reports; Varve's own release pipeline is covered by its own gates
+2956	open	critical		security	outside-varve-scope	Varve has no PDF Standard Security Handler support (packages/editor/src/archive AES-GCM is a container mechanism, not the PDF handler)
+2958	open	none	bug,needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2959	open	medium	multiple issues	interaction	cluster-assessed	cluster-verdict: assessed - overlapping overlays and small-window overflow are the transferable classes; both are queued rather than assumed
+2962	open	medium	duplicate	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2964	open	medium	multiple issues	forms	cluster-assessed	cluster-verdict: no Varve form model, and none planned; the field/text-metric and glyph-coverage mechanisms inside these reports are routed to their own rows
+2965	open	medium	needs info	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2970	open	high		render	verified-already-correct-	Blend over a transparent backdrop: verified sound (packages/engine/src/blendModes.ts short-circuits alpha-0 backdrop; raster export surfaces start transparent; varve-print emits no /BM). Pinning tests queued
+2971	open	medium		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2973	open	low	duplicate,enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2975	open	medium		render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
+2976	open	low	duplicate,enhancement	other	cluster-assessed	cluster-verdict: no transferable mechanism identified in the report text
+2978	open	medium	enhancement	render	cluster-assessed	cluster-verdict: assessed - blend-over-transparent verified sound; minification quality and derived-cache invalidation are the transferable classes
