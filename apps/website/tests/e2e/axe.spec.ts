@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 /**
  * axe-core scans on representative routes in both themes.
@@ -8,6 +8,13 @@ import { expect, test } from '@playwright/test';
  * specs cover that), but it guards against structural a11y regressions:
  * landmarks, heading order, link names, ARIA misuse, color-only indicators
  * that axe can detect.
+ *
+ * Two viewports are scanned deliberately. Some violations only exist in a
+ * width band where a component has to overflow: `.distro-picker` on /download
+ * scrolls its table between roughly 600px and 900px and is reported by
+ * `scrollable-region-focusable` there, while the 1280px desktop viewport sees a
+ * table that fits and stays silent. The 2026-10-22 website audit found exactly
+ * that: a serious violation the gate could not see.
  */
 
 const SCANS = [
@@ -36,35 +43,56 @@ const SCANS = [
   { route: '/404', name: '404' },
 ];
 
+/** Routes with a wide table or strip, re-scanned where it actually overflows. */
+const NARROW_SCANS = [
+  { route: '/', name: 'home' },
+  { route: '/download', name: 'download' },
+  { route: '/compare', name: 'compare' },
+  { route: '/docs', name: 'docs' },
+];
+
 const THEMES = [
   { name: 'light', colorScheme: 'light' as const },
   { name: 'dark', colorScheme: 'dark' as const },
 ];
+
+async function expectNoViolations(page: Page) {
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  const relevant = results.violations.filter(
+    (v) => !['region', 'landmark-one-main'].includes(v.id),
+  );
+  expect(
+    relevant,
+    JSON.stringify(
+      relevant.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, help: v.help })),
+      null,
+      2,
+    ),
+  ).toEqual([]);
+}
 
 for (const scan of SCANS) {
   for (const t of THEMES) {
     test(`${scan.name} [${t.name}] has zero axe violations`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: t.colorScheme });
       await page.goto(scan.route);
-      const results = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
-        .analyze();
-      const relevant = results.violations.filter(
-        (v) => !['region', 'landmark-one-main'].includes(v.id),
-      );
-      expect(
-        relevant,
-        JSON.stringify(
-          relevant.map((v) => ({
-            id: v.id,
-            impact: v.impact,
-            nodes: v.nodes.length,
-            help: v.help,
-          })),
-          null,
-          2,
-        ),
-      ).toEqual([]);
+      await expectNoViolations(page);
     });
   }
 }
+
+test.describe('narrow viewport (768px)', () => {
+  test.use({ viewport: { width: 768, height: 900 } });
+
+  for (const scan of NARROW_SCANS) {
+    for (const t of THEMES) {
+      test(`${scan.name} [${t.name}] has zero axe violations at 768px`, async ({ page }) => {
+        await page.emulateMedia({ colorScheme: t.colorScheme });
+        await page.goto(scan.route);
+        await expectNoViolations(page);
+      });
+    }
+  }
+});

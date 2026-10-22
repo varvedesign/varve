@@ -647,7 +647,17 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       ? '; the AppImage bundles WebKitGTK.'
                       : '. The current AppImage needs those same host libraries.'}
                   </p>
-                  <div class="distro-picker">
+                  {/* The table is wider than this column between roughly 600px and
+                      900px, so the wrapper scrolls. A scroll region needs its own
+                      keyboard entry point and a name: `/compare` uses the same
+                      recipe (`.scroll-x` + role=region + tabindex + label), and
+                      without it axe reports scrollable-region-focusable. */}
+                  <div
+                    class="distro-picker"
+                    tabindex="0"
+                    role="region"
+                    aria-label="Which package should I choose"
+                  >
                     <table class="distro-table">
                       <thead>
                         <tr>
