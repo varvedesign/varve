@@ -49,7 +49,7 @@ because they changed conclusions:
 | F-03 | S2 | `/download`'s distro table scrolls between ~600–900 px with no explicit keyboard entry point or name; axe reports `scrollable-region-focusable` at 768 and 800 px. | `tabindex="0" role="region" aria-label`, matching the `/compare` recipe; plus the axe gate now scans four routes at 768 px in both themes. |
 | F-04 | S3 | Six declarations sat below the 12 px type floor, four via `em` compounding (10–11.5 px), including the install commands themselves. | Moved to `--type-interface-micro-size` / `--type-interface-caption-size`. `small-text` findings 17 unique → 1 (decorative artwork text). |
 | F-05 | S3 | At 320 px the platform tablist clipped the focused tab by 30 px; arrow keys moved focus but never scrolled. | `scrollIntoView({inline: 'nearest', block: 'nearest'})` after focus. |
-| F-06 | S2 | Changelog category colours were raw literals outside the token layer. In dark mode they measured **1.27–1.39:1** — effectively invisible — and no gate covered that page. | Moved to `--changelog-*` tokens, dark values raised to 0.80 L (5.40–6.50:1), and all six pairs added to the `REQUIRED_PAIRS` contrast harness. |
+| F-06 | S2 | Changelog category colours were raw literals outside the token layer. In dark mode the labels measured **2.72–3.06:1** — below AA for text — and no gate covered that page. | Moved to `--changelog-*` tokens in all three dark paths (`[data-theme]`, the `prefers-color-scheme` mirror, and the page's own rules), dark values set to 0.80 L, and all six pairs added to the `REQUIRED_PAIRS` contrast harness. |
 
 ### Deliberately not changed
 
@@ -91,10 +91,41 @@ Measured before → after, at the same viewport and throttling:
 | First search, desktop | 547 ms | 254 ms |
 | Deep links landing on nothing | 9 | 0 |
 | `small-text` below 12 px | 17 unique | 1 (artwork SVG) |
-| Changelog label contrast, dark | 1.27–1.39:1 | 5.40–6.50:1 |
+| Changelog label contrast, dark | 2.72–3.06:1 | 8.91–9.65:1 |
 | CLS across 60 runs | 0.000–0.003 | 0.000–0.003 |
 
-## 4. Residual
+## 4. Found while fixing, and left open
+
+**The contrast harness was not measuring WCAG contrast.** `oklchToRgb` returns
+linear-light sRGB and `luminanceOf` applied the sRGB transfer function a second
+time, inflating light-theme ratios ~2.5x and deflating dark-theme light-on-dark
+~1.6x across every declared pair. Corrected in this change set; the numbers in
+§3 are the corrected ones. Two consequences:
+
+- `--border-accent` on `--surface-card` measures **1.83:1** and had been passing
+  on the inflated figure. It is a decorative accent edge (badges using it are
+  identified by their own AA-checked text), so the pair is reclassified with that
+  reasoning rather than by darkening accent borders site-wide. If it is ever used
+  as the only boundary of a control, this becomes a real WCAG 1.4.11 failure.
+- The pre-fix dark changelog figure reported during the audit (1.27–1.39:1) was
+  produced by the same buggy math; the true value was 2.72–3.06:1. The finding
+  stands, the quoted severity was overstated.
+
+**Secondary download links are 19.5 px tall on the recommendation-banner path.**
+At 768 px, `.alt-link` (the RPM alternates) measures 140×19.5 px and axe reports
+`target-size` (serious). They are `display: inline` links, which is why the
+default scans do not flag them; enlarging them to a 24 px box re-triggers the
+rule on neighbour spacing (closest offset 22.4 px), so the fix is a layout change
+to the alternates list rather than a `min-height`. Left open, not shipped as a
+half-fix that makes the suite worse.
+
+**The axe gate depends on the runner's user agent.** `/download` pre-selects a
+platform from the UA, and Playwright's Chromium reports a Windows UA even on
+Linux. A plain `/download` scan therefore only ever exercised the Windows panel,
+never the Linux distro table. The narrow scans now pin both panels with
+fragments; any future scan of a UA-dependent surface needs the same treatment.
+
+## 5. Residual
 
 - **WebKit/Safari is unverified** for F-03's original keyboard concern.
   `pnpm webkit:prepare` is the documented prerequisite and was not run in this

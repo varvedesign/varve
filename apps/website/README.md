@@ -72,7 +72,11 @@ four guards worth knowing about when you touch the same surfaces:
   `download.astro` implement this; do not add a third, divergent handler.
 - **`axe.spec.ts` at 768 px** — the existing scans run at the 1280 px desktop
   viewport, where a wide table fits and `scrollable-region-focusable` has nothing
-  to report. Four routes are also scanned at 768 px for exactly that reason.
+  to report. Five route/panel combinations are also scanned at 768 px. Note that
+  `/download` is addressed as `/download#platform-linux` and
+  `#platform-windows`: the page pre-selects a platform from the user agent, and
+  Playwright's Chromium reports a Windows UA even on Linux, so a plain
+  `/download` scan never reaches the Linux distro table.
 - **Search payload budget** — `MAX_SECTION_TEXT` caps indexed section text at 300
   characters. The index is fetched whole before the first result renders, so its
   size is user-visible delay; 150 KB gzip is the working target. Measure against a
