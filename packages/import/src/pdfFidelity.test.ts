@@ -466,3 +466,140 @@ describe('PDF import — honest reporting', () => {
     expect(result.warnings.join(' ')).toMatch(/budget/i);
   });
 });
+
+/**
+ * Vertical-writing fixture.
+ *
+ * ISO 32000-2 §9.7.4.3: a Type0 font whose CMap has `WMode 1` (`/Identity-V`
+ * here) advances the pen down the column instead of along the baseline. The
+ * second column is written one glyph per `Tj`, which is how many producers
+ * position upright glyphs; the importer must still read it as one column.
+ */
+function verticalWritingPdf(encoding: 'Identity-V' | 'Identity-H'): Uint8Array {
+  const glyphs: Array<[number, string]> = [
+    [1, '縦'],
+    [2, '書'],
+    [3, 'き'],
+    [4, 'の'],
+    [5, '試'],
+    [6, '験'],
+    [7, '隣'],
+    [8, 'の'],
+    [9, '列'],
+    [10, 'の'],
+    [11, '文'],
+    [12, '章'],
+    [13, '離'],
+    [14, 'れ'],
+    [15, 'た'],
+    [16, '列'],
+  ];
+  const hex = (code: number): string => code.toString(16).padStart(4, '0').toUpperCase();
+  const vertical = encoding === 'Identity-V';
+  const fourth = vertical
+    ? 'BT /V1 20 Tf 470 720 Td <0007> Tj <0008> Tj <0009> Tj <000A> Tj <000B> Tj <000C> Tj ET'
+    : 'BT /V1 20 Tf 470 720 Td <000700080009000A000B000C> Tj ET';
+  const content = [
+    'BT /V1 20 Tf 500 720 Td <000100020003000400050006> Tj ET',
+    fourth,
+    'BT /V1 20 Tf 300 720 Td <000D000E000F0010> Tj ET',
+  ].join('\n');
+
+  const toUnicode = [
+    '/CIDInit /ProcSet findresource begin',
+    '12 dict begin',
+    'begincmap',
+    '/CMapName /Varve-Test-UCS def',
+    '/CMapType 2 def',
+    '1 begincodespacerange',
+    '<0000> <FFFF>',
+    'endcodespacerange',
+    `${glyphs.length} beginbfchar`,
+    ...glyphs.map(([code, text]) => `<${hex(code)}> <${hex(text.codePointAt(0) ?? 0)}>`),
+    'endbfchar',
+    'endcmap',
+    'CMapName currentdict /CMap defineresource pop',
+    'end',
+    'end',
+  ].join('\n');
+
+  const widths = new Array(16).fill(1000).join(' ');
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /V1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    `<< /Type /Font /Subtype /Type0 /BaseFont /VFont /Encoding /${encoding} /DescendantFonts [6 0 R] /ToUnicode 8 0 R >>`,
+    `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /VFont /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 7 0 R /DW 1000 /W [1 [${widths}]] /DW2 [880 -1000] >>`,
+    '<< /Type /FontDescriptor /FontName /VFont /Flags 4 /FontBBox [0 -200 1000 900] /ItalicAngle 0 /Ascent 880 /Descent -120 /CapHeight 700 /StemV 80 >>',
+    `<< /Length ${toUnicode.length} >>\nstream\n${toUnicode}\nendstream`,
+  ];
+
+  const chunks: Uint8Array[] = [ascii('%PDF-1.7\n')];
+  for (const [index, body] of objects.entries()) {
+    chunks.push(ascii(`${index + 1} 0 obj\n${body}\nendobj\n`));
+  }
+  chunks.push(ascii('trailer\n<< /Root 1 0 R >>\n%%EOF\n'));
+  return concat(chunks);
+}
+
+describe('PDF import — vertical writing (ISO 32000-2 §9.7.4.3)', () => {
+  const parser = createPdfParser();
+  const px = 96 / 72;
+
+  it('imports an Identity-V column as upright vertical text, top to bottom', () => {
+    const result = parser.parse(verticalWritingPdf('Identity-V'));
+    const nodes = textNodesOf(result);
+    expect(nodes).toHaveLength(3);
+    const column = nodes.find((node) => node.kind === 'text' && node.text === '縦書きの試験');
+    expect(column).toBeDefined();
+    if (column?.kind !== 'text') throw new Error('expected a text node');
+    expect(column.writingMode).toBe('vertical-rl');
+    expect(column.textOrientation).toBe('mixed');
+    expect(column.name).toContain('Vertical text');
+    // The column is centred on its baseline: 0.475em right of the origin,
+    // 0.6em (Varve's 1.2 line-height column) back to the node's left edge.
+    const [, , , , x, y] = column.transform;
+    expect(x).toBeCloseTo((500 + 20 * (0.475 - 0.6)) * px, 1);
+    expect(y).toBeCloseTo((792 - 720) * px, 1);
+    expect(column.fontSize).toBeCloseTo(20 * px, 1);
+    expect(result.capabilities?.notes.join(' ')).toMatch(
+      /8 vertical text run\(s\) were imported as 3 vertical column\(s\)/,
+    );
+  });
+
+  it('merges one-glyph-per-Tj placement into one column without joining its neighbours', () => {
+    const result = parser.parse(verticalWritingPdf('Identity-V'));
+    const texts = textNodesOf(result)
+      .filter((node) => node.kind === 'text')
+      .map((node) => (node.kind === 'text' ? node.text : ''))
+      .sort();
+    // Six single-glyph runs become one six-character column; the neighbouring
+    // columns stay separate nodes with their own text.
+    expect(texts).toEqual(['縦書きの試験', '隣の列の文章', '離れた列'].sort());
+    const column = textNodesOf(result).find(
+      (node) => node.kind === 'text' && node.text === '隣の列の文章',
+    );
+    if (column?.kind !== 'text') throw new Error('expected the merged column');
+    const [, , , , x, y] = column.transform;
+    expect(x).toBeCloseTo((470 + 20 * (0.475 - 0.6)) * px, 1);
+    expect(y).toBeCloseTo((792 - 720) * px, 1);
+    expect(textNodesOf(result)).toHaveLength(3);
+  });
+
+  it('leaves the same font horizontal when the CMap is Identity-H', () => {
+    const result = parser.parse(verticalWritingPdf('Identity-H'));
+    const nodes = textNodesOf(result);
+    expect(nodes).toHaveLength(3);
+    for (const node of nodes) {
+      if (node.kind !== 'text') continue;
+      expect(node.writingMode).toBeUndefined();
+      expect(node.textOrientation).toBeUndefined();
+    }
+    const first = nodes.find((node) => node.kind === 'text' && node.text === '縦書きの試験');
+    if (first?.kind !== 'text') throw new Error('expected a horizontal run');
+    const [, , , , x] = first.transform;
+    // A horizontal run starts at its own origin, with no column centring.
+    expect(x).toBeCloseTo(500 * px, 1);
+  });
+});

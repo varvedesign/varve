@@ -26,6 +26,8 @@ import type { PdfPageBox } from './pages';
 
 /** A `TJ` gap at least this wide (in em) is a word space, not letter kerning. */
 const WORD_GAP_EM = 0.18;
+/** `/DW2`'s default downward advance for a vertical CMap: one em (Table 116). */
+const DEFAULT_VERTICAL_ADVANCE = 1000;
 /** Advance used when a font publishes no width for a code. */
 const FALLBACK_WIDTH = 500;
 const MAX_RUNS = 4000;
@@ -475,6 +477,7 @@ export class ContentInterpreter {
       return;
     }
     const position = this.displayPosition();
+    const vertical = font.vertical;
     const items = fromArray && Array.isArray(this.operands[0]) ? this.operands[0] : this.operands;
 
     let content = '';
@@ -486,8 +489,10 @@ export class ContentInterpreter {
         // A numeric TJ operand is a kerning adjustment: positive advances the
         // pen backwards, negative opens a gap that usually means a space.
         const emGap = -item / 1000;
-        this.advanceInTextSpace(emGap * text.fontSize * text.horizScale);
-        if (emGap >= WORD_GAP_EM && content.length > 0 && !content.endsWith(' ')) {
+        this.advanceInTextSpace(emGap * text.fontSize * text.horizScale, vertical);
+        // A gap inside a vertical column is letter spacing, not a word space:
+        // inserting U+0020 there would put a horizontal space in the column.
+        if (!vertical && emGap >= WORD_GAP_EM && content.length > 0 && !content.endsWith(' ')) {
           content += ' ';
         }
         continue;
@@ -520,7 +525,10 @@ export class ContentInterpreter {
     }
     if (this.runs.length >= MAX_RUNS) return;
     const display = toDisplaySpace(this.pageBox, position.x, position.y);
+    const endPosition = this.displayPosition();
+    const end = toDisplaySpace(this.pageBox, endPosition.x, endPosition.y);
     this.emissions.push({ kind: 'run', at: this.runs.length });
+    if (vertical) this.diagnostics.verticalRuns += 1;
     this.runs.push({
       text: trimmed,
       x: display.x,
@@ -529,6 +537,9 @@ export class ContentInterpreter {
       fontResource: font.resourceName,
       fontBase: font.baseFont,
       estimatedAdvance: estimated,
+      vertical,
+      advanceX: end.x - display.x,
+      advanceY: end.y - display.y,
     });
     if (this.isOutsidePage(display.x, display.y)) this.outsidePageCount += 1;
   }
@@ -559,9 +570,10 @@ export class ContentInterpreter {
       // A UTF-16BE byte-order mark means the string is already Unicode text;
       // the font's encoding does not apply and no widths are published for it.
       const decoded = decodeUtf16Be(bytes);
-      this.advanceInTextSpace(
-        (FALLBACK_WIDTH / 1000) * text.fontSize * text.horizScale * decoded.length,
-      );
+      const step = text.font?.vertical
+        ? (DEFAULT_VERTICAL_ADVANCE / 1000) * text.fontSize
+        : (FALLBACK_WIDTH / 1000) * text.fontSize * text.horizScale;
+      this.advanceInTextSpace(step * decoded.length, text.font?.vertical === true);
       return { text: decoded, unmapped: 0, estimated: true };
     }
     const step = text.font?.twoByteCodes ? 2 : 1;
@@ -571,20 +583,34 @@ export class ContentInterpreter {
     for (let i = 0; i + step - 1 < bytes.length; i += step) {
       const code = step === 2 ? (bytes[i]! << 8) | bytes[i + 1]! : bytes[i]!;
       const mapped = text.font?.textFor(code) ?? '';
+      const vertical = text.font?.vertical === true;
       const width = text.font?.widthOf(code) ?? null;
-      if (width === null) estimated = true;
+      // A vertical font's advance comes from /W2 or its documented default, so
+      // a missing horizontal width is not an estimated vertical position.
+      if (!vertical && width === null) estimated = true;
       if (mapped.length === 0) unmapped += 1;
       else out += mapped;
-      let advance = ((width ?? FALLBACK_WIDTH) / 1000) * text.fontSize + text.charSpacing;
-      if (text.font && code === text.font.spaceCode) advance += text.wordSpacing;
-      this.advanceInTextSpace(advance * text.horizScale);
+      let advance = vertical
+        ? ((text.font?.verticalAdvanceOf(code) ?? DEFAULT_VERTICAL_ADVANCE) / 1000) * text.fontSize
+        : ((width ?? FALLBACK_WIDTH) / 1000) * text.fontSize * text.horizScale;
+      advance += text.charSpacing * (vertical ? 1 : text.horizScale);
+      if (!vertical && text.font && code === text.font.spaceCode) advance += text.wordSpacing;
+      this.advanceInTextSpace(advance, vertical);
     }
     return { text: out, unmapped, estimated };
   }
 
-  private advanceInTextSpace(amount: number): void {
+  /**
+   * Move the pen along the writing direction. Horizontal writing advances in
+   * text-space x; vertical writing advances in text-space -y, which display
+   * space turns into a downward step (ISO 32000-2 §9.4.4).
+   */
+  private advanceInTextSpace(amount: number, vertical: boolean): void {
     if (amount === 0) return;
-    this.state.text.matrix = multiply(translation(amount, 0), this.state.text.matrix);
+    this.state.text.matrix = multiply(
+      vertical ? translation(0, -amount) : translation(amount, 0),
+      this.state.text.matrix,
+    );
   }
 
   // ── Paths ─────────────────────────────────────────────────────────────

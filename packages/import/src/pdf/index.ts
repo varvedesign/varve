@@ -268,18 +268,91 @@ function buildPageNodes(
   }
   diagnostics.outsidePage += interpreter.outsidePage;
   // Paint order is stream order: a fill emitted before a run stays below it.
-  for (const item of interpreter.emissionOrder) {
-    const source = item.kind === 'run' ? interpreter.runs[item.at] : interpreter.rects[item.at];
-    if (!source) continue;
+  // Consecutive vertical runs that continue the same column are merged first:
+  // producers commonly position one glyph per `Tj`, and emitting one node per
+  // glyph would read the column as a row of single characters.
+  const placements = groupVerticalColumns(interpreter.emissionOrder, interpreter);
+  diagnostics.verticalColumns += placements.filter(
+    (placement) => placement.kind === 'run' && placement.run.vertical,
+  ).length;
+  for (const placement of placements) {
     const { node, document } =
-      item.kind === 'run'
-        ? textNodeFor(source as TextRun, current, opts)
-        : rectNodeFor(source as RectFill, current, opts);
+      placement.kind === 'run'
+        ? textNodeFor(placement.run, placement.text, current, opts)
+        : rectNodeFor(placement.rect, current, opts);
     current = addChild(document, contentRoot, node);
     nodeIds.push(node.id);
   }
 
   return { document: current, nodeIds };
+}
+
+type Placement =
+  | {
+      readonly kind: 'run';
+      readonly run: TextRun;
+      readonly text: string;
+      readonly endX: number;
+      readonly endY: number;
+    }
+  | { readonly kind: 'rect'; readonly rect: RectFill };
+
+/**
+ * Merge runs that continue one vertical column. Two runs join when they share
+ * the font and size, start where the previous run's pen stopped, and keep
+ * moving in the same direction. Anything else — a different font, a gap, a
+ * rectangle painted between them — stays a separate node, so a false join can
+ * never reorder the page.
+ */
+function groupVerticalColumns(
+  order: readonly { readonly kind: 'run' | 'rect'; readonly at: number }[],
+  interpreter: { readonly runs: readonly TextRun[]; readonly rects: readonly RectFill[] },
+): Placement[] {
+  const placements: Placement[] = [];
+  for (const item of order) {
+    if (item.kind === 'rect') {
+      const rect = interpreter.rects[item.at];
+      if (rect) placements.push({ kind: 'rect', rect });
+      continue;
+    }
+    const run = interpreter.runs[item.at];
+    if (!run) continue;
+    const previous = placements[placements.length - 1];
+    if (run.vertical && previous?.kind === 'run' && continuesColumn(previous, run)) {
+      placements[placements.length - 1] = {
+        kind: 'run',
+        run: previous.run,
+        text: previous.text + run.text,
+        endX: run.x + run.advanceX,
+        endY: run.y + run.advanceY,
+      };
+      continue;
+    }
+    placements.push({
+      kind: 'run',
+      run,
+      text: run.text,
+      endX: run.x + run.advanceX,
+      endY: run.y + run.advanceY,
+    });
+  }
+  return placements;
+}
+
+function continuesColumn(previous: Extract<Placement, { kind: 'run' }>, run: TextRun): boolean {
+  if (!previous.run.vertical) return false;
+  if (
+    previous.run.fontResource !== run.fontResource ||
+    previous.run.fontBase !== run.fontBase ||
+    Math.abs(previous.run.fontSize - run.fontSize) > 0.01
+  ) {
+    return false;
+  }
+  const tolerance = Math.max(0.5, run.fontSize * 0.25);
+  if (Math.hypot(run.x - previous.endX, run.y - previous.endY) > tolerance) return false;
+  // A run that reverses direction starts a new column, not a continuation.
+  const dot = run.advanceX * previous.run.advanceX + run.advanceY * previous.run.advanceY;
+  return dot >= 0;
 }
 
 function pageSizeOf(page: PdfPage, opts: ImportOptions): { width: number; height: number } {
@@ -293,16 +366,40 @@ function pageSizeOf(page: PdfPage, opts: ImportOptions): { width: number; height
 
 function textNodeFor(
   run: TextRun,
+  text: string,
   doc: Document,
   opts: ImportOptions,
 ): { node: SceneNode; document: Document } {
   const scale = opts.scale > 0 ? opts.scale : 1;
   const { id, doc: next } = nextNodeId(doc);
   const family = run.fontBase?.replace(/^[A-Z]{6}\+/, '');
-  const node = makeTextNode(id, run.text, {
-    name: family ? `Text (${family})` : 'Text',
-    transform: [1, 0, 0, 1, run.x * POINTS_TO_PX * scale, run.y * POINTS_TO_PX * scale] as Affine,
-    fontSize: Math.max(run.fontSize * POINTS_TO_PX * scale, 0.1),
+  const fontSize = Math.max(run.fontSize * POINTS_TO_PX * scale, 0.1);
+  // A vertical column is centred on its baseline, so the node's left edge sits
+  // half a column left of the PDF's glyph origin. The 0.475 em is the default
+  // vertical displacement across a full-width glyph (ISO 32000-2 §9.7.4.3);
+  // 0.6 em is Varve's default 1.2 line-height column, i.e. the distance from
+  // the node's left edge to the column's centre.
+  const verticalShift = run.vertical ? fontSize * (0.475 - 0.6) : 0;
+  const node = makeTextNode(id, text, {
+    name: family
+      ? `${run.vertical ? 'Vertical text' : 'Text'} (${family})`
+      : run.vertical
+        ? 'Vertical text'
+        : 'Text',
+    transform: [
+      1,
+      0,
+      0,
+      1,
+      run.x * POINTS_TO_PX * scale + verticalShift,
+      run.y * POINTS_TO_PX * scale,
+    ] as Affine,
+    fontSize,
+    ...(run.vertical
+      ? // `mixed` is the faithful default for a vertical CMap: CJK clusters stay
+        // upright and Latin clusters turn sideways, as the source page draws them.
+        { writingMode: 'vertical-rl' as const, textOrientation: 'mixed' as const }
+      : {}),
   });
   return { node, document: next };
 }
@@ -459,6 +556,11 @@ function capabilityNotes(
   if (diagnostics.outsidePage > 0) {
     notes.push(
       `${diagnostics.outsidePage} text run(s) fall outside the page box and are placed outside it`,
+    );
+  }
+  if (diagnostics.verticalRuns > 0) {
+    notes.push(
+      `${diagnostics.verticalRuns} vertical text run(s) were imported as ${diagnostics.verticalColumns} vertical column(s)`,
     );
   }
   return notes;

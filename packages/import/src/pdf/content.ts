@@ -23,6 +23,20 @@ export interface TextRun {
   readonly fontBase: string | null;
   /** True when the font published no widths and the advance was estimated. */
   readonly estimatedAdvance: boolean;
+  /**
+   * True when the font writes vertically. The run then occupies a column: its
+   * glyphs advance downward from `y`, and the next run in the same column
+   * starts at `y + advanceY`.
+   */
+  readonly vertical: boolean;
+  /**
+   * Display-space displacement of the pen after showing this run, in points.
+   * A horizontal run moves right; a vertical run moves down (or along the
+   * rotated page's display axis). The next run in the same column starts at
+   * `x + advanceX, y + advanceY`.
+   */
+  readonly advanceX: number;
+  readonly advanceY: number;
 }
 
 export interface RectFill {
@@ -69,6 +83,10 @@ export interface ContentDiagnostics {
   unknownGraphicsStates: number;
   /** Runs placed outside the visible page box. */
   outsidePage: number;
+  /** Runs whose font writes vertically (they occupy a column, not a line). */
+  verticalRuns: number;
+  /** Editable vertical columns created from those runs after merging. */
+  verticalColumns: number;
   /** True when a size bound stopped the interpreter before the stream ended. */
   truncated: boolean;
 }
@@ -103,6 +121,8 @@ export function createDiagnostics(): ContentDiagnostics {
     patternFills: 0,
     unknownGraphicsStates: 0,
     outsidePage: 0,
+    verticalRuns: 0,
+    verticalColumns: 0,
     truncated: false,
   };
 }
