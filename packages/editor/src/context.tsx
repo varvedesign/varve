@@ -8504,6 +8504,9 @@ export function EditorProvider({
           frameGuideLayouts,
           closure.patternDefinitions,
           snapshot.workspaceMode === 'print' ? snapshot.document.activePageId : undefined,
+          // Optional `image/svg+xml` flavour so other applications can paste
+          // the selection as vectors, not just node names.
+          snapshot.document,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -8580,6 +8583,7 @@ export function EditorProvider({
           frameGuideLayouts,
           closure.patternDefinitions,
           snapshot.workspaceMode === 'print' ? sourceDocument.activePageId : undefined,
+          sourceDocument,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {

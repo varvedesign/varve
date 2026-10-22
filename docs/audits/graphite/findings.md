@@ -355,17 +355,13 @@ never runs. `tests/e2e/canvas/object-marquee-selection.spec.ts` already calls
 (no error, no effect), which cost several runs here, so it is recorded rather
 than rediscovered.
 
-**Not done, and why (candidate from the same PR set).** GraphiteEditor/
-Graphite#4499 puts an `image/svg+xml` flavour on the clipboard when copying a
-selection, so other applications receive vectors instead of only text. Varve
-writes `application/vnd.varve+json` and `text/plain` on copy, and has a separate
-"Copy as SVG" command that already builds the right payload
-(`exportNodeToSvg` per node with `background: 'transparent'`, plus
-`unionSvgBounds`) — so the work is to reuse that builder inside the copy path
-rather than to invent one. It is recorded here as the next candidate, not
-implemented in this batch.
+**Related, now implemented.** The same PR set carried the clipboard flavour that
+lets other applications paste a Varve selection as vectors; that work is
+recorded as F9 below.
 
+---
 
+## F5 — Observations that are not (yet) Varve work
 
 - `InteractionContext.axisLock` was dead code until F1 gave it a consumer.
   Any future modifier feature should check whether an existing field is
@@ -380,3 +376,59 @@ implemented in this batch.
   (Graphene), GPU node buffers, web-only stack and Graphite-internal tooling.
   Those areas have no Varve counterpart; per-issue reasons are recorded in the
   ledger instead of being summarised away here.
+
+---
+
+## F9 — Copy offered other applications nothing they could paste (implemented)
+
+**External evidence.** Graphite #2373 ("Copy/pasting vector and raster content
+between other graphics apps") and GraphiteEditor/Graphite#4499, the open pull
+request that resolves it by putting an `image/svg+xml` representation on the
+clipboard beside the internal payload. The PR's discussion also records the
+host limitations: the type is not broadly supported by Firefox and Safari, and
+desktop wrappers need their own interception.
+
+**User problem.** Copying artwork in Varve and pasting into Inkscape, Krita,
+Illustrator or Figma produced layer *names* as text. The editable
+`application/vnd.varve+json` payload means nothing to those applications, and
+`text/plain` is the only other representation written. A separate "Copy as SVG"
+command existed, but a user who pressed the normal copy shortcut had no way to
+know that.
+
+**Implementation decision.** An ordinary Copy now also writes `image/svg+xml`:
+
+- The payload comes from the existing per-root exporter the "Copy as SVG"
+  command uses (`exportNodeToSvg` with `background: 'transparent'`, world
+  transform baked into each root, multiple roots grouped under a union
+  `viewBox`). Exporting a synthetic document instead emits the white page
+  backdrop and loses per-node identity, which is why that approach was
+  abandoned during implementation rather than shipped.
+- The flavour is optional at the writer: `writeClipboardOutcome` takes the
+  source document as a trailing argument, so callers without scene context
+  (tests, guides) keep the previous behaviour exactly.
+- It is bounded (`CLIPBOARD_SVG_MAX_NODES`, `CLIPBOARD_SVG_MAX_BYTES`) and
+  best-effort: any exporter failure, oversized selection or missing mask source
+  drops the flavour and never the editable payload. The browser path keeps its
+  unprefixed retry, so a host that rejects a type still gets an editable copy.
+- In-app paste is unchanged: readers already prefer the Varve payload, so the
+  extra representation cannot reduce fidelity.
+
+**Acceptance criteria.**
+1. Copy writes `image/svg+xml` alongside the editable payload when a source
+   document is available.
+2. The SVG contains the selected artwork only, uses world-space bounds, and
+   carries no page backdrop.
+3. Without a document the flavour is absent and behaviour is unchanged.
+4. The browser `ClipboardItem` carries the same type.
+5. An oversized selection drops only the flavour.
+
+**Evidence.** `packages/editor/src/clipboardSvg.ts` (6 unit cases),
+`packages/editor/src/clipboard.test.ts` (43 cases, including the native and
+browser write paths), `tests/e2e/canvas/clipboard-svg-flavour.spec.ts` (copies a
+rectangle in Chromium and reads the SVG back from the real clipboard; verified
+to fail before the change).
+
+**Website.** `apps/website/src/pages/features/clipboard.astro` described the
+separate command as the interoperability route; it now states that an ordinary
+Copy carries the SVG representation, with the size ceiling and the host's
+permission/MIME dependence disclosed.
