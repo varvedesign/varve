@@ -28,7 +28,11 @@ const CASES = [
 
 // `html { scroll-behavior: smooth }` is enabled unless the visitor asks for
 // reduced motion; pinning reduce makes the settled position deterministic.
-test.use({ reducedMotion: 'reduce' });
+// Applied per page (rather than `test.use`) so it is set before the first
+// navigation and stays within the options this Playwright version types.
+test.beforeEach(async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+});
 
 for (const c of CASES) {
   test(`deep link reveals its panel: ${c.route}`, async ({ page }) => {
