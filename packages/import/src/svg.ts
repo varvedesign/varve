@@ -121,6 +121,18 @@ export function parseSvg(svg: string, options?: Partial<ImportOptions>): ImportR
 
   const defs = collectDefs(root);
 
+  // The converter assembles in place: it owns `nodes` and `rootChildren` for the
+  // duration of the walk and mutates them rather than copying the whole node map
+  // per element. Copy them once here so exclusive ownership is explicit and the
+  // document created above is never aliased into the result.
+  //
+  // Why it matters: the previous per-element `{ ...d.nodes, [id]: node }` made
+  // SVG import quadratic — 500 elements took 290 ms, 2 000 took 4.8 s and 4 000
+  // took 14.6 s, because every insertion copied every node so far.
+  // `shared.ts`'s `adjustNodePosition` already mutated `doc.nodes` in place, so
+  // the importer was only ever copying defensively before writing.
+  doc = { ...doc, nodes: { ...doc.nodes }, rootChildren: [...doc.rootChildren] };
+
   const converted = convertElement(root, doc, defs, rootTransforms, opts, warnings, unsupported);
   doc = converted.doc;
   nodeIds.push(...converted.ids);

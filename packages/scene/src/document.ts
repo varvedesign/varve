@@ -97,6 +97,7 @@ export {
 export {
   addChild,
   addNode,
+  addNodeInPlace,
   arrangeNode,
   arrangeNodes,
   detachInstance,

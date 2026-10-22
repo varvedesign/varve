@@ -6,7 +6,7 @@ import type { Affine, PathPoint, Shape } from '@varve/engine';
 import type { Document, Fill, FrameNode, ManagedColor, SceneNode } from '@varve/scene';
 import {
   addMask,
-  addNode,
+  addNodeInPlace,
   makeFrameNode,
   makeShapeNode,
   makeTextNode,
@@ -614,10 +614,15 @@ function buildMaskSourceNode(
     return { doc: d, sourceId: null };
   }
 
-  d = {
-    ...d,
-    rootChildren: d.rootChildren.filter((nid) => !childNodes.includes(nid)),
-  };
+  {
+    // In place: `svg.ts` hands the converter exclusive ownership of this array.
+    const promoted = new Set(childNodes);
+    let write = 0;
+    for (const nid of d.rootChildren) {
+      if (!promoted.has(nid)) d.rootChildren[write++] = nid;
+    }
+    d.rootChildren.length = write;
+  }
 
   if (childNodes.length === 1) {
     return { doc: d, sourceId: childNodes[0]! };
@@ -638,7 +643,7 @@ function buildMaskSourceNode(
   for (const childId of childNodes) {
     adjustNodePosition(d, childId, -x, -y);
   }
-  d = { ...d, nodes: { ...d.nodes, [id]: groupNode as SceneNode } };
+  d.nodes[id] = groupNode as SceneNode;
   return { doc: d, sourceId: id };
 }
 
@@ -672,13 +677,10 @@ function applySvgClipOrMask(
   const children = 'children' in container ? container.children : undefined;
   let d = d2;
   if (children && !children.includes(sourceId)) {
-    d = {
-      ...d,
-      nodes: {
-        ...d.nodes,
-        [containerId]: { ...container, children: [sourceId, ...children] } as SceneNode,
-      },
-    };
+    d.nodes[containerId] = {
+      ...container,
+      children: [sourceId, ...children],
+    } as SceneNode;
   }
 
   d = addMask(d, containerId, sourceId, maskType, {
@@ -772,11 +774,13 @@ function wrapNodeInMaskedGroup(
     }),
     transform: [1, 0, 0, 1, bounds.x, bounds.y] as Affine,
   };
-  d = { ...d, nodes: { ...d.nodes, [groupId]: groupNode as SceneNode } };
-  d = {
-    ...d,
-    rootChildren: [...d.rootChildren.filter((nid) => nid !== nodeId), groupId],
-  };
+  d.nodes[groupId] = groupNode as SceneNode;
+  {
+    // Replace the wrapped node with its group at the same position, in place.
+    const at = d.rootChildren.indexOf(nodeId);
+    if (at === -1) d.rootChildren.push(groupId);
+    else d.rootChildren[at] = groupId;
+  }
   d = applyGroupClipOrMask(d, groupId, el, defs, transforms, opts, warnings, unsupported);
   return { doc: d, groupId };
 }
@@ -813,7 +817,12 @@ export function convertElement(
   if (el.tag === 'g' && result.preserveChildVisibility) return result;
   if (result.ids.length === 0 || el.tag === 'svg') return result;
 
-  const nodes = { ...result.doc.nodes };
+  // Visibility is applied in place. Copying `nodes` here to keep the previous
+  // document also copied every node converted so far, once per element, which
+  // is what made SVG import quadratic (500 elements 290 ms, 4 000 elements
+  // 14.6 s). The converter owns the document for the whole walk — `svg.ts`
+  // clones `nodes` and `rootChildren` once before it starts.
+  const nodes = result.doc.nodes;
   for (const id of result.ids) {
     const node = nodes[id];
     if (!node) continue;
@@ -825,7 +834,7 @@ export function convertElement(
       nodes[id] = { ...node, visible: effectiveVisibility } as SceneNode;
     }
   }
-  return { doc: { ...result.doc, nodes }, ids: result.ids };
+  return result;
 }
 
 function convertElementContents(
@@ -916,16 +925,10 @@ function convertElementContents(
       for (const childId of gIds) {
         const child = gDoc.nodes[childId];
         if (!child) continue;
-        gDoc = {
-          ...gDoc,
-          nodes: {
-            ...gDoc.nodes,
-            [childId]: {
-              ...child,
-              transform: multiplyAffine(groupInverse, child.transform),
-            } as SceneNode,
-          },
-        };
+        gDoc.nodes[childId] = {
+          ...child,
+          transform: multiplyAffine(groupInverse, child.transform),
+        } as SceneNode;
       }
 
       const { x, y, w, h } = computeGroupBounds(gDoc, gIds);
@@ -941,11 +944,17 @@ function convertElementContents(
       for (const childId of gIds) {
         adjustNodePosition(gDoc, childId, -x, -y);
       }
-      gDoc = { ...gDoc, nodes: { ...gDoc.nodes, [id]: groupNode as SceneNode } };
-      gDoc = {
-        ...gDoc,
-        rootChildren: [...gDoc.rootChildren.filter((nid) => !gIds.includes(nid)), id],
-      };
+      gDoc.nodes[id] = groupNode as SceneNode;
+      {
+        // The materialised frame takes the place of its converted roots.
+        const members = new Set(gIds);
+        let write = 0;
+        for (const nid of gDoc.rootChildren) {
+          if (!members.has(nid)) gDoc.rootChildren[write++] = nid;
+        }
+        gDoc.rootChildren.length = write;
+        gDoc.rootChildren.push(id);
+      }
       gDoc = applyGroupClipOrMask(gDoc, id, el, defs, transforms, opts, warnings, unsupported);
       ids.push(id);
       return { doc: gDoc, ids };
@@ -1024,7 +1033,11 @@ function convertElementContents(
     const { id, doc: d2 } = nextNodeId(doc);
     const styled = applyStylesToNode(result.node, el, defs, opts.scale, warnings);
     const node = { ...styled, id } as SceneNode;
-    doc = addNode(d2, node);
+    // The converter owns `doc` for the whole walk (svg.ts clones `nodes` and
+    // `rootChildren` once), so appending in place is equivalent and avoids an
+    // O(n) node-map copy per imported element.
+    addNodeInPlace(d2, node);
+    doc = d2;
     ids.push(id);
 
     const clipRef = parseUrlReference(el.attrs['clip-path'] ?? '');

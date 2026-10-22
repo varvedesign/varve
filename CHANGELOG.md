@@ -52,6 +52,12 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **SVG import is linear again** — Importing a large file took time proportional to the square of
+  its element count: the converter copied the entire node map once per element, and the append
+  copied it again. A 4 000-element file went from 14.6 s to 0.26 s, and 8 000 elements from 34 s to
+  0.28 s. Appends during import now go through `addNodeInPlace`, which requires the caller to own the
+  document while assembling it; `addNode` is unchanged for every other caller. A scaling test fails
+  if the quadratic behaviour returns.
 - **Hiding a fill now hides it** — Turning off a shape's last visible fill
   removes it from the canvas and from its click target. Previously the shape
   kept painting its original colour, because the render pipeline treated an
