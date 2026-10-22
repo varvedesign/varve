@@ -40,6 +40,7 @@ Last updated: 2026-10-21 (session 1).
 | `683153357` | `fix(codegen)`: whole-document SVG export keeps gradient fills |
 | `e79389c3a` | `fix(engine)`: round only the outside of a turn (review finding), global point ceiling |
 | `9cee9e7c8` | `test(persistence)`: editor-level library-save failure; codegen emits the engine default family |
+| (follow-up branch) | `fix(editor)`: autosave failure is surfaced as "Recovery paused" |
 
 ## Validation evidence
 
@@ -99,11 +100,24 @@ Open, recorded, not implemented:
 
 | Disposition | Count |
 |---|---|
-| `screened-relevant` (open work) | 830 |
+| `screened-relevant` (open work) | 826 |
 | `outside-varve-scope` (reason recorded per row) | 398 |
-| `verified-existing` | 3 |
-| `implemented-pending-integration` | 4 |
+| `verified-existing` | 7 |
+| `integrated-verified` | 4 |
 | `applicable-requires-work` | 2 |
+
+Follow-up pass additions:
+
+- **Batch 4 implemented:** autosave failure visibility (see `findings.md` F9).
+- **Four more verified-existing:** #136 (numeric font weights), #352
+  (arrow-key stepping), #307 (dialog focus), #1293 (booleans keep sources and
+  names).
+- **455 defect-like screened issues** indexed in `screened-defects.jsonl` with
+  area, labels, comment count and a body excerpt. This is the resumable review
+  queue: each row still needs a Varve reproduction. Areas: canvas-interaction
+  72, typography 67, geometry 64, stability 58, paint/colour 39, AI/EPS import
+  39, persistence 30, document model 25, PDF 20, SVG 15, performance 11,
+  accessibility 10, raster export 5.
 
 All 1,237 titles were read. Full threads were read for the issues behind
 F1–F7 and the highest-severity integrity threads. The 830 `screened-relevant`

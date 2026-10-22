@@ -34,6 +34,10 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **Autosave failures are visible** — when crash-recovery autosave cannot write
+  a recovery copy, the status bar shows "Recovery paused" with the reason and
+  the advice to save to a file, and clears itself on the next successful cycle.
+  Previously the failure was only logged.
 - **Varve Library saves that fail no longer report Saved** — when the library
   write itself fails, the document stays modified, keeps its recovery point and
   says the work is still unsaved. Previously only the status line changed and

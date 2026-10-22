@@ -258,3 +258,35 @@ Screenshots are evidence of a specific run, not a claim about every platform:
 the SVG captures are Chromium on Linux at the recorded viewport, and the canvas
 captures are the Vite web build (stub renderer warning is visible in the run
 log), not the native Tauri path.
+
+## F9 — Autosave failures were invisible
+
+- **External evidence:** vectorcraft#1685 — background saves fail silently
+  while the UI shows nothing persistent; the reporter's point was that the
+  *state handling* was right but the failure was only a transient status line.
+- **User problem:** the recovery safety net stops writing (storage quota,
+  revoked permission, disabled storage) and the user keeps working under the
+  impression that a crash will cost them nothing.
+- **Varve code:** `packages/editor/src/autoSaveService.ts` already reports
+  `'error'` through `onStateChange`; `useAutoBackupServices` constructed the
+  service without subscribing, so nothing consumed it.
+- **Observed behavior (before):** a failed recovery write produced only the
+  service's internal state. The save status indicator, which reports the
+  authoritative save, correctly stayed silent — so a broken safety net looked
+  exactly like a healthy one.
+- **Intended outcome:** the user is told once, persistently, that recovery is
+  paused, without implying that the document itself failed to save.
+- **Implementation:** `persistence/recoveryStatus.ts` is a small external store
+  (no new `EditorState` field, no context import-budget change);
+  `useAutoBackupServices` writes it from `onStateChange` and resets on
+  teardown; `SaveStatusIndicator` renders a `role="status"` "Recovery paused"
+  chip whose text names the consequence and the action.
+- **Acceptance criteria:** healthy autosave shows nothing; a failing cycle
+  shows the chip with guidance; a later success clears it; the store notifies
+  only on transitions.
+- **Validation:** `recoveryStatus.test.ts` (store contract),
+  `SaveStatusIndicator.recovery.test.tsx` (renders and clears), existing
+  `StatusBar.test.tsx` still 14/14. Not validated in the running app: forcing a
+  real quota failure in the browser build is not scriptable without a dev hook,
+  so the chip reuses the already-shipped `save-status--error` skin and is
+  covered at component level. Recorded as a limitation.
