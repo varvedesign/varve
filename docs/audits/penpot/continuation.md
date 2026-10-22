@@ -592,10 +592,48 @@ Not green locally:
   because `ts-prune` exceeds the script's 60s budget; enforced cycle identities (14)
   and layer violations (0) pass. Unchanged from the earlier checkpoint.
 
+## Push blocked by repository policy (2026-10-21)
+
+`git push --dry-run origin codex/penpot-corpus` runs the pre-push checkpoint and stops
+with `Push checkpoint: BLOCKED`:
+
+```
+History-sensitive findings:
+- large-binary-addition 5c8c95f0ec865e3a6030c45a30b7f40cecd81948 \
+  docs/audits/penpot/snapshots/C1/issues.ndjson
+Local blocking lanes: history:secrets, history:policy, ...
+```
+
+The finding is the frozen machine-readable ledger: `issues.ndjson` was added in
+`5c8c95f0` at 11,068,269 bytes, above `PUSH_LIMITS.maxBinaryAdditionBytes`
+(10 MiB, `scripts/quality/validation-policy.mjs`). It is text, but the history
+policy classifies additions by size only. Current size is 11,420,795 bytes, so
+the final blob is also over the limit; only an *addition* commit is flagged.
+
+Remediation options, both requiring a maintainer decision:
+
+1. **Shard the ledger (preferred).** Split `issues.ndjson` into
+   `snapshots/C1/issues/part-NN.ndjson` shards under 10 MiB each, teach
+   `scripts/research/penpot-audit.mjs` (and `penpot-audit.test.mjs`) to read and
+   write the shard set, then rewrite this unpublished branch's history so the
+   11 MB blob never exists. Rewriting invalidates every commit SHA cited in this
+   record and in the earlier checkpoints, so those references must be updated in
+   the same pass.
+2. **Explicit override.** `VARVE_PUSH_OVERRIDE_REASON="<reason>"` on the push
+   records a local audit entry (`scripts/quality/pre-push.mjs`). That bypasses a
+   repository control, so it needs the maintainer's decision; it was **not**
+   used here.
+
+`pnpm audit:imports` (the gate added on `master` after this branch last merged)
+was run from the upstream implementation against this branch's committed tree:
+12,343 relative imports across 10,333 files resolve — clean. Nothing in this
+branch reintroduces the untracked-module defect that gate exists for.
+
 ## Next operations
 
-1. `pnpm verify:push`, push `codex/penpot-corpus`, open a PR to `master`, and merge only
-   after the required checks are green for the exact candidate SHA.
+1. Resolve the push policy block above (shard + rewrite, or a maintainer
+   override), then push `codex/penpot-corpus`, open a PR to `master`, and merge
+   only after the required checks are green for the exact candidate SHA.
 2. Continue C1 in ascending page order from page 43 and resolve the applicable frontier,
    starting with the recorded high-priority candidates (#3114 nested flex placement,
    #3162 typography identity, #3372 image seams, #3026 colour asset detachment, #3289
