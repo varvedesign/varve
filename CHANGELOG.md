@@ -22,6 +22,18 @@ update, not for someone reading the commit log.
 
 ### Changed
 
+- **Shift constrains movement to 45° steps** — Holding Shift while dragging a
+  selection now projects the move onto the nearest 45° direction, so mostly
+  horizontal or vertical drags stay on the axis and deliberate diagonals keep
+  their angle. Snapping refines position along that direction instead of
+  pulling the object off it. The tablet Constrain control uses the same rule,
+  and page placement on the pasteboard follows it too.
+- **Enter confirms the New design dialog** — Pressing Enter after typing a
+  document name, a custom width or height, or a print/presentation size now
+  creates the document with the values you typed, instead of requiring the
+  mouse. Enter in the preset-name row still saves the preset, and Enter during
+  an IME composition is left to the input method.
+
 - **Linux AppImage**: ships bundled WebKitGTK and GTK so it launches on a
   clean host without `libwebkit2gtk-4.1`. GPU/EGL/Mesa stay on the system so
   newer Mesa stacks do not white-screen. GStreamer plugins are not bundled

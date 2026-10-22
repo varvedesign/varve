@@ -15,6 +15,7 @@
 
 import type { NodeId, PagePlacement } from '@varve/scene';
 import { resolvePagePlacement, worldToPageAtPoint } from '@varve/scene';
+import { resolveMoveConstraint } from './axisConstraint';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState, ToolId } from './types';
 
@@ -132,17 +133,22 @@ export class PageTool extends BaseTool {
   override onDragMove(ctx: ToolContext): void {
     const g = this.gesture;
     if (g.kind === 'idle') return;
-    const totalDelta = this.worldDragDelta(ctx);
+    const raw = this.worldDragDelta(ctx);
     if (g.kind === 'move') {
+      // Page placement is a transform gesture, so Shift constrains it by the
+      // same rule Select uses for object movement.
+      const totalDelta = resolveMoveConstraint(raw.dx, raw.dy, { shiftKey: ctx.shiftKey });
       ctx.movePageOnPasteboard?.(
         g.pageId,
         g.startPlacement.x + totalDelta.dx,
         g.startPlacement.y + totalDelta.dy,
       );
     } else {
+      // Resizing is driven by one corner at a time; a directional lock would
+      // stop the perpendicular edge from following the pointer.
       const [dx, dy] = g.corner;
-      const w = Math.max(MIN_PAGE_SIZE, g.startSize.w + dx * totalDelta.dx);
-      const h = Math.max(MIN_PAGE_SIZE, g.startSize.h + dy * totalDelta.dy);
+      const w = Math.max(MIN_PAGE_SIZE, g.startSize.w + dx * raw.dx);
+      const h = Math.max(MIN_PAGE_SIZE, g.startSize.h + dy * raw.dy);
       ctx.resizePage?.(g.pageId, w, h);
     }
   }

@@ -325,7 +325,7 @@ field-based equivalent:
 | Resize | drag a handle | W/H fields; the **Constrain proportions** lock preserves the aspect ratio while typing |
 | Context actions | right-click | touch/pen long-press deep-selection menu |
 | Multi-select | Shift/Ctrl+click | touch multi-select toggle in the floating toolbar |
-| Constrain / centre / snap bypass | Shift / Alt / Ctrl or Command while drawing or transforming | latched modifier buttons in the tablet Editing controls popover; From centre applies to creation tools and selection resize handles, while Select's Alt-drag duplicate stays unchanged |
+| Constrain / centre / snap bypass | Shift / Alt / Ctrl or Command while drawing or transforming. Shift-constrained movement projects the drag onto the nearest 45° direction, so a near-axis drag stays on the axis and a deliberate diagonal keeps its 45° travel; snapping may refine position along that direction but never off it | latched modifier buttons in the tablet Editing controls popover (Constrain uses the same resolution); From centre applies to creation tools and selection resize handles, while Select's Alt-drag duplicate stays unchanged |
 | Deep select | Ctrl/Cmd+click or touch long-press | arm Deep select next tap, then tap the canvas once |
 | Duplicate / align / layer order | keyboard shortcuts, dragging, Inspector controls | tablet Editing controls popover; actions call editor commands directly |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` | Edit menu items (also the menubar icon buttons); E2E verified at 800x1280 |

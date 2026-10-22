@@ -91,10 +91,12 @@ const pageDescription = 'Version history and release notes for Varve. See what c
               {unreleased.sections.map((section) => {
                 const meta = CATEGORY_META[section.category] ?? { label: section.category, cssClass: 'cat-other' };
                 return (
-                  <div class="changelog-category">
-                    <h3 class={`changelog-category-heading ${meta.cssClass}`}>
-                      {meta.label}
-                    </h3>
+                  <div class={`changelog-category${section.category === 'Summary' ? ' changelog-category--summary' : ''}`}>
+                    {section.category !== 'Summary' && (
+                      <h3 class={`changelog-category-heading ${meta.cssClass}`}>
+                        {meta.label}
+                      </h3>
+                    )}
                     <div set:html={section.entries.map((e) => e.html).join('\n')} />
                   </div>
                 );
@@ -163,10 +165,12 @@ const pageDescription = 'Version history and release notes for Varve. See what c
               {rel.sections.map((section) => {
                 const meta = CATEGORY_META[section.category] ?? { label: section.category, cssClass: 'cat-other' };
                 return (
-                  <div class="changelog-category">
-                    <h3 class={`changelog-category-heading ${meta.cssClass}`}>
-                      {meta.label}
-                    </h3>
+                  <div class={`changelog-category${section.category === 'Summary' ? ' changelog-category--summary' : ''}`}>
+                    {section.category !== 'Summary' && (
+                      <h3 class={`changelog-category-heading ${meta.cssClass}`}>
+                        {meta.label}
+                      </h3>
+                    )}
                     <div set:html={section.entries.map((e) => e.html).join('\n')} />
                   </div>
                 );
@@ -243,10 +247,12 @@ const pageDescription = 'Version history and release notes for Varve. See what c
                       {rel.sections.map((section) => {
                         const meta = CATEGORY_META[section.category] ?? { label: section.category, cssClass: 'cat-other' };
                         return (
-                          <div class="changelog-category">
-                            <h3 class={`changelog-category-heading ${meta.cssClass}`}>
-                              {meta.label}
-                            </h3>
+                          <div class={`changelog-category${section.category === 'Summary' ? ' changelog-category--summary' : ''}`}>
+                            {section.category !== 'Summary' && (
+                              <h3 class={`changelog-category-heading ${meta.cssClass}`}>
+                                {meta.label}
+                              </h3>
+                            )}
                             <div set:html={section.entries.map((e) => e.html).join('\n')} />
                           </div>
                         );

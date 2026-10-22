@@ -63,6 +63,82 @@ describe('NewDesignDialog', () => {
     );
   });
 
+  it('creates the design when Enter is pressed in the name field', async () => {
+    // GraphiteEditor/Graphite#3601: a keyboard-driven user types a name and
+    // expects Enter to finish the task they started with the keyboard.
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(<NewDesignDialog open onClose={vi.fn()} onCreate={onCreate} defaultName="Untitled 1" />);
+    const nameInput = screen.getByLabelText('Document name');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Poster draft{Enter}');
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ documentName: 'Poster draft' }),
+    );
+  });
+
+  it('creates the design when Enter is pressed in a dimension field', async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(<NewDesignDialog open onClose={vi.fn()} onCreate={onCreate} />);
+    await user.click(screen.getByRole('radio', { name: /start with a frame/i }));
+    await user.click(screen.getByRole('radio', { name: 'Custom size' }));
+    const width = document.getElementById('custom-width') as HTMLInputElement;
+    await user.clear(width);
+    await user.type(width, '640{Enter}');
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startMode: 'customFrame',
+        customFrame: expect.objectContaining({ width: 640 }),
+      }),
+    );
+  });
+
+  it('keeps Enter in the preset-name field for saving the preset', async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    const onSaveCustomPreset = vi.fn(() => ({ error: null }));
+    render(
+      <NewDesignDialog
+        open
+        onClose={vi.fn()}
+        onCreate={onCreate}
+        onSaveCustomPreset={onSaveCustomPreset}
+      />,
+    );
+    await user.click(screen.getByRole('radio', { name: /start with a frame/i }));
+    await user.click(screen.getByRole('radio', { name: 'Custom size' }));
+    await user.click(screen.getByRole('button', { name: /save as preset/i }));
+    const presetName = screen.getByLabelText('Preset name');
+    await user.clear(presetName);
+    await user.type(presetName, 'Square social{Enter}');
+    expect(onSaveCustomPreset).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Square social' }),
+    );
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  it('keeps Enter in the preset search for choosing a preset', async () => {
+    // The preset search consumes Enter to select the highlighted row without
+    // stopping the event; the dialog must not also create a document.
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(<NewDesignDialog open onClose={vi.fn()} onCreate={onCreate} />);
+    await user.click(screen.getByRole('radio', { name: /start with a frame/i }));
+    const search = screen.getByRole('combobox');
+    await user.type(search, 'Instagram');
+    await user.keyboard('{Enter}');
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  it('does not create on Enter while an IME composition is active', async () => {
+    const onCreate = vi.fn();
+    render(<NewDesignDialog open onClose={vi.fn()} onCreate={onCreate} />);
+    const nameInput = screen.getByLabelText('Document name');
+    fireEvent.keyDown(nameInput, { key: 'Enter', isComposing: true });
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
   it('creates a presentation with the default widescreen size', async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn();

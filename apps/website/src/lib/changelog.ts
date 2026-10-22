@@ -128,6 +128,13 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
   let current: ChangelogRelease | null = null;
   let currentSection: ChangelogSection | null = null;
   let listLines: string[] = [];
+  /**
+   * Paragraph lines between a version heading and its first `###` category.
+   * Varve writes a short release summary there; dropping it removed the only
+   * place some releases state what changed, so it is captured as a leading
+   * section instead of being ignored.
+   */
+  let preambleLines: string[] = [];
 
   /** Flush accumulated list lines into the current section as a single entry. */
   function flushList() {
@@ -135,6 +142,18 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
     const html = listToHtml(listLines);
     if (html) currentSection.entries.push({ html });
     listLines = [];
+  }
+
+  /** Turn collected summary paragraphs into the release's leading section. */
+  function flushPreamble() {
+    if (!current || preambleLines.length === 0) return;
+    const entries = preambleLines
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+      .map((paragraph) => ({ html: `<p>${inlineMd(paragraph)}</p>` }));
+    preambleLines = [];
+    if (entries.length === 0) return;
+    current.sections.push({ category: 'Summary', entries });
   }
 
   /** Close current section and push it to the current release. */
@@ -149,6 +168,7 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
   /** Close current release and push it to the results. */
   function closeRelease() {
     closeSection();
+    flushPreamble();
     if (current) {
       releases.push(current);
     }
@@ -184,10 +204,27 @@ export function parseChangelog(markdown: string): ChangelogRelease[] {
     const categoryMatch = trimmed.match(CATEGORY_RE);
     if (categoryMatch && current) {
       closeSection();
+      flushPreamble();
       currentSection = {
         category: categoryMatch[1].trim(),
         entries: [],
       };
+      continue;
+    }
+
+    // Summary paragraphs between the version heading and the first category.
+    if (current && !currentSection) {
+      if (trimmed === '') {
+        if (preambleLines.length > 0 && preambleLines[preambleLines.length - 1] !== '') {
+          preambleLines.push('');
+        }
+      } else if (preambleLines.length > 0 && preambleLines[preambleLines.length - 1] !== '') {
+        // Markdown treats consecutive lines as one paragraph; joining them keeps
+        // sentences (and phrases a reader searches for) intact.
+        preambleLines[preambleLines.length - 1] += ` ${trimmed}`;
+      } else {
+        preambleLines.push(trimmed);
+      }
       continue;
     }
 
@@ -242,8 +279,7 @@ export function parseChangelogFile(repoRoot?: string): ChangelogRelease[] {
   // `../..` depth — keeps the lookup correct when the checkout is nested. A
   // git worktree created under `.worktrees/<name>` sits two levels below the
   // primary checkout, so `cwd/../..` resolves to *that* checkout and the site
-  // would publish another branch's changelog. The nearest directory that has
-  // both a CHANGELOG.md and a package.json is the repository root.
+  // would publish another branch's changelog.
   const candidates = repoRoot ? [repoRoot] : repositoryRootCandidates();
 
   for (const root of candidates) {

@@ -117,6 +117,26 @@ describe('parseChangelog', () => {
     expect(releases.length).toBe(3);
   });
 
+  it('keeps the summary paragraphs written under a version heading', () => {
+    const markdown = [
+      '## [1.2.3] - 2026-01-02',
+      '',
+      'A short release summary that readers need.',
+      '',
+      'It can run to a second paragraph.',
+      '',
+      '### Added',
+      '',
+      '- **Thing** — does the thing.',
+    ].join('\n');
+    const [release] = parseChangelog(markdown);
+    expect(release?.sections[0]?.category).toBe('Summary');
+    const summary = release?.sections[0]?.entries.map((entry) => entry.html).join(' ') ?? '';
+    expect(summary).toContain('A short release summary that readers need.');
+    expect(summary).toContain('It can run to a second paragraph.');
+    expect(release?.sections[1]?.category).toBe('Added');
+  });
+
   it('Unreleased section first', () => {
     const releases = parseChangelog(BASIC);
     expect(releases[0].version).toBe('Unreleased');

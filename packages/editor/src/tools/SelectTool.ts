@@ -36,6 +36,7 @@ import { committedParentIndex } from '../scene/parentIndexCache';
 import { planManualWorldTranslationFromOrigins } from '../scene/selectionArrangement';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { loadSettings } from '../settings';
+import { type MoveConstraint, projectOntoDirection, resolveMoveConstraint } from './axisConstraint';
 import { BaseTool } from './BaseTool';
 import { interactionSession } from './InteractionContext';
 import { layoutDropInsertionIndex } from './layoutDrop';
@@ -132,6 +133,11 @@ export class SelectTool extends BaseTool {
   private forceMarqueeHeld = false;
   /** Stable selection snapshot used by the current object marquee. */
   private marqueeBaseSelection: NodeId[] = [];
+  /**
+   * Movement direction resolved for the current drag. Kept so the drag-end
+   * reparent decision uses the same displacement the user saw on screen.
+   */
+  private moveConstraint: MoveConstraint | null = null;
   /** IDs addressed by a move, independent of React's commit timing. */
   private gestureSelectionIds: NodeId[] = [];
 
@@ -288,6 +294,9 @@ export class SelectTool extends BaseTool {
   override onDragStart(ctx: ToolContext): void {
     if (this.hasSelectionSurfaceChanged(ctx)) return;
     if (this.pointerDownLocked) return;
+    // Each gesture resolves its own direction; a stale constraint from the
+    // previous drag must never leak into this one.
+    this.moveConstraint = null;
     const moveHit = this.pointerDownMoveHit ?? this.pointerDownHit;
     if (moveHit) {
       this.beginMoveGesture(ctx, moveHit);
@@ -306,7 +315,7 @@ export class SelectTool extends BaseTool {
     // Depth cycling belongs to a completed click; running it here retargets
     // the move to the next child as soon as the pointer crosses the drag
     // threshold, leaving the rest of the group behind.
-    const selection = this.applyHitSelection(ctx, hit, false);
+    const selection = this.applyHitSelection(ctx, hit, false, true);
     this.gestureSelectionIds = selection;
     this.marqueeActive = false;
     this.isMoveGesture = true;
@@ -322,6 +331,27 @@ export class SelectTool extends BaseTool {
       const bounds = node ? ctx.nodeWorldBounds(node) : null;
       if (bounds) this.initialWorldBounds.set(id, bounds);
     }
+  }
+
+  /**
+   * World-space move delta with the gesture's constraint applied.
+   *
+   * `resolveMoveConstraint` owns the policy so the Select tool, the page tool
+   * and any future gesture agree on what Shift means. The resolved direction is
+   * cached for the drag-end reparent decision, which must measure the same
+   * displacement the user saw instead of the raw pointer position.
+   */
+  private constrainedDragDelta(
+    ctx: ToolContext,
+    interaction: { shiftKey: boolean; axisLock?: 'none' | 'x' | 'y' },
+  ): { dx: number; dy: number } {
+    const raw = this.worldDragDelta(ctx);
+    const constraint = resolveMoveConstraint(raw.dx, raw.dy, {
+      shiftKey: interaction.shiftKey,
+      axisLock: interaction.axisLock,
+    });
+    this.moveConstraint = constraint.constrained ? constraint : null;
+    return { dx: constraint.dx, dy: constraint.dy };
   }
 
   private collectPreviewAffectedIds(
@@ -355,6 +385,14 @@ export class SelectTool extends BaseTool {
     ctx: ToolContext,
     hit: HitTarget,
     allowSelectedHitCycle = true,
+    /**
+     * A drag is not a selection toggle. Shift pressed before pointer-down both
+     * picks the constraint for the coming move and, in a click, toggles the
+     * target. Treating the press as the toggle removed the node from the
+     * selection and left the drag with nothing to move, so Shift-drag could
+     * never constrain anything the user had already selected.
+     */
+    forDrag = false,
   ): NodeId[] {
     const base = this.pointerDownSelection;
     const baseSet = new Set(base);
@@ -395,10 +433,19 @@ export class SelectTool extends BaseTool {
         : [...base, target.nodeId];
       ctx.toggleSelection(target.nodeId, !baseSet.has(target.nodeId));
     } else if (shift) {
-      next = baseSet.has(target.nodeId)
-        ? base.filter((id) => id !== target.nodeId)
-        : [...base, target.nodeId];
-      ctx.toggleSelection(target.nodeId, true);
+      if (forDrag) {
+        // Keep an already-selected target so the drag can move it; still add a
+        // target the user Shift-pressed to include in the move.
+        if (!baseSet.has(target.nodeId)) {
+          next = [...base, target.nodeId];
+          ctx.toggleSelection(target.nodeId, true);
+        }
+      } else {
+        next = baseSet.has(target.nodeId)
+          ? base.filter((id) => id !== target.nodeId)
+          : [...base, target.nodeId];
+        ctx.toggleSelection(target.nodeId, true);
+      }
     } else if (deepSelect && (!baseSet.has(target.nodeId) || base.length <= 1)) {
       next = [target.nodeId];
       ctx.setSelection(target.nodeId);
@@ -556,8 +603,9 @@ export class SelectTool extends BaseTool {
 
       const sel = this.gestureSelectionIds.length > 0 ? this.gestureSelectionIds : ctx.selection;
       if (sel.length === 0) return;
-      // Total world-space delta from drag origin.
-      const totalDelta = this.worldDragDelta(ctx);
+      // Total world-space delta from drag origin, constrained by Shift (or an
+      // explicit axis lock) so the gesture matches the documented behaviour.
+      const totalDelta = this.constrainedDragDelta(ctx, interaction);
       // Calculate selection center for drop target frame detection
       let selCenterX = 0;
       let selCenterY = 0;
@@ -612,6 +660,16 @@ export class SelectTool extends BaseTool {
             [],
           );
           snapAdjust = { x: snapped.x - unsnappedX, y: snapped.y - unsnappedY };
+          // A constraint that snapping can undo is not a constraint: keep only
+          // the component that travels along the locked direction.
+          if (this.moveConstraint?.constrained) {
+            const along = projectOntoDirection(
+              snapAdjust.x,
+              snapAdjust.y,
+              this.moveConstraint.angleDeg,
+            );
+            snapAdjust = { x: along.dx, y: along.dy };
+          }
         }
       }
 
@@ -723,7 +781,9 @@ export class SelectTool extends BaseTool {
             // the gesture's world-space delta and the captured initial bounds
             // instead of the layout engine's unchanged preview bounds.
             const initialBounds = this.initialWorldBounds.get(selId);
-            const dragDelta = this.worldDragDelta(ctx);
+            const dragDelta = this.moveConstraint
+              ? { dx: this.moveConstraint.dx, dy: this.moveConstraint.dy }
+              : this.worldDragDelta(ctx);
             const center =
               flowManaged && initialBounds
                 ? {
@@ -843,6 +903,7 @@ export class SelectTool extends BaseTool {
     this.pointerDownForceMarquee = false;
     this.gestureSelectionIds = [];
     this.marqueeBaseSelection = [];
+    this.moveConstraint = null;
     this.initialPositions.clear();
     this.initialWorldBounds.clear();
     this.moveBaseDocument = null;
@@ -1010,6 +1071,7 @@ export class SelectTool extends BaseTool {
     this.pointerDownForceMarquee = false;
     this.gestureSelectionIds = [];
     this.marqueeBaseSelection = [];
+    this.moveConstraint = null;
     this.initialPositions.clear();
     this.initialWorldBounds.clear();
     this.moveBaseDocument = null;
