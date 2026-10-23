@@ -105,6 +105,22 @@ describe('TypographySection direction', () => {
     expect(() => fireEvent.click(rtlBtn)).not.toThrow();
   });
 
+  it('puts type controls first, content next and occasional actions last (F-35)', () => {
+    const node = { ...makeTextNode('t1', 'auto'), nameMode: 'automatic' } as TextNode;
+    renderSection(<TypographySection nodes={[node]} />);
+    const family = screen.getByRole('button', { name: 'Browse fonts' });
+    const content = screen.getByRole('textbox', { name: 'Text content' });
+    const effects = screen.getByRole('button', { name: 'Clear outline' });
+    const follows = (a: Element, b: Element) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(family, content)).toBe(true);
+    expect(follows(content, effects)).toBe(true);
+
+    // The layer-name mode is an on/off switch, not a button posing as one.
+    expect(screen.getByRole('switch', { name: 'Layer name follows text' })).toBeChecked();
+    expect(screen.queryByRole('button', { name: 'Use text content as layer name' })).toBeNull();
+  });
+
   it('uses the shared switch for rich text editing', () => {
     const node = makeTextNode('t1', 'auto');
     renderSection(<TypographySection nodes={[node]} />);
