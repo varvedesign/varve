@@ -5,7 +5,7 @@
  * tamper detection, and checksum verification.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   bytesToHex,
   computeChecksum,
@@ -15,6 +15,7 @@ import {
   getKdfParams,
   hexToBytes,
   verifyChecksum,
+  withPasswordBytes,
 } from './encryption';
 
 function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -189,5 +190,41 @@ describe('encryption', () => {
       const bytes = new Uint8Array([0xff, 0xab, 0xcd]);
       expect(bytesToHex(bytes)).toBe('ffabcd');
     });
+  });
+});
+
+describe('key material lifetime', () => {
+  it('wipes the encoded password buffer after use', async () => {
+    // The derived AES key is a non-extractable CryptoKey. The UTF-8 copy of
+    // the password is the one raw buffer Varve controls, and it must not
+    // outlive the import (storytold/pdfcraft #3928).
+    let seen: Uint8Array | null = null;
+    const result = await withPasswordBytes('correct horse battery staple', async (bytes) => {
+      seen = bytes;
+      expect(bytes.some((byte) => byte !== 0)).toBe(true);
+      return 'ok';
+    });
+    expect(result).toBe('ok');
+    expect(seen).not.toBeNull();
+    expect((seen as Uint8Array).every((byte) => byte === 0)).toBe(true);
+  });
+
+  it('wipes the buffer even when the consumer throws', async () => {
+    let seen: Uint8Array | null = null;
+    await expect(
+      withPasswordBytes('secret', async (bytes) => {
+        seen = bytes;
+        throw new Error('import failed');
+      }),
+    ).rejects.toThrow('import failed');
+    expect((seen as Uint8Array).every((byte) => byte === 0)).toBe(true);
+  });
+
+  it('derives a non-extractable AES-GCM key', async () => {
+    const key = await deriveKey('correct horse battery staple', new Uint8Array(16), {
+      iterations: 1_000,
+    });
+    expect(key.extractable).toBe(false);
+    expect(key.algorithm).toMatchObject({ name: 'AES-GCM', length: 256 });
   });
 });

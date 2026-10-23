@@ -64,6 +64,28 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
+/**
+ * Run `use` with the UTF-8 bytes of a password, then wipe the buffer.
+ *
+ * The derived AES key is a non-extractable CryptoKey: Varve never holds raw
+ * key bytes. The one copy it does control is the UTF-8 encoding of the
+ * password, which is wiped as soon as Web Crypto has imported it
+ * (storytold/pdfcraft #3928). The password string itself is immutable
+ * JavaScript and cannot be zeroized; that limit is recorded in the closure
+ * rather than papered over.
+ */
+export async function withPasswordBytes<T>(
+  password: string,
+  use: (bytes: Uint8Array) => Promise<T>,
+): Promise<T> {
+  const bytes = new TextEncoder().encode(password);
+  try {
+    return await use(bytes);
+  } finally {
+    bytes.fill(0);
+  }
+}
+
 /** Derive an AES-GCM-256 key from a password via PBKDF2. */
 export async function deriveKey(
   password: string,
@@ -71,22 +93,23 @@ export async function deriveKey(
   params?: { iterations?: number; hash?: string },
 ): Promise<CryptoKey> {
   const subtle = getSubtle();
-  const enc = new TextEncoder();
-  const keyMaterial = await subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, [
-    'deriveKey',
-  ]);
-  return subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: salt as BufferSource,
-      iterations: params?.iterations ?? DEFAULT_ITERATIONS,
-      hash: params?.hash ?? HASH,
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: KEY_LENGTH },
-    false,
-    ['encrypt', 'decrypt'],
-  );
+  return withPasswordBytes(password, async (passwordBytes) => {
+    const keyMaterial = await subtle.importKey('raw', passwordBytes, 'PBKDF2', false, [
+      'deriveKey',
+    ]);
+    return subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt as BufferSource,
+        iterations: params?.iterations ?? DEFAULT_ITERATIONS,
+        hash: params?.hash ?? HASH,
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: KEY_LENGTH },
+      false,
+      ['encrypt', 'decrypt'],
+    );
+  });
 }
 
 /**
