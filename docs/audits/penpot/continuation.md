@@ -781,3 +781,43 @@ regressions from this branch, and are recorded here rather than fixed:
 `svgStopColor` defaults a stop with no `stop-color` to `transparent` where SVG's
 initial value is black, and `fill`/`stroke` are not inherited from an ancestor
 `<g>`. Both need their own reproduction fixtures before any change.
+
+### Handoff — PR #174 state at 2026-10-23 03:45 local
+
+- Local branch `codex/penpot-pr174-green` (worktree
+  `.worktrees/penpot-integration`) is **2 commits ahead of the pushed PR head**:
+  - pushed: `9d323a221` (overlay pan forwarding, merge of master `6eebb9581`)
+  - local: `03860c20b` (review fixes: canvas focus, pointer-state release,
+    cancellation announcement, browser-reserved probe) and `e1d73c3a9`
+    (Menubar mock for `bindingToAriaKeyshortcuts`)
+- Why they are not pushed: the pre-push checkpoint's
+  `typecheck:@varve/editor` lane is capped at 300 s and takes 2–5 minutes on
+  this host under load 13–20; four attempts were killed by that budget or by
+  runner restarts. The same lane, `typecheck:e2e`, the Menubar unit test
+  (32/32), Biome, `audit:docs`, `audit:emoji`, `audit:imports`, and the research
+  tool tests were all run directly and passed. The repository's push-policy
+  override was **not** used.
+- CI on the pushed head `9d323a221` failed for two separate reasons:
+  1. **Fixed locally, not yet pushed:** `JS (pnpm)` failed because
+     `Menubar.test.tsx` mocks `./shortcuts` and did not export
+     `bindingToAriaKeyshortcuts`. That one error failed the whole editor unit
+     lane.
+  2. **Not fixed, needs a decision:** nearly every E2E shard failed. The shard
+     logs show per-file lanes (`e2e:file:...`) being invoked with
+     `--shard N/24` and the job exiting 1 after the last lanes printed their
+     commands without a Playwright run line. Each per-file lane starts its own
+     dev server (`reuseExistingServer: false`), so a shard that owns many
+     single-spec lanes spends most of its budget on server startup; this PR
+     changes more specs than master's last green run, which increases the
+     number of those lanes. This is CI plan/sharding infrastructure, not an
+     assertion failure in the changed code, and it needs either a lane
+     assignment change (assign a file lane to one shard instead of splitting it
+     across all 24) or a reviewed increase in the job budget. It is recorded
+     here rather than changed inside a product PR.
+- To finish the integration on a quiet host:
+  `git push origin HEAD:codex/penpot-corpus-integration` from
+  `.worktrees/penpot-integration`, then watch CI. Do not merge before the JS
+  lane and the E2E shards are green for the exact candidate SHA.
+- The worktree is intentionally **not** removed: it holds the two unpushed
+  commits. `codex/penpot-corpus` (the 45-commit progressive record) is also
+  preserved.
