@@ -75,6 +75,10 @@ overrides:
   # Astro's default Sharp service depends on libheif; keep its optional Sharp
   # dependency on the patched 0.35 line. Sharp install scripts remain blocked.
   "sharp": 0.35.5
+  # GHSA-mrhx-c7xc-m3w5: zod collection parse DoS. Astro 7.3.3 still resolves
+  # 4.6.5; knip and mutation-server-protocol still resolve 4.4.3. Pin the 4.x
+  # line to the patched 4.6.6 release until those parents move.
+  "zod": 4.6.6
 
 # pnpm 11 build-script approval (replaces the removed onlyBuiltDependencies).
 # esbuild (used by vitest + biome) ships/verifies its platform binary via
