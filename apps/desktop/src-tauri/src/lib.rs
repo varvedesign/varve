@@ -1145,9 +1145,14 @@ fn policy_status() -> PolicyStatus {
 }
 
 #[tauri::command]
-fn policy_can_check_updates() -> Result<(), String> {
-    if policy::POLICY.permits_updates() { Ok(()) }
-    else { Err("Update checks are disabled by your organisation's policy".into()) }
+fn policy_can_check_updates() -> bool {
+    policy::POLICY.permits_updates()
+}
+
+#[tauri::command]
+fn policy_authorize_network_request(url: String) -> Result<(), String> {
+    if policy::POLICY.permits_network_url(&url) { Ok(()) }
+    else { Err("Network access is disabled by your organisation's policy".into()) }
 }
 
 fn is_allowed_model_download_url(url: &str) -> bool {
@@ -5392,11 +5397,12 @@ fn home_write_text_file_approved(path: String, contents: String) -> Result<(), S
 }
 
 fn model_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    let dir = policy::model_directory().unwrap_or(
-        filesystem::AppDirectories::resolve(app)
+    let dir = match policy::model_directory() {
+        Some(dir) => dir,
+        None => filesystem::AppDirectories::resolve(app)
             .map_err(|error| error.message)?
             .models,
-    );
+    };
     std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create models dir: {e}"))?;
     Ok(dir)
 }
@@ -6051,6 +6057,7 @@ pub fn run() {
             updates::update_packaging_context,
             policy_status,
             policy_can_check_updates,
+            policy_authorize_network_request,
             // Home commands
             home_list_files,
             home_list_trashed,
@@ -6182,6 +6189,10 @@ pub fn run() {
 /// network initialization. Returns `None` for normal application startup.
 pub fn validate_policy_cli() -> Option<i32> {
     let args: Vec<String> = std::env::args().collect();
+    validate_policy_args(&args)
+}
+
+fn validate_policy_args(args: &[String]) -> Option<i32> {
     if args.len() >= 2 && args[1] == "--validate-policy" {
         if args.len() != 3 {
             eprintln!("Usage: varve --validate-policy <path>");
@@ -6193,6 +6204,22 @@ pub fn validate_policy_cli() -> Option<i32> {
         };
     }
     None
+}
+
+#[cfg(test)]
+mod policy_cli_tests {
+    use super::validate_policy_args;
+
+    #[test]
+    fn validate_policy_cli_returns_success_for_a_valid_file_and_failure_for_bad_json() {
+        let path = std::env::temp_dir().join(format!("policy-cli-{}.json", std::process::id()));
+        std::fs::write(&path, r#"{"schemaVersion":1,"policies":{},"recommended":{}}"#).unwrap();
+        let valid = vec!["varve".to_string(), "--validate-policy".to_string(), path.display().to_string()];
+        assert_eq!(validate_policy_args(&valid), Some(0));
+        std::fs::write(&path, "{").unwrap();
+        assert_eq!(validate_policy_args(&valid), Some(1));
+        let _ = std::fs::remove_file(path);
+    }
 }
 
 fn appimage_dmabuf_default(is_appimage: bool, has_user_override: bool) -> Option<&'static str> {

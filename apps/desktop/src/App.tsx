@@ -34,6 +34,7 @@ import { TitleBar } from './chrome/TitleBar';
 import { DemoBanner } from './demo/DemoBanner';
 import { useDemoEntry } from './demo/useDemoEntry';
 import { installNativeLifecycleBridge } from './lifecycle/nativeLifecycleBridge';
+import { PolicyBanner } from './PolicyBanner';
 import { armBrowserFileLaunch, type LaunchedBrowserFile } from './startup/browserFileLaunch';
 import { armOsFileOpen } from './startup/osFileOpen';
 import { revealMainWindow } from './startup/revealMainWindow';
@@ -525,12 +526,7 @@ export function App() {
         }}
       >
         <TitleBar />
-        {policyReadFailure && (
-          <div role="alert" className="varve-policy-banner">
-            Your organisation's Varve policy could not be read. Restricted mode is on. Contact your
-            administrator.
-          </div>
-        )}
+        {policyReadFailure && <PolicyBanner />}
         {demo.config.active && <DemoBanner config={demo.config} />}
         {storageIsEphemeral && (
           <div role="alert" className="varve-ephemeral-storage-banner">

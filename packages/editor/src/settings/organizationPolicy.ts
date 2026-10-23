@@ -19,5 +19,5 @@ export async function loadOrganizationPolicy(): Promise<OrganizationPolicyStatus
 }
 
 export function isOrganizationLocked(policy: OrganizationPolicyStatus, key: string): boolean {
-  return policy.restricted || policy.lockedSettings.includes(key);
+  return policy.lockedSettings.includes(key);
 }

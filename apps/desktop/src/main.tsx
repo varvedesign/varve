@@ -10,6 +10,7 @@ import '@fontsource-variable/ibm-plex-sans/index.css';
 // packages/ui/src/tokens/tokens.css.
 import '@fontsource-variable/fraunces/opsz.css';
 
+import { invoke } from '@tauri-apps/api/core';
 import { ErrorBoundary, restoreStoredFonts } from '@varve/editor';
 import { AuxiliaryRoot } from '@varve/editor/auxiliary';
 import { initializeThemeLifecycle } from '@varve/ui/tokens';
@@ -25,6 +26,19 @@ import { installFrameGuard } from './demo/frameGuard';
 import { installStaleAssetGuard } from './demo/staleAssetGuard';
 import { initCspDiagnostics } from './security/cspDiagnostics';
 import { dismissBootFallback } from './startup/revealMainWindow';
+
+// Funnel browser-originated network features through the native policy check.
+// This covers icon search, online font discovery and remote assets as well as
+// future fetch-based features. Native downloads and the updater also enforce
+// the same policy at their Rust entry points.
+const nativeFetch = globalThis.fetch.bind(globalThis);
+globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (/^https?:/i.test(url) && '__TAURI_INTERNALS__' in window) {
+    await invoke('policy_authorize_network_request', { url });
+  }
+  return nativeFetch(input, init);
+};
 
 const fontRuntime = globalThis as typeof globalThis & {
   __VARVE_FONT_CONFIG__?: { googleApiKey?: string };

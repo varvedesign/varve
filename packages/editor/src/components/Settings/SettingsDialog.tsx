@@ -821,8 +821,22 @@ function AISection() {
       </p>
       <SettingsFieldRow label="AI features">
         <SwitchField
-          label={settings.ai.enabled ? 'On' : 'Off'}
-          checked={organizationPolicy.aiEnabled === 'off' ? false : settings.ai.enabled}
+          label={
+            organizationPolicy.aiEnabled === 'on'
+              ? 'On'
+              : organizationPolicy.aiEnabled === 'off'
+                ? 'Off'
+                : settings.ai.enabled
+                  ? 'On'
+                  : 'Off'
+          }
+          checked={
+            organizationPolicy.aiEnabled === 'on'
+              ? true
+              : organizationPolicy.aiEnabled === 'off'
+                ? false
+                : settings.ai.enabled
+          }
           onChange={(e) => updateSection('ai', { enabled: e.target.checked })}
           id="ai-features-toggle"
           disabled={aiLocked}
