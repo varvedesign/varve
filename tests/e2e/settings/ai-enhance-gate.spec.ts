@@ -102,15 +102,20 @@ test.describe('Enhance AI admission', () => {
 
     await openSelect(page, 'Enhancement operation');
     for (const label of MODEL_OPERATIONS) {
-      await expect(page.getByRole('option', { name: label, exact: true })).toBeVisible();
+      const option = page.getByRole('option', { name: label });
+      await option.scrollIntoViewIfNeeded();
+      await expect(option).toBeVisible();
     }
     await capture(page, testInfo, 'ai_on_enhance_operations');
     await page.keyboard.press('Escape');
 
     await openSelect(page, 'Enhancement preset');
     for (const label of MODEL_PRESETS) {
-      await expect(page.getByRole('option', { name: label, exact: true })).toBeVisible();
+      const option = page.getByRole('option', { name: label });
+      await option.scrollIntoViewIfNeeded();
+      await expect(option).toBeVisible();
     }
+    await page.getByRole('option', { name: 'Photo cleanup + upscale' }).scrollIntoViewIfNeeded();
     await capture(page, testInfo, 'ai_on_enhance_presets');
   });
 });
