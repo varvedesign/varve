@@ -11,6 +11,7 @@ export { ExportLayer, type ExportLayerHandle } from './ExportLayer';
 export { FindReplaceLayer, type FindReplaceLayerHandle } from './FindReplaceLayer';
 export { ImageResizeDialogHost } from './ImageResizeDialogHost';
 export { OnboardingLayer, type OnboardingLayerHandle } from './OnboardingLayer';
+export { PanelRestoreButtons } from './PanelRestoreButtons';
 export { RecoveryManager } from './RecoveryManager';
 export { VectorizeDialogHost } from './VectorizeDialogHost';
 export { WorkspaceBottomPanels } from './WorkspaceBottomPanels';

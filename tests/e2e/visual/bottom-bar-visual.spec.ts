@@ -31,8 +31,9 @@ async function setTheme(
 }
 
 /**
- * Clip covering both bottom strips plus a little canvas, so the review image
- * shows the stack in context rather than two floating hairlines.
+ * Clip covering the bottom row (the selection segment now leads the status
+ * bar) plus a little canvas, so the review image shows it in context rather
+ * than a floating hairline.
  */
 async function captureBottomStack(
   page: import('@playwright/test').Page,

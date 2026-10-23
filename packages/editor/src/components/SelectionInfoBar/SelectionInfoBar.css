@@ -1,20 +1,20 @@
 /**
- * SelectionInfoBar — CSS for selection feedback strip.
+ * SelectionInfoBar — the leading segment of the status bar.
+ *
+ * It used to be a strip of its own stacked on the status bar. As a segment it
+ * is the one piece of the row allowed to shrink: geometry readouts stay whole
+ * and the name and breadcrumbs ellipsize, so controls to its right are never
+ * pushed out of reach.
  */
 
-.selection-info-bar {
-  grid-area: selinfo;
+.editor-status > .selection-info-bar {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-surface-raised);
-  border-top: 1px solid var(--color-border-subtle);
-  border-bottom: none;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  min-height: 28px;
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
+  color: var(--color-text-secondary);
 }
 
 .selection-info-bar__empty,
@@ -23,7 +23,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -78,10 +78,17 @@
   flex-shrink: 1;
 }
 
+/* Status-row controls are 24px targets (WCAG 2.2 SC 2.5.8, the bar's own
+ * control tier). Under pressure a crumb shrinks to an ellipsized stub instead
+ * of being clipped, so keyboard focus never lands on a hidden button. */
 .selection-info-bar__breadcrumb {
   background: none;
   border: none;
-  padding: 2px 6px;
+  padding: 0 var(--space-2);
+  height: var(--statusbar-control-height);
+  line-height: var(--statusbar-control-height);
+  flex: 0 1 auto;
+  min-width: 4ch;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   cursor: pointer;

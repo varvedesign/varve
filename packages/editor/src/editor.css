@@ -316,7 +316,7 @@ input[type="number"] {
    * itself establishes a containing block (i.e. is not position:static).
    * Without this, such children fall back to the initial containing block
    * (the document), silently ignoring the grid entirely and overlapping
-   * whatever real content sits below the "canvas" row (pagenav/selinfo/
+   * whatever real content sits below the "canvas" row (pagenav/
    * status) instead of being confined to it. */
   position: relative;
   /* The status bar's own controls are 24px targets (WCAG 2.2 SC 2.5.8) plus
@@ -350,7 +350,6 @@ input[type="number"] {
     "timeline timeline  timeline  logoarea"
     "history  history   history   logoarea"
     "pagenav  pagenav   pagenav   logoarea"
-    "selinfo  selinfo   selinfo   logoarea"
     "status   status    status    logoarea";
   /* Fourth column is the Logo panel: a reserved 0-width track unless the
    * panel is open, so the logo panel can never overlay or block canvas
@@ -361,8 +360,7 @@ input[type="number"] {
    * tracks their sum is fixed, so at an enlarged root text size (WCAG 1.4.4
    * text-only enlargement — Firefox "Zoom text only", a user stylesheet, an
    * OS text-size preference) the three tracks exceeded the viewport, the
-   * full-width chrome rows (menubar, tab strip, context bar, selection info,
-   * status) resolved 45px wider than a 1280px window at 200% text, and
+   * full-width chrome rows (menubar, tab strip, context bar, status) resolved 45px wider than a 1280px window at 200% text, and
    * `.editor-shell { overflow: hidden }` clipped their right ends. A 0
    * minimum lets each panel track yield to the container while still sizing
    * up to its token when there is room; the canvas floor (320px) is
@@ -372,7 +370,7 @@ input[type="number"] {
       0,
       var(--inspector-width)
     ) var(--logo-panel-width, 0px);
-  grid-template-rows: auto 32px minmax(120px, 1fr) auto auto auto auto var(--statusbar-height);
+  grid-template-rows: auto 32px minmax(120px, 1fr) auto auto auto var(--statusbar-height);
   flex: 1;
   min-height: 0;
   overflow: hidden;

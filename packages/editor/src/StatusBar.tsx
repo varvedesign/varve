@@ -5,6 +5,7 @@ import { Fragment, type ReactNode, useRef, useState, useSyncExternalStore } from
 import { useDocumentAccent } from './appearance/useDocumentAccent';
 import { AIStatusIndicator } from './components/AIStatusIndicator/AIStatusIndicator';
 import { PreflightWarnings } from './components/PreflightWarnings';
+import { SelectionInfoBar } from './components/SelectionInfoBar';
 import { DocumentInfoDialog } from './components/Shell';
 import { CursorPositionReadout } from './components/StatusBar/CursorPositionReadout';
 import { DocumentHealthBadge } from './components/StatusBar/DocumentHealthBadge';
@@ -433,6 +434,10 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
           file over its import budget) stays untouched. */}
       <DocumentInfoDialog />
       <div className="editor-status">
+        {/* Not a section: selection identity and geometry lead the row in
+            every workspace. It used to be a second strip stacked on this one,
+            which cost the canvas a row (shell audit 2026-10-21, F-04). */}
+        <SelectionInfoBar />
         {infoNodes.map((entry) => (
           <Fragment key={entry.id}>{entry.rendered}</Fragment>
         ))}
