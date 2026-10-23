@@ -1,6 +1,17 @@
 # Sample comic page — Halloween Cookies
 
-Six-panel gag for the "Letter it in Varve" campaign. Original flat-colour vector, no generative imagery, OFL font only.
+Six-panel gag for the "Letter it in Varve" campaign.
+
+Flat-colour vector built from code-drawn shapes, OFL font only.
+
+## Licence
+
+The page art is CC0 1.0 Universal. See `LICENSE-SAMPLE.md`.
+That covers `halloween-cookies.varve`, `halloween-cookies.png`,
+`halloween-cookies-unlettered.png`, and `halloween-cookies.pdf`.
+
+Generator and export scripts stay under the repository licence.
+IBM Plex Sans Variable stays SIL OFL 1.1.
 
 ## Story
 
