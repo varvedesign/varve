@@ -211,6 +211,42 @@ test.describe('Inspector numeric field integrity (real photo)', () => {
     expect(sorted[1]).toBeCloseTo(235, 3);
   });
 
+  test('typing into a mixed X field shows the draft and applies it to both objects', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+    await importRealPhoto(page);
+    const field = xField(page);
+    await field.fill('100');
+    await page.keyboard.press('Enter');
+
+    await page.locator('#file-import-input').setInputFiles(REAL_PHOTO);
+    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 15000 });
+    const mixedField = positionSizeGroup(page).getByLabel('X (px)');
+    await mixedField.fill('200');
+    await page.keyboard.press('Enter');
+    await page.evaluate(() => (document.activeElement as HTMLElement)?.blur?.());
+
+    await page.keyboard.press('Control+a');
+    await expect(mixedField).toHaveAttribute('aria-valuetext', 'Mixed values', { timeout: 5000 });
+
+    // Typing must replace the state label immediately. Before the fix the
+    // field kept rendering "Mixed" while storing every keystroke, so the draft
+    // was invisible until commit and a cleared field snapped back.
+    await mixedField.click();
+    await mixedField.fill('150');
+    await expect(mixedField).toHaveValue('150');
+    await expect(mixedField).toHaveAttribute('aria-valuetext', '150px');
+
+    await page.keyboard.press('Enter');
+
+    const rows = page.getByRole('treeitem');
+    await rows.nth(0).click();
+    expect(await readValue(xField(page))).toBeCloseTo(150, 3);
+    await rows.nth(1).click();
+    expect(await readValue(xField(page))).toBeCloseTo(150, 3);
+  });
+
   test('visual states for the numeric field on a real photo', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1180, height: 800 });
     await navigateToEditor(page);
