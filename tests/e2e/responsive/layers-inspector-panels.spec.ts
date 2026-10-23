@@ -296,7 +296,10 @@ test.describe('compact drawer (<=899px)', () => {
 });
 
 test.describe('short desktop window', () => {
-  test.use({ viewport: { width: 1024, height: 600 } });
+  // Tall enough for the shell, short enough that the rail must scroll. The
+  // compacted Layers header (F-05) fits the whole rail at 1024x600 (393px of
+  // content in 393px), so the scrolling case starts below about 580px.
+  test.use({ viewport: { width: 1024, height: 540 } });
 
   test('layer rows stay operable with the rail scrolling', async ({ page }) => {
     await navigateToEditor(page);

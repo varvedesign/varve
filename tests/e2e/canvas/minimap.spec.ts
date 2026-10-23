@@ -12,6 +12,11 @@ test.describe('Canvas minimap', () => {
       }
     });
     await navigateToEditor(page);
+    // The overview starts collapsed so the Layers tree keeps its height
+    // (shell audit 2026-10-21, F-05). Every case here exercises the open
+    // overview, so open it the way a user does: one click.
+    await expect(page.getByTestId('minimap-panel')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Show minimap', exact: true }).click();
   });
 
   test('tracks the live canvas, navigates, survives resize/workspace changes, and is recoverable', async ({

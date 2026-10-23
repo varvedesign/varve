@@ -28,6 +28,8 @@ test.describe('Tooltip system', () => {
     // tooltip at `--z-popover` lost whenever its bubble landed on a header.
     // The minimap's collapse control is the case that exposed it: it sits
     // directly under the Layers chrome, so its tooltip always overlapped.
+    // The minimap starts collapsed (F-05); open it to reach its header.
+    await page.getByRole('button', { name: 'Show minimap', exact: true }).click();
     const trigger = page.locator('.minimap-panel__header .minimap-panel__collapse-btn').first();
     await trigger.hover();
 

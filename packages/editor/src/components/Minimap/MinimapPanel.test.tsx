@@ -1,9 +1,18 @@
 import { fireEvent, render } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
+import { DISCLOSURE_STORAGE_PREFIX } from '../usePersistedDisclosure';
 import { MinimapPanel } from './MinimapPanel';
 
-afterEach(() => vi.restoreAllMocks());
+const NAVIGATOR_KEY = `${DISCLOSURE_STORAGE_PREFIX}layers-navigator`;
+
+// The navigator starts collapsed (F-05). These cases exercise the open
+// overview, so they start from a user who has opened it.
+beforeEach(() => window.localStorage.setItem(NAVIGATOR_KEY, '0'));
+afterEach(() => {
+  window.localStorage.removeItem(NAVIGATOR_KEY);
+  vi.restoreAllMocks();
+});
 
 function PanelVisibility() {
   return (
@@ -143,5 +152,18 @@ describe('MinimapPanel', () => {
     const canvas = container.querySelector('canvas') as HTMLCanvasElement;
     fireEvent.keyDown(canvas, { key: 'Escape' });
     expect(container.querySelector('.minimap-panel--collapsed')).toBeTruthy();
+  });
+
+  it('starts collapsed for a new user and remembers once opened', () => {
+    window.localStorage.removeItem(NAVIGATOR_KEY);
+    const first = renderWithProvider();
+    const show = first.getByRole('button', { name: 'Show minimap' });
+    expect(first.queryByTestId('minimap-panel')).toBeNull();
+    fireEvent.click(show);
+    expect(first.getByTestId('minimap-panel')).toBeTruthy();
+    first.unmount();
+
+    const second = renderWithProvider();
+    expect(second.getByTestId('minimap-panel')).toBeTruthy();
   });
 });

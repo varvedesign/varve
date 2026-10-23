@@ -169,10 +169,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: var(--component-default-height);
+  height: var(--component-default-height);
   padding: 0;
-  margin: var(--space-2);
+  margin: var(--space-1);
   cursor: pointer;
   border: var(--border-micro);
   border-radius: var(--radius-floating);
@@ -190,6 +190,13 @@
 .minimap-panel--collapsed:hover {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
+}
+
+@media (pointer: coarse), (any-pointer: coarse) {
+  .minimap-panel--collapsed {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+  }
 }
 
 /* High-contrast theme overrides */

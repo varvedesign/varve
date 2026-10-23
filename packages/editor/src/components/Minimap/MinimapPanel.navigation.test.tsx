@@ -38,6 +38,8 @@ vi.mock('../../context', () => ({
 }));
 
 beforeEach(() => {
+  // These cases drive the open overview; the navigator starts collapsed (F-05).
+  window.localStorage.setItem('varve:disclosure:layers-navigator', '0');
   fitAll.mockClear();
   panBy.mockClear();
   revealSelection.mockClear();

@@ -19,7 +19,10 @@
   gap: var(--space-2);
 }
 
+/* An h3: without the reset it kept the UA's 1em block margins, which made the
+   section header 55px tall around a 24px row (F-05, shell audit 2026-10-22). */
 .pages-panel__title {
+  margin: 0;
   display: flex;
   align-items: center;
   gap: var(--space-1);

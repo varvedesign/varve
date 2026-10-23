@@ -40,6 +40,7 @@ import {
   useState,
 } from 'react';
 import { useEditor } from '../../context';
+import { usePersistedDisclosure } from '../usePersistedDisclosure';
 import {
   buildMinimapScene,
   clipFootprintToStage,
@@ -234,7 +235,10 @@ export function MinimapPanel({ canvasOwnerRef, onCloseResponsivePanel }: Minimap
   const containerRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  // Collapsed by default so the Layers tree gets the vertical space (F-05,
+  // shell audit 2026-10-21: three rows were visible at 1440x900). Once the
+  // user opens the overview it stays open across sessions.
+  const [collapsed, setCollapsed] = usePersistedDisclosure('layers-navigator', true);
   const [hovering, setHovering] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [measurement, setMeasurement] = useState<PanelMeasurement>({

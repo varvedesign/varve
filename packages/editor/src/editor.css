@@ -2553,9 +2553,15 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
    * width; the vertical "do not squeeze the tree" intent lives on the outer
    * wrapper, which is a COLUMN flex child where this flex value only affects
    * height. Verified by tests/e2e/responsive/layers-inspector-panels.spec.ts
-   * ("layers rail contains its filter bar"). */
+   * ("layers rail contains its filter bar").
+   *
+   * Grow, never shrink: the 15rem floor stops the tree being squeezed, and
+   * flex-grow hands it whatever height the rail has left. With `0 0 auto` the
+   * wrapper was pinned at the floor on every window <= 900px tall, so a
+   * 24-layer document showed three rows above ~300px of empty rail at
+   * 1440x900 (shell audit 2026-10-21, F-05). */
   .editor__layers-panel .layers-panel-workspace {
-    flex: 0 0 auto;
+    flex: 1 0 auto;
     min-height: 15rem;
   }
 }

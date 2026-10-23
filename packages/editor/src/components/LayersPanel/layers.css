@@ -16,9 +16,10 @@
 /* Panel header: a quiet title row with a compact document count. */
 .layers-panel__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-05) var(--space-2);
   min-height: calc(var(--space-7) + var(--space-1));
   padding: var(--space-1) var(--space-2);
   font-size: var(--density-font-size, var(--font-size-sm));
@@ -79,31 +80,25 @@
   letter-spacing: 0.02em;
 }
 
-.layers-panel__header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex-shrink: 0;
-}
-
 /* Narrow rail: header-actions (settings, auto-reveal, collapse-all, the
  * conditional Exit Solo text button, detach) can alone exceed the panel's
  * minimum width once Exit Solo is present. Neither side shrinks or wraps by
  * default, so the heading and the trailing actions overlapped instead of
  * cleanly reflowing. Wrapping onto its own row keeps every action reachable
- * instead of overlapping the title or being clipped past the panel's edge. */
-@container layers (max-width: 340px) {
-  .layers-panel__header {
-    flex-wrap: wrap;
-    row-gap: var(--space-05);
-  }
-
-  .layers-panel__header-actions {
-    flex: 1 1 100%;
-    min-width: 0;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
+ * instead of overlapping the title or being clipped past the panel's edge.
+ *
+ * The header wraps only when its content does not fit. It used to wrap at any
+ * rail of 340px or less, which is every default width, so the title and five
+ * icon buttons always took two rows (63px) and pushed the tree down (F-05).
+ * The header itself sets `flex-wrap: wrap`. */
+.layers-panel__header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  min-width: 0;
+  margin-inline-start: auto;
 }
 
 /* Unified header icon button — one size, one transition, one focus ring. */
