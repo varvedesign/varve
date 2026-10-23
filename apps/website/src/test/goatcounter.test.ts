@@ -109,6 +109,23 @@ describe('minimal GoatCounter website transport', () => {
     });
   });
 
+  it('keeps hyphenated suffixes and the acquisition prefixes', () => {
+    expect(websiteCampaignRef('?ref=hn-post')).toBe('hn-post');
+    expect(websiteCampaignRef('?ref=reddit-graphic-design')).toBe('reddit-graphic-design');
+    expect(websiteCampaignRef('?ref=li-s8')).toBe('li-s8');
+    expect(websiteCampaignRef('?ref=home-hero')).toBe('home-hero');
+    expect(websiteCampaignRef('?ref=home-closing')).toBe('home-closing');
+    expect(websiteCampaignRef('?ref=lemmy-s1')).toBe('lemmy-s1');
+    expect(websiteCampaignRef('?ref=nl-week1')).toBe('nl-week1');
+    expect(websiteCampaignRef('?ref=prompt-202611')).toBe('prompt-202611');
+    expect(websiteCampaignRef('?ref=sample-poster')).toBe('sample-poster');
+    expect(websiteCampaignRef('?ref=gallery-1')).toBe('gallery-1');
+    expect(websiteCampaignRef('?ref=answer-no-account')).toBe('answer-no-account');
+    expect(pathWithCampaign('try', '?ref=hn-post')).toBe('try?ref=hn-post');
+    expect(pathWithCampaign('try', '?ref=evil')).toBe('try');
+    expect(websiteCampaignRef('?ref=evil')).toBeNull();
+  });
+
   it('keeps an allowlisted campaign ref on the path and drops every other query param', async () => {
     expect(websiteCampaignRef('?ref=masto-p1&utm_source=evil&q=secret')).toBe('masto-p1');
     expect(pathWithCampaign('/download', '?ref=bsky-p1&next=/admin')).toBe('/download?ref=bsky-p1');

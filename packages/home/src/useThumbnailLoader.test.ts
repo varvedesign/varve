@@ -2,8 +2,13 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { createMemoryPlatform, makeFileEntry } from '@varve/platform';
+import { thumbnailVariantForDevice } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { fileThumbnailIdentity, useThumbnailLoader } from './useThumbnailLoader';
+import {
+  fileThumbnailIdentity,
+  thumbnailIdentityCandidates,
+  useThumbnailLoader,
+} from './useThumbnailLoader';
 
 describe('useThumbnailLoader cache repair', () => {
   it('asks the host renderer to repair a missing thumbnail', async () => {
@@ -43,5 +48,23 @@ describe('useThumbnailLoader cache repair', () => {
       expect(result.current.thumbnails.get(entry.id)).toBe('data:image/png;base64,cached'),
     );
     expect(generate).not.toHaveBeenCalled();
+  });
+});
+
+describe('thumbnailIdentityCandidates', () => {
+  it('has one candidate at 1x', () => {
+    const entry = makeFileEntry({ id: 'file-1x', name: 'Standard display' });
+    expect(thumbnailIdentityCandidates(entry)).toHaveLength(1);
+  });
+
+  it('tries the 2x identity first and the 1x identity second', () => {
+    const entry = makeFileEntry({ id: 'file-2x', name: 'HiDPI display' });
+    const candidates = thumbnailIdentityCandidates(
+      entry,
+      thumbnailVariantForDevice('home-card', 2),
+    );
+    expect(candidates).toHaveLength(2);
+    expect(candidates[0]?.key).not.toBe(candidates[1]?.key);
+    expect(candidates[1]?.key).toBe(fileThumbnailIdentity(entry).key);
   });
 });

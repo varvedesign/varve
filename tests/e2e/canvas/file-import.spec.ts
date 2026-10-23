@@ -33,6 +33,31 @@ async function openImportFromMenu(page: import('@playwright/test').Page): Promis
   await page.getByRole('menuitem', { name: /import/i }).click();
 }
 
+/**
+ * Clear a first-use micro-hint before a canvas snapshot.
+ *
+ * Hints appear for ~4 s after the first use of a tool and float over the
+ * artwork, so a snapshot taken while one is on screen captures the hint instead
+ * of the import. Which hints fire depends on onboarding state, which is not part
+ * of the fixture — so dismiss rather than depend on timing.
+ */
+async function dismissMicroHint(page: import('@playwright/test').Page): Promise<void> {
+  const dismiss = page.getByRole('button', { name: 'Dismiss hint' });
+  if (
+    await dismiss
+      .first()
+      .isVisible({ timeout: 500 })
+      .catch(() => false)
+  ) {
+    await dismiss.first().click();
+  }
+  await page
+    .locator('.micro-hint')
+    .first()
+    .waitFor({ state: 'hidden', timeout: 5000 })
+    .catch(() => undefined);
+}
+
 async function ensureEditor(page: import('@playwright/test').Page): Promise<void> {
   const layers = page.locator('.layers-panel');
   if (await layers.isVisible({ timeout: 1000 }).catch(() => false)) return;
@@ -133,6 +158,7 @@ test.describe('File → Import', () => {
         window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
       ).__varvePerf?.forceFullRedraw?.();
     });
+    await dismissMicroHint(page);
     await page.waitForTimeout(700);
     await expect(canvas).toHaveScreenshot('file-import-svg.png', {
       // Canvas worker startup can leave the SVG paint one frame behind while
@@ -278,6 +304,7 @@ test.describe('File → Import', () => {
         window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
       ).__varvePerf?.forceFullRedraw?.();
     });
+    await dismissMicroHint(page);
     await page.waitForTimeout(700);
     await expect(canvas).toHaveScreenshot('file-import-svg-use-opacity.png', {
       maxDiffPixels: 100,
@@ -304,6 +331,7 @@ test.describe('File → Import', () => {
         window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
       ).__varvePerf?.forceFullRedraw?.();
     });
+    await dismissMicroHint(page);
     await page.waitForTimeout(700);
     await expect(canvas).toHaveScreenshot('file-import-svg-visibility.png', {
       maxDiffPixels: 100,

@@ -13,6 +13,12 @@
 
 import { Icon } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
+import {
+  type DemoAnalyticsChoice,
+  readDemoAnalyticsChoice,
+  setDemoAnalyticsChoice,
+  trackDemoDownloadClick,
+} from './demoAnalytics';
 import type { DemoConfig } from './demoMode';
 import {
   createInstallPromptController,
@@ -27,12 +33,12 @@ const DISMISS_KEY = 'varve-demo-banner-dismissed';
 
 const LIMITATIONS = [
   'Files are stored in this browser only. Clearing site data deletes them; there is no cloud account or upload.',
-  'The demo runs the WASM engine, not the native desktop engine — expect slower rendering on large documents.',
-  'Export gives you PNG, JPEG, WebP, and SVG. PDF, CMYK, bleed, and colour-managed print output are desktop-only — a browser has no print pipeline.',
+  'The demo runs the WASM engine, not the native desktop engine. Expect slower rendering on large documents.',
+  'Export gives you PNG, JPEG, WebP, and SVG. PDF, CMYK, bleed, and colour-managed print output are desktop-only. A browser has no print pipeline.',
   'Background removal, upscaling, and visual search are desktop-only. They run on-device, and a browser tab is the wrong place for the download and the compute.',
   'The demo covers the Design, Draw, and Photo workspaces. Print, Motion, and Email workspaces, Logo Tools, and the shared Code panel are in the desktop app.',
   'Native menus and auto-updates are desktop-only.',
-  'Best experienced on a desktop browser (Chrome, Edge, Firefox, Safari — recent versions).',
+  'Best experienced on a desktop browser (Chrome, Edge, Firefox, Safari; recent versions).',
 ] as const;
 
 export interface DemoBannerProps {
@@ -41,6 +47,7 @@ export interface DemoBannerProps {
 
 export function DemoBanner({ config }: DemoBannerProps) {
   const [dismissed, setDismissed] = useState(false);
+  const [analyticsChoice, setAnalyticsChoice] = useState<DemoAnalyticsChoice>('unknown');
   // Chromium offers `beforeinstallprompt` when the manifest meets its install
   // criteria; nothing is shown if the browser never offers it.
   const [canInstall, setCanInstall] = useState(false);
@@ -54,6 +61,7 @@ export function DemoBanner({ config }: DemoBannerProps) {
       // sessionStorage can throw in strict privacy modes; the banner just
       // stays visible for the session.
     }
+    setAnalyticsChoice(readDemoAnalyticsChoice());
   }, []);
 
   useEffect(() => {
@@ -82,6 +90,11 @@ export function DemoBanner({ config }: DemoBannerProps) {
     };
   }, []);
 
+  const choose = (choice: 'granted' | 'denied') => {
+    void setDemoAnalyticsChoice(choice);
+    setAnalyticsChoice(choice);
+  };
+
   if (dismissed) return null;
 
   const dismiss = () => {
@@ -97,12 +110,12 @@ export function DemoBanner({ config }: DemoBannerProps) {
     <section className="varve-demo-banner" aria-label="Browser demo notice">
       <div className="varve-demo-banner__inner">
         <p className="varve-demo-banner__intro">
-          Browser demo — the real editor, running entirely on this device. No account, nothing
+          Browser demo: the real editor, running entirely on this device. No account, nothing
           uploaded.
         </p>
         {offline && (
           <span className="varve-demo-banner__offline" role="status">
-            Offline — running from the copy saved in this browser. Edits stay on this device until
+            Offline: running from the copy saved in this browser. Edits stay on this device until
             you reconnect.
           </span>
         )}
@@ -114,6 +127,20 @@ export function DemoBanner({ config }: DemoBannerProps) {
             ))}
           </ul>
         </details>
+        {analyticsChoice === 'unknown' && (
+          <fieldset className="varve-demo-banner__consent" aria-label="Usage measurement">
+            <span>
+              Count this visit? Anonymous totals only. No account, no cookies, nothing about your
+              design.
+            </span>
+            <button type="button" onClick={() => choose('granted')}>
+              Allow
+            </button>
+            <button type="button" onClick={() => choose('denied')}>
+              No thanks
+            </button>
+          </fieldset>
+        )}
         {canInstall && (
           <button
             type="button"
@@ -128,6 +155,7 @@ export function DemoBanner({ config }: DemoBannerProps) {
           href={config.downloadUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => void trackDemoDownloadClick()}
         >
           Download desktop
           <Icon name="ExternalLink" size={14} aria-hidden="true" />

@@ -175,20 +175,44 @@ than relabelled.
 - **Not covered:** gradient strokes in the document route, and per-stop
   transparency (see F6).
 
-## F5 — Area-text overset is computed and thrown away (open)
+## F5 — Area-text overset is computed and thrown away (fixed)
 
 - **External evidence:** vectorcraft#1471 (area-type overflow is not reported;
-  `text.create`/`setStyle` return plain success), #2323 (overflow indicator
-  only appears once the box is selected), #2769 (CJK area text clips its last
+  create/set-style calls return plain success), #2323 (the overflow indicator
+  only appears once the frame is selected), #2769 (CJK area text clips its last
   line with no overset indicator).
-- **Varve code:** `packages/engine/src/replay.ts` computes
-  `hasVerticalOverflow` but uses it only for the ellipsis decision;
-  `packages/scene/src/typographyPreflight.ts` accepts an optional `oversetMap`
-  that nothing produces, and `preflight.ts` permanently marks `overset-text`
-  as `unavailable`.
-- **Status:** `applicable-requires-work`. Not implemented in this pass. The
-  smallest honest change is to derive an overset count per area-text node and
-  feed the existing preflight check, rather than inventing a new indicator.
+- **User problem:** text that does not fit its frame is either clipped or painted
+  past the frame with no warning, so a print or export surprises the author.
+- **Varve code:** `packages/engine/src/replay.ts` computed
+  `hasVerticalOverflow` and used it only for the ellipsis decision;
+  `packages/scene/src/preflight.ts` permanently reported `overset-text` as
+  unavailable, and `runTypographyPreflight` accepted an `oversetMap` that
+  nothing produced.
+- **Observed behavior (before):** a short area frame holding long text showed
+  no finding at all; preflight said the check could not be run.
+- **Implementation:** `packages/editor/src/render/textOverset.ts` lays each
+  measurable area frame out through the same canonical pipeline the renderer
+  uses (`layoutRichTextSnapshot`, supplied with a 2D measure context), and
+  compares each line's box against the frame height. Results are cached per
+  node by object identity, so an unchanged frame is measured once; the cache is
+  dropped when `document.fonts.ready` resolves, because fallback metrics would
+  otherwise produce false overset. `runCombinedPreflight` now accepts
+  `oversetMap` and `oversetUnmeasured`.
+- **Where it surfaces:** preflight is a Print-workspace status section, so the
+  warning appears there and not in Design — the existing product decision about
+  where preflight lives. Moving it (or adding a canvas overset marker) would be
+  a separate design change, not a side effect of measuring overflow.
+- **Honest limits:** frames that follow their text (`autoHeight`/`autoWidth`)
+  cannot be overset and are skipped. Contour-wrapped and vertical frames are
+  reported as **unmeasured**, and the check stays `unavailable` while any exist
+  — it never claims a document is clear when part of it was not inspected.
+- **Acceptance criteria:** a frame too short for its text yields one `overflow`
+  warning in preflight; a frame that fits yields none; the check reads
+  `verified` only when every area frame was measured.
+- **Validation:** `packages/editor/src/render/textOverset.test.ts` (5 cases,
+  fixed-width measure context), `packages/scene/src/preflight.test.ts` (3 new
+  cases), and `tests/e2e/canvas/preflight-overset.spec.ts` driving the real
+  editor (type tool → frame → text → preflight panel) in Chromium and WebKitGTK.
 
 ## F6 — PDF gradients: blank output (fixed) and stop transparency (open)
 
@@ -332,30 +356,38 @@ log), not the native Tauri path.
   so the chip reuses the already-shipped `save-status--error` skin and is
   covered at component level. Recorded as a limitation.
 
-## F10 — A file that cannot be read opens as an empty document (open)
+## F10 — A file that cannot be read opens as an empty document (fixed)
 
 - **External evidence:** vectorcraft#861 — opening certain files "does nothing:
   no document appears and no error is shown". The same complaint appears as
   #1151 (file drag-and-drop fails on Fedora) and #2177 (large PDF/AI files fail
   to load): the failure is invisible to the user.
-- **Varve code:** `packages/editor/src/context.tsx:9548` (`openFile`) and
-  `packages/editor/src/context/usePersistence.ts:225` (`loadDocument`).
-- **Observed behavior:** when JSON is supplied but fails to decode or fails
-  validation, `openFile` falls back to `createDocument(name)` — a **blank
-  document under the requested file's name**. `loadDocument` swallows invalid
-  JSON entirely. Either way the user sees no error; in the `openFile` case the
-  canvas looks like the file opened, and the next save writes over the real
-  document.
+- **Varve code:** `packages/editor/src/context.tsx` — `openFile` (the production
+  open path used by Shell) and the exposed `loadDocument` wrapper;
+  `packages/editor/src/context/usePersistence.ts` still swallows invalid JSON as
+  a last line of defence.
+- **Observed behavior (before):** when JSON was supplied but failed to decode or
+  validate, `openFile` fell back to `createDocument(name)` — a **blank document
+  under the requested file's name**. The canvas looked like the file had opened,
+  and the next save wrote over the real document. `loadDocument` swallowed
+  invalid JSON entirely, so the click looked like it did nothing.
 - **Why this is high severity:** it is a data-loss vector, not just a missing
-  message — the wrong document is bound to the file's identity.
-- **Intended outcome:** a file that cannot be read leaves the current document
-  untouched, reports failure to the caller, and shows a persistent, dismissible
-  message naming the file and the reason.
-- **Status:** `applicable-requires-work`. Not implemented here: the repository
-  has no visible error surface for open failures (the canvas announcer is
-  visually hidden), so a truthful fix needs a small error-banner/dialog
-  primitive first. Implementing only the "don't substitute a blank document"
-  half would remove the data-loss vector while leaving the user staring at
-  nothing, which is still the reported complaint — the two should land
-  together.
+  message — the wrong document was bound to the file's identity.
+- **Implementation:** a non-null JSON that fails to decode now leaves the current
+  document untouched, returns without rebinding the tab, and reports through the
+  editor's existing toast system (`type: 'error'`, 15 s, naming the file and
+  saying "Nothing was changed") plus the canvas announcer for assistive tech. A
+  `null` JSON still starts a blank document, which is what "new file" means. The
+  exposed `loadDocument` applies the same guard before delegating. Documents that
+  decode but fail validation still open: preflight reports their problems, and
+  refusing a recoverable file outright would be its own data loss.
+- **Acceptance criteria:** invalid JSON leaves `state.document` identity
+  unchanged and emits one error toast naming the file; `null` JSON still creates
+  a blank document with no toast; a valid document opens with no toast.
+- **Validation:** `packages/editor/src/context/__tests__/openFileUnreadable.test.tsx`
+  (4 cases: unreadable, decodable-but-unusable, new-document control, valid
+  document), plus `tsc --noEmit` for the editor.
+- **Not covered:** a decode failure during crash-recovery restore still has no
+  user-facing path of its own; recovery records carry no file name, and the
+  restore UI already reports that a snapshot could not be used.
 

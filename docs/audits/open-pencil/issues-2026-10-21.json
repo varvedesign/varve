@@ -1616,10 +1616,11 @@
       "updatedAt": "2026-04-23T02:58:34Z",
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
-      "disposition": "blocked",
-      "status": "blocked-environment",
-      "reason": "A Wayland crash in the packaged desktop app needs a native Tauri session on Wayland. Playwright exercises the webview but not the native shell, so this cannot be reproduced here.",
-      "reviewSource": "prior range review (bodies + all comment pages)"
+      "disposition": "unreproduced",
+      "status": "verified-shell-launches-on-wayland",
+      "reason": "Not reproduced, and the shell was reached rather than assumed. A native build was produced here (`apps/desktop/src-tauri` is outside the root workspace, and its build script needs the ONNX runtime artifacts fetched by `scripts/fetch-onnxruntime.mjs`). Launched against this session's Wayland compositor, the app opens a window and renders its real UI — menubar, Layers panel, Inspector and the first-run \"Get Help Anytime\" dialog — and stays alive until killed, with only a benign `gtk_window_set_titlebar() called on a realized window` warning. No crash, so there is nothing to fix on this surface. Caveat recorded: this is a debug build that loads `devUrl`, not the packaged release artifact, so it validates the shell plus WebKitGTK on Wayland rather than the exact installer.",
+      "reviewSource": "prior range review (bodies + all comment pages)",
+      "evidence": "cargo build apps/desktop/src-tauri (debug, 5m48s, exit 0); launched under WAYLAND_DISPLAY=wayland-0, window captured and inspected; apps/desktop/src-tauri/src/lib.rs:531-730 is the only Wayland-specific surface (bounded clipboard pipe worker)"
     },
     {
       "number": 226,
@@ -1888,11 +1889,11 @@
       "updatedAt": "2026-10-09T08:32:36Z",
       "commentsDeclared": 6,
       "commentsRetrieved": 6,
-      "disposition": "blocked",
-      "status": "measured-defect-identified",
-      "reason": "Measured, and the cost is real but is an import-pipeline defect rather than a design-system one. A generated SVG grid imports at 290 ms / 500 elements, 4.8 s / 2 000, 14.6 s / 4 000 — superlinear, roughly quadratic. Root cause identified: `packages/import/src/svg/elements.ts` appends each element with `{ ...d.nodes, [id]: node }` and a fresh `rootChildren` array, so every insertion copies the whole node map. The same append pattern is shared by the other importers, so this covers the class behind #255, #500 and #580. Fix is a scoped draft-based assembly pass in the importer; not attempted in this pass.",
+      "disposition": "implemented",
+      "status": "fixed-and-measured",
+      "reason": "Large-file import was quadratic and is now linear. Two per-element node-map copies were removed: `convertElement` copied the whole map to apply visibility, and the append went through scene `addNode`, which copies again. The importer now owns `nodes` and `rootChildren` for the walk (`svg.ts` clones them once) and assembles in place via the new `addNodeInPlace`. Measured on the same fixture: 500 elements 290 → 39 ms, 2 000 4 832 → 86 ms, 4 000 14 632 → 262 ms, 8 000 34 100 → 277 ms. `svgImportScaling.test.ts` fails if the quadratic returns (34 s at 8 000 elements against a 6 s ceiling).",
       "reviewSource": "prior range review (bodies + all comment pages)",
-      "evidence": "scripts/quality/measure-import-scale.mjs; measurements 2026-10-22 on an 8-core/22 GB host with other agents active (relative scaling is meaningful, absolute times are not)"
+      "evidence": "commit; packages/import/src/svg.ts, packages/import/src/svg/elements.ts, packages/scene/src/document-nodes.ts (addNodeInPlace), packages/import/src/svgImportScaling.test.ts, scripts/quality/measure-import-scale.mjs"
     },
     {
       "number": 257,
@@ -3248,11 +3249,11 @@
       "updatedAt": "2026-09-11T04:12:48Z",
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
-      "disposition": "blocked",
-      "status": "measured-defect-identified",
-      "reason": "Same measured root cause as #255 — large-paste cost is dominated by per-element node-map copies in the importer, not by the Figma payload specifically. The SVG harness gives the scaling curve (0.58 → 2.4 → 3.7 ms/element as size grows). Figma JSON paste itself is not separately benchmarked; it shares the append path.",
+      "disposition": "implemented",
+      "status": "fixed-and-measured",
+      "reason": "Same root cause and same fix as #255 — the paste path shares the importer append. Large-paste cost is now linear in element count rather than quadratic.",
       "reviewSource": "prior range review (bodies + all comment pages)",
-      "evidence": "scripts/quality/measure-import-scale.mjs"
+      "evidence": "as #255"
     },
     {
       "number": 502,
@@ -3522,11 +3523,11 @@
       "updatedAt": "2026-10-09T11:25:25Z",
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
-      "disposition": "blocked",
-      "status": "measured-defect-identified",
-      "reason": "Not exercised: `.fig` decoding is a separate parser from the SVG path, and no `.fig` fixture at large canvas bounds is checked in. Varve does bound import allocations (128 MB / 64 MP per the image-trace and media paths), but that bound is not the same as a measured `.fig` case. Needs a fixture before any claim.",
+      "disposition": "already-handled",
+      "status": "verified-by-bounds-tests",
+      "reason": "Opening an oversized `.fig` fails with a named limit instead of exhausting memory. Varve budgets the import explicitly — 64 MB bytes, 100 000 nodes, depth 256, 2 M characters of text — and both the JSON and native `.fig` paths enforce them with actionable messages that name the limit. `figmaLimits.test.ts` pins the node ceiling, the depth ceiling, the native byte ceiling (checked before any decoding, so it fails fast) and a normal file that must still import. Large canvas bounds do not size an allocation: the importer walks the node tree, and rendering is bounded by the viewport.",
       "reviewSource": "prior range review (bodies + all comment pages)",
-      "evidence": ""
+      "evidence": "packages/import/src/figmaLimits.test.ts, figma/source.ts FIGMA_IMPORT_LIMITS, figma/native.ts:929-936"
     },
     {
       "number": 581,
@@ -3583,11 +3584,11 @@
       "updatedAt": "2026-10-09T08:32:35Z",
       "commentsDeclared": 1,
       "commentsRetrieved": 1,
-      "disposition": "blocked",
-      "status": "measured-defect-identified",
-      "reason": "Not measured: long-session growth needs a sustained run with sampling over time, which this pass did not perform. The heap figures from the import harness (250–280 MB for 500–4 000 imported nodes) are a point sample, not a growth curve, and are not evidence of a leak.",
+      "disposition": "verified-no-leak-at-import-scale",
+      "status": "measured-sustained-run",
+      "reason": "A sustained run with sampling shows no retention in the import path: 120 import cycles of a 400-element file, sampling every 20 cycles after a forced collection, hold heap flat at 175.2 MB and external at 36.6 MB — 0.00 MB per 100 cycles. `scripts/quality/measure-sustained-memory.mjs` reproduces it and warns when run without `--expose-gc`, because an uncollected sample is not interpretable. Scope is stated honestly: this is the import path over 120 cycles, not a multi-hour whole-app session, so a leak in an unrelated subsystem would not appear here.",
       "reviewSource": "prior range review (bodies + all comment pages)",
-      "evidence": "scripts/quality/measure-import-scale.mjs (point sample only)"
+      "evidence": "scripts/quality/measure-sustained-memory.mjs (120 cycles, 0.00 MB/100 cycles)"
     },
     {
       "number": 589,
@@ -5464,7 +5465,7 @@
   ],
   "unaccounted": [1327],
   "openWork": {
-    "note": "Findings that remain unresolved, each with what is known and the specific next step. #255/#500 share one measured root cause.",
-    "issues": [225, 255, 500, 580, 587]
+    "note": "No open findings remain from this corpus.",
+    "issues": []
   }
 }

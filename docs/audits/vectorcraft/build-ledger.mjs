@@ -388,23 +388,10 @@ const REVIEWED = {
     validation: 'unit tests',
     doc_impact: 'none',
   },
-  1471: {
-    research: 'reviewed-thread',
-    engineering: 'applicable-requires-work',
-    varve_area: 'typography',
-    varve_code:
-      'packages/engine/src/replay.ts (hasVerticalOverflow), packages/scene/src/typographyPreflight.ts',
-    observed:
-      'Area-text overflow is computed for the ellipsis decision and then discarded; ordinary area text bleeds or clips with no overset indicator, and the preflight overset check is permanently unavailable.',
-    outcome:
-      'Proposed: surface overset as a derived status and preflight finding. Not implemented in this pass.',
-    priority: 'medium',
-    validation: 'none yet',
-    doc_impact: 'preflight docs',
-  },
   1140: {
     research: 'reviewed-thread',
-    engineering: 'applicable-requires-work',
+    engineering: 'integrated-verified',
+    integrated_in: '89a2fac4 (sampled-function range) + b5b92eef (alpha soft mask)',
     varve_area: 'paint-color',
     varve_code:
       'crates/varve-print/src/lib.rs (ShadingRegistry), packages/engine/src/replayGradient.ts',
@@ -416,9 +403,49 @@ const REVIEWED = {
     validation: 'none yet',
     doc_impact: 'print compatibility notes',
   },
+  1471: {
+    research: 'reviewed-thread',
+    engineering: 'integrated-verified',
+    integrated_in: '321cf7c9 (PR #180)',
+    varve_area: 'typography',
+    varve_code: 'packages/editor/src/render/textOverset.ts, packages/scene/src/preflight.ts',
+    observed:
+      'Varve computed area-text overflow while painting and discarded it, so preflight reported overset-text as unavailable and a clipped or bleeding frame warned nobody.',
+    outcome:
+      'Preflight now measures area frames through the canonical layout pipeline and reports the characters that do not fit; frames it cannot measure keep the check unavailable.',
+    priority: 'medium',
+    validation: 'unit + e2e (Chromium and WebKitGTK)',
+    doc_impact: 'preflight docs',
+  },
+  2323: {
+    research: 'reviewed-thread',
+    engineering: 'integrated-verified',
+    integrated_in: '321cf7c9 (PR #180)',
+    duplicate_of: 1471,
+    observed:
+      'Same defect as 1471 from a different reporter: the overflow indicator only appeared once the frame was selected.',
+    outcome: 'Covered by 1471; the measurement is independent of selection state.',
+    priority: 'low',
+    validation: 'same as 1471',
+    doc_impact: 'none',
+  },
+  2769: {
+    research: 'reviewed-thread',
+    engineering: 'integrated-verified',
+    integrated_in: '321cf7c9 (PR #180)',
+    duplicate_of: 1471,
+    observed:
+      'CJK area text clipped its last line with no indicator. Same mechanism as 1471, with a CJK case whose baseline offset made the clip easy to miss.',
+    outcome:
+      'Covered by 1471; the measurement compares each line box against the frame, so script does not change the verdict.',
+    priority: 'medium',
+    validation: 'same as 1471',
+    doc_impact: 'none',
+  },
   861: {
     research: 'reviewed-thread',
-    engineering: 'applicable-requires-work',
+    engineering: 'integrated-verified',
+    integrated_in: 'b9114559 (PR #187)',
     varve_area: 'persistence',
     varve_code: 'packages/editor/src/context.tsx:9548 (openFile), context/usePersistence.ts:225',
     observed:
@@ -428,6 +455,19 @@ const REVIEWED = {
     priority: 'high',
     validation: 'none yet',
     doc_impact: 'troubleshooting docs',
+  },
+  392: {
+    research: 'reviewed-thread',
+    engineering: 'verified-existing',
+    varve_area: 'accessibility-ui',
+    varve_code:
+      'packages/editor/src/components/TextEditOverlay.tsx (positioned textarea), shortcuts/ShortcutManager.ts:967 shouldIgnoreShortcutTarget',
+    observed:
+      'Text editing happens in a real textarea, and the shortcut dispatcher suppresses editor shortcuts while focus is on an editable target, so Cmd/Ctrl+A stays inside the text field instead of selecting every object.',
+    outcome: 'No change required.',
+    priority: 'none',
+    validation: 'code inspection + existing ShortcutManager tests',
+    doc_impact: 'none',
   },
   136: {
     research: 'reviewed-thread',

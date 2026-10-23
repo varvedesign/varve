@@ -56,6 +56,33 @@ test.describe('chrome ownership', () => {
     await expect(page.getByRole('menu')).toHaveCount(0);
   });
 
+  test('the settings dialog scrolls instead of clipping in a small window', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 600 });
+    await page.keyboard.press('Control+Comma');
+    const dialog = page.getByRole('dialog');
+    await dialog.waitFor({ state: 'visible', timeout: 10000 });
+
+    const geometry = await page.evaluate(() => {
+      const el = document.querySelector('.varve-dialog--settings') as HTMLElement | null;
+      if (!el) return null;
+      const body = el.querySelector('.settings-dialog__layout') as HTMLElement | null;
+      const rect = el.getBoundingClientRect();
+      return {
+        withinViewport: rect.top >= -1 && rect.bottom <= window.innerHeight + 1,
+        horizontalOverflow: el.scrollWidth - el.clientWidth,
+        bodyScrollable: body
+          ? body.scrollHeight > body.clientHeight + 1 || body.scrollWidth > body.clientWidth + 1
+          : true,
+      };
+    });
+    expect(geometry).not.toBeNull();
+    // A dialog taller than the window must fit or scroll, never be clipped.
+    expect(geometry!.horizontalOverflow).toBeLessThanOrEqual(2);
+    expect(geometry!.withinViewport || geometry!.bodyScrollable).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+  });
+
   test('the inspector stays reachable and unclipped in a small window', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 600 });
     const overflow = await page.evaluate(() => {

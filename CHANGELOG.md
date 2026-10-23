@@ -15,6 +15,15 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Copy now pastes as vectors in other design apps** — An ordinary Copy also
+  puts a transparent SVG representation on the clipboard, so Inkscape, Krita,
+  Illustrator, or Figma receive the selection as artwork instead of layer
+  names. In-app paste still uses the editable Varve payload, so nothing loses
+  fidelity; very large selections keep the editable payload only, and the
+  receiving application still needs to accept `image/svg+xml`.
+
+### Added
+
 - **Text frame background and border** — Give text its own optional backing fill
   and border without changing glyph fill or outline. The border can be set to
   zero to keep the background with no visible line. The style is saved with
@@ -52,6 +61,12 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **SVG import is linear again** — Importing a large file took time proportional to the square of
+  its element count: the converter copied the entire node map once per element, and the append
+  copied it again. A 4 000-element file went from 14.6 s to 0.26 s, and 8 000 elements from 34 s to
+  0.28 s. Appends during import now go through `addNodeInPlace`, which requires the caller to own the
+  document while assembling it; `addNode` is unchanged for every other caller. A scaling test fails
+  if the quadratic behaviour returns.
 - **Hiding a fill now hides it** — Turning off a shape's last visible fill
   removes it from the canvas and from its click target. Previously the shape
   kept painting its original colour, because the render pipeline treated an
@@ -70,6 +85,18 @@ update, not for someone reading the commit log.
   one, text was drawn in the fallback face while preflight, the Missing Fonts dialog, and the export
   preflight all reported the typography as faithful. Those families are now measured against the
   device, and a family it cannot resolve is reported as missing with a replacement path.
+- **Opening an unreadable file no longer replaces your work** — a document that
+  failed to decode was replaced by a blank one under the same file name, so the
+  next save could overwrite the real file. The open is now refused, the current
+  artboard is left untouched, and an error names the file and says nothing was
+  changed.
+- **Preflight findings are visible** — the badge counted issues, but the panel
+  opened inside the status bar and was clipped, so its contents could not be
+  seen. It is now a portal-backed popover above the bar.
+- **Overset text is reported** — an area text frame too small for its content
+  now produces a preflight warning instead of clipping or bleeding silently.
+  Frames that use contour or vertical layout are reported as not measured, so
+  the check never claims a document is clear when part of it was not inspected.
 - **Transparent PDF gradients** — a gradient that fades to transparent exported
   as a hard-edged solid block. It now carries a luminosity soft mask built from
   the alpha ramp, so the fade survives into the PDF. Opaque gradients are
@@ -134,9 +161,10 @@ update, not for someone reading the commit log.
 - **PDF import keeps vertical writing vertical.** A PDF set in a vertical
   writing mode (`Identity-V`, or a CMap with `/WMode 1`) imported as one long
   horizontal line, so a Japanese or Chinese column arrived as the wrong
-  document. Those runs now become Varve vertical text (`vertical-rl`), with the
-  Import Report stating that each glyph advances one em because the font's
-  vertical metrics are not read.
+  document. Those runs now become Varve vertical text (`vertical-rl`), placed
+  with the font's own vertical metrics (`/W2`, then `/DW2`), and consecutive
+  runs that continue the pen position merge into one editable column instead of
+  one layer per character.
 - **PDF export names characters the chosen font cannot draw.** The canvas falls
   back per glyph, but the PDF writer outlines the authored face, so a character
   that face does not map exported as a blank box while the editor showed it

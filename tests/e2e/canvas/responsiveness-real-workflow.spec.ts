@@ -6,7 +6,7 @@
  */
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { dismissMissingFontsDialogIfPresent, navigateToEditor } from '../shared';
 
 const SVG_FIXTURE = resolve('tests/e2e/fixtures/layers-stress-board.svg');
 const PHOTO_FIXTURE = resolve('tests/e2e/fixtures/real-life-still-life.jpg');
@@ -70,6 +70,7 @@ test('real SVG/photo workflow keeps input and pixels authoritative', async ({ pa
   await expect(page.locator('.layers-panel [role="treeitem"]').first()).toBeVisible({
     timeout: 30000,
   });
+  await dismissMissingFontsDialogIfPresent(page);
   await page.waitForTimeout(500);
 
   // Exercise the panel-open path, then the collapsed/hidden path reported by

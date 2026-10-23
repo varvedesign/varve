@@ -8504,6 +8504,9 @@ export function EditorProvider({
           frameGuideLayouts,
           closure.patternDefinitions,
           snapshot.workspaceMode === 'print' ? snapshot.document.activePageId : undefined,
+          // Optional `image/svg+xml` flavour so other applications can paste
+          // the selection as vectors, not just node names.
+          snapshot.document,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -8580,6 +8583,7 @@ export function EditorProvider({
           frameGuideLayouts,
           closure.patternDefinitions,
           snapshot.workspaceMode === 'print' ? sourceDocument.activePageId : undefined,
+          sourceDocument,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -9465,28 +9469,47 @@ export function EditorProvider({
         libraryStorage?: boolean,
         binding?: OpenFileBinding,
       ) => {
-        // Parse up front; null/invalid json = fresh blank document (new file).
+        // Parse up front. A null json means "new document" and legitimately
+        // starts blank. A non-null json that fails to decode must NOT fall back
+        // to a blank document: the tab would be rebound to the requested file's
+        // name while holding nothing, and the next save would overwrite the
+        // real file. Refuse, say so, and leave the current artboard alone.
         let doc: Document;
-        try {
-          if (json) {
-            const decoded = DocumentCodec.decode(json);
-            doc = decoded.ok ? decoded.document : createDocument(name || 'Untitled');
-          } else {
-            doc = createDocument(name || 'Untitled');
+        if (json) {
+          let decoded: ReturnType<typeof DocumentCodec.decode> | null = null;
+          try {
+            decoded = DocumentCodec.decode(json);
+          } catch {
+            decoded = null;
           }
+          if (!decoded?.ok) {
+            const reason =
+              'This file is not a Varve document, or it is damaged. Nothing was changed.';
+            toastHandler?.({
+              message: `Couldn't open "${name}"`,
+              description: reason,
+              type: 'error',
+              duration: 15000,
+            });
+            announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
+            return;
+          }
+          doc = decoded.document;
           const result = validateDocument(doc);
           if (!result.valid) {
+            // Validation problems are surfaced by preflight; the document still
+            // opens so a recoverable file is never refused outright.
             if (typeof console !== 'undefined') {
               console.warn('[Strata] openFile: validation warnings:', result.errors);
             }
           }
-          // Re-resolve fonts against this device's catalog, as loadDocument
-          // does — a document authored elsewhere arrives with a manifest
-          // pointing at fonts this machine may not have.
-          doc = resolveFontManifest(doc);
-        } catch {
+        } else {
           doc = createDocument(name || 'Untitled');
         }
+        // Re-resolve fonts against this device's catalog, as loadDocument
+        // does — a document authored elsewhere arrives with a manifest
+        // pointing at fonts this machine may not have.
+        doc = resolveFontManifest(doc);
         interactionState.cancelCanvasInteraction(stateRef.current.activeId);
         setState((s) => {
           // Dedupe: if this file is already open in a tab, switch to it
@@ -11081,7 +11104,31 @@ export function EditorProvider({
       newDocument: value.newDocument,
       serializeDocument: value.serializeDocument,
       updateDoc: value.updateDoc,
-      loadDocument: value.loadDocument,
+      loadDocument: (json, meta) => {
+        // Same contract as openFile: a document that cannot be decoded is
+        // reported, not silently ignored (vectorcraft#861). `loadDocument` is a
+        // public API leaving room for callers other than the open flow, so the
+        // guard belongs here as well as in openFile.
+        let decodable = false;
+        try {
+          decodable = DocumentCodec.decode(json).ok;
+        } catch {
+          decodable = false;
+        }
+        if (!decodable) {
+          const name = meta?.name ?? 'This file';
+          toastHandler?.({
+            message: `Couldn't open "${name}"`,
+            description:
+              'This file is not a Varve document, or it is damaged. Nothing was changed.',
+            type: 'error',
+            duration: 15000,
+          });
+          announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
+          return;
+        }
+        value.loadDocument(json, meta);
+      },
       save: value.save,
       saveAs: value.saveAs,
       saveCopy: value.saveCopy,

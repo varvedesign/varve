@@ -197,10 +197,11 @@ When a new phrase is proposed, check it against both lists before it ships.
   demo persists in browser storage, not as a user-visible file.
 - “Open source” for the application. FSL-1.1-MIT is source-available; only the
   separate engine crates are OSI-licensed.
-- “Zero telemetry” or unconditional “no telemetry”; an opt-in aggregate
-  measurement path exists.
-- “Usage isn't measured” or “we don't measure usage”; release desktop builds
-  send anonymous event names to Plausible only after Settings consent.
+- “Zero telemetry” or unconditional “no telemetry”; the website and /try demo
+  use GoatCounter after Allow.
+- “Usage isn't measured” or “we don't measure usage”; the desktop app sends no
+  usage stats, but the website and /try demo count consented visits, export
+  formats, and download clicks.
 - “Does not track which AI features”; consented `feature_used` events include
   `upscale` and `image_trace`.
 - “A single switch turns them all off”; the Settings AI switch does not yet

@@ -73,7 +73,7 @@ export const SHORTCUTS_REFERENCE: HelpArticle = {
     'H - Flip Horizontal',
     'Shift+V - Flip Vertical',
     '= (equals) - Bind field to variable',
-    'Arrow keys - Nudge 1px',
+    'Arrow keys - Nudge 1px (hold to keep moving in one undo step)',
     'Shift+Arrow keys - Nudge 10px',
     '',
     'Boolean Operations:',
