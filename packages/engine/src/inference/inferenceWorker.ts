@@ -17,6 +17,7 @@ import {
   preprocessSemanticInput,
   type SemanticResizeSpec,
 } from '../semanticSimilarity/preprocess';
+import { applyWorkerAiGate } from './aiFeaturesGate';
 import { createOrtRuntimeLoader } from './core/ortRuntime';
 import { createSessionWithTimeout, SessionCleanupFailedError } from './core/sessionCreation';
 import type { TensorSpec } from './imageTensor';
@@ -56,7 +57,6 @@ import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/s
 import { SCUNET_INPUT_SIZE, SCUNET_TENSOR_SPEC } from './models/scunet';
 import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC, siglipConstantFeeds } from './models/siglip';
 import { TROCR_INPUT_SIZE, TROCR_TENSOR_SPEC } from './models/trocr';
-import { applyWorkerAiGate } from './aiFeaturesGate';
 import type { WorkerSessionIdentity } from './sessionKeys';
 import { workerSessionKey } from './sessionKeys';
 import {

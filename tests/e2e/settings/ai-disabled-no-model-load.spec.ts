@@ -42,10 +42,7 @@ test.describe('AI off loads no model files', () => {
       return route.continue();
     });
     await page.addInitScript(() => {
-      localStorage.setItem(
-        'varve-editor-settings',
-        JSON.stringify({ ai: { enabled: false } }),
-      );
+      localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
       const posted: unknown[] = [];
       (window as unknown as { __varveAiWorkerPosts?: unknown[] }).__varveAiWorkerPosts = posted;
       const RealWorker = window.Worker;
@@ -54,11 +51,14 @@ test.describe('AI off loads no model files', () => {
         value: new Proxy(RealWorker, {
           construct(target, args) {
             const worker = Reflect.construct(target, args) as Worker;
-            const original = worker.postMessage.bind(worker);
-            worker.postMessage = (message: unknown, transfer?: Transferable[]) => {
+            const original = worker.postMessage.bind(worker) as (
+              message: unknown,
+              options?: unknown,
+            ) => void;
+            worker.postMessage = ((message: unknown, options?: unknown) => {
               posted.push(message);
-              return original(message, transfer);
-            };
+              return original(message, options);
+            }) as Worker['postMessage'];
             return worker;
           },
         }),
@@ -70,9 +70,11 @@ test.describe('AI off loads no model files', () => {
     await page.locator('.layers-panel').getByRole('treeitem').click();
     await selectInspectorTab(page, 'Adjustments');
 
-    await expect(page.getByText('Turn on AI features in Settings to use this').first()).toBeVisible({
-      timeout: 10000,
-    });
+    await expect(page.getByText('Turn on AI features in Settings to use this').first()).toBeVisible(
+      {
+        timeout: 10000,
+      },
+    );
     await expect(page.getByRole('button', { name: 'Depth Blur' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /generate depth map/i })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /enable depth blur/i })).toHaveCount(0);
