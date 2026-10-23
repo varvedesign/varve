@@ -336,17 +336,94 @@ Stated as limitations, not completions:
 
 ## 10. Follow-on queue
 
-At closure (retrieved `2026-10-23T03:03:00Z`): **7 issues created after cutoff
-3** — 4213, 4215, 4216, 4221, 4222, 4224, 4225. They repeat already-adjudicated
-clusters (digital-signature validation/overlays, printing, glyph coverage for
-č/Č/ň/ě/ř, cursor visibility during text entry, macOS edit-text/OCR
-responsiveness, middle-click autoscroll) and are **not** part of this coverage
+At closure (retrieved `2026-10-23T14:07:00Z`): **50 issues created after
+cutoff 3** (numbers 4211–4322). By class: 19 other, 10 forms, 5 printer, 4
+glyph coverage, 3 digital-signature, 3 page-geometry, and one each of
+lifecycle-crash, image, render, interchange, interaction and OCR. Every one
+repeats a cluster already adjudicated above (the forms/printer/signature
+families dominate, as they have since cutoff 1); none is part of this coverage
 claim. They are follow-on work and do not reopen the corpus. The frozen
-snapshot's count field records `follow_on_queue_at_closure: 7`.
+snapshot records `follow_on_queue_at_closure: 50`.
 
 ## 11. Gate output
 
-Paste of the closure gate and the §8 checks, with the amended latest-disposition
-check explained where the literal historical scan differs. See the final
-message for the pasted output; the same commands are reproducible with
-`pnpm audit:pdfcraft-closure`.
+### 11.1 Amended closure gate (latest disposition per issue)
+
+```text
+$ pnpm audit:pdfcraft-closure
+Frozen issue set: 1951
+Cutoff-3 rows: 161
+Resolutions: 103
+Latest dispositions:
+   1446 cluster-assessed
+    119 implemented-validated
+    320 outside-varve-scope
+     66 verified-already-correct-
+Non-terminal latest dispositions: 0
+
+PASS: every issue has a terminal, evidence-bearing disposition.
+```
+
+### 11.2 §8 literal scans over the frozen ledgers
+
+```text
+$ awk -F'\t' '!/^#/ && NF >= 7 && ($6=="candidate" || $6=="deferred")' \
+    docs/audits/pdfcraft/issue-ledger*.tsv | wc -l
+88
+
+$ awk -F'\t' '!/^#/ && $6=="verified-already-correct-" && \
+    $7 !~ /\.(ts|tsx|rs|md)|:[0-9]+/' docs/audits/pdfcraft/issue-ledger*.tsv | wc -l
+15
+```
+
+These count **frozen cutoff-1/2 rows only**. The approved amendment evaluates
+the latest disposition per issue instead of rewriting history: all 88
+non-terminal rows carry a resolution, and all 15 historical verified rows were
+restated with a code/test path in `resolutions.tsv` (the frozen rows keep their
+original text). The gate in §11.1 is the closure check; the raw historical
+numbers are shown here rather than hidden.
+
+### 11.3 Reconciliation and frozen set
+
+```text
+records 4208 · issues 1951 · pull requests 2257
+open issues 1103 + open pull requests 725 = 1828 = repository open_issues_count 1828
+issue comments 6761 · duplicate issue numbers 0 · failed requests 0
+issues missing from cutoff 3: 0
+frozen issue-ID sha256 592a60bc77220c32de6c886e28c7a5ebe5a75e8c306fb6665f2d85d909773511
+```
+
+`pnpm audit:pdfcraft-closure` recomputes that SHA-256 from the ledgers and
+fails if it does not match `cutoff3.summary.json`.
+
+### 11.4 Open pull requests matching "pdfcraft"
+
+```text
+$ gh pr list --state open --search "pdfcraft" --json number,title
+[{"number":155,"title":"feat(editor): add direct callout manipulation handles"}]
+```
+
+#155 belongs to another workstream (comic-lettering callout handles; it
+references PDFCraft #1152 as research input). It is not part of this closure
+and was neither modified nor merged here.
+
+### 11.5 Artifacts
+
+```text
+docs/audits/pdfcraft/CLOSURE.md
+docs/audits/pdfcraft/cutoff3.summary.json
+docs/audits/pdfcraft/issue-ledger-cutoff3.tsv
+docs/audits/pdfcraft/resolutions.tsv
+docs/screenshots/pdfcraft/surface-isolation-inspector-1024x600.png
+docs/screenshots/pdfcraft/text-edit-overlay-1024x600.png
+docs/screenshots/pdfcraft/text-edit-overlay-dark-1440x900.png
+docs/screenshots/pdfcraft/text-edit-alignment-center-1440x900.png
+docs/screenshots/pdfcraft/inspector-tabs-1024x600.png
+docs/screenshots/pdfcraft/inspector-tabs-1440x900.png
+```
+
+## 12. Integration
+
+Filled in the merge commit: pull request number, merge commit, `git branch -r
+--contains` confirmation, and the removed worktree. Until this section names a
+merge commit on `origin/master`, the branch is not integrated.

@@ -62,11 +62,25 @@
     "inaccessible": []
   },
   "corpus_closed": true,
-  "follow_on_queue_at_closure": 7,
+  "follow_on_queue_at_closure": 50,
   "follow_on_queue": {
-    "retrieved": "2026-10-23T03:03:00Z",
-    "count": 7,
-    "issues": [4225, 4224, 4222, 4221, 4216, 4215, 4213],
-    "note": "Created after cutoff 3; repeat already-adjudicated clusters (interaction, glyph coverage, printer, signature). Not part of this coverage claim."
+    "retrieved": "2026-10-23T14:07:00Z",
+    "count": 50,
+    "issue_range": "4211..4322",
+    "classes": {
+      "other": 19,
+      "forms": 10,
+      "printer": 5,
+      "fonts-glyphs": 4,
+      "digital-signature": 3,
+      "page-geometry": 3,
+      "lifecycle-crash": 1,
+      "image": 1,
+      "render": 1,
+      "interchange": 1,
+      "interaction": 1,
+      "ocr": 1
+    },
+    "note": "Created after cutoff 3; repeat already-adjudicated clusters. Follow-on work, not part of this coverage claim."
   }
 }
