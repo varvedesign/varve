@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test';
  * visual baseline the same way /press is captured.
  */
 
-test('feedback page offers email, forum, and copy choices', async ({ page }) => {
+test('feedback page offers email and forum choices', async ({ page }) => {
   await page.goto('/feedback');
 
   await expect(page.getByRole('heading', { level: 1, name: 'Send feedback' })).toBeVisible();
