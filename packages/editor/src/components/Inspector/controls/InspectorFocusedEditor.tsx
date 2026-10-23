@@ -2,9 +2,26 @@
  * InspectorFocusedEditor — an anchored, focused editor for dense property
  * details such as effect parameters. The owning row stays in the inspector;
  * the editor is portaled beside it so the rail remains scannable.
+ *
+ * This is a **non-modal dialog**, not a popover: the canvas, the layers panel,
+ * and the rest of the Inspector stay operable while it is open. It previously
+ * wrapped its content in `FocusTrap`, which contradicted the declared
+ * `aria-modal="false"` by catching Tab and cycling focus inside the surface —
+ * a keyboard user could not reach the owning row, the panel, or anything else
+ * without pressing Escape first. It now follows the APG non-modal dialog
+ * contract:
+ *
+ * - focus enters the surface when it opens, so keyboard activation is
+ *   operable and the surface is never stranded outside the tab order of a
+ *   portal that sits at the end of `<body>`;
+ * - focus is never trapped — Tab past the last control closes the editor and
+ *   continues after the anchor (`yieldTabToAnchor`);
+ * - Escape and light dismissal close it;
+ * - dismissal returns focus to the owning row unless focus already reached a
+ *   deliberate destination.
  */
-import { CloseButton, FloatingPortal, FocusTrap } from '@varve/ui';
-import type { ReactNode, RefObject } from 'react';
+import { CloseButton, FloatingPortal, type OverlayCloseReason } from '@varve/ui';
+import { type ReactNode, type RefObject, useEffect, useRef } from 'react';
 
 /**
  * Stable array identity: an inline literal would change on every parent
@@ -18,6 +35,10 @@ const FALLBACK_PLACEMENTS: Array<'right-start' | 'left-end' | 'right-end'> = [
   'right-end',
 ];
 
+/** Mirrors the shared focusable contract used by FocusTrap and FloatingPortal. */
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
+
 export interface InspectorFocusedEditorProps {
   anchorRef: RefObject<HTMLElement | null>;
   /**
@@ -30,7 +51,7 @@ export interface InspectorFocusedEditorProps {
   title: string;
   /** Short stage/context tag rendered in the header beside the title. */
   badge?: string;
-  onClose: () => void;
+  onClose: (reason?: OverlayCloseReason) => void;
   ownerKey: string;
   children: ReactNode;
 }
@@ -45,6 +66,36 @@ export function InspectorFocusedEditor({
   ownerKey,
   children,
 }: InspectorFocusedEditorProps) {
+  const editorRef = useRef<HTMLElement | null>(null);
+  const wasOpenRef = useRef(false);
+
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = open;
+    if (open || !wasOpen) return;
+
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+
+    // Hand focus back only when this surface still owned it, or when closing
+    // dropped focus to the document (the editor node is already detached by
+    // the time this effect runs). A deliberate destination — the Tab handoff
+    // that `yieldTabToAnchor` just performed, another overlay that took focus,
+    // a click into the canvas — is never stolen.
+    const active = document.activeElement;
+    const stranded =
+      !active ||
+      active === document.body ||
+      Boolean(editorRef.current?.contains(active)) ||
+      anchor.contains(active);
+    if (!stranded) return;
+
+    const target = anchor.matches(FOCUSABLE_SELECTOR)
+      ? anchor
+      : anchor.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+    (target ?? anchor).focus({ preventScroll: true });
+  }, [anchorRef, open]);
+
   if (!open) return null;
 
   return (
@@ -57,38 +108,39 @@ export function InspectorFocusedEditor({
       maxHeight={560}
       kind="dialog"
       dismissOnEscape
+      initialFocus
+      yieldTabToAnchor
       insideRefs={interactionRef ? [interactionRef] : undefined}
       className="insp-focused-editor__portal"
     >
-      <FocusTrap active={open} onClose={onClose}>
-        <section
-          key={ownerKey}
-          className="insp-focused-editor"
-          role="dialog"
-          aria-modal="false"
-          aria-label={title}
-          data-inspector-focused-editor={ownerKey}
-        >
-          <header className="insp-focused-editor__header">
-            <h2 className="insp-focused-editor__title">{title}</h2>
-            {badge && (
-              <span
-                className="insp-focused-editor__stage-badge"
-                title={`Effects render at the ${badge} stage`}
-              >
-                {badge}
-              </span>
-            )}
-            <CloseButton
-              size="sm"
-              label={`Close ${title}`}
-              className="insp-focused-editor__close"
-              onClick={onClose}
-            />
-          </header>
-          <div className="insp-focused-editor__body">{children}</div>
-        </section>
-      </FocusTrap>
+      <section
+        ref={editorRef}
+        key={ownerKey}
+        className="insp-focused-editor"
+        role="dialog"
+        aria-modal="false"
+        aria-label={title}
+        data-inspector-focused-editor={ownerKey}
+      >
+        <header className="insp-focused-editor__header">
+          <h2 className="insp-focused-editor__title">{title}</h2>
+          {badge && (
+            <span
+              className="insp-focused-editor__stage-badge"
+              title={`Effects render at the ${badge} stage`}
+            >
+              {badge}
+            </span>
+          )}
+          <CloseButton
+            size="sm"
+            label={`Close ${title}`}
+            className="insp-focused-editor__close"
+            onClick={() => onClose('action')}
+          />
+        </header>
+        <div className="insp-focused-editor__body">{children}</div>
+      </section>
     </FloatingPortal>
   );
 }
