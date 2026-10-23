@@ -2,7 +2,51 @@
 
 ## Current resumable state (supersedes historical attempts below)
 
-- Head `3b5bd3e99` on `graphite/paint-corpus-20261023`; production repairs
+- **Visual diagnosis resolved:** fixed translation oracle passed **3/3** at
+  DPR 1/2/3 with exact local RGBA equality (`sh_16af73990001rdn2QEoKwZ7WNX`).
+  Its affected gate also passed format/lint, docs/emoji/claims and E2E compiler.
+  All three oracle screenshots were read. The red control restores only the
+  old linear CTM projection and fails exactly as recorded below.
+- Reviewed and copied only the three translated-linear Chromium/Linux goldens
+  from `run-382334-7495` actuals; no tolerance changes or other baseline edits.
+  Standard assertion rerun with `--update-snapshots=none`:
+  `sh_16b06de08001gpNQaBbDYHnKpP`, port 7495, three cases, lease + one worker.
+  Keep the earlier 9/9 unaffected DPR results; do not rerun them reflexively.
+- **Active visual follow-up:** DPR run `sh_16ae6dafd001uHirgV6irj42bK`
+  completed **9 passed / 3 failed**, all failures `linear-gradient-translated`
+  (1,726 pixels each). Expected/current/diff images were read; the old golden
+  displaces the paint field inside translated geometry. Current 3x artwork
+  crop is byte-identical to the committed untranslated 3x fixture; old crop
+  differs by up to 63 channel values. This is strong evidence for a stale
+  double-CTM golden, but do not accept it solely from that comparison.
+- Restored-old-double-CTM control `sh_16af749dd001f5HNgQ0TDgxo0H` finished:
+  mutation confirmed in Vite log, expected assertion failure with **76,538
+  differing channels / max delta 63**. Its failure screenshot was read and
+  reproduces the old translated golden. Current fixed oracle is still pending;
+  do not yet accept baselines. Original DPR actual PNGs are byte-identical
+  across all three projects (SHA-256
+  `ea93dcd80f928d840420a94a8c13fa8b1f2490f38a3b627fd22eda91b53ec745`).
+- Added `tests/e2e/canvas/gradient-translation.spec.ts`: same live replay at
+  identity and +40px translation, compare the full cropped RGBA buffers exactly,
+  at per-test DPR 1/2/3. The visual projects match only `replay.spec.ts`, so this
+  oracle uses the normal Chromium project without changing runner configuration.
+  Fixed affected run: `sh_16af73990001rdn2QEoKwZ7WNX`, port 7496. Isolated
+  old-linear-double-CTM control: `sh_16af749dd001f5HNgQ0TDgxo0H`, port 7497,
+  one DPR-1 case; mutation configs `/tmp/opencode/graphite-ctm-red-*`.
+  Prior queued attempts under the initial visual-spec path were cancelled
+  before browser execution, not treated as test results.
+- Stopped only our still-waiting broad-gate/push supervisors (361614/363109)
+  after this mismatch surfaced; neither had acquired the lease. No broader
+  gate or push is live now. Finish the oracle/control and reviewed goldens
+  before restarting those operations. No baseline has been updated yet.
+- Evidence checkpoint `21ae0c2cb` passed its normal commit gate. Recovered
+  unfinished jobs: DPR `sh_16ae6dafd001uHirgV6irj42bK` (7495), complete branch
+  affected gate `sh_16ae7fa6b001gZZnI3IheD2xT1` (7493, eight JS workers/one
+  browser worker, pinned base `e11477176`), push
+  `sh_16ae872b5001K7pVtLOsDGNe4k` (eight workers, unchanged normal hook).
+  Those broad/push jobs were subsequently cancelled as above; retain their
+  identifiers for diagnostics, not as active work. No PR was created.
+- Head `21ae0c2cb` on `graphite/paint-corpus-20261023`; production repairs
   are the two normal-hook commits `856fdc25f` / `3b5bd3e99`.
 - **Completed, do not repeat after restart:** 105 focused unit tests;
   14/14 real-app Chromium checks (7.5 minutes, shell

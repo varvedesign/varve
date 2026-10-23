@@ -535,6 +535,21 @@ and fixed F14 screenshots were inspected. No dispatcher, scene schema, renderer
 API or pixel-reuse logic changed. Commit `3b5bd3e99` is local; targeted replay
 visuals at DPR 1/2/3, complete affected validation and integration are unfinished.
 
+**Translated golden review.** The targeted replay run passed nine neighbours
+but failed the translated-linear golden at all three DPRs (1,726 pixels each).
+Expected/current/diff images were inspected: the golden retained the old
+double-CTM field displacement. Before accepting any image, the new
+`tests/e2e/canvas/gradient-translation.spec.ts` compared a live gradient with
+the same artwork translated 40px, cropping back into local space. All RGBA
+bytes match at DPR 1/2/3. Restoring only the old linear CTM projection through
+an isolated Vite plugin makes that oracle fail with 76,538 differing channels
+and maximum error 63; its inspected screenshot reproduces the old golden.
+All three fixed oracle screenshots were read. Only the three Chromium/Linux
+`linear-gradient-translated` goldens are updated; tolerances and the other
+snapshots are unchanged. Their ordinary assertion rerun (updates disabled)
+is pending. This is an intentional appearance correction backed by an
+independent pixel relation, not snapshot acceptance to conceal a failure.
+
 ---
 
 ## F16 — Gradient stop selection survives pointer-up (verified, no change needed)
