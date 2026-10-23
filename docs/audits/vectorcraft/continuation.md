@@ -165,6 +165,15 @@ Evidence for the PDF work is committed under `evidence/`
 (`pdf-gradient-before.png`, `pdf-gradient-after.png`,
 `pdf-gradient-alpha-before.png`, `pdf-gradient-alpha-after.png`).
 
+## F10 — silent open (fixed)
+
+PR **#187** merged as `b9114559`. `openFile` no longer substitutes a blank
+document when the supplied JSON cannot be decoded: the current document and its
+session identity are untouched, and an error toast names the file and says
+nothing was changed. `loadDocument` applies the same guard. Documents that
+decode but fail validation still open, because preflight reports their problems
+and refusing a recoverable file is its own data loss.
+
 ## Remaining work
 
 Reviewer findings: resolved — inner-corner arcs (high), global ceiling

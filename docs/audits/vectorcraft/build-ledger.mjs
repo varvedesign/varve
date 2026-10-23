@@ -444,7 +444,8 @@ const REVIEWED = {
   },
   861: {
     research: 'reviewed-thread',
-    engineering: 'implemented-pending-integration',
+    engineering: 'integrated-verified',
+    integrated_in: 'b9114559 (PR #187)',
     varve_area: 'persistence',
     varve_code: 'packages/editor/src/context.tsx:9548 (openFile), context/usePersistence.ts:225',
     observed:
