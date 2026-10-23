@@ -475,8 +475,8 @@ export function FloatingPortal({
                   const referenceRect = rects.reference;
                   const edgeSpace =
                     side === 'top'
-                      ? referenceRect.top - SAFE_VIEWPORT_PADDING
-                      : viewHeight - referenceRect.bottom - SAFE_VIEWPORT_PADDING;
+                      ? referenceRect.y - SAFE_VIEWPORT_PADDING
+                      : viewHeight - referenceRect.y - referenceRect.height - SAFE_VIEWPORT_PADDING;
                   constrainedHeight = Math.max(
                     0,
                     Math.min(Math.max(0, edgeSpace), maxHeight ?? Number.POSITIVE_INFINITY),
