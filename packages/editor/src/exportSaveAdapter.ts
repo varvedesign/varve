@@ -96,6 +96,42 @@ function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
+/**
+ * Reduce an exported relative path to a single safe file name.
+ *
+ * A single-file save dialog (native) or a browser download takes one file name,
+ * not a path: folder templates cannot be represented there, and a separator or
+ * `..` segment in the suggested name can be rejected by the native dialog or
+ * place the file outside the chosen directory. Everything after the last path
+ * segment is what the user is actually naming.
+ */
+function safeSuggestedFileName(fileName: string): string {
+  const lastSegment =
+    fileName
+      .replaceAll('\\', '/')
+      .split('/')
+      .filter((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
+      .at(-1) ?? '';
+  const cleaned = sanitizeSegment(lastSegment, { keepDots: true }).trim();
+  return cleaned.length > 0 && cleaned !== '_' ? cleaned : 'export';
+}
+
+/**
+ * Sanitize the archive name. The browser batch route derives it from the
+ * document name, which is arbitrary user text: separators and reserved
+ * characters would otherwise reach the save dialog or download as a path.
+ */
+function safeArchiveFileName(archiveName: string): string {
+  const withoutExtension = archiveName.trim().toLowerCase().endsWith('.zip')
+    ? archiveName.trim().slice(0, -4)
+    : archiveName;
+  const cleaned = sanitizeSegment(withoutExtension, { keepDots: false })
+    .replace(/_+/g, '_')
+    .replace(/^[._]+/, '')
+    .replace(/[._]+$/, '');
+  return `${cleaned.length > 0 ? cleaned : 'exports'}.zip`;
+}
+
 function downloadBytes(fileName: string, bytes: Uint8Array, mimeType: string): string | null {
   if (typeof document === 'undefined' || typeof URL === 'undefined') return null;
 
@@ -127,7 +163,7 @@ export function createExportSaveFile(platform?: Platform): ExportRunContext['sav
   return async (fileName, bytes, mimeType, job) => {
     return await saveExportBytes(
       platform,
-      fileName,
+      safeSuggestedFileName(fileName),
       bytes,
       mimeType,
       extensionForExport(fileName, mimeType, job),
@@ -197,9 +233,7 @@ export function createBufferedExportArchive(platform?: Platform): BufferedExport
     fileCount: () => count,
     flush: async (archiveName) => {
       if (count === 0) return null;
-      const fileName = archiveName.toLowerCase().endsWith('.zip')
-        ? archiveName
-        : `${archiveName}.zip`;
+      const fileName = safeArchiveFileName(archiveName);
       return await saveExportBytes(
         platform,
         fileName,
