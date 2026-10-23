@@ -445,7 +445,7 @@ jobs:
         run: |
           url='https://varve.studio/.well-known/security.txt'
           code=''
-          for attempt in 1 2 3 4 5 6 7 8; do
+          for _ in 1 2 3 4 5 6 7 8; do
             code=$(curl -sS -o /tmp/varve-security.txt -w '%{http_code}' --max-time 20 "$url" || true)
             if [ "$code" = 200 ]; then
               test -s /tmp/varve-security.txt

@@ -11,9 +11,10 @@ no-default-features = false
 feature-depth = 1
 
 [advisories]
-# Vulnerabilities fail by default. Unsound stays at warn, so glib 0.18
-# VariantStrIter (RUSTSEC-2024-0429 / GHSA-wrw7-89jp-8q8g) is reported, not
-# ignored. Unmaintained crates below have no compatible replacement in the
+# Vulnerabilities fail by default. Unsound stays at warn. glib 0.18
+# VariantStrIter (RUSTSEC-2024-0429 / GHSA-wrw7-89jp-8q8g) is tracked
+# through SECURITY.md and the osv-scanner ignore. Unmaintained crates below
+# have no compatible replacement in the
 # current Tauri / print / image graph; the ci.yml advisory gate already
 # keeps them as visible warnings rather than ignores.
 yanked = "warn"

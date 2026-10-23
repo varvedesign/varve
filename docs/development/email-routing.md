@@ -242,7 +242,7 @@ The Astro build copies it; `website-deploy.yml` uploads hidden files so
 Pages actually serves it. It carries an `Expires` field, which the
 specification requires and which crawlers and caches honour. **An expired
 `security.txt` is treated as invalid**, so it must be refreshed before the
-date passes — this is a recurring obligation, not a one-time file.
+date passes: this is a recurring obligation, not a one-time file.
 
 Refresh it as part of release preparation: bump `Expires` to roughly a year
 out and confirm `Contact`, `Canonical`, and `Policy` still resolve.
