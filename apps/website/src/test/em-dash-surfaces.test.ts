@@ -17,7 +17,6 @@ const SURFACES = [
   'apps/website/src/components/ScreenshotZoom.astro',
   'apps/website/src/layouts/Layout.astro',
   'apps/desktop/src/demo/DemoBanner.tsx',
-  'apps/website/src/lib/download-detection.ts',
 ] as const;
 
 /** Captions and alts ProductShowcase actually interpolates on the homepage. */
