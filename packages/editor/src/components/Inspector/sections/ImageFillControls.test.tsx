@@ -10,7 +10,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createEmbeddedAsset } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ImageFillControls } from './ImageFillControls';
+import { embeddedImageSummary, ImageFillControls } from './ImageFillControls';
 
 afterEach(cleanup);
 
@@ -193,7 +193,7 @@ describe('ImageFillControls', () => {
     render(
       <ImageFillControls
         image={{
-          src: 'data:image/png;base64,AAAA',
+          src: 'https://example.com/old.png',
           assetId: 'asset-old',
           fit: 'fill',
           x: 0,
@@ -209,6 +209,28 @@ describe('ImageFillControls', () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ src: 'https://example.com/new.png', assetId: undefined }),
     );
+  });
+
+  it('summarises an embedded data URL instead of showing its text (F-41)', () => {
+    const onChange = vi.fn();
+    render(
+      <ImageFillControls
+        image={{
+          src: `data:image/png;base64,${'A'.repeat(2048)}`,
+          assetId: 'asset-old',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+        }}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.queryByLabelText(/image source url/i)).toBeNull();
+    expect(screen.getByText('Embedded PNG image · 2 KB')).toBeInTheDocument();
+    // Clearing is the way back to an editable address, and drops the asset.
+    fireEvent.click(screen.getByRole('button', { name: 'Clear image' }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ src: '', assetId: undefined }));
   });
 
   it('registers a new file as an embedded asset with decoded dimensions', async () => {
@@ -280,3 +302,19 @@ interface ImageFillDataLike {
   imageWidth?: number;
   imageHeight?: number;
 }
+
+describe('embeddedImageSummary (F-41)', () => {
+  it('names an embedded image by format and size instead of its base64 text', () => {
+    const png = `data:image/png;base64,${'A'.repeat(4096)}`;
+    expect(embeddedImageSummary(png)).toBe('Embedded PNG image · 3 KB');
+    expect(embeddedImageSummary('data:image/svg+xml,%3Csvg%2F%3E')).toBe(
+      'Embedded SVG image · 1 KB',
+    );
+  });
+
+  it('leaves editable addresses alone', () => {
+    expect(embeddedImageSummary('https://example.com/a.png')).toBeUndefined();
+    expect(embeddedImageSummary('asset:asset-0123456789abcdef')).toBeUndefined();
+    expect(embeddedImageSummary('')).toBeUndefined();
+  });
+});

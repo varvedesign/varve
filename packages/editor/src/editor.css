@@ -7223,12 +7223,12 @@ dialog.varve-dialog--workspace-customize[open] {
  * native `dl` margins are reset below so labels and values cannot overlap. */
 .editor-inspector .insp-image-fill__color {
   display: flex;
-  align-items: flex-start;
+  /* Centre the summary on the row's label line (F-42). */
+  align-items: center;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-2);
   width: 100%;
   min-width: 0;
-  margin-top: var(--space-1);
 }
 
 .editor-inspector .insp-image-fill__color-summary {

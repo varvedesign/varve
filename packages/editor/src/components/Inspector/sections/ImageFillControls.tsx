@@ -8,7 +8,11 @@
  */
 import { getImageCache } from '@varve/engine';
 import type { DocumentAsset, EmbeddedAssetInput, ImageFillData, ImageFit } from '@varve/scene';
-import { rasterEncodingLabel, rasterProvenanceLabel } from '@varve/shared';
+import {
+  type RasterColorEncoding,
+  rasterEncodingLabel,
+  rasterProvenanceLabel,
+} from '@varve/shared';
 import { Icon, Select, Tooltip, TooltipProvider } from '@varve/ui';
 import {
   type ChangeEvent,
@@ -210,6 +214,8 @@ export function ImageFillControls({
   const previewSrc = hasMissingEmbeddedPayload ? undefined : (asset?.dataUrl ?? image.src);
   const hasPreview = Boolean(previewSrc);
   const hasImageReference = Boolean(image.src);
+  // Canonical `asset:` references stay editable text; a data URL is bytes.
+  const embeddedSource = embeddedImageSummary(image.src);
   const sourceWidth = image.imageWidth ?? asset?.naturalWidth ?? 0;
   const sourceHeight = image.imageHeight ?? asset?.naturalHeight ?? 0;
   const useBoundedPreview =
@@ -409,16 +415,24 @@ export function ImageFillControls({
       </div>
 
       <FieldRow label="Source">
-        <Tooltip label={image.src} truncationOnly>
-          <input
-            type="text"
-            value={image.src}
-            onChange={handleSrcChange}
-            aria-label="Image source URL"
-            placeholder="URL or choose a file"
-            className="insp-num__input insp-image-fill__src"
-          />
-        </Tooltip>
+        {embeddedSource ? (
+          // An embedded image is data, not an address to edit: name it and
+          // keep the bytes one copy away (F-41).
+          <span className="insp-image-fill__src insp-image-fill__src-summary">
+            {embeddedSource}
+          </span>
+        ) : (
+          <Tooltip label={image.src} truncationOnly>
+            <input
+              type="text"
+              value={image.src}
+              onChange={handleSrcChange}
+              aria-label="Image source URL"
+              placeholder="URL or choose a file"
+              className="insp-num__input insp-image-fill__src"
+            />
+          </Tooltip>
+        )}
         <Tooltip label="Copy source URL">
           <button
             type="button"
@@ -558,6 +572,32 @@ export function ImageFillControls({
  * Compact colour-metadata readout for a placed raster (expandable details).
  * Text + icon only — never colour alone (WCAG).
  */
+/**
+ * "Embedded PNG image · 48 KB" for a data URL, or undefined for an address
+ * the user can edit. The raw base64 string read as noise in a text field.
+ */
+export function embeddedImageSummary(src: string): string | undefined {
+  const match = /^data:image\/([a-z0-9.+-]+)?(;[^,]*)?,/i.exec(src);
+  if (!match) return undefined;
+  const format = (match[1] ?? 'image').replace(/\+xml$/i, '').toUpperCase();
+  const payload = src.length - match[0].length;
+  const bytes = /;base64/i.test(match[2] ?? '') ? Math.floor((payload * 3) / 4) : payload;
+  const size =
+    bytes >= 1024 * 1024
+      ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `Embedded ${format} image · ${size}`;
+}
+
+/** "Untagged · 8-bit" when nothing is known about the encoding (F-42). */
+function colourSummary(encoding: RasterColorEncoding): string {
+  const unknown =
+    (encoding.primaries ?? 'unknown') === 'unknown' &&
+    (encoding.transfer ?? 'unknown') === 'unknown';
+  if (!unknown) return rasterEncodingLabel(encoding);
+  return encoding.bitDepth !== undefined ? `Untagged · ${encoding.bitDepth}-bit` : 'Untagged';
+}
+
 function ImageColorInfo({ asset }: { asset: DocumentAsset }) {
   const [expanded, setExpanded] = useState(false);
   const metadata = asset.metadata;
@@ -569,7 +609,7 @@ function ImageColorInfo({ asset }: { asset: DocumentAsset }) {
     encoding.provenance === 'assumed' ||
     encoding.provenance === 'legacy-assumed-srgb';
 
-  const summary = encoding ? rasterEncodingLabel(encoding) : 'Untagged — interpreted as sRGB';
+  const summary = encoding ? colourSummary(encoding) : 'Untagged — interpreted as sRGB';
   const provenanceLabel = encoding
     ? rasterProvenanceLabel(encoding.provenance)
     : rasterProvenanceLabel('legacy-assumed-srgb');
@@ -605,10 +645,14 @@ function ImageColorInfo({ asset }: { asset: DocumentAsset }) {
   return (
     <FieldRow label="Colour">
       <div className="insp-image-fill__color">
-        <div className="insp-image-fill__color-summary">
-          <Icon name="Info" label={undefined} size="0.85em" />
-          <span className={untagged ? 'insp-hint' : undefined}>{summary}</span>
-        </div>
+        {/* The decorative info glyph looked like a button and pushed the
+            value onto two lines; the Details toggle is the way in (F-42). */}
+        <span
+          className={`insp-image-fill__color-summary${untagged ? ' insp-hint' : ''}`}
+          title={summary}
+        >
+          {summary}
+        </span>
         {details.length > 0 && (
           <button
             type="button"

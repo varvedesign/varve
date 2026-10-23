@@ -371,8 +371,17 @@ test.describe('fill creation and conversion', () => {
     // Simulate that reference reaching a live fill while retaining the
     // document-level asset table; the renderer must resolve it back to the
     // embedded bytes instead of treating it as a URL and painting grey.
+    // An embedded data URL shows as a summary, not as editable text (F-41);
+    // read the bytes from the preview and type the reference into the
+    // cleared field instead. Clearing keeps the document's asset table.
+    const preview = page.locator('.insp-image-fill__preview-img');
+    const dataUrl = (await preview.getAttribute('src')) ?? '';
+    expect(dataUrl).toMatch(/^data:image\/png;base64,/);
+    await expect(page.locator('.insp-image-fill__src-summary')).toHaveText(
+      /^Embedded PNG image · \d+ KB$/,
+    );
+    await page.getByRole('button', { name: 'Clear image' }).click();
     const sourceInput = page.locator('input[aria-label="Image source URL"]').first();
-    const dataUrl = await sourceInput.inputValue();
     await sourceInput.fill(`asset:${embeddedAssetId(dataUrl)}`);
     await expect(sourceInput).toHaveValue(/^asset:asset-[0-9a-f]{16}$/);
     await expect(page.locator('.insp-image-fill__preview-img')).toHaveAttribute('src', dataUrl);
