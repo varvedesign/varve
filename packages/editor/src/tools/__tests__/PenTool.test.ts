@@ -880,4 +880,95 @@ describe('PenTool', () => {
     // Should have added a point to the existing path via updateNode
     expect(ctx.updateNode).toHaveBeenCalled();
   });
+
+  describe('draft versus document changes (undo during a draw)', () => {
+    function continuationFixture() {
+      const pathShapeNode = {
+        id: 'path-1',
+        kind: 'shape' as const,
+        name: 'Path 1',
+        index: 0,
+        order: 'a0',
+        visible: true,
+        locked: false,
+        opacity: 1,
+        blendMode: 'normal' as const,
+        rotation: 0,
+        fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+        transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
+        shape: {
+          kind: 'path' as const,
+          points: [
+            { x: 0, y: 0, handleIn: null, handleOut: null },
+            { x: 100, y: 0, handleIn: null, handleOut: null },
+            { x: 100, y: 100, handleIn: null, handleOut: null },
+          ],
+          closed: false,
+          tolerance: 3,
+        },
+        fills: [] as [],
+        strokes: [] as [],
+        effects: [] as [],
+      };
+      let target: typeof pathShapeNode | undefined = pathShapeNode;
+      const ctx = makeCtx({
+        document: {
+          nodes: { 'path-1': pathShapeNode },
+          rootChildren: ['path-1'],
+          name: 'Test',
+        } as unknown as ToolContext['document'],
+        hitTest: vi.fn(() => ({ nodeId: 'path-1', node: pathShapeNode })),
+        getNode: vi.fn((id: string) => (id === 'path-1' ? target : undefined)),
+      });
+      const tool = new PenTool();
+      tool.onActivate?.(ctx);
+      // Continue from the last endpoint and place two more anchors.
+      tool.onPointerDown?.(makePointerEvent(100, 100), ctx);
+      tool.onPointerUp?.(makePointerEvent(100, 100), ctx);
+      for (const point of [
+        { x: 150, y: 200 },
+        { x: 200, y: 250 },
+      ]) {
+        vi.advanceTimersByTime(500);
+        tool.onPointerDown?.(makePointerEvent(point.x, point.y), ctx);
+        tool.onPointerUp?.(makePointerEvent(point.x, point.y), ctx);
+      }
+      return { ctx, tool, removeTarget: () => (target = undefined) };
+    }
+
+    it('keeps the new anchors as their own path when the continued path was undone', () => {
+      const { ctx, tool, removeTarget } = continuationFixture();
+      // Ctrl/Cmd+Z removed the path the draft was continuing.
+      removeTarget();
+      tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+      expect(ctx.updateNode).not.toHaveBeenCalled();
+      const call = vi.mocked(ctx.createShapeAt).mock.calls.at(-1);
+      expect(call?.[0]).toEqual({ x: 150, y: 200 });
+      expect(call?.[3]).toHaveLength(2);
+      expect(ctx.announce).toHaveBeenCalledWith(expect.stringContaining('changed while drawing'));
+    });
+
+    it('does not write into a continued path whose geometry changed underneath', () => {
+      const { ctx, tool, removeTarget } = continuationFixture();
+      // Undo restored an earlier, shorter revision of the same path.
+      const shortRevision = {
+        ...(vi.mocked(ctx.getNode)('path-1') as unknown as Record<string, unknown>),
+        shape: {
+          kind: 'path' as const,
+          points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+          closed: false,
+          tolerance: 3,
+        },
+      };
+      removeTarget();
+      vi.mocked(ctx.getNode).mockImplementation((id: string) =>
+        id === 'path-1' ? (shortRevision as never) : undefined,
+      );
+      tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
+
+      expect(ctx.updateNode).not.toHaveBeenCalled();
+      expect(ctx.createShapeAt).toHaveBeenCalled();
+    });
+  });
 });

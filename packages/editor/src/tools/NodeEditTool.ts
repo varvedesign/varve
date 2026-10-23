@@ -46,6 +46,13 @@ interface PointerGestureBase {
   inverseWorld: Affine;
   startCanvas: { x: number; y: number };
   active: boolean;
+  /**
+   * Anchor to collapse a multi-anchor selection onto when this press ends
+   * without crossing the drag threshold. A press on an already-selected anchor
+   * keeps the multi-selection so a drag can move every selected point, but a
+   * plain click must still narrow the selection to the clicked one.
+   */
+  collapseOnClickAnchor?: number;
 }
 
 type PointerGesture =
@@ -259,6 +266,14 @@ export class NodeEditTool extends BaseTool {
     const gesture = this.pointerGesture;
     if (!gesture) return;
     if (gesture.active) ctx.commitTransaction();
+    else if (gesture.collapseOnClickAnchor !== undefined) {
+      // Click without drag on an already-selected anchor: narrow the point
+      // selection to it. GraphiteEditor/Graphite#1774 describes the same
+      // contract; the drag path keeps the wider selection so a multi-point
+      // move still works.
+      this.selectedAnchors = new Set([gesture.collapseOnClickAnchor]);
+      ctx.setNodeEditSelectedAnchors(new Set(this.selectedAnchors));
+    }
     ctx.releasePointerCapture(gesture.pointerId);
     this.pointerGesture = null;
     this.drag = idleDrag();
@@ -304,6 +319,7 @@ export class NodeEditTool extends BaseTool {
       (e.pointerType === 'touch' && ctx.touchMultiSelect.active && !ctx.touchMultiSelect.suspended);
 
     let selected = new Set(this.selectedAnchors);
+    let collapseOnClickAnchor: number | undefined;
     if (hit.kind === 'anchor') {
       if (additive) {
         if (selected.has(hit.anchorIdx)) selected.delete(hit.anchorIdx);
@@ -315,6 +331,10 @@ export class NodeEditTool extends BaseTool {
         selected = new Set([hit.anchorIdx]);
         this.selectedAnchors = selected;
         ctx.setNodeEditSelectedAnchors(new Set(selected));
+      } else if (selected.size > 1) {
+        // Keep the multi-selection for a possible drag; collapse when the press
+        // ends as a click (see finishPointerGesture).
+        collapseOnClickAnchor = hit.anchorIdx;
       }
     } else if (hit.kind === 'handle') {
       selected = additive ? new Set([...selected, hit.anchorIdx]) : new Set([hit.anchorIdx]);
@@ -332,6 +352,7 @@ export class NodeEditTool extends BaseTool {
       [localStart[0], localStart[1]],
       inverseWorld,
       screen,
+      collapseOnClickAnchor,
     );
     if (!gesture) return { consumed: true };
     this.pointerGesture = gesture;
@@ -357,6 +378,7 @@ export class NodeEditTool extends BaseTool {
     startLocal: [number, number],
     inverseWorld: Affine,
     startCanvas: { x: number; y: number },
+    collapseOnClickAnchor?: number,
   ): PointerGesture | null {
     const base: PointerGestureBase = {
       pointerId,
@@ -368,6 +390,7 @@ export class NodeEditTool extends BaseTool {
       inverseWorld,
       startCanvas,
       active: false,
+      ...(collapseOnClickAnchor === undefined ? {} : { collapseOnClickAnchor }),
     };
     if (hit.kind === 'anchor') return { ...base, kind: 'anchor', anchorIdx: hit.anchorIdx };
     if (hit.kind === 'segment') {

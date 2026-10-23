@@ -77,8 +77,18 @@ function shapeHasMiterJoins(
   return shapeKind === 'path' || shapeKind === 'polygon' || shapeKind === 'star';
 }
 
-/** Outward local-space footprint for strokes and effects. */
-export function appearancePaddingLocal(appearance: Appearance): number {
+/**
+ * Outward local-space footprint of visible strokes (no effects, no text).
+ *
+ * `bandsOnly` drops the conservative miter/arrowhead allowance and keeps the
+ * painted band around the path. Hit testing uses it: a miter spike exists only
+ * at a corner, so expanding a bounding box by it uniformly would claim pixels
+ * the stroke never paints along straight edges.
+ */
+export function strokePaddingLocal(
+  appearance: Appearance,
+  options: { openPath?: boolean; bandsOnly?: boolean } = {},
+): number {
   let padding = 0;
   const shapeKind = appearance.shape?.kind ?? appearance.kind;
   const cornerRadius = (appearance as { cornerRadius?: number }).cornerRadius;
@@ -87,13 +97,23 @@ export function appearancePaddingLocal(appearance: Appearance): number {
     const weight = stroke.perSideWeights?.length
       ? Math.max(...stroke.perSideWeights)
       : stroke.weight;
-    const base = stroke.align === 'outside' ? weight : stroke.align === 'center' ? weight / 2 : 0;
+    // An open path has no interior for `inside`/`outside` to align against;
+    // the renderer strokes it on the centreline, so it paints half the weight
+    // on either side exactly like a centre-aligned closed shape.
+    const base = options.openPath
+      ? weight / 2
+      : stroke.align === 'outside'
+        ? weight
+        : stroke.align === 'center'
+          ? weight / 2
+          : 0;
     padding = Math.max(padding, base);
     // Miter spikes extend beyond the stroke edge at acute joins. Canvas2D
     // caps miterLength at miterLimit × strokeWidth, so the tip can reach
     // miterLimit × weight − weight/2 from the path (center alignment).
     // Rects/frames stay within ~0.91×weight; general paths get the full bound.
     if (
+      !options.bandsOnly &&
       stroke.align === 'center' &&
       stroke.join === 'miter' &&
       shapeHasMiterJoins(shapeKind, cornerRadius)
@@ -108,7 +128,7 @@ export function appearancePaddingLocal(appearance: Appearance): number {
     // Arrowheads extend past the segment endpoints: the engine draws heads up
     // to max(weight*3, 4) for path strokes and up to weight*6 for arrow
     // primitives, oriented along the segment direction.
-    if (shapeKind === 'line' || shapeKind === 'arrow') {
+    if ((shapeKind === 'line' || shapeKind === 'arrow') && !options.bandsOnly) {
       const hasHead =
         stroke.arrowStart !== 'none' || stroke.arrowEnd !== 'none' || shapeKind === 'arrow';
       if (hasHead) {
@@ -116,6 +136,12 @@ export function appearancePaddingLocal(appearance: Appearance): number {
       }
     }
   }
+  return padding;
+}
+
+/** Outward local-space footprint for strokes and effects. */
+export function appearancePaddingLocal(appearance: Appearance): number {
+  let padding = strokePaddingLocal(appearance);
   for (const effect of appearance.effects ?? []) {
     if (effect.visible === false) continue;
     switch (effect.type) {

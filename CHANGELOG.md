@@ -61,6 +61,21 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **Thick strokes are clickable where they paint** — an inside-, centre- or
+  outside-aligned stroke all resolved to the same click target, so the outer
+  half of a thick outside stroke selected nothing and an inside stroke could be
+  picked where nothing was drawn. A node is now clickable across the band its
+  strokes actually paint, following the node's scale and ignoring hidden
+  strokes; a path uses the distance to its outline rather than its bounding box.
+- **Clicking a selected point narrows the point selection** — with several
+  anchors selected, clicking one of them used to leave them all selected. It now
+  collapses the selection to the clicked anchor, while dragging from that same
+  press still moves every selected anchor.
+- **An undo underneath a pen draft no longer loses the new anchors** — if the
+  path being continued was undone (or restored to a different revision) while
+  its draft was open, finishing the draft could silently do nothing or overwrite
+  the restored path. The anchors you drew in the draft now become their own
+  path, with an announcement explaining why.
 - **SVG import is linear again** — Importing a large file took time proportional to the square of
   its element count: the converter copied the entire node map once per element, and the append
   copied it again. A 4 000-element file went from 14.6 s to 0.26 s, and 8 000 elements from 34 s to

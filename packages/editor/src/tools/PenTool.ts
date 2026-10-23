@@ -383,6 +383,28 @@ export class PenTool extends BaseTool {
     ctx.announce('Last anchor removed');
   }
 
+  /**
+   * The continued path is no longer the one the draft was built from. Keep the
+   * anchors the user drew in this draft as a new path instead of writing them
+   * into a stale target or dropping them.
+   */
+  private commitDetachedContinuation(ctx: ToolContext, closed: boolean): void {
+    const added = this.points.slice(this.continuationBasePointCount).map((p) => ({
+      x: p.x,
+      y: p.y,
+      handleIn: p.handleIn ? ([p.handleIn.x, p.handleIn.y] as [number, number]) : null,
+      handleOut: p.handleOut ? ([p.handleOut.x, p.handleOut.y] as [number, number]) : null,
+    }));
+    const first = added[0];
+    if (!first) return;
+    if (added.length < 2 && !closed) {
+      ctx.createShapeAt({ x: first.x, y: first.y }, { w: 4, h: 4 });
+    } else {
+      ctx.createShapeAt({ x: first.x, y: first.y }, undefined, undefined, added, closed);
+    }
+    ctx.announce('The continued path changed while drawing; the new anchors became a new path');
+  }
+
   private commitPath(ctx: ToolContext, closed: boolean): void {
     this.releaseActivePointer(ctx);
     ctx.setDraft(null);
@@ -402,19 +424,34 @@ export class PenTool extends BaseTool {
           handleOut: p.handleOut ? ([p.handleOut.x, p.handleOut.y] as [number, number]) : null,
         }));
         if (this.continuePathId) {
-          const wm = nodeWorldTransform(ctx.document, this.continuePathId);
-          const localPoints = pathPointsWorldToLocal(pathPoints, wm);
-          ctx.updateNode(this.continuePathId, (n) => {
-            if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
-            return {
-              ...n,
-              shape: {
-                ...n.shape,
-                points: localPoints,
-                closed: closed || n.shape.closed,
-              },
-            } as import('@varve/scene').ShapeNode;
-          });
+          // The draft is not history: an undo (or delete, or another edit) can
+          // change the path under it while the anchors are still being placed.
+          // GraphiteEditor/Graphite#2262 reports an undone pen draft leaving
+          // the next click drawing from stale geometry. Writing the draft into
+          // a changed target would either no-op silently or replace a path the
+          // user just restored, so keep the added anchors as their own path.
+          const target = ctx.getNode(this.continuePathId);
+          const targetPointCount =
+            target?.kind === 'shape' && target.shape.kind === 'path'
+              ? target.shape.points.length
+              : null;
+          if (targetPointCount === this.continuationBasePointCount) {
+            const wm = nodeWorldTransform(ctx.document, this.continuePathId);
+            const localPoints = pathPointsWorldToLocal(pathPoints, wm);
+            ctx.updateNode(this.continuePathId, (n) => {
+              if (n.kind !== 'shape' || n.shape.kind !== 'path') return n;
+              return {
+                ...n,
+                shape: {
+                  ...n.shape,
+                  points: localPoints,
+                  closed: closed || n.shape.closed,
+                },
+              } as import('@varve/scene').ShapeNode;
+            });
+          } else {
+            this.commitDetachedContinuation(ctx, closed);
+          }
         } else {
           ctx.createShapeAt({ x: first.x, y: first.y }, undefined, undefined, pathPoints, closed);
         }

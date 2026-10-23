@@ -49,6 +49,7 @@ import {
   pointToSegmentDistSq,
   tryInvertAffine,
 } from '@varve/shared';
+import { type Appearance, expandRect, strokePaddingLocal } from '../canvas/visualBounds';
 import { resolvePlacedLiveBoolean } from '../scene/liveBooleanGeometry';
 import { type MasterOffset, offsetWorldBounds, offsetWorldTransform } from '../scene/masterOffsets';
 import { buildSpatialIndex, queryPoint, type SpatialIndex } from '../scene/spatialIndex';
@@ -288,9 +289,18 @@ export class HitTestEngine {
         const wInv = invertAffine(worldMat);
         const local = [...applyAffine(wInv, [world.x, world.y])] as [number, number];
         const shape = hitGeometry(n, this.doc);
+        const strokeReachLocal = this.strokeReachLocal(n);
+        const strokeReachWorld = this.strokeReachWorld(n, worldMat);
 
         if (n.shape?.kind === 'path' && this.strokeToleranceWorld > 0) {
-          if (isPointNearPath(local, entry.nodeId, this.doc, this.strokeToleranceWorld)) {
+          if (
+            isPointNearPath(
+              local,
+              entry.nodeId,
+              this.doc,
+              this.strokeToleranceWorld + strokeReachLocal,
+            )
+          ) {
             isHit = true;
           }
         }
@@ -299,22 +309,18 @@ export class HitTestEngine {
           isHit = true;
         }
 
-        if (!isHit && this.toleranceWorld > 0) {
-          const bbox = this.worldBounds(entry.nodeId, entry.masterPlacement);
-          if (bbox) {
-            const expanded = {
-              x: bbox.x - this.toleranceWorld,
-              y: bbox.y - this.toleranceWorld,
-              w: bbox.w + 2 * this.toleranceWorld,
-              h: bbox.h + 2 * this.toleranceWorld,
-            };
-            if (rectContains(expanded, [world.x, world.y])) {
-              if (!this.policy.includeTransparentFill && this.paintsNoFill(n)) {
-                continue;
-              }
-              isHit = true;
-            }
-          }
+        if (
+          !isHit &&
+          this.bboxClaim(
+            n,
+            entry.nodeId,
+            world,
+            entry.masterPlacement,
+            this.policy,
+            strokeReachWorld,
+          )
+        ) {
+          isHit = true;
         }
       }
 
@@ -451,9 +457,13 @@ export class HitTestEngine {
         const wInv = invertAffine(worldMat);
         const local = [...applyAffine(wInv, [world.x, world.y])] as [number, number];
         const shape = hitGeometry(n, this.doc);
+        const strokeReachWorld = this.strokeReachWorld(n, worldMat);
+        const strokeReachLocal = this.strokeReachLocal(n);
 
         if (n.shape?.kind === 'path' && strokeToleranceWorld > 0) {
-          if (isPointNearPath(local, entry.nodeId, this.doc, strokeToleranceWorld)) {
+          if (
+            isPointNearPath(local, entry.nodeId, this.doc, strokeToleranceWorld + strokeReachLocal)
+          ) {
             isHit = true;
           }
         }
@@ -465,22 +475,18 @@ export class HitTestEngine {
           isHit = true;
         }
 
-        if (!isHit && toleranceWorld > 0) {
-          const bbox = this.worldBounds(entry.nodeId, entry.masterPlacement);
-          if (bbox) {
-            const expanded = {
-              x: bbox.x - toleranceWorld,
-              y: bbox.y - toleranceWorld,
-              w: bbox.w + 2 * toleranceWorld,
-              h: bbox.h + 2 * toleranceWorld,
-            };
-            if (rectContains(expanded, [world.x, world.y])) {
-              if (!activePolicy.includeTransparentFill && this.paintsNoFill(n)) {
-                continue;
-              }
-              isHit = true;
-            }
-          }
+        if (
+          !isHit &&
+          this.bboxClaim(
+            n,
+            entry.nodeId,
+            world,
+            entry.masterPlacement,
+            activePolicy,
+            strokeReachWorld,
+          )
+        ) {
+          isHit = true;
         }
       } else if (n.kind === 'text' || n.kind === 'frame' || n.kind === 'table') {
         const bbox = this.worldBounds(entry.nodeId, entry.masterPlacement);
@@ -542,31 +548,28 @@ export class HitTestEngine {
       const childShape = hitGeometry(child, this.doc);
       if (shapeContains(childShape, childLocal)) return true;
 
-      if (this.toleranceWorld > 0) {
-        const childBounds = this.worldBounds(childId, masterPlacement);
-        if (childBounds) {
-          const expanded = {
-            x: childBounds.x - this.toleranceWorld,
-            y: childBounds.y - this.toleranceWorld,
-            w: childBounds.w + 2 * this.toleranceWorld,
-            h: childBounds.h + 2 * this.toleranceWorld,
-          };
-          if (rectContains(expanded, [world.x, world.y])) return true;
-        }
-      }
-    } else {
+      // Group membership deliberately keeps the un-gated tolerance ring: the
+      // question is whether the group encloses the point, not whether a child
+      // fill paints (see `bboxClaim` for the top-level rule). This path has no
+      // centreline test, so a path child gets the same stroke ring as any
+      // other shape.
+      if (this.toleranceWorld <= 0) return false;
       const childBounds = this.worldBounds(childId, masterPlacement);
-      if (childBounds) {
-        const expanded = {
-          x: childBounds.x - this.toleranceWorld,
-          y: childBounds.y - this.toleranceWorld,
-          w: childBounds.w + 2 * this.toleranceWorld,
-          h: childBounds.h + 2 * this.toleranceWorld,
-        };
-        if (rectContains(expanded, [world.x, world.y])) return true;
+      if (!childBounds) return false;
+      const strokeReach = this.strokeReachWorld(child, childWorld);
+      if (
+        strokeReach > 0 &&
+        rectContains(expandRect(childBounds, strokeReach), [world.x, world.y])
+      ) {
+        return true;
       }
+      return rectContains(expandRect(childBounds, this.toleranceWorld), [world.x, world.y]);
     }
-    return false;
+    if (this.toleranceWorld <= 0) return false;
+    const childBounds = this.worldBounds(childId, masterPlacement);
+    return childBounds
+      ? rectContains(expandRect(childBounds, this.toleranceWorld), [world.x, world.y])
+      : false;
   }
 
   /** Source operands are structurally present but not independently visible. */
@@ -702,6 +705,63 @@ export class HitTestEngine {
   private paintsNoFill(node: SceneNode): boolean {
     if (node.kind !== 'shape') return false;
     return !resolveNodePaints(paintInput(node), this.doc).some(fillPaintsVisibleArea);
+  }
+
+  /**
+   * Bounding-box fallback. Two rings: the stroke ring the node actually
+   * paints, then the screen-space tolerance ring. Only a node that paints a
+   * fill may claim the tolerance ring, but a stroked node with no fill still
+   * owns the band its stroke paints (GraphiteEditor/Graphite#3047).
+   *
+   * Paths are excluded from the stroke ring: `isPointNearPath` measures the
+   * distance to their centreline, which is exact, while a box would also claim
+   * the empty corners around a curve.
+   */
+  private bboxClaim(
+    node: SceneNode,
+    nodeId: NodeId,
+    world: { x: number; y: number },
+    masterPlacement: MasterOffset | undefined,
+    policy: HitTestPolicy,
+    strokeReachWorld: number,
+  ): boolean {
+    const toleranceWorld = screenToWorldTolerance(policy.tolerancePx, this.options.zoom ?? 1);
+    const strokeReach = node.kind === 'shape' && node.shape?.kind === 'path' ? 0 : strokeReachWorld;
+    if (toleranceWorld <= 0 && strokeReach <= 0) return false;
+    const bbox = this.worldBounds(nodeId, masterPlacement);
+    if (!bbox) return false;
+    if (strokeReach > 0 && rectContains(expandRect(bbox, strokeReach), [world.x, world.y])) {
+      return true;
+    }
+    if (!rectContains(expandRect(bbox, toleranceWorld), [world.x, world.y])) return false;
+    if (!policy.includeTransparentFill && this.paintsNoFill(node)) return false;
+    return true;
+  }
+
+  /**
+   * Local-space distance this node's visible strokes paint beyond its
+   * geometry. Hit targets must follow painted pixels: the tolerance-only
+   * fallback under-picked the outer half of thick outside-aligned strokes and
+   * every pixel past the box margin (GraphiteEditor/Graphite#3047). Reusable
+   * style strokes are not resolved here, matching the rest of the hit test,
+   * which reads the node itself.
+   */
+  private strokeReachLocal(node: SceneNode): number {
+    if (node.kind !== 'shape') return 0;
+    const padding = strokePaddingLocal(node as unknown as Appearance, {
+      openPath: node.shape?.kind === 'path' && !node.shape.closed,
+      bandsOnly: true,
+    });
+    return Number.isFinite(padding) ? Math.max(0, padding) : 0;
+  }
+
+  /** @see strokeReachLocal — the same reach in world units. */
+  private strokeReachWorld(node: SceneNode, transform: import('@varve/shared').Affine): number {
+    const local = this.strokeReachLocal(node);
+    if (local <= 0) return 0;
+    const [a, b, c, d] = transform;
+    const scale = Math.max(Math.hypot(a, b), Math.hypot(c, d));
+    return Number.isFinite(scale) && scale > 0 ? local * scale : 0;
   }
 
   private isInSubtree(nodeId: NodeId, rootId: NodeId): boolean {

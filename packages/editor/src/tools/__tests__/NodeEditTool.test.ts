@@ -333,6 +333,48 @@ describe('NodeEditTool — anchor move', () => {
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
   });
 
+  it('collapses a multi-anchor selection onto an already-selected anchor on click', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    selectAnchors(tool, 0, 1);
+    tool.onPointerDown?.(makePointerEvent(10, 10), ctx);
+    tool.onPointerUp?.(makePointerEvent(10, 10), ctx);
+
+    const lastSelection = vi.mocked(ctx.setNodeEditSelectedAnchors).mock.calls.at(-1)?.[0];
+    expect(lastSelection).toEqual(new Set([0]));
+    expect(ctx.beginTransaction).not.toHaveBeenCalled();
+  });
+
+  it('keeps the multi-anchor selection when the press becomes a drag', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    selectAnchors(tool, 0, 1);
+    tool.onPointerDown?.(makePointerEvent(10, 10), ctx);
+    tool.onPointerMove?.(makePointerEvent(30, 25), ctx);
+    tool.onPointerUp?.(makePointerEvent(30, 25), ctx);
+
+    // The press must not narrow the selection before the drag decides whether
+    // it is a click, otherwise a multi-point move would silently drop points.
+    expect(ctx.setNodeEditSelectedAnchors).not.toHaveBeenCalled();
+    const updated = applyLatestNodeUpdate(
+      ctx,
+      vi.mocked(ctx.getNode)('n1')! as ReturnType<typeof makePathNode>,
+    );
+    expect(updated.shape.points[0]).toMatchObject({ x: 30, y: 25 });
+    expect(updated.shape.points[1]).toMatchObject({ x: 120, y: 25 });
+  });
+
+  it('shift-click on an already-selected anchor still toggles it out', () => {
+    const tool = new NodeEditTool();
+    const ctx = makeCtx();
+    selectAnchors(tool, 0, 1);
+    tool.onPointerDown?.(makePointerEvent(10, 10, { shiftKey: true }), ctx);
+    tool.onPointerUp?.(makePointerEvent(10, 10, { shiftKey: true }), ctx);
+
+    const lastSelection = vi.mocked(ctx.setNodeEditSelectedAnchors).mock.calls.at(-1)?.[0];
+    expect(lastSelection).toEqual(new Set([1]));
+  });
+
   it('aborts an active pointer gesture on cancellation', () => {
     const tool = new NodeEditTool();
     const ctx = makeCtx();

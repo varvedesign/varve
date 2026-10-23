@@ -443,3 +443,188 @@ to fail before the change).
 separate command as the interoperability route; it now states that an ordinary
 Copy carries the SVG representation, with the size ceiling and the host's
 permission/MIME dependence disclosed.
+
+---
+
+## F10 — Thick strokes were not clickable where they paint (implemented)
+
+**External evidence.** Graphite #3047 ("Stroke alignment should affect click
+targets", closed): the reporter shows that an inside-, centre- and
+outside-aligned stroke all resolve to the same click target, so an
+outside-aligned stroke's outer half cannot be picked and an inside-aligned
+stroke can be picked where nothing paints. Graphite fixed it in its own layer
+bounds.
+
+**Applicable Varve workflow and code path.** Varve *does* have stroke
+alignment: `Stroke.align` is `inside | center | outside`, the Inspector exposes
+it as "Stroke position", and `packages/engine/src/strokeReplay.ts` honours it
+(an outside stroke is clipped to the outside of the closed region). Hit testing
+ignored it entirely. `HitTestEngine` resolved a click through the path
+centreline proximity (`strokeTolerancePx`, a pure distance from the line), the
+shape's own geometry, and a bounding-box fallback expanded by
+`tolerancePx / zoom` only. Stroke weight never entered the calculation, so the
+painted band of a 40 px outside stroke was unreachable beyond the 8 px margin.
+
+**Observed Varve behaviour (before).** A 180×140 rectangle with a 40 px
+outside-aligned stroke paints a black band 40 px wide outside its edges. A
+click 20 px beyond the right edge, on painted pixels, selected nothing; the same
+point selected the shape only after the stroke was set to `center` or the click
+moved inside the margin.
+
+**Intended outcome.** A node is clickable wherever its strokes paint. The
+painted band is alignment-aware (outside: full weight outward, centre: half
+weight, inside: nothing outward), follows the node transform's scale, and
+ignores hidden strokes. A path uses the distance to its centreline instead of
+its box, because a box also covers the empty corners of a curve.
+
+**Implementation decision.** `strokePaddingLocal` in
+`packages/editor/src/canvas/visualBounds.ts` (extracted from the existing
+visual-bounds padding) gains a `bandsOnly` mode that keeps the painted band and
+drops the conservative miter/arrowhead allowance, which would otherwise claim a
+whole box for a spike that exists only at a corner. `HitTestEngine` uses it for
+the path proximity threshold and, converted through the node's world scale, for
+the bounding-box ring. The tolerance ring keeps its existing rule (only a node
+that paints a fill may claim it); the stroke ring does not need that gate
+because the stroke is the paint. `hitTestSingleChild` keeps the un-gated
+tolerance ring it always had for group membership, and only adds the stroke
+ring.
+
+**Acceptance criteria.**
+1. A 40 px outside stroke is clickable 30 px outside the geometry.
+2. An inside-aligned stroke adds no target outside the geometry.
+3. A centre-aligned stroke adds half its weight, not the full weight.
+4. A hidden stroke adds nothing.
+5. The band scales with the node transform.
+6. An open path uses half the weight for every alignment, because the renderer
+   strokes it on the centreline (`primitiveHasClosedRegion` is false).
+
+**Evidence.** Six cases in `packages/editor/src/hitTest/__tests__/HitTestEngine.test.ts`
+(#3047 block); four fail with the reach forced to zero, and the two negative
+controls (inside, hidden) pass in both states by design.
+`tests/e2e/canvas/stroke-alignment-click-target.spec.ts` paints a 40 px outside
+stroke on a rectangle, reads the canvas pixel at the target point as the
+rendering oracle, clicks it, and repeats the click after switching to
+`inside`; verified to fail against the previous hit test. Screenshots:
+`docs/screenshots/graphite-corpus/outside-stroke-click-target.png`,
+`docs/screenshots/graphite-corpus/inside-stroke-no-target.png` (inspected).
+
+---
+
+## F11 — Clicking a selected anchor kept every point selected (implemented)
+
+**External evidence.** Graphite #1774 ("Clicking a selected anchor should
+deselect all other selected points", closed): with several points selected,
+clicking one of them should collapse the selection to that point, the way every
+other direct-selection editor behaves.
+
+**Applicable Varve workflow and code path.** `NodeEditTool.onPointerDown`
+replaced the anchor selection only when the pressed anchor was *not* already
+selected (`else if (!selected.has(hit.anchorIdx))`). Pressing an
+already-selected anchor therefore kept the wider set and gave the user no way
+to narrow it except pressing Escape or clicking empty space.
+
+**Intended outcome.** A click on an already-selected anchor collapses the point
+selection to it; a drag from the same press still moves every selected anchor.
+Shift-click keeps its toggle meaning.
+
+**Implementation decision.** The press records `collapseOnClickAnchor` and
+leaves the selection untouched. `finishPointerGesture` collapses only when the
+press ends *without* crossing the drag threshold, which is the same
+click-versus-drag split the tool already uses for history.
+
+**Acceptance criteria.**
+1. Click on a selected member of a multi-anchor selection leaves only it
+   selected, with no undo entry.
+2. Dragging that same anchor moves every selected anchor and does not narrow
+   the selection.
+3. Shift-click still removes the anchor from the selection.
+
+**Evidence.** Three cases in
+`packages/editor/src/tools/__tests__/NodeEditTool.test.ts` (32 in the file); the
+collapse case fails with the collapse branch disabled. Help text
+(`packages/help/src/content/tools.ts`, `tool:nodeEdit`) states the click versus
+drag difference.
+
+---
+
+## F12 — A pen draft could be written into a path that changed underneath it (implemented)
+
+**External evidence.** Graphite #2262 ("Pen tool: dragging from the anchor
+breaks history, letting the user create vector meshes by mistake", closed): an
+undo during pen drawing left the previous segment in place, so the next click
+drew from stale geometry and produced an unintended mesh.
+
+**Varve's exposure (checked, not assumed).** Varve's pen draft is *not* in
+history at all: `PenTool` collects points and publishes them through
+`ctx.setDraft`, so pointer movement never dirties the document, and a partial
+undo of a committed segment is impossible. That removes Graphite's exact
+mechanism. One real corruption path remains: continuing an existing path
+(`continuePathId` plus `continuationBasePointCount`) and undoing the path — or
+undoing to a shorter revision of it — while the draft is open. `commitPath`
+then wrote the whole draft into `continuePathId` through `ctx.updateNode`,
+which either no-ops because the node is gone (the user's new anchors vanish
+with no message) or replaces the revision the user just restored.
+
+**Intended outcome.** Committing a draft never writes into geometry that is no
+longer the one the draft was built from. The anchors placed in the draft are
+never silently dropped.
+
+**Implementation decision.** `commitPath` writes into the continued path only
+when that path still exists with exactly `continuationBasePointCount` points.
+Otherwise `commitDetachedContinuation` keeps the anchors added in this draft as
+a new path (a single anchor becomes the same 4×4 dot the ordinary
+single-click path uses) and announces why.
+
+**Decided, not changed.** Plain Ctrl/Cmd+Z during a draft still performs a
+document undo rather than popping a draft anchor. Undo is captured at the
+window level before tool key handling, and the draft is deliberately outside
+history, so routing it into the draft would mean either a second history
+boundary or a global event bridge for one tool. Backspace already removes the
+last anchor placed in the draft. This is recorded as a deliberate scope
+decision rather than an unimplemented fix.
+
+**Acceptance criteria.**
+1. A draft continuing a path that was removed commits as a new path containing
+   only the anchors placed in the draft, and says so.
+2. A draft continuing a path whose point count changed does not write into it.
+3. An intact continuation still appends to the original path (existing case).
+
+**Evidence.** Two cases in `packages/editor/src/tools/__tests__/PenTool.test.ts`
+(41 in the file); both fail with the stale-target guard forced open, and the
+existing continuation case pins criterion 3.
+
+---
+
+## F13 — Axis-aligned lines are directly manipulable (verified, no change needed)
+
+**External evidence.** Graphite #2549 ("It's impossible to drag axis-aligned
+lines", closed): a line with zero height had almost no hover or click area, a
+box selection started instead of a drag, and the pointer always showed the
+rotate cursor. Graphite fixed it in #2561.
+
+**Why Varve needed its own answer.** The reasons Graphite had the bug are
+structural, not incidental: a zero-area bounding box is a hit-testing trap in
+any direct-manipulation editor. Varve's click policy already carries a
+zoom-aware bounding-box tolerance fallback (8 CSS px for the click policy), and
+rotation is a discrete handle rather than a cursor mode over the box body, so
+the report does not transfer mechanically. This entry records the proof instead
+of assuming either outcome.
+
+**Observed Varve behaviour.** With a 300 px horizontal line drawn at y=300 and
+the document otherwise empty:
+- hovering the midpoint resolves the canvas cursor to `move` (SelectTool maps
+  `hover` to the move cursor; there is no rotate cursor on the box);
+- a click selects it, and the Inspector reads Y 300;
+- one continuous press-drag moves it to Y 424 (grid snap from the raw +120),
+  the painted row follows, and the old row is left empty;
+- a click that selects and an immediate second press at the same point is
+  resolved as a depth cycle, not a drag. That is the SelectTool's documented
+  click-cycle behaviour, so the browser case drives the drag as one gesture.
+
+**Decision.** No change. Recorded as `already-handled` for this corpus row, with
+the measurement named so a future regression is visible rather than re-debated.
+
+**Evidence.** `tests/e2e/canvas/axis-aligned-line-drag.spec.ts` (canvas pixel
+oracle, polled across frames; canvas-relative coordinates re-anchored after the
+context bar appears). Screenshot inspected:
+`docs/screenshots/graphite-corpus/axis-aligned-line-drag.png`.

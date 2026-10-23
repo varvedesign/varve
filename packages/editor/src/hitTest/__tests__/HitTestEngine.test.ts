@@ -114,6 +114,109 @@ describe('HitTestEngine paint-aware click targets', () => {
   });
 });
 
+describe('HitTestEngine stroke-aware click targets', () => {
+  const STROKE = {
+    id: 's1',
+    color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+    weight: 40,
+    dashPattern: [] as number[],
+    dashOffset: 0,
+    cap: 'butt' as const,
+    join: 'miter' as const,
+    miterLimit: 4,
+    visible: true,
+  };
+
+  function makeStrokedRect(align: 'inside' | 'center' | 'outside', visible = true) {
+    let doc = createDocument('test', true);
+    const { id, doc: next } = nextNodeId(doc);
+    doc = next;
+    const built = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    // `makeShapeNode` drops fields it does not declare, so the stroke stack is
+    // set on the built node rather than passed in the overrides.
+    const node = {
+      ...built,
+      fill: OPAQUE_FILL,
+      fills: [] as ShapeNode['fills'],
+      strokes: [{ ...STROKE, align, visible }],
+    } as ShapeNode;
+    doc = { ...doc, nodes: { ...doc.nodes, [id]: node }, rootChildren: [id] };
+    return { doc, id };
+  }
+
+  it('picks the band an outside-aligned stroke paints', () => {
+    const { doc, id } = makeStrokedRect('outside');
+    // 30 world units outside the rect edge: painted by a 40 px outside stroke
+    // but far past the 8 px screen tolerance.
+    expect(new HitTestEngine(doc).hitTest({ x: 130, y: 50 })?.nodeId).toBe(id);
+  });
+
+  it('does not extend the target for an inside-aligned stroke', () => {
+    const { doc } = makeStrokedRect('inside');
+    expect(new HitTestEngine(doc).hitTest({ x: 130, y: 50 })).toBeNull();
+  });
+
+  it('uses half the weight for a centre-aligned stroke', () => {
+    const { doc, id } = makeStrokedRect('center');
+    expect(new HitTestEngine(doc).hitTest({ x: 115, y: 50 })?.nodeId).toBe(id);
+    // 30 units out is beyond the 20 units of painted band plus tolerance.
+    expect(new HitTestEngine(doc).hitTest({ x: 132, y: 50 })).toBeNull();
+  });
+
+  it('ignores a hidden stroke', () => {
+    const { doc } = makeStrokedRect('outside', false);
+    expect(new HitTestEngine(doc).hitTest({ x: 130, y: 50 })).toBeNull();
+  });
+
+  it('scales the painted band with the node transform', () => {
+    let doc = createDocument('test', true);
+    const { id, doc: next } = nextNodeId(doc);
+    doc = next;
+    const built = makeShapeNode(
+      id,
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      {
+        transform: [2, 0, 0, 2, 0, 0] as Affine,
+      },
+    );
+    const node = {
+      ...built,
+      fill: OPAQUE_FILL,
+      fills: [] as ShapeNode['fills'],
+      strokes: [{ ...STROKE, align: 'outside' }],
+    } as ShapeNode;
+    doc = { ...doc, nodes: { ...doc.nodes, [id]: node }, rootChildren: [id] };
+    // The edge is at x=200 and the 40 px stroke becomes 80 world units.
+    expect(new HitTestEngine(doc).hitTest({ x: 250, y: 100 })?.nodeId).toBe(id);
+  });
+
+  it('follows an open path with a half-weight band', () => {
+    let doc = createDocument('test', true);
+    const { id, doc: next } = nextNodeId(doc);
+    doc = next;
+    const built = makeShapeNode(id, {
+      kind: 'path',
+      points: [
+        { x: 0, y: 0, handleIn: null, handleOut: null },
+        { x: 200, y: 0, handleIn: null, handleOut: null },
+      ],
+      closed: false,
+      tolerance: 2,
+    });
+    const node = {
+      ...built,
+      fill: TRANSPARENT_FILL,
+      fills: [] as ShapeNode['fills'],
+      strokes: [{ ...STROKE, align: 'outside' }],
+    } as ShapeNode;
+    doc = { ...doc, nodes: { ...doc.nodes, [id]: node }, rootChildren: [id] };
+    // An open path has no interior, so every alignment straddles the line and
+    // paints half the weight per side.
+    expect(new HitTestEngine(doc).hitTest({ x: 100, y: 18 })?.nodeId).toBe(id);
+    expect(new HitTestEngine(doc).hitTest({ x: 100, y: 32 })).toBeNull();
+  });
+});
+
 describe('HitTestEngine', () => {
   it('returns null for an empty document', () => {
     const doc = createDocument('test', true);
