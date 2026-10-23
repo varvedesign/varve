@@ -166,16 +166,14 @@ describe('CrashRecoveryDialog', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it('send does not enable automatic reporting unless the checkbox is checked', () => {
+  it('send never enables automatic reporting', () => {
     const onSend = vi.fn();
     render(<CrashRecoveryDialog {...baseProps} onSend={onSend} />);
     fireEvent.click(screen.getByRole('button', { name: 'Send report' }));
     expect(onSend).toHaveBeenCalledWith(false);
-    fireEvent.click(
-      screen.getByRole('checkbox', { name: 'Automatically send future crash reports' }),
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Send report' }));
-    expect(onSend).toHaveBeenCalledWith(true);
+    expect(
+      screen.queryByRole('checkbox', { name: 'Automatically send future crash reports' }),
+    ).toBeNull();
   });
 
   it('decline deletes the local report', () => {
@@ -192,10 +190,12 @@ describe('CrashRecoveryDialog', () => {
     expect(onReview).toHaveBeenCalledTimes(1);
   });
 
-  it('exposes the three standing choices explicitly (no preselection)', () => {
+  it('states that crash details stay on the computer', () => {
     render(<CrashRecoveryDialog {...baseProps} consentChoice="askEachTime" />);
-    const radios = screen.getAllByRole('radio');
-    expect(radios.length).toBeGreaterThanOrEqual(3);
+    expect(
+      screen.getByText('Crash details stay on your computer. Varve never sends crash reports.'),
+    ).toBeTruthy();
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
   });
 
   it('oversized comments are bounded by the input maxlength', () => {

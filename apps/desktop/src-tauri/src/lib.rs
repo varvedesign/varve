@@ -1,6 +1,7 @@
 mod acceleration;
 mod crash;
 mod file_open;
+mod file_scope;
 mod filesystem;
 mod font;
 mod font_storage;
@@ -158,108 +159,11 @@ fn done(app: tauri::AppHandle) {
     app.exit(0);
 }
 
-/// Resolve the user's home directory without pulling in a new dependency
-/// for it. `dirs`-crate-equivalent behavior for the two platforms this app
-/// ships on.
-fn user_home_dir() -> Option<std::path::PathBuf> {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(std::path::PathBuf::from)
-}
-
-/// Canonicalize an untrusted, frontend-supplied path and verify it resolves
-/// under an allowed scope (the user's home directory or the OS temp
-/// directory) before any read/write happens.
-///
-/// This exists because Tauri's fs-plugin capability scope
-/// (`capabilities/default.json`'s `fs:allow-read`/`fs:allow-write`) only
-/// governs the `@tauri-apps/plugin-fs` JS API — it does NOT apply to custom
-/// `#[tauri::command]` functions that call `std::fs` directly, which is
-/// what every file-touching command in this file does. Without this check,
-/// any JS running in the webview — not only code that went through a native
-/// open/save dialog — could invoke a command like `write_binary_file` with
-/// an arbitrary path (e.g. `~/.ssh/authorized_keys`) and overwrite it
-/// directly. Handles both directions of the symlink/traversal problem:
-/// - If the path already exists, canonicalizing it directly resolves any
-///   symlink in the chain.
-/// - If it doesn't exist yet (a "Save As" to a new file, possibly in a new
-///   subfolder), walks up to the nearest existing ancestor, canonicalizes
-///   *that* (so a symlinked parent still can't escape scope), and rejects
-///   `..`/`.` components in the not-yet-existing suffix rather than
-///   naively re-joining them (which would otherwise let
-///   `existing_dir/../../etc/passwd` slip through as an "existing ancestor"
-///   plus a traversal suffix).
-fn resolve_user_path(raw: &str) -> Result<std::path::PathBuf, String> {
-    if raw.is_empty() {
-        return Err("Path must not be empty".into());
-    }
-    if raw.contains('\0') {
-        return Err("Path must not contain NUL bytes".into());
-    }
-    let path = std::path::Path::new(raw);
-
-    let canonical = if path.exists() {
-        std::fs::canonicalize(path).map_err(|e| format!("Failed to resolve path: {e}"))?
-    } else {
-        // Reject '.' / '..' components lexically, independent of the
-        // filesystem. On Windows, Path::exists() collapses a trailing
-        // `X\..` (Temp\X\.. resolves to Temp even when X doesn't exist),
-        // so the walk-up loop below never observes the '..' component and
-        // the traversal would be silently accepted. The lexical check runs
-        // before any syscall so behaviour is identical across platforms.
-        if path.components().any(|c| {
-            matches!(
-                c,
-                std::path::Component::CurDir | std::path::Component::ParentDir
-            )
-        }) {
-            return Err("Path must not contain '.' or '..' in a not-yet-existing segment".into());
-        }
-
-        let mut ancestor = path;
-        let mut suffix: Vec<&std::ffi::OsStr> = Vec::new();
-        loop {
-            if ancestor.exists() {
-                break;
-            }
-            let Some(name) = ancestor.file_name() else {
-                return Err("Path does not resolve to any existing ancestor directory".into());
-            };
-            suffix.push(name);
-            let Some(parent) = ancestor.parent() else {
-                return Err("Path does not resolve to any existing ancestor directory".into());
-            };
-            ancestor = parent;
-        }
-        let mut resolved = std::fs::canonicalize(ancestor).map_err(|e| {
-            format!(
-                "Failed to resolve existing ancestor {}: {e}",
-                ancestor.display()
-            )
-        })?;
-        for component in suffix.into_iter().rev() {
-            resolved.push(component);
-        }
-        resolved
-    };
-
-    let allowed_roots: Vec<std::path::PathBuf> = [user_home_dir(), Some(std::env::temp_dir())]
-        .into_iter()
-        .flatten()
-        .filter_map(|p| std::fs::canonicalize(&p).ok())
-        .collect();
-
-    if allowed_roots.is_empty() {
-        return Err("Unable to determine an allowed path scope on this system".into());
-    }
-    if allowed_roots.iter().any(|root| canonical.starts_with(root)) {
-        Ok(canonical)
-    } else {
-        Err(format!(
-            "Path '{}' is outside the allowed scope (must be under the user's home or temp directory)",
-            canonical.display()
-        ))
-    }
+fn resolve_scoped(
+    scope: &tauri::State<file_scope::FileScopeState>,
+    raw: &str,
+) -> Result<std::path::PathBuf, String> {
+    scope.resolve(raw)
 }
 
 /// Write bytes to `path` atomically: write to a temporary sibling file,
@@ -310,76 +214,13 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
     Ok(())
 }
 
-/// Canonicalize an untrusted path exactly like `resolve_user_path`, but
-/// WITHOUT the home/temp scope restriction.
-///
-/// Used ONLY by commands whose paths originate from the native OS dialog
-/// (`plugin:dialog|open` / `plugin:dialog|save`). The dialog is the trust
-/// boundary: the user explicitly chose these locations, and legitimate
-/// documents live anywhere the user keeps them — other drives, removable
-/// media, network mounts, iCloud/Documents on macOS. Restricting them to
-/// $HOME would make the app silently unable to open or save its own
-/// documents outside the home directory.
-///
-/// The same canonicalization (symlink resolution via the nearest existing
-/// ancestor) and the same lexical traversal rejection still apply, so a
-/// webview bug can never escape a real directory via `..` tricks.
-fn resolve_user_path_approved(raw: &str) -> Result<std::path::PathBuf, String> {
-    if raw.is_empty() {
-        return Err("Path must not be empty".into());
-    }
-    if raw.contains('\0') {
-        return Err("Path must not contain NUL bytes".into());
-    }
-    let path = std::path::Path::new(raw);
-
-    // Lexical traversal rejection runs BEFORE any syscall: the kernel
-    // resolves '..' inside existing paths, so `path.exists()` would
-    // happily report `existing_dir/../../etc/passwd` as present and the
-    // canonicalize branch would accept it.
-    if path.components().any(|c| {
-        matches!(
-            c,
-            std::path::Component::CurDir | std::path::Component::ParentDir
-        )
-    }) {
-        return Err("Path must not contain '.' or '..' in a not-yet-existing segment".into());
-    }
-
-    if path.exists() {
-        return std::fs::canonicalize(path).map_err(|e| format!("Failed to resolve path: {e}"));
-    }
-
-    let mut ancestor = path;
-    let mut suffix: Vec<&std::ffi::OsStr> = Vec::new();
-    loop {
-        if ancestor.exists() {
-            break;
-        }
-        let Some(name) = ancestor.file_name() else {
-            return Err("Path does not resolve to any existing ancestor directory".into());
-        };
-        suffix.push(name);
-        let Some(parent) = ancestor.parent() else {
-            return Err("Path does not resolve to any existing ancestor directory".into());
-        };
-        ancestor = parent;
-    }
-    let mut resolved = std::fs::canonicalize(ancestor).map_err(|e| {
-        format!(
-            "Failed to resolve existing ancestor {}: {e}",
-            ancestor.display()
-        )
-    })?;
-    for component in suffix.into_iter().rev() {
-        resolved.push(component);
-    }
-    Ok(resolved)
-}
-
 #[tauri::command]
-fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
-    let resolved = resolve_user_path(&path)?;
+fn write_binary_file(
+    scope: tauri::State<file_scope::FileScopeState>,
+    path: String,
+    data: Vec<u8>,
+) -> Result<(), String> {
+    let resolved = resolve_scoped(&scope, &path)?;
     write_file_atomic(&resolved, &data)
 }
 
@@ -388,6 +229,7 @@ fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
 /// path; it is validated component-by-component before native joining.
 #[tauri::command]
 fn write_binary_file_to_folder(
+    scope: tauri::State<file_scope::FileScopeState>,
     folder: String,
     relative_path: String,
     data: Vec<u8>,
@@ -395,7 +237,7 @@ fn write_binary_file_to_folder(
     let components = filesystem::validate_portable_relative_path(&relative_path)
         .map_err(|error| error.message)?;
 
-    let root = resolve_user_path_approved(&folder)?;
+    let root = resolve_scoped(&scope, &folder)?;
     if !root.is_dir() {
         return Err("Export destination is not a directory".into());
     }
@@ -403,9 +245,12 @@ fn write_binary_file_to_folder(
     for component in components {
         target.push(component);
     }
-    let resolved = resolve_user_path_approved(target.to_str().ok_or_else(|| {
-        "Export path cannot be represented by the desktop IPC boundary".to_string()
-    })?)?;
+    let resolved = resolve_scoped(
+        &scope,
+        target.to_str().ok_or_else(|| {
+            "Export path cannot be represented by the desktop IPC boundary".to_string()
+        })?,
+    )?;
     if !resolved.starts_with(&root) {
         return Err("Export path escapes the selected directory".into());
     }
@@ -528,6 +373,7 @@ fn native_clipboard_cancelled(operation_id: &str) -> bool {
 }
 
 #[cfg(target_os = "linux")]
+#[allow(unsafe_code)] // fcntl/poll on the Wayland clipboard pipe fd.
 fn read_wayland_pipe_bounded(
     mut pipe: impl Read + std::os::fd::AsRawFd,
     operation_id: &str,
@@ -764,11 +610,12 @@ fn cancel_clipboard_operation(operation_id: String) -> Result<(), String> {
 // bytes via this command.
 
 #[tauri::command]
-fn read_dropped_file(path: String) -> Result<Vec<u8>, String> {
-    // Dropping a file onto the window is an explicit user gesture — the path
-    // may live anywhere (external drive, network mount). Approved resolver
-    // still canonicalizes and rejects traversal.
-    let resolved = resolve_user_path_approved(&path)?;
+fn read_dropped_file(
+    scope: tauri::State<file_scope::FileScopeState>,
+    path: String,
+) -> Result<Vec<u8>, String> {
+    // Only paths recorded from a Rust-side drag-and-drop event are readable.
+    let resolved = resolve_scoped(&scope, &path)?;
     std::fs::read(&resolved).map_err(|e| e.to_string())
 }
 
@@ -2460,6 +2307,7 @@ fn generative_model_download_cancelled(request_id: &str) -> bool {
         .unwrap_or(true)
 }
 
+#[allow(unsafe_code)] // statvfs / GetDiskFreeSpaceExW for download preflight.
 fn available_disk_space(path: &std::path::Path) -> Option<u64> {
     #[cfg(unix)]
     {
@@ -2846,11 +2694,12 @@ fn cancel_generative_edit_model_download(request_id: String) -> Result<(), Strin
 fn import_generative_edit_model(
     app: tauri::AppHandle,
     store: tauri::State<'_, varve_sync::DocumentStore>,
+    scope: tauri::State<file_scope::FileScopeState>,
     path: String,
 ) -> Result<GenerativeModelStatus, String> {
     require_ai_features_enabled(&store)?;
     ensure_generative_model_import_supported()?;
-    let source = resolve_user_path_approved(&path)?;
+    let source = resolve_scoped(&scope, &path)?;
     let extension = source
         .extension()
         .and_then(|value| value.to_str())
@@ -4873,19 +4722,23 @@ fn home_read_file(
 }
 
 #[tauri::command]
-fn home_file_exists(path: String) -> bool {
-    is_probeable_absolute_path(&path).is_some() && std::path::Path::new(&path).exists()
+fn home_file_exists(scope: tauri::State<file_scope::FileScopeState>, path: String) -> bool {
+    is_probeable_absolute_path(&path).is_some()
+        && scope.resolve(&path).map(|p| p.exists()).unwrap_or(false)
 }
 
 /// Batch existence probe for Home's missing-file sweep. One IPC round-trip
 /// instead of one per file row. Per-path validation failures report `false`
 /// (never-found), which is the conservative reading for an invalid input.
 #[tauri::command]
-fn home_check_files_exist(paths: Vec<String>) -> Vec<bool> {
+fn home_check_files_exist(
+    scope: tauri::State<file_scope::FileScopeState>,
+    paths: Vec<String>,
+) -> Vec<bool> {
     paths
         .into_iter()
         .map(|path| match is_probeable_absolute_path(&path) {
-            Some(validated) => validated.exists(),
+            Some(_) => scope.resolve(&path).map(|p| p.exists()).unwrap_or(false),
             None => false,
         })
         .collect()
@@ -5290,26 +5143,33 @@ fn home_clear_recent_history(
 // ── File-system read/write (for open/save from disk) ─────────────────────
 
 #[tauri::command]
-fn home_read_text_file(path: String) -> Result<String, String> {
-    let resolved = resolve_user_path(&path)?;
+fn home_read_text_file(
+    scope: tauri::State<file_scope::FileScopeState>,
+    path: String,
+) -> Result<String, String> {
+    let resolved = resolve_scoped(&scope, &path)?;
     std::fs::read_to_string(&resolved).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_write_text_file(path: String, contents: String) -> Result<(), String> {
-    let resolved = resolve_user_path(&path)?;
+fn home_write_text_file(
+    scope: tauri::State<file_scope::FileScopeState>,
+    path: String,
+    contents: String,
+) -> Result<(), String> {
+    let resolved = resolve_scoped(&scope, &path)?;
     write_file_atomic(&resolved, contents.as_bytes())
 }
 
-// Dialog-approved variants: paths chosen through the native open/save
-// dialogs (see resolve_user_path_approved). Documents may legitimately live
-// outside $HOME (other drives, removable media, network mounts); the strict
-// home-scope variants above remain for anything whose path did not come
-// from a user dialog.
+// Dialog-approved variants now share the Rust-side file-scope registry.
+// The `_approved` name is kept so existing frontend invoke sites stay stable.
 
 #[tauri::command]
-fn home_read_text_file_approved(path: String) -> Result<String, filesystem::FsError> {
-    let resolved = resolve_user_path_approved(&path).map_err(|message| {
+fn home_read_text_file_approved(
+    scope: tauri::State<file_scope::FileScopeState>,
+    path: String,
+) -> Result<String, filesystem::FsError> {
+    let resolved = resolve_scoped(&scope, &path).map_err(|message| {
         // The only resolver rejection that means "the file and its parent
         // chain are gone" is the no-existing-ancestor case; every other
         // rejection is an invalid or traversing path.
@@ -5325,8 +5185,12 @@ fn home_read_text_file_approved(path: String) -> Result<String, filesystem::FsEr
 }
 
 #[tauri::command]
-fn home_write_text_file_approved(path: String, contents: String) -> Result<(), String> {
-    let resolved = resolve_user_path_approved(&path)?;
+fn home_write_text_file_approved(
+    scope: tauri::State<file_scope::FileScopeState>,
+    path: String,
+    contents: String,
+) -> Result<(), String> {
+    let resolved = resolve_scoped(&scope, &path)?;
     write_file_atomic(&resolved, contents.as_bytes())
 }
 
@@ -5575,7 +5439,10 @@ pub fn run() {
     builder
         // Native termination interception (ADR-0216 D5): close/exit is
         // prevented until the frontend coordinator approves it.
-        .on_window_event(lifecycle::handle_window_event)
+        .on_window_event(|window, event| {
+            file_scope::record_drag_drop(window.app_handle(), event);
+            lifecycle::handle_window_event(window, event);
+        })
         .setup(|app| {
             // Native ONNX Runtime init deliberately does NOT happen here.
             // Loading a native dylib this early — before the webview has
@@ -5622,6 +5489,25 @@ pub fn run() {
             // WebView localStorage is not the desktop shutdown authority.
             let native_shutdown = lifecycle::NativeShutdownState::begin(&store)
                 .expect("initialize native shutdown recovery state");
+            let mut file_scope = file_scope::FileScope::new();
+            let persist_path = file_scope::FileScope::persist_path_for(&directories);
+            let persist_existed = persist_path.exists();
+            file_scope.set_persist_path(persist_path);
+            file_scope.allow_app_directories(&directories);
+            // Only grants written by Rust (dialog, drop, CLI, or a previous
+            // persist of those) are reloaded. Frontend-supplied
+            // `files.file_path` must not mint grants on later launches.
+            let _ = file_scope.load_persisted();
+            if !persist_existed {
+                // One-time upgrade: re-validate document paths already in the
+                // store so existing recents keep working. Non-document paths
+                // (including planted `/etc/hosts`) are skipped.
+                if let Ok(rows) = store.list_files() {
+                    file_scope.hydrate_recent(rows.into_iter().filter_map(|row| row.file_path));
+                }
+            }
+            let _ = file_scope.persist();
+            app.manage(file_scope::FileScopeState::new(file_scope));
             app.manage(store);
             app.manage(native_shutdown);
             app.manage(UpscaleCancelState::new());
@@ -6023,6 +5909,8 @@ pub fn run() {
             home_write_text_file_approved,
             write_binary_file,
             write_binary_file_to_folder,
+            file_scope::pick_open_path,
+            file_scope::pick_save_path,
             read_dropped_file,
             read_clipboard_image_png,
             read_clipboard_data,
@@ -6630,6 +6518,7 @@ mod tests {
     }
 
     #[cfg(target_os = "linux")]
+    #[allow(unsafe_code)] // libc::pipe + from_raw_fd for a test fixture.
     #[test]
     fn native_clipboard_pipe_reads_with_a_bounded_buffer() {
         use std::os::fd::FromRawFd;
@@ -6647,6 +6536,7 @@ mod tests {
     }
 
     #[cfg(target_os = "linux")]
+    #[allow(unsafe_code)] // libc::pipe + from_raw_fd for a test fixture.
     #[test]
     fn native_clipboard_pipe_honours_cancellation() {
         use std::os::fd::FromRawFd;
@@ -7660,11 +7550,12 @@ mod tests {
         assert!(result.paths.is_empty() || !result.paths.is_empty());
     }
 
-    // ── resolve_user_path ──────────────────────────────────────────────
+    // ── file scope ─────────────────────────────────────────────────────
 
     #[test]
     fn resolve_user_path_rejects_empty_path() {
-        assert!(resolve_user_path("").is_err());
+        let scope = file_scope::FileScope::new();
+        assert!(scope.resolve("").is_err());
     }
 
     #[test]
@@ -7696,7 +7587,8 @@ mod tests {
 
     #[test]
     fn resolve_user_path_rejects_nul_byte() {
-        assert!(resolve_user_path("/tmp/foo\0bar").is_err());
+        let scope = file_scope::FileScope::new();
+        assert!(scope.resolve("/tmp/foo\0bar").is_err());
     }
 
     #[test]
@@ -7706,8 +7598,17 @@ mod tests {
         let file = dir.join("existing.txt");
         std::fs::write(&file, b"hi").expect("write test file");
 
-        let resolved = resolve_user_path(file.to_str().expect("utf8 path"))
-            .expect("path under temp dir should resolve");
+        let mut scope = file_scope::FileScope::new();
+        scope
+            .grant(
+                file.to_str().expect("utf8 path"),
+                file_scope::GrantKind::Exact,
+                file_scope::GrantSource::Dialog,
+            )
+            .expect("grant picked temp file");
+        let resolved = scope
+            .resolve(file.to_str().expect("utf8 path"))
+            .expect("picked path under temp dir should resolve");
         assert_eq!(
             std::fs::canonicalize(&resolved).expect("canonicalize resolved"),
             std::fs::canonicalize(&file).expect("canonicalize expected")
@@ -7722,8 +7623,17 @@ mod tests {
         std::fs::create_dir_all(&dir).expect("create test dir");
         let target = dir.join("subdir").join("brand-new.txt");
 
-        let resolved = resolve_user_path(target.to_str().expect("utf8 path"))
-            .expect("not-yet-existing path under an existing temp ancestor should resolve");
+        let mut scope = file_scope::FileScope::new();
+        scope
+            .grant(
+                dir.to_str().expect("utf8 path"),
+                file_scope::GrantKind::DirectoryTree,
+                file_scope::GrantSource::Dialog,
+            )
+            .expect("grant picked folder");
+        let resolved = scope
+            .resolve(target.to_str().expect("utf8 path"))
+            .expect("not-yet-existing path under a picked folder should resolve");
         assert!(
             resolved.ends_with("subdir/brand-new.txt")
                 || resolved.ends_with("subdir\\brand-new.txt")
@@ -7734,14 +7644,8 @@ mod tests {
 
     #[test]
     fn resolve_user_path_rejects_traversal_outside_scope() {
-        // A path that resolves to a system file outside both the home and
-        // temp directories must be rejected regardless of the '..' trick
-        // used to construct it.
-        let err = resolve_user_path("/etc/passwd");
-        // /etc/passwd exists on Linux CI runners and dev machines; if it
-        // doesn't (e.g. some minimal containers), the "does not exist"
-        // path is exercised instead — both are acceptable rejections here,
-        // the point is that it must never resolve successfully.
+        let scope = file_scope::FileScope::new();
+        let err = scope.resolve("/etc/passwd");
         assert!(
             err.is_err(),
             "/etc/passwd must never resolve as an allowed path"
@@ -7754,25 +7658,23 @@ mod tests {
         std::fs::create_dir_all(&dir).expect("create test dir");
         let escaping = dir.join("..").join("..").join("etc").join("passwd");
 
-        let result = resolve_user_path(escaping.to_str().expect("utf8 path"));
+        let scope = file_scope::FileScope::new();
+        let result = scope.resolve(escaping.to_str().expect("utf8 path"));
         assert!(
             result.is_err(),
-            "'..' segments in a not-yet-existing suffix must be rejected, not silently joined"
+            "'..' segments must be rejected, not silently joined"
         );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn resolve_user_path_approved_accepts_paths_outside_home() {
-        // The approved resolver is what lets documents on other drives and
-        // removable media open/save. An existing system file outside $HOME
-        // (e.g. /etc/hosts on Linux) must canonicalize successfully here —
-        // unlike resolve_user_path, which rejects it. /etc/hosts exists on
-        // every Linux/macOS dev machine.
-        let resolved = resolve_user_path_approved("/etc/hosts")
-            .expect("approved resolver accepts an existing out-of-home path");
-        assert!(resolved.is_absolute());
+    fn resolve_user_path_approved_rejects_unpicked_system_paths() {
+        let scope = file_scope::FileScope::new();
+        let err = scope
+            .resolve("/etc/hosts")
+            .expect_err("unpicked /etc/hosts must be rejected");
+        assert!(err.contains("outside the allowed file scope"));
     }
 
     #[test]
@@ -7781,12 +7683,15 @@ mod tests {
         std::fs::create_dir_all(&dir).expect("create test dir");
         let escaping = dir.join("..").join("..").join("etc").join("passwd");
 
+        let scope = file_scope::FileScope::new();
         assert!(
-            resolve_user_path_approved(escaping.to_str().expect("utf8 path")).is_err(),
-            "approved resolver must still reject '..' in a not-yet-existing suffix"
+            scope
+                .resolve(escaping.to_str().expect("utf8 path"))
+                .is_err(),
+            "scoped resolver must still reject '..'"
         );
-        assert!(resolve_user_path_approved("").is_err());
-        assert!(resolve_user_path_approved("/tmp/foo\0bar").is_err());
+        assert!(scope.resolve("").is_err());
+        assert!(scope.resolve("/tmp/foo\0bar").is_err());
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -7797,15 +7702,18 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("varve_path_test_symlink_{}", uuid()));
         std::fs::create_dir_all(&dir).expect("create test dir");
         let link = dir.join("escape");
-        // Point a symlink at a real out-of-scope directory (a fresh temp
-        // dir it also happens to be under /tmp is fine here — the actual
-        // security-relevant case is the home/temp scope check itself,
-        // already covered above; this test specifically proves symlinks
-        // are resolved rather than trusted at face value).
         std::os::unix::fs::symlink("/etc", &link).expect("create symlink");
         let target = link.join("passwd");
 
-        let result = resolve_user_path(target.to_str().expect("utf8 path"));
+        let mut scope = file_scope::FileScope::new();
+        scope
+            .grant(
+                dir.to_str().expect("utf8 path"),
+                file_scope::GrantKind::DirectoryTree,
+                file_scope::GrantSource::Dialog,
+            )
+            .expect("grant test dir");
+        let result = scope.resolve(target.to_str().expect("utf8 path"));
         assert!(
             result.is_err(),
             "a symlink pointing outside the allowed scope must not be trusted at face value"

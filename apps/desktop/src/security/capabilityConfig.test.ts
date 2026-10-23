@@ -88,6 +88,26 @@ describe('auxiliary panel-window capability', () => {
     }
   });
 
+  it('does not grant broad filesystem scope to the main window', () => {
+    const forbidden = [
+      '$HOME/**',
+      '$HOME/*',
+      '$DOCUMENT/**',
+      '$DESKTOP/**',
+      '$DOWNLOAD/**',
+      'fs:allow-read',
+      'fs:allow-write',
+      'fs:default',
+      'dialog:allow-open',
+      'dialog:allow-save',
+      'dialog:default',
+    ];
+    for (const permission of forbidden) {
+      expect(defaultCapability.permissions).not.toContain(permission);
+      expect(JSON.stringify(defaultCapability)).not.toContain(permission);
+    }
+  });
+
   it('grants close-request destruction only to the primary listener context', () => {
     // Tauri's Window.onCloseRequested listener calls `this.destroy()` in the
     // source webview after its handler returns. The panel-window adapter

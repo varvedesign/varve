@@ -12,6 +12,20 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+### Security
+
+- **Desktop file commands only accept user-picked paths.** Custom Tauri
+  commands that read or write a frontend-supplied path now check a Rust-side
+  allowlist. A path is admitted only after a native open/save/folder dialog
+  run from Rust, an OS drop onto the window, a file-association or CLI open,
+  a previously picked recent file that still canonicalizes, or an app-owned
+  data/config/cache/temp directory. Linked assets are allowed only in the
+  folder of an opened or saved document. An export folder the user picked
+  allows files under that folder. Unpicked paths, `..` traversal, and
+  symlink escapes are rejected, including `/etc/hosts`.
+- **Crash reports stay on the computer.** Settings no longer offer
+  "Automatically send" crash reports. That option never uploaded anything.
+  Existing automatic-consent records migrate to denied.
 
 ### Added
 

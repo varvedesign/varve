@@ -42,11 +42,11 @@ function formatCrashTime(ts: number): string {
 export function CrashRecoveryDialog({
   open,
   report,
-  consentChoice,
+  consentChoice: _consentChoice,
   recoveryStatus,
   sentReportId,
   sendFailed,
-  onConsentChoiceChange,
+  onConsentChoiceChange: _onConsentChoiceChange,
   onProceedToRecovery,
   onDecline,
   onReview,
@@ -60,7 +60,6 @@ export function CrashRecoveryDialog({
   const prevOpen = useRef(false);
   const [comment, setComment] = useState('');
   const [contact, setContact] = useState('');
-  const [automatic, setAutomatic] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -124,7 +123,7 @@ export function CrashRecoveryDialog({
       {sentReportId ? (
         <div className="crash-dialog__receipt">
           <p className="crash-dialog__receipt-title">Report sent</p>
-          <p>Thanks — your report was sent. You can reference it in a support conversation:</p>
+          <p>Thanks. Your report was sent. You can reference it in a support conversation:</p>
           <div className="crash-dialog__report-id">
             <code>{sentReportId}</code>
             <button type="button" className="crash-dialog__copy" onClick={handleCopyReportId}>
@@ -194,56 +193,17 @@ export function CrashRecoveryDialog({
             </label>
           </div>
 
-          <div
-            className="crash-dialog__section"
-            role="radiogroup"
-            aria-label="Crash reporting choice"
-          >
-            <h3 className="crash-dialog__section-title">Crash reporting</h3>
-            <label className="crash-dialog__radio">
-              <input
-                type="radio"
-                name="crash-consent"
-                checked={consentChoice === 'askEachTime'}
-                onChange={() => onConsentChoiceChange('askEachTime')}
-              />
-              <span>Ask me before sending each crash report</span>
-            </label>
-            <label className="crash-dialog__radio">
-              <input
-                type="radio"
-                name="crash-consent"
-                checked={consentChoice === 'automaticAllowed'}
-                onChange={() => onConsentChoiceChange('automaticAllowed')}
-              />
-              <span>Automatically send minimized crash reports</span>
-            </label>
-            <label className="crash-dialog__radio">
-              <input
-                type="radio"
-                name="crash-consent"
-                checked={consentChoice === 'denied'}
-                onChange={() => onConsentChoiceChange('denied')}
-              />
-              <span>Never send crash reports</span>
-            </label>
-          </div>
-
           <div className="crash-dialog__section">
-            <label className="crash-dialog__checkbox">
-              <input
-                type="checkbox"
-                checked={automatic}
-                onChange={(e) => setAutomatic(e.target.checked)}
-              />
-              <span>Automatically send future crash reports</span>
-            </label>
+            <h3 className="crash-dialog__section-title">Crash reporting</h3>
+            <p className="crash-dialog__subtitle">
+              Crash details stay on your computer. Varve never sends crash reports.
+            </p>
           </div>
 
           {sendFailed && (
             <>
               <p role="alert" className="crash-dialog__error">
-                The report could not be sent. It is still saved locally — try again, or delete it
+                The report could not be sent. It is still saved locally. Try again, or delete it
                 from Privacy and diagnostics settings.
               </p>
               <p className="crash-dialog__settings-link">
@@ -273,7 +233,7 @@ export function CrashRecoveryDialog({
             <button
               type="button"
               className="crash-dialog__btn crash-dialog__btn--send"
-              onClick={() => onSend(automatic)}
+              onClick={() => onSend(false)}
             >
               Send report
             </button>

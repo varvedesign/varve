@@ -22,6 +22,8 @@ use std::sync::Mutex;
 
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
 
+use crate::file_scope::{FileScopeState, GrantKind, GrantSource};
+
 /// Pending document paths the frontend has not drained yet.
 pub struct PendingFileOpens(pub Mutex<Vec<String>>);
 
@@ -65,6 +67,13 @@ fn queue_path(state: &PendingFileOpens, path: &str) -> bool {
 
 fn push_open(app: &AppHandle, state: &PendingFileOpens, path: String) {
     if queue_path(state, &path) {
+        if let Some(scope) = app.try_state::<FileScopeState>() {
+            let _ = scope.grant(
+                &path,
+                GrantKind::DocumentSiblings,
+                GrantSource::CliOrAssociation,
+            );
+        }
         let _ = app.emit("varve:file-open", vec![path]);
     }
 }
