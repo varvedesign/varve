@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   bindingMatchesEvent,
+  bindingToAriaKeyshortcuts,
   detectCollisions,
+  exportKeymap,
   formatShortcut,
+  getEffectiveBinding,
+  getOverrides,
+  importKeymap,
   isMac,
   isNativeActivationKeyTarget,
   SHORTCUT_DEFS,
@@ -507,6 +512,52 @@ describe('SHORTCUT_DEFS', () => {
       expect(typeof def.label).toBe('string');
       expect(typeof def.category).toBe('string');
     }
+  });
+
+  it('keeps browser history and bookmark chords out of default editor bindings', () => {
+    expect(SHORTCUT_DEFS.home.binding).toEqual({ key: 'f', ctrl: true, alt: true, shift: true });
+    expect(SHORTCUT_DEFS.canvasModeOutline.binding).toEqual({
+      key: 'o',
+      ctrl: true,
+      alt: true,
+      shift: true,
+    });
+  });
+
+  it('expresses bindings in aria-keyshortcuts grammar, never display abbreviations', () => {
+    expect(bindingToAriaKeyshortcuts(getEffectiveBinding('home'))).toBe('Control+Shift+Alt+F');
+    expect(bindingToAriaKeyshortcuts(getEffectiveBinding('canvasModeOutline'))).toBe(
+      'Control+Shift+Alt+O',
+    );
+    // Display labels use Ctrl/Cmd; an aria value that repeated them would be
+    // invalid token grammar and screen readers would not announce the chord.
+    expect(bindingToAriaKeyshortcuts(getEffectiveBinding('home'))).not.toContain('Ctrl');
+    expect(bindingToAriaKeyshortcuts({ key: 'Backspace' })).toBe('Backspace');
+  });
+
+  it('ignores browser-reserved shortcut overrides from existing and imported keymaps', () => {
+    localStorage.setItem(
+      'strata-shortcut-overrides',
+      JSON.stringify({ home: { key: 'h', ctrl: true, shift: true } }),
+    );
+    expect(getEffectiveBinding('home')).toEqual(SHORTCUT_DEFS.home.binding);
+
+    const imported = importKeymap({
+      version: 1,
+      generated: '2026-10-20T00:00:00.000Z',
+      shortcuts: {
+        canvasModeOutline: {
+          label: 'Outline Mode',
+          binding: { key: 'o', ctrl: true, shift: true },
+        },
+      },
+    });
+
+    expect(imported).toBe(0);
+    expect(getOverrides().canvasModeOutline).toBeUndefined();
+    expect(exportKeymap().shortcuts.canvasModeOutline?.binding).toEqual(
+      SHORTCUT_DEFS.canvasModeOutline.binding,
+    );
   });
 
   it('keeps the legacy Codegen action ids but presents the shared Code panel name', () => {

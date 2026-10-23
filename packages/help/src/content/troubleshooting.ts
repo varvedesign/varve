@@ -14,7 +14,7 @@ export const TROUBLESHOOTING: Record<string, HelpArticle> = {
     id: 'trouble:canvas',
     title: 'Canvas not rendering',
     summary: 'Check WebGL and Canvas2D support.',
-    body: 'If the canvas appears blank or does not render shapes, check that your browser supports Canvas2D and WebGL. Varve uses Canvas2D as its primary rendering backend. Try switching between canvas modes (Ctrl+Shift+O for outline, Ctrl+Shift+R for preview) to isolate the issue. Refresh the page or restart the application. Clear browser cache and disable hardware acceleration in your browser settings if problems persist.',
+    body: 'If the canvas appears blank or does not render shapes, check that your browser supports Canvas2D and WebGL. Varve uses Canvas2D as its primary rendering backend. Try switching between canvas modes (Ctrl+Shift+Alt+O for outline, Ctrl+Shift+R for preview) to isolate the issue. Refresh the page or restart the application. Clear browser cache and disable hardware acceleration in your browser settings if problems persist.',
     keywords: ['canvas', 'render', 'blank', 'webgl', 'display', 'graphics'],
     category: 'Troubleshooting',
     related: ['trouble:startup'],

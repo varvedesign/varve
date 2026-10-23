@@ -238,6 +238,8 @@ export interface UnifiedClipboardResult {
   plainText?: string;
   /** Bounded HTML snapshot for the editable rich-text importer. */
   htmlText?: string;
+  /** Why the browser async read could not inspect the clipboard, if known. */
+  clipboardReadIssue?: 'insecure-context' | 'permission-denied' | 'unavailable';
 }
 
 export type TransferIntent = 'paste' | 'copy' | 'cut' | 'import' | 'drop';
@@ -1561,11 +1563,25 @@ async function readClipboardItem(
 
 export async function readClipboardUnified(documentId?: string): Promise<UnifiedClipboardResult> {
   const result = createClipboardResult();
+  if (typeof navigator === 'undefined' || typeof navigator.clipboard?.read !== 'function') {
+    return {
+      ...result,
+      clipboardReadIssue:
+        typeof window !== 'undefined' && !window.isSecureContext
+          ? 'insecure-context'
+          : 'unavailable',
+    };
+  }
   try {
     const items = await navigator.clipboard.read();
     for (let i = 0; i < items.length; i++) await readClipboardItem(items[i]!, result, i);
-  } catch {
-    // Clipboard read failed or permission denied
+  } catch (error) {
+    result.clipboardReadIssue =
+      typeof window !== 'undefined' && !window.isSecureContext
+        ? 'insecure-context'
+        : isPermissionError(error)
+          ? 'permission-denied'
+          : 'unavailable';
   }
   return hydrateClipboardFonts(result, documentId);
 }
@@ -1997,5 +2013,18 @@ export async function readClipboardUnifiedWithFallback(
       // empty result rather than rejecting the whole paste() action.
     }
   }
-  return eventResult ?? apiResult;
+  const result = eventResult ?? apiResult;
+  if (platform?.kind === 'tauri' && result.clipboardReadIssue) {
+    const { clipboardReadIssue: _browserReadIssue, ...nativeResult } = result;
+    return nativeResult;
+  }
+  if (
+    platform?.kind !== 'tauri' &&
+    !hasRichClipboardContent(result) &&
+    !result.plainText &&
+    apiResult.clipboardReadIssue
+  ) {
+    return { ...result, clipboardReadIssue: apiResult.clipboardReadIssue };
+  }
+  return result;
 }

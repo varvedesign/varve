@@ -34,6 +34,10 @@ for (const theme of THEMES) {
       await expect(overlay).toHaveScreenshot(`guides-overlay-${theme}.png`, {
         maxDiffPixels: 120,
       });
+      await test.info().attach(`guide-overlay-${theme}`, {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
     });
   });
 }

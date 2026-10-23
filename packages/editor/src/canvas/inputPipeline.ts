@@ -692,7 +692,12 @@ export function useCanvasInputs({
         transferredPointerIds.current.add(decision.cancelPointerId);
       }
 
-      e.currentTarget.focus({ preventScroll: true });
+      // Focus the drawing canvas, not whichever element carried the event.
+      // CanvasArea forwards middle-button gestures that start on an overlay
+      // (guides, selection handles) from the canvas section's capture phase,
+      // so currentTarget is the section there; focusing it would blur the
+      // canvas and disable its keyboard handling for the rest of the session.
+      (contentCanvasRef.current ?? e.currentTarget).focus({ preventScroll: true });
 
       if (decision.cancelPointerId !== null) {
         const owner = activeDragPointer.current;

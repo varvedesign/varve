@@ -6,7 +6,8 @@
  *   2. draw canvas artwork (rect) + a frame
  *   3. select the frame → layers context menu → "Use Frame as File Thumbnail"
  *   4. save
- *   5. return Home (in-app, Ctrl+Shift+H) → the chosen representation renders
+ *   5. return Home through the menubar (not a hard-coded chord) → the chosen
+ *      representation renders
  *   6. reopen, delete the source frame, save
  *   7. Home still shows a thumbnail (missing source falls back to automatic)
  *   8. reopen → File menu → Set File Thumbnail… → Reset → Apply → save
@@ -18,7 +19,7 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { navigateToEditor, returnToHome } from '../shared';
 
 /**
  * The web build's save flow (save coordinator) asks for a destination via
@@ -122,8 +123,7 @@ test.describe('file thumbnail workflow', () => {
     await page.waitForTimeout(2000);
 
     // 5. Return Home in-app — the chosen representation must render.
-    await page.keyboard.press('Control+Shift+H');
-    await page.waitForSelector('.varve-home', { timeout: 20000 });
+    await returnToHome(page);
     await expectCardThumbnail(page);
 
     // 6. Reopen, delete the source frame, save.
@@ -135,8 +135,7 @@ test.describe('file thumbnail workflow', () => {
     await page.waitForTimeout(2000);
 
     // 7. Home still shows a thumbnail (missing source → automatic fallback).
-    await page.keyboard.press('Control+Shift+H');
-    await page.waitForSelector('.varve-home', { timeout: 20000 });
+    await returnToHome(page);
     await expectCardThumbnail(page);
 
     // 8. Reopen and reset through the File menu → picker dialog.
@@ -154,8 +153,7 @@ test.describe('file thumbnail workflow', () => {
     await page.waitForTimeout(2000);
 
     // 9. Home updates — the automatic thumbnail still renders.
-    await page.keyboard.press('Control+Shift+H');
-    await page.waitForSelector('.varve-home', { timeout: 20000 });
+    await returnToHome(page);
     await expectCardThumbnail(page);
   });
 });

@@ -17,8 +17,32 @@ export const BROWSER_RESERVED_SHORTCUTS: ReservedShortcut[] = [
   { keys: 'Ctrl/Cmd+N', action: 'New window' },
   { keys: 'Ctrl/Cmd+Tab', action: 'Switch tabs' },
   { keys: 'Ctrl/Cmd+Q', action: 'Quit browser (macOS)' },
+  { keys: 'Ctrl/Cmd+Shift+H', action: 'Browser history or home page' },
+  { keys: 'Ctrl/Cmd+Shift+O', action: 'Bookmarks / favorites' },
   { keys: 'F5 / Ctrl/Cmd+R', action: 'Reload page' },
 ];
+
+/** These browser-owned chords must remain available in web builds and keymaps. */
+export function isBrowserReservedBinding(
+  binding:
+    | {
+        key?: string;
+        ctrl?: boolean;
+        shift?: boolean;
+        alt?: boolean;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!binding || typeof binding !== 'object') return false;
+  const key = binding.key?.toLowerCase();
+  return (
+    binding.ctrl === true &&
+    binding.shift === true &&
+    binding.alt !== true &&
+    (key === 'h' || key === 'o')
+  );
+}
 
 /** Desktop can register global shortcuts via Tauri; these remain OS-level. */
 export const DESKTOP_OS_RESERVED_SHORTCUTS: ReservedShortcut[] = [

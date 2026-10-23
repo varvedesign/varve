@@ -82,6 +82,14 @@ import '../../styles/docs-prose.css';
             <span>Toggle Inspector panel (desktop app)</span>
           </div>
           <div class="shortcut-item">
+            <code>Ctrl/Cmd + Alt + Shift + F</code>
+            <span>Open Home</span>
+          </div>
+          <div class="shortcut-item">
+            <code>Ctrl/Cmd + Alt + Shift + O</code>
+            <span>Toggle Outline mode</span>
+          </div>
+          <div class="shortcut-item">
             <code>Space + Drag</code>
             <span>Pan canvas</span>
           </div>
@@ -101,7 +109,11 @@ import '../../styles/docs-prose.css';
         <p class="shortcuts-note">
           Chrome reserves <code>Ctrl+Shift+B</code> for the bookmarks bar. In the browser version,
           open Inspector from View &gt; Panels. On macOS, use Command+Shift+B in the desktop app;
-          Chrome reserves that chord for its bookmarks bar too.
+          Chrome reserves that chord for its bookmarks bar too. Browsers also reserve
+          <code>Ctrl/Cmd+Shift+H</code> for history and <code>Ctrl/Cmd+Shift+O</code> for bookmarks,
+          so Varve uses <code>Ctrl/Cmd+Shift+Alt+F</code> for Home and
+          <code>Ctrl/Cmd+Shift+Alt+O</code> for Outline mode. Browser-reserved bindings are rejected
+          when remapping and fall back to Varve's defaults.
         </p>
       </section>
 

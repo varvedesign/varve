@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { type ImportReport, ImportService } from '@varve/import';
+import { type ImportFileInput, type ImportReport, ImportService } from '@varve/import';
 import { addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FileImportEditor } from './useFileImport';
 import { useFileImport } from './useFileImport';
 
@@ -66,7 +66,36 @@ function editorFixture(): FileImportEditor {
 }
 
 describe('useFileImport operation ownership', () => {
-  afterEach(() => vi.restoreAllMocks());
+  beforeEach(() => {
+    vi.stubGlobal(
+      'FileReader',
+      class {
+        result: ArrayBuffer | string | null = null;
+        error: DOMException | null = null;
+        onload: ((event: ProgressEvent<FileReader>) => void) | null = null;
+        onerror: ((event: ProgressEvent<FileReader>) => void) | null = null;
+        onabort: ((event: ProgressEvent<FileReader>) => void) | null = null;
+        private aborted = false;
+
+        readAsArrayBuffer(file: Blob) {
+          void file.arrayBuffer().then((result) => {
+            if (this.aborted) return;
+            this.result = result;
+            this.onload?.({} as ProgressEvent<FileReader>);
+          });
+        }
+
+        abort() {
+          this.aborted = true;
+          this.onabort?.({} as ProgressEvent<FileReader>);
+        }
+      },
+    );
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it('captures the picker destination before the browser file dialog opens', async () => {
     vi.spyOn(ImportService, 'importFiles').mockResolvedValue(reportFor('picked.svg'));
@@ -161,5 +190,92 @@ describe('useFileImport operation ownership', () => {
 
     expect(editor.commitPreparedFragment).toHaveBeenCalledTimes(1);
     expect(editor.announce).toHaveBeenCalledWith('Imported 1 file; 0 failed');
+  });
+
+  it('reports file preparation separately from importer progress', async () => {
+    let resolveBytes!: (value: ArrayBuffer) => void;
+    const file = new File(['picked'], 'picked.svg', { type: 'image/svg+xml' });
+    vi.spyOn(file, 'arrayBuffer').mockImplementation(
+      () => new Promise<ArrayBuffer>((resolve) => (resolveBytes = resolve)),
+    );
+    let resolveImport!: (report: ImportReport) => void;
+    let onProgress:
+      | ((completed: number, total: number, file: ImportReport['files'][number]) => void)
+      | undefined;
+    let onFileStart: ((file: ImportFileInput, index: number) => void) | undefined;
+    const importSpy = vi
+      .spyOn(ImportService, 'importFiles')
+      .mockImplementation((_files, options) => {
+        onFileStart = options?.onFileStart;
+        onProgress = options?.onProgress;
+        return new Promise<ImportReport>((resolve) => (resolveImport = resolve));
+      });
+    const { result } = renderHook(() => useFileImport(editorFixture()));
+    const event = {
+      target: { files: [file], value: '' },
+    } as unknown as React.ChangeEvent<HTMLInputElement>;
+
+    let run!: Promise<void>;
+    act(() => {
+      run = result.current.onFilesSelected(event);
+    });
+    await waitFor(() =>
+      expect(result.current.progress).toMatchObject({
+        stage: 'preparing',
+        current: 0,
+        total: 1,
+      }),
+    );
+
+    await act(async () => {
+      resolveBytes(new ArrayBuffer(6));
+      await waitFor(() => expect(importSpy).toHaveBeenCalledTimes(1));
+    });
+    expect(result.current.progress).toMatchObject({ stage: 'importing', current: 0, total: 1 });
+    act(() =>
+      onFileStart?.(
+        { name: 'picked.svg', source: 'file-picker', size: 6, bytes: new Uint8Array(6) },
+        0,
+      ),
+    );
+    expect(result.current.progress).toMatchObject({
+      stage: 'importing',
+      current: 0,
+      activeFileNames: ['picked.svg'],
+    });
+    act(() => onProgress?.(1, 1, reportFor('picked.svg').files[0]!));
+    expect(result.current.progress).toMatchObject({
+      stage: 'importing',
+      current: 1,
+      activeFileNames: [],
+      fileName: 'picked.svg',
+    });
+
+    await act(async () => {
+      resolveImport(reportFor('picked.svg'));
+      await run;
+    });
+    expect(result.current.progress).toBeNull();
+  });
+
+  it('cancels a pending file read promptly without starting the importer', async () => {
+    const file = new File(['picked'], 'picked.svg', { type: 'image/svg+xml' });
+    vi.spyOn(file, 'arrayBuffer').mockImplementation(() => new Promise<ArrayBuffer>(() => {}));
+    const importSpy = vi.spyOn(ImportService, 'importFiles');
+    const { result } = renderHook(() => useFileImport(editorFixture()));
+    const event = {
+      target: { files: [file], value: '' },
+    } as unknown as React.ChangeEvent<HTMLInputElement>;
+
+    let run!: Promise<void>;
+    act(() => {
+      run = result.current.onFilesSelected(event);
+    });
+    await waitFor(() => expect(result.current.progress?.stage).toBe('preparing'));
+    act(() => result.current.cancel());
+    await act(async () => run);
+
+    expect(importSpy).not.toHaveBeenCalled();
+    expect(result.current.progress).toBeNull();
   });
 });

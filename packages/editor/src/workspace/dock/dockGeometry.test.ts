@@ -128,8 +128,18 @@ describe('dock geometry', () => {
       ['root', 'row'],
       ['main', 'column'],
     ]);
-    expect(geometry.splitters[0]?.rect).toEqual({ x: 188, y: 0, width: 24, height: 600 });
-    expect(geometry.splitters[1]?.rect).toEqual({ x: 200, y: 396, width: 600, height: 24 });
+    expect(geometry.splitters[0]?.rect).toEqual({ x: 188, y: 0, width: 12, height: 600 });
+    expect(geometry.canvas?.x).toBe(200);
+    // The hit band ends at the divider and stays inside the leading panel: the
+    // ruler (first 20px of the canvas) keeps its full draggable width, and
+    // flush-right panel controls clear the band. Regression: a 24px straddling
+    // band stole 12px of the ruler, and shifting it wholly into the panel
+    // covered Add Design Canvas, Save Selection, and Detach.
+    expect(geometry.splitters[0]!.rect.x + geometry.splitters[0]!.rect.width).toBe(
+      geometry.canvas?.x,
+    );
+    expect(geometry.splitters[0]!.rect.width).toBeLessThan(20);
+    expect(geometry.splitters[1]?.rect).toEqual({ x: 200, y: 396, width: 600, height: 12 });
     expect(geometry.tabGroups).toEqual([
       {
         nodeId: 'bottom-tabs',

@@ -312,6 +312,17 @@ vi.mock('./shortcuts', () => {
   // harness should not need to chase). Overrides behave like the real keymap.
   return {
     formatShortcut: formatBinding,
+    // Mirrors bindingToAriaKeyshortcuts so the Home button's aria value is
+    // computed the same way the app computes it.
+    bindingToAriaKeyshortcuts: (binding: MockBinding | undefined): string => {
+      if (!binding?.key) return '';
+      const parts: string[] = [];
+      if (binding.ctrl) parts.push('Control');
+      if (binding.shift) parts.push('Shift');
+      if (binding.alt) parts.push('Alt');
+      parts.push(binding.key.length === 1 ? binding.key.toUpperCase() : binding.key);
+      return parts.join('+');
+    },
     isMac: () => false,
     getEffectiveBinding: (id: string): MockBinding => {
       const override = mockShortcutOverrides[id];
