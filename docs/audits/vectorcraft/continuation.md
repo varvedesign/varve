@@ -48,6 +48,8 @@ by #175, and #187 left master with a red JS lane.
 |---|---|
 | `62f01d560` | `fix(editor)`: refuse an empty payload; one decode gate for `openFile` and `loadDocument`; report `FileReader` failures; rebuild dedupe fixtures with the codec; e2e zero-byte open |
 | `6d6bf5213` | `fix(recovery)`: `loadDocument` returns false on refusal; recovery keeps an unreadable snapshot |
+| `4b1c45925` | `docs`: reconcile findings F10/F11, review depth, the two misclassified exclusions, and the site's Open/recovery wording |
+| `38f6efa22` | `fix(editor)`: `admitDocumentPayload` owns the whole admission (including font resolution), `loadDocument` reports the real outcome, backup restore propagates it, dead Recent fallbacks removed |
 
 Validation for these commits is recorded below. Documentation and audit-record
 commits follow them on the same branch.
@@ -60,9 +62,11 @@ commits follow them on the same branch.
 | `openFileUnreadable.test.tsx` empty-payload case | **Red before the guard change** (document identity changed), green after |
 | `openFileUnreadable` + `openFileDedupe` + `documentSessionIdentity` | 22/22 pass |
 | `openFileUnreadable` + `RecoveryManager` | 14/14 pass |
+| `openFileUnreadable` + `openFileDedupe` + `documentSessionIdentity` | 22/22 pass after the admission refactor |
+| malformed but decodable font manifest | refused through both `openFile` and `loadDocument` with one named toast each |
 | `pnpm --filter @varve/editor exec tsc --noEmit` | clean |
 | `node scripts/audit-health.mjs --staged` | pass (context.tsx 77 imports, Shell 57, no new imports) |
-| `tests/e2e/menus/file-picker.spec.ts` (Chromium, real picker) | see "Browser evidence" below |
+| `tests/e2e/menus/file-picker.spec.ts` (Chromium, real picker) | **3/3 pass** in 4.6 min, including the zero-byte refusal; the run used `VARVE_HEAVY_TASK_PARALLELISM=0` because the lease queue was held by other agents for over an hour and long lease waits were being terminated by repeated server restarts. Single spec, workers=1, ~9 GB available. |
 | Browser gradient parity probe (Chromium) | Canvas2D and SVG both 252/191/48 at t≈0.1/0.5/0.9 over white; evidence committed |
 
 The pre-fix red runs were executed by temporarily restoring the previous guard
@@ -72,8 +76,11 @@ the unmodified branch.
 ## Browser evidence
 
 - `evidence/open-refused-empty-file.png` — the real File > Open picker after
-  choosing a zero-byte `.varve`: the error toast names the file, the tab count
-  and document name are unchanged. Chromium, workers=1, heavy lease.
+  choosing a zero-byte `.varve`: "Untitled 1" is still the open document, the
+  canvas is unchanged, and the error toast names `truncated.varve` and says
+  "Nothing was changed". Chromium, workers=1. The capture proves the refusal
+  path and the unchanged document name; it does not prove any file-system
+  behaviour beyond the picked buffer.
 - `evidence/gradient-parity-chromium.png` — Canvas2D versus inline-SVG gradient
   interpolation over white. It does **not** contain a Varve document and does
   **not** cover WebKit.
