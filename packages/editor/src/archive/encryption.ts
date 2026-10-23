@@ -94,9 +94,13 @@ export async function deriveKey(
 ): Promise<CryptoKey> {
   const subtle = getSubtle();
   return withPasswordBytes(password, async (passwordBytes) => {
-    const keyMaterial = await subtle.importKey('raw', passwordBytes, 'PBKDF2', false, [
-      'deriveKey',
-    ]);
+    const keyMaterial = await subtle.importKey(
+      'raw',
+      passwordBytes as BufferSource,
+      'PBKDF2',
+      false,
+      ['deriveKey'],
+    );
     return subtle.deriveKey(
       {
         name: 'PBKDF2',

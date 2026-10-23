@@ -137,8 +137,8 @@ export class ExportNodeTimeoutError extends Error {
   ) {
     super(
       `Export of "${label}" timed out after ${Math.round(budgetMs)} ms. ` +
-        'Reduce the output size or the effect radius and try again; ' +
-        'the rest of the batch was not written.',
+        'That object was not written. Reduce the output size or the effect ' +
+        'radius and try again; the rest of the batch continued.',
     );
     this.name = 'ExportNodeTimeoutError';
   }
@@ -148,10 +148,11 @@ export class ExportNodeTimeoutError extends Error {
  * Race one node's render against its budget.
  *
  * Cancellation is cooperative: the timer can only be observed at an await
- * boundary, so a synchronous main-thread render is detected immediately after
- * it yields rather than interrupted mid-chunk. That is still a hard bound on
- * the export flow — the timed-out node is never encoded or written, the batch
- * continues, and the report names the node and the budget.
+ * boundary. Raster and PDF renders await image settlement, decoding and blob
+ * encoding, so the budget ends them; a purely synchronous format that never
+ * awaits cannot be interrupted mid-chunk, and its work finishes before the
+ * race is decided. In every case a timed-out node is never encoded or written,
+ * the batch continues, and the report names the node and the budget.
  */
 async function withNodeBudget<T>(
   budgetMs: number,

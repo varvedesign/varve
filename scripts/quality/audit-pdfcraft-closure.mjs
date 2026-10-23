@@ -19,11 +19,14 @@
  * Usage: node scripts/quality/audit-pdfcraft-closure.mjs [--json]
  */
 
-import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = process.cwd();
 const DIR = join(ROOT, 'docs', 'audits', 'pdfcraft');
+const BLOCKED =
+  /^blocked:\s+.*\b(?:cargo|pnpm|node|npm|npx|git|command|exit|error|not found|timed out|denied)\b/i;
 const TERMINAL = new Set([
   'implemented-validated',
   'verified-already-correct-',
@@ -78,7 +81,7 @@ for (const row of cutoff3) {
   const [number, , , , cluster, disposition, reason] = row;
   if (seenCutoff3.has(number)) errors.push(`cutoff-3 row ${number} is duplicated`);
   seenCutoff3.add(number);
-  if (latest.has(number) && !seenCutoff3.has(`${number}:earlier`)) {
+  if (latest.has(number)) {
     // A cutoff-3 row may only describe an issue created after cutoff 2; an
     // overlap with the frozen set would be a corpus-boundary error.
     errors.push(`cutoff-3 row ${number} also appears in the cutoff-1/2 ledgers`);
@@ -98,17 +101,23 @@ for (const [, entry] of latest) {
     errors.push(`unknown disposition: ${entry.disposition}`);
   }
   if (entry.disposition === 'candidate' || entry.disposition === 'deferred') {
-    if (!entry.reason.startsWith('blocked:')) {
+    if (!BLOCKED.test(entry.reason)) {
       errors.push(
-        `issue has non-terminal latest disposition (${entry.disposition}) without a blocked: reason: ${entry.reason}`,
+        `issue has non-terminal latest disposition (${entry.disposition}) without a blocked: reason naming a command and an error: ${entry.reason}`,
       );
     }
   }
-  if (
-    entry.disposition === 'verified-already-correct-' &&
-    !/\.(ts|tsx|rs|md|sh|mjs|js|css|json)|:[0-9]+/.test(entry.reason)
-  ) {
-    errors.push(`verified row cites no code/test path: ${entry.reason}`);
+  if (entry.disposition === 'verified-already-correct-') {
+    if (!/\.(tsx|ts|rs|md|sh|mjs|js|css|json)|:[0-9]+/.test(entry.reason)) {
+      errors.push(`verified row cites no code/test path: ${entry.reason}`);
+    } else if (entry.source !== 'cutoff1/2') {
+      for (const cited of entry.reason.match(/[\w./-]+\.(?:tsx|ts|rs|md|sh|mjs|js|css|json)/g) ??
+        []) {
+        if (!existsSync(join(ROOT, cited))) {
+          errors.push(`verified row cites a path that does not exist: ${cited}`);
+        }
+      }
+    }
   }
 }
 
@@ -132,6 +141,19 @@ if (summary) {
   if (summary.frozen_id_set?.issue_count !== frozen.size) {
     errors.push(
       `frozen ID set size ${summary.frozen_id_set?.issue_count} != ledger issue count ${frozen.size}`,
+    );
+  }
+  const computedHash = createHash('sha256')
+    .update(
+      [...frozen]
+        .map(Number)
+        .sort((a, b) => a - b)
+        .join(','),
+    )
+    .digest('hex');
+  if (summary.frozen_id_set?.sha256 !== computedHash) {
+    errors.push(
+      `frozen ID set hash ${summary.frozen_id_set?.sha256} != recomputed ${computedHash}`,
     );
   }
 }

@@ -40,7 +40,9 @@ export interface PersistenceAPI {
   save: () => Promise<boolean>;
   saveAs: () => Promise<boolean>;
   saveCopy: () => Promise<boolean>;
-  loadDocument: (json: string, meta?: LoadDocumentMeta) => void;
+  /** Returns false when the payload cannot be decoded; callers that hold a
+   *  recovery point must not discard it on a false result. */
+  loadDocument: (json: string, meta?: LoadDocumentMeta) => boolean;
 }
 
 interface SessionUpdate extends SessionFileMeta {}
@@ -164,7 +166,7 @@ export function usePersistence(
   );
 
   const loadDocument = useCallback(
-    (json: string, meta?: LoadDocumentMeta) => {
+    (json: string, meta?: LoadDocumentMeta): boolean => {
       try {
         const decoded = DocumentCodec.decode(json);
         if (!decoded.ok) throw new Error(decoded.error);
@@ -187,7 +189,7 @@ export function usePersistence(
             downloadName: meta.downloadName,
             diskContentHash: meta.diskContentHash,
           });
-          return;
+          return true;
         }
 
         resetUndo();
@@ -223,8 +225,11 @@ export function usePersistence(
           dirty: false,
           ...(cam ? { zoom: cam.zoom, pan: cam.pan } : {}),
         });
+        return true;
       } catch {
-        // invalid JSON — ignore silently
+        // Invalid payload: report failure so a holder of recovery material can
+        // keep it instead of deleting the only copy of the user's work.
+        return false;
       }
     },
     [patch, resetUndo, state.sessions, state.activeId, computeFitAllCamera, openInNewSession],

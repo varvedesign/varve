@@ -40,6 +40,16 @@ rewritten; the discrepancy is recorded here rather than silently corrected.
 The cutoff-3 summary is generated from the same retrieval and reconciles
 exactly.
 
+**Missing ADR citation.** The frozen ledgers, the research ledger and earlier
+prose cite `docs/adr/0242-document-authority-and-interchange.md` as the source
+of the authored-identity and disclosure rules. That file **does not exist** in
+the repository at this revision (no `0242-*` file under `docs/adr/`). The rule
+itself is real and enforced in code and tests
+(`packages/editor/src/context/pendingEdits.ts`,
+`tests/e2e/save/text-target-switch.spec.ts`), so the resolutions cite those
+instead. The frozen rows are not rewritten; this note records the broken
+provenance rather than repeating it as if it resolved.
+
 ## 2. Disposition census
 
 Per cutoff, as written (frozen rows are never rewritten):
@@ -95,7 +105,7 @@ cites the test or code path recorded in the ledger.
 | Class | Rows | Evidence |
 |---|---:|---|
 | Glyph coverage / encoding | 24 | `packages/editor/src/export/glyphCoverage.ts`, `glyphCoverage.test.ts`, `packages/import/src/pdf/encoding.ts`, `pdfFidelity.test.ts` |
-| Text identity and draft commits | 10 | ADR-0242, `docs/adr/0242-document-authority-and-interchange.md`, `tests/e2e/save/text-target-switch.spec.ts`, `text-draft-save.spec.ts` |
+| Text identity and draft commits | 10 | `packages/editor/src/context/pendingEdits.ts`, `tests/e2e/save/text-target-switch.spec.ts`, `text-draft-save.spec.ts` |
 | Terminations and crash paths | 3 | `packages/editor/src/lifecycle/coordinator.ts`, `lifecycle/__tests__/coordinator.test.ts` |
 | GPU capability degradation | 3 | `docs/adr/0237-native-wgpu-compute.md`, `packages/compositor/src` |
 | Page count/order and import bounds | 3 | `packages/import/src/pdf/index.ts`, `tests/e2e/import/pdf-import-integrity.spec.ts` |
@@ -122,7 +132,7 @@ latest disposition per issue by the closure gate's data:
 | pdf-structure | 37 | Varve imports PDFs into its own model; it does not rewrite PDF structure, annotations, outlines or tags |
 | digital-signature | 28 | no signature or certificate surface |
 | interchange | 24 | no Office/EPUB/attachment interchange |
-| redaction | 23 | no redaction/sanitize surface; ADR-0242 §6 records the disclosure rule |
+| redaction | 23 | no redaction/sanitize surface; the disclosure rule recorded in this file would apply if one were added |
 | ocr | 18 | no OCR surface |
 | security | 10 | no PDF Standard Security Handler or PDF JavaScript engine |
 | build-release | 6 | their packaging/CI/release tooling |
@@ -130,9 +140,30 @@ latest disposition per issue by the closure gate's data:
 | image / interaction / fonts-glyphs / lifecycle-crash / render / page-geometry / text-edit / save-io | 9 | one row each where the named control does not exist; the transferable mechanism is handled by a separate implemented/verified row |
 | **Total** | **320** | |
 
-## 6. Native / platform evidence
+## 6. Measured export cost and the per-node budget
 
-### 6.1 Native PDF writer, PDF and PDF/X
+The five-minute budget was chosen against a measurement, not a guess. The
+depth-blur CPU kernel (the expensive path a large effect takes outside WebGPU)
+was timed in the repository's vitest environment at four sizes:
+
+```text
+depth-blur 512x512   (0.26 MP):    20 ms
+depth-blur 1024x1024 (1.05 MP):   775 ms
+depth-blur 2048x2048 (4.19 MP):  1,804 ms
+depth-blur 4096x4096 (16.78 MP): 5,999 ms
+```
+
+Extrapolating the measured 0.36 s/MP at the top end to the largest output the
+copy-PNG path permits (64 MP), one such effect is roughly 23 s; a legitimate
+multi-effect node at that size therefore finishes well inside 300 s. The budget
+is a pathological-work bound, not a normal-work limit. A node that exceeds it
+fails by name, is never written, and the batch continues. The measurement was
+taken on this machine (shared, loaded); it is an order-of-magnitude input to the
+constant, not a benchmark claim.
+
+## 7. Native / platform evidence
+
+### 7.1 Native PDF writer, PDF and PDF/X
 
 Command (temporary example removed after the run):
 
@@ -183,7 +214,7 @@ PDF/X structural conformance therefore rests on the writer's own assertions
 and the `GTS_PDFXVersion` marker, not on a PDF/X validator. This is a stated
 limitation, not a pass.
 
-### 6.2 Desktop application build
+### 7.2 Desktop application build
 
 ```text
 pnpm --filter @varve/desktop build
@@ -199,7 +230,7 @@ the native shell's Wayland launch and render were recorded in the preceding
 audit commit `eb1d23afd`, and this pass exercises the same Rust writer through
 the example above. The Tauri GUI matrix remains a release-environment check.
 
-### 6.3 WebKitGTK lane
+### 7.3 WebKitGTK lane
 
 The lane the desktop embeds is Playwright's WebKit GTK project, provisioned
 under `~/.cache/varve/playwright-webkit`. It was run against the font
@@ -208,7 +239,7 @@ availability and text-edit overlay specs. Result: see the gate output in §10
 could not run, the exact command and error are recorded there rather than
 being described as a pass.
 
-## 7. Documentation and website
+## 8. Documentation and website
 
 - `docs/audits/pdfcraft/README.md` — cutoff 3, latest census, residual
   limitations, closure pointer.
@@ -231,7 +262,7 @@ Website impact: the change is under `apps/website/**` and
 `packages/editor/**`, so merging it deploys the website. That is an authorised
 consequence of the merge, stated here.
 
-## 8. Residual limitations
+## 9. Residual limitations
 
 Stated as limitations, not completions:
 
@@ -250,12 +281,17 @@ Stated as limitations, not completions:
 7. `issue-ledger-cutoff2.summary.json` disagrees with its TSV by three
    dispositions; the TSV is authoritative and the frozen file is untouched.
 
-## 9. Follow-on queue
+## 10. Follow-on queue
 
-At closure: **0 issues created after cutoff 3** (`2026-10-23T07:54:25Z`).
-Any later issue is follow-on work; it does not reopen this claim.
+At closure (retrieved `2026-10-23T03:03:00Z`): **7 issues created after cutoff
+3** — 4213, 4215, 4216, 4221, 4222, 4224, 4225. They repeat already-adjudicated
+clusters (digital-signature validation/overlays, printing, glyph coverage for
+č/Č/ň/ě/ř, cursor visibility during text entry, macOS edit-text/OCR
+responsiveness, middle-click autoscroll) and are **not** part of this coverage
+claim. They are follow-on work and do not reopen the corpus. The frozen
+snapshot's count field records `follow_on_queue_at_closure: 7`.
 
-## 10. Gate output
+## 11. Gate output
 
 Paste of the closure gate and the §8 checks, with the amended latest-disposition
 check explained where the literal historical scan differs. See the final

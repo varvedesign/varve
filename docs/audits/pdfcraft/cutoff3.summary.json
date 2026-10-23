@@ -62,5 +62,11 @@
     "inaccessible": []
   },
   "corpus_closed": true,
-  "follow_on_queue_at_closure": 0
+  "follow_on_queue_at_closure": 7,
+  "follow_on_queue": {
+    "retrieved": "2026-10-23T03:03:00Z",
+    "count": 7,
+    "issues": [4225, 4224, 4222, 4221, 4216, 4215, 4213],
+    "note": "Created after cutoff 3; repeat already-adjudicated clusters (interaction, glyph coverage, printer, signature). Not part of this coverage claim."
+  }
 }

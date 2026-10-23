@@ -181,3 +181,36 @@ test.describe('text edit surface layout parity', () => {
     await capture(page, 'text-edit-alignment-center-1440x900');
   });
 });
+
+test.describe('text edit surface direction', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('does not pin RTL text to the physical left edge', async ({ page }) => {
+    await navigateToEditor(page);
+    const box = await canvasBox(page);
+    await page.keyboard.press('t');
+    await page.mouse.click(box.x + 360, box.y + 260);
+    await expect(page.locator(EDIT_SURFACE)).toBeVisible({ timeout: 10000 });
+    await page.keyboard.type('שלום עולם');
+    await page.keyboard.press('Escape');
+    await expect(page.locator(EDIT_SURFACE)).toHaveCount(0, { timeout: 10000 });
+
+    await page.getByRole('treeitem').first().click();
+    await page.keyboard.press('t');
+    await page.locator('canvas.editor-canvas__content-layer').focus();
+    await page.keyboard.press('Control+Enter');
+    await expect(page.locator(EDIT_SURFACE)).toBeVisible({ timeout: 10000 });
+
+    const state = await page.evaluate(() => {
+      const surface = document.querySelector('[data-text-edit-surface="true"]');
+      if (!surface) return null;
+      const cs = getComputedStyle(surface);
+      return { align: cs.textAlign, direction: cs.direction };
+    });
+    expect(state).not.toBeNull();
+    // The renderer treats a default-aligned RTL run as right-aligned. Pinning
+    // the physical `left` keyword would put the caret on the wrong side.
+    expect(state?.direction).toBe('rtl');
+    expect(state?.align).not.toBe('left');
+  });
+});

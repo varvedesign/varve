@@ -73,11 +73,13 @@ export function RecoveryManager(_props: RecoveryManagerProps) {
         // The snapshot's recorded fileId/filePath are provenance only — a
         // recovery sidecar must never nominate the next save destination
         // (storytold/pdfcraft #3923), so only the display name is forwarded.
-        editor.loadDocument(JSON.stringify(data.document), {
+        const restored = editor.loadDocument(JSON.stringify(data.document), {
           name: data.tabName,
           newSession: true,
         });
-        mgr.deleteSession(id);
+        // Keep the recovery point when the payload could not be decoded: it is
+        // the only copy of that work.
+        if (restored) mgr.deleteSession(id);
       }
     });
   };
@@ -97,11 +99,11 @@ export function RecoveryManager(_props: RecoveryManagerProps) {
           if (data) {
             // One tab per recovered session — restoring all into the active
             // tab left only the last one standing.
-            editor.loadDocument(JSON.stringify(data.document), {
+            const restored = editor.loadDocument(JSON.stringify(data.document), {
               name: data.tabName,
               newSession: true,
             });
-            mgr.deleteSession(session.id);
+            if (restored) mgr.deleteSession(session.id);
           }
         });
       }

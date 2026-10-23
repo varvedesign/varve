@@ -60,7 +60,7 @@
 3995	open	high	duplicate,priority: high,in progress	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
 3996	open	medium	priority: medium,in progress	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
 3998	open	critical	priority: critical,multiple issues	digital-signature	outside-varve-scope	No signature or certificate surface.	cutoff3
-3999	open	critical	priority: critical,multiple issues	redaction	outside-varve-scope	No redaction or sanitize surface; ADR-0242 section 6 records the disclosure rule that would apply if one were added.	cutoff3
+3999	open	critical	priority: critical,multiple issues	redaction	outside-varve-scope	No redaction or sanitize surface; the disclosure rule recorded in docs/audits/pdfcraft/CLOSURE.md would apply if one were added.	cutoff3
 4000	open	critical	priority: critical	security	outside-varve-scope	Varve writes no PDF encryption; its archive container derives AES-GCM keys with WebCrypto (no RandomState path). Evidence: packages/editor/src/archive/encryption.ts.	cutoff3
 4001	open	medium	priority: medium,multiple issues	security	outside-varve-scope	No PDF JavaScript engine.	cutoff3
 4002	open	low	priority: low	interaction	cluster-assessed	macOS text scaling was not measured in this Linux environment; no Varve code path reproduces a vertical stretch.	cutoff3
@@ -131,7 +131,7 @@
 4122	open	medium	priority: medium,multiple issues	other	outside-varve-scope	No PDF annotation review statuses.	cutoff3
 4127	open	medium	enhancement,priority: medium,needs info,multiple issues	interaction	outside-varve-scope	Their window chrome.	cutoff3
 4131	open	medium	bug,duplicate,priority: medium	text-edit	cluster-assessed	Varve text boxes resize through transform handles; no reproduced non-resizable case.	cutoff3
-4134	open	high	priority: high,regression	lifecycle-crash	verified-already-correct-	Canvas2D is the default renderer and WebGPU is opt-in with a bounded self-test, so a GPU capability failure degrades instead of preventing launch. Evidence: docs/adr/0237-native-wgpu-compute.md, packages/compositor/src.	cutoff3
+4134	open	high	priority: high,regression	lifecycle-crash	verified-already-correct-	Canvas2D is the default renderer and WebGPU is opt-in with a bounded self-test, so a GPU capability failure degrades instead of preventing launch. Evidence: docs/adr/0237-native-gpu-compute.md, packages/compositor/src.	cutoff3
 4140	open	low	priority: low	other	outside-varve-scope	A feature request with no mechanism.	cutoff3
 4144	closed	none	support	other	outside-varve-scope	Their upstream sync.	cutoff3
 4150	open	medium	priority: medium	other	outside-varve-scope	No AI assistant sign-in surface.	cutoff3
@@ -140,13 +140,13 @@
 4158	open	high	priority: high	interchange	outside-varve-scope	No Office/EPUB/attachment interchange surface.	cutoff3
 4160	open	medium	priority: medium	ocr	outside-varve-scope	No OCR surface.	cutoff3
 4163	open	low	priority: low	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
-4164	open	medium	priority: medium	redaction	outside-varve-scope	No redaction or sanitize surface; ADR-0242 section 6 records the disclosure rule that would apply if one were added.	cutoff3
+4164	open	medium	priority: medium	redaction	outside-varve-scope	No redaction or sanitize surface; the disclosure rule recorded in docs/audits/pdfcraft/CLOSURE.md would apply if one were added.	cutoff3
 4165	open	high	priority: high,needs info	save-io	implemented-validated	Save flushes buffered text drafts before the revision is captured, so a save mid-edit cannot write the pre-edit file and report success. Evidence: packages/editor/src/context/usePersistence.ts, tests/e2e/save/text-draft-save.spec.ts, tests/e2e/save/text-target-switch.spec.ts.	cutoff3
 4168	open	medium	priority: medium	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
 4173	open	medium	priority: medium,needs info,multiple issues	render	cluster-assessed	Scroll stuttering was not reproduced in Varve; the fresh-frame invariant is pinned but frame pacing was not measured here.	cutoff3
 4174	open	low	priority: low	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
 4175	open	medium	priority: medium	text-edit	implemented-validated	The edit surface now mirrors node.textAlign; the computed style is asserted and fails with 'start' without the fix. Evidence: packages/editor/src/components/TextEditOverlay.tsx, tests/e2e/canvas/text-edit-overlay-clipping.spec.ts.	cutoff3
-4176	open	high	priority: high	text-edit	verified-already-correct-	Text commands target authored node ids, never inferred paragraph ordinals (ADR-0242); draft and target-switch paths are covered. Evidence: docs/adr/0242-document-authority-and-interchange.md, tests/e2e/save/text-target-switch.spec.ts.	cutoff3
+4176	open	high	priority: high	text-edit	verified-already-correct-	Text commands target authored node ids, never inferred paragraph ordinals (ADR-0242); draft and target-switch paths are covered. Evidence: packages/editor/src/context/pendingEdits.ts, tests/e2e/save/text-target-switch.spec.ts.	cutoff3
 4177	open	medium	priority: medium,multiple issues	text-edit	cluster-assessed	Per-line alignment inside a paragraph is a feature request; Varve aligns paragraphs.	cutoff3
 4183	closed	low	duplicate,priority: low,in progress	interaction	cluster-assessed	Auxiliary windows host panels; tab tear-off is a feature request.	cutoff3
 4184	open	medium	priority: medium,needs info	image	cluster-assessed	No compress/watermark surface.	cutoff3
@@ -158,7 +158,7 @@
 4194	open	low	duplicate,priority: low,multiple issues,in progress	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
 4199	open	medium	priority: medium	text-edit	verified-already-correct-	Varve stores authored text verbatim and does not collapse whitespace on commit. Evidence: packages/editor/src/context/pendingEdits.ts.	cutoff3
 4202	open	medium	priority: medium,needs info	text-edit	cluster-assessed	Table cell hit testing and selection were not reproduced.	cutoff3
-4204	open	high	bug,duplicate,priority: high,in progress	redaction	outside-varve-scope	No redaction or sanitize surface; ADR-0242 section 6 records the disclosure rule that would apply if one were added.	cutoff3
+4204	open	high	bug,duplicate,priority: high,in progress	redaction	outside-varve-scope	No redaction or sanitize surface; the disclosure rule recorded in docs/audits/pdfcraft/CLOSURE.md would apply if one were added.	cutoff3
 4205	open	medium	priority: medium	ocr	outside-varve-scope	No OCR surface.	cutoff3
 4206	open	medium	priority: medium,in progress	interaction	cluster-assessed	The colour picker uses the shared Popover contract; no reproduced close-on-edit case.	cutoff3
 4207	open	high	duplicate,priority: high	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3

@@ -613,8 +613,11 @@ export function TextEditOverlay({
         // The editing surface must lay text out where the renderer painted it.
         // Omitting alignment put the caret and the IME composition at the left
         // edge of a centred or right-aligned run — a layout the box never had
-        // (storytold/pdfcraft #4175).
-        textAlign: node.textAlign ?? 'left',
+        // (storytold/pdfcraft #4175). `left` is deliberately not pinned: it is
+        // the renderer's directional default (left for LTR, right for RTL), and
+        // a physical `left` here would break RTL exactly as the old omission
+        // broke centred text. `dir="auto"` resolves the same direction.
+        ...(node.textAlign && node.textAlign !== 'left' ? { textAlign: node.textAlign } : {}),
         // Keep the editing surface on the same fallback as shared text
         // geometry and the canvas renderer. Imported nodes may omit the
         // optional line-height field; using 1.2 here made their caret and

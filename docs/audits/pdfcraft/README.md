@@ -54,8 +54,9 @@ Cutoff 3 is the **final corpus boundary**: anything created later is a follow-on
 queue, not a reopening of this coverage claim (there were 0 such issues at
 closure). The frozen cutoff-1/2 rows are never rewritten; a later pass resolves
 a row by appending to [`resolutions.tsv`](resolutions.tsv), and closure is a
-property of the **latest disposition per issue**, enforced by
-`pnpm audit:pdfcraft-closure`. [`CLOSURE.md`](CLOSURE.md) holds the closure
+property of the **latest disposition per issue**, checked by
+`pnpm audit:pdfcraft-closure` (a manual, reproducible gate; it is not wired into
+CI). [`CLOSURE.md`](CLOSURE.md) holds the closure
 report, the disposition census, the evidence for every resolved row, and the
 native/visual validation record.
 
@@ -114,9 +115,11 @@ Counts at cutoff 1: `cluster-assessed` 1,156 · `candidate` 75 ·
 `verified-already-correct-` 6 · `deferred` 4. 166 rows are individually
 adjudicated; the rest inherit a cluster verdict.
 
-Counts for the 494 cutoff-2 issues: `cluster-assessed` 252 ·
-`outside-varve-scope` 164 · `implemented-validated` 50 · `candidate` 10 ·
-`verified-already-correct-` 17 · `deferred` 1. The rows named in the batch
+Counts for the 494 cutoff-2 issues, read from the authoritative TSV:
+`cluster-assessed` 252 · `outside-varve-scope` 164 · `implemented-validated`
+50 · `candidate` 9 · `verified-already-correct-` 19 · `deferred` 0. The frozen
+`issue-ledger-cutoff2.summary.json` records 10/1/17 for the last three; that
+discrepancy is recorded in [`CLOSURE.md`](CLOSURE.md) §1 and the TSV wins. The rows named in the batch
 table were individually adjudicated (title, labels, body, and the discussion
 where it changed the reading); the rest inherit a cluster verdict with a
 stated reason.
@@ -135,14 +138,14 @@ signature and Office interchange, all of which remain outside Varve's scope.
 | build-release | 39 | Their packaging and release tooling; Varve's own pipeline has its own gates |
 | image | 38 | EXIF orientation is applied on import (`packages/import/src/import.ts:81`); minification quality and silent mask drops are the transferable classes |
 | save-io | 35 | Varve's save architecture is documented (`docs/architecture/filesystem-boundary.md`, `save-destinations.md`); the "reported success while the file is broken" class is covered by in-flight save-truthfulness work (see Limitations) |
-| text-edit | 33 | Edits must target authored identity, not inferred grouping (ADR-0242); reproducible cases are adjudicated individually |
+| text-edit | 33 | Edits must target authored identity, not inferred grouping (the authored-identity rule); reproducible cases are adjudicated individually |
 | interchange | 32 | No Office interchange surface |
 | ocr | 28 | No OCR surface |
 | pdf-structure | 23 | No PDF structure-editing surface (Varve writes PDFs; it does not rewrite one) |
 | page-geometry | 22 | Page size, rotation, order and count must survive save/reopen/export — verified in the page-geometry job |
 | security | 16 | No PDF Standard Security Handler support; `packages/editor/src/archive` AES-GCM is a container mechanism |
 | lifecycle-crash | 12 | Graceful capability degradation and termination-path error handling are the transferable classes |
-| redaction | 10 | No redaction or sanitize surface; ADR-0242 §6 records the disclosure rule that would apply if one were added |
+| redaction | 10 | No redaction or sanitize surface; the disclosure rule in CLOSURE.md records the disclosure rule that would apply if one were added |
 | fonts-glyphs | 104 | Missing-glyph fallback and substitution parity are the transferable class (batch 2) |
 | interaction | 92 | Overlapping overlays and small-window overflow are the transferable classes; both queued, neither assumed |
 | other | 613 | No transferable mechanism identified in the report text |
@@ -155,9 +158,9 @@ signature and Office interchange, all of which remain outside Varve's scope.
 | 2 | Text that a resolved font cannot cover renders as `.notdef`/blank in PDF export with no warning | **implemented and validated** — `packages/editor/src/export/glyphCoverage.ts`; the canvas already falls back per glyph, so the defect was the silent canvas/PDF disagreement, not a blank canvas. Commit `90f1e01d6`. Extended: the desktop app runs WebKitGTK, not Chromium, so the "canvas falls back per glyph" premise was measured there too — Playwright's WebKit GTK lane renders a CJK run set in an authored Latin-subset family by falling back per glyph, so the canvas is correct on the engine the app embeds and the defect is the PDF writer's, as recorded |
 | 3 | Export surfaces minify full-resolution images with browser-default smoothing | **partially confirmed, corrected.** The premise was wrong for the main export path: `paintImageFill` already asks the image cache for a bitmap at the projected draw size (`resizeQuality: 'high'`), so the canvas receives an already-minified bitmap. Measured in Chromium, `'low'` and `'high'` are identical for a 4:1 downscale of a one-pixel checkerboard; they differ (0..255 vs 95..159) for a 3px checkerboard, the scanned-text regime. `applyRasterSmoothingPolicy` is therefore kept as an *explicit* policy for the draws that really scale (group/frame compositing, `renderRaster`, thumbnails) rather than as a fix for a demonstrated visual regression, and `tests/e2e/export/raster-minification.spec.ts` guards the outcome. `/Interpolate` is deliberately not set (reader hint that also smooths upscaled artwork; no size benefit). Commit `3ed8e6a03`, corrected in the review pass |
 | 4 | Blend modes over a transparent backdrop | **verified sound and pinned** — every separable mode over alpha 0, the transparent-source direction, and the opaque-white-matte contrast case. Commit `3bfe7c04b` |
-| 5 | Preflight/audit reporting "clean" for artwork the user cannot see | verified at the rule level: no Varve preflight result may read as a completeness guarantee the check does not provide (ADR-0242 §6). No Varve check was found that reports a false clean for imported content, because hidden content is no longer imported (batch 9) |
+| 5 | Preflight/audit reporting "clean" for artwork the user cannot see | verified at the rule level: no Varve preflight result may read as a completeness guarantee the check does not provide (the disclosure rule in CLOSURE.md). No Varve check was found that reports a false clean for imported content, because hidden content is no longer imported (batch 9) |
 | 6 | Page rotation, page count and output size surviving save/reopen/export | **verified for save/reopen** — Varve's page-rotation model is per-page width/height, and a mixed-orientation document round-trips with order and node positions intact (commit `340262b60`). Export page geometry is the native writer's contract and is covered by `tests/e2e/export/native-pdf-contract.spec.ts`, not by a browser unit test |
-| 7 | Text edit identity (paragraph indices, property loss on re-edit) | already handled upstream: edits target authored node ids (ADR-0242), and the draft/target-switch paths are covered by `context/pendingEdits.ts` with `tests/e2e/save/text-draft-save.spec.ts` and `text-target-switch.spec.ts` |
+| 7 | Text edit identity (paragraph indices, property loss on re-edit) | already handled upstream: edits target authored node ids (the authored-identity rule), and the draft/target-switch paths are covered by `context/pendingEdits.ts` with `tests/e2e/save/text-draft-save.spec.ts` and `text-target-switch.spec.ts` |
 | 8 | Interaction classes: cursor over chrome following the canvas, a second menu open on the first, a panel clipped in a small window | **verified absent and pinned** — `tests/e2e/ui/chrome-ownership.spec.ts`: the hand-tool cursor does not leak onto the menubar, opening a second menu leaves exactly one, at 1024x600 the inspector has no horizontal overflow and the Export tab stays reachable through the "More inspector tabs" menu, and the Settings dialog fits or scrolls instead of clipping. No UI change was needed |
 | 8b | Autosave scheduling tied to repaint; failed-autosave retry suppression | deferred — `packages/editor/src/context/usePersistence.ts` belongs to another session; two writers on one file is worse than a delay |
 | 10 | Vertical writing (`Identity-V`) imported as one horizontal line, so a CJK column became the wrong document | **implemented and validated** — `/WMode 1` (name or embedded CMap) is detected and the run becomes a `vertical-rl` text node; unit tests cover detection and the browser test asserts the rendered ink is a column. Per-glyph `/W2` metrics and one-glyph-per-`Tj` column merging follow in batch 11. Commit `codex/pdfcraft-remainder-20261022` |
