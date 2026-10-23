@@ -65,7 +65,8 @@ describe('website analytics consent boundary', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetch).toHaveBeenCalledTimes(1);
     const url = new URL(String(vi.mocked(fetch).mock.calls[0]![0]));
-    expect(url.searchParams.get('p')).toBe('/download?ref=masto-p1');
+    expect(url.searchParams.get('p')).toBe('/download');
+    expect(url.searchParams.get('q')).toBe('?ref=masto-p1');
     expect(String(url)).not.toContain('utm_source');
     expect(String(url)).not.toContain('secret');
   });

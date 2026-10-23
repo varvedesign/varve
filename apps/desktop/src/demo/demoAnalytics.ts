@@ -8,7 +8,11 @@
  */
 
 import { setDemoExportAnalyticsListener } from '@varve/editor';
-import { pathWithCampaign, safeGoatCounterDomain, VARVE_GOATCOUNTER_DOMAIN } from '@varve/shared';
+import {
+  campaignCountQuery,
+  safeGoatCounterDomain,
+  VARVE_GOATCOUNTER_DOMAIN,
+} from '@varve/shared';
 import { demoMode } from './demoMode';
 
 export const WEBSITE_ANALYTICS_CONSENT_KEY = 'varve:website-analytics-consent:goatcounter-v1';
@@ -96,13 +100,17 @@ function goatPath(path: string): string {
   return path.replace(/^\/+/, '');
 }
 
-async function sendCount(path: string, event: boolean): Promise<void> {
+async function sendCount(path: string, event: boolean, search = ''): Promise<void> {
   const endpoint = collectorEndpoint();
   if (!endpoint || !canSendDemoAnalytics()) return;
   const url = new URL(endpoint);
   url.searchParams.set('p', goatPath(path));
   url.searchParams.set('ns', 'true');
   if (event) url.searchParams.set('e', 'true');
+  else {
+    const query = campaignCountQuery(search);
+    if (query) url.searchParams.set('q', query);
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
   try {
@@ -131,8 +139,7 @@ function searchFromLocation(): string {
 export async function trackDemoLaunched(): Promise<void> {
   if (launchSent || !canSendDemoAnalytics()) return;
   launchSent = true;
-  const page = pathWithCampaign('try', searchFromLocation());
-  await sendCount(page, false);
+  await sendCount('try', false, searchFromLocation());
   await sendCount('demo-launch-direct', true);
 }
 

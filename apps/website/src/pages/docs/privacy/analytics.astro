@@ -39,7 +39,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <table>
         <thead><tr><th>Event</th><th>Fields</th><th>Purpose</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td>try page view</td><td>allowlisted <code>ref</code> only</td><td>Count consented demo visits by first-party campaign tag.</td><td>sent as try or try?ref=tag</td></tr>
+          <tr><td>try page view</td><td>allowlisted <code>ref</code> only</td><td>Count consented demo visits by first-party campaign tag.</td><td>sent as try; allowlisted ref is a GoatCounter Campaign-scheme referrer via q, not a Campaigns-list entry</td></tr>
           <tr><td>demo-launch-direct</td><td>none</td><td>Count a consented demo load, including a mid-session Allow.</td><td>emitted</td></tr>
           <tr><td>demo-export-png / jpeg / webp / svg</td><td>format name only</td><td>Count which export formats the demo is used for.</td><td>emitted</td></tr>
           <tr><td>demo-download-click</td><td>none</td><td>Count clicks on the demo banner Download desktop link.</td><td>emitted</td></tr>
@@ -74,9 +74,11 @@ import { sitePath } from '../../../lib/siteUrl';
         remain respected, and Global Privacy Control or Do Not Track always blocks collection.
         Session identification, individual-pageview storage, and demographic/device collection
         are disabled. Only aggregate counts are retained. Normalized routes omit fragments and
-        all query strings except an allowlisted first-party campaign tag; some sections share
-        the home category, so that category is not a literal homepage count. Referrers are
-        reduced to site origins. Demo event paths never start with a slash.
+        all query strings. An allowlisted first-party campaign tag is sent as GoatCounter's
+        <code>q</code> parameter and appears as a Campaign-scheme referrer, not in the
+        Campaigns list; some sections share the home category, so that category is not a
+        literal homepage count. Referrers are reduced to site origins. Demo event paths never
+        start with a slash.
       </p>
       <p><a href={sitePath('/about/privacy')}>Read the full privacy policy</a>.</p>
     </article>

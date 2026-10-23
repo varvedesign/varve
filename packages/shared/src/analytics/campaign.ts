@@ -32,8 +32,23 @@ export function websiteCampaignRef(search: string): string | null {
   return ref && WEBSITE_CAMPAIGN_REF.test(ref) ? ref : null;
 }
 
-/** GoatCounter campaign via documented `path?ref=` (pixel `/count` splits query from `p`). */
+/**
+ * Event-path tag only. GoatCounter `cleanPath` returns early for `e=true`, so
+ * `path?ref=` survives on events. Pageviews must use `campaignCountQuery`:
+ * `ref` embedded in `p` is deleted, and only the separate `q` parameter is
+ * parsed into a Campaign-scheme referrer.
+ */
 export function pathWithCampaign(path: string, search: string): string {
   const ref = websiteCampaignRef(search);
   return ref ? `${path}?ref=${ref}` : path;
+}
+
+/**
+ * GoatCounter pageview `q` for an allowlisted first-party `ref`.
+ * Hit.Defaults maps `ref` to a Campaign-scheme referrer, not a Campaigns entry.
+ * Never forwards any other query key.
+ */
+export function campaignCountQuery(search: string): string | null {
+  const ref = websiteCampaignRef(search);
+  return ref ? `?ref=${ref}` : null;
 }

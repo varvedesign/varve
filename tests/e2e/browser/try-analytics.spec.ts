@@ -137,13 +137,21 @@ test.describe('browser demo GoatCounter', () => {
     await page.goto(demoUrl('?ref=hn-post'), { waitUntil: 'domcontentloaded' });
     await waitForEditor(page);
     await expect
-      .poll(() => kept.map(collectorPath), { timeout: 10000 })
-      .toContain('try?ref=hn-post');
+      .poll(
+        () =>
+          kept.map((url) => ({
+            p: collectorPath(url),
+            q: new URL(url).searchParams.get('q'),
+          })),
+        { timeout: 10000 },
+      )
+      .toContainEqual({ p: 'try', q: '?ref=hn-post' });
 
     await page.goto(demoUrl('?ref=evil'), { waitUntil: 'domcontentloaded' });
     await waitForEditor(page);
     await expect.poll(() => dropped.map(collectorPath), { timeout: 10000 }).toContain('try');
     expect(dropped.join('\n')).not.toContain('evil');
+    expect(dropped.map((url) => new URL(url).searchParams.get('q'))).not.toContain('?ref=evil');
     expect(dropped.map(collectorPath)).not.toContain('try?ref=evil');
   });
 
