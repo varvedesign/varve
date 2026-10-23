@@ -38,6 +38,7 @@ export interface DocumentContextValue {
     size?: { w: number; h: number },
     parentId?: NodeId | null,
     text?: string,
+    fill?: ManagedColor,
   ) => void;
   applyFramePreset: (preset: { name: string; w: number; h: number }) => void;
   applyPanelLayout: (presetId: string) => void;

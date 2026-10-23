@@ -3,10 +3,11 @@
  *
  * Shapes take a neutral grey, because the scene's teal default is the canvas
  * accent and hid selection bounds and guides on every fresh shape (F-28).
+ * Text takes whatever ink the Text tool chose for its surface (F-09).
  */
 
 import { render, waitFor } from '@testing-library/react';
-import { DRAWN_SHAPE_FILL, type SceneNode } from '@varve/scene';
+import { DRAWN_SHAPE_FILL, LIGHT_TEXT_INK, type SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
 
@@ -67,5 +68,23 @@ describe('drawn shape fill', () => {
       ),
     );
     expect(path.fill).toEqual(DRAWN_SHAPE_FILL);
+  });
+});
+
+describe('text creation ink', () => {
+  it('uses the ink the caller supplies', async () => {
+    const getCtx = mountEditor();
+    const text = await newNode(getCtx, () =>
+      getCtx().createTextNodeAt({ x: 10, y: 10 }, undefined, null, 'Hi', LIGHT_TEXT_INK),
+    );
+    expect(text.fill).toEqual(LIGHT_TEXT_INK);
+  });
+
+  it('keeps the scene default when no ink is supplied', async () => {
+    const getCtx = mountEditor();
+    const text = await newNode(getCtx, () =>
+      getCtx().createTextNodeAt({ x: 10, y: 10 }, undefined, null, 'Hi'),
+    );
+    expect(text.fill).toEqual({ space: 'rgb', r: 16, g: 21, b: 31, a: 255 });
   });
 });

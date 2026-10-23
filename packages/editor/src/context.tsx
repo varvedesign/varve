@@ -1079,12 +1079,17 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
     pathPoints?: PathPoint[],
     pathClosed?: boolean,
   ) => void;
-  /** Create a text node at the given world-space point. */
+  /**
+   * Create a text node at the given world-space point. `fill` is the ink the
+   * caller chose for the surface (the Text tool passes one that reads against
+   * it); omitting it keeps the scene default.
+   */
   createTextNodeAt: (
     world: { x: number; y: number },
     size?: { w: number; h: number },
     parentId?: NodeId | null,
     text?: string,
+    fill?: ManagedColor,
   ) => void;
   /**
    * Apply a frame size preset. If a single frame is selected, resizes it.
@@ -5107,7 +5112,7 @@ export function EditorProvider({
         );
       },
 
-      createTextNodeAt: (world, size, parentId, text = '') => {
+      createTextNodeAt: (world, size, parentId, text = '', fill) => {
         // Open the creation transaction and LEAVE IT OPEN so the auto-entered
         // text edit extends the same step: its `beginTransaction` only nests
         // the depth, so one Undo removes the layer together with the text
@@ -5141,6 +5146,7 @@ export function EditorProvider({
             h: size?.h,
             textMode: size ? 'area' : 'point',
             textResizing: size ? 'fixed' : 'autoWidth',
+            fill,
             ...s.textCreationSettings,
           });
 
