@@ -102,7 +102,7 @@ test.describe('Enhance AI admission', () => {
 
     await openSelect(page, 'Enhancement operation');
     for (const label of MODEL_OPERATIONS) {
-      await expect(page.getByRole('option', { name: new RegExp(`^${label}`) })).toBeVisible();
+      await expect(page.getByRole('option', { name: label, exact: true })).toBeVisible();
     }
     await capture(page, testInfo, 'ai_on_enhance_operations');
     await page.keyboard.press('Escape');
