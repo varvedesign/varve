@@ -153,9 +153,9 @@ export function orderArchitectures(
 /**
  * The single rule for which artifact format is the "primary download" of a
  * platform, shared by the quick grid and the detailed sections so the two can
- * never disagree. Linux prefers the AppImage (universal: runs on any distro
- * without root or a package manager, the safest default for a cross-distro
- * audience) and falls back to .deb; other platforms take the first published
+ * never disagree. Linux prefers the AppImage (glibc 2.35 or newer, no musl;
+ * no root or package manager required, the safest default for a cross-distro
+ * glibc audience) and falls back to .deb; other platforms take the first published
  * format.
  */
 export function primaryFormatFor(platform: string, formats: string[]): string {

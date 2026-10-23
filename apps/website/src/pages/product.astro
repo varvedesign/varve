@@ -132,7 +132,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       <section class="product-section">
         <h2>Native desktop apps across platforms</h2>
         <p>
-          Varve runs natively on Linux (CachyOS, Arch, Ubuntu, Fedora — x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64). The rendering architecture separates scene computation from display, using an intermediate representation that replays efficiently to the canvas. The same codebase powers both the native desktop and WASM web builds.
+          Varve runs natively on Linux. Arch/CachyOS x86_64 is the tested tier. Ubuntu and Fedora x86_64 should work. ARM64 is best effort. macOS (Apple Silicon) and Windows (x86_64 and ARM64) are also published. The rendering architecture separates scene computation from display, using an intermediate representation that replays efficiently to the canvas. The same codebase powers both the native desktop and WASM web builds.
         </p>
         <p>
           Under sustained frame pressure, navigation may use a reduced-resolution render surface. Pan and zoom can also briefly reproject the last worker frame while a current frame is being prepared; that preview can look soft or incomplete until the replacement is painted. Once input stops, Varve requests an authoritative frame at the selected quality. The warm refinement targets are 500&nbsp;ms for ordinary work and 1&nbsp;s for heavy work after required assets are ready; these are targets, not timing guarantees. Cold image or font readiness can extend the wait and is not quantified in the published evidence. Rendering choices do not change document geometry or export settings. The optional WebGPU compositor can draw eligible solid-color rectangles, circles, and ellipses after device checks; other artwork uses Canvas2D or the render worker, and a ready GPU does not mean every frame uses it. Linux WebKitGTK keeps the Canvas2D display path.
@@ -176,7 +176,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       <section class="product-section">
         <h2>Source-available, shaped by its users</h2>
         <p>
-          Varve is licensed under FSL-1.1-MIT — free to use, with source code available on GitHub. Development is transparent: architecture decisions, known limitations, and progress are documented publicly. Community input influences priorities. No VC pressure and no feature-checklist deadlines — features are built when they work, not when they sound good in marketing copy.
+          Varve is licensed under FSL-1.1-MIT and is free to use. Source code, issues and release notes are on GitHub. Community input influences priorities. No VC pressure and no feature-checklist deadlines. Features are built when they work, not when they sound good in marketing copy.
         </p>
       </section>
 
