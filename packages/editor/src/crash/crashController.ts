@@ -70,6 +70,8 @@ export interface CrashUiState {
   /** Safe mode can stay active after the startup screen is dismissed. */
   safeModeVisible: boolean;
   dialogVisible: boolean;
+  /** True only when the current uploader has an ingestion endpoint. */
+  canSendReports: boolean;
 }
 
 export interface CrashControllerDeps {
@@ -97,6 +99,7 @@ const EMPTY_UI: CrashUiState = {
   safeMode: null,
   safeModeVisible: false,
   dialogVisible: false,
+  canSendReports: false,
 };
 
 function localStorageLike(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
@@ -134,6 +137,10 @@ export class CrashCenterController {
   constructor(deps: CrashControllerDeps) {
     this.deps = deps;
     this.uploader = deps.uploader ?? new NoopCrashUploader();
+    this.ui = {
+      ...EMPTY_UI,
+      canSendReports: crashUploaderIsConfigured(this.uploader),
+    };
     this.release = deps.release ?? getReleaseInfo();
     const storage = localStorageLike();
     this.consent =
@@ -446,6 +453,7 @@ export class CrashCenterController {
   setUploaderForTesting(uploader: CrashUploader): void {
     this.uploader = uploader;
     this.service.setUploaderForTesting(uploader);
+    this.setState({ canSendReports: crashUploaderIsConfigured(uploader) });
   }
 
   // ---- Dialog actions -----------------------------------------------------

@@ -28,6 +28,8 @@ export interface CrashTestHooks {
   /** Injects a stub transport (test only). */
   setUploaderForTesting(uploader: {
     upload: (report: unknown) => Promise<{ ok: boolean; retryable: boolean; status: number }>;
+    /** Required for Send to appear; omitted stubs stay fail-closed. */
+    isConfigured?: () => boolean;
   }): void;
 }
 
@@ -168,8 +170,10 @@ export function installCrashTestHooks(controller: CrashCenterController): void {
       });
     },
     setUploaderForTesting: (uploader) => {
+      const check = uploader.isConfigured;
       controller.setUploaderForTesting({
         upload: async (report: unknown) => uploader.upload(report),
+        isConfigured: check ? () => check() === true : undefined,
       } as unknown as Parameters<CrashCenterController['setUploaderForTesting']>[0]);
     },
   };

@@ -306,8 +306,15 @@ describe('controller + dialog flow (integration)', () => {
       readUncleanShutdown: () => false,
     });
     expect(defaultController.canSendReports()).toBe(false);
+    expect(defaultController.getState().canSendReports).toBe(false);
     const configured = makeController().controller;
     expect(configured.canSendReports()).toBe(true);
+    expect(configured.getState().canSendReports).toBe(true);
+    const seen: boolean[] = [];
+    defaultController.subscribe((state) => seen.push(state.canSendReports));
+    defaultController.setUploaderForTesting(new RecordingUploader());
+    expect(defaultController.getState().canSendReports).toBe(true);
+    expect(seen.at(-1)).toBe(true);
     defaultController.dispose();
     configured.dispose();
   });
