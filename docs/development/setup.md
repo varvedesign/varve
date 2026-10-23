@@ -164,9 +164,8 @@ and `docs/README.md` for the full documentation index.
 
 ## Contributor path
 
-Read [contributing.md](contributing.md) before starting work. External code
-pull requests are currently paused, but bug reports, workflow proposals,
-cross-platform testing, documentation corrections, and design feedback are
-welcome through the documented Issue and Discussion channels. When code work
-reopens, that guide explains the project map, impact-aware validation, and pull
-request expectations.
+Read [contributing.md](contributing.md) before starting work. Contributions
+are open for docs and examples, translations, plugins in your own repository,
+testing and device reports, and the nine MIT OR Apache-2.0 libraries. App code
+remains maintainer-only for now. See CONTRIBUTING.md for the current lanes and
+sign-off process.

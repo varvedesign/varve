@@ -1,0 +1,20 @@
+title: Question
+body:
+  - type: textarea
+    id: what-tried
+    attributes:
+      label: What have you tried?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Varve version
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+    validations:
+      required: true

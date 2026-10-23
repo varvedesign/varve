@@ -1,0 +1,50 @@
+title: Linux device report
+body:
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution
+    validations:
+      required: true
+  - type: input
+    id: desktop
+    attributes:
+      label: Desktop environment
+    validations:
+      required: true
+  - type: dropdown
+    id: session
+    attributes:
+      label: Display session
+      options: [Wayland, X11]
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU
+    validations:
+      required: true
+  - type: input
+    id: tablet-model
+    attributes:
+      label: Tablet model
+  - type: dropdown
+    id: install-type
+    attributes:
+      label: Install type
+      options: [AppImage, deb, rpm, Flatpak, AUR]
+    validations:
+      required: true
+  - type: textarea
+    id: what-worked
+    attributes:
+      label: What worked?
+    validations:
+      required: true
+  - type: textarea
+    id: what-did-not
+    attributes:
+      label: What did not work?
+    validations:
+      required: true

@@ -1,0 +1,32 @@
+title: Show and tell
+body:
+  - type: input
+    id: image
+    attributes:
+      label: Image
+      description: Add an image URL or attach an image in the discussion editor.
+  - type: textarea
+    id: what-you-made
+    attributes:
+      label: What did you make?
+    validations:
+      required: true
+  - type: textarea
+    id: varve-tools
+    attributes:
+      label: Which Varve tools did you use?
+    validations:
+      required: true
+  - type: checkboxes
+    id: release-notes-feature
+    attributes:
+      label: Feature permission
+      options:
+        - label: OK to feature in release notes or on varve.studio?
+          required: false
+  - type: input
+    id: version
+    attributes:
+      label: Varve version
+    validations:
+      required: true
