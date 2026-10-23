@@ -41,9 +41,9 @@ new issues. The 838 earlier issues that are closed in the snapshot are **not**
 The conservative full-evidence review inventory is **448 unique issues**: the
 union of the 161 new reports, 200 earlier updated reports and 103 resolution /
 citation-restatement rows. An updated timestamp is a materiality-screening
-candidate, not proof of a material change. No completed full-discussion review
-is certified by this resumption; partial reading and tests remain useful but do
-not satisfy that stronger acceptance. The IDs are recorded in
+candidate, not proof of a material change. One full issue/discussion adjudication
+(#3634) is now recorded below; **447 remain uncertified**. Partial reading and
+tests for other issues do not satisfy that stronger acceptance. The IDs are recorded in
 `cutoff3.summary.json` under `review`.
 
 Cutoffs 1 and 2 remain immutable. Their TSV and JSON disposition counts disagree
@@ -58,9 +58,9 @@ Current source/test citations do not retroactively establish that missing ADR.
 |---|---:|
 | cluster-assessed | 1,446 |
 | outside-varve-scope | 320 |
-| implemented-validated | 119 |
+| implemented-validated | 116 |
 | verified-already-correct- | 66 |
-| candidate / deferred | 0 |
+| candidate / deferred | 3 / 0 |
 
 These are the existing annotations, **not independently certified outcomes**.
 `resolutions.tsv` proposes 88 inherited resolutions and 15 citation restatements.
@@ -82,8 +82,8 @@ consistency, not behavioral correctness or integration.
 | Area | Existing implementation | Evidence and gap |
 |---|---|---|
 | Recovery provenance | `98b026365`: recorded paths renamed `recordedFileId` / `recordedFilePath` | Hostile-sidecar unit case; naming hardening, not a demonstrated prior active-path exploit |
-| Restore failure | `38a8bc343`: `loadDocument` returns boolean; delete recovery only on success | Dedicated failed-restore regressions still needed |
-| Export wait budget | `98b026365`: five-minute promise race | Mocked asynchronous hangs tested; renderer is not cancelled, synchronous work cannot be interrupted, and continuing can overlap abandoned renders. Real pathological-export acceptance remains open |
+| Restore failure | `38a8bc343`: `loadDocument` returns boolean; delete recovery only on success | Dedicated single/bulk failed-restore and real loader-outcome regressions added in the current follow-up |
+| Export wait budget | `98b026365`: five-minute promise race; follow-up repairs | Three failing regressions reproduced overlap, cancellation-boundary and starved-timer bugs. Repairs stop later batch jobs, forward the abort signal to supported raster barriers and reject over-budget late results. This still does not forcibly cancel synchronous/native work; real pathological-export acceptance remains open |
 | Surface isolation | `9169bcbd9`: development-only boundary probes | Browser containment/reload cases; not containment of a Rust process panic |
 | Text alignment | `b0f7cefff`, corrected in `38a8bc343` | Centered alignment browser case failed with `start` before the fix; direction-aware default retained for RTL |
 | Password bytes | `309c826f1`, type fixes in `38a8bc343` | Wipe-on-success/failure unit cases; immutable JS strings cannot be zeroized |
@@ -92,6 +92,31 @@ The temporary depth-blur kernel probe measured 20 / 775 / 1,804 / 5,999 ms at
 512² / 1024² / 2048² / 4096². It was **not a full export**, not a pathological
 export, and not a measurement at 64 MP. Extrapolation does not prove a legitimate
 multi-effect export finishes inside five minutes. The constant is provisional.
+
+### Source adjudication follow-up
+
+- **#3634 — reviewed, remains candidate.** Read the [complete report](https://github.com/storytold/pdfcraft/issues/3634)
+  and [both](https://github.com/storytold/pdfcraft/issues/3634#issuecomment-6289127966)
+  [comments](https://github.com/storytold/pdfcraft/issues/3634#issuecomment-6335338150)
+  in the frozen cache. There are no attachment links in those records. The
+  requested watchdog cancels the interpreter at an operator boundary; returning
+  early from a promise race is not equivalent. The last comment says a fix is
+  being worked on, not that one shipped. Varve executor defects were reproduced
+  by three failing unit cases before repair, but actual-work cancellation and
+  end-to-end pathological-export verification remain open. No translation was
+  necessary (these records are English).
+- **#3917 — partial, reopened.** Read the body and both comments. The [last
+  comment](https://github.com/storytold/pdfcraft/issues/3917#issuecomment-6336712928)
+  describes proposed #4042 as OS-open-only and explicitly excludes file-watcher
+  reloads and drag-and-drop. Acting on the “live document” is the reported
+  danger, not a sufficient fix. Linked PR evidence and modal-apply workflows
+  still need inspection; selection-clearing unit tests do not close this row.
+- **#3923 — partial, reopened.** Read the body and its [comment](https://github.com/storytold/pdfcraft/issues/3923#issuecomment-6326291766).
+  The source has two mechanisms (destination trust and uncapped sidecar reads).
+  It calls severity low, contrary to the retained critical label. The previous
+  Varve caller already omitted stored destinations, so the rename is hardening,
+  not a reproduced prior overwrite exploit. First-save and read-boundary
+  verification remain open.
 
 ## 4. Evidence already obtained (bounded claims)
 
@@ -166,14 +191,15 @@ completion; native and website verification also remain open.
 Next slices:
 
 1. Finish gate/record corrections, keep the fixture regression results.
-2. Repair the export wait/abort race and prevent overlapping abandoned work,
-   with two-job and late-result evidence; do not claim renderer cancellation.
-3. Add dedicated failed-recovery-load coverage and finish independent review.
+2. Finish actual-work cancellation/pathological-export verification; preserve
+   the wait/abort and two-job regressions without claiming forced termination.
+3. Finish independent review; the new failed-recovery-load checks passed in the
+   focused 42-test run.
 4. Adjudicate the review inventory with source discussion/attachment provenance.
 5. Complete selected validation, native/website/visual checks and exact-candidate
    CI before merge. Confirm the merge SHA on `origin/master` before cleanup.
 
-### Agent validation report — current gate slice
+### Agent validation report — gate correction at `988f26858`
 
 ```text
 Changed scope: scripts/quality/audit-pdfcraft-closure*; PDFCraft task records
@@ -204,3 +230,47 @@ Skipped as unrelated: no browser rendering changed in this gate-only slice
 Escalations: affected/full integration remains required, not waived
 Full suite run: no
 ```
+
+### Follow-up validation — export wait and recovery outcomes
+
+The three export regressions failed against the previous behavior (two renders
+started after timeout; cancellation resolved as failure; starved-timer result
+was saved). After repair, 42 tests passed across:
+
+```text
+pnpm exec vitest run packages/editor/src/exportService.nodeBudget.test.ts packages/editor/src/exportService.test.ts packages/editor/src/components/Shell/RecoveryManager.test.tsx packages/editor/src/context/__tests__/documentSwitchOwnership.test.tsx --maxWorkers=1
+pnpm --filter @varve/editor typecheck
+pnpm audit:tokens
+pnpm audit:docs
+```
+
+The four-file run passed (42 tests, 226.94 s), the editor typecheck passed, all
+324 contrast pairs across three themes passed, and token usage/docs audits were
+clean. One earlier 120-second foreground test attempt was interrupted, not a
+pass. A subsequent empty-filename timeout case is included in the next direct
+checkpoint. The website guide now accurately scopes this to a render wait
+limit in the next desktop release, not hard cancellation. No new rendered
+website or native GUI validation is claimed.
+
+The manual completion command now runs its fixture regressions before checking
+the actual corpus. The actual corpus still fails intentionally: three reopened
+candidates, 447 uncertified reviews and inherited citation gaps. No push, merge
+or worktree removal is authorized by these local passes alone.
+
+Current checkpoint: export/recovery/website-copy follow-up awaits its direct
+commit checkpoint. The editor typecheck, committed-import audit (12,412 imports)
+and emoji audit passed. The architecture audit **did not complete**:
+`node scripts/audit-architecture.mjs --ci` failed in `runMadge` with `ETIMEDOUT`
+while scanning `packages/editor/src/index.ts`, before enforcing final metrics.
+That is not an architecture pass or a measured threshold regression. Do not
+weaken its timeout or retry the same overloaded environment indefinitely.
+Full/affected integration, native/browser/website workflow evidence and independent
+review remain open. Do not start a duplicate push or discard this worktree after
+a server restart.
+
+Follow-up self-review inspected the actual export/recovery/website diff in two
+passes: cancellation/deadline/write outcomes and repository standards. It
+checked listener cleanup, disabled-deadline cancellation, late results, batch
+failure reporting and restore-deletion conditions against callers/tests. No hub
+imports or render/replay dispatch changed. This is not an independent review or
+native/UI certification; the open mechanisms above remain explicitly unresolved.

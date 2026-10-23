@@ -206,12 +206,13 @@ import '../../../styles/docs-prose.css';
           assistive technology.
         </p>
         <p>
-          Batch and raster exports are bounded per object. An object that cannot
-          finish inside the export budget (five minutes by default) is reported
-          as failed with its name, is never written, and does not stop the rest
-          of the batch — reduce the output size or effect radius, or export that
-          object on its own. Cancelling an export is still reported as a
-          cancellation rather than a failure.
+          In the next desktop release, the batch exporter stops waiting for an
+          object's render after five minutes by default. The timed-out object
+          is not written, and later objects in that batch are not attempted.
+          This is a wait limit, not forced termination: synchronous or native
+          rendering may still be finishing. Reduce the output size or effect
+          radius before retrying. User cancellation remains a cancellation,
+          not an object failure.
         </p>
       </section>
 

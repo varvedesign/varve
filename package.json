@@ -39,7 +39,7 @@
     "format": "biome format --write .",
     "audit:tokens": "pnpm --filter @varve/ui audit:tokens && node scripts/quality/audit-token-usage.mjs",
     "audit:tokens:usage": "node scripts/quality/audit-token-usage.mjs",
-    "audit:pdfcraft-closure": "node scripts/quality/audit-pdfcraft-closure.mjs",
+    "audit:pdfcraft-closure": "node --test scripts/quality/audit-pdfcraft-closure.test.mjs && node scripts/quality/audit-pdfcraft-closure.mjs",
     "audit:radius": "node scripts/quality/audit-radius.mjs",
     "audit:inspector-css": "node scripts/quality/audit-inspector-css.mjs",
     "audit:spacing": "node scripts/quality/audit-spacing.mjs",

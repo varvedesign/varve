@@ -9,6 +9,7 @@
  */
 import { createDocument, type ExportBatch, type ExportJob, makeShapeNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ExportOptions, RasterExportResult } from './components/SpecPanel/export';
 
 const raster = vi.hoisted(() => vi.fn());
 
@@ -48,6 +49,7 @@ function documentWithRect() {
 describe('ExportService per-node budget', () => {
   afterEach(() => {
     raster.mockReset();
+    vi.restoreAllMocks();
   });
 
   it('fails a node that exceeds its budget without writing it', async () => {
@@ -134,4 +136,124 @@ describe('ExportService per-node budget', () => {
     setTimeout(() => controller.abort(), 10);
     await expect(run).rejects.toMatchObject({ name: 'AbortError' });
   });
+
+  it.each(['Logo.png', ''])(
+    'does not start another render after timeout (name: %j)',
+    async (fileName) => {
+      raster.mockImplementation(() => new Promise(() => undefined));
+      const batch = pngBatch();
+      const first = batch.jobs[0];
+      if (!first) throw new Error('fixture job missing');
+      first.fileName = fileName;
+      batch.jobs.push({ ...first, fileName: 'Second.png' });
+      const saveFile = vi.fn(async () => '/exports/Logo.png');
+      const report = await ExportService.run(batch, {
+        document: documentWithRect(),
+        engine,
+        saveFile,
+        nodeBudgetMs: 25,
+      });
+      expect(raster).toHaveBeenCalledOnce();
+      expect(saveFile).not.toHaveBeenCalled();
+      expect(report.failureCount).toBe(2);
+      expect(report.files[1]?.error).toContain('not attempted');
+    },
+  );
+
+  it('honors cancellation triggered at the rendering progress boundary', async () => {
+    raster.mockImplementation(() => new Promise(() => undefined));
+    const controller = new AbortController();
+    const run = ExportService.run(
+      pngBatch(),
+      {
+        document: documentWithRect(),
+        engine,
+        nodeBudgetMs: 25,
+        onProgress: ({ stage }) => {
+          if (stage === 'rendering') controller.abort(new Error('user stopped'));
+        },
+      },
+      controller.signal,
+    );
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' });
+    expect(raster).not.toHaveBeenCalled();
+  });
+
+  it('rejects an over-budget result even if a blocking render starved the timer', async () => {
+    let elapsed = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => elapsed);
+    raster.mockImplementation(async () => {
+      elapsed = 100;
+      return {
+        blob: new Blob([new Uint8Array([1])], { type: 'image/png' }),
+        warnings: [],
+        resourceFailures: [],
+      };
+    });
+    const saveFile = vi.fn(async () => '/exports/Logo.png');
+    const report = await ExportService.run(pngBatch(), {
+      document: documentWithRect(),
+      engine,
+      saveFile,
+      nodeBudgetMs: 25,
+    });
+    expect(report.failureCount).toBe(1);
+    expect(report.files[0]?.error).toContain('timed out');
+    expect(saveFile).not.toHaveBeenCalled();
+  });
+
+  it('signals supported barriers and ignores a result that finishes after timeout', async () => {
+    let finish = (_result: RasterExportResult) => {};
+    const rendering = new Promise<RasterExportResult>((resolve) => {
+      finish = resolve;
+    });
+    raster.mockReturnValue(rendering);
+    const saveFile = vi.fn(async () => '/exports/Logo.png');
+    const report = await ExportService.run(pngBatch(), {
+      document: documentWithRect(),
+      engine,
+      saveFile,
+      nodeBudgetMs: 25,
+    });
+    const options = raster.mock.calls[0]?.[3] as ExportOptions | undefined;
+    expect(options?.signal?.aborted).toBe(true);
+    finish({ blob: new Blob([new Uint8Array([1])]), warnings: [], resourceFailures: [] });
+    await rendering;
+    await Promise.resolve();
+    expect(report.failureCount).toBe(1);
+    expect(saveFile).not.toHaveBeenCalled();
+  });
+
+  it('keeps user cancellation active when the deadline is disabled', async () => {
+    const controller = new AbortController();
+    raster.mockImplementation(() => {
+      controller.abort(new Error('user cancelled'));
+      return new Promise(() => undefined);
+    });
+    await expect(
+      ExportService.run(
+        pngBatch(),
+        {
+          document: documentWithRect(),
+          engine,
+          nodeBudgetMs: Infinity,
+        },
+        controller.signal,
+      ),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it.each([0, -1, Number.NaN, 2_147_483_648])(
+    'rejects invalid budget %s before rendering',
+    async (nodeBudgetMs) => {
+      await expect(
+        ExportService.run(pngBatch(), {
+          document: documentWithRect(),
+          engine,
+          nodeBudgetMs,
+        }),
+      ).rejects.toThrow(RangeError);
+      expect(raster).not.toHaveBeenCalled();
+    },
+  );
 });

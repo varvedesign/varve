@@ -32,12 +32,14 @@
     "new_issues_open": 151,
     "new_issues_with_body": 160,
     "new_issues_with_comments": 157,
-    "old_issues_closed_since_cutoff2": 838,
+    "old_issues_closed_since_cutoff2": null,
+    "old_issues_closed_at_cutoff3": 838,
     "old_issues_updated_since_cutoff2": 200
   },
   "new_issue_dispositions": {
+    "candidate": 2,
     "cluster-assessed": 26,
-    "implemented-validated": 25,
+    "implemented-validated": 23,
     "outside-varve-scope": 105,
     "verified-already-correct-": 5
   },
@@ -96,8 +98,8 @@
       4164, 4165, 4168, 4173, 4174, 4175, 4176, 4177, 4183, 4184, 4186, 4187, 4188, 4189, 4192,
       4194, 4199, 4202, 4204, 4205, 4206, 4207, 4210
     ],
-    "completed_issue_ids": [],
-    "note": "Conservative review inventory: union of the 161 new issues, 200 earlier issues updated after cutoff 2, and 103 proposed resolution/citation rows (448 unique issues). No complete body/discussion/attachment adjudication has been certified in this resumption. Existing terminal labels remain provisional."
+    "completed_issue_ids": [3634],
+    "note": "Conservative review inventory: union of the 161 new issues, 200 earlier issues updated after cutoff 2, and 103 proposed resolution/citation rows (448 unique issues). Issue 3634 body and both comments were read; there are no attached files in that source record. It remains candidate because actual render-work cancellation is not proven. Review notes: CLOSURE.md. Other terminal labels remain provisional."
   },
   "follow_on_queue_at_closure": null,
   "follow_on_queue": {

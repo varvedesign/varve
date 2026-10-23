@@ -2,18 +2,15 @@
  * Document-switch ownership for document-scoped surfaces.
  *
  * PDFCraft #3917 reports a reload or OS "open" switching the document under an
- * open dialog, so OK applies to the wrong document. Varve's rule is that a
- * surface acts on the *live* document it can see, never on a captured copy,
- * and document-scoped targets (selection, node ids) are cleared when the
- * document is replaced. These tests pin the observable half of that rule:
+ * open dialog, so OK applies to the wrong document. These baseline tests pin
+ * selection and save identity when the document is replaced:
  * after a replacement, the editor has no selection from the previous document
  * and the new document is authoritative.
  *
- * The other half is source-level: dialogs derive their targets from
- * `state.document` / `state.selection` on every render (for example
- * `components/Upscale/UpscaleDialogHost.tsx` re-derives its batch on a
- * document change), and the save engine is revision-safe, so a stale save can
- * never mark newer edits clean.
+ * They do NOT establish modal target ownership: re-deriving a dialog's target
+ * from the newly active document can itself be the bug. Reload / OS-open /
+ * drag-and-drop under an open modal still require real workflow coverage;
+ * PDFCraft #3917 remains open in the review ledger.
  */
 import { act, render } from '@testing-library/react';
 import { addNode, createDocument, DocumentCodec, makeShapeNode } from '@varve/scene';
@@ -93,5 +90,24 @@ describe('document replacement ownership', () => {
     const sessionAfter = getCtx().state.sessions.find((s) => s.id === getCtx().state.activeId);
     expect(sessionAfter?.filePath).toBeUndefined();
     expect(sessionAfter?.name).toBe('Replacement');
+  });
+
+  it('returns a definite load outcome without changing the active work on decode failure', () => {
+    const getCtx = mountEditor();
+    act(() => {
+      expect(
+        getCtx().loadDocument(DocumentCodec.encode(docWithRect('Kept', 'kept')), {
+          name: 'Kept',
+          newSession: true,
+        }),
+      ).toBe(true);
+    });
+    const before = getCtx().state;
+    act(() => {
+      expect(getCtx().loadDocument('{invalid-json', { newSession: true })).toBe(false);
+    });
+    expect(getCtx().state.document).toBe(before.document);
+    expect(getCtx().state.sessions).toBe(before.sessions);
+    expect(getCtx().state.activeId).toBe(before.activeId);
   });
 });

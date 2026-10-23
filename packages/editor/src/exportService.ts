@@ -109,22 +109,18 @@ export interface ExportRunContext {
   /** Embed AI disclosure metadata when the document has generative edits. Defaults to true. */
   includeAiDisclosure?: boolean;
   /**
-   * Per-node wall-clock budget. A node that exceeds it fails with a named
-   * timeout instead of holding the batch (and the UI) indefinitely
-   * (storytold/pdfcraft #3634). `Infinity` disables the budget.
-   *
-   * The default is deliberately generous: an export that is merely slow —
-   * a large raster, a heavy effect at a large output — still finishes. The
-   * budget exists to end a pathological node, not to police normal ones.
+   * Per-node render wait budget (storytold/pdfcraft #3634). `Infinity`
+   * disables the timer, not user cancellation. A timeout prevents writing
+   * this object and starting later objects in the batch. It requests
+   * cancellation at supported barriers but cannot terminate synchronous JS
+   * or an in-flight native render. Late results are ignored.
    */
   nodeBudgetMs?: number;
 }
 
 /**
- * Five minutes per exported node. Chosen above the measured cost of a heavy
- * effect at the largest output the export UI permits (see
- * docs/audits/pdfcraft/CLOSURE.md), so a legitimately slow export completes;
- * an unbounded hang is still bounded by it.
+ * Provisional five-minute render wait budget. Kernel timings do not establish
+ * a full-export upper bound; see docs/audits/pdfcraft/CLOSURE.md.
  */
 export const DEFAULT_EXPORT_NODE_BUDGET_MS = 300_000;
 
@@ -137,8 +133,8 @@ export class ExportNodeTimeoutError extends Error {
   ) {
     super(
       `Export of "${label}" timed out after ${Math.round(budgetMs)} ms. ` +
-        'That object was not written. Reduce the output size or the effect ' +
-        'radius and try again; the rest of the batch continued.',
+        'That object was not written; later objects were not attempted. ' +
+        'Rendering may still be finishing. Reduce the output size or effect radius before retrying.',
     );
     this.name = 'ExportNodeTimeoutError';
   }
@@ -147,47 +143,47 @@ export class ExportNodeTimeoutError extends Error {
 /**
  * Race one node's render against its budget.
  *
- * Cancellation is cooperative: the timer can only be observed at an await
- * boundary. Raster and PDF renders await image settlement, decoding and blob
- * encoding, so the budget ends them; a purely synchronous format that never
- * awaits cannot be interrupted mid-chunk, and its work finishes before the
- * race is decided. In every case a timed-out node is never encoded or written,
- * the batch continues, and the report names the node and the budget.
+ * The timer stops waiting, not necessarily the underlying render. Forward its
+ * signal to supported barriers and also check elapsed time after a render
+ * yields: blocking JS can starve the timer task. A late result is never saved.
  */
 async function withNodeBudget<T>(
   budgetMs: number,
   label: string,
-  run: () => Promise<T>,
+  run: (signal: AbortSignal) => Promise<T>,
   signal?: AbortSignal,
 ): Promise<T> {
-  if (!Number.isFinite(budgetMs) || budgetMs <= 0) return run();
+  assertNotAborted(signal);
   const controller = new AbortController();
-  const forwardAbort = () => {
-    const reason = signal?.reason;
-    if (reason instanceof Error) {
-      controller.abort(reason);
-      return;
-    }
-    const abort = new Error('Export aborted');
-    abort.name = 'AbortError';
-    controller.abort(abort);
-  };
+  const started = performance.now();
+  const forwardAbort = () => controller.abort(abortError());
+  let onStop = () => {};
+  const stopped = new Promise<never>((_resolve, reject) => {
+    onStop = () => reject(controller.signal.reason);
+    controller.signal.addEventListener('abort', onStop, { once: true });
+  });
   signal?.addEventListener('abort', forwardAbort, { once: true });
-  const timer = setTimeout(() => {
-    controller.abort(new ExportNodeTimeoutError(label, budgetMs));
-  }, budgetMs);
+  const timer = Number.isFinite(budgetMs)
+    ? setTimeout(() => controller.abort(new ExportNodeTimeoutError(label, budgetMs)), budgetMs)
+    : undefined;
   try {
-    return await Promise.race([
-      run(),
-      new Promise<never>((_resolve, reject) => {
-        controller.signal.addEventListener('abort', () => reject(controller.signal.reason), {
-          once: true,
-        });
+    const result = await Promise.race([
+      stopped,
+      Promise.resolve().then(() => {
+        assertNotAborted(controller.signal);
+        return run(controller.signal);
       }),
     ]);
+    if (performance.now() - started >= budgetMs) {
+      const timeout = new ExportNodeTimeoutError(label, budgetMs);
+      controller.abort(timeout);
+      throw timeout;
+    }
+    return result;
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', forwardAbort);
+    controller.signal.removeEventListener('abort', onStop);
   }
 }
 
@@ -364,7 +360,12 @@ function collectMissingFontWarnings(node: Document['nodes'][string]): string[] {
   return warnings;
 }
 
-async function renderJob(job: ExportJob, context: ExportRunContext): Promise<RenderedExport> {
+async function renderJob(
+  job: ExportJob,
+  context: ExportRunContext,
+  signal: AbortSignal,
+): Promise<RenderedExport> {
+  assertNotAborted(signal);
   const node = context.document.nodes[job.nodeId];
   if (!node) throw new Error(`Node ${job.nodeId} was not found`);
 
@@ -501,6 +502,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         resourceFailures,
       } = await exportNodeAsRaster(node, context.document, context.engine, {
         format: mime,
+        signal,
         scale: rasterScaleForJob(job, context),
         quality: rasterOpts?.quality ?? (job.format === 'jpg' ? 0.92 : undefined),
         transparency: rasterOpts?.transparency,
@@ -510,6 +512,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         color,
         includeAiDisclosure: context.includeAiDisclosure,
       });
+      assertNotAborted(signal);
       const fontWarnings = collectMissingFontWarnings(node);
       let bytes = await blobToBytes(blob);
       // Inject pHYs density metadata into PNG exports when the job has a
@@ -638,11 +641,25 @@ export const ExportService = {
     emit('preflight');
     const findings = runBatchPreflight(batch, context.document, platform);
     const nodeBudget = context.nodeBudgetMs ?? DEFAULT_EXPORT_NODE_BUDGET_MS;
+    if (
+      nodeBudget !== Infinity &&
+      (!Number.isFinite(nodeBudget) || nodeBudget <= 0 || nodeBudget > 2_147_483_647)
+    ) {
+      throw new RangeError('Export node budget must be positive timer milliseconds or Infinity.');
+    }
+    let timedOutFile: string | undefined;
 
     for (const job of batch.jobs) {
       assertNotAborted(signal);
       const jobStarted = performance.now();
       try {
+        // A raced render may still own engine/cache resources. Do not pile
+        // later renders onto it merely because the executor stopped waiting.
+        if (timedOutFile !== undefined) {
+          throw new Error(
+            `Export of "${job.fileName}" was not attempted after "${timedOutFile}" timed out.`,
+          );
+        }
         // A deployment may withhold print production (the browser demo has no
         // print pipeline). Fail the job rather than the batch, so a mixed
         // selection still delivers its PNG/SVG output.
@@ -653,7 +670,7 @@ export const ExportService = {
         const rendered = await withNodeBudget(
           nodeBudget,
           job.fileName,
-          () => renderJob(job, context),
+          (renderSignal) => renderJob(job, context, renderSignal),
           signal,
         );
         assertNotAborted(signal);
@@ -718,6 +735,7 @@ export const ExportService = {
         emit('completed', job.fileName);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') throw err;
+        if (err instanceof ExportNodeTimeoutError) timedOutFile = job.fileName;
         files.push({
           fileName: job.fileName,
           format: job.format,

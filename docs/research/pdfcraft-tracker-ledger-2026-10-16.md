@@ -191,12 +191,12 @@ Closure report: [`../audits/pdfcraft/CLOSURE.md`](../audits/pdfcraft/CLOSURE.md)
 | Family | New evidence | Decision |
 |---|---|---|
 | Panic containment (3914, 3919, 3920, 3925) | a UI panic closes the whole app; worker panics leave progress stuck | **Implemented** for the browser surfaces: a real-browser fault injection proves the canvas, layers and inspector fail independently, and a failed or over-budget export reaches a terminal report. A native Rust panic remains outside the DOM boundary (recorded). |
-| Document ownership (3916, 3917, 3918, 3923) | a reload switches the document under a dialog; a recovery sidecar names the next save path; typed comment text is not in the unsaved set | **Implemented/verified**: document replacement clears the old selection and destination, recovery identity is provenance-only (`recordedFileId`/`recordedFilePath`), and `TerminationCoordinator` flushes pending edits before deriving dirty state. |
+| Document ownership (3916, 3917, 3918, 3923) | a reload switches the document under a dialog; a recovery sidecar names the next save path; typed comment text is not in the unsaved set | **Partial; 3917 and 3923 reopened.** Selection clearing does not prevent a modal from applying to the wrong live document. The path rename is interface hardening; the prior restore caller already omitted stored destinations. Uncapped recovery reads are a second mechanism requiring separate assessment. |
 | Text-edit overlay (4056, 4175, 4176, 4199) | the edit overlay escapes the viewport; an aligned box edits left-aligned; undo re-lays a paragraph | **Implemented**: the overlay is clipped at 1024×600 while scrolling/zooming and now mirrors `node.textAlign`. The alignment regression fails with computed `start` without the fix. |
 | Small-window rows (4028, 4118, 3949) | right-sidebar icons overlap and the page is cropped at 1366×768 / split screen | **Implemented**: inspector tabs do not overlap at 1024×600, 1280×720 or 1440×900, every tab stays reachable, and the canvas dock stays inside the viewport. Attachments inspected. |
 | Glyph coverage (3913, 3977, 3991, 4014, 4030–4032, 4038, 4085, 4156, 4192) | the largest family again (CJK, Hebrew, Greek, Czech, Vietnamese, CAD drawings) | Batch 2 still holds: the export report names the characters the embedded face cannot draw, and the canvas falls back per glyph. The 4030 attachment (a technical drawing with a missing "M") was inspected and matches the class. |
 | Key material (3928, 4000) | keys and passwords never zeroized; `RandomState` used for keys | **Implemented** for the copy Varve controls: the archive key is a non-extractable `CryptoKey` and the encoded password buffer is wiped after import. JavaScript strings cannot be zeroized (recorded). Varve writes no PDF encryption. |
-| Export bound (3634, 3919) | no per-node deadline; a pathological node holds the batch | **Implemented**: a per-node budget (default five minutes) fails the node with a name and never writes it; cancellation remains cancellation; the batch continues. |
+| Export bound (3634, 3919) | no per-node deadline; a pathological node holds the batch | **Partial; 3634 remains candidate.** A wait budget is implemented and executor race regressions repaired; after timeout, later batch jobs are not attempted. This is not forced termination of synchronous/native rendering or verification of a real pathological export. |
 | Printer, forms, signature, redaction, OCR, Office, PDF-structure rows | the same clusters as cutoffs 1–2 | Outside Varve's scope with the existing cluster reasons; no new surface was added. |
 | Accessibility tagging (4079–4080, 4103–4105) | set `Summary`/`Scope`/artifact roles | Outside scope: Varve writes PDFs but does not edit PDF structure or claim tagged output. |
 
@@ -204,7 +204,8 @@ Closure report: [`../audits/pdfcraft/CLOSURE.md`](../audits/pdfcraft/CLOSURE.md)
 
 Cutoff 1/2 rows are frozen. A later pass appends a resolution with the previous
 disposition, the new disposition and evidence; `pnpm audit:pdfcraft-closure`
-then builds the latest-disposition-per-issue view and fails on a non-terminal
-row without a `blocked:` reason or a verified row without a code/test path.
-That is what lets the historical census and the closure claim coexist without
-rewriting history.
+then builds the latest-disposition-per-issue view. The corrected gate also
+requires explicit full-evidence review coverage, validates implemented/verified
+citations, and reports non-terminal work as incomplete even when a blocker is
+recorded. Metadata consistency cannot certify behavioral correctness. Current
+closure is incomplete; frozen history is not rewritten to manufacture a pass.

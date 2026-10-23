@@ -66,16 +66,16 @@ property of the **latest disposition per issue**, checked by
 CI). [`CLOSURE.md`](CLOSURE.md) holds the closure
 draft, the declared disposition census, remaining review inventory, and bounded
 native/visual evidence. The 448-issue review inventory covers new and updated
-reports plus proposed resolutions; no complete full-discussion adjudication is
-certified by the current resumption.
+reports plus proposed resolutions. One full discussion review (#3634) is
+recorded; it remains an open candidate. The other 447 reviews are uncertified.
 
 | Latest declared disposition (not certified) | Count | Non-terminal labels |
 |---|---:|---:|
 | cluster-assessed | 1,446 | |
 | outside-varve-scope | 320 | |
-| implemented-validated | 119 | |
+| implemented-validated | 116 | |
 | verified-already-correct- | 66 | |
-| candidate / deferred | **0** | **0** |
+| candidate / deferred | **3 / 0** | **3** |
 
 Pull requests returned by the issue endpoints were separated from issues.
 1,682 PRs were retained as linked evidence; their own discussions (1,113 PRs
