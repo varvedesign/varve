@@ -78,10 +78,14 @@ async function bootstrap() {
   // Measure this host before anything can request local AI work. The shared
   // derived-work ledger otherwise judges every AI feature against a 400 MB
   // placeholder, which refuses jobs the machine can run (WebKitGTK does not
-  // report `navigator.deviceMemory` at all). Failure is not fatal: an
-  // unmeasurable host keeps the conservative floor.
+  // report `navigator.deviceMemory` at all). The wait is bounded: a wedged IPC
+  // must delay first paint, but never prevent it — the lazy probe inside
+  // `getDerivedWorkAdmission()` finishes the job once the surface is up.
   try {
-    await initializeDerivedWorkBudget();
+    await Promise.race([
+      initializeDerivedWorkBudget(),
+      new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+    ]);
   } catch (error) {
     console.warn('[admission] Could not measure host memory:', error);
   }

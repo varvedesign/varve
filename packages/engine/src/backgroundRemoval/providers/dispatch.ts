@@ -226,9 +226,11 @@ export class BackgroundRemovalCapacityError extends Error {
   constructor(method: string) {
     const label =
       method === 'ai-quality' ? 'High-quality background removal' : 'AI background removal';
-    super(
-      `${label} does not fit this device's shared local-AI memory budget. Try Auto cutout, or Fast cutout and refine the mask by hand.`,
-    );
+    const advice =
+      method === 'ai-quality'
+        ? 'Try Auto cutout, or Fast cutout and refine the mask by hand.'
+        : 'Close other memory-heavy apps, or use Fast cutout and refine the mask by hand.';
+    super(`${label} does not fit this device's shared local-AI memory budget. ${advice}`);
     this.name = 'BackgroundRemovalCapacityError';
     this.method = method;
   }
@@ -319,7 +321,6 @@ export async function dispatchBackgroundRemoval(
     }
     throw error;
   }
-
   try {
     return await dispatchBackgroundRemovalAdmitted(imageData, options, signal);
   } finally {

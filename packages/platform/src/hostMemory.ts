@@ -87,10 +87,22 @@ interface TauriCoreShape {
   invoke(cmd: string, args?: Record<string, unknown>): Promise<unknown>;
 }
 
+/**
+ * Resolve the Tauri core bridge from the global injection.
+ *
+ * `@varve/platform` deliberately has no `@tauri-apps/api` dependency (it is the
+ * bundle's lowest layer), so this uses the same `window.__TAURI__.core` bridge
+ * as `tauri.ts`. That bridge exists because the app config sets
+ * `withGlobalTauri: true`; if that is ever turned off, every Tauri call in this
+ * package must move to the imported API at the same time, or this probe reports
+ * `unavailable` and the ledger falls back to its 400 MB floor.
+ */
 function tauriCore(): TauriCoreShape | null {
-  if (typeof window === 'undefined') return null;
-  const core = (window as { __TAURI__?: { core?: TauriCoreShape } }).__TAURI__?.core;
-  return core ?? null;
+  // `globalThis` keeps the probe testable outside a DOM and matches `tauri.ts`.
+  const host = (typeof window !== 'undefined' ? window : globalThis) as
+    | { __TAURI__?: { core?: TauriCoreShape } }
+    | undefined;
+  return host?.__TAURI__?.core ?? null;
 }
 
 /** Read the desktop host's measured headroom. Returns null off-desktop or on failure. */

@@ -106,6 +106,7 @@ test.describe('Local AI background removal capacity', () => {
     // ("~7 GB RAM RAM during inference" was a real defect).
     const info = inspector.locator('.insp-model-info');
     await expect(info).toBeVisible({ timeout: 10000 });
+    await info.scrollIntoViewIfNeeded();
     await expect(info).toContainText(/during inference/);
     await expect(info).not.toContainText(/RAM RAM/i);
 

@@ -71,9 +71,11 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   }
   // A capacity refusal is a policy decision, not a broken model. The shared
   // local-work ledger reports byte counts; nobody should have to read those.
+  // `queue-full` is the same family: work was declined for capacity, not
+  // because the image or model is wrong.
   const code = (e as { code?: string } | null)?.code;
-  if (code === 'insufficient-memory' || code === 'memory-limit') {
-    return 'Not enough free memory for this AI mode right now. Close memory-heavy apps and try again, or use Auto cutout or Fast cutout.';
+  if (code === 'insufficient-memory' || code === 'memory-limit' || code === 'queue-full') {
+    return 'Not enough free memory for this AI mode right now. Close memory-heavy apps and try again, or use Fast cutout and refine the mask by hand.';
   }
   if (message.includes('request deadline')) {
     return 'AI processing reached its time limit. Try Fast for a simple background, or choose a smaller local model in Settings, Offline Models.';
@@ -89,6 +91,12 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   }
   if (message.includes('AI background removal failed in all quality modes')) {
     return 'AI background removal failed in every mode on this device. Use Quick mode, then manually refine the mask with the brush and trimap tools below.';
+  }
+  // Native preflight refusals already name the shortfall and the platform in
+  // human units; they also say "does not load a model", so the generic
+  // model-failure branch below must not rewrite them.
+  if (/needs about .*MiB/i.test(message)) {
+    return message.length > 180 ? `${message.slice(0, 180)}...` : message;
   }
   if (message.includes('shared local-AI budget') || message.includes('shared local-work budget')) {
     return message.length > 180 ? `${message.slice(0, 180)}...` : message;

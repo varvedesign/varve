@@ -404,11 +404,12 @@ export class DerivedWorkAdmission {
   /**
    * Apply host-memory evidence. Measured (`native`) evidence is authoritative;
    * a coarse `device-memory` hint is recorded as an estimate so diagnostics can
-   * distinguish it. An explicitly configured budget is never overwritten, and
-   * a host that reports nothing keeps the current ceiling.
+   * distinguish it. A budget an owner configured on purpose — an explicit byte
+   * limit or a selected reference profile — is never overwritten, and a host
+   * that reports nothing keeps the current ceiling.
    */
   setHostMemoryBudget(snapshot: HostMemorySnapshot): void {
-    if (this.budgetSource === 'explicit') return;
+    if (this.budgetSource === 'explicit' || this.budgetSource === 'reference-profile') return;
     if (snapshot.availableBytes === null) return;
     this.applyBudget(
       deriveDerivedWorkBudgetBytes(snapshot.availableBytes),
@@ -816,8 +817,15 @@ export function resetDerivedWorkBudgetInitialization(): void {
   budgetInitialization = null;
 }
 
-/** Test/host hook; production callers should use the singleton above. */
+/**
+ * Test/host hook; production callers should use the singleton above.
+ *
+ * Passing `null` restores the default lazily-measured singleton rather than
+ * pinning an unmeasured one: leaving `admissionOverridden` set would keep the
+ * process on the 400 MB placeholder for the rest of the session, which is the
+ * exact state this module exists to prevent.
+ */
 export function setDerivedWorkAdmissionForTest(admission: DerivedWorkAdmission | null): void {
   globalAdmission = admission;
-  admissionOverridden = true;
+  admissionOverridden = admission !== null;
 }
