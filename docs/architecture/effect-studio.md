@@ -65,26 +65,38 @@ generic filter-menu taxonomy:
 | Light & Signal | Chromatic Bloom, Cinema Shafts, Neon Phosphor, Light Leak, Aperture Star, Laser Streak, Solar Shift, Terminal Glow | Add luminous, cinematic, electronic, or surreal light behaviour. |
 | Print & Material | Analog Signal, Newsprint, Riso Ink, Water Paper, Worn Tape, Reticulation | Give an object a printed, fibrous, weathered, taped, or irregular surface language. |
 
-Each card represents an ordered recipe of two or more editable effects. The
-card art is a category cue rather than a pre-rendered promise: the canvas
-Preview command is the authoritative visual result for the selected object.
-Apply appends the full recipe in one batch update; it does not flatten artwork
-or alter source geometry. If a different recipe is being previewed when Apply
-is pressed, Varve commits that preview first and then appends the requested
-recipe, so an explicit Apply action cannot silently discard an earlier effect.
+Each tile represents an ordered recipe of two or more editable effects. The
+tile art is a category cue rather than a pre-rendered promise: the live
+comparison is the authoritative visual result for the selected object. A tile
+is one choice. Choosing it previews the treatment and opens its settings;
+choosing another tile replaces an unkept preview, the way a filter gallery
+does, and announces the cancellation. **Keep treatment** (or **Add another**
+when the treatment is already applied, so duplication stays explicit) lands
+the recipe in one undoable edit; it does not flatten artwork or alter source
+geometry. With several objects selected, the preview represents the first
+one and keeping it applies the recipe to every selected object in one batch.
+Favourites are a star toggle on the tile. Card-level Adjust / Preview / Apply
+/ Save buttons were removed on 2026-10-22: four buttons per card held the
+gallery to four visible treatments (shell audit F-43).
 
 The dialog follows a three-zone workflow: a large rendered preview, a compact
 treatment browser, and a focused applied-stack/settings column. The browser
 keeps device Favorites and document Looks together, followed by a collapsed
 Advanced individual effects section; the inspector remains the place to edit
-an applied treatment stack. Wide screens
-place those zones side by side; medium screens place preview and gallery above
-a full-width stack/settings area; narrow screens use one scrollable flow. The
+an applied treatment stack. Wide screens (above 64rem) size the dialog to
+about 96% of the window and place the zones side by side with the preview
+pinned: the dialog body does not scroll, the preview stage takes the zone's
+remaining height under one toolbar row (mode, zoom, 2x check), and the
+gallery and the stack/settings column scroll independently, so browsing never
+moves the preview. Medium screens place preview and gallery above a
+full-width stack/settings area; narrow screens use one scrollable flow. The
 DOM, keyboard, and reading order follow that visual order. Coarse-pointer
-controls retain 44 px targets. On medium and narrow screens a sticky three-button
-rail jumps directly to Preview, Treatments, or the active Stack/settings
-section. It stays inside the dialog's single scroll flow; the gallery and
-settings do not create nested scrolling regions.
+controls retain 44 px targets. On medium and narrow screens a sticky
+three-button rail jumps directly to Preview, Treatments, or the active
+Stack/settings section. It stays inside the dialog's single scroll flow; at
+those sizes the gallery and settings do not create nested scrolling regions.
+Explanatory copy (what the Studio does, the gallery, the applied stack, each
+treatment family) sits behind (i) buttons rather than persistent paragraphs.
 
 The gallery has search, category filters, device-local **Favorites**, recent
 treatments, and Preview/Keep/Cancel. **Document Looks** sit in that same browser
@@ -346,10 +358,10 @@ Adjustments with the new layer selected.
 
 The dialog owns the full gallery, live comparison, direct recipe tuning, raw
 creative primitives, and Document Looks workflow. Its search field receives
-focus when the dialog opens. On wide layouts the applied-stack inspector stays
-visible while the gallery is scrolled; narrower layouts keep all zones in
-visual and keyboard order in one dialog scroll flow and keep their three key
-areas one tap away. When a recipe is being tuned, the settings shortcut targets
+focus when the dialog opens. On wide layouts the preview and the applied-stack
+inspector stay visible while the gallery is scrolled; narrower layouts keep
+all zones in visual and keyboard order in one dialog scroll flow and keep
+their three key areas one tap away. When a recipe is being tuned, the settings shortcut targets
 its controls directly; otherwise it targets the applied stack. With multiple objects
 selected, the preview deliberately represents the first object while Apply
 affects the whole selection; direct recipe tuning remains a single-object

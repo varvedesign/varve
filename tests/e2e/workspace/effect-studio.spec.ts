@@ -7,10 +7,25 @@ import { captureProducerScreenshot } from '../../../scripts/screenshots/producer
  */
 
 import { Buffer } from 'node:buffer';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToCleanEditor } from '../helpers/nav';
 import { dragOnCanvas } from '../shared';
+
+/**
+ * Choose a gallery tile. A tile is one choice: it previews the treatment and
+ * opens its settings, where Keep / Add another live (shell audit 2026-10-22,
+ * F-43, replacing four buttons per card).
+ */
+async function chooseTreatment(studio: Locator, name: string) {
+  await studio.getByRole('button', { name, exact: true }).click();
+}
+
+/** Choose a tile and keep it: the gallery's apply path for one object. */
+async function applyTreatment(studio: Locator, name: string) {
+  await chooseTreatment(studio, name);
+  await studio.getByRole('button', { name: /^(Keep treatment|Add another)$/ }).click();
+}
 
 async function ensureEffectStudioLauncher(page: Page) {
   const launcher = page.getByTestId('open-effect-studio');
@@ -183,7 +198,7 @@ test.describe('Effect Studio dialog', () => {
     await expect(studio).toHaveScreenshot('effect-studio-dialog.png', { maxDiffPixels: 300 });
 
     await studio.getByRole('searchbox', { name: 'Search treatments' }).fill('reticulation');
-    await studio.getByRole('button', { name: 'Adjust Reticulation recipe' }).click();
+    await chooseTreatment(studio, 'Reticulation');
 
     const precision = studio.getByRole('spinbutton', {
       name: /Reticulation Cluster density value/,
@@ -194,7 +209,6 @@ test.describe('Effect Studio dialog', () => {
       '42',
     );
 
-    await studio.getByRole('button', { name: 'Preview', exact: true }).click();
     const original = studio.getByAltText('Original selected object without Object Filters');
     const effects = studio.getByAltText('Selected object with its Object Filters');
     await expect(original).toHaveAttribute('src', /^data:image\//);
@@ -225,7 +239,7 @@ test.describe('Effect Studio dialog', () => {
     await expect(appliedReticulationStack).toContainText('2 derived effects');
 
     await studio.getByRole('searchbox', { name: 'Search treatments' }).fill('halftone pattern');
-    await studio.getByRole('button', { name: 'Apply Halftone Pattern' }).click();
+    await applyTreatment(studio, 'Halftone Pattern');
     const appliedTreatments = studio.getByRole('list', { name: 'Applied treatments' });
     await expect(appliedTreatments.locator('li')).toHaveCount(2);
     await studio.getByRole('button', { name: 'Tune Halftone Pattern' }).click();
@@ -257,7 +271,7 @@ test.describe('Effect Studio dialog', () => {
     const studio = page.getByTestId('effect-studio-dialog');
     await expect(studio).toBeVisible({ timeout: 30_000 });
     await studio.getByRole('searchbox', { name: 'Search treatments' }).fill('reticulation');
-    await studio.getByRole('button', { name: 'Preview Reticulation' }).click();
+    await chooseTreatment(studio, 'Reticulation');
 
     const stage = studio.getByTestId('effect-studio-preview-stage');
     const qualityCheck = studio.getByRole('button', { name: 'Check at 2x' });
@@ -297,7 +311,7 @@ test.describe('Effect Studio dialog', () => {
     const studio = page.getByTestId('effect-studio-dialog');
     await expect(studio).toBeVisible({ timeout: 30_000 });
     await studio.getByRole('searchbox', { name: 'Search treatments' }).fill('reticulation');
-    await studio.getByRole('button', { name: 'Preview Reticulation' }).click();
+    await chooseTreatment(studio, 'Reticulation');
     const qualityCheck = studio.getByRole('button', { name: 'Check at 2x' });
     await expect(qualityCheck).toBeEnabled({ timeout: 30_000 });
     await delay2xEncoding(page, 1500);
@@ -338,7 +352,7 @@ test.describe('Effect Studio dialog', () => {
     const studio = page.getByTestId('effect-studio-dialog');
     await expect(studio).toBeVisible({ timeout: 30_000 });
     await studio.getByRole('searchbox', { name: 'Search treatments' }).fill('reticulation');
-    await studio.getByRole('button', { name: 'Preview Reticulation' }).click();
+    await chooseTreatment(studio, 'Reticulation');
     await expect(studio.getByRole('button', { name: 'Check at 2x' })).toBeEnabled({
       timeout: 30_000,
     });
@@ -372,7 +386,7 @@ test.describe('Effect Studio dialog', () => {
     const studio = page.getByTestId('effect-studio-dialog');
     await expect(studio).toBeVisible({ timeout: 30_000 });
     await studio.getByRole('searchbox', { name: 'Search treatments' }).fill('reticulation');
-    await studio.getByRole('button', { name: 'Preview Reticulation' }).click();
+    await chooseTreatment(studio, 'Reticulation');
     const stage = studio.getByTestId('effect-studio-preview-stage');
     await expect(stage.getByRole('img').first()).toBeVisible({ timeout: 30_000 });
     const qualityCheck = studio.getByRole('button', { name: 'Check at 2x' });
@@ -438,6 +452,9 @@ test.describe('Effect Studio dialog', () => {
             workspaceOverflowX: workspace.scrollWidth - workspace.clientWidth,
             bodyRight: body.getBoundingClientRect().right,
             scrollMode: getComputedStyle(body).overflowY,
+            browserScroll: getComputedStyle(
+              dialog.querySelector<HTMLElement>('.effect-studio__browser')!,
+            ).overflowY,
             children,
             preview: rect('.effect-studio-comparison'),
             browser: rect('.effect-studio__browser'),
@@ -449,7 +466,14 @@ test.describe('Effect Studio dialog', () => {
 
         expect(layout.bodyOverflowX).toBeLessThanOrEqual(1);
         expect(layout.workspaceOverflowX).toBeLessThanOrEqual(1);
-        expect(layout.scrollMode).toMatch(/auto|scroll/);
+        // Wide layouts pin the preview: the zones scroll, not the dialog body
+        // (F-43). Medium and narrow layouts keep one scroll flow.
+        if (viewport.layout === 'wide') {
+          expect(layout.scrollMode).toBe('hidden');
+          expect(layout.browserScroll).toMatch(/auto|scroll/);
+        } else {
+          expect(layout.scrollMode).toMatch(/auto|scroll/);
+        }
         expect(layout.children).toEqual(['preview', 'browser', 'inspector']);
         expect(layout.stage.width).toBeGreaterThan(200);
         expect(layout.stage.right).toBeLessThanOrEqual(layout.bodyRight);
@@ -457,6 +481,19 @@ test.describe('Effect Studio dialog', () => {
           expect(layout.preview.left).toBeLessThan(layout.browser.left);
           expect(layout.browser.left).toBeLessThan(layout.inspector.left);
           expect(layout.preview.top).toBeLessThanOrEqual(layout.inspector.top + 4);
+          // Browsing the whole gallery never moves the preview.
+          const stageTop = async () =>
+            studio
+              .getByTestId('effect-studio-preview-stage')
+              .evaluate((stage) => Math.round(stage.getBoundingClientRect().top));
+          const before = await stageTop();
+          await studio.locator('.effect-studio__browser').evaluate((browser) => {
+            browser.scrollTop = browser.scrollHeight;
+          });
+          expect(await stageTop()).toBe(before);
+          await studio.locator('.effect-studio__browser').evaluate((browser) => {
+            browser.scrollTop = 0;
+          });
         } else if (viewport.layout === 'medium') {
           expect(layout.preview.left).toBeLessThan(layout.browser.left);
           expect(layout.inspector.top).toBeGreaterThan(layout.preview.bottom);
@@ -514,9 +551,9 @@ test.describe('Effect Studio dialog', () => {
 
     const search = studio.getByRole('searchbox', { name: 'Search treatments' });
     await search.fill('reticulation');
-    await studio.getByRole('button', { name: 'Apply Reticulation' }).click();
+    await applyTreatment(studio, 'Reticulation');
     await search.fill('halftone pattern');
-    await studio.getByRole('button', { name: 'Apply Halftone Pattern' }).click();
+    await applyTreatment(studio, 'Halftone Pattern');
 
     const applied = studio.getByRole('list', { name: 'Applied treatments' });
     await expect(applied.locator('li')).toHaveCount(2);
@@ -559,7 +596,10 @@ test.describe('Effect Studio dialog', () => {
         overflowY: getComputedStyle(element).overflowY,
       }));
       expect(geometry.scrollWidth - geometry.clientWidth).toBeLessThanOrEqual(1);
-      expect(geometry.overflowY).toMatch(/auto|scroll/);
+      // Above 64rem the zones scroll and the body does not (pinned preview,
+      // F-43); below it the dialog keeps one scroll flow.
+      if (viewport.width > 1024) expect(geometry.overflowY).toBe('hidden');
+      else expect(geometry.overflowY).toMatch(/auto|scroll/);
       await page.screenshot({
         path: testInfo.outputPath(`effect-studio-stack-${viewport.width}x${viewport.height}.png`),
         animations: 'disabled',
@@ -586,12 +626,12 @@ test.describe('Effect Studio dialog', () => {
     await search.fill('');
     expect(await studio.locator('.effect-studio__treatment-grid > li').count()).toBeGreaterThan(8);
 
-    const firstApply = studio.getByRole('button', { name: /^Apply / }).first();
-    const treatmentName = (await firstApply.getAttribute('aria-label'))
-      ?.replace(/^Apply /, '')
-      .trim();
+    // Choose the first tile and keep it (tiles replace per-card Apply, F-43).
+    const firstTile = studio.locator('.effect-studio__treatment-card').first();
+    const treatmentName = (await firstTile.getAttribute('aria-label'))?.trim();
     expect(treatmentName).toBeTruthy();
-    await firstApply.click();
+    await firstTile.click();
+    await studio.getByRole('button', { name: 'Keep treatment', exact: true }).click();
     await expect(
       studio.getByRole('list', { name: 'Applied treatments' }).locator('li'),
     ).toHaveCount(1);
@@ -646,8 +686,10 @@ test.describe('Effect Studio dialog', () => {
     const studio = page.getByTestId('effect-studio-dialog');
     await expect(studio).toBeVisible({ timeout: 30_000 });
     await expect(studio.getByRole('searchbox', { name: 'Search treatments' })).toBeFocused();
-    await expect(studio.locator('.effect-studio__inspector')).toHaveCSS('position', 'sticky');
-    const apply = studio.getByRole('button', { name: /Apply / }).first();
+    // Wide layouts scroll the settings column on its own (pinned preview).
+    await expect(studio.locator('.effect-studio__inspector')).toHaveCSS('overflow-y', 'auto');
+    await studio.locator('.effect-studio__treatment-card').first().click();
+    const apply = studio.getByRole('button', { name: 'Keep treatment', exact: true });
     await expect(apply).toBeVisible();
     const colors = await apply.evaluate((button) => {
       const style = getComputedStyle(button);
@@ -666,8 +708,7 @@ test.describe('Effect Studio dialog', () => {
     const studio = page.getByTestId('effect-studio-dialog');
     await expect(studio).toBeVisible({ timeout: 30_000 });
     await studio.getByRole('searchbox', { name: 'Search treatments' }).fill('reticulation');
-    await studio.getByRole('button', { name: 'Adjust Reticulation recipe' }).click();
-    await studio.getByRole('button', { name: 'Preview', exact: true }).click();
+    await chooseTreatment(studio, 'Reticulation');
 
     const original = studio.getByAltText('Original selected object without Object Filters');
     const effects = studio.getByAltText('Selected object with its Object Filters');
@@ -730,8 +771,16 @@ test.describe('Effect Studio dialog', () => {
         transform: getComputedStyle(image).transform,
       };
     });
-    expect(nativeGeometry.imageWidth).toBeGreaterThan(fitGeometry.imageWidth);
-    expect(nativeGeometry.imageHeight).toBeGreaterThan(fitGeometry.imageHeight);
+    // Under object-fit: contain the Fit element box is the whole stage; the
+    // picture inside it is the natural size scaled by the smaller ratio. The
+    // pinned stage (F-43) is taller than a wide image, so compare pictures,
+    // not boxes.
+    const fitScale = Math.min(
+      fitGeometry.imageWidth / fitGeometry.naturalWidth,
+      fitGeometry.imageHeight / fitGeometry.naturalHeight,
+    );
+    expect(nativeGeometry.imageWidth).toBeGreaterThan(fitGeometry.naturalWidth * fitScale);
+    expect(nativeGeometry.imageHeight).toBeGreaterThan(fitGeometry.naturalHeight * fitScale);
     await expect(stage).toHaveScreenshot('effect-studio-image-100.png', {
       maxDiffPixels: 100,
     });
@@ -765,12 +814,11 @@ test.describe('Effect Studio dialog', () => {
     const studio = page.getByTestId('effect-studio-dialog');
     await expect(studio).toBeVisible({ timeout: 30_000 });
     await studio.getByRole('searchbox', { name: 'Search treatments' }).fill('reticulation');
-    await studio.getByRole('button', { name: 'Apply Reticulation' }).click();
+    await applyTreatment(studio, 'Reticulation');
 
     const applied = studio.getByRole('list', { name: 'Applied treatments' });
     await expect(applied).toContainText('Reticulation');
     await expect(applied).toContainText('2 derived effects');
-    await expect(studio.getByText(/raster \+ vector/i)).toBeVisible();
 
     await page.waitForTimeout(250);
     const after = await canvas.evaluate((element) => (element as HTMLCanvasElement).toDataURL());
@@ -791,13 +839,13 @@ test.describe('Effect Studio dialog', () => {
 
     const search = studio.getByRole('searchbox', { name: 'Search treatments' });
     await search.fill('reticulation');
-    await studio.getByRole('button', { name: 'Apply Reticulation' }).click();
+    await applyTreatment(studio, 'Reticulation');
     const applied = studio.getByRole('list', { name: 'Applied treatments' });
     await expect(applied.locator('li')).toHaveCount(1);
     await expect(applied).toContainText('Reticulation');
 
     await search.fill('halftone pattern');
-    await studio.getByRole('button', { name: 'Apply Halftone Pattern' }).click();
+    await applyTreatment(studio, 'Halftone Pattern');
     await expect(applied.locator('li')).toHaveCount(2);
     await expect(applied).toContainText('Reticulation');
     await expect(applied).toContainText('Halftone Pattern');
@@ -816,23 +864,26 @@ test.describe('Effect Studio dialog', () => {
     const applied = studio.getByRole('list', { name: 'Applied treatments' });
 
     await search.fill('reticulation');
-    await studio.getByRole('button', { name: 'Apply Reticulation' }).click();
+    await applyTreatment(studio, 'Reticulation');
     await expect(applied.locator('li')).toHaveCount(1);
 
     await search.fill('halftone pattern');
-    await studio.getByRole('button', { name: 'Preview Halftone Pattern' }).click();
+    await chooseTreatment(studio, 'Halftone Pattern');
     await studio.getByRole('button', { name: 'Cancel preview' }).click();
     await expect(applied.locator('li')).toHaveCount(1);
     await expect(applied).toContainText('Reticulation');
     await expect(applied).not.toContainText('Halftone Pattern');
 
+    // Choosing an applied treatment again previews a second instance, and the
+    // settings action says so: duplication stays explicit.
     await search.fill('reticulation');
-    await expect(studio.getByRole('button', { name: 'Add another Reticulation' })).toBeVisible();
-    await studio.getByRole('button', { name: 'Add another Reticulation' }).click();
+    await chooseTreatment(studio, 'Reticulation');
+    await expect(studio.getByRole('button', { name: 'Add another', exact: true })).toBeVisible();
+    await studio.getByRole('button', { name: 'Add another', exact: true }).click();
     await expect(applied.locator('li')).toHaveCount(2);
   });
 
-  test('keeps a previewed treatment when applying a different recipe', async ({ page }) => {
+  test('choosing another treatment replaces an unkept preview', async ({ page }) => {
     await navigateToCleanEditor(page);
     await createSelectedVectorPath(page);
 
@@ -842,14 +893,16 @@ test.describe('Effect Studio dialog', () => {
     const search = studio.getByRole('searchbox', { name: 'Search treatments' });
 
     await search.fill('reticulation');
-    await studio.getByRole('button', { name: 'Preview Reticulation' }).click();
+    await chooseTreatment(studio, 'Reticulation');
     await expect(studio.getByRole('button', { name: 'Keep treatment' })).toBeVisible();
 
+    // Browsing tries one treatment at a time, like a filter gallery: the
+    // unkept Reticulation preview is dropped, and only what is kept lands.
     await search.fill('halftone pattern');
-    await studio.getByRole('button', { name: 'Apply Halftone Pattern' }).click();
+    await applyTreatment(studio, 'Halftone Pattern');
     const applied = studio.getByRole('list', { name: 'Applied treatments' });
-    await expect(applied.locator('li')).toHaveCount(2);
-    await expect(applied).toContainText('Reticulation');
+    await expect(applied.locator('li')).toHaveCount(1);
+    await expect(applied).not.toContainText('Reticulation');
     await expect(applied).toContainText('Halftone Pattern');
   });
 
@@ -864,7 +917,7 @@ test.describe('Effect Studio dialog', () => {
     await page.getByTestId('open-effect-studio').click();
     await expect(initialStudio).toBeVisible({ timeout: 30_000 });
     await initialStudio.getByRole('searchbox', { name: 'Search treatments' }).fill('reticulation');
-    await initialStudio.getByRole('button', { name: 'Apply Reticulation' }).click();
+    await applyTreatment(initialStudio, 'Reticulation');
     await expect(initialStudio.getByRole('list', { name: 'Applied treatments' })).toContainText(
       'Reticulation',
     );

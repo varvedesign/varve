@@ -23,7 +23,7 @@ import {
   makeSmartFilter,
   type SceneNode,
 } from '@varve/scene';
-import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
+import { Icon, InfoHint, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
@@ -715,15 +715,22 @@ export function EffectStudioSection({
     ) => {
       const controls = treatmentControlValues(treatment, values);
       if (previewRef.current) {
-        if (previewRef.current.treatmentId === treatment.id) {
+        if (previewRef.current.treatmentId === treatment.id && nodes.length === 1) {
           commitPreview();
           return;
         }
-        // Applying a different recipe while a preview is active commits the
-        // preview first, then appends the requested recipe. Apply is an
-        // explicit stack edit; changing the gallery selection must not make a
-        // previously previewed treatment disappear.
-        commitPreview();
+        if (previewRef.current.treatmentId === treatment.id) {
+          // The preview stands in for the first selected object only. Keeping
+          // it must reach the whole selection, as one edit: drop the
+          // representative preview and apply the recipe to every object below.
+          cancelPreview(`Applying ${treatment.name} to ${nodes.length} objects`);
+        } else {
+          // Applying a different recipe while a preview is active commits the
+          // preview first, then appends the requested recipe. Apply is an
+          // explicit stack edit; changing the gallery selection must not make
+          // a previously previewed treatment disappear.
+          commitPreview();
+        }
       }
       if (
         !options.allowDuplicate &&
@@ -760,6 +767,7 @@ export function EffectStudioSection({
       announce,
       beginTransaction,
       commitPreview,
+      cancelPreview,
       commitTransaction,
       nodes,
       appliedTreatments,
@@ -1013,6 +1021,12 @@ export function EffectStudioSection({
   const targetGuidance = EFFECT_SURFACE_GUIDANCE['effect-studio'];
   const selectedRecipeSteps =
     tuning && tuningTreatment ? treatmentRecipeSteps(tuningTreatment, tuning.values) : [];
+  const tuningAlreadyApplied =
+    tuningTreatment !== undefined &&
+    appliedTreatments.some(
+      (instance) =>
+        instance.treatment.id === tuningTreatment.id && instance.instanceId !== preview?.instanceId,
+    );
 
   return (
     <EffectStudioSurface presentation={presentation}>
@@ -1042,29 +1056,23 @@ export function EffectStudioSection({
             Stack &amp; settings
           </button>
         </nav>
+        {/* One line instead of a paragraph block: the explanation sits behind
+            (i) so the workspace below keeps the dialog's height (F-43). */}
         <div className="effect-studio__intro">
-          <div>
-            <h3>Curated editable treatments</h3>
-            <p>
-              Browse a creative family, preview the actual result, then tune the named treatment on{' '}
-              {targetLabel}. Object Filters is reserved for advanced recipe internals.
+          <p className="effect-studio__intro-line">
+            Curated editable treatments for <strong>{targetLabel}</strong>
+            <InfoHint topic="Effect Studio">
+              Browse a creative family, preview the actual result, then tune the named treatment.
+              Object Filters is reserved for advanced recipe internals. Raster:{' '}
+              {targetGuidance.rasterBehavior} Vector: {targetGuidance.vectorBehavior}
+            </InfoHint>
+          </p>
+          {hasMultipleTargets && (
+            <p className="effect-studio__selection-note">
+              Preview shows the first selected object. Apply adds the treatment to all selected
+              objects; direct tuning is available after selecting one object.
             </p>
-            {hasMultipleTargets && (
-              <p className="effect-studio__selection-note">
-                Preview shows the first selected object. Apply adds the treatment to all selected
-                objects; direct tuning is available after selecting one object.
-              </p>
-            )}
-            <details className="effect-studio__target-guidance">
-              <summary>How this works on raster and vector objects</summary>
-              <p>
-                <strong>Raster:</strong> {targetGuidance.rasterBehavior}
-              </p>
-              <p>
-                <strong>Vector:</strong> {targetGuidance.vectorBehavior}
-              </p>
-            </details>
-          </div>
+          )}
         </div>
 
         <div className="effect-studio__workspace">
@@ -1091,11 +1099,14 @@ export function EffectStudioSection({
             tabIndex={-1}
           >
             <div className="effect-studio__browser-heading">
-              <h3 id="effect-studio-browser-title">Curated treatment gallery</h3>
-              <p>
-                Favorites are saved on this device. Document Looks below are ordered recipes saved
-                with this document.
-              </p>
+              <h3 id="effect-studio-browser-title">
+                Curated treatment gallery
+                <InfoHint topic="the treatment gallery">
+                  Choose a treatment to preview it on the selection and open its settings. Favorites
+                  are saved on this device; Document Looks below are ordered recipes saved with this
+                  document.
+                </InfoHint>
+              </h3>
             </div>
             <label className="effect-studio__search-label">
               <span className="sr-only">Search treatments</span>
@@ -1173,85 +1184,72 @@ export function EffectStudioSection({
               {groups.map((group) => (
                 <section className="effect-studio__treatment-group" key={group.id}>
                   <div className="effect-studio__treatment-group-header">
-                    <h4>{group.label}</h4>
-                    <p>{group.description}</p>
+                    <h4>
+                      {group.label}
+                      <InfoHint topic={group.label}>{group.description}</InfoHint>
+                    </h4>
                   </div>
                   <ul className="effect-studio__treatment-grid">
                     {group.treatments.map((treatment) => {
                       const isFavorite = favorites.includes(treatment.id);
                       const isPreview = preview?.treatmentId === treatment.id;
+                      // A preview lives in the stack while it runs; it is not
+                      // "applied" until kept.
                       const isApplied = appliedTreatments.some(
-                        (instance) => instance.treatment.id === treatment.id,
+                        (instance) =>
+                          instance.treatment.id === treatment.id &&
+                          instance.instanceId !== preview?.instanceId,
                       );
+                      // A card is one choice: choosing it previews the treatment and
+                      // opens its settings, where Apply / Keep / Add another live.
+                      // Four buttons per card held the gallery to four cards on
+                      // screen (F-43).
                       return (
                         <li className={isPreview ? 'is-previewing' : ''} key={treatment.id}>
-                          <div
-                            className="effect-studio__treatment-art"
-                            data-treatment-art={treatment.art}
-                            data-treatment-category={treatment.categoryId}
-                            aria-hidden="true"
-                          />
-                          <div className="effect-studio__treatment-copy">
-                            <strong>{treatment.name}</strong>
-                            <span>{treatment.description}</span>
-                            <small>
-                              {treatment.effects.length} editable effect
-                              {treatment.effects.length === 1 ? '' : 's'} · raster + vector
-                            </small>
-                          </div>
-                          <div className="effect-studio__card-actions">
-                            <button
-                              type="button"
-                              onClick={() => openTreatmentTuning(treatment)}
-                              aria-label={`Adjust ${treatment.name} recipe`}
-                            >
-                              Adjust
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                openTreatmentTuning(treatment);
-                                previewTreatment(treatment);
-                              }}
-                              disabled={!canPreview || isPreview}
-                              aria-label={`Preview ${treatment.name}`}
-                            >
-                              {isPreview ? 'Previewing' : 'Preview'}
-                            </button>
-                            <button
-                              type="button"
-                              className="effect-studio__add"
-                              onClick={() =>
-                                applyTreatment(
-                                  treatment,
-                                  {},
-                                  { allowDuplicate: isPreview || isApplied },
-                                )
-                              }
-                              aria-label={
-                                isPreview
-                                  ? `Keep ${treatment.name}`
-                                  : isApplied
-                                    ? `Add another ${treatment.name}`
-                                    : `Apply ${treatment.name}`
-                              }
-                            >
-                              {isPreview ? 'Keep' : isApplied ? 'Add another' : 'Apply'}
-                            </button>
-                            <button
-                              type="button"
-                              className="effect-studio__favorite"
-                              aria-pressed={isFavorite}
-                              aria-label={
-                                isFavorite
-                                  ? `Remove ${treatment.name} from favorites`
-                                  : `Add ${treatment.name} to favorites`
-                              }
-                              onClick={() => toggleFavorite(treatment.id)}
-                            >
-                              {isFavorite ? 'Saved' : 'Save'}
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            className="effect-studio__treatment-card"
+                            aria-label={treatment.name}
+                            aria-describedby={`effect-studio-treatment-${treatment.id}`}
+                            aria-pressed={isPreview}
+                            title={treatment.description}
+                            onClick={() => {
+                              openTreatmentTuning(treatment);
+                              if (canPreview && !isPreview) previewTreatment(treatment);
+                            }}
+                          >
+                            <span
+                              className="effect-studio__treatment-art"
+                              data-treatment-art={treatment.art}
+                              data-treatment-category={treatment.categoryId}
+                              aria-hidden="true"
+                            />
+                            <span className="effect-studio__treatment-copy">
+                              <strong>{treatment.name}</strong>
+                              <span
+                                id={`effect-studio-treatment-${treatment.id}`}
+                                className="effect-studio__treatment-description"
+                              >
+                                {treatment.description} {treatment.effects.length} editable effect
+                                {treatment.effects.length === 1 ? '' : 's'}.
+                              </span>
+                              {isApplied && <small>Applied</small>}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            className="effect-studio__favorite"
+                            aria-pressed={isFavorite}
+                            aria-label={
+                              isFavorite
+                                ? `Remove ${treatment.name} from favorites`
+                                : `Add ${treatment.name} to favorites`
+                            }
+                            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                            onClick={() => toggleFavorite(treatment.id)}
+                          >
+                            <Icon name="Star" size={14} />
+                          </button>
                         </li>
                       );
                     })}
@@ -1346,13 +1344,17 @@ export function EffectStudioSection({
           >
             <section className="effect-studio__applied" aria-label="Applied effect stack">
               <div className="effect-studio__applied-header">
-                <div>
-                  <h3>Applied effect stack</h3>
-                  <p>
+                <h3>
+                  Applied effect stack
+                  <InfoHint topic="the applied effect stack">
                     Named treatments are the primary stack. Their derived Object Filters stay
-                    available for deeper editing.
-                  </p>
-                </div>
+                    available for deeper editing. Effect Studio owns named treatment settings and
+                    applied-recipe management; recipes are ordered editable Object Filter entries,
+                    so stacking never flattens raster source or converts vector geometry. Image
+                    Tuning is for image-local photographic work, while Adjustment Filters correct a
+                    scoped backdrop.
+                  </InfoHint>
+                </h3>
                 <small className={stackEnabled ? 'is-live' : 'is-bypassed'}>
                   {stackEnabled ? 'Live' : 'Original shown'}
                 </small>
@@ -1619,11 +1621,19 @@ export function EffectStudioSection({
                     <button
                       type="button"
                       className="effect-studio__add"
-                      onClick={() => applyTreatment(tuningTreatment, tuning.values)}
+                      onClick={() =>
+                        applyTreatment(tuningTreatment, tuning.values, {
+                          allowDuplicate: tuningAlreadyApplied,
+                        })
+                      }
                     >
-                      {preview?.treatmentId === tuningTreatment.id
-                        ? 'Keep treatment'
-                        : 'Add to stack'}
+                      {/* An applied treatment chosen again previews a second
+                          instance; say so instead of "Keep". */}
+                      {tuningAlreadyApplied
+                        ? 'Add another'
+                        : preview?.treatmentId === tuningTreatment.id
+                          ? 'Keep treatment'
+                          : 'Add to stack'}
                     </button>
                   )}
                   {tuning.instanceId && (
@@ -1644,8 +1654,7 @@ export function EffectStudioSection({
               </section>
             ) : (
               <p className="effect-studio__settings-empty">
-                Select <strong>Adjust</strong> on a treatment to expose its curated controls and
-                direct numeric values.
+                Choose a treatment in the gallery to preview it and expose its controls.
               </p>
             )}
 
@@ -1662,13 +1671,6 @@ export function EffectStudioSection({
             )}
           </aside>
         </div>
-
-        <p className="effect-studio__stack-note">
-          Effect Studio owns named treatment settings and applied-recipe management. Its recipes are
-          still ordered editable Object Filter entries, so stacking never flattens raster source or
-          converts vector geometry. Image Tuning is for image-local photographic work, while
-          Adjustment Filters correct a scoped backdrop.
-        </p>
       </div>
     </EffectStudioSurface>
   );

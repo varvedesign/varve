@@ -55,13 +55,6 @@
 /* Keep the applied stack and current recipe controls available while the
  * gallery below is being browsed. The single-column mobile layout remains a
  * normal document flow so sticky controls never cover the gallery. */
-@media (min-width: 64.01rem) {
-  .effect-studio__inspector {
-    position: sticky;
-    top: var(--space-3);
-  }
-}
-
 .effect-studio-comparison {
   align-self: start;
   background: var(--color-surface-sunken);
@@ -346,6 +339,24 @@
   margin: 0;
 }
 
+.effect-studio__browser-heading h3,
+.effect-studio__applied-header h3,
+.effect-studio__intro-line {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.effect-studio__intro-line {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  margin: 0;
+}
+
+.effect-studio__intro-line strong {
+  color: var(--color-text-primary);
+}
+
 .effect-studio__intro p,
 .effect-studio__selection-note,
 .effect-studio__looks p,
@@ -386,7 +397,6 @@
 .effect-studio__looks-header button,
 .effect-studio__preview-status button,
 .effect-studio__quality-action button,
-.effect-studio__card-actions button,
 .effect-studio__applied button,
 .effect-studio__tuning button,
 .effect-studio__primitives button,
@@ -416,8 +426,6 @@
 .effect-studio__preview-status button:focus-visible,
 .effect-studio__quality-action button:hover:not(:disabled),
 .effect-studio__quality-action button:focus-visible,
-.effect-studio__card-actions button:hover:not(:disabled),
-.effect-studio__card-actions button:focus-visible,
 .effect-studio__applied button:hover:not(:disabled),
 .effect-studio__applied button:focus-visible,
 .effect-studio__tuning button:hover:not(:disabled),
@@ -435,7 +443,6 @@
 .effect-studio__looks-header button:focus-visible,
 .effect-studio__preview-status button:focus-visible,
 .effect-studio__quality-action button:focus-visible,
-.effect-studio__card-actions button:focus-visible,
 .effect-studio__applied button:focus-visible,
 .effect-studio__tuning button:focus-visible,
 .effect-studio__primitives button:focus-visible,
@@ -448,7 +455,6 @@
 
 .effect-studio__compare:disabled,
 .effect-studio__looks-header button:disabled,
-.effect-studio__card-actions button:disabled,
 .effect-studio__quality-action button:disabled,
 .effect-studio__tuning button:disabled,
 .effect-studio__recent button:disabled {
@@ -894,7 +900,10 @@
 }
 
 .effect-studio__treatment-group-header h4 {
+  align-items: center;
+  display: flex;
   font-size: var(--font-size-xs);
+  gap: var(--space-1);
 }
 
 .effect-studio__treatment-group-header p {
@@ -904,7 +913,7 @@
 .effect-studio__treatment-grid {
   display: grid;
   gap: var(--space-1);
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
   list-style: none;
   margin: 0;
   padding: 0;
@@ -914,12 +923,35 @@
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  display: grid;
-  gap: var(--space-1);
-  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   overflow: hidden;
+  position: relative;
+}
+
+/* A tile is one choice: choosing it previews the treatment and opens its
+ * settings. The favourite star is a separate toggle in its corner. */
+.effect-studio__treatment-card {
+  background: none;
+  border: 0;
+  border-radius: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: var(--space-1);
+  min-width: 0;
   padding: var(--space-1);
+  text-align: start;
+  width: 100%;
+}
+
+.effect-studio__treatment-card:hover {
+  background: var(--color-surface-hover);
+}
+
+.effect-studio__treatment-card:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: calc(-1 * var(--focus-ring-width));
 }
 
 .effect-studio__treatment-grid > li.is-previewing {
@@ -1282,26 +1314,50 @@
   white-space: nowrap;
 }
 
-.effect-studio__card-actions {
-  display: grid;
-  gap: var(--space-1);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.effect-studio__treatment-description {
+  /* Read by assistive technology and shown as the tile's tooltip. */
+  block-size: 1px;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
 }
 
-.effect-studio__card-actions button {
-  min-height: 1.75rem;
-  min-width: 0;
-  padding: 0 var(--space-2);
+.effect-studio__favorite {
+  align-items: center;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: var(--target-min-compact);
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: calc(var(--space-1) + 2px);
+  top: calc(var(--space-1) + 2px);
+  width: var(--target-min-compact);
 }
 
-.effect-studio__card-actions .effect-studio__add {
-  background: var(--color-accent-primary);
+.effect-studio__favorite:hover,
+.effect-studio__favorite:focus-visible {
   border-color: var(--color-accent-primary);
-  color: var(--color-text-on-accent);
+  color: var(--color-text-primary);
 }
 
-.effect-studio__card-actions .effect-studio__favorite {
-  background: transparent;
+.effect-studio__favorite:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.effect-studio__favorite[aria-pressed="true"] {
+  color: var(--color-interactive-default);
+}
+
+.effect-studio__favorite[aria-pressed="true"] svg {
+  fill: currentColor;
 }
 
 .effect-studio__empty {
@@ -1566,7 +1622,8 @@
   }
 
   .effect-studio .effect-studio__reorder-actions button,
-  .effect-studio .effect-studio-comparison__zoom button {
+  .effect-studio .effect-studio-comparison__zoom button,
+  .effect-studio .effect-studio__favorite {
     min-width: 44px;
   }
 
@@ -1582,5 +1639,106 @@
   .effect-studio__search-label input,
   .effect-studio__looks > label input {
     min-height: 44px;
+  }
+}
+
+/* Wide layouts pin the preview. The dialog takes most of the window, the body
+ * stops scrolling as one ~5100px page, and the gallery and the settings/stack
+ * column scroll on their own; the preview stage fills the remaining height.
+ * At a fixed 72rem x 52rem the 392x294 preview scrolled out of view after
+ * less than a screen of browsing and four treatments fit on screen (shell
+ * audit 2026-10-22, F-43). Medium and narrow layouts keep the single scroll
+ * flow. This block comes last so it overrides the base zone rules
+ * (align-self: start) at equal specificity. */
+@media (min-width: 64.01rem) {
+  .varve-dialog.effect-studio-dialog {
+    height: min(calc(100vh - 2rem), 72rem);
+    max-height: min(calc(100vh - 2rem), 72rem);
+    max-width: min(96vw, 110rem);
+    width: min(96vw, 110rem);
+  }
+
+  .effect-studio-dialog .varve-dialog__body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .effect-studio-panel,
+  .effect-studio {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .effect-studio-panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .effect-studio {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .effect-studio__workspace {
+    align-items: stretch;
+    grid-template-columns: minmax(24rem, 1fr) minmax(19rem, 22rem) minmax(17rem, 20rem);
+    min-height: 0;
+  }
+
+  .effect-studio__browser,
+  .effect-studio__inspector {
+    align-content: start;
+    align-self: stretch;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-inline-end: var(--space-1);
+  }
+
+  /* One toolbar row (mode, zoom, 2x check) above a stage that takes the
+   * rest of the height; notices flow below the stage. */
+  .effect-studio-comparison {
+    align-self: stretch;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .effect-studio-comparison > * {
+    grid-column: 1 / -1;
+  }
+
+  .effect-studio-comparison > .effect-studio-comparison__header {
+    grid-row: 1;
+  }
+
+  .effect-studio-comparison > .effect-studio-comparison__modes {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .effect-studio-comparison > .effect-studio-comparison__zoom {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .effect-studio-comparison > .effect-studio__quality-action {
+    grid-column: 4;
+    grid-row: 2;
+  }
+
+  .effect-studio-comparison > .effect-studio-comparison__stage {
+    aspect-ratio: auto;
+    grid-row: 3;
+  }
+
+  .effect-studio-comparison__zoom legend {
+    block-size: 1px;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
   }
 }

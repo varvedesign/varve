@@ -65,22 +65,16 @@ test.describe('Effect Studio portrait touch workflow', () => {
     await expect(studio).toBeVisible({ timeout: 30_000 });
     const search = studio.getByRole('searchbox', { name: 'Search treatments' });
     await search.fill('reticulation');
-    await studio.getByRole('button', { name: 'Adjust Reticulation recipe' }).click();
+    // Choosing a tile previews it and opens its settings (F-43).
+    const tile = studio.getByRole('button', { name: 'Reticulation', exact: true });
+    await assertTouchTarget(tile);
+    await tile.click();
 
     const numberField = studio.getByRole('spinbutton', {
       name: /Reticulation Cluster density value/,
     });
     await expect(numberField).toBeVisible();
     await assertTouchTarget(numberField);
-
-    const preview = studio
-      .getByLabel('Reticulation settings')
-      .getByRole('button', { name: 'Preview', exact: true });
-    await expect(preview).toBeVisible();
-    await assertTouchTarget(preview);
-    await preview.scrollIntoViewIfNeeded();
-    await expect(preview).toBeInViewport();
-    await preview.click();
 
     const qualityCheck = studio.getByRole('button', { name: 'Check at 2x' });
     await expect(qualityCheck).toBeVisible({ timeout: 30_000 });
@@ -101,7 +95,8 @@ test.describe('Effect Studio portrait touch workflow', () => {
     await cancel.click();
 
     await search.fill('reticulation');
-    const apply = studio.getByRole('button', { name: 'Apply Reticulation' });
+    await studio.getByRole('button', { name: 'Reticulation', exact: true }).click();
+    const apply = studio.getByRole('button', { name: 'Keep treatment', exact: true });
     await expect(apply).toBeVisible();
     await assertTouchTarget(apply);
     await apply.scrollIntoViewIfNeeded();
