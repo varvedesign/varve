@@ -34,11 +34,18 @@ import {
   svgLayerName,
 } from './shared';
 
+interface ConvertedElement {
+  node: SceneNode;
+  warnings: string[];
+  /** Scaled SVG user-space origin moved into the node transform by conversion. */
+  geometryOrigin?: readonly [number, number];
+}
+
 function convertRect(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
-): { node: SceneNode; warnings: string[] } {
+): ConvertedElement {
   const x = parseFloat(el.attrs.x ?? '0') * opts.scale;
   const y = parseFloat(el.attrs.y ?? '0') * opts.scale;
   const w = parseFloat(el.attrs.width ?? '0') * opts.scale;
@@ -58,14 +65,14 @@ function convertRect(
       ? [cornerRadius, cornerRadius, cornerRadius, cornerRadius]
       : undefined,
   });
-  return { node, warnings: [] };
+  return { node, warnings: [], geometryOrigin: [x, y] };
 }
 
 function convertCircle(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
-): { node: SceneNode; warnings: string[] } {
+): ConvertedElement {
   const cx = parseFloat(el.attrs.cx ?? '0') * opts.scale;
   const cy = parseFloat(el.attrs.cy ?? '0') * opts.scale;
   const r = parseFloat(el.attrs.r ?? '0') * opts.scale;
@@ -77,14 +84,14 @@ function convertCircle(
     name: svgLayerName(el, 'Circle'),
     transform: composeWithOffset(transform, cx, cy),
   });
-  return { node, warnings: [] };
+  return { node, warnings: [], geometryOrigin: [cx, cy] };
 }
 
 function convertEllipse(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
-): { node: SceneNode; warnings: string[] } {
+): ConvertedElement {
   const cx = parseFloat(el.attrs.cx ?? '0') * opts.scale;
   const cy = parseFloat(el.attrs.cy ?? '0') * opts.scale;
   const rx = parseFloat(el.attrs.rx ?? '0') * opts.scale;
@@ -97,14 +104,14 @@ function convertEllipse(
     name: svgLayerName(el, 'Ellipse'),
     transform: composeWithOffset(transform, cx, cy),
   });
-  return { node, warnings: [] };
+  return { node, warnings: [], geometryOrigin: [cx, cy] };
 }
 
 function convertLine(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
-): { node: SceneNode; warnings: string[] } {
+): ConvertedElement {
   const x1 = parseFloat(el.attrs.x1 ?? '0') * opts.scale;
   const y1 = parseFloat(el.attrs.y1 ?? '0') * opts.scale;
   const x2 = parseFloat(el.attrs.x2 ?? '0') * opts.scale;
@@ -117,14 +124,14 @@ function convertLine(
     name: svgLayerName(el, 'Line'),
     transform: composeWithOffset(transform, x1, y1),
   });
-  return { node, warnings: [] };
+  return { node, warnings: [], geometryOrigin: [x1, y1] };
 }
 
 function convertPolygon(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
-): { node: SceneNode; warnings: string[] } {
+): ConvertedElement {
   const pointsStr = el.attrs.points ?? '';
   const points = parsePoints(pointsStr, opts.scale);
 
@@ -152,14 +159,14 @@ function convertPolygon(
     name: svgLayerName(el, 'Polygon'),
     transform: composeWithOffset(transform, cx, cy),
   });
-  return { node, warnings: [] };
+  return { node, warnings: [], geometryOrigin: [cx, cy] };
 }
 
 function convertPolyline(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
-): { node: SceneNode; warnings: string[] } {
+): ConvertedElement {
   const pointsStr = el.attrs.points ?? '';
   const pts = parsePoints(pointsStr, opts.scale);
 
@@ -194,14 +201,14 @@ function convertPolyline(
     name: svgLayerName(el, 'Path'),
     transform: composeWithOffset(transform, minX, minY),
   });
-  return { node, warnings: [] };
+  return { node, warnings: [], geometryOrigin: [minX, minY] };
 }
 
 function convertPath(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
-): { node: SceneNode; warnings: string[] } {
+): ConvertedElement {
   const d = el.attrs.d ?? '';
   const parsed = parsePathData(d, opts.scale);
   const contours = parsed.contours.length
@@ -248,7 +255,7 @@ function convertText(
   el: ParsedElement,
   transforms: string[],
   opts: ImportOptions,
-): { node: SceneNode; warnings: string[] } {
+): ConvertedElement {
   const x = parseFloat(el.attrs.x ?? '0') * opts.scale;
   const y = parseFloat(el.attrs.y ?? '0') * opts.scale;
   const fontSize = parseFloat(el.attrs['font-size'] ?? '16') * opts.scale;
@@ -272,7 +279,7 @@ function convertText(
     fontWeight,
     textAlign: textAlign as 'left' | 'center' | 'right',
   });
-  return { node, warnings: [] };
+  return { node, warnings: [], geometryOrigin: [x, y] };
 }
 
 function convertImage(
@@ -280,7 +287,7 @@ function convertImage(
   transforms: string[],
   opts: ImportOptions,
   unsupported: string[],
-): { node: SceneNode; warnings: string[] } | null {
+): ConvertedElement | null {
   const x = parseFloat(el.attrs.x ?? '0') * opts.scale;
   const y = parseFloat(el.attrs.y ?? '0') * opts.scale;
   const w = parseFloat(el.attrs.width ?? '100') * opts.scale;
@@ -315,7 +322,7 @@ function convertImage(
       },
     ],
   };
-  return { node, warnings: [] };
+  return { node, warnings: [], geometryOrigin: [x, y] };
 }
 
 function svgStopOffset(value: string | undefined): number {
@@ -451,6 +458,7 @@ function gradientFillFromSvg(
   node: SceneNode,
   scale: number,
   warnings: string[],
+  geometryOrigin: readonly [number, number] = [0, 0],
 ): Fill | null {
   const stops = def.children
     .filter((child) => child.tag === 'stop')
@@ -471,13 +479,29 @@ function gradientFillFromSvg(
   const tilingMode = spread === 'repeat' || spread === 'reflect' ? spread : 'none';
   const transform = gradientTransformFromSvg(def, node, scale, warnings);
   if (!transform) return null;
+  // The fill field starts in the referencing element's SVG user space. Only
+  // the geometry-origin translation was baked out of that space; authored
+  // element/group/viewBox transforms still act on both geometry and paint.
+  // Apply T(-origin) after gradientTransform, without inverting a node matrix
+  // (which would cancel authored transforms and fail for singular ones).
+  const localTransform: Affine =
+    def.attrs.gradientUnits === 'userSpaceOnUse'
+      ? [
+          transform[0],
+          transform[1],
+          transform[2],
+          transform[3],
+          transform[4] - geometryOrigin[0],
+          transform[5] - geometryOrigin[1],
+        ]
+      : transform;
 
   return {
     type: 'gradient',
     gradient: {
       type: def.tag === 'radialGradient' ? 'radial' : 'linear',
       stops,
-      transform,
+      transform: localTransform,
       interpolationSpace,
       tilingMode,
     },
@@ -493,6 +517,7 @@ function applyStylesToNode(
   defs: Map<string, ParsedElement>,
   scale: number,
   warnings: string[],
+  geometryOrigin?: readonly [number, number],
 ): SceneNode {
   let fill = el.attrs.fill ?? el.attrs.style;
   let stroke = el.attrs.stroke;
@@ -520,7 +545,13 @@ function applyStylesToNode(
       gradientDef &&
       (gradientDef.tag === 'linearGradient' || gradientDef.tag === 'radialGradient')
     ) {
-      const gradientFill = gradientFillFromSvg(gradientDef, result, scale, warnings);
+      const gradientFill = gradientFillFromSvg(
+        gradientDef,
+        result,
+        scale,
+        warnings,
+        geometryOrigin,
+      );
       if (gradientFill) result = { ...result, fills: [gradientFill] };
     } else {
       if (gradientId) warnings.push(`SVG fill references unsupported resource: #${gradientId}`);
@@ -995,7 +1026,7 @@ function convertElementContents(
     return { doc, ids };
   }
 
-  let result: { node: SceneNode; warnings: string[] } | null = null;
+  let result: ConvertedElement | null = null;
 
   switch (el.tag) {
     case 'rect':
@@ -1031,7 +1062,14 @@ function convertElementContents(
 
   if (result) {
     const { id, doc: d2 } = nextNodeId(doc);
-    const styled = applyStylesToNode(result.node, el, defs, opts.scale, warnings);
+    const styled = applyStylesToNode(
+      result.node,
+      el,
+      defs,
+      opts.scale,
+      warnings,
+      result.geometryOrigin,
+    );
     const node = { ...styled, id } as SceneNode;
     // The converter owns `doc` for the whole walk (svg.ts clones `nodes` and
     // `rootChildren` once), so appending in place is equivalent and avoids an

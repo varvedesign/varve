@@ -4,6 +4,18 @@ Read this first when resuming. It records what is done, what is verified, and
 the exact next operation. Repository state can change; re-check `git status`
 and the branch before acting.
 
+## Current follow-up — paint batch (2026-10-23)
+
+The active work is now in `.worktrees/graphite-paint-20261023`, branch
+`graphite/paint-corpus-20261023`, based on remote master `e11477176`.
+Read [paint-batch.md](paint-batch.md) for the current checks, pending processes,
+F14 geometry-origin repair and probes for #2445/#3019. The separate local
+vector batch is preserved at `.worktrees/graphite-20261022`; findings F10–F13
+are reserved for it. No paint-batch integration/release is established yet.
+
+The sections below retain the older corpus checkpoint; they are not the
+current paint batch's execution state.
+
 ## Where the work lives
 
 - Worktree: `.worktrees/graphite-corpus`

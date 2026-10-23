@@ -443,3 +443,50 @@ to fail before the change).
 separate command as the interoperability route; it now states that an ordinary
 Copy carries the SVG representation, with the size ceiling and the host's
 permission/MIME dependence disclosed.
+
+---
+
+## F14 — SVG user-space gradients lost their geometry origin (implemented; browser verification pending)
+
+**External evidence.** [Graphite #2524](https://github.com/GraphiteEditor/Graphite/issues/2524)
+and its ten comments distinguish importing an actual SVG from importing a PNG
+preview. The reported radial field uses numeric `userSpaceOnUse` coordinates;
+the linked [gradientUnits contract](https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/gradientUnits)
+places that field in the referencing element's user coordinates, followed by
+`gradientTransform`. Percentages instead depend on the SVG viewport.
+
+**Varve reproduction.** A File Import fixture with a rectangle at (200,100)
+and a black-to-white field from (200,140) to (400,140) read red-channel 0 at
+quarter width, rather than 45–85. This was a real content-canvas measurement,
+not a scene-only assertion. The original failure screenshot was read, but
+Import Results obscured the rectangle; the strengthened browser check closes
+that dialog and records alpha plus RGBA samples before its colour assertions.
+
+**Cause and repair.** The element converters move intrinsic geometry offsets
+into the node transform: x/y for rectangles, centres for circles/ellipses,
+first point for lines, fitted centre for polygons, minimum for polylines, and
+x/y for text. User-space fill matrices were left in the old space. Conversion
+now carries an ephemeral `geometryOrigin`, and fill import subtracts it after
+`gradientTransform`. The document model, node transforms and rendering code
+are unchanged. Inverting the whole node transform would incorrectly cancel
+authored element/group/viewBox transforms, and would fail for singular ones.
+Paths keep their original coordinates; objectBoundingBox mapping is unchanged.
+
+**Evidence so far.** `packages/import/src/svg-user-space-gradient.test.ts`
+failed 12 of 15 cases before the repair. With the repair, it, the existing
+`svg.test.ts`, and `brush-alpha-fidelity.test.ts` pass all 53 tests. Cases cover
+numeric linear/radial fields, every rebased shape converter, authored affine
+transforms, import scale, nested groups/root viewBox, `<use>`, singular
+transforms, matrix order, and unchanged path/objectBoundingBox controls.
+Real-app linear and radial pixel checks live in
+`tests/e2e/import/svg-user-space-gradient.spec.ts`.
+
+**Limits and status.** This is not a claim of general SVG fidelity. User-space
+percentages still carry the existing approximation warning, and off-centre
+radial focal points remain approximate. The exact issue sample also inherits
+paint from a group; this separate importer boundary is source-inspected but
+not repaired or verified here. #2524 therefore stays applicable work rather
+than being marked wholly handled. The first browser run used the TS fallback
+after a WASM-load warning; native/WASM validation is not established. The
+affected gate, rendered repair check, second-pass review, commit, PR, merge
+and deployment evidence remain pending; see `paint-batch.md`.

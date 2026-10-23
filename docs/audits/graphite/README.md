@@ -77,6 +77,12 @@ Dispositions: `applicable-work-required`, `already-handled`, `duplicate-of`,
   does not have (Graphene node graph, GPU node buffers, Graphite-internal
   tooling, web-only stack), and each reason names that subsystem.
 - Findings and engineering state: `findings.md`.
+- Current paint follow-up: [paint-batch.md](paint-batch.md), branch
+  `graphite/paint-corpus-20261023`. F14 repairs the SVG geometry-origin/fill
+  boundary; 53 focused tests pass, but rendered verification, affected
+  validation and integration are pending. #2445/#3019 have dedicated browser
+  probes; their classification is not changed without the results. Findings
+  F10–F13 are reserved by the separate, unmerged local vector branch.
 - A pre-existing failure on `origin/master` surfaced while validating the
   website copy change and was fixed here because it blocked the affected gate
   and published wrong release notes: the changelog parser dropped every
