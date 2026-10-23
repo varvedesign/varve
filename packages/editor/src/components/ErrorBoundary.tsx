@@ -13,6 +13,16 @@ export interface ErrorBoundaryProps {
    * newly opened trees).
    */
   resetKey?: string | number;
+  /**
+   * Names the surface this boundary isolates (canvas, layers, inspector…).
+   *
+   * In non-production builds the name opts the boundary into deterministic
+   * fault injection for the per-surface panic-isolation test: setting
+   * `window.__varveSurfaceFault` to the same name makes one child throw
+   * during render, proving this boundary contains it while the rest of the
+   * shell stays interactive. Production builds ignore the global entirely.
+   */
+  surface?: string;
 }
 
 interface ErrorBoundaryState {
@@ -164,8 +174,29 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     // children are absolutely positioned).
     return (
       <div key={this.state.key} style={{ display: 'contents' }}>
+        {this.props.surface ? <SurfaceFaultProbe surface={this.props.surface} /> : null}
         {this.props.children}
       </div>
     );
   }
+}
+
+/**
+ * Test-only probe. It sits inside the boundary (as a child element, so a
+ * throw is caught by that boundary rather than escaping to the app root) and
+ * renders nothing in a normal session.
+ */
+function SurfaceFaultProbe({ surface }: { surface: string }) {
+  if (surfaceFaultRequested(surface)) {
+    throw new Error(`synthetic ${surface} surface failure`);
+  }
+  return null;
+}
+
+function surfaceFaultRequested(surface: string): boolean {
+  if (typeof window === 'undefined') return false;
+  const env = (import.meta as ImportMeta & { env?: { MODE?: string; DEV?: boolean } }).env;
+  // Same gate as the crash test hooks: never active in a production build.
+  if (!(env?.MODE === 'wdio' || env?.DEV === true)) return false;
+  return (window as Window & { __varveSurfaceFault?: string }).__varveSurfaceFault === surface;
 }

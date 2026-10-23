@@ -629,7 +629,7 @@ function ShellInner({
         >
           <SelectionBreadcrumb />
           <main className="editor-shell__main" style={{ display: 'contents' }}>
-            <ErrorBoundary resetKey={editor.state.document.id}>
+            <ErrorBoundary resetKey={editor.state.document.id} surface="canvas">
               <CanvasArea
                 canvasContainerRef={canvasContainerRef}
                 onContextMenu={handleCanvasContextMenu}
@@ -702,7 +702,7 @@ function ShellInner({
             data-collapsed={!layersExpanded || undefined}
             {...(!layersExpanded ? { inert: true } : {})}
           >
-            <ErrorBoundary resetKey={editor.state.document.id}>
+            <ErrorBoundary resetKey={editor.state.document.id} surface="layers">
               <PresenceIndicator presences={collabPresences} />
               <MinimapPanel
                 canvasOwnerRef={canvasContainerRef}
@@ -741,7 +741,7 @@ function ShellInner({
             data-collapsed={!rightPanelVisible || undefined}
             {...(!rightPanelVisible ? { inert: true } : {})}
           >
-            <ErrorBoundary resetKey={editor.state.document.id}>
+            <ErrorBoundary resetKey={editor.state.document.id} surface="inspector">
               {!isDetached('inspector') && (
                 <PropertiesPanel onCloseResponsivePanel={closeResponsiveInspector} />
               )}
