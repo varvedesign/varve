@@ -128,6 +128,13 @@ Reveal-on-hover is allowed (the editor tab strip uses it to keep tabs quiet),
 but a close control must never be *only* hover-reachable: the active tab,
 pointer hover, keyboard focus, and touch layouts all reveal it.
 
+Transient overlays use the same primitive. The canvas micro-hint previously
+hand-rolled its dismiss button — a literal "x" in a 13.4x13px box, below the
+24px floor — and now renders `CloseButton size="sm"`, so the glyph, the target,
+and the focus/hover states come from one place. Overlay surfaces that are
+pointer-transparent (the hint must never eat a canvas gesture) opt the control
+back in with `pointer-events: auto` rather than re-styling it.
+
 ### Density behavior
 
 Interface density is a **user preference**, applied at the document root:

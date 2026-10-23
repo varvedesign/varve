@@ -1,3 +1,4 @@
+import { CloseButton } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
 import type { MicroHint as MicroHintData } from './microHintsData';
 import './MicroHint.css';
@@ -56,17 +57,20 @@ export function MicroHint({ hint, onDismiss }: MicroHintProps) {
         {hint.shortcut && <kbd className="micro-hint__shortcut">{hint.shortcut}</kbd>}
       </span>
       <span className="micro-hint__body">{hint.body}</span>
-      <button
-        type="button"
+      {/* The hint surface is pointer-transparent so it never captures a canvas
+       * gesture; only the dismiss control opts back in (see .micro-hint__dismiss).
+       * CloseButton is the documented dismiss primitive — the hand-rolled button
+       * this replaces drew a literal "x" character in a 13x13 box, under the
+       * WCAG 2.2 2.5.8 target floor, and bypassed the shared focus/hover states. */}
+      <CloseButton
+        size="sm"
+        label="Dismiss hint"
         className="micro-hint__dismiss"
         onClick={() => {
           setExiting(true);
           setTimeout(onDismiss, 200);
         }}
-        aria-label="Dismiss hint"
-      >
-        x
-      </button>
+      />
     </div>
   );
 }

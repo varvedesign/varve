@@ -20,6 +20,9 @@ import { navigateToEditor } from '../shared';
 /** The `interface-micro` type floor from interface-sizing-system.md. */
 const TYPE_FLOOR = 12;
 
+/** WCAG 2.2 AA 2.5.8 minimum pointer target. */
+const TARGET_FLOOR = 24;
+
 const VIEWPORTS = [
   { width: 900, height: 600, label: 'minimum supported window' },
   { width: 1440, height: 900, label: 'default window' },
@@ -54,3 +57,25 @@ for (const viewport of VIEWPORTS) {
     ).toEqual([]);
   });
 }
+
+/**
+ * Finding A-04: the canvas micro-hint's dismiss control was a hand-rolled
+ * `<button>` that drew a literal "x" character in a 13.4x13px box — under the
+ * 24x24 WCAG 2.2 AA 2.5.8 target floor, and bypassing the shared CloseButton
+ * states that interface-sizing-system.md requires for every dismiss control.
+ */
+test(`micro-hint dismiss meets the ${TARGET_FLOOR}px target floor`, async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 600 });
+  await navigateToEditor(page);
+
+  // Pressing a tool shortcut raises that tool's onboarding hint; the dismiss
+  // control is the only interactive part of it.
+  await page.keyboard.press('r');
+  const dismiss = page.locator('.micro-hint__dismiss');
+  await expect(dismiss).toBeVisible({ timeout: 5000 });
+
+  const box = await dismiss.boundingBox();
+  expect(box, 'dismiss control must have a box').not.toBeNull();
+  expect(box?.width ?? 0, 'target width').toBeGreaterThanOrEqual(TARGET_FLOOR);
+  expect(box?.height ?? 0, 'target height').toBeGreaterThanOrEqual(TARGET_FLOOR);
+});
