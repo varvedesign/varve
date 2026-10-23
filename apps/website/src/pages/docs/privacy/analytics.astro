@@ -74,11 +74,13 @@ import { sitePath } from '../../../lib/siteUrl';
         remain respected, and Global Privacy Control or Do Not Track always blocks collection.
         Session identification, individual-pageview storage, and demographic/device collection
         are disabled. Only aggregate counts are retained. Normalized routes omit fragments and
-        all query strings. An allowlisted first-party campaign tag is sent as GoatCounter's
-        <code>q</code> parameter and appears as a Campaign-scheme referrer, not in the
-        Campaigns list; some sections share the home category, so that category is not a
-        literal homepage count. Referrers are reduced to site origins. Demo event paths never
-        start with a slash.
+        all query strings. Pageviews send an allowlisted first-party campaign tag as
+        GoatCounter's <code>q</code> parameter, which replaces the HTTP origin referrer for
+        that hit and appears as a Campaign-scheme referrer, not in the Campaigns list.
+        Download and demo events keep the same tag on the event name, because GoatCounter
+        ignores <code>q</code> for events. Some sections share the home category, so that
+        category is not a literal homepage count. Referrers are reduced to site origins when
+        no campaign tag is present. Demo event paths never start with a slash.
       </p>
       <p><a href={sitePath('/about/privacy')}>Read the full privacy policy</a>.</p>
     </article>

@@ -87,6 +87,7 @@ export class GoatCounterProvider implements AnalyticsProvider {
       if (!pageview) {
         url.searchParams.set('e', 'true');
       } else {
+        // Hit.Defaults overwrites r when q has ref/utm_source/src/source.
         const query = campaignCountQuery(search);
         if (query) url.searchParams.set('q', query);
       }
