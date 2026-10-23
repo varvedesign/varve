@@ -456,6 +456,19 @@ const REVIEWED = {
     validation: 'none yet',
     doc_impact: 'troubleshooting docs',
   },
+  392: {
+    research: 'reviewed-thread',
+    engineering: 'verified-existing',
+    varve_area: 'accessibility-ui',
+    varve_code:
+      'packages/editor/src/components/TextEditOverlay.tsx (positioned textarea), shortcuts/ShortcutManager.ts:967 shouldIgnoreShortcutTarget',
+    observed:
+      'Text editing happens in a real textarea, and the shortcut dispatcher suppresses editor shortcuts while focus is on an editable target, so Cmd/Ctrl+A stays inside the text field instead of selecting every object.',
+    outcome: 'No change required.',
+    priority: 'none',
+    validation: 'code inspection + existing ShortcutManager tests',
+    doc_impact: 'none',
+  },
   136: {
     research: 'reviewed-thread',
     engineering: 'verified-existing',

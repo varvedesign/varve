@@ -174,6 +174,18 @@ nothing was changed. `loadDocument` applies the same guard. Documents that
 decode but fail validation still open, because preflight reports their problems
 and refusing a recoverable file is its own data loss.
 
+## Corpus review progress
+
+Beyond the 88 stability/persistence threads, the typography and geometry
+defect subsets have been read at body level. One more issue was verified as
+already handled: **#392** (Cmd+A while editing text selects every object) —
+Varve edits text in a real `textarea` and the shortcut dispatcher suppresses
+editor shortcuts on editable targets (`shouldIgnoreShortcutTarget`).
+
+The remainder of those subsets is either VectorCraft-specific UI machinery
+(panels, menus, Shape Builder regions, tab rulers) or feature gaps rather than
+defects; they stay `screened-relevant` with areas recorded.
+
 ## Remaining work
 
 Reviewer findings: resolved — inner-corner arcs (high), global ceiling
