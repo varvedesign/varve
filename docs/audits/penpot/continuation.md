@@ -1,5 +1,111 @@
 # Penpot audit continuation
 
+## Current resume authority — 2026-10-23, PR #174
+
+This section supersedes the historical handoffs below. The task remains partial:
+C1 is not exhausted, C2 is not frozen, and no merge/deployment is confirmed.
+
+- The integration worktree is `.worktrees/penpot-integration`, local branch
+  `codex/penpot-pr174-green`, pushed to `codex/penpot-corpus-integration`.
+  All commits through `f7587e809ca3314089216b045c17217f903b14bb` are pushed.
+  The original progressive `codex/penpot-corpus` branch remains preserved.
+  The current local follow-ups are `a1dd1d883` (coverage-aware certification),
+  `9e3531262` (requested-repository receipt storage), and `b83b378d9` (shortcut
+  scanner false positives). All three passed the normal commit checkpoint;
+  none used a hook bypass. They still need a normal push checkpoint.
+- Frozen comparison master remains `6eebb9581eb40f36608b772af6b039114a5f30c5`.
+  The branch must not reimplement #3157/#3276, already merged in PR #186.
+- CI run `40024683816` is still pending/running for `f7587e809`; its associated
+  gitleaks run `40024683632` failed. Pipeline validation has since failed on
+  `apps/website > astro > zod@4.6.5`, advisory
+  [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
+  The upstream advisory and registry both identify 4.6.6 as patched. The gate
+  remains blocking; no dependency waiver or scanner exclusion was added.
+- The earlier wall-clock explanation of run `39925207470` was disproven by
+  its `e2e-2.json` execution artifact: Playwright exited zero, while small
+  duplicate lanes had empty case histories, which certification rejects.
+  `f7587e809` collapses ordinary subsets beside sharded `e2e:all`, but did not
+  update the aggregator's required-lane contract. The follow-up now shares a
+  Chromium-only coverage predicate between executor and aggregator, records
+  explicit coverage mappings, and retains independent demo/visual requirements.
+- Regression evidence: the new complete-suite/subset assertion fails against
+  the previous aggregator, and passes with the repair. Aggregator, lane-runner,
+  execution-plan and execution-report Node test files pass (four files).
+  Missing/failed broad evidence and independent demo/visual/unknown lanes are
+  negative checks. This is local contract evidence, not a remote CI pass.
+- Validation planner selects a full-gate escalation because CI execution is
+  changed. `pnpm verify:affected` refuses that escalation without running its
+  checks; `pnpm verify:full --remote --status` reports that remote full
+  certification requires a clean committed master candidate. No local full
+  suite has been substituted for hosted evidence.
+- Triage passed changed formatting/lint, emoji/docs/claims audits and all 53
+  validation-policy tests, then exposed a pre-existing linked-worktree bug in
+  both `commonGitDirectory` implementations (`validation-receipts.mjs` and
+  `operation-history.mjs`). Their default Git adapters ignored the requested
+  cwd, so fixture receipts went into the caller's repository. Both now bind
+  Git to the requested cwd. A real primary/linked/foreign-repository regression
+  fails before the repair; receipt, operation-history, and full-gate resume
+  test files now pass (three files). Full CI-tool execution was interrupted
+  after `remote-full-gate.test.mjs` passed 20 tests; remaining commands resumed
+  at `scripts/website/e2e-ports.test.cjs`, logged to
+  `/tmp/opencode/penpot-ci-tools-resume.log`, and all passed through the final
+  shell-script check (23/23). The original prefix and resumed suffix together
+  cover the selected CI-tool command chain; no application full suite ran.
+- Using the workflow's checksum-verified gitleaks 8.30.1 binary, clean archived
+  HEAD had eight findings; frozen master had the same four unrelated findings
+  in Graphite/Photocraft audit data and `siglipText.ts`. The four added findings
+  are literal keyboard-chord strings, not credentials. Named chord constants
+  and direct collection assertions preserve the exact display values without
+  changing scanner configuration. Both shortcut unit tests pass and the
+  focused gitleaks scan reports zero findings. Whole-tree/remote security
+  certification is not claimed.
+- Rechecked C1 status: 12,050 records, 3,659 issues, 8,391 PRs, 1,240 assessed,
+  2,419 research-pending and 3,178 engineering-pending. Supplemental #437 is
+  separately complete. Ledger SHA-256 remains
+  `4c209ab5d8bfc49590635efc6d8219d17e9fa4812d90a7aa79095f4ad8ed596e`.
+  No research rows were newly classified and C2 remains unfrozen.
+- Earlier sessions used `git commit --no-verify` and `git push --no-verify`.
+  Those bypasses occurred; claims below that no override was used are historical
+  and must not be read as the current record. A generic continuation request
+  is not explicit authorization for another bypass. Future commits/pushes must
+  use the normal hooks unless the maintainer explicitly authorizes otherwise.
+- Final review-fix browser batch was cancelled by a harness restart. Earlier
+  passing counts do not verify all later changes. Some screenshot artifacts
+  were deleted before inspection; final visual validation remains outstanding.
+  Remaining review work includes palette/splitter hit overlap and forwarded-pan
+  listener cleanup/cancellation. Do not remove the worktree until the full
+  requested corpus/integration work is confirmed complete.
+
+### Current increment validation report
+
+```text
+Changed scope: CI execution/aggregation and receipt helpers; shortcut display constants/tests; validation/task docs
+Validation plan: seven CI/docs lanes; full escalation for validation infrastructure
+Commands actually run:
+  pnpm verify:plan
+  pnpm verify:affected
+  pnpm verify:triage
+  VARVE_FULL_GATE_REASON="PR 174 changes CI lane execution and certification coverage; exact-SHA hosted validation required" pnpm verify:full --remote --status
+  node --test scripts/quality/aggregate-ci.test.mjs scripts/quality/ci-run-lanes.test.mjs scripts/quality/execution-plan.test.mjs scripts/quality/ci-execution-report.test.mjs
+  node --test scripts/quality/validation-receipts.test.mjs scripts/quality/full-gate.test.mjs scripts/quality/operation-history.test.mjs
+  pnpm test:ci:tools (interrupted after remote-full-gate; remaining package-script commands resumed individually)
+  pnpm exec vitest run packages/editor/src/shortcuts/reservedShortcuts.test.ts --maxWorkers=1 --reporter=dot
+  pnpm audit:docs
+  pnpm audit:imports
+  pnpm audit:emoji
+  pnpm audit:tokens
+  git diff --check
+Passed: focused Node contracts; complete CI-tool chain across two invocations; shortcut unit 2/2; docs/imports/emoji audits; 324 contrast pairs plus token-usage audit; normal commit checkpoints
+Skipped as unrelated to this increment: Rust, native desktop GUI, model-quality, canvas benchmarks (no corresponding code changed)
+Escalations: affected refuses the selected full gate; remote full status requires a clean committed master candidate; remote pipeline blocked by Zod advisory
+Full suite run: no
+```
+
+Self-review checked runner/aggregator agreement, independent demo/visual lanes,
+unknown-lane fail-closed behavior, source-bound shard inventory checks, actual
+subset membership, non-fabricated execution records, and injected/default Git
+adapter behavior. No independent review of these new follow-ups is claimed.
+
 ## Immutable acceptance and cutoffs
 
 - User-authorized objective: assess Penpot issues exhaustively through frozen C1 and one later C2; implement applicable Varve improvements with reproduction, validation, independent review, documentation, and integration evidence. Do not claim completion after the first batch.
@@ -802,18 +908,11 @@ initial value is black, and `fill`/`stroke` are not inherited from an ancestor
      `Menubar.test.tsx` mocks `./shortcuts` and did not export
      `bindingToAriaKeyshortcuts`. That one error failed the whole editor unit
      lane.
-  2. **Not fixed, needs a decision:** nearly every E2E shard failed. The shard
-     logs show per-file lanes (`e2e:file:...`) being invoked with
-     `--shard N/24` and the job exiting 1 after the last lanes printed their
-     commands without a Playwright run line. Each per-file lane starts its own
-     dev server (`reuseExistingServer: false`), so a shard that owns many
-     single-spec lanes spends most of its budget on server startup; this PR
-     changes more specs than master's last green run, which increases the
-     number of those lanes. This is CI plan/sharding infrastructure, not an
-     assertion failure in the changed code, and it needs either a lane
-     assignment change (assign a file lane to one shard instead of splitting it
-     across all 24) or a reviewed increase in the job budget. It is recorded
-     here rather than changed inside a product PR.
+   2. **Historical diagnosis, disproven:** the initial hypothesis was excessive
+      per-file dev-server startup time. The subsequently downloaded shard
+      execution artifact instead proves zero exit codes and empty case-history
+      failures for redundant small lanes. See the current resume authority for
+      the executor/aggregator repair; a larger timeout is not the fix.
 - To finish the integration on a quiet host:
   `git push origin HEAD:codex/penpot-corpus-integration` from
   `.worktrees/penpot-integration`, then watch CI. Do not merge before the JS
