@@ -167,20 +167,23 @@ export function IconBrowser({
       return;
     }
     ensureIconProviders();
-    if (!browsingPack) {
-      setPacksLoading(true);
-      void (async () => {
-        try {
-          const { getIconProviderRegistry } = await import('@varve/engine');
-          const list = await getIconProviderRegistry().getPacks();
-          setPacks(list);
-        } catch {
-          // keep the curated catalogue fallback
-        } finally {
-          setPacksLoading(false);
-        }
-      })();
-    }
+    if (browsingPack) return;
+    const controller = new AbortController();
+    setPacksLoading(true);
+    void (async () => {
+      try {
+        const { getIconProviderRegistry } = await import('@varve/engine');
+        if (controller.signal.aborted) return;
+        const list = await getIconProviderRegistry().getPacks({ signal: controller.signal });
+        if (controller.signal.aborted) return;
+        setPacks(list);
+      } catch {
+        // keep the curated catalogue fallback
+      } finally {
+        if (!controller.signal.aborted) setPacksLoading(false);
+      }
+    })();
+    return () => controller.abort();
   }, [browsingPack, remoteAllowed]);
 
   // -------------------------------------------------------------------------

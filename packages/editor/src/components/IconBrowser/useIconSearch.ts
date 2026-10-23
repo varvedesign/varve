@@ -256,6 +256,16 @@ export function useIconSearch(remoteAllowed = false) {
   }, []);
 
   useEffect(() => {
+    if (remoteAllowed) return;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, [remoteAllowed]);
+
+  useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
       if (abortRef.current) abortRef.current.abort();

@@ -57,6 +57,10 @@ const ACTION_SHAS = {
   'taiki-e/install-action': '6a1bd70eaac3c8bdf093356838d7ee09fda951cf', // v2
   'softprops/action-gh-release': 'c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda', // v2.2.1
   'pnpm/action-setup': 'fe02b34f77f8bc703788d5817da081398fad5dd2', // v4.0.0
+  'github/codeql-action': '9b3254085494b55a0f7c4c2b3d2d52cc712ce370', // v4.39.1
+  'github/codeql-action/init': '9b3254085494b55a0f7c4c2b3d2d52cc712ce370', // v4.39.1
+  'github/codeql-action/analyze': '9b3254085494b55a0f7c4c2b3d2d52cc712ce370', // v4.39.1
+  'actions/dependency-review-action': 'a1d282b36b6f3519aa1f3fc636f609c47dddb294', // v5.0.0
 };
 
 const SHA_RE = /^[0-9a-f]{40}$/;
@@ -171,19 +175,37 @@ async function resolveActionSHA(action, ref, token) {
   return resolveBranchSHA(action, 'main', token) || resolveBranchSHA(action, 'master', token);
 }
 
+// Composite actions live at owner/repo/subpath. The metadata file is under
+// that subpath on the repo, not at github.com/owner/repo/subpath.
+function actionMetadataCandidates(action, sha) {
+  const names = ['action.yml', 'action.yaml'];
+  const urls = names.map((name) => `https://raw.githubusercontent.com/${action}/${sha}/${name}`);
+  const parts = action.split('/');
+  if (parts.length > 2) {
+    const repo = `${parts[0]}/${parts[1]}`;
+    const subpath = parts.slice(2).join('/');
+    for (const name of names) {
+      urls.push(`https://raw.githubusercontent.com/${repo}/${sha}/${subpath}/${name}`);
+    }
+  }
+  return urls;
+}
+
 // Returns true when the commit exists upstream AND carries action.yml.
 async function verifyPinnedSHA(action, sha) {
-  const actionYml = await fetch(`https://raw.githubusercontent.com/${action}/${sha}/action.yml`, {
-    redirect: 'follow',
-  });
-  if (actionYml.ok) return { ok: true, why: '' };
-  const actionYaml = await fetch(`https://raw.githubusercontent.com/${action}/${sha}/action.yaml`, {
-    redirect: 'follow',
-  });
-  if (actionYaml.ok) return { ok: true, why: '' };
+  let lastStatus = 'n/a';
+  for (const url of actionMetadataCandidates(action, sha)) {
+    try {
+      const res = await fetch(url, { redirect: 'follow' });
+      lastStatus = String(res.status);
+      if (res.ok) return { ok: true, why: '' };
+    } catch {
+      lastStatus = 'fetch-error';
+    }
+  }
   return {
     ok: false,
-    why: `no action.yml/action.yaml at commit (HTTP ${actionYml.status}/${actionYaml.status})`,
+    why: `no action.yml/action.yaml at commit (HTTP ${lastStatus})`,
   };
 }
 
@@ -372,4 +394,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
 }
 
-export { ACTION_SHAS, extractActionUses, isMutableVersion, SHA_RE, verifyPinnedSHA };
+export {
+  ACTION_SHAS,
+  actionMetadataCandidates,
+  extractActionUses,
+  isMutableVersion,
+  SHA_RE,
+  verifyPinnedSHA,
+};

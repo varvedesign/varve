@@ -1,0 +1,71 @@
+# cargo-deny policy for both Cargo workspaces (root crates/ and
+# apps/desktop/src-tauri). Licences match what the lockfiles already ship.
+# New crates with other licences fail the check and must be listed here with
+# a reason, not silenced in CI.
+
+[graph]
+all-features = false
+no-default-features = false
+
+[output]
+feature-depth = 1
+
+[advisories]
+# Vulnerabilities fail by default. Unsound stays at warn. glib 0.18
+# VariantStrIter (RUSTSEC-2024-0429 / GHSA-wrw7-89jp-8q8g) is tracked
+# through SECURITY.md and the osv-scanner ignore. Unmaintained crates below
+# have no compatible replacement in the
+# current Tauri / print / image graph; the ci.yml advisory gate already
+# keeps them as visible warnings rather than ignores.
+yanked = "warn"
+ignore = [
+    { id = "RUSTSEC-2024-0436", reason = "paste is unmaintained; no compatible replacement in the image / little_exif / rav1e graph" },
+    { id = "RUSTSEC-2024-0370", reason = "proc-macro-error is unmaintained; pulled by glib-macros / gtk3-macros, no replacement" },
+    { id = "RUSTSEC-2026-0206", reason = "rustybuzz is unmaintained; varve-print has no harfrust migration yet" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser is unmaintained; pulled by rustybuzz and varve-print" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names is unmaintained; desktop zbus stack, no compatible bump" },
+    { id = "RUSTSEC-2026-0370", reason = "zvariant is unmaintained; same zbus desktop stack" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive is unmaintained; same zbus desktop stack" },
+]
+
+[licenses]
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "CC-BY-4.0",
+    "CDLA-Permissive-2.0",
+    "FSL-1.1-MIT",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "NCSA",
+    "OFL-1.1",
+    "OpenSSL",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Unlicense",
+    "Zlib",
+]
+confidence-threshold = 0.8
+# Allowances cover both Cargo workspaces. A licence used only in one graph
+# must not fail the other.
+unused-allowed-license = "allow"
+
+[bans]
+multiple-versions = "allow"
+wildcards = "allow"
+workspace-default-features = "allow"
+external-default-features = "allow"
+highlight = "all"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

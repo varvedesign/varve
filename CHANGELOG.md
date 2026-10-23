@@ -22,6 +22,10 @@ update, not for someone reading the commit log.
   settings key still starts with AI on. A corrupt or unreadable settings blob
   is treated as off and logged. Model files that stored their SHA-256 under a
   field the downloader did not read are hash-verified again.
+- Vulnerability reports now have stated response times, a `security.txt`
+  endpoint, an incident runbook, and CI scans (CodeQL, cargo-deny, gitleaks,
+  OSV-Scanner, and dependency review). Report privately to
+  security@varve.studio or through GitHub private vulnerability reporting.
 
 ### Added
 
