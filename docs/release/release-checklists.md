@@ -117,7 +117,7 @@ Everything in Alpha, plus:
       reflects evidence, never intent
 - [ ] Checksums were generated after signing (they always are — the trust gate
       runs before `generate-final-checksums`)
-- [ ] Final bytes attested (`gh attestation verify <file> -R K-Arthur/varve`)
+- [ ] Final bytes attested (`gh attestation verify <file> --repo varvedesign/varve`)
 - [ ] Notarisation verified on a real Mac: `spctl -a -vv -t exec Varve.app`
       and `xcrun stapler validate Varve.dmg`
 - [ ] Windows: installed-app signature status checked and recorded (NSIS
@@ -128,6 +128,9 @@ Everything in Alpha, plus:
 ---
 
 ## Emergency hotfix
+
+Full security-hotfix procedure, including which CI jobs are mandatory:
+[incident-runbook.md](../security/incident-runbook.md).
 
 1. [ ] Branch from the **release tag**, not from `master`
 2. [ ] Fix only the one thing. Resist everything else

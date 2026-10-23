@@ -195,12 +195,18 @@ describe('IconBrowserDialog', () => {
     const input = await screen.findByLabelText('Search icons');
     fireEvent.change(input, { target: { value: 'home' } });
     expect(await screen.findByText('1 icon', {}, { timeout: 5000 })).toBeTruthy();
+    // Drain the granted-state collection-list effect so revoke is not racing
+    // an in-flight getPacks() that started before consent was withdrawn.
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     const fetchMock = vi.mocked(globalThis.fetch);
     fetchMock.mockClear();
     getIconData.mockClear();
     await act(async () => {
       writeIconRemoteSearchConsent('denied');
+      await Promise.resolve();
     });
     expect(await screen.findByText('No icons match your search.')).toBeTruthy();
     expect(screen.queryByText('Remote Home')).toBeNull();
