@@ -83,6 +83,10 @@ Dispositions: `applicable-work-required`, `already-handled`, `duplicate-of`,
   validation and integration are pending. #2445/#3019 have dedicated browser
   probes; their classification is not changed without the results. Findings
   F10–F13 are reserved by the separate, unmerged local vector branch.
+- Current ledger after the #2445 browser verification: 547 `already-handled`,
+  191 `applicable-work-required`; other counts and the frozen issue/comment
+  coverage are unchanged. F15 records the additional gradient replay defect;
+  F16 records existing stop-selection behavior. No integration is implied.
 - A pre-existing failure on `origin/master` surfaced while validating the
   website copy change and was fixed here because it blocked the affected gate
   and published wrong release notes: the changelog parser dropped every

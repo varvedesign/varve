@@ -490,3 +490,45 @@ than being marked wholly handled. The first browser run used the TS fallback
 after a WASM-load warning; native/WASM validation is not established. The
 affected gate, rendered repair check, second-pass review, commit, PR, merge
 and deployment evidence remain pending; see `paint-batch.md`.
+
+**Rendered follow-up.** The first repaired-parser browser run still failed both
+pixel cases. Unobscured screenshots were read: the handles were centred on the
+correct geometry but both shapes remained opaque black. F15 below identifies
+the independent replay defect; parser-only success was not a rendered fix.
+
+---
+
+## F15 — Canvas gradient coordinates were transformed twice (implemented; rendered recheck pending)
+
+The #2524 reproduction exposed a second boundary: `replayGradient.ts` applied
+`getTransform()` to already-local gradient endpoints/centres, then passed those
+points to native Canvas2D constructors. Those constructors capture the current
+user-space transform themselves. With translated artwork, the field was moved
+again, so the shape painted its first stop (black in the fixture). It affected
+linear/radial/angular/diamond fields and the shared gradient-stroke evaluator,
+not just SVG import.
+
+Five nonidentity-CTM constructor/cache tests in
+`packages/engine/src/replayGradient.userSpace.test.ts` all failed before the
+repair. The repair removes that extra projection; it does not reset the canvas
+transform, alter the gradient matrix, or drop CTM identity from cache keys.
+The new tests, existing `replay-fill.test.ts`, and parser regressions pass
+**105 tests in three files**. Browser pixel and gradient-neighbour checks are
+queued. No dispatcher, scene schema, renderer API or pixel-reuse logic changed.
+
+---
+
+## F16 — Gradient stop selection survives pointer-up (verified, no change needed)
+
+[Graphite #2445](https://github.com/GraphiteEditor/Graphite/issues/2445) reset
+selection to the endpoint on pointer-up. Varve's `GradientEditor.selectedStop`
+is persistent React state; pointer-up ends the gesture instead of replacing it.
+The real picker test `tests/e2e/inspector/gradient-stop-selection.spec.ts`
+passed after selecting the endpoint, selecting the start, selecting the middle,
+and dragging the middle to 65%. The start/end remain at 0%/100%, and the middle
+remains pressed with its position field at 65%. Its
+[screenshot](../../screenshots/graphite-corpus/gradient-stop-selection.png) was read:
+the green interior stop is selected and Position reads 65. The canvas itself
+was still affected by F15; this verification concerns selection, not painting.
+Canvas geometry handles have transient dragging state, not a persistent
+selected-stop state. No production selection or history change was made.

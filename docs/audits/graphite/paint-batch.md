@@ -66,6 +66,48 @@ not be represented as proof that the source SVG or all SVG gradients work.
 
 ### Restart recovery (current)
 
+Latest evidence supersedes the pending-run entries below:
+
+- Local checkpoint `856fdc25f` committed the importer repair and probes. All
+  pre-commit gates passed, including 17 new unit cases and E2E typechecking.
+  `verify:push --since origin/master --dry-run` found the outgoing scope ready;
+  it did not execute validation or write a receipt, and no push occurred.
+- Focused browser run `sh_16ac4e37a0019w148gXlwhunk6` completed: **1 passed /
+  3 failed**. #2445 selection passed and its screenshot was read. Both SVG pixel
+  tests still painted opaque black despite correct handles; their screenshots
+  were read and exposed F15, the independent replay double-CTM defect. The
+  brush probe stopped before painting because a warning-free solid SVG does
+  not open Import Results; its fixture now dismisses that report only if present.
+- Added five nonidentity-CTM gradient-constructor/cache tests: all five failed
+  against the old replay. Removed the redundant CTM projection in
+  `packages/engine/src/replayGradient.ts`. Focused fixed run of that file,
+  `replay-fill.test.ts`, and parser regressions: **105 tests / 3 files passed**.
+- Cancelled only our queued affected/control supervisors (259305 and 268579)
+  before changing renderer scope. Neither had started its command. Their
+  SIGTERM results are interruptions, not validation failures or passes.
+- New fixed browser run: `sh_16ace39c80017ubLNxxToIPPny`, port 7491, three
+  new specs plus existing gradient geometry/interpolation neighbours.
+- New origin-disabled browser control: `sh_16ace5294001Ub8kNQAgEAyQpy`,
+  port 7494. It keeps the repaired replay and disables only importer rebasing.
+- Gradient replay visual cases at DPR 1/2/3: `sh_16acfcce9001rgk2iJLNUUzTlk`,
+  port 7495, `tests/e2e/visual/replay.spec.ts --grep gradient`, no baseline
+  updates. This is a targeted manual addition for the shared gradient helper,
+  not an unrelated full visual run.
+- After the replay repair, `pnpm audit:docs`, `pnpm audit:imports`,
+  `pnpm audit:emoji`, `pnpm audit:tokens` all passed (324 contrast pairs across
+  three themes; token-usage check clean). `git diff --check` passed.
+- The #2445 screenshot is retained as
+  `docs/screenshots/graphite-corpus/gradient-stop-selection.png`; its ledger
+  disposition is now already-handled. Re-derived current counts are 547
+  already-handled / 191 applicable, with other dispositions unchanged.
+- Renderer working-diff plan: 39 lanes / 77% of repository test files selected,
+  no full-suite escalation. Validate the complete committed branch with
+  `--since origin/master` after the next checkpoint; default scope otherwise
+  sees only uncommitted files and can omit the first commit. No broad gate is
+  running now. Keep the explicit extra gradient visual checks at DPR 1/2/3.
+
+Earlier recovery attempts (historical, not active):
+
 - Server restart cancelled `sh_16aad39f600177Wnmsu1kPUWTq`,
   `sh_16abfbfbd001BlOOci7Lb4nLIP` and `sh_16abfea47001fLfcukzDnunw4I`.
   The browser runs had not acquired the lease. The affected run passed touched

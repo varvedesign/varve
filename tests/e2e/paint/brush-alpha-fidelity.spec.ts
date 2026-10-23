@@ -34,8 +34,9 @@ test('white semitransparent soft brush does not darken its backdrop at the fring
   });
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30000 });
   const report = page.getByRole('dialog', { name: 'Import Results', exact: true });
-  await expect(report).toBeVisible();
-  await report.getByRole('button', { name: 'Close', exact: true }).click();
+  if (await report.isVisible()) {
+    await report.getByRole('button', { name: 'Close', exact: true }).click();
+  }
   const topLeft = await page.getByLabel('Top-left resize handle', { exact: true }).boundingBox();
   const bottomRight = await page
     .getByLabel('Bottom-right resize handle', { exact: true })
