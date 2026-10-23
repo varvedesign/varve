@@ -1,207 +1,160 @@
 # Continuation record
 
-Last updated: 2026-10-21 (session 1).
+Last updated: 2026-10-23 (session 2).
 
 ## Frozen baseline
 
 - **Cutoff A:** `2026-10-21T19:30:05Z` – `2026-10-21T19:31:11Z`.
   - 1,237 issues (531 open / 706 closed) and 2,221 pull-request records,
     reconciled against the search index; 4,964 comments over 50 pages.
-  - Raw pages are outside Git at `/tmp/opencode/vectorcraft/raw/`, aggregate
-    issue-page SHA-256 `59eb7225874acf08886b85c940d09cd9cf0443676f91030caa7d736f45702ef2`.
-  - Do not move cutoff A.
+  - The raw pages lived outside Git at `/tmp/opencode/vectorcraft/raw/`.
+    **They no longer exist** (tmpfs cleared). The frozen ledger rows in Git are
+    the authoritative inventory; see README.md for what can and cannot be
+    re-verified. Do not move cutoff A.
 - **Cutoff B:** `2026-10-21T20:41:01Z`. Four issues created after cutoff A
-  (#3465, #3467, #3470, #3471) and two older issues whose status changed
-  (#3446, #2523, both closed upstream). The four new records are reviewed in
-  `issue-ledger-cutoff-b.jsonl`; they do not move cutoff A, and anything
-  created after cutoff B belongs to the follow-on queue.
+  (#3465, #3467, #3470, #3471) and two older issues whose upstream status
+  changed (#3446, #2523). The four new records are reviewed in
+  `issue-ledger-cutoff-b.jsonl`; anything created after cutoff B belongs to the
+  follow-on queue.
 
 ## Repository and ownership
 
-- Worktree: `/home/kevina/CodingProjects/varve/.worktrees/vectorcraft-corpus`
-- Branch: `feat/vectorcraft-corpus`, based on `origin/master`
-  `2e8c5b018b00a85fde341a0acc3dc80cde042f83`.
-- The main checkout at `/home/kevina/CodingProjects/varve` is **dirty** and
-  314 commits ahead / 16 behind `origin/master`. Those 43 entries belong to
-  other work: nothing was staged, reverted, stashed, or committed there, and no
-  file from it was read for this task.
-- `origin` is `https://github.com/K-Arthur/varve.git`; `varvedesign/varve` is
-  the same repository and `master` is unprotected (admin permission confirmed,
-  no branch protection). No push has happened yet.
+- Session 2 worktree: `.worktrees/vc-open-file`
+- Branch: `feat/vc-open-file`, based on `origin/master`
+  `6eebb9581eb40f36608b772af6b039114a5f30c5` (the same SHA as
+  <https://github.com/varvedesign/varve/commits/master> at session start).
+- The main checkout is dirty with other agents' work (42 entries at session
+  start). Nothing there was staged, reverted, stashed, or committed.
+- `varvedesign/varve` and the previous `K-Arthur/varve` URL are the same
+  repository. There is no branch protection and no required checks. A merge is
+  not a release.
 
-## Task commits (local, not pushed)
+## CI status of the earlier work (rechecked, not assumed)
+
+| PR | Merge | Checks at handoff |
+|---|---|---|
+| #165 | `335b4ce9` | Selected checks passed (`Change lanes`, certification, build, AI attribution). Rust, native E2E, benchmarks, hosted Chromium were **skipped**, not passed. |
+| #180 | `321cf7c9` | **Failed** 4 E2E shards in run `39751637894` (SVG visibility, Enhance snapshots, empty-document overset expectation, resize interaction, variable-font selection, eight layers cases blocked by Missing Fonts). |
+| #175 | `7f9db158` | Successor repairs. Run `39851788872` at `eaae98d0` passed certification and all 24 E2E shards, including the four that failed in #180. |
+| #187 | `b9114559` | **Failed** JS in run `39878613867` at `openFileDedupe.test.tsx:85`. The failure is still present on master run `39905949131` (job `120281453188`). |
+| master | `6eebb958` | CI failed on the same test. Website Deploy succeeded. `CI Debug Report` workflows are **queued**, not green. |
+
+So the "merged" work is not uniformly certified: #180's failures were repaired
+by #175, and #187 left master with a red JS lane.
+
+## Session 2 commits
 
 | Commit | Scope |
 |---|---|
-| `54c5e8e21` | `fix(persistence)`: library save confirms the write before marking clean |
-| `8e0523450` | `fix(engine)`: bounded Offset Path tessellation, real round joins, open-path endpoints |
-| `f87e66c1d` | `fix(codegen)`: generic `font-family` fallback in exported SVG (quoted so it parses) |
-| `c6f479aa5` | `docs`: vectorcraft audit area, ledger, findings, website export guidance |
-| `683153357` | `fix(codegen)`: whole-document SVG export keeps gradient fills |
-| `e79389c3a` | `fix(engine)`: round only the outside of a turn (review finding), global point ceiling |
-| `9cee9e7c8` | `test(persistence)`: editor-level library-save failure; codegen emits the engine default family |
-| (follow-up branch) | `fix(editor)`: autosave failure is surfaced as "Recovery paused" |
+| `62f01d560` | `fix(editor)`: refuse an empty payload; one decode gate for `openFile` and `loadDocument`; report `FileReader` failures; rebuild dedupe fixtures with the codec; e2e zero-byte open |
+| `6d6bf5213` | `fix(recovery)`: `loadDocument` returns false on refusal; recovery keeps an unreadable snapshot |
 
-## Validation evidence
+Validation for these commits is recorded below. Documentation and audit-record
+commits follow them on the same branch.
+
+## Validation evidence (session 2)
 
 | Check | Result |
 |---|---|
-| `packages/editor/src/persistence/librarySave.test.ts` | 5/5 pass |
-| `packages/editor/src/persistence` + `autoSaveService.test.ts` | 56/56 pass |
+| `pnpm exec vitest run packages/editor/src/__tests__/openFileDedupe.test.tsx` | **Red before the fix** (`expected … length of 2 but got 1`), green after |
+| `openFileUnreadable.test.tsx` empty-payload case | **Red before the guard change** (document identity changed), green after |
+| `openFileUnreadable` + `openFileDedupe` + `documentSessionIdentity` | 22/22 pass |
+| `openFileUnreadable` + `RecoveryManager` | 14/14 pass |
 | `pnpm --filter @varve/editor exec tsc --noEmit` | clean |
-| `packages/engine/src/pathOffset.test.ts` | 16/16 pass (4 new) |
-| `packages/editor/src/geometry` + pathOffset | 41/41 pass |
-| `@varve/codegen` suite | 383 pass, 1 skipped |
-| `@varve/codegen` typecheck | clean |
-| `pnpm audit:claims` | clean |
-| `pnpm audit:docs` | clean (1148 docs) |
-| Visual: exported SVG rendered in Chromium | before = Times New Roman (serif), after = `'Source Sans 3', sans-serif` → sans-serif; **this check caught that the unquoted form did not work** |
-| Visual: exported gradient document rendered in Chromium | before = flat dark rectangle, after = red→blue gradient |
-| `pnpm audit:emoji` / `audit:tokens` / `audit:claims` / `audit:docs` | clean |
-| `packages/editor/src/context/__tests__/librarySave.test.tsx` | 2/2 pass (editor-level failure and success) |
-| `tests/e2e/canvas/offset-path.spec.ts` | **2/2 pass** through `scripts/quality/heavy-lease.mjs` (Chromium, web build, workers=1). Asserts Inspector dimensions: outward +200 adds 400 per axis, inward −60 removes 120. Captures inspected; see `evidence/`. |
-| Website `astro check` | 0 errors, 0 warnings, 0 hints (201 files) |
+| `node scripts/audit-health.mjs --staged` | pass (context.tsx 77 imports, Shell 57, no new imports) |
+| `tests/e2e/menus/file-picker.spec.ts` (Chromium, real picker) | see "Browser evidence" below |
+| Browser gradient parity probe (Chromium) | Canvas2D and SVG both 252/191/48 at t≈0.1/0.5/0.9 over white; evidence committed |
 
-## Engineering status
+The pre-fix red runs were executed by temporarily restoring the previous guard
+and re-running the new test, then restoring the fix. They are not claims about
+the unmodified branch.
 
-Implemented and locally validated, awaiting integration:
+## Browser evidence
 
-- **F1** library save truthfulness (vectorcraft #1693 / #1685).
-- **F2** bounded offset path + round joins + open-path endpoints (#1028).
-- **F3** SVG generic font fallback (#3135).
-- **F8** whole-document SVG export keeps gradients (export/canvas agreement;
-  visual before/after in Chromium).
-
-Verified as already correct:
-
-- **F4** SVG physical size (#864 / #2924 duplicate) — pinned by a regression test.
-- **F7** hover/selection spatial index (#1280 / #1172) — existing grid index.
-
-Open, recorded, not implemented:
-
-- **F5** area-text overset is computed then discarded (#1471 / #2323 / #2769).
-  Implementation path recorded: `layoutText`/`layoutRichTextSnapshot` already
-  produce the line stack, and `runTypographyPreflight` already accepts an
-  `oversetMap`; what is missing is a preflight-time measure context built from
-  the text node (the renderer's `ReplayTarget` provides one at paint time).
-  Half-wiring it would warn against the wrong metrics, so it is left open.
-- **F6** is now closed: both the blank-gradient `Range` defect and per-stop
-  alpha are fixed and rendered-verified (see `findings.md` F6).
-- Autosave failure visibility: `AutoSaveService.onStateChange` has no
-  production consumer, so a user whose recovery writes keep failing is never
-  told. Separate finding from F1.
-- `HitTestEngine.queryWithTolerance` whole-document scan in master-placement
-  mode.
-
-## Cutoff B arrivals (reviewed)
-
-| Issue | Disposition |
-|---|---|
-| #3465 `.ase` palette files missing from the picker | outside scope — Varve has no palette import UI (parsers exist unused in `@varve/shared`) |
-| #3467 drag stroke colour onto fill does nothing | screened-relevant (paint/UI); unverified in Varve, same request as #2223 |
-| #3470 masked artwork not rendered after save | uncertain — report needs the screenshots and a reproduction |
-| #3471 taskbar treated as app area in full screen | outside scope — Tauri window chrome, not egui viewport |
+- `evidence/open-refused-empty-file.png` — the real File > Open picker after
+  choosing a zero-byte `.varve`: the error toast names the file, the tab count
+  and document name are unchanged. Chromium, workers=1, heavy lease.
+- `evidence/gradient-parity-chromium.png` — Canvas2D versus inline-SVG gradient
+  interpolation over white. It does **not** contain a Varve document and does
+  **not** cover WebKit.
 
 ## Corpus status
 
 | Disposition | Count |
 |---|---|
-| `screened-relevant` (open work) | 826 |
-| `outside-varve-scope` (reason recorded per row) | 398 |
-| `verified-existing` | 7 |
-| `integrated-verified` | 4 |
-| `applicable-requires-work` | 2 |
+| `screened-relevant` (open work) | 823 |
+| `outside-varve-scope` (reason recorded per row) | 396 |
+| `verified-existing` | 9 |
+| `integrated-verified` | 9 |
+| `applicable-requires-work` | 0 |
 
-Follow-up pass additions:
-
-- **Batch 4 implemented:** autosave failure visibility (see `findings.md` F9).
-- **Four more verified-existing:** #136 (numeric font weights), #352
-  (arrow-key stepping), #307 (dialog focus), #1293 (booleans keep sources and
-  names).
-- **455 defect-like screened issues** indexed in `screened-defects.jsonl` with
-  area, labels, comment count and a body excerpt. This is the resumable review
-  queue: each row still needs a Varve reproduction. Areas: canvas-interaction
-  72, typography 67, geometry 64, stability 58, paint/colour 39, AI/EPS import
-  39, persistence 30, document model 25, PDF 20, SVG 15, performance 11,
+- Review depth is now derived from the review actually performed: **20 rows are
+  `thread`**, 1,217 are `title`. Regenerating the ledger previously stamped
+  every row `title` even when `research: reviewed-thread` was recorded.
+- The live defect queue (`screened-defects.jsonl`) is filtered to rows that are
+  still `screened-relevant`: **451** of the original 455. Areas: canvas 72,
+  typography 64, geometry 64, stability 58, paint/colour 39, AI/EPS 39,
+  persistence 29, document model 25, PDF 20, SVG 15, performance 11,
   accessibility 10, raster export 5.
 
-All 1,237 titles were read. Full threads were read for the issues behind
-F1–F7 and the highest-severity integrity threads. The 830 `screened-relevant`
-rows are **not** a verdict and **not** a completion signal; each needs a thread
-review plus a Varve reproduction before it can be dispositioned.
+### Corrections made in this pass
 
-## Integration record
-
-- Branch `feat/vectorcraft-corpus` pushed and merged through
-  **PR #165** (`https://github.com/varvedesign/varve/pull/165`).
-- Merge commit on `master`: **`335b4ce966466624b474d072a8dbf8d9f28bccfd`**
-  ("Merge pull request #165 from varvedesign/feat/vectorcraft-corpus"),
-  verified on `origin/master` with `git fetch` + `git log`. 24 files,
-  2,720 insertions.
-- CI at merge time: `Change lanes` passed; the WASM/AppImage/Lighthouse lanes
-  were still queued in a saturated runner pool. `master` has no branch
-  protection and no required checks, so the merge was not gated by them. The
-  pending lanes are **not** claimed as passing.
-- `website-deploy.yml` run `39681379730` was queued for the merge SHA, so the
-  docs page publishes to GitHub Pages. That is a site deploy, not a release:
-  no tag, no installer, no version bump.
-- Ledger dispositions for the four implemented findings are now
-  `integrated-verified` with the merge reference.
-- Follow-up PR **#169** merged as
-  **`a2d6a22769ad8eb9a25c06d19dc00b55da241115`** (autosave failure visibility,
-  four more verified-existing issues, and the 455-row screened-defect index).
-  The same integration caveat applies: `master` has no required checks, and the
-  CI lanes were still queued when this record was written.
-
-## Later batches (merged)
-
-| PR | Merge SHA | Scope |
-|---|---|---|
-| #171 | `2e25230b` | Miter limit compared against the join width, not the edge length |
-| #173 | `89a2fac4` | PDF gradients rendered blank: sampled-function `Range` arity and 0-1 range |
-| #176 | `b5b92eef` | Transparent PDF gradients keep their fade via a luminosity `/SMask` |
-
-Evidence for the PDF work is committed under `evidence/`
-(`pdf-gradient-before.png`, `pdf-gradient-after.png`,
-`pdf-gradient-alpha-before.png`, `pdf-gradient-alpha-after.png`).
-
-## F10 — silent open (fixed)
-
-PR **#187** merged as `b9114559`. `openFile` no longer substitutes a blank
-document when the supplied JSON cannot be decoded: the current document and its
-session identity are untouched, and an error toast names the file and says
-nothing was changed. `loadDocument` applies the same guard. Documents that
-decode but fail validation still open, because preflight reports their problems
-and refusing a recoverable file is its own data loss.
-
-## Corpus review progress
-
-Beyond the 88 stability/persistence threads, the typography and geometry
-defect subsets have been read at body level. One more issue was verified as
-already handled: **#392** (Cmd+A while editing text selects every object) —
-Varve edits text in a real `textarea` and the shortcut dispatcher suppresses
-editor shortcuts on editable targets (`shouldIgnoreShortcutTarget`).
-
-The remainder of those subsets is either VectorCraft-specific UI machinery
-(panels, menus, Shape Builder regions, tab rulers) or feature gaps rather than
-defects; they stay `screened-relevant` with areas recorded.
+- **#861** — outcome/validation said "proposed, not implemented, none yet" while
+  the disposition said integrated. It now records what shipped, the three
+  additional conditions found (empty payload, unguarded main-context
+  `loadDocument`, recovery snapshot deletion), and the tests.
+- **#1140** — the row claimed canvas premultiplication was still proposed while
+  the disposition said integrated. It now separates the verified PDF per-stop
+  alpha fix from the browser-defined canvas interpolation, which a Chromium
+  probe measured equal to SVG.
+- **#33** — was excluded as "no Varve subsystem". Varve's `NumberField` holds
+  only the number (the unit is a separate span) and selects it on focus, so the
+  reported state cannot occur. Now `verified-existing`.
+- **#1151** — was excluded as "no Varve subsystem". Varve has a native drop path
+  (`tauri://drag-drop` + `read_dropped_file`) because wry/WebKitGTK consumes GTK
+  drag signals on Linux. Now `screened-relevant`: the surface exists, but a
+  Wayland-native drop has not been exercised.
+- **#2177** — read as a full thread: four distinct conditions (heavy decode
+  time, missing content, blurry `.ai`, missing font), samples on Google Drive
+  not downloaded, and the follow-up says content appears after ~15 minutes. It
+  is **not** a decode-guard duplicate; kept open with blockers recorded.
+- **#861's original text** cited #1151 and #2177 as the same complaint. That was
+  wrong; `findings.md` now says so explicitly.
 
 ## Remaining work
 
-Reviewer findings: resolved — inner-corner arcs (high), global ceiling
-   (medium-high), call-site regression test (medium-high), default font family
-   (low). The miter-limit ratio (low) is pre-existing and left unchanged; it is
-   recorded in `findings.md` as a follow-up rather than silently altered.
-3. Commit the audit docs and the e2e spec.
-4. `pnpm verify:plan` then `pnpm verify:affected` on the integrated candidate.
-5. Merge `feat/vectorcraft-corpus` into `master` and push; verify the pushed
-   SHA on the remote. Report merge separately from deployment.
-6. Take cutoff B, record it here, and remove the worktree only after the merge
-   is confirmed on the remote.
+1. Merge this branch, verify the merge SHA on the remote, and confirm the JS
+   lane turns green. Do not describe queued lanes as passed.
+2. Continue the defect queue in 20–30-thread batches, starting with typography.
+   Every row needs a full-thread read, an actual Varve path, and a reproduction
+   where one is possible.
+3. Reassess the remaining title-only exclusions. Two concrete counterexamples
+   (#33, #1151) were found out of 295 blanket "no subsystem" exclusions; the
+   rest are still title-level.
+4. Master-placement hit testing: a placed-bounds AABB prefilter is the bounded
+   improvement. It stays O(n); a real fix needs placement-aware indexing and a
+   before/after benchmark.
+5. Rapid text entry: the dev console reports "Maximum update depth exceeded"
+   while typing quickly. Still unproven against a control revision.
 
-## Blockers
+## Blockers and honest gaps
 
-- Heavy-task lease contention (another agent's `verify:affected`). This blocks
-  only the browser E2E; every unit-level check above is complete.
-- No blocker on the code; the remaining corpus work is a scope/time limit, not
-  an access limit. No issue body, comment page, or attachment failed to fetch.
+- **WebKit gradient parity** is unmeasured. Playwright's bundled WPE WebKit
+  fails to launch (`libicudata.so.74`); `pnpm webkit:prepare` provisions it, and
+  the `webkit-gtk` lane is the engine family the desktop actually embeds.
+- **Native file drop on Wayland** has no local Tauri session; browser tests
+  cannot exercise it.
+- **Recovery parse failure** (`restoreSession` returns `null`) is still silent
+  and has no file name. Closing it needs a recovery-record redesign.
+- **Heavy-file samples** for #2177 were not downloaded.
+- **Rapid typing** has no reproduction/control comparison yet.
+- The heavy-task lease was held by other agents for most of this session; every
+  browser run waited for it. Playwright browsers had to be installed for this
+  worktree's Playwright version.
+
+## Exact next operation
+
+After the branch is merged and the merge SHA is verified: `git fetch origin
+master`, check `gh run list --branch master --limit 5` for the merge SHA, and
+record the JS lane result here. Then start the typography batch by reading the
+next 25 threads and writing dispositions through `build-ledger.mjs`.

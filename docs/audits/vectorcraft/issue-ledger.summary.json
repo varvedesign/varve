@@ -5,15 +5,16 @@
   "open": 531,
   "closed": 706,
   "by_disposition": {
-    "screened-relevant": 822,
-    "outside-varve-scope": 398,
-    "verified-existing": 8,
+    "screened-relevant": 823,
+    "verified-existing": 9,
+    "outside-varve-scope": 396,
     "integrated-verified": 9
   },
   "by_area_or_reason": {
     "paint-color": 77,
     "persistence": 49,
-    "no-varve-subsystem-mapped": 295,
+    "maps-to:accessibility-ui": 1,
+    "no-varve-subsystem-mapped": 293,
     "typography": 121,
     "host-automation-surface:cli": 20,
     "canvas-interaction": 139,
@@ -42,6 +43,7 @@
     "host-automation-surface:select.": 1,
     "vectorcraft-platform-packaging:dockerfile": 1,
     "vectorcraft-platform-packaging:codesign": 1,
+    "maps-to:persistence": 1,
     "host-automation-surface:script": 4,
     "vectorcraft-platform-packaging:flatpak": 1,
     "product-out-of-scope:photocraft": 3,

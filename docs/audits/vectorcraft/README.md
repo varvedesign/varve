@@ -77,6 +77,16 @@ These are reproducible from the public API; they are not part of the repository
 because they contain third-party issue text and attachments we have no
 redistribution rights to.
 
+**2026-10-23 retrieval note.** The `/tmp` cache was lost when the tmpfs was
+cleared (the path no longer existed). The frozen ledger rows in Git are the
+authoritative inventory; the builder index was reconstructed from their
+title/state/labels/comment-count fields, so dispositions can be regenerated
+without inventing data. The original aggregate page digest above can no longer
+be re-verified from this machine, and no claim is made that a fresh API crawl
+would reproduce the historical bytes — issues may have been edited since
+cutoff A. Full threads read after the loss were fetched per issue with
+`gh api repos/storytold/vectorcraft/issues/<n>/comments`.
+
 ## Method
 
 1. Read every issue title (all 1,237) and classified each onto a Varve
@@ -95,12 +105,19 @@ redistribution rights to.
 
 | Disposition | Meaning |
 |---|---|
-| `outside-varve-scope` | No Varve subsystem serves it; `disposition_reason` names the concrete exclusion (unsupported format, VectorCraft packaging, host automation surface, ...). |
+| `outside-varve-scope` | No Varve subsystem serves it; `disposition_reason` names the concrete exclusion (unsupported format, VectorCraft packaging, host automation surface, ...). Exclusions are title-level unless the row also records a thread review. |
 | `screened-relevant` | Title maps onto a Varve subsystem and needs a deeper thread review plus a Varve reproduction. **Open work.** |
 | `applicable-requires-work` | Mechanism inspected in the source and confirmed relevant; not yet implemented. |
 | `verified-existing` | Varve already behaves correctly; verification evidence named in the row. |
 | `implemented-pending-integration` | Implemented and locally validated; integration state tracked in `continuation.md`. |
 | `integrated-verified` | Merged and verified on the integrated candidate. |
+
+Each row carries `review.depth`: `title` for a title/label classification, or
+`thread` when the body and every comment were read. Depth is regenerated from
+the review record, so a reviewed row no longer reports title-only depth. The
+live defect queue (`screened-defects.jsonl`) is filtered to rows that are still
+`screened-relevant`; it was 455 rows at screening time and is 451 after four
+findings were integrated or verified.
 
 ## Coverage and limits
 

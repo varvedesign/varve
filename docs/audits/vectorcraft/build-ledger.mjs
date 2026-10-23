@@ -127,7 +127,7 @@ const PRODUCT_OUT_OF_SCOPE = [
 ];
 
 /** Which Varve subsystem a subject maps to, or null when it maps to none. */
-function classify(title, labels) {
+function classify(title, _labels) {
   const t = title.toLowerCase();
   const has = (words) => words.some((w) => t.includes(w));
 
@@ -394,13 +394,14 @@ const REVIEWED = {
     integrated_in: '89a2fac4 (sampled-function range) + b5b92eef (alpha soft mask)',
     varve_area: 'paint-color',
     varve_code:
-      'crates/varve-print/src/lib.rs (ShadingRegistry), packages/engine/src/replayGradient.ts',
+      'crates/varve-print/src/lib.rs (ShadingRegistry); packages/engine/src/replayGradient.ts (addColorStop); packages/codegen/src/svg.ts gradient stops',
     observed:
-      'Canvas interpolates gradient stops with premultiplied alpha; the PDF shading sampler discards stop alpha entirely, so gradient transparency is export-only loss.',
+      'The PDF shading sampler discarded stop alpha entirely, so gradient transparency survived on the canvas and in SVG but disappeared from PDF. The canvas-versus-SVG interpolation half of the report is engine behaviour, not Varve code: Canvas2D gradient interpolation and SVG stop interpolation are both browser-defined.',
     outcome:
-      'Proposed: emit per-stop alpha (function output + SMask) and premultiplied sampling. Not implemented in this pass.',
+      'PDF emits per-stop alpha through a luminosity soft mask and was rendered-verified with poppler. A browser parity probe measured Canvas2D and SVG gradients identically at t=0.1/0.5/0.9 over white in current Chromium (252/191/48), so the canvas-versus-SVG divergence reported upstream does not reproduce there. WebKit canvas parity is not measured; the desktop embeds system WebKitGTK, and the Playwright WPE bundle cannot launch in this environment without the documented userland provisioning.',
     priority: 'high',
-    validation: 'none yet',
+    validation:
+      'pdftoppm/pdfimages evidence under evidence/; Chromium parity probe (2026-10-23), see findings.md F11',
     doc_impact: 'print compatibility notes',
   },
   1471: {
@@ -445,16 +446,19 @@ const REVIEWED = {
   861: {
     research: 'reviewed-thread',
     engineering: 'integrated-verified',
-    integrated_in: 'b9114559 (PR #187)',
+    integrated_in:
+      'b9114559 (PR #187); empty-payload and loadDocument/recovery follow-up in 62f01d560 and 6d6bf5213',
     varve_area: 'persistence',
-    varve_code: 'packages/editor/src/context.tsx:9548 (openFile), context/usePersistence.ts:225',
+    varve_code:
+      'packages/editor/src/context.tsx openFile + loadDocument gate; components/Shell/RecoveryManager.tsx restore handlers',
     observed:
-      'Varve substitutes a blank document when provided JSON fails to decode or validate, and loadDocument swallows invalid JSON entirely. A file that cannot be read therefore opens as an empty canvas under the same name, with no visible error — and saving over it is one keystroke away.',
+      'Varve substituted a blank document when provided JSON failed to decode, and loadDocument swallowed invalid JSON entirely. A zero-byte file reached openFile as an empty string, which the truthiness guard treated as the new-document request: the tab was rebound to the damaging file name while holding a blank canvas, and the next save overwrote the real file. The main editor-context loadDocument was still the unguarded copy even after the document sub-context was fixed, so a recovery restore that could not decode failed silently; RecoveryManager then deleted the snapshot anyway.',
     outcome:
-      'Proposed: keep the current document, return a failure, and show a persistent, dismissible error naming the file and reason. Not implemented: it needs a visible error surface, not just the visually hidden announcer.',
+      'Only null requests a new document; every other payload goes through one decode gate that reports the file by name and leaves the current document, session identity and dirty state alone. The gate is shared by openFile and the main-context loadDocument, which now returns false when it refuses so recovery keeps the only copy of an unreadable snapshot. FileReader failures from the picker are reported instead of doing nothing.',
     priority: 'high',
-    validation: 'none yet',
-    doc_impact: 'troubleshooting docs',
+    validation:
+      'unit: openFileUnreadable (empty/whitespace payload, loadDocument return value), openFileDedupe (real codec fixtures, dedupe and second-tab identity), RecoveryManager (failed restore keeps the snapshot; success deletes it); e2e: real File > Open picker refuses a zero-byte file and still opens a valid document',
+    doc_impact: 'file-formats open section, troubleshooting',
   },
   392: {
     research: 'reviewed-thread',
@@ -529,6 +533,50 @@ const REVIEWED = {
     validation: 'existing bench',
     doc_impact: 'none',
   },
+  33: {
+    research: 'reviewed-thread',
+    engineering: 'verified-existing',
+    mapped_area: 'accessibility-ui',
+    varve_area: 'accessibility-ui',
+    varve_code:
+      'packages/editor/src/components/Inspector/controls/NumberField.tsx:754-758 (focus selects the value), :768-771 (unit is a separate span), :177-186 parseField',
+    observed:
+      'VectorCraft keeps the unit inside the editable text, so a double-click highlights only the number and a typed expression keeps the trailing "px". Varve’s numeric input holds only the number: the unit is a separate, non-editable span and the accessible name carries it. Focus selects the whole value, and the Pratt parser evaluates arithmetic (120/2), so the "expression plus stale suffix" state cannot occur.',
+    outcome: 'No change required.',
+    priority: 'none',
+    validation: 'code inspection + NumberField math/alias tests',
+    doc_impact: 'none',
+  },
+  1151: {
+    research: 'reviewed-thread',
+    engineering: 'screened-relevant',
+    mapped_area: 'persistence',
+    varve_area: 'persistence',
+    varve_code:
+      'apps/desktop/src-tauri/src/lib.rs read_dropped_file + tauri://drag-drop listener; packages/platform/src/tauri.ts:979; packages/editor/src/CanvasArea.tsx native drop path',
+    observed:
+      'Varve has a native drop path because wry/WebKitGTK consumes GTK drag signals on Linux, so HTML5 dragover/drop never reaches the page; the frontend listens for Tauri’s tauri://drag-drop event and reads the dropped path through an approved resolver. The browser drop path is separate. Whether a Nautilus-to-Wayland-native drop reaches the Tauri event has not been exercised: no Tauri session is available in this environment, and the report is Fedora/GNOME specific.',
+    outcome:
+      'Reclassified from a blanket out-of-scope exclusion: the surface exists and the mechanism is implemented. Remaining work is native-platform verification on a Wayland session, which cannot be manufactured from browser tests.',
+    priority: 'medium',
+    validation: 'code inspection only; native drop untested',
+    doc_impact: 'none',
+  },
+  2177: {
+    research: 'reviewed-thread',
+    engineering: 'screened-relevant',
+    mapped_area: 'import-export-pdf',
+    varve_area: 'import-export-pdf',
+    varve_code:
+      'packages/import/src (PDF/AI parsing), packages/editor/src/importing/useFileImport.ts, render scheduling',
+    observed:
+      'A Vietnamese multi-defect report, not one bug: heavy PDF/AI files freeze on open (30+ minutes), some open with missing content, some .ai files render blurry, and one file does not pick up its font. The follow-up comment says waiting ~15 minutes or copying objects one by one eventually shows the text, which points at progressive decode/render and font resolution rather than at the decode gate. The linked samples are Google Drive links; they were not downloaded, so no reproduction exists here.',
+    outcome:
+      'Kept as open work with four distinct conditions. It is not a duplicate of the unreadable-file finding: #861 covers a payload that cannot be decoded at all, while this report describes heavy but decodable documents. Needs a bounded heavy-file benchmark plus the reporter samples.',
+    priority: 'high',
+    validation: 'thread read; no reproduction (attachments not downloaded)',
+    doc_impact: 'none',
+  },
 };
 
 const rows = [];
@@ -541,7 +589,14 @@ for (const issue of raw) {
     : c
       ? 'screened-relevant'
       : 'outside-varve-scope';
-  const reason = c ? `maps-to:${c.area}` : exclusionReason(issue.title);
+  // A reviewed row can name the subsystem it actually maps to even when the
+  // title classifier misses it (a drag-and-drop report maps to the native
+  // platform surface; a units-and-expressions report maps to NumberField).
+  const reason = c
+    ? `maps-to:${c.area}`
+    : reviewed?.mapped_area
+      ? `maps-to:${reviewed.mapped_area}`
+      : exclusionReason(issue.title);
   if (!counts[c ? c.area : reason]) counts[c ? c.area : reason] = 0;
   counts[c ? c.area : reason]++;
   rows.push({
@@ -554,7 +609,13 @@ for (const issue of raw) {
     labels: issue.labels,
     comments: issue.comments,
     body_length: issue.body_len,
-    review: { depth: 'title', cutoff: CUTOFF },
+    // Depth is a property of the review actually performed. A row that was
+    // read as a full thread must not keep claiming title-level depth, and an
+    // unread title must not claim more.
+    review: {
+      depth: reviewed?.research === 'reviewed-thread' ? 'thread' : 'title',
+      cutoff: CUTOFF,
+    },
     disposition,
     disposition_reason: reason,
     ...(reviewed ?? {}),
@@ -565,11 +626,11 @@ const sorted = rows.sort((a, b) => a.id - b.id);
 mkdirSync(OUT_DIR, { recursive: true });
 writeFileSync(
   `${OUT_DIR}/issue-ledger.jsonl`,
-  sorted.map((r) => JSON.stringify(r)).join('\n') + '\n',
+  `${sorted.map((r) => JSON.stringify(r)).join('\n')}\n`,
 );
 writeFileSync(
   `${OUT_DIR}/issue-ledger.summary.json`,
-  JSON.stringify(
+  `${JSON.stringify(
     {
       source: 'storytold/vectorcraft',
       cutoff: CUTOFF,
@@ -584,6 +645,6 @@ writeFileSync(
     },
     null,
     2,
-  ) + '\n',
+  )}\n`,
 );
 console.log(JSON.stringify({ total: sorted.length, counts }, null, 2));

@@ -65,6 +65,9 @@ const figmaImportFaq = {
         <p>
           “Upload” is reserved for an explicit, consented remote service such as diagnostic reporting. It is not the mechanism used by core document or artwork import.
         </p>
+        <p>
+          If <strong>Open</strong> cannot read a document — damaged JSON, a zero-byte file, or a download that never finished — Varve names the file, explains that nothing was changed, and leaves the open document exactly as it was. It does not substitute a blank canvas under the file's name, so a failed open cannot be mistaken for a successful one and saved over the original. Recovery copies that cannot be decoded are kept for a retry rather than deleted.
+        </p>
       </section>
 
       <section class="docs-section">

@@ -214,12 +214,13 @@ than relabelled.
   cases), and `tests/e2e/canvas/preflight-overset.spec.ts` driving the real
   editor (type tool → frame → text → preflight panel) in Chromium and WebKitGTK.
 
-## F6 — PDF gradients: blank output (fixed) and stop transparency (open)
+## F6 — PDF gradients: blank output (fixed) and stop transparency (fixed)
 
 - **External evidence:** vectorcraft#1140 (canvas blends gradient stop opacity
   premultiplied, unlike PDF export, SVG viewers and `Gradient::sample`), #827
   (raster-effect blend modes dropped in PDF), #3234 (blend between tints of one
-  spot colour written as process CMYK).
+  spot colour written as process CMYK). The canvas-versus-SVG half of #1140 is
+  measured separately in F11.
 - **Varve code:** `crates/varve-print/src/lib.rs` — `ShadingRegistry`,
   `create_sampled_function`, `sample_gradient`.
 - **Observed behavior (before), critical:** a Type 0 sampled function declared
@@ -358,36 +359,113 @@ log), not the native Tauri path.
 
 ## F10 — A file that cannot be read opens as an empty document (fixed)
 
-- **External evidence:** vectorcraft#861 — opening certain files "does nothing:
-  no document appears and no error is shown". The same complaint appears as
-  #1151 (file drag-and-drop fails on Fedora) and #2177 (large PDF/AI files fail
-  to load): the failure is invisible to the user.
-- **Varve code:** `packages/editor/src/context.tsx` — `openFile` (the production
-  open path used by Shell) and the exposed `loadDocument` wrapper;
-  `packages/editor/src/context/usePersistence.ts` still swallows invalid JSON as
-  a last line of defence.
-- **Observed behavior (before):** when JSON was supplied but failed to decode or
-  validate, `openFile` fell back to `createDocument(name)` — a **blank document
-  under the requested file's name**. The canvas looked like the file had opened,
-  and the next save wrote over the real document. `loadDocument` swallowed
-  invalid JSON entirely, so the click looked like it did nothing.
-- **Why this is high severity:** it is a data-loss vector, not just a missing
-  message — the wrong document was bound to the file's identity.
-- **Implementation:** a non-null JSON that fails to decode now leaves the current
-  document untouched, returns without rebinding the tab, and reports through the
-  editor's existing toast system (`type: 'error'`, 15 s, naming the file and
-  saying "Nothing was changed") plus the canvas announcer for assistive tech. A
-  `null` JSON still starts a blank document, which is what "new file" means. The
-  exposed `loadDocument` applies the same guard before delegating. Documents that
-  decode but fail validation still open: preflight reports their problems, and
-  refusing a recoverable file outright would be its own data loss.
-- **Acceptance criteria:** invalid JSON leaves `state.document` identity
-  unchanged and emits one error toast naming the file; `null` JSON still creates
-  a blank document with no toast; a valid document opens with no toast.
-- **Validation:** `packages/editor/src/context/__tests__/openFileUnreadable.test.tsx`
-  (4 cases: unreadable, decodable-but-unusable, new-document control, valid
-  document), plus `tsc --noEmit` for the editor.
-- **Not covered:** a decode failure during crash-recovery restore still has no
-  user-facing path of its own; recovery records carry no file name, and the
-  restore UI already reports that a snapshot could not be used.
+- **External evidence:** vectorcraft#861 — opening certain `.ai` files "does
+  nothing: no document appears and no error is shown". The thread separates two
+  halves: the parse cause (upstream #854) and the invisible failure (#881, which
+  moved the message from the status bar into a dialog). The report is about a
+  file that cannot be read at all, not about slow or partially rendered files.
+- **Not evidence for this finding:** #1151 is a Wayland file-drop delivery
+  problem (reclassified separately in the ledger), and #2177 is a multi-defect
+  report about heavy PDF/AI decode time, missing content and blurry rendering,
+  whose own follow-up says content appears after a long wait. Neither is an
+  unreadable-payload case; an earlier draft of this section cited them and that
+  was wrong.
+- **Varve code:** `packages/editor/src/context.tsx` — `openFile`, the shared
+  `loadDocument` decode gate, and the file-picker `FileReader` in `Shell.tsx`;
+  `packages/editor/src/components/Shell/RecoveryManager.tsx` restore handlers.
+- **Observed behavior (before):** when JSON was supplied but failed to decode,
+  `openFile` fell back to `createDocument(name)` — a **blank document under the
+  requested file's name**. The canvas looked like the file had opened, and the
+  next save wrote over the real document. Three further conditions were found
+  while repairing this:
+  1. **Empty payload.** The guard was `if (json)`, so a zero-byte file (the
+     picker hands over `""`) took the new-document branch without decoding. This
+     is the real-world shape of a truncated download or an interrupted write.
+  2. **Two gates, one guarded.** The guarded `loadDocument` lived on the
+     document sub-context, while the main editor context — the one recovery
+     restore calls — still exposed the unguarded persistence function. An
+     undecodable recovery payload restored nothing and said nothing.
+  3. **The only copy was deleted.** `RecoveryManager` deleted the stored
+     snapshot after `loadDocument` regardless of outcome, so a refused snapshot
+     was destroyed rather than kept for a retry.
+- **Implementation:**
+  - Only `null` requests a new document. Every other payload, including `""`
+    and whitespace, goes through one decode gate that names the file, says
+    "Nothing was changed", and leaves the current document, session identity,
+    dirty state and save binding alone.
+  - The gate lives in the main editor context and returns `false` on refusal;
+    the document sub-context delegates to it, so there is one implementation.
+  - `loadDocument` returns that boolean, and both recovery restore paths delete
+    the snapshot only after a successful load. A refused snapshot stays in the
+    list.
+  - A `FileReader` failure from File > Open now reports the read failure instead
+    of doing nothing.
+  - Documents that decode but fail semantic validation still open: preflight
+    reports their problems, and refusing a recoverable file would be its own
+    data loss.
+- **Acceptance criteria:** an empty or unreadable payload leaves
+  `state.document` identity, sessions and dirty state unchanged and emits one
+  error toast naming the file; `null` still creates a blank document with no
+  toast; a valid document still opens; a failed recovery restore keeps the
+  snapshot.
+- **Validation:**
+  - `packages/editor/src/context/__tests__/openFileUnreadable.test.tsx` — seven
+    cases (unreadable, decodable-but-unusable, empty, whitespace-only,
+    `loadDocument` return value, new-document control, valid document).
+  - `packages/editor/src/__tests__/openFileDedupe.test.tsx` — fixtures rebuilt
+    with `DocumentCodec.encode(createDocument(...))`. The previous hand-built
+    `{ id, name, nodes, rootChildren }` object lacks `components`, so the codec
+    refused it before dedupe ran: the first case passed for the wrong reason and
+    the second failed. The test now proves both dedupe and the second-tab
+    document identity.
+  - `packages/editor/src/components/Shell/RecoveryManager.test.tsx` — a refused
+    restore keeps `deleteSession` uncalled; a successful one deletes.
+  - `tests/e2e/menus/file-picker.spec.ts` — the real File > Open picker refuses a
+    zero-byte file by name, keeps the tab count and document name, then opens a
+    valid document through the same input. Chromium, workers=1, heavy lease.
+- **Integration:** the original guard merged as `b9114559` (PR #187). That PR's
+  CI had failed `openFileDedupe.test.tsx`; the fixture repair and the three
+  conditions above are in `62f01d560` and `6d6bf5213` on `feat/vc-open-file`.
+- **Not covered:** `RecoveryManager.restoreSession()` returns `null` for a
+  snapshot that cannot be parsed or migrated at all; that path still does
+  nothing and has no file name to report. Closing it needs a recovery-record
+  redesign (a display name stored with the snapshot), not a guard.
 
+## F11 — Gradient stop opacity: PDF fixed, canvas parity measured in Chromium only
+
+- **External evidence:** vectorcraft#1140 — a gradient whose stops have
+  different opacities renders differently on the canvas than in the app's PDF
+  export and in SVG viewers. The reporter measured a transparent-white → black
+  gradient over white at t=0.1/0.5/0.9: canvas 229/127/25, PDF 252/191/48,
+  Chrome SVG 252/191/48, and attributed the canvas result to premultiplied
+  interpolation.
+- **Varve code:** PDF shading in `crates/varve-print/src/lib.rs`
+  (`ShadingRegistry`); canvas gradients in
+  `packages/engine/src/replayGradient.ts` (`addColorStop` with `rgba()`);
+  exported SVG stops in `packages/codegen/src/svg.ts`.
+- **PDF outcome (fixed, verified):** the PDF sampler previously discarded stop
+  alpha. `89a2fac4` fixed the sampled-function `Range` arity and `b5b92eef` adds
+  a luminosity `/SMask`, so transparency survives. Rendered evidence:
+  `evidence/pdf-gradient-alpha-before.png` / `-after.png`.
+- **Canvas parity probe (2026-10-23):** a standalone Playwright Chromium page
+  drew the same gradient twice over white — once with `CanvasGradient` stops
+  (`rgba(255,255,255,0)` → `rgba(0,0,0,1)`), once by drawing an inline SVG with
+  `stop-color`/`stop-opacity` into a canvas — and sampled at x=40/200/360
+  (t≈0.1/0.5/0.9):
+  - Canvas2D: 252 / 191 / 48
+  - SVG: 252 / 191 / 48
+- **What the probe proves:** in this Chromium build the Canvas2D and SVG
+  gradient interpolations agree, so the canvas-versus-SVG half of the upstream
+  report does not reproduce here, and Varve's two rendering surfaces would agree
+  for this gradient. **What it does not prove:** WebKit canvas parity (the
+  desktop embeds system WebKitGTK; the bundled Playwright WPE build cannot
+  launch without `pnpm webkit:prepare`), nor an end-to-end comparison of a
+  Varve-exported SVG file — the probe uses the same stop values by inspection,
+  not Varve's export pipeline.
+- **Evidence:** `evidence/gradient-parity-chromium.png` — the top band is a
+  Canvas2D gradient (transparent white → black over white), the bottom band is
+  the same gradient drawn as an inline SVG. The capture shows they are visually
+  indistinguishable; it does not include a Varve document.
+- **Status:** PDF half integrated and verified; canvas half measured equal in
+  Chromium, unmeasured in WebKit. Recorded as an engine gap, not as a Varve code
+  defect, because the interpolation is browser-defined.
