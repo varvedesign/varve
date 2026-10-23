@@ -85,7 +85,7 @@ export function PrivacyDiagnosticsSection() {
       case 'unavailable':
         return 'Crash reporting is not supported in this environment.';
       default:
-        return 'Crash details stay on your computer. Varve never sends crash reports.';
+        return "Crash details stay on your computer. Varve doesn't send crash reports automatically.";
     }
   }, [consent]);
 
@@ -149,14 +149,16 @@ export function PrivacyDiagnosticsSection() {
                   : report.crash.message}
               </span>
               <span className="privacy-section__queue-actions">
-                <button
-                  type="button"
-                  className="privacy-section__btn"
-                  disabled={consent?.state === 'denied'}
-                  onClick={() => void controller?.sendQueuedForSettings(report.reportId)}
-                >
-                  Send now
-                </button>
+                {controller?.canSendReports() ? (
+                  <button
+                    type="button"
+                    className="privacy-section__btn"
+                    disabled={consent?.state === 'denied'}
+                    onClick={() => void controller.sendQueuedForSettings(report.reportId)}
+                  >
+                    Send now
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="privacy-section__btn"

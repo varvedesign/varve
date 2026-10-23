@@ -102,13 +102,11 @@ fn relax_packaged_resources_for_dev(manifest_dir: &std::path::Path) {
     else {
         return;
     };
-    let onnxruntime_present = onnxruntime_libs_present(manifest_dir);
     let dev_resources: Vec<serde_json::Value> = resources
         .iter()
         .filter(|entry| match entry.as_str() {
-            Some(pattern) if pattern.contains("varve-generative-helper") => false,
-            Some(pattern) if pattern.contains("onnxruntime-libs") => onnxruntime_present,
-            _ => true,
+            Some(pattern) => !pattern.contains("varve-generative-helper"),
+            None => true,
         })
         .cloned()
         .collect();
@@ -137,14 +135,6 @@ fn relax_packaged_resources_for_dev(manifest_dir: &std::path::Path) {
     // resolves bundle resources, so the packaged helper glob never reaches a
     // development build.
     std::env::set_var("TAURI_CONFIG", serialized);
-}
-
-fn onnxruntime_libs_present(manifest_dir: &std::path::Path) -> bool {
-    let dir = manifest_dir.join("onnxruntime-libs");
-    dir.is_dir()
-        && std::fs::read_dir(&dir)
-            .map(|mut entries| entries.next().is_some())
-            .unwrap_or(false)
 }
 
 #[cfg(target_os = "windows")]

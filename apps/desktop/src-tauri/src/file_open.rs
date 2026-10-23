@@ -22,7 +22,9 @@ use std::sync::Mutex;
 
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
 
-use crate::file_scope::{FileScopeState, GrantKind, GrantSource};
+use crate::file_scope::{
+    absolutize_user_path, grant_kind_for_open, path_to_ipc, FileScopeState, GrantKind, GrantSource,
+};
 
 /// Pending document paths the frontend has not drained yet.
 pub struct PendingFileOpens(pub Mutex<Vec<String>>);
@@ -66,15 +68,23 @@ fn queue_path(state: &PendingFileOpens, path: &str) -> bool {
 }
 
 fn push_open(app: &AppHandle, state: &PendingFileOpens, path: String) {
-    if queue_path(state, &path) {
-        if let Some(scope) = app.try_state::<FileScopeState>() {
-            let _ = scope.grant(
-                &path,
-                GrantKind::DocumentSiblings,
-                GrantSource::CliOrAssociation,
-            );
+    let Ok(absolute) = absolutize_user_path(&path) else {
+        return;
+    };
+    if !is_document_path(&absolute) {
+        return;
+    }
+    let granted = if let Some(scope) = app.try_state::<FileScopeState>() {
+        let kind = grant_kind_for_open(Path::new(&absolute), false).unwrap_or(GrantKind::Exact);
+        match scope.grant(&absolute, kind, GrantSource::CliOrAssociation) {
+            Ok(path) => path_to_ipc(&path).unwrap_or(absolute),
+            Err(_) => return,
         }
-        let _ = app.emit("varve:file-open", vec![path]);
+    } else {
+        absolute
+    };
+    if queue_path(state, &granted) {
+        let _ = app.emit("varve:file-open", vec![granted]);
     }
 }
 

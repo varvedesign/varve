@@ -31,10 +31,28 @@ export interface CrashUploadContext {
 
 export interface CrashUploader {
   upload(report: CrashReport, ctx?: CrashUploadContext): Promise<CrashUploadResult>;
+  /**
+   * True when this build has an ingestion endpoint or a policy-supplied
+   * transport. Custom uploaders that omit the hook are treated as configured
+   * so a policy transport can show Send. The default no-op returns false.
+   */
+  isConfigured?(): boolean;
+}
+
+/** True when the UI may offer Send. The default no-op has no endpoint. */
+export function crashUploaderIsConfigured(uploader: CrashUploader): boolean {
+  if (typeof uploader.isConfigured === 'function') {
+    return uploader.isConfigured();
+  }
+  return true;
 }
 
 /** The default uploader: no network activity, ever. */
 export class NoopCrashUploader implements CrashUploader {
+  isConfigured(): boolean {
+    return false;
+  }
+
   async upload(_report: CrashReport, _ctx?: CrashUploadContext): Promise<CrashUploadResult> {
     return { ok: false, retryable: false, error: 'no-uploader-configured' };
   }

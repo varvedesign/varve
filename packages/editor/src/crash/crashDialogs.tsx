@@ -32,6 +32,8 @@ export interface CrashRecoveryDialogProps {
   onOpenSettings: () => void;
   onCommentChange: (comment: string) => void;
   onContactChange: (contact: string) => void;
+  /** False (the default) when this build has no ingestion endpoint. */
+  canSendReports?: boolean;
 }
 
 function formatCrashTime(ts: number): string {
@@ -55,6 +57,7 @@ export function CrashRecoveryDialog({
   onOpenSettings,
   onCommentChange,
   onContactChange,
+  canSendReports = false,
 }: CrashRecoveryDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const prevOpen = useRef(false);
@@ -105,8 +108,12 @@ export function CrashRecoveryDialog({
     >
       <div role="status" aria-live="polite" className="sr-only">
         {recovered
-          ? 'Varve closed unexpectedly. Your latest changes were recovered. You can recover your documents or send a crash report.'
-          : 'Varve closed unexpectedly. Your latest changes could not be recovered. You can recover your documents or send a crash report.'}
+          ? canSendReports
+            ? 'Varve closed unexpectedly. Your latest changes were recovered. You can recover your documents or send a crash report.'
+            : 'Varve closed unexpectedly. Your latest changes were recovered. You can recover your documents.'
+          : canSendReports
+            ? 'Varve closed unexpectedly. Your latest changes could not be recovered. You can recover your documents or send a crash report.'
+            : 'Varve closed unexpectedly. Your latest changes could not be recovered. You can recover your documents.'}
       </div>
 
       <div className="crash-dialog__header">
@@ -120,7 +127,7 @@ export function CrashRecoveryDialog({
         </p>
       </div>
 
-      {sentReportId ? (
+      {canSendReports && sentReportId ? (
         <div className="crash-dialog__receipt">
           <p className="crash-dialog__receipt-title">Report sent</p>
           <p>Thanks. Your report was sent. You can reference it in a support conversation:</p>
@@ -196,7 +203,7 @@ export function CrashRecoveryDialog({
           <div className="crash-dialog__section">
             <h3 className="crash-dialog__section-title">Crash reporting</h3>
             <p className="crash-dialog__subtitle">
-              Crash details stay on your computer. Varve never sends crash reports.
+              Crash details stay on your computer. Varve doesn't send crash reports automatically.
             </p>
           </div>
 
@@ -220,9 +227,11 @@ export function CrashRecoveryDialog({
             >
               Review my documents
             </button>
-            <button type="button" className="crash-dialog__btn" onClick={onDecline}>
-              Don&apos;t send
-            </button>
+            {canSendReports && (
+              <button type="button" className="crash-dialog__btn" onClick={onDecline}>
+                Don&apos;t send
+              </button>
+            )}
             <button
               type="button"
               className="crash-dialog__btn crash-dialog__btn--secondary"
@@ -230,13 +239,15 @@ export function CrashRecoveryDialog({
             >
               Review report
             </button>
-            <button
-              type="button"
-              className="crash-dialog__btn crash-dialog__btn--send"
-              onClick={() => onSend(false)}
-            >
-              Send report
-            </button>
+            {canSendReports && (
+              <button
+                type="button"
+                className="crash-dialog__btn crash-dialog__btn--send"
+                onClick={() => onSend(false)}
+              >
+                Send report
+              </button>
+            )}
           </div>
           <p className="crash-dialog__settings-link">
             <button type="button" className="crash-dialog__link" onClick={onOpenSettings}>
@@ -257,6 +268,8 @@ export interface CrashReviewDialogProps {
   onCommentChange: (comment: string) => void;
   onContactChange: (contact: string) => void;
   onToggleAttachment: (index: number) => void;
+  /** False (the default) when this build has no ingestion endpoint. */
+  canSendReports?: boolean;
 }
 
 function renderStack(report: CrashReport): string {
@@ -276,6 +289,7 @@ export function CrashReviewDialog({
   onCommentChange,
   onContactChange,
   onToggleAttachment,
+  canSendReports = false,
 }: CrashReviewDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const prevOpen = useRef(false);
@@ -461,13 +475,15 @@ export function CrashReviewDialog({
         >
           Back
         </button>
-        <button
-          type="button"
-          className="crash-dialog__btn crash-dialog__btn--send"
-          onClick={onSend}
-        >
-          Send report
-        </button>
+        {canSendReports && (
+          <button
+            type="button"
+            className="crash-dialog__btn crash-dialog__btn--send"
+            onClick={onSend}
+          >
+            Send report
+          </button>
+        )}
       </div>
     </dialog>
   );

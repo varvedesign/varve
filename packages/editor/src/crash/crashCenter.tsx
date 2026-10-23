@@ -134,6 +134,7 @@ export function CrashCenter({
         onOpenSettings={openPrivacySettings}
         onCommentChange={(comment) => void controller?.updateComment(comment)}
         onContactChange={(contact) => void controller?.updateContact(contact)}
+        canSendReports={controller?.canSendReports() ?? false}
       />
       <CrashReviewDialog
         open={state.reviewingReport !== null}
@@ -143,6 +144,7 @@ export function CrashCenter({
         onCommentChange={(comment) => void controller?.updateComment(comment)}
         onContactChange={(contact) => void controller?.updateContact(contact)}
         onToggleAttachment={(index) => void controller?.toggleAttachment(index)}
+        canSendReports={controller?.canSendReports() ?? false}
       />
     </>
   );

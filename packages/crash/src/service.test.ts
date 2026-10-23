@@ -6,7 +6,13 @@ import { CrashReportQueue, MemoryCrashReportStorage } from './queue';
 import { FIXTURE_DOCUMENT_NAME, FIXTURE_USERNAME, SECRET_FIXTURES } from './redactFixtures';
 import { type CrashReport, LIMITS } from './schema';
 import { CrashReportService, type RawCaptureInput } from './service';
-import { type CrashUploader, type CrashUploadResult, NoopCrashUploader } from './uploader';
+import {
+  type CrashUploader,
+  type CrashUploadResult,
+  crashUploaderIsConfigured,
+  HttpCrashUploader,
+  NoopCrashUploader,
+} from './uploader';
 
 /** Recording uploader: asserts exactly when and what the service transmits. */
 class RecordingUploader implements CrashUploader {
@@ -364,5 +370,25 @@ describe('crash loop and safe mode integration', () => {
     expect(recordStartupFailure(store, 2000)).toBe(2);
     expect(recordStartupFailure(store, 3000)).toBe(3);
     expect(store.load().failures).toHaveLength(3);
+  });
+});
+
+describe('crashUploaderIsConfigured', () => {
+  it('treats the default no-op as unconfigured', () => {
+    expect(crashUploaderIsConfigured(new NoopCrashUploader())).toBe(false);
+  });
+
+  it('treats an http uploader without an endpoint as unconfigured', () => {
+    expect(crashUploaderIsConfigured(new HttpCrashUploader({ endpoint: null }))).toBe(false);
+  });
+
+  it('treats an http uploader with an endpoint as configured', () => {
+    expect(
+      crashUploaderIsConfigured(new HttpCrashUploader({ endpoint: 'https://example.test/crash' })),
+    ).toBe(true);
+  });
+
+  it('treats a custom uploader without the hook as configured', () => {
+    expect(crashUploaderIsConfigured(new RecordingUploader())).toBe(true);
   });
 });

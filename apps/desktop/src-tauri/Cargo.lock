@@ -6860,6 +6860,7 @@ dependencies = [
  "arboard",
  "base64 0.23.1",
  "chrono",
+ "dunce",
  "font-enumeration",
  "glib 0.22.8",
  "gtk",

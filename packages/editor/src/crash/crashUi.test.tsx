@@ -168,7 +168,7 @@ describe('CrashRecoveryDialog', () => {
 
   it('send never enables automatic reporting', () => {
     const onSend = vi.fn();
-    render(<CrashRecoveryDialog {...baseProps} onSend={onSend} />);
+    render(<CrashRecoveryDialog {...baseProps} canSendReports onSend={onSend} />);
     fireEvent.click(screen.getByRole('button', { name: 'Send report' }));
     expect(onSend).toHaveBeenCalledWith(false);
     expect(
@@ -178,7 +178,7 @@ describe('CrashRecoveryDialog', () => {
 
   it('decline deletes the local report', () => {
     const onDecline = vi.fn();
-    render(<CrashRecoveryDialog {...baseProps} onDecline={onDecline} />);
+    render(<CrashRecoveryDialog {...baseProps} canSendReports onDecline={onDecline} />);
     fireEvent.click(screen.getByRole('button', { name: /don't send/i }));
     expect(onDecline).toHaveBeenCalledTimes(1);
   });
@@ -193,9 +193,18 @@ describe('CrashRecoveryDialog', () => {
   it('states that crash details stay on the computer', () => {
     render(<CrashRecoveryDialog {...baseProps} consentChoice="askEachTime" />);
     expect(
-      screen.getByText('Crash details stay on your computer. Varve never sends crash reports.'),
+      screen.getByText(
+        "Crash details stay on your computer. Varve doesn't send crash reports automatically.",
+      ),
     ).toBeTruthy();
     expect(screen.queryAllByRole('radio')).toHaveLength(0);
+  });
+
+  it('hides send and the receipt when no endpoint is configured', () => {
+    render(<CrashRecoveryDialog {...baseProps} sentReportId="r-sent-123" />);
+    expect(screen.queryByRole('button', { name: 'Send report' })).toBeNull();
+    expect(screen.queryByText('Report sent')).toBeNull();
+    expect(screen.queryByText('r-sent-123')).toBeNull();
   });
 
   it('oversized comments are bounded by the input maxlength', () => {
@@ -211,7 +220,7 @@ describe('CrashRecoveryDialog', () => {
   });
 
   it('shows a copyable report id after sending', () => {
-    render(<CrashRecoveryDialog {...baseProps} sentReportId="r-sent-123" />);
+    render(<CrashRecoveryDialog {...baseProps} canSendReports sentReportId="r-sent-123" />);
     expect(screen.getByText('r-sent-123')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Copy' })).toBeTruthy();
   });
@@ -276,6 +285,11 @@ describe('CrashReviewDialog', () => {
     expect(screen.getByText(/required for report integrity/)).toBeTruthy();
   });
 
+  it('hides send when no endpoint is configured', () => {
+    render(<CrashReviewDialog {...baseProps} />);
+    expect(screen.queryByRole('button', { name: 'Send report' })).toBeNull();
+  });
+
   it('empty comments are accepted', () => {
     render(<CrashReviewDialog {...baseProps} />);
     expect(screen.getByPlaceholderText(/anything you want/i)).toBeTruthy();
@@ -283,6 +297,18 @@ describe('CrashReviewDialog', () => {
 });
 
 describe('controller + dialog flow (integration)', () => {
+  it('hides send unless an uploader endpoint is configured', () => {
+    const defaultController = new CrashCenterController({
+      platformKind: 'memory',
+      readUncleanShutdown: () => false,
+    });
+    expect(defaultController.canSendReports()).toBe(false);
+    const configured = makeController().controller;
+    expect(configured.canSendReports()).toBe(true);
+    defaultController.dispose();
+    configured.dispose();
+  });
+
   it('keeps safe mode active after its startup screen is dismissed and restores it on reload', async () => {
     localStorage.clear();
     const safeModeStore = new LocalStorageSafeModeStore(window.localStorage);

@@ -27,6 +27,7 @@ import {
   CrashReportService,
   type CrashReportStorage,
   type CrashUploader,
+  crashUploaderIsConfigured,
   enterSafeMode,
   exitSafeMode,
   IndexedDbCrashReportStorage,
@@ -128,9 +129,11 @@ export class CrashCenterController {
   private loopRecorded = false;
   private consent!: CrashConsentProvider;
   private safeModeStore: SafeModeStore = new MemorySafeModeStore();
+  private uploader: CrashUploader;
 
   constructor(deps: CrashControllerDeps) {
     this.deps = deps;
+    this.uploader = deps.uploader ?? new NoopCrashUploader();
     this.release = deps.release ?? getReleaseInfo();
     const storage = localStorageLike();
     this.consent =
@@ -148,7 +151,7 @@ export class CrashCenterController {
     return new CrashReportService({
       consent: this.consent,
       queue,
-      uploader: this.deps.uploader ?? new NoopCrashUploader(),
+      uploader: this.uploader,
       metrics,
       appVersion: this.release.appVersion,
       buildChannel: this.release.buildChannel,
@@ -165,6 +168,11 @@ export class CrashCenterController {
 
   getState(): CrashUiState {
     return this.ui;
+  }
+
+  /** False when the default build has no ingestion endpoint. */
+  canSendReports(): boolean {
+    return crashUploaderIsConfigured(this.uploader);
   }
 
   subscribe(listener: (state: CrashUiState) => void): () => void {
@@ -436,6 +444,7 @@ export class CrashCenterController {
 
   /** Test-only: replaces the transport (see crashTestHooks). */
   setUploaderForTesting(uploader: CrashUploader): void {
+    this.uploader = uploader;
     this.service.setUploaderForTesting(uploader);
   }
 

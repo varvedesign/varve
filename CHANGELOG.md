@@ -18,14 +18,20 @@ update, not for someone reading the commit log.
   commands that read or write a frontend-supplied path now check a Rust-side
   allowlist. A path is admitted only after a native open/save/folder dialog
   run from Rust, an OS drop onto the window, a file-association or CLI open,
-  a previously picked recent file that still canonicalizes, or an app-owned
-  data/config/cache/temp directory. Linked assets are allowed only in the
-  folder of an opened or saved document. An export folder the user picked
-  allows files under that folder. Unpicked paths, `..` traversal, and
-  symlink escapes are rejected, including `/etc/hosts`.
+  a previously picked recent document that still exists, or an app-owned
+  data/config/state/temp directory. `file-scope.json` cannot be rewritten
+  through those commands. Packaged resources, models, cache, and staging
+  stay out of the grant set so the webview cannot overwrite native code.
+  Sibling write access is granted only for an existing `.varve` / `.strata`
+  file whose parent is not a volume root, a UNC share root, the home
+  directory, or an ancestor of home. Export next to a project document
+  still works. Unpicked paths, relative paths, `..` traversal, and symlink
+  escapes are rejected, including `/etc/hosts`.
 - **Crash reports stay on the computer.** Settings no longer offer
-  "Automatically send" crash reports. That option never uploaded anything.
-  Existing automatic-consent records migrate to denied.
+  "Automatically send" crash reports. The recovery dialog hides Send and
+  the sent receipt unless a build configures an ingestion endpoint. The
+  default build has none. Existing automatic-consent records migrate to
+  denied.
 
 ### Added
 

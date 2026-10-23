@@ -120,6 +120,7 @@ export { CrashReportService } from './service';
 export type { CrashUploader, CrashUploadResult, HttpCrashUploaderOptions } from './uploader';
 export {
   backoffDelayMs,
+  crashUploaderIsConfigured,
   HttpCrashUploader,
   isMeteredConnection,
   NoopCrashUploader,

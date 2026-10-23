@@ -221,7 +221,9 @@ fn write_binary_file(
     data: Vec<u8>,
 ) -> Result<(), String> {
     let resolved = resolve_scoped(&scope, &path)?;
-    write_file_atomic(&resolved, &data)
+    write_file_atomic(&resolved, &data)?;
+    scope.note_existing_document(&resolved);
+    Ok(())
 }
 
 /// Write an export below a directory the user selected in the native folder
@@ -5158,7 +5160,9 @@ fn home_write_text_file(
     contents: String,
 ) -> Result<(), String> {
     let resolved = resolve_scoped(&scope, &path)?;
-    write_file_atomic(&resolved, contents.as_bytes())
+    write_file_atomic(&resolved, contents.as_bytes())?;
+    scope.note_existing_document(&resolved);
+    Ok(())
 }
 
 // Dialog-approved variants now share the Rust-side file-scope registry.
@@ -5191,7 +5195,9 @@ fn home_write_text_file_approved(
     contents: String,
 ) -> Result<(), String> {
     let resolved = resolve_scoped(&scope, &path)?;
-    write_file_atomic(&resolved, contents.as_bytes())
+    write_file_atomic(&resolved, contents.as_bytes())?;
+    scope.note_existing_document(&resolved);
+    Ok(())
 }
 
 fn model_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
