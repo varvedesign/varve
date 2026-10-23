@@ -18,6 +18,13 @@ import { navigateToEditor } from '../shared';
 
 const EDIT_SURFACE = '[data-text-edit-surface="true"]';
 
+/** Opt-in visual evidence: writes only when VARVE_CAPTURE_DIR is set. */
+async function capture(page: Page, name: string) {
+  const dir = process.env.VARVE_CAPTURE_DIR;
+  if (!dir) return;
+  await page.screenshot({ path: `${dir}/${name}.png` });
+}
+
 // First paint on a shared machine has been measured near 90s; leave room for
 // navigation plus the interaction under test.
 test.describe.configure({ timeout: 420_000 });
@@ -92,6 +99,7 @@ test.describe('text edit overlay clipping', () => {
     expect(initial.clip).toContain('inset');
     expect(initial.insets).not.toBeNull();
     await expectInspectorNotCovered(page);
+    await capture(page, 'text-edit-overlay-1024x600');
 
     // Scroll the canvas under the edit session; the clip must follow.
     await page.mouse.move(initial.canvas.x + 200, initial.canvas.y + 200);
@@ -128,6 +136,7 @@ test.describe('text edit overlay clipping', () => {
     await navigateToEditor(page);
     await createLongTextNearRightEdge(page);
     await expectInspectorNotCovered(page);
+    await capture(page, 'text-edit-overlay-dark-1440x900');
     const state = await overlayState(page);
     const rightInset = (state.insets as number[])[1] ?? 0;
     expect(1440 - rightInset).toBeLessThanOrEqual(state.canvas.x + state.canvas.width + 1);
@@ -169,5 +178,6 @@ test.describe('text edit surface layout parity', () => {
       return surface ? getComputedStyle(surface).textAlign : null;
     });
     expect(alignment).toBe('center');
+    await capture(page, 'text-edit-alignment-center-1440x900');
   });
 });

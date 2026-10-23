@@ -12,6 +12,13 @@
 import { expect, type Page, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
+/** Opt-in visual evidence: writes only when VARVE_CAPTURE_DIR is set. */
+async function capture(page: Page, name: string) {
+  const dir = process.env.VARVE_CAPTURE_DIR;
+  if (!dir) return;
+  await page.screenshot({ path: `${dir}/${name}.png` });
+}
+
 // First paint on a shared machine has been measured near 90s; leave room for
 // navigation plus the interaction under test.
 test.describe.configure({ timeout: 420_000 });
@@ -63,6 +70,7 @@ for (const size of [
     test('tabs do not overlap and every tab stays reachable', async ({ page }) => {
       await navigateToEditor(page);
       const snapshot = await layoutSnapshot(page);
+      await capture(page, `inspector-tabs-${size.width}x${size.height}`);
 
       expect(snapshot.tabs.length).toBeGreaterThan(0);
       expectNoOverlap(snapshot.tabs);

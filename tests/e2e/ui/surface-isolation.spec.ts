@@ -22,6 +22,13 @@ import { navigateToEditor } from '../shared';
 
 type FaultWindow = Window & { __varveSurfaceFault?: string };
 
+/** Opt-in visual evidence: writes only when VARVE_CAPTURE_DIR is set. */
+async function capture(page: Page, name: string) {
+  const dir = process.env.VARVE_CAPTURE_DIR;
+  if (!dir) return;
+  await page.screenshot({ path: `${dir}/${name}.png` });
+}
+
 async function injectSurfaceFault(page: Page, surface: string) {
   await page.evaluate((name) => {
     (window as FaultWindow).__varveSurfaceFault = name;
@@ -54,6 +61,7 @@ test.describe('per-surface panic isolation', () => {
     await expect(page.locator('.error-boundary[role="alert"]')).toHaveCount(1);
     await expect(page.locator('canvas.editor-canvas__content-layer')).toBeVisible();
     await expect(page.locator('.layers-panel')).toBeVisible();
+    await capture(page, 'surface-isolation-inspector-1024x600');
     await page.getByRole('menubar').getByRole('menuitem', { name: 'File' }).click();
     await expect(page.getByRole('menu')).toHaveCount(1);
     await page.keyboard.press('Escape');
