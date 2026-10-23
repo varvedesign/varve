@@ -153,10 +153,13 @@ test.describe('responsive panel drawers', () => {
     expect(inspectorControls.collapse.height).toBe(32);
     expect(inspectorControls.gap).toBeGreaterThanOrEqual(0);
 
+    // The move handle is a grip icon button (it was a "Move" text button,
+    // shell audit F-03), so it takes the same 32px square as the panel
+    // controls beside it; touch pointers keep 44px (WorkspaceBottomPanels CSS).
     const moveHandle = page.locator('.workspace-dock-move-handle').first();
     if (await moveHandle.isVisible().catch(() => false)) {
       const handleBounds = await moveHandle.boundingBox();
-      expect(handleBounds?.width ?? 0).toBeGreaterThanOrEqual(44);
+      expect(handleBounds?.width ?? 0).toBeGreaterThanOrEqual(32);
       expect(handleBounds?.height ?? 0).toBeGreaterThanOrEqual(32);
     }
     await page.screenshot({ path: testInfo.outputPath('responsive-1024.png') });

@@ -200,6 +200,8 @@ test.describe('image rendering after camera commands', () => {
       .setInputFiles(path.resolve('tests/e2e/fixtures/photo-fixture.jpg'));
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
+    // The minimap starts collapsed (F-05).
+    await page.getByRole('button', { name: 'Show minimap', exact: true }).click();
     const minimap = page.locator('.minimap, .minimap-canvas, [class*="minimap"]').first();
     await minimap.dblclick({ position: { x: 40, y: 40 } });
     await page.waitForTimeout(500);
