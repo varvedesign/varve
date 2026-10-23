@@ -137,8 +137,9 @@ Every registered caller of the shared ledger, and what the fix means for it:
 - Native inference: real runs of both models through `bgremove_bench` against
   the installed artifacts (table above) — this is the "was the model ever
   actually run" evidence, not a mock.
-- Browser: `tests/e2e/canvas/bg-removal-capacity.spec.ts` under the heavy lease
-  (Auto cutout 34 s; panel metadata 27 s). Screenshots:
+- Browser: `tests/e2e/canvas/bg-removal-capacity.spec.ts` under the heavy lease,
+  both tests passing across repeated runs (Auto cutout 34-55 s, panel metadata
+  27-38 s; the spread is host load, not behaviour). Screenshots:
   `docs/screenshots/2026-10-22-admission-fix/`.
 - Website: `audit:docs` clean; website unit suite passes except
   `pages/features/realtime-collaboration.astro`, an untracked file owned by
