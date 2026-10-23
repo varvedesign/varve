@@ -164,3 +164,34 @@ describe('ThumbnailScheduler', () => {
     expect(global.maxConcurrency).toBe(1);
   });
 });
+
+describe('ThumbnailScheduler admission wiring', () => {
+  it('marks thumbnail work speculative so it can share the process with an AI run', async () => {
+    const requests: Array<Record<string, unknown>> = [];
+    const lease = { release: vi.fn() };
+    const admission = {
+      acquire: vi.fn(async (request: Record<string, unknown>) => {
+        requests.push(request);
+        return lease;
+      }),
+    } as unknown as ConstructorParameters<typeof ThumbnailScheduler>[1];
+
+    const scheduler = new ThumbnailScheduler(1, admission);
+    const ran = vi.fn(async () => {});
+    scheduler.enqueue({ key: 'page-1', priority: 'visible', run: ran });
+
+    await vi.waitFor(() => {
+      expect(ran).toHaveBeenCalledTimes(1);
+    });
+    expect(requests[0]).toMatchObject({
+      id: 'thumbnail:page-1',
+      kind: 'thumbnail',
+      priority: 'visible',
+      // The platform gate refuses non-speculative work while a heavy job holds
+      // the slot; dropping this flag silently brings the 310 s freezes back.
+      speculative: true,
+    });
+    expect(lease.release).toHaveBeenCalled();
+    scheduler.shutdown();
+  });
+});
