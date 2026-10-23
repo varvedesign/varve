@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { resolvedIntegrityHash } from '../integrityHash';
 import { listAllModels } from '../modelCatalog';
-import type { ModelComponentEntry, ModelManifestEntry } from '../types';
+import type { ModelComponentEntry } from '../types';
 
 const manifestPath = resolve(__dirname, '../../../../../apps/desktop/public/models/manifest.json');
 
@@ -29,9 +29,16 @@ function artifactLabel(modelId: string, componentId?: string): string {
   return componentId ? `${modelId}/${componentId}` : modelId;
 }
 
-function collectUnverified(
-  models: Array<Pick<ModelManifestEntry, 'id' | 'bundled' | 'remoteUrl' | 'checksum' | 'sha256' | 'components'>>,
-): string[] {
+type HashableModel = {
+  id: string;
+  bundled?: boolean;
+  remoteUrl?: string;
+  checksum?: string;
+  sha256?: string | null;
+  components?: Array<{ id: string; checksum?: string; sha256?: string | null }>;
+};
+
+function collectUnverified(models: HashableModel[]): string[] {
   const missing: string[] = [];
   for (const model of models) {
     const components = model.components ?? [];

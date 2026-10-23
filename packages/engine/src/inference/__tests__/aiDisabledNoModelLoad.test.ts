@@ -66,7 +66,6 @@ describe('AI off loads no model files', () => {
     const { listAllModels } = await import('../modelCatalog');
     const downloads = new DownloadManager(createModelStorage('memory'));
     for (const entry of listAllModels()) {
-      downloads.registerModel(entry);
       await expect(downloads.startDownload(entry.id)).rejects.toSatisfy(isDisabled);
     }
 
