@@ -1,4 +1,5 @@
 import { act, render, waitFor } from '@testing-library/react';
+import { createDocument, DocumentCodec } from '@varve/scene';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
@@ -11,13 +12,7 @@ import { EditorProvider, useEditor } from '../context';
  * it and opened the same document a second time, leaving two tabs on one file.
  */
 function docJson(name: string) {
-  return JSON.stringify({
-    schemaVersion: 1,
-    id: 'doc-1',
-    name,
-    nodes: {},
-    rootChildren: [],
-  });
+  return DocumentCodec.encode(createDocument(name, true));
 }
 
 function Harness({ onReady }: { onReady: (ctx: ReturnType<typeof useEditor>) => void }) {

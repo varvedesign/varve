@@ -28,6 +28,7 @@ const {
 
 vi.mock('@varve/engine', () => ({
   ADJUSTMENT_KINDS: ['brightness'],
+  getAiFeaturesEnabled: () => true,
   // A class (not an arrow) so `new DownloadManager()` works — biome would
   // rewrite a `function` expression mock into a non-constructible arrow.
   DownloadManager: vi.fn().mockImplementation(
@@ -98,6 +99,7 @@ async function renderTab() {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   // clearAllMocks keeps the constructor implementations and hoisted resolved
   // values; per-test mocks are set before renderTab.
   vi.clearAllMocks();

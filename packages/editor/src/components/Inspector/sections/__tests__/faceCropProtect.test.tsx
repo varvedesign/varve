@@ -55,12 +55,16 @@ function analysis(faces: Array<{ id: string; confidence: number }>) {
   };
 }
 
-vi.mock('@varve/engine', () => ({
-  getModelLoader: () => ({
-    isModelAvailable: mockIsModelAvailable,
-    downloadModel: mockDownloadModel,
-  }),
-}));
+vi.mock('@varve/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/engine')>();
+  return {
+    ...actual,
+    getModelLoader: () => ({
+      isModelAvailable: mockIsModelAvailable,
+      downloadModel: mockDownloadModel,
+    }),
+  };
+});
 
 vi.mock('@varve/scene', () => ({
   isImageShape: () => true,
@@ -161,6 +165,7 @@ function makeImageNode() {
 
 describe('ImageCropSection - Protect Faces', () => {
   beforeEach(() => {
+    localStorage.clear();
     mockApplyFaceAwareCrop.mockReset();
     mockOpenCafDialog.mockReset();
     mockAnalyzeFaceAwareCrop.mockReset();
