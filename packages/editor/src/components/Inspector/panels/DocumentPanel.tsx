@@ -148,11 +148,11 @@ export function DocumentPanel() {
               >
                 Reset
               </button>
+              <InfoHint topic="canvas background">
+                When no custom background is set the canvas uses the theme surface color.
+              </InfoHint>
             </div>
           </div>
-          <p className="insp-panel__color-mode-note" role="note">
-            When no custom background is set the canvas uses the theme surface color.
-          </p>
         </div>
       </DisclosureSection>
       <DisclosureSection title="Snapping" sectionId="snapping">
@@ -230,7 +230,13 @@ export function DocumentPanel() {
       </DisclosureSection>
       <DisclosureSection title="Document Color" sectionId="document-color">
         <div className="insp-panel__color-mode">
-          <span className="insp-panel__color-mode-label">Mode</span>
+          <span className="insp-panel__color-mode-label">
+            Mode
+            <InfoHint topic="document color mode">
+              Assigning a mode changes document intent only — existing colors keep their values and
+              are converted at export. Use Convert to rewrite document colors now.
+            </InfoHint>
+          </span>
           <SegmentedControl
             label="Document color mode"
             value={documentColorMode}
@@ -249,13 +255,16 @@ export function DocumentPanel() {
               commitTransaction();
             }}
           />
-          <p className="insp-panel__color-mode-note" role="note">
-            Assigning a mode changes document intent only — existing colors keep their values and
-            are converted at export. Use Convert to rewrite document colors now.
-          </p>
         </div>
         <div className="insp-panel__color-mode">
-          <span className="insp-panel__color-mode-label">Precision</span>
+          <span className="insp-panel__color-mode-label">
+            Precision
+            <InfoHint topic="document precision">
+              Precision sets the storage depth for newly authored colors. Existing values are never
+              rewritten by this setting. uint16/float colors keep their full channel range through
+              save/reopen; display and 8-bit exports quantize only at their explicit boundaries.
+            </InfoHint>
+          </span>
           <SegmentedControl
             label="Document precision"
             value={documentBitDepth}
@@ -273,14 +282,15 @@ export function DocumentPanel() {
               commitTransaction();
             }}
           />
-          <p className="insp-panel__color-mode-note" role="note">
-            Precision sets the storage depth for newly authored colors. Existing values are never
-            rewritten by this setting. uint16/float colors keep their full channel range through
-            save/reopen; display and 8-bit exports quantize only at their explicit boundaries.
-          </p>
         </div>
         <div className="insp-panel__color-mode">
-          <span className="insp-panel__color-mode-label">Working RGB</span>
+          <span className="insp-panel__color-mode-label">
+            Working RGB
+            <InfoHint topic="working RGB">
+              Working RGB describes the document's authored encoding. It is separate from gradient
+              interpolation and artistic blend evaluation.
+            </InfoHint>
+          </span>
           <SegmentedControl
             label="Working RGB"
             value={workingSpace}
@@ -296,13 +306,15 @@ export function DocumentPanel() {
               commitTransaction();
             }}
           />
-          <p className="insp-panel__color-mode-note" role="note">
-            Working RGB describes the document's authored encoding. It is separate from gradient
-            interpolation and artistic blend evaluation.
-          </p>
         </div>
         <div className="insp-panel__color-mode">
-          <span className="insp-panel__color-mode-label">Blend evaluation</span>
+          <span className="insp-panel__color-mode-label">
+            Blend evaluation
+            <InfoHint topic="blend evaluation">
+              Controls the values received by separable artistic blend formulas. Alpha coverage and
+              non-separable W3C modes keep their defined semantics.
+            </InfoHint>
+          </span>
           <SegmentedControl
             label="Blend evaluation space"
             value={blendEvaluationSpace}
@@ -318,13 +330,15 @@ export function DocumentPanel() {
               commitTransaction();
             }}
           />
-          <p className="insp-panel__color-mode-note" role="note">
-            Controls the values received by separable artistic blend formulas. Alpha coverage and
-            non-separable W3C modes keep their defined semantics.
-          </p>
         </div>
         <div className="insp-panel__color-mode">
-          <span className="insp-panel__color-mode-label">Gradient default</span>
+          <span className="insp-panel__color-mode-label">
+            Gradient default
+            <InfoHint topic="gradient default">
+              New gradients inherit this default. An individual gradient can pin another
+              interpolation space; legacy gradients with no metadata remain sRGB.
+            </InfoHint>
+          </span>
           <SegmentedControl
             label="Gradient interpolation default"
             value={gradientInterpolation}
@@ -343,10 +357,6 @@ export function DocumentPanel() {
               commitTransaction();
             }}
           />
-          <p className="insp-panel__color-mode-note" role="note">
-            New gradients inherit this default. An individual gradient can pin another interpolation
-            space; legacy gradients with no metadata remain sRGB.
-          </p>
         </div>
       </DisclosureSection>
       <DisclosureSection title="Soft Proof" sectionId="document-proof">
@@ -359,6 +369,11 @@ export function DocumentPanel() {
                 checked={proofEnabled}
                 onChange={(e) => setProofEnabled(e.target.checked)}
               />
+              <InfoHint topic="proof preview">
+                Soft proofing is a display-only preview: document colors are never modified and
+                export stays authoritative. Accurate proofing requires a profile-aware runtime; the
+                browser shows the source color and reports when proofing is unavailable.
+              </InfoHint>
             </div>
           </div>
           <div className="insp-field">
@@ -446,18 +461,13 @@ export function DocumentPanel() {
                 checked={viewProof.mirror}
                 onChange={(event) => setViewProofState({ mirror: event.target.checked })}
               />
+              <InfoHint topic="canvas review">
+                Grayscale and mirror checks are session-only views. They do not change saved artwork
+                or exports; mirror view disables canvas pointer input to prevent drawing against
+                reflected coordinates.
+              </InfoHint>
             </div>
           </div>
-          <p className="insp-panel__color-mode-note" role="note">
-            Soft proofing is a display-only preview: document colors are never modified and export
-            stays authoritative. Accurate proofing requires a profile-aware runtime; the browser
-            shows the source color and reports when proofing is unavailable.
-          </p>
-          <p className="insp-panel__color-mode-note" role="note">
-            Grayscale and mirror checks are session-only views. They do not change saved artwork or
-            exports; mirror view disables canvas pointer input to prevent drawing against reflected
-            coordinates.
-          </p>
         </div>
       </DisclosureSection>
       <DisclosureSection title="Document Grid" sectionId="document-grid">
@@ -626,12 +636,13 @@ export function DocumentPanel() {
                 checked={state.layoutGridVisible}
                 onChange={(e) => setLayoutGridVisible(e.target.checked)}
               />
+              <InfoHint topic="grid and layout guides">
+                Document-grid visibility and snapping are independent. Layout guides are authored on
+                frames and never change child arrangement; Auto layout below is the arrangement
+                system.
+              </InfoHint>
             </div>
           </div>
-          <p className="insp-panel__color-mode-note" role="note">
-            Document-grid visibility and snapping are independent. Layout guides are authored on
-            frames and never change child arrangement; Auto layout below is the arrangement system.
-          </p>
           <div className="insp-field">
             <span className="insp-field__label">Grid Origin</span>
             <div className="insp-field__control insp-field__control--inline">

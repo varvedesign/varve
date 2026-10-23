@@ -48,7 +48,7 @@ test.describe('Inspector feature ownership', () => {
     await expect(page.getByRole('tab', { name: 'Document' })).toHaveCount(0);
     await expect(page.locator('[data-inspector-context-header="true"]')).toContainText('Canvas');
     await expect(page.getByRole('button', { name: 'Canvas', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Document Color' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Document Color', exact: true })).toBeVisible();
     // exact: the panel also has a "Reset canvas background to default" button
     // whose accessible name contains this one as a substring.
     await expect(

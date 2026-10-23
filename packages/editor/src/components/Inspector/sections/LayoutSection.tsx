@@ -24,7 +24,7 @@ import type {
   LayoutStyle,
   SceneNode,
 } from '@varve/scene';
-import { SegmentedControl, type SegmentedOption, Select, Switch } from '@varve/ui';
+import { InfoHint, SegmentedControl, type SegmentedOption, Select, Switch } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { suggestAutoLayout } from '../../../intelligence/autoLayoutSuggestor';
@@ -383,7 +383,10 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                 />
               </FieldRow>
               <p className="insp-panel__color-mode-note" role="note">
-                Negative gaps overlap items. Shadows and blur stay out of layout measurement.
+                Negative gaps overlap items.
+                <InfoHint topic="gap and overlap">
+                  Negative gaps overlap items. Shadows and blur stay out of layout measurement.
+                </InfoHint>
               </p>
             </>
           )}
@@ -474,8 +477,11 @@ function LayoutGuidesSection({ node }: { node: FrameNode }) {
     <DisclosureSection title="Layout guides" sectionId="layout" subsectionId="layoutGuides">
       <div className="insp-canvas-props">
         <p className="insp-panel__color-mode-note" role="note">
-          Visual frame guides do not arrange children. Use Auto layout above to change child
-          arrangement.
+          Guides do not arrange children.
+          <InfoHint topic="layout guides">
+            Visual frame guides do not arrange children. Use Auto layout above to change child
+            arrangement.
+          </InfoHint>
         </p>
         <button type="button" className="insp-btn insp-btn--compact" onClick={addGuide}>
           Add layout guide
@@ -782,8 +788,11 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
       )}
       {(widthIsFixed || heightIsFixed) && (
         <p className="insp-panel__color-mode-note" role="note">
-          Fixed axes keep their constraints for later mode changes, but the bounds are inactive
-          while Fixed.
+          Bounds are inactive while an axis is Fixed.
+          <InfoHint topic="fixed sizing">
+            Fixed axes keep their constraints for later mode changes, but the bounds are inactive
+            while Fixed.
+          </InfoHint>
         </p>
       )}
       {!isMixed(widthSizingRaw) && widthSizingRaw === 'relative' && (

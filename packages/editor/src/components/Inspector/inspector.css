@@ -3132,8 +3132,17 @@
   gap: var(--space-2);
 }
 .insp-panel__color-mode-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+}
+/* A note keeps its one-line state visible and offers the full explanation
+   behind an info button at its end (F-24). */
+.insp-panel__color-mode-note .varve-info-hint {
+  margin-inline-start: var(--space-1);
+  vertical-align: middle;
 }
 /* ---------- Paint Library ---------- */
 .insp-paint-library {
