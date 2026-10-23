@@ -1,6 +1,6 @@
-# Sample comic page — Halloween Cookies
+# Sample comic page: Halloween Cookies
 
-Six-panel gag for the "Letter it in Varve" campaign. Original flat-colour vector, no generative imagery, OFL font only.
+Six-panel gag for the "Letter it in Varve" campaign. Flat-colour vector built from code-drawn shapes, OFL font only.
 
 ## Story
 
@@ -31,5 +31,12 @@ node marketing/sample-comic/export.mjs
 ## Lettering
 
 Balloons are real `GroupNode.callout` recipes (scene `createCallout`). 0.5.0 can switch kind in the Inspector after a balloon exists. This page ships speech, thought, shout, and caption so the campaign can show those types without claiming a dedicated "add thought balloon" button.
+
+## Caption and licence
+
+- Caption (exact): "Built from Varve vector shapes; generated with code."
+- The sample art files (`halloween-cookies.varve`, `halloween-cookies.png`, `halloween-cookies-unlettered.png` and `halloween-cookies.pdf`) are dedicated to the public domain under CC0 1.0 Universal. Fonts, the Varve name and logo, and any third-party assets are not included. See [`LICENSE-SAMPLE.md`](LICENSE-SAMPLE.md) for exactly what is covered.
+- The scripts in this folder (such as `generate.ts`, `generate.mjs` and `export.mjs`) are not part of the dedication. They stay under the repository licence (FSL-1.1-MIT).
+- This is a sample from the Varve team, not a challenge entry.
 
 See `COMIC_FEATURES_AUDIT.md` and `STATUS.md`.

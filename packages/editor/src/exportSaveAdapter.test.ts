@@ -144,3 +144,70 @@ describe('export save adapter', () => {
     expect(ArrayBuffer.isView(bytes)).toBe(true);
   });
 });
+
+describe('export name safety at the write boundary', () => {
+  it('sanitizes the archive name derived from a document name', async () => {
+    const saveBinaryFile = vi.fn<Platform['saveBinaryFile']>(async () => '/tmp/archive.zip');
+    const platform = { kind: 'web', saveBinaryFile } as unknown as Platform;
+    const archive = createBufferedExportArchive(platform);
+
+    await archive.saveFile(
+      'Logo.svg',
+      new TextEncoder().encode('<svg />'),
+      'image/svg+xml',
+      job('svg'),
+    );
+    await archive.flush('../../unsafe:name/report');
+
+    const fileName = saveBinaryFile.mock.calls[0]![0];
+    expect(fileName.endsWith('.zip')).toBe(true);
+    expect(fileName).not.toMatch(/[\\/:*?"<>|]/);
+    expect(fileName).not.toContain('..');
+  });
+
+  it('keeps a plain archive name and does not double the zip extension', async () => {
+    const saveBinaryFile = vi.fn<Platform['saveBinaryFile']>(async () => '/tmp/Design-exports.zip');
+    const platform = { kind: 'web', saveBinaryFile } as unknown as Platform;
+    const archive = createBufferedExportArchive(platform);
+
+    await archive.saveFile(
+      'Logo.svg',
+      new TextEncoder().encode('<svg />'),
+      'image/svg+xml',
+      job('svg'),
+    );
+    await archive.flush('Design-exports.zip');
+
+    expect(saveBinaryFile.mock.calls[0]![0]).toBe('Design-exports.zip');
+  });
+
+  it('suggests only the final file name to a single-file save dialog', async () => {
+    const saveBinaryFile = vi.fn<Platform['saveBinaryFile']>(async () => '/tmp/page-1.svg');
+    const saveFile = createExportSaveFile(platformWithSave(saveBinaryFile));
+
+    await saveFile?.(
+      'Section 1/Page 1/Logo.svg',
+      new TextEncoder().encode('<svg />'),
+      'image/svg+xml',
+      job('svg', 'Section 1/Page 1/Logo.svg'),
+    );
+
+    const [fileName, , , extension] = saveBinaryFile.mock.calls[0]!;
+    expect(fileName).toBe('Logo.svg');
+    expect(extension).toBe('.svg');
+  });
+
+  it('refuses to suggest a traversal path to the save dialog', async () => {
+    const saveBinaryFile = vi.fn<Platform['saveBinaryFile']>(async () => '/tmp/evil.svg');
+    const saveFile = createExportSaveFile(platformWithSave(saveBinaryFile));
+
+    await saveFile?.(
+      '../evil.svg',
+      new TextEncoder().encode('<svg />'),
+      'image/svg+xml',
+      job('svg'),
+    );
+
+    expect(saveBinaryFile.mock.calls[0]![0]).toBe('evil.svg');
+  });
+});

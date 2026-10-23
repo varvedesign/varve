@@ -356,56 +356,38 @@ log), not the native Tauri path.
   so the chip reuses the already-shipped `save-status--error` skin and is
   covered at component level. Recorded as a limitation.
 
-## F10 — A file that cannot be read opens as an empty document (open)
+## F10 — A file that cannot be read opens as an empty document (fixed)
 
 - **External evidence:** vectorcraft#861 — opening certain files "does nothing:
   no document appears and no error is shown". The same complaint appears as
   #1151 (file drag-and-drop fails on Fedora) and #2177 (large PDF/AI files fail
   to load): the failure is invisible to the user.
-- **Varve code:** `packages/editor/src/context.tsx:9548` (`openFile`) and
-  `packages/editor/src/context/usePersistence.ts:225` (`loadDocument`).
-- **Observed behavior:** when JSON is supplied but fails to decode or fails
-  validation, `openFile` falls back to `createDocument(name)` — a **blank
-  document under the requested file's name**. `loadDocument` swallows invalid
-  JSON entirely. Either way the user sees no error; in the `openFile` case the
-  canvas looks like the file opened, and the next save writes over the real
-  document.
+- **Varve code:** `packages/editor/src/context.tsx` — `openFile` (the production
+  open path used by Shell) and the exposed `loadDocument` wrapper;
+  `packages/editor/src/context/usePersistence.ts` still swallows invalid JSON as
+  a last line of defence.
+- **Observed behavior (before):** when JSON was supplied but failed to decode or
+  validate, `openFile` fell back to `createDocument(name)` — a **blank document
+  under the requested file's name**. The canvas looked like the file had opened,
+  and the next save wrote over the real document. `loadDocument` swallowed
+  invalid JSON entirely, so the click looked like it did nothing.
 - **Why this is high severity:** it is a data-loss vector, not just a missing
-  message — the wrong document is bound to the file's identity.
-- **Intended outcome:** a file that cannot be read leaves the current document
-  untouched, reports failure to the caller, and shows a persistent, dismissible
-  message naming the file and the reason.
-- **Status:** `applicable-requires-work`. Not implemented here: the repository
-  has no visible error surface for open failures (the canvas announcer is
-  visually hidden), so a truthful fix needs a small error-banner/dialog
-  primitive first. Implementing only the "don't substitute a blank document"
-  half would remove the data-loss vector while leaving the user staring at
-  nothing, which is still the reported complaint — the two should land
-  together.
+  message — the wrong document was bound to the file's identity.
+- **Implementation:** a non-null JSON that fails to decode now leaves the current
+  document untouched, returns without rebinding the tab, and reports through the
+  editor's existing toast system (`type: 'error'`, 15 s, naming the file and
+  saying "Nothing was changed") plus the canvas announcer for assistive tech. A
+  `null` JSON still starts a blank document, which is what "new file" means. The
+  exposed `loadDocument` applies the same guard before delegating. Documents that
+  decode but fail validation still open: preflight reports their problems, and
+  refusing a recoverable file outright would be its own data loss.
+- **Acceptance criteria:** invalid JSON leaves `state.document` identity
+  unchanged and emits one error toast naming the file; `null` JSON still creates
+  a blank document with no toast; a valid document opens with no toast.
+- **Validation:** `packages/editor/src/context/__tests__/openFileUnreadable.test.tsx`
+  (4 cases: unreadable, decodable-but-unusable, new-document control, valid
+  document), plus `tsc --noEmit` for the editor.
+- **Not covered:** a decode failure during crash-recovery restore still has no
+  user-facing path of its own; recovery records carry no file name, and the
+  restore UI already reports that a snapshot could not be used.
 
-
-## F11 — The preflight findings panel could not be seen
-
-- **External evidence:** the corpus reports the same shape of defect repeatedly:
-  an indicator that appears but whose explanation is unreachable
-  (vectorcraft#2323 overflow indicator only on selection, #2086 menus that cover
-  the status bar, #3093 scrollbars that block controls).
-- **Varve code:** `packages/editor/src/components/PreflightWarnings.tsx` placed
-  an absolutely positioned panel inside the status bar, and
-  `packages/editor/src/editor.css` gives `.editor-status` `overflow-x: auto;
-  overflow-y: hidden`.
-- **Observed behavior:** the badge counted the warnings, but opening it showed
-  nothing — the panel was painted outside the status bar's clipped box. Visual
-  validation of F5 caught this: the canvas showed the overflow, the badge showed
-  "2", and the panel capture was just the sidebar behind it.
-- **Intended outcome:** the findings open above the badge, over the canvas, and
-  are reachable by keyboard.
-- **Implementation:** the panel is now the shared `@varve/ui` `Popover`
-  (portal-backed, Floating UI positioning), which is the repository's documented
-  popover contract. Escape, outside-click dismissal, focus order and collision
-  handling come from the primitive instead of a hand-rolled backdrop.
-- **Validation:** `PreflightWarnings.test.tsx` (4/4) and the browser spec in
-  Chromium and WebKitGTK, with the panel captured as evidence
-  (`evidence/preflight-overset-panel.png`).
-- **Note:** preflight remains a Print-workspace section, so the badge is not in
-  the Design status bar; that is the existing product decision, unchanged.

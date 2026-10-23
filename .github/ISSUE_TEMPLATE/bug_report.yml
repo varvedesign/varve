@@ -5,103 +5,113 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a bug. **Security vulnerabilities should not be
-        filed here** — email [security@varve.studio](mailto:security@varve.studio) or use [private advisory reporting](https://github.com/varvedesign/varve/security/advisories) instead (see [SECURITY.md](../../SECURITY.md)).
+        Something in Varve did not work? Tell us what happened. A short
+        note is enough.
 
-        Varve is public beta software; please check the
+        If this is a security problem, please do not post it here. Email
+        [security@varve.studio](mailto:security@varve.studio) or use
+        [a private report](https://github.com/varvedesign/varve/security/advisories)
+        instead (see [SECURITY.md](../../SECURITY.md)).
+
+        You can also check
         [known issues](https://varve.studio/support/known-issues) and
-        existing [Issues](https://github.com/varvedesign/varve/issues) first.
-
-  - type: input
-    id: version
-    attributes:
-      label: Varve version
-      description: Help → About, or the window title bar.
-    validations:
-      required: true
-
-  - type: dropdown
-    id: os
-    attributes:
-      label: Operating system
-      options:
-        - Linux
-        - macOS
-        - Windows
-        - Web (browser build)
-    validations:
-      required: true
-
-  - type: input
-    id: os-detail
-    attributes:
-      label: OS / distro version
-      placeholder: "e.g. Ubuntu 22.04, macOS 15.1, Windows 11 23H2"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: install-type
-    attributes:
-      label: Installation type
-      options:
-        - AppImage (Linux)
-        - .deb (Linux)
-        - .rpm (Linux)
-        - .dmg (macOS)
-        - .exe / NSIS (Windows)
-        - Built from source
-        - Other (describe below)
-    validations:
-      required: true
-
-  - type: input
-    id: gpu
-    attributes:
-      label: GPU / rendering backend (if relevant)
-      placeholder: "e.g. NVIDIA RTX 4070, Canvas2D vs WebGPU if known"
+        existing [Issues](https://github.com/varvedesign/varve/issues)
+        first if you want.
 
   - type: textarea
-    id: repro
+    id: actual
     attributes:
-      label: Steps to reproduce
-      description: The exact steps that trigger the bug.
-      placeholder: |
-        1.
-        2.
-        3.
+      label: What happened?
+      description: What went wrong, in your own words.
+      placeholder: "The export window closed and no file was saved..."
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: Expected behavior
+      label: What did you expect?
+      description: What you thought would happen.
+      placeholder: "A PNG would download, or a save window would stay open..."
     validations:
       required: true
 
   - type: textarea
-    id: actual
+    id: repro
     attributes:
-      label: Actual behavior
-    validations:
-      required: true
+      label: What were you doing when it happened? (optional)
+      description: A few steps help if you remember them. Skip this if you do not.
+      placeholder: |
+        1. I opened Export
+        2. I chose PNG
+        3. I clicked Save, and the window closed
+
+  - type: input
+    id: version
+    attributes:
+      label: Which version of Varve? (optional)
+      description: "Open Help > About, or look at the window title."
+      placeholder: "0.5.1"
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Which system are you on? (optional)
+      description: Skip this if you are not sure.
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - The web demo in a browser
+
+  - type: input
+    id: os-detail
+    attributes:
+      label: Which version of your system? (optional)
+      description: Skip this if you are not sure.
+      placeholder: "Ubuntu 24.04, macOS 15.1, Windows 11"
+
+  - type: dropdown
+    id: install-type
+    attributes:
+      label: How did you install Varve? (optional)
+      description: Skip this if you are not sure.
+      options:
+        - AppImage
+        - .deb (Debian or Ubuntu)
+        - .rpm (Fedora)
+        - .dmg (Mac)
+        - Windows installer
+        - I built it myself
+        - Other (you can say more below)
+
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card (optional)
+      description: Skip this if you are not sure.
+      placeholder: "NVIDIA RTX 4070, or I don't know"
 
   - type: textarea
     id: evidence
     attributes:
-      label: Screenshots, logs, or a sample file
-      description: >-
-        Drag and drop images/logs here. Only attach a `.varve` file if it
-        doesn't contain anything sensitive.
+      label: Pictures or files (optional)
+      description: Drag and drop a picture here. Only share files you are happy to make public. To share a .varve file, put it in a .zip first.
+      placeholder: "A picture, or a .zip of the file"
 
   - type: dropdown
     id: regression
     attributes:
-      label: Did this work in a previous version?
+      label: Has this worked before? (optional)
+      description: Skip this if you are not sure.
       options:
-        - "Not sure / first time trying this"
-        - "Yes — this is a regression"
-        - "No — this has never worked"
-    validations:
-      required: true
+        - I'm not sure
+        - It used to work
+        - It has always done this
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else? (optional)
+      description: Add more if you want. You can skip this.
+      placeholder: "It only happens with a large file, or I can still undo..."

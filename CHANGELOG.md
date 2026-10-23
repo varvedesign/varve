@@ -12,6 +12,12 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+### Security
+
+- Vulnerability reports now have stated response times, a `security.txt`
+  endpoint, an incident runbook, and CI scans (CodeQL, cargo-deny, gitleaks,
+  OSV-Scanner, and dependency review). Report privately to
+  security@varve.studio or through GitHub private vulnerability reporting.
 
 ### Added
 
@@ -85,6 +91,11 @@ update, not for someone reading the commit log.
   one, text was drawn in the fallback face while preflight, the Missing Fonts dialog, and the export
   preflight all reported the typography as faithful. Those families are now measured against the
   device, and a family it cannot resolve is reported as missing with a replacement path.
+- **Opening an unreadable file no longer replaces your work**: a document that
+  failed to decode was replaced by a blank one under the same file name, so the
+  next save could overwrite the real file. The open is now refused, the current
+  artboard is left untouched, and an error names the file and says nothing was
+  changed.
 - **Preflight findings are visible**: the badge counted issues, but the panel
   opened inside the status bar and was clipped, so its contents could not be
   seen. It is now a portal-backed popover above the bar.

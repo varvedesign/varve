@@ -81,6 +81,18 @@ import '../../../styles/docs-prose.css';
           a snapped edge or corner keeps the original aspect ratio and fixed opposite anchor; Varve
           never rounds width and height independently.
         </p>
+        <p>
+          Ruler guides snap too. Dragging a new guide out of a ruler (or re-dragging an existing
+          one) pulls it onto the visible edges and centers of objects on the active editing
+          surface, and onto vector path points. Locked objects remain targets, because locking
+          protects artwork from editing rather than hiding it; hidden objects and objects excluded
+          from snapping are skipped. The acquisition distance is the same screen-space tolerance,
+          so zooming in gives finer control, and a snapped guide keeps the target's exact
+          coordinate instead of rounding to a whole pixel. Re-dragging an existing guide shows the
+          snapped value in its position readout and draws it solid while a target holds it. Hold
+          <strong>Ctrl</strong> on Linux/Windows or <strong>Cmd</strong> on macOS during either drag
+          to bypass snapping. Free dragging keeps the whole-pixel step.
+        </p>
       </section>
 
       <section class="docs-section" aria-labelledby="arrange-title">
