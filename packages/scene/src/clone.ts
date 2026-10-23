@@ -55,6 +55,22 @@ export interface CloneOptions {
 }
 
 /**
+ * Name for a duplicate: "X" becomes "X copy", "X copy" becomes "X copy 2",
+ * and "X copy 2" becomes "X copy 3". Appending the suffix every time turned a
+ * run of Ctrl+D into "X copy copy copy ..." and the Layers panel truncated
+ * every row to the same visible prefix (shell audit 2026-10-21, F-10).
+ */
+export function copyName(name: string, suffix: string): string {
+  if (name.endsWith(suffix)) return `${name} 2`;
+  const marker = name.lastIndexOf(`${suffix} `);
+  if (marker >= 0) {
+    const count = name.slice(marker + suffix.length + 1);
+    if (/^[1-9]\d*$/.test(count)) return `${name.slice(0, marker)}${suffix} ${Number(count) + 1}`;
+  }
+  return `${name}${suffix}`;
+}
+
+/**
  * Remap an explicit-targets scope's target list through the clone idMap.
  * When `dropForeignReferences` is set, targets outside the subtree are
  * dropped; otherwise they are preserved (valid in the same document).
@@ -265,7 +281,7 @@ export function deepCloneSubtree(
     }
 
     if (options?.nameSuffix) {
-      cloned = { ...cloned, name: `${node.name}${options.nameSuffix}` } as SceneNode;
+      cloned = { ...cloned, name: copyName(node.name, options.nameSuffix) } as SceneNode;
     }
 
     newNodes[newId] = cloned;
