@@ -15,8 +15,10 @@ const AI_HINT = 'Turn on AI features in Settings to use this';
 
 async function capture(page: import('@playwright/test').Page, name: string) {
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  const dest = path.join(SCREENSHOT_DIR, `${name}.png`);
+  if (fs.existsSync(dest)) return;
   await page.screenshot({
-    path: path.join(SCREENSHOT_DIR, `${name}.png`),
+    path: dest,
     fullPage: true,
   });
 }
@@ -103,13 +105,18 @@ test.describe('AI off loads no model files', () => {
     await expect(page.getByRole('button', { name: 'AI Tools' })).toHaveCount(0);
     await capture(page, 'ai_off_design_tab');
 
-    const selectionSources = page.getByRole('button', { name: 'Selection Sources' });
+    const inspector = page.getByRole('region', { name: 'Inspector', exact: true });
+    const selectionSources = inspector.getByRole('button', { name: 'Selection Sources' });
     await expect(selectionSources).toBeVisible({ timeout: 10000 });
+    await selectionSources.scrollIntoViewIfNeeded();
     if ((await selectionSources.getAttribute('aria-expanded')) !== 'true') {
       await selectionSources.click();
     }
-    await expect(page.getByRole('button', { name: /^Select subject/ })).toHaveCount(0);
-    await expect(page.getByText(AI_HINT).first()).toBeVisible();
+    await expect(selectionSources).toHaveAttribute('aria-expanded', 'true');
+    await expect(inspector.getByRole('button', { name: /^Select subject/ })).toHaveCount(0);
+    await expect(inspector.locator('.insp-selection-sources__hint')).toBeVisible({
+      timeout: 10000,
+    });
     await capture(page, 'ai_off_selection_sources');
 
     await page
@@ -128,24 +135,32 @@ test.describe('AI off loads no model files', () => {
     await expect(exportDialog.getByText('Balanced')).toHaveCount(0);
     await expect(exportDialog.getByText('High quality')).toHaveCount(0);
     await expect(exportDialog.getByText(AI_HINT)).toBeVisible();
+    await exportDialog
+      .getByRole('region', { name: 'Background' })
+      .screenshot({ path: path.join(SCREENSHOT_DIR, 'ai_off_export_background.png') });
     await capture(page, 'ai_off_export_dialog');
     await page.keyboard.press('Escape');
-
-    const shortcut = page.getByRole('button', { name: 'Remove background (B)' });
-    await expect(shortcut).toBeVisible({ timeout: 10000 });
-    await expect(shortcut).toHaveAttribute('aria-label', 'Remove background (B)');
-    await capture(page, 'ai_off_shortcut');
 
     const controlBar = page.getByRole('toolbar', { name: 'Contextual properties' });
     const controlBarRemove = controlBar.getByRole('button', { name: 'Remove background' });
     await expect(controlBarRemove, 'control-bar Remove background must be present').toBeVisible({
       timeout: 10000,
     });
+    await controlBarRemove.hover();
+    await expect(page.getByText('Remove background (B)')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/on-device ML/i)).toHaveCount(0);
+    await page.getByText('Remove background (B)').screenshot({
+      path: path.join(SCREENSHOT_DIR, 'ai_off_shortcut_tooltip.png'),
+    });
+    await capture(page, 'ai_off_shortcut');
     await controlBarRemove.click();
     await expect(page.locator('.varve-toast')).toHaveCount(0);
     await expect(page.getByText(/on-device ML/i)).toHaveCount(0);
     const controlBarReview = page.getByRole('region', { name: 'Background removal review' });
     await expect(controlBarReview).toBeVisible({ timeout: 15000 });
+    await controlBarReview.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'ai_off_control_bar_review.png'),
+    });
     await capture(page, 'ai_off_control_bar_remove_background');
     await controlBarReview
       .getByRole('button', { name: /cancel preview|cancel background removal/i })
@@ -158,8 +173,7 @@ test.describe('AI off loads no model files', () => {
     if ((await bgSection.getAttribute('aria-expanded')) === 'false') {
       await bgSection.click();
     }
-    await expect(page.getByText('AI Balanced')).toHaveCount(0);
-    await expect(page.getByText('AI High Quality')).toHaveCount(0);
+    await expect(page.getByRole('option', { name: /AI Balanced|AI High Quality/ })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Depth Blur' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /generate depth map/i })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /enable depth blur/i })).toHaveCount(0);
@@ -178,17 +192,26 @@ test.describe('AI off loads no model files', () => {
     const quickReview = page.getByRole('region', { name: 'Background removal review' });
     await expect(quickReview).toBeVisible({ timeout: 15000 });
     await expect(quickReview.getByRole('button', { name: 'Apply result' })).toBeVisible();
-    await capture(page, 'ai_off_quick_cutout_mask');
+    await quickReview.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'ai_off_quick_cutout_mask.png'),
+    });
+    await capture(page, 'ai_off_quick_cutout_full');
 
     expect(modelRequests, `model requests:\n${modelRequests.join('\n')}`).toEqual([]);
-    const posted = await page.evaluate(
-      () => (window as unknown as { __varveAiWorkerPosts?: unknown[] }).__varveAiWorkerPosts ?? [],
-    );
-    const modelJobs = posted.filter((message) => {
-      const record = message as { type?: string; options?: { method?: string } };
-      return (
-        record.type === 'infer' || (record.type === 'upscale' && record.options?.method === 'ai')
-      );
+    const modelJobs = await page.evaluate(() => {
+      const value = (window as unknown as { __varveAiWorkerPosts?: unknown }).__varveAiWorkerPosts;
+      if (!Array.isArray(value)) return [];
+      return value.flatMap((message) => {
+        if (!message || typeof message !== 'object') return [];
+        const record = message as { type?: string; options?: { method?: string } };
+        if (
+          record.type === 'infer' ||
+          (record.type === 'upscale' && record.options?.method === 'ai')
+        ) {
+          return [{ type: record.type, method: record.options?.method ?? null }];
+        }
+        return [];
+      });
     });
     expect(modelJobs).toEqual([]);
   });

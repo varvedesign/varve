@@ -471,7 +471,13 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const requiredModelId = workerModelIdForMethod(method);
   const imageMaxDim = node?.shape?.kind === 'rect' ? Math.max(node.shape.w, node.shape.h) : 0;
   const previewDownscaleActive = method !== 'quick' && imageMaxDim > DEFAULT_PREVIEW_MAX_DIMENSION;
-  const methodGuidance = METHOD_GUIDANCE[method];
+  const methodGuidance = {
+    ...METHOD_GUIDANCE[method],
+    tradeoff:
+      !aiEnabled && method === 'quick'
+        ? 'Natural scenes may need a short brush cleanup.'
+        : METHOD_GUIDANCE[method].tradeoff,
+  };
 
   const startObjectSelection = useCallback(() => {
     if (!node) return;
