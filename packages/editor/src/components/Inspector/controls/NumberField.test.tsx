@@ -472,13 +472,47 @@ describe('NumberField', () => {
     expect(commitTransaction).not.toHaveBeenCalled();
   });
 
-  it('ignores pointer events from a different pointer id', () => {
+  it('ignores moves from a pointer that did not start the scrub', () => {
     const onChange = vi.fn();
     render(<NumberField label="X" value={10} onChange={onChange} />);
     fireEvent.pointerDown(screen.getByText('X'), { button: 0, clientX: 0, pointerId: 1 });
     fireEvent.pointerMove(window, { clientX: 30, pointerId: 2 });
-    fireEvent.pointerUp(window, { pointerId: 2 });
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('keeps the owning scrub alive when another pointer is released', () => {
+    const onChange = vi.fn();
+    render(<NumberField label="X" value={10} onChange={onChange} />);
+    fireEvent.pointerDown(screen.getByText('X'), { button: 0, clientX: 0, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 10, pointerId: 1 });
+    expect(onChange).toHaveBeenLastCalledWith(20);
+    // A different pointer (a second touch, a pen leaving hover range, a mouse
+    // press elsewhere) releases on the same window. It must not end, commit,
+    // or abort the gesture that is actually in progress.
+    fireEvent.pointerUp(window, { pointerId: 2 });
+    fireEvent.pointerMove(window, { clientX: 20, pointerId: 1 });
+    expect(onChange).toHaveBeenLastCalledWith(30);
+  });
+
+  it('keeps the owning scrub alive when another pointer is cancelled', () => {
+    const abortTransaction = vi.fn();
+    const onChange = vi.fn();
+    const value = {
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction,
+    } as unknown as EditorContextValue;
+    render(
+      <EditorCtx.Provider value={value}>
+        <NumberField label="X" value={10} onChange={onChange} />
+      </EditorCtx.Provider>,
+    );
+    fireEvent.pointerDown(screen.getByText('X'), { button: 0, clientX: 0, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 12, pointerId: 1 });
+    fireEvent.pointerCancel(window, { pointerId: 2 });
+    expect(abortTransaction).not.toHaveBeenCalled();
+    fireEvent.pointerMove(window, { clientX: 20, pointerId: 1 });
+    expect(onChange).toHaveBeenLastCalledWith(30);
   });
 
   it('coalesces focused wheel changes into one transaction after 200ms idle', () => {
@@ -510,15 +544,61 @@ describe('NumberField', () => {
     }
   });
 
-  it('lets a mixed field replace the state label with the first typed value', () => {
+  it('shows the typed draft in a mixed field before it is committed', () => {
+    let committed: number | null = null;
+    function MixedHolder() {
+      const [v, setV] = useState(0);
+      const [isMixed, setIsMixed] = useState(true);
+      return (
+        <NumberField
+          label="X"
+          value={v}
+          mixed={isMixed}
+          onChange={(next) => {
+            committed = next;
+            setV(next);
+            // Committing a batch edit makes every selected object agree.
+            setIsMixed(false);
+          }}
+        />
+      );
+    }
+    render(<MixedHolder />);
+    const input = screen.getByLabelText('X') as HTMLInputElement;
+    expect(input.value).toBe('Mixed');
+    expect(input.getAttribute('aria-valuetext')).toBe('Mixed values');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '42' } });
+    // The draft is the editing string: visible and announced immediately,
+    // with no document change until commit.
+    expect(input.value).toBe('42');
+    expect(input.getAttribute('aria-valuetext')).toBe('42');
+    expect(committed).toBeNull();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(committed).toBe(42);
+    expect(input.value).toBe('42');
+  });
+
+  it('keeps a cleared mixed field empty instead of restoring the state label', () => {
     let val = 10;
     render(<NumberField label="X" value={0} mixed onChange={(v) => (val = v)} />);
     const input = screen.getByLabelText('X') as HTMLInputElement;
-    expect(input.value).toBe('Mixed');
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: '42' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(val).toBe(42);
+    fireEvent.change(input, { target: { value: '' } });
+    expect(input.value).toBe('');
+    // An empty draft is cancelled by Escape, never committed as a number.
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(input.value).toBe('Mixed');
+    expect(val).toBe(10);
+  });
+
+  it('announces a mixed draft with its unit', () => {
+    render(<NumberField label="Opacity" value={50} unit="%" mixed onChange={() => {}} />);
+    const input = screen.getByLabelText('Opacity (%)') as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '65' } });
+    expect(input.value).toBe('65');
+    expect(input.getAttribute('aria-valuetext')).toBe('65%');
   });
 
   it('cancels a draft when its target scope changes', () => {

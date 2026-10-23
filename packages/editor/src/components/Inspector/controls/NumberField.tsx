@@ -295,9 +295,14 @@ export function NumberField({
   // Both are authoritative sources a literal edit cannot stick to.
   const isReadOnly =
     readOnly || propertyState?.kind === 'bound' || propertyState?.kind === 'calculated';
-  const displayed = visualMixed
-    ? 'Mixed'
-    : (dirty ?? (formatValue ? formatValue(value) : formatRestingValue(value, step)));
+  // The editing string wins over every resting state. `mixed` describes the
+  // *stored* selection, not the user's in-progress draft: when a mixed field
+  // shows "Mixed" ahead of `dirty`, every keystroke is written to state and
+  // then hidden until commit, so the field appears frozen while typing and a
+  // cleared field snaps back to "Mixed" instead of staying empty.
+  const displayed =
+    dirty ??
+    (visualMixed ? 'Mixed' : formatValue ? formatValue(value) : formatRestingValue(value, step));
   const name = unit ? `${label} (${unit})` : label;
 
   const finishArrowTransaction = useCallback((cancel: boolean) => {
@@ -511,6 +516,16 @@ export function NumberField({
       // user's focus context preserves global shortcuts (Ctrl+Z, Delete …).
       // A press without movement still focuses + selects via finishScrub.
       e.preventDefault();
+      // The documented contract is pointer capture: it keeps the gesture
+      // receiving moves when the pointer leaves the label, and guarantees
+      // `pointerup` is delivered even when the release happens outside the
+      // window. Window listeners still see the retargeted events.
+      try {
+        label.setPointerCapture?.(pointerId);
+      } catch {
+        // A non-primary or already-released pointer can reject capture;
+        // window listeners still track the gesture.
+      }
 
       let active = false;
       let current = value;
@@ -548,8 +563,19 @@ export function NumberField({
         if (onDelta) onDelta(increment);
         else onChange(next);
       };
-      const onUp = () => finishScrub(false);
-      const onCancel = () => finishScrub(true);
+      // Only the pointer that started the gesture may end it. A second
+      // pointer (pen hovering, a second touch, a mouse press elsewhere) fires
+      // its own up/cancel on the same window; without this guard that
+      // unrelated release committed or aborted the owning scrub, and the
+      // following moves of the real gesture were silently ignored.
+      const onUp = (ue: PointerEvent) => {
+        if (ue.pointerId !== pointerId) return;
+        finishScrub(false);
+      };
+      const onCancel = (ce: PointerEvent) => {
+        if (ce.pointerId !== pointerId) return;
+        finishScrub(true);
+      };
       const onWindowBlur = () => finishScrub(true);
       const onScrubKey = (ke: KeyboardEvent) => {
         if (ke.key === 'Escape') {
@@ -692,8 +718,19 @@ export function NumberField({
   const describedBy = [error ? errorId : null, showStateText ? stateId : null]
     .filter((item): item is string => Boolean(item))
     .join(' ');
-  const ariaText =
-    stateText ?? (visualMixed ? 'Mixed values' : unit ? `${value}${unit}` : String(value));
+  const ariaText = (() => {
+    if (stateText) return stateText;
+    // While a draft is being typed the visible string is the draft, so the
+    // spoken value must be the draft too — announcing "Mixed values" beside
+    // visible "42" is a contradiction. Unparseable intermediate strings
+    // ("1.", "-") keep the resting announcement instead of spelling out a
+    // half-typed token.
+    if (dirty !== null && parseField(dirty, aliases) !== null) {
+      return unit ? `${dirty}${unit}` : dirty;
+    }
+    if (visualMixed) return 'Mixed values';
+    return unit ? `${value}${unit}` : String(value);
+  })();
 
   return (
     <div
