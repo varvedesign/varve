@@ -86,10 +86,13 @@ test.describe('Tooltip system', () => {
     const toolbar = page.locator('[role="toolbar"]').first();
     await expect(toolbar).toBeVisible({ timeout: 10000 });
 
-    // Click the toolbar to start keyboard navigation
-    await toolbar.click();
-    // Tab to the first focusable element
+    // Start keyboard navigation from the toolbar's non-interactive hint text,
+    // then Tab onto its first button. Clicking the toolbar's centre depended on
+    // font metrics: it landed on a tool button, switched tools, and Tab left
+    // the toolbar.
+    await toolbar.getByText(/No selection/).click();
     await page.keyboard.press('Tab');
+    await expect(toolbar.getByRole('button').first()).toBeFocused();
 
     // Tooltip should appear on focus
     const tooltip = page.locator('[role="tooltip"]');
@@ -100,9 +103,12 @@ test.describe('Tooltip system', () => {
     const toolbar = page.locator('[role="toolbar"]').first();
     await expect(toolbar).toBeVisible({ timeout: 10000 });
 
-    // Focus a button to trigger tooltip
-    await toolbar.click();
+    // Focus a button to trigger tooltip. Start from the hint text, as in the
+    // keyboard-focus test above: clicking the toolbar's centre can land on a
+    // tool button.
+    await toolbar.getByText(/No selection/).click();
     await page.keyboard.press('Tab');
+    await expect(toolbar.getByRole('button').first()).toBeFocused();
 
     const tooltip = page.locator('[role="tooltip"]');
     await expect(tooltip).toBeVisible({ timeout: 1000 });
