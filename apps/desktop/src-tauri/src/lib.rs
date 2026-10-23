@@ -6416,6 +6416,19 @@ mod tests {
     }
 
     #[test]
+    fn host_memory_status_serializes_the_camel_case_contract() {
+        // The renderer reads `availableBytes`; a missing rename_all would
+        // silently send `available_bytes`, the probe would find nothing, and
+        // every desktop session would fall back to the 400 MB floor again.
+        let status = host_memory_status();
+        let json = serde_json::to_value(&status).expect("serializable status");
+        assert!(json.get("availableBytes").is_some());
+        assert!(json.get("resourceTier").is_some());
+        assert!(json.get("available_bytes").is_none());
+        assert!(json.get("resource_tier").is_none());
+    }
+
+    #[test]
     fn model_qualification_is_bound_to_the_current_platform_and_architecture() {
         let resource = generative_resources::NativeResourceSnapshot {
             available_memory_bytes: Some(8 * 1024 * 1024 * 1024),
