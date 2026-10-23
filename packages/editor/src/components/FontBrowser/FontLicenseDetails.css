@@ -58,7 +58,7 @@
 }
 
 .font-license-details__close-btn:focus-visible {
-  outline: var(--focus-ring);
+  outline: var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -115,7 +115,7 @@
 }
 
 .font-license-details__link:focus-visible {
-  outline: var(--focus-ring);
+  outline: var(--color-interactive-focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-control-compact);
 }
@@ -172,7 +172,7 @@
 }
 
 .font-license-details__text-summary:focus-visible {
-  outline: var(--focus-ring);
+  outline: var(--color-interactive-focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-control-compact);
 }

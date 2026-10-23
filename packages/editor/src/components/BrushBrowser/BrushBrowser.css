@@ -42,7 +42,7 @@
 }
 
 .brush-browser__chip:has(input:focus-visible) {
-  outline: var(--focus-ring);
+  outline: var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -89,7 +89,7 @@
 }
 
 .brush-browser__tile-main:focus-visible {
-  outline: var(--focus-ring);
+  outline: var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 

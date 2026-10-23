@@ -65,7 +65,10 @@ function walk(dir, out = []) {
   }
   for (const entry of entries) {
     const path = join(dir, entry);
-    if (SKIP.test(path)) continue;
+    // Match against the repo-relative path: a checkout that itself lives under
+    // `.worktrees/` matched SKIP on every file, so the audit scanned nothing
+    // and reported clean in every worktree.
+    if (SKIP.test(relative(ROOT, path))) continue;
     let st;
     try {
       st = statSync(path);
@@ -84,9 +87,25 @@ const codeFiles = files.filter(
   (f) => /\.(ts|tsx|astro)$/.test(f) && !/\.test\./.test(f) && !/__tests__/.test(f),
 );
 
+/**
+ * Definitions are scoped by bundle. The marketing website ships its own
+ * stylesheet layer (`apps/website/src/styles/theme.css`) with names such as
+ * `--text-primary` and `--accent-primary` that the app never loads. Counting
+ * those as defined let app stylesheets reference them, so in the app they
+ * resolved to nothing: the first-run guide's primary button inherited light
+ * text and turned white-on-teal on hover, and two browsers drew focus rings in
+ * an undefined colour (shell audit 2026-10-22, F-47). App files resolve only
+ * against app definitions; website files may also use the website's own.
+ */
+const WEBSITE = /(^|[\\/])apps[\\/]website[\\/]/;
 const defined = new Set();
+const definedApp = new Set();
 function collectDefinitions(file) {
   const text = readFileSync(file, 'utf8');
+  const scopes = WEBSITE.test(relative(ROOT, file)) ? [defined] : [defined, definedApp];
+  const add = (name) => {
+    for (const scope of scopes) scope.add(name);
+  };
   for (const line of text.split('\n')) {
     // Parity with the reference scan below: a token mentioned only in a
     // comment or documentation string is not a definition. Without this,
@@ -94,20 +113,20 @@ function collectDefinitions(file) {
     // and the whole gate becomes vacuous for hand-typed token names.
     if (isCommentLine(line)) continue;
     for (const m of line.matchAll(/(^|[;{\s,"'`])--([a-zA-Z0-9_-]+)\s*['"`]?\s*:/g)) {
-      defined.add(`--${m[2]}`);
+      add(`--${m[2]}`);
     }
     for (const m of line.matchAll(/setProperty\(\s*['"`](--[a-zA-Z0-9_-]+)['"`]/g)) {
-      defined.add(m[1]);
+      add(m[1]);
     }
     // `'--custom-prop': value` object keys and `--x, value` setProperty args
     for (const m of line.matchAll(/['"`](--[a-zA-Z0-9_-]+)['"`]\s*[,:)]/g)) {
-      defined.add(m[1]);
+      add(m[1]);
     }
     // A token name assigned to a constant — `VISUAL_VIEWPORT_HEIGHT_PROPERTY
     // = '--visual-viewport-height'` — is the runtime publisher's definition
     // (the setProperty call then uses the identifier, not the literal).
     for (const m of line.matchAll(/=\s*['"`](--[a-zA-Z0-9_-]+)['"`]/g)) {
-      defined.add(m[1]);
+      add(m[1]);
     }
   }
 }
@@ -119,12 +138,13 @@ const literalFallbacks = [];
 for (const file of [...cssFiles, ...codeFiles]) {
   const text = readFileSync(file, 'utf8');
   const rel = relative(ROOT, file);
+  const visible = WEBSITE.test(rel) ? defined : definedApp;
   text.split('\n').forEach((line, index) => {
     if (isCommentLine(line)) return;
     for (const m of line.matchAll(/var\(\s*(--[a-zA-Z0-9_-]+)\s*(,[^)]*)?\)/g)) {
       const name = m[1];
       const fallback = m[2]?.replace(/^,\s*/, '').trim();
-      if (!defined.has(name)) {
+      if (!visible.has(name)) {
         if (ALLOWED.has(name)) continue;
         unresolved.push({ rel, line: index + 1, name, text: line.trim().slice(0, 120) });
         continue;

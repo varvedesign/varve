@@ -34,10 +34,10 @@
   transform: translate(-50%, -50%);
   pointer-events: auto;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-pill, var(--radius-control-compact));
   background: var(--color-surface-raised, var(--color-surface-sunken));
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   white-space: nowrap;
   cursor: pointer;
@@ -88,7 +88,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
   background: var(
     --elevation-surface-raised,
@@ -100,7 +100,7 @@
 
 .mockup-overlay__toolbar-label {
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   padding-inline: var(--space-1);
 }
 
@@ -109,15 +109,15 @@
   border: var(--border-micro);
   border-radius: var(--radius-control-compact);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
 
 .mockup-overlay__action:hover,
 .mockup-overlay__action:focus-visible {
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-subtle);
 }
 
 .mockup-overlay__action--primary {
@@ -134,6 +134,6 @@
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }

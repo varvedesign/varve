@@ -5,19 +5,24 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const scriptPath = fileURLToPath(new URL('./audit-token-usage.mjs', import.meta.url));
 
-function runFixture(files) {
-  const root = mkdtempSync(join(tmpdir(), 'token-usage-'));
+function runFixture(files, { underWorktrees = false } = {}) {
+  const base = mkdtempSync(join(tmpdir(), 'token-usage-'));
+  const root = underWorktrees ? join(base, '.worktrees', 'feature') : base;
   try {
     const dir = join(root, 'packages', 'demo', 'src');
     mkdirSync(dir, { recursive: true });
     mkdirSync(join(root, 'apps'), { recursive: true });
+    // Bare names land in packages/demo/src; paths with a slash are relative
+    // to the fixture root (for bundle-scoping cases).
     for (const [name, content] of Object.entries(files)) {
-      writeFileSync(join(dir, name), content);
+      const target = name.includes('/') ? join(root, name) : join(dir, name);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, content);
     }
     try {
       const stdout = execFileSync(process.execPath, [scriptPath], {
@@ -30,7 +35,7 @@ function runFixture(files) {
       return { status: error.status ?? 1, stdout: `${error.stdout ?? ''}${error.stderr ?? ''}` };
     }
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmSync(base, { recursive: true, force: true });
   }
 }
 
@@ -70,4 +75,35 @@ const literalFallback = runFixture({
 assert.notEqual(literalFallback.status, 0, 'a literal fallback on a defined token must fail');
 assert.match(literalFallback.stdout, /--skinned-token/);
 
-console.log('audit-token-usage.test.mjs — 4 assertions passed');
+// A name only the website defines does not exist in the app bundle (F-47:
+// the first-run guide and two browsers styled themselves with website-only
+// aliases and rendered unthemed in the app).
+const websiteOnly = runFixture({
+  'apps/website/src/styles/theme.css': ':root { --site-only: #123456; }\n',
+  'demo.css': '.demo { color: var(--site-only); }\n',
+});
+assert.notEqual(websiteOnly.status, 0, 'an app reference to a website-only token must fail');
+assert.match(websiteOnly.stdout, /--site-only/);
+
+// The website itself may use its own layer and the shared app tokens.
+const websiteUsesBoth = runFixture({
+  'apps/website/src/styles/theme.css':
+    ':root { --site-only: #123456; }\n.hero { color: var(--site-only); background: var(--shared-token); }\n',
+  'tokens.css': ':root { --shared-token: #abcdef; }\n',
+});
+assert.equal(
+  websiteUsesBoth.status,
+  0,
+  `website scope must see both, got:\n${websiteUsesBoth.stdout}`,
+);
+
+// A checkout under `.worktrees/` is still scanned: the skip pattern used to
+// match the absolute path, so every worktree run was vacuously clean.
+const inWorktree = runFixture(
+  { 'demo.css': '.demo { color: var(--ghost-token); }\n' },
+  { underWorktrees: true },
+);
+assert.notEqual(inWorktree.status, 0, 'a worktree checkout must still be audited');
+assert.match(inWorktree.stdout, /--ghost-token/);
+
+console.log('audit-token-usage.test.mjs — 9 assertions passed');
