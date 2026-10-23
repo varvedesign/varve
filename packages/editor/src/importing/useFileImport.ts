@@ -368,7 +368,14 @@ export function useFileImport(
           },
           abortController.signal,
         );
-        if (!isCurrentOperation()) return;
+        // A cancelled or superseded run stays silent; the new run owns the
+        // progress surface. A run that outlived its document context has no
+        // owner left to explain the dropped result, so say why here.
+        if (!isActiveOperation()) return;
+        if (!isCurrent()) {
+          editor.announce('Import cancelled because the document changed while it was loading');
+          return;
+        }
 
         const parsedItems: { rootIds: NodeId[]; sourceDoc: Document }[] = [];
         for (const fileReport of result.files) {
@@ -376,10 +383,6 @@ export function useFileImport(
             const rootIds = artifact.nodeIds.filter((id) => artifact.document.nodes[id]);
             if (rootIds.length > 0) parsedItems.push({ rootIds, sourceDoc: artifact.document });
           }
-        }
-        if (!isCurrentOperation()) {
-          editor.announce('Import cancelled because the document changed while it was loading');
-          return;
         }
         // One batch, so the whole import is a single undo step.
         if (parsedItems.length > 0) {

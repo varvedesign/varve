@@ -59,6 +59,12 @@ test.describe('selection resize mouse buttons', () => {
     expect(after.height).toBeCloseTo(before.height, 1);
     expect(after.x - before.x).toBeGreaterThan(40);
     expect(Math.abs(after.y - before.y)).toBeLessThan(2);
+    // The gesture is forwarded from the canvas section, so the pipeline must
+    // focus the drawing canvas rather than the section it captured on.
+    // Otherwise the canvas loses its keyboard handling after the pan.
+    expect(await page.evaluate(() => document.activeElement?.className ?? '')).toContain(
+      'editor-canvas__content-layer',
+    );
     await test.info().attach('middle-button-resize-after', {
       body: await page.locator('canvas.editor-canvas__content-layer').screenshot(),
       contentType: 'image/png',

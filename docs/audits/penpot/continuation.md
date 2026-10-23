@@ -746,3 +746,38 @@ branch reintroduces the untracked-module defect that gate exists for.
   master moved while the branch was open, and the merge silently dropped a
   test assumption that the branch depended on. Both were caught by running the
   affected specs after the merge rather than trusting the pre-merge evidence.
+
+### Independent review of the triage batch (2026-10-23)
+
+Review was read-only over the prepared diff; it did not run tests. Five findings
+were actionable and are fixed in the same increment:
+
+- **Focus loss after an overlay pan (medium).** Forwarding a middle-button
+  gesture from the canvas section made `inputPipeline` focus
+  `e.currentTarget` — the section — which blurred the drawing canvas and
+  disabled its keyboard handling for the rest of the session. The pipeline now
+  focuses `contentCanvasRef`, and the middle-button spec asserts the drawing
+  canvas owns focus after the pan.
+- **The browser-reserved probe could not fail (medium).** It read
+  `defaultPrevented` in a capture-phase microtask, before the app's handlers
+  ran, so the assertion was structurally always `false`. The probe is now
+  bubble-phase after the app's listeners, and the Home test also asserts the
+  editor did not navigate away. The override-rejection guard remains covered by
+  `ShortcutManager.test.ts`; the E2E proves the shipped defaults do not consume
+  the chords.
+- **Forwarded pointer state could leak (low).** A pan released outside the
+  canvas section never delivered its pointerup, leaving the forwarded pointer id
+  set for the reused mouse pointer. Any new pointerdown now clears it, and a
+  window-level release listener clears it when the release lands elsewhere.
+- **Dead cancellation announcement (low).** Two identical `isCurrentOperation()`
+  checks made the "document changed" announcement unreachable. Cancelled and
+  superseded runs now stay silent while a stale-document result announces why
+  it was dropped.
+- **Audit scope wording (low).** The finding said the pan fix covered only guide
+  hit targets; it forwards from any canvas overlay. Corrected.
+
+Two SVG-import deviations the reviewer flagged are pre-existing on master, not
+regressions from this branch, and are recorded here rather than fixed:
+`svgStopColor` defaults a stop with no `stop-color` to `transparent` where SVG's
+initial value is black, and `fill`/`stroke` are not inherited from an ancestor
+`<g>`. Both need their own reproduction fixtures before any change.
