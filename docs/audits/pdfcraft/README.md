@@ -138,7 +138,11 @@ These are honest gaps, not completions:
 1. **Cutoff 2 is the final corpus boundary for this pass.** 494 new issues and
    184 closures were adjudicated through `2026-10-21T19:32:41Z`. The tracker
    grows by roughly 170 records a day; anything created after cutoff 2 is a
-   follow-on queue, not part of this coverage claim.
+   follow-on queue, not part of this coverage claim. The first follow-on
+   reconciliation is recorded in
+   [`follow-on-2026-10-22.md`](follow-on-2026-10-22.md): 137 issues created in
+   the following 28 hours, eight of which touch a Varve surface, two of those
+   already verified as handled.
 2. **Attachments not retrieved.** Body references point at screenshots,
    recordings and reproduction files. Bodies, labels, states and discussion
    text were read; a claim that exists only inside an image was not assessed.
