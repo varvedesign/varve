@@ -129,6 +129,9 @@ Everything in Alpha, plus:
 
 ## Emergency hotfix
 
+Full security-hotfix procedure, including which CI jobs are mandatory:
+[incident-runbook.md](../security/incident-runbook.md).
+
 1. [ ] Branch from the **release tag**, not from `master`
 2. [ ] Fix only the one thing. Resist everything else
 3. [ ] Add a regression test that fails without the fix

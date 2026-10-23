@@ -1,0 +1,39 @@
+# Lockfile vulnerability scan. Does not replace the production advisory gate
+# in ci.yml (scripts/security/dependency-advisories.mjs).
+name: OSV-Scanner
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: osv-scanner-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  osv-scanner:
+    name: OSV-Scanner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172
+        with:
+          tool: osv-scanner@2.6.0
+          checksum: true
+          fallback: none
+      - name: Scan lockfiles
+        run: >
+          osv-scanner scan
+          --lockfile=pnpm-lock.yaml
+          --lockfile=Cargo.lock
+          --lockfile=apps/desktop/src-tauri/Cargo.lock
+          --config=osv-scanner.toml

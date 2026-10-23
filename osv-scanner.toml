@@ -1,0 +1,76 @@
+# OSV-Scanner allowlist for lockfile findings that already exist on master.
+# This does not hide anything from scripts/security/dependency-advisories.mjs.
+# Each entry names the remaining exposure and why this PR does not bump the
+# lockfile.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+reason = "paste is unmaintained with no replacement in the resolved graph. Informational; no fixed version."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0206"
+reason = "rustybuzz 0.20.1 has no published fix. Retained as a visible RustSec warning in the existing advisory gate."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0192"
+reason = "ttf-parser 0.25.1 has no published fix. Pulled by rustybuzz; same containment as the advisory-gate warning."
+
+[[IgnoredVulns]]
+id = "GHSA-wrw7-89jp-8q8g"
+reason = "glib 0.18.x VariantStrIter unsoundness (RUSTSEC-2024-0429). gtk-rs 0.18 is pinned by Tauri 2.11. Documented in SECURITY.md; no compatible stack yet."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0370"
+reason = "proc-macro-error is unmaintained. Build-time only; no fixed crate on the Tauri derive path."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0371"
+reason = "zbus_names 4.3.4 has no published fix. Desktop zbus stack; not ignored in the cargo-audit advisory gate."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0370"
+reason = "zvariant 5.14.0 has no published fix. Same zbus/zvariant desktop stack."
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0372"
+reason = "zvariant_derive 5.14.0 has no published fix. Same zbus/zvariant desktop stack."
+
+[[IgnoredVulns]]
+id = "GHSA-qxg6-89mg-rqv8"
+reason = "vitest mocker 4.1.11 is a dev-only test helper. Bumping vitest is a separate toolchain change."
+
+[[IgnoredVulns]]
+id = "GHSA-xp26-3454-mjgp"
+reason = "Same @vitest/mocker 4.1.11 dev-only finding as GHSA-qxg6-89mg-rqv8."
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+reason = "braces 3.0.3 has no published fix. Website build graph; documented local mitigation in SECURITY.md and docs/CI_CD_RESILIENCE.md."
+
+[[IgnoredVulns]]
+id = "GHSA-7pqw-9j4j-h8q3"
+reason = "extract-zip 2.0.1 has no patched npm release. Dev-only; contained by patches/extract-zip@2.0.1.patch. See SECURITY.md."
+
+[[IgnoredVulns]]
+id = "GHSA-jmr9-qjv8-65gv"
+reason = "Same extract-zip 2.0.1 finding as GHSA-7pqw-9j4j-h8q3. Local patch remains required."
+
+[[IgnoredVulns]]
+id = "GHSA-rxp7-6hxx-x8q5"
+reason = "ip-address 10.7.1 is a development/tooling dependency. Not a production runtime package; lockfile bump deferred."
+
+[[IgnoredVulns]]
+id = "GHSA-rj75-hqrm-r3gf"
+reason = "postcss-selector-parser 6.1.4 is Tailwind 3 / website build tooling on trusted sources. Advisory excludes that use. See SECURITY.md."
+
+[[IgnoredVulns]]
+id = "GHSA-r4xh-jqrq-34v2"
+reason = "smol-toml 1.7.1 is Knip/WDIO tooling parsing repo-controlled config. Production Astro already uses 1.9.0. See SECURITY.md."
+
+[[IgnoredVulns]]
+id = "GHSA-f2ph-cmg5-wxc8"
+reason = "storybook 10.5.7 is a local UI workshop, not a shipped artifact. Upgrade is a separate toolchain change."
+
+[[IgnoredVulns]]
+id = "GHSA-px85-f4q5-jh77"
+reason = "Same storybook 10.5.7 workshop finding as GHSA-f2ph-cmg5-wxc8."

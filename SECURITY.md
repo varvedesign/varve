@@ -1,66 +1,117 @@
 # Security Policy
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-If you discover a security vulnerability in Varve, please report it
-privately. Do not create a public GitHub issue, and do not disclose
-the details publicly before we have coordinated a fix.
+Report security issues privately. Do not open a public GitHub issue, and do
+not publish details before a coordinated disclosure.
 
-Contact: open a private advisory at
-https://github.com/varvedesign/varve/security/advisories
+Use either channel:
 
-You may also email [security@varve.studio](mailto:security@varve.studio). Do not
-send vulnerability details through a public issue or discussion. Do not include
-unnecessary personal data or destructive test results.
+1. Email [security@varve.studio](mailto:security@varve.studio)
+2. GitHub private vulnerability reporting: Security tab, then
+   [Report a vulnerability](https://github.com/varvedesign/varve/security/advisories/new)
 
-Reports are reviewed as capacity allows. If you do not receive an acknowledgement,
-follow up through the same private channel.
+Do not include unnecessary personal data or destructive test results.
 
-## Supported Versions
+## Response times
 
-| Version | Supported |
-|---------|-----------|
-| Latest stable release | Yes |
-| Previous stable release | Best effort, security fixes only |
-| Prereleases (alpha/beta) | Best effort |
-| Unreleased `master` | Yes (as source) |
+These are targets, not guarantees. One person maintains this project.
 
-The latest stable release is the only release guaranteed to receive
-security patches. See `docs/release/release-checklists.md` for the
-release cadence.
+| Step | Target |
+|------|--------|
+| Acknowledgement | within 3 business days |
+| Triage and severity (CVSS) | within 7 days of acknowledgement |
+| Critical fix | 7 days after a confirmed fix is identified |
+| High fix | 30 days after a confirmed fix is identified |
+| Medium and low | the next release |
+
+If you do not get an acknowledgement, follow up on the same private channel.
+
+## Coordinated disclosure
+
+We follow coordinated disclosure. The default window is 90 days from the
+acknowledgement. We may ask for more time when a fix is not ready; we may
+agree to a shorter window when the risk of holding back is worse than
+publishing.
+
+Public details wait until a fix is available, or until the agreed window
+ends. We credit reporters who want credit.
+
+## Supported versions
+
+During the public 0.5 beta, only the latest 0.5.x release receives security
+fixes. Older 0.5.x builds, prereleases, and unreleased `master` are not
+supported for patching. `master` still accepts fixes as source.
+
+## How fixes are announced
+
+- A GitHub Security Advisory for the issue
+- A `CHANGELOG.md` entry under Security for the release that contains the fix
+
+We do not promise additional notification channels.
+
+## How to verify a release
+
+Published artifacts include SHA-256 checksums and an SBOM. Attestations are
+verified with the GitHub CLI.
+
+Current repository:
+
+```bash
+gh attestation verify <file> --repo varvedesign/varve
+```
+
+Releases through 0.5.1 were attested under the previous repository name.
+For those files use either:
+
+```bash
+gh attestation verify <file> --repo K-Arthur/varve
+```
+
+or, equivalently, owner scope:
+
+```bash
+gh attestation verify <file> --owner K-Arthur
+```
+
+`gh attestation verify` requires `--repo OWNER/REPO` or `--owner OWNER`.
+`--repo` is the tighter check. See `gh attestation verify --help`.
+
+Unsigned installers, when the release policy allows them, are labelled as
+unsigned. Checksums and attestations still apply to the published bytes.
 
 ## What to include
 
 - A clear description of the vulnerability
-- Steps to reproduce (if applicable)
+- Steps to reproduce, if you have them
 - The version(s) affected
-- Any potential impact you have identified
+- Impact you have already identified
 
 ## Scope
 
-The following are in scope:
-- The Varve application code (Rust, TypeScript)
-- Build and distribution infrastructure (GitHub Actions, release/signing
-  pipeline, the website deployment)
-- Authentication and authorisation mechanisms (if any)
+In scope:
 
-The following are out of scope:
-- Third-party dependencies (report to their maintainers)
+- The Varve application code (Rust, TypeScript)
+- Build and distribution infrastructure (GitHub Actions, the release and
+  signing pipeline, the website deployment)
+- Authentication and authorisation mechanisms, if any exist
+
+Out of scope:
+
+- Third-party dependencies (report those to their maintainers)
 - Vulnerabilities in the Rust or Node.js ecosystems (report upstream)
-- Theoretical attacks without practical exploit
+- Theoretical attacks without a practical impact
 
 ## Handling process
 
-1. **Acknowledge** the report via the advisory or security email.
-2. **Triage**: confirm severity, affected versions, and whether a fix is
+1. Acknowledge the report through the advisory or security email.
+2. Triage: confirm severity (CVSS), affected versions, and whether a fix is
    feasible.
-3. **Fix and release**: a fix lands on `master`, then in the next stable
-   release (or a patch release for critical issues).
-4. **Disclosure**: once the fix is released, we coordinate public disclosure
-   with the reporter and credit them unless they request anonymity.
-
-We follow the coordinated-disclosure model: no public details before a
-fix is available.
+3. Fix and release: the fix lands on `master`, then in a supported 0.5.x
+   release. Critical issues follow
+   [docs/security/incident-runbook.md](docs/security/incident-runbook.md).
+4. Disclose through a GitHub Security Advisory and the changelog, then
+   credit the reporter unless they ask to stay anonymous.
 
 ## Supply-chain and secret handling notes
 

@@ -1,18 +1,14 @@
-import { CONTACTS } from '@varve/shared';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { APIRoute } from 'astro';
-import { siteUrl } from '../../lib/siteUrl';
 
-export const GET: APIRoute = () => {
-  const body = [
-    `Contact: mailto:${CONTACTS.security}`,
-    `Canonical: ${siteUrl('/.well-known/security.txt')}`,
-    `Policy: ${siteUrl('/security')}`,
-    'Preferred-Languages: en',
-    'Expires: 2027-08-15T00:00:00Z',
-    '',
-  ].join('\n');
+const SECURITY_TXT = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '../../../public/.well-known/security.txt'),
+  'utf8',
+);
 
-  return new Response(body, {
+export const GET: APIRoute = () =>
+  new Response(SECURITY_TXT, {
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },
   });
-};
