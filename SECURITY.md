@@ -7,7 +7,7 @@ not publish details before a coordinated disclosure.
 
 Use either channel:
 
-1. Email [security@varve.studio](mailto:security@varve.studio)
+1. Email [hello@varve.studio](mailto:hello@varve.studio)
 2. GitHub private vulnerability reporting: Security tab, then
    [Report a vulnerability](https://github.com/varvedesign/varve/security/advisories/new)
 

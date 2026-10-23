@@ -1,4 +1,4 @@
-Contact: mailto:security@varve.studio
+Contact: mailto:hello@varve.studio
 Expires: 2027-10-23T00:00:00.000Z
 Policy: https://github.com/varvedesign/varve/blob/master/SECURITY.md
 Preferred-Languages: en

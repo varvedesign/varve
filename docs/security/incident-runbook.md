@@ -8,6 +8,10 @@ One person maintains Varve. This runbook is written for that person, not
 for a team that does not exist. Do the next necessary step. Do not invent
 roles to fill.
 
+Reports arrive by email at hello@varve.studio, or through GitHub private
+vulnerability reporting.
+TODO: a dedicated security@ alias may replace hello@ later.
+
 ## Intake
 
 1. Read the report. Do not reply in public.
