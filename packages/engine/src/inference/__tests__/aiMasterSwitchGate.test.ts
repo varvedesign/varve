@@ -143,7 +143,10 @@ describe('AI master switch choke point', () => {
   });
 
   it('defaults on when a readable blob has no ai object', () => {
-    localStorage.setItem('varve-editor-settings', JSON.stringify({ appearance: { theme: 'dark' } }));
+    localStorage.setItem(
+      'varve-editor-settings',
+      JSON.stringify({ appearance: { theme: 'dark' } }),
+    );
     expect(getAiFeaturesEnabled()).toBe(true);
   });
 

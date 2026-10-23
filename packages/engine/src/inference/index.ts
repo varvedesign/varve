@@ -117,7 +117,6 @@ export {
   getAiFeaturesEnabled,
   resetAiFeaturesGateForTests,
 } from './aiFeaturesGate';
-export { resolvedIntegrityHash } from './integrityHash';
 export { DownloadManager } from './core/DownloadManager';
 export type { InferenceErrorCode, InferenceErrorDetails } from './core/InferenceError';
 export { InferenceError, isInferenceError, toUserMessage } from './core/InferenceError';
@@ -165,6 +164,7 @@ export {
   getInferenceWorkerHost,
   InferenceWorkerHost,
 } from './inferenceWorkerHost';
+export { resolvedIntegrityHash } from './integrityHash';
 export { ModelRegistry } from './ModelRegistry';
 export { getModelById, listAllModels } from './modelCatalog';
 export type {

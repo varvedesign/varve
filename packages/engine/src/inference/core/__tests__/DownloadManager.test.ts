@@ -426,9 +426,7 @@ describe('DownloadManager', () => {
     );
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        makeResponse(bytes, 200, { 'Content-Length': String(bytes.byteLength) }),
-      ),
+      vi.fn(async () => makeResponse(bytes, 200, { 'Content-Length': String(bytes.byteLength) })),
     );
 
     await manager.startDownload('sha256-only');
