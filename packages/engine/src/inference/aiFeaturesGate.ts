@@ -54,6 +54,7 @@ function invalidateCache(): void {
 
 function ensureDomListeners(): void {
   if (domListening || typeof window === 'undefined') return;
+  if (typeof window.addEventListener !== 'function') return;
   domListening = true;
   const onStoreChange = (event: Event) => {
     if (event instanceof StorageEvent) {
@@ -80,6 +81,7 @@ export function resetAiFeaturesGateForTests(): void {
   workerSnapshot = undefined;
   cachedEnabled = undefined;
   loggedUnreadable = false;
+  for (const listener of listeners) listener();
 }
 
 /** Call after writing editor settings in the same tab so subscribers refresh. */

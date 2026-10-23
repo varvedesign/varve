@@ -5,20 +5,22 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, type TestInfo, test } from '@playwright/test';
 import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor, navigateToHome, sidebarNavClick, switchWorkspace } from '../shared';
 
 const MODEL_URL = /\.onnx(\.data)?(\?|$)|huggingface\.co|hf\.co|cdn-lfs/i;
-const SCREENSHOT_DIR = '/opt/cursor/artifacts/screenshots';
 const AI_HINT = 'Turn on AI features in Settings to use this';
 
-async function capture(page: import('@playwright/test').Page, name: string) {
-  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
-  const dest = path.join(SCREENSHOT_DIR, `${name}.png`);
-  if (fs.existsSync(dest)) return;
+function screenshotDir(testInfo: TestInfo): string {
+  return process.env.VARVE_AI_SCREENSHOT_DIR ?? testInfo.outputDir;
+}
+
+async function capture(page: Page, testInfo: TestInfo, name: string) {
+  const dir = screenshotDir(testInfo);
+  fs.mkdirSync(dir, { recursive: true });
   await page.screenshot({
-    path: dest,
+    path: path.join(dir, `${name}.png`),
     fullPage: true,
   });
 }
@@ -71,7 +73,9 @@ function seedAiOff() {
 }
 
 test.describe('AI off loads no model files', () => {
-  test('no model network or worker infer after exercising AI-off states', async ({ page }) => {
+  test('no model network or worker infer after exercising AI-off states', async ({
+    page,
+  }, testInfo) => {
     test.setTimeout(180000);
     const modelRequests: string[] = [];
     await page.route('**/*', (route) => {
@@ -95,7 +99,7 @@ test.describe('AI off loads no model files', () => {
     await expect(page.getByRole('button', { name: /natural-language search model/i })).toHaveCount(
       0,
     );
-    await capture(page, 'ai_off_home_assets');
+    await capture(page, testInfo, 'ai_off_home_assets');
 
     await navigateToEditor(page);
     await importTestImage(page);
@@ -103,7 +107,7 @@ test.describe('AI off loads no model files', () => {
 
     await selectInspectorTab(page, 'Design');
     await expect(page.getByRole('button', { name: 'AI Tools' })).toHaveCount(0);
-    await capture(page, 'ai_off_design_tab');
+    await capture(page, testInfo, 'ai_off_design_tab');
 
     const inspector = page.getByRole('region', { name: 'Inspector', exact: true });
     const selectionSources = inspector.getByRole('button', { name: 'Selection Sources' });
@@ -117,7 +121,7 @@ test.describe('AI off loads no model files', () => {
     await expect(inspector.locator('.insp-selection-sources__hint')).toBeVisible({
       timeout: 10000,
     });
-    await capture(page, 'ai_off_selection_sources');
+    await capture(page, testInfo, 'ai_off_selection_sources');
 
     await page
       .getByRole('menubar')
@@ -137,8 +141,8 @@ test.describe('AI off loads no model files', () => {
     await expect(exportDialog.getByText(AI_HINT)).toBeVisible();
     await exportDialog
       .getByRole('region', { name: 'Background' })
-      .screenshot({ path: path.join(SCREENSHOT_DIR, 'ai_off_export_background.png') });
-    await capture(page, 'ai_off_export_dialog');
+      .screenshot({ path: path.join(screenshotDir(testInfo), 'ai_off_export_background.png') });
+    await capture(page, testInfo, 'ai_off_export_dialog');
     await page.keyboard.press('Escape');
 
     const controlBar = page.getByRole('toolbar', { name: 'Contextual properties' });
@@ -150,18 +154,18 @@ test.describe('AI off loads no model files', () => {
     await expect(page.getByText('Remove background (B)')).toBeVisible({ timeout: 5000 });
     await expect(page.getByText(/on-device ML/i)).toHaveCount(0);
     await page.getByText('Remove background (B)').screenshot({
-      path: path.join(SCREENSHOT_DIR, 'ai_off_shortcut_tooltip.png'),
+      path: path.join(screenshotDir(testInfo), 'ai_off_shortcut_tooltip.png'),
     });
-    await capture(page, 'ai_off_shortcut');
+    await capture(page, testInfo, 'ai_off_shortcut');
     await controlBarRemove.click();
     await expect(page.locator('.varve-toast')).toHaveCount(0);
     await expect(page.getByText(/on-device ML/i)).toHaveCount(0);
     const controlBarReview = page.getByRole('region', { name: 'Background removal review' });
     await expect(controlBarReview).toBeVisible({ timeout: 15000 });
     await controlBarReview.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'ai_off_control_bar_review.png'),
+      path: path.join(screenshotDir(testInfo), 'ai_off_control_bar_review.png'),
     });
-    await capture(page, 'ai_off_control_bar_remove_background');
+    await capture(page, testInfo, 'ai_off_control_bar_remove_background');
     await controlBarReview
       .getByRole('button', { name: /cancel preview|cancel background removal/i })
       .click();
@@ -193,9 +197,9 @@ test.describe('AI off loads no model files', () => {
     await expect(quickReview).toBeVisible({ timeout: 15000 });
     await expect(quickReview.getByRole('button', { name: 'Apply result' })).toBeVisible();
     await quickReview.screenshot({
-      path: path.join(SCREENSHOT_DIR, 'ai_off_quick_cutout_mask.png'),
+      path: path.join(screenshotDir(testInfo), 'ai_off_quick_cutout_mask.png'),
     });
-    await capture(page, 'ai_off_quick_cutout_full');
+    await capture(page, testInfo, 'ai_off_quick_cutout_full');
 
     expect(modelRequests, `model requests:\n${modelRequests.join('\n')}`).toEqual([]);
     const modelJobs = await page.evaluate(() => {

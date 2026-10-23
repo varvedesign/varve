@@ -35,7 +35,12 @@ if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
  */
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
+import { resetAiFeaturesGateForTests } from './packages/engine/src/inference/aiFeaturesGate';
+
+beforeEach(() => {
+  resetAiFeaturesGateForTests();
+});
 
 // Without `globals: true`, React Testing Library cannot self-register its
 // afterEach cleanup — renders would accumulate across tests in a file and

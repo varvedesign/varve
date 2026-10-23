@@ -70,6 +70,7 @@ describe('worker.ts WASM memory preflight', () => {
         modelPath: 'blob:model',
         modelId: 'birefnet-general',
         method: 'ai-quality',
+        aiEnabled: true,
       },
     } as unknown as MessageEvent);
 
@@ -109,6 +110,7 @@ describe('worker.ts WASM memory preflight', () => {
         modelPath: 'blob:model',
         modelId: 'u2netp',
         method: 'ai-balanced',
+        aiEnabled: true,
       },
     } as unknown as MessageEvent);
 
@@ -141,6 +143,7 @@ describe('worker.ts WASM memory preflight', () => {
         modelPath: 'blob:model',
         modelId: 'u2netp',
         method: 'ai-balanced',
+        aiEnabled: true,
       },
     } as unknown as MessageEvent);
 
@@ -173,6 +176,7 @@ describe('worker.ts WASM memory preflight', () => {
         modelPath: 'blob:model',
         modelId: 'birefnet-general',
         method: 'ai-quality',
+        aiEnabled: true,
       },
     } as unknown as MessageEvent);
 

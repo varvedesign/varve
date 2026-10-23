@@ -6,6 +6,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { notifyAiFeaturesSettingsChanged } from '@varve/engine';
 import { addNode, createDocument, DocumentCodec, makeImageShapeNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
@@ -62,6 +63,7 @@ function mountEditor() {
 describe('inference gating via EditorProvider.removeBackground', () => {
   beforeEach(() => {
     localStorage.clear();
+    notifyAiFeaturesSettingsChanged();
     setCapabilityRestrictions(null);
     controls.load.mockReset().mockResolvedValue({ width: 1, height: 1 });
     controls.warm.mockReset().mockResolvedValue(undefined);
@@ -110,6 +112,7 @@ describe('inference gating via EditorProvider.removeBackground', () => {
 
   it('blocks removeBackground when the user AI master switch is off', async () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
     const get = mountEditor();
     await waitFor(() => expect(get()).toBeDefined());
     act(() => get().setSelection(IMAGE_ID));
@@ -124,6 +127,7 @@ describe('inference gating via EditorProvider.removeBackground', () => {
 
   it('still runs Quick background removal when the user AI master switch is off', async () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
     controls.isolate.mockResolvedValue({
       request: {
         requestId: 'test',
@@ -161,6 +165,7 @@ describe('inference gating via EditorProvider.removeBackground', () => {
 
   it('runs removeBackground when the user AI master switch is on', async () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: true } }));
+    notifyAiFeaturesSettingsChanged();
     const get = mountEditor();
     await waitFor(() => expect(get()).toBeDefined());
     act(() => get().setSelection(IMAGE_ID));

@@ -9,6 +9,7 @@ vi.mock('../../../../context', () => {
   return { useEditor: mockFn };
 });
 
+import { notifyAiFeaturesSettingsChanged } from '@varve/engine';
 import { useEditor } from '../../../../context';
 import { objectSelectionCandidateReviewKey } from '../../../../context/objectSelectionTypes';
 import { BackgroundRemovalSection } from '../BackgroundRemovalSection';
@@ -643,6 +644,7 @@ describe('BackgroundRemovalSection - Object Selection', () => {
 
   it('hides Object Selection and AI methods when AI features are off', () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
     mockedUseEditor.mockReturnValue(createMockEditorContext());
     render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
     expect(document.querySelector('[data-title="Object Selection"]')).toBeNull();

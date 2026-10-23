@@ -34,13 +34,17 @@ import {
 import { Button, Dialog, SegmentedControl, Select } from '@varve/ui';
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import { useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 import {
-  ENHANCEMENT_PRESETS,
-  type EnhancementPresetId,
-  getEnhancementPreset,
-} from './enhancementPresets';
+  getAdmittedEnhancementPresets,
+  getEnhancementOperationOptions,
+  isAdmittedEnhancementPreset,
+  isModelBackedOperation,
+  isModelBackedPreset,
+  resolveAutoOperationForAiGate,
+} from './enhancementAdmission';
+import { type EnhancementPresetId, getEnhancementPreset } from './enhancementPresets';
 import { getUpscaleModeOptions } from './upscaleModeOptions';
 
 type OutputBehavior = 'new-layer' | 'replace-source' | 'non-destructive';
@@ -200,10 +204,12 @@ export function UpscaleDialog({
   const selectedModeUnavailable = selectedModeOption?.disabled ?? false;
 
   useEffect(() => {
-    if (!aiEnabled && mode?.isAi) {
-      setModeId(DEFAULT_UPSCALE_MODE);
-    }
-  }, [aiEnabled, mode]);
+    if (aiEnabled) return;
+    if (mode?.isAi) setModeId(DEFAULT_UPSCALE_MODE);
+    if (isModelBackedOperation(operation)) setOperation('auto');
+    if (!isAdmittedEnhancementPreset(presetId, false)) setPresetId('recommended');
+    if (denoiseStrength !== 'none') setDenoiseStrength('none');
+  }, [aiEnabled, denoiseStrength, mode, operation, presetId]);
 
   /**
    * Resolve Auto once and reuse that result for preview, model checks, output
@@ -244,16 +250,16 @@ export function UpscaleDialog({
       );
     }
     const upscale = filtered.includes('upscale');
-    if (!restore)
-      return { operation: upscale ? 'upscale' : null, note: notes.join(' ') || undefined };
-    if (upscale) {
-      return {
-        operation: restore === 'deblur' ? 'deblur-upscale' : 'restore-upscale',
-        note: notes.join(' ') || undefined,
-      };
+    let resolved: RestorationOperation | null;
+    if (!restore) resolved = upscale ? 'upscale' : null;
+    else if (upscale) resolved = restore === 'deblur' ? 'deblur-upscale' : 'restore-upscale';
+    else resolved = restore;
+    resolved = resolveAutoOperationForAiGate(resolved, filtered, aiEnabled);
+    if (!aiEnabled && (hasDenoise || hasDeblur)) {
+      notes.push(AI_DISABLED_HINT);
     }
-    return { operation: restore, note: notes.join(' ') || undefined };
-  }, [autoAnalysis]);
+    return { operation: resolved, note: notes.join(' ') || undefined };
+  }, [aiEnabled, autoAnalysis]);
 
   const effectiveOperation: RestorationOperation | null =
     operation === 'auto' ? resolveAutoOperation().operation : operation;
@@ -265,19 +271,23 @@ export function UpscaleDialog({
     setPresetId('custom');
   }, []);
 
-  const applyPreset = useCallback((nextPresetId: EnhancementPresetId) => {
-    const preset = getEnhancementPreset(nextPresetId);
-    if (!preset) return;
-    denoiseUserEditedRef.current = false;
-    setPresetId(nextPresetId);
-    setOperation(preset.operation);
-    setModeId(preset.mode);
-    setScale(preset.scale);
-    setQualityPolicy(preset.qualityPolicy);
-    setDenoiseStrength(preset.denoiseStrength);
-    setDeblurStrength(preset.deblurStrength);
-    setPixelArtAlgorithm(preset.pixelArtAlgorithm);
-  }, []);
+  const applyPreset = useCallback(
+    (nextPresetId: EnhancementPresetId) => {
+      const preset = getEnhancementPreset(nextPresetId);
+      if (!preset) return;
+      if (!aiEnabled && isModelBackedPreset(preset)) return;
+      denoiseUserEditedRef.current = false;
+      setPresetId(nextPresetId);
+      setOperation(preset.operation);
+      setModeId(preset.mode);
+      setScale(preset.scale);
+      setQualityPolicy(preset.qualityPolicy);
+      setDenoiseStrength(preset.denoiseStrength);
+      setDeblurStrength(preset.deblurStrength);
+      setPixelArtAlgorithm(preset.pixelArtAlgorithm);
+    },
+    [aiEnabled],
+  );
   // Availability comes from the validated capability registry, not a
   // hardcoded per-operation rule, so a task lights up the moment its
   // checkpoint passes validation and lands in the manifest.
@@ -343,7 +353,7 @@ export function UpscaleDialog({
   // Do not acquire prerequisites for an upscale mode that has not passed its
   // model qualification gates. CPU resampling modes need no model download.
   const requiredModelIds = useMemo(() => {
-    if (selectedUpscaleModeUnavailable) return [];
+    if (!aiEnabled || selectedUpscaleModeUnavailable) return [];
     const ids: string[] = [];
     if (requiresDenoiseModel) ids.push('scunet');
     if (effectiveOperation === 'deblur' || effectiveOperation === 'deblur-upscale') {
@@ -354,6 +364,7 @@ export function UpscaleDialog({
     }
     return ids;
   }, [
+    aiEnabled,
     effectiveOperation,
     mode?.isAi,
     modeId,
@@ -371,6 +382,9 @@ export function UpscaleDialog({
   // after one completes, the next remains disabled until it is acquired.
   const requiredModelId = missingModelIds[0] ?? requiredModelIds[0] ?? null;
   const [showModelDownload, setShowModelDownload] = useState(false);
+  useEffect(() => {
+    if (!aiEnabled && showModelDownload) setShowModelDownload(false);
+  }, [aiEnabled, showModelDownload]);
 
   // Auto mode: run the cheap classical analysis once per open/source change.
   useEffect(() => {
@@ -1133,6 +1147,7 @@ export function UpscaleDialog({
 
           {/* Settings */}
           <div className="upscale-settings">
+            {!aiEnabled && <p className="insp-hint">{AI_DISABLED_HINT}</p>}
             <div className="upscale-settings__group">
               <span className="upscale-settings__label">Preset</span>
               <Select
@@ -1140,7 +1155,7 @@ export function UpscaleDialog({
                 value={presetId}
                 disabled={processing}
                 options={[
-                  ...ENHANCEMENT_PRESETS.map((preset) => ({
+                  ...getAdmittedEnhancementPresets(aiEnabled).map((preset) => ({
                     value: preset.id,
                     label: preset.label,
                     description: preset.description,
@@ -1170,30 +1185,7 @@ export function UpscaleDialog({
                 label="Enhancement operation"
                 value={operation}
                 disabled={processing}
-                options={[
-                  { value: 'auto', label: 'Auto / Recommended' },
-                  { value: 'upscale', label: 'Upscale' },
-                  { value: 'denoise', label: 'Denoise' },
-                  { value: 'restore-upscale', label: 'Restore + Upscale' },
-                  {
-                    value: 'deblur',
-                    label: isRestorationOperationAvailable('deblur')
-                      ? 'Deblur'
-                      : 'Deblur (not available)',
-                  },
-                  {
-                    value: 'deblur-upscale',
-                    label: isRestorationOperationAvailable('deblur-upscale')
-                      ? 'Deblur + Upscale'
-                      : 'Deblur + Upscale (not available)',
-                  },
-                  {
-                    value: 'compression-restoration',
-                    label: isRestorationOperationAvailable('compression-restoration')
-                      ? 'Remove compression artifacts'
-                      : 'Remove compression artifacts (not available)',
-                  },
-                ]}
+                options={getEnhancementOperationOptions(aiEnabled, isRestorationOperationAvailable)}
                 onChange={(value) => {
                   const next = value as RestorationOperation | 'auto';
                   denoiseUserEditedRef.current = false;
@@ -1313,36 +1305,38 @@ export function UpscaleDialog({
               </div>
             )}
 
-            {(usesDenoise || operation === 'upscale') && operation !== 'deblur-upscale' && (
-              <div className="upscale-settings__group">
-                <span className="upscale-settings__label">Denoise</span>
-                <SegmentedControl
-                  label="Denoise strength"
-                  value={denoiseStrength}
-                  disabled={processing || operation === 'upscale'}
-                  options={[
-                    { value: 'none', label: 'None' },
-                    { value: 'light', label: 'Light' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'strong', label: 'Strong' },
-                  ]}
-                  onChange={(v) => {
-                    denoiseUserEditedRef.current = true;
-                    markPresetCustom();
-                    setDenoiseStrength(v as DenoiseStrength);
-                  }}
-                />
-                {operation !== 'upscale' && (
-                  <p className="insp-hint">
-                    {denoiseStrength === 'none'
-                      ? 'No denoising'
-                      : `${denoiseStrength} denoise before upscale`}
-                  </p>
-                )}
-              </div>
-            )}
+            {aiEnabled &&
+              (usesDenoise || operation === 'upscale') &&
+              operation !== 'deblur-upscale' && (
+                <div className="upscale-settings__group">
+                  <span className="upscale-settings__label">Denoise</span>
+                  <SegmentedControl
+                    label="Denoise strength"
+                    value={denoiseStrength}
+                    disabled={processing || operation === 'upscale'}
+                    options={[
+                      { value: 'none', label: 'None' },
+                      { value: 'light', label: 'Light' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'strong', label: 'Strong' },
+                    ]}
+                    onChange={(v) => {
+                      denoiseUserEditedRef.current = true;
+                      markPresetCustom();
+                      setDenoiseStrength(v as DenoiseStrength);
+                    }}
+                  />
+                  {operation !== 'upscale' && (
+                    <p className="insp-hint">
+                      {denoiseStrength === 'none'
+                        ? 'No denoising'
+                        : `${denoiseStrength} denoise before upscale`}
+                    </p>
+                  )}
+                </div>
+              )}
 
-            {(operation === 'deblur' || operation === 'deblur-upscale') && (
+            {aiEnabled && (operation === 'deblur' || operation === 'deblur-upscale') && (
               <div className="upscale-settings__group">
                 <span className="upscale-settings__label">Deblur</span>
                 <SegmentedControl
@@ -1469,7 +1463,7 @@ export function UpscaleDialog({
               </p>
             )}
 
-            {!modelCheckPending && modelMissing && requiredModelId && (
+            {aiEnabled && !modelCheckPending && modelMissing && requiredModelId && (
               <div className="upscale-model-missing" role="status">
                 <p className="insp-hint insp-hint--warn">
                   {requiredModelId === 'scunet'
@@ -1565,7 +1559,7 @@ export function UpscaleDialog({
                 {errorCode && errorActionForCode(errorCode) && (
                   <p className="insp-hint">{errorActionForCode(errorCode)}</p>
                 )}
-                {errorCode === 'model-not-installed' && requiredModelId && (
+                {aiEnabled && errorCode === 'model-not-installed' && requiredModelId && (
                   <Button
                     type="button"
                     variant="secondary"
@@ -1575,7 +1569,7 @@ export function UpscaleDialog({
                     Download model
                   </Button>
                 )}
-                {errorCode === 'hash-mismatch' && requiredModelId && (
+                {aiEnabled && errorCode === 'hash-mismatch' && requiredModelId && (
                   <Button
                     type="button"
                     variant="secondary"
@@ -1601,7 +1595,7 @@ export function UpscaleDialog({
         </div>
       </Dialog>
 
-      {showModelDownload && requiredModelId && (
+      {aiEnabled && showModelDownload && requiredModelId && (
         <ModelDownloadDialog
           modelId={requiredModelId}
           onClose={() => setShowModelDownload(false)}

@@ -24,10 +24,12 @@ import { SessionManager } from '../SessionManager';
 
 function disableAi(): void {
   localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+  notifyAiFeaturesSettingsChanged();
 }
 
 function enableAi(): void {
   localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: true } }));
+  notifyAiFeaturesSettingsChanged();
 }
 
 describe('AI master switch choke point', () => {
@@ -157,6 +159,15 @@ describe('AI master switch choke point', () => {
     expect(getAiFeaturesEnabled()).toBe(false);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('[ai-gate]'));
     warn.mockRestore();
+  });
+
+  it('does not throw when window exists without addEventListener', () => {
+    const previous = globalThis.window;
+    globalThis.window = { localStorage } as unknown as Window & typeof globalThis;
+    resetAiFeaturesGateForTests();
+    expect(() => getAiFeaturesEnabled()).not.toThrow();
+    expect(getAiFeaturesEnabled()).toBe(true);
+    globalThis.window = previous;
   });
 
   it('fails closed and logs when localStorage is unreadable', () => {
