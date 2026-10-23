@@ -85,6 +85,67 @@ describe('DerivedWorkAdmission', () => {
     expect(gate.snapshot()).toMatchObject({ active: 0, pending: 0, reservedBytes: 0 });
   });
 
+  describe('speculative preview work', () => {
+    const speculativeRequest = (id: string) => ({
+      ...request(id, 'background'),
+      kind: 'thumbnail' as const,
+      speculative: true,
+    });
+
+    it('runs previews alongside an admitted AI job instead of freezing behind it', async () => {
+      const gate = new DerivedWorkAdmission({ maxConcurrent: 1, maxSpeculative: 2 });
+      const inference = await gate.acquire({
+        ...request('ai-quality', 'visible'),
+        kind: 'inference',
+        estimatedBytes: 100,
+      });
+      const thumbnail = await gate.acquire({ ...speculativeRequest('thumb'), estimatedBytes: 10 });
+      expect(thumbnail.id).toBe('thumb');
+      expect(gate.snapshot()).toMatchObject({ active: 2, activeBytes: 110 });
+      thumbnail.release();
+      inference.release();
+    });
+
+    it('still refuses preview bytes that do not fit the ledger', async () => {
+      const gate = new DerivedWorkAdmission({ maxConcurrent: 1, maxReservedBytes: 100 });
+      const inference = await gate.acquire({
+        ...request('ai-quality', 'visible'),
+        kind: 'inference',
+        estimatedBytes: 95,
+      });
+      const waiting = gate.acquire({ ...speculativeRequest('thumb'), estimatedBytes: 10 });
+      expect(gate.snapshot()).toMatchObject({ active: 1, pending: 1 });
+      inference.release();
+      const lease = await waiting;
+      expect(lease.id).toBe('thumb');
+      lease.release();
+    });
+
+    it('caps speculative concurrency and keeps heavy work exclusive', async () => {
+      const gate = new DerivedWorkAdmission({ maxConcurrent: 1, maxSpeculative: 1 });
+      const first = await gate.acquire(speculativeRequest('thumb-a'));
+      const second = gate.acquire(speculativeRequest('thumb-b'));
+      expect(gate.snapshot()).toMatchObject({ active: 1, pending: 1 });
+
+      // Release the only speculative slot; the queued preview takes it.
+      first.release();
+      const admitted = await second;
+      expect(admitted.id).toBe('thumb-b');
+
+      // A heavy request waits for the speculative lease even though the heavy
+      // slot itself is free: bytes stay bounded by one lease at a time.
+      const heavy = gate.acquire({
+        ...request('export', 'explicit-export'),
+        kind: 'export',
+        estimatedBytes: 10,
+      });
+      admitted.release();
+      const exportLease = await heavy;
+      expect(exportLease.id).toBe('export');
+      exportLease.release();
+    });
+  });
+
   describe('host-derived budget', () => {
     // The reported regression: a 480x640 AI quality request reserves
     // 541_786_112 bytes (512 MiB model allowance + 4x the RGBA frame), which

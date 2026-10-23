@@ -73,6 +73,14 @@ export interface DerivedWorkRequest {
   readonly priority: DerivedWorkPriority;
   /** Conservative bytes reserved before decode, transfer, tensor, or surface allocation. */
   readonly estimatedBytes?: number;
+  /**
+   * Preview-grade work the user did not explicitly ask to wait for: page and
+   * layer thumbnails, raster-pyramid tiles, semantic indexing. Speculative work
+   * may share the process with one admitted job (bounded by `maxSpeculative` and
+   * by the same byte ledger), so a long AI run no longer freezes every preview
+   * behind its exclusive slot.
+   */
+  readonly speculative?: boolean;
   readonly signal?: AbortSignal;
   readonly label?: string;
 }
@@ -121,6 +129,8 @@ export interface DerivedWorkAdmissionSnapshot {
   /** Active plus resident ownership. Pending estimates are reported separately. */
   readonly reservedBytes: number;
   readonly maxReservedBytes: number;
+  /** How many speculative preview leases may share the process with a job. */
+  readonly maxSpeculative: number;
   /** Provenance of `maxReservedBytes`; never assume it is a host measurement. */
   readonly budgetSource: DerivedWorkBudgetSource;
 }
@@ -178,6 +188,7 @@ interface ResidentRecord {
 
 const DEFAULT_MAX_CONCURRENT = 1;
 const DEFAULT_MAX_PENDING = 64;
+const DEFAULT_MAX_SPECULATIVE = 2;
 const DEFAULT_PRIORITY_AGING_MS = 15_000;
 
 function normalizeBytes(bytes: number | undefined): number {
@@ -240,6 +251,7 @@ function refusalFor(error: unknown): DerivedWorkAdmissionError {
 export class DerivedWorkAdmission {
   private readonly maxConcurrent: number;
   private readonly maxPending: number;
+  private readonly maxSpeculative: number;
   private readonly priorityAgingMs: number;
   private readonly pending: PendingRequest[] = [];
   private readonly active = new Map<string, ActiveLease>();
@@ -262,6 +274,7 @@ export class DerivedWorkAdmission {
     options: {
       maxConcurrent?: number;
       maxPending?: number;
+      maxSpeculative?: number;
       maxReservedBytes?: number;
       memoryProfile?: DerivedWorkMemoryProfile;
       priorityAgingMs?: number;
@@ -273,6 +286,11 @@ export class DerivedWorkAdmission {
       'maxConcurrent',
     );
     this.maxPending = normalizeLimit(options.maxPending, DEFAULT_MAX_PENDING, 'maxPending');
+    this.maxSpeculative = normalizeLimit(
+      options.maxSpeculative,
+      DEFAULT_MAX_SPECULATIVE,
+      'maxSpeculative',
+    );
     this.priorityAgingMs = normalizeLimit(
       options.priorityAgingMs,
       DEFAULT_PRIORITY_AGING_MS,
@@ -360,8 +378,9 @@ export class DerivedWorkAdmission {
     if (this.closed) throw new DerivedWorkAdmissionError('closed');
     if (request.signal?.aborted) throw abortError();
     if (this.paused && !this.isProtectedFromPause(request.priority)) return null;
-    if (this.pending.length > 0 || this.active.size >= this.maxConcurrent) return null;
+    if (this.pending.length > 0) return null;
     if (!this.makeRoomFor(estimatedBytes)) return null;
+    if (!this.canStartRequest(request, estimatedBytes)) return null;
     return this.startLease({
       request,
       sequence: this.sequence++,
@@ -485,6 +504,7 @@ export class DerivedWorkAdmission {
       residentBytes,
       reservedBytes: activeBytes + residentBytes,
       maxReservedBytes: this.maxReservedBytes,
+      maxSpeculative: this.maxSpeculative,
       budgetSource: this.budgetSource,
     };
   }
@@ -517,10 +537,24 @@ export class DerivedWorkAdmission {
     return this.activeBytes + this.residentBytes;
   }
 
-  private canStart(bytes: number): boolean {
-    return (
-      this.active.size < this.maxConcurrent && this.reservedBytes + bytes <= this.maxReservedBytes
-    );
+  /**
+   * Admission decision for one request, given its own speculativeness.
+   *
+   * `maxConcurrent` bounds *heavy* work: inference, exports, live effects, model
+   * downloads. Speculative preview leases are capped separately and may share
+   * the process with one heavy job, because the byte ledger already bounds the
+   * combination. Before this split, the single slot meant a 310 s AI run froze
+   * every thumbnail and raster-pyramid tile behind it.
+   */
+  private canStartRequest(request: DerivedWorkRequest, bytes: number): boolean {
+    if (this.reservedBytes + bytes > this.maxReservedBytes) return false;
+    let heavy = 0;
+    for (const lease of this.active.values()) {
+      if (!lease.request.speculative) heavy++;
+    }
+    const speculative = this.active.size - heavy;
+    if (request.speculative) return speculative < this.maxSpeculative;
+    return heavy < this.maxConcurrent;
   }
 
   private makeRoomFor(bytes: number): boolean {
@@ -589,7 +623,7 @@ export class DerivedWorkAdmission {
 
   private pump(): void {
     if (this.closed) return;
-    while (this.active.size < this.maxConcurrent && this.pending.length > 0) {
+    for (;;) {
       const next = this.nextAdmissiblePending();
       if (!next) return;
       const index = this.pending.indexOf(next);
@@ -612,7 +646,10 @@ export class DerivedWorkAdmission {
     });
     for (const candidate of ordered) {
       if (this.paused && !this.isProtectedFromPause(candidate.request.priority)) continue;
-      if (this.makeRoomFor(candidate.estimatedBytes) && this.canStart(candidate.estimatedBytes)) {
+      if (
+        this.makeRoomFor(candidate.estimatedBytes) &&
+        this.canStartRequest(candidate.request, candidate.estimatedBytes)
+      ) {
         return candidate;
       }
     }
