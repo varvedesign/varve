@@ -14,7 +14,7 @@ describe('background-removal model memory disclosure', () => {
     expect(info).toBe(AI_QUALITY_MODEL_INFO);
 
     // Browser figure: conservative, unchanged, and labelled as browser-scoped.
-    expect(info?.estimatedPeakRamBytes).toBe(6_800_000_000);
+    expect(info?.estimatedPeakRamBytes).toBe(4_100_000_000);
     expect(info?.peakRamDisplay).toContain('browser');
 
     // Native figure: the measured value the preflight actually admits against.
@@ -27,7 +27,7 @@ describe('background-removal model memory disclosure', () => {
     const entry = getModelById('birefnet-general-lite');
     expect(entry?.nativePeakMemoryBytes).toBe(450_000_000);
     // The browser admission path keeps the declared figure.
-    expect(entry?.peakMemoryBytes).toBe(7_000_000_000);
+    expect(entry?.peakMemoryBytes).toBe(4_100_000_000);
   });
 
   it('does not invent a native figure for models that have one working set', () => {

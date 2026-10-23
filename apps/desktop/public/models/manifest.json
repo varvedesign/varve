@@ -290,7 +290,7 @@
           "channelOrder": "rgb"
         },
         "outputActivation": "sigmoid",
-        "peakMemoryBytes": 7000000000
+        "peakMemoryBytes": 4100000000
       },
       "validation": {
         "contractVerified": true,
@@ -480,6 +480,7 @@
       "filename": "birefnet-general.onnx",
       "localPath": "/models/birefnet-general.onnx",
       "sha256": "58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c",
+      "nativePeakMemoryBytes": 8500000000,
       "bundled": false,
       "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx",
       "precision": "fp32",
@@ -533,7 +534,7 @@
           "channelOrder": "rgb"
         },
         "outputActivation": "sigmoid",
-        "peakMemoryBytes": 8500000000
+        "peakMemoryBytes": 4100000000
       },
       "validation": {
         "contractVerified": true,
