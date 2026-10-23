@@ -266,12 +266,12 @@ assert.equal(
 );
 const allBrowserCases = Array.from({ length: FULL_BROWSER_SHARDS }, (_, index) => index + 1).map(
   (index) => ({
-    file: `fixture-${index}.spec.ts`,
-    titlePath: [`fixture-${index}.spec.ts`, 'moves selected objects'],
+    file: `canvas/fixture-${index}.spec.ts`,
+    titlePath: [`canvas/fixture-${index}.spec.ts`, 'moves selected objects'],
     project: 'chromium',
     caseId: browserCaseId(
-      `fixture-${index}.spec.ts`,
-      [`fixture-${index}.spec.ts`, 'moves selected objects'],
+      `canvas/fixture-${index}.spec.ts`,
+      [`canvas/fixture-${index}.spec.ts`, 'moves selected objects'],
       'chromium',
     ),
     status: 'expected',
@@ -351,6 +351,63 @@ assert.equal(
   true,
   'all promised browser shards are required and accepted',
 );
+const subsetPlan = {
+  ...e2ePlan,
+  selectedLanes: ['e2e:all', 'e2e:canvas', 'e2e:file:tests/e2e/canvas/fixture-1.spec.ts'],
+};
+const subsetEvidence = validateExecutionEvidence({
+  reports: [pipelineExecution, ...e2eReports],
+  plan: subsetPlan,
+});
+assert.equal(subsetEvidence.passed, true, 'complete Chromium evidence certifies ordinary subsets');
+assert.deepEqual(subsetEvidence.evidence.find(({ category }) => category === 'e2e').laneCoverage, [
+  { lane: 'e2e:canvas', coveredBy: 'e2e:all' },
+  { lane: 'e2e:file:tests/e2e/canvas/fixture-1.spec.ts', coveredBy: 'e2e:all' },
+]);
+assert.deepEqual(e2eReports[0].executedLanes, ['e2e:all'], 'coverage never fabricates execution');
+const omittedSubset = validateExecutionEvidence({
+  reports: [pipelineExecution, ...e2eReports],
+  plan: { ...e2ePlan, selectedLanes: ['e2e:all', 'e2e:file:tests/e2e/not-discovered.spec.ts'] },
+});
+assert.equal(
+  omittedSubset.passed,
+  false,
+  'a broad inventory must actually contain the selected spec',
+);
+assert.ok(omittedSubset.failures.some(({ reason }) => reason.includes('broad inventory omits')));
+for (const reports of [
+  e2eReports.slice(1),
+  e2eReports.map((report, index) => (index === 0 ? { ...report, status: 'failure' } : report)),
+  e2eReports.map((report) => ({ ...report, executedLanes: [] })),
+]) {
+  const rejected = validateExecutionEvidence({
+    reports: [pipelineExecution, ...reports],
+    plan: subsetPlan,
+  });
+  assert.equal(rejected.passed, false, 'missing or failed broad evidence cannot certify subsets');
+  assert.deepEqual(rejected.evidence.find(({ category }) => category === 'e2e').laneCoverage, []);
+}
+for (const lane of [
+  'e2e:demo-dist',
+  'e2e:visual',
+  'e2e:file:tests/e2e/visual/replay.spec.ts',
+  'e2e:file:tests/e2e/browser/try-undock.spec.ts',
+  'e2e:new-project',
+]) {
+  const independentPlan = {
+    ...e2ePlan,
+    categories: { ...e2ePlan.categories, visual: lane === 'e2e:visual' },
+    selectedLanes: [...e2ePlan.selectedLanes, lane],
+  };
+  assert.equal(
+    validateExecutionEvidence({
+      reports: [pipelineExecution, ...e2eReports],
+      plan: independentPlan,
+    }).passed,
+    false,
+    `${lane} requires independent evidence even with a complete Chromium suite`,
+  );
+}
 const repeatedShard = structuredClone(e2eReports);
 repeatedShard[1].playwright.reports[0] = {
   ...repeatedShard[0].playwright.reports[0],

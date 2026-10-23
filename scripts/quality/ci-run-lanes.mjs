@@ -19,7 +19,7 @@ import {
   writeExecutionReport,
 } from './ci-execution-report.mjs';
 import { validateCiPlan } from './ci-plan.mjs';
-import { playwrightRunOptions } from './execution-plan.mjs';
+import { chromiumSuiteCovers, playwrightRunOptions } from './execution-plan.mjs';
 import { laneArgv, packageDirs } from './validation-lanes.mjs';
 import { CI_CATEGORIES, computePolicyHash } from './validation-policy.mjs';
 
@@ -159,7 +159,7 @@ export function commandsForCategory(plan, category, { shard = null } = {}) {
   const runsCompleteSuite = shard !== null && lanes.includes('e2e:all');
   const commands = [];
   for (const lane of lanes) {
-    if (runsCompleteSuite && lane !== 'e2e:all' && lane !== 'e2e:demo-dist') continue;
+    if (runsCompleteSuite && chromiumSuiteCovers(lane, IMPACT_CONFIG)) continue;
     // The production-demo owners form one complete unsharded inventory. Run
     // that full lane once in the first cell of a broad matrix; other cells
     // still certify their assigned e2e:all cases.

@@ -5,9 +5,11 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import { redactSensitive } from '../ci/failure-manifest.mjs';
 import { inventoryCoverageErrors, inventoryErrors } from './browser-inventory.mjs';
 import { browserEvidenceErrors, browserLane } from './ci-execution-report.mjs';
+import { chromiumSuiteCovers } from './execution-plan.mjs';
 import { CI_CATEGORIES, CI_CATEGORY_LANES, FULL_BROWSER_SHARDS } from './validation-policy.mjs';
 
 export const REQUIRED_CI_JOBS = Object.freeze({
@@ -74,6 +76,23 @@ function expectedReportCount(plan, category) {
   if (category === 'rust' || category === 'desktop') return 3;
   if (category === 'e2e') return plan.selectedLanes?.includes('e2e:all') ? FULL_BROWSER_SHARDS : 1;
   return 1;
+}
+
+function inventoryContainsLane(inventory, lane) {
+  const paths = lane.startsWith('e2e:file:')
+    ? [lane.slice('e2e:file:'.length)]
+    : IMPACT_CONFIG.e2eDomains[lane.slice('e2e:'.length)];
+  return paths.every((path) => {
+    const relative = path
+      .replaceAll('\\', '/')
+      .replace(/^tests\/e2e\//, '')
+      .replace(/\/\*\*$/, '');
+    const exact = relative.endsWith('.spec.ts');
+    return inventory.cases.some(({ file }) => {
+      const candidate = `/${file.replaceAll('\\', '/')}`;
+      return exact ? candidate.endsWith(`/${relative}`) : candidate.includes(`/${relative}/`);
+    });
+  });
 }
 
 /** Keep platform coverage explicit; tests bind these sets to both workflow matrices. */
@@ -193,6 +212,11 @@ export function validateExecutionEvidence({
     );
     const expectedCount = expectedReportCount(plan, category);
     const expected = new Set(expectedLanes(plan, category));
+    const suiteCovered =
+      category === 'e2e' && expected.has('e2e:all')
+        ? [...expected].filter((lane) => chromiumSuiteCovers(lane, IMPACT_CONFIG))
+        : [];
+    for (const lane of suiteCovered) expected.delete(lane);
     const valid = [];
     const seen = new Set();
     for (const report of categoryReports) {
@@ -356,6 +380,22 @@ export function validateExecutionEvidence({
           reason: 'browser inventory omits or adds a configured required project',
         });
     }
+    // Do not pretend a subset command ran. Certify the mapping only after all
+    // source-bound broad-suite shards form a complete, successful inventory.
+    const laneCoverage = [];
+    if (
+      covered.has('e2e:all') &&
+      browserCoverage.some((entry) => entry.lane === 'e2e:all' && entry.complete)
+    ) {
+      const inventory = valid
+        .flatMap((report) => report.playwright?.reports ?? [])
+        .find((browser) => browser.lane === 'e2e:all').inventory;
+      for (const lane of suiteCovered) {
+        if (inventoryContainsLane(inventory, lane))
+          laneCoverage.push({ lane, coveredBy: 'e2e:all' });
+        else failures.push({ job: category, category, reason: `broad inventory omits '${lane}'` });
+      }
+    }
     evidence.push({
       category,
       expectedCount,
@@ -364,7 +404,8 @@ export function validateExecutionEvidence({
         cell: reportKey(report),
         attempt: report.workflow.runAttempt,
       })),
-      coveredLanes: [...covered],
+      coveredLanes: [...covered, ...laneCoverage.map(({ lane }) => lane)],
+      laneCoverage,
       browserCoverage,
       // Keep the final summary bounded; per-case history remains in producer receipts.
       browserReports: valid.flatMap((report) =>

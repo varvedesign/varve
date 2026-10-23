@@ -21,6 +21,28 @@ function isAppTestPath(path) {
   return normalized.startsWith('tests/e2e/') && !normalized.split('/').includes('..');
 }
 
+/** Hosted e2e:all selects Chromium only; demo and replay use separate owners. */
+export function chromiumSuiteCovers(lane, { e2eDomains = {}, demoDistE2eOwners = [] } = {}) {
+  if (!lane.startsWith('e2e:') || ['e2e:all', 'e2e:visual', 'e2e:demo-dist'].includes(lane))
+    return false;
+  const paths = lane.startsWith('e2e:file:')
+    ? [lane.slice('e2e:file:'.length).replaceAll('\\', '/')]
+    : e2eDomains[lane.slice('e2e:'.length)];
+  // Unknown lanes must retain their own execution contract, not be silently
+  // absorbed when another project/configuration is added in the future.
+  return Boolean(
+    paths?.length &&
+      paths.every(
+        (path) =>
+          isAppTestPath(path) &&
+          !path.startsWith('tests/e2e/visual/') &&
+          !demoDistE2eOwners.some(
+            (owner) => owner === path || owner.startsWith(`${path.replace(/\/\*\*$/, '')}/`),
+          ),
+      ),
+  );
+}
+
 function coveredByAppSuite(lane, e2eDomains) {
   if (!lane.startsWith('e2e:') || lane === 'e2e:all') return false;
   if (lane.startsWith('e2e:file:')) return isAppTestPath(lane.slice('e2e:file:'.length));

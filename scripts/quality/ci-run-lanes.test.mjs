@@ -117,6 +117,28 @@ assert.deepEqual(
   ['e2e:canvas', 'e2e:file:tests/e2e/canvas/tools.spec.ts'],
   'without the complete suite, the selected subset lanes still run',
 );
+assert.deepEqual(
+  commandsForCategory(
+    {
+      ...plan,
+      selectedLanes: ['e2e:all', 'e2e:canvas', 'e2e:editor-chrome-visual', 'e2e:demo-dist'],
+    },
+    'e2e',
+    { shard: '1/24' },
+  ).map(({ lane }) => lane),
+  ['e2e:all', 'e2e:demo-dist'],
+  'Chromium covers editor chrome specs but not the separate production-demo configuration',
+);
+assert.throws(
+  () =>
+    commandsForCategory(
+      { ...plan, selectedLanes: ['e2e:all', 'e2e:file:tests/e2e/browser/try-undock.spec.ts'] },
+      'e2e',
+      { shard: '1/24' },
+    ),
+  /requires the dedicated e2e:demo-dist lane/,
+  'the complete suite cannot conceal an incorrectly routed production-demo owner',
+);
 assert.throws(
   () =>
     commandsForCategory(

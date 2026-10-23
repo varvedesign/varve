@@ -114,6 +114,16 @@ the fastest of three full sweeps; its 150ms ceiling remains unchanged.
 
 The stable remote check is authoritative for the exact integration SHA.
 
+Hosted `e2e:all` runs the ordinary Chromium project, not every configured
+Playwright project. Its sharded execution absorbs selected ordinary file/domain
+lanes. The aggregator records those as `laneCoverage` mappings only when all
+source-bound shards pass and their disjoint case histories cover the complete
+discovered inventory; it does not fabricate subset command receipts. Runner and
+aggregator share `chromiumSuiteCovers` for this decision. Production-demo owners,
+replay visual projects, and unknown/new lane contracts remain independent.
+Missing, repeated, failed, or foreign-source broad-suite evidence still blocks
+certification, as does missing independent demo/visual evidence.
+
 ### Release-candidate certification
 
 The frozen candidate check is the extended release evidence for one SHA.
