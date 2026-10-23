@@ -26,7 +26,7 @@ const extractPatch = readFileSync(
 
 assert.match(workspace, /"adm-zip": 0\.6\.1/);
 assert.match(workspace, /"brace-expansion@5": 5\.0\.12/);
-assert.match(workspace, /"fast-uri": 3\.1\.8/);
+assert.match(workspace, /"fast-uri": 3\.1\.9/);
 assert.match(workspace, /"js-yaml@4": 4\.3\.2/);
 assert.match(workspace, /"sharp": 0\.35\.5/);
 assert.match(workspace, /"svgo@4": 4\.1\.0/);
