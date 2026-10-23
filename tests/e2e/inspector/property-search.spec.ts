@@ -24,19 +24,20 @@ test('finds a property, reveals its owning section, and restores the stack on cl
   await drawRect(page);
   await page.getByRole('tab', { name: 'Design' }).click();
 
-  const search = page.getByRole('searchbox', { name: 'Find a property in the Inspector' });
+  const inspector = page.getByRole('region', { name: 'Inspector' });
+  const search = inspector.getByRole('searchbox', { name: 'Find a property in the Inspector' });
   await expect(search).toBeVisible();
   await search.fill('opacity');
 
-  await expect(page.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
+  await expect(inspector.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
     'aria-expanded',
     'true',
   );
-  await expect(page.getByRole('spinbutton', { name: /Opacity/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Fill' })).toHaveCount(0);
+  await expect(inspector.getByRole('spinbutton', { name: /Opacity/ })).toBeVisible();
+  await expect(inspector.getByRole('button', { name: 'Fill' })).toHaveCount(0);
 
   await search.fill('');
-  await expect(page.getByRole('button', { name: 'Fill' })).toBeVisible();
+  await expect(inspector.getByRole('button', { name: 'Fill' })).toBeVisible();
 });
 
 test('explains a zero-result search instead of leaving an empty Inspector', async ({ page }) => {
