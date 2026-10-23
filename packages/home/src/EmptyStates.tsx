@@ -105,6 +105,9 @@ export function EmptyStates({ section, query, onAction }: EmptyStatesProps) {
       illustration={illustration}
       headline={headline}
       description={copy.description}
+      // Home renders one page-level <h1> (the section label), so the empty
+      // state is a section heading, not a subsection of one.
+      headingLevel={2}
       actions={
         <Button variant="default" onClick={onAction}>
           <SemanticIcon

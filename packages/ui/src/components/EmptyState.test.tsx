@@ -25,4 +25,17 @@ describe('EmptyState', () => {
     );
     expect(screen.getByText('CTA')).toBeDefined();
   });
+
+  // The default stays h3 so existing callers keep their outline; a surface
+  // whose page heading is h1 opts into h2 to avoid skipping a level.
+  it('defaults the headline to h3', () => {
+    render(<EmptyState illustration={<svg />} headline="Empty" />);
+    expect(screen.getByRole('heading', { level: 3, name: 'Empty' })).toBeDefined();
+  });
+
+  it('renders the headline at the requested level', () => {
+    render(<EmptyState illustration={<svg />} headline="Empty" headingLevel={2} />);
+    expect(screen.getByRole('heading', { level: 2, name: 'Empty' })).toBeDefined();
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
+  });
 });
