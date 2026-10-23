@@ -38,10 +38,11 @@ test('feedback page offers email, forum, and copy choices', async ({ page }) => 
 
   await expect(page.getByRole('heading', { level: 2, name: 'Prefer email?' })).toBeVisible();
 
-  const email = page.getByRole('link', { name: 'Email Varve product feedback' });
-  await expect(email).toBeVisible();
-  await expect(email).toHaveText('feedback@varve.studio');
-  await expect(email).toHaveAttribute('href', /^mailto:feedback@varve.studio/);
+  const emails = page.getByRole('link', { name: 'Email Varve product feedback' });
+  await expect(emails).toHaveCount(2);
+  await expect(emails.last()).toBeVisible();
+  await expect(emails.last()).toHaveText('feedback@varve.studio');
+  await expect(emails.last()).toHaveAttribute('href', /^mailto:feedback@varve.studio/);
 });
 
 test('feedback page keeps the chooser readable on a narrow viewport', async ({ page }) => {
