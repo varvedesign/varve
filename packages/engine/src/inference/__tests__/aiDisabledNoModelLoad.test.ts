@@ -5,8 +5,8 @@
  * every engine AI entry point is exercised.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { InferenceError } from '../core/InferenceError';
 import { resetAiFeaturesGateForTests } from '../aiFeaturesGate';
+import { InferenceError } from '../core/InferenceError';
 
 function disableAi(): void {
   localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
@@ -55,6 +55,7 @@ describe('AI off loads no model files', () => {
     );
     resetModelLoader();
     const loader = getModelLoader();
+    expect(fetchSpy).not.toHaveBeenCalled();
     await expect(loader.downloadModel('u2netp')).rejects.toSatisfy(isDisabled);
     await expect(loader.downloadModel('depth-anything-v2-small')).rejects.toSatisfy(isDisabled);
     await expect(loader.downloadModel('tr-ocr-base-printed')).rejects.toSatisfy(isDisabled);
@@ -129,20 +130,23 @@ describe('AI off loads no model files', () => {
       '../../backgroundRemoval/workerPool'
     );
     await expect(
-      runPooledInference(new ImageData(1, 1), { method: 'ai-balanced' }, '/tmp/u2netp.onnx', 'u2netp'),
+      runPooledInference(
+        new ImageData(1, 1),
+        { method: 'ai-balanced' },
+        '/tmp/u2netp.onnx',
+        'u2netp',
+      ),
     ).rejects.toSatisfy(isDisabled);
 
     const { removeBackground } = await import('../../backgroundRemoval/index');
-    await expect(removeBackground(new ImageData(8, 8), { method: 'ai-balanced' })).rejects.toSatisfy(
-      isDisabled,
-    );
+    await expect(
+      removeBackground(new ImageData(8, 8), { method: 'ai-balanced' }),
+    ).rejects.toSatisfy(isDisabled);
     await expect(removeBackground(new ImageData(8, 8), { method: 'ai-quality' })).rejects.toSatisfy(
       isDisabled,
     );
 
-    const { runPrecisionBenchmark } = await import(
-      '../../backgroundRemoval/precisionCapabilities'
-    );
+    const { runPrecisionBenchmark } = await import('../../backgroundRemoval/precisionCapabilities');
     await expect(runPrecisionBenchmark()).rejects.toSatisfy(isDisabled);
 
     const { qualifyNativeGenerativeModel } = await import('../../generativeEdit/nativeModel');

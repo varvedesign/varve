@@ -1,4 +1,4 @@
-import { assertAiFeaturesEnabled } from '../inference/aiFeaturesGate';
+import { assertAiFeaturesEnabled, getAiFeaturesEnabled } from '../inference/aiFeaturesGate';
 import { getModelStorage, type StagedModelWrite } from '../inference/core/ModelStorage';
 import { repairSam2EncoderGraph } from '../inference/models/sam2GraphRepair';
 import { getUpscaleModel } from '../upscaleModels';
@@ -330,6 +330,11 @@ class ModelLoader {
   }
 
   async getModelPath(modelId: string, signal?: AbortSignal): Promise<string | null> {
+    // Path resolution HEADs bundled `.onnx` files and may mint a blob URL
+    // from stored weights. With AI off, do not request or materialize a
+    // model file; callers already refuse inference at the gate.
+    if (!getAiFeaturesEnabled()) return null;
+
     const entry = await getManifestEntry(modelId, signal);
     const bundled = entry?.localPath ?? `/models/${modelId}.onnx`;
 
@@ -485,6 +490,10 @@ class ModelLoader {
    * IndexedDB holds the actual model bytes; localStorage only tracks metadata.
    */
   async syncFromStorage(signal?: AbortSignal): Promise<void> {
+    // Availability sync probes `/models/manifest.json` and HEADs every
+    // bundled `.onnx`. Skip that entirely when AI is off so constructing
+    // the loader cannot request a model file.
+    if (!getAiFeaturesEnabled()) return;
     if (this.state === 'downloading') return;
 
     if (this.currentModelId && this.state === 'ready') {
@@ -520,6 +529,7 @@ class ModelLoader {
     }>
   > {
     await this.syncFromStorage(signal);
+    const aiEnabled = getAiFeaturesEnabled();
     const result: Array<{
       id: string;
       name: string;
@@ -548,7 +558,7 @@ class ModelLoader {
       }
 
       try {
-        if (typeof fetch !== 'undefined') {
+        if (aiEnabled && typeof fetch !== 'undefined') {
           const entry = await getManifestEntry(model.id, signal);
           const bundled = entry?.localPath ?? `/models/${model.id}.onnx`;
           const head = await fetchWithTimeout(
@@ -1334,6 +1344,7 @@ class ModelLoader {
     modelId: string,
     signal?: AbortSignal,
   ): Promise<'verified' | 'corrupt' | 'skipped'> {
+    if (!getAiFeaturesEnabled()) return 'skipped';
     const entry = await getManifestEntry(modelId, signal);
     if (!entry?.bundled || !entry.sha256) return 'skipped';
 
@@ -1399,9 +1410,13 @@ let syncPromise: Promise<void> | null = null;
 export function getModelLoader(signal?: AbortSignal): ModelLoader {
   if (!instance) {
     instance = new ModelLoader();
-    syncPromise = instance.syncFromStorage(signal).catch(() => {
-      // Non-fatal: UI will treat models as unavailable until next sync.
-    });
+    // Implicit startup sync probes bundled model files. Skip it when AI
+    // is off so merely constructing the loader cannot request weights.
+    syncPromise = getAiFeaturesEnabled()
+      ? instance.syncFromStorage(signal).catch(() => {
+          // Non-fatal: UI will treat models as unavailable until next sync.
+        })
+      : Promise.resolve();
   }
   return instance;
 }
