@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
 import { addPage, createDocument, makeShapeNode } from '../document';
 import { reparentNode } from '../document-nodes';
+import { makeGroupNode } from '../document-utils';
 import { DocumentCodec } from '../documentCodec';
 import type { NodeId } from '../types';
 
@@ -105,25 +106,15 @@ describe('cross-page node moves', () => {
   it('preserves a cross-page move of a subtree with children', () => {
     const { doc: base, second } = docWithTwoPages();
     const child = makeShapeNode('child-rect', { kind: 'rect', x: 1, y: 1, w: 5, h: 5 });
-    const parent = {
-      id: 'moved-group',
-      kind: 'group' as const,
+    const parent = makeGroupNode('moved-group', {
       name: 'Moved group',
-      transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
       children: ['child-rect'],
-      index: 0,
-      order: 'a0',
-      visible: true,
-      locked: false,
-      opacity: 1,
-      blendMode: 'normal' as const,
-      rotation: 0,
-    };
-    const doc = {
+    });
+    const doc: Document = {
       ...base,
       nodes: { ...base.nodes, 'moved-group': parent, 'child-rect': child },
       rootChildren: [...base.rootChildren, 'moved-group'],
-    } as Document;
+    };
 
     const moved = reparentNode(doc, 'moved-group', contentRootOf(doc, second), 0);
     const reopened = reopen(moved);
