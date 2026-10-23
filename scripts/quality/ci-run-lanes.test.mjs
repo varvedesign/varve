@@ -93,6 +93,30 @@ assert.deepEqual(
   ['e2e:all'],
   'the unsharded production-demo lane runs only once in a full browser matrix',
 );
+// A sharded cell that runs the complete suite must not also re-run per-file and
+// domain lanes: they are strict subsets, and a lane with fewer cases than shards
+// reports an empty case history in most cells, which fails certification.
+assert.deepEqual(
+  commandsForCategory(
+    {
+      ...plan,
+      selectedLanes: ['e2e:all', 'e2e:canvas', 'e2e:file:tests/e2e/canvas/tools.spec.ts'],
+    },
+    'e2e',
+    { shard: '3/24' },
+  ).map(({ lane }) => lane),
+  ['e2e:all'],
+  'the complete suite absorbs its own subset lanes in a sharded cell',
+);
+assert.deepEqual(
+  commandsForCategory(
+    { ...plan, selectedLanes: ['e2e:canvas', 'e2e:file:tests/e2e/canvas/tools.spec.ts'] },
+    'e2e',
+    { shard: '3/24' },
+  ).map(({ lane }) => lane),
+  ['e2e:canvas', 'e2e:file:tests/e2e/canvas/tools.spec.ts'],
+  'without the complete suite, the selected subset lanes still run',
+);
 assert.throws(
   () =>
     commandsForCategory(
