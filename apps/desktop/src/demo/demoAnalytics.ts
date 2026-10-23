@@ -8,11 +8,7 @@
  */
 
 import { setDemoExportAnalyticsListener } from '@varve/editor';
-import {
-  campaignCountQuery,
-  safeGoatCounterDomain,
-  VARVE_GOATCOUNTER_DOMAIN,
-} from '@varve/shared';
+import { campaignCountQuery, safeGoatCounterDomain, VARVE_GOATCOUNTER_DOMAIN } from '@varve/shared';
 import { demoMode } from './demoMode';
 
 export const WEBSITE_ANALYTICS_CONSENT_KEY = 'varve:website-analytics-consent:goatcounter-v1';
