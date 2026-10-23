@@ -1,0 +1,67 @@
+name: Library CI
+
+on:
+  pull_request:
+    paths:
+      - 'crates/varve-core/**'
+      - 'crates/varve-colour/**'
+      - 'crates/varve-layout/**'
+      - 'crates/varve-effects/**'
+      - 'crates/varve-media/**'
+      - 'crates/varve-trace/**'
+      - 'crates/varve-upscale/**'
+      - 'crates/varve-bgremove/**'
+      - 'crates/varve-accel/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.packages.outputs.packages }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          fetch-depth: 0
+      - id: packages
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only "$PR_BASE" HEAD)"
+          packages=()
+          if grep -qxE 'Cargo\.(toml|lock)' <<< "$changed"; then
+            packages=(varve-core varve-colour varve-layout varve-effects varve-media varve-trace varve-upscale varve-bgremove varve-accel)
+          else
+            for package in varve-core varve-colour varve-layout varve-effects varve-media varve-trace varve-upscale varve-bgremove varve-accel; do
+              if grep -q "^crates/$package/" <<< "$changed"; then packages+=("$package"); fi
+            done
+          fi
+          printf 'packages=["%s"]\n' "$(IFS='","'; echo "${packages[*]}")" >> "$GITHUB_OUTPUT"
+
+  library-check:
+    name: Library checks (${{ matrix.package }})
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.changes.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.97.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Run Clippy
+        run: cargo clippy -p "${{ matrix.package }}" -- -D warnings
+      - name: Run crate tests
+        run: cargo test -p "${{ matrix.package }}"
