@@ -11,7 +11,12 @@ test('feedback page offers bug, discussion, and email choices', async ({ page })
 
   await expect(page.getByRole('heading', { level: 1, name: 'Send feedback' })).toBeVisible();
   await expect(page.getByText('The app sends nothing automatically.')).toBeVisible();
+  await expect(page.getByText('You only need to say what happened.')).toBeVisible();
+  await expect(page.getByText('A screenshot helps.')).toBeVisible();
+  await expect(page.getByText('Everything else is optional.')).toBeVisible();
 
+  await expect(page.getByRole('heading', { level: 2, name: 'Something broke?' })).toBeVisible();
+  await expect(page.getByText('Tell us what happened.')).toBeVisible();
   const bug = page.getByRole('link', { name: 'Report a bug' });
   await expect(bug).toBeVisible();
   await expect(bug).toHaveAttribute(
@@ -19,9 +24,14 @@ test('feedback page offers bug, discussion, and email choices', async ({ page })
     'https://github.com/varvedesign/varve/issues/new/choose',
   );
 
-  const ideas = page.getByRole('link', { name: 'Open Discussions' });
+  await expect(
+    page.getByRole('heading', { level: 2, name: 'Have an idea or a question?' }),
+  ).toBeVisible();
+  const ideas = page.getByRole('link', { name: 'Share it' });
   await expect(ideas).toBeVisible();
   await expect(ideas).toHaveAttribute('href', 'https://github.com/varvedesign/varve/discussions');
+
+  await expect(page.getByRole('heading', { level: 2, name: 'Prefer email?' })).toBeVisible();
 
   const email = page.getByRole('link', { name: 'Email Varve product feedback' });
   await expect(email).toBeVisible();

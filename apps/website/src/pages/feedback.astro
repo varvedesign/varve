@@ -21,7 +21,7 @@ const feedbackSchema = {
   url: feedbackUrl,
   name: 'Send feedback to Varve',
   description:
-    'Choose how to send Varve feedback: report a bug, suggest an idea, or email feedback@varve.studio. The app sends nothing automatically.',
+    'Tell Varve what happened, share an idea, or email feedback@varve.studio. The app sends nothing automatically. You choose what to share.',
   inLanguage: 'en',
   mainEntity: {
     '@type': 'Organization',
@@ -34,35 +34,37 @@ const feedbackSchema = {
 
 <Layout
   title="Send feedback"
-  description="Report a Varve bug, suggest an idea, or email feedback@varve.studio. The app sends nothing automatically. You choose what to share."
+  description="Tell Varve what happened, share an idea, or email feedback@varve.studio. The app sends nothing automatically. You choose what to share."
   structuredData={feedbackSchema}
 >
   <div class="container-custom">
     <div class="feedback-page">
       <h1 class="page-hero-title">Send feedback</h1>
       <p class="page-hero-sub">
-        Pick the channel that fits. The app sends nothing automatically. You
-        choose what to share.
+        The app sends nothing automatically. You choose what to share.
+      </p>
+      <p class="feedback-note">
+        You only need to say what happened. A screenshot helps. Everything else
+        is optional.
       </p>
 
       <ol class="feedback-choices">
         <li class="feedback-choice site-card site-card--surface">
-          <h2>Report a bug</h2>
-          <p>Use a GitHub issue when something is broken and you can describe the steps.</p>
+          <h2>Something broke?</h2>
+          <p>Tell us what happened.</p>
           <Button href={VARVE_URLS.newIssueChoose}>Report a bug</Button>
         </li>
         <li class="feedback-choice site-card site-card--surface">
-          <h2>Suggest an idea or ask a question</h2>
-          <p>Discussions are for feature ideas, workflow questions, and product feedback.</p>
-          <Button href={VARVE_URLS.discussions} variant="secondary">Open Discussions</Button>
+          <h2>Have an idea or a question?</h2>
+          <p>Write it in your own words.</p>
+          <Button href={VARVE_URLS.discussions} variant="secondary">Share it</Button>
         </li>
         <li class="feedback-choice site-card site-card--surface">
           <h2>Prefer email?</h2>
-          <p>Write to the product feedback address when you would rather not post in public.</p>
           <ContactChannel
             id="feedback"
             headingLevel={3}
-            purpose="Suggestions, feature ideas, usability feedback, and interest in user research."
+            purpose="Copy the address and write whenever you like."
           />
         </li>
       </ol>
@@ -78,7 +80,14 @@ const feedbackSchema = {
   }
 
   .feedback-page .page-hero-sub {
-    margin-bottom: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .feedback-note {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 0 0 2.5rem;
+    max-width: 56ch;
   }
 
   .feedback-choices {
