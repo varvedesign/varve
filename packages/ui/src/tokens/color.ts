@@ -196,31 +196,63 @@ const BRAND_SANDSTONE: Oklch = ok(0.7161, 0.1398, 60.04);
 const BRAND_SANDSTONE_LIGHT: Oklch = ok(0.9652, 0.0214, 76.53);
 const BRAND_TERRACOTTA: Oklch = ok(0.5745, 0.1595, 30.53);
 
-/** Layer tag (7-color label) preset values. */
-const LAYER_TAG_RED: Oklch = ok(0.57, 0.1773, 22.78);
-const LAYER_TAG_ORANGE: Oklch = ok(0.6399, 0.1261, 79.82);
-const LAYER_TAG_YELLOW: Oklch = ok(0.7, 0.12, 95);
-const LAYER_TAG_GREEN: Oklch = ok(0.6342, 0.1283, 156.2);
-const LAYER_TAG_BLUE: Oklch = ok(0.6164, 0.132, 248.02);
-const LAYER_TAG_PURPLE: Oklch = ok(0.58, 0.16, 300);
-const LAYER_TAG_GRAY: Oklch = ok(0.6, 0.02, 0);
+/**
+ * Layer tag (7-color label) preset values, one set for every theme.
+ *
+ * Re-derived for colour-vision deficiency (F-31, 2026-10-23): the smallest
+ * OKLab distance between any two tags under normal, protan and deutan
+ * vision (Machado 2009, severity 1.0) is 0.104, was 0.036 (deutan
+ * blue/purple). Lightness stays in the old 0.55-0.72 band so tinted rows
+ * keep their text contrast; tritan green/blue (0.032) is unchanged and the
+ * tag name is in each row's accessible name.
+ */
+const LAYER_TAG_RED: Oklch = ok(0.5513, 0.118, 16.53);
+const LAYER_TAG_ORANGE: Oklch = ok(0.6168, 0.1301, 67.15);
+const LAYER_TAG_YELLOW: Oklch = ok(0.7186, 0.1454, 85.84);
+const LAYER_TAG_GREEN: Oklch = ok(0.7191, 0.1489, 161.49);
+const LAYER_TAG_BLUE: Oklch = ok(0.7043, 0.1405, 239.49);
+const LAYER_TAG_PURPLE: Oklch = ok(0.5679, 0.1627, 312.3);
+const LAYER_TAG_GRAY: Oklch = ok(0.6389, 0.0271, 251.98);
 
-/** Layer-shape accent/wash values. */
-const LAYER_ACCENT_SHAPE_LIGHT: Oklch = ok(0.6158, 0.1298, 57.3);
+/**
+ * Layer-type accents (the row rail and type icon), light and dark.
+ *
+ * Re-derived for colour-vision deficiency (F-29, decision D-5, 2026-10-23):
+ * each type keeps its hue family (within 20 degrees) and >= 3:1 against
+ * `tree-row`, and the smallest OKLab distance between any two types under
+ * normal, protan and deutan vision (Machado 2009, severity 1.0) is 0.123
+ * light / 0.134 dark (was 0.026 / 0.005; target 0.08). High Contrast keeps
+ * its single accent.
+ */
+const LAYER_ACCENT_LIGHT = {
+  frame: ok(0.6383, 0.1555, 245.18),
+  group: ok(0.6466, 0.1584, 55.62),
+  text: ok(0.634, 0.0644, 169.46),
+  shape: ok(0.52, 0.1354, 48.45),
+  component: ok(0.4207, 0.1465, 291.97),
+  image: ok(0.5292, 0.0815, 314.64),
+  adjustment: ok(0.4227, 0.0978, 11.48),
+} as const;
+const LAYER_ACCENT_DARK = {
+  frame: ok(0.8449, 0.0817, 239.68),
+  group: ok(0.749, 0.1547, 80.96),
+  text: ok(0.8597, 0.0962, 134.13),
+  shape: ok(0.6204, 0.1343, 54.28),
+  component: ok(0.7333, 0.1374, 274.94),
+  image: ok(0.6214, 0.1165, 329.42),
+  adjustment: ok(0.7306, 0.073, 13.64),
+} as const;
+
+/** Layer-shape wash values. */
 const LAYER_WASH_SHAPE_LIGHT: Oklch = ok(0.9652, 0.0214, 76.53);
-const LAYER_ACCENT_SHAPE_DARK: Oklch = ok(0.913, 0.0617, 85.44);
 const LAYER_WASH_SHAPE_DARK: Oklch = ok(0.285, 0.0229, 66.69);
 
-/** Layer-image accent/wash values (magenta/purple range). */
-const LAYER_ACCENT_IMAGE_LIGHT: Oklch = ok(0.65, 0.18, 330);
+/** Layer-image wash values (magenta/purple range). */
 const LAYER_WASH_IMAGE_LIGHT: Oklch = ok(0.965, 0.025, 330);
-const LAYER_ACCENT_IMAGE_DARK: Oklch = ok(0.6, 0.18, 330);
 const LAYER_WASH_IMAGE_DARK: Oklch = ok(0.2, 0.025, 330);
 
-/** Layer-adjustment accent/wash values (warm orange range). */
-const LAYER_ACCENT_ADJUSTMENT_LIGHT: Oklch = ok(0.65, 0.16, 30);
+/** Layer-adjustment wash values (warm orange range). */
 const LAYER_WASH_ADJUSTMENT_LIGHT: Oklch = ok(0.965, 0.02, 30);
-const LAYER_ACCENT_ADJUSTMENT_DARK: Oklch = ok(0.6, 0.16, 30);
 const LAYER_WASH_ADJUSTMENT_DARK: Oklch = ok(0.2, 0.025, 30);
 
 /**
@@ -618,19 +650,19 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'tree-row-selected': T(9),
     'tree-row-focus': T(7),
     'tree-indent-guide': N(7),
-    'layer-accent-frame': B(6),
+    'layer-accent-frame': LAYER_ACCENT_LIGHT.frame,
     'layer-wash-frame': B(1),
-    'layer-accent-group': A(8),
+    'layer-accent-group': LAYER_ACCENT_LIGHT.group,
     'layer-wash-group': A(1),
-    'layer-accent-text': G(8),
+    'layer-accent-text': LAYER_ACCENT_LIGHT.text,
     'layer-wash-text': G(1),
-    'layer-accent-shape': LAYER_ACCENT_SHAPE_LIGHT,
+    'layer-accent-shape': LAYER_ACCENT_LIGHT.shape,
     'layer-wash-shape': LAYER_WASH_SHAPE_LIGHT,
-    'layer-accent-component': V(6),
+    'layer-accent-component': LAYER_ACCENT_LIGHT.component,
     'layer-wash-component': V(1),
-    'layer-accent-image': LAYER_ACCENT_IMAGE_LIGHT,
+    'layer-accent-image': LAYER_ACCENT_LIGHT.image,
     'layer-wash-image': LAYER_WASH_IMAGE_LIGHT,
-    'layer-accent-adjustment': LAYER_ACCENT_ADJUSTMENT_LIGHT,
+    'layer-accent-adjustment': LAYER_ACCENT_LIGHT.adjustment,
     'layer-wash-adjustment': LAYER_WASH_ADJUSTMENT_LIGHT,
     'minimap-ink-frame': MINIMAP_INK_FRAME,
     'minimap-ink-shape': MINIMAP_INK_SHAPE,
@@ -760,19 +792,19 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'tree-row-selected': T(5),
     'tree-row-focus': T(7),
     'tree-indent-guide': N(7),
-    'layer-accent-frame': B(3),
+    'layer-accent-frame': LAYER_ACCENT_DARK.frame,
     'layer-wash-frame': B(11),
-    'layer-accent-group': A(3),
+    'layer-accent-group': LAYER_ACCENT_DARK.group,
     'layer-wash-group': A(11),
-    'layer-accent-text': G(3),
+    'layer-accent-text': LAYER_ACCENT_DARK.text,
     'layer-wash-text': G(11),
-    'layer-accent-shape': LAYER_ACCENT_SHAPE_DARK,
+    'layer-accent-shape': LAYER_ACCENT_DARK.shape,
     'layer-wash-shape': LAYER_WASH_SHAPE_DARK,
-    'layer-accent-component': V(3),
+    'layer-accent-component': LAYER_ACCENT_DARK.component,
     'layer-wash-component': V(11),
-    'layer-accent-image': LAYER_ACCENT_IMAGE_DARK,
+    'layer-accent-image': LAYER_ACCENT_DARK.image,
     'layer-wash-image': LAYER_WASH_IMAGE_DARK,
-    'layer-accent-adjustment': LAYER_ACCENT_ADJUSTMENT_DARK,
+    'layer-accent-adjustment': LAYER_ACCENT_DARK.adjustment,
     'layer-wash-adjustment': LAYER_WASH_ADJUSTMENT_DARK,
     'minimap-ink-frame': MINIMAP_INK_FRAME,
     'minimap-ink-shape': MINIMAP_INK_SHAPE,

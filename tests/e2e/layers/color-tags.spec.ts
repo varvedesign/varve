@@ -58,6 +58,22 @@ test.describe('Layers Panel - Color Tags', () => {
     await expect(filteredRows).toHaveCount(3);
   });
 
+  test('names the tag in text, not only in colour', async ({ page }) => {
+    await setFirstTag(page, 'Red');
+    const firstItem = page.getByRole('treeitem').first();
+    // Screen readers get it in the row name; sighted users in the details.
+    await expect(firstItem).toHaveAccessibleName(/Red color tag/);
+    await firstItem.click();
+    await firstItem.hover();
+    await firstItem.locator('[data-row-action="details"]').click();
+    // The header and the row each own a details popover; read the open one.
+    const details = page.locator('[data-layer-details]').filter({ visible: true });
+    await expect(details).toBeVisible();
+    await expect(
+      details.locator('.layers-details__row').filter({ hasText: 'Color tag' }),
+    ).toContainText('Red');
+  });
+
   test('assignment is restored by undo and redo', async ({ page }) => {
     const firstItem = page.getByRole('treeitem').first();
 

@@ -1,5 +1,5 @@
 import type { Document, EffectStackKind, NodeId, SceneNode } from '@varve/scene';
-import { activeSmartFilters, documentHasSolo } from '@varve/scene';
+import { activeSmartFilters, documentHasSolo, LAYER_COLOR_LABELS } from '@varve/scene';
 import { Popover, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import type { ReactNode } from 'react';
 import type { ParentIndexCache } from '../../scene/parentIndexCache';
@@ -114,6 +114,10 @@ export function LayerDetailsPopover({
               />
             )}
             <DetailRow label="Lock" value={effectiveLocked ? 'Locked' : 'Unlocked'} />
+            {/* The row shows a tag only as colour; name it here (F-31). */}
+            {node.layerColor && (
+              <DetailRow label="Color tag" value={LAYER_COLOR_LABELS[node.layerColor]} />
+            )}
             {mask && (
               <DetailRow
                 label="Mask"
