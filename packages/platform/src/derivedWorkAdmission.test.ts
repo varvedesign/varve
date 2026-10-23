@@ -85,6 +85,98 @@ describe('DerivedWorkAdmission', () => {
     expect(gate.snapshot()).toMatchObject({ active: 0, pending: 0, reservedBytes: 0 });
   });
 
+  describe('host-derived budget', () => {
+    // The reported regression: a 480x640 AI quality request reserves
+    // 541_786_112 bytes (512 MiB model allowance + 4x the RGBA frame), which
+    // the 400 MB placeholder refused on every host, including 24 GB desktops.
+    const AI_QUALITY_RESERVATION = 541_786_112;
+
+    it('refuses that reservation only while the budget is the unmeasured default', () => {
+      const gate = new DerivedWorkAdmission();
+      expect(gate.snapshot()).toMatchObject({
+        maxReservedBytes: 400_000_000,
+        budgetSource: 'conservative-default',
+      });
+      expect(() =>
+        gate.tryAcquire({ ...request('ai-quality'), estimatedBytes: AI_QUALITY_RESERVATION }),
+      ).toThrowError(expect.objectContaining({ code: 'memory-limit' }));
+    });
+
+    it('admits it once the host has been measured', () => {
+      const gate = new DerivedWorkAdmission();
+      gate.setHostMemoryBudget({ availableBytes: 8 * 1024 * 1024 * 1024, source: 'native' });
+      expect(gate.snapshot()).toMatchObject({
+        maxReservedBytes: 6 * 1024 * 1024 * 1024,
+        budgetSource: 'host-measured',
+      });
+      const lease = gate.tryAcquire({
+        ...request('ai-quality'),
+        estimatedBytes: AI_QUALITY_RESERVATION,
+      });
+      expect(lease?.reservationBytes).toBe(AI_QUALITY_RESERVATION);
+      lease?.release();
+    });
+
+    it('records a browser device hint as an estimate, not a measurement', () => {
+      const gate = new DerivedWorkAdmission();
+      gate.setHostMemoryBudget({ availableBytes: 4 * 1024 * 1024 * 1024, source: 'device-memory' });
+      expect(gate.snapshot().budgetSource).toBe('host-estimated');
+    });
+
+    it('keeps the current ceiling when the host cannot be measured', () => {
+      const gate = new DerivedWorkAdmission();
+      gate.setHostMemoryBudget({ availableBytes: null, source: 'unavailable' });
+      expect(gate.snapshot()).toMatchObject({
+        maxReservedBytes: 400_000_000,
+        budgetSource: 'conservative-default',
+      });
+    });
+
+    it('never overwrites a budget a host or test configured explicitly', () => {
+      const gate = new DerivedWorkAdmission({ maxReservedBytes: 1234 });
+      gate.setHostMemoryBudget({ availableBytes: 32 * 1024 * 1024 * 1024, source: 'native' });
+      expect(gate.snapshot()).toMatchObject({
+        maxReservedBytes: 1234,
+        budgetSource: 'explicit',
+      });
+    });
+
+    it('evicts residents when measured memory lowers the budget', async () => {
+      const gate = new DerivedWorkAdmission();
+      gate.setHostMemoryBudget({ availableBytes: 8 * 1024 * 1024 * 1024, source: 'native' });
+      const work = await gate.acquire({
+        ...request('session-create', 'visible'),
+        kind: 'inference',
+        estimatedBytes: 4 * 1024 * 1024 * 1024,
+      });
+      let evicted = false;
+      work.retainResident(4 * 1024 * 1024 * 1024, {
+        priority: 'idle',
+        onEvict: () => {
+          evicted = true;
+          return true;
+        },
+      });
+      work.release();
+      gate.setHostMemoryBudget({ availableBytes: 2 * 1024 * 1024 * 1024, source: 'native' });
+      expect(evicted).toBe(true);
+      expect(gate.snapshot().residentBytes).toBe(0);
+    });
+
+    it('reports actionable sizes and provenance in a refusal message', () => {
+      const gate = new DerivedWorkAdmission({ maxReservedBytes: 100 * 1024 * 1024 });
+      let message = '';
+      try {
+        gate.tryAcquire({ ...request('big'), estimatedBytes: 512 * 1024 * 1024 });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toContain('512 MB');
+      expect(message).toContain('100 MB');
+      expect(message).toContain('configured by the host or a test');
+    });
+  });
+
   it('transfers job reservation to a resident lease without double counting, then evicts it first', async () => {
     const gate = new DerivedWorkAdmission({ maxConcurrent: 1, maxReservedBytes: 100 });
     const work = await gate.acquire({

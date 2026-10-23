@@ -1,4 +1,5 @@
 mod acceleration;
+mod collab_host;
 mod crash;
 mod file_open;
 mod filesystem;
@@ -6,7 +7,6 @@ mod font;
 mod font_storage;
 mod generative_qualification;
 mod generative_resources;
-mod collab_host;
 mod lifecycle;
 mod logs;
 mod menu;
@@ -969,6 +969,31 @@ struct NativeBgModelStatus {
     installed: bool,
     size_bytes: u64,
     peak_memory_bytes: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HostMemoryStatus {
+    /// Bytes the OS reports as available to this process right now.
+    available_bytes: Option<u64>,
+    /// constrained / standard / high / unknown, matching native resource tiers.
+    resource_tier: String,
+}
+
+/// Report measured host memory to the renderer.
+///
+/// The renderer's shared derived-work ledger needs a real ceiling: WebKitGTK
+/// does not expose `navigator.deviceMemory`, so without this command every
+/// desktop session would keep the 400 MB placeholder and refuse AI work the
+/// machine can easily run. Read-only, allocation-free, and safe to call before
+/// any model or runtime is loaded.
+#[tauri::command]
+fn host_memory_status() -> HostMemoryStatus {
+    let available_memory_bytes = generative_resources::available_memory_bytes();
+    HostMemoryStatus {
+        available_bytes: available_memory_bytes,
+        resource_tier: generative_resources::resource_tier(available_memory_bytes).to_string(),
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -5967,6 +5992,7 @@ pub fn run() {
             remove_background_binary,
             native_ai_status,
             native_background_removal_model_status,
+            host_memory_status,
             preflight_native_background_removal,
             download_background_removal_model,
             cancel_background_removal_model_download,
@@ -6325,6 +6351,23 @@ mod tests {
             .lock()
             .expect("cancellation state is available")
             .contains(&request_id));
+    }
+
+    #[test]
+    fn host_memory_status_reports_a_known_tier_and_sane_bytes() {
+        let status = host_memory_status();
+        assert!(
+            ["constrained", "standard", "high", "unknown"].contains(&status.resource_tier.as_str()),
+            "unexpected resource tier: {}",
+            status.resource_tier
+        );
+        if let Some(bytes) = status.available_bytes {
+            assert!(bytes > 0, "a reported availability must be positive");
+            let expected = generative_resources::resource_tier(Some(bytes));
+            assert_eq!(status.resource_tier, expected);
+        } else {
+            assert_eq!(status.resource_tier, "unknown");
+        }
     }
 
     #[test]

@@ -69,6 +69,12 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   if (message === 'cancelled' || message === 'AbortError' || message.includes('aborted')) {
     return 'Cancelled';
   }
+  // A capacity refusal is a policy decision, not a broken model. The shared
+  // local-work ledger reports byte counts; nobody should have to read those.
+  const code = (e as { code?: string } | null)?.code;
+  if (code === 'insufficient-memory' || code === 'memory-limit') {
+    return 'Not enough free memory for this AI mode right now. Close memory-heavy apps and try again, or use Auto cutout or Fast cutout.';
+  }
   if (message.includes('request deadline')) {
     return 'AI processing reached its time limit. Try Fast for a simple background, or choose a smaller local model in Settings, Offline Models.';
   }
@@ -83,6 +89,9 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   }
   if (message.includes('AI background removal failed in all quality modes')) {
     return 'AI background removal failed in every mode on this device. Use Quick mode, then manually refine the mask with the brush and trimap tools below.';
+  }
+  if (message.includes('shared local-AI budget') || message.includes('shared local-work budget')) {
+    return message.length > 180 ? `${message.slice(0, 180)}...` : message;
   }
   if (message.includes('Model') || message.includes('model')) {
     return `Model failed to load: ${defaultMessage}`;
@@ -1397,7 +1406,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               <div className="insp-model-info">
                 <p className="insp-hint">
                   {info.quality} &middot; {info.diskSizeDisplay} on disk &middot;{' '}
-                  {info.peakRamDisplay} RAM during inference
+                  {info.peakRamDisplay} during inference
                 </p>
                 <p className="insp-model-info__desc">{info.description}</p>
                 {needsGpuWarn && (

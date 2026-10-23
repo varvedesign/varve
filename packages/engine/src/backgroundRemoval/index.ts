@@ -107,7 +107,10 @@ export {
 } from './precisionCapabilities';
 export { downscaleImageData } from './previewDownscale';
 export { cloudRemovalProvider } from './providers/cloudProvider';
-export { AI_PROVIDER_CHAIN } from './providers/dispatch';
+export {
+  AI_PROVIDER_CHAIN,
+  BackgroundRemovalCapacityError,
+} from './providers/dispatch';
 export type { RemovalProvider } from './providers/types';
 export type {
   BenchmarkMetricSample,
