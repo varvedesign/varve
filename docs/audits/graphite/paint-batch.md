@@ -1,5 +1,84 @@
 # Paint batch checkpoint — 2026-10-23
 
+## Current resumable state (supersedes historical attempts below)
+
+- Head `3b5bd3e99` on `graphite/paint-corpus-20261023`; production repairs
+  are the two normal-hook commits `856fdc25f` / `3b5bd3e99`.
+- **Completed, do not repeat after restart:** 105 focused unit tests;
+  14/14 real-app Chromium checks (7.5 minutes, shell
+  `sh_16ace39c80017ubLNxxToIPPny`, port 7491); importer-disabled control
+  with both expected pixel failures; both normal commit gates; required
+  docs/imports/emoji/tokens audits. Full suite not run or required by planner.
+- Read the fixed linear/radial/brush screenshots from
+  `test-results/run-333292-7491/` and retained them under
+  `docs/screenshots/graphite-corpus/`. The rectangle has a full black-to-white
+  ramp, the radial circle has a centred white core, the white Airbrush fades
+  into gray without a dark fringe. PNG samples: linear quarter/three-quarter
+  RGB 65/193 (alpha 255); brush patch RGB 96–154 (backdrop 96, alpha 255).
+  These PNG measurements supplement, not replace, the passing raw-canvas oracles.
+- #3019 is now already-handled for the tested normal soft-brush path (F17);
+  no brush production repair. #2445 stays already-handled (F16). Re-derived
+  ledger: 548 already-handled / 190 applicable; other counts and C1/C2 unchanged.
+  #2524 remains applicable for viewport percentages, focal-point approximation
+  and inherited group paint; direct-fill fixtures do not certify its full sample.
+- The brush log warns of `updateDoc` outside a transaction. Source inspection
+  confirms the tool opens a transaction and waits for the worker tail before
+  committing, but the caller of this warning is not identified. Alpha fidelity
+  is verified; brush undo/persistent-history capture is **not** certified.
+- Restart cancelled `sh_16acfcce9001rgk2iJLNUUzTlk` (DPR) and
+  `sh_16ad272e6001MpzG7yVeyuUmA3` (complete affected gate) **while waiting
+  for the lease**, before either command started. Eight-worker normal push
+  `sh_16adb4ff80014fBnXqHIxZj6Ed` passed the three direct files and was
+  interrupted in the engine lane; no result established for that lane.
+  This cancellation is not a second timeout/failure. Prior two-worker push
+  really did hit 300 seconds and remains recorded below. No hooks bypassed.
+- Recovery recheck: no owned validation/push processes survive. Remote master
+  is still `e11477176`; remote paint branch absent, no PR. Previous vector
+  branch and divergent primary checkout remain untouched.
+- Latest complete `pnpm verify:plan --since origin/master`: **47 lanes**, 78%
+  of JS tests selected due to the shared engine reverse-dependency closure;
+  no full escalation. Rust, website E2E and full visual suite skipped by plan.
+  Targeted gradient visuals at DPR 1/2/3 are an explicit additional check.
+- Next: checkpoint inspected evidence, run only the unfinished checks under the
+  lease, recover normal push (same eight-worker setting, unchanged timeout),
+  open a draft PR after remote ref exists, obtain exact-SHA hosted evidence
+  and independent review before merge. Verify master/deployment separately.
+  Native/WASM behavior remains unverified by these TS-fallback browser runs.
+- Recovery commands: `sh_16ae6dafd001uHirgV6irj42bK` owns only the unfinished
+  gradient DPR cases, port 7495, one worker, lease-wrapped. Documentation-only
+  `pnpm verify:plan && pnpm verify:affected` is
+  `sh_16ae6db44001ddoF7JMaHdwMun`; it does not replace the 47-lane branch gate.
+- Documentation-only affected check passed: docs/emoji/claims; Biome skipped
+  with no compatible changed files. The ledger was parsed independently:
+  1,604 rows / 2,734 comments, 548 handled / 589 out-of-scope / 220 uncertain /
+  47 duplicate / 190 applicable / 10 blocked.
+
+### Agent Validation Report (current evidence, not integration certification)
+
+```text
+Changed scope: @varve/import SVG local-space rebasing; @varve/engine gradient
+constructors; 5 new regression/probe files; Graphite audit and screenshots.
+Validation plan: 47 complete-branch lanes, engine/import reverse-dependent JS
+checks and import/export browser domains; no full-suite escalation. Evidence-only
+follow-up selects 5 Tier-0 lanes and no production tests.
+Commands actually run:
+  pnpm exec vitest run packages/import/src/svg-user-space-gradient.test.ts packages/import/src/svg.test.ts packages/scene/src/__tests__/brush-alpha-fidelity.test.ts --maxWorkers=1
+  pnpm exec vitest run packages/engine/src/replayGradient.userSpace.test.ts packages/engine/src/replay-fill.test.ts packages/import/src/svg-user-space-gradient.test.ts --maxWorkers=1
+  VARVE_E2E_PORT=7491 VARVE_LEASE_TIMEOUT=2400000 node scripts/quality/heavy-lease.mjs "e2e: graphite gradient CTM repair and neighbors" -- pnpm exec playwright test tests/e2e/import/svg-user-space-gradient.spec.ts tests/e2e/inspector/gradient-stop-selection.spec.ts tests/e2e/paint/brush-alpha-fidelity.spec.ts tests/e2e/canvas/gradient-geometry.spec.ts tests/e2e/canvas/gradient-interpolation.spec.ts --project=chromium --workers=1 --reporter=list
+  VARVE_E2E_PORT=7494 VARVE_LEASE_TIMEOUT=2400000 node scripts/quality/heavy-lease.mjs "e2e: graphite origin-disabled control with corrected replay" -- pnpm exec playwright test --config /tmp/opencode/graphite-origin-red-playwright.config.ts tests/e2e/import/svg-user-space-gradient.spec.ts --project=chromium --workers=1 --reporter=list
+  pnpm audit:docs; pnpm audit:imports; pnpm audit:emoji; pnpm audit:tokens
+  git diff --check; pnpm verify:plan; pnpm verify:affected (evidence-only follow-up)
+Passed: 53 importer/brush unit cases; 105 replay/importer unit cases; 14 real-app
+browser cases; normal commit gates; docs/imports/emoji/tokens (324 pairs), claims.
+Expected red controls: 12/15 parser and 5/5 replay cases before repair; two
+browser pixel failures with importer rebasing disabled and corrected replay.
+Incomplete: full affected closure and DPR visuals; normal push; hosted exact-SHA
+certification; independent review; merge/deployment. Brush history warning
+unlocalized; native/WASM not verified by the fallback browser.
+Skipped as unrelated: Rust workspace; website E2E; full visual; packaging/signing.
+Escalations: none. Full suite run: no (planner does not require it).
+```
+
 ## Authority and scope
 
 - Branch `graphite/paint-corpus-20261023`, fresh worktree
@@ -67,6 +146,32 @@ not be represented as proof that the source SVG or all SVG gradients work.
 ### Restart recovery (current)
 
 Latest evidence supersedes the pending-run entries below:
+
+- Head `3b5bd3e99` contains both local repair commits (`856fdc25f` and
+  `3b5bd3e99`). Both normal commit checkpoints passed. No remote branch/PR,
+  merge or deployment has been established.
+- Complete exact-branch affected gate is now queued/running as
+  `sh_16ad272e6001MpzG7yVeyuUmA3`, port 7493, explicit
+  `verify:affected --since origin/master`. Do not substitute a working-diff
+  plan for this two-commit scope.
+- Origin-disabled control `sh_16ace5294001Ub8kNQAgEAyQpy` completed with
+  **two expected pixel failures** and the mutation log. Both samples were
+  opaque; linear quarter and radial centre remained black. Both screenshots
+  were read, showing the field displaced from the shapes. The linear control
+  is retained as `svg-gradient-no-origin-linear.png` under
+  `docs/screenshots/graphite-corpus/`. The parser-fixed/replay-broken image is
+  retained there as `svg-gradient-double-ctm-linear.png`.
+- Normal push attempt `sh_16ad3f102001fg2YncGyp1EoqJ` failed its hook: all
+  three direct regression files passed, then `js-unit:@varve/engine` exceeded
+  the fixed 300s lane deadline with two workers. Owned-process cleanup passed;
+  no hooks were bypassed, no refs pushed. CI health reported no current
+  infrastructure blocks. Diagnostics: common Git directory
+  `varve-validation/plans/696cdadde45c25029f58c59be4a32f4b696ac091fcadaae969524d9181379422.json`.
+- One normal retry at the hook's standard eight-worker setting is queued as
+  `sh_16adb4ff80014fBnXqHIxZj6Ed`, wrapped in the shared lease so it cannot
+  overlap our browser runs. If it fails again, diagnose/report rather than
+  bypass the timeout. Draft PR body is prepared at
+  `/tmp/opencode/graphite-paint-pr.md`; create it only after a successful push.
 
 - Local checkpoint `856fdc25f` committed the importer repair and probes. All
   pre-commit gates passed, including 17 new unit cases and E2E typechecking.

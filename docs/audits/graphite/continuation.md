@@ -9,7 +9,10 @@ and the branch before acting.
 The active work is now in `.worktrees/graphite-paint-20261023`, branch
 `graphite/paint-corpus-20261023`, based on remote master `e11477176`.
 Read [paint-batch.md](paint-batch.md) for the current checks, pending processes,
-F14 geometry-origin repair and probes for #2445/#3019. The separate local
+F14/F15 gradient repairs and verified #2445/#3019 probes. The repaired browser
+run passed all 14 cases and its screenshots were inspected; do not repeat it
+solely because a server restarted. The restart cancelled only pending DPR,
+affected-gate and push work; their exact state is in the checkpoint. The separate local
 vector batch is preserved at `.worktrees/graphite-20261022`; findings F10–F13
 are reserved for it. No paint-batch integration/release is established yet.
 

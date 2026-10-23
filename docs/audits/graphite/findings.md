@@ -446,7 +446,7 @@ permission/MIME dependence disclosed.
 
 ---
 
-## F14 — SVG user-space gradients lost their geometry origin (implemented; browser verification pending)
+## F14 — SVG user-space gradients lost their geometry origin (implemented; browser verified)
 
 **External evidence.** [Graphite #2524](https://github.com/GraphiteEditor/Graphite/issues/2524)
 and its ten comments distinguish importing an actual SVG from importing a PNG
@@ -475,7 +475,7 @@ Paths keep their original coordinates; objectBoundingBox mapping is unchanged.
 **Evidence so far.** `packages/import/src/svg-user-space-gradient.test.ts`
 failed 12 of 15 cases before the repair. With the repair, it, the existing
 `svg.test.ts`, and `brush-alpha-fidelity.test.ts` pass all 53 tests. Cases cover
-numeric linear/radial fields, every rebased shape converter, authored affine
+numeric linear/radial fields, rebased primitive converters, authored affine
 transforms, import scale, nested groups/root viewBox, `<use>`, singular
 transforms, matrix order, and unchanged path/objectBoundingBox controls.
 Real-app linear and radial pixel checks live in
@@ -488,17 +488,30 @@ paint from a group; this separate importer boundary is source-inspected but
 not repaired or verified here. #2524 therefore stays applicable work rather
 than being marked wholly handled. The first browser run used the TS fallback
 after a WASM-load warning; native/WASM validation is not established. The
-affected gate, rendered repair check, second-pass review, commit, PR, merge
-and deployment evidence remain pending; see `paint-batch.md`.
+complete affected gate and integration evidence remain pending; see `paint-batch.md`.
+The implementation is committed locally as `856fdc25f`.
 
 **Rendered follow-up.** The first repaired-parser browser run still failed both
 pixel cases. Unobscured screenshots were read: the handles were centred on the
 correct geometry but both shapes remained opaque black. F15 below identifies
 the independent replay defect; parser-only success was not a rendered fix.
 
+With both repairs, both real File Import cases passed. Inspected screenshots
+show a left-to-right black/white rectangle and a centred white/black radial
+circle, with no dialog obscuring the artwork:
+[linear](../../screenshots/graphite-corpus/svg-user-space-linear-fixed.png),
+[radial](../../screenshots/graphite-corpus/svg-user-space-radial-fixed.png).
+Opaque content-canvas samples passed their asserted ranges. Separate samples
+from the saved linear PNG are (65,65,65,255) at quarter width and
+(193,193,193,255) at three-quarter width. An isolated Vite control disabling
+only importer rebasing, while keeping F15, failed both pixel checks as expected;
+its mutation log and both screenshots were inspected. The retained
+[control](../../screenshots/graphite-corpus/svg-gradient-no-origin-linear.png)
+shows the misplaced field. No production source was edited for that control.
+
 ---
 
-## F15 — Canvas gradient coordinates were transformed twice (implemented; rendered recheck pending)
+## F15 — Canvas gradient coordinates were transformed twice (implemented; browser verified)
 
 The #2524 reproduction exposed a second boundary: `replayGradient.ts` applied
 `getTransform()` to already-local gradient endpoints/centres, then passed those
@@ -513,8 +526,14 @@ Five nonidentity-CTM constructor/cache tests in
 repair. The repair removes that extra projection; it does not reset the canvas
 transform, alter the gradient matrix, or drop CTM identity from cache keys.
 The new tests, existing `replay-fill.test.ts`, and parser regressions pass
-**105 tests in three files**. Browser pixel and gradient-neighbour checks are
-queued. No dispatcher, scene schema, renderer API or pixel-reuse logic changed.
+**105 tests in three files**. The corrected real-app run passed all **14 cases**:
+the two imported gradient pixel checks, stop selection, brush fringe, gradient
+drag undo/redo, interpolation/transparency/hue, export, keyboard accessibility,
+and narrow-viewport bounds. The parser-only
+[failure screenshot](../../screenshots/graphite-corpus/svg-gradient-double-ctm-linear.png)
+and fixed F14 screenshots were inspected. No dispatcher, scene schema, renderer
+API or pixel-reuse logic changed. Commit `3b5bd3e99` is local; targeted replay
+visuals at DPR 1/2/3, complete affected validation and integration are unfinished.
 
 ---
 
@@ -532,3 +551,35 @@ the green interior stop is selected and Position reads 65. The canvas itself
 was still affected by F15; this verification concerns selection, not painting.
 Canvas geometry handles have transient dragging state, not a persistent
 selected-stop state. No production selection or history change was made.
+
+---
+
+## F17 — Soft brush RGB survives semitransparent edges (verified, no change needed)
+
+[Graphite #3019](https://github.com/GraphiteEditor/Graphite/issues/3019) reports
+a dark fringe around a pink soft stroke; its attached image was inspected.
+The sole comment points to [#3033](https://github.com/GraphiteEditor/Graphite/pull/3033),
+whose conversation explicitly identifies this fix. That is external evidence,
+not a claim to have reproduced Graphite's historical engine.
+
+Varve's `compositeDabOnNode` stores straight-alpha RGB after source-over
+composition. Two unit controls inspect over 100 soft-edge pixels each at
+alpha 5–75, including overlapping dabs: RGB stays within one byte of the
+authored (64,160,224) rather than darkening with alpha. The real-app Airbrush
+test paints white over a measured opaque (96,96,96) backdrop. It requires
+visible brightening and no channel below the backdrop by more than one byte.
+It passed, and the
+[screenshot](../../screenshots/graphite-corpus/soft-white-brush.png) was read:
+the core is lighter, edges fade smoothly, and no dark ring is visible. Saved
+PNG samples over the 130×130 stroke patch span RGB 96–154, with alpha 255.
+No brush production code was changed. This establishes the tested normal
+soft-brush path, not every blend mode, wet-edge effect or native backend.
+
+**Separate history warning.** The run emitted `updateDoc called outside
+transaction`. Source inspection finds `PaintTool.onPointerDown` starts a
+transaction and `finishStroke` commits after the worker tail, but the log has
+no caller stack and does not identify the offending mutation. This probe
+neither exercises Undo nor reloads persistent history. Its alpha result does
+not certify brush undo/persistence; the warning remains an explicit follow-up,
+not a diagnosed or repaired history defect. Gradient-handle gesture undo/redo
+passed its separate existing browser test.

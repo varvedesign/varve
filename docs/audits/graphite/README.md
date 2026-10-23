@@ -79,14 +79,16 @@ Dispositions: `applicable-work-required`, `already-handled`, `duplicate-of`,
 - Findings and engineering state: `findings.md`.
 - Current paint follow-up: [paint-batch.md](paint-batch.md), branch
   `graphite/paint-corpus-20261023`. F14 repairs the SVG geometry-origin/fill
-  boundary; 53 focused tests pass, but rendered verification, affected
-  validation and integration are pending. #2445/#3019 have dedicated browser
-  probes; their classification is not changed without the results. Findings
+  boundary and F15 removes duplicate Canvas2D gradient transforms: 105 focused
+  tests and 14 real-app browser cases pass; fixed/control screenshots were
+  inspected. Complete affected validation, DPR checks and integration remain
+  pending. #2445/#3019 verify existing stop-selection/soft-brush behavior. Findings
   F10–F13 are reserved by the separate, unmerged local vector branch.
-- Current ledger after the #2445 browser verification: 547 `already-handled`,
-  191 `applicable-work-required`; other counts and the frozen issue/comment
+- Current ledger after the #2445/#3019 browser verification: 548 `already-handled`,
+  190 `applicable-work-required`; other counts and the frozen issue/comment
   coverage are unchanged. F15 records the additional gradient replay defect;
-  F16 records existing stop-selection behavior. No integration is implied.
+  F16/F17 record existing stop-selection/soft-brush behavior. The brush run's
+  unlocalized history warning is not undo/persistence certification. No integration is implied.
 - A pre-existing failure on `origin/master` surfaced while validating the
   website copy change and was fixed here because it blocked the affected gate
   and published wrong release notes: the changelog parser dropped every
