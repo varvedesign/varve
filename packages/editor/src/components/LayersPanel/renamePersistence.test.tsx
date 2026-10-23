@@ -12,7 +12,7 @@ import { LayersRow } from './LayersRow';
  *
  * These pin the two as separate signals.
  */
-function makeNode(name: string) {
+function makeNode(name: string): Record<string, unknown> {
   return {
     id: 'n1',
     name,
@@ -27,7 +27,7 @@ function makeNode(name: string) {
     order: 'a0',
     rotation: 0,
     shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
-  } as never;
+  };
 }
 
 function renderRow(overrides: Record<string, unknown> = {}) {
@@ -55,17 +55,32 @@ function renderRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe('layers panel rename', () => {
-  it('double-click begins editing without reporting a rename', () => {
+  it('double-clicking the name begins editing without reporting a rename', () => {
     const onRename = vi.fn();
     const onRenameStart = vi.fn();
     const { view } = renderRow({ onRename, onRenameStart });
 
-    fireEvent.doubleClick(view.container.querySelector('.layers-row') as Element);
+    fireEvent.doubleClick(view.container.querySelector('.layers-row__name') as Element);
 
     expect(onRenameStart).toHaveBeenCalledWith('n1');
     // Reporting the unchanged name here is what made a commit indistinguishable
     // from a start.
     expect(onRename).not.toHaveBeenCalled();
+  });
+
+  it('double-clicking a container row toggles disclosure without renaming', () => {
+    const onRenameStart = vi.fn();
+    const onToggleExpand = vi.fn();
+    const { view } = renderRow({
+      node: { ...makeNode('Group 1'), kind: 'group', children: [] },
+      onRenameStart,
+      onToggleExpand,
+    });
+
+    fireEvent.doubleClick(view.container.querySelector('.layers-row') as Element);
+
+    expect(onToggleExpand).toHaveBeenCalledWith('n1');
+    expect(onRenameStart).not.toHaveBeenCalled();
   });
 
   it('commits the typed name on Enter', () => {

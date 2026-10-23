@@ -99,6 +99,27 @@ describe('nodeMatchesFilter', () => {
     expect(nodeMatchesFilter(node, { ...DEFAULT_FILTER, search: 'circle' })).toBe(false);
   });
 
+  it('uses the same search contract as the tree projection', () => {
+    // The count this predicate produces drives `N of M layers` and the
+    // enabled state of Select matches, so it must agree with the index-backed
+    // projection for multi-term and non-Latin queries.
+    const multiWord = makeTestShape({ name: 'Primary Large Button' });
+    expect(nodeMatchesFilter(multiWord, { ...DEFAULT_FILTER, search: 'primary button' })).toBe(
+      true,
+    );
+    expect(nodeMatchesFilter(multiWord, { ...DEFAULT_FILTER, search: 'large button' })).toBe(true);
+    expect(nodeMatchesFilter(multiWord, { ...DEFAULT_FILTER, search: 'button missing' })).toBe(
+      false,
+    );
+
+    const cjk = makeTestShape({ name: '设计按钮' });
+    expect(nodeMatchesFilter(cjk, { ...DEFAULT_FILTER, search: '按钮' })).toBe(true);
+    expect(nodeMatchesFilter(cjk, { ...DEFAULT_FILTER, search: '页脚' })).toBe(false);
+
+    const arabic = makeTestShape({ name: 'زر رئيسي' });
+    expect(nodeMatchesFilter(arabic, { ...DEFAULT_FILTER, search: 'رئيسي' })).toBe(true);
+  });
+
   it('filters by node kind', () => {
     const shape = makeTestShape();
     const text = makeTestText();
@@ -140,6 +161,33 @@ describe('nodeMatchesFilter', () => {
     );
     expect(nodeMatchesFilter(hidden, { ...DEFAULT_FILTER, attributes: { visible: true } })).toBe(
       false,
+    );
+  });
+
+  it('filters visibility by effective state, not the row own flag', () => {
+    // Visibility inherits: a child of a hidden group paints nothing, so it
+    // must not appear under "Visible" merely because its own flag is true.
+    const parent = {
+      ...makeTestGroup({ name: 'Hidden Parent', visible: false }),
+      id: 'parent',
+      children: ['child'],
+    };
+    const child = { ...makeTestShape({ name: 'Child', visible: true }), id: 'child' };
+    const doc = {
+      ...createDocument(),
+      nodes: { parent, child },
+    } as unknown as import('@varve/scene').Document;
+
+    expect(
+      nodeMatchesFilter(child, { ...DEFAULT_FILTER, attributes: { visible: true } }, { doc }),
+    ).toBe(false);
+    expect(
+      nodeMatchesFilter(child, { ...DEFAULT_FILTER, attributes: { visible: false } }, { doc }),
+    ).toBe(true);
+    // Without a document there is no ancestry to consult; the own flag is the
+    // only available truth.
+    expect(nodeMatchesFilter(child, { ...DEFAULT_FILTER, attributes: { visible: true } })).toBe(
+      true,
     );
   });
 

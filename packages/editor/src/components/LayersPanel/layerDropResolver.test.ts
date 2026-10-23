@@ -13,6 +13,7 @@ import {
   addNode,
   createDesignCanvas,
   createDocument,
+  createMaster,
   designCanvasContentRoot,
   makeFrameNode,
   makeShapeNode,
@@ -174,6 +175,59 @@ describe('resolveLayerDropTarget — pointer authority', () => {
     const target = resolveAt(doc, ROW + 25, [ids[3]!]);
     expect(target?.targetId).toBe(ids[2]);
     expect(target?.zone).toBe('after');
+  });
+});
+
+describe('resolveLayerDropTarget — projected roots', () => {
+  it('resolves a master-edit root row against the master content root', () => {
+    // Master editing re-roots the tree at the master's content root, so the
+    // projected rows have parentId null. Page-level siblings do not contain
+    // them, which used to yield a valid preview that commit then rejected.
+    let doc = createDocument('master', true);
+    doc = createMaster(doc, { name: 'Master', width: 100, height: 100 });
+    const masterId = Object.keys(doc.masters ?? {})[0] as NodeId;
+    const rootId = doc.masters![masterId]!.contentRoot;
+    const ids: NodeId[] = [];
+    for (const name of ['A', 'B']) {
+      const { id, doc: next } = nextNodeId(doc);
+      doc = addNode(next, makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name }));
+      doc = reparentNode(doc, id, rootId, 0);
+      ids.push(id);
+    }
+
+    const expanded = new Set<NodeId>(Object.keys(doc.nodes) as NodeId[]);
+    const entries = flattenTree(
+      doc,
+      expanded,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      masterId,
+    );
+    expect(entries).toHaveLength(2);
+    expect(entries.every((entry) => entry.parentId === null)).toBe(true);
+
+    // Raw children are [B, A], displayed front-most first as [A, B].
+    const dragged = ids[0]!;
+    const over = ids[1]!;
+    const target = resolveLayerDropTarget({
+      doc,
+      entries,
+      geometry: geometryFor(entries.length),
+      // Bottom band of the second row → sibling reorder "after".
+      pointerY: ROW + ROW - 4,
+      viewport: { top: 0, bottom: 400 },
+      contentTop: 0,
+      activeIds: [dragged],
+      isDescendant: () => false,
+    });
+
+    expect(target?.targetId).toBe(over);
+    expect(target?.zone).toBe('after');
+    expect(target?.targetParentId).toBe(rootId);
+    expect(siblingsOf(doc, rootId)).toContain(over);
+    expect(siblingsOf(doc, null)).not.toContain(over);
   });
 });
 

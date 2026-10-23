@@ -86,6 +86,21 @@ export function hidingAncestorOf(doc: Document, nodeId: NodeId): NodeId | null {
 }
 
 /**
+ * The nearest ancestor (excluding `nodeId` itself) with `locked === true`, or
+ * null when the node is not locked through an ancestor. Symmetric with
+ * {@link hidingAncestorOf}: the row can name the layer that restricts it
+ * instead of only reporting that some ancestor does.
+ */
+export function lockingAncestorOf(doc: Document, nodeId: NodeId): NodeId | null {
+  let current = getParent(doc, nodeId);
+  while (current) {
+    if (doc.nodes[current]?.locked === true) return current;
+    current = getParent(doc, current);
+  }
+  return null;
+}
+
+/**
  * Convert a placed-world point into a parent's local space via the full
  * inverse parent world transform. Returns null when the parent is
  * non-invertible.

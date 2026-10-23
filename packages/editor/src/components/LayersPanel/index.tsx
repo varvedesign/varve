@@ -97,8 +97,6 @@ function LayersPanelContent({
     state,
     setSelection,
     removeSelected,
-    setNodeLocked,
-    setNodeVisible,
     setNodeSolo,
     exitSolo,
     groupSelected,
@@ -316,22 +314,24 @@ function LayersPanelContent({
     closeMenu();
   }, [contextMenu?.selection, state.selection, removeSelected, closeMenu]);
 
+  // One bulk mutation, not a loop of single-node setters. Each setter calls
+  // `updateDoc` on its own, which recorded one undo entry per selected layer;
+  // hiding five layers then required five Undos. The bulk scene operation is
+  // a single document update, so the whole selection is one history step.
   const handleLockFromMenu = useCallback(
     (locked: boolean) => {
-      const selection = contextMenu?.selection ?? state.selection;
-      for (const id of selection) setNodeLocked(id, locked);
+      bulkSetNodeLocked(contextMenu?.selection ?? state.selection, locked);
       closeMenu();
     },
-    [contextMenu?.selection, state.selection, setNodeLocked, closeMenu],
+    [contextMenu?.selection, state.selection, bulkSetNodeLocked, closeMenu],
   );
 
   const handleVisibilityFromMenu = useCallback(
     (visible: boolean) => {
-      const selection = contextMenu?.selection ?? state.selection;
-      for (const id of selection) setNodeVisible(id, visible);
+      bulkSetNodeVisible(contextMenu?.selection ?? state.selection, visible);
       closeMenu();
     },
-    [contextMenu?.selection, state.selection, setNodeVisible, closeMenu],
+    [contextMenu?.selection, state.selection, bulkSetNodeVisible, closeMenu],
   );
 
   const handleSnapExclusionToggle = useCallback(() => {
@@ -894,7 +894,12 @@ function LayersPanelContent({
         }}
       />
 
-      {state.selection.length >= 2 && !isFiltering(filterSpec) && (
+      {/* The bar stays available while filtering. "Find, select matches,
+          organize" is a primary workflow, and hiding the direct actions
+          exactly when the selection was assembled by a filter forced users
+          to clear the filter (losing the narrowed context) or fall back to
+          per-row menus. */}
+      {state.selection.length >= 2 && (
         <LayerBulkBar
           selectedCount={state.selection.length}
           selectedColor={selectedLayerColor}

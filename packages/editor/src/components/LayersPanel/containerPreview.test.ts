@@ -122,6 +122,28 @@ describe('collectContainerPreview', () => {
     expect(MAX_CONTAINER_PREVIEW_NODES).toBeGreaterThan(2);
   });
 
+  it('bounds traversal work even when hidden descendants outnumber the leaves', () => {
+    // One drawable leaf followed by thousands of hidden rows: the leaf budget
+    // is never reached, so without a separate visit cap the walk would run to
+    // the end of the subtree on the row-render path.
+    const hiddenIds = Array.from({ length: 2500 }, (_, i) => `h${i}`);
+    const nodes: Record<string, SceneNode> = {
+      f1: frame('f1', ['r1', ...hiddenIds]),
+      r1: rect('r1', [1, 0, 0, 1, 0, 0]),
+    };
+    for (const id of hiddenIds) {
+      nodes[id] = {
+        ...asRecord(rect(id, [1, 0, 0, 1, 10, 10])),
+        visible: false,
+      } as unknown as SceneNode;
+    }
+
+    const preview = collectContainerPreview(docOf(nodes, ['f1']), 'f1');
+
+    expect(preview!.primitives).toHaveLength(1);
+    expect(preview!.truncated).toBe(true);
+  });
+
   it('uses the transformed AABB for rotated children', () => {
     const nodes = {
       f1: frame('f1', ['r1']),

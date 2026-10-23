@@ -76,6 +76,7 @@ import {
 } from './layerExpansionState';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
+import { selectMatchingEntryIds } from './layerMatchSelection';
 import { canonicalizeMoveIds } from './layerMovePlan';
 import {
   createSearchIndex,
@@ -89,6 +90,7 @@ import { computeDocumentDiff, type FlatEntry, useFlatTree } from './useFlatTree'
 import { useLayerNavigation } from './useLayerNavigation';
 import { useLayerStructureCommands } from './useLayerStructureCommands';
 import { useLayersDnD } from './useLayersDnD';
+import { useLayersKeyboardArrange } from './useLayersKeyboardArrange';
 import { useLayersSelectionScrub } from './useLayersSelectionScrub';
 import { sharedThumbnailCache } from './useThumbnail';
 import { useTreeFocus } from './useTreeFocus';
@@ -389,9 +391,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     toggleSelection,
     setSelectionRefs,
     renameNodeById,
-    setNodeVisible,
-    setNodeLocked,
+    bulkSetNodeVisible,
+    bulkSetNodeLocked,
     reparentNode,
+    arrangeSelected,
     copyEffectStackToNodes,
     announce,
     revealSelection,
@@ -459,13 +462,20 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   }, []);
 
   // Return focus to a row after its inline rename ends (the rename input
-  // unmounts and drops focus to body otherwise).
+  // unmounts and drops focus to body otherwise). Only when focus actually fell
+  // to body: a blur caused by clicking or tabbing to an external control must
+  // not be undone by a late rAF that steals focus back into the tree.
   const prevRenamingRef = useRef<NodeId | null>(null);
   useEffect(() => {
     const prev = prevRenamingRef.current;
     prevRenamingRef.current = renamingId;
     if (prev && !renamingId) {
       requestAnimationFrame(() => {
+        const ownerDocument = treeRef.current?.ownerDocument ?? document;
+        const active = ownerDocument.activeElement;
+        if (active && active !== ownerDocument.body && !treeRef.current?.contains(active)) {
+          return;
+        }
         rowRefs.current.get(prev)?.focus({ preventScroll: true });
       });
     }
@@ -870,23 +880,22 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     [state.document],
   );
 
-  /**
-   * Select every row in the current filtered projection.
-   *
-   * Search and filters already reveal matches with their ancestry; without
-   * this, acting on 40 filtered layers means hand-selecting each one (the
-   * Photoshop "Not Visible" workflow has no Varve equivalent). Selection is
-   * editor state, not artwork, so this is deliberately not an undo entry.
-   */
+  const matchingEntryIds = useMemo<NodeId[]>(
+    () =>
+      selectMatchingEntryIds(entries, filterSpec, state.document, searchMatchedIds, animatedNodes),
+    [entries, filterSpec, state.document, searchMatchedIds, animatedNodes],
+  );
+
   const handleSelectMatches = useCallback(() => {
-    if (entries.length === 0) return;
-    const ids = entries.map((entry) => entry.node.id);
-    const primary = ids[0]!;
-    setSelectionRefs(ids, { primary, origin: 'layers' });
+    if (matchingEntryIds.length === 0) return;
+    const primary = matchingEntryIds[0]!;
+    setSelectionRefs([...matchingEntryIds], { primary, origin: 'layers' });
     anchorIdRef.current = primary;
-    setAnchorIdx(0);
-    announce(`${ids.length} layer${ids.length === 1 ? '' : 's'} selected`);
-  }, [entries, setSelectionRefs, announce, setAnchorIdx]);
+    setAnchorIdx(entries.findIndex((entry) => entry.node.id === primary));
+    announce(
+      `${matchingEntryIds.length} layer${matchingEntryIds.length === 1 ? '' : 's'} selected`,
+    );
+  }, [matchingEntryIds, entries, setSelectionRefs, announce, setAnchorIdx]);
 
   const activateLayer = useCallback(
     (id: NodeId) => {
@@ -959,18 +968,21 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   }, []);
 
   const handleRenameCycle = useCallback(
-    (direction: 'next' | 'previous') => {
-      setRenamingId((currentId) => {
-        if (!currentId) return null;
-        const idx = entries.findIndex((e) => e.node.id === currentId);
-        if (idx < 0) return null;
-        const delta = direction === 'next' ? 1 : -1;
-        const newIdx = (idx + delta + entries.length) % entries.length;
-        const nextEntry = entries[newIdx];
-        return nextEntry?.node.id ?? null;
-      });
+    (id: NodeId, direction: 'next' | 'previous') => {
+      // The row commits and clears `renamingId` before requesting the cycle,
+      // so reading the state updater's `currentId` always saw null and Tab
+      // simply closed the editor. The caller passes the row it is leaving.
+      const idx = entries.findIndex((e) => e.node.id === id);
+      if (idx < 0) return;
+      const delta = direction === 'next' ? 1 : -1;
+      const newIdx = (idx + delta + entries.length) % entries.length;
+      const nextEntry = entries[newIdx];
+      if (!nextEntry) return;
+      setRenamingId(nextEntry.node.id);
+      setFocusIdx(newIdx);
+      virtualizerRef.current?.scrollToIndex(newIdx, { align: 'auto' });
     },
-    [entries],
+    [entries, setFocusIdx],
   );
 
   const selectAll = useCallback(() => {
@@ -1093,13 +1105,23 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       commitTransaction,
     });
 
+  // Ctrl+] / Ctrl+[ are the canonical Bring Forward / Send Backward
+  // transaction, with focus and selection handled across the reorder.
+  const handleKeyboardArrange = useLayersKeyboardArrange({
+    entries,
+    focusIdx,
+    selection: state.selection,
+    setFocusIdx,
+    setSelectionRefs,
+    arrangeSelected,
+    virtualizer,
+  });
+
   const { handleKeyDown } = useTreeKeyboardNavigation({
     entries,
     focusIdx,
     expanded,
-    doc: state.document,
     isolatedNodeId: state.isolatedNodeId,
-    workspaceMode: state.workspaceMode,
     exitIsolation,
     doKeyboardMove,
     toggleExpand,
@@ -1112,11 +1134,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     selectAll,
     handleTypeAhead,
     startRename: handleRenameStart,
-    reparentNode,
+    arrangeSelection: handleKeyboardArrange,
     indentSelection: handleIndentSelection,
     outdentSelection: handleOutdentSelection,
     expandSiblings: handleExpandSiblings,
-    announce,
     virtualizer,
     onContextMenuKeyboard,
   });
@@ -1382,7 +1403,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                       ? state.selection
                       : [id];
                   const anyVisible = ids.some((sid) => state.document.nodes[sid]?.visible);
-                  for (const sid of ids) setNodeVisible(sid, !anyVisible);
+                  bulkSetNodeVisible(ids, !anyVisible);
                 }}
                 onToggleSolo={onToggleSolo}
                 onToggleLock={(id) => {
@@ -1391,7 +1412,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                       ? state.selection
                       : [id];
                   const anyLocked = ids.some((sid) => state.document.nodes[sid]?.locked);
-                  for (const sid of ids) setNodeLocked(sid, !anyLocked);
+                  bulkSetNodeLocked(ids, !anyLocked);
                 }}
                 onFocus={handleRowFocus}
                 idx={virtualItem.index}

@@ -153,9 +153,12 @@ describe('LayersRow effective lock state', () => {
     const { doc, child } = lockedParentDocument();
     const { container } = renderRow({ node: child, doc, depth: 1 });
     const row = container.querySelector('[role="treeitem"]');
-    const lock = container.querySelector('button[aria-label*="locked by an ancestor"]');
+    const lock = container.querySelector('button[aria-label="Child is locked by Parent"]');
 
     expect(row).toHaveClass('layers-row--locked');
+    // The restriction is spoken on the row itself, not only on the
+    // non-tabbable toggle.
+    expect(row?.getAttribute('aria-label')).toContain('locked by Parent');
     expect(lock).toHaveClass('layers-row__toggle--locked-on');
     expect(lock).toHaveAttribute('aria-pressed', 'true');
   });
@@ -188,6 +191,7 @@ describe('LayersRow effective visibility state', () => {
     // Distinct from both a live row and a directly hidden row.
     expect(row).toHaveClass('layers-row--hidden-inherited');
     expect(row).not.toHaveClass('layers-row--hidden');
+    expect(row?.getAttribute('aria-label')).toContain('hidden by Parent');
 
     const eye = container.querySelector('button[aria-label="Child is hidden by Parent"]');
     expect(eye).not.toBeNull();

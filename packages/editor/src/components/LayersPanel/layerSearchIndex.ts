@@ -46,17 +46,27 @@ function indexNode(
   wordIndex.get(kindWord)?.add(id);
 }
 
+/**
+ * Split a layer name into searchable words.
+ *
+ * Unicode-aware on purpose: the previous ASCII-only cleanup stripped every
+ * non-Latin word to an empty string, so a document named entirely in Chinese,
+ * Arabic or Cyrillic could not be found at all. `\p{L}`/`\p{N}` keep letters
+ * and digits from any script; punctuation and separators still split words.
+ *
+ * CJK runs stay together as one word. Substring matching (below) is what lets
+ * a query like `按钮` find `设计按钮` without inventing a dictionary.
+ */
 function extractWords(name: string): string[] {
-  // Split on whitespace, separators, and non-alphanumeric boundaries
-  const words = name.split(/[\s\-_./\\()[\]{}#@!+*~'"`|:;<>]+/);
+  const words = name.split(/[^\p{L}\p{N}]+/u);
   const result = new Set<string>();
 
   for (const word of words) {
     if (word.length === 0) continue;
-    const cleaned = word.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '');
-    if (cleaned.length === 0) continue;
-    result.add(cleaned.toLowerCase());
-    const camelParts = cleaned.split(/(?<=[a-z])(?=[A-Z])/);
+    result.add(word.toLowerCase());
+    // camelCase / PascalCase boundaries only exist for cased scripts, so this
+    // pass is deliberately additive: it never removes the full word.
+    const camelParts = word.split(/(?<=[a-z0-9])(?=[A-Z])/);
     for (const part of camelParts) {
       if (part.length > 0) result.add(part.toLowerCase());
     }
@@ -65,25 +75,43 @@ function extractWords(name: string): string[] {
   return [...result];
 }
 
+/**
+ * One search contract for both the index-backed tree projection and direct
+ * predicate evaluation (filter-bar counts, Select matches).
+ *
+ * Both paths used to disagree: the tree AND-matched word *prefixes*, while
+ * the count ran `name.toLowerCase().includes(query)`. Searching
+ * `primary button` therefore rendered `Primary Large Button` in the tree and
+ * simultaneously reported `0 of N layers`, disabling Select matches. Every
+ * term must now appear as a substring of some word in the name.
+ */
+export function layerSearchTerms(query: string): string[] {
+  return query.toLowerCase().split(/\s+/u).filter(Boolean);
+}
+
+export function matchesLayerSearch(name: string, query: string): boolean {
+  const terms = layerSearchTerms(query);
+  if (terms.length === 0) return false;
+  const words = extractWords(name);
+  return terms.every((term) => words.some((word) => word.includes(term)));
+}
+
 /** Search the index — returns matching node IDs ordered by relevance */
 export function searchIndex(index: LayerSearchIndex, query: string): NodeId[] {
-  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = layerSearchTerms(query);
   if (terms.length === 0) return [];
 
   let resultSet: Set<NodeId> | null = null;
 
   for (const term of terms) {
-    const directMatches = index.wordIndex.get(term);
-    const prefixMatches = new Set<NodeId>();
-    for (const [word, ids] of index.wordIndex) {
-      if (word.startsWith(term)) {
-        for (const id of ids) prefixMatches.add(id);
-      }
-    }
-
+    // Substring-of-a-word, not prefix-of-a-word: this is the same rule
+    // `matchesLayerSearch` applies to a single name, so the tree, the count
+    // and Select matches cannot disagree.
     const combined = new Set<NodeId>();
-    if (directMatches) for (const id of directMatches) combined.add(id);
-    for (const id of prefixMatches) combined.add(id);
+    for (const [word, ids] of index.wordIndex) {
+      if (!word.includes(term)) continue;
+      for (const id of ids) combined.add(id);
+    }
 
     if (resultSet === null) {
       resultSet = combined;
@@ -100,7 +128,7 @@ export function searchIndex(index: LayerSearchIndex, query: string): NodeId[] {
 
   const resultIds = [...resultSet];
 
-  // Order by relevance: exact matches first, then prefix matches
+  // Order by relevance: whole-word matches first, then partial-word matches
   const exactMatches = new Set<NodeId>();
   for (const term of terms) {
     const exact = index.wordIndex.get(term);

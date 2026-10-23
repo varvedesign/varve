@@ -46,7 +46,7 @@ export interface SortableVirtualRowProps {
   onRenameStart: (id: NodeId) => void;
   onRenameCommit: () => void;
   onRenameCancel: () => void;
-  onRenameCycle?: (direction: 'next' | 'previous') => void;
+  onRenameCycle?: (id: NodeId, direction: 'next' | 'previous') => void;
   onToggleVisibility: (id: NodeId) => void;
   onToggleLock: (id: NodeId) => void;
   onToggleSolo?: (id: NodeId) => void;

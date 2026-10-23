@@ -206,9 +206,50 @@ function propsAffectFilter(
     if (filterSpec.attributes.layerColor !== undefined && prev.layerColor !== curr.layerColor) {
       return true;
     }
+    if (filterSpec.attributes.threadedText !== undefined) {
+      const prevStory = 'storyBinding' in prev ? (prev.storyBinding?.storyId ?? null) : null;
+      const currStory = 'storyBinding' in curr ? (curr.storyBinding?.storyId ?? null) : null;
+      if (prevStory !== currStory) return true;
+    }
+    if (filterSpec.attributes.exportRegion !== undefined) {
+      const prevRole = 'frameRole' in prev ? (prev.frameRole ?? null) : null;
+      const currRole = 'frameRole' in curr ? (curr.frameRole ?? null) : null;
+      if (prevRole !== currRole) return true;
+    }
     if (filterSpec.search && prev.name !== curr.name) return true;
   }
 
+  return false;
+}
+
+/**
+ * Filter dimensions whose truth lives beside the node map rather than in it.
+ *
+ * `computeDocumentDiff` only reports node-reference changes, so editing email
+ * visibility, a story, or the component registry produced `changedNodeIds: []`
+ * and the projection reused entries that no longer matched the active filter.
+ * Comparing these inputs directly keeps the fast path from outliving its
+ * evidence.
+ */
+function documentScopedFilterInputsChanged(
+  prevDoc: Document,
+  doc: Document,
+  filterSpec: LayerFilterSpec,
+): boolean {
+  const attr = filterSpec.attributes;
+  if (
+    (attr.mobileHidden !== undefined || attr.mobileOnly !== undefined) &&
+    prevDoc.emailSemantics !== doc.emailSemantics
+  ) {
+    return true;
+  }
+  if (
+    (attr.isComponent !== undefined || attr.isInstance !== undefined) &&
+    prevDoc.components !== doc.components
+  ) {
+    return true;
+  }
+  if (attr.threadedText !== undefined && prevDoc.stories !== doc.stories) return true;
   return false;
 }
 
@@ -440,7 +481,8 @@ export function useFlatTree(
         !diff.structureChanged &&
         prevDoc !== null &&
         prevDoc.nodes === doc.nodes &&
-        otherInputsUnchanged
+        otherInputsUnchanged &&
+        !documentScopedFilterInputsChanged(prevDoc, doc, filterSpec)
       ) {
         // No node changes at all — return cached entries
         prevDocRef.current = doc;
@@ -454,6 +496,7 @@ export function useFlatTree(
         diff.changedNodeIds.length > 0 &&
         prevDoc !== null &&
         otherInputsUnchanged &&
+        !documentScopedFilterInputsChanged(prevDoc, doc, filterSpec) &&
         !propsAffectFilter(diff.changedNodeIds, prevDoc, doc, filterSpec)
       ) {
         const changedSet = new Set(diff.changedNodeIds);

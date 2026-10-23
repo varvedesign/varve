@@ -34,6 +34,7 @@ import {
   hidingAncestorOf,
   isNodeEffectivelyHidden,
   isNodeEffectivelyLocked,
+  lockingAncestorOf,
 } from '../../scene/world';
 import type { LayersBadgeGroup } from '../../workspace/workspaceTypes';
 import { summarizeAdjustmentStack } from './adjustmentStackSummary';
@@ -69,7 +70,7 @@ export interface LayersRowProps {
   onRenameStart: (id: NodeId) => void;
   onRenameCommit: () => void;
   onRenameCancel: () => void;
-  onRenameCycle?: (direction: 'next' | 'previous') => void;
+  onRenameCycle?: (id: NodeId, direction: 'next' | 'previous') => void;
   /** Fires when the type icon is double-clicked (zoom-to-layer). */
   onDoubleClickIcon?: (id: NodeId) => void;
   onToggleVisibility: (id: NodeId) => void;
@@ -276,6 +277,12 @@ export const LayersRow = memo(function LayersRow({
   const hiddenByAncestor = isEffectivelyHidden && node.visible !== false;
   const hidingAncestorId = hiddenByAncestor && doc ? hidingAncestorOf(doc, node.id) : null;
   const hidingAncestorName = hidingAncestorId ? doc?.nodes[hidingAncestorId]?.name : null;
+  // Inherited lock has the same information gap as inherited visibility: the
+  // row's own flag is false even though the layer cannot be edited. The
+  // accessible name must say so; the tinted lock icon is not a text cue.
+  const lockedByAncestor = isEffectivelyLocked && node.locked !== true;
+  const lockingAncestorId = lockedByAncestor && doc ? lockingAncestorOf(doc, node.id) : null;
+  const lockingAncestorName = lockingAncestorId ? doc?.nodes[lockingAncestorId]?.name : null;
   const canReceiveDroppedStack =
     effectStackDrop != null &&
     effectStackDrop.sourceId !== node.id &&
@@ -352,7 +359,17 @@ export const LayersRow = memo(function LayersRow({
         // them without tabbing into the toggles (WCAG 1.4.1: never state
         // conveyed by appearance alone; the tinted row is the sighted cue).
         node.locked === true ? 'locked' : undefined,
+        lockedByAncestor
+          ? lockingAncestorName
+            ? `locked by ${lockingAncestorName}`
+            : 'locked by an ancestor'
+          : undefined,
         node.visible === false ? 'hidden' : undefined,
+        hiddenByAncestor
+          ? hidingAncestorName
+            ? `hidden by ${hidingAncestorName}`
+            : 'hidden by an ancestor'
+          : undefined,
         // Email visibility overrides and print threads are workspace
         // projections; a hover-revealed badge must never be the only way to
         // learn the state.
@@ -404,14 +421,12 @@ export const LayersRow = memo(function LayersRow({
     [node.id, idx, onSelect, onFocus, onSelectionClick],
   );
 
+  // Row double-click owns disclosure only. Rename starts on the name itself
+  // (below), so double-clicking a container's blank area or status badges no
+  // longer both collapses the subtree and opens a text editor.
   const handleDoubleClick = useCallback(() => {
     if (isContainerNode) onToggleExpand(node.id);
-    // Begin editing. This previously reused `onRename` with the node's current
-    // name, which left the parent unable to tell "start editing" apart from
-    // "save this name" — so it treated every commit as another start and the
-    // typed name was never written to the document.
-    onRenameStart(node.id);
-  }, [isContainerNode, node.id, onToggleExpand, onRenameStart]);
+  }, [isContainerNode, node.id, onToggleExpand]);
 
   const commitRename = useCallback(() => {
     const trimmed = editValue.trim();
@@ -440,7 +455,7 @@ export const LayersRow = memo(function LayersRow({
       } else if (e.key === 'Tab') {
         e.preventDefault();
         commitRename();
-        onRenameCycle?.(e.shiftKey ? 'previous' : 'next');
+        onRenameCycle?.(node.id, e.shiftKey ? 'previous' : 'next');
       }
     },
     [commitRename, onRenameCancel, onRenameCycle],
@@ -645,9 +660,16 @@ export const LayersRow = memo(function LayersRow({
               {/* dir="auto" isolates mixed-direction names: an Arabic or
               Hebrew name keeps its own word order and punctuation placement
               against the LTR chrome instead of mirroring around it. */}
+              {/* biome-ignore lint/a11y/noStaticElementInteractions: rename is a pointer enhancement; F2 and the row context menu are the keyboard paths, and the treeitem remains the focus target. */}
               <span
                 dir="auto"
                 className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}${searchMatch ? ' layers-row__name--match' : ''}${!hasRealName ? ' layers-row__name--ghost' : ''}`}
+                onDoubleClick={(event) => {
+                  // Rename is a name gesture. Keep the row handler from also
+                  // toggling disclosure on the same double-click.
+                  event.stopPropagation();
+                  onRenameStart(node.id);
+                }}
               >
                 {displayName}
               </span>
@@ -1099,8 +1121,10 @@ export const LayersRow = memo(function LayersRow({
           aria-label={
             isMixedLocked
               ? `Mixed lock for selection`
-              : isEffectivelyLocked && !node.locked
-                ? `${node.name} is locked by an ancestor`
+              : lockedByAncestor
+                ? lockingAncestorName
+                  ? `${node.name} is locked by ${lockingAncestorName}`
+                  : `${node.name} is locked by an ancestor`
                 : isEffectivelyLocked
                   ? `Unlock ${node.name}`
                   : `Lock ${node.name}`

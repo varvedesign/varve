@@ -331,8 +331,24 @@ export function resolveLayerDropTarget(args: ResolveLayerDropTargetArgs): LayerD
     );
   }
 
-  const targetParentId = entry.parentId ?? null;
-  const targetSiblings = siblingsOf(doc, targetParentId, designCanvasId);
+  // Isolation and master-edit projections re-root the visible tree, so their
+  // top row has `parentId: null` even though the node itself sits deeper in
+  // the document. Treating that synthetic root as page-level produced a
+  // preview the commit then refused (`targetSiblings` did not contain it).
+  // When the projected sibling list cannot contain the row, fall back to its
+  // real structural parent — the same parent the commit will use.
+  let targetParentId = entry.parentId ?? null;
+  let targetSiblings = siblingsOf(doc, targetParentId, designCanvasId);
+  if (!targetSiblings.includes(overId)) {
+    const structuralParentId = getParent(doc, overId);
+    if (structuralParentId) {
+      const structuralSiblings = siblingsOf(doc, structuralParentId, designCanvasId);
+      if (structuralSiblings.includes(overId)) {
+        targetParentId = structuralParentId;
+        targetSiblings = structuralSiblings;
+      }
+    }
+  }
   let overIdx = targetSiblings.indexOf(overId);
   if (overIdx < 0) overIdx = targetSiblings.length;
 

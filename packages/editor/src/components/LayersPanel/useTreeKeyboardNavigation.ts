@@ -8,20 +8,37 @@
  */
 
 import type { Virtualizer } from '@tanstack/react-virtual';
-import type { ContainerNode, Document, NodeId } from '@varve/scene';
+import type { NodeId } from '@varve/scene';
 import { isContainer } from '@varve/scene';
 import { useCallback } from 'react';
 import type { SelectionOrigin } from '../../context/selectionState';
-import { resolveRootLevelSiblings } from './layerDropResolver';
 import type { FlatEntry } from './useFlatTree';
+
+/**
+ * True when the key event originated on a control that owns its own
+ * activation semantics.
+ *
+ * Rows contain real buttons (disclosure, type icon, visibility, lock, solo,
+ * details). The tree's Enter/Space handler used to run after those buttons had
+ * already handled the same key, so pressing Enter on a lock toggle both
+ * activated the button and re-activated the row's selection. Arrow keys still
+ * navigate: the controls are outside the Tab order and are reached through
+ * the row, not treated as independent tree stops.
+ */
+function isControlOwnedActivation(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return (
+    target.closest(
+      'button, input, textarea, select, a[href], [role="button"], [role="checkbox"], [role="switch"], [contenteditable="true"]',
+    ) !== null
+  );
+}
 
 interface UseTreeKeyboardNavigationArgs {
   entries: FlatEntry[];
   focusIdx: number;
   expanded: Set<NodeId>;
-  doc: Document;
   isolatedNodeId: NodeId | null;
-  workspaceMode: string;
   exitIsolation: () => void;
   doKeyboardMove: (delta: number) => void;
   toggleExpand: (id: NodeId) => void;
@@ -39,14 +56,14 @@ interface UseTreeKeyboardNavigationArgs {
     length: number,
   ) => number | null;
   startRename: (id: NodeId) => void;
-  reparentNode: (id: NodeId, parentId: NodeId | null, toIndex: number) => void;
+  /** Canonical arrange transaction (identical to the global bracket keys). */
+  arrangeSelection: (op: 'forward' | 'backward') => void;
   /** Move the focused selection into the container displayed above (indent). */
   indentSelection: () => void;
   /** Move the focused selection out of its container, below its block (outdent). */
   outdentSelection: () => void;
   /** APG optional `*`: expand all closed container siblings of the node. */
   expandSiblings: (id: NodeId) => void;
-  announce: (message: string) => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   onContextMenuKeyboard?: (id: NodeId, focusedRow?: HTMLElement) => void;
 }
@@ -55,9 +72,7 @@ export function useTreeKeyboardNavigation({
   entries,
   focusIdx,
   expanded,
-  doc,
   isolatedNodeId,
-  workspaceMode,
   exitIsolation,
   doKeyboardMove,
   toggleExpand,
@@ -70,11 +85,10 @@ export function useTreeKeyboardNavigation({
   selectAll,
   handleTypeAhead,
   startRename,
-  reparentNode,
+  arrangeSelection,
   indentSelection,
   outdentSelection,
   expandSiblings,
-  announce,
   virtualizer,
   onContextMenuKeyboard,
 }: UseTreeKeyboardNavigationArgs) {
@@ -133,22 +147,26 @@ export function useTreeKeyboardNavigation({
         return;
       }
 
-      // Right arrow: expand or step into children
+      // Right arrow: expand or step into the first *displayed* child.
+      //
+      // Display order is front-most first, the reverse of `children` (raw
+      // paint order), so `children[0]` is the last visible child. In a filtered
+      // projection it may not be displayed at all. The row immediately after
+      // the focused one is the first displayed child whenever this row is
+      // open, which is both display-correct and filter-correct.
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (focusedNode && isContainer(focusedNode)) {
-          if (expanded.has(focusedNode.id)) {
-            // Step into first child
-            const childId = focusedNode.children[0];
-            if (childId) {
-              const childIdx = entries.findIndex((e) => e.node.id === childId);
-              if (childIdx >= 0) {
-                setFocusIdx(childIdx);
-                virtualizer.scrollToIndex(childIdx, { align: 'auto' });
-              }
-            }
-          } else {
+        const focusedEntry = entries[focusIdx];
+        if (focusedNode && focusedEntry && isContainer(focusedNode)) {
+          const childrenVisible = focusedEntry.childrenVisible ?? expanded.has(focusedNode.id);
+          if (!childrenVisible) {
             toggleExpand(focusedNode.id);
+            return;
+          }
+          const next = entries[focusIdx + 1];
+          if (next && next.depth > focusedEntry.depth) {
+            setFocusIdx(focusIdx + 1);
+            virtualizer.scrollToIndex(focusIdx + 1, { align: 'auto' });
           }
         }
         return;
@@ -157,6 +175,9 @@ export function useTreeKeyboardNavigation({
       // Left arrow: collapse or step to parent
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
+        // Collapse only a genuinely expanded container. A filtered projection
+        // may display matching children while the persisted set says
+        // collapsed; calling toggleExpand there would expand on Left.
         if (focusedNode && isContainer(focusedNode) && expanded.has(focusedNode.id)) {
           toggleExpand(focusedNode.id);
         } else if (focusedNode) {
@@ -192,6 +213,7 @@ export function useTreeKeyboardNavigation({
 
       // Enter
       if (e.key === 'Enter') {
+        if (isControlOwnedActivation(e.target)) return;
         e.preventDefault();
         if (focusedNode) {
           activateSelection(focusedNode.id);
@@ -201,6 +223,7 @@ export function useTreeKeyboardNavigation({
 
       // Space: toggle selection
       if (e.key === ' ') {
+        if (isControlOwnedActivation(e.target)) return;
         e.preventDefault();
         if (focusedNode) {
           toggleSelection(focusedNode.id, true, 'layers');
@@ -252,38 +275,16 @@ export function useTreeKeyboardNavigation({
         return;
       }
 
-      // Keyboard reorder: Ctrl+[ move up (visually, toward front-most),
-      // Ctrl+] move down (visually, toward back-most).
+      // Keyboard reorder: Ctrl+] is Bring Forward, Ctrl+[ is Send Backward —
+      // the same bindings the global shortcut registry and the context menu
+      // use. The previous branch had the two keys reversed and reparented only
+      // the focused row, so a multi-selection moved one row at a time and the
+      // focus index then pointed at a neighbour. Route through the one
+      // canonical arrange transaction instead of a second implementation.
       if ((e.ctrlKey || e.metaKey) && (e.key === '[' || e.key === ']')) {
         e.preventDefault();
-        const focusEntry = entries[focusIdx];
-        if (!focusEntry) return;
-        const parentId = focusEntry.parentId;
-        const designCanvasId = workspaceMode !== 'print' ? doc.activeDesignCanvasId : undefined;
-        const siblings = parentId
-          ? ((doc.nodes[parentId] as ContainerNode | undefined)?.children ??
-            resolveRootLevelSiblings(doc, designCanvasId))
-          : resolveRootLevelSiblings(doc, designCanvasId);
-        const myIdx = siblings.indexOf(focusEntry.node.id);
-        if (myIdx < 0) return;
-        // `entries` (panel/visual order) is front-most-first, the reverse of
-        // `siblings` (raw document array, back-to-front) — see
-        // computeMultiMoveSteps above. Moving "up" visually means moving
-        // toward the *end* of the raw array, so the array-index delta is the
-        // negation of the visual delta.
-        const visualDelta = e.key === '[' ? -1 : 1;
-        const rawDelta = -visualDelta;
-        const newIdx = myIdx + rawDelta;
-        if (newIdx < 0 || newIdx >= siblings.length) return;
-        reparentNode(focusEntry.node.id, parentId, newIdx);
-        const siblingId = siblings[newIdx];
-        if (!siblingId) throw new Error('sibling not found');
-        const otherNode = doc.nodes[siblingId];
-        announce(
-          visualDelta < 0
-            ? `Moved ${focusEntry.node.name} above ${otherNode?.name || ''}`
-            : `Moved ${focusEntry.node.name} below ${otherNode?.name || ''}`,
-        );
+        if (!entries[focusIdx]) return;
+        arrangeSelection(e.key === ']' ? 'forward' : 'backward');
         return;
       }
 
@@ -307,9 +308,7 @@ export function useTreeKeyboardNavigation({
       entries,
       focusIdx,
       expanded,
-      doc,
       isolatedNodeId,
-      workspaceMode,
       exitIsolation,
       doKeyboardMove,
       toggleExpand,
@@ -322,11 +321,10 @@ export function useTreeKeyboardNavigation({
       selectAll,
       handleTypeAhead,
       startRename,
-      reparentNode,
+      arrangeSelection,
       indentSelection,
       outdentSelection,
       expandSiblings,
-      announce,
       virtualizer,
       onContextMenuKeyboard,
     ],

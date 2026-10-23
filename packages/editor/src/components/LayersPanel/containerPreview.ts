@@ -33,6 +33,17 @@ export const MAX_CONTAINER_PREVIEW_NODES = 64;
 /** Walk bound for `containerHasContent` before it gives up and reports false. */
 const CONTENT_SCAN_LIMIT = 256;
 
+/**
+ * Independent walk bound for `collectContainerPreview`.
+ *
+ * The leaf budget alone bounds output, not work: a container whose first leaf
+ * is followed by tens of thousands of empty or hidden descendants kept the
+ * collector's stack loop running on the render path long after it had
+ * everything it would ever draw. Visits are capped separately so the cost is
+ * bounded even when almost nothing is emitted.
+ */
+export const MAX_CONTAINER_PREVIEW_VISITS = 2048;
+
 export interface ContainerPreviewPrimitive {
   /** Fill colour as a CSS color string. */
   fill: string;
@@ -52,6 +63,8 @@ export interface ContainerPreview {
 export interface CollectContainerPreviewOptions {
   /** Maximum leaf primitives to collect. Defaults to the module budget. */
   maxNodes?: number;
+  /** Maximum document nodes to walk. Defaults to the module visit budget. */
+  maxVisited?: number;
   /** Colour for nodes with no solid fill (theme-aware ink from the caller). */
   fallbackFill?: string;
   /**
@@ -167,6 +180,7 @@ export function collectContainerPreview(
   const container = doc.nodes[containerId];
   if (!container || !isContainer(container)) return null;
   const maxNodes = Math.max(1, options.maxNodes ?? MAX_CONTAINER_PREVIEW_NODES);
+  const maxVisited = Math.max(1, options.maxVisited ?? MAX_CONTAINER_PREVIEW_VISITS);
   const fallback = options.fallbackFill ?? DEFAULT_FALLBACK_FILL;
   const parentIndex = parentIndexFor(options.parentCache);
 
@@ -177,14 +191,16 @@ export function collectContainerPreview(
   const raw: Array<{ x: number; y: number; w: number; h: number; fill: string }> = [];
   const stack: NodeId[] = [...container.children].reverse();
   let truncated = false;
+  let visited = 0;
 
   while (stack.length > 0) {
-    if (raw.length >= maxNodes) {
+    if (raw.length >= maxNodes || visited >= maxVisited) {
       truncated = true;
       break;
     }
     const id = stack.pop();
     if (id === undefined) break;
+    visited += 1;
     const node = doc.nodes[id];
     if (!node || node.visible === false) continue;
     if (isContainer(node)) {

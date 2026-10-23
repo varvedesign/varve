@@ -9,7 +9,13 @@ import {
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { updateSearchIndexIncremental } from './LayersTree';
-import { createSearchIndex, removeFromIndex, searchIndex, updateIndex } from './layerSearchIndex';
+import {
+  createSearchIndex,
+  matchesLayerSearch,
+  removeFromIndex,
+  searchIndex,
+  updateIndex,
+} from './layerSearchIndex';
 
 describe('layerSearchIndex', () => {
   it('creates index from document', () => {
@@ -296,6 +302,79 @@ describe('layerSearchIndex', () => {
 
     expect(index.nodeKinds.get(n1)).toBe('text');
     expect(searchIndex(index, 'heading')).toContain(n1);
+  });
+
+  it('finds names written entirely in a non-Latin script', () => {
+    const names = ['设计按钮', 'زر رئيسي', 'Кнопка'];
+    let doc = createDocument();
+    const ids: string[] = [];
+    for (const name of names) {
+      const next = nextNodeId(doc);
+      doc = next.doc;
+      ids.push(next.id);
+      doc = addNode(
+        doc,
+        makeShapeNode(next.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name }),
+      );
+    }
+
+    const index = createSearchIndex(doc);
+
+    expect(searchIndex(index, '按钮')).toEqual([ids[0]]);
+    expect(searchIndex(index, 'رئيسي')).toEqual([ids[1]]);
+    expect(searchIndex(index, 'кнопка')).toEqual([ids[2]]);
+    // The whole-string query matches too, not just a fragment.
+    expect(searchIndex(index, '设计按钮')).toEqual([ids[0]]);
+  });
+
+  it('matches every term anywhere in the name, not just word prefixes', () => {
+    // Regression: the tree AND-matched word prefixes while the filter-bar
+    // count used substring matching on the full name. `primary button` showed
+    // this row in the tree and reported 0 matches at the same time.
+    const name = 'Primary Large Button';
+    expect(matchesLayerSearch(name, 'primary button')).toBe(true);
+    expect(matchesLayerSearch(name, 'large button')).toBe(true);
+    expect(matchesLayerSearch(name, 'button missing')).toBe(false);
+    // Partial words still match, in either position.
+    expect(matchesLayerSearch(name, 'rimar')).toBe(true);
+    expect(matchesLayerSearch(name, 'utton')).toBe(true);
+
+    let doc = createDocument();
+    const { id, doc: next } = nextNodeId(doc);
+    doc = next;
+    doc = addNode(doc, makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name }));
+
+    const index = createSearchIndex(doc);
+    for (const query of ['primary button', 'large button', 'rimar', 'utton', 'missing']) {
+      expect(searchIndex(index, query).includes(id), query).toBe(matchesLayerSearch(name, query));
+    }
+  });
+
+  it('keeps the index and the direct matcher in agreement', () => {
+    const names = [
+      'Primary Large Button',
+      '设计按钮',
+      'زر رئيسي',
+      'Header_Image@2x',
+      'myButtonPrimary',
+      'Background Image',
+    ];
+    let doc = createDocument();
+    for (const name of names) {
+      const { id, doc: next } = nextNodeId(doc);
+      doc = next;
+      doc = addNode(doc, makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name }));
+    }
+    const index = createSearchIndex(doc);
+
+    for (const [key, node] of Object.entries(doc.nodes)) {
+      const id = key as import('@varve/scene').NodeId;
+      for (const query of ['button', 'image', 'primary button', '按钮', 'header', 'button 2x']) {
+        expect(searchIndex(index, query).includes(id), `${node.name} / ${query}`).toBe(
+          matchesLayerSearch(node.name, query),
+        );
+      }
+    }
   });
 });
 

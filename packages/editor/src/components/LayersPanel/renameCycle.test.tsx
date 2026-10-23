@@ -52,7 +52,7 @@ describe('renameCycle core logic', () => {
     fireEvent.keyDown(input, { key: 'Tab' });
 
     expect(onRenameCommit).toHaveBeenCalledTimes(1);
-    expect(onRenameCycle).toHaveBeenCalledWith('next');
+    expect(onRenameCycle).toHaveBeenCalledWith('n1', 'next');
   });
 
   it('Shift+Tab during rename commits and cycles to previous entry', () => {
@@ -87,7 +87,7 @@ describe('renameCycle core logic', () => {
     fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
 
     expect(onRenameCommit).toHaveBeenCalledTimes(1);
-    expect(onRenameCycle).toHaveBeenCalledWith('previous');
+    expect(onRenameCycle).toHaveBeenCalledWith('n1', 'previous');
   });
 
   it('Enter during rename commits but does not cycle', () => {

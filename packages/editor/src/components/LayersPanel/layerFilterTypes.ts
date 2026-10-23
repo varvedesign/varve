@@ -1,6 +1,8 @@
 import type { BlendMode, Document, LayerColor, NodeId, SceneNode } from '@varve/scene';
 import { isContainer } from '@varve/scene';
+import { isNodeEffectivelyHidden } from '../../scene/world';
 import { isComponentInstance, isComponentNode } from './layerPresentation';
+import { matchesLayerSearch } from './layerSearchIndex';
 
 /** Filter by node kind (e.g., 'shape', 'text', 'frame', etc.) */
 export type NodeKindFilter = Array<SceneNode['kind'] | 'component'>;
@@ -100,7 +102,15 @@ export function nodeMatchesNonSearch(
 
   const attr = filter.attributes;
   if (attr.locked !== undefined && node.locked !== attr.locked) return false;
-  if (attr.visible !== undefined && node.visible !== attr.visible) return false;
+  if (attr.visible !== undefined) {
+    // Visibility inherits down the hierarchy. Comparing the own flag would
+    // put a child of a hidden group under "Visible" even though it paints
+    // nothing, contradicting both the row treatment and the accessible name.
+    const effectiveVisible = ctx.doc
+      ? !isNodeEffectivelyHidden(ctx.doc, node.id)
+      : node.visible !== false;
+    if (effectiveVisible !== attr.visible) return false;
+  }
   if (attr.hasChildren !== undefined) {
     const hasCh = isContainer(node) && node.children.length > 0;
     if (hasCh !== attr.hasChildren) return false;
@@ -164,9 +174,6 @@ export function nodeMatchesFilter(
   filter: LayerFilterSpec,
   ctx: NodeFilterContext = {},
 ): boolean {
-  if (filter.search) {
-    const term = filter.search.toLowerCase();
-    if (!node.name.toLowerCase().includes(term)) return false;
-  }
+  if (filter.search && !matchesLayerSearch(node.name, filter.search)) return false;
   return nodeMatchesNonSearch(node, filter, ctx);
 }
