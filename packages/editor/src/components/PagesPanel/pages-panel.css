@@ -7,7 +7,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  /* The left rail's sections share one inline inset (the navigator, tabs,
+     Layers header and filter bar use --space-2), so section edges line up
+     down the rail (F-23). */
+  padding: var(--space-2);
   max-height: 34vh;
   flex: 0 1 auto;
 }
