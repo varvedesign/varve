@@ -287,7 +287,7 @@ test.describe('Comic lettering workflow', () => {
     await page.keyboard.press('Escape');
 
     await page.keyboard.press('v');
-    const textLayer = page.getByRole('treeitem', { name: /text:/i }).first();
+    const textLayer = page.getByRole('treeitem', { name: /, Text(,|$)/ }).first();
     await expect(textLayer).toBeVisible();
     await textLayer.click();
 
@@ -373,7 +373,7 @@ test.describe('Comic lettering workflow', () => {
     await editor.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
 
     await page.keyboard.press('v');
-    await selectLayer(page, /text:/i);
+    await selectLayer(page, /, Text(,|$)/);
     await startBalloonFromSelectedText(page);
     await selectLayer(page, /speech balloon/i);
 
@@ -383,7 +383,7 @@ test.describe('Comic lettering workflow', () => {
     // Re-enter the same text node through the selection quick bar and replace
     // the dialogue the way a localization pass would: same node, same style,
     // much longer string.
-    await selectLayer(page, /text:/i);
+    await selectLayer(page, /, Text(,|$)/);
     const editText = page.getByRole('button', { name: 'Edit text', exact: true });
     await expect(editText).toBeVisible();
     await editText.click();
@@ -436,7 +436,7 @@ test.describe('Comic lettering workflow', () => {
     await page.keyboard.press('Escape');
 
     await page.keyboard.press('v');
-    await selectLayer(page, /text:/i);
+    await selectLayer(page, /, Text(,|$)/);
     await startBalloonFromSelectedText(page);
     await selectLayer(page, /speech balloon/i);
 
@@ -496,7 +496,7 @@ test.describe('Comic lettering workflow', () => {
       await page.keyboard.insertText('Not while the lights are out.');
       await page.keyboard.press('Escape');
       await page.keyboard.press('v');
-      await selectLayer(page, /text:/i);
+      await selectLayer(page, /, Text(,|$)/);
       await startBalloonFromSelectedText(page);
       await selectLayer(page, /speech balloon/i);
 
@@ -532,7 +532,7 @@ test.describe('Comic lettering workflow', () => {
     }
 
     await page.keyboard.press('v');
-    const textLayers = page.getByRole('treeitem', { name: /text:/i });
+    const textLayers = page.getByRole('treeitem', { name: /, Text(,|$)/ });
     const count = await textLayers.count();
     expect(count).toBeGreaterThanOrEqual(4);
     for (let index = 0; index < Math.min(4, count); index++) {

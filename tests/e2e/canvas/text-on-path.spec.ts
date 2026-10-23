@@ -52,10 +52,7 @@ async function editSelectedText(page: import('@playwright/test').Page, value: st
 }
 
 function textLayer(page: import('@playwright/test').Page) {
-  return page
-    .getByRole('treeitem')
-    .filter({ hasText: /\bText:/i })
-    .first();
+  return page.locator('[role="treeitem"][data-layer-type="text"]').first();
 }
 
 /** Ellipse tool, then the text tool — the two nodes the attach needs. */

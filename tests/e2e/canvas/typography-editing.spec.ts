@@ -221,7 +221,7 @@ test.describe('Typography editing workflow', () => {
     await expect(editor).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(editor).toBeHidden();
-    await expect(page.getByRole('listitem', { name: /text:/i })).toHaveCount(0);
+    await expect(page.locator('[role="treeitem"][data-layer-type="text"]')).toHaveCount(0);
   });
 
   test('OpenType changes and cluster adjustment redraw the real artwork', async ({
@@ -241,7 +241,10 @@ test.describe('Typography editing workflow', () => {
     await page.keyboard.insertText('office fi');
     await page.keyboard.press('Escape');
     await page.keyboard.press('v');
-    await page.getByRole('treeitem', { name: /text:/i }).first().click();
+    await page
+      .getByRole('treeitem', { name: /, Text(,|$)/ })
+      .first()
+      .click();
 
     const openType = page
       .locator('button.insp-disclosure__trigger')
