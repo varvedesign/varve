@@ -50,6 +50,12 @@ async function openSelect(page: Page, name: string) {
   await expect(page.getByRole('listbox')).toBeVisible();
 }
 
+function optionNamed(page: Page, label: string, exact: boolean) {
+  if (exact) return page.getByRole('option', { name: label, exact: true });
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return page.getByRole('option', { name: new RegExp(`^${escaped}(?:\\s|$)`) });
+}
+
 test.describe('Enhance AI admission', () => {
   test('hides model operations and presets when AI is off', async ({ page }, testInfo) => {
     test.setTimeout(120000);
@@ -102,7 +108,7 @@ test.describe('Enhance AI admission', () => {
 
     await openSelect(page, 'Enhancement operation');
     for (const label of MODEL_OPERATIONS) {
-      const option = page.getByRole('option', { name: label });
+      const option = optionNamed(page, label, true);
       await option.scrollIntoViewIfNeeded();
       await expect(option).toBeVisible();
     }
@@ -111,11 +117,11 @@ test.describe('Enhance AI admission', () => {
 
     await openSelect(page, 'Enhancement preset');
     for (const label of MODEL_PRESETS) {
-      const option = page.getByRole('option', { name: label });
+      const option = optionNamed(page, label, false);
       await option.scrollIntoViewIfNeeded();
       await expect(option).toBeVisible();
     }
-    await page.getByRole('option', { name: 'Photo cleanup + upscale' }).scrollIntoViewIfNeeded();
+    await optionNamed(page, 'Photo cleanup + upscale', false).scrollIntoViewIfNeeded();
     await capture(page, testInfo, 'ai_on_enhance_presets');
   });
 });
