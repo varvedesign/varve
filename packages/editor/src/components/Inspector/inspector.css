@@ -1733,12 +1733,20 @@
   flex-direction: column;
   box-sizing: border-box;
   min-height: 0;
+  /* The dialog shell is height-capped, never scrolled: the header and the
+   * per-paint row must stay visible while the body scrolls. The cap comes
+   * from FloatingPortal's measured available height (`scrollOwner="content"`),
+   * falling back to the historical 560px when the portal is not measuring. */
+  max-height: var(--varve-floating-max-height, min(560px, 100vh - 1rem));
   gap: var(--space-2);
   padding: var(--space-3);
 }
 .insp-picker-dialog__body {
   min-height: 0;
-  max-height: calc(min(560px, 100vh - 1rem) - 5.5rem);
+  /* Sole scroll owner. A second scroller on the portal produced two
+   * scrollbars, and the outer one could scroll the title and blend row out of
+   * view. Flex sizing lets the body take exactly the height the shell has
+   * left instead of a magic subtraction. */
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
