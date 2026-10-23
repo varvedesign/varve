@@ -3396,6 +3396,20 @@ fieldset.insp-canvas-props,
   min-width: 0;
 }
 
+/* Snapping (F-25): one master switch row, then the targets as a stacked
+   checkbox group at full width, so each target stays on one line at the
+   narrowest Inspector width. */
+.insp-snap__targets {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.insp-snap__tolerance {
+  inline-size: 4.5em;
+}
+
 .insp-layout-guide-card {
   display: flex;
   flex-direction: column;

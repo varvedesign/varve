@@ -125,7 +125,7 @@ async function openIsometricInspector(page: Page) {
 
 /** Raise the magnetic tolerance and ensure global snapping is enabled. */
 async function setSnapTolerance(page: Page, value: number) {
-  const globalSnap = page.getByRole('switch', { name: 'Enable magnetic pointer snapping' });
+  const globalSnap = page.getByRole('switch', { name: 'Magnetic snapping' });
   await globalSnap.scrollIntoViewIfNeeded();
   if (!(await globalSnap.isChecked())) await globalSnap.check();
   const tolerance = page.getByRole('spinbutton', { name: /snap tolerance/i });

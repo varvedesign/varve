@@ -22,8 +22,8 @@ import {
   managedColorToCss,
   resolveBlendEvaluationSpace,
 } from '@varve/shared';
-import { SegmentedControl, Select, Switch, SwitchField } from '@varve/ui';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { Checkbox, InfoHint, SegmentedControl, Select, Switch, SwitchField } from '@varve/ui';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
   BLACK_INK_SIMULATION_SUPPORTED,
@@ -93,6 +93,7 @@ export function DocumentPanel() {
   const [snapPreferences, setSnapPreferences] = useState<ViewportSettingsStore>(
     () => loadSettings().viewport,
   );
+  const snapTargetsId = useId();
   const updateSnapPreferences = useCallback((patch: Partial<ViewportSettingsStore>) => {
     const next = updateSettings({ viewport: patch });
     setSnapPreferences(next.viewport);
@@ -155,20 +156,40 @@ export function DocumentPanel() {
         </div>
       </DisclosureSection>
       <DisclosureSection title="Snapping" sectionId="snapping">
+        {/* One switch for snapping itself, one group for what it snaps to
+            (F-25): the same four preferences, without a second label
+            restating each switch. */}
         <fieldset className="insp-canvas-props" aria-label="Pointer snapping settings">
-          <div className="insp-field">
-            <span className="insp-field__label">Global snap</span>
-            <div className="insp-field__control insp-field__control--inline">
-              <Switch
-                label="Enable magnetic pointer snapping"
-                checked={state.snapEnabled}
-                onChange={(event) => setSnapEnabled(event.target.checked)}
-              />
-            </div>
+          <SwitchField
+            label="Magnetic snapping"
+            checked={state.snapEnabled}
+            onChange={(event) => setSnapEnabled(event.target.checked)}
+            className="insp-snap__master"
+          />
+          {/* biome-ignore lint/a11y/useSemanticElements: a nested fieldset inside the section's fieldset would announce two groups for one set of choices. */}
+          <div className="insp-snap__targets" role="group" aria-labelledby={snapTargetsId}>
+            <span className="insp-field__label" id={snapTargetsId}>
+              Snap to
+            </span>
+            <Checkbox
+              label="Object edges and centers"
+              checked={snapPreferences.snapToObjects}
+              onChange={(event) => updateSnapPreferences({ snapToObjects: event.target.checked })}
+            />
+            <Checkbox
+              label="Page and frame bounds"
+              checked={snapPreferences.snapToPages}
+              onChange={(event) => updateSnapPreferences({ snapToPages: event.target.checked })}
+            />
+            <Checkbox
+              label="Ruler and layout guides"
+              checked={snapPreferences.snapToGuides}
+              onChange={(event) => updateSnapPreferences({ snapToGuides: event.target.checked })}
+            />
           </div>
           <div className="insp-field">
             <span className="insp-field__label">Tolerance</span>
-            <div className="insp-field__control">
+            <div className="insp-field__control insp-field__control--inline">
               <input
                 type="number"
                 min={SNAP_TOLERANCE_MIN}
@@ -179,54 +200,29 @@ export function DocumentPanel() {
                   const value = Number(event.target.value);
                   if (Number.isFinite(value)) updateSnapPreferences({ snapTolerancePx: value });
                 }}
-                className="insp-num__input"
+                className="insp-num__input insp-snap__tolerance"
                 aria-label={`Snap tolerance ${snapPreferences.snapTolerancePx} CSS pixels`}
               />
               <span className="insp-num__unit" aria-hidden="true">
                 CSS px
               </span>
+              <InfoHint topic="snapping">
+                Tolerance is measured in CSS pixels, so zoom does not change how far the pointer
+                must travel. Ctrl/Cmd temporarily bypasses magnetic snapping during a drag. Keyboard
+                nudges, grid snap, and pixel snap remain separate operations.
+              </InfoHint>
             </div>
           </div>
-          <div className="insp-field">
-            <span className="insp-field__label insp-field__label--wrap">Object geometry</span>
-            <div className="insp-field__control insp-field__control--inline">
-              <Switch
-                label="Edges and centers"
-                checked={snapPreferences.snapToObjects}
-                onChange={(event) => updateSnapPreferences({ snapToObjects: event.target.checked })}
-              />
-            </div>
-          </div>
-          <div className="insp-field">
-            <span className="insp-field__label insp-field__label--wrap">Pages and frames</span>
-            <div className="insp-field__control insp-field__control--inline">
-              <Switch
-                label="Page and frame bounds"
-                checked={snapPreferences.snapToPages}
-                onChange={(event) => updateSnapPreferences({ snapToPages: event.target.checked })}
-              />
-            </div>
-          </div>
-          <div className="insp-field">
-            <span className="insp-field__label">Guides</span>
-            <div className="insp-field__control insp-field__control--inline">
-              <Switch
-                label="Ruler and layout guides"
-                checked={snapPreferences.snapToGuides}
-                onChange={(event) => updateSnapPreferences({ snapToGuides: event.target.checked })}
-              />
-            </div>
-          </div>
-          <p className="insp-panel__color-mode-note" role="note">
-            Tolerance is measured in CSS pixels, so zoom does not change how far the pointer must
-            travel. Ctrl/Cmd temporarily bypasses magnetic snapping during a drag. Keyboard nudges,
-            grid snap, and pixel snap remain separate operations.
-          </p>
           <div className="insp-field">
             <span className="insp-field__label">Defaults</span>
             <div className="insp-field__control insp-field__control--inline">
-              <button type="button" className="insp-btn" onClick={resetSnapPreferences}>
-                Reset snapping
+              <button
+                type="button"
+                className="insp-btn"
+                onClick={resetSnapPreferences}
+                aria-label="Reset snapping settings"
+              >
+                Reset
               </button>
             </div>
           </div>
