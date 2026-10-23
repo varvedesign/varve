@@ -1,6 +1,6 @@
 name: Performance problem
 description: Varve is slow, stutters, or uses excessive memory.
-labels: ["performance"]
+labels: ["type: performance"]
 body:
   - type: input
     id: version

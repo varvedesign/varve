@@ -1,0 +1,20 @@
+title: Idea
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What do you propose?
+    validations:
+      required: true
+  - type: textarea
+    id: current-workflow
+    attributes:
+      label: How do you work today?
+    validations:
+      required: true

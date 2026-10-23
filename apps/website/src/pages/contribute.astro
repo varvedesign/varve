@@ -12,7 +12,7 @@ import { sitePath } from '../lib/siteUrl';
         Varve is community-shaped. Clear bug reports, thoughtful workflow ideas, cross-platform testing, documentation, and design feedback all help the project move forward.
       </p>
       <p class="page-hero-sub" style="margin-top: 0.5rem;">
-        <strong>External code contributions are temporarily paused.</strong> You can still help today through <a href="https://github.com/varvedesign/varve/issues">Issues</a> and <a href="https://github.com/varvedesign/varve/discussions">Discussions</a>. Read the <a href="https://github.com/varvedesign/varve/blob/master/docs/development/contributing.md">current contributor guide</a> for the right channel and useful report details.
+        <strong>Contributions are open for docs and examples, translations, plugins in your own repository, testing and device reports, and the nine libraries under MIT OR Apache-2.0.</strong> App code remains maintainer-only for now. See <a href="https://github.com/varvedesign/varve/blob/master/CONTRIBUTING.md">CONTRIBUTING.md</a> for details.
       </p>
 
       <section class="contribute-section">
@@ -47,7 +47,7 @@ import { sitePath } from '../lib/siteUrl';
               <li>Point out confusing or stale passages</li>
               <li>Share tutorials, examples, and workflow recipes</li>
               <li>Suggest screenshots or accessibility improvements</li>
-              <li>Use an <a href="https://github.com/varvedesign/varve/discussions">Issue or Discussion</a> while code PRs are paused</li>
+              <li>Use the <a href="https://github.com/varvedesign/varve/issues">docs issue form</a> for corrections and <a href="https://github.com/varvedesign/varve/discussions">Discussions</a> for examples</li>
             </ul>
           </div>
 
@@ -86,9 +86,9 @@ import { sitePath } from '../lib/siteUrl';
       </section>
 
       <section class="contribute-section">
-        <h2>When Code Contributions Reopen</h2>
+        <h2>Contribution lanes</h2>
         <p>
-          The future code workflow will begin with a scoped Discussion, then a focused branch and pull request against <code>master</code>. Changes will need the narrowest useful tests, honest release and platform claims, and documented validation. Canvas, pointer, drag, and rendering changes will require real Playwright coverage in addition to unit tests.
+          Docs and examples, translations, plugins in your own repository, testing and device reports, and contributions to the nine MIT OR Apache-2.0 libraries are open today. App code remains maintainer-only for now.
         </p>
         <p>
           Start with <code>pnpm verify:plan</code>, run <code>pnpm verify:affected</code>, and record the commands in the pull request. The full gate is reserved for explicit high-impact changes and requires a stated reason. See the <a href={sitePath('/contribute/guidelines')}>contribution guidelines</a> and the <a href="https://github.com/varvedesign/varve/blob/master/docs/development/contributing.md">development contributor guide</a> for the complete workflow.
@@ -109,10 +109,10 @@ import { sitePath } from '../lib/siteUrl';
       <section class="contribute-section">
         <h2>Contribution Licensing</h2>
         <p>
-          Varve is source-available under FSL-1.1-MIT. While external code contributions are paused, the repository's DCO and CLA documents are drafts and are not active. When code contributions reopen, the active sign-off and contribution terms will be published before outside code is accepted. Contributors will retain copyright to their work.
+          The app is source-available under FSL-1.1-MIT. Contributions use DCO 1.1 sign-off under the licence of the files changed.
         </p>
         <p>
-          Future external code contributions will require a <a href="https://developercertificate.org/">Developer Certificate of Origin</a> (DCO) sign-off. The active terms will be published before code pull requests reopen; see <a href={sitePath('/contribute/guidelines')}>the contribution guidelines</a> for the planned process.
+          Contributors are credited in release notes. See <a href="https://github.com/varvedesign/varve/blob/master/CONTRIBUTING.md">CONTRIBUTING.md</a> for the DCO text and PR process.
         </p>
       </section>
 
@@ -129,7 +129,7 @@ import { sitePath } from '../lib/siteUrl';
       </section>
 
       <div class="contribute-cta">
-        <h2>Want to know when contributions open?</h2>
+        <h2>Get involved</h2>
         <Button href="https://github.com/varvedesign/varve/discussions">Follow GitHub Discussions</Button>
       </div>
     </div>
@@ -209,7 +209,7 @@ import { sitePath } from '../lib/siteUrl';
     margin-bottom: 0;
   }
 
-  /* Icon + title sit side by side in a flex row — in normal flow, so the
+  /* Icon + title sit side by side in a flex row, in normal flow, so the
      icon can never overlap the title at any font size, zoom, or reflow. */
   .cc-head {
     display: flex;

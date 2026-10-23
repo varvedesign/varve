@@ -33,9 +33,8 @@ Examples of unacceptable behaviour:
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behaviour may be
-reported to the project owner at the email address associated with the GitHub
-account K-Arthur. All complaints will be reviewed and investigated promptly
-and fairly.
+reported to the project team at [hello@varve.studio](mailto:hello@varve.studio).
+All complaints will be reviewed and investigated promptly and fairly.
 
 ## Attribution
 
