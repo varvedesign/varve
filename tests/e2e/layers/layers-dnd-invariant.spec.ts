@@ -68,7 +68,7 @@ async function readIndicator(page: Page): Promise<Indicator | null> {
 async function beginDrag(page: Page, rowId: string): Promise<{ x: number; y: number }> {
   const row = page.locator(`[role="treeitem"][data-node-id="${rowId}"]`);
   await row.scrollIntoViewIfNeeded();
-  const box = await row.locator('.layers-row__drag-handle').boundingBox();
+  const box = await row.locator('.layers-row__icon-area').boundingBox();
   if (!box) throw new Error(`row ${rowId} has no geometry`);
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;

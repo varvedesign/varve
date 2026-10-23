@@ -581,7 +581,11 @@
   width: var(--target-min-compact);
   height: var(--target-min-compact);
   flex-shrink: 0;
-  cursor: pointer;
+  /* The icon is the reorder handle (the row body drag-selects, so it cannot
+     be). It needs touch-action none so a touch drag reorders instead of
+     scrolling the list, which also gives coarse pointers a visible target. */
+  cursor: grab;
+  touch-action: none;
   /* Explicit reset: this is a real <button>. Without these the browser's UA
      buttonface background and chiseled border render as an unstyled gray box
      that looks broken against the design system. */
@@ -596,6 +600,9 @@
 .layers-row__icon-area:hover {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
+}
+.layers-row__icon-area:active {
+  cursor: grabbing;
 }
 .layers-row--selected .layers-row__icon-area {
   background: color-mix(in oklch, var(--color-interactive-default) 12%, transparent);
@@ -1696,41 +1703,6 @@
   display: block;
   width: 100%;
   height: 100%;
-}
-
-/* ─── Drag handle ───────────────────────────────────────────── */
-.layers-row__drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-5);
-  min-width: var(--space-5);
-  min-height: var(--component-xs-height);
-  height: var(--component-xs-height);
-  flex-shrink: 0;
-  cursor: grab;
-  opacity: 0;
-  color: var(--color-text-subtle);
-  touch-action: none;
-  background: none;
-  border: none;
-  padding: 0;
-}
-
-.layers-row:hover .layers-row__drag-handle,
-.layers-row:focus-within .layers-row__drag-handle {
-  opacity: 1;
-}
-
-/* Touch devices have no hover to reveal the drag handle (WCAG 2.5.8). */
-@media (hover: none), (pointer: coarse) {
-  .layers-row__drag-handle {
-    opacity: 1;
-  }
-}
-
-.layers-row__drag-handle:active {
-  cursor: grabbing;
 }
 
 /* ─── Drop zone indicators (DnD) ────────────────────────────── */

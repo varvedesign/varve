@@ -296,6 +296,27 @@ describe('LayersRow Object Filter badge', () => {
     expect(container.querySelectorAll('[role="treeitem"]')).toHaveLength(1);
   });
 
+  it('uses the type icon as the reorder handle and renders no separate grip', () => {
+    const onPointerDown = vi.fn();
+    const dragHandleRef = vi.fn();
+    const onSelectionPointerDown = vi.fn();
+    const { container, getByRole } = renderRow({
+      dragHandleRef,
+      dragHandleListeners: { onPointerDown },
+      onSelectionPointerDown,
+    });
+
+    expect(container.querySelector('.layers-row__drag-handle')).toBeNull();
+    const icon = getByRole('button', { name: /^Zoom to Layer 1/ });
+    expect(dragHandleRef).toHaveBeenCalledWith(icon);
+
+    fireEvent.pointerDown(icon);
+    expect(onPointerDown).toHaveBeenCalledTimes(1);
+    // The gesture belongs to the reorder handle: it must not also start the
+    // row's drag-to-select scrub.
+    expect(onSelectionPointerDown).not.toHaveBeenCalled();
+  });
+
   it('offers a keyboard-accessible copy alternative to dragging a filter stack', () => {
     const onCopyEffectStack = vi.fn();
     const { getByRole } = renderRow({

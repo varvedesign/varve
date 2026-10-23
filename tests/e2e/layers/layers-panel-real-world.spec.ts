@@ -441,19 +441,19 @@ test.describe('Layers Panel — real-world document', () => {
     await expect(page.locator('.layers-row__name').first()).toHaveText('Renamed Layer');
   });
 
-  test('drag reorder via the grip changes document order once', async ({ page }) => {
+  test('drag reorder via the type icon changes document order once', async ({ page }) => {
     await buildRealisticDocument(page);
 
     const rows = page.getByRole('treeitem');
     const namesBefore = await rows.locator('.layers-row__name').allTextContents();
     record('reorder-before.json', { namesBefore: namesBefore.slice(0, 6) });
 
-    // Drag the second row's grip below the fourth row.
+    // Drag the second row's type icon below the fourth row.
     const source = rows.nth(1);
     const target = rows.nth(4);
     await source.hover();
-    const grip = source.locator('.layers-row__drag-handle');
-    const sourceBox = await grip.boundingBox();
+    const handle = source.locator('.layers-row__icon-area');
+    const sourceBox = await handle.boundingBox();
     const targetBox = await target.boundingBox();
     if (!sourceBox || !targetBox) throw new Error('rows not measurable');
 

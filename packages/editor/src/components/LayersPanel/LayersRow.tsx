@@ -7,7 +7,7 @@
  * Research basis: APG Tree View (role=treeitem), type icons per Lucide icon maps.
  */
 
-import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
+import type { DraggableSyntheticListeners } from '@dnd-kit/core';
 import type {
   AdjustmentNode,
   Document,
@@ -86,7 +86,6 @@ export interface LayersRowProps {
   style?: React.CSSProperties;
   dragHandleRef?: (element: HTMLElement | null) => void;
   dragHandleListeners?: DraggableSyntheticListeners;
-  dragHandleAttributes?: DraggableAttributes;
   onSelectionPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
   onSelectionClick?: () => boolean;
   /** Optional resolved variant name for component instances. */
@@ -176,7 +175,6 @@ export const LayersRow = memo(function LayersRow({
   style,
   dragHandleRef,
   dragHandleListeners,
-  dragHandleAttributes,
   onSelectionPointerDown,
   onSelectionClick,
   variantName,
@@ -551,21 +549,6 @@ export const LayersRow = memo(function LayersRow({
             readable cue of their (flattened) nesting lane. */}
         {indentGuides}
 
-        {/* Drag handle */}
-        <button
-          {...dragHandleAttributes}
-          ref={dragHandleRef}
-          {...dragHandleListeners}
-          type="button"
-          className="layers-row__drag-handle"
-          aria-label="Drag to reorder"
-          aria-hidden="true"
-          tabIndex={-1}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.75em" />
-        </button>
-
         {/* Disclosure triangle */}
         {container ? (
           <button
@@ -601,12 +584,18 @@ export const LayersRow = memo(function LayersRow({
           <img src={thumbnailDataUrl!} alt="" aria-hidden className="layers-row__thumbnail" />
         )}
 
-        {/* Type icon — double-click zooms to layer */}
+        {/* Type icon — drag to reorder (the row body is the drag-to-select
+            surface, so reorder needs its own activator), double-click zooms to
+            the layer. */}
         <button
           type="button"
+          ref={dragHandleRef}
           className="layers-row__icon-area"
           onDoubleClick={handleIconDoubleClick}
-          onPointerDown={stopDragActivation}
+          onPointerDown={(e) => {
+            dragHandleListeners?.onPointerDown?.(e);
+            stopDragActivation(e);
+          }}
           aria-label={`Zoom to ${node.name} (${layerPresentation.label})`}
           tabIndex={-1}
           onKeyDown={(e) => {
