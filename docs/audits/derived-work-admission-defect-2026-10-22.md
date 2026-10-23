@@ -97,36 +97,92 @@ Every registered caller of the shared ledger, and what the fix means for it:
 | Object Selection (SAM2 / MobileSAM) | routed working-set estimate | refused for large sources | admitted on measured hosts; routing still degrades by its own budget |
 | Text discovery (OCR) | `estimateInferenceReservation` | refused on low-headroom hosts | admitted on measured hosts; its own refusal copy already existed |
 | Image enhancement, denoise, colourisation, trace | native preflight / worker reservation | unaffected by the byte ceiling | unchanged |
-| Thumbnails, raster pyramid, effects, exports | derived-work estimates | unaffected | unchanged (they contend on the same ledger, now with a real ceiling) |
+| Thumbnails, raster pyramid, effects, exports | derived-work estimates | unaffected by the byte ceiling | unchanged reservations; they now share the gate's single slot with AI work that previously never started, so a long AI run can delay a preview instead of hanging on a refusal |
 
 ## Regression coverage
 
 - `packages/platform/src/hostMemory.test.ts` — budget derivation: floor, reserve
   subtraction, cap, integer safety.
+- `packages/platform/src/hostMemory.probe.test.ts` — the probe itself: native
+  payload, device-memory halving, unavailable host, IPC failure fallback, and a
+  malformed payload that must not be trusted.
+- `packages/platform/src/derivedWorkAdmission.initialization.test.ts` — the
+  wiring: a measurement reaches the process singleton, happens exactly once,
+  releases work that was waiting for bytes, preserves an owner-selected profile,
+  and restores the lazy path after a test override.
 - `packages/platform/src/derivedWorkAdmission.test.ts` — "host-derived budget"
-  group: the exact 541,786,112-byte reservation is refused on the unmeasured
-  default and admitted after measurement; provenance; unprefixed refusal text;
-  resident eviction when a measured budget drops.
+  group: the pre-fix 541,786,112-byte reservation (512 MiB + 4x a 480x640 frame)
+  is refused on the unmeasured default and admitted after measurement;
+  provenance; non-byte refusal text; resident eviction when a measured budget
+  drops.
 - `packages/engine/src/backgroundRemoval/__tests__/admissionCapacity.test.ts` —
-  ai-quality admitted on a measured budget; reservation derived from the catalog
-  model; capacity refusal retries `ai-balanced`; explicit model honoured without
-  substitution and without a raw byte count.
+  ai-quality admitted on a measured budget; the post-fix reservation derived from
+  the catalog model (452,925,376 bytes for the same input); capacity refusal
+  retries `ai-balanced`; explicit model honoured without substitution and
+  without a raw byte count.
+- `packages/editor/.../bgRemovalFeatures.test.tsx` — a capacity refusal renders
+  as an action, not a byte count.
 
 ## Validation performed
 
-- `npx vitest run` on the three suites above (all pass).
-- Package typechecks for `@varve/platform` and `@varve/engine`.
-- `cargo test` for the new `host_memory_status` command unit test.
-- Browser validation: the background-removal journey in the real editor
-  (Playwright, lease-wrapped) plus screenshots under
+- Unit/component: `vitest run` on the six suites listed under regression
+  coverage above (all pass; 80 tests).
+- Typechecks: `@varve/platform`, `@varve/engine`, `@varve/editor`, and
+  `pnpm typecheck:e2e`.
+- Native: `cargo test --lib host_memory_status` in `apps/desktop/src-tauri`
+  (1 passed, 136 filtered) proving the command reports a tier consistent with
+  the measured bytes.
+- Browser: `tests/e2e/canvas/bg-removal-capacity.spec.ts` under the heavy lease
+  (`--workers=1`, isolated port). The bundled U²-NetP Auto cutout ran and
+  removed the background over 28 s, and the High-quality panel rendered its
+  measured metadata without the duplicated unit. Screenshots:
   `docs/screenshots/2026-10-22-admission-fix/`.
-- `apps/website` build/typecheck for the copy changes.
+- Website: `apps/website` copy changes verified by `audit:docs` and the website
+  test suite; no claim was added that the implementation does not make.
 
-Recorded honestly: this session could not exercise native ONNX execution on a
-Windows or macOS host; the desktop measurement path is validated on Linux only.
+Recorded honestly:
+
+- This session could not exercise native ONNX execution on Windows or macOS;
+  the desktop measurement path is validated on Linux only.
+- The High-quality path itself was not run against a downloaded BiRefNet model
+  (224 MB download). Its admission behavior is covered by unit tests, and its
+  fit decision remains the pre-existing WASM/native preflight.
+- The browser probe path (`deviceMemory`) is what the E2E exercised; the native
+  `host_memory_status` path is covered by the Rust test and the probe unit test,
+  not by a desktop-webview E2E.
+
+## Review findings folded in
+
+An independent review of the fix raised six issues that were corrected before
+merge:
+
+1. The website implied High quality silently runs Auto when it cannot fit; the
+   ~7 GB limit is enforced by the per-operation preflight (which reports the
+   shortfall), while Auto substitution only follows a ledger refusal. Copy fixed.
+2. The probe and boot wiring had no tests, so reverting them would have gone
+   unnoticed. Added `hostMemory.probe.test.ts` and
+   `derivedWorkAdmission.initialization.test.ts`.
+3. `setDerivedWorkMemoryProfile` and `setHostMemoryBudget` disagreed about what
+   counts as owner-configured. A selected profile is now protected, and
+   `setDerivedWorkAdmissionForTest(null)` restores the lazy probe instead of
+   pinning an unmeasured singleton.
+4. The desktop probe reads `window.__TAURI__.core`, which depends on
+   `withGlobalTauri`. Documented next to the bridge so a future hardening change
+   cannot silently reintroduce the 400 MB floor.
+5. Boot awaited an unbounded IPC round trip; it is now bounded to 2 s, after
+   which the lazy probe completes the job.
+6. A native preflight message containing the word "model" was being rewritten
+   as "Model failed to load", and `queue-full` had no user-facing mapping. Both
+   are handled.
 
 ## Remaining work
 
+- **Long AI runs now hold the gate's only slot.** Before this fix a High-quality
+  run was refused instantly, so the shared ledger's single concurrency slot was
+  effectively free for thumbnails and live-effect previews. A run that now takes
+  up to 310 s will delay those previews for its duration. That is the intended
+  trade (memory safety over preview latency) but it deserves its own measurement
+  and possibly a dedicated slot for speculative background work.
 - Generative Edit still needs a measured budget around 6 GB; on an 8 GB machine
   the ledger and the native preflight will both refuse. That is correct today,
   but the panel should offer the same "reduce/close apps" affordance as

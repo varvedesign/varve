@@ -114,10 +114,10 @@ import StatusPill from '../../components/StatusPill.astro';
           Varve measures the memory the host actually has available &mdash; through the desktop
           process on a native build, or the browser's own device hint &mdash; and sizes its
           local-work budget from that measurement instead of assuming a low-end machine. High
-          quality keeps a working set of roughly 7 GB, so on a host without that headroom Varve
-          reports the shortfall and runs Auto instead of failing silently or driving the editor
-          into an out-of-memory crash. A model you pick explicitly is never swapped for another
-          without your consent.
+          quality keeps a working set of roughly 7 GB; when the machine cannot hold it, Varve
+          reports the shortfall before loading the model rather than failing mid-run or driving
+          the editor into an out-of-memory crash, and Auto or Fast stays available. A model you
+          pick explicitly is never swapped for another without your consent.
         </p>
       </section>
 

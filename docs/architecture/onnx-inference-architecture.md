@@ -261,10 +261,12 @@ coarse `navigator.deviceMemory` hint. The derived ceiling is
 
 `initializeDerivedWorkBudget()` performs the probe once at boot and applies the
 result; `getDerivedWorkAdmission()` also starts the probe lazily so a surface
-that begins work before boot cannot keep the placeholder forever. An explicitly
-configured budget (a profile, a host override, or a test) is never overwritten,
-and the snapshot reports `budgetSource` so diagnostics can distinguish a
-measured host (`host-measured`), a coarse hint (`host-estimated`), and the
+that begins work before boot cannot keep the placeholder forever. A budget set
+with `maxReservedBytes` / `setMaxReservedBytes`, or a deliberately selected
+memory profile, is never overwritten by a measurement, and the snapshot reports
+`budgetSource` so diagnostics can distinguish a measured host
+(`host-measured`), a coarse hint (`host-estimated`), a selected profile
+(`reference-profile`), an owner-configured limit (`explicit`), and the
 unmeasured default (`conservative-default`).
 
 The previous ceiling was a fixed 400 MB for unknown/4 GB hosts and a fixed
