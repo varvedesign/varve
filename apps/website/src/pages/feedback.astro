@@ -57,7 +57,7 @@ const feedbackSchema = {
             purpose="Email us what happened. A screenshot helps."
           />
           <p class="feedback-secondary">
-            Have a GitHub account?
+            Have a GitHub account?{' '}
             <a href={VARVE_URLS.newIssueChoose}>You can also post it there.</a>
           </p>
         </li>
@@ -67,14 +67,6 @@ const feedbackSchema = {
           <Button href={VARVE_URLS.discussions} variant="secondary">
             Post on the Varve forum (GitHub account needed)
           </Button>
-        </li>
-        <li class="feedback-choice site-card site-card--surface">
-          <h2>Prefer email?</h2>
-          <ContactChannel
-            id="feedback"
-            headingLevel={3}
-            purpose="Copy the address and write whenever you like."
-          />
         </li>
       </ol>
     </div>

@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 
 /**
  * /feedback is the in-app Send Feedback landing page. These specs pin the
- * three choices a visitor must be able to take, plus a mobile visual
- * baseline the same way /press is captured.
+ * email and forum choices a visitor must be able to take, plus a mobile
+ * visual baseline the same way /press is captured.
  */
 
 test('feedback page offers email, forum, and copy choices', async ({ page }) => {
@@ -21,7 +21,7 @@ test('feedback page offers email, forum, and copy choices', async ({ page }) => 
   await expect(bugEmail).toBeVisible();
   await expect(bugEmail).toHaveText('feedback@varve.studio');
   await expect(bugEmail).toHaveAttribute('href', /^mailto:feedback@varve.studio/);
-  await expect(page.getByText('Have a GitHub account?')).toBeVisible();
+  await expect(page.getByText('Have a GitHub account? You can also post it there.')).toBeVisible();
   const github = page.getByRole('link', { name: 'You can also post it there.' });
   await expect(github).toBeVisible();
   await expect(github).toHaveAttribute(
@@ -36,13 +36,10 @@ test('feedback page offers email, forum, and copy choices', async ({ page }) => 
   await expect(forum).toBeVisible();
   await expect(forum).toHaveAttribute('href', 'https://github.com/varvedesign/varve/discussions');
 
-  await expect(page.getByRole('heading', { level: 2, name: 'Prefer email?' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Prefer email?' })).toHaveCount(0);
 
   const emails = page.getByRole('link', { name: 'Email Varve product feedback' });
-  await expect(emails).toHaveCount(2);
-  await expect(emails.last()).toBeVisible();
-  await expect(emails.last()).toHaveText('feedback@varve.studio');
-  await expect(emails.last()).toHaveAttribute('href', /^mailto:feedback@varve.studio/);
+  await expect(emails).toHaveCount(1);
 });
 
 test('feedback page keeps the chooser readable on a narrow viewport', async ({ page }) => {
