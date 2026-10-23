@@ -40,7 +40,7 @@ import StatusPill from '../../components/StatusPill.astro';
           <span class="mode-card__number">03</span>
           <h2>High quality</h2>
           <p>BiRefNet Lite for difficult boundaries, with native execution preferred for heavier work.</p>
-          <span class="mode-card__meta">Local · optional 224 MB model</span>
+          <span class="mode-card__meta">Local · optional 224 MB model · ~7 GB working set</span>
         </article>
         <article class="mode-card mode-card--accent">
           <span class="mode-card__number">04</span>
@@ -109,6 +109,15 @@ import StatusPill from '../../components/StatusPill.astro';
           steam, or every translucent edge. Unsafe bare-WASM allocations are blocked before they
           can destabilize the editor. AI attempts share a bounded waiting period, and reduced-quality
           fallback is identified in the review. Fast mode needs no model download for simple backgrounds.
+        </p>
+        <p>
+          Varve measures the memory the host actually has available &mdash; through the desktop
+          process on a native build, or the browser's own device hint &mdash; and sizes its
+          local-work budget from that measurement instead of assuming a low-end machine. High
+          quality keeps a working set of roughly 7 GB, so on a host without that headroom Varve
+          reports the shortfall and runs Auto instead of failing silently or driving the editor
+          into an out-of-memory crash. A model you pick explicitly is never swapped for another
+          without your consent.
         </p>
       </section>
 
