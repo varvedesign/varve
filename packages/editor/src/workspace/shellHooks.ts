@@ -48,6 +48,22 @@ type ResponsivePanelClosersOptions = {
   triggerRef: RefObject<HTMLButtonElement | null>;
 };
 
+/**
+ * The launcher that opened a drawer, or the one that replaced it. The shell
+ * unmounts its launchers while a drawer is open, so on close the remembered
+ * button is detached and focusing it silently dropped focus to <body>
+ * (F-39, shell audit 2026-10-22).
+ */
+function connectedTrigger(trigger: HTMLElement | null): HTMLElement | null {
+  if (!trigger || trigger.isConnected) return trigger;
+  const controls = trigger.getAttribute('aria-controls');
+  if (!controls) return null;
+  const candidates = document.querySelectorAll<HTMLElement>(
+    `[aria-controls="${CSS.escape(controls)}"]`,
+  );
+  return Array.from(candidates).find((el) => el.className === trigger.className) ?? null;
+}
+
 /** Close a drawer and restore focus without conflating its close controls. */
 export function useResponsivePanelClosers({
   layersVisible,
@@ -60,7 +76,7 @@ export function useResponsivePanelClosers({
 }: ResponsivePanelClosersOptions) {
   const restoreTriggerFocus = useCallback(() => {
     const trigger = triggerRef.current;
-    window.requestAnimationFrame(() => trigger?.focus());
+    window.requestAnimationFrame(() => connectedTrigger(trigger)?.focus());
   }, [triggerRef]);
 
   const closeResponsivePanels = useCallback(() => {
