@@ -3339,7 +3339,13 @@ export function EditorProvider({
   }, []);
 
   /** Persistence (save/load/document lifecycle). */
-  const { serializeDocument, save, saveAs, saveCopy, loadDocument } = usePersistence(
+  const {
+    serializeDocument,
+    save,
+    saveAs,
+    saveCopy,
+    loadDocument: loadDocumentRaw,
+  } = usePersistence(
     state,
     patch,
     stateRef,
@@ -3348,6 +3354,42 @@ export function EditorProvider({
     openInNewSession,
     recoveryRef,
     computeFitAllCamera,
+  );
+
+  /**
+   * The one decode gate for document loading, shared by `openFile` and
+   * `loadDocument`.
+   *
+   * `loadDocument` is a public entry point (recovery restore uses it), so a
+   * payload that cannot be decoded must be reported there too rather than
+   * swallowed: an invalid recovery snapshot used to restore nothing and say
+   * nothing. A `null` payload is only meaningful for `openFile` (new
+   * document), which is why the empty string is not special-cased anywhere —
+   * it fails to parse and is refused like any other damaged file
+   * (vectorcraft#861).
+   */
+  const loadDocument = useCallback(
+    (json: string, meta?: LoadDocumentMeta) => {
+      let decodable = false;
+      try {
+        decodable = DocumentCodec.decode(json).ok;
+      } catch {
+        decodable = false;
+      }
+      const name = meta?.name ?? 'This file';
+      if (!decodable) {
+        toastHandler?.({
+          message: `Couldn't open "${name}"`,
+          description: 'This file is not a Varve document, or it is damaged. Nothing was changed.',
+          type: 'error',
+          duration: 15000,
+        });
+        announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
+        return;
+      }
+      loadDocumentRaw(json, meta);
+    },
+    [loadDocumentRaw],
   );
 
   // Remote-session sync (auxiliary windows, ADR-0204): mutation + selection
@@ -9469,13 +9511,15 @@ export function EditorProvider({
         libraryStorage?: boolean,
         binding?: OpenFileBinding,
       ) => {
-        // Parse up front. A null json means "new document" and legitimately
-        // starts blank. A non-null json that fails to decode must NOT fall back
-        // to a blank document: the tab would be rebound to the requested file's
-        // name while holding nothing, and the next save would overwrite the
-        // real file. Refuse, say so, and leave the current artboard alone.
+        // Parse up front. Only `null` means "new document" and legitimately
+        // starts blank. Every other payload — including an empty string, which
+        // is what the file picker hands over for a zero-byte file — must fail
+        // to decode and must NOT fall back to a blank document: the tab would
+        // be rebound to the requested file's name while holding nothing, and
+        // the next save would overwrite the real file. Refuse, say so, and
+        // leave the current artboard alone.
         let doc: Document;
-        if (json) {
+        if (json !== null) {
           let decoded: ReturnType<typeof DocumentCodec.decode> | null = null;
           try {
             decoded = DocumentCodec.decode(json);
@@ -11104,31 +11148,7 @@ export function EditorProvider({
       newDocument: value.newDocument,
       serializeDocument: value.serializeDocument,
       updateDoc: value.updateDoc,
-      loadDocument: (json, meta) => {
-        // Same contract as openFile: a document that cannot be decoded is
-        // reported, not silently ignored (vectorcraft#861). `loadDocument` is a
-        // public API leaving room for callers other than the open flow, so the
-        // guard belongs here as well as in openFile.
-        let decodable = false;
-        try {
-          decodable = DocumentCodec.decode(json).ok;
-        } catch {
-          decodable = false;
-        }
-        if (!decodable) {
-          const name = meta?.name ?? 'This file';
-          toastHandler?.({
-            message: `Couldn't open "${name}"`,
-            description:
-              'This file is not a Varve document, or it is damaged. Nothing was changed.',
-            type: 'error',
-            duration: 15000,
-          });
-          announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
-          return;
-        }
-        value.loadDocument(json, meta);
-      },
+      loadDocument: value.loadDocument,
       save: value.save,
       saveAs: value.saveAs,
       saveCopy: value.saveCopy,

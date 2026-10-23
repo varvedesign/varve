@@ -54,3 +54,41 @@ test('keyboard Open and pointer Import activate separate real browser pickers', 
   expect(await artwork.element().getAttribute('accept')).not.toMatch(/\.varve/);
   await artwork.setFiles([]);
 });
+test('an empty file is refused by name and leaves the open document alone', async ({ page }) => {
+  // A zero-byte file is the real-world shape of a truncated download or an
+  // interrupted write. `openFile` used to treat it as "new document", so the
+  // picker produced a blank tab under the damaged file's name and the next
+  // save overwrote the file that still had content (vectorcraft#861).
+  const tabs = page.getByRole('tablist', { name: 'Open documents' }).getByRole('tab');
+  const initial = await tabs.count();
+  const docName = page.locator('.editor-menubar__doc-name-text');
+  const before = await docName.textContent();
+
+  await (await chooser(page, 'Open')).setFiles({
+    name: 'truncated.varve',
+    mimeType: 'application/json',
+    buffer: Buffer.from(''),
+  });
+
+  const alert = page.getByRole('alert').filter({ hasText: 'truncated.varve' });
+  await expect(alert).toBeVisible({ timeout: 10000 });
+  await expect(alert).toContainText(/Nothing was changed/i);
+  await expect(tabs).toHaveCount(initial);
+  await expect(docName).toHaveText(before ?? '');
+
+  if (process.env.VARVE_VECTORCRAFT_EVIDENCE === '1') {
+    await page.screenshot({
+      path: 'docs/audits/vectorcraft/evidence/open-refused-empty-file.png',
+      fullPage: true,
+    });
+  }
+
+  // The same input still opens a valid document: the refusal is specific to
+  // the payload, not a broken picker.
+  await (await chooser(page, 'Open')).setFiles({
+    name: 'Migrated save β.varve',
+    mimeType: 'application/json',
+    buffer: fixture,
+  });
+  await expect(tabs).toHaveCount(initial + 1);
+});

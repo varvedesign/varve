@@ -1066,6 +1066,18 @@ function ShellInner({
               // app-store id, so the tab stays unbound until it is saved.
               editor.openFile(undefined, file.name, undefined, text);
             };
+            // A read that never reaches onload (revoked handle, I/O error,
+            // out of memory) used to do nothing at all: the picker closed and
+            // the canvas stayed put with no explanation. Say what happened.
+            reader.onerror = () => {
+              editor.showToast({
+                message: `Couldn't read "${file.name}"`,
+                description:
+                  'The file could not be read from disk. Nothing was changed. Check that it still exists and try again.',
+                type: 'error',
+                duration: 15000,
+              });
+            };
             reader.readAsText(file);
             e.target.value = '';
           }}

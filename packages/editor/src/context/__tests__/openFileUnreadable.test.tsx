@@ -77,6 +77,61 @@ describe('openFile with an unreadable document', () => {
     expect(toasts).toHaveLength(1);
   });
 
+  it.each([
+    ['an empty payload', 'Zero.varve', ''],
+    ['a whitespace-only payload', 'Blank.varve', '  \n\t '],
+  ])('refuses %s instead of opening a blank tab', async (_label, name, payload) => {
+    // A zero-byte file is what the picker hands over for a truncated download,
+    // an interrupted write, or a file the user emptied by accident. `openFile`
+    // used to treat any falsy payload as "new document", so the empty string
+    // skipped the decode guard entirely: the tab was rebound to the file's
+    // name while holding a blank canvas, and the next save overwrote whatever
+    // the real file still had. Only `null` may request a new document.
+    const { read, toasts } = await mount();
+    const before = read().state.document;
+    const sessionsBefore = read().state.sessions.map((s) => ({
+      id: s.id,
+      name: s.name,
+      fileId: s.fileId,
+      filePath: s.filePath,
+    }));
+
+    act(() => {
+      read().openFile(undefined, name, `/tmp/${name}`, payload);
+    });
+
+    expect(read().state.document).toBe(before);
+    expect(
+      read().state.sessions.map((s) => ({
+        id: s.id,
+        name: s.name,
+        fileId: s.fileId,
+        filePath: s.filePath,
+      })),
+    ).toEqual(sessionsBefore);
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]?.message).toContain(name);
+    expect(toasts[0]?.type).toBe('error');
+    expect(toasts[0]?.description).toMatch(/Nothing was changed/i);
+  });
+
+  it('refuses an empty payload through loadDocument too', async () => {
+    // `loadDocument` is a separate public entry point (used by recovery and
+    // host integrations), so the same contract is pinned here rather than
+    // assumed to follow from openFile.
+    const { read, toasts } = await mount();
+    const before = read().state.document;
+
+    act(() => {
+      read().loadDocument('', { name: 'Gone.varve' });
+    });
+
+    expect(read().state.document).toBe(before);
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]?.message).toContain('Gone.varve');
+    expect(toasts[0]?.type).toBe('error');
+  });
+
   it('still creates a blank document when the caller asks for a new one', async () => {
     const { read, toasts } = await mount();
     const before = read().state.document;
