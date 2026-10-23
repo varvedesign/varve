@@ -17,7 +17,6 @@ import { navigateToEditor, switchWorkspace } from '../shared';
 
 const FIXTURE = path.resolve(__dirname, '../fixtures/test-image.png');
 const CONTENT_CANVAS = 'canvas.editor-canvas__content-layer';
-const CAPTURE_DIR = '2026-10-22-admission-fix';
 
 async function importTestImage(page: import('@playwright/test').Page): Promise<void> {
   await page.locator('#file-import-input').setInputFiles(FIXTURE);
@@ -89,7 +88,7 @@ test.describe('Local AI background removal capacity', () => {
     await expect.poll(() => bluePixelCount(page), { timeout: 20000 }).toBeLessThan(before * 0.2);
 
     await page.screenshot({
-      path: evidencePath(`${CAPTURE_DIR}/auto-cutout-after-apply.png`),
+      path: evidencePath('auto-cutout-after-apply.png'),
       fullPage: false,
     });
   });
@@ -110,8 +109,11 @@ test.describe('Local AI background removal capacity', () => {
     await expect(info).toContainText(/during inference/);
     await expect(info).not.toContainText(/RAM RAM/i);
 
+    // Capture the element itself: the inspector scroll position is not part of
+    // this evidence, and a viewport shot can leave the line below the fold.
+    await info.screenshot({ path: evidencePath('high-quality-model-info.png') });
     await page.screenshot({
-      path: evidencePath(`${CAPTURE_DIR}/high-quality-panel.png`),
+      path: evidencePath('high-quality-panel.png'),
       fullPage: false,
     });
   });
