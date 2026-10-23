@@ -182,6 +182,7 @@ import {
   cryptoId,
   type Document,
   DocumentCodec,
+  DRAWN_SHAPE_FILL,
   deepCloneSubtree,
   defaultConstraints,
   defaultProofConfig,
@@ -4899,7 +4900,7 @@ export function EditorProvider({
                 closed: pathClosed ?? false,
                 tolerance: 3,
               };
-              node = makeShapeNode(id, shape, { name: 'Node', transform });
+              node = makeShapeNode(id, shape, { name: 'Node', transform, fill: DRAWN_SHAPE_FILL });
             } else {
               const shape: Shape = size
                 ? buildShapeWithSize(activeTool, size)
@@ -4939,7 +4940,12 @@ export function EditorProvider({
                         ],
                       }
                     : {};
-              node = makeShapeNode(id, shape, { name: 'Node', transform, ...strokeOpts });
+              node = makeShapeNode(id, shape, {
+                name: 'Node',
+                transform,
+                fill: DRAWN_SHAPE_FILL,
+                ...strokeOpts,
+              });
             }
 
             const effectiveParentId =

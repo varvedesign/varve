@@ -142,7 +142,9 @@ async function samplePixels(
   }, points);
 }
 
-const TEAL: [number, number, number, number] = [57, 208, 198, 255];
+// The default fill of a drawn shape: mid grey, so selection outlines and snap
+// guides (the teal accent) stay visible on a fresh shape (F-28).
+const DRAWN_FILL: [number, number, number, number] = [158, 158, 158, 255];
 
 function pixelDist(
   a: [number, number, number, number],
@@ -230,7 +232,7 @@ test.describe('fill creation and conversion', () => {
     const right = { x: box.x + 430, y: box.y + 310 };
 
     const before = await samplePixels(page, [left]);
-    expect(pixelCloseTo(before[0]!, TEAL)).toBe(true);
+    expect(pixelCloseTo(before[0]!, DRAWN_FILL)).toBe(true);
 
     expect(await fillRowCount(page)).toBe(1);
     await addFill(page, 'Linear gradient');
@@ -246,11 +248,11 @@ test.describe('fill creation and conversion', () => {
 
     const sample = await samplePixels(page, [left, right]);
     // Stop 0 is seeded from the user's solid: the gradient's source end is
-    // far closer to the original teal than the far end (OKLab interpolation
+    // far closer to the original solid than the far end (OKLab interpolation
     // shifts even the first sampled post-stop pixels, so use relative
     // distance rather than an exact colour match).
-    const distLeft = pixelDist(sample[0]!, TEAL);
-    const distRight = pixelDist(sample[1]!, TEAL);
+    const distLeft = pixelDist(sample[0]!, DRAWN_FILL);
+    const distRight = pixelDist(sample[1]!, DRAWN_FILL);
     expect(distRight).toBeGreaterThan(60);
     expect(distLeft).toBeLessThan(distRight / 2);
     // Not a flat fill: the two ends are measurably different.
@@ -280,7 +282,7 @@ test.describe('fill creation and conversion', () => {
     const right = { x: box.x + 430, y: box.y + 310 };
 
     const before = await samplePixels(page, [left]);
-    expect(pixelCloseTo(before[0]!, TEAL)).toBe(true);
+    expect(pixelCloseTo(before[0]!, DRAWN_FILL)).toBe(true);
 
     await switchFillType(page, 'Gradient');
     await page.getByRole('button', { name: 'Fill gradient', exact: true }).click();
@@ -289,8 +291,8 @@ test.describe('fill creation and conversion', () => {
       .locator('.gradient-editor');
     await gradientEditor.waitFor({ state: 'visible', timeout: 5000 });
     const sample = await samplePixels(page, [left, right]);
-    expect(pixelDist(sample[1]!, TEAL)).toBeGreaterThan(60);
-    expect(pixelDist(sample[0]!, TEAL)).toBeLessThan(pixelDist(sample[1]!, TEAL) / 2);
+    expect(pixelDist(sample[1]!, DRAWN_FILL)).toBeGreaterThan(60);
+    expect(pixelDist(sample[0]!, DRAWN_FILL)).toBeLessThan(pixelDist(sample[1]!, DRAWN_FILL) / 2);
   });
 
   test('Solid → Image shows an explicit empty state and renders transparent inside the shape', async ({
@@ -311,7 +313,7 @@ test.describe('fill creation and conversion', () => {
     // background — identical to the surrounding artboard pixel — instead of
     // a grey placeholder rectangle.
     expect(pixelDist(sampled[0]!, sampled[1]!)).toBeLessThan(6);
-    expect(pixelCloseTo(sampled[0]!, TEAL)).toBe(false);
+    expect(pixelCloseTo(sampled[0]!, DRAWN_FILL)).toBe(false);
   });
 
   test('choose image file → image pixels appear with no extra interaction', async ({ page }) => {
@@ -445,12 +447,12 @@ test.describe('fill stack semantics', () => {
     await addFill(page, 'Linear gradient');
     expect(await fillRowCount(page)).toBe(2);
 
-    // Bottom fill = solid teal, top = gradient. Hide the top gradient → teal
-    // reappears (per-fill visibility works).
+    // Bottom fill = the default solid, top = gradient. Hide the top gradient →
+    // the solid reappears (per-fill visibility works).
     await page.getByRole('switch', { name: /^hide fill 2$/i }).uncheck();
     await page.waitForTimeout(600);
     const hidden = await samplePixels(page, [left]);
-    expect(pixelCloseTo(hidden[0]!, TEAL, 18)).toBe(true);
+    expect(pixelCloseTo(hidden[0]!, DRAWN_FILL, 18)).toBe(true);
   });
 });
 
