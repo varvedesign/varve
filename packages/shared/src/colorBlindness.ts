@@ -1,42 +1,41 @@
 /**
- * Color blindness simulation via LMS cone response matrices.
+ * Color vision deficiency simulation.
  *
- * Uses the Machado, Oliveira, Fernandes (2009) simulation matrices for
- * protanopia, deuteranopia, and tritanopia. Transforms sRGB through
- * linear sRGB → LMS → simulation → linear sRGB.
+ * Applies the Machado, Oliveira & Fernandes (2009) severity-1.0 matrices to
+ * linear sRGB, as published with the paper and reproduced in colour-science
+ * (`CVD_MATRICES_MACHADO2010`). The matrices already fold the cone-space
+ * projection into one RGB-to-RGB transform, and each row sums to 1 so neutral
+ * greys stay neutral.
+ *
+ * An earlier version attributed LMS-space projection matrices to this paper
+ * that are not its published transform; its output drifted from the
+ * reference by a median OKLab dE of 0.095 (protan) and up to 0.614, so the
+ * canvas preview misrepresented artwork (shell audit 2026-10-22, F-32).
  *
  * Research basis: Machado et al. "A Physiologically-based Model for
- * Simulation of Color Vision Deficiency" (2009), Brettel et al. (1997).
+ * Simulation of Color Vision Deficiency" (2009), IEEE TVCG 15(6).
  */
-import { linearToSrgb, rgbToLinearRgb } from './colorConversion';
+import { linearToSrgb, srgbToLinear } from './colorConversion';
 
 export type ColorBlindnessType = 'protanopia' | 'deuteranopia' | 'tritanopia';
 
 type Mat3 = readonly [number, number, number, number, number, number, number, number, number];
 
-function mul3x3Vec(m: Mat3, v: readonly [number, number, number]): [number, number, number] {
-  return [
-    m[0] * v[0] + m[1] * v[1] + m[2] * v[2],
-    m[3] * v[0] + m[4] * v[1] + m[5] * v[2],
-    m[6] * v[0] + m[7] * v[1] + m[8] * v[2],
-  ];
-}
-
-/** sRGB → LMS (Hunt-Pointer-Estevez adapted, Machado 2009). */
-const RGB_TO_LMS: Mat3 = [0.4002, 0.7075, -0.0807, -0.228, 1.15, 0.0612, 0.0, 0.0, 0.9182];
-
-/** LMS → sRGB (inverse). */
-const LMS_TO_RGB: Mat3 = [1.968, -1.285, 0.317, 0.391, 0.688, -0.079, 0.0, 0.0, 1.079];
-
-/** Simulation matrices in LMS space (Machado 2009, severity=1). */
+/** Machado 2009 severity-1.0 matrices, row-major, linear sRGB in and out. */
 const SIMULATION: Record<ColorBlindnessType, Mat3> = {
-  protanopia: [0.0, 1.05118294, -0.05116099, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-  deuteranopia: [1.0, 0.0, 0.0, 0.945708, 0.0, 0.054992, 0.0, 0.0, 1.0],
-  tritanopia: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -0.867447, 1.867447, 0.0],
+  protanopia: [
+    0.152286, 1.052583, -0.204868, 0.114503, 0.786281, 0.099216, -0.003882, -0.048116, 1.051998,
+  ],
+  deuteranopia: [
+    0.367322, 0.860646, -0.227968, 0.280085, 0.672501, 0.047413, -0.01182, 0.04294, 0.968881,
+  ],
+  tritanopia: [
+    1.255528, -0.076749, -0.178779, -0.078411, 0.930809, 0.147602, 0.004733, 0.691367, 0.3039,
+  ],
 };
 
-function clamp255(v: number): number {
-  return Math.max(0, Math.min(255, Math.round(v)));
+function encode(linear: number): number {
+  return Math.max(0, Math.min(255, linearToSrgb(Math.max(0, Math.min(1, linear)))));
 }
 
 /**
@@ -49,14 +48,14 @@ export function simulateColorBlindness(
   b: number,
   type: ColorBlindnessType,
 ): [number, number, number] {
-  const linear = rgbToLinearRgb([r, g, b]).map((c) => c) as [number, number, number];
-  const lms = mul3x3Vec(RGB_TO_LMS, linear);
-  const simLms = mul3x3Vec(SIMULATION[type], lms);
-  const outLinear = mul3x3Vec(LMS_TO_RGB, simLms);
+  const m = SIMULATION[type];
+  const lr = srgbToLinear(r);
+  const lg = srgbToLinear(g);
+  const lb = srgbToLinear(b);
   return [
-    clamp255(linearToSrgb(Math.max(0, outLinear[0]))),
-    clamp255(linearToSrgb(Math.max(0, outLinear[1]))),
-    clamp255(linearToSrgb(Math.max(0, outLinear[2]))),
+    encode(m[0] * lr + m[1] * lg + m[2] * lb),
+    encode(m[3] * lr + m[4] * lg + m[5] * lb),
+    encode(m[6] * lr + m[7] * lg + m[8] * lb),
   ];
 }
 
