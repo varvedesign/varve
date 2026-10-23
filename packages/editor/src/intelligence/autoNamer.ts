@@ -70,10 +70,15 @@ export function textContentForNaming(node: TextNode): string {
     .trim();
 }
 
-/** Content-only naming is deliberately separate from optional role suggestions. */
+/**
+ * Content-only naming is deliberately separate from optional role suggestions.
+ * The name is the content itself: the row icon and the Inspector already say
+ * the layer is text, so a "Text:" prefix only cost the name its first six
+ * characters (F-36).
+ */
 export function automaticTextName(node: TextNode): string {
   const content = textContentForNaming(node);
-  return `Text: ${truncateText(content || 'Untitled text', 30)}`;
+  return truncateText(content || 'Untitled text', 30);
 }
 
 /** Keep an automatic text label coupled to content without touching custom names. */
@@ -287,10 +292,10 @@ export function suggestName(
     };
   }
 
-  // 5. Plain text -> "Text: {text[:20]}" (medium)
+  // 5. Plain text -> "{text[:20]}" (medium); the kind is already on the row.
   if (node.kind === 'text') {
     return {
-      name: `Text: ${truncateText(node.text.trim(), 20)}`,
+      name: truncateText(node.text.trim(), 20),
       confidence: 'medium',
       matchedRule: '5-text',
     };

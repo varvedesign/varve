@@ -67,7 +67,7 @@ test('switching text targets commits the previous buffered draft and preserves u
   await page.keyboard.press('Escape');
   await page.keyboard.press('Control+z');
   await page.keyboard.press('v');
-  await page.getByRole('treeitem', { name: /Text: First original/ }).click();
+  await page.getByRole('treeitem', { name: /First original/ }).click();
   await expect(page.getByRole('textbox', { name: 'Text content', exact: true })).toHaveValue(
     'First original',
   );

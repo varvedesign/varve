@@ -278,7 +278,7 @@ test.describe('Toolbar follow-up — combined journey', () => {
     // The committed node carries the authored content (layer names are
     // content-derived), so a lost keystroke would fail here rather than pass
     // as an accidental empty text node.
-    await expect(page.getByRole('treeitem', { name: /Text: Launch 2026/i })).toBeVisible({
+    await expect(page.getByRole('treeitem', { name: /Launch 2026/i })).toBeVisible({
       timeout: 10000,
     });
 
@@ -298,7 +298,7 @@ test.describe('Toolbar follow-up — combined journey', () => {
 
     await expect(page.locator(PALETTE)).toHaveAttribute('data-placement', 'top');
     await expect(page.getByRole('treeitem')).toHaveCount(3);
-    await expect(page.getByRole('treeitem', { name: /Text: Launch 2026/i })).toBeVisible({
+    await expect(page.getByRole('treeitem', { name: /Launch 2026/i })).toBeVisible({
       timeout: 10000,
     });
 

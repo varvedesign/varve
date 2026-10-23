@@ -148,7 +148,7 @@ describe('IntelligencePanel — Naming tab', () => {
     // The async image-classification pre-pass should resolve immediately
     // (no image nodes in the selection) without ever showing a download or
     // classifying state, landing straight on the suggestion list.
-    await waitFor(() => expect(screen.getByText('Text: Hello')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Hello')).toBeInTheDocument());
     expect(screen.queryByText(/identifying photo content/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/downloading photo-identification model/i)).not.toBeInTheDocument();
   });
