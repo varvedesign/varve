@@ -128,7 +128,7 @@ Layered trust, highest-value first:
 1. **SHA-256 checksums** (already shipped, generated after all signing).
 2. **SBOMs** (CycloneDX, already shipped).
 3. **GitHub artifact attestations** on the final verified bytes (added 2026-08-08;
-   `gh attestation verify <file> -R K-Arthur/varve`).
+   `gh attestation verify <file> --repo varvedesign/varve`).
 4. **GPG/AppImage signing** — evaluated and deferred. Tauri supports it
    (`SIGN=1`, `SIGN_KEY`, `APPIMAGETOOL_SIGN_PASSPHRASE`; v2.tauri.app
    /distribute/sign/linux/), but AppImage **does not verify** embedded

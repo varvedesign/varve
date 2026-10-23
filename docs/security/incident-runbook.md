@@ -84,15 +84,18 @@ release machinery still applies. Do not invent a second publish path.
 3. Add a regression that fails without the fix. Run that spec, the affected
    compile, and the existing advisory or secret checks if they are in
    scope.
-4. Merge the hotfix to `master` so the later tag is reachable from the
-   default branch. Fast-forward if `master` has not moved; otherwise merge
-   and keep the fix identical.
-5. Freeze that exact `master` SHA. Run integration CI (`ci.yml`) on it.
-6. Run `release-candidate.yml` on the same SHA. This is mandatory. It is
-   the long pole; start it as soon as the SHA is frozen.
-7. Run `pnpm release:prepare <X.Y.Z>` for the patch version. The changelog
+4. Run `pnpm release:prepare <X.Y.Z>` on the hotfix branch. Review the
+   canonical version and changelog diff, then commit there. The changelog
    Security entry is the public notice, together with the advisory.
-8. Create the immutable tag on the certified SHA. Let `release.yml` build
+5. Merge the hotfix into `master` with a true merge commit. Do not squash.
+   Do not rebase. The hotfix commit must remain an ancestor of `master` or
+   Preflight will refuse the later tag.
+6. Freeze the hotfix commit SHA (the commit you will tag), not `master`
+   HEAD if that is a later merge or unrelated work. Run integration CI
+   (`ci.yml`) on that SHA.
+7. Run `release-candidate.yml` on the same SHA. This is mandatory. It is
+   the long pole; start it as soon as the SHA is frozen.
+8. Create the immutable tag on the hotfix commit. Let `release.yml` build
    the draft. For a Linux-only bug you may dispatch with
    `platforms: linux`; default is `all`.
 9. Verify the fix on the built artifact for the affected platform.
@@ -192,7 +195,7 @@ Update to 0.5.Z. Verify the installer:
 
     gh attestation verify <file> --repo varvedesign/varve
 
-For 0.5.1 and earlier, use `--repo K-Arthur/varve` or `--owner K-Arthur`.
+For 0.5.1 and earlier, use `--repo K-Arthur/varve`.
 
 ## References
 

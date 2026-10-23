@@ -395,6 +395,7 @@ jobs:
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
         with:
           path: apps/website/dist
+          include-hidden-files: true
 
   # ── 4. Deploy + post-deployment smoke check ───────────────────────────────
   deploy:
@@ -431,11 +432,29 @@ jobs:
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346
 
       # Bounded-retry smoke check against the live URL: homepage, download,
-      # docs, releases, sitemap, robots, favicons, 404 behaviour and the
-      # canonical origin (https://varve.studio). A deployment that 404s or
-      # canonicalizes to the wrong host is a failed deploy.
+      # docs, releases, sitemap, robots, security.txt, favicons, 404
+      # behaviour and the canonical origin (https://varve.studio). A
+      # deployment that 404s or canonicalizes to the wrong host is a failed
+      # deploy.
       - name: Smoke check the live deployment
         run: node scripts/website/smoke-pages.mjs "${{ steps.deployment.outputs.page_url }}" --expect-origin https://varve.studio
+
+      # upload-pages-artifact drops hidden files unless include-hidden-files
+      # is set. Fail the deploy if /.well-known/security.txt is missing.
+      - name: Verify security.txt is live
+        run: |
+          url='https://varve.studio/.well-known/security.txt'
+          code=''
+          for attempt in 1 2 3 4 5 6 7 8; do
+            code=$(curl -sS -o /tmp/varve-security.txt -w '%{http_code}' --max-time 20 "$url" || true)
+            if [ "$code" = 200 ]; then
+              test -s /tmp/varve-security.txt
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "security.txt returned HTTP ${code:-error}" >&2
+          exit 1
 
   # Report-only live Lighthouse after a successful smoke check. This job
   # checks out the trusted workflow ref and fetches https://varve.studio —

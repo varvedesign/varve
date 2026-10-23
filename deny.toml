@@ -11,14 +11,15 @@ no-default-features = false
 feature-depth = 1
 
 [advisories]
-# Vulnerabilities fail by default. Unsound stays a warning (glib gtk-rs).
-# Unmaintained crates below have no compatible replacement in the current
-# Tauri / print / image graph; the ci.yml advisory gate already keeps them
-# as visible warnings rather than ignores.
+# Vulnerabilities fail by default. Unsound stays at warn, so glib 0.18
+# VariantStrIter (RUSTSEC-2024-0429 / GHSA-wrw7-89jp-8q8g) is reported, not
+# ignored. Unmaintained crates below have no compatible replacement in the
+# current Tauri / print / image graph; the ci.yml advisory gate already
+# keeps them as visible warnings rather than ignores.
 yanked = "warn"
 ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste is unmaintained; no compatible replacement in the image / little_exif / rav1e graph" },
-    { id = "RUSTSEC-2024-0370", reason = "proc-macro-error is unmaintained; Tauri derive path has no replacement" },
+    { id = "RUSTSEC-2024-0370", reason = "proc-macro-error is unmaintained; pulled by glib-macros / gtk3-macros, no replacement" },
     { id = "RUSTSEC-2026-0206", reason = "rustybuzz is unmaintained; varve-print has no harfrust migration yet" },
     { id = "RUSTSEC-2026-0192", reason = "ttf-parser is unmaintained; pulled by rustybuzz and varve-print" },
     { id = "RUSTSEC-2026-0371", reason = "zbus_names is unmaintained; desktop zbus stack, no compatible bump" },

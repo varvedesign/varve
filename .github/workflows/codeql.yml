@@ -23,7 +23,6 @@ jobs:
     permissions:
       contents: read
       actions: read
-      packages: read
       security-events: write
     strategy:
       fail-fast: false

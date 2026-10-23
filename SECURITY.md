@@ -62,20 +62,14 @@ gh attestation verify <file> --repo varvedesign/varve
 ```
 
 Releases through 0.5.1 were attested under the previous repository name.
-For those files use either:
+For those files:
 
 ```bash
 gh attestation verify <file> --repo K-Arthur/varve
 ```
 
-or, equivalently, owner scope:
-
-```bash
-gh attestation verify <file> --owner K-Arthur
-```
-
-`gh attestation verify` requires `--repo OWNER/REPO` or `--owner OWNER`.
-`--repo` is the tighter check. See `gh attestation verify --help`.
+Later releases use `--repo varvedesign/varve`. `gh attestation verify`
+requires `--repo OWNER/REPO`. See `gh attestation verify --help`.
 
 Unsigned installers, when the release policy allows them, are labelled as
 unsigned. Checksums and attestations still apply to the published bytes.
@@ -195,11 +189,11 @@ glib unsoundness and unmaintained crates below, are retained in the sanitized
 reports and logs rather than ignored or described as fixes. These warnings
 remain dependency risk for release review.
 
-- **[GHSA-7pqw-9j4j-h8q3](https://github.com/advisories/GHSA-7pqw-9j4j-h8q3) (CVE-2026-19693) and GHSA-jmr9-qjv8-65gv —
+- **[GHSA-7pqw-9j4j-h8q3](https://github.com/advisories/GHSA-7pqw-9j4j-h8q3) (CVE-2026-19693) and GHSA-jmr9-qjv8-65gv:
   extract-zip 2.0.1 (npm, dev-only)**. A crafted archive plants a symlink and
   then writes a later entry through it, escaping the destination directory
   (path traversal, CWE-22; CVSS 8.1 for the CVE). No patched release exists
-  on npm — 2.0.1 remains the latest published version — so the mitigation is a
+  on npm (2.0.1 remains the latest published version), so the mitigation is a
   pnpm patch, `patches/extract-zip@2.0.1.patch`. It rejects absolute and
   out-of-tree symlink targets on creation and refuses to write a regular entry
   through an existing symlink leaf (matching upstream PR #160).
@@ -221,13 +215,13 @@ remain dependency risk for release review.
   this package: its scanner does not evaluate local patch files. That is
   expected and must not be described as an upstream fix.
 
-- **GHSA-ggr8-5vv4-36mx — deepmerge-ts 7.1.5 (npm, dev-only)**. Recursive
+- **GHSA-ggr8-5vv4-36mx: deepmerge-ts 7.1.5 (npm, dev-only)**. Recursive
   object graphs can exhaust the stack. WDIO still declares the vulnerable
   7.x range, so the workspace pins the compatible patched 8.0.0 release via
   a documented override. The resolved graph no longer contains 7.x; remove
   the override when WDIO widens its dependency range.
 
-- **[RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html) (GHSA-wrw7-89jp-8q8g) — glib 0.18.x (cargo, desktop runtime)**.
+- **[RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html) (GHSA-wrw7-89jp-8q8g): glib 0.18.x (cargo, desktop runtime)**.
   Unsoundness in `Iterator`/`DoubleEndedIterator` impls for
   `glib::VariantStrIter`; fixed in glib 0.20.0. The whole gtk-rs 0.18 stack
   (gtk/gdk/gio/pango/atk, pulled by `tao`, `wry`, `tray-icon`, `tauri`)

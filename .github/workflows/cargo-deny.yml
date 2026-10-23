@@ -5,6 +5,8 @@ on:
   push:
     branches: [master]
   pull_request:
+  schedule:
+    - cron: '33 4 * * 1'
 
 concurrency:
   group: cargo-deny-${{ github.workflow }}-${{ github.ref }}

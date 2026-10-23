@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 
 const websiteRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const securityTxtPath = join(websiteRoot, 'public/.well-known/security.txt');
-const routePath = join(websiteRoot, 'src/pages/.well-known/security.txt.ts');
 
 describe('security.txt', () => {
   it('is a static public file that the website build copies', () => {
@@ -17,11 +16,5 @@ describe('security.txt', () => {
     const expires = body.match(/^Expires: (.+)$/m)?.[1];
     expect(expires).toBeTruthy();
     expect(new Date(expires as string).getTime()).toBeGreaterThan(Date.now());
-  });
-
-  it('is the file the well-known route serves', () => {
-    const route = readFileSync(routePath, 'utf8');
-    expect(route).toContain('public/.well-known/security.txt');
-    expect(route).toContain('text/plain; charset=utf-8');
   });
 });

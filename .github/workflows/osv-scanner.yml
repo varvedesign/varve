@@ -6,6 +6,8 @@ on:
   push:
     branches: [master]
   pull_request:
+  schedule:
+    - cron: '39 4 * * 1'
 
 concurrency:
   group: osv-scanner-${{ github.workflow }}-${{ github.ref }}

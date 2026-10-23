@@ -117,7 +117,7 @@ Everything in Alpha, plus:
       reflects evidence, never intent
 - [ ] Checksums were generated after signing (they always are — the trust gate
       runs before `generate-final-checksums`)
-- [ ] Final bytes attested (`gh attestation verify <file> -R K-Arthur/varve`)
+- [ ] Final bytes attested (`gh attestation verify <file> --repo varvedesign/varve`)
 - [ ] Notarisation verified on a real Mac: `spctl -a -vv -t exec Varve.app`
       and `xcrun stapler validate Varve.dmg`
 - [ ] Windows: installed-app signature status checked and recorded (NSIS
