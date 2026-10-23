@@ -218,13 +218,17 @@ describe('registerEditorActions — intelligence commands', () => {
 describe('openVarveContact', () => {
   const originalLocation = window.location;
   const originalOpen = window.open;
-  const toasts: Array<Record<string, unknown>> = [];
+  const toasts: Array<{
+    message: string;
+    type?: string;
+    action?: { label: string };
+  }> = [];
 
   beforeEach(() => {
     runtime.isTauri = false;
     toasts.length = 0;
     setToastHandler((opts) => {
-      toasts.push(opts as Record<string, unknown>);
+      toasts.push(opts);
     });
     delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
     window.open = vi.fn().mockReturnValue({ closed: false });
