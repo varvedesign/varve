@@ -246,11 +246,45 @@ fallback chain. Cancelled caller requests never fall through.
 ### Shared resource admission
 
 `packages/platform/src/derivedWorkAdmission.ts` is the process-wide admission
-gate for local memory-heavy work. Its default unknown/4 GB ceiling is 400 MB;
-the supplied 8 GB reference profile has a 600 MB ceiling and is selected
-explicitly with `setDerivedWorkMemoryProfile('reference-8gb')`. These are
-conservative tracked-work limits, not device-memory measurements or guaranteed
-safe maxima. The default is one running job and a queue capped at 64.
+gate for local memory-heavy work. Its byte ceiling comes from host evidence,
+not a constant: `packages/platform/src/hostMemory.ts` measures available memory
+in the desktop process (the `host_memory_status` Tauri command, which reads
+`MemAvailable` and the effective cgroup budget) or, in a browser, halves the
+coarse `navigator.deviceMemory` hint. The derived ceiling is
+`clamp(available - 2 GB reserve, 400 MB, 16 GB)`:
+
+- 400 MB remains the floor for a host that reports nothing, which is the same
+  conservative value the gate had when it was the only value;
+- 2 GB is reserved for the rest of the application and the OS, because
+  reservations are conservative upper bounds rather than predicted RSS;
+- 16 GB caps the ceiling so an extreme host value cannot disable it.
+
+`initializeDerivedWorkBudget()` performs the probe once at boot and applies the
+result; `getDerivedWorkAdmission()` also starts the probe lazily so a surface
+that begins work before boot cannot keep the placeholder forever. An explicitly
+configured budget (a profile, a host override, or a test) is never overwritten,
+and the snapshot reports `budgetSource` so diagnostics can distinguish a
+measured host (`host-measured`), a coarse hint (`host-estimated`), and the
+unmeasured default (`conservative-default`).
+
+The previous ceiling was a fixed 400 MB for unknown/4 GB hosts and a fixed
+600 MB for the explicitly selected 8 GB reference profile, and nothing in
+production selected the profile. Because callers reserve conservative working
+sets (model allowance plus several RGBA frames), every AI path that declares
+more than 400 MB was refused before running, regardless of real memory; a
+480x640 High-quality background removal reserves 541,786,112 bytes and failed
+on a 24 GB workstation. The defect, arithmetic, and regression coverage are
+recorded in `docs/audits/derived-work-admission-defect-2026-10-22.md`.
+
+The gate is a *tracked-work* ledger, not a fit decision. Each operation's own
+gate decides whether it can run: the WASM/runtime assessment compares a model's
+measured peak against `wasmSafePeakBytes`, and native execution runs an OS/cgroup
+preflight immediately before model checkout. A refusal from the ledger is
+therefore a policy outcome that callers must translate into an action (reduce
+quality, close applications, or wait) — never a raw byte count in the UI.
+Background removal demonstrates the contract: a capacity refusal on `ai-quality`
+retries the bundled `ai-balanced` model, and an explicit model request is
+honoured exactly instead of being substituted.
 
 Requests identify a job kind, priority, cancellation signal, and estimated byte
 reservation before allocating work. Visible/foreground work can move ahead of

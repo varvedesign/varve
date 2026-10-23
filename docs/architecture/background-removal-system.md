@@ -111,6 +111,31 @@ substitute for an independently annotated held-out corpus.
   destructive source-pixel replacement. Decontamination defaults to off on
   every provider, native included (opt-in everywhere).
 
+### Shared memory admission
+
+AI dispatch takes one lease from the process-wide derived-work ledger
+(`packages/platform/src/derivedWorkAdmission.ts`) before any provider runs. The
+lease's reservation is derived from the model that will actually load — the
+catalog's weight size doubled, floored at 128 MiB — plus the 4x RGBA working
+frame. The ledger ceiling is host evidence (`hostMemory.ts`: measured available
+memory on desktop, a halved `navigator.deviceMemory` hint in a browser, 400 MB
+only when nothing is measurable), so a capable machine is not judged against a
+low-end constant.
+
+Two different questions are answered in two different places, deliberately:
+
+1. **Can this model run here?** `preflightBrowserSourceMemory` (WASM runtime
+   budget vs. the model's measured peak) or the native OS/cgroup preflight
+   immediately before session checkout.
+2. **May this process start another tracked job now?** The ledger, which also
+   serialises inference, effects, thumbnails, and exports.
+
+A ledger refusal is a capacity outcome, not a model failure. `ai-quality`
+retries the bundled `ai-balanced` model when the budget cannot fit it, so the
+user still gets a cutout; an explicit `modelId` request is never substituted.
+When even the reduced mode does not fit, the panel reports the shared-budget
+refusal in user terms instead of a raw byte count.
+
 ## Reference parity and benchmarking
 
 `scripts/bench/bgremove-reference/` contains the reproducible reference
