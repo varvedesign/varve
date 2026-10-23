@@ -113,6 +113,21 @@ const AI_ENTRY_POINTS = [
     function: 'createSession',
     description: 'Real-ESRGAN ONNX session',
   },
+  {
+    file: 'packages/home/src/search/useSemanticAssetSearch.ts',
+    function: 'downloadImageModel',
+    description: 'Home visual-search SigLIP download',
+  },
+  {
+    file: 'packages/editor/src/components/Inspector/SelectionSourcesPanel.tsx',
+    function: 'selectSubject',
+    description: 'Subject proposal / MODNet',
+  },
+  {
+    file: 'packages/editor/src/components/Inspector/SelectionSourcesPanel.tsx',
+    function: 'selectSpecificObject',
+    description: 'Selection-sources Object Selection',
+  },
 ] as const;
 
 /** Take the source from `start` through the matching closing brace. */

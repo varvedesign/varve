@@ -28,6 +28,7 @@ const {
 
 vi.mock('@varve/engine', () => ({
   ADJUSTMENT_KINDS: ['brightness'],
+  AI_DISABLED_HINT: 'Turn on AI features in Settings to use this',
   getAiFeaturesEnabled: () => true,
   // A class (not an arrow) so `new DownloadManager()` works — biome would
   // rewrite a `function` expression mock into a non-constructible arrow.

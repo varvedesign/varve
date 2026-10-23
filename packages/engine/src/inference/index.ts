@@ -111,6 +111,7 @@ export {
   resetInferenceAdmission,
 } from './admission';
 export {
+  AI_DISABLED_HINT,
   applyWorkerAiGate,
   assertAiFeaturesEnabled,
   configureAiFeaturesEnabled,

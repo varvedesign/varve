@@ -844,6 +844,7 @@ export type {
   RuntimeCapabilities,
 } from './inference';
 export {
+  AI_DISABLED_HINT,
   applyWorkerAiGate,
   assertAiFeaturesEnabled,
   assessImageInferenceResources,

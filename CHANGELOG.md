@@ -17,10 +17,11 @@ update, not for someone reading the commit log.
 - **AI off loads no models.** Turning AI features off now refuses every
   model download and session, including the three web workers that previously
   skipped the check, and skips the startup probes that HEAD bundled model
-  files. A missing settings key still starts with AI on. A
-  corrupt or unreadable settings blob is treated as off and logged. Model
-  files that stored their SHA-256 under a field the downloader did not read
-  are hash-verified again.
+  files. AI-backed controls (Lens Blur, Object Selection, export and batch
+  cutout methods, Home visual search) hide and point to Settings. A missing
+  settings key still starts with AI on. A corrupt or unreadable settings blob
+  is treated as off and logged. Model files that stored their SHA-256 under a
+  field the downloader did not read are hash-verified again.
 
 ### Added
 

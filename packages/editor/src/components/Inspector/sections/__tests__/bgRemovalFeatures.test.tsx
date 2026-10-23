@@ -637,6 +637,23 @@ describe('BackgroundRemovalSection - Refine mask wiring', () => {
 });
 
 describe('BackgroundRemovalSection - Object Selection', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('hides Object Selection and AI methods when AI features are off', () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    mockedUseEditor.mockReturnValue(createMockEditorContext());
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    expect(document.querySelector('[data-title="Object Selection"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Select Object' })).toBeNull();
+    expect(
+      screen.getAllByText('Turn on AI features in Settings to use this').length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /download ai model/i })).toBeNull();
+    expect(screen.queryByText(/Auto — general photos/)).toBeNull();
+  });
+
   it('renders the Object Selection entry for an image node and activates the tool', () => {
     const setTool = vi.fn();
     const announce = vi.fn();

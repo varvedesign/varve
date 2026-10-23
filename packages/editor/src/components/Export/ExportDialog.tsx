@@ -61,6 +61,7 @@ import {
   type ExportReport,
   runBatchPreflight,
 } from '../../exportService';
+import { AI_DISABLED_HINT, useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { LIFECYCLE_COMMIT_EVENT } from '../../lifecycle';
 import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
 import { loadSettings } from '../../settings';
@@ -344,6 +345,7 @@ export function ExportDialog({
   revealOutputLabel,
   onOpenExportTab,
 }: ExportDialogProps) {
+  const aiEnabled = useAiFeaturesEnabled();
   const [running, setRunning] = useState(false);
   const [packaging, setPackaging] = useState(false);
   const [progress, setProgress] = useState({ done: 0, errors: 0 });
@@ -426,13 +428,17 @@ export function ExportDialog({
   }, [nodes, document]);
 
   const refreshModelStatus = useCallback(async () => {
-    if (bgMethod === 'quick' || !requiredModelId) {
-      setAiAvailable(true);
+    if (!aiEnabled || bgMethod === 'quick' || !requiredModelId) {
+      setAiAvailable(bgMethod === 'quick');
       return;
     }
     const loader = await getModelLoaderReady();
     setAiAvailable(await loader.isModelAvailable(requiredModelId));
-  }, [bgMethod, requiredModelId]);
+  }, [aiEnabled, bgMethod, requiredModelId]);
+
+  useEffect(() => {
+    if (!aiEnabled && bgMethod !== 'quick') setBgMethod('quick');
+  }, [aiEnabled, bgMethod]);
 
   useEffect(() => {
     if (isOpen) void refreshModelStatus();
@@ -1108,15 +1114,19 @@ export function ExportDialog({
                     <Select
                       label="Background removal method for export"
                       value={bgMethod}
-                      options={[
-                        { value: 'quick', label: 'Quick' },
-                        { value: 'ai-balanced', label: 'Balanced' },
-                        { value: 'ai-quality', label: 'High quality' },
-                      ]}
+                      options={
+                        aiEnabled
+                          ? [
+                              { value: 'quick', label: 'Quick' },
+                              { value: 'ai-balanced', label: 'Balanced' },
+                              { value: 'ai-quality', label: 'High quality' },
+                            ]
+                          : [{ value: 'quick', label: 'Quick' }]
+                      }
                       onChange={(next) => {
                         setBgMethod(next as BackgroundRemovalMethod);
                         void (async () => {
-                          if (next === 'quick') {
+                          if (!aiEnabled || next === 'quick') {
                             setAiAvailable(true);
                             return;
                           }
@@ -1130,7 +1140,8 @@ export function ExportDialog({
                         })();
                       }}
                     />
-                    {bgMethod !== 'quick' && !aiAvailable && (
+                    {!aiEnabled && <p className="export-dialog__note">{AI_DISABLED_HINT}</p>}
+                    {aiEnabled && bgMethod !== 'quick' && !aiAvailable && (
                       <button
                         type="button"
                         className="export-dialog__btn export-dialog__btn--secondary"

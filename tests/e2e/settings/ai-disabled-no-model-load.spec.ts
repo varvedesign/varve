@@ -80,6 +80,12 @@ test.describe('AI off loads no model files', () => {
     await expect(page.getByRole('button', { name: /enable depth blur/i })).toHaveCount(0);
     await expect(page.getByText('Colorize')).toHaveCount(0);
     await expect(page.getByText('AI Denoise')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: /select object|select specific object/i }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /download ai model/i })).toHaveCount(0);
+    await expect(page.getByText('AI Balanced')).toHaveCount(0);
+    await expect(page.getByText('AI High Quality')).toHaveCount(0);
 
     const bgRemove = page.getByRole('button', { name: /remove background|cut out/i }).first();
     if (await bgRemove.isVisible().catch(() => false)) {

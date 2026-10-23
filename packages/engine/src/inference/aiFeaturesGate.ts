@@ -22,6 +22,9 @@
  */
 import { InferenceError } from './core/InferenceError';
 
+/** Shared UI copy. Do not use an em dash. */
+export const AI_DISABLED_HINT = 'Turn on AI features in Settings to use this';
+
 const SETTINGS_KEY = 'varve-editor-settings';
 
 let workerSnapshot: boolean | undefined;

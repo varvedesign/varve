@@ -11,10 +11,13 @@
  * AI operations can be initiated.
  */
 
-import { getAiFeaturesEnabled as readPersistedAiFeaturesEnabled } from '@varve/engine';
+import {
+  AI_DISABLED_HINT,
+  getAiFeaturesEnabled as readPersistedAiFeaturesEnabled,
+} from '@varve/engine';
 import { useOptionalSettings } from '../components/Settings/SettingsContext';
 
-export const AI_DISABLED_HINT = 'Turn on AI features in Settings to use this';
+export { AI_DISABLED_HINT };
 
 export function useAiFeaturesEnabled(): boolean {
   const settings = useOptionalSettings();

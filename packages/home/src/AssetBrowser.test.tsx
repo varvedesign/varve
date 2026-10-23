@@ -2,7 +2,7 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { Asset, Platform } from '@varve/platform';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AssetBrowser } from './AssetBrowser';
 
 const MOCK_ASSETS: Asset[] = [
@@ -57,6 +57,10 @@ function createMockPlatform(assets: Asset[] = MOCK_ASSETS): Platform {
 }
 
 describe('AssetBrowser', () => {
+  afterEach(() => {
+    localStorage.clear();
+  });
+
   it('renders assets in a grid', async () => {
     const platform = createMockPlatform();
     const { container } = render(<AssetBrowser platform={platform} workspaceId="ws-1" />);
@@ -198,6 +202,18 @@ describe('AssetBrowser', () => {
     expect(screen.getByText('scan.png')).toBeDefined();
     expect(screen.getByText('Recognized text match')).toBeDefined();
     expect(screen.queryByText('icon.svg')).toBeNull();
+  });
+
+  it('hides visual-search download when AI features are off', async () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    const platform = createMockPlatform();
+    render(<AssetBrowser platform={platform} workspaceId="ws-1" />);
+    await waitFor(() => {
+      expect(screen.getByText('logo.png')).toBeDefined();
+    });
+    expect(screen.getByText('Turn on AI features in Settings to use this')).toBeDefined();
+    expect(screen.queryByText(/Download visual search model/i)).toBeNull();
+    expect(screen.queryByText(/Download natural-language search model/i)).toBeNull();
   });
 
   it('shows empty state when no assets', async () => {

@@ -1,3 +1,4 @@
+import { AI_DISABLED_HINT, getAiFeaturesEnabled } from '@varve/engine';
 import type { Asset, AssetFolder, Platform } from '@varve/platform';
 import { searchAssets } from '@varve/platform';
 import type { FileRejection } from '@varve/shared';
@@ -176,6 +177,7 @@ export function AssetBrowser({
 
   const hasQuery = searchQuery.trim().length > 0;
   const hasImageAssets = useMemo(() => assets.some((asset) => asset.kind === 'image'), [assets]);
+  const aiEnabled = getAiFeaturesEnabled();
 
   const {
     semanticRanks,
@@ -239,48 +241,56 @@ export function AssetBrowser({
         onRetry={retryImport}
       />
 
-      {(hasQuery ||
-        downloadingModelId ||
-        (!semanticStatus.imageModelAvailable && hasImageAssets) ||
-        (semanticStatus.indexing && semanticStatus.indexedCount < semanticStatus.totalCount)) && (
+      {!aiEnabled && (hasQuery || hasImageAssets) && (
         <div className="asset-browser__semantic-status" role="status" aria-live="polite">
-          {downloadingModelId ? (
-            <span>
-              <Icon name="Download" label={undefined} size="0.875rem" />
-              Preparing visual search
-              {downloadProgress !== null ? ` · ${Math.round(downloadProgress * 100)}%` : ''}
-            </span>
-          ) : hasQuery && !semanticStatus.textModelAvailable ? (
-            <button
-              type="button"
-              className="asset-browser__semantic-cta"
-              onClick={() => void downloadTextModel()}
-            >
-              <Icon name="Search" label={undefined} size="0.875rem" />
-              Download natural-language search model
-            </button>
-          ) : !semanticStatus.imageModelAvailable && hasImageAssets ? (
-            <button
-              type="button"
-              className="asset-browser__semantic-cta"
-              onClick={() => void downloadImageModel()}
-            >
-              <Icon name="Image" label={undefined} size="0.875rem" />
-              Download visual search model to index assets
-            </button>
-          ) : semanticStatus.indexing && semanticStatus.indexedCount < semanticStatus.totalCount ? (
-            <span>
-              <Spinner size="sm" />
-              Indexing local assets · {semanticStatus.indexedCount} / {semanticStatus.totalCount}
-            </span>
-          ) : semanticBusy ? (
-            <span>
-              <Spinner size="sm" />
-              Searching…
-            </span>
-          ) : null}
+          <span>{AI_DISABLED_HINT}</span>
         </div>
       )}
+
+      {aiEnabled &&
+        (hasQuery ||
+          downloadingModelId ||
+          (!semanticStatus.imageModelAvailable && hasImageAssets) ||
+          (semanticStatus.indexing && semanticStatus.indexedCount < semanticStatus.totalCount)) && (
+          <div className="asset-browser__semantic-status" role="status" aria-live="polite">
+            {downloadingModelId ? (
+              <span>
+                <Icon name="Download" label={undefined} size="0.875rem" />
+                Preparing visual search
+                {downloadProgress !== null ? ` · ${Math.round(downloadProgress * 100)}%` : ''}
+              </span>
+            ) : hasQuery && !semanticStatus.textModelAvailable ? (
+              <button
+                type="button"
+                className="asset-browser__semantic-cta"
+                onClick={() => void downloadTextModel()}
+              >
+                <Icon name="Search" label={undefined} size="0.875rem" />
+                Download natural-language search model
+              </button>
+            ) : !semanticStatus.imageModelAvailable && hasImageAssets ? (
+              <button
+                type="button"
+                className="asset-browser__semantic-cta"
+                onClick={() => void downloadImageModel()}
+              >
+                <Icon name="Image" label={undefined} size="0.875rem" />
+                Download visual search model to index assets
+              </button>
+            ) : semanticStatus.indexing &&
+              semanticStatus.indexedCount < semanticStatus.totalCount ? (
+              <span>
+                <Spinner size="sm" />
+                Indexing local assets · {semanticStatus.indexedCount} / {semanticStatus.totalCount}
+              </span>
+            ) : semanticBusy ? (
+              <span>
+                <Spinner size="sm" />
+                Searching…
+              </span>
+            ) : null}
+          </div>
+        )}
 
       <div className="asset-browser__body">
         <aside className="asset-browser__sidebar" aria-label="Folders">
