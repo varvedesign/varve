@@ -20,10 +20,13 @@ const CONTENT_CANVAS = 'canvas.editor-canvas__content-layer';
 
 async function importTestImage(page: import('@playwright/test').Page): Promise<void> {
   await page.locator('#file-import-input').setInputFiles(FIXTURE);
-  await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
-  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+  // Import decode competes with other local work on a busy machine; the
+  // shared runner serialises heavy tasks, but a loaded host can still take
+  // tens of seconds to decode the fixture and commit the layer.
+  await page.getByRole('treeitem').first().waitFor({ timeout: 30000 });
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30000 });
   await page.getByRole('treeitem').first().click();
-  await page.locator(CONTENT_CANVAS).waitFor({ state: 'visible', timeout: 10000 });
+  await page.locator(CONTENT_CANVAS).waitFor({ state: 'visible', timeout: 30000 });
 }
 
 async function openBackgroundRemoval(page: import('@playwright/test').Page) {
