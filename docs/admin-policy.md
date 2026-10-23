@@ -14,7 +14,7 @@ A missing file means there is no policy. A present but unreadable, invalid UTF-8
 
 ## Format and keys
 
-The document requires `schemaVersion: 1` and a `policies` object. Every setting in `policies` and `recommended` is optional. `policies` enforces values; `recommended` provides defaults users may change. The settings below are accepted in either section.
+The document requires `schemaVersion: 1` and a `policies` object. Every setting in `policies` and `recommended` is optional. `policies` enforces values; `recommended` is retained and exposed to the desktop as non-enforced recommendations. It does not lock controls or override a user setting. The settings below are accepted in either section.
 
 | Key | Values | Effect |
 | --- | --- | --- |

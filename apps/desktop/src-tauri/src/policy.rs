@@ -12,6 +12,7 @@ pub struct Policy {
     pub crash_reports: CrashReports,
     pub ui: Ui,
     pub security: Security,
+    pub recommended: Option<Value>,
 }
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Updates { pub check: Option<bool> }
@@ -39,7 +40,7 @@ pub struct PolicyState { pub policy: Policy, pub present: bool, pub restricted: 
 impl PolicyState {
     fn missing() -> Self { Self { policy: Policy::default(), present: false, restricted: false, error: None } }
     fn restricted(error: String) -> Self {
-        Self { policy: Policy { updates: Updates { check: Some(false) }, ai: Ai { enabled: None, model_downloads: Some(false), local_model_dir: None }, network: Network { allowed_hosts: Some(vec![]), offline: Some(true) }, crash_reports: CrashReports { local_only: Some(true) }, ui: Ui::default(), security: Security { offline_mode: true, model_downloads_blocked: true, updates_disabled: true, crash_upload_disabled: true, telemetry_disabled: true } }, present: true, restricted: true, error: Some(error) }
+        Self { policy: Policy { updates: Updates { check: Some(false) }, ai: Ai { enabled: None, model_downloads: Some(false), local_model_dir: None }, network: Network { allowed_hosts: Some(vec![]), offline: Some(true) }, crash_reports: CrashReports { local_only: Some(true) }, ui: Ui::default(), security: Security { offline_mode: true, model_downloads_blocked: true, updates_disabled: true, crash_upload_disabled: true, telemetry_disabled: true }, recommended: None }, present: true, restricted: true, error: Some(error) }
     }
     pub fn permits_updates(&self) -> bool { !self.policy.security.updates_disabled && self.policy.updates.check != Some(false) && self.permits_network_url("https://varve.studio/updates/stable.json") }
     pub fn permits_model_downloads(&self) -> bool { !self.policy.security.model_downloads_blocked && self.policy.ai.model_downloads != Some(false) && self.policy.ai.enabled.is_none_or(|m| !matches!(m, AiMode::Off)) && !self.policy.security.offline_mode && self.policy.network.offline != Some(true) }
@@ -101,11 +102,12 @@ pub fn parse_contents(text: &str) -> Result<Policy, String> {
     if object.get("schemaVersion").and_then(Value::as_u64) != Some(1) { return fail("schemaVersion must be 1"); }
     warn_unknown(object, &["schemaVersion", "policies", "recommended", "x-varve-security", "_comment"]);
     let policies = object.get("policies").and_then(Value::as_object).ok_or("policies must be an object")?;
-    if object.get("recommended").is_some_and(|value| !value.is_object()) { eprintln!("[policy] invalid recommended section; using application defaults"); }
+    if object.get("recommended").is_some_and(|value| !value.is_object()) { eprintln!("[policy] invalid recommended section; ignoring it"); }
     warn_unknown(policies, &["updates", "ai", "network", "crashReports", "ui", "x-varve-security", "_comment"]);
     let updates = nested(policies, "updates"); let ai = nested(policies, "ai"); let network = nested(policies, "network"); let crash = nested(policies, "crashReports"); let ui = nested(policies, "ui");
     warn_unknown(&updates, &["check", "_comment"]); warn_unknown(&ai, &["enabled", "modelDownloads", "localModelDir", "_comment"]); warn_unknown(&network, &["allowedHosts", "offline", "_comment"]); warn_unknown(&crash, &["localOnly", "_comment"]); warn_unknown(&ui, &["lockedSettings", "_comment"]);
     let mut p = Policy::default();
+    p.recommended = object.get("recommended").filter(|value| value.is_object()).cloned();
     p.updates.check = take(&updates, "check");
     p.ai.enabled = take(&ai, "enabled"); p.ai.model_downloads = take(&ai, "modelDownloads");
     p.ai.local_model_dir = take::<String>(&ai, "localModelDir").and_then(|s| { let p = PathBuf::from(s); if p.is_absolute() { Some(p) } else { eprintln!("[policy] relative ai.localModelDir ignored"); None } });
@@ -173,6 +175,7 @@ fn merge_dropin(base: &mut Policy, next: Policy) {
     base.security.updates_disabled |= next.security.updates_disabled;
     base.security.crash_upload_disabled |= next.security.crash_upload_disabled;
     base.security.telemetry_disabled |= next.security.telemetry_disabled;
+    if next.recommended.is_some() { base.recommended = next.recommended; }
 }
 pub static POLICY: LazyLock<PolicyState> = LazyLock::new(|| {
     let mut combined = PolicyState::missing();
@@ -203,5 +206,6 @@ mod tests {
     #[test] fn offline_and_security_invalid_values_fail_closed() { let s=state(r#"{"schemaVersion":1,"policies":{},"x-varve-security":{"offlineMode":"bad","updates":"bad","modelDownloads":"bad","crashUpload":"bad","telemetry":"bad"}}"#); assert!(!s.permits_network_url("https://example.org")); assert!(!s.permits_updates()); assert!(!s.permits_model_downloads()); assert!(s.policy.security.crash_upload_disabled && s.policy.security.telemetry_disabled); }
     #[test] fn telemetry_security_switch_blocks_telemetry_requests_only() { let s=state(r#"{"schemaVersion":1,"policies":{},"x-varve-security":{"telemetry":true}}"#); assert!(!s.permits_network_url("https://metrics.example/count?site=varve")); assert!(s.permits_network_url("https://api.iconify.design/search")); }
     #[test] fn _comment_is_accepted_and_unknown_keys_do_not_invalidate() { assert!(parse_contents(r#"{"schemaVersion":1,"_comment":"hello","policies":{"_comment":"fine","unknownKey":1},"recommended":{}}"#).is_ok()); }
+    #[test] fn recommendations_are_preserved_without_becoming_enforced() { let p=parse_contents(r#"{"schemaVersion":1,"policies":{},"recommended":{"ai":{"enabled":"off"}}}"#).unwrap(); assert_eq!(p.recommended.unwrap()["ai"]["enabled"],"off"); assert_eq!(p.ai.enabled,None); }
     #[test] fn settings_writes_are_only_denied_for_managed_keys() { let s=state(&wrap(r#"{"ui":{"lockedSettings":["ai.enabled"]},"ai":{"enabled":"off"}}"#)); assert!(s.allows_setting_write("ai.enabled","true").is_err()); assert!(s.allows_setting_write("document.defaultUnit","px").is_ok()); assert_eq!(s.policy.ui.locked_settings,Some(vec!["ai.enabled".into()])); }
 }

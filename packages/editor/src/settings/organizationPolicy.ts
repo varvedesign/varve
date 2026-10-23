@@ -5,6 +5,7 @@ export interface OrganizationPolicyStatus {
   lockedSettings: string[];
   aiEnabled?: 'on' | 'off' | 'user';
   updateChecks?: boolean;
+  recommended?: Record<string, unknown>;
 }
 
 export async function loadOrganizationPolicy(): Promise<OrganizationPolicyStatus> {

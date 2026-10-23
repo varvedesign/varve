@@ -1126,6 +1126,7 @@ struct PolicyStatus {
     locked_settings: Vec<String>,
     ai_enabled: Option<&'static str>,
     update_checks: Option<bool>,
+    recommended: Option<serde_json::Value>,
 }
 
 #[tauri::command]
@@ -1141,6 +1142,7 @@ fn policy_status() -> PolicyStatus {
             policy::AiMode::User => "user",
         }),
         update_checks: policy::POLICY.policy.updates.check,
+        recommended: policy::POLICY.policy.recommended.clone(),
     }
 }
 
