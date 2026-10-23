@@ -56,7 +56,9 @@ overrides:
   "devalue@5": 5.9.4
   "js-yaml@4": 4.3.2
   "svgo@4": 4.1.0
-  "ip-address": 10.7.1
+  "ip-address": 10.7.4
+  # GHSA-qxg6-89mg-rqv8 / GHSA-xp26-3454-mjgp: vitest mocker 4.1.11.
+  "@vitest/mocker": 4.1.12
   # The upstream parents resolve three supported undici majors. Keep each on
   # its own patched line instead of forcing one major across all consumers.
   "undici@6": 6.29.0
