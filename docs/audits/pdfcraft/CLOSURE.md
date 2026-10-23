@@ -41,9 +41,9 @@ new issues. The 838 earlier issues that are closed in the snapshot are **not**
 The conservative full-evidence review inventory is **448 unique issues**: the
 union of the 161 new reports, 200 earlier updated reports and 103 resolution /
 citation-restatement rows. An updated timestamp is a materiality-screening
-candidate, not proof of a material change. Forty issue/discussion/attachment
+candidate, not proof of a material change. Forty-nine issue/discussion/attachment
 adjudications are now recorded below and in `source-adjudications.tsv`;
-**408 remain uncertified**. Partial reading and
+**399 remain uncertified**. Partial reading and
 tests for other issues do not satisfy that stronger acceptance. The IDs are recorded in
 `cutoff3.summary.json` under `review`.
 
@@ -57,11 +57,11 @@ Current source/test citations do not retroactively establish that missing ADR.
 
 | Latest declared label | Count |
 |---|---:|
-| cluster-assessed | 1,446 |
-| outside-varve-scope | 315 |
+| cluster-assessed | 1,447 |
+| outside-varve-scope | 313 |
 | implemented-validated | 115 |
 | verified-already-correct- | 66 |
-| candidate / deferred | 9 / 0 |
+| candidate / deferred | 10 / 0 |
 
 These are the existing annotations, **not independently certified outcomes**.
 `resolutions.tsv` proposes 88 inherited resolutions and 15 citation restatements.
@@ -289,8 +289,8 @@ limit in the next desktop release, not hard cancellation. No new rendered
 website or native GUI validation is claimed.
 
 The manual completion command now runs its fixture regressions before checking
-the actual corpus. The actual corpus still has nine open
-candidates, 408 uncertified reviews and inherited citation gaps. No push, merge
+the actual corpus. The actual corpus still has ten open
+candidates, 399 uncertified reviews and inherited citation gaps. No push, merge
 or worktree removal is authorized by these local passes alone.
 
 Current checkpoint: export/recovery/website-copy follow-up committed successfully
@@ -448,7 +448,7 @@ observations are in `source-adjudications.tsv` and the attachment inventory.
 #3988 explicitly concerns all native file dialogs, so the old Reduce File Size
 exclusion was reopened. #3998–#4000's private vulnerability reports were not
 available: the notes cover public mechanisms only, not unseen exploit evidence.
-Current source coverage is **40 / 448**, with **408 outstanding and nine
+Coverage at the fourth batch was **40 / 448**, with **408 outstanding and nine
 candidates**. The fourth batch's census, 42 unique seven-column source-note
 records and three attachment hashes were rechecked. `pnpm audit:docs`, touched
 Biome and `git diff --check` passed; `pnpm audit:pdfcraft-closure` passed its 14
@@ -467,6 +467,20 @@ is justified until that observation is made. The exact probe is now running
 through the lease (`sh_16b23b872001bG2LTj1hyvNSF6`); E2E typecheck and touched
 formatting passed before it launched. No duplicate browser run was started.
 
+Fifth bounded source batch: all frozen bodies/discussions for #4002–#4010 were
+read. All five linked images and both pages of #4009's PDF were inspected;
+attachment hashes and exact observation limits are in the source notes. These
+are source inspections, not macOS font-scale, Windows printer or Varve fidelity
+passes. #4007's Korean text says Hangul fails in filenames and search, not that
+a UI-language pack is missing; the row was reopened for those real workflows.
+#4004 is now mechanism-assessed rather than excluded as another product's CI:
+`node scripts/pin-github-actions.mjs --check` passed all 13 workflows, while
+`CODEOWNERS` and `docs/release/ci-secrets.md` explicitly disclose advisory
+ownership/repository-level secrets under the solo-maintainer policy. No live
+GitHub protection settings, signing execution or independent approval was
+verified, and no repository settings were changed. Current recorded source
+coverage is **49 / 448**, with **399 outstanding and ten candidates**.
+
 Distinct self-review passes checked the actual helper changes against cwd,
 linked-worktree and injected-adapter behavior, then standards and the affected
 callers in full-gate, snapshots, operation journaling and push receipts. No
@@ -483,3 +497,18 @@ held-pointer/undo proof. For #3929, a repository-wide search found the Reopen
 callback declaration and optional invocation only; no `onReopenLast` supplier
 was found. A shortcut declaration alone does not establish an implemented live
 reopen workflow. Keep both investigations open.
+
+Further #3919 evidence: live PR #4043 is still open at
+`d42d2812f3d3b019624a0ecb732c3db6c2cfb11f`. Its complete Export and Action Wizard
+production/test patches were read, including injected launch failure, escaped
+panic, poisoned progress locks, exact retry bytes, source-state preservation,
+partial outputs/colliding names and locale checks. Tests were not executed here;
+the author explicitly leaves GUI-picker success and Windows/macOS runtime
+checks unperformed. Review comments also identify the undisclosed completed-file
+count after partial failure. OCR remains excluded. Varve PDF/X goes from
+`components/SpecPanel/export.ts` through `invoke('export_pdfx1a'/'export_pdfx4')`
+to synchronous Rust commands in `apps/desktop/src-tauri/src/lib.rs`; those
+command bodies have no local panic guard. This is not the upstream custom
+thread-launch implementation, and JS rejection tests do not establish native
+panic containment or provider reset/retry. Keep #3919 candidate; no runtime pass
+or completed-source promotion is inferred from the upstream patches alone.
