@@ -210,6 +210,36 @@ describe('PropertiesPanel canvas settings', () => {
   });
 });
 
+describe('PropertiesPanel property search', () => {
+  it('filters by property language and reveals matching sections without changing saved collapse state', async () => {
+    await renderPanelWithSelectedRect();
+
+    const search = await screen.findByRole('searchbox', {
+      name: 'Find a property in the Inspector',
+    });
+    fireEvent.change(search, { target: { value: 'opacity' } });
+
+    const appearance = screen.getByRole('button', { name: 'Appearance' });
+    expect(appearance).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('spinbutton', { name: /Opacity/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Fill' })).toBeNull();
+
+    fireEvent.change(search, { target: { value: '' } });
+    expect(screen.getByRole('button', { name: 'Fill' })).toBeInTheDocument();
+  });
+
+  it('reports an empty result instead of leaving an unexplained blank panel', async () => {
+    await renderPanelWithSelectedRect();
+
+    fireEvent.change(
+      await screen.findByRole('searchbox', { name: 'Find a property in the Inspector' }),
+      { target: { value: 'nonexistent property' } },
+    );
+
+    expect(screen.getByText(/No properties match/)).toHaveAttribute('role', 'status');
+  });
+});
+
 describe('PropertiesPanel section gating for a real single selection', () => {
   it('exposes live Boolean Pathfinder operation, operand isolation, and expansion controls', async () => {
     const { addChild, createDocument, createLiveBooleanDoc, makeShapeNode } = await import(

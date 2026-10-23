@@ -15,13 +15,25 @@ discoverable.
 1. Read the accepted contracts (`docs/architecture/inspector-input-surface-system.md`,
    `inspector-feature-ownership.md`) against the implementation
    (`sectionRegistry.ts`, `sectionComposition.tsx`, `PropertiesPanel.tsx`).
-2. Inspected real interfaces rather than remembered ones:
-   - Godot Inspector — filter field, class → properties → collapsible sections,
-     per-property revert.
-   - Blender Properties editor — search field, category rail, collapsed-by-default
-     panels.
-   - Figma UI3 rationale and published feedback (hidden values, extra clicks,
-     section order instability).
+2. Research record — **2026-10-23**:
+   - [Godot Inspector](https://docs.godotengine.org/en/stable/tutorials/editor/inspector_dock.html)
+     overview image inspected: selected-object header, persistent **Filter
+     Properties** field, compact rows, and collapsible class/property groups.
+     The documentation also confirms fuzzy filtering and per-property revert.
+   - [Blender Properties editor](https://docs.blender.org/manual/en/latest/editors/properties_editor.html)
+     interface and header images inspected: compact persistent search in the
+     header, a context-specific icon rail, one expanded Transform group, and a
+     long collapsed tail. Its manual confirms matching properties remain visible
+     and the editor switches to the relevant tab.
+   - [Property Master, Diogo Sampaio](https://www.figma.com/community/plugin/1531807698119451683/property-master)
+     was scouted on Figma Community. The public listing corroborates scoped
+     property filtering and bulk property review. Its public preview returned
+     HTTP 403 to the available image reader, so no visual detail from its unseen
+     frame informs this review.
+
+   Useful transfer: persistent local property search that exposes a match without
+   changing saved organization. Do **not** transfer Blender's category rail or
+   either product's visual identity to Varve.
 3. Added measurement harnesses (`tests/e2e/inspector/inspector-system-probe.spec.ts`,
    `color-dialog-probe.spec.ts`, `overlay-containment-probe.spec.ts`) so panel
    shape and overlay containment are recorded numbers, not impressions.
@@ -127,6 +139,13 @@ Recommendation: **A now, B as the structural follow-up.** A is additive, cheap
 to validate, and directly fixes findability; B is the real fix for S1 but
 changes composition and should follow once the measurements and a visual review
 are in hand. C is only worth it if the tab count keeps growing.
+
+**Direction approved 2026-10-23:** the maintainer instructed the team to
+proceed with the best solution. This implements Route A first: a persistent,
+selection-local property search that filters the existing section stack and
+temporarily opens matching sections without mutating saved collapse state.
+Changed-value/revert affordances remain a separate follow-up because their
+correctness needs an explicit default-value contract for every property family.
 
 ## Evidence gaps
 
