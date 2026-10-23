@@ -62,7 +62,12 @@ import type { LayersDnDHandle } from './LayersTree';
 import { LayersTree } from './LayersTree';
 import { computeActiveSurfaceLayerCount, countActiveSurfaceNodesMatching } from './layerCounts';
 import type { LayerFilterSpec } from './layerFilterTypes';
-import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
+import {
+  collectEffectivelyHiddenIds,
+  DEFAULT_FILTER,
+  isFiltering,
+  nodeMatchesFilter,
+} from './layerFilterTypes';
 import './layers.css';
 import type { LayerColorPickerValue } from './LayerColorTagPicker';
 import { SelectionSetsSection } from './SelectionSetsSection';
@@ -184,9 +189,16 @@ function LayersPanelContent({
     if (!isFiltering(filterSpec)) return totalCount;
     const animatedIds =
       filterSpec.attributes.animated === true ? getNodesInTimeline(state.document) : undefined;
+    // Precompute inherited hidden state once; the predicate runs per node and
+    // must not fall back to the O(n) parent scan.
+    const hiddenIds =
+      filterSpec.attributes.visible !== undefined
+        ? collectEffectivelyHiddenIds(state.document)
+        : undefined;
     return countActiveSurfaceNodesMatching(
       state.document,
-      (node) => nodeMatchesFilter(node, filterSpec, { doc: state.document, animatedIds }),
+      (node) =>
+        nodeMatchesFilter(node, filterSpec, { doc: state.document, animatedIds, hiddenIds }),
       designCanvasId,
     );
   }, [state.document, filterSpec, totalCount, designCanvasId]);

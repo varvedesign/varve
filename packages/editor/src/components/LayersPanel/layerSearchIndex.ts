@@ -104,12 +104,28 @@ export function searchIndex(index: LayerSearchIndex, query: string): NodeId[] {
   let resultSet: Set<NodeId> | null = null;
 
   for (const term of terms) {
+    const combined = new Set<NodeId>();
+
+    // `kind:` entries are filter syntax, not layer-name text. Substring
+    // matching would otherwise make the query "shape" match every shape
+    // through `kind:shape` while the name predicate (and therefore the
+    // result count) matched only names containing "shape".
+    if (term.startsWith('kind:')) {
+      for (const id of index.wordIndex.get(term) ?? []) combined.add(id);
+      if (resultSet === null) resultSet = combined;
+      else {
+        const intersection = new Set<NodeId>();
+        for (const id of resultSet) if (combined.has(id)) intersection.add(id);
+        resultSet = intersection;
+      }
+      continue;
+    }
+
     // Substring-of-a-word, not prefix-of-a-word: this is the same rule
     // `matchesLayerSearch` applies to a single name, so the tree, the count
     // and Select matches cannot disagree.
-    const combined = new Set<NodeId>();
     for (const [word, ids] of index.wordIndex) {
-      if (!word.includes(term)) continue;
+      if (word.startsWith('kind:') || !word.includes(term)) continue;
       for (const id of ids) combined.add(id);
     }
 

@@ -171,6 +171,28 @@ describe('layerSearchIndex', () => {
     expect(results).toContain(n2);
   });
 
+  it('does not let kind pseudo-words satisfy a name query', () => {
+    let doc = createDocument();
+    const box = nextNodeId(doc);
+    doc = addNode(
+      box.doc,
+      makeShapeNode(box.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Box' }),
+    );
+    const namedShape = nextNodeId(doc);
+    doc = addNode(
+      namedShape.doc,
+      makeShapeNode(namedShape.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Shape' }),
+    );
+
+    const index = createSearchIndex(doc);
+
+    // `kind:shape` is filter syntax; it must not make every shape match the
+    // ordinary name query "shape", or the tree and result count diverge.
+    expect(searchIndex(index, 'shape')).toEqual([namedShape.id]);
+    expect(searchIndex(index, 'kind:shape')).toContain(box.id);
+    expect(searchIndex(index, 'kind:shape')).toContain(namedShape.id);
+  });
+
   it('returns empty array for empty query', () => {
     const doc = createDocument();
     const index = createSearchIndex(doc);

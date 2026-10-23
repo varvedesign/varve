@@ -5,10 +5,16 @@ import {
   DEFAULT_EMAIL_SEMANTIC_MAP,
   makeFrameNode,
   makeShapeNode,
+  type NodeId,
   nextNodeId,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_FILTER, type LayerFilterSpec, nodeMatchesFilter } from './layerFilterTypes';
+import {
+  collectEffectivelyHiddenIds,
+  DEFAULT_FILTER,
+  type LayerFilterSpec,
+  nodeMatchesFilter,
+} from './layerFilterTypes';
 
 function makeTestShape(overrides: Record<string, unknown> = {}) {
   const { id } = nextNodeId(createDocument());
@@ -189,6 +195,33 @@ describe('nodeMatchesFilter', () => {
     expect(nodeMatchesFilter(child, { ...DEFAULT_FILTER, attributes: { visible: true } })).toBe(
       true,
     );
+  });
+
+  it('precomputes inherited hidden state in one pass', () => {
+    const parent = {
+      ...makeTestGroup({ name: 'Hidden Parent', visible: false }),
+      id: 'parent',
+      children: ['child'],
+    };
+    const child = {
+      ...makeTestGroup({ name: 'Child', visible: true }),
+      id: 'child',
+      children: ['grandchild'],
+    };
+    const grandchild = { ...makeTestShape({ name: 'Grandchild' }), id: 'grandchild' };
+    const doc = {
+      ...createDocument(),
+      nodes: { parent, child, grandchild },
+    } as unknown as import('@varve/scene').Document;
+
+    const hiddenIds = collectEffectivelyHiddenIds(doc);
+
+    expect(hiddenIds.has('parent' as unknown as NodeId)).toBe(true);
+    expect(hiddenIds.has('child' as unknown as NodeId)).toBe(true);
+    expect(hiddenIds.has('grandchild' as unknown as NodeId)).toBe(true);
+
+    const filter = { ...DEFAULT_FILTER, attributes: { visible: true } };
+    expect(nodeMatchesFilter(grandchild, filter, { doc, hiddenIds })).toBe(false);
   });
 
   it('filters by blend mode', () => {

@@ -182,9 +182,9 @@ import { sitePath } from '../../lib/siteUrl';
             <span class="layer-demo__search"><span aria-hidden="true">⌕</span> Filter layers…</span>
             <span class="layer-demo__count">5</span>
           </div>
-          <div class="layer-demo__row layer-demo__row--selected"><span class="layer-demo__check">✓</span><span class="layer-demo__chevron">⌄</span><strong>Hero group</strong></div>
+          <div class="layer-demo__row layer-demo__row--selected"><span class="layer-demo__check" aria-hidden="true"><svg viewBox="0 0 16 16" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 11.5 13 4.5"/></svg></span><span class="layer-demo__chevron">⌄</span><strong>Hero group</strong></div>
           <div class="layer-demo__row layer-demo__row--child"><span class="layer-demo__indent"></span><span class="layer-demo__chevron">⌄</span><span>Headline</span></div>
-          <div class="layer-demo__row layer-demo__row--child layer-demo__row--selected"><span class="layer-demo__indent"></span><span class="layer-demo__check">✓</span><span class="layer-demo__chevron">⌄</span><span>Illustration</span></div>
+          <div class="layer-demo__row layer-demo__row--child layer-demo__row--selected"><span class="layer-demo__indent"></span><span class="layer-demo__check" aria-hidden="true"><svg viewBox="0 0 16 16" width="8" height="8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.2 11.5 13 4.5"/></svg></span><span class="layer-demo__chevron">⌄</span><span>Illustration</span></div>
           <div class="layer-demo__row"><span class="layer-demo__chevron">·</span><span>Background</span></div>
           <div class="layer-demo__drop-line" aria-hidden="true"></div>
         </div>
@@ -288,7 +288,7 @@ import { sitePath } from '../../lib/siteUrl';
   .layer-demo__row { display: flex; align-items: center; gap: .55rem; min-height: 2.1rem; padding: .25rem .6rem; color: var(--text-secondary); font-size: .9rem; border-radius: var(--website-radius-control); }
   .layer-demo__row--selected { color: var(--text-primary); background: var(--surface-accent-soft); }
   .layer-demo__row--child { padding-left: 1.65rem; }
-  .layer-demo__check { display: inline-flex; align-items: center; justify-content: center; width: 1rem; height: 1rem; border-radius: var(--website-radius-pill); background: var(--accent-primary); color: var(--text-on-accent); font-size: .62rem; line-height: 1; }
+  .layer-demo__check { display: inline-flex; align-items: center; justify-content: center; width: 1rem; height: 1rem; border-radius: var(--website-radius-pill); background: var(--accent-primary); color: var(--text-on-accent); line-height: 1; }
   .layer-demo__chevron { width: .7rem; color: var(--text-tertiary); }
   .layer-demo__indent { width: .7rem; }
   .layer-demo__drop-line { position: absolute; top: 9.8rem; left: 1rem; right: .75rem; height: 2px; background: var(--accent-primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-primary) 16%, transparent); }

@@ -18,6 +18,7 @@ import type { Document, NodeId, Page, SceneNode } from '@varve/scene';
 import { isContainer } from '@varve/scene';
 import { useMemo, useRef } from 'react';
 import {
+  collectEffectivelyHiddenIds,
   DEFAULT_FILTER,
   isFiltering,
   type LayerFilterSpec,
@@ -296,6 +297,8 @@ export function flattenTree(
   const filterContext = {
     doc,
     animatedIds: filterSpec.attributes.animated != null ? matchedIds : undefined,
+    hiddenIds:
+      filterSpec.attributes.visible !== undefined ? collectEffectivelyHiddenIds(doc) : undefined,
   };
 
   // Corrupt-document guard: children arrays can reference the same id twice,

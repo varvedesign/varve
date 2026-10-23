@@ -42,6 +42,43 @@ export type BlendModeFilter = BlendMode[];
 export interface NodeFilterContext {
   doc?: Document;
   animatedIds?: ReadonlySet<NodeId>;
+  /**
+   * Nodes hidden by themselves or an ancestor, precomputed once per filter
+   * pass. `isNodeEffectivelyHidden` walks `getParent`, which scans the whole
+   * node map; calling it per node while filtering turned an O(n) projection
+   * into O(n²) on large documents.
+   */
+  hiddenIds?: ReadonlySet<NodeId>;
+}
+
+/**
+ * Precompute effective hidden state for every node in one bounded pass.
+ *
+ * A single parent map plus one ancestor walk per node keeps the cost linear
+ * in nodes × depth with O(1) parent lookups. The depth bound protects the
+ * panel from a corrupt document whose parent chain loops.
+ */
+export function collectEffectivelyHiddenIds(doc: Document): Set<NodeId> {
+  const parentOf = new Map<NodeId, NodeId>();
+  for (const [id, node] of Object.entries(doc.nodes)) {
+    if (!isContainer(node)) continue;
+    for (const child of node.children) parentOf.set(child, id as NodeId);
+  }
+
+  const hidden = new Set<NodeId>();
+  for (const id of Object.keys(doc.nodes) as NodeId[]) {
+    let current: NodeId | undefined = id;
+    let depth = 0;
+    while (current && depth < 256) {
+      if (doc.nodes[current]?.visible === false) {
+        hidden.add(id);
+        break;
+      }
+      current = parentOf.get(current);
+      depth += 1;
+    }
+  }
+  return hidden;
 }
 
 /** Combined layer filter specification */
@@ -106,10 +143,12 @@ export function nodeMatchesNonSearch(
     // Visibility inherits down the hierarchy. Comparing the own flag would
     // put a child of a hidden group under "Visible" even though it paints
     // nothing, contradicting both the row treatment and the accessible name.
-    const effectiveVisible = ctx.doc
-      ? !isNodeEffectivelyHidden(ctx.doc, node.id)
-      : node.visible !== false;
-    if (effectiveVisible !== attr.visible) return false;
+    const effectivelyHidden = ctx.hiddenIds
+      ? ctx.hiddenIds.has(node.id)
+      : ctx.doc
+        ? isNodeEffectivelyHidden(ctx.doc, node.id)
+        : node.visible === false;
+    if (effectivelyHidden === attr.visible) return false;
   }
   if (attr.hasChildren !== undefined) {
     const hasCh = isContainer(node) && node.children.length > 0;
