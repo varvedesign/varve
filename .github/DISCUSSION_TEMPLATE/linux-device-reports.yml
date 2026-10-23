@@ -44,12 +44,13 @@ body:
         - .deb (Debian or Ubuntu)
         - .rpm (Fedora)
         - Arch or CachyOS package
+        - Something else
 
   - type: input
     id: desktop
     attributes:
       label: Desktop setup (optional)
-      description: Skip this if you are not sure. Some people know GNOME or KDE, and Wayland or X11.
+      description: Only if you know. This is the name of your desktop (for example GNOME or KDE) and the display system under it (Wayland or X11). Skip this if you are not sure.
       placeholder: "GNOME on Wayland, KDE on X11..."
 
   - type: input
@@ -81,16 +82,6 @@ body:
       placeholder: "None, Wacom Intuos, XP-Pen..."
 
   - type: dropdown
-    id: launched
-    attributes:
-      label: Did Varve open? (optional)
-      description: Skip this if the first answer already covers it.
-      options:
-        - Worked
-        - Had problems
-        - Did not try
-
-  - type: dropdown
     id: open-save
     attributes:
       label: Could you open and save files? (optional)
@@ -116,15 +107,20 @@ body:
       label: Did it feel fast enough? (optional)
       description: Skip this if you only opened it briefly.
       options:
-        - Worked
-        - Had problems
+        - Yes, it felt fast
+        - Sometimes slow
+        - Too slow to use
         - Did not try
 
   - type: textarea
-    id: version-output
+    id: error-details
     attributes:
       label: Error details (optional, only if you have them)
-      description: Paste a short error note or drop a picture. Please take out anything private first.
+      description: >-
+        Paste a short error note or drop a picture. If Varve opens, you can
+        also paste the report from Settings > Performance > Collect
+        capability report > Copy report. Please take out anything private
+        first.
       placeholder: "A short error message, or a picture of the About window..."
 
   - type: checkboxes

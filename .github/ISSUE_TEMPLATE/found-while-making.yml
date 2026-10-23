@@ -47,9 +47,10 @@ body:
         - AppImage
         - .deb (Debian or Ubuntu)
         - .rpm (Fedora)
+        - Arch or CachyOS package
         - Windows
         - macOS
-        - The web demo at /try
+        - The web demo in a browser
 
   - type: input
     id: os-device
