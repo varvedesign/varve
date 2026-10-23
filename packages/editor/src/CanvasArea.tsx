@@ -1099,43 +1099,47 @@ export function CanvasArea({
     canvasFocusedRef,
   });
 
-  // Guide hit targets sit above the canvas in the overlay stack. Route middle
-  // drags that begin on a guide through the regular canvas input pipeline so
-  // they keep the canvas's pointer-capture, pan, and cancellation behavior.
-  const guidePanPointerIdRef = useRef<number | null>(null);
+  // Interactive overlays sit above the canvas in the stacking order: the guide
+  // hit areas, the selection outline and its handles, and the other handle
+  // overlays all receive the pointer first. A middle-button drag is a camera
+  // pan wherever it starts, so route those gestures into the regular canvas
+  // input pipeline. That keeps one pan implementation (pointer capture,
+  // cancellation, and release) instead of teaching each overlay to pan.
+  const overlayPanPointerIdRef = useRef<number | null>(null);
   const handleOverlayPointerDownCapture = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
-      if (
-        event.button !== 1 ||
-        !(event.target instanceof Element) ||
-        !event.target.closest('.guide-overlay__hit-area')
-      ) {
-        return;
-      }
-      guidePanPointerIdRef.current = event.pointerId;
+      if (event.button !== 1 || !(event.target instanceof Element)) return;
+      // A pointerdown that lands on the content canvas already reaches the
+      // canvas's own handler; only gestures consumed by an overlay need
+      // forwarding, or the pan would start twice.
+      if (event.target.closest('.editor-canvas__content-layer')) return;
+      overlayPanPointerIdRef.current = event.pointerId;
+      // Stop the overlay's own pointerdown (for example a handle drag) from
+      // also acting on this gesture.
+      event.stopPropagation();
       input.handlePointerDown(event as unknown as React.PointerEvent<HTMLCanvasElement>);
     },
     [input.handlePointerDown],
   );
   const handleOverlayPointerMoveCapture = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
-      if (guidePanPointerIdRef.current !== event.pointerId) return;
+      if (overlayPanPointerIdRef.current !== event.pointerId) return;
       input.handlePointerMove(event as unknown as React.PointerEvent<HTMLCanvasElement>);
     },
     [input.handlePointerMove],
   );
   const handleOverlayPointerUpCapture = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
-      if (guidePanPointerIdRef.current !== event.pointerId) return;
-      guidePanPointerIdRef.current = null;
+      if (overlayPanPointerIdRef.current !== event.pointerId) return;
+      overlayPanPointerIdRef.current = null;
       input.handlePointerUp(event as unknown as React.PointerEvent<HTMLCanvasElement>);
     },
     [input.handlePointerUp],
   );
   const handleOverlayPointerCancelCapture = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
-      if (guidePanPointerIdRef.current !== event.pointerId) return;
-      guidePanPointerIdRef.current = null;
+      if (overlayPanPointerIdRef.current !== event.pointerId) return;
+      overlayPanPointerIdRef.current = null;
       input.handlePointerCancel(event as unknown as React.PointerEvent<HTMLCanvasElement>);
     },
     [input.handlePointerCancel],

@@ -693,9 +693,56 @@ branch reintroduces the untracked-module defect that gate exists for.
     deleted. The middle-button spec targets a stable `selection-outline` test
     id and asserts an unchanged size plus a translated box (a pan), not an
     unchanged screen position.
+  - Verified in Chromium at one worker through the heavy-task lease after the
+    fixes: `a11y/prompt-dialogs-axe`, `canvas/deep-selection` (10),
+    `canvas/design-canvas-navigation`, `canvas/tooltip-system` (10),
+    `shortcuts/browser-reserved` (3) and `responsive/dock-panels` -> 30 passed
+    (25.0m) plus the dock contract. The dock spec reports
+    `DOCK-PANEL-FINDINGS []`. These are the same shards that failed on the
+    pull request.
+  - Commit hook note: `typecheck:e2e` takes 3m10s on this host under load and
+    the commit checkpoint caps that lane at 120s. The lane was run standalone
+    and passed; the checkpoint passed on retry. This is a local budget
+    limitation, not a skipped check, and CI runs the same lane.
+- Integration: the branch now merges `master` at
+  `6eebb9581eb40f36608b772af6b039114a5f30c5` (`9983c49e8`). The only conflict
+  was `tests/e2e/canvas/guides.spec.ts`, where master's #186 already carries the
+  guide-snapping tests that this branch also carries in its squashed commit.
+  The resolution keeps master's four shared tests and appends the three
+  branch-only ones (middle-button pan over a guide, vertical and horizontal
+  ruler-drop removal). Nothing was dropped and no implementation was reverted.
+  The merge keeps master's single `convertElement(root, ...)` call in
+  `parseSvg`; `inheritedColor` and `inheritedVisibility` both flow through
+  `convertElement` and `convertElementContents` as recorded earlier.
+- Additional Chromium evidence after the restart: `bleed-baseline` (no-bleed
+  inspector guides), both `font-availability` cases, and two `multipage-canvas`
+  cases passed (5/5) before the runner session was restarted. The rest of that
+  batch and the guide-conflict resolution are re-queued through the lease.
 - Corpus state is unchanged at this point: C1 remains frozen at
   `2026-10-20T02:39:22.818Z`; C2 is not frozen. The ledger checksum matches
   the manifest.
 - Coverage gap found while reconciling: 95 issues on pages 9, 10, and 13–16
   remain `unreviewed` although later pages are assessed. C1 completion needs
   those backfilled, not just pages 43–121.
+
+### Merge follow-up — middle-button pan over interactive overlays (2026-10-23)
+
+- The first post-merge browser run failed the two middle-button pan specs for
+  two distinct reasons, neither of which was a flaky rerun:
+  - `tests/e2e/canvas/guides.spec.ts` lost `?perf=1` when master's #186 copy of
+    the file replaced the branch's. The spec reads the render camera through
+    `window.__varvePerf`, which only installs with that flag, so it threw
+    "render camera was not available". The merged file now keeps master's four
+    shared tests with the perf flag restored for the branch-only pan test.
+  - `selection-resize-mouse-buttons` showed a zero pan delta: the selection
+    overlay consumed the middle-button pointerdown, so `SelectionOverlay`'s
+    non-primary guard prevented a resize but nothing started a pan either.
+    `CanvasArea` now forwards a middle-button gesture that starts on ANY
+    canvas overlay (guide hit area, selection outline, handles) into the canvas
+    input pipeline in the capture phase, and stops the overlay handler from
+    double-acting. The guide-only routing it replaces covered one overlay and
+    left the rest inert.
+- This is an integration regression class the earlier checkpoint warned about:
+  master moved while the branch was open, and the merge silently dropped a
+  test assumption that the branch depended on. Both were caught by running the
+  affected specs after the merge rather than trusting the pre-merge evidence.

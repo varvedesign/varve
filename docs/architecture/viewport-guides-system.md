@@ -114,7 +114,11 @@ Current behavior:
 - Alt/Option while dragging a guide duplicates it (Figma convention).
 - Right-clicking a guide opens the guide context menu for lock/unlock and delete.
 - Middle-button dragging pans the canvas even when the pointer starts over a
-  guide; only the primary button moves or selects a guide.
+  guide or another interactive canvas overlay. `CanvasArea` forwards those
+  gesture-start events into the canvas input pipeline in the capture phase, so
+  one pan implementation owns pointer capture, cancellation, and release; the
+  overlay's own primary-button handler never sees the gesture. Only the primary
+  button moves or selects a guide.
 - Locked guides cannot be dragged, but they remain visible and snap targets.
 - `Ctrl+;` toggles guide visibility (`guidesVisible`); guides remain in the
   document and continue to snap when hidden.

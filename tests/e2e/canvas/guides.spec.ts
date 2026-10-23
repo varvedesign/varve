@@ -5,7 +5,9 @@ import { navigateToEditor } from '../shared';
 test.describe('Canvas guides', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
-    await navigateToEditor(page);
+    // The middle-button pan regression reads the render camera through the
+    // perf handle, which only installs on ?perf=1.
+    await navigateToEditor(page, '/?perf=1');
   });
 
   test('dragging from a ruler creates one movable guide, not one guide per pointer move', async ({
