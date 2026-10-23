@@ -209,22 +209,9 @@
   cursor: row-resize;
 }
 
-.workspace-dock-splitter--ruler-adjacent {
-  /* The editor's left ruler starts at the dock origin. Keep the splitter's
-   * 24px resize target on the panel side of the canvas edge. Its 2px grip
-   * remains centered on the divider. */
-  transform: translateX(-12px);
-}
-
-.workspace-dock-splitter--ruler-adjacent::after {
-  transform: translateX(12px);
-}
-
 .workspace-dock-splitter::after {
   position: absolute;
-  inset: 0;
   display: block;
-  margin: auto;
   content: "";
   background: var(--color-border-subtle);
   border-radius: var(--radius-full);
@@ -233,11 +220,20 @@
     box-shadow 120ms ease;
 }
 
+/* The grip marks the divider itself. The splitter's pointer band ends at the
+ * divider (see SPLITTER_HIT_EXTENT in dockGeometry.ts), so pin the grip to the
+ * box's trailing edge instead of centering it inside the band. */
 .workspace-dock-splitter[aria-orientation="vertical"]::after {
+  top: 0;
+  right: 0;
+  bottom: 0;
   width: 2px;
 }
 
 .workspace-dock-splitter[aria-orientation="horizontal"]::after {
+  right: 0;
+  bottom: 0;
+  left: 0;
   height: 2px;
 }
 

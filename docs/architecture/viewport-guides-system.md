@@ -134,9 +134,16 @@ Guide creation returns the created guide id from `editor.addGuide(...)`. This is
 used by the ruler so a drag can create once, then call `moveGuide(id, position)`
 for subsequent pointer movement.
 
-The left ruler occupies the first 20 CSS pixels at the canvas-dock origin. A
-horizontal dock splitter may share that edge, but its pointer hit region must
-leave the ruler strip available so ruler drags can create guides.
+The left ruler occupies the first 20 CSS pixels at the canvas-dock origin. The
+vertical dock splitter's pointer band must not straddle the divider: it is
+`SPLITTER_HIT_EXTENT` (12) CSS pixels deep and ends exactly at the divider, so
+it lives inside the leading panel. A band centred on the divider takes the
+ruler's first 12 pixels and turns a ruler drag into a panel resize; moving the
+whole band into the panel instead covers the controls that sit flush against
+the panel's trailing edge (Add Design Canvas, Save Selection, Detach). Keep the
+band inside the leading panel, keep it narrower than the gap to those controls,
+and pin its grip to the divider's edge rather than centring the grip in the
+band.
 
 Layout guides, snap overlays, and ruler ticks use rotation-aware projection via
 `guideGeometry.ts` / `rulerGeometry.ts`.
