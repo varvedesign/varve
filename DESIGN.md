@@ -203,23 +203,35 @@ The typographic hierarchy uses four specialized font families, each assigned by 
 
 | Role | Size | Line Height | Weight | Family |
 |------|------|-------------|--------|--------|
-| `interface-control` | `--font-size-sm` | control (1.25) | medium (500) | interface |
-| `interface-label` | `--font-size-sm` | label (1.35) | medium (500) | interface |
-| `interface-body` | `--font-size-md` | normal (1.5) | regular (400) | interface |
+| `interface-micro` | `--font-size-2xs` | label (1.35) | medium (500) | interface |
 | `interface-caption` | `--font-size-xs` | label (1.35) | regular (400) | interface |
+| `interface-label` | `--font-size-xs` | label (1.35) | medium (500) | interface |
+| `interface-readout` | `--font-size-smd` | normal (1.5) | regular (400) | interface |
+| `interface-control` | `--font-size-sm` | control (1.25) | medium (500) | interface |
+| `interface-subheading` | `--font-size-sm` | label (1.35) | semibold (600) | interface |
+| `interface-body` | `--font-size-md` | normal (1.5) | regular (400) | interface |
 | `interface-title` | `--font-size-lg` | tight (1.15) | semibold (600) | interface |
+| `interface-heading` | `--font-size-xl` | tight (1.15) | semibold (600) | interface |
 | `content-body` | `--font-size-md` | relaxed (1.65) | regular (400) | body |
 | `content-lead` | `--font-size-lg` | relaxed (1.65) | regular (400) | body |
 | `display-page` | `--font-size-2xl` | tight (1.15) | bold (700) | editorial |
 | `display-section` | `--font-size-xl` | tight (1.15) | bold (700) | editorial |
 | `marketing-hero` | clamp(2rem, 4.5vw + 0.5rem, 3.5rem) | 1.08 | bold (700) | editorial |
 | `marketing-display` | clamp(3rem, 6.5vw + 0.75rem, 6rem) | 0.95 | bold (700) | editorial |
+| `marketing-feature` | clamp(2rem, 3.5vw + 0.5rem, 3.25rem) | 1.08 | bold (700) | editorial |
+| `marketing-section` | clamp(1.75rem, 3vw + 0.5rem, 2.75rem) | 1.1 | bold (700) | editorial |
+| `marketing-lead` | clamp(1rem, 1.5vw + 0.4rem, 1.2rem) | relaxed (1.65) | regular (400) | body |
 | `data-numeric` | `--font-size-sm` | control (1.25) | medium (500) | mono |
 
 ### Size Scale
 
-Fluid `clamp()` values that respond to viewport width:
-`2xs` → `xs` → `sm` → `md` → `lg` → `xl` → `2xl` → `3xl`
+Interface chrome (`2xs` through `xl`) is a **stable `rem` scale** so a dense
+toolbar, inspector row, or menu never changes text size because the window was
+resized; it still follows the user's UI font-size preference and browser text
+zoom. Only the display steps (`2xl`, `3xl`) and the `marketing-*` roles are
+fluid `clamp()` values, where a viewport-proportional size is the intent. The
+floor is 12px (`2xs`), reserved for non-essential meta; every step above it is
+at least 1px apart.
 
 ### Numerical Alignment
 
