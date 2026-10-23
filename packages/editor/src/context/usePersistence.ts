@@ -40,10 +40,57 @@ export interface PersistenceAPI {
   save: () => Promise<boolean>;
   saveAs: () => Promise<boolean>;
   saveCopy: () => Promise<boolean>;
-  loadDocument: (json: string, meta?: LoadDocumentMeta) => void;
+  /** False when the payload was refused; the caller owns the user-facing message. */
+  loadDocument: (json: string, meta?: LoadDocumentMeta) => boolean;
 }
 
 interface SessionUpdate extends SessionFileMeta {}
+
+/** One refusal sentence, shared by File > Open and loadDocument. */
+export const DOCUMENT_REFUSAL_DESCRIPTION =
+  'This file is not a Varve document, or it is damaged. Nothing was changed.';
+
+export type DocumentAdmission = { ok: true; document: Document } | { ok: false; reason: string };
+
+/**
+ * The single admission decision for a document payload: parse, migrate, run
+ * semantic validation, and resolve the font manifest against this device.
+ *
+ * File > Open builds a session from the admitted document; loadDocument applies
+ * it to state. Keeping the decision here means the two paths cannot disagree
+ * about what counts as an openable document, and a malformed optional
+ * collection that decode tolerates (for example a non-array
+ * `fontManifest.replacements`) is refused before either path acts on it.
+ *
+ * Pure: it never mutates state and never reports to the user.
+ */
+export function admitDocumentPayload(json: string): DocumentAdmission {
+  let decoded: ReturnType<typeof DocumentCodec.decode>;
+  try {
+    decoded = DocumentCodec.decode(json);
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : 'Invalid document payload',
+    };
+  }
+  if (!decoded.ok) return { ok: false, reason: decoded.error };
+  try {
+    // Semantic validation and font resolution both walk optional collections
+    // that decode only type-checks shallowly. A malformed one must be a
+    // refusal, not an exception escaping into a host click handler.
+    const result = validateDocument(decoded.document);
+    if (!result.valid && typeof console !== 'undefined') {
+      console.warn('[Strata] document admission: validation warnings:', result.errors);
+    }
+    return { ok: true, document: resolveFontManifest(decoded.document) };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : 'The document could not be prepared',
+    };
+  }
+}
 
 /**
  * Encode one immutable document revision for persistence.
@@ -164,20 +211,15 @@ export function usePersistence(
   );
 
   const loadDocument = useCallback(
-    (json: string, meta?: LoadDocumentMeta) => {
-      try {
-        const decoded = DocumentCodec.decode(json);
-        if (!decoded.ok) throw new Error(decoded.error);
-        const doc = decoded.document;
-        const result = validateDocument(doc);
-        if (!result.valid && typeof console !== 'undefined') {
-          console.warn('[Strata] loadDocument: validation warnings:', result.errors);
-        }
-        const resolvedDoc = resolveFontManifest(doc);
-        const name = meta?.name ?? doc.name;
+    (json: string, meta?: LoadDocumentMeta): boolean => {
+      const admitted = admitDocumentPayload(json);
+      if (!admitted.ok) return false;
+      const doc = admitted.document;
+      const name = meta?.name ?? doc.name;
 
+      try {
         if (meta?.newSession) {
-          openInNewSession(resolvedDoc, {
+          openInNewSession(doc, {
             name,
             filePath: meta.filePath,
             fileId: meta.fileId,
@@ -187,7 +229,7 @@ export function usePersistence(
             downloadName: meta.downloadName,
             diskContentHash: meta.diskContentHash,
           });
-          return;
+          return true;
         }
 
         resetUndo();
@@ -215,16 +257,23 @@ export function usePersistence(
         const sessions = state.sessions.map((s) =>
           s.id === state.activeId ? { ...s, ...identity, name, dirty: false } : s,
         );
-        const cam = computeFitAllCamera(resolvedDoc, getCanvasViewport());
+        const cam = computeFitAllCamera(doc, getCanvasViewport());
         patch({
-          document: resolvedDoc,
+          document: doc,
           selection: [],
           sessions,
           dirty: false,
           ...(cam ? { zoom: cam.zoom, pan: cam.pan } : {}),
         });
-      } catch {
-        // invalid JSON — ignore silently
+        return true;
+      } catch (error) {
+        // The payload was admitted but applying it failed. Report the failure
+        // to the caller: recovery uses the boolean to decide whether it may
+        // delete the only stored copy.
+        if (typeof console !== 'undefined') {
+          console.warn('[Strata] loadDocument: could not apply the document:', error);
+        }
+        return false;
       }
     },
     [patch, resetUndo, state.sessions, state.activeId, computeFitAllCamera, openInNewSession],

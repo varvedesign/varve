@@ -393,8 +393,11 @@ log), not the native Tauri path.
     and whitespace, goes through one decode gate that names the file, says
     "Nothing was changed", and leaves the current document, session identity,
     dirty state and save binding alone.
-  - The gate lives in the main editor context and returns `false` on refusal;
-    the document sub-context delegates to it, so there is one implementation.
+  - One admission helper (`admitDocumentPayload` in
+    `context/usePersistence.ts`) parses, migrates, validates and resolves fonts.
+    `openFile` builds a session from it; `loadDocument` applies it and returns
+    `false` when admission or the state update fails. The document sub-context
+    delegates to the editor context, so there is no second decision.
   - `loadDocument` returns that boolean, and both recovery restore paths delete
     the snapshot only after a successful load. A refused snapshot stays in the
     list.
@@ -409,9 +412,10 @@ log), not the native Tauri path.
   toast; a valid document still opens; a failed recovery restore keeps the
   snapshot.
 - **Validation:**
-  - `packages/editor/src/context/__tests__/openFileUnreadable.test.tsx` — seven
+  - `packages/editor/src/context/__tests__/openFileUnreadable.test.tsx` — eight
     cases (unreadable, decodable-but-unusable, empty, whitespace-only,
-    `loadDocument` return value, new-document control, valid document).
+    `loadDocument` return value, malformed font manifest through both entry
+    points, new-document control, valid document).
   - `packages/editor/src/__tests__/openFileDedupe.test.tsx` — fixtures rebuilt
     with `DocumentCodec.encode(createDocument(...))`. The previous hand-built
     `{ id, name, nodes, rootChildren }` object lacks `components`, so the codec

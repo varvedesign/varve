@@ -450,7 +450,7 @@ const REVIEWED = {
       'b9114559 (PR #187); empty-payload and loadDocument/recovery follow-up in 62f01d560 and 6d6bf5213',
     varve_area: 'persistence',
     varve_code:
-      'packages/editor/src/context.tsx openFile + loadDocument gate; components/Shell/RecoveryManager.tsx restore handlers',
+      'packages/editor/src/context/usePersistence.ts admitDocumentPayload (shared by openFile and loadDocument); components/Shell/RecoveryManager.tsx restore handlers',
     observed:
       'Varve substituted a blank document when provided JSON failed to decode, and loadDocument swallowed invalid JSON entirely. A zero-byte file reached openFile as an empty string, which the truthiness guard treated as the new-document request: the tab was rebound to the damaging file name while holding a blank canvas, and the next save overwrote the real file. The main editor-context loadDocument was still the unguarded copy even after the document sub-context was fixed, so a recovery restore that could not decode failed silently; RecoveryManager then deleted the snapshot anyway.',
     outcome:

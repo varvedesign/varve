@@ -1047,7 +1047,8 @@ export interface EditorContextValue {
   newDocument: () => void;
   serializeDocument: () => string;
   updateDoc: (fn: (doc: Document) => Document) => void;
-  loadDocument: (json: string, meta?: LoadDocumentMeta) => void;
+  /** False when the payload was refused; callers that hold the only copy must keep it. */
+  loadDocument: (json: string, meta?: LoadDocumentMeta) => boolean;
   save: () => Promise<boolean>;
   saveAs: () => Promise<boolean>;
   /** Save a duplicate to a new location WITHOUT adopting it as the active

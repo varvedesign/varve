@@ -347,7 +347,6 @@ import {
   updateVariableInDocument,
   type Variable,
   type VariableValue,
-  validateDocument,
   validateStateMachine as validateSM,
   type WorkingSpace,
   walkNodes,
@@ -506,8 +505,9 @@ import { useInteractionState } from './context/useInteractionState';
 import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
 import {
+  admitDocumentPayload,
   createPersistenceRevision,
-  resolveFontManifest,
+  DOCUMENT_REFUSAL_DESCRIPTION,
   usePersistence,
 } from './context/usePersistence';
 import { usePersistentHistory } from './context/usePersistentHistory';
@@ -3374,26 +3374,21 @@ export function EditorProvider({
    * (vectorcraft#861).
    */
   const loadDocument = useCallback(
-    (json: string, meta?: LoadDocumentMeta) => {
-      let decodable = false;
-      try {
-        decodable = DocumentCodec.decode(json).ok;
-      } catch {
-        decodable = false;
-      }
+    (json: string, meta?: LoadDocumentMeta): boolean => {
+      // One admission decision, owned by the persistence layer: parse, migrate,
+      // validate and resolve fonts. It returns false instead of swallowing a
+      // failure, which is what recovery needs before it deletes its only copy.
+      const loaded = loadDocumentRaw(json, meta);
+      if (loaded) return true;
       const name = meta?.name ?? 'This file';
-      if (!decodable) {
-        toastHandler?.({
-          message: `Couldn't open "${name}"`,
-          description: 'This file is not a Varve document, or it is damaged. Nothing was changed.',
-          type: 'error',
-          duration: 15000,
-        });
-        announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
-        return false;
-      }
-      loadDocumentRaw(json, meta);
-      return true;
+      toastHandler?.({
+        message: `Couldn't open "${name}"`,
+        description: DOCUMENT_REFUSAL_DESCRIPTION,
+        type: 'error',
+        duration: 15000,
+      });
+      announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
+      return false;
     },
     [loadDocumentRaw],
   );
@@ -9517,49 +9512,33 @@ export function EditorProvider({
         libraryStorage?: boolean,
         binding?: OpenFileBinding,
       ) => {
-        // Parse up front. Only `null` means "new document" and legitimately
-        // starts blank. Every other payload — including an empty string, which
-        // is what the file picker hands over for a zero-byte file — must fail
-        // to decode and must NOT fall back to a blank document: the tab would
-        // be rebound to the requested file's name while holding nothing, and
-        // the next save would overwrite the real file. Refuse, say so, and
-        // leave the current artboard alone.
+        // Admit the payload up front. Only `null` means "new document" and
+        // legitimately starts blank. Every other payload — including an empty
+        // string, which is what the file picker hands over for a zero-byte
+        // file — goes through the shared admission helper and must NOT fall
+        // back to a blank document: the tab would be rebound to the requested
+        // file's name while holding nothing, and the next save would overwrite
+        // the real file. Refuse, say so, and leave the current artboard alone.
         let doc: Document;
         if (json !== null) {
-          let decoded: ReturnType<typeof DocumentCodec.decode> | null = null;
-          try {
-            decoded = DocumentCodec.decode(json);
-          } catch {
-            decoded = null;
-          }
-          if (!decoded?.ok) {
-            const reason =
-              'This file is not a Varve document, or it is damaged. Nothing was changed.';
+          const admitted = admitDocumentPayload(json);
+          if (!admitted.ok) {
+            if (typeof console !== 'undefined') {
+              console.warn(`[Strata] openFile: refused "${name}":`, admitted.reason);
+            }
             toastHandler?.({
               message: `Couldn't open "${name}"`,
-              description: reason,
+              description: DOCUMENT_REFUSAL_DESCRIPTION,
               type: 'error',
               duration: 15000,
             });
             announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
             return;
           }
-          doc = decoded.document;
-          const result = validateDocument(doc);
-          if (!result.valid) {
-            // Validation problems are surfaced by preflight; the document still
-            // opens so a recoverable file is never refused outright.
-            if (typeof console !== 'undefined') {
-              console.warn('[Strata] openFile: validation warnings:', result.errors);
-            }
-          }
+          doc = admitted.document;
         } else {
           doc = createDocument(name || 'Untitled');
         }
-        // Re-resolve fonts against this device's catalog, as loadDocument
-        // does — a document authored elsewhere arrives with a manifest
-        // pointing at fonts this machine may not have.
-        doc = resolveFontManifest(doc);
         interactionState.cancelCanvasInteraction(stateRef.current.activeId);
         setState((s) => {
           // Dedupe: if this file is already open in a tab, switch to it
@@ -10993,35 +10972,33 @@ export function EditorProvider({
         if (asCopy) {
           // Its own tab, bound to no file: the current work stays open, and
           // saving the copy routes through Save As rather than the original.
-          loadDocument(entry.documentJson, {
+          return loadDocument(entry.documentJson, {
             name: `${entry.manifest.sourceName} (restored)`,
             newSession: true,
           });
-        } else {
-          // Replace mode: create a safety snapshot first.
-          try {
-            const currentJson = serializeDocument();
-            const meta = state.sessions.find((sess) => sess.id === state.activeId);
-            await svc.createBackup(
-              meta?.fileId ?? state.activeId,
-              'pre-migration',
-              currentJson,
-              `${meta?.name ?? 'Untitled'} (pre-restore)`,
-              state.revision,
-              'Safety snapshot before restore',
-              meta?.fileId,
-            );
-          } catch {
-            // Safety snapshot failure should not block restore
-          }
-          // Replace mode: same file, older content — keep the binding so the
-          // restore saves back where it came from.
-          loadDocument(entry.documentJson, {
-            name: entry.manifest.sourceName,
-            keepIdentity: true,
-          });
         }
-        return true;
+        // Replace mode: create a safety snapshot first.
+        try {
+          const currentJson = serializeDocument();
+          const meta = state.sessions.find((sess) => sess.id === state.activeId);
+          await svc.createBackup(
+            meta?.fileId ?? state.activeId,
+            'pre-migration',
+            currentJson,
+            `${meta?.name ?? 'Untitled'} (pre-restore)`,
+            state.revision,
+            'Safety snapshot before restore',
+            meta?.fileId,
+          );
+        } catch {
+          // Safety snapshot failure should not block restore
+        }
+        // Replace mode: same file, older content — keep the binding so the
+        // restore saves back where it came from.
+        return loadDocument(entry.documentJson, {
+          name: entry.manifest.sourceName,
+          keepIdentity: true,
+        });
       },
 
       // Phase 3: manual named snapshot

@@ -2187,7 +2187,6 @@ export function Menubar({
             return;
           }
         }
-        loadDocument('', { name: entry.label });
         return;
       }
 
@@ -2260,9 +2259,12 @@ export function Menubar({
         return;
       }
 
-      loadDocument('', { name: entry.label });
+      // Every RecentEntry locator kind is handled above; there is deliberately
+      // no blank-document fallback. `loadDocument('')` used to sit here and
+      // was a silent no-op (invalid JSON), and creating a blank document for a
+      // file that could not be opened would invite saving over it.
     },
-    [loadDocument, openFile, platform],
+    [openFile, platform],
   );
 
   const handleAction = useCallback(

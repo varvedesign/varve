@@ -13,7 +13,7 @@
  */
 import { act, render, waitFor } from '@testing-library/react';
 import { createMemoryPlatform, type Platform } from '@varve/platform';
-import { createDocument, DocumentCodec } from '@varve/scene';
+import { addNode, createDocument, DocumentCodec, makeTextNode } from '@varve/scene';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider, setToastHandler, useEditor } from '../../context';
 
@@ -132,6 +132,37 @@ describe('openFile with an unreadable document', () => {
     expect(toasts).toHaveLength(1);
     expect(toasts[0]?.message).toContain('Gone.varve');
     expect(toasts[0]?.type).toBe('error');
+  });
+
+  it('refuses a decodable document whose optional collections are malformed', async () => {
+    // decode() type-checks collections shallowly. A font manifest whose
+    // `replacements` is an object (not an array) passes decode but throws while
+    // fonts are resolved. Before admission owned this, the throw escaped the
+    // File > Open handler and the picker looked inert; for loadDocument it was
+    // swallowed and recovery deleted the snapshot.
+    const { read, toasts } = await mount();
+    const before = read().state.document;
+    const doc = addNode(createDocument('Text'), makeTextNode('n-text', 'Hello', { w: 120, h: 40 }));
+    const raw = JSON.parse(DocumentCodec.encode(doc));
+    raw.fontManifest = { fonts: [], replacements: {} };
+
+    let accepted: boolean | undefined;
+    act(() => {
+      accepted = read().loadDocument(JSON.stringify(raw), { name: 'Damaged.varve' });
+    });
+
+    expect(accepted).toBe(false);
+    expect(read().state.document).toBe(before);
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]?.message).toContain('Damaged.varve');
+    expect(toasts[0]?.description).toMatch(/Nothing was changed/i);
+
+    act(() => {
+      read().openFile(undefined, 'Damaged.varve', '/tmp/Damaged.varve', JSON.stringify(raw));
+    });
+    expect(read().state.document).toBe(before);
+    expect(toasts).toHaveLength(2);
+    expect(toasts[1]?.message).toContain('Damaged.varve');
   });
 
   it('still creates a blank document when the caller asks for a new one', async () => {
