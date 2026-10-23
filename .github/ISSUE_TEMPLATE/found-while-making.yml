@@ -1,0 +1,94 @@
+name: Found a bug while making this
+description: Hit a bug or rough edge while making a challenge entry or project in Varve? Tell us here.
+labels: ["found-in-challenge", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this if you hit a bug or rough edge while making a challenge
+        entry or a project in Varve. For a general bug that is not tied to
+        something you were making, use a
+        [bug report](https://github.com/varvedesign/varve/issues/new?template=bug_report.yml)
+        instead.
+
+  - type: textarea
+    id: making
+    attributes:
+      label: What you were making
+      description: Challenge or project name. A link to your Discussions post is welcome if you have one.
+      placeholder: "Challenge name, or a link such as https://github.com/varvedesign/varve/discussions/..."
+
+  - type: input
+    id: version
+    attributes:
+      label: Varve version
+      description: Help, About, or the window title.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: obtained-as
+    attributes:
+      label: How you got it
+      options:
+        - AppImage
+        - .deb
+        - .rpm
+        - Windows
+        - macOS
+        - Web demo at /try
+    validations:
+      required: true
+
+  - type: input
+    id: os-device
+    attributes:
+      label: OS and device
+      placeholder: "Ubuntu 24.04 on a ThinkPad, Windows 11, macOS 15 on an M2 Mac..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Blocks me from finishing
+        - Bug with a workaround
+        - Awkward or confusing
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact steps that trigger the problem.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: Expected vs actual
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Attachments (optional)
+      description: Only share files you are happy to make public; zip .varve files.
+
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues
+          required: true

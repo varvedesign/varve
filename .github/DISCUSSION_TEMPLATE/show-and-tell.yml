@@ -1,0 +1,58 @@
+title: "I made "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share something you made in Varve. A picture is required so other
+        people can see it.
+
+        Hit a bug while you were making it? You can also open a
+        [Found a bug while making this](https://github.com/varvedesign/varve/issues/new?template=found-while-making.yml)
+        issue.
+
+  - type: textarea
+    id: what-you-made
+    attributes:
+      label: What you made
+      description: Tell us about the piece, project, or challenge entry.
+      placeholder: A poster, a logo study, a page from a zine...
+    validations:
+      required: true
+
+  - type: input
+    id: version-platform
+    attributes:
+      label: Varve version and platform
+      description: Help, About, or the window title. Include the OS, or say if you used the web demo.
+      placeholder: "0.x.x on Linux AppImage, Windows, macOS, or the web demo at /try"
+    validations:
+      required: true
+
+  - type: textarea
+    id: image
+    attributes:
+      label: Image
+      description: Drag and drop at least one image of what you made.
+    validations:
+      required: true
+
+  - type: textarea
+    id: source-file
+    attributes:
+      label: Source file (optional)
+      description: To share a .varve file, put it in a .zip first.
+
+  - type: checkboxes
+    id: rights
+    attributes:
+      label: Sharing
+      options:
+        - label: This is my own work, or I have the right to share it.
+          required: true
+        - label: I'm happy for Varve to feature this with credit (you can change your mind any time by commenting here).
+
+  - type: input
+    id: challenge
+    attributes:
+      label: Challenge name (optional)
+      description: If this is a challenge entry, name the challenge.

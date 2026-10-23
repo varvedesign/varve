@@ -1,0 +1,38 @@
+title: "Q: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask a question about using Varve. For something that is broken in a
+        repeatable way, please use a
+        [bug report](https://github.com/varvedesign/varve/issues/new?template=bug_report.yml)
+        instead.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried
+    validations:
+      required: true
+
+  - type: input
+    id: version-platform
+    attributes:
+      label: Varve version and platform
+      description: Help, About, or the window title. Include the OS, or say if you used the web demo.
+      placeholder: "0.x.x on Linux, Windows, macOS, or the web demo at /try"
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot (optional)
+      description: Drag and drop an image if it helps.

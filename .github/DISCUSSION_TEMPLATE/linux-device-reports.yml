@@ -1,0 +1,127 @@
+title: "Linux report: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing Varve on a Linux machine. This helps us see what
+        works on real desktops.
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distro and version
+      placeholder: "Fedora 42, Ubuntu 24.04, Arch, CachyOS..."
+    validations:
+      required: true
+
+  - type: input
+    id: desktop
+    attributes:
+      label: Desktop environment and Wayland or X11
+      placeholder: "GNOME 48 on Wayland, KDE Plasma on X11..."
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package used
+      options:
+        - AppImage
+        - .deb
+        - .rpm
+        - PKGBUILD
+
+  - type: input
+    id: version
+    attributes:
+      label: Varve version
+      description: Help, About, or the window title.
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: CPU, GPU and driver
+      placeholder: "Ryzen 7 7800X3D, AMD RX 7800 XT, mesa 25.x"
+
+  - type: input
+    id: ram
+    attributes:
+      label: RAM
+      placeholder: "32 GB"
+
+  - type: input
+    id: scaling
+    attributes:
+      label: Screen scaling
+      placeholder: "100%, 125%, 200%, mixed DPI..."
+
+  - type: input
+    id: tablet
+    attributes:
+      label: Pen or tablet
+      placeholder: "None, Wacom Intuos, XP-Pen..."
+
+  - type: dropdown
+    id: launched
+    attributes:
+      label: Did it launch?
+      options:
+        - Works
+        - Problems
+        - Did not try
+    validations:
+      required: true
+
+  - type: dropdown
+    id: open-save
+    attributes:
+      label: Did open and save work?
+      options:
+        - Works
+        - Problems
+        - Did not try
+    validations:
+      required: true
+
+  - type: dropdown
+    id: export
+    attributes:
+      label: Did export work?
+      options:
+        - Works
+        - Problems
+        - Did not try
+    validations:
+      required: true
+
+  - type: dropdown
+    id: performance
+    attributes:
+      label: Was performance OK?
+      options:
+        - Works
+        - Problems
+        - Did not try
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: What worked, what did not, and anything surprising.
+
+  - type: textarea
+    id: version-output
+    attributes:
+      label: Version output (optional)
+      description: Paste `varve --version` or a screenshot of the About dialog.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I removed anything private from logs or screenshots.
+          required: true

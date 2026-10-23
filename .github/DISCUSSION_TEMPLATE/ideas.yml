@@ -1,0 +1,36 @@
+title: "Idea: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us what you are trying to do. If you already know the exact
+        change you want, a
+        [feature request](https://github.com/varvedesign/varve/issues/new?template=feature_request.yml)
+        may be a better fit.
+
+  - type: textarea
+    id: trying-to-do
+    attributes:
+      label: What you are trying to do
+      description: The job or workflow, not just a feature name.
+    validations:
+      required: true
+
+  - type: textarea
+    id: in-the-way
+    attributes:
+      label: What gets in the way today
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: An idea for how Varve could help
+    validations:
+      required: true
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
