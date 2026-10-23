@@ -18,25 +18,36 @@ test.describe('Layers Panel - Drag & Drop', () => {
     expect(count).toBeGreaterThanOrEqual(0);
   });
 
-  test('drag handle is present on tree rows', async ({ page }) => {
+  test('rows expose the drag surface without a separate grip', async ({ page }) => {
     await seedLayers(page, 1);
     const items = page.getByRole('treeitem');
-    const count = await items.count();
-    if (count >= 1) {
-      await expect(items.first().locator('[class*="drag-handle"]')).toBeVisible();
+    if ((await items.count()) >= 1) {
+      await expect(items.first()).toBeVisible();
+      await expect(items.first()).toHaveAttribute('data-layer-drag-source', 'true');
+      // The hover-only grip was removed; reorder starts on the row itself.
+      await expect(page.locator('.layers-row__drag-handle')).toHaveCount(0);
     }
   });
 
-  test('keyboard reorder moves selected row (Ctrl+[ / Ctrl+])', async ({ page }) => {
-    await seedLayers(page, 2);
+  test('keyboard reorder follows the canonical arrange direction', async ({ page }) => {
+    await seedLayers(page, 3);
     const tree = page.getByRole('tree', { name: /layers/i });
     await tree.focus();
     const items = page.getByRole('treeitem');
-    const firstName = await items.first().textContent();
+    const movedId = await items.nth(1).getAttribute('data-node-id');
     await items.nth(1).click();
     await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true');
+
+    // Ctrl+] is Bring Forward: the row moves toward the front of the stack
+    // (up in the panel) and focus follows the node rather than the index.
+    await page.keyboard.press('Control+]');
+    await expect.poll(async () => items.nth(0).getAttribute('data-node-id')).toBe(movedId);
+    await expect(items.nth(0)).toBeFocused();
+
+    // Ctrl+[ is Send Backward: the same row returns to its original slot.
     await page.keyboard.press('Control+[');
-    await expect.poll(async () => items.first().textContent()).not.toBe(firstName);
+    await expect.poll(async () => items.nth(1).getAttribute('data-node-id')).toBe(movedId);
+    await expect(items.nth(1)).toBeFocused();
   });
 
   test('canvas accepts DnD drop zone', async ({ page }) => {
@@ -69,7 +80,7 @@ test.describe('Layers Panel - Drag & Drop', () => {
     const before = await rows.allTextContents();
     const source = rows.nth(1);
     const target = rows.nth(0);
-    const sourceHandle = source.locator('.layers-row__drag-handle');
+    const sourceHandle = source;
     const sourceId = await source.getAttribute('data-node-id');
     const targetId = await target.getAttribute('data-node-id');
     expect(sourceId).toBeTruthy();

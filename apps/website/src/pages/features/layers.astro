@@ -57,25 +57,24 @@ import { sitePath } from '../../lib/siteUrl';
 
       <section class="feature-section" aria-labelledby="layers-range-title">
         <p class="eyebrow">Two gestures, two jobs</p>
-        <h2 id="layers-range-title">Scrub a selection without touching the hierarchy.</h2>
+        <h2 id="layers-range-title">Drag the row to move it. Shift-drag to select a run.</h2>
         <p>
-          Press in the body of a Layers row and move through the visible stack to preview a
-          contiguous range. Release commits it once, even when the list is virtualized or you
-          reverse direction. The dedicated grip is reserved for structural reorder and reparent,
-          so selecting a run never quietly changes document order.
+          Press and move a row to reorder or reparent it. Hold Shift while moving through the
+          visible stack to preview a contiguous range instead. Release commits the range once,
+          even when the list is virtualized or you reverse direction.
         </p>
         <div class="feature-grid">
           <article>
             <h3>Stable range</h3>
-            <p>Shift-click, Shift+Arrow, and row scrub share the same anchor and extent behavior.</p>
+            <p>Shift-click, Shift+Arrow, and Shift-drag share the same anchor and extent behavior.</p>
           </article>
           <article>
             <h3>Live but reversible</h3>
             <p>Rows preview before release; Escape, blur, or a cancelled pointer leaves the committed selection alone.</p>
           </article>
           <article>
-            <h3>Handle-only structure</h3>
-            <p>Use the grip when you mean reorder or reparent. The row body remains a selection surface.</p>
+            <h3>One surface, no hidden grip</h3>
+            <p>The row itself is the drag surface, so reordering needs no separate control and the name column keeps the width.</p>
           </article>
         </div>
       </section>
@@ -126,7 +125,7 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="feature-grid" style="margin-top: var(--space-4);">
           <article>
             <h3>Deep-nesting legibility</h3>
-            <p>Indented structures stay readable at every depth: names scroll horizontally when they outrun the rail, and truncated labels reveal their full text on hover or keyboard focus.</p>
+            <p>Indented structures stay readable at every depth: long names ellipsize rather than forcing a horizontal scroll, and truncated labels reveal their full text on hover or keyboard focus.</p>
           </article>
           <article>
             <h3>Collapsible floating containers</h3>
@@ -183,10 +182,10 @@ import { sitePath } from '../../lib/siteUrl';
             <span class="layer-demo__search"><span aria-hidden="true">⌕</span> Filter layers…</span>
             <span class="layer-demo__count">5</span>
           </div>
-          <div class="layer-demo__row layer-demo__row--selected"><span class="layer-demo__grip">⋮⋮</span><span class="layer-demo__chevron">⌄</span><strong>Hero group</strong></div>
+          <div class="layer-demo__row layer-demo__row--selected"><span class="layer-demo__check">✓</span><span class="layer-demo__chevron">⌄</span><strong>Hero group</strong></div>
           <div class="layer-demo__row layer-demo__row--child"><span class="layer-demo__indent"></span><span class="layer-demo__chevron">⌄</span><span>Headline</span></div>
-          <div class="layer-demo__row layer-demo__row--child layer-demo__row--selected"><span class="layer-demo__indent"></span><span class="layer-demo__chevron">⌄</span><span>Illustration</span></div>
-          <div class="layer-demo__row"><span class="layer-demo__grip">⋮⋮</span><span class="layer-demo__chevron">·</span><span>Background</span></div>
+          <div class="layer-demo__row layer-demo__row--child layer-demo__row--selected"><span class="layer-demo__indent"></span><span class="layer-demo__check">✓</span><span class="layer-demo__chevron">⌄</span><span>Illustration</span></div>
+          <div class="layer-demo__row"><span class="layer-demo__chevron">·</span><span>Background</span></div>
           <div class="layer-demo__drop-line" aria-hidden="true"></div>
         </div>
         <div class="layer-demo__canvas">
@@ -246,7 +245,7 @@ import { sitePath } from '../../lib/siteUrl';
           Tree navigation, selection, expand/collapse, and move commands remain available from the
           keyboard. The layer context menu is state-aware: a hidden layer offers Show, a locked
           layer offers Unlock, and Bring Forward / Send Backward give a row-by-row arrange
-          alternative that needs no grip drag. Every row control keeps a 24×24 pointer target.
+          alternative that needs no drag at all. Every row control keeps a 24×24 pointer target.
           Locked, cyclic, stale, or unavailable destinations are rejected instead of pretending
           that a drop succeeded. External files are imported only by their eligible canvas surface,
           and native desktop drops retain their platform-specific limits.
@@ -260,7 +259,7 @@ import { sitePath } from '../../lib/siteUrl';
           shared sortable controls. That means a frame drop can mean “into,” while a page tab still
           means “reorder.” Each surface keeps its own persistence and history boundary.
         </p>
-        <a href="https://github.com/varvedesign/varve/blob/main/docs/architecture/layers-navigation.md">Read the Layers navigation contract →</a>
+        <a href="https://github.com/varvedesign/varve/blob/master/docs/architecture/layers-navigation.md">Read the Layers navigation contract →</a>
       </aside>
 
       <div class="feature-cta">
@@ -289,7 +288,7 @@ import { sitePath } from '../../lib/siteUrl';
   .layer-demo__row { display: flex; align-items: center; gap: .55rem; min-height: 2.1rem; padding: .25rem .6rem; color: var(--text-secondary); font-size: .9rem; border-radius: var(--website-radius-control); }
   .layer-demo__row--selected { color: var(--text-primary); background: var(--surface-accent-soft); }
   .layer-demo__row--child { padding-left: 1.65rem; }
-  .layer-demo__grip { color: var(--accent-primary); font-size: .7rem; letter-spacing: -.18em; }
+  .layer-demo__check { display: inline-flex; align-items: center; justify-content: center; width: 1rem; height: 1rem; border-radius: var(--website-radius-pill); background: var(--accent-primary); color: var(--text-on-accent); font-size: .62rem; line-height: 1; }
   .layer-demo__chevron { width: .7rem; color: var(--text-tertiary); }
   .layer-demo__indent { width: .7rem; }
   .layer-demo__drop-line { position: absolute; top: 9.8rem; left: 1rem; right: .75rem; height: 2px; background: var(--accent-primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-primary) 16%, transparent); }

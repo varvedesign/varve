@@ -122,7 +122,7 @@ test.describe('Layers DnD — browser demo', () => {
     // panel. Bring the source into view and re-measure immediately before
     // driving the pointer so the coordinates cannot go stale mid-gesture.
     await sourceRow.scrollIntoViewIfNeeded();
-    const handleBox = await sourceRow.locator('.layers-row__drag-handle').boundingBox();
+    const handleBox = await sourceRow.boundingBox();
     if (!handleBox) throw new Error('source drag handle geometry unavailable');
     const tgtBox = await targetRow.boundingBox();
     if (!tgtBox) throw new Error('target row geometry unavailable');

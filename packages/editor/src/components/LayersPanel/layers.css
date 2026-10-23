@@ -286,10 +286,6 @@
   pointer-events: none;
 }
 
-.layers-row:active {
-  cursor: grabbing;
-}
-
 /* Type-coded accent bar (persists through all states) */
 .layers-row::before {
   content: "";
@@ -1715,39 +1711,52 @@
   height: 100%;
 }
 
-/* ─── Drag handle ───────────────────────────────────────────── */
-.layers-row__drag-handle {
-  display: flex;
+/* ─── Identity slot ─────────────────────────────────────────── */
+/* One slot, not two. A row shows the content thumbnail when one is available
+   and the type icon otherwise; rendering both consumed 44px before the name.
+   The slot is still the double-click zoom target, and the selection check is
+   an overlay so selecting a row never shifts its name. */
+.layers-row__identity {
+  position: relative;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-5);
-  min-width: var(--space-5);
-  min-height: var(--component-xs-height);
-  height: var(--component-xs-height);
   flex-shrink: 0;
-  cursor: grab;
-  opacity: 0;
-  color: var(--color-text-subtle);
-  touch-action: none;
-  background: none;
-  border: none;
+}
+
+.layers-row__thumbnail-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--target-min-compact);
+  height: var(--target-min-compact);
   padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--duration-quick) var(--ease-standard);
 }
 
-.layers-row:hover .layers-row__drag-handle,
-.layers-row:focus-within .layers-row__drag-handle {
-  opacity: 1;
+.layers-row__thumbnail-button:hover {
+  background: var(--color-surface-raised);
 }
 
-/* Touch devices have no hover to reveal the drag handle (WCAG 2.5.8). */
-@media (hover: none), (pointer: coarse) {
-  .layers-row__drag-handle {
-    opacity: 1;
-  }
-}
-
-.layers-row__drag-handle:active {
-  cursor: grabbing;
+.layers-row__selection-check {
+  position: absolute;
+  right: calc(-1 * var(--space-1));
+  bottom: calc(-1 * var(--space-1));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
+  border-radius: var(--radius-pill);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  box-shadow: 0 0 0 1px var(--color-tree-row);
+  pointer-events: none;
 }
 
 /* ─── Drop zone indicators (DnD) ────────────────────────────── */

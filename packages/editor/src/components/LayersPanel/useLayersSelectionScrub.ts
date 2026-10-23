@@ -213,8 +213,12 @@ export function useLayersSelectionScrub({
 
   const onSelectionPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
+      // Range scrub is the *modified* row gesture. An unmodified press
+      // belongs to dnd-kit so the row can be dragged directly; requiring
+      // Shift resolves the conflict that previously forced a separate grip.
       if (
         event.button !== 0 ||
+        !event.shiftKey ||
         event.pointerType === 'touch' ||
         pointerTargetIsControl(event.target)
       ) {

@@ -48,6 +48,7 @@
 | 2026-09-19 | 5 — validation | done | 409 panel+workspace unit tests, 8 new E2E tests, axe clean, 50k projection bench, after-matrix screenshots |
 | 2026-09-19 | 6 — report | done | `docs/audits/layers-panel-workspace-evolution-report-2026-09-19.md` |
 | 2026-09-19 | verification + correction (post-merge) | done | 180px name-floor fix, icon-only trace badge, three spec-locator repairs against the details disclosure, expansion-assertion fix; APG 13/13, overflow 3/3, workspace 7/7, a11y 11+1 skipped, 10k bench 12/12 alone. See the report's verification section. |
+| 2026-10-23 | row model + search/filter/state repair | in progress | Search contract unified (Unicode, substring, count/tree parity); Select matches excludes ancestry; effective visibility + inherited-state names; bulk visibility/lock one transaction; canonical keyboard arrange with focus preservation; rename cycling/disclosure-target fixes; row-body drag replaces the hidden grip; one identity slot (thumbnail **or** type icon) + selected check overlay; filter bar keeps the bulk bar. Validation recorded per commit. |
 
 ## Implementation log
 

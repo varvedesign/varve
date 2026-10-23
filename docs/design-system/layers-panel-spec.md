@@ -34,11 +34,18 @@ contract, not a progress log.
 ### 1.1 Row anatomy
 
 ```
-[indent guides] [drag] [disclose] [selection dot] [thumb] [type icon] [name (ghost/rename)]
-[baptism cluster → badges, workspace-ordered]
-[presence] [workspace row actions] [visibility] [lock] [(solo*)]
+[indent guides] [disclose] [identity slot: thumbnail OR type icon] [name (ghost/rename)]
+[badges, workspace-ordered] [presence] [workspace row actions] [visibility] [lock] [(solo*)]
 ```
 
+- The identity slot renders **either** the content thumbnail **or** the type
+  icon, never both. It is the 24×24 double-click "zoom to layer" target. The
+  selected-state check is an overlay on that slot, so selecting a row never
+  shifts its name.
+- The row itself is the structural drag surface. There is no dedicated grip
+  and no permanent drag column; an unmodified press is a potential drag
+  (dnd-kit's 5 px activation distance keeps a click a click), while Shift+drag
+  is the range-selection scrub.
 - Indent step is `--space-3` per level up to `MAX_VISUAL_INDENT_DEPTH = 8`,
   then a flat indent plus indent guides (`layers-row__indent-guide`) so a
   24-level document stays readable.
@@ -46,8 +53,9 @@ contract, not a progress log.
   28 px compact). No new fixed row heights.
 - The row remains one `role="treeitem"`; controls inside are
   `tabIndex={-1}` pointer affordances, per the APG roving-tabindex model.
-  Accessible names carry state (hidden, locked, hidden by ancestor, mask
-  role, instance/override) so a screen-reader user never depends on a badge.
+  Accessible names carry state (hidden, locked, hidden by ancestor, locked by
+  ancestor, mask role, instance/override) so a screen-reader user never
+  depends on a badge or an icon.
 
 ### 1.2 Badge contract
 
@@ -134,7 +142,10 @@ state.
 
 - One authoritative `LayerDropTarget` resolves the preview, auto-expand,
   announcement, and commit.
-- 5 px activation distance; a click after a drag is swallowed exactly once.
+- The row body is the activator; no separate grip exists. 5 px activation
+  distance; a click after a drag is swallowed exactly once.
+- Shift+pointer movement across rows is the range scrub. It is the only
+  modified row gesture and never starts a structural drag.
 - Before/after/into zones with the container middle band at 0.3–0.7.
 - Cycle and effective-lock refusals are previewed as `--invalid`, not
   discovered on drop.
@@ -392,8 +403,9 @@ in the same files concurrently is prohibited by the coordination protocol).
 ## 8. Implementation follow-up — 2026-09-19
 
 The closure implementation keeps one protected identity column in each row.
-The label uses the available width (`flex: 1 1 0`) with a four-character floor
-at the 180px minimum and an eight-character floor from 220px upward. The
+The label uses the available width (`flex: 1 1 0`) with **no forced floor**
+below 220px (any floor overflowed the documented 180px minimum once the fixed
+controls were counted) and an eight-character floor from 220px upward. The
 secondary status cluster sizes from the badges it actually contains and is
 bounded to 42% / 12rem; it no longer reserves an empty percentage-based rail.
 This keeps long names readable in a wide panel while preserving the fixed

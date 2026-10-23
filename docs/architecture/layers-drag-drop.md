@@ -234,19 +234,19 @@ somewhere else permanently changed the user's disclosure.
 
 ## Gesture disambiguation
 
-Structural DnD is activated by the dedicated grip only. The row body belongs
-to the Layers selection gesture: a press that crosses the small CSS-pixel
-threshold previews and then commits a contiguous visible range. This keeps
-selection and hierarchy mutation from competing for the same pointerdown.
-Nested controls (disclosure triangle, selection checkbox, type icon,
-visibility/lock/solo toggles, effect badges, and the rename input) are excluded
-from row selection scrub as well as structural DnD.
+Structural DnD is activated by the row body. There is no dedicated grip: the
+earlier design reserved row-body presses for range scrub, which forced a
+permanent, hover-only 20 px control that had no accessible name. An
+unmodified press is now handed to dnd-kit, whose 5 px activation distance
+keeps a click a click; **Shift+drag** is the explicit range-selection scrub.
+Nested controls (disclosure triangle, identity/zoom target,
+visibility/lock/solo toggles, effect badges, and the rename input) stop
+pointer propagation so they keep their own gestures.
 
-The row body intentionally does not receive dnd-kit's sortable activator. The
-grip owns the activator ref/listeners/attributes and carries the accessible
-"Drag to reorder" affordance, while the treeitem remains the keyboard
-selection target. A row-body drag therefore cannot reorder text by accident;
-it selects the visible range and never changes structural order.
+The treeitem owns the sortable activator ref and pointer listener, while
+remaining the keyboard and `aria-selected` target. A row drag therefore
+behaves like every reference layer list (Photopea, Penpot, Krita, Figma):
+press and move the row to restructure, Shift+move to select a run.
 
 Grip dragging is never the only way to change order (WCAG 2.5.7). The layer
 context menu's Arrange group exposes Bring to Front, Bring Forward, Send

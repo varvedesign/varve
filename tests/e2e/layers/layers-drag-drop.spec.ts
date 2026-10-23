@@ -99,7 +99,7 @@ async function dragRowToRow(
 ) {
   const from = rowByName(page, fromName);
   await from.scrollIntoViewIfNeeded();
-  const fromHandle = from.locator('.layers-row__drag-handle');
+  const fromHandle = from;
   const to = rowByName(page, toName);
   await to.scrollIntoViewIfNeeded();
   const fromBox = await fromHandle.boundingBox();
@@ -111,10 +111,10 @@ async function dragRowToRow(
   const startY = fromBox.y + fromBox.height / 2;
   await page.mouse.move(startX, startY);
   const sourceHit = await page.evaluate(
-    ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('.layers-row__drag-handle')),
+    ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('[data-layer-drag-source]')),
     { x: startX, y: startY },
   );
-  if (!sourceHit) throw new Error(`drag handle for ${fromName} is clipped or covered`);
+  if (!sourceHit) throw new Error(`drag source row for ${fromName} is clipped or covered`);
   await page.mouse.down();
   await page.mouse.move(startX, startY - 12);
 
@@ -335,7 +335,7 @@ test.describe('Layers Panel — real drag & drop', () => {
     await second.click({ modifiers: ['Control'] });
     await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(2);
 
-    const handle = first.locator('.layers-row__drag-handle');
+    const handle = first;
     const handleBox = await handle.boundingBox();
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const canvasBox = await canvas.boundingBox();
@@ -391,7 +391,7 @@ test.describe('Layers Panel — real drag & drop', () => {
     const from = rowByName(page, firstName);
     const fromBox = await from.boundingBox();
     if (!fromBox) throw new Error('row not visible');
-    const handle = from.locator('.layers-row__drag-handle');
+    const handle = from;
     const handleBox = await handle.boundingBox();
     if (!handleBox) throw new Error('drag handle not visible');
     const startX = handleBox.x + handleBox.width / 2;
@@ -491,7 +491,7 @@ test.describe('Layers Panel — real drag & drop', () => {
       )
       .toBe(true);
     const source = page.getByRole('treeitem').first();
-    const handleBox = await source.locator('.layers-row__drag-handle').boundingBox();
+    const handleBox = await source.boundingBox();
     const treeBox = await tree.boundingBox();
     if (!handleBox || !treeBox) throw new Error('virtualized drag geometry unavailable');
 

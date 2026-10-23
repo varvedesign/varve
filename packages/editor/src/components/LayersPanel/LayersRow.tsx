@@ -7,7 +7,7 @@
  * Research basis: APG Tree View (role=treeitem), type icons per Lucide icon maps.
  */
 
-import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
+import type { DraggableSyntheticListeners } from '@dnd-kit/core';
 import type {
   AdjustmentNode,
   Document,
@@ -85,9 +85,9 @@ export interface LayersRowProps {
   /** Number of logical siblings represented by the current filter/tree view. */
   siblingCount?: number;
   style?: React.CSSProperties;
+  /** dnd-kit activator ref — the row itself is the drag surface. */
   dragHandleRef?: (element: HTMLElement | null) => void;
   dragHandleListeners?: DraggableSyntheticListeners;
-  dragHandleAttributes?: DraggableAttributes;
   onSelectionPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
   onSelectionClick?: () => boolean;
   /** Optional resolved variant name for component instances. */
@@ -177,7 +177,6 @@ export const LayersRow = memo(function LayersRow({
   style,
   dragHandleRef,
   dragHandleListeners,
-  dragHandleAttributes,
   onSelectionPointerDown,
   onSelectionClick,
   variantName,
@@ -421,6 +420,23 @@ export const LayersRow = memo(function LayersRow({
     [node.id, idx, onSelect, onFocus, onSelectionClick],
   );
 
+  // The row is both the selection surface and the structural drag surface.
+  // A plain press is handed to dnd-kit, whose 5px activation distance keeps a
+  // click a click; Shift+press starts the explicit range-selection scrub.
+  // This replaces the old hover-only grip, which had no accessible name and
+  // cost every row a permanent 20px slot.
+  const handleRowPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      if (event.shiftKey) {
+        onSelectionPointerDown?.(event);
+        return;
+      }
+      dragHandleListeners?.onPointerDown?.(event);
+    },
+    [dragHandleListeners, onSelectionPointerDown],
+  );
+
   // Row double-click owns disclosure only. Rename starts on the name itself
   // (below), so double-clicking a container's blank area or status badges no
   // longer both collapses the subtree and opens a text editor.
@@ -544,8 +560,11 @@ export const LayersRow = memo(function LayersRow({
         aria-label={!editing ? accessibleDescription : undefined}
         className={rowClass}
         tabIndex={focused ? 0 : -1}
+        ref={dragHandleRef}
+        data-layer-drag-source={dragHandleListeners ? 'true' : undefined}
+        {...dragHandleListeners}
         onClick={handleClick}
-        onPointerDown={onSelectionPointerDown}
+        onPointerDown={handleRowPointerDown}
         onDoubleClick={handleDoubleClick}
         style={
           {
@@ -561,21 +580,6 @@ export const LayersRow = memo(function LayersRow({
             visual indent so rows beyond MAX_VISUAL_INDENT_DEPTH keep a
             readable cue of their (flattened) nesting lane. */}
         {indentGuides}
-
-        {/* Drag handle */}
-        <button
-          {...dragHandleAttributes}
-          ref={dragHandleRef}
-          {...dragHandleListeners}
-          type="button"
-          className="layers-row__drag-handle"
-          aria-label="Drag to reorder"
-          aria-hidden="true"
-          tabIndex={-1}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.75em" />
-        </button>
 
         {/* Disclosure triangle */}
         {container ? (
@@ -607,34 +611,49 @@ export const LayersRow = memo(function LayersRow({
           <span className="layers-row__disclosure-spacer" />
         )}
 
-        {/* Thumbnail preview (frames and images) */}
-        {showThumbnail && (
-          <img src={thumbnailDataUrl!} alt="" aria-hidden className="layers-row__thumbnail" />
-        )}
-
-        {/* Type icon — double-click zooms to layer */}
-        <button
-          type="button"
-          className="layers-row__icon-area"
-          onDoubleClick={handleIconDoubleClick}
-          onPointerDown={stopDragActivation}
-          aria-label={`Zoom to ${node.name} (${layerPresentation.label})`}
-          tabIndex={-1}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleIconDoubleClick();
-            }
-          }}
-        >
-          <SolidIcon
-            name={typeIcon}
-            size={16}
-            aria-hidden
-            className={`layers-row__type-icon layers-row__type-icon--${layerPresentation.category} layers-row__type-icon--${layerPresentation.subtype}`}
-            style={isInstance ? { opacity: 0.65 } : undefined}
-          />
-        </button>
+        {/* One identity slot per row: the content thumbnail when one exists,
+            otherwise the type icon. Rendering both (as this row used to) spent
+            44px before the name in a panel whose narrow rail is ~180px, and no
+            reference tool duplicates the identity this way. Double-click still
+            zooms to the layer from either form. */}
+        <span className="layers-row__identity">
+          {showThumbnail ? (
+            <button
+              type="button"
+              className="layers-row__thumbnail-button"
+              onDoubleClick={handleIconDoubleClick}
+              onPointerDown={stopDragActivation}
+              aria-label={`Zoom to ${node.name} (${layerPresentation.label})`}
+              tabIndex={-1}
+            >
+              <img src={thumbnailDataUrl!} alt="" aria-hidden className="layers-row__thumbnail" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="layers-row__icon-area"
+              onDoubleClick={handleIconDoubleClick}
+              onPointerDown={stopDragActivation}
+              aria-label={`Zoom to ${node.name} (${layerPresentation.label})`}
+              tabIndex={-1}
+            >
+              <SolidIcon
+                name={typeIcon}
+                size={16}
+                aria-hidden
+                className={`layers-row__type-icon layers-row__type-icon--${layerPresentation.category} layers-row__type-icon--${layerPresentation.subtype}`}
+                style={isInstance ? { opacity: 0.65 } : undefined}
+              />
+            </button>
+          )}
+          {/* The selected state is already exposed as `aria-selected`; this
+              badge is its sighted counterpart and costs the name no width. */}
+          {selected && !editing && (
+            <span className="layers-row__selection-check" aria-hidden="true">
+              <SolidIcon name={SOLID_CHROME_ICONS.check} size="0.7em" />
+            </span>
+          )}
+        </span>
 
         {/* Name or rename input */}
         <span className="layers-row__label">

@@ -117,11 +117,11 @@ Shift-click, Shift+Arrow, and the row-body pointer scrub. Replace/add behavior
 is computed from the pointer-down selection snapshot, so reversing direction
 does not shrink or reinterpret the range.
 
-Row scrub uses measured virtualizer geometry and a bounded edge auto-scroll
-loop. It previews rows without mutating committed selection or history, then
-calls the bulk selection setter once on release (or clears the preview on
-cancel/blur). The dedicated row grip is the only structural DnD activator;
-disclosure, visibility, lock, checkbox, effect, and rename controls remain
+Shift+row scrub uses measured virtualizer geometry and a bounded edge
+auto-scroll loop. It previews rows without mutating committed selection or
+history, then calls the bulk selection setter once on release (or clears the
+preview on cancel/blur). An unmodified row press is the structural drag;
+disclosure, identity/zoom, visibility, lock, effect, and rename controls remain
 control-owned. The active surface is the only range scope; cross-page ranges
 remain the ADR-0195 follow-up.
 

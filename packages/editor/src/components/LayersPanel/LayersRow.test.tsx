@@ -148,6 +148,30 @@ describe('LayersRow roving tabindex', () => {
   });
 });
 
+describe('LayersRow identity and selection model', () => {
+  it('shows the selection check only on selected rows', () => {
+    const unselected = renderRow({ selected: false });
+    expect(unselected.container.querySelector('.layers-row__selection-check')).toBeNull();
+
+    const selected = renderRow({ selected: true });
+    expect(selected.container.querySelector('.layers-row__selection-check')).not.toBeNull();
+  });
+
+  it('renders one identity control and no separate drag grip', () => {
+    const { container } = renderRow();
+    expect(container.querySelector('.layers-row__drag-handle')).toBeNull();
+    expect(container.querySelectorAll('.layers-row__identity > button')).toHaveLength(1);
+  });
+
+  it('exposes the row itself as the drag source', () => {
+    const { container } = renderRow({ dragHandleListeners: {} });
+    expect(container.querySelector('[role="treeitem"]')).toHaveAttribute(
+      'data-layer-drag-source',
+      'true',
+    );
+  });
+});
+
 describe('LayersRow effective lock state', () => {
   it('shows an inherited lock and explains why the child cannot be unlocked here', () => {
     const { doc, child } = lockedParentDocument();

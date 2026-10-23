@@ -133,7 +133,7 @@
 }
 
 /* Pointer and touch routes remain available without requiring hover, matching
- * .layers-row__toggle--solo-off and .layers-row__drag-handle. */
+ * .layers-row__toggle--solo-off. */
 @media (hover: none), (pointer: coarse) {
   .selection-sets__actions {
     opacity: 1;

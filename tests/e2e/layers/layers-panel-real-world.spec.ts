@@ -445,11 +445,11 @@ test.describe('Layers Panel — real-world document', () => {
     const namesBefore = await rows.locator('.layers-row__name').allTextContents();
     record('reorder-before.json', { namesBefore: namesBefore.slice(0, 6) });
 
-    // Drag the second row's grip below the fourth row.
+    // Drag the second row below the fourth row.
     const source = rows.nth(1);
     const target = rows.nth(4);
     await source.hover();
-    const grip = source.locator('.layers-row__drag-handle');
+    const grip = source;
     const sourceBox = await grip.boundingBox();
     const targetBox = await target.boundingBox();
     if (!sourceBox || !targetBox) throw new Error('rows not measurable');

@@ -216,19 +216,19 @@ test.describe('Layers Panel - APG Tree View', () => {
     await expect(filteredChild).not.toBeVisible();
   });
 
-  test('keyboard reorder moves selected row', async ({ page }) => {
+  test('keyboard reorder moves the selected row in the canonical direction', async ({ page }) => {
     const tree = page.getByRole('tree', { name: /layers/i });
     await tree.focus();
     const items = page.getByRole('treeitem');
     const count = await items.count();
     if (count >= 2) {
-      const firstName = await items.first().textContent();
-      // Focus second item, then move up with Ctrl+[
+      const movedId = await items.nth(1).getAttribute('data-node-id');
       await items.nth(1).click();
-      await page.keyboard.press('Control+[');
-      await page.waitForTimeout(200);
-      const newFirstName = await items.first().textContent();
-      expect(newFirstName).not.toBe(firstName);
+      // Ctrl+] is Bring Forward (toward the front of the stack), the same
+      // binding the Arrange menu and global shortcuts use.
+      await page.keyboard.press('Control+]');
+      await expect.poll(async () => items.nth(0).getAttribute('data-node-id')).toBe(movedId);
+      await expect(items.nth(0)).toBeFocused();
     }
   });
 
