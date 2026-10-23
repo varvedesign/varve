@@ -7186,7 +7186,21 @@ fieldset.insp-canvas-props,
   --insp-field-group-gap: var(--space-4);
   --insp-content-pad-start: var(--space-3);
   --insp-content-pad-end: var(--space-3);
-  --insp-label-size: clamp(0.6875rem, calc(0.663rem + 0.1087vw), 0.75rem);
+  /* Inspector labels must not fall below the 12px `interface-micro` floor.
+   * This replaces a fluid clamp that bottomed out at 0.6875rem (11px) and only
+   * reached 0.75rem at >=1280px, so every inspector label measured 11.0-11.99px
+   * at the widths this app actually ships at (tauri.conf.json minWidth 900):
+   * 11.5863px at 900px wide, measured by
+   * tests/e2e/a11y/shell-type-and-target-floor.spec.ts.
+   *
+   * Deliberately 0.75rem and not the 13px `interface-label` role: the rows are
+   * a two-column grammar whose label column is 4.5rem at the narrow inspector,
+   * and 13px would reflow every inspector section at every width (including
+   * every product screenshot on the marketing site) to settle a role mismatch
+   * that no measurement in this audit flagged. Raising it to the label role is
+   * a design decision with its own visual review, tracked separately.
+   * See docs/architecture/interface-sizing-system.md -> "Typography roles". */
+  --insp-label-size: 0.75rem;
   --insp-value-size: clamp(0.75rem, calc(0.7255rem + 0.1087vw), 0.8125rem);
   --insp-numeric-rail: 9ch;
   --insp-preview-max-inline-size: 20rem;

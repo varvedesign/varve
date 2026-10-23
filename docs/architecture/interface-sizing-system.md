@@ -197,6 +197,17 @@ margins are reset, both columns may shrink, and long values use safe wrapping.
 This is required for image colour metadata, but applies to any dense inspector
 readout that may contain untrusted or format-provided strings.
 
+Inspector field labels sit at the `interface-micro` 12px floor and never below
+it: `--insp-label-size` is a fixed `0.75rem`. It was previously a fluid
+`clamp()` that bottomed out at 11px and only reached 12px at 1280px, so every
+inspector label rendered under the floor at the window widths the desktop app
+actually supports (`tauri.conf.json` `minWidth` 900) — 11.5863px at 900x600.
+The `interface-label` role is 13px; whether inspector rows should adopt that
+role is a separate design decision, because the label column is 4.5rem at the
+narrow inspector and 13px would reflow every section. The floor is guarded by
+`tests/e2e/a11y/shell-type-and-target-floor.spec.ts`, which measures rendered
+font sizes at 900x600 and 1440x900 rather than reading the stylesheet.
+
 Adjustment editors follow the same contract for nested rows: the panel root
 must retain a zero-width flex minimum, labels may shrink and wrap within a
 bounded column, and controls must be allowed to shrink inside the remaining
