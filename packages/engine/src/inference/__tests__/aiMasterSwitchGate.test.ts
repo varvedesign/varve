@@ -6,8 +6,15 @@
  * `ai.enabled` is false. This is the regression that fails if a new model
  * is added to the catalog but the choke-point gate is bypassed.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getModelLoader, resetModelLoader } from '../../backgroundRemoval/modelLoader';
+import {
+  applyWorkerAiGate,
+  getAiFeaturesEnabled,
+  resetAiFeaturesGateForTests,
+} from '../aiFeaturesGate';
 import { DownloadManager } from '../core/DownloadManager';
 import { InferenceError } from '../core/InferenceError';
 import { createModelStorage } from '../core/ModelStorage';
@@ -27,6 +34,7 @@ describe('AI master switch choke point', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    resetAiFeaturesGateForTests();
     resetModelLoader();
     fetchSpy.mockReset();
     fetchSpy.mockRejectedValue(new Error('network must not run while AI is off'));
@@ -36,6 +44,7 @@ describe('AI master switch choke point', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     localStorage.clear();
+    resetAiFeaturesGateForTests();
     resetModelLoader();
   });
 
@@ -129,11 +138,37 @@ describe('AI master switch choke point', () => {
     );
   });
 
-  it('treats a missing localStorage as enabled so worker-side asserts are no-ops', async () => {
-    const { getAiFeaturesEnabled, assertAiFeaturesEnabled } = await import('../aiFeaturesGate');
-    vi.stubGlobal('localStorage', undefined);
+  it('defaults on when the settings key is missing', () => {
     expect(getAiFeaturesEnabled()).toBe(true);
-    expect(() => assertAiFeaturesEnabled()).not.toThrow();
+  });
+
+  it('defaults on when a readable blob has no ai object', () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ appearance: { theme: 'dark' } }));
+    expect(getAiFeaturesEnabled()).toBe(true);
+  });
+
+  it('fails closed and logs when the settings blob is corrupt', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    localStorage.setItem('varve-editor-settings', '{"ai":');
+    expect(getAiFeaturesEnabled()).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[ai-gate]'));
+    warn.mockRestore();
+  });
+
+  it('fails closed and logs when localStorage is unreadable', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.stubGlobal('localStorage', undefined);
+    expect(getAiFeaturesEnabled()).toBe(false);
+    expect(() => applyWorkerAiGate(undefined)).toThrow(InferenceError);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('accepts an explicit worker snapshot so worker-side asserts can refuse', () => {
+    vi.stubGlobal('localStorage', undefined);
+    expect(() => applyWorkerAiGate(false)).toThrow(InferenceError);
+    expect(() => applyWorkerAiGate(true)).not.toThrow();
+    expect(getAiFeaturesEnabled()).toBe(true);
   });
 
   it('refuses AI worker-host dispatch on the main thread when the switch is off', async () => {
@@ -176,5 +211,17 @@ describe('AI master switch choke point', () => {
     expect(posted).toHaveLength(0);
     terminateWorkerPool();
     resetEnhancementWorkerForTests();
+  });
+
+  it('the three model-loading workers enforce the gate inside the worker', () => {
+    const workers = [
+      'inference/inferenceWorker.ts',
+      'upscaleProviders/enhancementWorker.ts',
+      'backgroundRemoval/worker.ts',
+    ];
+    for (const relative of workers) {
+      const source = readFileSync(resolve(__dirname, '../../', relative), 'utf-8');
+      expect(source, relative).toContain('applyWorkerAiGate');
+    }
   });
 });

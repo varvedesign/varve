@@ -6,6 +6,7 @@
  * same interface. Consolidates the separate model sets formerly scattered
  * across modelManifest.ts and upscaleModels.ts.
  */
+import { resolvedIntegrityHash } from './integrityHash';
 import type {
   ModelAcquisition,
   ModelComponentEntry,
@@ -208,7 +209,14 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
     ...(category ? { category } : {}),
     ...(raw.localPath ? { localPath: raw.localPath } : {}),
     ...(raw.multiComponent ? { multiComponent: true } : {}),
-    ...(raw.components ? { components: raw.components } : {}),
+    ...(raw.components
+      ? {
+          components: raw.components.map((component) => ({
+            ...component,
+            checksum: resolvedIntegrityHash(component) ?? component.checksum ?? '',
+          })),
+        }
+      : {}),
     acquisition: deriveAcquisition(raw),
   };
 

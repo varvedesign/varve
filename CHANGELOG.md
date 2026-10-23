@@ -12,6 +12,14 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+### Security
+
+- **AI off loads no models.** Turning AI features off now refuses every
+  model download and session, including the three web workers that previously
+  skipped the check. A missing settings key still starts with AI on. A
+  corrupt or unreadable settings blob is treated as off and logged. Model
+  files that stored their SHA-256 under a field the downloader did not read
+  are hash-verified again.
 
 ### Added
 

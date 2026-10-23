@@ -12,7 +12,7 @@ import {
   type InferenceAdmission,
   type InferenceLease,
 } from './admission';
-import { assertAiFeaturesEnabled } from './aiFeaturesGate';
+import { assertAiFeaturesEnabled, getAiFeaturesEnabled } from './aiFeaturesGate';
 import { InferenceError } from './core/InferenceError';
 import type {
   WorkerInferRequest,
@@ -475,6 +475,7 @@ export class InferenceWorkerHost {
           sessionPeakBytes: sessionEstimateBytes,
           sessionIdentity,
           requestId,
+          aiEnabled: getAiFeaturesEnabled(),
         };
         try {
           worker.postMessage(fullRequest);

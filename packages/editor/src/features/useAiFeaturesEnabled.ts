@@ -11,30 +11,25 @@
  * AI operations can be initiated.
  */
 
+import { getAiFeaturesEnabled as readPersistedAiFeaturesEnabled } from '@varve/engine';
 import { useOptionalSettings } from '../components/Settings/SettingsContext';
 
 export const AI_DISABLED_HINT = 'Turn on AI features in Settings to use this';
 
 export function useAiFeaturesEnabled(): boolean {
   const settings = useOptionalSettings();
-  if (settings) return settings.settings.ai.enabled;
-  return getAiFeaturesEnabled();
+  const persisted = readPersistedAiFeaturesEnabled();
+  if (settings) return settings.settings.ai.enabled && persisted;
+  return persisted;
 }
 
 /**
  * Synchronous check for AI features enabled state.
  * Use this in non-React contexts (menu handlers, IPC, workers).
+ * Missing settings stay on. Unreadable settings fail closed.
  */
 export function getAiFeaturesEnabled(): boolean {
-  try {
-    const raw = localStorage.getItem('varve-editor-settings');
-    if (!raw) return true;
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const ai = parsed.ai as Record<string, unknown> | undefined;
-    return ai?.enabled !== false;
-  } catch {
-    return true;
-  }
+  return readPersistedAiFeaturesEnabled();
 }
 
 /**

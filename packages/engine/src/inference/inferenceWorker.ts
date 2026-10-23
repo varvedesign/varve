@@ -56,6 +56,7 @@ import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/s
 import { SCUNET_INPUT_SIZE, SCUNET_TENSOR_SPEC } from './models/scunet';
 import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC, siglipConstantFeeds } from './models/siglip';
 import { TROCR_INPUT_SIZE, TROCR_TENSOR_SPEC } from './models/trocr';
+import { applyWorkerAiGate } from './aiFeaturesGate';
 import type { WorkerSessionIdentity } from './sessionKeys';
 import { workerSessionKey } from './sessionKeys';
 import {
@@ -144,6 +145,8 @@ export interface WorkerInferRequest {
   sessionPeakBytes?: number;
   /** Host-resolved artifact/runtime identity shared with the session registry. */
   sessionIdentity?: WorkerSessionIdentity;
+  /** Main-thread snapshot of the AI master switch. Omitted means refuse. */
+  aiEnabled?: boolean;
 }
 
 export interface WorkerInferTimings {
@@ -946,11 +949,13 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     externalData,
     sessionPeakBytes,
     sessionIdentity,
+    aiEnabled,
   } = data;
 
   let runHeld = false;
   let runCacheKey: string | null = null;
   try {
+    applyWorkerAiGate(aiEnabled);
     const modelPre = modelRegistry.get(modelType);
     if (!modelPre) {
       throw new Error(`Unknown model type: ${modelType}`);

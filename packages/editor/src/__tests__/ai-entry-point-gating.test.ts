@@ -159,6 +159,7 @@ const USER_SWITCH_PATTERNS = [
   /aiEnabled/, // From useAiFeaturesEnabled hook
   /aiFeaturesEnabled/, // Alternative naming
   /assertAiFeaturesEnabled/,
+  /applyWorkerAiGate/,
 ] as const;
 
 describe('AI Entry Point Gating Audit', () => {

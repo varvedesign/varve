@@ -844,6 +844,7 @@ export type {
   RuntimeCapabilities,
 } from './inference';
 export {
+  applyWorkerAiGate,
   assertAiFeaturesEnabled,
   assessImageInferenceResources,
   bertTokenize,
@@ -875,6 +876,7 @@ export {
   GROUNDING_DINO_MODEL_IMAGE_PREPROCESSING_VERSION,
   GROUNDING_DINO_PREPROCESSING_VERSION,
   GROUNDING_DINO_TOKENIZER_ID,
+  configureAiFeaturesEnabled,
   getAiFeaturesEnabled,
   getInferenceAdmission,
   getInferenceWorkerHost,
