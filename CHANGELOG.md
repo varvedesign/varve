@@ -21,6 +21,10 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Machine-wide administrator policy**: Schools and offices can deploy a JSON policy to control update checks, AI, model downloads, network access, crash reporting, and locked settings. Invalid policy files enter restricted mode. See `docs/admin-policy.md`.
+
+### Added
+
 - **Copy now pastes as vectors in other design apps** — An ordinary Copy also
   puts a transparent SVG representation on the clipboard, so Inkscape, Krita,
   Illustrator, or Figma receive the selection as artwork instead of layer

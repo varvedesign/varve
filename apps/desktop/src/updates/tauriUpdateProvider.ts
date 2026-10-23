@@ -55,6 +55,7 @@ export class TauriUpdateProvider implements UpdateProvider {
   }
 
   async check(channel: UpdateChannel): Promise<UpdateInfo | null> {
+    await invoke('policy_can_check_updates');
     const context = await this.getPackagingContext();
     // The build embeds one feed endpoint at build time (tauri.update.channel.json
     // in release CI). A stable build must never resolve the beta/nightly feed,

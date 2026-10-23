@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://varve.design/schemas/policy.schema.json",
+  "title": "Varve machine-wide policy",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "updates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "check": { "type": "boolean" } }
+    },
+    "ai": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "enum": ["on", "off", "user"] },
+        "modelDownloads": { "type": "boolean" },
+        "localModelDir": { "type": "string", "minLength": 1 }
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowedHosts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "pattern": "^[^:/\\s]+$" },
+          "uniqueItems": true
+        },
+        "offline": { "type": "boolean" }
+      }
+    },
+    "crashReports": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "localOnly": { "const": true } }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lockedSettings": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

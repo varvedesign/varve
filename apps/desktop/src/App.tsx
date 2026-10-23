@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core';
 import {
   afterFirstVisiblePaint,
   CrashCenter,
@@ -41,6 +42,7 @@ import { TauriUpdateProvider } from './updates/tauriUpdateProvider';
 const bootPlatform = detectPlatform();
 
 export function App() {
+  const [policyReadFailure, setPolicyReadFailure] = useState(false);
   const [view, setView] = useState<'home' | 'editor'>('home');
   const [editorMounted, setEditorMounted] = useState(false);
   const [editorReady, setEditorReady] = useState(false);
@@ -51,6 +53,12 @@ export function App() {
   const pendingEditorMilestone = useRef<(() => void) | null>(null);
 
   useEffect(() => installPageLifecycleAdmission(), []);
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    void invoke<{ restricted: boolean }>('policy_status')
+      .then((status) => setPolicyReadFailure(status.restricted))
+      .catch(() => undefined);
+  }, []);
 
   // In a plain browser the synchronous boot platform is the in-memory
   // fallback; upgrade to the real IndexedDB + File System Access backend as
@@ -517,6 +525,12 @@ export function App() {
         }}
       >
         <TitleBar />
+        {policyReadFailure && (
+          <div role="alert" className="varve-policy-banner">
+            Your organisation's Varve policy could not be read. Restricted mode is on. Contact your
+            administrator.
+          </div>
+        )}
         {demo.config.active && <DemoBanner config={demo.config} />}
         {storageIsEphemeral && (
           <div role="alert" className="varve-ephemeral-storage-banner">
