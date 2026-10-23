@@ -1,0 +1,106 @@
+title: "Windows or Mac report: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tried Varve on Windows or a Mac? Two questions are enough. The
+        rest is only if you want to add more.
+
+  - type: dropdown
+    id: system
+    attributes:
+      label: Which computer are you using?
+      description: "Pick the closest one. Example: Windows 11."
+      options:
+        - Windows 11
+        - Windows 10
+        - Mac (Apple Silicon, M1 or newer)
+        - Something else (say which below)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: how-it-went
+    attributes:
+      label: How did it go?
+      description: "A quick overall feel is enough. Example: Worked with some problems."
+      options:
+        - Worked well
+        - Worked with some problems
+        - Didn't work
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Which version of Varve? (optional)
+      description: "Open Help > About, or look at the window title."
+      placeholder: "0.5.1"
+
+  - type: dropdown
+    id: install-warning
+    attributes:
+      label: Did you get a warning when you opened it? (optional)
+      description: >-
+        Varve is not signed yet, so Windows or macOS may warn you the
+        first time. Skip this if you do not remember.
+      options:
+        - No warning
+        - Yes, but I got past it
+        - Yes, and it stopped me from opening Varve
+
+  - type: input
+    id: os-version
+    attributes:
+      label: System version and computer model (optional)
+      description: Skip this if you are not sure.
+      placeholder: "Windows 11 24H2 on a Surface Laptop, macOS 15 on a MacBook Air M2..."
+
+  - type: dropdown
+    id: chip
+    attributes:
+      label: Windows chip type (optional)
+      description: Only for Windows. Skip this if you are not sure.
+      options:
+        - Intel or AMD
+        - ARM (Snapdragon or similar)
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Graphics card (optional)
+      description: Skip this if you are not sure.
+      placeholder: "Intel built-in, NVIDIA RTX 3060, Apple M2..."
+
+  - type: input
+    id: scaling
+    attributes:
+      label: Screen scaling (optional)
+      description: The size setting for text and windows, if you changed it.
+      placeholder: "100%, 150%, Retina default..."
+
+  - type: input
+    id: tablet
+    attributes:
+      label: Pen or tablet (optional)
+      description: Skip this if you draw with a mouse.
+      placeholder: "None, Wacom Intuos, Surface Pen, iPad with Sidecar..."
+
+  - type: textarea
+    id: error-details
+    attributes:
+      label: Error details (optional, only if you have them)
+      description: >-
+        Paste a short error note or drop a picture. If Varve opens, you can
+        also paste the report from Settings > Performance > Collect
+        capability report > Copy report. Please take out anything private
+        first.
+      placeholder: "A short error message, or a picture of the warning you saw..."
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else? (optional)
+      description: Add more if you want. You can skip this.
+      placeholder: "Export was slow, or the pen pressure did not work..."

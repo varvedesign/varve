@@ -1,66 +1,111 @@
 # Security Policy
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-If you discover a security vulnerability in Varve, please report it
-privately. Do not create a public GitHub issue, and do not disclose
-the details publicly before we have coordinated a fix.
+Report security issues privately. Do not open a public GitHub issue, and do
+not publish details before a coordinated disclosure.
 
-Contact: open a private advisory at
-https://github.com/varvedesign/varve/security/advisories
+Use either channel:
 
-You may also email [security@varve.studio](mailto:security@varve.studio). Do not
-send vulnerability details through a public issue or discussion. Do not include
-unnecessary personal data or destructive test results.
+1. Email [security@varve.studio](mailto:security@varve.studio)
+2. GitHub private vulnerability reporting: Security tab, then
+   [Report a vulnerability](https://github.com/varvedesign/varve/security/advisories/new)
 
-Reports are reviewed as capacity allows. If you do not receive an acknowledgement,
-follow up through the same private channel.
+Do not include unnecessary personal data or destructive test results.
 
-## Supported Versions
+## Response times
 
-| Version | Supported |
-|---------|-----------|
-| Latest stable release | Yes |
-| Previous stable release | Best effort, security fixes only |
-| Prereleases (alpha/beta) | Best effort |
-| Unreleased `master` | Yes (as source) |
+These are targets, not guarantees. One person maintains this project.
 
-The latest stable release is the only release guaranteed to receive
-security patches. See `docs/release/release-checklists.md` for the
-release cadence.
+| Step | Target |
+|------|--------|
+| Acknowledgement | within 3 business days |
+| Triage and severity (CVSS) | within 7 days of acknowledgement |
+| Critical fix | 7 days after a confirmed fix is identified |
+| High fix | 30 days after a confirmed fix is identified |
+| Medium and low | the next release |
+
+If you do not get an acknowledgement, follow up on the same private channel.
+
+## Coordinated disclosure
+
+We follow coordinated disclosure. The default window is 90 days from the
+acknowledgement. We may ask for more time when a fix is not ready; we may
+agree to a shorter window when the risk of holding back is worse than
+publishing.
+
+Public details wait until a fix is available, or until the agreed window
+ends. We credit reporters who want credit.
+
+## Supported versions
+
+During the public 0.5 beta, only the latest 0.5.x release receives security
+fixes. Older 0.5.x builds, prereleases, and unreleased `master` are not
+supported for patching. `master` still accepts fixes as source.
+
+## How fixes are announced
+
+- A GitHub Security Advisory for the issue
+- A `CHANGELOG.md` entry under Security for the release that contains the fix
+
+We do not promise additional notification channels.
+
+## How to verify a release
+
+Published artifacts include SHA-256 checksums and an SBOM. Attestations are
+verified with the GitHub CLI.
+
+Current repository:
+
+```bash
+gh attestation verify <file> --repo varvedesign/varve
+```
+
+Releases through 0.5.1 were attested under the previous repository name.
+For those files:
+
+```bash
+gh attestation verify <file> --repo K-Arthur/varve
+```
+
+Later releases use `--repo varvedesign/varve`. `gh attestation verify`
+requires `--repo OWNER/REPO`. See `gh attestation verify --help`.
+
+Unsigned installers, when the release policy allows them, are labelled as
+unsigned. Checksums and attestations still apply to the published bytes.
 
 ## What to include
 
 - A clear description of the vulnerability
-- Steps to reproduce (if applicable)
+- Steps to reproduce, if you have them
 - The version(s) affected
-- Any potential impact you have identified
+- Impact you have already identified
 
 ## Scope
 
-The following are in scope:
-- The Varve application code (Rust, TypeScript)
-- Build and distribution infrastructure (GitHub Actions, release/signing
-  pipeline, the website deployment)
-- Authentication and authorisation mechanisms (if any)
+In scope:
 
-The following are out of scope:
-- Third-party dependencies (report to their maintainers)
+- The Varve application code (Rust, TypeScript)
+- Build and distribution infrastructure (GitHub Actions, the release and
+  signing pipeline, the website deployment)
+- Authentication and authorisation mechanisms, if any exist
+
+Out of scope:
+
+- Third-party dependencies (report those to their maintainers)
 - Vulnerabilities in the Rust or Node.js ecosystems (report upstream)
-- Theoretical attacks without practical exploit
+- Theoretical attacks without a practical impact
 
 ## Handling process
 
-1. **Acknowledge** the report via the advisory or security email.
-2. **Triage**: confirm severity, affected versions, and whether a fix is
+1. Acknowledge the report through the advisory or security email.
+2. Triage: confirm severity (CVSS), affected versions, and whether a fix is
    feasible.
-3. **Fix and release**: a fix lands on `master`, then in the next stable
-   release (or a patch release for critical issues).
-4. **Disclosure**: once the fix is released, we coordinate public disclosure
-   with the reporter and credit them unless they request anonymity.
-
-We follow the coordinated-disclosure model: no public details before a
-fix is available.
+3. Fix and release: the fix lands on `master`, then in a supported 0.5.x
+   release. Critical issues follow
+   [docs/security/incident-runbook.md](docs/security/incident-runbook.md).
+4. Disclose through a GitHub Security Advisory and the changelog, then
+   credit the reporter unless they ask to stay anonymous.
 
 ## Supply-chain and secret handling notes
 
@@ -144,11 +189,11 @@ glib unsoundness and unmaintained crates below, are retained in the sanitized
 reports and logs rather than ignored or described as fixes. These warnings
 remain dependency risk for release review.
 
-- **[GHSA-7pqw-9j4j-h8q3](https://github.com/advisories/GHSA-7pqw-9j4j-h8q3) (CVE-2026-19693) and GHSA-jmr9-qjv8-65gv —
+- **[GHSA-7pqw-9j4j-h8q3](https://github.com/advisories/GHSA-7pqw-9j4j-h8q3) (CVE-2026-19693) and GHSA-jmr9-qjv8-65gv:
   extract-zip 2.0.1 (npm, dev-only)**. A crafted archive plants a symlink and
   then writes a later entry through it, escaping the destination directory
   (path traversal, CWE-22; CVSS 8.1 for the CVE). No patched release exists
-  on npm — 2.0.1 remains the latest published version — so the mitigation is a
+  on npm (2.0.1 remains the latest published version), so the mitigation is a
   pnpm patch, `patches/extract-zip@2.0.1.patch`. It rejects absolute and
   out-of-tree symlink targets on creation and refuses to write a regular entry
   through an existing symlink leaf (matching upstream PR #160).
@@ -170,13 +215,13 @@ remain dependency risk for release review.
   this package: its scanner does not evaluate local patch files. That is
   expected and must not be described as an upstream fix.
 
-- **GHSA-ggr8-5vv4-36mx — deepmerge-ts 7.1.5 (npm, dev-only)**. Recursive
+- **GHSA-ggr8-5vv4-36mx: deepmerge-ts 7.1.5 (npm, dev-only)**. Recursive
   object graphs can exhaust the stack. WDIO still declares the vulnerable
   7.x range, so the workspace pins the compatible patched 8.0.0 release via
   a documented override. The resolved graph no longer contains 7.x; remove
   the override when WDIO widens its dependency range.
 
-- **[RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html) (GHSA-wrw7-89jp-8q8g) — glib 0.18.x (cargo, desktop runtime)**.
+- **[RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html) (GHSA-wrw7-89jp-8q8g): glib 0.18.x (cargo, desktop runtime)**.
   Unsoundness in `Iterator`/`DoubleEndedIterator` impls for
   `glib::VariantStrIter`; fixed in glib 0.20.0. The whole gtk-rs 0.18 stack
   (gtk/gdk/gio/pango/atk, pulled by `tao`, `wry`, `tray-icon`, `tauri`)

@@ -34,6 +34,10 @@ update, not for someone reading the commit log.
   default build has none. An uploader without an explicit check, or with
   an empty endpoint, counts as unconfigured. Existing automatic-consent
   records migrate to denied.
+- Vulnerability reports now have stated response times, a `security.txt`
+  endpoint, an incident runbook, and CI scans (CodeQL, cargo-deny, gitleaks,
+  OSV-Scanner, and dependency review). Report privately to
+  security@varve.studio or through GitHub private vulnerability reporting.
 
 ### Added
 

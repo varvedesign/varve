@@ -1,0 +1,101 @@
+name: Found a bug while making this
+description: Hit a bug or rough edge while making a challenge entry or project in Varve? Tell us here.
+labels: ["found-in-challenge", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Something went wrong while you were making a project or a challenge
+        entry? Tell us what happened. Two short answers are enough.
+
+        If this is a general problem, not tied to something you were making,
+        you can use a
+        [bug report](https://github.com/varvedesign/varve/issues/new?template=bug_report.yml)
+        instead.
+
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened?
+      description: What went wrong, in your own words.
+      placeholder: "The text jumped off the page when I resized the box..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: making
+    attributes:
+      label: What were you making?
+      description: The project or challenge name. If you already posted it, you can paste the link.
+      placeholder: "October poster challenge, or a link to your Show and tell post"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Which version of Varve? (optional)
+      description: "Open Help > About, or look at the window title."
+      placeholder: "0.5.1"
+
+  - type: dropdown
+    id: obtained-as
+    attributes:
+      label: How did you get Varve? (optional)
+      description: Skip this if you are not sure.
+      options:
+        - AppImage
+        - .deb (Debian or Ubuntu)
+        - .rpm (Fedora)
+        - Arch or CachyOS package
+        - Windows
+        - macOS
+        - The web demo in a browser
+
+  - type: input
+    id: os-device
+    attributes:
+      label: Which computer are you on? (optional)
+      description: The system and the kind of machine, if you know.
+      placeholder: "Windows 11 laptop, a MacBook, Ubuntu 24.04..."
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: How much did this get in the way? (optional)
+      description: "Skip this if you are not sure. Example: I found a way around it."
+      options:
+        - I could not finish
+        - I found a way around it
+        - It was awkward or confusing
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: What were you doing when it happened? (optional)
+      description: A few steps help if you remember them. Skip this if you do not.
+      placeholder: |
+        1. I typed in a text box
+        2. I dragged a corner to make it smaller
+        3. The words jumped outside the box
+
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: What did you expect instead? (optional)
+      description: What you thought would happen, if that is different from what you already wrote.
+      placeholder: "I expected the words to stay in the box. They jumped outside instead."
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Pictures or files (optional)
+      description: Only share files you are happy to make public. To share a .varve file, put it in a .zip first.
+      placeholder: "A picture, or a .zip of the file"
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else? (optional)
+      description: Add more if you want. You can skip this.
+      placeholder: "It only happens on the second page, or I can still save..."
