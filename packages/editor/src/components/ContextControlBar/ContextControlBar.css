@@ -296,7 +296,10 @@
 }
 
 /* The swatch trigger keeps the shared 24px insp-swatch target (WCAG 2.5.8);
- * the CCB previously shrank it to 20px, below the floor. */
+ * the CCB previously shrank it to 20px, below the floor. The popover's
+ * `className` replaces its default, so the caller passes both classes:
+ * with `ccb__swatch` alone the empty button collapsed to its padding and
+ * border, a 14x4px strip (F-16). */
 .context-control-bar .ccb__swatch.insp-swatch {
   padding: 0;
   border-radius: var(--radius-control-compact);

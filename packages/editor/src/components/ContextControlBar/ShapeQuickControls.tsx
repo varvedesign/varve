@@ -191,7 +191,7 @@ export function ShapeQuickControls({
             value={fillColor ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
             onChange={changeFillColor}
             swatchStyle={fillStyle}
-            className="ccb__swatch"
+            className="insp-swatch ccb__swatch"
             disabled={Boolean(fillDisabledReason)}
             tooltipDisabledReason={fillDisabledReason}
             documentColorMode={documentColorMode}
@@ -214,7 +214,7 @@ export function ShapeQuickControls({
                 value={strokeColor ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
                 onChange={(color) => patchStroke((s) => ({ ...s, color, gradient: undefined }))}
                 swatchStyle={strokeStyle}
-                className="ccb__swatch"
+                className="insp-swatch ccb__swatch"
                 disabled={Boolean(strokeDisabledReason)}
                 tooltipDisabledReason={strokeDisabledReason}
                 documentColorMode={documentColorMode}
