@@ -190,6 +190,23 @@ describe('Menu', () => {
     expect(menu?.parentElement?.parentElement).toBe(document.body);
   });
 
+  it('stays open when the pointer leaves a root menu', () => {
+    // F-49: every menu scheduled its own close 150ms after pointerleave, so a
+    // context menu vanished when the pointer overshot its edge.
+    vi.useFakeTimers();
+    try {
+      const onClose = vi.fn();
+      render(<TestMenu open onClose={onClose} />);
+      const menu = document.body.querySelector('[role="menu"]') as HTMLElement;
+      fireEvent.pointerEnter(menu);
+      fireEvent.pointerLeave(menu);
+      vi.advanceTimersByTime(500);
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('does not render items when closed', () => {
     render(<TestMenu open={false} onClose={vi.fn()} />);
     expect(document.body.querySelector('[role="menu"]')).toBeNull();

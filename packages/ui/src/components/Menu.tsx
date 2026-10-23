@@ -928,7 +928,12 @@ function MenuInternal({
         clearSubmenuClose();
         cancelParentClose?.();
       }}
-      onPointerLeave={scheduleSubmenuClose}
+      // Only a submenu closes when the pointer leaves it (moving back to the
+      // parent row). A root menu closed 150ms after the pointer slipped past
+      // its edge, so overshooting while reading dismissed it; it stays open
+      // until an outside press, Escape or a choice (shell audit 2026-10-22,
+      // F-49).
+      onPointerLeave={cancelParentClose ? scheduleSubmenuClose : undefined}
     >
       {renderedItems}
       {shouldLimitItems && (
