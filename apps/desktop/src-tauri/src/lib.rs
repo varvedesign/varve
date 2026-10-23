@@ -6371,6 +6371,51 @@ mod tests {
     }
 
     #[test]
+    fn birefnet_preflight_uses_the_measured_native_peak() {
+        // bgremove_bench: 432 MiB peak RSS across a 12-image corpus with the
+        // bundled ORT CPU build and the arena disabled (2026-10-22). The bound
+        // allows measurement noise but catches a return to the 7 GB
+        // browser/WASM working-set figure, which refused High quality on hosts
+        // with gigabytes free.
+        let model = varve_bgremove::model::model_info("birefnet-general-lite").expect("lite model");
+        let peak = model.peak_memory_bytes.expect("measured native peak");
+        assert!(
+            (400 * 1024 * 1024..=500 * 1024 * 1024).contains(&peak),
+            "native BiRefNet Lite peak changed to {peak} bytes; re-measure before changing this bound"
+        );
+
+        // A 480x640 source at this peak fits ordinary 1.5 GB of headroom.
+        let required =
+            generative_resources::estimated_required_memory_bytes_for_model(480, 640, peak)
+                .expect("valid dimensions");
+        assert!(
+            required < 600 * 1024 * 1024,
+            "High quality must fit a modest host: required {required} bytes"
+        );
+        assert!(
+            generative_resources::memory_shortage_error(
+                "Native background removal",
+                required,
+                1536 * 1024 * 1024,
+                "x86_64",
+            )
+            .is_none(),
+            "1.5 GB of headroom must admit High quality"
+        );
+        // A genuinely starved host still refuses, with an actionable message.
+        let refusal = generative_resources::memory_shortage_error(
+            "Native background removal",
+            required,
+            64 * 1024 * 1024,
+            "aarch64",
+        )
+        .expect("a starved host must be refused");
+        assert!(refusal.contains("Native background removal"));
+        assert!(refusal.contains("aarch64"));
+        assert!(refusal.contains("MiB"));
+    }
+
+    #[test]
     fn model_qualification_is_bound_to_the_current_platform_and_architecture() {
         let resource = generative_resources::NativeResourceSnapshot {
             available_memory_bytes: Some(8 * 1024 * 1024 * 1024),

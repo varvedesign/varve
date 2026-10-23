@@ -196,7 +196,7 @@ fn snapshot_with_requirement(required_memory_bytes: u64) -> NativeResourceSnapsh
     }
 }
 
-fn memory_shortage_error(
+pub(crate) fn memory_shortage_error(
     operation: &str,
     required_memory_bytes: u64,
     available_memory_bytes: u64,

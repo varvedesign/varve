@@ -100,9 +100,10 @@ describe('nativeGenerativeProvider', () => {
     resetInferenceAdmission();
     setDerivedWorkAdmissionForTest(new DerivedWorkAdmission({ maxReservedBytes: 400_000_000 }));
 
-    await expect(nativeGenerativeProvider.infer(request())).rejects.toMatchObject({
-      code: 'insufficient-memory',
-    });
+    const error = await nativeGenerativeProvider.infer(request()).catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'insufficient-memory' });
+    expect((error as Error).message).toMatch(/Not enough free memory/i);
+    expect((error as Error).message).not.toMatch(/\d{6,} bytes/);
     expect(invoke).not.toHaveBeenCalled();
   });
 

@@ -157,6 +157,16 @@ export interface ModelManifestEntry {
   speed?: number;
   /** Estimated peak memory during inference (bytes). */
   peakMemoryBytes?: number;
+  /**
+   * Measured peak for the *native* desktop runtime, when it differs from
+   * `peakMemoryBytes`.
+   *
+   * The two are not interchangeable: a model can be bounded by the webview's
+   * WASM budget and comfortable natively (or the reverse). Native preflights
+   * and native-facing copy must use this figure; browser admission keeps using
+   * `peakMemoryBytes`.
+   */
+  nativePeakMemoryBytes?: number;
   /** Whether GPU acceleration is strongly recommended. */
   gpuRecommended?: boolean;
   /** How many concurrent sessions to cache (-1 = unlimited). */

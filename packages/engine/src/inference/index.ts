@@ -158,7 +158,7 @@ export {
   InferenceWorkerHost,
 } from './inferenceWorkerHost';
 export { ModelRegistry } from './ModelRegistry';
-export { getModelById, listAllModels } from './modelCatalog';
+export { getModelById, listAllModels, resolveModelPeakMemoryBytes } from './modelCatalog';
 export type {
   EfficientSamDecoderOutput,
   EfficientSamMaskCandidate,

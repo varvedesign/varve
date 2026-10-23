@@ -1,5 +1,11 @@
 import type { ModelAcquisition } from '@varve/engine';
-import { getModelLoaderReady, listAllModels, resolveAcquisition } from '@varve/engine';
+import {
+  getModelLoaderReady,
+  getRuntimeCapabilitiesSync,
+  listAllModels,
+  resolveAcquisition,
+  resolveModelPeakMemoryBytes,
+} from '@varve/engine';
 import { Button, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { modelRequirementLabel } from '../../modelRequirements';
@@ -27,7 +33,9 @@ async function buildRows(
       id: model.id,
       name: model.name,
       size: model.sizeBytes,
-      peakMemoryBytes: model.peakMemoryBytes,
+      peakMemoryBytes: resolveModelPeakMemoryBytes(model, {
+        native: getRuntimeCapabilitiesSync().isTauri,
+      }),
       installed,
       source: model.bundled
         ? 'bundled'

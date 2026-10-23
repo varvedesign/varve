@@ -111,7 +111,13 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         name: "BiRefNet Lite".to_owned(),
         description: "224 MB — high quality, handles complex edges".to_owned(),
         size_bytes: 224_005_088,
-        peak_memory_bytes: Some(7_000_000_000),
+        // Measured, not estimated: `bgremove_bench` reported a peak RSS of
+        // 432 MiB across the 12-case corpus on the bundled ORT 1.27.1 CPU
+        // build with the arena disabled (2026-10-22). The previous 7.0 GB was
+        // a browser/WASM working-set figure; using it here made the native
+        // preflight refuse High quality on hosts with several GB free
+        // (docs/audits/derived-work-admission-defect-2026-10-22.md).
+        peak_memory_bytes: Some(450_000_000),
         remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx".to_owned(),
         checksum_sha256: Some(
             "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333".into(),
@@ -461,7 +467,10 @@ mod tests {
         assert!(lite.remote_url.contains("rembg"));
         assert!(lite.remote_url.contains("BiRefNet-general-bb_swin"));
         assert_eq!(lite.size_bytes, 224_005_088);
-        assert_eq!(lite.peak_memory_bytes, Some(7_000_000_000));
+        // Native measured peak (bgremove_bench, 2026-10-22), not the browser
+        // working-set estimate. A regression here silently refuses High quality
+        // on hosts that can run it, or admits it on hosts that cannot.
+        assert_eq!(lite.peak_memory_bytes, Some(450_000_000));
 
         let balanced = model_info("isnet-general-use").expect("enhanced balanced model");
         assert_eq!(balanced.size_bytes, 178_648_008);

@@ -119,7 +119,15 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 4.5,
     precision: 'fp32',
     category: 'segmentation',
+    // Browser/WASM working-set figure. It is deliberately conservative: the
+    // webview path is the one that aborts at the wasm32 ceiling, so admission
+    // there stays strict until a measured WASM peak replaces this number.
     peakMemoryBytes: 7_000_000_000,
+    // Native measured peak (bgremove_bench, bundled ORT CPU, arena disabled,
+    // 2026-10-22: 432 MiB over a 12-image corpus). Native preflights and the
+    // model panel use this; charging 7 GB natively refused High quality on
+    // hosts with gigabytes free.
+    nativePeakMemoryBytes: 450_000_000,
     gpuRecommended: true,
   },
   {
@@ -1208,6 +1216,26 @@ export function isModelReady(modelId: string): boolean {
 export function getModelById(modelId: string): ModelManifestEntry | undefined {
   const reg = getModelRegistry();
   return reg.getEntry(modelId) ?? FALLBACK_ENTRIES.find((e) => e.id === modelId);
+}
+
+/**
+ * Peak memory for the runtime that will actually run the model.
+ *
+ * The catalog keeps one figure per execution family because they are not
+ * interchangeable: a model can be bounded by the webview's WASM budget and
+ * comfortable natively (BiRefNet Lite: ~450 MB natively, ~7 GB declared for the
+ * browser). Callers that gate native work, or that label requirements in the
+ * desktop app, must ask for the native figure instead of reading
+ * `peakMemoryBytes` directly.
+ */
+export function resolveModelPeakMemoryBytes(
+  entry: { peakMemoryBytes?: number; nativePeakMemoryBytes?: number },
+  options: { native: boolean },
+): number | undefined {
+  if (options.native && entry.nativePeakMemoryBytes !== undefined) {
+    return entry.nativePeakMemoryBytes;
+  }
+  return entry.peakMemoryBytes;
 }
 
 export function listAllModels(): ModelManifestEntry[] {

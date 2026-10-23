@@ -447,10 +447,12 @@ fn provider_cache_key(model_path: &Path, provider: &str) -> String {
 }
 
 fn model_memory_estimate(model_path: &Path) -> u64 {
-    // The graph file size is a poor reservation: BiRefNet Lite is a 224 MB
-    // file but its measured native CPU peak is about 7 GB. Use the canonical
-    // model metadata for cache eviction and diagnostics, with a conservative
-    // file-size fallback for future models that have not yet been qualified.
+    // The graph file size is a poor reservation on its own: BiRefNet Lite is a
+    // 224 MB file whose measured native CPU peak RSS is ~432 MiB, while models
+    // with larger decoders (IS-Net) need several times their file size. Use the
+    // canonical model metadata for cache eviction and diagnostics, with a
+    // conservative file-size fallback for future models that have not yet been
+    // qualified.
     let model_id = model_path
         .file_stem()
         .and_then(|name| name.to_str())

@@ -56,12 +56,14 @@ export const AI_PROVIDER_CHAIN: RemovalProvider[] = [
  * memory and, in the worst case, crash with std::bad_alloc on
  * GPU-less hosts (docs/audits/background-removal-wasm-memory-hardening-
  * 2026-07-18.md — reproduced deterministically at ~4GB RSS, the wasm32
- * linear-memory ceiling). Native execution of the same model peaks around
- * 445MB. When the Tauri desktop build has successfully loaded a native
- * onnxruntime dylib (`isNativeAiReady()` — a runtime-verified check, not
- * just "the ai feature was compiled in"), prefer it over Worker ONNX. If the
- * selected native model is absent, dispatch continues to the worker fallback
- * (U²-Net Light for Balanced).
+ * linear-memory ceiling). Native execution avoids that ceiling, but it is not
+ * free: each model has a measured retained-RSS profile in the catalog
+ * (`peakMemoryBytes`), and that figure — not the artifact size — is what the
+ * native OS/cgroup preflight checks before a session loads. When the Tauri
+ * desktop build has successfully loaded a native onnxruntime dylib
+ * (`isNativeAiReady()` — a runtime-verified check, not just "the ai feature was
+ * compiled in"), prefer it over Worker ONNX. If the selected native model is
+ * absent, dispatch continues to the worker fallback (U²-Net Light for Balanced).
  */
 async function getProviderOrder(
   options: BackgroundRemovalOptions,

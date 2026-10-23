@@ -17,6 +17,14 @@ export interface ModelInfo {
   readonly estimatedPeakRamBytes: number;
   /** Human-readable peak memory string. */
   readonly peakRamDisplay: string;
+  /**
+   * Peak memory for native desktop execution (bytes), when it is measured and
+   * differs from the browser figure. Optional so browser-only models keep one
+   * honest number.
+   */
+  readonly nativeEstimatedPeakRamBytes?: number;
+  /** Human-readable native peak memory string, e.g. "~450 MB". */
+  readonly nativePeakRamDisplay?: string;
   /** Human-readable disk size string. */
   readonly diskSizeDisplay: string;
   /** Quality tier label. */
@@ -60,10 +68,17 @@ export const AI_QUALITY_MODEL_INFO: ModelInfo = {
   label: 'High quality',
   description: 'BiRefNet Lite for hair, fur, and complex edges.',
   diskSizeBytes: 224_000_000,
-  // Measured retained RSS (native CPU, arena disabled, 2026-08-13 parity
-  // audit): ~6.8 GB. Only recommend on machines with enough RAM.
+  // Browser/WASM working set. Deliberately conservative: the webview path is
+  // the one that aborts at the wasm32 ceiling, and no measured WASM peak has
+  // replaced this figure yet.
   estimatedPeakRamBytes: 6_800_000_000,
-  peakRamDisplay: '~7 GB RAM',
+  peakRamDisplay: '~7 GB RAM in a browser',
+  // Native measured peak: bgremove_bench on the bundled ORT CPU build with the
+  // arena disabled reported 432 MiB peak RSS across a 12-image corpus
+  // (2026-10-22). The 2026-08-13 figure that produced 6.8 GB is not
+  // reproducible on this path.
+  nativeEstimatedPeakRamBytes: 450_000_000,
+  nativePeakRamDisplay: '~450 MB RAM on desktop',
   diskSizeDisplay: '224 MB',
   quality: 'Best',
   requiresDownload: true,

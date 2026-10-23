@@ -914,6 +914,7 @@ export {
   resetRuntimeCapabilities,
   resizeEfficientSamDimensions,
   resolveAcquisition,
+  resolveModelPeakMemoryBytes,
   routePromptedSelection,
   runProviderChain,
   SAM2_CAPABILITIES,

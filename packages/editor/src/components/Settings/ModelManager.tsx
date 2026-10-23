@@ -12,6 +12,7 @@ import {
   listAllModels,
   resetRuntimeCapabilities,
   resolveAcquisition,
+  resolveModelPeakMemoryBytes,
 } from '@varve/engine';
 import { Button, Icon, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -115,9 +116,15 @@ export function ModelManager() {
         const state = await dm.getDownloadState(entry.id);
         const isReady = state === 'ready';
 
+        // Native peaks differ from browser working sets (BiRefNet Lite: 432 MiB
+        // measured natively, ~7 GB declared for the webview). Warning desktop
+        // users about the browser figure told them High quality needed >4 GB
+        // when it needed half a gigabyte.
+        const peakMemoryBytes = resolveModelPeakMemoryBytes(entry, { native: runtimeCaps.isTauri });
+
         let memoryWarning: string | undefined;
-        if (entry.peakMemoryBytes && runtimeCaps.memoryTier === 'low') {
-          const peakMB = Math.round(entry.peakMemoryBytes / 1_000_000);
+        if (peakMemoryBytes && runtimeCaps.memoryTier === 'low') {
+          const peakMB = Math.round(peakMemoryBytes / 1_000_000);
           if (peakMB > 500) {
             memoryWarning = `~${peakMB}MB peak — may be slow on ${Math.round((runtimeCaps.approximateMemoryMB ?? 4096) / 1024)}GB systems`;
           }
@@ -131,9 +138,9 @@ export function ModelManager() {
           } else if (acquisition.kind === 'generated') {
             availabilityReason = 'Build from source weights (see tools/ddcolor-export/)';
           } else if (
-            entry.peakMemoryBytes &&
+            peakMemoryBytes &&
             runtimeCaps.memoryTier === 'low' &&
-            entry.peakMemoryBytes > 1_000_000_000
+            peakMemoryBytes > 1_000_000_000
           ) {
             availabilityReason = 'Too large for this device (requires >4GB RAM)';
           }

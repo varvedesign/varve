@@ -11,6 +11,14 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@varve/engine', () => ({
+  getRuntimeCapabilitiesSync: () => ({ isTauri: false }),
+  resolveModelPeakMemoryBytes: (
+    entry: { peakMemoryBytes?: number; nativePeakMemoryBytes?: number },
+    options?: { native?: boolean },
+  ) =>
+    options?.native && entry.nativePeakMemoryBytes !== undefined
+      ? entry.nativePeakMemoryBytes
+      : entry.peakMemoryBytes,
   resolveAcquisition: (entry: { bundled: boolean; remoteUrl: string; checksum: string }) => {
     if (entry.bundled)
       return {

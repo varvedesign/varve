@@ -8,8 +8,10 @@
 import {
   deriveAcquisition,
   getModelLoaderReady,
+  getRuntimeCapabilitiesSync,
   listAllModels,
   type RemovalMethod,
+  resolveModelPeakMemoryBytes,
   workerModelIdForMethod,
 } from '@varve/engine';
 import { Button, RegionLoader } from '@varve/ui';
@@ -65,7 +67,9 @@ async function buildRows(
         id: model.id,
         name: model.name,
         size: model.components.reduce((sum, c) => sum + c.sizeBytes, 0),
-        peakMemoryBytes: model.peakMemoryBytes,
+        peakMemoryBytes: resolveModelPeakMemoryBytes(model, {
+          native: getRuntimeCapabilitiesSync().isTauri,
+        }),
         installed: componentAvailability.every(Boolean),
         source: componentAvailability.some(Boolean) ? 'downloaded' : 'none',
         downloadable: model.components.every((c) => Boolean(c.remoteUrl)),
@@ -82,7 +86,9 @@ async function buildRows(
       id: model.id,
       name: model.name,
       size: model.sizeBytes,
-      peakMemoryBytes: model.peakMemoryBytes,
+      peakMemoryBytes: resolveModelPeakMemoryBytes(model, {
+        native: getRuntimeCapabilitiesSync().isTauri,
+      }),
       installed,
       source: model.bundled
         ? 'bundled'
