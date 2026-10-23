@@ -123,9 +123,36 @@ test.describe('Layers Panel - Drag & Drop', () => {
     await expect.poll(async () => rows.allTextContents()).toEqual(before);
   });
 
-  test('dragging from the layer name scrubs selection without starting structural DnD', async ({
-    page,
-  }, testInfo) => {
+  test('dragging from the layer name starts structural DnD', async ({ page }) => {
+    await seedLayers(page, 3);
+
+    const rows = page.getByRole('treeitem');
+    await expect(rows).toHaveCount(3);
+    const before = await rows.allTextContents();
+    const sourceName = rows.nth(1).locator('.layers-row__name');
+    const target = rows.nth(0);
+    const sourceBox = await sourceName.boundingBox();
+    const targetBox = await target.boundingBox();
+    if (!sourceBox || !targetBox) throw new Error('layer row geometry unavailable');
+
+    await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 2, { steps: 8 });
+
+    await expect(page.locator('.drag-overlay')).toBeVisible();
+    await expect(page.locator('.layers-row--drop-before')).toBeVisible();
+    await page.mouse.up();
+
+    await expect.poll(async () => rows.allTextContents()).not.toEqual(before);
+    expect((await rows.allTextContents())[0]).toBe(before[1]);
+
+    // One undo restores the authored order: the row drag is the same
+    // transaction as the Arrange commands.
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => rows.allTextContents()).toEqual(before);
+  });
+
+  test('Shift+dragging from the layer name scrubs a selection', async ({ page }, testInfo) => {
     await seedLayers(page, 3);
 
     const rows = page.getByRole('treeitem');
@@ -138,6 +165,7 @@ test.describe('Layers Panel - Drag & Drop', () => {
     const targetBox = await targetName.boundingBox();
     if (!sourceBox || !targetBox) throw new Error('layer row geometry unavailable');
 
+    await page.keyboard.down('Shift');
     await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
     await page.mouse.down();
     await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
@@ -152,6 +180,7 @@ test.describe('Layers Panel - Drag & Drop', () => {
     });
     expect(await page.evaluate(() => window.getSelection()?.toString() ?? '')).toBe('');
     await page.mouse.up();
+    await page.keyboard.up('Shift');
 
     await expect
       .poll(async () => page.locator('[role="treeitem"][aria-selected="true"]').count())
