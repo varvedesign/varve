@@ -820,23 +820,9 @@ function LayersPanelContent({
                   size="rich"
                 />
               )}
-              <Tooltip
-                label={
-                  layerSettings.autoReveal
-                    ? 'Disable auto-reveal in Layers panel'
-                    : 'Enable auto-reveal in Layers panel'
-                }
-              >
-                <button
-                  type="button"
-                  className={`layers-panel__header-btn ${layerSettings.autoReveal ? 'layers-panel__header-btn--active' : ''}`}
-                  onClick={() => updateLayerSettings({ autoReveal: !layerSettings.autoReveal })}
-                  aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
-                  aria-pressed={layerSettings.autoReveal}
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
-                </button>
-              </Tooltip>
+              {/* Auto-reveal is the "Reveal canvas selection in Layers panel"
+                  item of the settings menu above; the header no longer
+                  repeats it as a second eye-shaped toggle (TC-18, F-27). */}
               <Tooltip label="Collapse all layers">
                 <button
                   type="button"
