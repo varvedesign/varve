@@ -5,90 +5,96 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this if you hit a bug or rough edge while making a challenge
-        entry or a project in Varve. For a general bug that is not tied to
-        something you were making, use a
+        Something went wrong while you were making a project or a challenge
+        entry? Tell us what happened. Two short answers are enough.
+
+        If this is a general problem, not tied to something you were making,
+        you can use a
         [bug report](https://github.com/varvedesign/varve/issues/new?template=bug_report.yml)
         instead.
 
   - type: textarea
+    id: happened
+    attributes:
+      label: What happened?
+      description: What went wrong, in your own words.
+      placeholder: "The text jumped off the page when I resized the box..."
+    validations:
+      required: true
+
+  - type: textarea
     id: making
     attributes:
-      label: What you were making
-      description: Challenge or project name. A link to your Discussions post is welcome if you have one.
-      placeholder: "Challenge name, or a link such as https://github.com/varvedesign/varve/discussions/..."
+      label: What were you making?
+      description: The project or challenge name. If you already posted it, you can paste the link.
+      placeholder: "October poster challenge, or a link to your Show and tell post"
+    validations:
+      required: true
 
   - type: input
     id: version
     attributes:
-      label: Varve version
-      description: Help, About, or the window title.
-    validations:
-      required: true
+      label: Which version of Varve? (optional)
+      description: "Open Help > About, or look at the window title."
+      placeholder: "0.5.1"
 
   - type: dropdown
     id: obtained-as
     attributes:
-      label: How you got it
+      label: How did you get Varve? (optional)
+      description: Skip this if you are not sure.
       options:
         - AppImage
-        - .deb
-        - .rpm
+        - .deb (Debian or Ubuntu)
+        - .rpm (Fedora)
         - Windows
         - macOS
-        - Web demo at /try
-    validations:
-      required: true
+        - The web demo at /try
 
   - type: input
     id: os-device
     attributes:
-      label: OS and device
-      placeholder: "Ubuntu 24.04 on a ThinkPad, Windows 11, macOS 15 on an M2 Mac..."
-    validations:
-      required: true
+      label: Which computer are you on? (optional)
+      description: The system and the kind of machine, if you know.
+      placeholder: "Windows 11 laptop, a MacBook, Ubuntu 24.04..."
 
   - type: dropdown
     id: severity
     attributes:
-      label: Severity
+      label: How much did this get in the way? (optional)
+      description: "Skip this if you are not sure. Example: I found a way around it."
       options:
-        - Blocks me from finishing
-        - Bug with a workaround
-        - Awkward or confusing
-    validations:
-      required: true
+        - I could not finish
+        - I found a way around it
+        - It was awkward or confusing
 
   - type: textarea
     id: repro
     attributes:
-      label: Steps to reproduce
-      description: The exact steps that trigger the problem.
+      label: What were you doing when it happened? (optional)
+      description: A few steps help if you remember them. Skip this if you do not.
       placeholder: |
-        1.
-        2.
-        3.
-    validations:
-      required: true
+        1. I typed in a text box
+        2. I dragged a corner to make it smaller
+        3. The words jumped outside the box
 
   - type: textarea
     id: expected-actual
     attributes:
-      label: Expected vs actual
-      description: What you expected, and what happened instead.
-    validations:
-      required: true
+      label: What did you expect instead? (optional)
+      description: What you thought would happen, if that is different from what you already wrote.
+      placeholder: "I expected the words to stay in the box. They jumped outside instead."
 
   - type: textarea
     id: attachments
     attributes:
-      label: Attachments (optional)
-      description: Only share files you are happy to make public; zip .varve files.
+      label: Pictures or files (optional)
+      description: Only share files you are happy to make public. To share a .varve file, put it in a .zip first.
+      placeholder: "A picture, or a .zip of the file"
 
-  - type: checkboxes
-    id: searched
+  - type: textarea
+    id: anything-else
     attributes:
-      label: Before submitting
-      options:
-        - label: I searched existing issues
-          required: true
+      label: Anything else? (optional)
+      description: Add more if you want. You can skip this.
+      placeholder: "It only happens on the second page, or I can still save..."

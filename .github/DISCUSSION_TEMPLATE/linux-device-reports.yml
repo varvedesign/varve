@@ -3,125 +3,140 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for testing Varve on a Linux machine. This helps us see what
-        works on real desktops.
+        Tried Varve on a Linux computer? Two questions are enough. The
+        rest is only if you want to add more.
 
   - type: input
     id: distro
     attributes:
-      label: Distro and version
-      placeholder: "Fedora 42, Ubuntu 24.04, Arch, CachyOS..."
+      label: Which Linux are you using?
+      description: The name you see when you check your system settings.
+      placeholder: "e.g. Fedora 41, Ubuntu 24.04, CachyOS"
     validations:
       required: true
 
-  - type: input
-    id: desktop
-    attributes:
-      label: Desktop environment and Wayland or X11
-      placeholder: "GNOME 48 on Wayland, KDE Plasma on X11..."
-
   - type: dropdown
-    id: package
+    id: how-it-went
     attributes:
-      label: Package used
+      label: How did it go?
+      description: "A quick overall feel is enough. Example: Worked with some problems."
       options:
-        - AppImage
-        - .deb
-        - .rpm
-        - PKGBUILD
+        - Worked well
+        - Worked with some problems
+        - Didn't work
+    validations:
+      required: true
 
   - type: input
     id: version
     attributes:
-      label: Varve version
-      description: Help, About, or the window title.
-    validations:
-      required: true
+      label: Which version of Varve? (optional)
+      description: "Open Help > About, or look at the window title."
+      placeholder: "0.5.1"
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Which download did you use? (optional)
+      description: Skip this if you are not sure. It is the file you downloaded.
+      options:
+        - AppImage
+        - .deb (Debian or Ubuntu)
+        - .rpm (Fedora)
+        - Arch or CachyOS package
+
+  - type: input
+    id: desktop
+    attributes:
+      label: Desktop setup (optional)
+      description: Skip this if you are not sure. Some people know GNOME or KDE, and Wayland or X11.
+      placeholder: "GNOME on Wayland, KDE on X11..."
 
   - type: input
     id: hardware
     attributes:
-      label: CPU, GPU and driver
-      placeholder: "Ryzen 7 7800X3D, AMD RX 7800 XT, mesa 25.x"
+      label: Graphics card (optional)
+      description: Skip this if you are not sure.
+      placeholder: "AMD RX 7800 XT, NVIDIA RTX 4070, Intel built-in..."
 
   - type: input
     id: ram
     attributes:
-      label: RAM
-      placeholder: "32 GB"
+      label: Memory (optional)
+      description: How much memory the computer has, if you know.
+      placeholder: "16 GB, 32 GB"
 
   - type: input
     id: scaling
     attributes:
-      label: Screen scaling
-      placeholder: "100%, 125%, 200%, mixed DPI..."
+      label: Screen scaling (optional)
+      description: The size setting for text and windows, if you changed it.
+      placeholder: "100%, 125%, 200%"
 
   - type: input
     id: tablet
     attributes:
-      label: Pen or tablet
+      label: Pen or tablet (optional)
+      description: Skip this if you draw with a mouse.
       placeholder: "None, Wacom Intuos, XP-Pen..."
 
   - type: dropdown
     id: launched
     attributes:
-      label: Did it launch?
+      label: Did Varve open? (optional)
+      description: Skip this if the first answer already covers it.
       options:
-        - Works
-        - Problems
+        - Worked
+        - Had problems
         - Did not try
-    validations:
-      required: true
 
   - type: dropdown
     id: open-save
     attributes:
-      label: Did open and save work?
+      label: Could you open and save files? (optional)
+      description: Skip this if you did not try.
       options:
-        - Works
-        - Problems
+        - Worked
+        - Had problems
         - Did not try
-    validations:
-      required: true
 
   - type: dropdown
     id: export
     attributes:
-      label: Did export work?
+      label: Could you export? (optional)
+      description: Skip this if you did not try.
       options:
-        - Works
-        - Problems
+        - Worked
+        - Had problems
         - Did not try
-    validations:
-      required: true
 
   - type: dropdown
     id: performance
     attributes:
-      label: Was performance OK?
+      label: Did it feel fast enough? (optional)
+      description: Skip this if you only opened it briefly.
       options:
-        - Works
-        - Problems
+        - Worked
+        - Had problems
         - Did not try
-    validations:
-      required: true
-
-  - type: textarea
-    id: notes
-    attributes:
-      label: Notes
-      description: What worked, what did not, and anything surprising.
 
   - type: textarea
     id: version-output
     attributes:
-      label: Version output (optional)
-      description: Paste `varve --version` or a screenshot of the About dialog.
+      label: Error details (optional, only if you have them)
+      description: Paste a short error note or drop a picture. Please take out anything private first.
+      placeholder: "A short error message, or a picture of the About window..."
 
   - type: checkboxes
     id: privacy
     attributes:
-      label: Privacy
+      label: Private details (optional)
       options:
-        - label: I removed anything private from logs or screenshots.
-          required: true
+        - label: I took out anything private from pictures or error details.
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else? (optional)
+      description: Add more if you want. You can skip this.
+      placeholder: "It froze when I zoomed in, or the pen buttons did not work..."

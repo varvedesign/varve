@@ -3,56 +3,70 @@ body:
   - type: markdown
     attributes:
       value: |
-        Share something you made in Varve. A picture is required so other
-        people can see it.
+        Share something you made in Varve. A picture and a short note are
+        enough.
 
-        Hit a bug while you were making it? You can also open a
-        [Found a bug while making this](https://github.com/varvedesign/varve/issues/new?template=found-while-making.yml)
-        issue.
-
-  - type: textarea
-    id: what-you-made
-    attributes:
-      label: What you made
-      description: Tell us about the piece, project, or challenge entry.
-      placeholder: A poster, a logo study, a page from a zine...
-    validations:
-      required: true
-
-  - type: input
-    id: version-platform
-    attributes:
-      label: Varve version and platform
-      description: Help, About, or the window title. Include the OS, or say if you used the web demo.
-      placeholder: "0.x.x on Linux AppImage, Windows, macOS, or the web demo at /try"
-    validations:
-      required: true
+        Something broke while you were making it? You can also open
+        [Found a bug while making this](https://github.com/varvedesign/varve/issues/new?template=found-while-making.yml).
 
   - type: textarea
     id: image
     attributes:
-      label: Image
-      description: Drag and drop at least one image of what you made.
+      label: Picture of what you made
+      description: Drag and drop a picture here.
+      placeholder: "Drag a picture into this box"
     validations:
       required: true
 
   - type: textarea
-    id: source-file
+    id: what-you-made
     attributes:
-      label: Source file (optional)
-      description: To share a .varve file, put it in a .zip first.
+      label: What did you make?
+      description: A sentence is enough.
+      placeholder: "A poster for a local gig, a logo for a bakery, a page from a zine..."
+    validations:
+      required: true
 
   - type: checkboxes
     id: rights
     attributes:
-      label: Sharing
+      label: This is okay to share
+      description: We need this one so we know the picture can stay up.
       options:
         - label: This is my own work, or I have the right to share it.
           required: true
-        - label: I'm happy for Varve to feature this with credit (you can change your mind any time by commenting here).
+
+  - type: input
+    id: version-platform
+    attributes:
+      label: Which version of Varve? (optional)
+      description: "Open Help > About, or look at the window title. You can also say Windows, Mac, Linux, or the web demo."
+      placeholder: "0.5.1 on a Mac"
+
+  - type: textarea
+    id: source-file
+    attributes:
+      label: Your Varve file (optional)
+      description: To share a .varve file, put it in a .zip first.
+      placeholder: "Drag and drop a .zip here"
 
   - type: input
     id: challenge
     attributes:
       label: Challenge name (optional)
-      description: If this is a challenge entry, name the challenge.
+      description: If this was for a challenge, you can name it here.
+      placeholder: "October poster challenge"
+
+  - type: checkboxes
+    id: feature-ok
+    attributes:
+      label: Happy for us to show this? (optional)
+      options:
+        - label: I'm happy for Varve to feature this with credit (you can change your mind any time by commenting here).
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else? (optional)
+      description: Add more if you want. You can skip this.
+      placeholder: "How long it took, tools you used, or a link to more pictures..."
