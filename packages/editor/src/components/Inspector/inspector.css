@@ -7200,7 +7200,7 @@ fieldset.insp-canvas-props,
    * that no measurement in this audit flagged. Raising it to the label role is
    * a design decision with its own visual review, tracked separately.
    * See docs/architecture/interface-sizing-system.md -> "Typography roles". */
-  --insp-label-size: 0.75rem;
+  --insp-label-size: var(--font-size-2xs);
   --insp-value-size: clamp(0.75rem, calc(0.7255rem + 0.1087vw), 0.8125rem);
   --insp-numeric-rail: 9ch;
   --insp-preview-max-inline-size: 20rem;
