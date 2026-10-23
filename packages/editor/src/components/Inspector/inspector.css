@@ -4055,20 +4055,16 @@ fieldset.insp-canvas-props,
 .intelligence-section__title {
   font-size: var(--font-size-sm);
 }
-.intelligence-severity-dot {
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: 50%;
+.intelligence-severity-mark {
+  display: inline-flex;
   flex-shrink: 0;
+  color: var(--color-feedback-info);
 }
-.intelligence-issue--error .intelligence-severity-dot {
-  background: var(--color-feedback-danger);
+.intelligence-issue--error .intelligence-severity-mark {
+  color: var(--color-feedback-danger);
 }
-.intelligence-issue--warning .intelligence-severity-dot {
-  background: var(--color-feedback-warning);
-}
-.intelligence-issue--info .intelligence-severity-dot {
-  background: var(--color-feedback-info);
+.intelligence-issue--warning .intelligence-severity-mark {
+  color: var(--color-feedback-warning);
 }
 .intelligence-issue__type {
   font-size: var(--font-size-xs);

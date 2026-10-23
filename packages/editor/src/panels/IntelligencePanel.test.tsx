@@ -98,6 +98,10 @@ describe('IntelligencePanel — Contrast tab', () => {
     switchToContrastTab();
     expect(screen.queryByText('No issues detected')).not.toBeInTheDocument();
     expect(screen.getByText(/WCAG AA minimum/i)).toBeInTheDocument();
+    // Severity is stated by an icon and text, not by a coloured dot alone.
+    const mark = document.querySelector('.intelligence-severity-mark');
+    expect(mark?.querySelector('svg')).not.toBeNull();
+    expect(mark?.textContent).toMatch(/^(Error|Warning|Info): $/);
 
     const autoFix = screen.getByRole('button', { name: /auto-fix/i });
     fireEvent.click(autoFix);
