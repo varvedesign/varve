@@ -26,8 +26,8 @@ function gitText(git, args) {
   return result.stdout.trim();
 }
 
-export function commonGitDirectory({ git = createGitAdapter(), cwd = process.cwd() } = {}) {
-  const value = gitText(git, ['rev-parse', '--git-common-dir']);
+export function commonGitDirectory({ git, cwd = process.cwd() } = {}) {
+  const value = gitText(git ?? createGitAdapter(cwd), ['rev-parse', '--git-common-dir']);
   return isAbsolute(value) ? value : resolve(cwd, value);
 }
 

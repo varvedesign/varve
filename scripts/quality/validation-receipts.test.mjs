@@ -3,10 +3,13 @@
 /** Exact identity and common-Git-directory receipt regression tests. */
 
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
+  commonGitDirectory,
   laneReceiptIdentity,
   readLaneReceipt,
   readReceipt,
@@ -50,6 +53,56 @@ const basePlan = {
 };
 
 try {
+  // The calling process is itself in a linked worktree. The requested cwd
+  // belongs to a different repository and must not inherit the caller's Git
+  // adapter (which returns an absolute common directory for linked trees).
+  const primary = join(commonDir, 'primary');
+  const linked = join(commonDir, 'linked');
+  const foreign = join(commonDir, 'foreign');
+  for (const cwd of [primary, foreign]) {
+    mkdirSync(cwd);
+    execFileSync('git', ['init', '-q'], { cwd });
+  }
+  execFileSync(
+    'git',
+    [
+      '-c',
+      'user.name=Receipt fixture',
+      '-c',
+      'user.email=fixture@example.invalid',
+      'commit',
+      '--allow-empty',
+      '-qm',
+      'fixture',
+    ],
+    { cwd: primary },
+  );
+  execFileSync('git', ['worktree', 'add', '--detach', '-q', linked], { cwd: primary });
+  const expected = execFileSync(
+    'git',
+    ['rev-parse', '--path-format=absolute', '--git-common-dir'],
+    { cwd: foreign, encoding: 'utf8' },
+  ).trim();
+  for (const module of ['./validation-receipts.mjs', './operation-history.mjs']) {
+    const moduleUrl = new URL(module, import.meta.url).href;
+    const actual = execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `import { commonGitDirectory } from ${JSON.stringify(moduleUrl)};
+         console.log(commonGitDirectory({ cwd: ${JSON.stringify(foreign)} }));`,
+      ],
+      { cwd: linked, encoding: 'utf8' },
+    ).trim();
+    assert.equal(
+      pathToFileURL(actual).href,
+      pathToFileURL(expected).href,
+      `${module}: requested cwd owns receipt storage, not the linked caller`,
+    );
+  }
+  assert.equal(commonGitDirectory({ cwd: foreign }), join(foreign, '.git'));
+
   const now = Date.parse('2026-08-31T12:00:00Z');
   const written = writeReceipt(basePlan, { commonDir, tools, now, commands: [['pnpm', 'test']] });
   assert.ok(existsSync(written.path));
