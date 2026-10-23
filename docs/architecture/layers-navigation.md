@@ -31,7 +31,7 @@ inside the section is stable:
 
 ```text
 Layers + document count + panel actions
-filter / advanced filter
+search field + Filter menu button, then active-filter tokens (when filtering)
 hierarchy tree
 contextual bulk actions (when two or more rows are selected)
 selection sets (when present)
@@ -49,6 +49,27 @@ semantic `searchbox`, tree projection, and existing ARIA state remain
 authoritative. Selection, type, color, mask, effects, motion, lock, and
 visibility cues continue to use the row presentation contract documented in
 `docs/audits/layers-panel-organization-audit-2026-08-31.md`.
+
+Filter options (type, attribute, blend mode, color tag) are one Filter menu
+that floats over the tree; checkable items keep it open while toggling, and
+each attribute filters for its presence or its absence, never both. Every
+active constraint appears under the field as a removable token; a pressed
+workspace quick filter is not repeated as a token. The menu button's name and
+badge carry the active count.
+
+## Search keyboard contract
+
+- Ctrl/Command+F anywhere inside the Layers panel focuses the search and
+  selects its text. It is handled by the panel's own keydown, so it never
+  reaches editor shortcuts or the browser's find bar.
+- Enter / Shift+Enter select the next / previous match after the primary
+  selection, wrapping at either end; focus stays in the field. The Previous
+  and Next match buttons do the same.
+- ArrowDown moves focus into the tree at the first match.
+- Escape clears the text first (other filters stay) and moves focus into the
+  tree second.
+- Stepping, `Select matches`, and the `n of m` count act on matches only: the
+  ancestors a filtered tree shows for context are never selected by them.
 
 ## Activation and focus contract
 

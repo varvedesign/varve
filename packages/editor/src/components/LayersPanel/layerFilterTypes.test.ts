@@ -99,6 +99,14 @@ describe('nodeMatchesFilter', () => {
     expect(nodeMatchesFilter(node, { ...DEFAULT_FILTER, search: 'circle' })).toBe(false);
   });
 
+  it('matches name words by prefix, as the tree does (F-51)', () => {
+    const node = makeTestShape({ name: 'Card 36 button' });
+    // A mid-word fragment is not a match in the tree, so it must not count.
+    expect(nodeMatchesFilter(node, { ...DEFAULT_FILTER, search: 'ard' })).toBe(false);
+    // Every term must start some word, in any order.
+    expect(nodeMatchesFilter(node, { ...DEFAULT_FILTER, search: 'butt card 3' })).toBe(true);
+  });
+
   it('filters by node kind', () => {
     const shape = makeTestShape();
     const text = makeTestText();

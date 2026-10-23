@@ -69,7 +69,7 @@ test.describe('layers rail geometry', () => {
     const aside = page.locator('#editor-layers-panel');
     const content = page.locator('.editor-layers.layers-panel__content');
     const bar = page.locator('.layers-filter-bar');
-    // Matches both states: the label flips to "Hide filter options" when open.
+    // The Filter menu trigger; its name gains an active count when filtering.
     const toggle = page.getByRole('button', { name: /filter options/i });
 
     await expect(content).toBeVisible();
@@ -94,8 +94,9 @@ test.describe('layers rail geometry', () => {
     expect(hitOk).toBe(true);
     await toggle.click({ trial: true });
     await toggle.click();
-    await expect(page.getByRole('group', { name: /filter by type and attributes/i })).toBeVisible();
-    await toggle.click();
+    await expect(page.getByRole('menu', { name: 'Filter layers' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu', { name: 'Filter layers' })).toBeHidden();
 
     // No part of the rail content extends past the rail itself.
     const asideBox = await aside.evaluate((el) => ({

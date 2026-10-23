@@ -1463,7 +1463,8 @@
 .layers-filter-bar__toggle-advanced:focus-visible,
 .layers-filter-bar__clear-all:focus-visible,
 .layers-filter-bar__chip:focus-visible,
-.layers-filter-bar__clear-tag:focus-visible {
+.layers-filter-bar__token:focus-visible,
+.layers-filter-bar__step-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
 }
@@ -1472,6 +1473,20 @@
   color: var(--color-interactive-default);
   border-color: color-mix(in oklab, var(--color-interactive-default) 30%, transparent);
   background: var(--color-accent-subtle);
+}
+
+/* The Filter button carries the active-constraint count, so a collapsed
+   filter is never silent about narrowing the tree. */
+.layers-filter-bar__toggle-advanced:has(.layers-filter-bar__badge) {
+  width: auto;
+  gap: var(--space-05);
+  padding: 0 var(--space-1);
+}
+.layers-filter-bar__badge {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent-on-subtle);
+  font-variant-numeric: tabular-nums;
 }
 
 .layers-filter-bar__clear-all {
@@ -1491,31 +1506,32 @@
   border-color: var(--color-text-muted);
 }
 
-.layers-filter-bar__advanced {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-1);
-  background: var(--color-surface-sunken);
-  border-radius: var(--radius-control-compact);
-}
-
-.layers-filter-bar__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-05);
-}
-.layers-filter-bar__section-label {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.05em;
-}
-
-.layers-filter-bar__chips {
+/* Active constraints from the Filter menu, one removable token each. */
+.layers-filter-bar__tokens {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-05);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.layers-filter-bar__token {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-05);
+  min-height: var(--target-min-compact);
+  padding: 0 var(--space-1);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--color-accent-on-subtle);
+  background: var(--color-accent-subtle);
+  border: 1px solid color-mix(in oklab, var(--color-accent-primary) 55%, transparent);
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.layers-filter-bar__token:hover {
+  border-color: var(--color-accent-primary);
 }
 
 .layers-filter-bar__chip {
@@ -1551,15 +1567,6 @@
   color: var(--color-accent-on-subtle);
   border-color: var(--color-accent-primary);
 }
-.layers-filter-bar__chip--inverse {
-  border-color: var(--color-feedback-warning);
-  color: var(--color-feedback-warning);
-  background: var(--color-surface-app);
-}
-.layers-filter-bar__chip--inverse:hover {
-  background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
-}
-
 .layers-filter-bar__count {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
@@ -1659,25 +1666,6 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   white-space: nowrap;
-}
-
-.layers-filter-bar__clear-tag {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  background: none;
-  border: 0;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: var(--font-size-2xs);
-  padding: 0;
-  min-height: var(--target-min-compact);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.layers-filter-bar__clear-tag:hover {
-  color: var(--color-text-primary);
 }
 
 /* ─── Empty state ────────────────────────────────────────────── */
@@ -2340,6 +2328,29 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.layers-filter-bar__step {
+  display: inline-flex;
+  gap: var(--space-05);
+  margin-inline-start: auto;
+}
+.layers-filter-bar__step-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
+  padding: 0;
+  color: var(--color-text-secondary);
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+}
+.layers-filter-bar__step-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
 }
 
 .layers-filter-bar__select-matches {

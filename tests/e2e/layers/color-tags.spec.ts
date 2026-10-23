@@ -25,18 +25,30 @@ test.describe('Layers Panel - Color Tags', () => {
   }) => {
     await setFirstTag(page, 'Red');
 
-    await page.getByRole('button', { name: 'Show filter options' }).click();
-    const colorFilter = page.getByRole('group', { name: 'Filter by color tag' });
-    await colorFilter.getByRole('button', { name: 'Red' }).click();
+    // The color tag is one dimension of the Filter menu (F-48).
+    const chooseTagFilter = async (label: string) => {
+      await page.getByRole('button', { name: /^Filter options/ }).click();
+      const filterMenu = page.getByRole('menu', { name: 'Filter layers' });
+      await filterMenu.getByRole('menuitem', { name: /^Color tag/ }).click();
+      await page.getByRole('menuitemradio', { name: label, exact: true }).click();
+      // Choosing keeps the menu open; Escape closes the submenu, then the menu.
+      for (let i = 0; i < 2 && (await filterMenu.isVisible()); i++) {
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(50);
+      }
+      await expect(filterMenu).toBeHidden();
+    };
+    await chooseTagFilter('Red');
 
     const filteredRows = page.getByRole('treeitem');
     await expect(filteredRows).toHaveCount(1);
     await expect(filteredRows.first()).toHaveAttribute('data-layer-color', 'red');
 
-    await page.getByRole('button', { name: 'Clear color tag filter' }).click();
+    // Each active constraint is a removable token.
+    await page.getByRole('button', { name: 'Remove filter: Red tag' }).click();
     await expect(filteredRows).toHaveCount(3);
 
-    await colorFilter.getByRole('button', { name: 'No color tag' }).click();
+    await chooseTagFilter('No color tag');
     await expect(filteredRows).toHaveCount(2);
     await expect
       .poll(() => filteredRows.evaluateAll((rows) => rows.every((row) => !row.dataset.layerColor)))

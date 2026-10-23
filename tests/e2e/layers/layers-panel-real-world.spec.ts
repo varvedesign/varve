@@ -278,24 +278,23 @@ test.describe('Layers Panel — real-world document', () => {
     record('visibility-toggle.json', { before, after });
     expect(after).not.toBe(before);
 
-    // Mount every interactive family before measuring: open the advanced
-    // filter (chips) and build a multi-selection (bulk bar).
-    await page.getByRole('button', { name: 'Show filter options' }).click();
-    await page.waitForTimeout(200);
+    // Mount every interactive family before measuring: build a
+    // multi-selection (bulk bar). Filter options are a menu now (F-48); its
+    // tokens are measured by layers-search.spec.ts.
     const rows = page.getByRole('treeitem');
     await rows.nth(0).click();
     await rows.nth(2).click({ modifiers: ['Shift'] });
     await page.waitForTimeout(200);
 
     // Phase 1 target-size probe: no search text, so the bulk bar (hidden
-    // while filtering) and the advanced chips are both mounted at once.
+    // while filtering) is mounted.
     const sizes = await page.evaluate(() => {
       const sels = [
         '.layers-row__toggle',
         '.layers-row__disclosure',
         '.layers-row__icon-area',
         '.layers-panel__header-btn',
-        '.layers-filter-bar__chip',
+        '.layers-filter-bar__toggle-advanced',
         '.layer-color-tag-picker__button',
         '.layers-bulk-bar__btn',
       ];
@@ -311,12 +310,16 @@ test.describe('Layers Panel — real-world document', () => {
     record('target-sizes.json', sizes);
     await capture(page, '31-advanced-filter-and-bulk');
 
-    // Phase 2 target-size probe: an active search mounts the Clear button and
-    // the search field's own clear affordance.
+    // Phase 2 target-size probe: an active search mounts the Clear button,
+    // the search field's own clear affordance, and the match steppers.
     await page.getByLabel('Filter layers by name').fill('Card');
     await page.waitForTimeout(300);
     const clearSizes = await page.evaluate(() => {
-      const sels = ['.layers-filter-bar__clear-all', '.varve-search__clear'];
+      const sels = [
+        '.layers-filter-bar__clear-all',
+        '.varve-search__clear',
+        '.layers-filter-bar__step-btn',
+      ];
       const out: Record<string, Array<{ w: number; h: number }>> = {};
       for (const sel of sels) {
         out[sel] = [...document.querySelectorAll(sel)].map((el) => {

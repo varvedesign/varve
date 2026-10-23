@@ -1,6 +1,7 @@
 import type { BlendMode, Document, LayerColor, NodeId, SceneNode } from '@varve/scene';
 import { isContainer } from '@varve/scene';
 import { isComponentInstance, isComponentNode } from './layerPresentation';
+import { nodeMatchesSearch } from './layerSearchIndex';
 
 /** Filter by node kind (e.g., 'shape', 'text', 'frame', etc.) */
 export type NodeKindFilter = Array<SceneNode['kind'] | 'component'>;
@@ -164,9 +165,6 @@ export function nodeMatchesFilter(
   filter: LayerFilterSpec,
   ctx: NodeFilterContext = {},
 ): boolean {
-  if (filter.search) {
-    const term = filter.search.toLowerCase();
-    if (!node.name.toLowerCase().includes(term)) return false;
-  }
+  if (filter.search && !nodeMatchesSearch(node, filter.search)) return false;
   return nodeMatchesNonSearch(node, filter, ctx);
 }

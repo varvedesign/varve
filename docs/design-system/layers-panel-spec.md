@@ -288,8 +288,9 @@ would be emphasis without evidence.
 
 - A `Select matches` button in the filter bar (icon + text, not icon-only),
   plus a command-palette action (`layersSelectMatches`).
-- Selects every id in the current filtered projection, sets `primaryId` to
-  the first, and announces `N layers selected`.
+- Selects every match in the current filtered projection (rows that satisfy
+  the filter themselves, not the ancestors shown for context), sets
+  `primaryId` to the first, and announces `N layers selected`.
 - Selection is not an undo entry (editor selection is not artwork history).
 
 ---
@@ -341,7 +342,10 @@ Hover/focus revelation is CSS-only (`:hover`, `:focus-within`) with
 
 - New badges/chips: `role="img"` with `aria-label` when they are pure state;
   buttons with visible text or an accessible name when they act.
-- New filter chips: toggle buttons in a labelled group (no fake listbox).
+- Filter options: one `Filter layers` menu of checkable items (no fake
+  listbox); active constraints are removable token buttons named
+  `Remove filter: <constraint>`. Workspace quick filters stay toggle buttons
+  in a labelled group.
 - `Select matches` is a labelled button with a tooltip; it announces the
   result through the existing live region.
 - Target size: any new interactive control is ≥ 24×24 CSS px or satisfies the

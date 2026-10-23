@@ -53,7 +53,7 @@ import { PresentationNavigator } from '../Presentation/PresentationNavigator';
 import { CREATE_PRESENTATION_FROM_SELECTION_EVENT } from '../Presentation/presentationCommands';
 import { LayerBulkBar } from './LayerBulkBar';
 import { LayerDetailsPopover } from './LayerDetailsPopover';
-import { LayerFilterBar } from './LayerFilterBar';
+import { focusLayerSearchOnFind, LayerFilterBar } from './LayerFilterBar';
 import { buildLayerContextMenuItems } from './layerContextMenu';
 
 export type { LayersDnDHandle } from './LayersTree';
@@ -137,6 +137,7 @@ function LayersPanelContent({
     'filterSpec',
     DEFAULT_FILTER,
   );
+  const filterSearchRef = useRef<HTMLInputElement | null>(null);
   const [thumbnailPreference, setThumbnailPreference] = usePanelLocalState<'images' | 'off'>(
     'layers',
     'thumbnailPreference',
@@ -744,7 +745,12 @@ function LayersPanelContent({
     state.selection.length === 1 && detailsTargetId === state.selection[0];
 
   return (
-    <div ref={panelRootRef} className="editor-layers layers-panel__content">
+    // biome-ignore lint/a11y/noStaticElementInteractions: delegated Ctrl/Cmd+F from the panel's own controls; the container is not itself interactive.
+    <div
+      ref={panelRootRef}
+      className="editor-layers layers-panel__content"
+      onKeyDown={(event) => focusLayerSearchOnFind(event, filterSearchRef.current)}
+    >
       <PanelDragHandle
         panelTypeId="layers"
         panelInstanceId="layers-primary"
@@ -870,6 +876,7 @@ function LayersPanelContent({
       )}
 
       <LayerFilterBar
+        ref={filterSearchRef}
         filter={filterSpec}
         onChange={setFilterSpec}
         matchCount={matchCount}
@@ -877,6 +884,8 @@ function LayersPanelContent({
         quickFilters={layersPanelConfig.quickFilters}
         searchPlaceholder={layersPanelConfig.searchPlaceholder}
         onSelectMatches={() => dndRef?.current?.selectMatches()}
+        onStepMatch={(direction) => dndRef?.current?.stepMatch(direction)}
+        onFocusResults={() => dndRef?.current?.focusResults()}
       />
 
       <LayersTree
