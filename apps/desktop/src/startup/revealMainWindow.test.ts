@@ -1,6 +1,8 @@
 /**
  * @vitest-environment jsdom
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { isTauriRuntime, resetPlatformInfo } from '@varve/platform';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { dismissBootFallback, revealMainWindow } from './revealMainWindow';
@@ -46,6 +48,13 @@ describe('revealMainWindow', () => {
     dismissBootFallback();
     expect(marked).toBe(true);
     delete (window as Window & { __varveMarkBooted?: () => void }).__varveMarkBooted;
+  });
+
+  it('keeps the packaged boot watchdog at 20s and extends Vite dev', () => {
+    const html = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
+    expect(html).toContain('var BOOT_WATCHDOG_MS = 20000;');
+    expect(html).toContain('var BOOT_WATCHDOG_VITE_MS = 120000;');
+    expect(html).toContain('script[src*="/src/main.tsx"]');
   });
 
   it('dismissBootFallback removes fallback before root element is visible', () => {
