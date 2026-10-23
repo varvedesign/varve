@@ -14,6 +14,7 @@ import { laneArgv } from './validation-lanes.mjs';
 import {
   CI_CATEGORIES,
   FULL_BROWSER_SHARDS,
+  deriveCiCategories,
   libraryLane,
   promisedLanesForCategories,
   selectedCiLanes,
@@ -81,6 +82,8 @@ assert.deepEqual(libraryLane(['crates/varve-core/src/lib.rs', 'Cargo.lock']), {
   selected: false,
   packages: [],
 });
+assert.deepEqual(libraryLane(['Cargo.lock']), { selected: false, packages: [] });
+assert.deepEqual(libraryLane(['Cargo.toml']), { selected: false, packages: [] });
 assert.deepEqual(libraryLane(['crates/varve-wasm/src/lib.rs']), {
   selected: false,
   packages: [],
@@ -96,6 +99,15 @@ const cargoChangeLanes = selectedCiLanes(
 );
 for (const lane of ['rust-test:all', 'rust-clippy:all', 'cargo-fmt', 'wasm', 'desktop-native'])
   assert.ok(cargoChangeLanes.includes(lane), `root Cargo changes select ${lane}`);
+for (const manifest of ['Cargo.toml', 'Cargo.lock']) {
+  const categories = deriveCiCategories(
+    { changed: { js: [], rust: [], other: [], app: [] }, tiers: {}, full: false },
+    [manifest],
+  );
+  assert.equal(categories.rust, true, `${manifest} selects Rust`);
+  assert.equal(categories.wasm, true, `${manifest} selects WASM`);
+  assert.equal(categories.desktop, true, `${manifest} selects desktop`);
+}
 const laneRoot = mkdtempSync(join(tmpdir(), 'varve-ci-lane-'));
 try {
   const git = (...args) => execFileSync('git', args, { cwd: laneRoot, encoding: 'utf8' }).trim();
