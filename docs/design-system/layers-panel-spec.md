@@ -142,8 +142,10 @@ state.
 
 - One authoritative `LayerDropTarget` resolves the preview, auto-expand,
   announcement, and commit.
-- The row body is the activator; no separate grip exists. 5 px activation
-  distance; a click after a drag is swallowed exactly once.
+- The row body is the activator; no separate grip exists. Mouse activates
+  after 5 px; touch activates after a 250 ms hold with 8 px tolerance so a
+  normal swipe still scrolls the tree. A click after a drag is swallowed
+  exactly once.
 - Shift+pointer movement across rows is the range scrub. It is the only
   modified row gesture and never starts a structural drag.
 - Before/after/into zones with the container middle band at 0.3–0.7.

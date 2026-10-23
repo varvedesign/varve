@@ -248,6 +248,14 @@ remaining the keyboard and `aria-selected` target. A row drag therefore
 behaves like every reference layer list (Photopea, Penpot, Krita, Figma):
 press and move the row to restructure, Shift+move to select a run.
 
+Touch cannot use PointerSensor here: a whole draggable row in a scrollable
+list would require `touch-action: none`, which makes the tree unscrollable.
+The shared `DndContext` therefore uses `MouseSensor` (5 px) plus `TouchSensor`
+(250 ms hold, 8 px tolerance). A swipe scrolls; holding a row starts a drag,
+and the touch listener's `preventDefault` stops the scroll once the hold
+succeeds. Rows declare `touch-action: manipulation` to keep panning available
+during the hold window.
+
 Grip dragging is never the only way to change order (WCAG 2.5.7). The layer
 context menu's Arrange group exposes Bring to Front, Bring Forward, Send
 Backward, and Send to Back; all four call the same `arrangeSelected`

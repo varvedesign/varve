@@ -4,7 +4,8 @@ import {
   type DragMoveEvent,
   DragOverlay,
   type DragStartEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -65,7 +66,17 @@ function isPointerOverElement(element: HTMLElement, clientX: number, clientY: nu
 }
 
 export function DnDShell({ children, editor, layersDndRef, canvasRef }: DnDShellProps) {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  // Mouse and touch sensors, not PointerSensor. The Layers row is now its own
+  // drag surface inside a scrollable tree, and PointerSensor has no way to
+  // distinguish "drag the row" from "scroll the list" on touch: its only
+  // reliable answer is `touch-action: none`, which would make the tree
+  // unscrollable. Mouse keeps the 5px threshold; touch requires a short hold,
+  // so a normal swipe scrolls and a held row drags. TouchEvent preventDefault
+  // stops the scroll once the hold succeeds.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
   const lastPointerPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const layerMoveIdsRef = useRef<NodeId[]>([]);
   const [activeDragNode, setActiveDragNode] = useState<{

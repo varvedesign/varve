@@ -266,6 +266,9 @@
   border-radius: var(--radius-control-compact);
   cursor: default;
   user-select: none;
+  /* The row is the drag surface; `manipulation` keeps panning and pinch-zoom
+     available to the touch sensor until its hold delay activates a drag. */
+  touch-action: manipulation;
   min-height: var(--density-rows-min-height, var(--space-6));
   background: var(--color-tree-row);
   color: var(--color-text-primary);
