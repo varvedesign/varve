@@ -207,6 +207,27 @@ describe('Menu', () => {
     }
   });
 
+  it('opens pointer-driven after a pointer press and turns keyboard-driven on a key', () => {
+    // F-46: keyboard focus styling belongs to keyboard use; a menu opened by
+    // pointer must not inherit the browser's keyboard modality from an
+    // earlier shortcut.
+    fireEvent.keyDown(window, { key: 'r' });
+    fireEvent.pointerDown(document.body);
+    render(<TestMenu open onClose={vi.fn()} />);
+    const menu = document.body.querySelector('[role="menu"]') as HTMLElement;
+    expect(menu).toHaveAttribute('data-input-modality', 'pointer');
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(menu).toHaveAttribute('data-input-modality', 'keyboard');
+  });
+
+  it('opens keyboard-driven after a key press', () => {
+    fireEvent.pointerDown(document.body);
+    fireEvent.keyDown(window, { key: 'Enter' });
+    render(<TestMenu open onClose={vi.fn()} />);
+    const menu = document.body.querySelector('[role="menu"]') as HTMLElement;
+    expect(menu).toHaveAttribute('data-input-modality', 'keyboard');
+  });
+
   it('does not render items when closed', () => {
     render(<TestMenu open={false} onClose={vi.fn()} />);
     expect(document.body.querySelector('[role="menu"]')).toBeNull();

@@ -803,13 +803,22 @@
   background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
-.varve-menu__item:focus-visible {
+/* Keyboard focus carries the fill and the ring. A menu driven by the pointer
+ * moves focus with the pointer, so there the hover tint is the indicator;
+ * otherwise a right-click after any shortcut drew the keyboard ring on the
+ * row under the pointer (F-46; the menu sets data-input-modality). */
+.varve-menu:not([data-input-modality="pointer"]) .varve-menu__item:focus-visible {
   background: var(--color-interactive-selected-surface);
   color: var(--color-interactive-selected-foreground);
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
-.varve-menu__item--current {
+/* The roving current item follows keyboard focus and the pointer, and a menu
+ * opened by pointer also starts with its first item current. Filling that
+ * item made it read as a choice already made (shell audit 2026-10-22, F-46),
+ * so the fill comes from keyboard focus (above), hover, checked state, or an
+ * open submenu, which keeps the trail back to its parent row. */
+.varve-menu__item[aria-expanded="true"] {
   background: var(--color-interactive-selected-surface);
   color: var(--color-interactive-selected-foreground);
 }
@@ -828,8 +837,7 @@
   color: var(--color-text-danger);
 }
 .varve-menu__item--destructive:hover,
-.varve-menu__item--destructive:focus-visible,
-.varve-menu__item--destructive.varve-menu__item--current {
+.varve-menu:not([data-input-modality="pointer"]) .varve-menu__item--destructive:focus-visible {
   background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
   color: var(--color-text-danger);
 }
@@ -956,10 +964,14 @@
 
 /* On a selected row the muted ink measured 4.33:1; secondary text takes the
  * row's selected foreground instead, whose pair is guarded at AA. */
-.varve-menu__item--current .varve-menu__shortcut,
-.varve-menu__item--current .varve-menu__submenu-arrow,
-.varve-menu__item:focus-visible .varve-menu__shortcut,
-.varve-menu__item:focus-visible .varve-menu__submenu-arrow,
+.varve-menu__item[aria-expanded="true"] .varve-menu__shortcut,
+.varve-menu__item[aria-expanded="true"] .varve-menu__submenu-arrow,
+.varve-menu:not([data-input-modality="pointer"])
+  .varve-menu__item:focus-visible
+  .varve-menu__shortcut,
+.varve-menu:not([data-input-modality="pointer"])
+  .varve-menu__item:focus-visible
+  .varve-menu__submenu-arrow,
 .varve-menu__item[aria-checked="true"] .varve-menu__shortcut,
 .varve-menu__item[aria-checked="true"] .varve-menu__submenu-arrow {
   color: inherit;

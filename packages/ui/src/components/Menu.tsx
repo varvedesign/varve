@@ -9,6 +9,7 @@ import {
 } from '../utils/focusMovement';
 import { getTypeAheadResetMs, matchMenuTypeAhead, shouldTypeAhead } from '../utils/menuTypeAhead';
 import { FloatingPortal } from './FloatingPortal';
+import { type InputModality, lastInputModality, trackInputModality } from './inputModality';
 import type { OverlayCloseReason } from './OverlayRegistry';
 import {
   elementAnchor,
@@ -310,9 +311,13 @@ interface MenuInternalProps {
   cancelParentClose?: () => void;
   /** Shared by every level so a dialog action suppresses root focus restore. */
   focusRestoreSuppressionRef?: React.MutableRefObject<boolean>;
+  /** A submenu starts in the modality its parent is being driven with. */
+  initialModality?: InputModality;
 }
 
 const MENU_PERF_ENABLED = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+
+if (typeof window !== 'undefined') trackInputModality(window);
 
 function capturePostPaint(markName: string): void {
   if (!MENU_PERF_ENABLED || typeof performance === 'undefined' || !performance.mark) return;
@@ -342,6 +347,7 @@ function MenuInternal({
   topTabHandler,
   cancelParentClose,
   focusRestoreSuppressionRef,
+  initialModality,
 }: MenuInternalProps) {
   const internalRef = useRef<HTMLDivElement>(null);
   const menuRef = internalRef;
@@ -351,6 +357,11 @@ function MenuInternal({
   const [focusIdx, setFocusIdx] = useState(0);
   const pointerPositionRef = useRef<{ x: number; y: number } | null>(null);
   const keyboardNavigationRef = useRef(false);
+  // Whether the keyboard or the pointer is driving this menu; the keyboard
+  // focus fill and ring only show in keyboard mode (F-46).
+  const [drivenBy, setDrivenBy] = useState<InputModality>(
+    () => initialModality ?? lastInputModality(),
+  );
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   // "Show all" expands the truncated list in place. It previously only called
   // closeAll(), so activating it dismissed the menu without ever revealing
@@ -389,6 +400,7 @@ function MenuInternal({
       if (keyboardNavigationRef.current && (event.type === 'mouseenter' || !moved)) return;
       pointerPositionRef.current = { x: event.clientX, y: event.clientY };
       keyboardNavigationRef.current = false;
+      setDrivenBy('pointer');
       clearSubmenuClose();
       cancelParentClose?.();
       if (disabled) return;
@@ -493,6 +505,9 @@ function MenuInternal({
     const safeIdx = Math.max(0, initialIdx);
     setFocusIdx(safeIdx);
     setOpenSubmenu(null);
+    // A root menu can stay mounted between opens; take the modality of the
+    // event that opened it this time. Submenus mount per open.
+    if (level === 0) setDrivenBy(lastInputModality());
 
     const timer = ownerWindow.setTimeout(() => {
       const el = menuRef.current?.querySelector<HTMLElement>(`[data-focusable-idx="${safeIdx}"]`);
@@ -559,6 +574,7 @@ function MenuInternal({
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
       keyboardNavigationRef.current = true;
+      setDrivenBy('keyboard');
       const ownerWindow = menuRef.current?.ownerDocument.defaultView ?? window;
       if (shouldTypeAhead(e, typeaheadRef.current)) {
         ownerWindow.clearTimeout(typeaheadTimerRef.current ?? undefined);
@@ -865,6 +881,7 @@ function MenuInternal({
                 topTabHandler={handleTopTab}
                 cancelParentClose={clearSubmenuClose}
                 focusRestoreSuppressionRef={suppressFocusRestore}
+                initialModality={drivenBy}
               />
             </FloatingPortal>
           )}
@@ -912,6 +929,7 @@ function MenuInternal({
       ref={menuRef}
       id={id}
       role="menu"
+      data-input-modality={drivenBy}
       aria-label={label}
       aria-orientation="vertical"
       className={[

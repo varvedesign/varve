@@ -58,8 +58,7 @@ describe('menu text contrast tokens', () => {
     for (const selector of [
       '.varve-menu__item--destructive',
       '.varve-menu__item--destructive:hover',
-      '.varve-menu__item--destructive:focus-visible',
-      '.varve-menu__item--destructive.varve-menu__item--current',
+      '.varve-menu:not([data-input-modality="pointer"]) .varve-menu__item--destructive:focus-visible',
     ]) {
       expect(colourFor(all, selector), selector).toBe('var(--color-text-danger)');
     }
@@ -67,13 +66,28 @@ describe('menu text contrast tokens', () => {
 
   it('lets secondary text on a selected row take the selected foreground', () => {
     for (const row of [
-      '.varve-menu__item--current',
-      '.varve-menu__item:focus-visible',
+      '.varve-menu:not([data-input-modality="pointer"]) .varve-menu__item:focus-visible',
       '.varve-menu__item[aria-checked="true"]',
+      '.varve-menu__item[aria-expanded="true"]',
     ]) {
       for (const part of ['.varve-menu__shortcut', '.varve-menu__submenu-arrow']) {
         const selector = `${row} ${part}`;
         expect(colourFor(all, selector), selector).toBe('inherit');
+      }
+    }
+  });
+
+  it('never paints the roving current item as selected on its own', () => {
+    // F-46 (2026-10-22): a menu opened by pointer starts with its first item
+    // current, and filling that item made it read as already chosen. Keyboard
+    // focus, hover, checked state and an open submenu carry the highlight.
+    for (const rule of all) {
+      for (const selector of rule.selectors) {
+        if (!/\.varve-menu__item--current\b/.test(selector)) continue;
+        const ownState = /\.varve-menu__item--current(\s|$)/.test(selector);
+        const fills =
+          rule.declarations.has('background') || rule.declarations.has('background-color');
+        expect(ownState && fills, `${selector} paints a fill`).toBe(false);
       }
     }
   });
