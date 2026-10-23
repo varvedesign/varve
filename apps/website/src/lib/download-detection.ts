@@ -190,8 +190,8 @@ export function recommendationCopy(result: DetectionResult): string | null {
     result.macArchHint === 'arm64'
       ? ' (Apple Silicon)'
       : result.macArchHint === 'x64'
-        ? ' — this release is Apple Silicon only, and a browser \u201cIntel\u201d hint can\u2019t tell an Intel Mac from Apple Silicon under Rosetta; check Apple menu > About This Mac'
-        : ' — this release is Apple Silicon only; browsers can\u2019t reliably report a Mac\u2019s processor, so check Apple menu > About This Mac';
+        ? ' (this release is Apple Silicon only, and a browser \u201cIntel\u201d hint can\u2019t tell an Intel Mac from Apple Silicon under Rosetta; check Apple menu > About This Mac)'
+        : ' (this release is Apple Silicon only; browsers can\u2019t reliably report a Mac\u2019s processor, so check Apple menu > About This Mac)';
   const archPart =
     result.platform === 'macos'
       ? macNote
@@ -200,7 +200,7 @@ export function recommendationCopy(result: DetectionResult): string | null {
         : result.arch === 'x64'
           ? ' (x86_64)'
           : '';
-  return `Based on your browser, we recommend <strong>${platformName}</strong>${archPart}. This is a best guess — you can choose any other platform or architecture below.`;
+  return `Based on your browser, we recommend <strong>${platformName}</strong>${archPart}. This is a best guess. You can choose any other platform or architecture below.`;
 }
 
 const DOWNLOAD_HASH_PLATFORMS = new Set(['linux', 'macos', 'windows']);
