@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export const POLICY_VERSION = '2026-10-09.validation-profiles.v7';
+export const POLICY_VERSION = '2026-10-23.validation-profiles.v8';
 // 1,907 Chromium cases at the release checkpoint. Sixteen single-worker hosted
 // jobs ran 30-40 minutes each and the slowest shard twice hit the 40-minute job
 // ceiling (runs 37380722267 and 37391728360 lost shard 11 to a timeout, which
@@ -45,6 +45,7 @@ export const POLICY_FILES = [
   'scripts/quality/operation-history.mjs',
   'scripts/quality/validation-snapshot.mjs',
   'scripts/quality/ci-plan.mjs',
+  'scripts/quality/ci-plan.test.mjs',
   'scripts/quality/ci-run-lanes.mjs',
   'scripts/quality/ci-execution-report.mjs',
   'scripts/quality/browser-execution-policy.mjs',
@@ -111,6 +112,8 @@ export const POLICY_FILES = [
   'pnpm-lock.yaml',
   'Cargo.lock',
   'apps/desktop/src-tauri/Cargo.lock',
+  'rust-toolchain.toml',
+  '.github/workflows/library-ci.yml',
 ];
 
 export const PROFILE_NAMES = ['commit', 'push', 'integration', 'candidate'];
@@ -132,6 +135,30 @@ export const CI_CATEGORIES = Object.freeze([
   'models',
   'bench',
 ]);
+
+export const LIBRARY_PACKAGES = Object.freeze([
+  'varve-core',
+  'varve-colour',
+  'varve-layout',
+  'varve-effects',
+  'varve-media',
+  'varve-trace',
+  'varve-upscale',
+  'varve-bgremove',
+  'varve-accel',
+]);
+
+/** Select the fast library lane only for paths confined to the nine crates. */
+export function libraryLane(files = []) {
+  if (!files.length) return { selected: false, packages: [] };
+  const packages = new Set();
+  for (const file of files) {
+    const match = file.match(/^crates\/(varve-[a-z-]+)\//);
+    if (!match || !LIBRARY_PACKAGES.includes(match[1])) return { selected: false, packages: [] };
+    packages.add(match[1]);
+  }
+  return { selected: true, packages: LIBRARY_PACKAGES.filter((pkg) => packages.has(pkg)) };
+}
 
 export const CI_CATEGORY_LANES = Object.freeze({
   pipeline: ['pipeline-validate', 'ci-tools', 'policy'],
@@ -350,11 +377,14 @@ export function deriveCiCategories(plan, files = pathList(plan)) {
       ),
   );
   const hasFile = (predicate) => files.some(predicate);
+  const rootCargoChanged = files.some((file) => file === 'Cargo.toml' || file === 'Cargo.lock');
   const category = {
     pipeline: true,
     js: Boolean(plan?.changed?.js?.length || plan?.changed?.app?.length),
-    rust: Boolean(plan?.changed?.rust?.length),
-    wasm: hasFile((path) => path.includes('wasm') || path.startsWith('crates/varve-wasm/')),
+    rust: Boolean(plan?.changed?.rust?.length) || rootCargoChanged,
+    wasm:
+      rootCargoChanged ||
+      hasFile((path) => path.includes('wasm') || path.startsWith('crates/varve-wasm/')),
     website:
       hasFile((path) => path.startsWith('apps/website/') || path.startsWith('scripts/website/')) ||
       tierLanes.includes('website-e2e') ||
@@ -370,7 +400,9 @@ export function deriveCiCategories(plan, files = pathList(plan)) {
       Boolean(plan?.tiers?.[4]?.includes('e2e:visual')) ||
       (plan?.directE2eFiles ?? []).some((file) => file.startsWith('tests/e2e/visual/')) ||
       (plan?.e2eDomains ?? []).includes('visual'),
-    desktop: hasFile((path) => path.startsWith('apps/desktop/') || path.startsWith('tests/wdio/')),
+    desktop:
+      rootCargoChanged ||
+      hasFile((path) => path.startsWith('apps/desktop/') || path.startsWith('tests/wdio/')),
     models: hasFile(
       (path) =>
         path.startsWith('models/') ||
@@ -447,6 +479,13 @@ export function selectedCiLanes(plan, categories, profile = 'integration') {
   if (categories.rust) {
     add((lane) => lane.startsWith('rust-test:') || lane.startsWith('rust-clippy:'));
     if (plan?.changed?.rust?.length) lanes.add('cargo-fmt');
+  }
+  if (plan?.rootCargoChanged) {
+    lanes.add('rust-test:all');
+    lanes.add('rust-clippy:all');
+    lanes.add('cargo-fmt');
+    lanes.add('wasm');
+    lanes.add('desktop-native');
   }
   if (categories.wasm) lanes.add('wasm');
   if (categories.website) {

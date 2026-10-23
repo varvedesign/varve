@@ -37,6 +37,8 @@ jobs:
     outputs:
       js: ${{ steps.lanes.outputs.js }}
       rust: ${{ steps.lanes.outputs.rust }}
+      library_only: ${{ steps.lanes.outputs.library_only }}
+      library_packages: ${{ steps.lanes.outputs.library_packages }}
       desktop: ${{ steps.lanes.outputs.desktop }}
       website: ${{ steps.lanes.outputs.website }}
       e2e: ${{ steps.lanes.outputs.e2e }}
@@ -87,8 +89,12 @@ jobs:
               echo "No safe event comparison base was supplied by GitHub." >&2
               exit 2
             fi
-            node scripts/quality/ci-plan.mjs --base "$BASE" --head "$HEAD" \
-              --profile integration --output ci-plan.json --github-output "$GITHUB_OUTPUT"
+            PLAN_ARGS=(--base "$BASE" --head "$HEAD" --profile integration \
+              --output ci-plan.json --github-output "$GITHUB_OUTPUT")
+            if [[ "$EVENT_NAME" != "pull_request" ]]; then
+              PLAN_ARGS+=(--disable-library-lane)
+            fi
+            node scripts/quality/ci-plan.mjs "${PLAN_ARGS[@]}"
           fi
       - name: Upload canonical CI plan
         id: upload-plan
@@ -146,7 +152,7 @@ jobs:
     name: Rust (${{ matrix.os }})
     timeout-minutes: 60
     needs: [changes, pipeline-validate]
-    if: ${{ needs.changes.outputs.rust == 'true' || needs.changes.outputs.full == 'true' }}
+    if: ${{ (needs.changes.outputs.rust == 'true' || needs.changes.outputs.full == 'true') && needs.changes.outputs.library_only != 'true' }}
     strategy:
       fail-fast: false
       # Limit simultaneous runner acquisitions: firing all three OS cells at
@@ -220,7 +226,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     needs: [changes, pipeline-validate]
-    if: ${{ needs.changes.outputs.wasm == 'true' || needs.changes.outputs.e2e == 'true' || needs.changes.outputs.visual == 'true' || needs.changes.outputs.desktop == 'true' || needs.changes.outputs.full == 'true' }}
+    if: ${{ (needs.changes.outputs.wasm == 'true' || needs.changes.outputs.e2e == 'true' || needs.changes.outputs.visual == 'true' || needs.changes.outputs.desktop == 'true' || needs.changes.outputs.full == 'true') && needs.changes.outputs.library_only != 'true' }}
     outputs:
       artifact_id: ${{ steps.upload-wasm.outputs.artifact-id }}
     steps:
@@ -278,6 +284,7 @@ jobs:
     # cancelled certification.
     timeout-minutes: 20
     needs: changes
+    if: ${{ needs.changes.outputs.library_only != 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       # The workflow security policy audit parses YAML structurally (js-yaml,
@@ -409,6 +416,16 @@ jobs:
           path: ci-execution/
           if-no-files-found: ignore
 
+  library-checks:
+    name: Library CI
+    needs: changes
+    if: ${{ needs.changes.outputs.library_only == 'true' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/library-ci.yml
+    with:
+      packages: ${{ needs.changes.outputs.library_packages }}
+
   js:
     permissions:
       contents: read
@@ -419,7 +436,7 @@ jobs:
     # Keep the complete lane and a finite budget for setup, checks and receipts.
     timeout-minutes: 45
     needs: [changes, pipeline-validate]
-    if: ${{ needs.changes.outputs.js == 'true' || needs.changes.outputs.full == 'true' }}
+    if: ${{ (needs.changes.outputs.js == 'true' || needs.changes.outputs.full == 'true') && needs.changes.outputs.library_only != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -455,7 +472,7 @@ jobs:
     name: Website E2E (dual deployment modes)
     timeout-minutes: 30
     needs: [changes, pipeline-validate]
-    if: ${{ needs.changes.outputs.website == 'true' || needs.changes.outputs.full == 'true' }}
+    if: ${{ (needs.changes.outputs.website == 'true' || needs.changes.outputs.full == 'true') && needs.changes.outputs.library_only != 'true' }}
     runs-on: ubuntu-latest
     env:
       # Trust-boundary canary: present on every build step in this job, then
@@ -571,7 +588,7 @@ jobs:
     timeout-minutes: 40
     runs-on: ubuntu-latest
     needs: [changes, pipeline-validate, wasm]
-    if: ${{ needs.changes.outputs.e2e == 'true' || needs.changes.outputs.full == 'true' }}
+    if: ${{ (needs.changes.outputs.e2e == 'true' || needs.changes.outputs.full == 'true') && needs.changes.outputs.library_only != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -713,7 +730,7 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     needs: [changes, pipeline-validate, wasm]
-    if: ${{ needs.changes.outputs.visual == 'true' || needs.changes.outputs.full == 'true' }}
+    if: ${{ (needs.changes.outputs.visual == 'true' || needs.changes.outputs.full == 'true') && needs.changes.outputs.library_only != 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
@@ -824,7 +841,7 @@ jobs:
     timeout-minutes: 45
     runs-on: ${{ matrix.os }}
     needs: [changes, pipeline-validate, wasm]
-    if: ${{ needs.changes.outputs.desktop == 'true' || needs.changes.outputs.full == 'true' }}
+    if: ${{ (needs.changes.outputs.desktop == 'true' || needs.changes.outputs.full == 'true') && needs.changes.outputs.library_only != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -985,6 +1002,7 @@ jobs:
       - changes
       - attribution-check
       - pipeline-validate
+      - library-checks
       - rust
       - wasm
       - js
@@ -995,10 +1013,19 @@ jobs:
       - bench
       - models
     steps:
+      - name: Accept focused library lane
+        if: needs.changes.outputs.library_only == 'true'
+        env:
+          LIBRARY_CI_RESULT: ${{ needs.library-checks.result }}
+        run: |
+          test "$LIBRARY_CI_RESULT" = success
+          echo "Focused library checks and dependant builds passed; app integration lanes were intentionally skipped."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        if: needs.changes.outputs.library_only != 'true'
         with:
           fetch-depth: 1
       - name: Download canonical plan
+        if: needs.changes.outputs.library_only != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           github-token: ${{ github.token }}
@@ -1006,6 +1033,7 @@ jobs:
           artifact-ids: ${{ needs.changes.outputs.plan_artifact_id }}
           path: ci-plan-artifact
       - name: Download execution receipts
+        if: needs.changes.outputs.library_only != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           github-token: ${{ github.token }}
@@ -1014,6 +1042,7 @@ jobs:
           path: ci-execution
           merge-multiple: false
       - name: Aggregate certification evidence
+        if: needs.changes.outputs.library_only != 'true'
         env:
           NEEDS_JSON: ${{ toJson(needs) }}
         run: |
@@ -1028,11 +1057,11 @@ jobs:
       # neither turn failed evidence green nor block recovery when reports are absent.
       - name: Summarize test timing and shard diagnostics
         id: test-feedback
-        if: always()
+        if: ${{ always() && needs.changes.outputs.library_only != 'true' }}
         continue-on-error: true
         run: node scripts/quality/test-feedback.mjs ci-execution --summary > ci-feedback.json
       - name: Upload test feedback diagnostics
-        if: ${{ always() && steps.test-feedback.outcome == 'success' }}
+        if: ${{ always() && needs.changes.outputs.library_only != 'true' && steps.test-feedback.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: varve-test-feedback-${{ github.run_id }}-attempt-${{ github.run_attempt }}
@@ -1040,7 +1069,7 @@ jobs:
           retention-days: 14
           if-no-files-found: error
       - name: Upload certification summary
-        if: always()
+        if: ${{ always() && needs.changes.outputs.library_only != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: varve-ci-certification-${{ needs.changes.outputs.commit_sha }}-${{ needs.changes.outputs.policy_hash }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}

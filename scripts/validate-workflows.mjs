@@ -165,6 +165,7 @@ function validateWorkflowStructure(content, filename) {
 
     if (match) {
       const [, , action, version] = match;
+      if (action.startsWith('./.github/workflows/')) continue;
       if (
         !version ||
         version.match(/^v\d+$/) ||

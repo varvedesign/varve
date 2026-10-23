@@ -12,6 +12,8 @@ import {
   deriveCiCategories,
   FULL_BROWSER_SHARDS,
   impactFlags,
+  libraryLane,
+  LIBRARY_PACKAGES,
   POLICY_VERSION,
   promisedLanesForCategories,
   selectedCiLanes,
@@ -40,6 +42,7 @@ function parseArgs(args) {
     validateOutput: args.includes('--validate-output'),
     planFile: null,
     forceFull: args.includes('--force-full'),
+    disableLibraryLane: args.includes('--disable-library-lane'),
   };
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === '--base') flags.base = args[++i];
@@ -87,6 +90,7 @@ export function buildCiPlan({
   root = process.cwd(),
   planner = buildPlan,
   forceFull = false,
+  disableLibraryLane = false,
 } = {}) {
   const candidateMode = profile === 'candidate' ? (mode ?? 'final') : null;
   if (candidateMode && !['triage', 'final'].includes(candidateMode))
@@ -97,6 +101,7 @@ export function buildCiPlan({
     ? git(['rev-parse', '--verify', `${base}^{commit}`], root).trim()
     : null;
   const files = changedFiles(resolvedBase, resolvedHead, root);
+  const library = disableLibraryLane ? { selected: false, packages: [] } : libraryLane(files);
   const plan = planner(files);
   const categories = deriveCiCategories(plan, files);
   const flags = impactFlags(plan, files);
@@ -107,7 +112,11 @@ export function buildCiPlan({
     for (const category of CI_CATEGORIES) categories[category] = true;
   }
   const selectedLanes = selectedCiLanes(
-    { ...plan, globalImpact: flags.globalImpact },
+    {
+      ...plan,
+      globalImpact: flags.globalImpact,
+      rootCargoChanged: files.some((file) => file === 'Cargo.toml' || file === 'Cargo.lock'),
+    },
     categories,
     profile,
   );
@@ -126,6 +135,8 @@ export function buildCiPlan({
     treeSha,
     baseSha: resolvedBase,
     files,
+    libraryOnly: library.selected,
+    libraryPackages: library.packages,
     fileHash: sha256(files.join('\0')),
     plan,
     flags,
@@ -151,6 +162,8 @@ export function buildCiPlan({
       commitSha: result.commitSha,
       baseSha: result.baseSha,
       fileHash: result.fileHash,
+      libraryOnly: result.libraryOnly,
+      libraryPackages: result.libraryPackages,
       categories: result.categories,
       selectedLanes: result.selectedLanes,
       candidateMode: result.candidateMode,
@@ -170,6 +183,24 @@ export function validateCiPlan(value, { expectedHead = null, expectedPolicyHash 
     errors.push('commitSha does not match the checked-out SHA');
   if (expectedPolicyHash && value?.policyHash !== expectedPolicyHash)
     errors.push('policy hash mismatch');
+  if (typeof value?.libraryOnly !== 'boolean') errors.push('libraryOnly must be boolean');
+  if (!Array.isArray(value?.libraryPackages)) errors.push('libraryPackages must be an array');
+  if (value?.libraryOnly !== Boolean(value?.libraryPackages?.length))
+    errors.push('library lane selection does not match its package list');
+  if (
+    Array.isArray(value?.libraryPackages) &&
+    (value.libraryPackages.some((pkg) => !LIBRARY_PACKAGES.includes(pkg)) ||
+      new Set(value.libraryPackages).size !== value.libraryPackages.length)
+  )
+    errors.push('libraryPackages contains an unknown or duplicate crate');
+  if (Array.isArray(value?.files)) {
+    const expectedLibrary = libraryLane(value.files);
+    if (
+      value.libraryOnly !== expectedLibrary.selected ||
+      JSON.stringify(value.libraryPackages) !== JSON.stringify(expectedLibrary.packages)
+    )
+      errors.push('library lane selection does not match changed paths');
+  }
   if (value?.profile === 'candidate' && !['triage', 'final'].includes(value?.candidateMode))
     errors.push('candidateMode must be triage or final for candidate plans');
   for (const category of CI_CATEGORIES) {
@@ -194,6 +225,8 @@ export function validateCiPlan(value, { expectedHead = null, expectedPolicyHash 
       commitSha: value?.commitSha,
       baseSha: value?.baseSha,
       fileHash: value?.fileHash,
+      libraryOnly: value?.libraryOnly,
+      libraryPackages: value?.libraryPackages,
       categories: value?.categories,
       selectedLanes: value?.selectedLanes,
       candidateMode: value?.candidateMode,
@@ -221,6 +254,8 @@ function main() {
   writeOutput(flags.githubOutput, {
     js: String(plan.categories.js),
     rust: String(plan.categories.rust),
+    library_only: String(plan.libraryOnly),
+    library_packages: JSON.stringify(plan.libraryPackages),
     wasm: String(plan.categories.wasm),
     website: String(plan.categories.website),
     e2e: String(plan.categories.e2e),

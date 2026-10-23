@@ -812,19 +812,23 @@ assert.deepEqual(
   const ci = fs.readFileSync('.github/workflows/ci.yml', 'utf-8');
   assert.match(
     ci,
-    /if: \$\{\{ needs\.changes\.outputs\.e2e == 'true' \|\| needs\.changes\.outputs\.full == 'true' \}\}/,
+    /if: \$\{\{ \(needs\.changes\.outputs\.e2e == 'true' \|\| needs\.changes\.outputs\.full == 'true'\) && needs\.changes\.outputs\.library_only != 'true' \}\}/,
     'browser E2E must be selected by explicit browser-impact lanes or the deliberate full profile',
   );
   assert.match(
     ci,
-    /if: \$\{\{ needs\.changes\.outputs\.visual == 'true' \|\| needs\.changes\.outputs\.full == 'true' \}\}/,
+    /if: \$\{\{ \(needs\.changes\.outputs\.visual == 'true' \|\| needs\.changes\.outputs\.full == 'true'\) && needs\.changes\.outputs\.library_only != 'true' \}\}/,
     'visual E2E must be selected by explicit visual-impact lanes or the deliberate full profile',
   );
   assert.match(
     ci,
-    /if: \$\{\{ needs\.changes\.outputs\.desktop == 'true' \|\| needs\.changes\.outputs\.full == 'true' \}\}/,
+    /if: \$\{\{ \(needs\.changes\.outputs\.desktop == 'true' \|\| needs\.changes\.outputs\.full == 'true'\) && needs\.changes\.outputs\.library_only != 'true' \}\}/,
     'native desktop E2E must be selected by explicit desktop-impact lanes or the deliberate full profile',
   );
+  assert.match(ci, /library_only: \$\{\{ steps\.lanes\.outputs\.library_only \}\}/);
+  assert.match(ci, /library_packages: \$\{\{ steps\.lanes\.outputs\.library_packages \}\}/);
+  assert.match(ci, /uses: \.\/\.github\/workflows\/library-ci\.yml/);
+  assert.match(ci, /needs:\n(?:\s+- [^\n]+\n)*\s+- library-checks/);
   assert.match(
     ci,
     /scripts\/quality\/ci-plan\.mjs[\s\S]*--profile integration/,
@@ -842,6 +846,14 @@ assert.deepEqual(
     /tests\\\/e2e|tests\/e2e/,
     'canonical policy must retain browser infrastructure impact semantics',
   );
+  const libraryCi = fs.readFileSync('.github/workflows/library-ci.yml', 'utf-8');
+  assert.match(libraryCi, /cargo fmt -p .* -- --check/);
+  assert.match(libraryCi, /cargo clippy -p .* --all-targets --locked -- -D warnings/);
+  assert.match(libraryCi, /cargo test -p .* --locked/);
+  assert.match(libraryCi, /cargo check --workspace --locked/);
+  assert.match(libraryCi, /cargo test --workspace --locked/);
+  assert.match(libraryCi, /cargo check --manifest-path apps\/desktop\/src-tauri\/Cargo\.toml --locked/);
+  assert.match(libraryCi, /persist-credentials: false/);
   const release = fs.readFileSync('.github/workflows/release.yml', 'utf-8');
   assert.match(
     release,
