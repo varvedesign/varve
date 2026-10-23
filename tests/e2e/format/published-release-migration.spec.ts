@@ -208,7 +208,11 @@ test('published schema 2.21 artwork and embedded assets migrate, undo, export an
   writeFileSync(testInfo.outputPath('migrated-embedded-image.pdf'), Buffer.from(pdf.bytes));
 
   await fileAction(page, /^Close Document\b/);
-  if (await page.locator('.editor-shell').isVisible()) await page.keyboard.press('Control+Shift+h');
+  if (await page.locator('.editor-shell').isVisible()) {
+    // Return Home through the menubar's own route; the Home chord is a
+    // registry default and must not be duplicated in the spec.
+    await page.locator('.editor-menubar__home').click();
+  }
   await expect(page.locator('.varve-home')).toBeVisible();
   // Reopen the bytes actually written while offline, through the real browser import UI.
   await page.keyboard.press('Control+i');

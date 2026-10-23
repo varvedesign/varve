@@ -645,3 +645,57 @@ branch reintroduces the untracked-module defect that gate exists for.
    starting with the recorded high-priority candidates (#3114 nested flex placement,
    #3162 typography identity, #3372 image seams, #3026 colour asset detachment, #3289
    stroke-aware hit testing).
+
+### Continuation checkpoint — PR #174 E2E triage (2026-10-23)
+
+- Remote integration target: `varvedesign/varve` `master` at
+  `6eebb9581eb40f36608b772af6b039114a5f30c5` (PR #186 merged). PR #174 head
+  `9b720a648d5a2ef77073b75b8fbe6ce18ae2cf53` opened against it. GitHub reports
+  `master` as protected only against deletion and force-push; PR-only
+  integration remains policy.
+- PR #174's CI run `39758713624` failed 11 of 24 E2E shards, not 7. The
+  synthetic merge under test was `5dd2c23d` (`9b720a64` into `6df242fb`).
+  Reading the per-job logs separated the failure classes instead of treating
+  them as one canvas-routing regression:
+  - Eight shards failed because the vertical dock splitter intercepted
+    pointer input. The log names `workspace-dock-splitter--ruler-adjacent` as
+    the covering element for Add publishing page, Add Design Canvas, Save
+    current selection, Detach Layers, and the responsive dock contract.
+  - The layers shard failed because `dismissMissingFontsDialogIfPresent` and
+    its two call sites had been deleted from the branch, so the Missing Fonts
+    overlay covered the panel for every later click.
+  - Thumbnail and format shards pressed `Control+Shift+H`. The branch moved
+    Home to a browser-safe chord but left these master-side call sites, the
+    in-app help text, and the Home tooltip assertion on the old binding.
+  - The currentColor import regression compared a new baseline PNG with
+    `maxDiffPixels: 0`; CI reported 86 differing pixels (0.01), the same
+    font/antialias baseline class already rejected for the inline-text spec.
+  - The middle-button resize spec measured screen geometry, so a legitimate
+    camera pan read as a resize; its locator also resolved to a different
+    overlay rect after the camera moved.
+- Fixes in this checkpoint, each reproduced first in Chromium at one worker
+  through the heavy-task lease:
+  - The splitter's pointer band is now `SPLITTER_HIT_EXTENT` (12) pixels deep
+    and ends exactly at the divider, inside the leading panel. `rulerAdjacent`
+    and its `translateX(-12px)` override are removed; the grip is pinned to
+    the divider edge. Before: `dock-panels` reported 11 unreachable controls
+    and the a11y shard could not click Add publishing page. After: the same
+    spec reports `DOCK-PANEL-FINDINGS []`, and the a11y, deep-selection,
+    Design Canvas, and responsive dock specs pass.
+  - The missing-font dismissal helper and its call sites are restored.
+  - Home navigation in specs goes through the menubar's Home button through a
+    shared `returnToHome` helper; the Home button now exposes
+    `aria-keyshortcuts`, and the tooltip spec compares the tooltip with that
+    registry-derived value instead of a literal chord. In-app help and the
+    website keyboard reference use the same chord the app renders.
+  - The currentColor regression counts pixels painted with the inherited
+    `#123456` fill instead of comparing a screenshot; the new baseline PNG is
+    deleted. The middle-button spec targets a stable `selection-outline` test
+    id and asserts an unchanged size plus a translated box (a pan), not an
+    unchanged screen position.
+- Corpus state is unchanged at this point: C1 remains frozen at
+  `2026-10-20T02:39:22.818Z`; C2 is not frozen. The ledger checksum matches
+  the manifest.
+- Coverage gap found while reconciling: 95 issues on pages 9, 10, and 13–16
+  remain `unreviewed` although later pages are assessed. C1 completion needs
+  those backfilled, not just pages 43–121.

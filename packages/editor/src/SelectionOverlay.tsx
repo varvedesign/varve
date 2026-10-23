@@ -1052,6 +1052,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
       </defs>
       {previewRectElements}
       <rect
+        data-testid="selection-outline"
         x={topLeftScreen[0]}
         y={topLeftScreen[1]}
         width={box.w * zoom}

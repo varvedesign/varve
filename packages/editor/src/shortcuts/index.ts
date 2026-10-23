@@ -1,5 +1,6 @@
 export {
   bindingMatchesEvent,
+  bindingToAriaKeyshortcuts,
   captureKeyCombo,
   clearAllOverrides,
   clearOverride,

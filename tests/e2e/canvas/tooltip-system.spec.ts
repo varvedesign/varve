@@ -183,6 +183,14 @@ test.describe('Tooltip system', () => {
     const homeBtn = page.locator('.editor-menubar__home');
     await expect(homeBtn).toBeVisible({ timeout: 10000 });
 
+    // The button advertises the binding the registry actually resolves, so the
+    // tooltip is compared against that instead of a chord pinned in the test.
+    // Keyboard chords are browser-owned in part (Ctrl+Shift+H/O), and the
+    // registry is free to move a default off one of them.
+    const ariaKeyshortcuts = await homeBtn.getAttribute('aria-keyshortcuts');
+    expect(ariaKeyshortcuts, 'Home button must expose aria-keyshortcuts').toBeTruthy();
+    const expectedLabel = ariaKeyshortcuts!.replaceAll('Control', 'Ctrl');
+
     // The Tooltip suppresses show-for-hover for POINTER_SUPPRESS_MS after a
     // pointer-down (a click, e.g. the onboarding dismiss that ends navigation).
     // In serial runs that suppression window can swallow the single pointerenter
@@ -196,6 +204,6 @@ test.describe('Tooltip system', () => {
     const tooltip = page.locator('[role="tooltip"]');
     await expect(tooltip).toBeVisible({ timeout: 1000 });
     await expect(tooltip).toContainText('Home');
-    await expect(tooltip).toContainText('Ctrl+Shift+H');
+    await expect(tooltip).toContainText(expectedLabel);
   });
 });

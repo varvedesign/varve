@@ -1077,6 +1077,26 @@ export function bindingMatchesEvent(e: KeyboardEvent, binding: ShortcutBinding):
   return true;
 }
 
+/**
+ * Express a binding in `aria-keyshortcuts` grammar: modifiers are spelled out
+ * ("Control+Shift+H"), never display glyphs or abbreviations. Mirrors
+ * `formatShortcut`, which produces the human-facing label.
+ */
+export function bindingToAriaKeyshortcuts(binding: ShortcutBinding): string {
+  const parts: string[] = [];
+  if (binding.ctrl) parts.push('Control');
+  if (binding.shift) parts.push('Shift');
+  if (binding.alt) parts.push('Alt');
+  const key =
+    binding.key.length === 1
+      ? binding.key.toUpperCase()
+      : binding.key === 'Backspace'
+        ? 'Backspace'
+        : binding.key;
+  parts.push(key);
+  return parts.join('+');
+}
+
 export function formatShortcut(binding: ShortcutBinding): string {
   const parts: string[] = [];
   if (isMac()) {

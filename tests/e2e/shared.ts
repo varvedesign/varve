@@ -2,6 +2,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { assertCanvasGesture, type CanvasPoint } from './helpers/canvasGesture';
 import { dismissFirstRunOverlayIfPresent } from './helpers/nav';
 
+export { dismissMissingFontsDialogIfPresent } from './helpers/nav';
+
 /** Click the visible label rather than the clipped native checkbox input. */
 export async function setVisibleCheckbox(control: Locator, checked: boolean): Promise<void> {
   await expect(control).toBeAttached();
@@ -228,6 +230,17 @@ export async function switchWorkspace(page: Page, label: string) {
     .getByRole('menu', { name: 'More workspaces' })
     .getByText(label, { exact: true })
     .click();
+}
+
+/**
+ * Return to the Home surface through the menubar's Home button and wait for the
+ * interactive home shell. The button is the real user route, so specs do not
+ * hard-code a shortcut chord that the registry is free to change.
+ */
+export async function returnToHome(page: Page) {
+  await page.locator('.editor-menubar__home').click();
+  await page.waitForSelector('.varve-home', { timeout: 45000 });
+  await page.locator('.varve-home__toolbar').waitFor({ state: 'visible', timeout: 45000 });
 }
 
 /**

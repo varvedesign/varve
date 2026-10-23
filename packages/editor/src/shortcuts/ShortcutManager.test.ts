@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   bindingMatchesEvent,
+  bindingToAriaKeyshortcuts,
   detectCollisions,
   exportKeymap,
   formatShortcut,
@@ -521,6 +522,17 @@ describe('SHORTCUT_DEFS', () => {
       alt: true,
       shift: true,
     });
+  });
+
+  it('expresses bindings in aria-keyshortcuts grammar, never display abbreviations', () => {
+    expect(bindingToAriaKeyshortcuts(getEffectiveBinding('home'))).toBe('Control+Shift+Alt+F');
+    expect(bindingToAriaKeyshortcuts(getEffectiveBinding('canvasModeOutline'))).toBe(
+      'Control+Shift+Alt+O',
+    );
+    // Display labels use Ctrl/Cmd; an aria value that repeated them would be
+    // invalid token grammar and screen readers would not announce the chord.
+    expect(bindingToAriaKeyshortcuts(getEffectiveBinding('home'))).not.toContain('Ctrl');
+    expect(bindingToAriaKeyshortcuts({ key: 'Backspace' })).toBe('Backspace');
   });
 
   it('ignores browser-reserved shortcut overrides from existing and imported keymaps', () => {

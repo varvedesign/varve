@@ -551,10 +551,16 @@ automatic classifier.
   Shift+H for Home; Firefox reserves Ctrl/Cmd+Shift+H for History and
   Ctrl+Shift+O for bookmarks. Varve assigned those chords to Home and Outline
   Mode and omitted them from its reserved list. The fix moves Varve to
-  Ctrl/Cmd+Alt+Shift+F/O (avoiding Windows' Alt+Shift input-layout switch)
-  and rejects the conflicting bindings in browser keymap capture and import
-  while preserving native desktop overrides. The live-browser
-  regression and affected validation remain pending. Primary references:
+  Ctrl/Cmd+Shift+Alt+F/O (avoiding Windows' Alt+Shift input-layout switch; the
+  display order is the app's existing `formatShortcut` convention, so menus,
+  tooltips, in-app help, and the website keyboard reference all read the same
+  chord) and rejects the conflicting bindings in browser keymap capture and
+  import while preserving native desktop overrides. The live-browser
+  regression is covered by `tests/e2e/shortcuts/browser-reserved.spec.ts` and
+  the Home tooltip now compares against the registry-derived
+  `aria-keyshortcuts`; `Control+Shift+H/O` call sites in the thumbnail and
+  migration specs were replaced with the menubar's Home route. Primary
+  references:
   [Chrome](https://support.google.com/chrome/answer/157179?hl=en),
   [Firefox](https://support.mozilla.org/en-US/kb/keyboard-shortcuts-perform-firefox-tasks-quickly),
   [Edge](https://support.microsoft.com/en-us/edge/keyboard-shortcuts-in-microsoft-edge),
