@@ -60,6 +60,8 @@ export const COMPONENT_DIMENSIONS = {
   'menu-compact-width': '12rem',
   'menu-default-width': '15rem',
   'menu-rich-width': '22rem',
+  /** How wide a content-sized menu may grow before its labels wrap. */
+  'menu-max-width': '28rem',
   'menu-viewport-gutter': 'var(--space-4)',
   'tab-min-height': '32px',
   /* WCAG 2.2 SC 2.5.8 Target Size (Minimum): dense pointer layouts must still

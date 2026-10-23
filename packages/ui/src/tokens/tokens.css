@@ -348,6 +348,7 @@
   --menu-compact-width: 12rem;
   --menu-default-width: 15rem;
   --menu-rich-width: 22rem;
+  --menu-max-width: 28rem;
   --menu-viewport-gutter: var(--space-4);
   --tab-min-height: 32px;
   --target-min-compact: 24px;

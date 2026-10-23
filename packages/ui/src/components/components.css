@@ -761,8 +761,14 @@
   box-shadow: var(--elevation-edge-highlight), var(--elevation-shadow-overlay);
   color: var(--color-text-primary);
 }
+/* Default menus fit their longest command on one line, from the default
+ * width up to --menu-max-width; past that, or the viewport, labels wrap as a
+ * last resort. A fixed 15rem wrapped six of seventeen canvas context-menu
+ * commands onto two or three lines (shell audit 2026-10-21, F-07). */
 .varve-menu--default {
-  width: var(--menu-default-width);
+  width: max-content;
+  min-width: min(var(--menu-default-width), calc(100vw - (var(--menu-viewport-gutter) * 2)));
+  max-width: min(var(--menu-max-width), calc(100vw - (var(--menu-viewport-gutter) * 2)));
 }
 .varve-menu--rich {
   width: var(--menu-rich-width);
