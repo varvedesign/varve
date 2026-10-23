@@ -128,6 +128,40 @@ function TestMenuWithCheckbox({
   );
 }
 
+/** A submenu of checkboxes whose toggles rebuild the item arrays (F-50). */
+function TestMenuWithCheckboxSubmenu({ onClose }: { onClose: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [checked, setChecked] = useState<string[]>([]);
+  const toggle = (id: string) =>
+    setChecked((current) =>
+      current.includes(id) ? current.filter((c) => c !== id) : [...current, id],
+    );
+  const items: MenuEntry[] = [
+    {
+      id: 'type',
+      label: 'Type',
+      type: 'submenu',
+      badge: checked.length > 0 ? String(checked.length) : undefined,
+      submenu: ['Shape', 'Text', 'Frame'].map((label) => ({
+        id: label,
+        label,
+        type: 'checkbox' as const,
+        checked: checked.includes(label),
+        onToggle: () => toggle(label),
+      })),
+    } satisfies SubmenuItem,
+    { id: 'other', label: 'Other', onAction: vi.fn() },
+  ];
+  return (
+    <>
+      <button type="button" ref={ref}>
+        trigger
+      </button>
+      <Menu items={items} triggerRef={ref} open onClose={onClose} label="test" />
+    </>
+  );
+}
+
 function TestMenuWithRadios({ open, onClose }: { open: boolean; onClose: () => void }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [alignment, setAlignment] = useState('left');
@@ -545,6 +579,24 @@ describe('Menu checkbox items', () => {
     render(<TestMenuWithCheckbox open onClose={onClose} checked={false} />);
     const cb = document.body.querySelector('[role="menuitemcheckbox"]') as HTMLElement;
     await user.click(cb);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('keeps a submenu open and its item focused when a toggle rebuilds the items', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<TestMenuWithCheckboxSubmenu onClose={onClose} />);
+    (document.body.querySelector('[role="menuitem"]') as HTMLElement).focus();
+    await user.keyboard('{ArrowRight}');
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toHaveTextContent('Text');
+
+    await user.keyboard('{Enter}');
+    // The open setup must not re-run because the items changed: the submenu
+    // stays open, focus stays on the toggled item, and nothing closed.
+    expect(document.body.querySelectorAll('[role="menu"]')).toHaveLength(2);
+    expect(document.activeElement).toHaveTextContent('Text');
+    expect(document.activeElement).toHaveAttribute('aria-checked', 'true');
     expect(onClose).not.toHaveBeenCalled();
   });
 

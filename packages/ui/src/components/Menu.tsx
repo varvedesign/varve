@@ -471,6 +471,15 @@ function MenuInternal({
       ? flatItems.length
       : Math.min(flatItems.length, maxVisibleItems);
 
+  // Read by the open effect below without being its dependencies: a menu
+  // whose checkable items update their own labels or state gets a new items
+  // array on every toggle, and re-running the open setup then closed the open
+  // submenu and sent focus back to the first item (F-50).
+  const navLengthRef = useRef(navLength);
+  navLengthRef.current = navLength;
+  const isItemDisabledRef = useRef(isItemDisabled);
+  isItemDisabledRef.current = isItemDisabled;
+
   useEffect(() => {
     if (!open) return;
 
@@ -501,7 +510,7 @@ function MenuInternal({
     };
     menuEl?.addEventListener('focusin', handleFocusIn);
 
-    const initialIdx = firstEnabledIndex(navLength, isItemDisabled);
+    const initialIdx = firstEnabledIndex(navLengthRef.current, isItemDisabledRef.current);
     const safeIdx = Math.max(0, initialIdx);
     setFocusIdx(safeIdx);
     setOpenSubmenu(null);
@@ -552,7 +561,7 @@ function MenuInternal({
         target.focus({ preventScroll: true });
       }
     };
-  }, [open, triggerRef, label, navLength, isItemDisabled, level, suppressFocusRestore]);
+  }, [open, triggerRef, label, level, suppressFocusRestore]);
 
   useEffect(() => {
     if (!open) return;
