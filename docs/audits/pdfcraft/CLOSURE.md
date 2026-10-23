@@ -230,7 +230,43 @@ the native shell's Wayland launch and render were recorded in the preceding
 audit commit `eb1d23afd`, and this pass exercises the same Rust writer through
 the example above. The Tauri GUI matrix remains a release-environment check.
 
-### 7.3 WebKitGTK lane
+### 7.3 Visual validation (real UI, captures read)
+
+Command (single Chromium worker; screenshots are opt-in and never written by
+CI):
+
+```text
+VARVE_HEAVY_TASK_PARALLELISM=0 VARVE_E2E_PORT=14941 \
+VARVE_CAPTURE_DIR=/tmp/opencode/pdfcraft-captures \
+npx playwright test tests/e2e/ui/surface-isolation.spec.ts \
+  tests/e2e/canvas/text-edit-overlay-clipping.spec.ts \
+  tests/e2e/ui/sidebar-small-window.spec.ts --project=chromium --workers=1
+```
+
+The heavy-task lease queue was held by four other sessions; the run used the
+documented deliberate opt-out with 8.6 GB available and one browser worker.
+Six inspected captures were copied into `docs/screenshots/pdfcraft/`.
+
+Observed (images read, not inferred):
+
+- `text-edit-overlay-1024x600.png` — a long run edited at the canvas edge stops
+  at the inspector boundary; the Inspector stays fully visible.
+- `text-edit-overlay-dark-1440x900.png` — the same in dark theme at a wider
+  viewport; no spill under the Inspector.
+- `text-edit-alignment-center-1440x900.png` — the centre alignment control is
+  active while the surface is editing.
+- `surface-isolation-inspector-1024x600.png` — the Inspector shows "Something
+  went wrong / synthetic inspector surface failure / Reload" while the canvas,
+  layers, menubar and status bar remain usable.
+- `inspector-tabs-1024x600.png` / `inspector-tabs-1440x900.png` — no overlapping
+  tabs; at 1024 the Export tab is reachable through "More", at 1440 both tabs
+  fit.
+
+Eight of nine captures completed; the process was terminated by a machine
+restart during the last (canvas-panic) test, which had already passed in the
+earlier standalone run. No failing capture is used as evidence.
+
+### 7.4 WebKitGTK lane
 
 The lane the desktop embeds is Playwright's WebKit GTK project, provisioned
 under `~/.cache/varve/playwright-webkit`. It was run against the font
