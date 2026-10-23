@@ -15,7 +15,7 @@ import {
   reorderDesignCanvases,
   setActiveDesignCanvas,
 } from '@varve/scene';
-import { Tooltip } from '@varve/ui';
+import { InfoHint, Tooltip } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../context';
 import { confirmDialog, promptDialog } from '../PromptDialog';
@@ -130,6 +130,9 @@ export function DesignCanvasPanel() {
           />
           Design Canvases
           <span className="pages-panel__count">{canvases.length}</span>
+          <InfoHint topic="Design Canvases">
+            Unbounded work surfaces for exploration and UI design. Publishing Pages live in Print.
+          </InfoHint>
         </h3>
         <button
           type="button"
@@ -140,9 +143,6 @@ export function DesignCanvasPanel() {
           +
         </button>
       </div>
-      <p className="pages-panel__description">
-        Unbounded work surfaces for exploration and UI design. Publishing Pages live in Print.
-      </p>
       {!collapsed && (
         <ul
           id="design-canvas-list"

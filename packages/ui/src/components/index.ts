@@ -116,6 +116,8 @@ export { FocusTrap } from './FocusTrap';
 export { FOCUSABLE_SELECTOR, focusAdjacentTabbable, getFocusableElements } from './focusOrder';
 export type { IconButtonProps } from './IconButton';
 export { IconButton } from './IconButton';
+export type { InfoHintProps } from './InfoHint';
+export { InfoHint } from './InfoHint';
 export type { InlineActivityIndicatorProps } from './InlineActivityIndicator';
 export { InlineActivityIndicator } from './InlineActivityIndicator';
 export type { InputProps } from './Input';

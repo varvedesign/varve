@@ -16,7 +16,7 @@
 
 import type { NodeId } from '@varve/scene';
 import { computePageNumbering } from '@varve/scene';
-import { Icon } from '@varve/ui';
+import { Icon, InfoHint } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -241,6 +241,10 @@ function PublishingPagesPanel() {
           />
           Publishing pages
           <span className="pages-panel__count">{rows.length}</span>
+          <InfoHint topic="publishing pages">
+            Publishing pages define trim, print order, and export. Frames remain editable design
+            containers.
+          </InfoHint>
         </h3>
         <button
           type="button"
@@ -252,10 +256,6 @@ function PublishingPagesPanel() {
         </button>
       </div>
       <ComicStoryOutlinePanel />
-      <p className="pages-panel__description">
-        Publishing pages define trim, print order, and export. Frames remain editable design
-        containers.
-      </p>
       {!collapsed && (
         <ul
           className="pages-panel__list"

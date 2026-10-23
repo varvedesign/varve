@@ -1254,6 +1254,20 @@
   margin-top: var(--space-2);
 }
 
+/* InfoHint: an (i) trigger beside a label, explanation in a popover. The
+ * body is reading text at a comfortable measure. */
+.varve-info-hint {
+  color: var(--color-text-muted);
+  flex: 0 0 auto;
+}
+.varve-info-hint__body {
+  max-inline-size: 32ch;
+  font-family: var(--type-content-body-family);
+  font-size: var(--type-interface-caption-size);
+  line-height: var(--font-line-normal);
+  color: var(--color-text-secondary);
+}
+
 .varve-popover {
   background: var(--color-surface-overlay);
   box-shadow: var(--shadow-lg);
