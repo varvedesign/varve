@@ -37,10 +37,10 @@
     "old_issues_updated_since_cutoff2": 200
   },
   "new_issue_dispositions": {
-    "candidate": 7,
+    "candidate": 8,
     "cluster-assessed": 26,
     "implemented-validated": 22,
-    "outside-varve-scope": 101,
+    "outside-varve-scope": 100,
     "verified-already-correct-": 5
   },
   "reconciliation": {
@@ -70,7 +70,10 @@
       "3979 https://github.com/user-attachments/assets/5e3b0fb5-1802-4c2e-9e15-e079852bf747 (image inspected; hash in source-adjudications.tsv)",
       "3979 https://github.com/user-attachments/assets/4afd78d9-da1f-4390-9a97-0a738e39b677 (image inspected; hash in source-adjudications.tsv)",
       "3980 https://github.com/user-attachments/assets/33ac0dcb-b126-4c68-9137-25f90f83c0d6 (image inspected; hash in source-adjudications.tsv)",
-      "3984 https://github.com/user-attachments/assets/301f8d1d-aad6-4e79-a1f9-fed8430adbf4 (image inspected; hash in source-adjudications.tsv)"
+      "3984 https://github.com/user-attachments/assets/301f8d1d-aad6-4e79-a1f9-fed8430adbf4 (image inspected; hash in source-adjudications.tsv)",
+      "3986 https://tickets.devmesh.xyz/f/U-h657UF6lNznnNukhFf4g/Capture_decran_2026-10-22_083502.png (image inspected; hash in source-adjudications.tsv)",
+      "3986 https://tickets.devmesh.xyz/f/a9psLiG1iDmT51r6tp3bdg/Capture_decran_2026-10-22_083507.png (image inspected; hash in source-adjudications.tsv)",
+      "3996 https://github.com/user-attachments/assets/6b29df68-462f-4119-9b4e-be070aebe65a (image inspected; hash in source-adjudications.tsv)"
     ],
     "inaccessible": []
   },
@@ -111,7 +114,8 @@
     ],
     "completed_issue_ids": [
       3634, 3910, 3911, 3912, 3915, 3921, 3924, 3926, 3936, 3937, 3940, 3944, 3945, 3947, 3950,
-      3951, 3954, 3957, 3960, 3963, 3965, 3966, 3968, 3973, 3975, 3979, 3980, 3984
+      3951, 3954, 3957, 3960, 3963, 3965, 3966, 3968, 3973, 3975, 3979, 3980, 3984, 3986, 3988,
+      3989, 3990, 3992, 3994, 3995, 3996, 3998, 3999, 4000, 4001
     ],
     "note": "Conservative review inventory: union of the 161 new issues, 200 earlier issues updated after cutoff 2, and 103 proposed resolution/citation rows (448 unique issues). Completed means source/discussion/attachment adjudication, not successful runtime verification or terminal disposition. The 2026-10-23 bounded batch is recorded per mechanism in source-adjudications.tsv; 3911 includes local attachment object inspection and a rendered page. 3634 and 3924 remain candidates. 3916 and 3929 were also reopened but are not counted complete while linked drag evidence and individual applicability assessments remain pending. Other terminal labels remain provisional."
   },

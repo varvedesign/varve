@@ -66,18 +66,18 @@ property of the **latest disposition per issue**, checked by
 CI). [`CLOSURE.md`](CLOSURE.md) holds the closure
 draft, the declared disposition census, remaining review inventory, and bounded
 native/visual evidence. The 448-issue review inventory covers new and updated
-reports plus proposed resolutions. Twenty-eight source adjudications are recorded in
+reports plus proposed resolutions. Forty source adjudications are recorded in
 [`source-adjudications.tsv`](source-adjudications.tsv) and `CLOSURE.md`; candidates
-remain open. The other 420 reviews are uncertified. Reading a report is not a
+remain open. The other 408 reviews are uncertified. Reading a report is not a
 runtime pass; partially adjudicated reports are not counted complete.
 
 | Latest declared disposition (not certified) | Count | Non-terminal labels |
 |---|---:|---:|
 | cluster-assessed | 1,446 | |
-| outside-varve-scope | 316 | |
+| outside-varve-scope | 315 | |
 | implemented-validated | 115 | |
 | verified-already-correct- | 66 | |
-| candidate / deferred | **8 / 0** | **8** |
+| candidate / deferred | **9 / 0** | **9** |
 
 Pull requests returned by the issue endpoints were separated from issues.
 1,682 PRs were retained as linked evidence; their own discussions (1,113 PRs

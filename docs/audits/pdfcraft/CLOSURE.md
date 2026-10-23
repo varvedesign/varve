@@ -41,9 +41,9 @@ new issues. The 838 earlier issues that are closed in the snapshot are **not**
 The conservative full-evidence review inventory is **448 unique issues**: the
 union of the 161 new reports, 200 earlier updated reports and 103 resolution /
 citation-restatement rows. An updated timestamp is a materiality-screening
-candidate, not proof of a material change. Twenty-eight issue/discussion/attachment
+candidate, not proof of a material change. Forty issue/discussion/attachment
 adjudications are now recorded below and in `source-adjudications.tsv`;
-**420 remain uncertified**. Partial reading and
+**408 remain uncertified**. Partial reading and
 tests for other issues do not satisfy that stronger acceptance. The IDs are recorded in
 `cutoff3.summary.json` under `review`.
 
@@ -58,10 +58,10 @@ Current source/test citations do not retroactively establish that missing ADR.
 | Latest declared label | Count |
 |---|---:|
 | cluster-assessed | 1,446 |
-| outside-varve-scope | 316 |
+| outside-varve-scope | 315 |
 | implemented-validated | 115 |
 | verified-already-correct- | 66 |
-| candidate / deferred | 8 / 0 |
+| candidate / deferred | 9 / 0 |
 
 These are the existing annotations, **not independently certified outcomes**.
 `resolutions.tsv` proposes 88 inherited resolutions and 15 citation restatements.
@@ -289,8 +289,8 @@ limit in the next desktop release, not hard cancellation. No new rendered
 website or native GUI validation is claimed.
 
 The manual completion command now runs its fixture regressions before checking
-the actual corpus. The actual corpus still has eight open
-candidates, 420 uncertified reviews and inherited citation gaps. No push, merge
+the actual corpus. The actual corpus still has nine open
+candidates, 408 uncertified reviews and inherited citation gaps. No push, merge
 or worktree removal is authorized by these local passes alone.
 
 Current checkpoint: export/recovery/website-copy follow-up committed successfully
@@ -376,8 +376,13 @@ E2E typecheck (53.8 s), policy (60.3 s), and the complete selected CI-tools lane
 (324.6 s), including the formerly failing full-gate fixture. Its recovery E2E
 waited behind other live leases for 600 seconds and hit the lease deadline
 without launching a browser. This is a resource-admission blocker, not a
-workflow failure or pass. Only that exact spec is being retried through the
-normal lease (`sh_16b16de57001PwSv98teXh3qz9`); no duplicate triage/push is active.
+workflow failure or pass. The exact-spec retry through the normal lease
+(`sh_16b16de57001PwSv98teXh3qz9`) subsequently launched Chromium and failed:
+the recovery dialog was absent after reload and creation of `Untitled 2`.
+It failed before Restore or any Save assertion. Artifacts are preserved under
+`test-results/run-486452-1547/save-recovery-destination--cc8d4-rwrites-recorded-provenance-chromium/`
+(`trace.zip`, `error-context.md`, `test-failed-1.png`). WASM fell back to TS;
+this is not WASM qualification. No validation process remains active.
 
 The helper-repair nine-path plan selected touched format/lint, docs, emoji, claims,
 E2E typecheck, policy, CI-tools and the recovery E2E. `pnpm verify:affected`
@@ -433,8 +438,34 @@ misdescribed as Office/EPUB interchange.
 only PDF form fields. Source inspection confirms that Varve leaves Enter to the
 native textarea; it does not prove newline persistence/rendering. A real
 newline → commit/save/reopen workflow remains required. The current recorded
-coverage is **28 source adjudications / 420 outstanding**, with **eight
-candidates**; this is not runtime or integration completion.
+coverage at that third batch was **28 source adjudications / 420 outstanding**,
+with **eight candidates**; this was not runtime or integration completion.
+
+Fourth source batch: complete frozen bodies/discussions were read for #3986,
+#3988, #3989, #3990, #3992, #3994, #3995, #3996, #3998, #3999, #4000 and #4001.
+Both #3986 images and #3996's image were inspected; hashes and bounded
+observations are in `source-adjudications.tsv` and the attachment inventory.
+#3988 explicitly concerns all native file dialogs, so the old Reduce File Size
+exclusion was reopened. #3998–#4000's private vulnerability reports were not
+available: the notes cover public mechanisms only, not unseen exploit evidence.
+Current source coverage is **40 / 448**, with **408 outstanding and nine
+candidates**. The fourth batch's census, 42 unique seven-column source-note
+records and three attachment hashes were rechecked. `pnpm audit:docs`, touched
+Biome and `git diff --check` passed; `pnpm audit:pdfcraft-closure` passed its 14
+fixtures then correctly failed the actual inventory at nine candidates, 408
+pending reviews and the inherited citation gaps. These checks do not satisfy
+the pending browser/native/website/integration obligations.
+
+Recovery investigation: the browser trace shows no recovery dialog or JS
+exception before the assertion. `lifecycle/pageHideBoundary.ts` marks a clean,
+non-BFCache unload as clean; the test had planted `'false'` while its existing
+editor was clean and then used an ordinary reload. Hypothesis: pagehide rewrites
+the planted marker to `'true'`, so the next editor correctly discards stale
+recovery points. Next probe records the post-reload marker and exact recovery
+key before mounting the next editor. No production change or weaker assertion
+is justified until that observation is made. The exact probe is now running
+through the lease (`sh_16b23b872001bG2LTj1hyvNSF6`); E2E typecheck and touched
+formatting passed before it launched. No duplicate browser run was started.
 
 Distinct self-review passes checked the actual helper changes against cwd,
 linked-worktree and injected-adapter behavior, then standards and the affected
