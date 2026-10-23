@@ -2,7 +2,8 @@
  * Manages contextual micro-hint display.
  *
  * Shows a brief hint the first time the user selects a tool, with a
- * cooldown between hints. Respects learning preferences and reduced motion.
+ * cooldown between hints. The visible MicroHint owns its focus-aware lifetime;
+ * this hook only chooses candidates and persists their completed dismissal.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -41,18 +42,10 @@ export function useMicroHints({
   dismiss: () => void;
 } {
   const [currentHint, setCurrentHint] = useState<MicroHint | null>(null);
-  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastHintTimeRef = useRef<number>(0);
   const sessionHintCountRef = useRef(0);
   const lastToolRef = useRef<string>('');
   const lastSelectionCountRef = useRef(0);
-
-  const clearTimer = useCallback(() => {
-    if (hintTimerRef.current) {
-      clearTimeout(hintTimerRef.current);
-      hintTimerRef.current = null;
-    }
-  }, []);
 
   // Resolve the canonical shortcut for a tool id (single source of truth — the
   // shortcut registry). Returns undefined when no key is bound.
@@ -65,20 +58,25 @@ export function useMicroHints({
   );
 
   const dismiss = useCallback(() => {
-    clearTimer();
     if (currentHint) {
       const state = loadOnboardingState();
       saveOnboardingState(dismissMicroHint(state, currentHint.id));
     }
     setCurrentHint(null);
     lastHintTimeRef.current = Date.now();
-  }, [clearTimer, currentHint]);
+  }, [currentHint]);
 
   // Tool change: show hint if first use and eligible
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setCurrentHint(null);
+      lastToolRef.current = toolId;
+      return;
+    }
     if (toolId === lastToolRef.current) return;
     lastToolRef.current = toolId;
+
+    if (currentHint) return;
 
     if (SKIP_TOOLS.has(toolId)) return;
     if (sessionHintCountRef.current >= MAX_HINTS_PER_SESSION) return;
@@ -95,18 +93,14 @@ export function useMicroHints({
     setCurrentHint({ ...hint, shortcut: resolveShortcut(toolId) });
     sessionHintCountRef.current++;
     lastHintTimeRef.current = now;
-
-    if (hint.duration > 0) {
-      clearTimer();
-      hintTimerRef.current = setTimeout(() => {
-        setCurrentHint(null);
-      }, hint.duration);
-    }
-  }, [toolId, enabled, clearTimer, resolveShortcut]);
+  }, [toolId, enabled, currentHint, resolveShortcut]);
 
   // Multi-select hint
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      lastSelectionCountRef.current = selectionCount;
+      return;
+    }
     if (selectionCount < 2) {
       lastSelectionCountRef.current = selectionCount;
       return;
@@ -116,6 +110,8 @@ export function useMicroHints({
       return;
     }
     lastSelectionCountRef.current = selectionCount;
+
+    if (currentHint) return;
 
     if (sessionHintCountRef.current >= MAX_HINTS_PER_SESSION) return;
 
@@ -129,16 +125,7 @@ export function useMicroHints({
     setCurrentHint({ ...hint, shortcut: undefined });
     sessionHintCountRef.current++;
     lastHintTimeRef.current = now;
-
-    if (hint.duration > 0) {
-      clearTimer();
-      hintTimerRef.current = setTimeout(() => {
-        setCurrentHint(null);
-      }, hint.duration);
-    }
-  }, [selectionCount, enabled, clearTimer]);
-
-  useEffect(() => clearTimer, [clearTimer]);
+  }, [selectionCount, enabled, currentHint]);
 
   return { currentHint, dismiss };
 }

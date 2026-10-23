@@ -594,13 +594,13 @@ describe('MicroHint', () => {
     render(<MicroHint hint={hint} onDismiss={onDismiss} />);
 
     act(() => {
-      vi.advanceTimersByTime(3200); // duration + exit animation
+      vi.advanceTimersByTime(3000);
     });
     expect(onDismiss).toHaveBeenCalled();
     vi.useRealTimers();
   });
 
-  it('dismiss button calls onDismiss after exit animation', async () => {
+  it('dismiss button calls onDismiss immediately without a delayed callback', async () => {
     vi.useFakeTimers();
     const { MicroHint } = await import('./MicroHints/MicroHint');
     const onDismiss = vi.fn();
@@ -617,12 +617,11 @@ describe('MicroHint', () => {
     act(() => {
       btn.click();
     });
-    // dismiss sets exiting=true, then calls onDismiss after 200ms
-    expect(onDismiss).not.toHaveBeenCalled();
+    expect(onDismiss).toHaveBeenCalledTimes(1);
     act(() => {
       vi.advanceTimersByTime(250);
     });
-    expect(onDismiss).toHaveBeenCalled();
+    expect(onDismiss).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
 });

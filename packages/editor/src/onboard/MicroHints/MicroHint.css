@@ -1,4 +1,6 @@
 .micro-hint {
+  /* Component reading measure; independent of the surrounding panel widths. */
+  --micro-hint-max-inline-size: 22.5rem;
   /* The hint belongs to the canvas, not the shell: scoping it to the canvas
    * grid area keeps it centred over the artwork instead of bleeding into the
    * inspector when the side panels are open. Same containing-block pattern as
@@ -10,8 +12,8 @@
   transform: translateX(-50%);
   /* Tool hints stay below command menus so they cannot obscure menu labels. */
   z-index: var(--z-overlay);
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   background: var(--color-surface-raised);
@@ -20,6 +22,7 @@
   box-shadow: var(--elevation-shadow-raised);
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
+  line-height: var(--font-line-normal);
   color: var(--color-text-primary);
   /* Hints are informational overlays and must never steal a canvas gesture
    * when they happen to overlap artwork. Keep the close control interactive
@@ -28,33 +31,36 @@
   animation: varve-tooltip-fade-in var(--duration-fast) var(--ease-default);
   /* Never wider than the canvas cell (minus a small inset), and never wider
    * than the readable measure. */
-  max-width: min(360px, calc(100% - var(--space-6)));
-}
-
-.micro-hint--exiting {
-  opacity: 0;
-  transform: translateX(-50%) translateY(4px);
-  transition:
-    opacity var(--duration-quick) var(--ease-default),
-    transform var(--duration-quick) var(--ease-default);
+  box-sizing: border-box;
+  width: min(var(--micro-hint-max-inline-size), calc(100% - var(--space-6)));
 }
 
 .micro-hint--no-animation {
   animation: none;
 }
 
+.micro-hint__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
 .micro-hint__title {
+  font-family: var(--font-interface);
   font-weight: var(--font-weight-semibold);
-  white-space: nowrap;
   color: var(--color-accent-primary);
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
   gap: var(--space-1);
 }
 
 .micro-hint__shortcut {
   font-family: var(--font-mono);
-  font-size: 0.8em;
+  font-size: var(--type-interface-micro-size);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
   background: var(--color-surface-sunken);
@@ -75,5 +81,6 @@
  * The hint surface is pointer-events: none so it never eats a canvas gesture;
  * only the dismiss control opts back in. */
 .micro-hint__dismiss {
+  flex: none;
   pointer-events: auto;
 }

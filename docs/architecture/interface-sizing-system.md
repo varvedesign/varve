@@ -135,6 +135,21 @@ and the focus/hover states come from one place. Overlay surfaces that are
 pointer-transparent (the hint must never eat a canvas gesture) opt the control
 back in with `pointer-events: auto` rather than re-styling it.
 
+The hint's header groups its title, optional canonical shortcut and close control;
+the instruction body wraps on a full-width second row. Its local reading-measure
+token (`--micro-hint-max-inline-size`, 22.5rem) is capped by the canvas cell with
+`--space-6` inset. Reading copy uses `--font-body` / `--font-size-xs`; the shortcut
+uses `--type-interface-micro-size`, never a fractional scale below the type floor.
+The header can wrap independently for longer titles or remapped shortcuts.
+
+Only the mounted hint owns a dismissal timer. Focus inside pauses the remaining
+time; leaving resumes it. Close/Enter/Space/Escape dismiss immediately, and zero
+duration means explicit dismissal only. Replacement and unmount cancel timers.
+The eligibility hook preserves cooldown and seen state, never replaces a visible
+hint while it is being read, and drops suppressed hints without marking them seen.
+Welcome, tour, checklist and Did You Know surfaces suppress eligibility as well as
+presentation, so an unseen stale tip cannot appear when they close.
+
 ### Density behavior
 
 Interface density is a **user preference**, applied at the document root:

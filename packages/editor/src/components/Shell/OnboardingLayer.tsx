@@ -103,15 +103,6 @@ export const OnboardingLayer = forwardRef<OnboardingLayerHandle, OnboardingLayer
       suggestTutorials: learning.autoSuggestTutorials,
     });
 
-    const selectionCount = editor.state.selection.length;
-    const { currentHint: microHint, dismiss: dismissMicroHint } = useMicroHints({
-      toolId: editor.state.tool,
-      workspaceMode: editor.state.workspaceMode,
-      enabled: learning.showContextualTips,
-      selectionCount,
-      shortcutsEnabled: learning.showShortcutHints,
-    });
-
     const currentStep = onboarding.stepIndex >= 0 && onboarding.active ? onboarding.stepIndex : -1;
 
     // One interruption at a time: any higher-priority surface suppresses all
@@ -121,6 +112,14 @@ export const OnboardingLayer = forwardRef<OnboardingLayerHandle, OnboardingLayer
     const welcomeOpen = onboarding.showWelcome && onboarding.active;
     const checklistVisible = checklistOpen;
     const higherSurfaceActive = tourActive || welcomeOpen || checklistVisible;
+
+    const { currentHint: microHint, dismiss: dismissMicroHint } = useMicroHints({
+      toolId: editor.state.tool,
+      workspaceMode: editor.state.workspaceMode,
+      enabled: learning.showContextualTips && !didYouKnowTip && !higherSurfaceActive,
+      selectionCount: editor.state.selection.length,
+      shortcutsEnabled: learning.showShortcutHints,
+    });
 
     return (
       <>

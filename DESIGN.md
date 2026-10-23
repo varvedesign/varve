@@ -201,6 +201,16 @@ The typographic hierarchy uses four specialized font families, each assigned by 
 
 ### Typographic Roles
 
+Canvas micro-hints use a stacked composition: title/shortcut/CloseButton header,
+then full-width reading copy. The local `--micro-hint-max-inline-size` token is
+22.5rem, bounded by the canvas width minus `--space-6`. Header spacing uses
+`--space-2`, title/shortcut uses `--space-1`, and the surface keeps the semantic
+raised/background, border and shadow roles. Body type is `--font-body` at
+`--font-size-xs` with `--font-line-normal`; shortcuts use the 12px micro role.
+The body is pointer-transparent; only the shared `CloseButton size="sm"` is
+interactive. Keyboard focus pauses dismissal; explicit dismissal is immediate.
+See [interface sizing](docs/architecture/interface-sizing-system.md#close-affordance).
+
 | Role | Size | Line Height | Weight | Family |
 |------|------|-------------|--------|--------|
 | `interface-control` | `--font-size-sm` | control (1.25) | medium (500) | interface |

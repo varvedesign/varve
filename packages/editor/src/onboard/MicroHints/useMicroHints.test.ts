@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dismissMicroHint, loadOnboardingState, saveOnboardingState } from '../onboardingStore';
 
 vi.mock('../../shortcuts/toolShortcutLabel', () => ({
@@ -17,6 +17,8 @@ describe('useMicroHints', () => {
     localStorage.clear();
     vi.useFakeTimers();
   });
+
+  afterEach(() => vi.useRealTimers());
 
   it('does not show hint for select (skipped tool)', () => {
     const { result } = renderHook(() =>
@@ -72,7 +74,7 @@ describe('useMicroHints', () => {
     expect(result.current.currentHint).toBeNull();
   });
 
-  it('auto-dismisses hint after duration', () => {
+  it('leaves the lifetime to the visible hint so hidden hints cannot time out', () => {
     const { result, rerender } = renderHook(
       ({ toolId }) => useMicroHints({ toolId, enabled: true, selectionCount: 1 }),
       { initialProps: { toolId: 'select' } },
@@ -83,7 +85,7 @@ describe('useMicroHints', () => {
     act(() => {
       vi.advanceTimersByTime(5000);
     });
-    expect(result.current.currentHint).toBeNull();
+    expect(result.current.currentHint?.id).toBe('rect.first-use');
   });
 
   it('shows multi-select hint when selection count reaches 2', () => {
