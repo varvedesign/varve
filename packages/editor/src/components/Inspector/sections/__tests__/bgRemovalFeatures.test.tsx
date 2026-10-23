@@ -56,6 +56,8 @@ vi.mock('@varve/engine', async (importOriginal) => {
           diskSizeBytes: number;
           estimatedPeakRamBytes: number;
           peakRamDisplay: string;
+          nativeEstimatedPeakRamBytes?: number;
+          nativePeakRamDisplay?: string;
           diskSizeDisplay: string;
           quality: string;
           requiresDownload: boolean;
@@ -92,7 +94,9 @@ vi.mock('@varve/engine', async (importOriginal) => {
           description: 'BiRefNet Lite',
           diskSizeBytes: 224_000_000,
           estimatedPeakRamBytes: 900_000_000,
-          peakRamDisplay: '~900 MB',
+          peakRamDisplay: '~900 MB RAM in a browser',
+          nativeEstimatedPeakRamBytes: 450_000_000,
+          nativePeakRamDisplay: '~450 MB RAM on desktop',
           diskSizeDisplay: '224 MB',
           quality: 'Best',
           requiresDownload: true,
@@ -1036,5 +1040,26 @@ describe('BackgroundRemovalSection - Error normalization', () => {
       expect(alert).not.toMatch(/\d{6,} bytes/);
       expect(alert).not.toMatch(/\b\d+00000000\b/);
     });
+  });
+});
+
+describe('BackgroundRemovalSection - model memory disclosure', () => {
+  it('states the desktop and browser working sets separately', async () => {
+    // One figure for two very different runtimes was the defect: the desktop
+    // path needs ~450 MB while the browser stays conservatively gated at ~7 GB.
+    mockedUseEditor.mockReturnValue(createMockEditorContext());
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method: 'ai-quality',
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    const info = await screen.findByText(/during inference/i);
+    expect(info.textContent).toMatch(/on desktop/);
+    expect(info.textContent).toMatch(/in a browser/);
+    expect(info.textContent).not.toMatch(/RAM RAM/i);
   });
 });
