@@ -610,6 +610,11 @@ export function TextEditOverlay({
         fontWeight: node.fontWeight ?? 400,
         writingMode: node.writingMode ?? 'horizontal-tb',
         textOrientation: node.textOrientation ?? 'mixed',
+        // The editing surface must lay text out where the renderer painted it.
+        // Omitting alignment put the caret and the IME composition at the left
+        // edge of a centred or right-aligned run — a layout the box never had
+        // (storytold/pdfcraft #4175).
+        textAlign: node.textAlign ?? 'left',
         // Keep the editing surface on the same fallback as shared text
         // geometry and the canvas renderer. Imported nodes may omit the
         // optional line-height field; using 1.2 here made their caret and

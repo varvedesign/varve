@@ -133,3 +133,41 @@ test.describe('text edit overlay clipping', () => {
     expect(1440 - rightInset).toBeLessThanOrEqual(state.canvas.x + state.canvas.width + 1);
   });
 });
+
+test.describe('text edit surface layout parity', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('mirrors the paragraph alignment the canvas painted', async ({ page }) => {
+    await navigateToEditor(page);
+    const box = await canvasBox(page);
+    await page.keyboard.press('t');
+    await page.mouse.click(box.x + 320, box.y + 220);
+    await expect(page.locator(EDIT_SURFACE)).toBeVisible({ timeout: 10000 });
+    await page.keyboard.type('Alignment parity');
+    await page.keyboard.press('Escape');
+    await expect(page.locator(EDIT_SURFACE)).toHaveCount(0, { timeout: 10000 });
+
+    // Select the text and centre it through the Inspector, the real route.
+    await page.getByRole('treeitem').first().click();
+    const center = page
+      .getByRole('radiogroup', { name: 'Horizontal align' })
+      .getByRole('radio', { name: 'Align center' });
+    await center.click();
+    await expect(center).toBeChecked();
+
+    // Re-enter editing from the canvas the way a user does, then read the
+    // surface's layout.
+    // Re-select through the layers tree (the route the keyboard editing spec
+    // uses), arm the Text tool, focus the canvas, then begin editing.
+    await page.getByRole('treeitem').first().click();
+    await page.keyboard.press('t');
+    await page.locator('canvas.editor-canvas__content-layer').focus();
+    await page.keyboard.press('Control+Enter');
+    await expect(page.locator(EDIT_SURFACE)).toBeVisible({ timeout: 10000 });
+    const alignment = await page.evaluate(() => {
+      const surface = document.querySelector('[data-text-edit-surface="true"]');
+      return surface ? getComputedStyle(surface).textAlign : null;
+    });
+    expect(alignment).toBe('center');
+  });
+});
