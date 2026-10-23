@@ -2142,8 +2142,8 @@
    while `--solo-off` kept `pointer-events: none`, so an unpinned solo star
    looked clickable on the selected row and was not. Pinning it for a
    workspace (Photo) makes it visible without hover; the context menu and bulk
-   bar always offer the action. No layout shift: the 24px slot is reserved in
-   every state. */
+   bar always offer the action. An unpinned slot takes no width until it is
+   revealed (see "Name room" below). */
 .layers-row [data-row-action="solo"][data-row-action-pinned="false"] {
   opacity: 0;
   pointer-events: none;
@@ -2175,6 +2175,26 @@
   .layers-row__toggle--solo-off {
     opacity: 0.75;
     pointer-events: auto;
+  }
+}
+
+/* Name room (D-3, F-20). Toggles in their default state (visible, unlocked,
+   unpinned solo) and the details button take no width until the row is
+   hovered or focused, and eye and lock also on a selected row, so an idle row
+   gives its name the width those 24px slots used to reserve. A hidden, locked, mixed or soloed state
+   always shows, so state never has to be hovered to be read. The buttons stay
+   in the accessibility tree (no display or visibility change), and hover-less
+   or coarse pointers keep every toggle showing. */
+@media (hover: hover) and (pointer: fine) {
+  .layers-row:not(:hover, :focus-within, .layers-row--selected)
+    .layers-row__toggle[data-default-state="true"],
+  .layers-row:not(:hover, :focus-within) [data-row-action="solo"][data-row-action-pinned="false"],
+  .layers-row:not(:hover, :focus-within) .layers-row__details-trigger {
+    flex-basis: 0;
+    min-inline-size: 0;
+    inline-size: 0;
+    overflow: hidden;
+    opacity: 0;
   }
 }
 
