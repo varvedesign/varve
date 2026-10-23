@@ -456,10 +456,33 @@ export function FloatingPortal({
             padding: SAFE_VIEWPORT_PADDING,
             boundary: collisionRegion.boundary,
             apply({ availableWidth, availableHeight, rects, elements }) {
-              const constrainedHeight = Math.max(
-                0,
-                maxHeight === undefined ? availableHeight : Math.min(availableHeight, maxHeight),
-              );
+              const measured =
+                maxHeight === undefined ? availableHeight : Math.min(availableHeight, maxHeight);
+              let constrainedHeight = Math.max(0, measured);
+              if (constrainedHeight === 0) {
+                // A placement measurement can come back as zero: a surface that
+                // mounted while hidden, a submenu mounting inside another
+                // portal, or a viewport that is still settling. Leaving the
+                // surface uncapped in that case is what lets a menu grow past
+                // the bottom of the window with no way to reach its last rows.
+                // Degrade to the space between the anchor and the viewport edge
+                // in the chosen direction instead — never larger than a real
+                // measurement would have produced.
+                const view = ownerDocument.defaultView;
+                const viewHeight = view?.visualViewport?.height ?? view?.innerHeight ?? 0;
+                if (viewHeight > 0) {
+                  const side = resolvedPlacement.split('-')[0];
+                  const referenceRect = rects.reference;
+                  const edgeSpace =
+                    side === 'top'
+                      ? referenceRect.top - SAFE_VIEWPORT_PADDING
+                      : viewHeight - referenceRect.bottom - SAFE_VIEWPORT_PADDING;
+                  constrainedHeight = Math.max(
+                    0,
+                    Math.min(Math.max(0, edgeSpace), maxHeight ?? Number.POSITIVE_INFINITY),
+                  );
+                }
+              }
               const sizeStyle: Record<string, string> = {
                 boxSizing: 'border-box',
                 overflowY: scrollOwner === 'content' ? 'visible' : 'auto',
