@@ -17,9 +17,10 @@ import {
   stopDesktopFlushTimer,
   TabletBackDismiss,
   UpdateCoordinatorProvider,
+  useSettings,
   useStartup,
 } from '@varve/editor';
-import { HomeShell } from '@varve/home';
+import { HomeShell, type HomeShellProps } from '@varve/home';
 import {
   adoptBrowserFileHandle,
   contentHash,
@@ -556,7 +557,7 @@ export function App() {
         )}
         <div style={surfaceStyle(view === 'home')}>
           <SettingsProvider>
-            <HomeShell
+            <HomeWithDiagnostics
               key={retryCount}
               platform={platform}
               onOpenFile={handleOpenFile}
@@ -601,6 +602,17 @@ export function App() {
     <UpdateCoordinatorProvider provider={updateProvider}>{appContent}</UpdateCoordinatorProvider>
   ) : (
     appContent
+  );
+}
+
+/** Home shows its performance readout only with Settings > Performance > Diagnostics on. */
+function HomeWithDiagnostics(props: Omit<HomeShellProps, 'showPerformanceProfile'>) {
+  const { settings } = useSettings();
+  return (
+    <HomeShell
+      {...props}
+      showPerformanceProfile={settings.performance.showPerformanceDiagnostics}
+    />
   );
 }
 

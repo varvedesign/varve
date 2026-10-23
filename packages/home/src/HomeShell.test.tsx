@@ -20,7 +20,7 @@ describe('HomeShell', () => {
     // Regression: Date.now() passed as renderStartTime while PerfProfile uses
     // performance.now() → ~-1.78e12 ms.
     const platform = createMemoryPlatform();
-    render(<HomeShell platform={platform} onOpenFile={vi.fn()} />);
+    render(<HomeShell platform={platform} onOpenFile={vi.fn()} showPerformanceProfile />);
 
     const profile = await screen.findByLabelText('Performance profile');
     const msText = profile.textContent?.match(/(-?\d+)ms/)?.[1];
@@ -28,6 +28,14 @@ describe('HomeShell', () => {
     const ms = Number(msText);
     expect(ms).toBeGreaterThanOrEqual(0);
     expect(ms).toBeLessThan(60_000);
+  });
+
+  it('keeps the performance readout off unless the host asks for it', async () => {
+    // F-06: the diagnostic chip read as product chrome on Home.
+    const platform = createMemoryPlatform();
+    render(<HomeShell platform={platform} onOpenFile={vi.fn()} />);
+    await screen.findByRole('button', { name: /^new$/i });
+    expect(screen.queryByLabelText('Performance profile')).toBeNull();
   });
 
   it('renders toolbar with New and Open buttons', async () => {
