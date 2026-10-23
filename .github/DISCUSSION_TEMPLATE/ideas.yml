@@ -1,0 +1,41 @@
+title: "Idea: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        What would you like Varve to do? A sentence is enough. Add more
+        if you want.
+
+        If you already know the exact tool or button you want, you can also
+        open a
+        [feature request](https://github.com/varvedesign/varve/issues/new?template=feature_request.yml).
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Varve to do?
+      description: Say it in your own words. It does not have to be a finished plan.
+      placeholder: "Let me save a set of brushes and reuse them on the next poster..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: trying-to-do
+    attributes:
+      label: What are you trying to make? (optional)
+      description: The kind of work this would help with.
+      placeholder: "A multi-page zine, a logo set, a print poster..."
+
+  - type: textarea
+    id: in-the-way
+    attributes:
+      label: What gets in the way today? (optional)
+      description: What you have to work around, if anything.
+      placeholder: "I keep copying layers by hand because I cannot save a style..."
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else? (optional)
+      description: Add more if you want. You can skip this.
+      placeholder: "A link, a sketch of the idea, or how other tools you use handle this..."
