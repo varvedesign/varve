@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { EditorContextValue } from '../context';
+import { type EditorContextValue, setToastHandler } from '../context';
 import {
   getWorkspacePreferences,
   resetWorkspacePreferenceCache,
 } from '../workspace/workspaceStore';
 import { getActionRegistry, resetActionRegistryForTesting } from './ActionRegistry';
-import { openVarveContact, registerEditorActions } from './registerAll';
+import { openExternalUrl, openVarveContact, registerEditorActions } from './registerAll';
 
 // `vi.mock` is hoisted above module-level `let`s, so the flag the factory
 // closes over has to be hoisted with it.
@@ -211,17 +211,23 @@ describe('registerEditorActions — intelligence commands', () => {
 });
 
 /**
- * Contact links are a privacy surface, not just a convenience. Two things
- * must hold on every platform: the URL carries no user data, and the click
- * actually opens something. The Tauri branch exists because
- * `window.open('mailto:')` is silently ignored by WebKitGTK.
+ * Help > Send Feedback must open the public feedback page in a real browser.
+ * Other Help contact items stay on mailto, because they are real addresses.
+ * A failed open must never be silent: the toast carries the URL and Copy.
  */
 describe('openVarveContact', () => {
   const originalLocation = window.location;
+  const originalOpen = window.open;
+  const toasts: Array<Record<string, unknown>> = [];
 
   beforeEach(() => {
     runtime.isTauri = false;
+    toasts.length = 0;
+    setToastHandler((opts) => {
+      toasts.push(opts as Record<string, unknown>);
+    });
     delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+    window.open = vi.fn().mockReturnValue({ closed: false });
   });
 
   afterEach(() => {
@@ -229,8 +235,10 @@ describe('openVarveContact', () => {
       configurable: true,
       value: originalLocation,
     });
+    window.open = originalOpen;
     delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
     runtime.isTauri = false;
+    setToastHandler(null);
   });
 
   function stubLocation(): { current: string } {
@@ -250,13 +258,40 @@ describe('openVarveContact', () => {
     return href;
   }
 
-  it('navigates to the channel mailto on the web build', () => {
+  it('opens the feedback page in a new tab on the web build', () => {
+    const href = stubLocation();
+    openVarveContact('feedback');
+    expect(window.open).toHaveBeenCalledWith(
+      'https://varve.studio/feedback',
+      '_blank',
+      'noopener,noreferrer',
+    );
+    expect(href.current).toBe('');
+  });
+
+  it('hands the feedback https URL to the native opener under Tauri', () => {
+    runtime.isTauri = true;
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = { invoke };
+    const href = stubLocation();
+
+    openVarveContact('feedback');
+
+    expect(invoke).toHaveBeenCalledWith('plugin:opener|open_url', {
+      url: 'https://varve.studio/feedback',
+    });
+    expect(href.current).toBe('');
+    expect(window.open).not.toHaveBeenCalled();
+  });
+
+  it('navigates to the channel mailto on the web build for real addresses', () => {
     const href = stubLocation();
     openVarveContact('support');
     expect(href.current).toBe('mailto:support@varve.studio?subject=Varve%20support');
+    expect(window.open).not.toHaveBeenCalled();
   });
 
-  it('hands the URL to the native opener under Tauri', () => {
+  it('hands a mailto URL to the native opener under Tauri for real addresses', () => {
     runtime.isTauri = true;
     const invoke = vi.fn().mockResolvedValue(undefined);
     (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = { invoke };
@@ -267,23 +302,35 @@ describe('openVarveContact', () => {
     expect(invoke).toHaveBeenCalledWith('plugin:opener|open_url', {
       url: 'mailto:security@varve.studio?subject=Varve%20security%20report',
     });
-    // The webview must not also navigate — that would blank the editor.
     expect(href.current).toBe('');
   });
 
-  it('survives a missing mail handler without throwing', async () => {
+  it('shows a toast with the URL and a Copy action when the opener fails', async () => {
     runtime.isTauri = true;
     const invoke = vi.fn().mockRejectedValue(new Error('no handler'));
     (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = { invoke };
 
     expect(() => openVarveContact('feedback')).not.toThrow();
-    await Promise.resolve();
+    await vi.waitFor(() => {
+      expect(toasts.length).toBe(1);
+    });
+    expect(toasts[0]?.message).toBe('https://varve.studio/feedback');
+    expect(toasts[0]?.type).toBe('warning');
+    expect(toasts[0]?.action).toEqual(expect.objectContaining({ label: 'Copy' }));
   });
 
-  it('never puts anything but a short static subject in the URL', () => {
+  it('shows a toast when the web build cannot open a new tab', async () => {
+    window.open = vi.fn().mockReturnValue(null);
+    await expect(openExternalUrl('https://varve.studio/feedback')).resolves.toBe(false);
+    expect(toasts[0]?.message).toBe('https://varve.studio/feedback');
+    expect(toasts[0]?.action).toEqual(expect.objectContaining({ label: 'Copy' }));
+  });
+
+  it('never puts a body payload on remaining mailto contact URLs', () => {
     const href = stubLocation();
-    for (const channel of ['support', 'feedback', 'security', 'privacy'] as const) {
+    for (const channel of ['support', 'security', 'privacy'] as const) {
       openVarveContact(channel);
+      expect(href.current).toMatch(/^mailto:/);
       expect(href.current).not.toMatch(/body=/);
       expect(href.current.length).toBeLessThan(120);
     }

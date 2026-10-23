@@ -1,0 +1,123 @@
+---
+/**
+ * /feedback — the in-app "Send feedback" landing page.
+ *
+ * The desktop and /try builds open this URL in a browser instead of a
+ * mailto: link. The page is a short chooser: GitHub issues, Discussions, or
+ * email. Varve never attaches diagnostics or files here.
+ */
+import Button from '../components/Button.astro';
+import ContactChannel from '../components/ContactChannel.astro';
+import Layout from '../layouts/Layout.astro';
+import { CONTACTS, VARVE_URLS } from '@varve/shared';
+import { siteUrl } from '../lib/siteUrl';
+
+const feedbackUrl = siteUrl('/feedback');
+
+const feedbackSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  '@id': `${feedbackUrl}#webpage`,
+  url: feedbackUrl,
+  name: 'Send feedback to Varve',
+  description:
+    'Choose how to send Varve feedback: report a bug, suggest an idea, or email feedback@varve.studio. The app sends nothing automatically.',
+  inLanguage: 'en',
+  mainEntity: {
+    '@type': 'Organization',
+    name: 'Varve',
+    url: siteUrl('/'),
+    email: CONTACTS.feedback,
+  },
+};
+---
+
+<Layout
+  title="Send feedback"
+  description="Report a Varve bug, suggest an idea, or email feedback@varve.studio. The app sends nothing automatically. You choose what to share."
+  structuredData={feedbackSchema}
+>
+  <div class="container-custom">
+    <div class="feedback-page">
+      <h1 class="page-hero-title">Send feedback</h1>
+      <p class="page-hero-sub">
+        Pick the channel that fits. The app sends nothing automatically. You
+        choose what to share.
+      </p>
+
+      <ol class="feedback-choices">
+        <li class="feedback-choice site-card site-card--surface">
+          <h2>Report a bug</h2>
+          <p>Use a GitHub issue when something is broken and you can describe the steps.</p>
+          <Button href={VARVE_URLS.newIssueChoose}>Report a bug</Button>
+        </li>
+        <li class="feedback-choice site-card site-card--surface">
+          <h2>Suggest an idea or ask a question</h2>
+          <p>Discussions are for feature ideas, workflow questions, and product feedback.</p>
+          <Button href={VARVE_URLS.discussions} variant="secondary">Open Discussions</Button>
+        </li>
+        <li class="feedback-choice site-card site-card--surface">
+          <h2>Prefer email?</h2>
+          <p>Write to the product feedback address when you would rather not post in public.</p>
+          <ContactChannel
+            id="feedback"
+            headingLevel={3}
+            purpose="Suggestions, feature ideas, usability feedback, and interest in user research."
+          />
+        </li>
+      </ol>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feedback-page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 0 4rem;
+  }
+
+  .feedback-page .page-hero-sub {
+    margin-bottom: 2.5rem;
+  }
+
+  .feedback-choices {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .feedback-choice {
+    padding: 1.5rem;
+  }
+
+  .feedback-choice h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .feedback-choice p {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 1rem;
+    max-width: 56ch;
+  }
+
+  .feedback-choice :global(.contact-channel) {
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .feedback-choice :global(.contact-channel-title) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>

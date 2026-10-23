@@ -59,6 +59,7 @@ test('desktop and mobile use the same ordered destinations with bounded exact-pa
     'Troubleshooting',
     'Known issues',
     'Report an issue',
+    'Send feedback',
     'Contact',
   ]);
   expect(
@@ -232,6 +233,7 @@ test('footer keeps browser demo, support, and contribution paths discoverable', 
     'Troubleshooting',
     'Known issues',
     'Report an issue',
+    'Send feedback',
     'Contact Varve',
     'Contribute',
     ...(SHOW_SUPPORT_PROJECT ? (['Support the project'] as const) : []),

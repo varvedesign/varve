@@ -20,12 +20,20 @@ interface EditorToastOptions {
   duration?: number;
   id?: string;
   dedupeKey?: string;
+  action?: {
+    label: string;
+    onClick: () => void | Promise<void>;
+  };
 }
 
 let toastHandler: ((opts: EditorToastOptions) => void) | null = null;
 
 export function setToastHandler(fn: ((opts: EditorToastOptions) => void) | null): void {
   toastHandler = fn;
+}
+
+export function showEditorToast(opts: EditorToastOptions): void {
+  toastHandler?.(opts);
 }
 
 export { requestInspectorTab, setInspectorTabHandler } from './context/inspectorTabBridge';

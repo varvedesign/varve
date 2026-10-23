@@ -1,5 +1,3 @@
-import { isTauriRuntime } from '@varve/platform';
-import { type ContactChannelId, contactMailto } from '@varve/shared';
 import { isCapabilityRestricted } from '../capabilities/restrictions';
 import { registerColorConversionActions } from '../components/ColorConversion/colorConversionCommands';
 import { registerPresentationActions } from '../components/Presentation/presentationCommands';
@@ -16,6 +14,7 @@ import { registerCalloutActions } from './calloutCommands';
 import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
 
 export { dispatchRegisteredAction } from './ActionRegistry';
+export { openExternalUrl, openVarveContact } from './openExternalUrl';
 
 /**
  * Commands that run on-device inference. A deployment that withholds it must
@@ -40,47 +39,6 @@ function categoryFromShortcut(cat: string): ActionCategory {
   if (lc === 'tools') return 'tools';
   if (lc === 'insert') return 'insert';
   return 'help';
-}
-
-/**
- * Open a public Varve contact without putting routing details in the shell.
- *
- * The URL carries only the channel's short static subject — never a document
- * name, path, version, or diagnostic string. Contact URLs are handed to the
- * OS mail client and to shell history; anything embedded here leaks.
- *
- * Desktop and web need different mechanisms. `window.open('mailto:...')` in a
- * Tauri webview is not a reliable external-protocol handler: WebKitGTK
- * commonly ignores it, so the menu item silently does nothing. The native
- * path therefore hands the URL to `tauri-plugin-opener`, whose default
- * permission set already allows the `mailto:` scheme. The browser fallback
- * assigns `location.href` rather than opening a tab, because a `mailto:`
- * navigation must not leave behind a blank window when no handler exists.
- */
-export function openVarveContact(contact: ContactChannelId): void {
-  const href = contactMailto(contact);
-
-  if (isTauriRuntime()) {
-    const invoke = (
-      window as unknown as {
-        __TAURI_INTERNALS__?: { invoke?: (cmd: string, args: unknown) => Promise<unknown> };
-      }
-    ).__TAURI_INTERNALS__?.invoke;
-    if (invoke) {
-      void Promise.resolve(invoke('plugin:opener|open_url', { url: href })).catch(() => {
-        // No mail handler installed, or the user dismissed the chooser.
-        // Not actionable, and not worth interrupting the editor for: the
-        // address is also published in Settings > About and on the website.
-      });
-      return;
-    }
-  }
-
-  try {
-    window.location.href = href;
-  } catch {
-    /* No mail handler; the address is still discoverable in About. */
-  }
 }
 
 /**

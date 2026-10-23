@@ -28,6 +28,7 @@ const ROUTES = [
   '/support/faq',
   '/support/troubleshooting',
   '/support/report-issue',
+  '/feedback',
   '/contribute',
   '/contribute/guidelines',
   '/about',

@@ -44,3 +44,4 @@
 - License: https://varve.studio/about/license
 - Source: https://github.com/varvedesign/varve
 - Contact: https://varve.studio/contact
+- Feedback: https://varve.studio/feedback

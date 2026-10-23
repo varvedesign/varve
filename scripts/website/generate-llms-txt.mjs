@@ -66,6 +66,7 @@ export function buildLlmsTxt(app = readPublishedApp()) {
 - License: https://varve.studio/about/license
 - Source: ${repoUrl}
 - Contact: https://varve.studio/contact
+- Feedback: https://varve.studio/feedback
 `;
 }
 
