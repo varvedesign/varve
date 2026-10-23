@@ -24,9 +24,9 @@ const AI_ENTRY_POINTS = [
     description: 'Generative Edit dialog',
   },
   {
-    file: 'packages/editor/src/context.tsx',
-    function: 'openUpscaleDialog',
-    description: 'Image upscaling',
+    file: 'packages/editor/src/components/Upscale/upscaleModeOptions.ts',
+    function: 'getUpscaleModeOptions',
+    description: 'Image upscaling AI modes',
   },
   {
     file: 'packages/editor/src/components/Inspector/sections/BackgroundRemovalSection.tsx',

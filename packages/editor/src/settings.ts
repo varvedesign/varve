@@ -9,6 +9,7 @@
  * React context.
  */
 
+import { notifyAiFeaturesSettingsChanged } from '@varve/engine';
 import type { ExportFormat, ExportScale, RenderingIntent } from '@varve/scene';
 import type { AnalyticsConsentState } from '@varve/shared';
 import { normalizeThemePreference, type ThemePreference } from '@varve/ui/tokens';
@@ -876,6 +877,7 @@ function normalizeRenderSettings(
 
 export function saveSettings(settings: EditorSettings): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  notifyAiFeaturesSettingsChanged();
 }
 
 export interface EditorSettingsPatch {

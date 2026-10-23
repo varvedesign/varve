@@ -1,4 +1,4 @@
-import { AI_DISABLED_HINT, getAiFeaturesEnabled } from '@varve/engine';
+import { AI_DISABLED_HINT, getAiFeaturesEnabled, subscribeAiFeaturesEnabled } from '@varve/engine';
 import type { Asset, AssetFolder, Platform } from '@varve/platform';
 import { searchAssets } from '@varve/platform';
 import type { FileRejection } from '@varve/shared';
@@ -15,7 +15,7 @@ import {
   Spinner,
   Tooltip,
 } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { HomeImportOutcome } from './homeImportNotifications';
 import { useSemanticAssetSearch } from './search/useSemanticAssetSearch';
 
@@ -177,7 +177,11 @@ export function AssetBrowser({
 
   const hasQuery = searchQuery.trim().length > 0;
   const hasImageAssets = useMemo(() => assets.some((asset) => asset.kind === 'image'), [assets]);
-  const aiEnabled = getAiFeaturesEnabled();
+  const aiEnabled = useSyncExternalStore(
+    subscribeAiFeaturesEnabled,
+    getAiFeaturesEnabled,
+    getAiFeaturesEnabled,
+  );
 
   const {
     semanticRanks,

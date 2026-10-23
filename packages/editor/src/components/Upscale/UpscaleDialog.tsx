@@ -34,6 +34,7 @@ import {
 import { Button, Dialog, SegmentedControl, Select } from '@varve/ui';
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import { useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 import {
   ENHANCEMENT_PRESETS,
@@ -192,10 +193,17 @@ export function UpscaleDialog({
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const denoiseUserEditedRef = useRef(false);
 
+  const aiEnabled = useAiFeaturesEnabled();
   const mode = useMemo(() => getUpscaleMode(modeId), [modeId]);
-  const modeOptions = useMemo(getUpscaleModeOptions, []);
+  const modeOptions = useMemo(() => getUpscaleModeOptions(aiEnabled), [aiEnabled]);
   const selectedModeOption = modeOptions.find((option) => option.value === modeId);
   const selectedModeUnavailable = selectedModeOption?.disabled ?? false;
+
+  useEffect(() => {
+    if (!aiEnabled && mode?.isAi) {
+      setModeId(DEFAULT_UPSCALE_MODE);
+    }
+  }, [aiEnabled, mode]);
 
   /**
    * Resolve Auto once and reuse that result for preview, model checks, output

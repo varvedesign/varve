@@ -1088,7 +1088,16 @@ fn ai_features_enabled_from_read(result: Result<Option<String>, String>) -> bool
         // Missing key: fresh install stays on (on by default, on-device, can
         // be turned off in Settings).
         Ok(None) => true,
-        Ok(Some(value)) => value != "false",
+        Ok(Some(value)) => {
+            if value == "true" {
+                true
+            } else {
+                if value != "false" {
+                    eprintln!("[ai-gate] AI setting unreadable; treating as off: {value}");
+                }
+                false
+            }
+        }
         // Unreadable store: fail closed and log. Do not treat a read error
         // as a missing key.
         Err(err) => {
@@ -6326,9 +6335,17 @@ mod tests {
             ai_features_enabled_from_read(Ok(None)),
             "missing setting stays on"
         );
-        assert!(!ai_features_enabled_from_read(Err(
-            "disk i/o failed".into()
-        )));
+        assert!(!ai_features_enabled_from_read(
+            Err("disk i/o failed".into())
+        ));
+        assert!(
+            !ai_features_enabled_from_read(Ok(Some("garbage".into()))),
+            "a corrupt store value must fail closed"
+        );
+        assert!(!ai_features_enabled_from_read(Ok(Some("TRUE".into()))));
+        assert!(!ai_features_enabled_from_read(Ok(Some("1".into()))));
+        assert!(ai_features_enabled_from_read(Ok(Some("true".into()))));
+        assert!(!ai_features_enabled_from_read(Ok(Some("false".into()))));
         let _ = std::fs::remove_file(&path);
     }
 

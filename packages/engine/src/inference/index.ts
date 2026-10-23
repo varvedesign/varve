@@ -112,11 +112,12 @@ export {
 } from './admission';
 export {
   AI_DISABLED_HINT,
+  AI_FEATURES_CHANGED_EVENT,
   applyWorkerAiGate,
   assertAiFeaturesEnabled,
-  configureAiFeaturesEnabled,
   getAiFeaturesEnabled,
-  resetAiFeaturesGateForTests,
+  notifyAiFeaturesSettingsChanged,
+  subscribeAiFeaturesEnabled,
 } from './aiFeaturesGate';
 export { DownloadManager } from './core/DownloadManager';
 export type { InferenceErrorCode, InferenceErrorDetails } from './core/InferenceError';

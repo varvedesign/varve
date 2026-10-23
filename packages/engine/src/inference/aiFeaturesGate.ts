@@ -19,6 +19,10 @@
  * Workers have no `localStorage`. They must receive an explicit snapshot on
  * each job via {@link configureAiFeaturesEnabled}. Until that snapshot is
  * installed, this gate treats the setting as unreadable and refuses.
+ *
+ * The current key is `varve-editor-settings`. The legacy
+ * `strata-editor-settings` key is honoured the same way `loadSettings` does:
+ * it is read only when the current key is absent.
  */
 import { InferenceError } from './core/InferenceError';
 
@@ -26,12 +30,41 @@ import { InferenceError } from './core/InferenceError';
 export const AI_DISABLED_HINT = 'Turn on AI features in Settings to use this';
 
 const SETTINGS_KEY = 'varve-editor-settings';
+const LEGACY_SETTINGS_KEY = 'strata-editor-settings';
+export const AI_FEATURES_CHANGED_EVENT = 'varve-ai-settings-changed';
 
 let workerSnapshot: boolean | undefined;
+let cachedEnabled: boolean | undefined;
+let loggedUnreadable = false;
+let domListening = false;
+const listeners = new Set<() => void>();
 
 function logUnreadable(reason: unknown): void {
+  if (loggedUnreadable) return;
+  loggedUnreadable = true;
   const detail = reason instanceof Error ? reason.message : String(reason);
   console.warn(`[ai-gate] AI setting unreadable; treating as off. ${detail}`);
+}
+
+function invalidateCache(): void {
+  cachedEnabled = undefined;
+  loggedUnreadable = false;
+  for (const listener of listeners) listener();
+}
+
+function ensureDomListeners(): void {
+  if (domListening || typeof window === 'undefined') return;
+  domListening = true;
+  const onStoreChange = (event: Event) => {
+    if (event instanceof StorageEvent) {
+      if (event.key !== null && event.key !== SETTINGS_KEY && event.key !== LEGACY_SETTINGS_KEY) {
+        return;
+      }
+    }
+    invalidateCache();
+  };
+  window.addEventListener('storage', onStoreChange);
+  window.addEventListener(AI_FEATURES_CHANGED_EVENT, onStoreChange);
 }
 
 /**
@@ -45,16 +78,33 @@ export function configureAiFeaturesEnabled(enabled: boolean): void {
 /** Test-only: drop a worker snapshot so the next read goes back to storage. */
 export function resetAiFeaturesGateForTests(): void {
   workerSnapshot = undefined;
+  cachedEnabled = undefined;
+  loggedUnreadable = false;
 }
 
-export function getAiFeaturesEnabled(): boolean {
-  if (workerSnapshot !== undefined) return workerSnapshot;
+/** Call after writing editor settings in the same tab so subscribers refresh. */
+export function notifyAiFeaturesSettingsChanged(): void {
+  invalidateCache();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AI_FEATURES_CHANGED_EVENT));
+  }
+}
+
+export function subscribeAiFeaturesEnabled(onStoreChange: () => void): () => void {
+  ensureDomListeners();
+  listeners.add(onStoreChange);
+  return () => {
+    listeners.delete(onStoreChange);
+  };
+}
+
+function readEnabledFromStorage(): boolean {
   try {
     if (typeof localStorage === 'undefined') {
       logUnreadable('localStorage is unavailable in this context');
       return false;
     }
-    const raw = localStorage.getItem(SETTINGS_KEY);
+    const raw = localStorage.getItem(SETTINGS_KEY) ?? localStorage.getItem(LEGACY_SETTINGS_KEY);
     if (raw === null) return true;
     const parsed: unknown = JSON.parse(raw);
     if (parsed === null || typeof parsed !== 'object') {
@@ -74,15 +124,29 @@ export function getAiFeaturesEnabled(): boolean {
   }
 }
 
+export function getAiFeaturesEnabled(): boolean {
+  if (workerSnapshot !== undefined) return workerSnapshot;
+  ensureDomListeners();
+  if (cachedEnabled !== undefined) return cachedEnabled;
+  const enabled = readEnabledFromStorage();
+  cachedEnabled = enabled;
+  return enabled;
+}
+
 /**
  * Apply a per-job snapshot from the host, then refuse if AI is off.
- * An omitted flag leaves the worker unreadable (fail closed).
+ * A missing or non-boolean flag clears any previous snapshot and fails closed
+ * without falling back to a cached true snapshot or a main-thread storage read.
  */
 export function applyWorkerAiGate(aiEnabled: boolean | undefined): void {
   if (typeof aiEnabled === 'boolean') {
     configureAiFeaturesEnabled(aiEnabled);
+    assertAiFeaturesEnabled();
+    return;
   }
-  assertAiFeaturesEnabled();
+  workerSnapshot = undefined;
+  cachedEnabled = undefined;
+  throw new InferenceError('ai_disabled');
 }
 
 export function assertAiFeaturesEnabled(): void {

@@ -845,13 +845,13 @@ export type {
 } from './inference';
 export {
   AI_DISABLED_HINT,
+  AI_FEATURES_CHANGED_EVENT,
   applyWorkerAiGate,
   assertAiFeaturesEnabled,
   assessImageInferenceResources,
   bertTokenize,
   buildGroundingDinoInputs,
   buildGroundingDinoInputsFromModelImage,
-  configureAiFeaturesEnabled,
   createDiagnosticsLabel,
   DownloadManager,
   decodeEfficientSamDecoderOutput,
@@ -900,6 +900,7 @@ export {
   measuredCapabilities,
   measuredQualityValidation,
   normalizeGroundingQuery,
+  notifyAiFeaturesSettingsChanged,
   PROMPTED_CRITICAL_CATEGORIES,
   PROMPTED_PROVIDER_LATENCY_PROXY,
   PROMPTED_QUALITY_EQUIVALENCE_BAND,
@@ -921,6 +922,7 @@ export {
   SAM2_PROVIDER_ID,
   SAM2_QUALITY_VALIDATION,
   SessionManager,
+  subscribeAiFeaturesEnabled,
 } from './inference';
 export { clampImageToMaxDimension } from './inference/imageTensor';
 export type {

@@ -11,9 +11,10 @@ import {
   getModelLoader,
   SIGLIP_IMAGE_MODEL,
   SIGLIP_TEXT_MODEL_ID,
+  subscribeAiFeaturesEnabled,
 } from '@varve/engine';
 import { type Asset, IndexedDbSemanticEmbeddingStore, type Platform } from '@varve/platform';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   createSemanticAssetSearchService,
   type SemanticAssetSearchService,
@@ -54,7 +55,11 @@ export function useSemanticAssetSearch(
   const [downloadingModelId, setDownloadingModelId] = useState<string | null>(null);
   const assetsRef = useRef<readonly Asset[]>([]);
   assetsRef.current = assets;
-  const aiEnabled = getAiFeaturesEnabled();
+  const aiEnabled = useSyncExternalStore(
+    subscribeAiFeaturesEnabled,
+    getAiFeaturesEnabled,
+    getAiFeaturesEnabled,
+  );
   const service = useMemo(() => {
     if (!aiEnabled || typeof indexedDB === 'undefined') return null;
     return createSemanticAssetSearchService({

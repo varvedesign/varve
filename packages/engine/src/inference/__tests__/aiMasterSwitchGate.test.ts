@@ -13,6 +13,7 @@ import { getModelLoader, resetModelLoader } from '../../backgroundRemoval/modelL
 import {
   applyWorkerAiGate,
   getAiFeaturesEnabled,
+  notifyAiFeaturesSettingsChanged,
   resetAiFeaturesGateForTests,
 } from '../aiFeaturesGate';
 import { DownloadManager } from '../core/DownloadManager';
@@ -172,6 +173,47 @@ describe('AI master switch choke point', () => {
     expect(() => applyWorkerAiGate(false)).toThrow(InferenceError);
     expect(() => applyWorkerAiGate(true)).not.toThrow();
     expect(getAiFeaturesEnabled()).toBe(true);
+  });
+
+  it('clears a prior true snapshot when a later job omits aiEnabled', () => {
+    enableAi();
+    expect(() => applyWorkerAiGate(true)).not.toThrow();
+    expect(getAiFeaturesEnabled()).toBe(true);
+    expect(() => applyWorkerAiGate(undefined)).toThrow(InferenceError);
+    vi.stubGlobal('localStorage', undefined);
+    expect(getAiFeaturesEnabled()).toBe(false);
+  });
+
+  it('honours strata-editor-settings when the current key is absent', () => {
+    localStorage.setItem('strata-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    expect(getAiFeaturesEnabled()).toBe(false);
+  });
+
+  it('prefers varve-editor-settings over the legacy key', () => {
+    localStorage.setItem('strata-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: true } }));
+    expect(getAiFeaturesEnabled()).toBe(true);
+  });
+
+  it('logs the unreadable warning only once until settings change', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    localStorage.setItem('varve-editor-settings', '{"ai":');
+    expect(getAiFeaturesEnabled()).toBe(false);
+    expect(getAiFeaturesEnabled()).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+    notifyAiFeaturesSettingsChanged();
+    expect(getAiFeaturesEnabled()).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it('does not re-export test-only configure/reset helpers from public barrels', () => {
+    const engineIndex = readFileSync(resolve(__dirname, '../../index.ts'), 'utf-8');
+    const inferenceIndex = readFileSync(resolve(__dirname, '../index.ts'), 'utf-8');
+    expect(engineIndex).not.toContain('configureAiFeaturesEnabled');
+    expect(engineIndex).not.toContain('resetAiFeaturesGateForTests');
+    expect(inferenceIndex).not.toContain('configureAiFeaturesEnabled');
+    expect(inferenceIndex).not.toContain('resetAiFeaturesGateForTests');
   });
 
   it('refuses AI worker-host dispatch on the main thread when the switch is off', async () => {

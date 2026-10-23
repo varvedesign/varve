@@ -9659,13 +9659,10 @@ export function EditorProvider({
 
       upscaleDialogOpen: state.upscaleDialogOpen,
       openUpscaleDialog: async () => {
-        // Choke point. Upscaling is reachable from the layers context menu, two
-        // inspector sections, the selection quick bar, the command palette and
-        // an action handler — gating the affordances one by one leaves whichever
-        // route was missed wide open, so refuse here instead.
+        // Non-AI resampling stays available when the user turns AI off.
+        // AI modes are filtered inside the dialog. Deployment capability
+        // restriction still withholds the whole enhance surface.
         if (sessionGlobals.isCapabilityRestricted('inference')) return;
-        const { checkAiFeaturesEnabled } = await import('./features/useAiFeaturesEnabled');
-        if (!checkAiFeaturesEnabled(toastHandler, 'Image upscaling')) return;
         patch({ upscaleDialogOpen: true });
       },
       closeUpscaleDialog: () => {

@@ -158,4 +158,14 @@ describe('AI off loads no model files', () => {
     resetEnhancementWorkerForTests();
     resetModelLoader();
   });
+
+  it('runs Quick background removal without loading a model when AI is off', async () => {
+    disableAi();
+    const { removeBackground } = await import('../../backgroundRemoval/index');
+    const result = await removeBackground(new ImageData(8, 8), { method: 'quick' });
+    expect(result.method).toBe('quick');
+    expect(result.maskDataUrl).toMatch(/^data:image\//);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(posted).toHaveLength(0);
+  });
 });

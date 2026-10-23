@@ -14,14 +14,21 @@
 import {
   AI_DISABLED_HINT,
   getAiFeaturesEnabled as readPersistedAiFeaturesEnabled,
+  subscribeAiFeaturesEnabled,
 } from '@varve/engine';
+import type { BackgroundRemovalMethod } from '@varve/scene';
+import { useSyncExternalStore } from 'react';
 import { useOptionalSettings } from '../components/Settings/SettingsContext';
 
 export { AI_DISABLED_HINT };
 
 export function useAiFeaturesEnabled(): boolean {
   const settings = useOptionalSettings();
-  const persisted = readPersistedAiFeaturesEnabled();
+  const persisted = useSyncExternalStore(
+    subscribeAiFeaturesEnabled,
+    readPersistedAiFeaturesEnabled,
+    readPersistedAiFeaturesEnabled,
+  );
   if (settings) return settings.settings.ai.enabled && persisted;
   return persisted;
 }
@@ -33,6 +40,11 @@ export function useAiFeaturesEnabled(): boolean {
  */
 export function getAiFeaturesEnabled(): boolean {
   return readPersistedAiFeaturesEnabled();
+}
+
+/** Control-bar and shortcut routes use AI Balanced only while the setting is on. */
+export function resolveBackgroundRemovalMethod(): BackgroundRemovalMethod {
+  return getAiFeaturesEnabled() ? 'ai-balanced' : 'quick';
 }
 
 /**
