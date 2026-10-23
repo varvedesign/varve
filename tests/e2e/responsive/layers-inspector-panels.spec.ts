@@ -278,7 +278,7 @@ test.describe('compact drawer (<=899px)', () => {
       .evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
     expect(nameBox.scroll).toBeLessThanOrEqual(nameBox.client + 1);
 
-    const toggle = page.getByRole('button', { name: /show filter options/i });
+    const toggle = page.getByRole('button', { name: /^filter options/i });
     await toggle.click({ trial: true });
 
     const contentBox = await page
