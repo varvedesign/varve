@@ -117,8 +117,9 @@ Changed scope: packages/ui/src/components/EmptyState.tsx (+test),
   packages/home/src/EmptyStates.tsx, docs/agents/shell-home-audit/**
 Validation plan: verify:plan → 20 lanes, no full-suite escalation
 Commands actually run: listed in §7; ui-audit matrix runs in §3
-Passed: biome, audit:emoji, audit:radius, audit:tokens, 3× typecheck,
-  EmptyState + TabStrip vitest, pre-commit hook
+Passed: biome, audit:emoji, audit:radius, audit:tokens, audit:docs,
+  audit:imports, 3× typecheck, 1016 test files / 9971 tests
+  (@varve/ui, @varve/home, @varve/editor), pre-commit hook
 Skipped as unrelated: Rust workspace, website E2E, full visual suite
   (planner skipped them: no Rust/website/global-render surface touched)
 Escalations: none
@@ -142,9 +143,15 @@ If yes, reason: n/a  — no escalation condition in the planner
 
 ## 8. Unit suites
 
-`pnpm exec vitest run packages/ui packages/home packages/editor` — result
-recorded in the run log at the end of the session; the targeted files were run
-first and passed:
+`pnpm exec vitest run packages/ui packages/home packages/editor --maxWorkers=2`:
+
+```
+Test Files  1016 passed | 2 skipped (1018)
+     Tests  9971 passed | 2 skipped (9973)
+  Duration  1907.80s
+```
+
+The targeted files were run first and passed:
 
 ```
 packages/editor/src/TabStrip.test.tsx
@@ -152,6 +159,8 @@ packages/editor/src/TabStrip.dirtyClose.test.tsx
 packages/ui/src/components/EmptyState.test.tsx
 Test Files 3 passed · Tests 18 passed
 ```
+
+The two skipped files are pre-existing skips, not tests disabled by this change.
 
 ## 9. Residual risk
 
