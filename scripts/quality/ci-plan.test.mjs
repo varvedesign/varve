@@ -4,17 +4,19 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { forcedCheckboxActions } from './audit-e2e-interactions.mjs';
-import { buildCiPlan, validateCiPlan } from './ci-plan.mjs';
+import { buildCiPlan, parseArgs, validateCiPlan } from './ci-plan.mjs';
 import { preflightCommands } from './ci-preflight.mjs';
 import { laneArgv } from './validation-lanes.mjs';
 import {
   CI_CATEGORIES,
   FULL_BROWSER_SHARDS,
+  libraryLane,
   promisedLanesForCategories,
+  selectedCiLanes,
 } from './validation-policy.mjs';
 
 // Linked worktrees have a .git pointer file, not a .git/HEAD path.
@@ -24,6 +26,7 @@ const head = execFileSync('git', ['rev-parse', '--verify', 'HEAD^{commit}'], {
 assert.match(head, /^[0-9a-f]{40,64}$/, 'test repository has a commit HEAD');
 const actualHead = buildCiPlan({ base: 'HEAD', head: 'HEAD', profile: 'integration' }).commitSha;
 assert.equal(actualHead, head);
+assert.equal(parseArgs(['--disable-library-lane']).disableLibraryLane, true);
 const full = buildCiPlan({
   base: actualHead,
   head: actualHead,
@@ -68,6 +71,81 @@ assert.throws(
   () => buildCiPlan({ base: actualHead, head: actualHead, profile: 'candidate', mode: 'unknown' }),
   /invalid candidate mode/,
 );
+
+// Only paths inside the nine named crate trees select the library lane.
+assert.deepEqual(
+  libraryLane(['crates/varve-core/src/lib.rs', 'crates/varve-media/tests/decode.rs']),
+  { selected: true, packages: ['varve-core', 'varve-media'] },
+);
+assert.deepEqual(libraryLane(['crates/varve-core/src/lib.rs', 'Cargo.lock']), {
+  selected: false,
+  packages: [],
+});
+assert.deepEqual(libraryLane(['crates/varve-wasm/src/lib.rs']), {
+  selected: false,
+  packages: [],
+});
+assert.deepEqual(libraryLane([]), { selected: false, packages: [] });
+const cargoChangeCategories = {
+  pipeline: true, js: false, rust: true, wasm: true, website: false,
+  e2e: false, visual: false, desktop: true, models: false, bench: false,
+};
+const cargoChangeLanes = selectedCiLanes(
+  { tiers: {}, rootCargoChanged: true },
+  cargoChangeCategories,
+);
+for (const lane of ['rust-test:all', 'rust-clippy:all', 'cargo-fmt', 'wasm', 'desktop-native'])
+  assert.ok(cargoChangeLanes.includes(lane), `root Cargo changes select ${lane}`);
+const laneRoot = mkdtempSync(join(tmpdir(), 'varve-ci-lane-'));
+try {
+  const git = (...args) => execFileSync('git', args, { cwd: laneRoot, encoding: 'utf8' }).trim();
+  git('init', '-q');
+  git('config', 'user.name', 'CI Planner Test');
+  git('config', 'user.email', 'ci-planner@example.invalid');
+  const plannerFor = (files) => ({
+    tiers: { 0: [], 1: [], 2: [], 3: [], 4: [] },
+    changed: {
+      js: [],
+      rust: files.filter((file) => file.startsWith('crates/')).map((file) => file.split('/')[1]),
+      other: [],
+      app: [],
+    },
+    directE2eFiles: [], e2eDomains: [], benchDomains: [], full: false,
+    stats: { jsPackages: [], rustCrates: [] },
+  });
+  mkdirSync(join(laneRoot, 'crates/varve-core/src'), { recursive: true });
+  writeFileSync(join(laneRoot, 'crates/varve-core/src/lib.rs'), 'pub fn core() {}\n');
+  git('add', '.');
+  git('commit', '-qm', 'fixture baseline');
+  const base = git('rev-parse', 'HEAD');
+  mkdirSync(join(laneRoot, 'crates/varve-media/src'), { recursive: true });
+  writeFileSync(join(laneRoot, 'crates/varve-media/src/lib.rs'), 'pub fn media() {}\n');
+  git('add', '.');
+  git('commit', '-qm', 'library change');
+  const libraryHead = git('rev-parse', 'HEAD');
+  const libraryPlan = buildCiPlan({
+    base, head: libraryHead, root: laneRoot, planner: plannerFor,
+  });
+  assert.equal(libraryPlan.libraryOnly, true);
+  assert.deepEqual(libraryPlan.libraryPackages, ['varve-media']);
+  assert.deepEqual(validateCiPlan(libraryPlan), []);
+
+  writeFileSync(join(laneRoot, 'Cargo.lock'), '# workspace lockfile change\n');
+  git('add', '.');
+  git('commit', '-qm', 'root lock change');
+  const lockHead = git('rev-parse', 'HEAD');
+  const lockPlan = buildCiPlan({ base: libraryHead, head: lockHead, root: laneRoot, planner: plannerFor });
+  assert.equal(lockPlan.libraryOnly, false, 'Cargo.lock does not select library-only lane');
+  assert.deepEqual(lockPlan.libraryPackages, []);
+  assert.equal(lockPlan.categories.rust, true);
+  assert.equal(lockPlan.categories.wasm, true);
+  assert.equal(lockPlan.categories.desktop, true);
+  for (const lane of ['rust-test:all', 'rust-clippy:all', 'cargo-fmt', 'wasm', 'desktop-native'])
+    assert.ok(lockPlan.selectedLanes.includes(lane), `Cargo.lock changes select ${lane}`);
+  assert.deepEqual(validateCiPlan(lockPlan), []);
+} finally {
+  rmSync(laneRoot, { recursive: true, force: true });
+}
 
 const browserSpec = buildCiPlan({
   base: 'HEAD',

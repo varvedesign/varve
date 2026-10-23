@@ -198,6 +198,9 @@ async function collectUses() {
       if (line.trim().startsWith('#') || line.trim().startsWith('#')) continue;
       const use = extractActionUses(line);
       if (use) {
+        // Reusable workflows in this repository are source files, not actions
+        // published at a mutable ref. Their contents are reviewed in-tree.
+        if (use.action.startsWith('./.github/workflows/')) continue;
         uses.push({ file, line: i + 1, ...use });
       }
     }

@@ -1,67 +1,84 @@
 name: Library CI
 
 on:
-  pull_request:
-    paths:
-      - 'crates/varve-core/**'
-      - 'crates/varve-colour/**'
-      - 'crates/varve-layout/**'
-      - 'crates/varve-effects/**'
-      - 'crates/varve-media/**'
-      - 'crates/varve-trace/**'
-      - 'crates/varve-upscale/**'
-      - 'crates/varve-bgremove/**'
-      - 'crates/varve-accel/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
+  workflow_call:
+    inputs:
+      packages:
+        description: JSON array of changed library package names
+        required: true
+        type: string
 
 permissions:
   contents: read
 
-jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      packages: ${{ steps.packages.outputs.packages }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-        with:
-          fetch-depth: 0
-      - id: packages
-        env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-        run: |
-          set -euo pipefail
-          changed="$(git diff --name-only "$PR_BASE" HEAD)"
-          packages=()
-          if grep -qxE 'Cargo\.(toml|lock)' <<< "$changed"; then
-            packages=(varve-core varve-colour varve-layout varve-effects varve-media varve-trace varve-upscale varve-bgremove varve-accel)
-          else
-            for package in varve-core varve-colour varve-layout varve-effects varve-media varve-trace varve-upscale varve-bgremove varve-accel; do
-              if grep -q "^crates/$package/" <<< "$changed"; then packages+=("$package"); fi
-            done
-          fi
-          printf 'packages=["%s"]\n' "$(IFS='","'; echo "${packages[*]}")" >> "$GITHUB_OUTPUT"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-library-ci
+  cancel-in-progress: true
 
+jobs:
   library-check:
     name: Library checks (${{ matrix.package }})
-    needs: changes
+    if: ${{ inputs.packages != '[]' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        package: ${{ fromJSON(needs.changes.outputs.packages) }}
+        package: ${{ fromJSON(inputs.packages) }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: toolchain
+        name: Read Rust channel
+        run: |
+          channel="$(sed -n 's/^channel = "\([^"]*\)"$/\1/p' rust-toolchain.toml)"
+          test -n "$channel"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
         with:
-          toolchain: 1.97.1
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
-      - name: Check formatting
-        run: cargo fmt --check
+          toolchain: ${{ steps.toolchain.outputs.channel }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - name: Check crate formatting
+        run: cargo fmt -p "${{ matrix.package }}" -- --check
       - name: Run Clippy
-        run: cargo clippy -p "${{ matrix.package }}" -- -D warnings
+        run: cargo clippy -p "${{ matrix.package }}" --all-targets --locked -- -D warnings
       - name: Run crate tests
-        run: cargo test -p "${{ matrix.package }}"
+        run: cargo test -p "${{ matrix.package }}" --locked
+
+  library-dependants:
+    name: Library dependants (workspace and desktop)
+    needs: library-check
+    if: ${{ inputs.packages != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: toolchain
+        name: Read Rust channel
+        run: |
+          channel="$(sed -n 's/^channel = "\([^"]*\)"$/\1/p' rust-toolchain.toml)"
+          test -n "$channel"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: ${{ steps.toolchain.outputs.channel }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
+            libfontconfig1-dev libglib2.0-dev cmake pkg-config
+      - name: Stage ONNX Runtime for desktop build metadata
+        run: node scripts/fetch-onnxruntime.mjs
+      - name: Check workspace dependants
+        run: cargo check --workspace --locked
+      - name: Test workspace dependants
+        run: cargo test --workspace --locked
+      - name: Check desktop Tauri dependants
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
+      - name: Test desktop Tauri dependants
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
