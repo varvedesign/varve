@@ -26,10 +26,25 @@
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 import { extractPage, findUndecodedEntities } from '../src/lib/search/extract.ts';
 import { SEARCH_INDEX_VERSION } from '../src/lib/search/types.ts';
 
 const MINIMUM_PAGES = 5;
+
+/**
+ * Payload budget for `search-index.json`, measured gzipped because every host
+ * that serves this site compresses JSON and the file is fetched whole before the
+ * first result can render.
+ *
+ * The target is 150 KB gzip (search feels immediate); 300 KB is the point where
+ * a noticeable share of readers abandon the box (see
+ * `docs/audits/website-audit-2026-10-22.md`). Crossing the target warns so drift
+ * is visible in build logs; crossing the hard limit fails the build rather than
+ * shipping a search box that takes seconds to answer.
+ */
+const INDEX_BUDGET_GZIP = 150 * 1024;
+const INDEX_HARD_LIMIT_GZIP = 300 * 1024;
 const IGNORED_TOP_LEVEL = new Set(['.well-known', '_astro']);
 
 async function collectHtmlFiles(directory, root = directory, out = []) {
@@ -85,6 +100,8 @@ export async function buildSearchIndex({ dir, base = '/', log = () => {} }) {
   }
 
   pages.sort((a, b) => a.url.localeCompare(b.url));
+  // Runs on the indexed (capped) section text on purpose: the point is to catch
+  // an undecoded entity that reached the search index, not to validate markup.
   const leftover = new Set();
   for (const page of pages) {
     for (const section of page.sections) {
@@ -98,14 +115,28 @@ export async function buildSearchIndex({ dir, base = '/', log = () => {} }) {
   }
   const index = { version: SEARCH_INDEX_VERSION, pages };
   const serialized = JSON.stringify(index);
+  const gzipBytes = gzipSync(Buffer.from(serialized), { level: 9 }).length;
   if (pages.length < MINIMUM_PAGES) {
     throw new Error(
       `search index build produced ${pages.length} pages (minimum ${MINIMUM_PAGES}); refusing to ship an empty index`,
     );
   }
+  if (gzipBytes > INDEX_HARD_LIMIT_GZIP) {
+    throw new Error(
+      `search index is ${Math.round(gzipBytes / 1024)}KB gzipped (hard limit ${Math.round(INDEX_HARD_LIMIT_GZIP / 1024)}KB); ` +
+        'it is fetched whole before the first result renders — raise MAX_SECTION_TEXT pressure, not this limit',
+    );
+  }
+  if (gzipBytes > INDEX_BUDGET_GZIP) {
+    log(
+      `WARNING: search index is ${Math.round(gzipBytes / 1024)}KB gzipped ` +
+        `(target ${Math.round(INDEX_BUDGET_GZIP / 1024)}KB) — see docs/audits/website-audit-2026-10-22.md`,
+    );
+  }
   await writeFile(path.join(dir, 'search-index.json'), serialized);
   log(
-    `search index: ${pages.length} pages, ${headingIds} heading anchors, ${serialized.length} bytes`,
+    `search index: ${pages.length} pages, ${headingIds} heading anchors, ` +
+      `${serialized.length} bytes raw / ${Math.round(gzipBytes / 1024)}KB gzipped`,
   );
   return { pages: pages.length, headingIds, bytes: serialized.length };
 }

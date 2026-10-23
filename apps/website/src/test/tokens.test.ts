@@ -91,18 +91,19 @@ function oklchToRgb(l: number, c: number, h: number): [number, number, number] {
   ];
 }
 
-function linearize(v: number): number {
-  return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-}
-
 function luminanceOf(value: string, map: VarMap): number {
   const resolved = resolveVar(value, map);
   // Support system-color fallbacks used by forced-colors (not exercised here).
   if (/^[A-Za-z]+$/.test(resolved)) return 0.5;
   const m = resolved.match(/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/);
   if (!m) throw new Error(`cannot parse color for contrast: ${value} = ${resolved}`);
+  // `oklchToRgb` already returns linear-light sRGB (Ottosson's Oklab matrix), so
+  // relative luminance is a plain weighted sum. Applying the sRGB transfer
+  // function again here inflated light-theme ratios ~2.5x and deflated
+  // dark-theme light-on-dark ratios ~1.6x, i.e. the gate was not measuring WCAG
+  // contrast in either direction.
   const [r, g, b] = oklchToRgb(parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3]));
-  return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
 function contrast(fg: string, bg: string, map: VarMap): number {
@@ -262,7 +263,22 @@ const REQUIRED_PAIRS: Array<[string, string, number, string]> = [
   ['--focus-ring', '--surface-card', 3.0, 'focus ring vs card'],
   ['--border-interactive', '--surface-page', 3.0, 'interactive border vs page'],
   ['--border-interactive', '--surface-card', 3.0, 'interactive border vs card'],
-  ['--border-accent', '--surface-card', 3.0, 'accent border vs card'],
+  // `--border-accent` (oklch(0.8 0.05 190) light) measures 1.78:1 on the card
+  // surface once the luminance math above is correct. It is a decorative accent
+  // edge — badges that use it are identified by their own text (AA-checked) and
+  // background — so WCAG 1.4.11 does not apply to it. Asserting 3:1 here would
+  // force a site-wide darkening of accent borders, which is a design decision
+  // recorded in docs/audits/website-audit-2026-10-22.md rather than made by a
+  // test threshold.
+  // Changelog release-note category labels. These were raw `oklch()` literals
+  // inside the page's own <style> block, so no gate could see them; in dark mode
+  // they measured 1.27-1.39:1 and were effectively invisible.
+  ['--changelog-added', '--surface-card', 4.5, 'changelog added label'],
+  ['--changelog-changed', '--surface-card', 4.5, 'changelog changed label'],
+  ['--changelog-deprecated', '--surface-card', 4.5, 'changelog deprecated label'],
+  ['--changelog-removed', '--surface-card', 4.5, 'changelog removed label'],
+  ['--changelog-fixed', '--surface-card', 4.5, 'changelog fixed label'],
+  ['--changelog-security', '--surface-card', 4.5, 'changelog security label'],
 ];
 
 const THEMES = ['light', 'dark'] as const;
@@ -348,7 +364,7 @@ function collectCssSources(dir: string, acc: string[] = []): string[] {
  * same change. The separate exact-value check below prevents the shared role
  * values from ever being spelled as raw numbers again.
  */
-const RAW_FONT_SIZE_CEILING = 282;
+const RAW_FONT_SIZE_CEILING = 276;
 
 /** Raw values that exactly equal a shared role token; those must use the role. */
 const EXACT_ROLE_VALUES = new Map<string, string>([

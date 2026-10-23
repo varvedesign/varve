@@ -6,7 +6,20 @@
  * until execution stops; bytes can be transferred to a resident lease when a
  * reusable session or cache must outlive the job. Evictable residents are
  * asked to release before a new allocation is admitted.
+ *
+ * The ledger's ceiling is host evidence, not a constant: `hostMemory.ts`
+ * measures the desktop process (or reads the browser's coarse device hint) and
+ * `initializeDerivedWorkBudget()` applies the result at boot. The 400 MB
+ * "unknown-or-4gb" value remains only as the floor for a host that reports
+ * nothing — it used to be the *only* value, which refused every AI feature that
+ * declared more than 400 MB of working set regardless of real memory.
  */
+
+import {
+  deriveDerivedWorkBudgetBytes,
+  type HostMemorySnapshot,
+  probeHostMemory,
+} from './hostMemory';
 
 export type DerivedWorkPriority =
   | 'idle'
@@ -33,6 +46,18 @@ export const DERIVED_WORK_MEMORY_LIMITS: Readonly<Record<DerivedWorkMemoryProfil
   'reference-8gb': 600_000_000,
 };
 
+/**
+ * Where the current ceiling came from. A conservative default is not a
+ * measurement: diagnostics, refusal messages, and support reports must be able
+ * to tell "this host has little headroom" from "nobody ever measured it".
+ */
+export type DerivedWorkBudgetSource =
+  | 'conservative-default'
+  | 'reference-profile'
+  | 'explicit'
+  | 'host-measured'
+  | 'host-estimated';
+
 const PRIORITY_ORDER: Record<DerivedWorkPriority, number> = {
   idle: 0,
   background: 1,
@@ -48,6 +73,14 @@ export interface DerivedWorkRequest {
   readonly priority: DerivedWorkPriority;
   /** Conservative bytes reserved before decode, transfer, tensor, or surface allocation. */
   readonly estimatedBytes?: number;
+  /**
+   * Preview-grade work the user did not explicitly ask to wait for: page and
+   * layer thumbnails, raster-pyramid tiles, semantic indexing. Speculative work
+   * may share the process with one admitted job (bounded by `maxSpeculative` and
+   * by the same byte ledger), so a long AI run no longer freezes every preview
+   * behind its exclusive slot.
+   */
+  readonly speculative?: boolean;
   readonly signal?: AbortSignal;
   readonly label?: string;
 }
@@ -96,6 +129,10 @@ export interface DerivedWorkAdmissionSnapshot {
   /** Active plus resident ownership. Pending estimates are reported separately. */
   readonly reservedBytes: number;
   readonly maxReservedBytes: number;
+  /** How many speculative preview leases may share the process with a job. */
+  readonly maxSpeculative: number;
+  /** Provenance of `maxReservedBytes`; never assume it is a host measurement. */
+  readonly budgetSource: DerivedWorkBudgetSource;
 }
 
 export type DerivedWorkAdmissionErrorCode =
@@ -151,6 +188,7 @@ interface ResidentRecord {
 
 const DEFAULT_MAX_CONCURRENT = 1;
 const DEFAULT_MAX_PENDING = 64;
+const DEFAULT_MAX_SPECULATIVE = 2;
 const DEFAULT_PRIORITY_AGING_MS = 15_000;
 
 function normalizeBytes(bytes: number | undefined): number {
@@ -185,6 +223,21 @@ function abortError(): DerivedWorkAdmissionError {
   return new DerivedWorkAdmissionError('cancelled', 'Derived work request cancelled');
 }
 
+function formatBytes(bytes: number): string {
+  const mib = bytes / (1024 * 1024);
+  if (mib >= 1024) return `${(mib / 1024).toFixed(1)} GB`;
+  return `${Math.round(mib)} MB`;
+}
+
+const BUDGET_SOURCE_HINT: Record<DerivedWorkBudgetSource, string> = {
+  'conservative-default':
+    'a conservative default, because this host reported no memory measurement',
+  'reference-profile': 'an explicitly selected 8 GB reference profile',
+  explicit: 'a budget configured by the host or a test',
+  'host-measured': 'measured available memory on this host',
+  'host-estimated': 'a coarse device-memory hint from the browser',
+};
+
 function refusalFor(error: unknown): DerivedWorkAdmissionError {
   return error instanceof DerivedWorkAdmissionError
     ? error
@@ -198,6 +251,7 @@ function refusalFor(error: unknown): DerivedWorkAdmissionError {
 export class DerivedWorkAdmission {
   private readonly maxConcurrent: number;
   private readonly maxPending: number;
+  private readonly maxSpeculative: number;
   private readonly priorityAgingMs: number;
   private readonly pending: PendingRequest[] = [];
   private readonly active = new Map<string, ActiveLease>();
@@ -214,11 +268,13 @@ export class DerivedWorkAdmission {
   private activeBytes = 0;
   private residentBytes = 0;
   private maxReservedBytes: number;
+  private budgetSource: DerivedWorkBudgetSource;
 
   constructor(
     options: {
       maxConcurrent?: number;
       maxPending?: number;
+      maxSpeculative?: number;
       maxReservedBytes?: number;
       memoryProfile?: DerivedWorkMemoryProfile;
       priorityAgingMs?: number;
@@ -230,15 +286,27 @@ export class DerivedWorkAdmission {
       'maxConcurrent',
     );
     this.maxPending = normalizeLimit(options.maxPending, DEFAULT_MAX_PENDING, 'maxPending');
+    this.maxSpeculative = normalizeLimit(
+      options.maxSpeculative,
+      DEFAULT_MAX_SPECULATIVE,
+      'maxSpeculative',
+    );
     this.priorityAgingMs = normalizeLimit(
       options.priorityAgingMs,
       DEFAULT_PRIORITY_AGING_MS,
       'priorityAgingMs',
     );
+    const profile = options.memoryProfile ?? 'unknown-or-4gb';
     this.maxReservedBytes = normalizeByteLimit(
       options.maxReservedBytes,
-      DERIVED_WORK_MEMORY_LIMITS[options.memoryProfile ?? 'unknown-or-4gb'],
+      DERIVED_WORK_MEMORY_LIMITS[profile],
     );
+    this.budgetSource =
+      options.maxReservedBytes !== undefined
+        ? 'explicit'
+        : profile === 'reference-8gb'
+          ? 'reference-profile'
+          : 'conservative-default';
   }
 
   /** Wait for a bounded slot. Priority ages for explicit exports that wait. */
@@ -310,8 +378,9 @@ export class DerivedWorkAdmission {
     if (this.closed) throw new DerivedWorkAdmissionError('closed');
     if (request.signal?.aborted) throw abortError();
     if (this.paused && !this.isProtectedFromPause(request.priority)) return null;
-    if (this.pending.length > 0 || this.active.size >= this.maxConcurrent) return null;
+    if (this.pending.length > 0) return null;
     if (!this.makeRoomFor(estimatedBytes)) return null;
+    if (!this.canStartRequest(request, estimatedBytes)) return null;
     return this.startLease({
       request,
       sequence: this.sequence++,
@@ -345,7 +414,36 @@ export class DerivedWorkAdmission {
    * never silently released to force the new value.
    */
   setMemoryProfile(profile: DerivedWorkMemoryProfile): void {
-    this.maxReservedBytes = DERIVED_WORK_MEMORY_LIMITS[profile];
+    this.applyBudget(
+      DERIVED_WORK_MEMORY_LIMITS[profile],
+      profile === 'reference-8gb' ? 'reference-profile' : 'conservative-default',
+    );
+  }
+
+  /**
+   * Apply host-memory evidence. Measured (`native`) evidence is authoritative;
+   * a coarse `device-memory` hint is recorded as an estimate so diagnostics can
+   * distinguish it. A budget an owner configured on purpose — an explicit byte
+   * limit or a selected reference profile — is never overwritten, and a host
+   * that reports nothing keeps the current ceiling.
+   */
+  setHostMemoryBudget(snapshot: HostMemorySnapshot): void {
+    if (this.budgetSource === 'explicit' || this.budgetSource === 'reference-profile') return;
+    if (snapshot.availableBytes === null) return;
+    this.applyBudget(
+      deriveDerivedWorkBudgetBytes(snapshot.availableBytes),
+      snapshot.source === 'native' ? 'host-measured' : 'host-estimated',
+    );
+  }
+
+  /** Explicit override for hosts and tests that own their own policy. */
+  setMaxReservedBytes(bytes: number): void {
+    this.applyBudget(normalizeByteLimit(bytes, this.maxReservedBytes), 'explicit');
+  }
+
+  private applyBudget(bytes: number, source: DerivedWorkBudgetSource): void {
+    this.maxReservedBytes = bytes;
+    this.budgetSource = source;
     this.evictResidentsToFit(0);
     this.notify();
     this.pump();
@@ -406,6 +504,8 @@ export class DerivedWorkAdmission {
       residentBytes,
       reservedBytes: activeBytes + residentBytes,
       maxReservedBytes: this.maxReservedBytes,
+      maxSpeculative: this.maxSpeculative,
+      budgetSource: this.budgetSource,
     };
   }
 
@@ -428,7 +528,7 @@ export class DerivedWorkAdmission {
     if (bytes > this.maxReservedBytes) {
       throw new DerivedWorkAdmissionError(
         'memory-limit',
-        `Request reserves ${bytes} bytes, above the ${this.maxReservedBytes}-byte process limit.`,
+        `This local job needs about ${formatBytes(bytes)} (${bytes} bytes), above the ${formatBytes(this.maxReservedBytes)} (${this.maxReservedBytes} bytes) shared local-work budget. The budget is ${BUDGET_SOURCE_HINT[this.budgetSource]}.`,
       );
     }
   }
@@ -437,10 +537,24 @@ export class DerivedWorkAdmission {
     return this.activeBytes + this.residentBytes;
   }
 
-  private canStart(bytes: number): boolean {
-    return (
-      this.active.size < this.maxConcurrent && this.reservedBytes + bytes <= this.maxReservedBytes
-    );
+  /**
+   * Admission decision for one request, given its own speculativeness.
+   *
+   * `maxConcurrent` bounds *heavy* work: inference, exports, live effects, model
+   * downloads. Speculative preview leases are capped separately and may share
+   * the process with one heavy job, because the byte ledger already bounds the
+   * combination. Before this split, the single slot meant a 310 s AI run froze
+   * every thumbnail and raster-pyramid tile behind it.
+   */
+  private canStartRequest(request: DerivedWorkRequest, bytes: number): boolean {
+    if (this.reservedBytes + bytes > this.maxReservedBytes) return false;
+    let heavy = 0;
+    for (const lease of this.active.values()) {
+      if (!lease.request.speculative) heavy++;
+    }
+    const speculative = this.active.size - heavy;
+    if (request.speculative) return speculative < this.maxSpeculative;
+    return heavy < this.maxConcurrent;
   }
 
   private makeRoomFor(bytes: number): boolean {
@@ -509,7 +623,7 @@ export class DerivedWorkAdmission {
 
   private pump(): void {
     if (this.closed) return;
-    while (this.active.size < this.maxConcurrent && this.pending.length > 0) {
+    for (;;) {
       const next = this.nextAdmissiblePending();
       if (!next) return;
       const index = this.pending.indexOf(next);
@@ -532,7 +646,10 @@ export class DerivedWorkAdmission {
     });
     for (const candidate of ordered) {
       if (this.paused && !this.isProtectedFromPause(candidate.request.priority)) continue;
-      if (this.makeRoomFor(candidate.estimatedBytes) && this.canStart(candidate.estimatedBytes)) {
+      if (
+        this.makeRoomFor(candidate.estimatedBytes) &&
+        this.canStartRequest(candidate.request, candidate.estimatedBytes)
+      ) {
         return candidate;
       }
     }
@@ -689,19 +806,63 @@ export class DerivedWorkAdmission {
 }
 
 let globalAdmission: DerivedWorkAdmission | null = null;
+let admissionOverridden = false;
 
 /** The one application-wide gate used by default background schedulers. */
 export function getDerivedWorkAdmission(): DerivedWorkAdmission {
   if (!globalAdmission) globalAdmission = new DerivedWorkAdmission();
+  // Self-healing: a surface that starts work before boot measured this host
+  // still gets the real budget as soon as the probe resolves, instead of being
+  // judged against the 400 MB placeholder forever. A test/host override owns
+  // its budget explicitly and is never re-measured.
+  if (!admissionOverridden && !budgetInitialization) void initializeDerivedWorkBudget();
   return globalAdmission;
 }
 
 /** Explicit profile selection; unknown hosts retain the conservative default. */
 export function setDerivedWorkMemoryProfile(profile: DerivedWorkMemoryProfile): void {
+  admissionOverridden = true;
   getDerivedWorkAdmission().setMemoryProfile(profile);
 }
 
-/** Test/host hook; production callers should use the singleton above. */
+let budgetInitialization: Promise<DerivedWorkAdmissionSnapshot> | null = null;
+
+/**
+ * Measure this host once and apply the resulting tracked-work budget.
+ *
+ * Boot calls this before the first frame so an AI request can never be judged
+ * against the 400 MB placeholder on a machine that has several gigabytes free.
+ * The probe also runs lazily from `getDerivedWorkAdmission()` callers that start
+ * before boot finishes; the promise is shared so it happens exactly once.
+ *
+ * Never rejects: an unmeasurable host keeps the conservative default and the
+ * refusal message says so.
+ */
+export function initializeDerivedWorkBudget(): Promise<DerivedWorkAdmissionSnapshot> {
+  budgetInitialization ??= probeHostMemory()
+    .then((snapshot) => {
+      const admission = getDerivedWorkAdmission();
+      admission.setHostMemoryBudget(snapshot);
+      return admission.snapshot();
+    })
+    .catch(() => getDerivedWorkAdmission().snapshot());
+  return budgetInitialization;
+}
+
+/** Test/lifecycle hook: drop the memoized probe so the next boot re-measures. */
+export function resetDerivedWorkBudgetInitialization(): void {
+  budgetInitialization = null;
+}
+
+/**
+ * Test/host hook; production callers should use the singleton above.
+ *
+ * Passing `null` restores the default lazily-measured singleton rather than
+ * pinning an unmeasured one: leaving `admissionOverridden` set would keep the
+ * process on the 400 MB placeholder for the rest of the session, which is the
+ * exact state this module exists to prevent.
+ */
 export function setDerivedWorkAdmissionForTest(admission: DerivedWorkAdmission | null): void {
   globalAdmission = admission;
+  admissionOverridden = admission !== null;
 }

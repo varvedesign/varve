@@ -18,10 +18,17 @@
  * reduced.
  */
 
-import { estimateInferenceReservation, getInferenceAdmission } from '../../inference/admission';
+import {
+  estimateInferenceReservation,
+  getInferenceAdmission,
+  InferenceAdmissionError,
+  type InferenceLease,
+} from '../../inference/admission';
+import { getModelById } from '../../inference/modelCatalog';
 import { removeBackgroundHeuristic } from '../heuristic';
 import { cloneImageData } from '../protocol';
-import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
+import type { BackgroundRemovalOptions, BackgroundRemovalResult, RemovalMethod } from '../types';
+import { workerModelIdForMethod } from '../types';
 import { cloudRemovalProvider } from './cloudProvider';
 import { directOnnxRemovalProvider } from './directOnnxProvider';
 import { isNativeAiReady, tauriRemovalProvider } from './tauriProvider';
@@ -49,12 +56,14 @@ export const AI_PROVIDER_CHAIN: RemovalProvider[] = [
  * memory and, in the worst case, crash with std::bad_alloc on
  * GPU-less hosts (docs/audits/background-removal-wasm-memory-hardening-
  * 2026-07-18.md — reproduced deterministically at ~4GB RSS, the wasm32
- * linear-memory ceiling). Native execution of the same model peaks around
- * 445MB. When the Tauri desktop build has successfully loaded a native
- * onnxruntime dylib (`isNativeAiReady()` — a runtime-verified check, not
- * just "the ai feature was compiled in"), prefer it over Worker ONNX. If the
- * selected native model is absent, dispatch continues to the worker fallback
- * (U²-Net Light for Balanced).
+ * linear-memory ceiling). Native execution avoids that ceiling, but it is not
+ * free: each model has a measured retained-RSS profile in the catalog
+ * (`peakMemoryBytes`), and that figure — not the artifact size — is what the
+ * native OS/cgroup preflight checks before a session loads. When the Tauri
+ * desktop build has successfully loaded a native onnxruntime dylib
+ * (`isNativeAiReady()` — a runtime-verified check, not just "the ai feature was
+ * compiled in"), prefer it over Worker ONNX. If the selected native model is
+ * absent, dispatch continues to the worker fallback (U²-Net Light for Balanced).
  */
 async function getProviderOrder(
   options: BackgroundRemovalOptions,
@@ -207,6 +216,78 @@ function requestDeadlineError(): Error {
   );
 }
 
+/**
+ * The shared local-work ledger refused this job for lack of working memory.
+ * Distinct from a provider failure: nothing was attempted, so callers can
+ * retry a lighter mode instead of reporting a broken model.
+ */
+export class BackgroundRemovalCapacityError extends Error {
+  readonly code = 'insufficient-memory' as const;
+  readonly method: string;
+
+  constructor(method: string) {
+    const label =
+      method === 'ai-quality' ? 'High-quality background removal' : 'AI background removal';
+    const advice =
+      method === 'ai-quality'
+        ? 'Try Auto cutout, or Fast cutout and refine the mask by hand.'
+        : 'Close other memory-heavy apps, or use Fast cutout and refine the mask by hand.';
+    super(`${label} does not fit this device's shared local-AI memory budget. ${advice}`);
+    this.name = 'BackgroundRemovalCapacityError';
+    this.method = method;
+  }
+}
+
+/**
+ * Ledger allowance for one background-removal model.
+ *
+ * The ledger tracks *conservative* reservations for co-resident local work; it
+ * is not the fit decision. Whether a model actually fits is decided by the
+ * per-operation gates that already exist: `preflightBrowserSourceMemory` (which
+ * compares the model's measured peak against the WASM/runtime budget) and the
+ * native OS/cgroup preflight, which measures free memory immediately before
+ * session checkout. Charging the full measured peak here as well would double
+ * count a figure the platform has already verified.
+ *
+ * Deriving from the catalog keeps this in step with the model that will load:
+ * weights plus a fixed runtime arena, floored at the historical 128 MiB so a
+ * small bundled model is never under-reserved.
+ */
+function modelAllowanceBytes(method: string, modelId: string | undefined): number {
+  const resolvedId = modelId ?? workerModelIdForMethod(method as RemovalMethod);
+  const entry = resolvedId ? getModelById(resolvedId) : undefined;
+  const weightsBytes = entry?.sizeBytes ?? 128 * 1024 * 1024;
+  return Math.max(128 * 1024 * 1024, weightsBytes * 2);
+}
+
+function reservationFor(imageData: ImageData, options: BackgroundRemovalOptions): number {
+  return estimateInferenceReservation({
+    width: imageData.width,
+    height: imageData.height,
+    modelBytes: modelAllowanceBytes(options.method, options.modelId),
+  });
+}
+
+async function acquireRemovalLease(
+  imageData: ImageData,
+  options: BackgroundRemovalOptions,
+  signal?: AbortSignal,
+): Promise<InferenceLease> {
+  try {
+    return await getInferenceAdmission().acquire({
+      kind: 'background-removal',
+      reservationBytes: reservationFor(imageData, options),
+      signal,
+      label: `background removal (${options.method})`,
+    });
+  } catch (error) {
+    if (!(error instanceof InferenceAdmissionError) || error.code !== 'insufficient-memory') {
+      throw error;
+    }
+    throw new BackgroundRemovalCapacityError(options.method);
+  }
+}
+
 export async function dispatchBackgroundRemoval(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
@@ -220,17 +301,28 @@ export async function dispatchBackgroundRemoval(
     return removeBackgroundHeuristic(imageData, options);
   }
 
-  const lease = await getInferenceAdmission().acquire({
-    kind: 'background-removal',
-    reservationBytes: estimateInferenceReservation({
-      width: imageData.width,
-      height: imageData.height,
-      modelBytes: options.method === 'ai-quality' ? 512 * 1024 * 1024 : 128 * 1024 * 1024,
-    }),
-    signal,
-    label: `background removal (${options.method})`,
-  });
-
+  let lease: InferenceLease;
+  try {
+    lease = await acquireRemovalLease(imageData, options, signal);
+  } catch (error) {
+    // A capacity refusal happens before any provider runs, so the same
+    // reduced-quality fallback that handles provider failure applies here too.
+    // An explicit model request is honoured exactly and never substituted.
+    if (error instanceof BackgroundRemovalCapacityError && !options.modelId) {
+      if (options.method === 'ai-quality') {
+        console.warn(
+          '[bg-removal] shared memory budget refused ai-quality; falling back to ai-balanced (u2netp)',
+        );
+        const reduced = await dispatchBackgroundRemoval(
+          imageData,
+          { ...options, method: 'ai-balanced' },
+          signal,
+        );
+        return { ...reduced, method: 'ai-balanced' };
+      }
+    }
+    throw error;
+  }
   try {
     return await dispatchBackgroundRemovalAdmitted(imageData, options, signal);
   } finally {

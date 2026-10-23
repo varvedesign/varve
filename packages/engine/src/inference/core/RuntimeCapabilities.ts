@@ -78,8 +78,16 @@ async function detectBatteryPoweredAsync(): Promise<boolean> {
  * Separate from the model-file budget: peak runs several times file size, so
  * testing a peak figure against the file budget rejects models that run
  * comfortably (SCUNet loads and infers in under a second at a 280MB peak).
- * Stays below BiRefNet's 896MB-lite / 3.9GB-full peaks, the documented case
- * that exhausts wasm32 and aborts the webview.
+ *
+ * The numbers here describe the *webview* path only. BiRefNet is the case that
+ * defines them: its export has a static 1024x1024 input and bare WASM fails
+ * deterministically at the wasm32 4 GiB address-space ceiling (~4027-4145 MB
+ * RSS; docs/audits/background-removal-wasm-memory-hardening-2026-07-18.md), so
+ * the catalog records that boundary as its browser peak and the gate refuses
+ * it. The 896 MB figure once quoted here was a file-size heuristic, not a
+ * measurement. Native execution has a different, measured profile (catalog
+ * `nativePeakMemoryBytes`, checked by the native OS/cgroup preflight) — do not
+ * compare the two, and do not treat either as an artifact size.
  */
 function estimateWasmSafePeakBytes(crossOriginIsolated: boolean, memoryMB: number): number {
   const baseLimit = crossOriginIsolated ? 1_500_000_000 : 600_000_000;

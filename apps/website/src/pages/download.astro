@@ -647,7 +647,17 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       ? '; the AppImage bundles WebKitGTK.'
                       : '. The current AppImage needs those same host libraries.'}
                   </p>
-                  <div class="distro-picker">
+                  {/* The table is wider than this column between roughly 600px and
+                      900px, so the wrapper scrolls. A scroll region needs its own
+                      keyboard entry point and a name: `/compare` uses the same
+                      recipe (`.scroll-x` + role=region + tabindex + label), and
+                      without it axe reports scrollable-region-focusable. */}
+                  <div
+                    class="distro-picker"
+                    tabindex="0"
+                    role="region"
+                    aria-label="Which package should I choose"
+                  >
                     <table class="distro-table">
                       <thead>
                         <tr>
@@ -1247,7 +1257,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   .version-badge,
   .channel-badge {
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 600;
     letter-spacing: 0.02em;
     padding: 0.2em 0.6em;
@@ -1424,7 +1434,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     /* Keep the chip compact and its text metrics deterministic so the
        recommendation-to-download gap remains at least one spacing unit. */
     line-height: 1rem;
-    font-size: 0.6875rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -1527,7 +1537,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   }
 
   .distro-table td code {
-    font-size: 0.8125em;
+    /* `em` compounded with the table's readout size to 11.4px; the caption role
+       keeps install commands at a readable, predictable size. */
+    font-size: var(--type-interface-caption-size);
     background: var(--surface-card);
     border: 1px solid var(--border-subtle);
     border-radius: var(--website-radius-control-compact);
@@ -1537,7 +1549,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
   .format-badge {
     display: inline-block;
-    font-size: 0.625rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -2173,6 +2185,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     platformFromDownloadHash,
     type DetectionResult,
   } from '../lib/download-detection';
+  import { decodeHashId } from '../lib/hashFragment';
 
   // Maps the manifest's arch identifiers to the two recommendation families.
   const ARCH_KEYS = {
@@ -2332,6 +2345,10 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
       if (next) {
         activatePlatform(next);
         next.focus();
+        // The strip scrolls below ~340px, so the selected tab can sit outside
+        // the visible box. Keep it in view; `block: 'nearest'` avoids moving the
+        // page vertically for a tab that is already on screen.
+        next.scrollIntoView({ inline: 'nearest', block: 'nearest' });
       }
     });
   });
@@ -2498,15 +2515,48 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     });
   });
 
+  // Both hash branches end the same way: activate the owning tab, then place the
+  // target below the sticky header once the panel has layout.
+  function scrollToFragmentTarget(target: HTMLElement | null) {
+    if (!target) return;
+    requestAnimationFrame(function () {
+      target.scrollIntoView({ block: 'start' });
+    });
+  }
+
   function activateFromHash() {
     const platform = platformFromDownloadHash(window.location.hash);
-    if (!platform) return false;
-    const tab = document.querySelector('.platform-tab[data-platform="' + platform + '"]');
-    if (tab instanceof HTMLButtonElement) {
-      activatePlatform(tab);
-      return true;
+    if (platform) {
+      const tab = document.querySelector('.platform-tab[data-platform="' + platform + '"]');
+      if (tab instanceof HTMLButtonElement) {
+        activatePlatform(tab);
+        scrollToFragmentTarget(document.getElementById(decodeHashId(window.location.hash)));
+        return true;
+      }
+      return false;
     }
-    return false;
+
+    // The build indexes the headings inside each platform section, so the
+    // site's own search links to `/download#macos`, `#windows` and
+    // `#system-requirements-2`. Those sections are `hidden` until their tab is
+    // active: on a fresh load the target has no box, the browser has nothing to
+    // scroll to, and the visitor lands on the Linux panel regardless of what
+    // they searched for. Resolve the owning section, activate its tab, then
+    // scroll once the panel has layout.
+    const id = decodeHashId(window.location.hash);
+    if (!id) return false;
+    const target = document.getElementById(id);
+    const section = target?.closest<HTMLElement>('.platform-section');
+    const sectionPlatform = section?.id.replace(/^platform-/, '');
+    if (!target || !sectionPlatform) return false;
+    const sectionTab = document.querySelector(
+      '.platform-tab[data-platform="' + sectionPlatform + '"]',
+    );
+    if (!(sectionTab instanceof HTMLButtonElement)) return false;
+    activatePlatform(sectionTab);
+    // `html { scroll-padding-top }` keeps the heading clear of the sticky header.
+    scrollToFragmentTarget(target);
+    return true;
   }
 
   window.addEventListener('hashchange', function () {

@@ -99,7 +99,7 @@ describe('resolveWebModelPeakBytes', () => {
     };
     await expect(resolveWebModelPeakBytes('ai-quality', loader)).resolves.toEqual({
       modelId: 'birefnet-general-lite',
-      peakMemoryBytes: 7_000_000_000,
+      peakMemoryBytes: 4_100_000_000,
     });
   });
 

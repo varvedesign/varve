@@ -189,6 +189,9 @@ export class ThumbnailScheduler {
               id: `thumbnail:${job.key}`,
               kind: 'thumbnail',
               priority: job.priority === 'current-doc' ? 'current-document' : job.priority,
+              // Page and layer previews are speculative: they may share the
+              // process with an admitted AI run instead of freezing behind it.
+              speculative: true,
               signal: aborter.signal,
             });
             if (aborter.signal.aborted) return;

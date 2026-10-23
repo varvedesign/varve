@@ -1,4 +1,11 @@
-import { AVAILABLE_MODELS, getModelById, getModelLoader, UPSCALE_MODELS } from '@varve/engine';
+import {
+  AVAILABLE_MODELS,
+  getModelById,
+  getModelLoader,
+  getRuntimeCapabilitiesSync,
+  resolveModelPeakMemoryBytes,
+  UPSCALE_MODELS,
+} from '@varve/engine';
 import { Button, Dialog } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 import {
@@ -56,7 +63,11 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
           remoteUrl: catalogEntry.remoteUrl,
         }
       : undefined);
-  const peakMemoryBytes = catalogEntry?.peakMemoryBytes;
+  const peakMemoryBytes = catalogEntry
+    ? resolveModelPeakMemoryBytes(catalogEntry, {
+        native: getRuntimeCapabilitiesSync().isTauri,
+      })
+    : undefined;
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<DownloadStatus>('confirm');
   const statusRef = useRef<DownloadStatus>('confirm');

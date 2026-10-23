@@ -130,6 +130,14 @@ test.describe('Learning system visual regression', () => {
     });
     await page.waitForTimeout(500);
     await waitForRectanglePainted(page);
+    // The micro-hint is transient: `MicroHint` auto-dismisses after
+    // `hint.duration` (default 5000ms) and is also torn down when the tool
+    // resets after a draw. Capturing it made this baseline a race — the same
+    // test failed on master at 41ce72061, before the 2026-10-22 shell fixes,
+    // because whether the overlay survived the 1.2s of waits varied by run.
+    // Wait for it to leave so this baseline records the editor and its shape,
+    // which is what the test name claims, rather than transient chrome.
+    await expect(page.locator('.micro-hint')).toHaveCount(0, { timeout: 10_000 });
     // Capture dark mode
     await expect(canvas).toHaveScreenshot('dark-mode-editor.png', { maxDiffPixels: 200 });
   });

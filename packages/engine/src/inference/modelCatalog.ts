@@ -119,7 +119,20 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 4.5,
     precision: 'fp32',
     category: 'segmentation',
-    peakMemoryBytes: 7_000_000_000,
+    // Browser/WASM boundary, not a working set: this export has a static
+    // 1024x1024 input, and bare WASM deterministically fails with
+    // std::bad_alloc at the wasm32 4 GiB address-space ceiling during
+    // session.run() (~4027-4145 MB RSS across three runs, one and eight
+    // threads; docs/audits/background-removal-wasm-memory-hardening-2026-07-18.md).
+    // The gate must refuse it there; 896 MB was a file-size heuristic and 7 GB
+    // was never measured on any path. Native execution is bounded separately
+    // (nativePeakMemoryBytes).
+    peakMemoryBytes: 4_100_000_000,
+    // Native measured peak (bgremove_bench, bundled ORT CPU, arena disabled,
+    // 2026-10-22: 432 MiB over a 12-image corpus). Native preflights and the
+    // model panel use this; charging 7 GB natively refused High quality on
+    // hosts with gigabytes free.
+    nativePeakMemoryBytes: 450_000_000,
     gpuRecommended: true,
   },
   {
@@ -127,8 +140,8 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     name: 'BiRefNet Full',
     description:
       'Best quality segmentation for hair, fur, transparency, and fine detail. ' +
-      '~973MB download. Measured retained RSS ~8.5GB (native CPU FP32, 2026-08-13). ' +
-      'Not recommended on systems with less than 16GB RAM. ' +
+      '~973MB download. Native peak memory is recorded separately from the browser ' +
+      'boundary; see the model panel for the figure that applies to your runtime. ' +
       'SHA-256 verified from the rembg release archive.',
     sizeBytes: 972_666_916,
     remoteUrl:
@@ -139,9 +152,12 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 5,
     precision: 'fp32',
     category: 'segmentation',
-    peakMemoryBytes: 8_500_000_000,
+    // Same wasm32 boundary as Lite: this graph also has a static 1024 input, so
+    // bare WASM cannot run it (docs/audits/
+    // background-removal-wasm-memory-hardening-2026-07-18.md).
+    peakMemoryBytes: 4_100_000_000,
+    nativePeakMemoryBytes: 8_500_000_000,
     gpuRecommended: true,
-    // ~973MB download; measured retained RSS ~8.5GB (native CPU, FP32). Use with caution on <16GB systems.
   },
   {
     id: 'modnet-portrait',
@@ -1208,6 +1224,26 @@ export function isModelReady(modelId: string): boolean {
 export function getModelById(modelId: string): ModelManifestEntry | undefined {
   const reg = getModelRegistry();
   return reg.getEntry(modelId) ?? FALLBACK_ENTRIES.find((e) => e.id === modelId);
+}
+
+/**
+ * Peak memory for the runtime that will actually run the model.
+ *
+ * The catalog keeps one figure per execution family because they are not
+ * interchangeable: a model can be bounded by the webview's WASM budget and
+ * comfortable natively (BiRefNet Lite: ~450 MB natively, ~7 GB declared for the
+ * browser). Callers that gate native work, or that label requirements in the
+ * desktop app, must ask for the native figure instead of reading
+ * `peakMemoryBytes` directly.
+ */
+export function resolveModelPeakMemoryBytes(
+  entry: { peakMemoryBytes?: number; nativePeakMemoryBytes?: number },
+  options: { native: boolean },
+): number | undefined {
+  if (options.native && entry.nativePeakMemoryBytes !== undefined) {
+    return entry.nativePeakMemoryBytes;
+  }
+  return entry.peakMemoryBytes;
 }
 
 export function listAllModels(): ModelManifestEntry[] {

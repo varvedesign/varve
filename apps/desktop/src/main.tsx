@@ -12,6 +12,7 @@ import '@fontsource-variable/fraunces/opsz.css';
 
 import { ErrorBoundary, restoreStoredFonts } from '@varve/editor';
 import { AuxiliaryRoot } from '@varve/editor/auxiliary';
+import { initializeDerivedWorkBudget } from '@varve/platform';
 import { initializeThemeLifecycle } from '@varve/ui/tokens';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -72,6 +73,21 @@ async function bootstrap() {
     // corrupt records are already isolated by restoreStoredFonts; this catch
     // covers storage access failures such as blocked IndexedDB.
     console.warn('[fonts] Could not restore stored fonts:', error);
+  }
+
+  // Measure this host before anything can request local AI work. The shared
+  // derived-work ledger otherwise judges every AI feature against a 400 MB
+  // placeholder, which refuses jobs the machine can run (WebKitGTK does not
+  // report `navigator.deviceMemory` at all). The wait is bounded: a wedged IPC
+  // must delay first paint, but never prevent it — the lazy probe inside
+  // `getDerivedWorkAdmission()` finishes the job once the surface is up.
+  try {
+    await Promise.race([
+      initializeDerivedWorkBudget(),
+      new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+    ]);
+  } catch (error) {
+    console.warn('[admission] Could not measure host memory:', error);
   }
 
   // Remove the pre-JS boot fallback before React paints (browser target).

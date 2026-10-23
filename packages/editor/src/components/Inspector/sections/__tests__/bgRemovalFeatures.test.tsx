@@ -56,6 +56,8 @@ vi.mock('@varve/engine', async (importOriginal) => {
           diskSizeBytes: number;
           estimatedPeakRamBytes: number;
           peakRamDisplay: string;
+          nativeEstimatedPeakRamBytes?: number;
+          nativePeakRamDisplay?: string;
           diskSizeDisplay: string;
           quality: string;
           requiresDownload: boolean;
@@ -92,7 +94,9 @@ vi.mock('@varve/engine', async (importOriginal) => {
           description: 'BiRefNet Lite',
           diskSizeBytes: 224_000_000,
           estimatedPeakRamBytes: 900_000_000,
-          peakRamDisplay: '~900 MB',
+          peakRamDisplay: 'browser WASM needs ~900 MB (over its limit)',
+          nativeEstimatedPeakRamBytes: 450_000_000,
+          nativePeakRamDisplay: '~450 MB RAM on desktop',
           diskSizeDisplay: '224 MB',
           quality: 'Best',
           requiresDownload: true,
@@ -1006,5 +1010,56 @@ describe('BackgroundRemovalSection - Error normalization', () => {
     await vi.waitFor(() => {
       expect(screen.getByRole('alert').textContent).toContain('WebGPU device lost');
     });
+  });
+
+  it('turns a shared-budget refusal into an action, never a byte count', async () => {
+    // The reported defect surfaced the ledger's own wording:
+    // "Request reserves 541786112 bytes, above the 400000000-byte process limit."
+    const capacityError = Object.assign(
+      new Error(
+        'High-quality background removal does not fit this device\u2019s shared local-AI memory budget.',
+      ),
+      { code: 'insufficient-memory' },
+    );
+    const removeBackgroundWithOptions = vi.fn().mockRejectedValue(capacityError);
+    mockedUseEditor.mockReturnValue(createMockEditorContext({ removeBackgroundWithOptions }));
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method: 'ai-quality',
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Preview new mask'));
+    await vi.waitFor(() => {
+      const alert = screen.getByRole('alert').textContent ?? '';
+      expect(alert).toMatch(/Not enough free memory/i);
+      expect(alert).toMatch(/Auto cutout|Fast cutout/i);
+      expect(alert).not.toMatch(/\d{6,} bytes/);
+      expect(alert).not.toMatch(/\b\d+00000000\b/);
+    });
+  });
+});
+
+describe('BackgroundRemovalSection - model memory disclosure', () => {
+  it('states the desktop and browser working sets separately', async () => {
+    // One figure for two very different runtimes was the defect: the desktop
+    // path needs ~450 MB while the browser stays conservatively gated at ~7 GB.
+    mockedUseEditor.mockReturnValue(createMockEditorContext());
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method: 'ai-quality',
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    const info = await screen.findByText(/during inference/i);
+    expect(info.textContent).toMatch(/on desktop/);
+    expect(info.textContent).toMatch(/browser WASM/);
+    expect(info.textContent).not.toMatch(/RAM RAM/i);
   });
 });

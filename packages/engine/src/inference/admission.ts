@@ -12,6 +12,7 @@ import {
   DerivedWorkAdmission,
   DerivedWorkAdmissionError,
   type DerivedWorkAdmissionSnapshot,
+  type DerivedWorkBudgetSource,
   type DerivedWorkPriority,
   getDerivedWorkAdmission,
 } from '@varve/platform';
@@ -51,6 +52,8 @@ export interface InferenceAdmissionSnapshot {
   reservedBytes: number;
   maxConcurrent: number;
   maxReservedBytes: number;
+  /** Provenance of the shared budget: never assume it is a host measurement. */
+  budgetSource: DerivedWorkBudgetSource;
 }
 
 export interface InferenceLease {
@@ -212,6 +215,7 @@ function toInferenceSnapshot(snapshot: DerivedWorkAdmissionSnapshot): InferenceA
     reservedBytes: snapshot.reservedBytes,
     maxConcurrent: snapshot.maxConcurrent,
     maxReservedBytes: snapshot.maxReservedBytes,
+    budgetSource: snapshot.budgetSource,
   };
 }
 

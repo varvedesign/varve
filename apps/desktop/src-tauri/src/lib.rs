@@ -1,4 +1,5 @@
 mod acceleration;
+mod collab_host;
 mod crash;
 mod file_open;
 mod filesystem;
@@ -6,7 +7,6 @@ mod font;
 mod font_storage;
 mod generative_qualification;
 mod generative_resources;
-mod collab_host;
 mod lifecycle;
 mod logs;
 mod menu;
@@ -969,6 +969,31 @@ struct NativeBgModelStatus {
     installed: bool,
     size_bytes: u64,
     peak_memory_bytes: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HostMemoryStatus {
+    /// Bytes the OS reports as available to this process right now.
+    available_bytes: Option<u64>,
+    /// constrained / standard / high / unknown, matching native resource tiers.
+    resource_tier: String,
+}
+
+/// Report measured host memory to the renderer.
+///
+/// The renderer's shared derived-work ledger needs a real ceiling: WebKitGTK
+/// does not expose `navigator.deviceMemory`, so without this command every
+/// desktop session would keep the 400 MB placeholder and refuse AI work the
+/// machine can easily run. Read-only, allocation-free, and safe to call before
+/// any model or runtime is loaded.
+#[tauri::command]
+fn host_memory_status() -> HostMemoryStatus {
+    let available_memory_bytes = generative_resources::available_memory_bytes();
+    HostMemoryStatus {
+        available_bytes: available_memory_bytes,
+        resource_tier: generative_resources::resource_tier(available_memory_bytes).to_string(),
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -5967,6 +5992,7 @@ pub fn run() {
             remove_background_binary,
             native_ai_status,
             native_background_removal_model_status,
+            host_memory_status,
             preflight_native_background_removal,
             download_background_removal_model,
             cancel_background_removal_model_download,
@@ -6325,6 +6351,81 @@ mod tests {
             .lock()
             .expect("cancellation state is available")
             .contains(&request_id));
+    }
+
+    #[test]
+    fn host_memory_status_reports_a_known_tier_and_sane_bytes() {
+        let status = host_memory_status();
+        assert!(
+            ["constrained", "standard", "high", "unknown"].contains(&status.resource_tier.as_str()),
+            "unexpected resource tier: {}",
+            status.resource_tier
+        );
+        if let Some(bytes) = status.available_bytes {
+            assert!(bytes > 0, "a reported availability must be positive");
+            let expected = generative_resources::resource_tier(Some(bytes));
+            assert_eq!(status.resource_tier, expected);
+        } else {
+            assert_eq!(status.resource_tier, "unknown");
+        }
+    }
+
+    #[test]
+    fn birefnet_preflight_uses_the_measured_native_peak() {
+        // bgremove_bench: 432 MiB peak RSS across a 12-image corpus with the
+        // bundled ORT CPU build and the arena disabled (2026-10-22). The bound
+        // allows measurement noise but catches a return to the 7 GB
+        // browser/WASM working-set figure, which refused High quality on hosts
+        // with gigabytes free.
+        let model = varve_bgremove::model::model_info("birefnet-general-lite").expect("lite model");
+        let peak = model.peak_memory_bytes.expect("measured native peak");
+        assert!(
+            (400 * 1024 * 1024..=500 * 1024 * 1024).contains(&peak),
+            "native BiRefNet Lite peak changed to {peak} bytes; re-measure before changing this bound"
+        );
+
+        // A 480x640 source at this peak fits ordinary 1.5 GB of headroom.
+        let required =
+            generative_resources::estimated_required_memory_bytes_for_model(480, 640, peak)
+                .expect("valid dimensions");
+        assert!(
+            required < 600 * 1024 * 1024,
+            "High quality must fit a modest host: required {required} bytes"
+        );
+        assert!(
+            generative_resources::memory_shortage_error(
+                "Native background removal",
+                required,
+                1536 * 1024 * 1024,
+                "x86_64",
+            )
+            .is_none(),
+            "1.5 GB of headroom must admit High quality"
+        );
+        // A genuinely starved host still refuses, with an actionable message.
+        let refusal = generative_resources::memory_shortage_error(
+            "Native background removal",
+            required,
+            64 * 1024 * 1024,
+            "aarch64",
+        )
+        .expect("a starved host must be refused");
+        assert!(refusal.contains("Native background removal"));
+        assert!(refusal.contains("aarch64"));
+        assert!(refusal.contains("MiB"));
+    }
+
+    #[test]
+    fn host_memory_status_serializes_the_camel_case_contract() {
+        // The renderer reads `availableBytes`; a missing rename_all would
+        // silently send `available_bytes`, the probe would find nothing, and
+        // every desktop session would fall back to the 400 MB floor again.
+        let status = host_memory_status();
+        let json = serde_json::to_value(&status).expect("serializable status");
+        assert!(json.get("availableBytes").is_some());
+        assert!(json.get("resourceTier").is_some());
+        assert!(json.get("available_bytes").is_none());
+        assert!(json.get("resource_tier").is_none());
     }
 
     #[test]

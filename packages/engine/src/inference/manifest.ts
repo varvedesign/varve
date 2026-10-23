@@ -37,6 +37,12 @@ export interface RawManifestEntry {
   upstreamChecksum?: string;
   /** Optional post-download transform required before the model is usable. */
   repair?: 'sam2-empty-value-info';
+  /**
+   * Measured peak RSS for the native desktop runtime, when it differs from the
+   * tensor contract's browser/WASM figure. Native preflights read this; the
+   * webview keeps using `tensorContract.peakMemoryBytes`.
+   */
+  nativePeakMemoryBytes?: number;
   multiComponent?: boolean;
   components?: ModelComponentEntry[];
   notes?: string;
@@ -175,8 +181,10 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
   const sizeBytes = computeSizeBytes(raw.id, isBundled);
   // Prefer the manifest's recorded peak (measured on hardware) over the
   // size-derived heuristic: the heuristic underestimates segmentation
-  // models by 3-17x (measured retained RSS 2026-08-13: u2netp ~330 MB,
-  // IS-Net ~1.3 GB, BiRefNet Lite ~7 GB, BiRefNet Full ~8.5 GB).
+  // models by 3-17x. These are *browser/WASM* working sets, kept deliberately
+  // conservative because the webview is the path that aborts at the wasm32
+  // ceiling. Native execution uses `nativePeakMemoryBytes` when the manifest
+  // records it (BiRefNet Lite: 432 MiB measured, not 7 GB).
   const manifestPeak = (
     raw as RawManifestEntry & {
       tensorContract?: { peakMemoryBytes?: number };
@@ -199,6 +207,7 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
     inputSpec: null,
     quality: modelQuality(raw.id),
     peakMemoryBytes,
+    ...(raw.nativePeakMemoryBytes ? { nativePeakMemoryBytes: raw.nativePeakMemoryBytes } : {}),
     gpuRecommended: !isBundledInt8 && !isUpscale,
     precision: raw.precision ?? 'fp32',
     ...(raw.sourceModelId ? { sourceModelId: raw.sourceModelId } : {}),

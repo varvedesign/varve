@@ -111,6 +111,43 @@ substitute for an independently annotated held-out corpus.
   destructive source-pixel replacement. Decontamination defaults to off on
   every provider, native included (opt-in everywhere).
 
+### Shared memory admission
+
+AI dispatch takes one lease from the process-wide derived-work ledger
+(`packages/platform/src/derivedWorkAdmission.ts`) before any provider runs. The
+lease's reservation is derived from the model that will actually load — the
+catalog's weight size doubled, floored at 128 MiB — plus the 4x RGBA working
+frame. The ledger ceiling is host evidence (`hostMemory.ts`: measured available
+memory on desktop, a halved `navigator.deviceMemory` hint in a browser, 400 MB
+only when nothing is measurable), so a capable machine is not judged against a
+low-end constant.
+
+Two different questions are answered in two different places, deliberately:
+
+1. **Can this model run here?** `preflightBrowserSourceMemory` (WASM runtime
+   budget vs. the model's measured peak) or the native OS/cgroup preflight
+   immediately before session checkout.
+2. **May this process start another tracked job now?** The ledger, which also
+   serialises inference, effects, thumbnails, and exports.
+
+Peak figures are per execution family, not per model: `peakMemoryBytes` is the
+browser/WASM boundary, `nativePeakMemoryBytes` the measured native working set.
+BiRefNet is the case that matters. Natively it peaks at **432 MiB**
+(`bgremove_bench`, bundled ORT CPU, arena disabled, 2026-10-22). In bare WASM it
+cannot run at all: the export has a static 1024x1024 input and fails
+deterministically with `std::bad_alloc` at the wasm32 4 GiB address-space
+ceiling (~4027-4145 MB RSS across three runs; wasm-memory-hardening audit
+2026-07-18), so the catalog records 4.1 GB as its browser boundary and the gate
+refuses it there. Reading a browser figure in the native preflight refused High
+quality on hosts with gigabytes free, so native gates and desktop labels must
+resolve through `resolveModelPeakMemoryBytes(entry, { native })`.
+
+A ledger refusal is a capacity outcome, not a model failure. `ai-quality`
+retries the bundled `ai-balanced` model when the budget cannot fit it, so the
+user still gets a cutout; an explicit `modelId` request is never substituted.
+When even the reduced mode does not fit, the panel reports the shared-budget
+refusal in user terms instead of a raw byte count.
+
 ## Reference parity and benchmarking
 
 `scripts/bench/bgremove-reference/` contains the reproducible reference

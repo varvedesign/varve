@@ -71,26 +71,9 @@
   overflow-wrap: anywhere;
 }
 
+/* CloseButton owns the glyph, the 24px `sm` target and the focus/hover states.
+ * The hint surface is pointer-events: none so it never eats a canvas gesture;
+ * only the dismiss control opts back in. */
 .micro-hint__dismiss {
-  appearance: none;
-  border: none;
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0 var(--space-1);
-  font-size: var(--font-size-xs);
-  line-height: 1;
-  border-radius: var(--radius-control-compact);
-  margin-left: var(--space-1);
   pointer-events: auto;
-}
-
-.micro-hint__dismiss:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-hover);
-}
-
-.micro-hint__dismiss:focus-visible {
-  outline: 2px solid var(--color-border-focus);
-  outline-offset: 1px;
 }

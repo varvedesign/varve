@@ -74,7 +74,13 @@ function defaultPrompt(mode: GenerativeEditMode): string {
 function nativeFailure(error: unknown): GenerativeEditError {
   if (error instanceof GenerativeEditError) return error;
   if (error instanceof InferenceAdmissionError && error.code === 'insufficient-memory') {
-    return new GenerativeEditError('insufficient-memory', error.message);
+    // The shared ledger's own wording names bytes and a budget. A person
+    // generating an image needs to know what to do, and the native preflight
+    // repeats the same measured check immediately before the model loads.
+    return new GenerativeEditError(
+      'insufficient-memory',
+      'Not enough free memory for local generation right now. Close other memory-heavy apps and try again; the installed model needs several gigabytes while it runs.',
+    );
   }
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.toLowerCase();

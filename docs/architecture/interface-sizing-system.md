@@ -128,6 +128,13 @@ Reveal-on-hover is allowed (the editor tab strip uses it to keep tabs quiet),
 but a close control must never be *only* hover-reachable: the active tab,
 pointer hover, keyboard focus, and touch layouts all reveal it.
 
+Transient overlays use the same primitive. The canvas micro-hint previously
+hand-rolled its dismiss button — a literal "x" in a 13.4x13px box, below the
+24px floor — and now renders `CloseButton size="sm"`, so the glyph, the target,
+and the focus/hover states come from one place. Overlay surfaces that are
+pointer-transparent (the hint must never eat a canvas gesture) opt the control
+back in with `pointer-events: auto` rather than re-styling it.
+
 ### Density behavior
 
 Interface density is a **user preference**, applied at the document root:
@@ -196,6 +203,17 @@ Metadata readouts use an explicit label/value grid. Native definition-list
 margins are reset, both columns may shrink, and long values use safe wrapping.
 This is required for image colour metadata, but applies to any dense inspector
 readout that may contain untrusted or format-provided strings.
+
+Inspector field labels sit at the `interface-micro` 12px floor and never below
+it: `--insp-label-size` is a fixed `0.75rem`. It was previously a fluid
+`clamp()` that bottomed out at 11px and only reached 12px at 1280px, so every
+inspector label rendered under the floor at the window widths the desktop app
+actually supports (`tauri.conf.json` `minWidth` 900) — 11.5863px at 900x600.
+The `interface-label` role is 13px; whether inspector rows should adopt that
+role is a separate design decision, because the label column is 4.5rem at the
+narrow inspector and 13px would reflow every section. The floor is guarded by
+`tests/e2e/a11y/shell-type-and-target-floor.spec.ts`, which measures rendered
+font sizes at 900x600 and 1440x900 rather than reading the stylesheet.
 
 Adjustment editors follow the same contract for nested rows: the panel root
 must retain a zero-width flex minimum, labels may shrink and wrap within a

@@ -150,6 +150,8 @@ export class SemanticEmbeddingQueue<T> {
           id: `semantic:${entry.job.id}`,
           kind: 'semantic',
           priority: 'background',
+          // Search indexing is speculative: an AI run must not stall it.
+          speculative: true,
           signal: controller.signal,
         });
         if (controller.signal.aborted) {

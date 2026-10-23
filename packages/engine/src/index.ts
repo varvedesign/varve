@@ -125,6 +125,7 @@ export type {
 } from './backgroundRemoval';
 export {
   AVAILABLE_MODELS,
+  BackgroundRemovalCapacityError,
   cancelAllWorkerJobs,
   DEFAULT_PREVIEW_MAX_DIMENSION,
   decodeMaskDataUrl,
@@ -913,6 +914,7 @@ export {
   resetRuntimeCapabilities,
   resizeEfficientSamDimensions,
   resolveAcquisition,
+  resolveModelPeakMemoryBytes,
   routePromptedSelection,
   runProviderChain,
   SAM2_CAPABILITIES,

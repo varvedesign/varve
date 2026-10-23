@@ -35,6 +35,7 @@ export type {
   DerivedResidentOptions,
   DerivedWorkAdmissionErrorCode,
   DerivedWorkAdmissionSnapshot,
+  DerivedWorkBudgetSource,
   DerivedWorkKind,
   DerivedWorkLease,
   DerivedWorkMemoryProfile,
@@ -46,12 +47,22 @@ export {
   DerivedWorkAdmission,
   DerivedWorkAdmissionError,
   getDerivedWorkAdmission,
+  initializeDerivedWorkBudget,
+  resetDerivedWorkBudgetInitialization,
   setDerivedWorkAdmissionForTest,
   setDerivedWorkMemoryProfile,
 } from './derivedWorkAdmission';
 export type { PlatformKind } from './detect';
 export { detectPlatform, detectPlatformKind } from './detect';
 export { upsertPreservingMeta } from './filePersist';
+export type { HostMemorySnapshot, HostMemorySource } from './hostMemory';
+export {
+  DERIVED_WORK_HOST_RESERVE_BYTES,
+  DERIVED_WORK_MAX_TRACKED_BYTES,
+  DERIVED_WORK_MIN_TRACKED_BYTES,
+  deriveDerivedWorkBudgetBytes,
+  probeHostMemory,
+} from './hostMemory';
 export type { MemoryPlatformOptions } from './memory';
 export { createMemoryPlatform, makeFileEntry, makeProject } from './memory';
 export type { NativeClipboardItem, Platform } from './platform';

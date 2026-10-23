@@ -268,6 +268,9 @@ export class PyramidScheduler<T> {
         id: `raster-pyramid:${job.id}`,
         kind: 'raster-pyramid',
         priority: pyramidWorkPriority(job.priority),
+        // Gutter tiles are preview work: a long AI run must not freeze raster
+        // detail for its whole duration.
+        speculative: true,
         signal: controller.signal,
       });
       if (job.cancelled || this.disposed || controller.signal.aborted) return;
