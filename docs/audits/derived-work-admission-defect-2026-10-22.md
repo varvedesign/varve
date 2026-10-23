@@ -195,6 +195,29 @@ The 2026-08-13 parity audit's 6.8 GB retained-RSS reading could not be
 reproduced on the current session builder (arena disabled, one model per
 process). That reading is retained in the audit as history, not as a live gate.
 
+### Browser/WASM boundary (corrected, not merely re-measured)
+
+The catalog's browser figure for BiRefNet Lite was 7 GB, and the webview's own
+address space cannot reach that: wasm32 has a 4 GiB linear-memory limit. The
+wasm-memory-hardening audit (2026-07-18) measured the real behaviour — a static
+1024x1024 input that cannot be downscaled, and a deterministic `std::bad_alloc`
+during `session.run()` at ~4027-4145 MB RSS across three runs (one and eight
+threads). The 896 MB figure quoted in `RuntimeCapabilities` was a file-size
+heuristic (`224 MB x 4`), never a measurement.
+
+So the browser figure is now the *refusal boundary* (4.1 GB) rather than an
+invented working set, and the panel says what that means:
+
+```
+Best - 224 MB on disk - ~450 MB RAM on desktop during inference;
+browser WASM needs ~4.1 GB (over its limit)
+```
+
+This also closed a latent hole: `wasmSafePeakBytes` can reach 3 GB on a
+cross-origin-isolated host, which would have admitted an 896 MB estimate and
+then aborted the webview. High quality is a desktop mode; the browser keeps Auto
+and Fast.
+
 ## Review findings folded in
 
 An independent review of the fix raised six issues that were corrected before

@@ -131,13 +131,16 @@ Two different questions are answered in two different places, deliberately:
    serialises inference, effects, thumbnails, and exports.
 
 Peak figures are per execution family, not per model: `peakMemoryBytes` is the
-conservative browser/WASM working set, `nativePeakMemoryBytes` the measured
-native one. BiRefNet Lite is the case that matters — **432 MiB measured
-natively** (`bgremove_bench`, bundled ORT CPU, arena disabled, 2026-10-22)
-against a 7 GB browser declaration. Reading the browser figure in the native
-preflight refused High quality on hosts with gigabytes free, so native gates and
-desktop labels must resolve through `resolveModelPeakMemoryBytes(entry, {
-native })`.
+browser/WASM boundary, `nativePeakMemoryBytes` the measured native working set.
+BiRefNet is the case that matters. Natively it peaks at **432 MiB**
+(`bgremove_bench`, bundled ORT CPU, arena disabled, 2026-10-22). In bare WASM it
+cannot run at all: the export has a static 1024x1024 input and fails
+deterministically with `std::bad_alloc` at the wasm32 4 GiB address-space
+ceiling (~4027-4145 MB RSS across three runs; wasm-memory-hardening audit
+2026-07-18), so the catalog records 4.1 GB as its browser boundary and the gate
+refuses it there. Reading a browser figure in the native preflight refused High
+quality on hosts with gigabytes free, so native gates and desktop labels must
+resolve through `resolveModelPeakMemoryBytes(entry, { native })`.
 
 A ledger refusal is a capacity outcome, not a model failure. `ai-quality`
 retries the bundled `ai-balanced` model when the budget cannot fit it, so the

@@ -115,11 +115,13 @@ import StatusPill from '../../components/StatusPill.astro';
           process on a native build, or the browser's own device hint &mdash; and sizes its
           local-work budget from that measurement instead of assuming a low-end machine. High
           quality keeps a measured working set of roughly 450 MB in the desktop app, so a machine
-          with ordinary headroom runs it; the browser path is far more demanding and stays
-          conservatively gated until a measured figure replaces the estimate. When the machine
-          cannot hold a mode, Varve reports the shortfall before loading the model rather than
-          failing mid-run or driving the editor into an out-of-memory crash, and Auto or Fast stays
-          available. A model you pick explicitly is never swapped for another without your consent.
+          with ordinary headroom runs it. The browser is different in kind rather than degree:
+          BiRefNet's fixed 1024-pixel input exceeds the browser's 4 GB WebAssembly address space,
+          so High quality is a desktop mode and the browser is served by Auto and Fast instead of
+          attempting a run that would abort. When a mode cannot fit, Varve reports the shortfall
+          before loading the model rather than failing mid-run or driving the editor into an
+          out-of-memory crash. A model you pick explicitly is never swapped for another without
+          your consent.
         </p>
       </section>
 
