@@ -269,11 +269,28 @@ earlier standalone run. No failing capture is used as evidence.
 ### 7.4 WebKitGTK lane
 
 The lane the desktop embeds is Playwright's WebKit GTK project, provisioned
-under `~/.cache/varve/playwright-webkit`. It was run against the font
-availability and text-edit overlay specs. Result: see the gate output in §10
-(the run is recorded with its exact command and pass/fail). Where the lane
-could not run, the exact command and error are recorded there rather than
-being described as a pass.
+under `~/.cache/varve/playwright-webkit`.
+
+```text
+VARVE_HEAVY_TASK_PARALLELISM=0 VARVE_E2E_PORT=14942 \
+pnpm e2e:webkit-gtk tests/e2e/canvas/font-availability.spec.ts \
+  tests/e2e/canvas/text-edit-overlay-clipping.spec.ts --workers=1 --reporter=list
+```
+
+Result: **3 of 6 passed** before the process was terminated by a machine
+restart:
+
+- `font-availability` — "a seed family the host lacks is reported as a missing
+  font" (1.6m)
+- `font-availability` — "a bundled family does not raise the missing-font
+  dialog" (2.0m)
+- `text-edit-overlay-clipping` — "stays clipped to the canvas while scrolling
+  and zooming" (3.1m)
+
+The remaining three cases (scaled viewport, centred alignment, RTL) passed on
+Chromium but were not completed on WebKit. The lane is the engine the desktop
+embeds, so font fallback and overlay clipping now have engine-family evidence
+rather than only Chromium evidence.
 
 ## 8. Documentation and website
 
