@@ -291,7 +291,11 @@ export const LayersRow = memo(function LayersRow({
   // Compute mixed visibility/lock state for multi-selection toggles.
   // When multiple nodes are selected, the toggle icon reflects whether ALL
   // selected nodes share the same state or whether it's mixed.
-  const hasMultiSelection = selectedIds && selectedIds.size > 1;
+  // Mixed state is a property of *this* row's participation in a multi-select
+  // toggle. Computing it from selection size alone made every unselected row
+  // in the panel announce "Mixed visibility for selection" while two other
+  // rows were selected.
+  const hasMultiSelection = selected && !!selectedIds && selectedIds.size > 1;
   const isMixedVisibility = useMemo(() => {
     if (!hasMultiSelection || !selectedIds) return false;
     const vals = [...selectedIds].map((id) => {

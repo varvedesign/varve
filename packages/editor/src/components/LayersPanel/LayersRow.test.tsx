@@ -170,6 +170,17 @@ describe('LayersRow identity and selection model', () => {
       'true',
     );
   });
+
+  it('keeps mixed-state controls scoped to selected rows', () => {
+    const selectedIds = new Set([makeNode('n1', 'Layer 1').id, makeNode('n2', 'Other').id]);
+    const unselected = renderRow({ selected: false, selectedIds });
+    expect(
+      unselected.container.querySelector('button[aria-label="Mixed visibility for selection"]'),
+    ).toBeNull();
+    expect(
+      unselected.container.querySelector('button[aria-label="Mixed lock for selection"]'),
+    ).toBeNull();
+  });
 });
 
 describe('LayersRow effective lock state', () => {

@@ -828,7 +828,10 @@ function LayersPanelContent({
                   aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
                   aria-pressed={layerSettings.autoReveal}
                 >
-                  <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
+                  {/* Crosshair, not an eye: an eye in a Layers header reads
+                      as "show/hide layers", while this control makes the
+                      panel follow the canvas selection. */}
+                  <SolidIcon name={SOLID_CHROME_ICONS.crosshair} size="0.85em" />
                 </button>
               </Tooltip>
               <Tooltip label="Collapse all layers">
