@@ -70,11 +70,14 @@ export function RecoveryManager(_props: RecoveryManagerProps) {
       if (data) {
         // A recovered session is its own document: give it its own tab so
         // restoring never overwrites whatever is open in the active one.
-        editor.loadDocument(JSON.stringify(data.document), {
+        const restored = editor.loadDocument(JSON.stringify(data.document), {
           name: data.tabName,
           newSession: true,
         });
-        mgr.deleteSession(id);
+        // Keep an undecodable snapshot: it is the only copy left, and deleting
+        // it would turn a reported failure into permanent data loss. The
+        // restore dialog lists it again on the next open.
+        if (restored) mgr.deleteSession(id);
       }
     });
   };
@@ -94,11 +97,13 @@ export function RecoveryManager(_props: RecoveryManagerProps) {
           if (data) {
             // One tab per recovered session — restoring all into the active
             // tab left only the last one standing.
-            editor.loadDocument(JSON.stringify(data.document), {
+            const restored = editor.loadDocument(JSON.stringify(data.document), {
               name: data.tabName,
               newSession: true,
             });
-            mgr.deleteSession(session.id);
+            // Same rule as a single restore: an unreadable snapshot stays on
+            // disk so the user can try again or recover it by hand.
+            if (restored) mgr.deleteSession(session.id);
           }
         });
       }

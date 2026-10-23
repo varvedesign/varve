@@ -99,7 +99,7 @@ export interface DocumentContextValue {
   newDocument: () => void;
   serializeDocument: () => string;
   updateDoc: (fn: (doc: Document) => Document) => void;
-  loadDocument: (json: string, meta?: import('./types').LoadDocumentMeta) => void;
+  loadDocument: (json: string, meta?: import('./types').LoadDocumentMeta) => boolean;
   save: () => Promise<boolean>;
   saveAs: () => Promise<boolean>;
   saveCopy: () => Promise<boolean>;

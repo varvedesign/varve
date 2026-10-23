@@ -122,10 +122,12 @@ describe('openFile with an unreadable document', () => {
     const { read, toasts } = await mount();
     const before = read().state.document;
 
+    let accepted: boolean | undefined;
     act(() => {
-      read().loadDocument('', { name: 'Gone.varve' });
+      accepted = read().loadDocument('', { name: 'Gone.varve' });
     });
 
+    expect(accepted).toBe(false);
     expect(read().state.document).toBe(before);
     expect(toasts).toHaveLength(1);
     expect(toasts[0]?.message).toContain('Gone.varve');

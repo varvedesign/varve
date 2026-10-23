@@ -1326,7 +1326,12 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   /** Look up the icon asset referenced by a node, if any. */
   getIconAssetForNode: (nodeId: NodeId) => import('@varve/scene').DocumentIconAsset | undefined;
   /** Load a document from a JSON string. */
-  loadDocument: (json: string, meta?: LoadDocumentMeta) => void;
+  /**
+   * Load a document from a JSON string. Returns false — after reporting why —
+   * when the payload cannot be decoded, so callers that hold the only copy
+   * (recovery restore) do not discard it.
+   */
+  loadDocument: (json: string, meta?: LoadDocumentMeta) => boolean;
   /** Save the current document via the platform. */
   save: () => Promise<boolean>;
   /** Save As the current document via the platform. */
@@ -3385,9 +3390,10 @@ export function EditorProvider({
           duration: 15000,
         });
         announcerRef.current?.announce(`Could not open ${name}. Nothing was changed.`);
-        return;
+        return false;
       }
       loadDocumentRaw(json, meta);
+      return true;
     },
     [loadDocumentRaw],
   );
