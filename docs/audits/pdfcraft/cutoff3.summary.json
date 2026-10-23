@@ -37,10 +37,10 @@
     "old_issues_updated_since_cutoff2": 200
   },
   "new_issue_dispositions": {
-    "candidate": 2,
+    "candidate": 6,
     "cluster-assessed": 26,
-    "implemented-validated": 23,
-    "outside-varve-scope": 105,
+    "implemented-validated": 22,
+    "outside-varve-scope": 102,
     "verified-already-correct-": 5
   },
   "reconciliation": {
@@ -59,7 +59,11 @@
       "4030 https://github.com/user-attachments/assets/5661ecde-e805-4a97-a7cc-5bd22dbfbc24 (image/png, 200)",
       "4028 https://github.com/user-attachments/assets/15c1bc23-2419-449f-95a1-75368e3d7d75 (image/png, 200)",
       "4118 https://github.com/user-attachments/assets/49d1d112-de32-4ca4-8f60-88df5d1be14c (image/png, 200)",
-      "4056 https://github.com/user-attachments/assets/1b9e3249-4651-4ac8-814c-41af9678f6f7 (video/mp4, 200; frame at 2s inspected)"
+      "4056 https://github.com/user-attachments/assets/1b9e3249-4651-4ac8-814c-41af9678f6f7 (video/mp4, 200; frame at 2s inspected)",
+      "3911 https://github.com/user-attachments/files/33788451/fegli-form-fe-6dep_auto-tca.pdf (relevant field/widget objects and rendered page 5 inspected; hash in source-adjudications.tsv)",
+      "3936 https://tickets.devmesh.xyz/f/Zmo_la6RVBWdatdC9GegmQ/Screenshot_2026-10-21_141547.png (image inspected; hash in source-adjudications.tsv)",
+      "3937 https://github.com/user-attachments/assets/89f460f4-b097-4825-9f7f-ea4b990f56e1 (image inspected; hash in source-adjudications.tsv)",
+      "3937 https://github.com/user-attachments/files/33790520/G.O.D.No.07.dated.09.01.2025.-.Wildboar.culling.pdf (all six rendered pages inspected; hash in source-adjudications.tsv)"
     ],
     "inaccessible": []
   },
@@ -98,8 +102,11 @@
       4164, 4165, 4168, 4173, 4174, 4175, 4176, 4177, 4183, 4184, 4186, 4187, 4188, 4189, 4192,
       4194, 4199, 4202, 4204, 4205, 4206, 4207, 4210
     ],
-    "completed_issue_ids": [3634],
-    "note": "Conservative review inventory: union of the 161 new issues, 200 earlier issues updated after cutoff 2, and 103 proposed resolution/citation rows (448 unique issues). Issue 3634 body and both comments were read; there are no attached files in that source record. It remains candidate because actual render-work cancellation is not proven. Review notes: CLOSURE.md. Other terminal labels remain provisional."
+    "completed_issue_ids": [
+      3634, 3910, 3911, 3912, 3915, 3921, 3924, 3926, 3936, 3937, 3940, 3944, 3945, 3947, 3950,
+      3951, 3954, 3957
+    ],
+    "note": "Conservative review inventory: union of the 161 new issues, 200 earlier issues updated after cutoff 2, and 103 proposed resolution/citation rows (448 unique issues). Completed means source/discussion/attachment adjudication, not successful runtime verification or terminal disposition. The 2026-10-23 bounded batch is recorded per mechanism in source-adjudications.tsv; 3911 includes local attachment object inspection and a rendered page. 3634 and 3924 remain candidates. 3916 and 3929 were also reopened but are not counted complete while linked drag evidence and individual applicability assessments remain pending. Other terminal labels remain provisional."
   },
   "follow_on_queue_at_closure": null,
   "follow_on_queue": {

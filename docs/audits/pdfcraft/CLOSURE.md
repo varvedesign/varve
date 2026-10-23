@@ -41,8 +41,9 @@ new issues. The 838 earlier issues that are closed in the snapshot are **not**
 The conservative full-evidence review inventory is **448 unique issues**: the
 union of the 161 new reports, 200 earlier updated reports and 103 resolution /
 citation-restatement rows. An updated timestamp is a materiality-screening
-candidate, not proof of a material change. One full issue/discussion adjudication
-(#3634) is now recorded below; **447 remain uncertified**. Partial reading and
+candidate, not proof of a material change. Eighteen issue/discussion/attachment
+adjudications are now recorded below and in `source-adjudications.tsv`;
+**430 remain uncertified**. Partial reading and
 tests for other issues do not satisfy that stronger acceptance. The IDs are recorded in
 `cutoff3.summary.json` under `review`.
 
@@ -57,10 +58,10 @@ Current source/test citations do not retroactively establish that missing ADR.
 | Latest declared label | Count |
 |---|---:|
 | cluster-assessed | 1,446 |
-| outside-varve-scope | 320 |
-| implemented-validated | 116 |
+| outside-varve-scope | 317 |
+| implemented-validated | 115 |
 | verified-already-correct- | 66 |
-| candidate / deferred | 3 / 0 |
+| candidate / deferred | 7 / 0 |
 
 These are the existing annotations, **not independently certified outcomes**.
 `resolutions.tsv` proposes 88 inherited resolutions and 15 citation restatements.
@@ -118,6 +119,39 @@ multi-effect export finishes inside five minutes. The constant is provisional.
   not a reproduced prior overwrite exploit. First-save and read-boundary
   verification remain open.
 
+The bounded source batch in `source-adjudications.tsv` read the complete frozen
+bodies and discussions for #3910, #3911, #3912, #3915, #3916, #3921, #3924, #3926
+and #3929. #3911's attached PDF was downloaded (hash/size recorded), its relevant
+field/widget objects inspected, and its rendered page 5 read; no embedded
+JavaScript was executed. The other eight reports contain no attachment links.
+Three old outside-scope labels were reopened: #3916 also concerns page drags,
+#3924 also concerns unbounded named-file reads, and #3929 includes asynchronous
+reopen/duplicate/drag/count mechanisms. #3916 and #3929 are not counted complete
+while their linked drag evidence and item-by-item applicability remain open.
+This is seven completed source adjudications, not nine new runtime passes.
+#3922's issue discussion and live #3956 follow-up were read
+partially; it is not added to completed coverage.
+
+A further partial read of #3919's complete body and three comments reopened its
+implemented label: the issue is about worker launch/panic failures leaving state
+stuck, not just JS exceptions or time limits. Its proposed #4043 explicitly
+excludes OCR and discloses untested GUI-picker success flows. Linked evidence
+and actual Varve provider reset/retry tests remain open; no completed-review id
+was added for it. This also corrects its obsolete claim that later batch jobs
+continue after an unresolved render timeout.
+
+A second bounded batch completed source adjudication for #3940, #3944, #3945,
+#3947, #3950, #3951, #3954 and #3957. All bodies and discussions were read; none
+contains an attached file/image. Inline reproduction code was read but not
+executed, and #3954's Discord origin was not independently inspected. The notes
+distinguish absent PDF form/script/OCR/localization features from the general
+principles they illustrate; no upstream fix or Varve runtime pass is inferred.
+#3936 and #3937 were subsequently completed: both linked screenshots were
+inspected, as were all six rendered pages of #3937's Tamil PDF. Hashes and
+bounded observations are in the source notes. A still image does not prove a
+view transition or the contents of a closed language dropdown; no upstream
+crop/OCR runtime reproduction is claimed.
+
 ## 4. Evidence already obtained (bounded claims)
 
 ### Browser and visual
@@ -144,9 +178,11 @@ completed both font-availability cases and the small-window scroll/zoom clipping
 case, then was interrupted; scaled viewport, alignment and RTL remain unverified
 on that engine. Website rendered/keyboard/responsive checks are still outstanding.
 
-PDFCraft attachments actually inspected: stills for #4030, #4028 and #4118, plus
+Earlier PDFCraft attachments inspected: stills for #4030, #4028 and #4118, plus
 one frame at 2 seconds of #4056's recording. That frame did not establish the
 reported escape sequence. No claim of inspecting every attachment is supported.
+The later #3911/#3936/#3937 attachment inspections are detailed in the source
+notes above and `source-adjudications.tsv`.
 
 ### Native PDF output
 
@@ -253,13 +289,15 @@ limit in the next desktop release, not hard cancellation. No new rendered
 website or native GUI validation is claimed.
 
 The manual completion command now runs its fixture regressions before checking
-the actual corpus. The actual corpus still fails intentionally: three reopened
-candidates, 447 uncertified reviews and inherited citation gaps. No push, merge
+the actual corpus. The actual corpus still has seven open
+candidates, 430 uncertified reviews and inherited citation gaps. No push, merge
 or worktree removal is authorized by these local passes alone.
 
-Current checkpoint: export/recovery/website-copy follow-up awaits its direct
-commit checkpoint. The editor typecheck, committed-import audit (12,412 imports)
-and emoji audit passed. The architecture audit **did not complete**:
+Current checkpoint: export/recovery/website-copy follow-up committed successfully
+as `7a1392bef`; its normal commit checkpoint passed all 25 tests in the three
+changed editor suites (44.83 s), including the empty-filename timeout case.
+The worktree was clean when resumed. The editor typecheck, committed-import audit
+(12,412 imports) and emoji audit passed. The architecture audit **did not complete**:
 `node scripts/audit-architecture.mjs --ci` failed in `runMadge` with `ETIMEDOUT`
 while scanning `packages/editor/src/index.ts`, before enforcing final metrics.
 That is not an architecture pass or a measured threshold regression. Do not
@@ -274,3 +312,125 @@ checked listener cleanup, disabled-deadline cancellation, late results, batch
 failure reporting and restore-deletion conditions against callers/tests. No hub
 imports or render/replay dispatch changed. This is not an independent review or
 native/UI certification; the open mechanisms above remain explicitly unresolved.
+
+Resume notes: the linked #4042 integration-test patch
+(`crates/ui-egui/tests/it/native_open.rs`) has now been read in full, as have its
+production patches. It asserts actual modal recipients, saved/reopened output,
+ordered/deduplicated intake, read failures, password retry/cancellation and
+normal/full-screen dialog responses. These are inspected upstream tests, not
+tests executed here, and that PR does not address reload/drop/general draft
+ownership. Varve's shared Dialog uses native modality but does not publish a
+document identity; ColorConversionHost keeps its open state while
+ColorConversionDialog reads the current editor commands. The next probe is an
+actual file-open completion under that dialog, not another selection-only test.
+`shutil.which` confirmed both `qpdf` and `verapdf` unavailable in the previous
+follow-up; PDF/X conformance remains unverified.
+
+### Resume validation and source batch — 2026-10-23
+
+The prior CI-tools failure is now diagnosed, not merely classified as baseline.
+`commonGitDirectory({ cwd })` and `gitOperationState({ cwd })` created their
+default Git adapter against `process.cwd()`, ignoring the supplied directory.
+The full-gate fixture therefore stored receipts under the actual checkout's
+common Git directory, not the fixture repository. The push-receipt helper had
+the same defect. A real isolated repository/linked-worktree regression failed
+against both old helpers before repair. The helpers now honor the requested
+directory; no receipt identity, expiry, invalidation or release rule was relaxed.
+This repair is committed as `98bc091ca`; its normal commit checkpoint passed
+53 validation-policy tests plus formatting, health, emoji, contacts, impact,
+interaction, secret and import-boundary checks.
+
+Commands actually run for this slice:
+
+```text
+node scripts/quality/operation-history.test.mjs
+node scripts/quality/validation-receipts.test.mjs
+node scripts/quality/full-gate.test.mjs
+pnpm exec biome check scripts/quality/operation-history.mjs scripts/quality/operation-history.test.mjs scripts/quality/validation-receipts.mjs tests/e2e/save/recovery-destination.spec.ts docs/audits/pdfcraft/cutoff3.summary.json
+pnpm audit:docs
+pnpm audit:imports
+pnpm audit:emoji
+pnpm audit:tokens
+pnpm audit:pdfcraft-closure
+```
+
+The last command passed its 14 fixtures, then correctly failed the real corpus
+at six candidates, 440 outstanding reviews and 51 inherited citation gaps;
+reopening #3919 subsequently raised the candidate count to seven. Imports
+checked 12,413 committed relative imports; contrast checked 324 pairs. These
+are not full-suite certification. Actual shell versions are Node v22.23.2 and
+pnpm 11.9.0, not the Node 26 toolchain recorded in AGENTS.md.
+
+`tests/e2e/save/recovery-destination.spec.ts` adds a real IndexedDB recovery →
+cancelled first Save → chosen Save workflow, including an existing Library
+file's stolen id and a hostile recorded disk path. Its first affected attempt
+stopped on formatting. The next passed format/lint, docs, emoji, claims and E2E
+typecheck, waited for another task's heavy lease, then failed in test collection
+because importing the scene barrel loaded browser-only `import.meta` code into
+Node. The fixture is now data-only and still decodes/migrates through the actual
+UI path; there is no browser-workflow pass yet. Do not count a test-collection
+failure as a product reproduction. The first triage retry stopped on formatting
+in the new helper test; that is repaired. The subsequent triage
+(`sh_16af31bff001XCR1duLpRtWQGM`) passed format/lint, docs, emoji, claims,
+E2E typecheck (53.8 s), policy (60.3 s), and the complete selected CI-tools lane
+(324.6 s), including the formerly failing full-gate fixture. Its recovery E2E
+waited behind other live leases for 600 seconds and hit the lease deadline
+without launching a browser. This is a resource-admission blocker, not a
+workflow failure or pass. Only that exact spec is being retried through the
+normal lease (`sh_16b16de57001PwSv98teXh3qz9`); no duplicate triage/push is active.
+
+The helper-repair nine-path plan selected touched format/lint, docs, emoji, claims,
+E2E typecheck, policy, CI-tools and the recovery E2E. `pnpm verify:affected`
+returns 2 for mandatory full escalation because validation infrastructure
+changed. Exact-candidate full certification remains required. The previous
+hosted refusal (dirty/non-master candidate) has not been waived; repeating that
+unchanged prerequisite failure is not useful. No full suite was run. Rust,
+website and global visual suites were deliberately not rerun for this localized
+tooling/test/source-record slice; the earlier branch-wide obligations remain.
+
+```text
+Changed scope: local validation cwd/receipt helpers and their real-Git regression;
+  recovery first-save E2E; PDFCraft source adjudication records
+Validation plan: nine paths selected nine lanes; final full gate required for
+  validation-infrastructure changes
+Commands actually run (in addition to direct checks listed above):
+  pnpm verify:plan
+  pnpm verify:affected
+  VARVE_E2E_PORT=1547 pnpm verify:triage
+Passed: all selected non-browser lanes; 53 commit-checkpoint policy tests;
+  three direct helper/receipt/full-gate fixture scripts; docs/imports/emoji/tokens
+Blocked: recovery E2E not launched within the lease's 600-second deadline;
+  exact-candidate full gate and corpus completion still outstanding
+Skipped as unrelated: Rust, website and global rendering checks for this slice
+Escalations: infrastructure change requires final full certification, not waived
+Full suite run: no
+```
+
+The delegation-permission question was interrupted by a server restart without
+an answer. No subagent approval is inferred and no review agent was launched.
+
+After `98bc091ca`, the remaining six-path working-tree plan selects the seven
+documentation/test lanes without a new escalation. That does not revoke the
+branch's earlier full-gate requirement. Fresh E2E typecheck, touched JSON/test
+formatting and docs audit passed. A direct
+`node scripts/quality/audit-pdfcraft-closure.mjs` recheck reports the current
+seven candidates and 430 pending reviews (expected incomplete exit 1); the
+cutoff-3 disposition census and 20 unique, seven-column source-note records
+were also checked for consistency. Frozen cutoff-1/2 files remain untouched.
+
+Distinct self-review passes checked the actual helper changes against cwd,
+linked-worktree and injected-adapter behavior, then standards and the affected
+callers in full-gate, snapshots, operation journaling and push receipts. No
+additional defect remained in that reviewed slice after repairing the duplicate
+push-receipt helper. This is self-review, not independent integration approval.
+
+Additional investigation, not completed source coverage: live #4039 is merged
+at `fda1fee9d4c4c50018093745d45fa4883e59a963` (2026-10-23T14:43:05Z, after cutoff
+3). Its body, two-line production change and complete 192-line pointer-regression
+file were read. The tests check Undo/Redo/delete/replacement, retained Redo,
+ordinary subsequent move/copy, and saved/reopened order; they were not executed
+here. Varve PageNav resolves stable ids but has no equivalent observed
+held-pointer/undo proof. For #3929, a repository-wide search found the Reopen
+callback declaration and optional invocation only; no `onReopenLast` supplier
+was found. A shortcut declaration alone does not establish an implemented live
+reopen workflow. Keep both investigations open.
