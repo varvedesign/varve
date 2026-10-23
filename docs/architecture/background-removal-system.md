@@ -130,6 +130,15 @@ Two different questions are answered in two different places, deliberately:
 2. **May this process start another tracked job now?** The ledger, which also
    serialises inference, effects, thumbnails, and exports.
 
+Peak figures are per execution family, not per model: `peakMemoryBytes` is the
+conservative browser/WASM working set, `nativePeakMemoryBytes` the measured
+native one. BiRefNet Lite is the case that matters — **432 MiB measured
+natively** (`bgremove_bench`, bundled ORT CPU, arena disabled, 2026-10-22)
+against a 7 GB browser declaration. Reading the browser figure in the native
+preflight refused High quality on hosts with gigabytes free, so native gates and
+desktop labels must resolve through `resolveModelPeakMemoryBytes(entry, {
+native })`.
+
 A ledger refusal is a capacity outcome, not a model failure. `ai-quality`
 retries the bundled `ai-balanced` model when the budget cannot fit it, so the
 user still gets a cutout; an explicit `modelId` request is never substituted.

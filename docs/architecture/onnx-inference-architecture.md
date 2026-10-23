@@ -289,7 +289,15 @@ retries the bundled `ai-balanced` model, and an explicit model request is
 honoured exactly instead of being substituted.
 
 Requests identify a job kind, priority, cancellation signal, and estimated byte
-reservation before allocating work. Visible/foreground work can move ahead of
+reservation before allocating work. `maxConcurrent` bounds *heavy* work
+(inference, exports, live effects, model downloads); preview-grade work marks
+itself `speculative` and is capped separately by `maxSpeculative` (2). That
+split exists because the ledger started with a single slot: once a 310 s AI run
+was finally admissible, it froze every thumbnail and raster-pyramid tile behind
+it. Speculative leases still respect the same byte ceiling, so sharing is
+bounded by memory rather than by assumption.
+
+Visible/foreground work can move ahead of
 background jobs; waiting explicit exports age into foreground order. Hiding
 the page aborts speculative active jobs and pauses queued previews, while
 explicit exports continue. Callers release a work lease only after execution
