@@ -151,11 +151,3 @@ the applicable period. It is not currently presented as OSI-approved open
 source. Read [LICENSE](../../LICENSE) before contributing.
 
 Contributions use DCO 1.1 sign-off (`git commit -s`) under the licence of the files changed.
-
-## AI-assisted contributions
-
-AI-assisted work is allowed as a tool, not as a substitute for ownership.
-Contributors remain responsible for the provenance, licenses, tests, security,
-and behavior of submitted work. Explain generated or substantially
-AI-assisted changes when that context helps review, and never include secrets,
-private documents, or unlicensed source material in prompts or commits.
