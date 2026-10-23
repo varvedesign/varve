@@ -1,5 +1,4 @@
 import { act, render, waitFor } from '@testing-library/react';
-import { createDocument, DocumentCodec } from '@varve/scene';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
@@ -12,7 +11,13 @@ import { EditorProvider, useEditor } from '../context';
  * it and opened the same document a second time, leaving two tabs on one file.
  */
 function docJson(name: string) {
-  return DocumentCodec.encode(createDocument(name));
+  return JSON.stringify({
+    schemaVersion: 1,
+    id: 'doc-1',
+    name,
+    nodes: {},
+    rootChildren: [],
+  });
 }
 
 function Harness({ onReady }: { onReady: (ctx: ReturnType<typeof useEditor>) => void }) {
@@ -44,8 +49,11 @@ describe('opening the bootstrapped file again', () => {
     expect(ctx?.state.sessions).toHaveLength(1);
 
     // The host's openFile dispatch for the very file already bootstrapped.
-    act(() => {
-      ctx?.openFile('file-1', 'DesignFile1', undefined, docJson('DesignFile1'));
+    ctx?.openFile('file-1', 'DesignFile1', undefined, docJson('DesignFile1'));
+    // Settle the state update before asserting — a waitFor on the count can
+    // observe the pre-update value and pass while a duplicate is being added.
+    await act(async () => {
+      await Promise.resolve();
     });
 
     expect(ctx?.state.sessions.map((s) => s.name)).toEqual(['DesignFile1']);
@@ -69,8 +77,9 @@ describe('opening the bootstrapped file again', () => {
     );
     await waitFor(() => expect(ctx).toBeDefined());
 
-    act(() => {
-      ctx?.openFile('file-2', 'Other', undefined, docJson('Other'));
+    ctx?.openFile('file-2', 'Other', undefined, docJson('Other'));
+    await act(async () => {
+      await Promise.resolve();
     });
 
     expect(ctx?.state.sessions).toHaveLength(2);
