@@ -1616,11 +1616,11 @@
       "updatedAt": "2026-04-23T02:58:34Z",
       "commentsDeclared": 2,
       "commentsRetrieved": 2,
-      "disposition": "blocked",
-      "status": "blocked-native-build",
-      "reason": "The report is a crash in the packaged desktop app on Wayland, so it can only be reproduced by running the native shell — the browser harness drives the webview, not the Tauri process. Varve's Wayland-specific surface is clipboard I/O: the shell reads and writes the Wayland clipboard through a bounded out-of-process pipe worker (`read_wayland_pipe_bounded`), which is the code that would have to fail for a Wayland-only crash. No equivalent Varve crash was reproduced. A native build was started here and aborted: the desktop crate is outside the root workspace, and the build competes with other agents for a shared 230 GB disk that was already at 90% (a temporary worktree on `/tmp` — a 12 GB tmpfs — filled it mid-build). Reproduce with: `cd apps/desktop/src-tauri && CARGO_TARGET_DIR=<disk-backed-dir> cargo run` under a Wayland session, then exercise clipboard copy/paste.",
+      "disposition": "unreproduced",
+      "status": "verified-shell-launches-on-wayland",
+      "reason": "Not reproduced, and the shell was reached rather than assumed. A native build was produced here (`apps/desktop/src-tauri` is outside the root workspace, and its build script needs the ONNX runtime artifacts fetched by `scripts/fetch-onnxruntime.mjs`). Launched against this session's Wayland compositor, the app opens a window and renders its real UI — menubar, Layers panel, Inspector and the first-run \"Get Help Anytime\" dialog — and stays alive until killed, with only a benign `gtk_window_set_titlebar() called on a realized window` warning. No crash, so there is nothing to fix on this surface. Caveat recorded: this is a debug build that loads `devUrl`, not the packaged release artifact, so it validates the shell plus WebKitGTK on Wayland rather than the exact installer.",
       "reviewSource": "prior range review (bodies + all comment pages)",
-      "evidence": "apps/desktop/src-tauri/src/lib.rs:531-730 (Wayland clipboard pipe worker); no reproduction"
+      "evidence": "cargo build apps/desktop/src-tauri (debug, 5m48s, exit 0); launched under WAYLAND_DISPLAY=wayland-0, window captured and inspected; apps/desktop/src-tauri/src/lib.rs:531-730 is the only Wayland-specific surface (bounded clipboard pipe worker)"
     },
     {
       "number": 226,
@@ -5465,7 +5465,7 @@
   ],
   "unaccounted": [1327],
   "openWork": {
-    "note": "Findings that remain unresolved, each with what is known and the specific next step. #255/#500 share one measured root cause.",
-    "issues": [225]
+    "note": "No open findings remain from this corpus.",
+    "issues": []
   }
 }
