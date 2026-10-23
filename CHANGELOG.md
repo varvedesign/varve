@@ -17,7 +17,7 @@ update, not for someone reading the commit log.
 - Vulnerability reports now have stated response times, a `security.txt`
   endpoint, an incident runbook, and CI scans (CodeQL, cargo-deny, gitleaks,
   OSV-Scanner, and dependency review). Report privately to
-  hello@varve.studio or through GitHub private vulnerability reporting.
+  security@varve.studio or through GitHub private vulnerability reporting.
 
 ### Added
 

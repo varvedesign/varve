@@ -10,7 +10,7 @@ const routePath = join(websiteRoot, 'src/pages/.well-known/security.txt.ts');
 describe('security.txt', () => {
   it('is a static public file that the website build copies', () => {
     const body = readFileSync(securityTxtPath, 'utf8');
-    expect(body).toContain('Contact: mailto:hello@varve.studio');
+    expect(body).toContain('Contact: mailto:security@varve.studio');
     expect(body).toContain('Policy: https://github.com/varvedesign/varve/blob/master/SECURITY.md');
     expect(body).toContain('Preferred-Languages: en');
     expect(body).toMatch(/^Expires: \d{4}-\d{2}-\d{2}T/m);
