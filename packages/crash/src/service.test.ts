@@ -388,7 +388,12 @@ describe('crashUploaderIsConfigured', () => {
     ).toBe(true);
   });
 
-  it('treats a custom uploader without the hook as configured', () => {
-    expect(crashUploaderIsConfigured(new RecordingUploader())).toBe(true);
+  it('treats an empty or whitespace endpoint as unconfigured', () => {
+    expect(crashUploaderIsConfigured(new HttpCrashUploader({ endpoint: '' }))).toBe(false);
+    expect(crashUploaderIsConfigured(new HttpCrashUploader({ endpoint: '   ' }))).toBe(false);
+  });
+
+  it('treats a custom uploader without the hook as unconfigured', () => {
+    expect(crashUploaderIsConfigured(new RecordingUploader())).toBe(false);
   });
 });

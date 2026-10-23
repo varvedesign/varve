@@ -110,6 +110,9 @@ function consentState(state: 'unknown' | 'denied' | 'askEachTime' | 'automaticAl
 class RecordingUploader implements CrashUploader {
   uploaded: string[] = [];
   fail = false;
+  isConfigured(): boolean {
+    return true;
+  }
   async upload(report: CrashReport): Promise<CrashUploadResult> {
     if (this.fail) return { ok: false, retryable: true, error: 'simulated' };
     this.uploaded.push(report.reportId);

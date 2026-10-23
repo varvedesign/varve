@@ -20,7 +20,8 @@ update, not for someone reading the commit log.
   run from Rust, an OS drop onto the window, a file-association or CLI open,
   a previously picked recent document that still exists, or an app-owned
   data/config/state/temp directory. `file-scope.json` cannot be rewritten
-  through those commands. Packaged resources, models, cache, and staging
+  through those commands, including on first launch when the file is
+  absent and the app-data directory is a symlink. Packaged resources, models, cache, and staging
   stay out of the grant set so the webview cannot overwrite native code.
   Sibling write access is granted only for an existing `.varve` / `.strata`
   file whose parent is not a volume root, a UNC share root, the home
@@ -30,8 +31,9 @@ update, not for someone reading the commit log.
 - **Crash reports stay on the computer.** Settings no longer offer
   "Automatically send" crash reports. The recovery dialog hides Send and
   the sent receipt unless a build configures an ingestion endpoint. The
-  default build has none. Existing automatic-consent records migrate to
-  denied.
+  default build has none. An uploader without an explicit check, or with
+  an empty endpoint, counts as unconfigured. Existing automatic-consent
+  records migrate to denied.
 
 ### Added
 

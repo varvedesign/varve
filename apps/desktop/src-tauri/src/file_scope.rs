@@ -99,6 +99,9 @@ pub struct FileScope {
     /// Code-loading and scratch roots that must stay unreachable even when
     /// they sit under a writable app-data DirectoryTree grant.
     protected_roots: Vec<PathBuf>,
+    /// App data, config, and resources. Persisted folder grants that cover
+    /// these are dropped on load so a planted tree cannot keep them.
+    app_sensitive: Vec<PathBuf>,
 }
 
 impl FileScope {
@@ -107,11 +110,12 @@ impl FileScope {
             grants: Vec::new(),
             persist_path: None,
             protected_roots: Vec::new(),
+            app_sensitive: Vec::new(),
         }
     }
 
     pub fn set_persist_path(&mut self, path: PathBuf) {
-        self.persist_path = Some(canonicalize_existing_or_self(&path));
+        self.persist_path = Some(canonicalize_persist_path(&path));
     }
 
     pub fn persist_path_for(directories: &AppDirectories) -> PathBuf {
@@ -131,7 +135,6 @@ impl FileScope {
             &directories.recovery,
             &directories.crash_reports,
             &directories.logs,
-            &directories.thumbnails,
         ] {
             let canonical = canonicalize_existing_or_self(root);
             self.upsert(Grant {
@@ -153,9 +156,23 @@ impl FileScope {
             if !self
                 .protected_roots
                 .iter()
-                .any(|existing| existing == &canonical)
+                .any(|existing| paths_equivalent(existing, &canonical))
             {
                 self.protected_roots.push(canonical);
+            }
+        }
+        for root in [
+            &directories.data,
+            &directories.config,
+            &directories.resources,
+        ] {
+            let canonical = canonicalize_existing_or_self(root);
+            if !self
+                .app_sensitive
+                .iter()
+                .any(|existing| paths_equivalent(existing, &canonical))
+            {
+                self.app_sensitive.push(canonical);
             }
         }
     }
@@ -171,6 +188,9 @@ impl FileScope {
             return Err(error);
         }
         let kind = effective_grant_kind(&path, requested, source)?;
+        if kind == GrantKind::DirectoryTree && self.covers_sensitive(&path) {
+            return Err(FOLDER_TOO_BROAD.to_string());
+        }
         self.upsert(Grant {
             path: path.clone(),
             kind,
@@ -191,16 +211,27 @@ impl FileScope {
         if self.is_protected(&canonical) {
             return;
         }
+        if self.grants.iter().any(|grant| {
+            paths_equivalent(&grant.path, &canonical) && grant.source == GrantSource::Drop
+        }) {
+            return;
+        }
         let Ok(kind) = grant_kind_for_existing_path(&canonical) else {
             return;
         };
         if kind != GrantKind::DocumentSiblings {
             return;
         }
+        let source = self
+            .grants
+            .iter()
+            .find(|grant| paths_equivalent(&grant.path, &canonical))
+            .map(|grant| grant.source)
+            .unwrap_or(GrantSource::Dialog);
         self.upsert(Grant {
             path: canonical,
             kind,
-            source: GrantSource::Dialog,
+            source,
         });
         let _ = self.persist();
     }
@@ -250,9 +281,9 @@ impl FileScope {
             return false;
         }
         self.grants.iter().any(|grant| match grant.kind {
-            GrantKind::Exact => canonical == grant.path,
+            GrantKind::Exact => paths_equivalent(canonical, &grant.path),
             GrantKind::DocumentSiblings => {
-                if canonical == grant.path {
+                if paths_equivalent(canonical, &grant.path) {
                     return true;
                 }
                 let Some(parent) = grant.path.parent() else {
@@ -261,13 +292,13 @@ impl FileScope {
                 if is_overbroad_directory(parent) {
                     return false;
                 }
-                canonical.starts_with(parent)
+                path_is_under(parent, canonical)
             }
             GrantKind::DirectoryTree => {
                 if is_overbroad_directory(&grant.path) {
                     return false;
                 }
-                canonical.starts_with(&grant.path)
+                path_is_under(&grant.path, canonical)
             }
         })
     }
@@ -316,7 +347,10 @@ impl FileScope {
                     });
                 }
                 GrantKind::DirectoryTree => {
-                    if !canonical.is_dir() || is_overbroad_directory(&canonical) {
+                    if !canonical.is_dir()
+                        || is_overbroad_directory(&canonical)
+                        || self.covers_sensitive(&canonical)
+                    {
                         continue;
                     }
                     self.upsert(Grant {
@@ -356,13 +390,13 @@ impl FileScope {
 
     fn is_protected(&self, canonical: &Path) -> bool {
         if let Some(persist) = &self.persist_path {
-            if canonical == persist {
+            if paths_equivalent(canonical, persist) {
                 return true;
             }
         }
         self.protected_roots
             .iter()
-            .any(|root| canonical == root || canonical.starts_with(root))
+            .any(|root| paths_equivalent(canonical, root) || path_is_under(root, canonical))
     }
 
     fn protected_error(&self, canonical: &Path) -> Option<String> {
@@ -372,12 +406,34 @@ impl FileScope {
         if self
             .persist_path
             .as_ref()
-            .is_some_and(|persist| persist == canonical)
+            .is_some_and(|persist| paths_equivalent(persist, canonical))
         {
             Some(PERSIST_PROTECTED.to_string())
         } else {
             Some(OUTSIDE_SCOPE.to_string())
         }
+    }
+
+    fn covers_sensitive(&self, path: &Path) -> bool {
+        if is_system_directory(path) {
+            return true;
+        }
+        for sensitive in self.sensitive_roots() {
+            if trees_overlap(path, &sensitive) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn sensitive_roots(&self) -> Vec<PathBuf> {
+        let mut roots = self.app_sensitive.clone();
+        if let Some(home) = home_directory() {
+            let home = canonicalize_existing_or_self(&home);
+            roots.push(home.join(".ssh"));
+            roots.push(home.join(".gnupg"));
+        }
+        roots
     }
 
     fn upsert(&mut self, grant: Grant) {
@@ -497,14 +553,15 @@ fn is_document_extension(path: &Path) -> bool {
 /// True for a volume root, a UNC share root, the home directory, or any
 /// ancestor of home. Those directories must never receive a tree grant.
 pub fn is_overbroad_directory(path: &Path) -> bool {
-    if is_volume_or_share_root(path) {
+    let path = normalize_for_breadth(path);
+    if is_volume_or_share_root(&path) {
         return true;
     }
     let Some(home) = home_directory() else {
         return false;
     };
-    let home = canonicalize_existing_or_self(&home);
-    path == home.as_path() || home.starts_with(path)
+    let home = normalize_for_breadth(&home);
+    paths_equivalent(&path, &home) || path_is_under(&path, &home)
 }
 
 fn is_volume_or_share_root(path: &Path) -> bool {
@@ -537,9 +594,19 @@ fn is_windows_volume_or_share_root(raw: &str) -> bool {
         return false;
     }
     if let Some(unc) = trimmed.strip_prefix(r"\\") {
-        return unc_share_root(unc);
+        return unc_share_root(unc) || windows_admin_share_root(unc);
     }
     false
+}
+
+fn windows_admin_share_root(unc: &str) -> bool {
+    let parts: Vec<&str> = unc.split('\\').filter(|part| !part.is_empty()).collect();
+    parts.len() == 2 && is_admin_drive_share(parts[1])
+}
+
+fn is_admin_drive_share(share: &str) -> bool {
+    let bytes = share.as_bytes();
+    bytes.len() == 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b'$'
 }
 
 fn unc_share_root(unc: &str) -> bool {
@@ -619,6 +686,144 @@ fn canonicalize_existing(path: &Path) -> Result<PathBuf, String> {
 
 fn canonicalize_existing_or_self(path: &Path) -> PathBuf {
     canonicalize_existing(path).unwrap_or_else(|_| simplify_path(path))
+}
+
+/// Resolve the persist path even when the file does not exist yet: canonicalize
+/// the parent directory (so a symlinked app-data dir cannot bypass the
+/// protected name) and join the file name.
+fn canonicalize_persist_path(path: &Path) -> PathBuf {
+    let name = path
+        .file_name()
+        .map(std::ffi::OsStr::to_os_string)
+        .unwrap_or_else(|| std::ffi::OsString::from(PERSIST_NAME));
+    match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => {
+            canonicalize_existing_or_self(parent).join(name)
+        }
+        _ => simplify_path(path),
+    }
+}
+
+fn normalize_for_breadth(path: &Path) -> PathBuf {
+    let canonical = canonicalize_existing_or_self(path);
+    if let Some(mapped) = map_localhost_admin_share(&canonical) {
+        return mapped;
+    }
+    if let Some(mapped) = map_macos_data_volume(&canonical) {
+        return mapped;
+    }
+    canonical
+}
+
+fn map_localhost_admin_share(path: &Path) -> Option<PathBuf> {
+    let raw = path.to_string_lossy().replace('/', "\\");
+    let trimmed = raw.trim_end_matches('\\');
+    let rest = trimmed.strip_prefix(r"\\")?;
+    let mut parts = rest.split('\\').filter(|part| !part.is_empty());
+    let host = parts.next()?.to_ascii_lowercase();
+    if host != "localhost" && host != "127.0.0.1" {
+        return None;
+    }
+    let share = parts.next()?;
+    if !is_admin_drive_share(share) {
+        return None;
+    }
+    let drive = share.chars().next()?.to_ascii_uppercase();
+    let mut mapped = PathBuf::from(format!("{drive}:\\"));
+    for part in parts {
+        mapped.push(part);
+    }
+    if mapped.components().count() <= 2 {
+        return Some(PathBuf::from(format!("{drive}:\\")));
+    }
+    Some(mapped)
+}
+
+fn map_macos_data_volume(path: &Path) -> Option<PathBuf> {
+    const PREFIX: &str = "/System/Volumes/Data";
+    let raw = path.to_string_lossy();
+    if raw == PREFIX || raw == "/System/Volumes/Data/" {
+        return Some(PathBuf::from("/"));
+    }
+    raw.strip_prefix("/System/Volumes/Data/")
+        .map(|rest| PathBuf::from("/").join(rest))
+}
+
+fn paths_equivalent(left: &Path, right: &Path) -> bool {
+    if left == right {
+        return true;
+    }
+    if !case_insensitive_paths() {
+        return false;
+    }
+    left.to_string_lossy()
+        .eq_ignore_ascii_case(&right.to_string_lossy())
+}
+
+fn path_is_under(prefix: &Path, child: &Path) -> bool {
+    if child.starts_with(prefix) {
+        return true;
+    }
+    if !case_insensitive_paths() {
+        return false;
+    }
+    let prefix_comps: Vec<_> = prefix.components().collect();
+    let child_comps: Vec<_> = child.components().collect();
+    if prefix_comps.len() > child_comps.len() {
+        return false;
+    }
+    prefix_comps
+        .iter()
+        .zip(&child_comps)
+        .all(|(a, b)| components_equivalent(*a, *b))
+}
+
+fn components_equivalent(left: Component<'_>, right: Component<'_>) -> bool {
+    match (left, right) {
+        (Component::Normal(a), Component::Normal(b)) => {
+            a == b || (case_insensitive_paths() && a.eq_ignore_ascii_case(b))
+        }
+        _ => left == right,
+    }
+}
+
+fn case_insensitive_paths() -> bool {
+    cfg!(any(windows, target_os = "macos"))
+}
+
+fn trees_overlap(left: &Path, right: &Path) -> bool {
+    let left = canonicalize_existing_or_self(left);
+    let right = canonicalize_existing_or_self(right);
+    paths_equivalent(&left, &right) || path_is_under(&left, &right) || path_is_under(&right, &left)
+}
+
+fn is_system_directory(path: &Path) -> bool {
+    let normalized = normalize_for_breadth(path);
+    if is_volume_or_share_root(&normalized) {
+        return true;
+    }
+    const UNIX_SYSTEM: &[&str] = &[
+        "/etc",
+        "/sys",
+        "/proc",
+        "/dev",
+        "/boot",
+        "/root",
+        "/System",
+        "/Library",
+        "/private/etc",
+        "/System/Volumes/Data",
+    ];
+    for root in UNIX_SYSTEM {
+        if trees_overlap(&normalized, Path::new(root)) {
+            return true;
+        }
+    }
+    let raw = normalized.to_string_lossy();
+    let lower = raw.to_ascii_lowercase().replace('/', "\\");
+    lower.starts_with("c:\\windows")
+        || lower.starts_with("c:\\program files")
+        || lower.starts_with("c:\\programdata")
 }
 
 fn simplify_path(path: &Path) -> PathBuf {
@@ -1042,6 +1247,8 @@ mod tests {
         assert!(is_overbroad_directory(Path::new("/")));
         assert!(is_overbroad_directory(Path::new(r"C:\")));
         assert!(is_overbroad_directory(Path::new(r"\\server\share")));
+        assert!(is_overbroad_directory(Path::new(r"\\localhost\C$")));
+        assert!(is_overbroad_directory(Path::new("/System/Volumes/Data")));
         let home = unique_dir("overbroad-home");
         with_test_home(home.clone(), || {
             assert!(is_overbroad_directory(&home));
@@ -1090,6 +1297,38 @@ mod tests {
         );
         assert!(scope.resolve("/etc/hosts").is_err());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn persist_path_is_protected_when_parent_is_a_symlink_and_file_is_absent() {
+        let root = unique_dir("persist-symlink");
+        let real = root.join("real-data");
+        let link = root.join("link-data");
+        std::fs::create_dir_all(&real).expect("real data");
+        std::os::unix::fs::symlink(&real, &link).expect("symlink app data");
+        let persist_via_link = link.join("file-scope.json");
+        assert!(
+            !persist_via_link.exists(),
+            "first-run persist file must be absent"
+        );
+
+        let mut scope = FileScope::new();
+        scope.set_persist_path(persist_via_link.clone());
+        let mut directories = dummy_directories(&root);
+        directories.data = real.clone();
+        scope.allow_app_directories(&directories);
+
+        let via_real = real.join("file-scope.json");
+        let err = scope
+            .resolve(via_real.to_str().expect("utf8"))
+            .expect_err("resolved persist path must be refused before the file exists");
+        assert!(err.contains("file-scope registry"));
+        let err = scope
+            .resolve(persist_via_link.to_str().expect("utf8"))
+            .expect_err("symlinked persist path must be refused before the file exists");
+        assert!(err.contains("file-scope registry"));
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
@@ -1171,6 +1410,39 @@ mod tests {
     }
 
     #[test]
+    fn saving_a_dropped_document_does_not_promote_to_siblings() {
+        let dir = unique_dir("drop-promote");
+        let file = dir.join("dropped.varve");
+        let sibling = dir.join("secret.txt");
+        std::fs::write(&file, b"{}").expect("write document");
+        std::fs::write(&sibling, b"no").expect("write sibling");
+        let persist = dir.join("file-scope.json");
+        let mut scope = FileScope::new();
+        scope.set_persist_path(persist.clone());
+        scope
+            .grant(
+                file.to_str().expect("utf8"),
+                GrantKind::Exact,
+                GrantSource::Drop,
+            )
+            .expect("grant drop");
+        scope.note_existing_document(&file);
+        assert!(
+            scope.resolve(sibling.to_str().expect("utf8")).is_err(),
+            "a dropped document must not become a folder-wide grant"
+        );
+        scope.persist().expect("persist");
+        if persist.exists() {
+            let stored = std::fs::read_to_string(&persist).expect("read");
+            assert!(
+                !stored.contains("dropped.varve"),
+                "a drop must stay session-only, got {stored}"
+            );
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn new_save_promotes_to_siblings_after_write() {
         let dir = unique_dir("promote");
         let file = dir.join("new.varve");
@@ -1227,6 +1499,79 @@ mod tests {
         });
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn load_rejects_sensitive_directory_trees() {
+        let dir = unique_dir("sensitive");
+        let home = unique_dir("sensitive-home");
+        let ssh = home.join(".ssh");
+        let gnupg = home.join(".gnupg");
+        let data = dir.join("data");
+        std::fs::create_dir_all(&ssh).expect("ssh");
+        std::fs::create_dir_all(&gnupg).expect("gnupg");
+        std::fs::create_dir_all(&data).expect("data");
+        let persist = dir.join("file-scope.json");
+        with_test_home(home.clone(), || {
+            let payload = serde_json::json!({
+                "version": 1,
+                "grants": [
+                    {"path": "/etc", "kind": "directoryTree", "source": "dialog"},
+                    {"path": ssh, "kind": "directoryTree", "source": "dialog"},
+                    {"path": gnupg, "kind": "directoryTree", "source": "dialog"},
+                    {"path": data, "kind": "directoryTree", "source": "dialog"}
+                ]
+            });
+            std::fs::write(&persist, payload.to_string()).expect("write tampered persist");
+            let mut scope = FileScope::new();
+            scope.set_persist_path(persist.clone());
+            let mut directories = dummy_directories(&dir);
+            directories.data = data.clone();
+            scope.allow_app_directories(&directories);
+            scope.load_persisted().expect("load");
+            assert!(
+                scope.resolve("/etc/passwd").is_err(),
+                "a saved grant of /etc must be ignored"
+            );
+            assert!(
+                scope
+                    .resolve(ssh.join("id_rsa").to_str().expect("utf8"))
+                    .is_err(),
+                "a saved grant of ~/.ssh must be ignored"
+            );
+            assert!(
+                scope
+                    .resolve(gnupg.join("secring.gpg").to_str().expect("utf8"))
+                    .is_err(),
+                "a saved grant of ~/.gnupg must be ignored"
+            );
+            scope.persist().expect("rewrite");
+            let stored = std::fs::read_to_string(&persist).expect("read rewritten persist");
+            assert!(
+                !stored.contains("/etc") && !stored.contains(".ssh") && !stored.contains(".gnupg"),
+                "sensitive folder grants must not be written back, got {stored}"
+            );
+        });
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn overbroad_compares_canonical_paths() {
+        let root = unique_dir("canon-home");
+        let real = root.join("var-home");
+        let alias = root.join("home");
+        let alice = real.join("alice");
+        std::fs::create_dir_all(&alice).expect("home");
+        std::os::unix::fs::symlink(&real, &alias).expect("symlink home root");
+        with_test_home(alice, || {
+            assert!(
+                is_overbroad_directory(&alias),
+                "a symlink ancestor of home must be over-broad after canonicalize"
+            );
+        });
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
