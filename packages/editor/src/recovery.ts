@@ -322,9 +322,28 @@ export class RecoveryManager {
     return sessions;
   }
 
-  async restoreSession(
-    id: string,
-  ): Promise<{ document: Document; tabName: string; fileId?: string; filePath?: string } | null> {
+  /**
+   * Restore one recovery point.
+   *
+   * The identity recorded in the snapshot is returned as *provenance*
+   * (`recordedFileId` / `recordedFilePath`), deliberately NOT as
+   * `fileId` / `filePath`. A recovery snapshot is untrusted input: a hostile
+   * or corrupted sidecar must not be able to nominate the destination that a
+   * future save overwrites (storytold/pdfcraft #3923). Renaming the fields
+   * also makes an accidental `{ ...restored }` spread into `LoadDocumentMeta`
+   * incapable of adopting a destination, because the session-meta field names
+   * no longer match.
+   *
+   * A recovered document opens as a new, unsaved session; the user chooses
+   * any destination explicitly, and a save is never retargeted by the
+   * snapshot.
+   */
+  async restoreSession(id: string): Promise<{
+    document: Document;
+    tabName: string;
+    recordedFileId?: string;
+    recordedFilePath?: string;
+  } | null> {
     const raw = await this.storage.load(`${KEY_PREFIX}${id}`);
     if (!raw) return null;
     try {
@@ -335,8 +354,8 @@ export class RecoveryManager {
       return {
         document: migrated as unknown as Document,
         tabName: parsed.session.tabName as string,
-        fileId: parsed.session.fileId as string | undefined,
-        filePath: parsed.session.filePath as string | undefined,
+        recordedFileId: parsed.session.fileId as string | undefined,
+        recordedFilePath: parsed.session.filePath as string | undefined,
       };
     } catch {
       return null;

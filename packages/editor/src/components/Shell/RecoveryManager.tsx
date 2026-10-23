@@ -70,6 +70,9 @@ export function RecoveryManager(_props: RecoveryManagerProps) {
       if (data) {
         // A recovered session is its own document: give it its own tab so
         // restoring never overwrites whatever is open in the active one.
+        // The snapshot's recorded fileId/filePath are provenance only — a
+        // recovery sidecar must never nominate the next save destination
+        // (storytold/pdfcraft #3923), so only the display name is forwarded.
         editor.loadDocument(JSON.stringify(data.document), {
           name: data.tabName,
           newSession: true,

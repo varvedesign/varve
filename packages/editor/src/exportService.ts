@@ -108,6 +108,86 @@ export interface ExportRunContext {
   onProgress?: (event: ExportProgressEvent) => void;
   /** Embed AI disclosure metadata when the document has generative edits. Defaults to true. */
   includeAiDisclosure?: boolean;
+  /**
+   * Per-node wall-clock budget. A node that exceeds it fails with a named
+   * timeout instead of holding the batch (and the UI) indefinitely
+   * (storytold/pdfcraft #3634). `Infinity` disables the budget.
+   *
+   * The default is deliberately generous: an export that is merely slow —
+   * a large raster, a heavy effect at a large output — still finishes. The
+   * budget exists to end a pathological node, not to police normal ones.
+   */
+  nodeBudgetMs?: number;
+}
+
+/**
+ * Five minutes per exported node. Chosen above the measured cost of a heavy
+ * effect at the largest output the export UI permits (see
+ * docs/audits/pdfcraft/CLOSURE.md), so a legitimately slow export completes;
+ * an unbounded hang is still bounded by it.
+ */
+export const DEFAULT_EXPORT_NODE_BUDGET_MS = 300_000;
+
+/** A node exceeded its per-node budget; distinct from a user cancellation. */
+export class ExportNodeTimeoutError extends Error {
+  readonly code = 'export-node-timeout';
+  constructor(
+    readonly label: string,
+    readonly budgetMs: number,
+  ) {
+    super(
+      `Export of "${label}" timed out after ${Math.round(budgetMs)} ms. ` +
+        'Reduce the output size or the effect radius and try again; ' +
+        'the rest of the batch was not written.',
+    );
+    this.name = 'ExportNodeTimeoutError';
+  }
+}
+
+/**
+ * Race one node's render against its budget.
+ *
+ * Cancellation is cooperative: the timer can only be observed at an await
+ * boundary, so a synchronous main-thread render is detected immediately after
+ * it yields rather than interrupted mid-chunk. That is still a hard bound on
+ * the export flow — the timed-out node is never encoded or written, the batch
+ * continues, and the report names the node and the budget.
+ */
+async function withNodeBudget<T>(
+  budgetMs: number,
+  label: string,
+  run: () => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!Number.isFinite(budgetMs) || budgetMs <= 0) return run();
+  const controller = new AbortController();
+  const forwardAbort = () => {
+    const reason = signal?.reason;
+    if (reason instanceof Error) {
+      controller.abort(reason);
+      return;
+    }
+    const abort = new Error('Export aborted');
+    abort.name = 'AbortError';
+    controller.abort(abort);
+  };
+  signal?.addEventListener('abort', forwardAbort, { once: true });
+  const timer = setTimeout(() => {
+    controller.abort(new ExportNodeTimeoutError(label, budgetMs));
+  }, budgetMs);
+  try {
+    return await Promise.race([
+      run(),
+      new Promise<never>((_resolve, reject) => {
+        controller.signal.addEventListener('abort', () => reject(controller.signal.reason), {
+          once: true,
+        });
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', forwardAbort);
+  }
 }
 
 interface RenderedFile {
@@ -556,6 +636,7 @@ export const ExportService = {
 
     emit('preflight');
     const findings = runBatchPreflight(batch, context.document, platform);
+    const nodeBudget = context.nodeBudgetMs ?? DEFAULT_EXPORT_NODE_BUDGET_MS;
 
     for (const job of batch.jobs) {
       assertNotAborted(signal);
@@ -568,7 +649,12 @@ export const ExportService = {
           throw new Error(RESTRICTION_MESSAGES.printProduction);
         }
         emit('rendering', job.fileName);
-        const rendered = await renderJob(job, context);
+        const rendered = await withNodeBudget(
+          nodeBudget,
+          job.fileName,
+          () => renderJob(job, context),
+          signal,
+        );
         assertNotAborted(signal);
         // Render helpers return encoded bytes today. This event identifies the
         // real encode boundary without pretending to know fractional progress.

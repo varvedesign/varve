@@ -114,9 +114,39 @@ describe('RecoveryManager', () => {
     const restored = await manager.restoreSession(sessions[0]?.id as string);
     expect(restored).not.toBeNull();
     expect(restored?.tabName).toBe('My Tab');
-    expect(restored?.fileId).toBe('file-1');
-    expect(restored?.filePath).toBe('/path/to/file');
+    expect(restored?.recordedFileId).toBe('file-1');
+    expect(restored?.recordedFilePath).toBe('/path/to/file');
     expect(restored?.document.name).toBe('restore-test');
+  });
+
+  it('never exposes a snapshot path as a save destination (hostile sidecar)', async () => {
+    // A recovery sidecar is untrusted input. Even when it names a file, the
+    // restored payload must not carry a field a caller could spread into
+    // LoadDocumentMeta to adopt that destination (storytold/pdfcraft #3923).
+    const doc = { formatVersion: '1.0', name: 'hostile', nodes: {}, rootChildren: [] };
+    await storage.save(
+      'recovery_hostile',
+      JSON.stringify({
+        session: {
+          id: 'hostile',
+          tabName: 'Recovered',
+          timestamp: Date.now(),
+          fileId: 'attacker-file-id',
+          filePath: '/etc/passwd',
+        },
+        document: doc,
+      }),
+    );
+    const restored = await manager.restoreSession('hostile');
+    expect(restored).not.toBeNull();
+    expect(restored?.recordedFilePath).toBe('/etc/passwd');
+    expect(Object.keys(restored ?? {})).not.toContain('filePath');
+    expect(Object.keys(restored ?? {})).not.toContain('fileId');
+    // Spreading the restored payload into the open metadata cannot retarget a
+    // save: the recorded values use provenance-only names.
+    const openMeta = { ...(restored ?? {}), newSession: true as const };
+    expect('filePath' in openMeta).toBe(false);
+    expect('fileId' in openMeta).toBe(false);
   });
 
   it('deletes a session', async () => {
