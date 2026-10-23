@@ -273,3 +273,41 @@ describe('CANONICAL_EXTENSIONS', () => {
     }
   });
 });
+
+describe('formatFileName — token values cannot create paths (Penpot #3276)', () => {
+  const base = {
+    format: 'png' as const,
+    scale: { mode: 'multiplier' as const, value: 1 },
+  };
+
+  it('flattens a slash in an object name instead of creating a folder', () => {
+    const name = formatFileName('{name}.{ext}', { ...base, name: 'Hero/Mobile' });
+    expect(name).toBe('Hero_Mobile.png');
+    expect(name).not.toContain('/');
+  });
+
+  it('flattens a slash in a page name used by a folder template', () => {
+    const name = formatFileName('{page}/{name}.{ext}', {
+      ...base,
+      page: 'Chapter/1',
+      name: 'Hero',
+    });
+    expect(name).toBe('Chapter_1/Hero.png');
+  });
+
+  it('does not let a traversal segment in a name escape the output folder', () => {
+    const name = formatFileName('{name}.{ext}', { ...base, name: '../secrets' });
+    expect(name.split('/')).toHaveLength(1);
+    expect(name).not.toContain('..');
+    expect(name.endsWith('.png')).toBe(true);
+  });
+
+  it('sanitizes a suffix that carries separators', () => {
+    const name = formatFileName('{name}{suffix}.{ext}', {
+      ...base,
+      name: 'Logo',
+      suffix: '/2x',
+    });
+    expect(name).toBe('Logo_2x.png');
+  });
+});
