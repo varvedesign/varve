@@ -164,15 +164,23 @@ which mechanism produced it. The lesson recorded for future audits: "the code
 does not set property X" is not evidence that the *outcome* differs — measure
 the output before writing a fix.
 
-## Cutoff 3 — 2026-10-23 (closure pass)
+## Cutoff 3 — 2026-10-23 (closure draft)
+
+**Status correction:** the decisions below are proposed dispositions, not a
+certified full-source review. Downloaded discussions were not all adjudicated;
+attachment inspection and native/browser validation were partial. The previous
+gate's terminal-label count did not establish closure. See the current
+[`checkpoint and open acceptance`](../audits/pdfcraft/CLOSURE.md).
 
 The tracker was re-crawled at `2026-10-23T07:52:52Z`–`07:54:25Z` with the same
 listing endpoint and Link pagination: **4,208 records** (1,951 issues, 2,257
 pull requests), reconciled exactly against `open_issues_count`
 (1,103 open issues + 725 open pull requests = 1,828). The repository-wide
 comments endpoint returned 6,761 comments, covering issue and pull-request
-threads. **161 issues were created after cutoff 2** (3,909–4,210); 838
-cutoff-2-era issues were closed and 361 updated.
+threads. **161 issues were created after cutoff 2** (3,909–4,210). Of the
+earlier issues, 838 were closed in the snapshot (not proven closures since
+cutoff 2) and 200 had updated timestamps after cutoff 2. The combined updated
+count, including new issues, was 361.
 
 Per-issue rows: [`../audits/pdfcraft/issue-ledger-cutoff3.tsv`](../audits/pdfcraft/issue-ledger-cutoff3.tsv).
 Resolutions of the frozen non-terminal rows: [`../audits/pdfcraft/resolutions.tsv`](../audits/pdfcraft/resolutions.tsv).

@@ -7,7 +7,14 @@ Varve work derived from it. Companion prose ledger:
 
 PDFCraft is an unrelated open-source PDF reader/editor written in Rust. Its
 tracker is **evidence about a class of failure**, never proof that Varve has the
-same defect. Every row below that claims Varve behaviour cites Varve code.
+same defect. Claims of Varve correctness require code/test evidence; current
+provenance gaps are reported by the completion gate.
+
+**Current status: cutoff-3 closure is incomplete.** The terminal labels below
+are provisional annotations, not a completed investigation. The current
+checkpoint, evidence limits and integration blockers are in
+[`CLOSURE.md`](CLOSURE.md). The completion gate now fails when recorded review
+coverage is incomplete, even if every disposition label is terminal.
 
 ## Source inventory
 
@@ -45,22 +52,24 @@ issue numbers, zero failed requests, zero cutoff-1/2 issues missing.
 | Cutoff 3 delta | Value |
 |---|---|
 | Issues created after cutoff 2 | **161** (numbers 3,909–4,210; 151 open, 160 with bodies, 157 with discussion) |
-| Cutoff-2-era issues closed since | 838 |
-| Cutoff-2-era issues updated since | 361 |
+| Cutoff-2-era issues closed in the snapshot (not closures since cutoff 2) | 838 |
+| Cutoff-2-era issues updated since | 200 |
 | Frozen issue ID set | 1,951 (SHA-256 in [`cutoff3.summary.json`](cutoff3.summary.json)) |
 
 Cutoff-3 rows are in [`issue-ledger-cutoff3.tsv`](issue-ledger-cutoff3.tsv).
 Cutoff 3 is the **final corpus boundary**: anything created later is a follow-on
-queue, not a reopening of this coverage claim (there were 0 such issues at
-closure). The frozen cutoff-1/2 rows are never rewritten; a later pass resolves
+queue, not an endlessly expanding review boundary. Closure has not occurred.
+The frozen cutoff-1/2 rows are never rewritten; a later pass proposes resolutions
 a row by appending to [`resolutions.tsv`](resolutions.tsv), and closure is a
 property of the **latest disposition per issue**, checked by
 `pnpm audit:pdfcraft-closure` (a manual, reproducible gate; it is not wired into
 CI). [`CLOSURE.md`](CLOSURE.md) holds the closure
-report, the disposition census, the evidence for every resolved row, and the
-native/visual validation record.
+draft, the declared disposition census, remaining review inventory, and bounded
+native/visual evidence. The 448-issue review inventory covers new and updated
+reports plus proposed resolutions; no complete full-discussion adjudication is
+certified by the current resumption.
 
-| Latest disposition (all 1,951 issues) | Count | Non-terminal |
+| Latest declared disposition (not certified) | Count | Non-terminal labels |
 |---|---:|---:|
 | cluster-assessed | 1,446 | |
 | outside-varve-scope | 320 | |
@@ -73,6 +82,10 @@ Pull requests returned by the issue endpoints were separated from issues.
 with comments, 1,550 comments) were **not** crawled — see Limitations.
 
 ## Method
+
+The method below describes the historical review. It is not evidence that all
+cutoff-3 discussions and attachments were inspected; that acceptance remains
+open. Downloading comments does not constitute reading/adjudicating them.
 
 1. Every issue in the frozen set was read from its title, body and labels.
 2. Every critical/high issue (97) and every issue whose title states a
@@ -167,29 +180,29 @@ signature and Office interchange, all of which remain outside Varve's scope.
 | 11 | Vertical import refinement: per-glyph `/W2` metrics, one-glyph-per-`Tj` placement arriving as one layer per character, and parser notes that were generated but never shown | **implemented and validated** — `/W2` advances with a bounded `/DW2` fallback, consecutive vertical runs merge into one editable column, Import Results shows the parser's notes and wraps long detail rows, and deeply nested SVG now names the artwork it refused (row 3309). Unit and browser regressions extend batch 10's fixture; evidence in `docs/screenshots/pdfcraft/import-vertical-writing-*.png` |
 | 9 | PDF import invents content the page does not show: invisible/clip-only text, hidden optional-content layers, encrypted files imported as blank pages, and an inline image whose `EI` is followed by a delimiter | **implemented and validated** — `/OCProperties` visibility, `Tr` render modes, `/Encrypt` refusal with a failure status, and delimiter-terminated `EI`. Commits `3bdd3e336`, `bb2f53d24`; browser evidence in `tests/e2e/import/pdf-import-integrity.spec.ts` and `docs/screenshots/pdfcraft/` |
 
-## Limitations (residual, after closure)
+## Open acceptance and limitations
 
-These remain true after the closure pass; they are limitations, not unfinished
-rows:
+These include unfinished acceptance, not just release-environment limitations:
 
 1. **The tracker keeps moving.** Cutoff 3 is final for this review. A later
    issue is follow-on work, not missing coverage of this claim.
 2. **Cluster-level rows are not individually re-read.** Every row has a
    disposition, but 1,446 rows inherit a cluster verdict whose stated reason
-   covers the mechanism. Rows naming a mechanism Varve has were adjudicated
-   individually; the rest were not given a bespoke analysis.
+   purports to cover the mechanism. All new and materially changed reports
+   still require body/discussion/attachment adjudication; label counts alone
+   do not establish this.
 3. **PDFCraft was never built or run here.** Every PDFCraft-side statement is
-   *reported* or *code-anchored*, never reproduced. Attachments for the 13
-   individually adjudicated cutoff-3 issues were inspected where they existed
-   (4030, 4028, 4118 stills; 4056 recording sampled at 2s); no inaccessible
-   attachment was found.
+   *reported* or *code-anchored*, never reproduced. Actual attachment reading
+   was limited to 4030, 4028 and 4118 stills and one frame at 2s of 4056's
+   recording. This is not complete attachment coverage.
 4. **Priority remains skewed.** Most issues carry no priority label, so the
    corpus was read by title, labels and mechanism, not by severity.
 5. **Native evidence is bounded by the machine.** The desktop GUI, WebKitGTK
    and the native PDF/X writer were exercised only as far as recorded in
-   [`CLOSURE.md`](CLOSURE.md); veraPDF and qpdf are not installed here, so
-   PDF/X structural conformance is verified with poppler readers and the
-   writer's own assertions, not a PDF/X validator.
+   [`CLOSURE.md`](CLOSURE.md). No full desktop GUI journey or independent PDF/X
+   conformance validation completed. Poppler readability and version markers
+   are not PDF/X conformance. qpdf was unavailable; veraPDF needs an actual
+   availability check.
 6. **Platform-specific claims stay unverified where the platform is absent.**
    Windows launch/GPU behaviour, macOS text scaling and Wayland pen hardware
    have no reproducible Varve case in this environment; they are recorded as
@@ -200,19 +213,18 @@ rows:
 
 ## Continuation record
 
-The corpus is closed at cutoff 3. Remaining engineering work is tracked as
-ordinary product work, not as corpus rows:
+The corpus is not closed. Remaining acceptance includes:
 
 1. A per-node export budget exists (default five minutes) and is covered by
-   `packages/editor/src/exportService.nodeBudget.test.ts`; the measured
-   pathological case is recorded in [`CLOSURE.md`](CLOSURE.md).
+   `packages/editor/src/exportService.nodeBudget.test.ts` for mocked waits.
+   Cancellation of underlying rendering and a real pathological export have
+   not been proven. The temporary kernel timing is not full-export evidence.
 2. Vertical-writing refinement beyond batches 10–11 (automatic
    tate-chu-yoko, `Tz`-upright placement) remains authoring work, not import
    fidelity debt that blocks closure.
-3. Native PDF/X validation with veraPDF, and Windows/macOS platform runs,
-   remain release-environment checks; their absence is disclosed rather than
-   claimed.
+3. Complete native/browser/website verification, source adjudication,
+   independent review, affected/full-escalation checks and exact-candidate CI.
 
-State at closure: branch `codex/pdfcraft-closure-20261023`, cut from
-`origin/master` at `6eebb9581`; see the PR recorded in `CLOSURE.md` for the
-merge commit.
+Current branch: `codex/pdfcraft-closure-20261023`, cut from `origin/master` at
+`6eebb9581`. No successful publication or merge is confirmed. Preserve this
+worktree until validated integration is confirmed on `origin/master`.

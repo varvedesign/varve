@@ -1,32 +1,16 @@
 #!/usr/bin/env node
 /**
- * PDFCraft closure gate.
- *
- * The cutoff-1 and cutoff-2 ledgers are frozen history and are never rewritten;
- * a later pass resolves a row by appending to `resolutions.tsv` (or by adding a
- * cutoff-3 row). Closure is therefore a property of the *latest disposition per
- * issue*, not of a scan over historical rows.
- *
- * This script builds that view and fails when:
- *   - an issue's latest disposition is `candidate` or `deferred` without a
- *     `blocked:` reason naming a command and error,
- *   - a `verified-already-correct-` reason cites no code/test path,
- *   - the cutoff-3 summary's reconciliation arithmetic is inconsistent,
- *   - a cutoff-3 row duplicates an issue number or names an issue that does not
- *     exist in the frozen set,
- *   - a resolution names an issue that is not in an earlier ledger.
- *
- * Usage: node scripts/quality/audit-pdfcraft-closure.mjs [--json]
+ * Check the append-only PDFCraft inventory and recorded review coverage.
+ * This validates metadata, not the correctness of a cited test or assertion.
+ * Terminal labels alone are never a corpus-completion certificate.
  */
-
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 
 const ROOT = process.cwd();
 const DIR = join(ROOT, 'docs', 'audits', 'pdfcraft');
-const BLOCKED =
-  /^blocked:\s+.*\b(?:cargo|pnpm|node|npm|npx|git|command|exit|error|not found|timed out|denied)\b/i;
+const errors = [];
 const TERMINAL = new Set([
   'implemented-validated',
   'verified-already-correct-',
@@ -34,116 +18,139 @@ const TERMINAL = new Set([
   'duplicate-of',
   'cluster-assessed',
 ]);
+const NON_TERMINAL = new Set(['candidate', 'deferred']);
+const BLOCKED = /^blocked: command="[^"]+"; error="[^"]+"$/;
 
-function rows(file) {
+function rows(file, minimumColumns) {
   let text;
   try {
     text = readFileSync(join(DIR, file), 'utf8');
   } catch {
+    errors.push(`required ledger is missing or unreadable: ${file}`);
     return [];
   }
-  return text
-    .split('\n')
-    .filter((line) => line.trim() && !line.startsWith('#'))
-    .map((line) => line.split('\t'));
+  const parsed = [];
+  for (const [index, line] of text.split('\n').entries()) {
+    if (!line.trim() || line.startsWith('#')) continue;
+    const columns = line.split('\t');
+    if (columns.length < minimumColumns || !/^[1-9]\d*$/.test(columns[0])) {
+      errors.push(`malformed row: ${file}:${index + 1}`);
+      continue;
+    }
+    parsed.push(columns);
+  }
+  return parsed;
 }
 
-const earlier = [...rows('issue-ledger.tsv'), ...rows('issue-ledger-cutoff2.tsv')];
-const cutoff3 = rows('issue-ledger-cutoff3.tsv');
-const resolutions = rows('resolutions.tsv');
-
-const errors = [];
-const latest = new Map();
-const frozen = new Set();
-
-for (const row of earlier) {
+function recordIssue(row, source, latest, frozen) {
   const [number, , , , cluster, disposition, reason] = row;
+  if (frozen.has(number)) errors.push(`duplicate issue number: ${number} (${source})`);
   frozen.add(number);
-  latest.set(number, { cluster, disposition, reason, source: 'cutoff1/2' });
+  latest.set(number, { cluster, disposition, reason, source });
 }
 
-for (const row of resolutions) {
-  const [number, previous, disposition, reason] = row;
-  if (!latest.has(number)) {
-    errors.push(`resolutions.tsv names issue ${number}, which is not in an earlier ledger`);
-    continue;
-  }
-  if (latest.get(number).disposition !== previous) {
-    errors.push(
-      `resolutions.tsv for ${number} says previous=${previous}, ledger says ${latest.get(number).disposition}`,
-    );
-  }
-  latest.set(number, { disposition, reason, source: 'resolution' });
-}
-
-const seenCutoff3 = new Set();
-for (const row of cutoff3) {
-  const [number, , , , cluster, disposition, reason] = row;
-  if (seenCutoff3.has(number)) errors.push(`cutoff-3 row ${number} is duplicated`);
-  seenCutoff3.add(number);
-  if (latest.has(number)) {
-    // A cutoff-3 row may only describe an issue created after cutoff 2; an
-    // overlap with the frozen set would be a corpus-boundary error.
-    errors.push(`cutoff-3 row ${number} also appears in the cutoff-1/2 ledgers`);
-  }
-  latest.set(number, { cluster, disposition, reason, source: 'cutoff3' });
-  frozen.add(number);
-}
-
-const counts = new Map();
-for (const [, entry] of latest) {
-  counts.set(entry.disposition, (counts.get(entry.disposition) ?? 0) + 1);
-  if (
-    !TERMINAL.has(entry.disposition) &&
-    entry.disposition !== 'candidate' &&
-    entry.disposition !== 'deferred'
-  ) {
-    errors.push(`unknown disposition: ${entry.disposition}`);
-  }
-  if (entry.disposition === 'candidate' || entry.disposition === 'deferred') {
-    if (!BLOCKED.test(entry.reason)) {
+function applyResolutions(resolutions, latest) {
+  for (const [number, previous, disposition, reason] of resolutions) {
+    const entry = latest.get(number);
+    if (!entry) {
+      errors.push(`resolution names issue absent from earlier ledgers: ${number}`);
+      continue;
+    }
+    if (entry.disposition !== previous) {
       errors.push(
-        `issue has non-terminal latest disposition (${entry.disposition}) without a blocked: reason naming a command and an error: ${entry.reason}`,
+        `resolution ancestry mismatch for ${number}: ${previous} != ${entry.disposition}`,
       );
     }
+    latest.set(number, { ...entry, disposition, reason, source: 'resolution' });
   }
-  if (entry.disposition === 'verified-already-correct-') {
-    if (!/\.(tsx|ts|rs|md|sh|mjs|js|css|json)|:[0-9]+/.test(entry.reason)) {
-      errors.push(`verified row cites no code/test path: ${entry.reason}`);
-    } else if (entry.source !== 'cutoff1/2') {
-      for (const cited of entry.reason.match(/[\w./-]+\.(?:tsx|ts|rs|md|sh|mjs|js|css|json)/g) ??
-        []) {
-        if (!existsSync(join(ROOT, cited))) {
-          errors.push(`verified row cites a path that does not exist: ${cited}`);
-        }
-      }
+}
+
+function checkEvidence(number, entry) {
+  const citations = entry.reason.match(/[\w./-]+\.(?:tsx|ts|rs|md|sh|mjs|js|css|json)\b/g) ?? [];
+  if (citations.length === 0) errors.push(`issue ${number} cites no code/test path`);
+  // Frozen rows retain historical spelling. Current resolutions and additions
+  // must cite actual repository files, never an arbitrary file on this host.
+  if (entry.source === 'cutoff1/2') return;
+  for (const cited of citations) {
+    const target = resolve(ROOT, cited);
+    const rel = relative(ROOT, target);
+    if (isAbsolute(cited) || rel.startsWith('..') || !existsSync(target)) {
+      errors.push(`issue ${number} cites a missing or non-repository path: ${cited}`);
     }
   }
 }
 
-let summary = null;
-try {
-  summary = JSON.parse(readFileSync(join(DIR, 'cutoff3.summary.json'), 'utf8'));
-} catch {
-  errors.push('cutoff3.summary.json is missing or not valid JSON');
+function checkEntries(latest) {
+  const counts = new Map();
+  let nonTerminal = 0;
+  for (const [number, entry] of latest) {
+    counts.set(entry.disposition, (counts.get(entry.disposition) ?? 0) + 1);
+    if (!entry.reason.trim()) errors.push(`issue ${number} has an empty reason`);
+    if (NON_TERMINAL.has(entry.disposition)) {
+      nonTerminal += 1;
+      if (!BLOCKED.test(entry.reason)) {
+        errors.push(
+          `issue ${number} is unresolved; a blocker must name command="..."; error="..."`,
+        );
+      }
+    } else if (!TERMINAL.has(entry.disposition)) {
+      errors.push(`issue ${number} has unknown disposition: ${entry.disposition}`);
+    }
+    if (['verified-already-correct-', 'implemented-validated'].includes(entry.disposition)) {
+      checkEvidence(number, entry);
+    }
+  }
+  return { counts, nonTerminal };
 }
-if (summary) {
-  const t = summary.totals ?? {};
-  if (t.open_issues + t.open_pull_requests !== t.repository_open_issues_count) {
-    errors.push('cutoff-3 reconciliation: open issues + open PRs != open_issues_count');
+
+function readSummary() {
+  try {
+    const summary = JSON.parse(readFileSync(join(DIR, 'cutoff3.summary.json'), 'utf8'));
+    if (summary && typeof summary === 'object' && !Array.isArray(summary)) return summary;
+  } catch {
+    // Invalid or missing summaries must fail, not become an empty inventory.
   }
-  if (t.open_issues + t.open_pull_requests !== t.open_issues_plus_open_prs) {
-    errors.push('cutoff-3 reconciliation: recorded sum is inconsistent');
+  errors.push('cutoff3.summary.json is missing or invalid');
+  return {};
+}
+
+function checkTotals(summary, frozen) {
+  const totals = summary.totals ?? {};
+  const names = [
+    'records',
+    'issues',
+    'pull_requests',
+    'open_issues',
+    'open_pull_requests',
+    'repository_open_issues_count',
+    'open_issues_plus_open_prs',
+    'duplicate_issue_numbers',
+    'failed_requests',
+    'issues_missing_from_cutoff3',
+  ];
+  for (const name of names) {
+    if (!Number.isSafeInteger(totals[name]) || totals[name] < 0) {
+      errors.push(`invalid summary count: ${name}`);
+    }
   }
-  if (t.duplicate_issue_numbers !== 0) errors.push('cutoff-3 duplicate issue numbers');
-  if (t.failed_requests !== 0) errors.push('cutoff-3 recorded failed requests');
-  if (t.issues_missing_from_cutoff3 !== 0) errors.push('cutoff-3 missing earlier issues');
-  if (summary.frozen_id_set?.issue_count !== frozen.size) {
-    errors.push(
-      `frozen ID set size ${summary.frozen_id_set?.issue_count} != ledger issue count ${frozen.size}`,
-    );
+  if (totals.records !== totals.issues + totals.pull_requests)
+    errors.push('record total is inconsistent');
+  if (totals.issues !== frozen.size) errors.push('issue total does not match the ledgers');
+  const open = totals.open_issues + totals.open_pull_requests;
+  if (open !== totals.repository_open_issues_count || open !== totals.open_issues_plus_open_prs) {
+    errors.push('open issue / PR reconciliation is inconsistent');
   }
-  const computedHash = createHash('sha256')
+  if (totals.open_issues > totals.issues || totals.open_pull_requests > totals.pull_requests) {
+    errors.push('open counts exceed total counts');
+  }
+  for (const name of [
+    'duplicate_issue_numbers',
+    'failed_requests',
+    'issues_missing_from_cutoff3',
+  ]) {
+    if (totals[name] !== 0) errors.push(`snapshot reports ${name}: ${totals[name]}`);
+  }
+  const hash = createHash('sha256')
     .update(
       [...frozen]
         .map(Number)
@@ -151,21 +158,64 @@ if (summary) {
         .join(','),
     )
     .digest('hex');
-  if (summary.frozen_id_set?.sha256 !== computedHash) {
-    errors.push(
-      `frozen ID set hash ${summary.frozen_id_set?.sha256} != recomputed ${computedHash}`,
-    );
-  }
+  if (summary.frozen_id_set?.issue_count !== frozen.size)
+    errors.push('frozen issue count mismatch');
+  if (summary.frozen_id_set?.sha256 !== hash) errors.push('frozen ID hash mismatch');
 }
+
+function reviewIds(value, name, frozen) {
+  if (!Array.isArray(value)) {
+    errors.push(`missing review list: ${name}`);
+    return new Set();
+  }
+  const ids = new Set();
+  for (const number of value) {
+    if (!Number.isSafeInteger(number) || !frozen.has(String(number)) || ids.has(number)) {
+      errors.push(`invalid, duplicate or foreign review issue: ${name} ${number}`);
+    }
+    ids.add(number);
+  }
+  return ids;
+}
+
+function checkReview(summary, cutoff3, resolutions, frozen) {
+  const review = summary.review ?? {};
+  const required = reviewIds(review.required_issue_ids, 'required_issue_ids', frozen);
+  const completed = reviewIds(review.completed_issue_ids, 'completed_issue_ids', frozen);
+  for (const row of [...cutoff3, ...resolutions]) {
+    if (!required.has(Number(row[0]))) errors.push(`required review omits issue ${row[0]}`);
+  }
+  for (const number of completed) {
+    if (!required.has(number)) errors.push(`completed review is not required: ${number}`);
+  }
+  const pending = [...required].filter((number) => !completed.has(number)).length;
+  if (pending > 0) errors.push(`full evidence review remains outstanding for ${pending} issues`);
+  if (summary.corpus_closed !== true) errors.push('corpus is not declared closed');
+  return pending;
+}
+
+const earlier = [...rows('issue-ledger.tsv', 7), ...rows('issue-ledger-cutoff2.tsv', 7)];
+const cutoff3 = rows('issue-ledger-cutoff3.tsv', 7);
+const resolutions = rows('resolutions.tsv', 4);
+const latest = new Map();
+const frozen = new Set();
+for (const row of earlier) recordIssue(row, 'cutoff1/2', latest, frozen);
+applyResolutions(resolutions, latest);
+for (const row of cutoff3) recordIssue(row, 'cutoff3', latest, frozen);
+const { counts, nonTerminal } = checkEntries(latest);
+const summary = readSummary();
+checkTotals(summary, frozen);
+const pendingReviews = checkReview(summary, cutoff3, resolutions, frozen);
+if (nonTerminal > 0) errors.push(`${nonTerminal} non-terminal dispositions remain`);
 
 const result = {
   issues: frozen.size,
   cutoff3Rows: cutoff3.length,
   resolutions: resolutions.length,
   dispositions: Object.fromEntries([...counts].sort()),
-  nonTerminal: [...latest].filter(
-    ([, entry]) => entry.disposition === 'candidate' || entry.disposition === 'deferred',
-  ).length,
+  nonTerminal,
+  pendingReviews,
+  closureComplete: errors.length === 0,
   errors,
 };
 
@@ -175,17 +225,18 @@ if (process.argv.includes('--json')) {
   console.log(`Frozen issue set: ${result.issues}`);
   console.log(`Cutoff-3 rows: ${result.cutoff3Rows}`);
   console.log(`Resolutions: ${result.resolutions}`);
-  console.log('Latest dispositions:');
+  console.log('Declared latest dispositions (not independent verification):');
   for (const [key, value] of Object.entries(result.dispositions)) {
     console.log(`  ${String(value).padStart(5)} ${key}`);
   }
-  console.log(`Non-terminal latest dispositions: ${result.nonTerminal}`);
-  if (errors.length > 0) {
-    console.error('\nFAILED:');
+  console.log(`Non-terminal latest dispositions: ${nonTerminal}`);
+  console.log(`Pending full-evidence reviews: ${pendingReviews}`);
+  if (errors.length) {
+    console.error('\nINCOMPLETE:');
     for (const error of errors) console.error(`  - ${error}`);
   } else {
-    console.log('\nPASS: every issue has a terminal, evidence-bearing disposition.');
+    console.log('\nPASS: metadata and recorded review coverage are consistent.');
+    console.log('Behavioral correctness and integration require separate validation.');
   }
 }
-
-process.exit(errors.length === 0 ? 0 : 1);
+process.exit(result.closureComplete ? 0 : 1);

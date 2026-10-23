@@ -1,4 +1,5 @@
 # PDFCraft latest-disposition resolutions (cutoff-1/2 rows are frozen and never rewritten)
+# Status: proposed annotations; full source/evidence review remains incomplete (see CLOSURE.md).
 # columns: number, previous_disposition, disposition, reason
 # rows: 88 non-terminal resolutions + 15 restatements of historical verified rows
 142	candidate	cluster-assessed	Varve reads no PDF document Info/XMP metadata on import, so there is no metadata decode path to corrupt; imported text encoding is handled separately (packages/import/src/pdf/encoding.ts).
