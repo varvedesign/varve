@@ -55,6 +55,33 @@ and the branch before acting.
 | #2549 axis-aligned lines are directly manipulable | Verified already handled; browser evidence recorded in `README.md` and `findings.md` |
 | Decorations-off Tauri window resize on KDE/Wayland | **Unverified**: needs a native build and interactive resize test |
 
+## Session state at handoff (2026-10-23)
+
+- Branch `graphite/vector-paint-interaction` is based on `origin/master`
+  `eb1d23afd` with `origin/master` `6eebb9581` merged in.
+- Local commits: `1a02ab14e` (the batch), `613ac1ebf` (merge of `origin/master`),
+  and a follow-up docs commit recording this handoff (`git log -1` is the
+  branch head). **None is pushed or merged yet** — see the blocker
+  below. The ledger's `engineering.commit` fields point at `613ac1ebf`, which
+  is a local commit, not a released or integrated SHA.
+- Validation recorded: format/lint on touched files; audit
+  emoji/docs/claims/radius; typecheck e2e/editor/help/desktop; the four
+  file-level unit lanes; `@varve/help` and `@varve/desktop` unit suites;
+  `bench:render`; both new canvas specs; and 22 of the 216 canvas-domain specs
+  with 0 failures before the machine restarted.
+- `@varve/editor` unit suite: 8,926 passed, 3 failed, all reproducing on a
+  pristine `origin/master` checkout (see known blockers).
+- Blocker for the push: the pre-push checkpoint wraps its unit lanes in the
+  cross-worktree heavy lease, and other sessions held that lease in long
+  browser/vitest groups for the whole window; every attempt died at the 300 s
+  per-lane budget with the lane named in the message, which is a lease wait,
+  not a failing test. The checkpoint also needed `/tmp` space, which five
+  orphaned `varve-validation-tree-*` directories (470 MB each) had consumed;
+  they were removed.
+- Resume by pushing the existing branch (`git push -u origin
+  graphite/vector-paint-interaction`), opening the PR, and letting the
+  "Change lanes" CI run the affected gate. Do not re-implement the batch.
+
 ## Next operation
 
 The vector path batch (F10–F12, #2549) is integrated. Remaining queued work,
