@@ -1,6 +1,6 @@
 import { type ContactChannelId, contactChannel, contactMailto } from '@varve/shared';
 import { type ReactNode, useCallback, useState } from 'react';
-import { openExternalUrl } from '../actions/registerAll';
+import { openExternalUrl } from '../actions/openExternalUrl';
 import './ContactLink.css';
 
 /**

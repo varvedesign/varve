@@ -3,12 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ContactLink } from './ContactLink';
 
-vi.mock('../actions/registerAll', () => ({
-  openVarveContact: vi.fn(),
+vi.mock('../actions/openExternalUrl', () => ({
   openExternalUrl: vi.fn().mockResolvedValue(true),
 }));
 
-const { openExternalUrl } = await import('../actions/registerAll');
+const { openExternalUrl } = await import('../actions/openExternalUrl');
 
 /**
  * ContactLink exists because a plain `mailto:` anchor is silently dropped by

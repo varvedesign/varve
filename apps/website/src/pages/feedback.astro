@@ -3,8 +3,8 @@
  * /feedback — the in-app "Send feedback" landing page.
  *
  * The desktop and /try builds open this URL in a browser instead of a
- * mailto: link. The page is a short chooser: GitHub issues, Discussions, or
- * email. Varve never attaches diagnostics or files here.
+ * mailto: link. Email is the main path so people without a GitHub account
+ * still have a way to write. Varve never attaches diagnostics or files here.
  */
 import Button from '../components/Button.astro';
 import ContactChannel from '../components/ContactChannel.astro';
@@ -21,7 +21,7 @@ const feedbackSchema = {
   url: feedbackUrl,
   name: 'Send feedback to Varve',
   description:
-    'Tell Varve what happened, share an idea, or email feedback@varve.studio. The app sends nothing automatically. You choose what to share.',
+    'Email Varve what happened, share an idea, or write to feedback@varve.studio. The app sends nothing automatically. You choose what to share.',
   inLanguage: 'en',
   mainEntity: {
     '@type': 'Organization',
@@ -34,7 +34,7 @@ const feedbackSchema = {
 
 <Layout
   title="Send feedback"
-  description="Tell Varve what happened, share an idea, or email feedback@varve.studio. The app sends nothing automatically. You choose what to share."
+  description="Email Varve what happened, share an idea, or write to feedback@varve.studio. The app sends nothing automatically. You choose what to share."
   structuredData={feedbackSchema}
 >
   <div class="container-custom">
@@ -51,13 +51,22 @@ const feedbackSchema = {
       <ol class="feedback-choices">
         <li class="feedback-choice site-card site-card--surface">
           <h2>Something broke?</h2>
-          <p>Tell us what happened.</p>
-          <Button href={VARVE_URLS.newIssueChoose}>Report a bug</Button>
+          <ContactChannel
+            id="feedback"
+            headingLevel={3}
+            purpose="Email us what happened. A screenshot helps."
+          />
+          <p class="feedback-secondary">
+            Have a GitHub account?
+            <a href={VARVE_URLS.newIssueChoose}>You can also post it there.</a>
+          </p>
         </li>
         <li class="feedback-choice site-card site-card--surface">
           <h2>Have an idea or a question?</h2>
           <p>Write it in your own words.</p>
-          <Button href={VARVE_URLS.discussions} variant="secondary">Share it</Button>
+          <Button href={VARVE_URLS.discussions} variant="secondary">
+            Post on the Varve forum (GitHub account needed)
+          </Button>
         </li>
         <li class="feedback-choice site-card site-card--surface">
           <h2>Prefer email?</h2>
@@ -116,8 +125,23 @@ const feedbackSchema = {
     max-width: 56ch;
   }
 
+  .feedback-secondary {
+    margin-top: 1rem;
+    margin-bottom: 0;
+    font-size: var(--type-interface-caption-size);
+  }
+
+  .feedback-secondary a {
+    color: var(--text-link);
+  }
+
+  .feedback-secondary a:hover {
+    color: var(--text-link-hover);
+  }
+
   .feedback-choice :global(.contact-channel) {
     padding-top: 0;
+    padding-bottom: 0;
     border-top: none;
   }
 

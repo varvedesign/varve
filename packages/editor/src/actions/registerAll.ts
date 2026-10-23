@@ -14,7 +14,7 @@ import { registerCalloutActions } from './calloutCommands';
 import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
 
 export { dispatchRegisteredAction } from './ActionRegistry';
-export { openExternalUrl, openVarveContact } from './openExternalUrl';
+export { openVarveContact } from './openExternalUrl';
 
 /**
  * Commands that run on-device inference. A deployment that withholds it must

@@ -5,7 +5,8 @@ import {
   resetWorkspacePreferenceCache,
 } from '../workspace/workspaceStore';
 import { getActionRegistry, resetActionRegistryForTesting } from './ActionRegistry';
-import { openExternalUrl, openVarveContact, registerEditorActions } from './registerAll';
+import { openExternalUrl, openVarveContact } from './openExternalUrl';
+import { registerEditorActions } from './registerAll';
 
 // `vi.mock` is hoisted above module-level `let`s, so the flag the factory
 // closes over has to be hoisted with it.
@@ -231,7 +232,8 @@ describe('openVarveContact', () => {
       toasts.push(opts);
     });
     delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
-    window.open = vi.fn().mockReturnValue({ closed: false });
+    // Browsers return null from window.open(..., 'noopener'). That is success.
+    window.open = vi.fn().mockReturnValue(null);
   });
 
   afterEach(() => {
@@ -271,6 +273,7 @@ describe('openVarveContact', () => {
       'noopener,noreferrer',
     );
     expect(href.current).toBe('');
+    expect(toasts).toHaveLength(0);
   });
 
   it('hands the feedback https URL to the native opener under Tauri', () => {
@@ -323,11 +326,30 @@ describe('openVarveContact', () => {
     expect(toasts[0]?.action).toEqual(expect.objectContaining({ label: 'Copy' }));
   });
 
-  it('shows a toast when the web build cannot open a new tab', async () => {
-    window.open = vi.fn().mockReturnValue(null);
+  it('shows a toast when the web build throws while opening a new tab', async () => {
+    window.open = vi.fn().mockImplementation(() => {
+      throw new Error('blocked');
+    });
     await expect(openExternalUrl('https://varve.studio/feedback')).resolves.toBe(false);
     expect(toasts[0]?.message).toBe('https://varve.studio/feedback');
     expect(toasts[0]?.action).toEqual(expect.objectContaining({ label: 'Copy' }));
+  });
+
+  it('rejects a foreign https URL without calling the opener', async () => {
+    runtime.isTauri = true;
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = { invoke };
+
+    await expect(openExternalUrl('https://example.com')).resolves.toBe(false);
+    expect(invoke).not.toHaveBeenCalled();
+    expect(window.open).not.toHaveBeenCalled();
+    expect(toasts).toHaveLength(0);
+  });
+
+  it('rejects a file URL without calling the opener', async () => {
+    await expect(openExternalUrl('file:///tmp/secret')).resolves.toBe(false);
+    expect(window.open).not.toHaveBeenCalled();
+    expect(toasts).toHaveLength(0);
   });
 
   it('never puts a body payload on remaining mailto contact URLs', () => {
