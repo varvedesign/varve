@@ -41,9 +41,9 @@ new issues. The 838 earlier issues that are closed in the snapshot are **not**
 The conservative full-evidence review inventory is **448 unique issues**: the
 union of the 161 new reports, 200 earlier updated reports and 103 resolution /
 citation-restatement rows. An updated timestamp is a materiality-screening
-candidate, not proof of a material change. Eighteen issue/discussion/attachment
+candidate, not proof of a material change. Twenty-eight issue/discussion/attachment
 adjudications are now recorded below and in `source-adjudications.tsv`;
-**430 remain uncertified**. Partial reading and
+**420 remain uncertified**. Partial reading and
 tests for other issues do not satisfy that stronger acceptance. The IDs are recorded in
 `cutoff3.summary.json` under `review`.
 
@@ -58,10 +58,10 @@ Current source/test citations do not retroactively establish that missing ADR.
 | Latest declared label | Count |
 |---|---:|
 | cluster-assessed | 1,446 |
-| outside-varve-scope | 317 |
+| outside-varve-scope | 316 |
 | implemented-validated | 115 |
 | verified-already-correct- | 66 |
-| candidate / deferred | 7 / 0 |
+| candidate / deferred | 8 / 0 |
 
 These are the existing annotations, **not independently certified outcomes**.
 `resolutions.tsv` proposes 88 inherited resolutions and 15 citation restatements.
@@ -289,8 +289,8 @@ limit in the next desktop release, not hard cancellation. No new rendered
 website or native GUI validation is claimed.
 
 The manual completion command now runs its fixture regressions before checking
-the actual corpus. The actual corpus still has seven open
-candidates, 430 uncertified reviews and inherited citation gaps. No push, merge
+the actual corpus. The actual corpus still has eight open
+candidates, 420 uncertified reviews and inherited citation gaps. No push, merge
 or worktree removal is authorized by these local passes alone.
 
 Current checkpoint: export/recovery/website-copy follow-up committed successfully
@@ -417,6 +417,24 @@ formatting and docs audit passed. A direct
 seven candidates and 430 pending reviews (expected incomplete exit 1); the
 cutoff-3 disposition census and 20 unique, seven-column source-note records
 were also checked for consistency. Frozen cutoff-1/2 files remain untouched.
+
+The first two source batches and their evidence limits are committed as
+`97e08d31b`; the normal five-file commit checkpoint passed. A third source batch
+has since read the complete bodies/discussions for #3960, #3963, #3965, #3966,
+#3968, #3973, #3975, #3979, #3980 and #3984, including all seven linked images.
+The image hashes and observations are recorded in `source-adjudications.tsv`.
+No private resume (#3968) was supplied, and the proposed print fixes were not
+executed here. The reports distinguish unconfirmed causes, negative reproduction
+evidence, absolute-page parity versus list position, and signature appearance
+versus cryptographic validation. The slide-audio request #3963 is no longer
+misdescribed as Office/EPUB interchange.
+
+#3973 was reopened because its body includes ordinary editable text blocks, not
+only PDF form fields. Source inspection confirms that Varve leaves Enter to the
+native textarea; it does not prove newline persistence/rendering. A real
+newline → commit/save/reopen workflow remains required. The current recorded
+coverage is **28 source adjudications / 420 outstanding**, with **eight
+candidates**; this is not runtime or integration completion.
 
 Distinct self-review passes checked the actual helper changes against cwd,
 linked-worktree and injected-adapter behavior, then standards and the affected
