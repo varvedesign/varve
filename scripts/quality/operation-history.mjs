@@ -79,7 +79,7 @@ export function classifyWorktreeStatus(rawStatus = '') {
   };
 }
 
-export function gitOperationState({ git = createGitAdapter(), cwd = process.cwd() } = {}) {
+export function gitOperationState({ git, cwd = process.cwd() } = {}) {
   const gitDirValue = gitText(git, ['rev-parse', '--git-dir'], cwd);
   const gitDir = gitDirValue
     ? gitDirValue.startsWith('/')
@@ -113,7 +113,7 @@ export function gitOperationState({ git = createGitAdapter(), cwd = process.cwd(
   };
 }
 
-export function commonGitDirectory({ git = createGitAdapter(), cwd = process.cwd() } = {}) {
+export function commonGitDirectory({ git, cwd = process.cwd() } = {}) {
   const value = gitText(git, ['rev-parse', '--git-common-dir'], cwd);
   return value ? (value.startsWith('/') ? value : resolve(cwd, value)) : resolve(cwd, '.git');
 }

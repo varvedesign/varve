@@ -3,22 +3,65 @@
 /** Operation journal tests: atomic lifecycle, retries, recovery, and redaction. */
 
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   classifySyncState,
   classifyWorktreeStatus,
+  commonGitDirectory,
   finishOperation,
   formatOperation,
+  gitOperationState,
   listOperations,
   recoverInterruptedOperations,
   sanitizeRemoteUrl,
   startOperation,
 } from './operation-history.mjs';
+import { laneReceiptDirectory, receiptDirectory } from './validation-receipts.mjs';
 
 const commonDir = mkdtempSync(join(tmpdir(), 'varve-operation-history-'));
 try {
+  // An explicit cwd must select that repository, not the process repository.
+  // Use real Git, including a linked worktree with its own operation markers.
+  const fixtureRepo = join(commonDir, 'repository');
+  mkdirSync(fixtureRepo);
+  const fixtureGit = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+  fixtureGit(fixtureRepo, ['init', '-q']);
+  fixtureGit(fixtureRepo, [
+    '-c',
+    'user.name=Varve fixture',
+    '-c',
+    'user.email=fixture@example.invalid',
+    'commit',
+    '--allow-empty',
+    '-qm',
+    'fixture',
+  ]);
+  const fixtureGitDir = fixtureGit(fixtureRepo, ['rev-parse', '--absolute-git-dir']);
+  assert.equal(commonGitDirectory({ cwd: fixtureRepo }), fixtureGitDir);
+  assert.equal(gitOperationState({ cwd: fixtureRepo }).gitDir, fixtureGitDir);
+  const linked = join(commonDir, 'linked');
+  fixtureGit(fixtureRepo, ['worktree', 'add', '--detach', '-q', linked, 'HEAD']);
+  const linkedGitDir = fixtureGit(linked, ['rev-parse', '--absolute-git-dir']);
+  writeFileSync(
+    join(linkedGitDir, 'MERGE_HEAD'),
+    `${fixtureGit(fixtureRepo, ['rev-parse', 'HEAD'])}\n`,
+  );
+  assert.equal(commonGitDirectory({ cwd: linked }), fixtureGitDir);
+  const linkedState = gitOperationState({ cwd: linked });
+  assert.equal(linkedState.gitDir, linkedGitDir);
+  assert.deepEqual(linkedState.kinds, ['merge']);
+  assert.equal(gitOperationState({ cwd: fixtureRepo }).inProgress, false);
+  for (const cwd of [fixtureRepo, linked]) {
+    assert.equal(receiptDirectory({ cwd }), join(fixtureGitDir, 'varve-validation', 'receipts'));
+    assert.equal(
+      laneReceiptDirectory({ cwd }),
+      join(fixtureGitDir, 'varve-validation', 'lane-receipts'),
+    );
+  }
+
   assert.equal(
     sanitizeRemoteUrl('https://user:token@example.test/varve.git?access_token=secret'),
     'https://example.test/varve.git',
