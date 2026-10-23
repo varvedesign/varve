@@ -1,0 +1,165 @@
+# PDFCraft issue ledger — cutoff 3 additions
+# source: https://github.com/storytold/pdfcraft/issues  list retrieved 2026-10-23T07:52:52Z..07:53:32Z, comments 07:53:37Z..07:54:25Z
+# columns: number, state, priority, labels, cluster, disposition, reason, cutoff
+# rows: 161 issues created after cutoff 2 (numbers 3909..4210)
+3909	open	low	priority: low,multiple issues	other	cluster-assessed	Grid settings and resize-from-center are authoring features with no transferable defect mechanism.	cutoff3
+3910	open	high	priority: high,needs info,multiple issues	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+3911	open	high	priority: high,needs info,multiple issues	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+3912	closed	medium	priority: medium,in progress	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+3913	open	medium	priority: medium	fonts-glyphs	implemented-validated	Batch 2 reports every character the embedded face cannot draw at PDF export, naming the characters, font and object count; the canvas falls back per glyph. Evidence: packages/editor/src/export/glyphCoverage.ts, packages/editor/src/export/glyphCoverage.test.ts.	cutoff3
+3914	open	high	priority: high,multiple issues	lifecycle-crash	implemented-validated	Per-surface panic isolation is pinned in a real browser: a synthetic render failure in one panel shows that panel's alert while the canvas, layers and menubar stay usable, and Reload recovers it. Evidence: tests/e2e/ui/surface-isolation.spec.ts, packages/editor/src/components/ErrorBoundary.tsx.	cutoff3
+3915	closed	critical	priority: critical	other	outside-varve-scope	No document-compare surface.	cutoff3
+3916	open	high	priority: high,multiple issues	other	outside-varve-scope	No PDF annotation/comment model; collab presence is ephemeral and keyed by document id.	cutoff3
+3917	open	high	priority: high,multiple issues	save-io	implemented-validated	A document replacement clears the previous selection and a replaced tab does not inherit the old save destination, so a document-scoped surface can only act on the document it can see. Evidence: packages/editor/src/context/__tests__/documentSwitchOwnership.test.tsx, packages/editor/src/context/usePersistence.ts.	cutoff3
+3918	open	critical	priority: critical	save-io	implemented-validated	In-progress input is part of the unsaved set: TerminationCoordinator calls flushPendingEdits before deriving the dirty set. Evidence: packages/editor/src/lifecycle/coordinator.ts, packages/editor/src/lifecycle/__tests__/coordinator.test.ts.	cutoff3
+3919	open	medium	priority: medium,multiple issues	save-io	implemented-validated	An export job that throws or exceeds its budget is recorded as a failed file with a message, the batch continues, and progress reaches a terminal state. Evidence: packages/editor/src/exportService.ts, packages/editor/src/exportService.nodeBudget.test.ts.	cutoff3
+3920	open	high	priority: high,multiple issues	save-io	cluster-assessed	No equivalent Compare/OCR/redact UI-thread operation; long exports are frame-scheduled and now per-node bounded.	cutoff3
+3921	open	medium	priority: medium	security	outside-varve-scope	No PDF Standard Security Handler or PDF JavaScript surface; packages/editor/src/archive AES-GCM is a container mechanism, not a PDF handler.	cutoff3
+3922	open	critical	priority: critical	security	outside-varve-scope	No control-token CLI; desktop commands are Tauri IPC scoped to the app.	cutoff3
+3923	open	critical	priority: critical,multiple issues	save-io	implemented-validated	A recovery snapshot's recorded fileId/filePath are provenance, not session identity: restoreSession returns recordedFileId/recordedFilePath and the restore path forwards only the display name, so a hostile sidecar cannot choose the next save destination. Evidence: packages/editor/src/recovery.ts, packages/editor/src/recovery.test.ts.	cutoff3
+3924	open	high	priority: high,multiple issues	other	outside-varve-scope	No MCP server in Varve.	cutoff3
+3925	closed	medium	priority: medium	other	cluster-assessed	Undo/redo operates on immutable document revisions; there is no swap-then-refresh path to leave inconsistent.	cutoff3
+3926	open	critical	priority: critical	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+3927	open	medium	priority: medium,fixed	build-release	outside-varve-scope	Their RUSTSEC advisories; Varve pins rustls-webpki 0.103.16 and has no cargo-deny lane (recorded as a practice gap, not a defect).	cutoff3
+3928	open	medium	priority: medium,multiple issues	security	implemented-validated	The archive key is a non-extractable CryptoKey and the UTF-8 password buffer is wiped after import, including on failure; the immutable JS password string cannot be zeroized and is recorded as a language limit. Evidence: packages/editor/src/archive/encryption.ts, packages/editor/src/archive/encryption.test.ts.	cutoff3
+3929	open	low	priority: low,multiple issues	other	outside-varve-scope	Their CLI, update and OCR correctness items.	cutoff3
+3935	open	medium	priority: medium	interaction	cluster-assessed	No custom I-beam is drawn; text cursors come from the platform cursor, so contrast is the OS cursor's.	cutoff3
+3936	open	medium	bug,priority: medium	interaction	outside-varve-scope	No crop tool that switches views.	cutoff3
+3937	open	medium	priority: medium	ocr	outside-varve-scope	No OCR surface.	cutoff3
+3938	open	medium	priority: medium	render	cluster-assessed	Moving an image past the page boundary is pasteboard composition; no reproduced Varve artefact.	cutoff3
+3940	open	high	priority: high,multiple issues	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+3944	open	critical	priority: critical	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+3945	open	medium	priority: medium	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+3947	closed	medium	priority: medium	other	outside-varve-scope	Their comment-tool classification.	cutoff3
+3949	open	none	needs info	interaction	cluster-assessed	Window resizing is the platform's; Varve's shell is responsive and pinned at 1024x600, 1280x720 and 1440x900.	cutoff3
+3950	open	low	duplicate,priority: low,in progress	other	outside-varve-scope	UI language packs are not a Varve surface.	cutoff3
+3951	open	medium	duplicate,priority: medium,in progress	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+3954	open	low	priority: low	ocr	outside-varve-scope	No OCR surface.	cutoff3
+3957	open	medium	duplicate,priority: medium	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+3960	open	medium	priority: medium	pdf-structure	outside-varve-scope	No PDF page-organizer surface.	cutoff3
+3962	open	high	priority: high	fonts-glyphs	implemented-validated	PDF strings are decoded through /ToUnicode or the declared encoding, never as raw UTF-8. Evidence: packages/import/src/pdf/encoding.ts, packages/import/src/pdfFidelity.test.ts.	cutoff3
+3963	open	low	priority: low	interchange	outside-varve-scope	No Office/EPUB/attachment interchange surface.	cutoff3
+3965	open	low	priority: low	other	outside-varve-scope	A reader-mode default; Varve is not a PDF reader.	cutoff3
+3966	open	critical	bug,duplicate,priority: critical,in progress	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+3968	open	critical	priority: critical,in progress	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+3973	open	high	priority: high,needs info	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+3975	open	low	bug,duplicate,priority: low	other	outside-varve-scope	Their timestamp display.	cutoff3
+3976	open	high	priority: high	save-io	implemented-validated	PDF import is bounded (32 MB bytes, 50 pages) and names what it refused or truncated instead of hanging or silently dropping it. Evidence: packages/import/src/pdf/objects.ts, packages/import/src/pdf/index.ts, tests/e2e/import/pdf-import-integrity.spec.ts.	cutoff3
+3977	open	high	duplicate,priority: high,in progress	fonts-glyphs	implemented-validated	Batch 2 reports every character the embedded face cannot draw at PDF export, naming the characters, font and object count; the canvas falls back per glyph. Evidence: packages/editor/src/export/glyphCoverage.ts, packages/editor/src/export/glyphCoverage.test.ts.	cutoff3
+3978	open	high	bug,priority: high	fonts-glyphs	cluster-assessed	Complex-script shaping is documented in docs/architecture/text-pipeline.md; coverage gaps are reported at export.	cutoff3
+3979	open	low	duplicate,priority: low	digital-signature	outside-varve-scope	No signature or certificate surface.	cutoff3
+3980	open	low	duplicate,priority: low	digital-signature	outside-varve-scope	No signature or certificate surface.	cutoff3
+3984	open	medium	priority: medium	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+3986	open	high	bug,duplicate,priority: high	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+3988	open	high	priority: high,multiple issues	save-io	outside-varve-scope	No Reduce File Size surface.	cutoff3
+3989	open	medium	priority: medium	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+3990	open	high	priority: high	interchange	outside-varve-scope	No attachment saving or Mark-of-the-Web surface.	cutoff3
+3991	open	high	duplicate,priority: high	fonts-glyphs	implemented-validated	Batch 2 reports every character the embedded face cannot draw at PDF export, naming the characters, font and object count; the canvas falls back per glyph. Evidence: packages/editor/src/export/glyphCoverage.ts, packages/editor/src/export/glyphCoverage.test.ts.	cutoff3
+3992	open	medium	priority: medium	other	outside-varve-scope	No managed-deployment policy surface.	cutoff3
+3994	open	low	priority: low,multiple issues	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+3995	open	high	duplicate,priority: high,in progress	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+3996	open	medium	priority: medium,in progress	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+3998	open	critical	priority: critical,multiple issues	digital-signature	outside-varve-scope	No signature or certificate surface.	cutoff3
+3999	open	critical	priority: critical,multiple issues	redaction	outside-varve-scope	No redaction or sanitize surface; ADR-0242 section 6 records the disclosure rule that would apply if one were added.	cutoff3
+4000	open	critical	priority: critical	security	outside-varve-scope	Varve writes no PDF encryption; its archive container derives AES-GCM keys with WebCrypto (no RandomState path). Evidence: packages/editor/src/archive/encryption.ts.	cutoff3
+4001	open	medium	priority: medium,multiple issues	security	outside-varve-scope	No PDF JavaScript engine.	cutoff3
+4002	open	low	priority: low	interaction	cluster-assessed	macOS text scaling was not measured in this Linux environment; no Varve code path reproduces a vertical stretch.	cutoff3
+4003	open	medium	priority: medium,multiple issues	other	outside-varve-scope	No automation CLI.	cutoff3
+4004	open	medium	priority: medium,shared	build-release	outside-varve-scope	Their release workflow.	cutoff3
+4005	open	critical	priority: critical,needs info	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+4006	open	medium	priority: medium	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+4007	open	medium	priority: medium,needs info,multiple issues	other	outside-varve-scope	UI language packs are not a Varve surface.	cutoff3
+4008	open	medium	priority: medium,in progress	other	outside-varve-scope	No mobile application.	cutoff3
+4009	open	medium	priority: medium,multiple issues	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+4010	open	high	duplicate,priority: high	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+4014	open	high	duplicate,priority: high,multiple issues	fonts-glyphs	implemented-validated	Batch 2 reports every character the embedded face cannot draw at PDF export, naming the characters, font and object count; the canvas falls back per glyph. Evidence: packages/editor/src/export/glyphCoverage.ts, packages/editor/src/export/glyphCoverage.test.ts.	cutoff3
+4017	open	medium	priority: medium	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+4018	open	medium	priority: medium	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+4019	open	high	bug,priority: high,multiple issues	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+4020	open	medium	priority: medium	pdf-structure	outside-varve-scope	No PDF page extraction or bookmark model.	cutoff3
+4021	open	low	bug,priority: low	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+4022	open	low	priority: low	other	outside-varve-scope	No automation roots.	cutoff3
+4023	open	medium	enhancement,priority: medium,needs info	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+4024	open	medium	bug,priority: medium,fixed	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+4027	closed	none		interchange	outside-varve-scope	No Office/EPUB/attachment interchange surface.	cutoff3
+4028	open	medium	priority: medium,in progress	interaction	implemented-validated	Inspector tab rows do not overlap at 1024x600, 1280x720 or 1440x900; every tab stays reachable through the overflow menu, the panel has no horizontal overflow, and the canvas dock stays inside the viewport. Evidence: tests/e2e/ui/sidebar-small-window.spec.ts.	cutoff3
+4029	open	low	priority: low,in progress	interaction	cluster-assessed	Varve has app themes; inverting a PDF page is a reader feature with no Varve surface.	cutoff3
+4030	open	medium	priority: medium,needs info	fonts-glyphs	implemented-validated	Batch 2 reports every character the embedded face cannot draw at PDF export, naming the characters, font and object count; the canvas falls back per glyph. Evidence: packages/editor/src/export/glyphCoverage.ts, packages/editor/src/export/glyphCoverage.test.ts. Attachment inspected: the technical drawing shows the missing glyph where the red highlight is.	cutoff3
+4031	open	medium	duplicate,priority: medium	fonts-glyphs	implemented-validated	Batch 2 reports every character the embedded face cannot draw at PDF export, naming the characters, font and object count; the canvas falls back per glyph. Evidence: packages/editor/src/export/glyphCoverage.ts, packages/editor/src/export/glyphCoverage.test.ts.	cutoff3
+4032	open	high	duplicate,priority: high	fonts-glyphs	implemented-validated	Batch 2 reports every character the embedded face cannot draw at PDF export, naming the characters, font and object count; the canvas falls back per glyph. Evidence: packages/editor/src/export/glyphCoverage.ts, packages/editor/src/export/glyphCoverage.test.ts.	cutoff3
+4035	open	low	priority: low	other	outside-varve-scope	No protected-document notice.	cutoff3
+4036	closed	medium	priority: medium,needs info	page-geometry	cluster-assessed	Varve's document format stores no camera; opening computes fit-to-content by design. Evidence: packages/editor/src/context/usePersistence.ts.	cutoff3
+4037	closed	medium	priority: medium,needs info	other	outside-varve-scope	UI language packs are not a Varve surface.	cutoff3
+4038	open	medium	priority: medium	fonts-glyphs	implemented-validated	Batch 2 reports every character the embedded face cannot draw at PDF export, naming the characters, font and object count; the canvas falls back per glyph. Evidence: packages/editor/src/export/glyphCoverage.ts, packages/editor/src/export/glyphCoverage.test.ts.	cutoff3
+4040	open	low	priority: low	other	outside-varve-scope	No PDF comment mode.	cutoff3
+4047	open	medium	priority: medium,needs info,multiple issues	digital-signature	outside-varve-scope	No signature or certificate surface.	cutoff3
+4048	open	medium	priority: medium,needs info	digital-signature	outside-varve-scope	No signature or certificate surface.	cutoff3
+4049	open	low	priority: low	interaction	cluster-assessed	Trackpad wheel handling is the platform's; no acceleration defect reproduced.	cutoff3
+4050	open	low	priority: low	interaction	cluster-assessed	No back-arrow navigation surface.	cutoff3
+4052	open	medium	priority: medium	interchange	outside-varve-scope	No Office/EPUB/attachment interchange surface.	cutoff3
+4054	open	high	priority: high	render	verified-already-correct-	The renderer never leaves previously painted pixels without a fresh frame to replace them; the invariant and its hash oracle are documented. Evidence: docs/architecture/render-pipeline.md.	cutoff3
+4055	open	medium	enhancement,priority: medium,needs info	other	cluster-assessed	Varve's measurement tools operate on its own scene; the report is about PDF construction drawings.	cutoff3
+4056	open	medium	priority: medium	interaction	implemented-validated	The edit surface is clipped to the canvas dock and tracks scroll/zoom at 1024x600 and a scaled viewport. Evidence: tests/e2e/canvas/text-edit-overlay-clipping.spec.ts. Attachment inspected: the recording shows the editor with the text-edit mode active; the escape itself occurs after the sampled frame.	cutoff3
+4057	open	medium	duplicate,enhancement,priority: medium,in progress	pdf-structure	outside-varve-scope	No PDF bookmark model.	cutoff3
+4060	open	medium	priority: medium	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+4062	open	medium	priority: medium	text-edit	cluster-assessed	Varve deletes every selected node id; no reproduced single-delete case.	cutoff3
+4065	open	low	duplicate,enhancement,priority: low,in progress	interaction	cluster-assessed	Middle-click and space panning exist in Varve; no reproduced defect.	cutoff3
+4070	open	low	priority: low	build-release	cluster-assessed	The app icon is a build artifact; changing it is a packaging feature request.	cutoff3
+4071	open	high	priority: high	render	cluster-assessed	Varve does not decode PDF image XObjects; unsupported images are counted and reported at import.	cutoff3
+4075	open	medium	priority: medium	other	outside-varve-scope	OS file association is packaging; Varve is not a PDF reader.	cutoff3
+4076	open	medium	priority: medium	other	outside-varve-scope	Their launcher's --help behaviour.	cutoff3
+4077	open	medium	priority: medium	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+4078	open	medium	priority: medium	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+4079	open	medium	priority: medium,multiple issues	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+4080	open	medium	priority: medium	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+4081	open	low	priority: low,needs info	other	outside-varve-scope	A snapshot request with no mechanism.	cutoff3
+4082	open	medium	duplicate,priority: medium,fixed	other	outside-varve-scope	Their page-number badge placement.	cutoff3
+4083	open	high	priority: high	image	implemented-validated	Content the importer cannot read (image XObjects, shadings, unsupported operators) is counted and reported in Import Results instead of being dropped silently. Evidence: packages/import/src/pdf/index.ts, tests/e2e/import/pdf-import-integrity.spec.ts.	cutoff3
+4084	open	medium	priority: medium,needs info	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+4085	open	high	priority: high	fonts-glyphs	implemented-validated	Batch 2 reports every character the embedded face cannot draw at PDF export, naming the characters, font and object count; the canvas falls back per glyph. Evidence: packages/editor/src/export/glyphCoverage.ts, packages/editor/src/export/glyphCoverage.test.ts.	cutoff3
+4088	open	medium	priority: medium	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+4099	closed	none	support	other	outside-varve-scope	Their tooling integration.	cutoff3
+4102	open	low	priority: low	other	outside-varve-scope	Their tooling integration.	cutoff3
+4103	open	medium	priority: medium	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+4104	open	medium	priority: medium	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+4105	open	medium	priority: medium	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+4112	open	medium	priority: medium,in progress	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+4113	open	low	duplicate,priority: low	page-geometry	cluster-assessed	Facing-page spreads exist in Varve; the report is a two-page reader view.	cutoff3
+4118	open	medium	priority: medium,multiple issues	interaction	implemented-validated	Inspector tab rows do not overlap at 1024x600, 1280x720 or 1440x900; every tab stays reachable through the overflow menu, the panel has no horizontal overflow, and the canvas dock stays inside the viewport. Evidence: tests/e2e/ui/sidebar-small-window.spec.ts. Attachment inspected: the screenshot shows squished right-sidebar icons and a clipped page at 1366x768.	cutoff3
+4119	open	low	priority: low	image	outside-varve-scope	No scan contrast-enhancement engine.	cutoff3
+4120	open	medium	priority: medium,fixed	interaction	cluster-assessed	Tooltips exist and are APG-tested; no reproduced missing-tooltip case.	cutoff3
+4122	open	medium	priority: medium,multiple issues	other	outside-varve-scope	No PDF annotation review statuses.	cutoff3
+4127	open	medium	enhancement,priority: medium,needs info,multiple issues	interaction	outside-varve-scope	Their window chrome.	cutoff3
+4131	open	medium	bug,duplicate,priority: medium	text-edit	cluster-assessed	Varve text boxes resize through transform handles; no reproduced non-resizable case.	cutoff3
+4134	open	high	priority: high,regression	lifecycle-crash	verified-already-correct-	Canvas2D is the default renderer and WebGPU is opt-in with a bounded self-test, so a GPU capability failure degrades instead of preventing launch. Evidence: docs/adr/0237-native-wgpu-compute.md, packages/compositor/src.	cutoff3
+4140	open	low	priority: low	other	outside-varve-scope	A feature request with no mechanism.	cutoff3
+4144	closed	none	support	other	outside-varve-scope	Their upstream sync.	cutoff3
+4150	open	medium	priority: medium	other	outside-varve-scope	No AI assistant sign-in surface.	cutoff3
+4154	open	high	priority: high,multiple issues	forms	outside-varve-scope	No Varve form model and none planned; the text-metric and glyph-coverage mechanisms inside form reports are routed to the fonts-glyphs rows.	cutoff3
+4156	open	medium	priority: medium,needs info	fonts-glyphs	implemented-validated	Batch 2 reports every character the embedded face cannot draw at PDF export, naming the characters, font and object count; the canvas falls back per glyph. Evidence: packages/editor/src/export/glyphCoverage.ts, packages/editor/src/export/glyphCoverage.test.ts.	cutoff3
+4158	open	high	priority: high	interchange	outside-varve-scope	No Office/EPUB/attachment interchange surface.	cutoff3
+4160	open	medium	priority: medium	ocr	outside-varve-scope	No OCR surface.	cutoff3
+4163	open	low	priority: low	printer	outside-varve-scope	No device-printing workflow: Platform.printPdf/listPrinters have no callers; the print surface is PDF/X export.	cutoff3
+4164	open	medium	priority: medium	redaction	outside-varve-scope	No redaction or sanitize surface; ADR-0242 section 6 records the disclosure rule that would apply if one were added.	cutoff3
+4165	open	high	priority: high,needs info	save-io	implemented-validated	Save flushes buffered text drafts before the revision is captured, so a save mid-edit cannot write the pre-edit file and report success. Evidence: packages/editor/src/context/usePersistence.ts, tests/e2e/save/text-draft-save.spec.ts, tests/e2e/save/text-target-switch.spec.ts.	cutoff3
+4168	open	medium	priority: medium	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+4173	open	medium	priority: medium,needs info,multiple issues	render	cluster-assessed	Scroll stuttering was not reproduced in Varve; the fresh-frame invariant is pinned but frame pacing was not measured here.	cutoff3
+4174	open	low	priority: low	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+4175	open	medium	priority: medium	text-edit	implemented-validated	The edit surface now mirrors node.textAlign; the computed style is asserted and fails with 'start' without the fix. Evidence: packages/editor/src/components/TextEditOverlay.tsx, tests/e2e/canvas/text-edit-overlay-clipping.spec.ts.	cutoff3
+4176	open	high	priority: high	text-edit	verified-already-correct-	Text commands target authored node ids, never inferred paragraph ordinals (ADR-0242); draft and target-switch paths are covered. Evidence: docs/adr/0242-document-authority-and-interchange.md, tests/e2e/save/text-target-switch.spec.ts.	cutoff3
+4177	open	medium	priority: medium,multiple issues	text-edit	cluster-assessed	Per-line alignment inside a paragraph is a feature request; Varve aligns paragraphs.	cutoff3
+4183	closed	low	duplicate,priority: low,in progress	interaction	cluster-assessed	Auxiliary windows host panels; tab tear-off is a feature request.	cutoff3
+4184	open	medium	priority: medium,needs info	image	cluster-assessed	No compress/watermark surface.	cutoff3
+4186	open	medium	priority: medium	build-release	outside-varve-scope	Their CI flakiness.	cutoff3
+4187	open	high	priority: high	build-release	outside-varve-scope	Their release notes.	cutoff3
+4188	open	medium	priority: medium,in progress	ocr	outside-varve-scope	No OCR surface.	cutoff3
+4189	open	low	priority: low	image	verified-already-correct-	Thumbnails are a documented platform capability with deterministic identity and an encrypted placeholder policy. Evidence: docs/architecture/thumbnail-system.md.	cutoff3
+4192	open	medium	priority: medium,needs info	fonts-glyphs	implemented-validated	Batch 2 reports every character the embedded face cannot draw at PDF export, naming the characters, font and object count; the canvas falls back per glyph. Evidence: packages/editor/src/export/glyphCoverage.ts, packages/editor/src/export/glyphCoverage.test.ts.	cutoff3
+4194	open	low	duplicate,priority: low,multiple issues,in progress	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+4199	open	medium	priority: medium	text-edit	verified-already-correct-	Varve stores authored text verbatim and does not collapse whitespace on commit. Evidence: packages/editor/src/context/pendingEdits.ts.	cutoff3
+4202	open	medium	priority: medium,needs info	text-edit	cluster-assessed	Table cell hit testing and selection were not reproduced.	cutoff3
+4204	open	high	bug,duplicate,priority: high,in progress	redaction	outside-varve-scope	No redaction or sanitize surface; ADR-0242 section 6 records the disclosure rule that would apply if one were added.	cutoff3
+4205	open	medium	priority: medium	ocr	outside-varve-scope	No OCR surface.	cutoff3
+4206	open	medium	priority: medium,in progress	interaction	cluster-assessed	The colour picker uses the shared Popover contract; no reproduced close-on-edit case.	cutoff3
+4207	open	high	duplicate,priority: high	pdf-structure	outside-varve-scope	Varve imports PDF content into its own model and does not rewrite PDF structure, annotations, outlines or tags.	cutoff3
+4210	open	medium	priority: medium,multiple issues	security	outside-varve-scope	No PDF JavaScript or attachment execution surface to protect.	cutoff3

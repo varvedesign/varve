@@ -158,3 +158,40 @@ test asserts the outcome (no pure black/white in a minified export) rather than
 which mechanism produced it. The lesson recorded for future audits: "the code
 does not set property X" is not evidence that the *outcome* differs — measure
 the output before writing a fix.
+
+## Cutoff 3 — 2026-10-23 (closure pass)
+
+The tracker was re-crawled at `2026-10-23T07:52:52Z`–`07:54:25Z` with the same
+listing endpoint and Link pagination: **4,208 records** (1,951 issues, 2,257
+pull requests), reconciled exactly against `open_issues_count`
+(1,103 open issues + 725 open pull requests = 1,828). The repository-wide
+comments endpoint returned 6,761 comments, covering issue and pull-request
+threads. **161 issues were created after cutoff 2** (3,909–4,210); 838
+cutoff-2-era issues were closed and 361 updated.
+
+Per-issue rows: [`../audits/pdfcraft/issue-ledger-cutoff3.tsv`](../audits/pdfcraft/issue-ledger-cutoff3.tsv).
+Resolutions of the frozen non-terminal rows: [`../audits/pdfcraft/resolutions.tsv`](../audits/pdfcraft/resolutions.tsv).
+Closure report: [`../audits/pdfcraft/CLOSURE.md`](../audits/pdfcraft/CLOSURE.md).
+
+### What the new issues added
+
+| Family | New evidence | Decision |
+|---|---|---|
+| Panic containment (3914, 3919, 3920, 3925) | a UI panic closes the whole app; worker panics leave progress stuck | **Implemented** for the browser surfaces: a real-browser fault injection proves the canvas, layers and inspector fail independently, and a failed or over-budget export reaches a terminal report. A native Rust panic remains outside the DOM boundary (recorded). |
+| Document ownership (3916, 3917, 3918, 3923) | a reload switches the document under a dialog; a recovery sidecar names the next save path; typed comment text is not in the unsaved set | **Implemented/verified**: document replacement clears the old selection and destination, recovery identity is provenance-only (`recordedFileId`/`recordedFilePath`), and `TerminationCoordinator` flushes pending edits before deriving dirty state. |
+| Text-edit overlay (4056, 4175, 4176, 4199) | the edit overlay escapes the viewport; an aligned box edits left-aligned; undo re-lays a paragraph | **Implemented**: the overlay is clipped at 1024×600 while scrolling/zooming and now mirrors `node.textAlign`. The alignment regression fails with computed `start` without the fix. |
+| Small-window rows (4028, 4118, 3949) | right-sidebar icons overlap and the page is cropped at 1366×768 / split screen | **Implemented**: inspector tabs do not overlap at 1024×600, 1280×720 or 1440×900, every tab stays reachable, and the canvas dock stays inside the viewport. Attachments inspected. |
+| Glyph coverage (3913, 3977, 3991, 4014, 4030–4032, 4038, 4085, 4156, 4192) | the largest family again (CJK, Hebrew, Greek, Czech, Vietnamese, CAD drawings) | Batch 2 still holds: the export report names the characters the embedded face cannot draw, and the canvas falls back per glyph. The 4030 attachment (a technical drawing with a missing "M") was inspected and matches the class. |
+| Key material (3928, 4000) | keys and passwords never zeroized; `RandomState` used for keys | **Implemented** for the copy Varve controls: the archive key is a non-extractable `CryptoKey` and the encoded password buffer is wiped after import. JavaScript strings cannot be zeroized (recorded). Varve writes no PDF encryption. |
+| Export bound (3634, 3919) | no per-node deadline; a pathological node holds the batch | **Implemented**: a per-node budget (default five minutes) fails the node with a name and never writes it; cancellation remains cancellation; the batch continues. |
+| Printer, forms, signature, redaction, OCR, Office, PDF-structure rows | the same clusters as cutoffs 1–2 | Outside Varve's scope with the existing cluster reasons; no new surface was added. |
+| Accessibility tagging (4079–4080, 4103–4105) | set `Summary`/`Scope`/artifact roles | Outside scope: Varve writes PDFs but does not edit PDF structure or claim tagged output. |
+
+### What this changed in the closure method
+
+Cutoff 1/2 rows are frozen. A later pass appends a resolution with the previous
+disposition, the new disposition and evidence; `pnpm audit:pdfcraft-closure`
+then builds the latest-disposition-per-issue view and fails on a non-terminal
+row without a `blocked:` reason or a verified row without a code/test path.
+That is what lets the historical census and the closure claim coexist without
+rewriting history.

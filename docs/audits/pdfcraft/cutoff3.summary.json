@@ -1,0 +1,66 @@
+{
+  "source": "storytold/pdfcraft",
+  "cutoff": 3,
+  "retrieved": {
+    "list_started": "2026-10-23T07:52:52Z",
+    "list_finished": "2026-10-23T07:53:32Z",
+    "comments_finished": "2026-10-23T07:54:25Z"
+  },
+  "method": {
+    "list_endpoint": "GET /repos/storytold/pdfcraft/issues?state=all&per_page=100&sort=created&direction=asc",
+    "pagination": "Link-header pagination via gh api --paginate --slurp; 43 pages, no per_page shortcut",
+    "comments_endpoint": "GET /repos/storytold/pdfcraft/issues/comments?per_page=100&sort=created&direction=asc",
+    "search_endpoint_used": false
+  },
+  "totals": {
+    "records": 4208,
+    "issues": 1951,
+    "pull_requests": 2257,
+    "open_issues": 1103,
+    "open_pull_requests": 725,
+    "open_issues_plus_open_prs": 1828,
+    "repository_open_issues_count": 1828,
+    "issue_comments_retrieved": 6761,
+    "duplicate_issue_numbers": 0,
+    "failed_requests": 0,
+    "issues_missing_from_cutoff3": 0
+  },
+  "cutoff2_comparison": {
+    "issues_at_cutoff2": 1790,
+    "new_issues": 161,
+    "new_issue_numbers": "3909..4210",
+    "new_issues_open": 151,
+    "new_issues_with_body": 160,
+    "new_issues_with_comments": 157,
+    "old_issues_closed_since_cutoff2": 838,
+    "old_issues_updated_since_cutoff2": 200
+  },
+  "new_issue_dispositions": {
+    "cluster-assessed": 26,
+    "implemented-validated": 25,
+    "outside-varve-scope": 105,
+    "verified-already-correct-": 5
+  },
+  "reconciliation": {
+    "open_issues_plus_open_prs_equals_reported_count": true,
+    "duplicate_issue_numbers": 0,
+    "failed_requests": 0
+  },
+  "frozen_id_set": {
+    "issue_count": 1951,
+    "first_issue": 8,
+    "last_issue": 4210,
+    "sha256": "592a60bc77220c32de6c886e28c7a5ebe5a75e8c306fb6665f2d85d909773511"
+  },
+  "attachments": {
+    "inspected": [
+      "4030 https://github.com/user-attachments/assets/5661ecde-e805-4a97-a7cc-5bd22dbfbc24 (image/png, 200)",
+      "4028 https://github.com/user-attachments/assets/15c1bc23-2419-449f-95a1-75368e3d7d75 (image/png, 200)",
+      "4118 https://github.com/user-attachments/assets/49d1d112-de32-4ca4-8f60-88df5d1be14c (image/png, 200)",
+      "4056 https://github.com/user-attachments/assets/1b9e3249-4651-4ac8-814c-41af9678f6f7 (video/mp4, 200; frame at 2s inspected)"
+    ],
+    "inaccessible": []
+  },
+  "corpus_closed": true,
+  "follow_on_queue_at_closure": 0
+}

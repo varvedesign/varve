@@ -34,6 +34,39 @@ Cutoff-2 rows are in [`issue-ledger-cutoff2.tsv`](issue-ledger-cutoff2.tsv) with
 `cutoff2` marker; cutoff-1 rows are never rewritten. Machine-readable totals:
 [`issue-ledger-cutoff2.summary.json`](issue-ledger-cutoff2.summary.json).
 
+**Cutoff 3 — closure pass.** The tracker was re-crawled at
+`2026-10-23T07:52:52Z` → `07:54:25Z` (43 pages, Link pagination; the
+repository-wide comments endpoint returned 6,761 comments, covering issue and
+pull-request threads). 4,208 records: **1,951 issues** and 2,257 pull requests.
+Reconciliation is exact: 1,103 open issues + 725 open pull requests = **1,828**,
+which equals the repository's reported `open_issues_count`; zero duplicate
+issue numbers, zero failed requests, zero cutoff-1/2 issues missing.
+
+| Cutoff 3 delta | Value |
+|---|---|
+| Issues created after cutoff 2 | **161** (numbers 3,909–4,210; 151 open, 160 with bodies, 157 with discussion) |
+| Cutoff-2-era issues closed since | 838 |
+| Cutoff-2-era issues updated since | 361 |
+| Frozen issue ID set | 1,951 (SHA-256 in [`cutoff3.summary.json`](cutoff3.summary.json)) |
+
+Cutoff-3 rows are in [`issue-ledger-cutoff3.tsv`](issue-ledger-cutoff3.tsv).
+Cutoff 3 is the **final corpus boundary**: anything created later is a follow-on
+queue, not a reopening of this coverage claim (there were 0 such issues at
+closure). The frozen cutoff-1/2 rows are never rewritten; a later pass resolves
+a row by appending to [`resolutions.tsv`](resolutions.tsv), and closure is a
+property of the **latest disposition per issue**, enforced by
+`pnpm audit:pdfcraft-closure`. [`CLOSURE.md`](CLOSURE.md) holds the closure
+report, the disposition census, the evidence for every resolved row, and the
+native/visual validation record.
+
+| Latest disposition (all 1,951 issues) | Count | Non-terminal |
+|---|---:|---:|
+| cluster-assessed | 1,446 | |
+| outside-varve-scope | 320 | |
+| implemented-validated | 119 | |
+| verified-already-correct- | 66 | |
+| candidate / deferred | **0** | **0** |
+
 Pull requests returned by the issue endpoints were separated from issues.
 1,682 PRs were retained as linked evidence; their own discussions (1,113 PRs
 with comments, 1,550 comments) were **not** crawled — see Limitations.
@@ -131,166 +164,52 @@ signature and Office interchange, all of which remain outside Varve's scope.
 | 11 | Vertical import refinement: per-glyph `/W2` metrics, one-glyph-per-`Tj` placement arriving as one layer per character, and parser notes that were generated but never shown | **implemented and validated** — `/W2` advances with a bounded `/DW2` fallback, consecutive vertical runs merge into one editable column, Import Results shows the parser's notes and wraps long detail rows, and deeply nested SVG now names the artwork it refused (row 3309). Unit and browser regressions extend batch 10's fixture; evidence in `docs/screenshots/pdfcraft/import-vertical-writing-*.png` |
 | 9 | PDF import invents content the page does not show: invisible/clip-only text, hidden optional-content layers, encrypted files imported as blank pages, and an inline image whose `EI` is followed by a delimiter | **implemented and validated** — `/OCProperties` visibility, `Tr` render modes, `/Encrypt` refusal with a failure status, and delimiter-terminated `EI`. Commits `3bdd3e336`, `bb2f53d24`; browser evidence in `tests/e2e/import/pdf-import-integrity.spec.ts` and `docs/screenshots/pdfcraft/` |
 
-## Limitations (unresolved)
+## Limitations (residual, after closure)
 
-These are honest gaps, not completions:
+These remain true after the closure pass; they are limitations, not unfinished
+rows:
 
-1. **Cutoff 2 is the final corpus boundary for this pass.** 494 new issues and
-   184 closures were adjudicated through `2026-10-21T19:32:41Z`. The tracker
-   grows by roughly 170 records a day; anything created after cutoff 2 is a
-   follow-on queue, not part of this coverage claim. The first follow-on
-   reconciliation is recorded in
-   [`follow-on-2026-10-22.md`](follow-on-2026-10-22.md): 137 issues created in
-   the following 28 hours, eight of which touch a Varve surface, two of those
-   already verified as handled.
-2. **Attachments not retrieved.** Body references point at screenshots,
-   recordings and reproduction files. Bodies, labels, states and discussion
-   text were read; a claim that exists only inside an image was not assessed.
-3. **No PDFCraft runtime reproduction.** No PDFCraft build was installed:
-   every PDFCraft-side statement is *reported* or *code-anchored*, never
-   reproduced here. Varve-side statements marked `audit` were read from source;
-   batches 1, 2, 3, 4, 6 and 9 are `reproduced-in-varve` (unit or browser
-   evidence).
-4. **Priority is skewed.** Most issues carry no priority label, so adjudication
-   could not be restricted to a labelled high-severity set. Cutoff 2 read every
-   title and label, and adjudicated individually every row whose title stated a
-   mechanism in a class Varve has.
-5. **Native/platform surfaces unverified.** No Tauri desktop build was run, so
-   print-to-device, WebKitGTK rendering, the native PDF writer's `/Interpolate`
-   decision and platform-specific pointer behaviour are source-inspected only.
-6. **Vertical writing is a recorded gap.** Identity-V (`-v`) text is imported
-   as horizontal runs (rows 3216, 3711, 3712). Varve authors vertical text, so
-   this is a real import limitation, not an exclusion; it is queued rather than
-   implemented.
-7. **Two candidates are deferred, not closed.** The native atomic-save close
-   error path (`3409`) and autosave scheduling (`batch 8`) live in files owned
-   by another session in the shared checkout.
+1. **The tracker keeps moving.** Cutoff 3 is final for this review. A later
+   issue is follow-on work, not missing coverage of this claim.
+2. **Cluster-level rows are not individually re-read.** Every row has a
+   disposition, but 1,446 rows inherit a cluster verdict whose stated reason
+   covers the mechanism. Rows naming a mechanism Varve has were adjudicated
+   individually; the rest were not given a bespoke analysis.
+3. **PDFCraft was never built or run here.** Every PDFCraft-side statement is
+   *reported* or *code-anchored*, never reproduced. Attachments for the 13
+   individually adjudicated cutoff-3 issues were inspected where they existed
+   (4030, 4028, 4118 stills; 4056 recording sampled at 2s); no inaccessible
+   attachment was found.
+4. **Priority remains skewed.** Most issues carry no priority label, so the
+   corpus was read by title, labels and mechanism, not by severity.
+5. **Native evidence is bounded by the machine.** The desktop GUI, WebKitGTK
+   and the native PDF/X writer were exercised only as far as recorded in
+   [`CLOSURE.md`](CLOSURE.md); veraPDF and qpdf are not installed here, so
+   PDF/X structural conformance is verified with poppler readers and the
+   writer's own assertions, not a PDF/X validator.
+6. **Platform-specific claims stay unverified where the platform is absent.**
+   Windows launch/GPU behaviour, macOS text scaling and Wayland pen hardware
+   have no reproducible Varve case in this environment; they are recorded as
+   platform gaps, not as passes.
+7. **Key zeroization is language-bounded.** The archive key is a
+   non-extractable `CryptoKey` and the encoded password buffer is wiped; an
+   immutable JavaScript password string cannot be zeroized.
 
 ## Continuation record
 
-Cutoff 2 is taken and reconciled; batches 1–6 and 9 are complete or recorded
-with reasons. What remains, in priority order:
+The corpus is closed at cutoff 3. Remaining engineering work is tracked as
+ordinary product work, not as corpus rows:
 
-1. ~~Vertical-writing import (rows 3216/3711/3712)~~ — landed as batches 10
-   and 11. `/W2` metrics and one-glyph-per-`Tj` column merging are
-   implemented; `Tz`-upright placement inside a vertical run remains open.
-2. **Batch 8 (interaction)**: verify cursor ownership over chrome (rows 3001,
-   3383, 3871), overlay placement with two menus (3190), and small-window
-   clipping (3097, 3557, 3559). Each is a verification first; no UI change is
-   assumed.
-3. **Row 3409 / batch 8 save paths**: the native save path is verified —
-   `write_file_atomic` (`apps/desktop/src-tauri/src/lib.rs`) writes a unique
-   temp, calls `sync_all` and **propagates its error** before the rename, and
-   removes the temp on failure. The remaining piece is autosave scheduling in
-   `usePersistence.ts`, which belongs to another session.
-4. **Row 3309**: the decoder was measured on a 5,000-level nested-group document
-   and returns `ok` without throwing — `normalizeDocument` walks nodes flatly, so
-   the reported stack overflow is not reachable at the decode boundary. What is
-   still unmeasured is a render/bbox traversal at that depth; if a bound is added
-   it belongs there, driven by a measured failure rather than a guess. The
-   reachable import paths are bounded (SVG/Figma 256, PDF page tree 32) and the
-   SVG ceiling now names refused artwork instead of importing nothing silently.
-5. **Row 3504** verified: screen and export consume one decoded bitmap from
-   `getImageCache()` via `resolveReplayImage`; the per-replay policy changes the
-   *resolution* requested, never whether the content can be read, so the
-   "readers disagree about what the document contains" class is absent.
-   **Row 3634** stays open with a precise gap: export is cancellable and image
-   resources have settlement timeouts, but there is no per-node render deadline,
-   so a pathological effect at a very large output can run until the user
-   cancels.
+1. A per-node export budget exists (default five minutes) and is covered by
+   `packages/editor/src/exportService.nodeBudget.test.ts`; the measured
+   pathological case is recorded in [`CLOSURE.md`](CLOSURE.md).
+2. Vertical-writing refinement beyond batches 10–11 (automatic
+   tate-chu-yoko, `Tz`-upright placement) remains authoring work, not import
+   fidelity debt that blocks closure.
+3. Native PDF/X validation with veraPDF, and Windows/macOS platform runs,
+   remain release-environment checks; their absence is disclosed rather than
+   claimed.
 
-State at handoff: branch `codex/pdfcraft-continuation-20261021`, cut from
-`origin/master` at `2e8c5b018`, with the cutoff-1 batch cherry-picked onto it so
-the review is reviewable without the unpushed local history. Commits: batch 9
-`3bdd3e336`, batch 2 `90f1e01d6`, batch 3 `3ed8e6a03`, batch 4 `3bfe7c04b`,
-batch 6 `340262b60`, refusal reporting `bb2f53d24`.
-
-## Continuation record — batch 11 (2026-10-22)
-
-Branch `codex/pdfcraft-batch7`, worktree `.worktrees/pdfcraft-b7`, cut from
-`origin/master` at `13e97dde3` (which already contained batch 10's vertical
-writing fix). Review: PR #172. This batch is the refinement batch 10 deferred, plus two
-honesty fixes found while validating it.
-
-**What changed**
-
-- `/W2` per-glyph vertical metrics are read from the descendant CIDFont, with
-  the documented `/DW2` one-em default and a ten-em ceiling against hostile
-  values. Batch 10 advanced every vertical glyph one em and disclosed that;
-  the disclosure is no longer needed because the published metric is used.
-- Consecutive vertical runs merge into one editable column when they share the
-  font and size, start where the previous pen stopped (quarter-em tolerance),
-  and keep the same direction. One-glyph-per-`Tj` placement no longer produces
-  one layer per character. A run that starts a new column stays separate.
-- Runs carry their display-space displacement (`advanceX/advanceY`), so
-  continuity is measured in display space rather than assuming an unrotated
-  page.
-- Import Results now shows the parser's capability notes when details are
-  expanded. The notes (vertical columns, page rotation applied, crop box used,
-  outside-page runs) were generated but never displayed. The file row now
-  wraps with full-basis detail rows instead of squeezing capabilities,
-  warnings and notes into three side-by-side slivers.
-- An SVG nested deeper than the 256-level parser ceiling now names the refused
-  artwork. Before, it imported zero nodes and reported no warning.
-
-**Evidence**
-
-- `packages/import/src/pdfFidelity.test.ts`: 29 tests, including the merged
-  one-glyph column, a neighbouring column that stays separate, and a fixture
-  where a published half-em `/W2` advance is what joins two runs (the same
-  file without `/W2` leaves them apart).
-- `tests/e2e/import/pdf-vertical-text.spec.ts`: two real File > Import runs.
-  The first keeps batch 10's column-vs-line ink assertion. The second imports
-  two columns, one written as a single `Tj` and one as six `Tj` operators,
-  asserts 2 layers (not 7) and reads Writing mode from the Inspector. It also
-  asserts the Import Results note "7 vertical text run(s) were imported as 2
-  vertical column(s)".
-- `packages/import/src/svg.test.ts`: 31 tests; the new disclosure regression
-  fails without the warning and a 250-level document still imports.
-- The full CI E2E shard exposed a regression from showing notes: a refused
-  PDF displayed "This PDF is encrypted" twice, once as the error and once as a
-  capability note, which also broke the existing encrypted-PDF assertion.
-  Notes now render only for files that produced a document, with a unit
-  regression (`ImportResults.test.tsx`, 16 tests).
-- Visual: `docs/screenshots/pdfcraft/import-vertical-writing-canvas.png`
-  shows 縦書きの試験, 隣の列の文章 (one glyph per operator) and 離れた列 as three
-  top-to-bottom columns with no overlap; the editor capture shows the
-  Inspector reading Writing mode "Vertical, right to left"; the results
-  capture shows the wrapped details and the column note.
-
-**Validation (batch 11)**
-
-```text
-Changed scope: packages/import PDF/SVG parsers and tests; packages/editor ImportResults and test; tests/e2e/import; website file-formats and typography docs plus the marketing test; PDFCraft audit records and screenshots.
-Validation plan: pnpm verify:plan selected 27 lanes with no full-suite escalation (format/lint, emoji/docs/claims/radius/spacing/sizing audits, E2E TypeScript, affected package typechecks and unit lanes, website unit/E2E, import and export browser domains).
-Commands actually run: pnpm verify:affected; pnpm typecheck:e2e; pnpm audit:docs; pnpm audit:emoji; lease-wrapped npx playwright test tests/e2e/import/pdf-vertical-text.spec.ts; production website captures at 1440x1000 and 390x844.
-Passed: all 27 planned lanes (2681s): editor unit 8,825 passed (2 skipped), import 430, desktop 90, website unit 312, website E2E 694 across both bases, import browser domain 12, export browser domain 16, focused vertical browser test 2; focused pdfFidelity 29, svg 31, ImportResults 15; E2E TypeScript; docs/emoji audits; no horizontal overflow at 1440/390/320.
-Skipped as unrelated: Rust workspace and native desktop GUI lanes (no Rust or native surface changed); the planner did not escalate.
-Escalations: none. Full suite run: no.
-```
-This run was executed on the batch-11 tree after rebasing onto the batch-10
-commit `13e97dde3`.
-
-**Limitations of this batch**
-
-- Automatic tate-chu-yoko compaction and `Tz`-upright placement are not
-  inferred from a PDF. Glyphs and digits are preserved in one editable string;
-  applying `textCombineUpright` or adjusting orientation remains an authoring
-  decision.
-- Page `/Rotate` is applied to positions, as for horizontal text, so on a
-  rotated page a vertical column is placed correctly but its glyphs are not
-  rotated with the page. That general text-rotation gap is unchanged.
-- Imported text colour, font family and glyph outlines are still not carried;
-  the importer reports substitution.
-
-**Remaining queue (not closed by this batch)**
-
-1. Row 3409 and the autosave scheduling work (batch 8b) stay with the session
-   that owns `usePersistence.ts` and the native save path.
-2. Row 3504: shared decode-cap contract, test queued.
-3. Row 3634: per-node export deadline, queued pending measurement.
-4. Issues created after cutoff 2 (`2026-10-21T19:32:41Z`) are a follow-on
-   queue and are not part of this coverage claim.
-Batch 8's interaction classes were verified and pinned separately
-(`tests/e2e/ui/chrome-ownership.spec.ts`), so that queue item is closed.
-
+State at closure: branch `codex/pdfcraft-closure-20261023`, cut from
+`origin/master` at `6eebb9581`; see the PR recorded in `CLOSURE.md` for the
+merge commit.
