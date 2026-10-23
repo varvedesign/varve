@@ -33,6 +33,7 @@ import {
   subscribeToCanvasContextLifecycle,
   subscribeToDevicePixelRatio,
   subscribeToSystemResume,
+  useCanvasFocusRing,
   useCanvasGeometry,
   useCanvasViewportController,
 } from './canvas/CanvasSurfaceRuntime';
@@ -320,29 +321,10 @@ export function CanvasArea({
     installPerfDiagnosticsHandle();
   }, [settings.performance.showPerformanceDiagnostics]);
 
-  // Track keyboard focus on the inner canvas to drive the parent section's
-  // focus-visible ring. Mouse clicks fire focus but we suppress the ring
-  // for them — only :focus-visible (keyboard) shows it.
-  const canvasFocusedRef = useRef(false);
-  const handleCanvasFocus = useCallback(() => {
-    canvasFocusedRef.current = true;
-    const canvas = contentCanvasRef.current;
-    if (!canvas) return;
-    const section = canvas.closest('.editor-canvas') as HTMLElement | null;
-    if (!section) return;
-    if (canvas.matches(':focus-visible')) {
-      section.setAttribute('data-canvas-focus-visible', 'true');
-    }
-  }, []);
-
-  const handleCanvasBlur = useCallback(() => {
-    canvasFocusedRef.current = false;
-    const canvas = contentCanvasRef.current;
-    if (!canvas) return;
-    const section = canvas.closest('.editor-canvas') as HTMLElement | null;
-    if (!section) return;
-    section.removeAttribute('data-canvas-focus-visible');
-  }, []);
+  // Canvas focus tracking and the section-wide focus ring, which shows only
+  // after sequential keyboard navigation into the canvas (F-08).
+  const { canvasFocusedRef, handleCanvasFocus, handleCanvasBlur } =
+    useCanvasFocusRing(contentCanvasRef);
   // Frame/group spatial index, cached by fingerprint for fast drag containment.
   const frameIndexRef = useRef<FrameSpatialIndex | null>(null);
   const snapIndexRef = useRef<{
