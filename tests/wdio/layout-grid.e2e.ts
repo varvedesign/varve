@@ -34,10 +34,10 @@ describe('Tauri layout grid workflow', () => {
 
     const canvas = await browser.$('[data-testid="editor-canvas"]');
     await canvas.waitForDisplayed({ timeout: 30_000 });
-    const firstRunClose = await browser.$('.first-run-close');
+    const firstRunClose = await browser.$('.first-run-overlay .varve-dialog__close');
     if (await firstRunClose.isDisplayed().catch(() => false)) {
       await firstRunClose.click();
-      await browser.$('.first-run-content').waitForDisplayed({ reverse: true, timeout: 10_000 });
+      await browser.$('.first-run-overlay').waitForDisplayed({ reverse: true, timeout: 10_000 });
     }
 
     await browser.tauri.execute(() => {
@@ -123,7 +123,7 @@ describe('Tauri layout grid workflow', () => {
 
     expect(
       await browser
-        .$('.first-run-content')
+        .$('.first-run-overlay')
         .isDisplayed()
         .catch(() => false),
     ).toBe(false);

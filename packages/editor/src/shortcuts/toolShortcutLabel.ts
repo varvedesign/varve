@@ -7,11 +7,15 @@ export function toolShortcutId(id: ToolId): string | undefined {
   return toolDefinition(id).shortcutId;
 }
 
+/** Display label ("V", "Ctrl+/", "⌘/") for any registry action's effective binding. */
+export function actionShortcutLabel(actionId: string): string | undefined {
+  const binding = getEffectiveBinding(actionId);
+  return binding?.key ? formatShortcut(binding) : undefined;
+}
+
 export function toolShortcutLabel(id: ToolId): string | undefined {
   const sid = toolShortcutId(id);
-  if (!sid) return undefined;
-  const binding = getEffectiveBinding(sid);
-  return binding?.key ? formatShortcut(binding) : undefined;
+  return sid ? actionShortcutLabel(sid) : undefined;
 }
 
 /**
@@ -25,8 +29,12 @@ export function toolShortcutLabel(id: ToolId): string | undefined {
  */
 export function toolAriaKeyShortcut(id: ToolId): string | undefined {
   const sid = toolShortcutId(id);
-  if (!sid) return undefined;
-  const binding = getEffectiveBinding(sid);
+  return sid ? actionAriaKeyShortcut(sid) : undefined;
+}
+
+/** `aria-keyshortcuts` for any registry action, or undefined without a binding. */
+export function actionAriaKeyShortcut(actionId: string): string | undefined {
+  const binding = getEffectiveBinding(actionId);
   if (!binding?.key) return undefined;
   const parts: string[] = [];
   // The registry's `ctrl` flag is the primary modifier: ⌘ on mac, Ctrl elsewhere.
