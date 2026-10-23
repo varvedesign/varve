@@ -12,8 +12,9 @@ describe('reservedShortcuts', () => {
     expect(info.target).toBe('browser');
     expect(info.shortcuts.length).toBeGreaterThan(0);
     expect(info.shortcuts.some((s) => s.keys.includes('Ctrl/Cmd+W'))).toBe(true);
-    expect(info.shortcuts.some((s) => s.keys === 'Ctrl/Cmd+Shift+H')).toBe(true);
-    expect(info.shortcuts.some((s) => s.keys === 'Ctrl/Cmd+Shift+O')).toBe(true);
+    const chords = info.shortcuts.map((shortcut) => shortcut.keys);
+    expect(chords).toContain('Ctrl/Cmd+Shift+H');
+    expect(chords).toContain('Ctrl/Cmd+Shift+O');
   });
 
   it('recognizes browser-reserved history and bookmark chords without blocking the replacement chords', () => {

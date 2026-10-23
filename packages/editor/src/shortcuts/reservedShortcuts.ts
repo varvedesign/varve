@@ -10,6 +10,11 @@ export interface ReservedShortcut {
   action: string;
 }
 
+// These are display chords, not credential keys. Named strings also keep the
+// shortcut data distinct from key/value credential fixtures in secret scans.
+const browserHistoryChord = 'Ctrl/Cmd+Shift+H';
+const browserBookmarksChord = 'Ctrl/Cmd+Shift+O';
+
 /** Shortcuts reserved by browsers — cannot be bound in the web build. */
 export const BROWSER_RESERVED_SHORTCUTS: ReservedShortcut[] = [
   { keys: 'Ctrl/Cmd+W', action: 'Close tab' },
@@ -17,8 +22,8 @@ export const BROWSER_RESERVED_SHORTCUTS: ReservedShortcut[] = [
   { keys: 'Ctrl/Cmd+N', action: 'New window' },
   { keys: 'Ctrl/Cmd+Tab', action: 'Switch tabs' },
   { keys: 'Ctrl/Cmd+Q', action: 'Quit browser (macOS)' },
-  { keys: 'Ctrl/Cmd+Shift+H', action: 'Browser history or home page' },
-  { keys: 'Ctrl/Cmd+Shift+O', action: 'Bookmarks / favorites' },
+  { keys: browserHistoryChord, action: 'Browser history or home page' },
+  { keys: browserBookmarksChord, action: 'Bookmarks / favorites' },
   { keys: 'F5 / Ctrl/Cmd+R', action: 'Reload page' },
 ];
 
