@@ -34,10 +34,12 @@ test('finds a property, reveals its owning section, and restores the stack on cl
     'true',
   );
   await expect(inspector.getByRole('spinbutton', { name: /Opacity/ })).toBeVisible();
-  await expect(inspector.getByRole('button', { name: 'Fill' })).toHaveCount(0);
+  // exact: the Fill disclosure trigger is named "Fill"; "Add fill", the
+  // "Fill colour" swatch and "Fill actions" are different controls.
+  await expect(inspector.getByRole('button', { name: 'Fill', exact: true })).toHaveCount(0);
 
   await search.fill('');
-  await expect(inspector.getByRole('button', { name: 'Fill' })).toBeVisible();
+  await expect(inspector.getByRole('button', { name: 'Fill', exact: true })).toBeVisible();
 });
 
 test('explains a zero-result search instead of leaving an empty Inspector', async ({ page }) => {
