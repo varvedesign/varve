@@ -7228,7 +7228,11 @@ fieldset.insp-canvas-props,
    * a design decision with its own visual review, tracked separately.
    * See docs/architecture/interface-sizing-system.md -> "Typography roles". */
   --insp-label-size: var(--font-size-2xs);
-  --insp-value-size: clamp(0.75rem, calc(0.7255rem + 0.1087vw), 0.8125rem);
+  /* Stable rem per interface-sizing-system.md -> "Typography roles": interface
+   * chrome never changes text size because the window was resized; only
+   * display/marketing steps are fluid. This was a viewport-coupled clamp
+   * (12px-13px) although inspector-spec.md documents the value role as 13px. */
+  --insp-value-size: var(--font-size-xs);
   --insp-numeric-rail: 9ch;
   --insp-preview-max-inline-size: 20rem;
 }
