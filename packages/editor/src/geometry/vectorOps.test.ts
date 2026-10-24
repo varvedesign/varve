@@ -214,6 +214,144 @@ describe('offsetPathNode', () => {
     }
   });
 
+  it('offsets every nonzero-fill compound contour and keeps its aliases in sync', () => {
+    const outer = pathShape(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 },
+      ],
+      true,
+    ).points;
+    // Reverse winding marks this ring as a hole under SVG's nonzero rule.
+    const hole = pathShape(
+      [
+        { x: 25, y: 25 },
+        { x: 25, y: 75 },
+        { x: 75, y: 75 },
+        { x: 75, y: 25 },
+      ],
+      true,
+    ).points;
+    const node = makeShapeNode('compound', {
+      kind: 'path',
+      points: outer,
+      closed: true,
+      tolerance: 2,
+      contours: [outer, hole],
+      holes: [hole],
+      fillRule: 'nonzero',
+    });
+
+    const out = offsetPathNode(node, -10);
+
+    expect(out?.shape.kind).toBe('path');
+    if (out?.shape.kind !== 'path') return;
+    const contours = out.shape.contours;
+    expect(contours).toHaveLength(2);
+    if (!contours) throw new Error('compound path contours were not preserved');
+    const bounds = (ring: { x: number; y: number }[]) => ({
+      minX: Math.min(...ring.map((point) => point.x)),
+      minY: Math.min(...ring.map((point) => point.y)),
+      maxX: Math.max(...ring.map((point) => point.x)),
+      maxY: Math.max(...ring.map((point) => point.y)),
+    });
+    expect(bounds(contours[0]!)).toEqual({ minX: 10, minY: 10, maxX: 90, maxY: 90 });
+    expect(bounds(contours[1]!)).toEqual({ minX: 15, minY: 15, maxX: 85, maxY: 85 });
+    expect(out.shape.points).toEqual(contours[0]);
+    expect(out.shape.holes).toEqual(contours.slice(1));
+    expect(out.shape.fillRule).toBe('nonzero');
+  });
+
+  it('uses even-odd containment to expand a same-winding hole when the filled shape contracts', () => {
+    const outer = pathShape(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 },
+      ],
+      true,
+    ).points;
+    // Even-odd fill does not use winding: this same-winding nested contour is
+    // a hole and must expand when the filled outer region is contracted.
+    const hole = pathShape(
+      [
+        { x: 25, y: 25 },
+        { x: 75, y: 25 },
+        { x: 75, y: 75 },
+        { x: 25, y: 75 },
+      ],
+      true,
+    ).points;
+    const node = makeShapeNode('evenodd-compound', {
+      kind: 'path',
+      points: outer,
+      closed: true,
+      tolerance: 2,
+      contours: [outer, hole],
+      holes: [hole],
+      fillRule: 'evenodd',
+    });
+
+    const out = offsetPathNode(node, -10);
+
+    expect(out?.shape.kind).toBe('path');
+    if (out?.shape.kind !== 'path') return;
+    expect(out.shape.contours).toHaveLength(2);
+    if (!out.shape.contours) throw new Error('compound path contours were not preserved');
+    const bounds = (ring: { x: number; y: number }[]) => ({
+      minX: Math.min(...ring.map((point) => point.x)),
+      minY: Math.min(...ring.map((point) => point.y)),
+      maxX: Math.max(...ring.map((point) => point.x)),
+      maxY: Math.max(...ring.map((point) => point.y)),
+    });
+    expect(bounds(out.shape.contours[0]!)).toEqual({ minX: 10, minY: 10, maxX: 90, maxY: 90 });
+    expect(bounds(out.shape.contours[1]!)).toEqual({ minX: 15, minY: 15, maxX: 85, maxY: 85 });
+  });
+
+  it('uses the default even-odd rule for compound paths without an explicit fillRule', () => {
+    const outer = pathShape(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 },
+      ],
+      true,
+    ).points;
+    const hole = pathShape(
+      [
+        { x: 25, y: 25 },
+        { x: 75, y: 25 },
+        { x: 75, y: 75 },
+        { x: 25, y: 75 },
+      ],
+      true,
+    ).points;
+    const node = makeShapeNode('default-evenodd-compound', {
+      kind: 'path',
+      points: outer,
+      closed: true,
+      tolerance: 2,
+      contours: [outer, hole],
+      holes: [hole],
+    });
+
+    const out = offsetPathNode(node, -10);
+
+    expect(out?.shape.kind).toBe('path');
+    if (out?.shape.kind !== 'path' || !out.shape.contours) return;
+    const bounds = (ring: { x: number; y: number }[]) => ({
+      minX: Math.min(...ring.map((point) => point.x)),
+      minY: Math.min(...ring.map((point) => point.y)),
+      maxX: Math.max(...ring.map((point) => point.x)),
+      maxY: Math.max(...ring.map((point) => point.y)),
+    });
+    expect(bounds(out.shape.contours[1]!)).toEqual({ minX: 15, minY: 15, maxX: 85, maxY: 85 });
+  });
+
   it('returns the same node for a zero distance', () => {
     const node = strokeNode();
     expect(offsetPathNode(node, 0)).toBe(node);
