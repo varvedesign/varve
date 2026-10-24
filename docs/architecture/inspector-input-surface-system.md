@@ -28,8 +28,8 @@ Primary order is derived from capabilities and selection context:
 | Context | Primary order |
 | --- | --- |
 | Text | Typography → Text on Path when applicable → Position & Size |
-| Single image | Image Placement → Crop & Bounds → Position & Size |
-| Multi-image | Batch Image Placement → Position & Size |
+| Single image | Position & Size → Fill → Image Placement → Crop & Bounds |
+| Multi-image | Position & Size first; Image Placement stays ahead of Effects in registry order; Image Tuning is the batch surface |
 | Frame | Position & Size → Stack/Grid; Component/Mockup is promoted when active |
 | Component instance | Component/variant context → Position & Size → Layout |
 | Adjustment | Adjustment → Scope → applicable position/appearance |
