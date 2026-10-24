@@ -19,6 +19,7 @@ import {
   type EditorSettingsPatch,
   loadSettings as loadEditorSettings,
   saveSettings as saveEditorSettings,
+  subscribeSettings,
 } from '../../settings';
 import { applyInterfaceAppearance } from '../../settings/interfaceDensity';
 import { registerLayoutPreferenceCommands } from '../../settings/layoutPreferenceCommands';
@@ -68,6 +69,12 @@ const SettingsCtx = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<EditorSettings>(loadEditorSettings);
+  useEffect(() => {
+    const unsubscribe = subscribeSettings(setSettings);
+    // A child can write during mount before this provider's effect subscribes.
+    setSettings(loadEditorSettings());
+    return unsubscribe;
+  }, []);
   const layoutPreferenceRef = useRef(settings.appearance.layoutPreference);
   layoutPreferenceRef.current = settings.appearance.layoutPreference;
   const tabletControlsMirroredRef = useRef(settings.appearance.tabletControlsMirrored);
@@ -109,25 +116,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     saveEditorSettings(next);
   }, []);
 
-  const updateSettings = useCallback(
-    (patch: EditorSettingsPatch) => {
-      // Delegate to the store's canonical merge so the dialog and every other
-      // caller of `updateSettings` produce the same result for the same patch.
-      persist(applyEditorSettingsPatch(patch));
-      if (
-        patch.viewport?.wheelMode !== undefined ||
-        patch.viewport?.wheelSensitivity !== undefined ||
-        patch.viewport?.invertWheelZoom !== undefined ||
-        patch.viewport?.wheelInertia !== undefined
-      ) {
-        refreshNavigationSettings();
-      }
-      if (patch.render?.interactivePreview !== undefined) {
-        refreshInteractivePreviewSettings();
-      }
-    },
-    [persist],
-  );
+  const updateSettings = useCallback((patch: EditorSettingsPatch) => {
+    // Delegate to the store's canonical merge so the dialog and every other
+    // caller of `updateSettings` produce the same result for the same patch.
+    applyEditorSettingsPatch(patch);
+    if (
+      patch.viewport?.wheelMode !== undefined ||
+      patch.viewport?.wheelSensitivity !== undefined ||
+      patch.viewport?.invertWheelZoom !== undefined ||
+      patch.viewport?.wheelInertia !== undefined
+    ) {
+      refreshNavigationSettings();
+    }
+    if (patch.render?.interactivePreview !== undefined) {
+      refreshInteractivePreviewSettings();
+    }
+  }, []);
 
   useEffect(() => {
     const handleLayoutPreferenceRequest = (event: Event) => {
@@ -142,16 +146,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const updateSection = useCallback(
     (section: SettingsSection, values: Record<string, unknown>) => {
-      const current = (settings as unknown as Record<string, unknown>)[section] as
+      const latest = loadEditorSettings();
+      const current = (latest as unknown as Record<string, unknown>)[section] as
         | Record<string, unknown>
         | undefined;
       if (!current) return;
       persist({
-        ...settings,
+        ...latest,
         [section]: { ...current, ...values },
       } as EditorSettings);
     },
-    [settings, persist],
+    [persist],
   );
 
   const resetSettings = useCallback(() => {

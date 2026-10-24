@@ -196,7 +196,7 @@ test.describe('Layers row badge overflow', () => {
     }
 
     // Capacity decision at the documented 180px minimum: the unpinned solo
-    // slot yields so the blend/opacity chip keeps a readable width. Solo is
+    // slot yields so the layer name keeps a readable width. Solo is
     // not lost — it stays in the row's context menu (and the bulk bar,
     // command palette, touch devices, and the Photo workspace's pinned slot).
     const soloToggle = row.locator('[data-row-action="solo"]');
@@ -210,7 +210,7 @@ test.describe('Layers row badge overflow', () => {
     await panel.screenshot({ path: 'reports/layers-row-badge-overflow-min-width.png' });
   });
 
-  test('blend and effect labels ellipsize with their full value still available', async ({
+  test('compact rows give names the metadata space while preserving full state access', async ({
     page,
   }) => {
     await navigateToEditor(page);
@@ -240,21 +240,16 @@ test.describe('Layers row badge overflow', () => {
     await handle.press('Home');
     await page.waitForTimeout(150);
 
-    // A truncated label must be an ellipsis, never a hard clip — and it must
-    // not shrink to nothing or be clipped out of the panel: a badge the user
-    // cannot read is worse than a short one. The blend/opacity chip keeps real
-    // width at the documented 180px minimum, inside the panel's own bounds.
+    // Names lead at minimum width. Metadata yields as a group rather than
+    // leaving an unreadable sliver or forcing visibility/lock out of bounds.
     const minPanel = await page.locator('.layers-panel').boundingBox();
     expect(minPanel).not.toBeNull();
-    const blendBox = await blend.boundingBox();
-    expect(blendBox).not.toBeNull();
-    expect(blendBox!.width).toBeGreaterThan(20);
-    expect(blendBox!.x).toBeGreaterThanOrEqual(minPanel!.x);
-    expect(blendBox!.x + blendBox!.width).toBeLessThanOrEqual(minPanel!.x + minPanel!.width + 1);
-    // The effects chip yields at this width (capacity decision, documented in
-    // the spec); its state stays in the row's accessible name.
-    expect(await effects.evaluate((el) => getComputedStyle(el).display)).toBe('none');
+    await expect(blend).toBeHidden();
+    await expect(effects).toBeHidden();
+    const identityBox = await row.locator('.layers-row__label').boundingBox();
+    expect(identityBox!.width).toBeGreaterThan(32);
     await expect(row).toHaveAttribute('aria-label', /1 layer effect/);
+    await expect(row).toHaveAttribute('aria-label', /Multiply/);
 
     const style = await effects.locator('.layers-row__effect-stack-badge-label').evaluate((el) => {
       const cs = getComputedStyle(el);

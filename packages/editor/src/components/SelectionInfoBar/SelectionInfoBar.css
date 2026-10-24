@@ -2,9 +2,9 @@
  * SelectionInfoBar — the leading segment of the status bar.
  *
  * It used to be a strip of its own stacked on the status bar. As a segment it
- * is the one piece of the row allowed to shrink: geometry readouts stay whole
- * and the name and breadcrumbs ellipsize, so controls to its right are never
- * pushed out of reach.
+ * may shrink only to its actionable minimum: geometry readouts stay whole
+ * and individual labels ellipsize. The outer status scroller must be able to
+ * expose every ancestor action, even when the rest of the row is crowded.
  */
 
 .editor-status > .selection-info-bar {
@@ -12,8 +12,7 @@
   align-items: center;
   gap: var(--space-1);
   flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
+  min-width: min-content;
   color: var(--color-text-secondary);
 }
 
@@ -24,7 +23,7 @@
   align-items: center;
   gap: var(--space-1);
   flex: 0 1 auto;
-  min-width: 0;
+  min-width: min-content;
 }
 
 .selection-info-bar__page-name {
@@ -74,7 +73,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  min-width: 0;
+  min-width: min-content;
   flex-shrink: 1;
 }
 

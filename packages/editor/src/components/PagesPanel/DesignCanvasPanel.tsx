@@ -15,12 +15,13 @@ import {
   reorderDesignCanvases,
   setActiveDesignCanvas,
 } from '@varve/scene';
-import { InfoHint, Tooltip } from '@varve/ui';
+import { IconButton, InfoHint } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../context';
 import { confirmDialog, promptDialog } from '../PromptDialog';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
 import { usePersistedDisclosure } from '../usePersistedDisclosure';
+import { DesignCanvasActions } from './DesignCanvasActions';
 import './pages-panel.css';
 
 function orderedCanvases(canvases: DesignCanvas[] | undefined): DesignCanvas[] {
@@ -121,27 +122,26 @@ export function DesignCanvasPanel() {
   return (
     <section className="pages-panel design-canvas-panel" aria-label="Design Canvases">
       <div className="pages-panel__header">
-        <h3 className="pages-panel__title">
+        <h3 className="pages-panel__title" aria-label="Design Canvases">
           <SectionCollapseToggle
             collapsed={collapsed}
             onToggle={() => setCollapsed((value) => !value)}
             label="Design Canvases section"
-            controls="design-canvas-list"
+            controls={collapsed ? undefined : 'design-canvas-list'}
           />
-          Design Canvases
+          Canvases
           <span className="pages-panel__count">{canvases.length}</span>
           <InfoHint topic="Design Canvases">
             Unbounded work surfaces for exploration and UI design. Publishing Pages live in Print.
           </InfoHint>
         </h3>
-        <button
-          type="button"
-          className="pages-panel__add-btn"
+        <IconButton
+          icon="Plus"
+          size="icon-xs"
+          variant="default"
           onClick={addCanvas}
-          aria-label="Add Design Canvas"
-        >
-          +
-        </button>
+          label="Add Design Canvas"
+        />
       </div>
       {!collapsed && (
         <ul
@@ -165,60 +165,15 @@ export function DesignCanvasPanel() {
                 <span className="design-canvas-panel__canvas-mark" aria-hidden="true" />
                 <span className="design-canvas-panel__name">{canvas.name}</span>
               </button>
-              <div className="design-canvas-panel__actions">
-                <Tooltip label="Rename">
-                  <button
-                    type="button"
-                    className="pages-panel__icon-btn"
-                    onClick={() => void renameCanvas(canvas)}
-                    aria-label={`Rename ${canvas.name}`}
-                  >
-                    Rename
-                  </button>
-                </Tooltip>
-                <Tooltip label="Duplicate">
-                  <button
-                    type="button"
-                    className="pages-panel__icon-btn"
-                    onClick={() => duplicateCanvas(canvas.id)}
-                    aria-label={`Duplicate ${canvas.name}`}
-                  >
-                    Copy
-                  </button>
-                </Tooltip>
-                <Tooltip label="Move up">
-                  <button
-                    type="button"
-                    className="pages-panel__icon-btn"
-                    onClick={() => moveCanvas(canvas.id, -1)}
-                    disabled={index === 0}
-                    aria-label={`Move ${canvas.name} up`}
-                  >
-                    Up
-                  </button>
-                </Tooltip>
-                <Tooltip label="Move down">
-                  <button
-                    type="button"
-                    className="pages-panel__icon-btn"
-                    onClick={() => moveCanvas(canvas.id, 1)}
-                    disabled={index === canvases.length - 1}
-                    aria-label={`Move ${canvas.name} down`}
-                  >
-                    Down
-                  </button>
-                </Tooltip>
-                <Tooltip label="Remove">
-                  <button
-                    type="button"
-                    className="pages-panel__icon-btn pages-panel__icon-btn--danger"
-                    onClick={() => void removeCanvas(canvas)}
-                    aria-label={`Remove ${canvas.name}`}
-                  >
-                    Remove
-                  </button>
-                </Tooltip>
-              </div>
+              <DesignCanvasActions
+                name={canvas.name}
+                first={index === 0}
+                last={index === canvases.length - 1}
+                onRename={() => void renameCanvas(canvas)}
+                onDuplicate={() => duplicateCanvas(canvas.id)}
+                onMove={(direction) => moveCanvas(canvas.id, direction)}
+                onRemove={() => void removeCanvas(canvas)}
+              />
             </li>
           ))}
           {canvases.length === 0 && (

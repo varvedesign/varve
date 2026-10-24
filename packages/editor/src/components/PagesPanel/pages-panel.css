@@ -299,41 +299,13 @@
   font-size: var(--font-size-sm);
 }
 
-/* Row actions are out of flow at rest instead of reserving ~210px of inline
- * space (five text-labelled buttons), which left the select only ~50px at a
- * full desktop rail and ~10px in the compact drawer: the canvas name read
- * "C…" at every width, the row overflowed the list, and — because the old
- * reveal used `opacity: 0` only — the invisible buttons still hit-tested, so
- * a click on the row's empty middle activated a hidden action.
- *
- * With `display: none` at rest the name gets the whole row, nothing hidden
- * can receive a click, and the row never overflows the list. On hover or
- * focus-within the actions join the same flex line and the select yields
- * exactly the width they take — the row's HEIGHT never changes, so revealing
- * one row can never move another row under a pointer that is mid-click (a
- * wrapping, height-changing reveal made pointerup land on a different row's
- * action and dropped the activation entirely). The revealed state briefly
- * narrows the select at tight rails — the actions are the point of that
- * state, and the name is full again the moment they leave. Focus reveal
- * keeps the keyboard path: focusing the select shows the actions, which then
- * become focusable in DOM order after it. */
+/* A stable, labelled menu target replaces five hover-revealed text actions.
+ * The canvas name retains the same width on hover, focus and touch. */
 .design-canvas-panel__actions {
-  display: none;
-  gap: 1px;
-  margin-left: auto;
-  flex: 0 0 auto;
-}
-
-.design-canvas-panel__actions .pages-panel__icon-btn {
-  width: auto;
-  min-width: 22px;
-  padding: 0 var(--space-1);
-  font-size: var(--font-size-2xs);
-}
-
-.design-canvas-panel__row:hover .design-canvas-panel__actions,
-.design-canvas-panel__row:focus-within .design-canvas-panel__actions {
   display: flex;
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+  padding-inline-end: var(--space-1);
 }
 
 /* ── Comic story outline ───────────────────────────────── */

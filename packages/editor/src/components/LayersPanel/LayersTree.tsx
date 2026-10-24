@@ -84,6 +84,7 @@ import {
   searchIndex,
   updateIndex,
 } from './layerSearchIndex';
+import { measureLayerRow } from './measureLayerRow';
 import { SortableVirtualRow } from './SortableVirtualRow';
 import { computeDocumentDiff, type FlatEntry, useFlatTree } from './useFlatTree';
 import { useLayerNavigation } from './useLayerNavigation';
@@ -675,6 +676,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     // driven scroll math (jump to index, overscan bounds before remeasure)
     // honest. measureElement below remains the authoritative per-row size.
     estimateSize: () => densityRowHeight,
+    measureElement: measureLayerRow,
     // Dynamic row measurements run from the row's commit-phase ref callback.
     // TanStack's default flushSync path warns under React 19 in that phase;
     // normal batching avoids the warning while measured heights still update.

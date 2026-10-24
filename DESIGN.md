@@ -438,6 +438,22 @@ The token audit enforces contrast ratios on every declared pair:
 
 ### Tree (Layer Panel)
 
+The Layers-first composition (approved 2026-10-23) preserves both editor rails.
+Names and tree height take priority over secondary chrome: at container widths
+up to 260px, metadata, previews and leaf disclosure spacers yield; visibility
+and lock retain their compact target floor. `--layers-indent-step` maps to
+`--space-3` normally and `--space-1` in compact rails. `--layers-tree-min-height`
+reserves a bounded viewport-relative tree region; the outer rail can scroll.
+Canvas management uses a stable actions menu instead of replacing the name
+with hover actions. Collapse all and reverse auto-reveal share the existing
+Layer navigation settings menu. See `docs/design-system/layers-panel-spec.md`
+for the capacity and state-preservation contract.
+Header icons use `--target-min-compact` (touch retains `--touch-target-min`),
+so selecting a layer does not force the ordinary header into two rows.
+Filter options disclose inactive workspace presets; active presets remain
+visible and removable. Canvas-menu dialog actions hand focus to their stable
+trigger before opening, giving native cancellation a surviving return target.
+
 | Token | Purpose |
 |-------|---------|
 | `tree-row` | Default row background |

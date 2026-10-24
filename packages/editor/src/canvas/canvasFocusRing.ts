@@ -25,12 +25,15 @@ export function useCanvasFocusRing(canvasRef: RefObject<HTMLCanvasElement | null
   // Read by the input pipeline: canvas shortcuts only act while it is true.
   const canvasFocusedRef = useRef(false);
   const lastTabAt = useRef(Number.NEGATIVE_INFINITY);
+  const keyboardOverlayRef = useRef<Element | null>(null);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Tab') lastTabAt.current = event.timeStamp;
     };
     const onPointerDown = (event: PointerEvent) => {
+      keyboardOverlayRef.current = null;
+      lastTabAt.current = Number.NEGATIVE_INFINITY;
       const section = canvasSection(canvasRef.current);
       if (section && event.target instanceof Node && section.contains(event.target)) {
         section.removeAttribute(RING_ATTRIBUTE);
@@ -48,17 +51,34 @@ export function useCanvasFocusRing(canvasRef: RefObject<HTMLCanvasElement | null
     (event: FocusEvent<HTMLCanvasElement>) => {
       canvasFocusedRef.current = true;
       const section = canvasSection(canvasRef.current);
-      if (section && event.timeStamp - lastTabAt.current < NAVIGATION_WINDOW_MS) {
+      const overlay = keyboardOverlayRef.current;
+      const returningFromOverlay =
+        overlay !== null &&
+        (!overlay.isConnected ||
+          (event.relatedTarget instanceof Node && overlay.contains(event.relatedTarget)));
+      keyboardOverlayRef.current = null;
+      if (
+        section &&
+        (returningFromOverlay || event.timeStamp - lastTabAt.current < NAVIGATION_WINDOW_MS)
+      ) {
         section.setAttribute(RING_ATTRIBUTE, 'true');
       }
     },
     [canvasRef],
   );
 
-  const handleCanvasBlur = useCallback(() => {
-    canvasFocusedRef.current = false;
-    canvasSection(canvasRef.current)?.removeAttribute(RING_ATTRIBUTE);
-  }, [canvasRef]);
+  const handleCanvasBlur = useCallback(
+    (event: FocusEvent<HTMLCanvasElement>) => {
+      canvasFocusedRef.current = false;
+      const section = canvasSection(canvasRef.current);
+      keyboardOverlayRef.current =
+        section?.hasAttribute(RING_ATTRIBUTE) && event.relatedTarget instanceof Element
+          ? event.relatedTarget.closest('[data-overlay-id], dialog[open]')
+          : null;
+      section?.removeAttribute(RING_ATTRIBUTE);
+    },
+    [canvasRef],
+  );
 
   return { canvasFocusedRef, handleCanvasFocus, handleCanvasBlur };
 }

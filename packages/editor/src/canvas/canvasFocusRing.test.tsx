@@ -54,4 +54,26 @@ describe('useCanvasFocusRing', () => {
     getByText('Before').focus();
     expect(ring(getByTestId('section'))).toBeNull();
   });
+
+  it('restores keyboard provenance after a temporary overlay outlives the Tab window', () => {
+    const { getByTestId } = render(<Harness />);
+    const canvas = getByTestId('canvas');
+    const section = getByTestId('section');
+    fireEvent.keyDown(window, { key: 'Tab' });
+    canvas.focus();
+    const overlay = document.createElement('div');
+    overlay.dataset.overlayId = 'menu';
+    const item = document.createElement('button');
+    overlay.append(item);
+    document.body.append(overlay);
+    item.focus();
+    expect(ring(section)).toBeNull();
+    // Use an aged event timestamp, without a real-time sleep. A returned focus
+    // event can occur arbitrarily long after the opening Tab navigation.
+    const returnedFocus = new FocusEvent('focusin', { bubbles: true, relatedTarget: item });
+    Object.defineProperty(returnedFocus, 'timeStamp', { value: performance.timeOrigin + 60_000 });
+    fireEvent(canvas, returnedFocus);
+    expect(ring(section)).toBe('true');
+    overlay.remove();
+  });
 });

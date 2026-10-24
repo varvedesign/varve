@@ -7,13 +7,15 @@
  * the fills of its ancestor frames, then the document's canvas background,
  * then the editor's board colour, composited in paint order.
  *
- * Frames whose paint comes from a fill stack or shared paints (gradients,
- * images, blends) are looked through rather than guessed at.
+ * Solid fill stacks and shared paints use the renderer's resolution order.
+ * Visible gradients, images and blends are looked through rather than guessed
+ * at, unless an opaque solid above them completely covers them.
  */
 import { contrastRatio, managedColorToRgba, relativeLuminance } from '@varve/shared';
 import type { RgbColor } from './colorManagement';
 import type { Document } from './document';
 import { getParent } from './document-utils';
+import { resolveNodePaints } from './paint';
 import type { NodeId } from './types';
 
 /** Ink for text on light surfaces (the long-standing default). */
@@ -57,8 +59,32 @@ function frameFill(doc: Document, id: NodeId): Rgba | null {
   const node = doc.nodes[id];
   if (node?.kind !== 'frame' || node.visible === false) return null;
   if (node.frameRole === 'exportRegion') return null;
-  if ((node.fills?.length ?? 0) > 0 || (node.paintRefs?.length ?? 0) > 0) return null;
-  return managedColorToRgba(node.fill);
+  if (node.blendMode !== 'normal' || node.opacity <= 0) return null;
+
+  const fills = resolveNodePaints(
+    { paintRefs: node.paintRefs, fills: node.fills, fill: { ...node.fill } },
+    doc,
+  );
+  // Accumulate premultiplied colour from the top down. The frame's opacity
+  // applies once to the resulting stack, not independently to each paint.
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let alpha = 0;
+  for (let i = fills.length - 1; i >= 0 && alpha < 1; i--) {
+    const fill = fills[i]!;
+    if (!fill.visible || fill.opacity <= 0) continue;
+    if (fill.type !== 'solid' || fill.blendMode !== 'normal' || !fill.color) return null;
+    const [fr, fg, fb, fa] = managedColorToRgba(fill.color);
+    const coverage = (fa / 255) * Math.min(1, fill.opacity) * (1 - alpha);
+    r += fr * coverage;
+    g += fg * coverage;
+    b += fb * coverage;
+    alpha += coverage;
+  }
+  return alpha > 0
+    ? [r / alpha, g / alpha, b / alpha, alpha * Math.min(1, node.opacity) * 255]
+    : null;
 }
 
 function surfaceBehind(doc: Document, parentId: NodeId | null, board: BoardColor): BoardColor {

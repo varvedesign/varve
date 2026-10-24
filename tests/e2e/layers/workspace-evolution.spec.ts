@@ -115,6 +115,8 @@ test.describe('Layers — workspace projection', () => {
 
     // Design: components preset only.
     await switchWorkspace(page, 'Design');
+    await expect(page.getByRole('button', { name: 'Components' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Show filter options' }).click();
     await expect(page.getByRole('button', { name: 'Components' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Threaded text' })).toHaveCount(0);
 
@@ -157,7 +159,10 @@ test.describe('Layers — workspace projection', () => {
     await expect(selectedRow).toHaveAttribute('aria-label', /hidden on mobile/i);
 
     // The quick filter narrows the tree to that node.
+    await page.getByRole('button', { name: 'Show filter options' }).click();
     await page.getByRole('button', { name: 'Mobile hidden' }).click();
+    await page.getByRole('button', { name: 'Hide filter options' }).click();
+    await expect(page.getByRole('button', { name: 'Mobile hidden' })).toBeVisible();
     await expect(page.locator('.layers-panel__filter-badge')).toBeVisible();
     await expect.poll(() => page.locator('[role="treeitem"]:visible').count()).toBe(1);
     // The surviving row is the one carrying the projected badge (virtualized
@@ -276,6 +281,7 @@ test.describe('Layers — workspace projection', () => {
     await navigateToEditor(page);
     await importSimpleShapes(page);
     await switchWorkspace(page, 'Print');
+    await page.getByRole('button', { name: 'Show filter options' }).click();
 
     const chip = page.getByRole('button', { name: 'Threaded text' });
     await chip.focus();
@@ -290,6 +296,7 @@ test.describe('Layers — workspace projection', () => {
     await navigateToEditor(page);
     await importSimpleShapes(page);
     await switchWorkspace(page, 'Print');
+    await page.getByRole('button', { name: 'Show filter options' }).click();
     await page.getByRole('button', { name: 'Threaded text' }).click();
 
     const results = await new AxeBuilder({ page })

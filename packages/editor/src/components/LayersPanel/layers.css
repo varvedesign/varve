@@ -2,6 +2,7 @@
 
 /* ─── Container — density-aware ──────────────────────────────── */
 .layers-panel {
+  --layers-tree-min-height: clamp(10rem, 30vh, 14rem);
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
@@ -80,17 +81,9 @@
   letter-spacing: 0.02em;
 }
 
-/* Narrow rail: header-actions (settings, auto-reveal, collapse-all, the
- * conditional Exit Solo text button, detach) can alone exceed the panel's
- * minimum width once Exit Solo is present. Neither side shrinks or wraps by
- * default, so the heading and the trailing actions overlapped instead of
- * cleanly reflowing. Wrapping onto its own row keeps every action reachable
- * instead of overlapping the title or being clipped past the panel's edge.
- *
- * The header wraps only when its content does not fit. It used to wrap at any
- * rail of 340px or less, which is every default width, so the title and five
- * icon buttons always took two rows (63px) and pushed the tree down (F-05).
- * The header itself sets `flex-wrap: wrap`. */
+/* The ordinary title + details/settings/detach fit on one compact row, even
+ * with a selected layer. Exit Solo and active filters may still wrap: those
+ * states must stay reachable rather than overlap the heading. */
 .layers-panel__header-actions {
   display: flex;
   flex-wrap: wrap;
@@ -106,10 +99,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--component-default-height);
-  min-height: var(--component-default-height);
-  width: var(--component-default-height);
-  height: var(--component-default-height);
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
+  width: var(--target-min-compact);
+  height: var(--target-min-compact);
   border: 1px solid transparent;
   background: none;
   color: var(--color-text-muted);
@@ -142,10 +135,10 @@
 }
 
 .layers-panel__header-actions > .panel-detach-btn {
-  width: var(--component-default-height);
-  height: var(--component-default-height);
-  min-width: var(--component-default-height);
-  min-height: var(--component-default-height);
+  width: var(--target-min-compact);
+  height: var(--target-min-compact);
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
 }
 
 @media (pointer: coarse), (any-pointer: coarse) {
@@ -236,7 +229,7 @@
  * grows it and the rail scrolls instead. */
 .layers-panel__tree {
   flex: 1 1 0;
-  min-height: clamp(96px, 18vh, 160px);
+  min-height: var(--layers-tree-min-height);
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -254,6 +247,7 @@
 
 /* ─── Row ────────────────────────────────────────────────────── */
 .layers-row {
+  --layers-indent-step: var(--space-3);
   display: flex;
   align-items: center;
   gap: var(--density-rows-gap, var(--space-1));
@@ -699,13 +693,9 @@
 }
 
 @container layers (max-width: 239px) {
-  /* No floor at the documented 180px minimum: the fixed row controls (type
-     icon, drag handle, visibility/lock, gaps) plus the badge cluster's
-     1.5rem floor already reach the row's inner width, so even a 4ch name
-     floor pushes the row past the panel edge and clips the toggles
-     (`layers-row-badge-overflow.spec.ts` "blend and effect labels…" asserts
-     scrollWidth <= clientWidth). The name still renders whenever there is
-     free space; at this width the accessible name and the tooltip carry it. */
+  /* Compact rows recover space from badges, previews and leaf disclosure
+     spacers below. Let deeply nested rows shrink without pushing visibility
+     or lock past the edge; ordinary names use all the recovered width. */
   .layers-row__label {
     min-width: 0;
   }
@@ -2252,31 +2242,26 @@
 }
 
 @container layers (max-width: 260px) {
-  /* At the documented 180px minimum only one chip fits next to the icon
-     stack, the label, and the visibility/lock toggles. Keep the
-     blend/opacity summary (the row's most frequent at-a-glance state) and
-     yield the rest: the effects and filter chips stay in the row's
-     accessible name, their Inspector sections, and the effect-badge
-     tooltips at wider widths. */
+  /* Names lead in a compact rail. Metadata remains in selected-layer details,
+     the Inspector and accessible row descriptions; an empty badge slot must
+     not reserve space. Visibility and lock keep stable 24px targets. */
   .layers-row__badges {
-    min-width: 1.5rem;
-    /* At the documented minimum the toggles win outright: the cluster yields
-       to its 1.5rem floor (the surviving blend/opacity chip's readable
-       minimum) instead of letting the label's zero-width state push the
-       visibility/lock/solo controls past the panel edge. Above this
-       breakpoint the label yields first — see `.layers-row__label`. */
-    flex-shrink: 9999;
-  }
-
-  .layers-row__badge {
-    max-width: 3.25rem;
-    /* Keep a readable minimum: a badge squeezed to a few pixels is noise. */
-    min-width: 1.5rem;
-  }
-
-  .layers-row__effect-stack-badge,
-  .layers-row__mask-role {
     display: none;
+  }
+
+  .layers-row {
+    --layers-indent-step: var(--space-1);
+    gap: var(--space-05);
+  }
+
+  .layers-row__thumbnail,
+  .layers-row__disclosure-spacer {
+    display: none;
+  }
+
+  .layers-row__drag-handle {
+    width: var(--target-min-compact);
+    min-width: var(--target-min-compact);
   }
 
   /* Revealed groups stay hidden here: a hover-revealed chip would displace

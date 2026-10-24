@@ -58,18 +58,18 @@ contains focus). Pinned vs revealed comes from the workspace configuration
 `aria-label` composes the same facts in every workspace.
 
 `data-badge-group` attributes expose the grouping for CSS and E2E; the
-existing `.layers-row__badges` wrapper continues to absorb overflow at narrow
-widths.
+existing `.layers-row__badges` wrapper bounds metadata at wide widths and
+yields its entire slot on compact rails.
 
 **Capacity rules at narrow rails (container query, `layers` container).**
 
 | Width | Rule |
 |---|---|
 | Any | The identity column takes the leftover width (`flex: 1 1 0`) and the badge cluster is bounded (`max-width: min(42%, 12rem)`) so a dense status stack cannot reserve a rail on every row. The cluster keeps `min-width: 0` + `overflow: hidden`, and the shrink:0 visibility/lock/solo toggles never move (`AUD-010`) |
-| ≥ 220px | The label floor is 8ch: a wide panel does not render every name at its minimum |
-| ≤ 219px | The label floor is 0. At the documented 180px minimum the fixed controls plus the cluster's 1.5rem floor already fill the row's inner width, so any name floor pushes the toggles past the panel edge (`layers-row-badge-overflow.spec.ts` asserts `scrollWidth <= clientWidth`). The name renders whenever there is free space; the accessible name and tooltip carry it otherwise |
+| ≥ 240px container width | The label floor is 8ch: a wide panel does not render every name at its minimum |
+| ≤ 239px container width | The label may shrink for deep nesting, but ordinary names use the width recovered from secondary slots. Visibility and lock remain inside the row; the full name is available in layer details and the accessible row name |
 | ≤ 340px | Chips cap at 4.5rem and ellipsize |
-| ≤ 260px | The blend/opacity chip keeps a 1.5rem minimum; effect and object-filter chips yield; mask-role chip yields; revealed (non-pinned) groups stay hidden so a hover reveal cannot displace a pinned chip. The cluster yields to its 1.5rem floor before the label is displaced |
+| ≤ 260px | The entire metadata cluster, thumbnails and leaf disclosure spacer yield to names. Row gaps and visual indentation contract using existing spacing tokens; actual ancestry and drag/drop depth do not change. State remains in the row's accessible name, selected-layer details and Inspector; hover does not reclaim the space |
 | ≤ 260px, hover-capable | The unpinned solo control's slot collapses. Solo stays in the context menu, the bulk bar, the command palette, and on touch devices and the Photo workspace (pinned slot) |
 
 **Labels never hard-clip.** A badge that can truncate owns
@@ -109,6 +109,10 @@ state.
 - The search field gains a **Select matches** action (§2.6) enabled whenever a
   filter is active and matches ≥ 1 row.
 - The header shows `Filtered` and the filter bar shows `N of M layers`.
+- Workspace presets are disclosed by **Show filter options**. Active presets
+  stay visible when options close and can be removed directly; removing a
+  collapsed preset returns focus to search. The unfiltered tree pays no extra
+  preset-row height.
 - Empty states: "No layers yet" (empty document) vs "No results found"
   (filter) remain distinct.
 
@@ -389,16 +393,29 @@ are **blocked on the concurrent comic-workflow schema migration** taking
 `packages/scene/src/types.ts` + `version.ts` (implementing a second migration
 in the same files concurrently is prohibited by the coordination protocol).
 
-## 8. Implementation follow-up — 2026-09-19
+## 8. Implementation follow-up — 2026-10-23
 
-The closure implementation keeps one protected identity column in each row.
-The label uses the available width (`flex: 1 1 0`) with a four-character floor
-at the 180px minimum and an eight-character floor from 220px upward. The
-secondary status cluster sizes from the badges it actually contains and is
-bounded to 42% / 12rem; it no longer reserves an empty percentage-based rail.
-This keeps long names readable in a wide panel while preserving the fixed
-visibility, lock, solo, and disclosure targets. Indentation remains adaptive
-and the real `aria-level`/drop ancestry is unchanged.
+The approved Layers-first composition retains both editor rails and prioritizes
+tree height and names. The tree uses `--layers-tree-min-height` (a bounded,
+viewport-relative floor); the enclosing rail scrolls when auxiliary sections
+need more room. The label takes available width (`flex: 1 1 0`). Above the
+compact breakpoint, the status cluster sizes from its content and is bounded
+to 42% / 12rem. At compact widths it yields entirely, as described in §1.
+Visibility/lock targets stay stable and real `aria-level`/drop ancestry is
+unchanged. These are composition rules, not a reduction in type or target size.
+
+The Canvases section uses one stable actions menu per surface for rename,
+duplicate, reorder and remove; the name has the same width on hover and focus.
+The Layers navigation menu also owns Collapse all layers and reverse
+auto-reveal, avoiding duplicate header controls. Both menus use shared keyboard
+and focus-transfer behavior. Home/resume must preserve layer selection, scroll
+and camera; a cancelled management dialog must restore its initiating control.
+
+Home hides the mounted editor rather than discarding it. The row measurer keeps
+the last positive size by node identity when hidden rows report zero; an
+unmeasured row uses the current density estimate. Otherwise the virtual spacer
+shrinks and the browser clamps its scroll position before Resume Editing.
+Positive measurements, including density changes, remain authoritative.
 
 Layer details are available from the focused row, the selected-layer header
 action, and the row context menu. The shared popover exposes the full name,

@@ -38,7 +38,8 @@ test.describe('Design Canvas navigator', () => {
     await secondCanvas.click();
     await expect(secondCanvas).toHaveAttribute('aria-current', 'true');
 
-    await navigator.getByRole('button', { name: 'Rename Canvas 2' }).click();
+    await navigator.getByRole('button', { name: 'Actions for Canvas 2' }).click();
+    await page.getByRole('menuitem', { name: 'Rename' }).click();
     const renameInput = page.getByRole('textbox', { name: 'Rename Design Canvas' });
     await expect(renameInput).toBeVisible();
     await renameInput.fill('Campaign exploration');

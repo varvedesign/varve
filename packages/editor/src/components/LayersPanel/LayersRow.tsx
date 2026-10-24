@@ -479,7 +479,7 @@ export const LayersRow = memo(function LayersRow({
   // rows beyond MAX_VISUAL_INDENT_DEPTH keep a readable cue of their
   // (flattened) nesting lane.
   const indentGuides = Array.from({ length: visualDepth }, (_, level) => {
-    const offset = `calc(var(--space-2) + ${level} * var(--space-3))`;
+    const offset = `calc(var(--space-2) + ${level} * var(--layers-indent-step))`;
     return (
       <span
         key={offset}
@@ -534,7 +534,7 @@ export const LayersRow = memo(function LayersRow({
         onDoubleClick={handleDoubleClick}
         style={
           {
-            paddingLeft: `calc(var(--space-2) + ${visualDepth} * var(--space-3))`,
+            paddingLeft: `calc(var(--space-2) + ${visualDepth} * var(--layers-indent-step))`,
             '--layers-row-color': node.layerColor
               ? `var(--color-layer-tag-${node.layerColor})`
               : undefined,

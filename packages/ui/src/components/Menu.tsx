@@ -415,9 +415,13 @@ function MenuInternal({
     const ownerWindow = menuRef.current?.ownerDocument.defaultView ?? window;
     submenuCloseTimerRef.current = ownerWindow.setTimeout(() => {
       submenuCloseTimerRef.current = null;
+      const menu = menuRef.current;
+      // A pointer exit closes only this child. Hand its focus back before
+      // unmounting; leave focus alone if the user already moved elsewhere.
+      if (menu?.contains(menu.ownerDocument.activeElement)) focusMenuTrigger(triggerRef);
       onClose('outside-pointer');
     }, 150);
-  }, [clearSubmenuClose, onClose]);
+  }, [clearSubmenuClose, onClose, triggerRef]);
 
   const activateAction = useCallback(
     (item: MenuItem) => {

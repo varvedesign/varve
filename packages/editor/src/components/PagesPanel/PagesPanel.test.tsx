@@ -255,7 +255,7 @@ describe('Design Canvas presentation', () => {
     expect(screen.queryByText('Publishing pages')).not.toBeInTheDocument();
   });
 
-  it('exposes create and rename actions for Design Canvases', () => {
+  it('exposes create and rename actions for Design Canvases', async () => {
     const updateDoc = vi.fn();
     const setSelection = vi.fn();
     mockEditor({
@@ -272,6 +272,7 @@ describe('Design Canvas presentation', () => {
 
     expect(updateDoc).toHaveBeenCalledTimes(1);
     expect(setSelection).toHaveBeenCalledWith(null);
-    expect(screen.getByRole('button', { name: 'Rename Campaign' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Campaign' }));
+    expect(await screen.findByRole('menuitem', { name: /^Rename/ })).toBeVisible();
   });
 });

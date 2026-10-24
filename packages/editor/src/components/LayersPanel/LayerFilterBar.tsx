@@ -117,6 +117,11 @@ export function LayerFilterBar({
 }: LayerFilterBarProps) {
   const [expanded, setExpanded] = useState(false);
   const filterRef = useRef<HTMLInputElement>(null);
+  // Unused presets yield to the tree. Active presets remain visible/removable
+  // after disclosure closes so the filtered projection never becomes hidden state.
+  const visibleQuickFilters = expanded
+    ? quickFilters
+    : quickFilters.filter((preset) => filter.attributes[QUICK_FILTER_TARGET[preset]] === true);
 
   const hasActiveFilter =
     filter.search !== '' ||
@@ -185,8 +190,9 @@ export function LayerFilterBar({
       merged[key] = true;
       if (wasActive) delete merged[key];
       onChange({ ...filter, attributes: merged });
+      if (wasActive && !expanded) filterRef.current?.focus();
     },
-    [filter, onChange],
+    [expanded, filter, onChange],
   );
 
   return (
@@ -317,10 +323,10 @@ export function LayerFilterBar({
         </fieldset>
       )}
 
-      {quickFilters.length > 0 && (
+      {visibleQuickFilters.length > 0 && (
         // biome-ignore lint/a11y/useSemanticElements: named workspace filter toggles are buttons, not form fields.
         <div className="layers-filter-bar__quick" role="group" aria-label="Workspace filters">
-          {quickFilters.map((preset) => {
+          {visibleQuickFilters.map((preset) => {
             const key = QUICK_FILTER_TARGET[preset];
             const active = filter.attributes[key] === true;
             return (

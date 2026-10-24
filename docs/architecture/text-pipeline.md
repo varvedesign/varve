@@ -26,6 +26,30 @@ enough to serve as Varve’s authoritative glyph, cluster, caret, or export data
 The exact findings and code references are in
 [the 2026-08-13 Unicode text audit](../audits/unicode-text-shaping-audit-2026-08-13.md).
 
+## Default ink when creating text
+
+The canvas text tool and context-menu creation path use `canvas/newTextInk.ts`
+and the scene's `defaultTextFillAt`. They choose the better-contrasting of the
+existing dark and light inks against ancestor frame fills, the document canvas
+background, then the theme board. This is a creation default, not an automatic
+recolouring of authored text when a theme or frame changes.
+
+Frame paints resolve through `resolveNodePaints`: shared paint references take
+precedence over inline fill stacks, then legacy single fills. Visible normal
+solid paints composite bottom-to-top with both colour alpha and fill opacity;
+frame opacity applies once to the combined stack. A missing shared paint must
+not expose a stale inline fill. Export regions do not supply a background.
+
+This bounded heuristic does not sample rendered pixels. Exposed gradients,
+images and blend-dependent paints fall back to the enclosing surface; an opaque
+solid above them can still establish a known background. Effects and overlapping
+sibling artwork are not sampled. Keep the user's colour controls available
+rather than claiming guaranteed contrast for these unsupported surfaces.
+
+Coverage: `packages/scene/src/textInk.test.ts`,
+`packages/editor/src/canvas/newTextInk.test.ts`, and the real Fill-picker → text
+creation journey in `tests/e2e/canvas/text-default-ink.spec.ts`.
+
 ## Editing surface and inspector cost
 
 The native textarea preserves the full transformed text bounds for caret,

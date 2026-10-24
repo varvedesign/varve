@@ -815,8 +815,19 @@ function normalizeRenderSettings(
   };
 }
 
+const settingsListeners = new Set<(settings: EditorSettings) => void>();
+
+/** Keep mounted Home/editor providers aligned with canonical same-window writes. */
+export function subscribeSettings(listener: (settings: EditorSettings) => void): () => void {
+  settingsListeners.add(listener);
+  return () => {
+    settingsListeners.delete(listener);
+  };
+}
+
 export function saveSettings(settings: EditorSettings): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  for (const listener of settingsListeners) listener(settings);
 }
 
 export interface EditorSettingsPatch {

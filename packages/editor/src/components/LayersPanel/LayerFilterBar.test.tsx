@@ -80,7 +80,7 @@ describe('LayerFilterBar — chip semantics', () => {
 });
 
 describe('LayerFilterBar — workspace presets', () => {
-  it('renders only the configured quick filters, as toggle buttons', () => {
+  it('discloses only the configured quick filters, as toggle buttons', () => {
     render(
       <LayerFilterBar
         filter={DEFAULT_FILTER}
@@ -91,6 +91,8 @@ describe('LayerFilterBar — workspace presets', () => {
       />,
     );
 
+    expect(screen.queryByRole('button', { name: 'Animated' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show filter options' }));
     const preset = screen.getByRole('button', { name: 'Animated' });
     expect(preset).toHaveAttribute('aria-pressed', 'false');
     // No other workspace preset leaks in.
@@ -113,6 +115,7 @@ describe('LayerFilterBar — workspace presets', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: 'Show filter options' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mobile hidden' }));
     expect(filter.attributes.mobileHidden).toBe(true);
     rerender(
@@ -131,6 +134,36 @@ describe('LayerFilterBar — workspace presets', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Mobile hidden' }));
     expect(filter.attributes.mobileHidden).toBeUndefined();
+  });
+
+  it('keeps active presets removable when collapsed and returns focus to search', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <LayerFilterBar
+        filter={{ ...DEFAULT_FILTER, attributes: { mobileHidden: true } }}
+        onChange={onChange}
+        matchCount={3}
+        totalCount={12}
+        quickFilters={['mobile-hidden', 'masks']}
+      />,
+    );
+    const preset = screen.getByRole('button', { name: 'Mobile hidden' });
+    expect(preset).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'Masked' })).toBeNull();
+    preset.focus();
+    fireEvent.click(preset);
+    expect(onChange).toHaveBeenCalledWith(DEFAULT_FILTER);
+    rerender(
+      <LayerFilterBar
+        filter={DEFAULT_FILTER}
+        onChange={onChange}
+        matchCount={12}
+        totalCount={12}
+        quickFilters={['mobile-hidden', 'masks']}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Mobile hidden' })).toBeNull();
+    expect(screen.getByRole('searchbox', { name: 'Filter layers by name' })).toHaveFocus();
   });
 
   it('offers Select matches only while filtering with at least one match', () => {

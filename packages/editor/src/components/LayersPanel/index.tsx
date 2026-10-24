@@ -721,6 +721,7 @@ function LayersPanelContent({
         onToggle: () => updateLayerSettings({ autoReveal: !layerSettings.autoReveal }),
       },
       { id: 'view-label', label: 'View', type: 'label' },
+      { id: 'collapse-all', label: 'Collapse all layers', onAction: handleCollapseAll },
       {
         id: 'layer-thumbnails',
         label: 'Image previews in rows',
@@ -731,7 +732,13 @@ function LayersPanelContent({
           setThumbnailPreference((current) => (current === 'images' ? 'off' : 'images')),
       },
     ],
-    [layerSettings, thumbnailPreference, setThumbnailPreference, updateLayerSettings],
+    [
+      layerSettings,
+      thumbnailPreference,
+      setThumbnailPreference,
+      updateLayerSettings,
+      handleCollapseAll,
+    ],
   );
   // A context-menu details action may target one row inside a multi-selection.
   // Keep that target as the popover anchor even though the compact header
@@ -797,7 +804,7 @@ function LayersPanelContent({
                 className="layers-panel__header-btn"
                 aria-haspopup="menu"
                 aria-expanded={navigationMenuOpen}
-                aria-controls="layers-navigation-menu"
+                aria-controls={navigationMenuOpen ? 'layers-navigation-menu' : undefined}
                 aria-label="Layer navigation settings"
                 onClick={() => setNavigationMenuOpen((open) => !open)}
               >
@@ -814,33 +821,6 @@ function LayersPanelContent({
                   size="rich"
                 />
               )}
-              <Tooltip
-                label={
-                  layerSettings.autoReveal
-                    ? 'Disable auto-reveal in Layers panel'
-                    : 'Enable auto-reveal in Layers panel'
-                }
-              >
-                <button
-                  type="button"
-                  className={`layers-panel__header-btn ${layerSettings.autoReveal ? 'layers-panel__header-btn--active' : ''}`}
-                  onClick={() => updateLayerSettings({ autoReveal: !layerSettings.autoReveal })}
-                  aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
-                  aria-pressed={layerSettings.autoReveal}
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
-                </button>
-              </Tooltip>
-              <Tooltip label="Collapse all layers">
-                <button
-                  type="button"
-                  className="layers-panel__header-btn"
-                  onClick={handleCollapseAll}
-                  aria-label="Collapse all layers"
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.collapseAll} size="0.85em" />
-                </button>
-              </Tooltip>
               {anySolo && (
                 <Tooltip label="Exit solo — show all layers">
                   <button
