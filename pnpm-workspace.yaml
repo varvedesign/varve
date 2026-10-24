@@ -18,7 +18,9 @@ overrides:
   # the paths again when updating parent packages and remove overrides once
   # the parents provide the fixes themselves.
   # fast-uri advisories affect the ajv/stryker and yaml-language-server chains.
-  "fast-uri": 3.1.8
+  # 3.1.9 is the 3.x security line for GHSA-w74x-v6f9-j3xg / GHSA-wjr9-j795-jxcr
+  # / GHSA-xhq7-xmqj-769h / GHSA-333x-w4r6-6crp.
+  "fast-uri": 3.1.9
   # qs advisories affect typed-rest-client in the Stryker tool chain.
   "qs": 6.16.0
   # GHSA-5c6j-r48x-rmvq / GHSA-qj8w-gfj5-8c6v: serialize-javascript RCE/DoS
@@ -75,6 +77,10 @@ overrides:
   # Astro's default Sharp service depends on libheif; keep its optional Sharp
   # dependency on the patched 0.35 line. Sharp install scripts remain blocked.
   "sharp": 0.35.5
+  # GHSA-mrhx-c7xc-m3w5: zod collection parse DoS. Astro 7.3.3 still resolves
+  # 4.6.5; knip and mutation-server-protocol still resolve 4.4.3. Pin the 4.x
+  # line to the patched 4.6.6 release until those parents move.
+  "zod": 4.6.6
 
 # pnpm 11 build-script approval (replaces the removed onlyBuiltDependencies).
 # esbuild (used by vitest + biome) ships/verifies its platform binary via
