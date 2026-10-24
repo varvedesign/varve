@@ -22,10 +22,10 @@ another.
 ## Pipeline
 
 ```text
-PointerSensor (dnd-kit, 5px activation distance)
+DesktopPointerSensor (mouse/pen, 5px distance) | TouchSensor (250ms hold)
      │
      ▼
-window 'pointermove'  ──►  lastPointerRef {x, y}      real cursor, no delta math
+window 'pointermove' / 'touchmove' ──► lastPointerRef {x, y}   actual client point
      │
      ▼
 resolveLayerDropTarget(pointer, viewport, contentTop, geometry, entries, doc)
@@ -73,7 +73,7 @@ a frame was unreachable, and reorder "worked" only because it is edge-driven.
 
 The resolver therefore ignores `over` entirely. `onDragMove`/`onDragOver` are
 still wired, but only as extra ticks; the authoritative signal is a
-`pointermove` listener installed for the life of the drag. The tree also checks
+`pointermove` / `touchmove` listener installed for the life of the drag. The tree also checks
 the pointer's X coordinate against its own clip viewport, so an adjacent
 canvas or sidebar cannot claim a vertically aligned drop.
 
@@ -116,7 +116,14 @@ converted, so callers never reverse anything themselves.
 | `after` | Immediately below the target row | target's parent | `indexOf(target)` |
 | `into` | Last child of the target container (visual top) | target | `children.length` |
 | `into` on a mask source | Clipped to that matte | matte's parent | `indexOf(matte) + 1` |
-| root (no row under cursor) | Top level of the active page, visual bottom | `null` | `0` |
+| root (no row under cursor) | Top level of the projection, visual bottom | page/canvas root, or `rootParentId` | `0` |
+
+A projection can be re-rooted at a real container: while master editing, the
+tree shows the master source root's children, so empty space below the last
+row publishes that container as `rootParentId` instead of `null`. A `null`
+parent resolves at commit time to the active workspace surface (page or
+canvas) — correct for an ordinary tree, but it would silently move a layer
+out of the master. Preview and commit read the same value either way.
 
 Bands within a row: a container reserves 30–70% for `into`, leaving ~8px of
 `before` and `after` on a 28px row. A leaf row splits cleanly in half and has
@@ -243,20 +250,21 @@ Nested controls (disclosure triangle, identity/zoom target,
 visibility/lock/solo toggles, effect badges, and the rename input) stop
 pointer propagation so they keep their own gestures.
 
-The treeitem owns the sortable activator ref and pointer listener, while
-remaining the keyboard and `aria-selected` target. A row drag therefore
-behaves like every reference layer list (Photopea, Penpot, Krita, Figma):
-press and move the row to restructure, Shift+move to select a run.
+The treeitem owns the sortable activator ref and input listeners, while
+remaining the keyboard and `aria-selected` target. Press and move the row to
+restructure; Shift+move selects a run. This is Varve's approved gesture split,
+not a claim that the inspected reference products share its Shift gesture.
 
-Touch cannot use PointerSensor here: a whole draggable row in a scrollable
+Touch cannot use the distance-based PointerSensor here: a whole draggable row in a scrollable
 list would require `touch-action: none`, which makes the tree unscrollable.
-The shared `DndContext` therefore uses `MouseSensor` (5 px) plus `TouchSensor`
+The shared `DndContext` therefore uses a `DesktopPointerSensor` adapter
+(mouse and pen, 5 px; touch pointer activation declined) plus `TouchSensor`
 (250 ms hold, 8 px tolerance). A swipe scrolls; holding a row starts a drag,
 and the touch listener's `preventDefault` stops the scroll once the hold
 succeeds. Rows declare `touch-action: manipulation` to keep panning available
 during the hold window.
 
-Grip dragging is never the only way to change order (WCAG 2.5.7). The layer
+Dragging is never the only way to change order (WCAG 2.5.7). The layer
 context menu's Arrange group exposes Bring to Front, Bring Forward, Send
 Backward, and Send to Back; all four call the same `arrangeSelected`
 transaction as the Ctrl+[ / Ctrl+] / Ctrl+Shift+[ / Ctrl+Shift+] shortcuts,

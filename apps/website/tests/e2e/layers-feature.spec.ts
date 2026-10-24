@@ -17,8 +17,12 @@ test('Layers feature page communicates the supported handoff and stays within th
     page.getByRole('heading', { name: 'Place a selection without flattening it.' }),
   ).toBeVisible();
   await expect(
+    page.getByRole('heading', { name: 'Drag the row to move it. Shift-drag to select a run.' }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'One surface, no hidden grip' })).toBeVisible();
+  await expect(
     page.getByRole('link', { name: /Read the Layers navigation contract/ }),
-  ).toHaveAttribute('href', /layers-navigation\.md$/);
+  ).toHaveAttribute('href', /\/blob\/master\/docs\/architecture\/layers-navigation\.md$/);
   const arrangement = page.getByTestId('layers-arrangement-contract');
   await expect(arrangement).toBeVisible();
   await expect(arrangement).toContainText('Space objects and stack layers as different operations');

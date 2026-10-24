@@ -1,4 +1,4 @@
-# Layers Panel — Design System Specification (2026-09-19)
+# Layers Panel — Design System Specification (updated 2026-10-23)
 
 Status: current-state specification (supersedes the implicit contract in
 `docs/plans/layers-panel-deferred.md`). Canonical for the Layers panel's row
@@ -117,6 +117,11 @@ state.
 - The search field gains a **Select matches** action (§2.6) enabled whenever a
   filter is active and matches ≥ 1 row.
 - The header shows `Filtered` and the filter bar shows `N of M layers`.
+  Both numbers are derived from the same `LayerTreeScope` the tree projects
+  (`resolveLayerTreeScope` → `resolveTreeRootIds`): the active surface plus
+  any isolation or master-edit narrowing. The count can never describe a
+  different surface than the rows on screen, and Select matches operates on
+  those same rows.
 - Empty states: "No layers yet" (empty document) vs "No results found"
   (filter) remain distinct.
 
@@ -142,7 +147,7 @@ state.
 
 - One authoritative `LayerDropTarget` resolves the preview, auto-expand,
   announcement, and commit.
-- The row body is the activator; no separate grip exists. Mouse activates
+- The row body is the activator; no separate grip exists. Mouse and pen activate
   after 5 px; touch activates after a 250 ms hold with 8 px tolerance so a
   normal swipe still scrolls the tree. A click after a drag is swallowed
   exactly once.
@@ -291,18 +296,21 @@ would be emphasis without evidence.
 
 ### 2.5 Motion projection
 
-- Quick filter `animated` activates `preset: 'animated'`.
-- The panel computes the animated id set once per document revision (the same
-  memoized `computeKeyframeCounts` result the rows use) and passes it to the
-  projection; `flattenTree` consults it only when the preset is active.
+- Quick filter `animated` activates `attributes.animated`.
+- The panel computes the animated id set once per document revision through
+  `collectAnimatedLayerIds`: timeline membership plus animated-media image fills
+  backed by document asset metadata. Counts, projection and result selection
+  use the same membership; metadata edits invalidate the active projection.
 - Cost: one Set lookup per node — measured by the 1k/10k/50k benchmark.
 
 ### 2.6 Select matches
 
 - A `Select matches` button in the filter bar (icon + text, not icon-only),
   plus a command-palette action (`layersSelectMatches`).
-- Selects every id in the current filtered projection, sets `primaryId` to
-  the first, and announces `N layers selected`.
+- Selects every actual match in the current surface projection, excluding
+  nonmatching ancestors retained only for context; sets `primaryId` to the
+  first match and announces `N layers selected`. The count uses the same
+  AND-combined search/attribute/kind criteria.
 - Selection is not an undo entry (editor selection is not artwork history).
 
 ---

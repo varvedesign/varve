@@ -5,7 +5,7 @@ export const PANELS: Record<string, HelpArticle> = {
     id: 'panel:layers',
     title: 'Layers Panel',
     summary: 'View and manage the layer hierarchy of your document.',
-    body: 'The Layers panel shows all objects in your document as a tree. Click to select. Drag to reorder or reparent into containers. Right-click for context options like duplicate, group, and delete. Use the search bar to filter layers by name. Click the eye icon to toggle layer visibility. Lock layers to prevent accidental edits. Groups and frames expand to show their children. Double-click a layer name to rename it inline.',
+    body: 'The Layers panel in the left rail shows the active canvas or page as a tree. Click a row to select it; a check marks selected rows. Drag the row to reorder or reparent it, or hold Shift and drag across rows to select a range. On touch, swipe to scroll and hold a row briefly to drag it. Right-click for context options like duplicate, group, and delete. Search keeps matching layers in context; Select matches selects only the results, not their enclosing groups. Bulk actions stay available while filtering. The eye and lock controls show visibility and editing restrictions, including restrictions inherited from a parent. Double-click a layer name to rename it; Tab commits and edits the next row, and Escape cancels.',
     keywords: ['layers', 'tree', 'hierarchy', 'order', 'z-index', 'visibility'],
     category: 'Panels',
     related: ['tool:select', 'panel:inspector', 'faq:group'],

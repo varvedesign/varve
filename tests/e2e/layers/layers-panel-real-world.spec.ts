@@ -47,6 +47,39 @@ async function importFixture(page: Page, filePath: string, expected: number, tim
   await page.locator('#file-import-input').setInputFiles(filePath);
   await expect.poll(async () => layerCount(page), { timeout }).toBeGreaterThanOrEqual(expected);
   await page.waitForTimeout(300);
+  await dismissImportOverlays(page);
+}
+
+/**
+ * The import pipeline can open two modal overlays — Import Results (fidelity
+ * changes/warnings) and Missing Fonts (families absent on this device; the
+ * mobile-app fixture trips both here) — and either backdrop intercepts every
+ * pointer event behind it. Conditional with short waits: a clean import (the
+ * photo fixture) shows neither and pays only the timeouts.
+ */
+async function dismissImportOverlays(page: Page, timeout = 1500) {
+  const results = page.getByRole('dialog', { name: 'Import Results' });
+  const fonts = page.getByRole('dialog', { name: 'Missing Fonts' });
+  if (
+    await results.waitFor({ state: 'visible', timeout }).then(
+      () => true,
+      () => false,
+    )
+  ) {
+    await results.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(results).toBeHidden();
+  }
+  if (
+    await fonts.waitFor({ state: 'visible', timeout }).then(
+      () => true,
+      () => false,
+    )
+  ) {
+    await fonts.getByRole('button', { name: 'Dismiss', exact: true }).click();
+    await expect(fonts).toBeHidden();
+  }
+  await expect(results).toBeHidden();
+  await expect(fonts).toBeHidden();
 }
 
 /** Dump the visible tree structure (name/level/kind) for evidence. */

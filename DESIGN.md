@@ -433,6 +433,18 @@ The token audit enforces contrast ratios on every declared pair:
 
 ### Tree (Layer Panel)
 
+Layers row composition (approved 2026-10-23): disclosure, one identity slot
+(thumbnail **or** type icon), name, secondary badges, then row-state controls.
+The selected check overlays the identity slot without shifting the name.
+There is no separate drag-grip column. Plain row drag changes hierarchy;
+Shift+drag selects a range. Pen/mouse keep the 5 CSS-pixel drag threshold;
+touch uses a short hold so swiping can still scroll. Nested buttons and rename
+inputs own their events. Keep the existing `--color-tree-*`,
+`--color-interactive-*`, `--color-text-on-accent`, `--icon-size-sm`,
+`--target-min-compact`, density, spacing and radius tokens; no new palette,
+font scale, or density family is introduced. See
+`docs/audits/layers-repair-2026-10-23.md` for evidence and approval.
+
 | Token | Purpose |
 |-------|---------|
 | `tree-row` | Default row background |
