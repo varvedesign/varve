@@ -4,7 +4,7 @@
  *
  * The reported defect (2026-10-22) was a 480x640 High-quality run refused with
  * "Request reserves 541786112 bytes, above the 400000000-byte process limit."
- * The unit suites pin the arithmetic and the fallback; this spec proves the
+ * The unit suites pin admission and exact-model routing; this spec proves the
  * real editor (Vite dev server, real worker, bundled U²-NetP) still completes
  * an AI cutout and never renders a raw byte-count refusal.
  *
@@ -96,7 +96,9 @@ test.describe('Local AI background removal capacity', () => {
     });
   });
 
-  test('the panel reports memory budgets in readable units', async ({ page }) => {
+  test('model readiness separates installation from qualified memory evidence', async ({
+    page,
+  }) => {
     test.setTimeout(60000);
     await importTestImage(page);
     const inspector = await openBackgroundRemoval(page);
@@ -104,20 +106,62 @@ test.describe('Local AI background removal capacity', () => {
     await methodSelect.click();
     await page.getByRole('option', { name: /High quality/ }).click();
 
-    // Model metadata is shown in human units and must not double the unit
-    // ("~7 GB RAM RAM during inference" was a real defect).
-    const info = inspector.locator('.insp-model-info');
+    const info = inspector.getByRole('region', { name: 'Background removal readiness' });
     await expect(info).toBeVisible({ timeout: 10000 });
+    await expect(info.getByRole('status')).not.toContainText('Checking');
+    await info.getByRole('button', { name: 'Model details' }).click();
     await info.scrollIntoViewIfNeeded();
-    await expect(info).toContainText(/during inference/);
+    await expect(info).toContainText('Peak working memory has not yet been validated');
+    await expect(info).not.toContainText(/450 MB|4\.1 GB|over its limit/i);
     await expect(info).not.toContainText(/RAM RAM/i);
 
-    // Capture the element itself: the inspector scroll position is not part of
-    // this evidence, and a viewport shot can leave the line below the fold.
-    await info.screenshot({ path: evidencePath('high-quality-model-info.png') });
+    // Batch the supported themes and two desktop widths; inspect these images
+    // separately from the assertions before claiming visual verification.
+    for (const width of [1440, 1024]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const theme of ['dark', 'light', 'high-contrast']) {
+        await page.evaluate(
+          (value) => document.documentElement.setAttribute('data-theme', value),
+          theme,
+        );
+        await info.scrollIntoViewIfNeeded();
+        expect(
+          await info.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+        ).toBe(true);
+        await info.screenshot({
+          path: evidencePath(`high-quality-model-info-${width}-${theme}.png`),
+        });
+      }
+    }
     await page.screenshot({
       path: evidencePath('high-quality-panel.png'),
       fullPage: false,
     });
+  });
+
+  test('clearing and restoring image selection keeps the model controls usable', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await importTestImage(page);
+    const inspector = await openBackgroundRemoval(page);
+    const status = inspector.getByRole('region', { name: 'Background removal readiness' });
+    await expect(status).toBeVisible();
+    // Escape clears canvas selection only while the canvas owns focus; the
+    // section controls above hold focus here. Give the canvas a real click
+    // (empty space also clears on its own), then Escape with canvas focus.
+    await page.locator(CONTENT_CANVAS).click({ position: { x: 4, y: 4 } });
+    await page.keyboard.press('Escape');
+    await expect(status).toBeHidden();
+    await page.getByRole('treeitem').first().click();
+    await expect(status).toBeVisible();
+    await expect(status.getByRole('status')).toContainText('No model required');
+    await expect(
+      inspector.getByRole('button', { name: 'Remove background from image' }),
+    ).toBeEnabled();
+    expect(
+      errors.filter((message) => /hooks|React|BackgroundRemovalSection/i.test(message)),
+    ).toEqual([]);
   });
 });
