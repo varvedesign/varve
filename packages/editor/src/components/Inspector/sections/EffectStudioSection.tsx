@@ -1262,54 +1262,6 @@ export function EffectStudioSection({
                 No treatments match this search. Try a category or clear the query.
               </p>
             )}
-            <section className="effect-studio__looks" aria-labelledby="effect-studio-looks-title">
-              <div className="effect-studio__looks-header">
-                <div>
-                  <h3 id="effect-studio-looks-title">Document Looks</h3>
-                  <p>
-                    Save ordered recipes with this document; these are separate from device
-                    Favorites.
-                  </p>
-                </div>
-                <button type="button" onClick={saveLook} disabled={filters.length === 0}>
-                  Save current stack
-                </button>
-              </div>
-              <label>
-                <span>Look name</span>
-                <input value={lookName} onChange={(event) => setLookName(event.target.value)} />
-              </label>
-              {looks.length > 0 ? (
-                <ul aria-label="Saved Looks">
-                  {looks.map((look) => (
-                    <li key={look.id}>
-                      <span>
-                        <strong>{look.name}</strong>
-                        <small>
-                          {look.effects.length} effect{look.effects.length === 1 ? '' : 's'}
-                        </small>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => applyLook(look)}
-                        aria-label={`Apply Look ${look.name}`}
-                      >
-                        Apply
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteLook(look.id)}
-                        aria-label={`Delete Look ${look.name}`}
-                      >
-                        Delete
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="effect-studio__empty">No Looks saved in this document.</p>
-              )}
-            </section>
             <details className="effect-studio__primitives">
               <summary>Advanced individual effects</summary>
               <p>
@@ -1669,6 +1621,54 @@ export function EffectStudioSection({
                 </button>
               </div>
             )}
+            <section className="effect-studio__looks" aria-labelledby="effect-studio-looks-title">
+              <div className="effect-studio__looks-header">
+                <div>
+                  <h3 id="effect-studio-looks-title">Document Looks</h3>
+                  <p>
+                    Save ordered recipes with this document; these are separate from device
+                    Favorites.
+                  </p>
+                </div>
+                <button type="button" onClick={saveLook} disabled={filters.length === 0}>
+                  Save current stack
+                </button>
+              </div>
+              <label>
+                <span>Look name</span>
+                <input value={lookName} onChange={(event) => setLookName(event.target.value)} />
+              </label>
+              {looks.length > 0 ? (
+                <ul aria-label="Saved Looks">
+                  {looks.map((look) => (
+                    <li key={look.id}>
+                      <span>
+                        <strong>{look.name}</strong>
+                        <small>
+                          {look.effects.length} effect{look.effects.length === 1 ? '' : 's'}
+                        </small>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => applyLook(look)}
+                        aria-label={`Apply Look ${look.name}`}
+                      >
+                        Apply
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteLook(look.id)}
+                        aria-label={`Delete Look ${look.name}`}
+                      >
+                        Delete
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="effect-studio__empty">No Looks saved in this document.</p>
+              )}
+            </section>
           </aside>
         </div>
       </div>

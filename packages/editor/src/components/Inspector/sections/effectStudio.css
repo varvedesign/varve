@@ -322,12 +322,24 @@
   margin: var(--space-1) 0 0;
 }
 
-.effect-studio__intro,
-.effect-studio__looks-header {
+.effect-studio__intro {
   align-items: flex-start;
   display: flex;
   gap: var(--space-2);
   justify-content: space-between;
+}
+
+/* Document Looks now sits in the narrow stack column: the explanation takes the
+ * full width and the action sits under it, instead of squeezing the text beside
+ * the button. */
+.effect-studio__looks-header {
+  align-items: start;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.effect-studio__looks-header > button {
+  justify-self: start;
 }
 
 .effect-studio__intro h3,
@@ -1642,8 +1654,7 @@
   }
 }
 
-/* Wide layouts pin the preview. The dialog takes most of the window, the body
- * stops scrolling as one ~5100px page, and the gallery and the settings/stack
+/* Wide layouts pin the preview. The body stops scrolling as one ~5100px page, and the gallery and the settings/stack
  * column scroll on their own; the preview stage fills the remaining height.
  * At a fixed 72rem x 52rem the 392x294 preview scrolled out of view after
  * less than a screen of browsing and four treatments fit on screen (shell
@@ -1651,11 +1662,15 @@
  * flow. This block comes last so it overrides the base zone rules
  * (align-self: start) at equal specificity. */
 @media (min-width: 64.01rem) {
+  /* A working dialog, not a full-screen takeover: it opened at 1760 x 1048 on a
+   * 1920 x 1080 window, which left the 1038px preview dwarfing a 352px gallery
+   * and a 320px stack column. Capped at 80rem x 50rem it stays centred with the
+   * app visible around it, and the three zones share the width more evenly. */
   .varve-dialog.effect-studio-dialog {
-    height: min(calc(100vh - 2rem), 72rem);
-    max-height: min(calc(100vh - 2rem), 72rem);
-    max-width: min(96vw, 110rem);
-    width: min(96vw, 110rem);
+    height: min(calc(100vh - 4rem), 50rem);
+    max-height: min(calc(100vh - 4rem), 50rem);
+    max-width: min(96vw, 80rem);
+    width: min(96vw, 80rem);
   }
 
   .effect-studio-dialog .varve-dialog__body {
@@ -1682,7 +1697,7 @@
 
   .effect-studio__workspace {
     align-items: stretch;
-    grid-template-columns: minmax(24rem, 1fr) minmax(19rem, 22rem) minmax(17rem, 20rem);
+    grid-template-columns: minmax(20rem, 1fr) minmax(18rem, 21rem) minmax(17rem, 20rem);
     min-height: 0;
   }
 
