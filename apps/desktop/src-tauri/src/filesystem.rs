@@ -206,6 +206,7 @@ pub fn display_path(path: &Path) -> String {
 /// Replace a file with a fully-written sibling temporary file. Windows does
 /// not make `std::fs::rename` replace an existing file, so use the native
 /// replace-and-flush primitive there as well as the platform rename elsewhere.
+#[allow(unsafe_code)] // Windows MoveFileExW is the atomic replace primitive.
 pub fn replace_file(temporary: &Path, destination: &Path) -> Result<(), FsError> {
     #[cfg(windows)]
     {

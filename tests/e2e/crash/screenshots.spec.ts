@@ -30,14 +30,17 @@ test('capture crash UX screenshots', async ({ page }) => {
         __varveCrashTest?: {
           setUploaderForTesting: (u: {
             upload: () => Promise<{ ok: boolean; retryable: boolean; status: number }>;
+            isConfigured?: () => boolean;
           }) => void;
         };
       }
     ).__varveCrashTest;
     h?.setUploaderForTesting({
       upload: async () => ({ ok: true, retryable: false, status: 200 }),
+      isConfigured: () => true,
     });
   });
+  await page.getByRole('button', { name: 'Send report' }).waitFor({ timeout: 8000 });
   await page.getByRole('button', { name: 'Send report' }).click();
   await page.getByText(/Report sent/).waitFor({ timeout: 8000 });
   await dialog.screenshot({ path: evidencePath('report-receipt.png') });

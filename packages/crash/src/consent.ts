@@ -56,7 +56,7 @@ export interface CrashConsentRecord {
   scope: ConsentScope;
 }
 
-export const CRASH_CONSENT_POLICY_VERSION = 1;
+export const CRASH_CONSENT_POLICY_VERSION = 2;
 export const CRASH_CONSENT_STORAGE_KEY = 'varve:crash-consent';
 /** Legacy Strata key. Only explicit decision records migrate; see storage. */
 export const LEGACY_CRASH_CONSENT_STORAGE_KEY = 'strata:crash-consent';
@@ -134,9 +134,9 @@ export interface ConsentDecisionInput {
 /**
  * Applies an action to a record and produces a new record with metadata.
  * Policy-version upgrade handling: if the stored record predates the current
- * policy version and it was `automaticAllowed`, automatic reporting is
- * downgraded to `askEachTime` (renewed consent required). Denied/unknown
- * records are never silently upgraded to opted-in.
+ * policy version and it was `automaticAllowed`, it is rewritten to `denied`.
+ * Nothing uploads crash reports, so the old automatic choice is a dead key.
+ * Denied/unknown records are never silently upgraded to opted-in.
  */
 export function applyConsentDecision(
   current: CrashConsentRecord,
@@ -144,7 +144,7 @@ export function applyConsentDecision(
 ): CrashConsentRecord {
   let base = current;
   if (base.policyVersion < CRASH_CONSENT_POLICY_VERSION && base.state === 'automaticAllowed') {
-    base = { ...base, state: 'askEachTime', policyVersion: CRASH_CONSENT_POLICY_VERSION };
+    base = { ...base, state: 'denied', policyVersion: CRASH_CONSENT_POLICY_VERSION };
   }
   const next = transitionConsent(base.state, input.action);
   const decided = next !== base.state || base.decidedAt === 0;
@@ -257,15 +257,15 @@ export class CrashConsentProvider implements ConsentProvider {
     scope: ConsentScope = 'both',
   ) {
     this.record = storage.load() ?? unknownConsent(scope);
-    // A stale automatic decision under an older policy downgrades to
-    // askEachTime before anything can read it (renewed consent required).
+    // A stale automatic decision under an older policy is rewritten to
+    // denied: crash reports stay on the computer and are never sent.
     if (
       this.record.policyVersion < CRASH_CONSENT_POLICY_VERSION &&
       this.record.state === 'automaticAllowed'
     ) {
       this.record = {
         ...this.record,
-        state: 'askEachTime',
+        state: 'denied',
         policyVersion: CRASH_CONSENT_POLICY_VERSION,
       };
       storage.save(this.record);

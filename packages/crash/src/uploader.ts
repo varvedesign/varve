@@ -31,10 +31,32 @@ export interface CrashUploadContext {
 
 export interface CrashUploader {
   upload(report: CrashReport, ctx?: CrashUploadContext): Promise<CrashUploadResult>;
+  /**
+   * True when this build has an ingestion endpoint. Uploaders that omit the
+   * hook, or that return anything other than true, are treated as unconfigured
+   * so the Send button stays hidden.
+   */
+  isConfigured?(): boolean;
+}
+
+function endpointIsConfigured(endpoint: string | null | undefined): boolean {
+  return typeof endpoint === 'string' && endpoint.trim().length > 0;
+}
+
+/** True when the UI may offer Send. Missing checks fail closed. */
+export function crashUploaderIsConfigured(uploader: CrashUploader): boolean {
+  if (typeof uploader.isConfigured !== 'function') {
+    return false;
+  }
+  return uploader.isConfigured() === true;
 }
 
 /** The default uploader: no network activity, ever. */
 export class NoopCrashUploader implements CrashUploader {
+  isConfigured(): boolean {
+    return false;
+  }
+
   async upload(_report: CrashReport, _ctx?: CrashUploadContext): Promise<CrashUploadResult> {
     return { ok: false, retryable: false, error: 'no-uploader-configured' };
   }
@@ -59,11 +81,11 @@ export class HttpCrashUploader implements CrashUploader {
   }
 
   isConfigured(): boolean {
-    return this.endpoint !== null;
+    return endpointIsConfigured(this.endpoint);
   }
 
   async upload(report: CrashReport, ctx?: CrashUploadContext): Promise<CrashUploadResult> {
-    if (!this.endpoint) {
+    if (!endpointIsConfigured(this.endpoint) || !this.endpoint) {
       return { ok: false, retryable: false, error: 'no-endpoint-configured' };
     }
     const payload = toUploadPayload(report);

@@ -2081,13 +2081,12 @@ export function ContentAwareFillDialog({
       if (!tauri?.core?.invoke) {
         throw new Error('Model installation is available in the desktop app only.');
       }
-      const picked = (await tauri.core.invoke('plugin:dialog|open', {
+      const selected = (await tauri.core.invoke('pick_open_path', {
         options: {
           multiple: false,
           filters: [{ name: 'Diffusion model', extensions: ['safetensors', 'gguf'] }],
         },
-      })) as Array<{ path?: string }> | null;
-      const selected = picked?.[0]?.path;
+      })) as string | null;
       if (!selected) return;
       const imported = await importNativeGenerativeModel(selected);
       setDiffusionModelInstalled(imported.installed);

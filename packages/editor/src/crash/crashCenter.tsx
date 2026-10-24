@@ -36,6 +36,7 @@ const INITIAL_STATE: CrashUiState = {
   safeMode: null,
   safeModeVisible: false,
   dialogVisible: false,
+  canSendReports: false,
 };
 
 /** Opens the editor's Privacy & Diagnostics settings section. */
@@ -134,6 +135,7 @@ export function CrashCenter({
         onOpenSettings={openPrivacySettings}
         onCommentChange={(comment) => void controller?.updateComment(comment)}
         onContactChange={(contact) => void controller?.updateContact(contact)}
+        canSendReports={state.canSendReports}
       />
       <CrashReviewDialog
         open={state.reviewingReport !== null}
@@ -143,6 +145,7 @@ export function CrashCenter({
         onCommentChange={(comment) => void controller?.updateComment(comment)}
         onContactChange={(contact) => void controller?.updateContact(contact)}
         onToggleAttachment={(index) => void controller?.toggleAttachment(index)}
+        canSendReports={state.canSendReports}
       />
     </>
   );

@@ -180,7 +180,7 @@ describe('applyConsentDecision metadata', () => {
 });
 
 describe('policy version handling', () => {
-  it('stale automatic consent downgrades to askEachTime (renewed consent)', () => {
+  it('stale automatic consent downgrades to denied (reports are never sent)', () => {
     const base: CrashConsentRecord = {
       state: 'automaticAllowed',
       policyVersion: 0,
@@ -240,8 +240,8 @@ describe('policy version handling', () => {
       scope: 'both',
     });
     const provider = new CrashConsentProvider(storage);
-    expect(provider.getConsent().state).toBe('askEachTime');
-    expect(storage.load()?.state).toBe('askEachTime');
+    expect(provider.getConsent().state).toBe('denied');
+    expect(storage.load()?.state).toBe('denied');
   });
 });
 
