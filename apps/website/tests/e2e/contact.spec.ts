@@ -60,6 +60,12 @@ test('mail links carry no body payload or personal data', async ({ page }) => {
 test('the contact page is reachable from the site header and footer', async ({ page }) => {
   await page.goto('/');
 
+  // The consent banner is a fixed overlay. Support > Contact is the last
+  // desktop menu item and must stay clickable while the banner is showing.
+  await page.locator('#website-analytics-consent').evaluate((el) => {
+    el.removeAttribute('hidden');
+  });
+
   const mainNav = page.getByRole('navigation', { name: 'Main' });
   await mainNav.getByText('Support', { exact: true }).click();
   await page

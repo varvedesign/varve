@@ -339,7 +339,9 @@ function linkClass(href: string): string[] {
   .site-header {
     position: sticky;
     inset-block-start: 0;
-    z-index: 100;
+    /* Above the consent banner (z-index 1000) so an open Support or Learn
+       menu stays clickable. Below the skip link (9999). */
+    z-index: 1100;
     background: var(--surface-header);
     border-block-end: 1px solid var(--border-default);
     box-shadow: 0 1px 0 transparent;

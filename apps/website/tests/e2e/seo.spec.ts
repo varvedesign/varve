@@ -33,6 +33,7 @@ const ROUTES = [
   '/download',
   '/docs',
   '/support',
+  '/feedback',
   '/contribute',
   '/learn',
   '/about',

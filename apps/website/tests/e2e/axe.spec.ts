@@ -28,6 +28,7 @@ const SCANS = [
   // disclosure route, so an a11y regression here blocks someone from
   // reporting a vulnerability or asking for help.
   { route: '/contact', name: 'contact' },
+  { route: '/feedback', name: 'feedback' },
   { route: '/support', name: 'support' },
   { route: '/security', name: 'security' },
   { route: '/press', name: 'press' },

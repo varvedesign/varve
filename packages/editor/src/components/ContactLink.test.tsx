@@ -3,11 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ContactLink } from './ContactLink';
 
-vi.mock('../actions/registerAll', () => ({
-  openVarveContact: vi.fn(),
+vi.mock('../actions/openExternalUrl', () => ({
+  openExternalUrl: vi.fn().mockResolvedValue(true),
 }));
 
-const { openVarveContact } = await import('../actions/registerAll');
+const { openExternalUrl } = await import('../actions/openExternalUrl');
 
 /**
  * ContactLink exists because a plain `mailto:` anchor is silently dropped by
@@ -30,17 +30,34 @@ describe('ContactLink', () => {
     expect(screen.getByRole('link', { name: 'Email Varve privacy questions' })).toBeInTheDocument();
   });
 
-  it('routes a plain click through the platform-aware opener', async () => {
-    vi.mocked(openVarveContact).mockClear();
+  it('routes a plain click through the mailto opener, not the feedback page', async () => {
+    vi.mocked(openExternalUrl).mockClear();
     render(<ContactLink channel="security" />);
 
     await userEvent.click(screen.getByRole('link'));
 
-    expect(openVarveContact).toHaveBeenCalledWith('security');
+    expect(openExternalUrl).toHaveBeenCalledWith(
+      'mailto:security@varve.studio?subject=Varve%20security%20report',
+    );
+  });
+
+  it('offers a copy fallback next to the address', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(<ContactLink channel="support" />);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Copy support@varve.studio to the clipboard' }),
+    );
+
+    expect(writeText).toHaveBeenCalledWith('support@varve.studio');
   });
 
   it('leaves modified clicks to the browser', async () => {
-    vi.mocked(openVarveContact).mockClear();
+    vi.mocked(openExternalUrl).mockClear();
     render(<ContactLink channel="feedback" />);
     const link = screen.getByRole('link');
     let preventedBeforeBrowserHandoff: boolean | undefined;
@@ -62,7 +79,7 @@ describe('ContactLink', () => {
     // here because the modifier has to be set on the click event itself.
     fireEvent.click(link, { ctrlKey: true });
 
-    expect(openVarveContact).not.toHaveBeenCalled();
+    expect(openExternalUrl).not.toHaveBeenCalled();
     expect(preventedBeforeBrowserHandoff).toBe(false);
   });
 

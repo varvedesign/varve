@@ -59,6 +59,7 @@ test('desktop and mobile use the same ordered destinations with bounded exact-pa
     'Troubleshooting',
     'Known issues',
     'Report an issue',
+    'Send feedback',
     'Contact',
   ]);
   expect(

@@ -49,8 +49,9 @@ export const navigationGroups = [
       {
         href: '/support/report-issue',
         label: 'Report an issue',
-        description: 'Share a reproducible problem',
+        description: 'Tell us what went wrong',
       },
+      { href: '/feedback', label: 'Send feedback', description: 'Share an idea or a note' },
       { href: '/contact', label: 'Contact', description: 'Talk with the Varve team' },
     ],
   },
