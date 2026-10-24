@@ -2,6 +2,7 @@ import { formatAbsoluteTime } from '@varve/platform';
 import { Tooltip } from '@varve/ui';
 import { useEffect, useRef } from 'react';
 import { useEditor } from '../../context';
+import { saveTargetFromSession } from '../../persistence/saveTypes';
 
 /**
  * Subtle save-status segment for the status bar.
@@ -24,15 +25,22 @@ export function SaveStatusIndicator() {
   const name = meta?.name ?? 'Untitled';
   const dirty = state.dirty || meta?.dirty === true;
 
+  // A destination the user (or a file they opened) actually owns. Recovery and
+  // the Home mirror are autosave internals and are not destinations
+  // (saveTypes.ts), so they never count as "Saved".
+  const hasDestination = saveTargetFromSession(meta).kind !== 'unsaved';
+
   const label = ((): string => {
     if (state.saveState === 'saving') return 'Saving…';
     if (state.saveState === 'error') return 'Save failed';
-    if (state.saveState === 'saved' && !dirty) return 'Saved';
-    // Modified beats "Not saved": an edited, never-saved document is first
-    // and foremost modified — "Not saved" alone would be misleading.
+    // Modified beats "Saved" and "Not saved": an edited document is first and
+    // foremost modified.
     if (dirty) return 'Modified';
-    if (meta && isUntitledSession(meta)) return 'Not saved';
-    return 'Not saved';
+    if (state.saveState === 'saved') return 'Saved';
+    // A clean document that has a destination matches it. This used to fall
+    // through to "Not saved" for any file opened this session and not yet
+    // saved again, which told people their opened, unchanged file was unsaved.
+    return hasDestination ? 'Saved' : 'Not saved';
   })();
 
   // Announce only meaningful transitions (never per-keystroke state).
@@ -65,7 +73,9 @@ export function SaveStatusIndicator() {
           errorDetail ??
           (state.lastSavedAt !== null
             ? `Last saved ${formatAbsoluteTime(state.lastSavedAt)}`
-            : name)
+            : hasDestination
+              ? `${name} matches its saved copy`
+              : 'No save location yet. Varve keeps an autosaved recovery copy; use Save to choose where this document lives.')
         }
       >
         <button
@@ -82,16 +92,4 @@ export function SaveStatusIndicator() {
       </span>
     </>
   );
-}
-
-function isUntitledSession(meta: {
-  filePath?: string;
-  fileId?: string;
-  libraryStorage?: boolean;
-  saveHandleId?: string;
-  downloadName?: string;
-}): boolean {
-  // A bare fileId is library identity (minted at creation), not a
-  // destination — only an explicit library choice counts as saved.
-  return !meta.filePath && !meta.libraryStorage && !meta.saveHandleId && !meta.downloadName;
 }

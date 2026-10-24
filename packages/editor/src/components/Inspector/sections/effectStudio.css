@@ -1697,7 +1697,9 @@
 
   .effect-studio__workspace {
     align-items: stretch;
-    grid-template-columns: minmax(20rem, 1fr) minmax(18rem, 21rem) minmax(17rem, 20rem);
+    /* The preview takes at least half the dialog (the gallery and stack never
+     * grow past 19rem and 18rem), so the stage stays the largest zone. */
+    grid-template-columns: minmax(20rem, 1fr) minmax(17rem, 19rem) minmax(16rem, 18rem);
     min-height: 0;
   }
 

@@ -326,8 +326,8 @@ describe('SelectionOverlay — shape handle types', () => {
     const container = renderOverlay([
       makeShapeNode('locked', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }, { locked: true }),
     ]);
-    expect(container.querySelectorAll('rect[aria-label$="resize handle"]')).toHaveLength(0);
-    expect(container.querySelector('[aria-label="Rotate"]')).toBeNull();
+    expect(container.querySelectorAll('rect[data-testid$="resize handle"]')).toHaveLength(0);
+    expect(container.querySelector('[data-testid="Rotate"]')).toBeNull();
   });
 
   it('shows 8 resize handles + rotation handle for a polygon shape', () => {
@@ -439,7 +439,7 @@ it('shows pivot point at center for single selection', () => {
   ]);
   const circles = container.querySelectorAll('svg > circle');
   expect(circles.length).toBe(4);
-  const pivot = container.querySelector('circle[aria-label="Transform origin"]');
+  const pivot = container.querySelector('circle[data-testid="Transform origin"]');
   expect(pivot).toBeTruthy();
   expect(pivot?.getAttribute('cx')).toBe('100');
   expect(pivot?.getAttribute('cy')).toBe('50');
@@ -489,7 +489,7 @@ describe('SelectionOverlay — resize routing conditions', () => {
         updateDoc,
       });
       const visibleHandle = container.querySelector<SVGRectElement>(
-        'rect[aria-label="Bottom-right resize handle"]',
+        'rect[data-testid="Bottom-right resize handle"]',
       );
       const svg = container.querySelector('svg');
       expect(visibleHandle).not.toBeNull();
@@ -608,30 +608,38 @@ describe('SelectionOverlay — accessibility', () => {
     expect(svg?.getAttribute('role')).toBe('presentation');
   });
 
-  it('handle rects have aria-label describing their position', () => {
+  it('the visible handle shapes are decorative: identified by test id, never aria-labelled', () => {
+    // They sit inside a role="presentation" SVG and ignore the pointer (the
+    // transparent hit shapes beside them take it), so an aria-label on them is
+    // prohibited (axe aria-prohibited-attr); their functions have keyboard
+    // equivalents in the Inspector fields and arrow-key nudging.
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
     ]);
-    const handles = container.querySelectorAll('rect[aria-label]');
-    expect(handles.length).toBeGreaterThanOrEqual(8);
-    const firstHandle = handles[0];
-    expect(firstHandle?.getAttribute('aria-label')).toBeTruthy();
+    const handles = container.querySelectorAll('rect[data-testid$="resize handle"]');
+    expect(handles).toHaveLength(8);
+    for (const handle of handles) {
+      expect(handle.hasAttribute('aria-label')).toBe(false);
+    }
+    expect(container.querySelectorAll('svg [aria-label]')).toHaveLength(0);
   });
 
-  it('rotation handle has aria-label="Rotate"', () => {
+  it('rotation handle is identified as "Rotate" by test id, not by aria-label', () => {
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
     ]);
-    const rotHandle = container.querySelector('circle[aria-label="Rotate"]');
+    const rotHandle = container.querySelector('circle[data-testid="Rotate"]');
     expect(rotHandle).toBeTruthy();
+    expect(rotHandle?.hasAttribute('aria-label')).toBe(false);
   });
 
-  it('pivot point has aria-label="Transform origin"', () => {
+  it('pivot point is identified as "Transform origin" by test id, not by aria-label', () => {
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }),
     ]);
-    const pivot = container.querySelector('circle[aria-label="Transform origin"]');
+    const pivot = container.querySelector('circle[data-testid="Transform origin"]');
     expect(pivot).toBeTruthy();
+    expect(pivot?.hasAttribute('aria-label')).toBe(false);
   });
 });
 
@@ -734,8 +742,8 @@ describe('SelectionOverlay — touch targets', () => {
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }),
     ]);
-    expect(container.querySelectorAll('rect[aria-label$="resize handle"]')).toHaveLength(0);
-    expect(container.querySelector('circle[aria-label="Rotate"]')).not.toBeNull();
+    expect(container.querySelectorAll('rect[data-testid$="resize handle"]')).toHaveLength(0);
+    expect(container.querySelector('circle[data-testid="Rotate"]')).not.toBeNull();
   });
 
   it('keeps only separated top and bottom resize targets for a narrow box', () => {
@@ -745,8 +753,8 @@ describe('SelectionOverlay — touch targets', () => {
       { x: 0, y: 0 },
       1,
     );
-    const handles = [...container.querySelectorAll('rect[aria-label$="resize handle"]')].map(
-      (handle) => handle.getAttribute('aria-label'),
+    const handles = [...container.querySelectorAll('rect[data-testid$="resize handle"]')].map(
+      (handle) => handle.getAttribute('data-testid'),
     );
     expect(handles).toEqual(['Top resize handle', 'Bottom resize handle']);
     const targets = [
@@ -765,8 +773,8 @@ describe('SelectionOverlay — touch targets', () => {
       { x: 0, y: 0 },
       1,
     );
-    const handles = [...container.querySelectorAll('rect[aria-label$="resize handle"]')].map(
-      (handle) => handle.getAttribute('aria-label'),
+    const handles = [...container.querySelectorAll('rect[data-testid$="resize handle"]')].map(
+      (handle) => handle.getAttribute('data-testid'),
     );
     expect(handles).toEqual(['Right resize handle', 'Left resize handle']);
   });

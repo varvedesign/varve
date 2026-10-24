@@ -274,7 +274,7 @@
   cursor: pointer;
   text-align: left;
   border-radius: var(--radius-sm);
-  min-height: 24px;
+  min-height: var(--component-compact-height);
   transition: color var(--duration-quick) var(--ease-standard);
 }
 .sidebar-section__header:hover {
@@ -288,15 +288,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1em;
-  height: 1em;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
   flex-shrink: 0;
   color: var(--color-text-muted);
   /* Token-driven so the reduced-motion override applies (was inline). */
   transition: transform var(--duration-fast) var(--ease-default);
 }
 .sidebar-section__count {
-  margin-left: auto;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -308,9 +307,13 @@
 .sidebar-section__header .varve-disclosure__label {
   display: flex;
   flex: 1 1 auto;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
+}
+/* Same rotation contract as the inspector's section headers. */
+.sidebar-section__header[aria-expanded="true"] .sidebar-section__chevron {
+  transform: rotate(90deg);
 }
 .sidebar-item {
   display: flex;
@@ -427,6 +430,10 @@
 .varve-home__sidebar .sidebar-group__header .sidebar-section__header {
   flex: 1;
   padding-inline: var(--space-3);
+  /* The nav items' icon-to-label gap, so "Projects" sits in the same label
+   * column as Recent and Templates (the disclosure trigger's own gap is half
+   * this and loads after home.css). */
+  gap: var(--space-2);
 }
 .sidebar-projects-empty {
   display: grid;
@@ -491,8 +498,9 @@
   background: var(--color-accent-subtle);
 }
 .sidebar-item__icon {
-  width: 1em;
-  height: 1em;
+  /* The icon column every row shares (items and the Projects chevron). */
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
   flex-shrink: 0;
 }
 .sidebar-item__count {

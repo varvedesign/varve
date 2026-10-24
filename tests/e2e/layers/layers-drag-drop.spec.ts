@@ -53,8 +53,8 @@ function rowByName(page: Page, name: string): Locator {
 }
 
 async function selectedCanvasCenter(page: Page) {
-  const topLeft = page.getByLabel('Top-left resize handle');
-  const bottomRight = page.getByLabel('Bottom-right resize handle');
+  const topLeft = page.getByTestId('Top-left resize handle');
+  const bottomRight = page.getByTestId('Bottom-right resize handle');
   await expect(topLeft).toBeAttached();
   await expect(bottomRight).toBeAttached();
   const [tl, br] = await Promise.all([topLeft.boundingBox(), bottomRight.boundingBox()]);

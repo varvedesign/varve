@@ -150,7 +150,10 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
           const isActive = sess.id === activeId;
           const isFocused = sess.id === rovingId;
           return (
-            <Tooltip key={sess.id} label={sess.filePath ?? sess.name}>
+            <Tooltip
+              key={sess.id}
+              label={`${sess.filePath ?? sess.name}${sess.dirty ? ' (unsaved changes)' : ''}`}
+            >
               <div
                 ref={(el) => {
                   if (el) tabRefs.current.set(sess.id, el);

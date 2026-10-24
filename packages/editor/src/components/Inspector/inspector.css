@@ -101,7 +101,7 @@
   align-items: center;
   gap: var(--space-1);
   padding-inline-start: var(--space-1);
-  padding-inline-end: var(--space-2);
+  padding-inline-end: var(--space-3);
   border-inline-start: 1px solid var(--color-border-subtle);
   align-self: stretch;
   flex-shrink: 0;
@@ -161,7 +161,9 @@
 }
 .insp-panel__tab-overflow {
   flex: 0 0 auto;
-  min-block-size: var(--component-large-height);
+  /* Same height as the tabs beside it: this one was 40px, so it set the whole
+     tab row's height while the tabs themselves were 32px. */
+  min-block-size: var(--component-default-height);
   padding: var(--space-1) var(--space-2);
   background: var(--elevation-surface-raised);
   border: 0;
@@ -6103,6 +6105,16 @@ fieldset.insp-canvas-props,
 .insp-field__control--pair > .insp-field {
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-1);
+}
+
+.insp-field-with-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.insp-field-with-hint > .insp-field {
+  flex: 1 1 0;
 }
 
 .insp-field__control > .insp-field {
