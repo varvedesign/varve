@@ -186,4 +186,49 @@ test.describe('Inspector system probe', () => {
       expect(dump.rail.width, `${label} rail width`).toBeGreaterThan(0);
     }
   });
+
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 768, height: 1024 },
+    { width: 1280, height: 800 },
+  ]) {
+    // One test per width so each gets a fresh context: the drawer toggle
+    // persists, and a shared context would carry the opened state from the
+    // previous width instead of exercising the launcher again.
+    test(`records the Inspector at ${viewport.width}px viewport width`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await navigateToEditor(page);
+      await drawRect(page, 40, 120, 160, 110);
+
+      const inspector = page.getByRole('region', { name: 'Inspector', exact: true });
+      const launcher = page.getByRole('button', { name: 'Show inspector panel', exact: true });
+      // At <=899px the Inspector lives in a modal drawer; the launcher is the
+      // only route in. At desktop widths the rail is already present.
+      let route: 'drawer' | 'rail' = 'rail';
+      if (await launcher.isVisible({ timeout: 3000 }).catch(() => false)) {
+        route = 'drawer';
+        await launcher.click();
+      }
+      await expect(inspector).toBeVisible({ timeout: 10000 });
+      await inspector.getByRole('tab', { name: 'Design', exact: true }).click();
+      await expect(inspector.getByRole('tabpanel', { name: 'Design' })).toBeVisible();
+
+      const dump = await dumpPanel(page);
+      const record = { route, dump };
+      writeFileSync(
+        path.join(OUT_DIR, `responsive-${viewport.width}.json`),
+        JSON.stringify(record, null, 2),
+      );
+      await page.screenshot({ path: path.join(OUT_DIR, `responsive-${viewport.width}.png`) });
+
+      // Guard the probe itself: the panel must be measurable and intact at
+      // every recorded width, otherwise the numbers would be meaningless.
+      expect(dump.sectionCount, `${viewport.width}px sections`).toBeGreaterThan(0);
+      expect(dump.duplicateSections, `${viewport.width}px duplicates`).toEqual([]);
+      expect(dump.rail.width, `${viewport.width}px panel width`).toBeGreaterThan(0);
+      if (viewport.width <= 899) {
+        expect(route, `${viewport.width}px must open through the compact drawer`).toBe('drawer');
+      }
+    });
+  }
 });
