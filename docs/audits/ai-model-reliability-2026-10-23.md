@@ -1249,6 +1249,43 @@ lane that already passed. Receipts are also invalidated by any new commit, so
 committing an audit update *before* a gate run is the right ordering: the gate
 then certifies the final SHA.
 
+### Browser-lane failures: all six are pre-existing upstream
+
+The watcher's attempt 2 got **every non-browser lane green** on `7da03bcd4` —
+Format/Emoji/Health via reused receipts, Architecture 600.3s, Typecheck 220.6s,
+CI tooling 3515.3s, WASM artifacts 18.4s, JavaScript unit 2248.9s, Rust tests
+115.7s and Rust Clippy 1026.5s — then stopped in Chromium E2E 1/24 with six
+failures.
+
+The watcher reported that as a clean deferral, but its check only asked whether
+a `responsive-panels` failure was *present*, never whether failures were
+*exclusively* that spec. Three of the six were different tests, so that verdict
+was wrong and the script now requires an exact match (otherwise `exit 4`, "NOT a
+clean deferral"). Re-running just those three in isolation at load 4.45 with one
+worker reproduced all three, so they are not load flakes:
+
+| Test | Signature |
+|------|-----------|
+| `browser/browser-readiness.spec.ts:259` | `expect(warnings).toEqual([])` got 4 console warnings |
+| `caf/caf.spec.ts:428` | `toHaveScreenshot` dialog mismatch |
+| `canvas/artboard-coordinates.spec.ts:148` | `locator.getAttribute` 45s timeout waiting for a button named `Auto-reveal canvas selection` |
+
+Attribution was then settled by switching this worktree to master's current tip
+and running the same three: **all three fail there too**, with identical test
+identities. Combined with the stash A/B that showed `responsive-panels` failing
+8/8 on the branch point, **all six Chromium E2E failures pre-date this work** —
+three from the 2026-10-16 launcher-unmount change, three from upstream master.
+Nothing in this change set introduces a browser-test regression.
+
+(That detour also proved `master` moves underneath this work: by the time the
+A/B ran, master had advanced from `e6a7f154b` to `f2443e9a4 Merge master into
+agent/claude-ui/depth-polish`. Switching back initially aborted because the
+worktree still carried pnpm's regenerated lockfile and the `onnxruntime-libs`
+symlink — invisible as untracked in this branch only because of this branch's
+own `.gitignore` fix, which master does not have yet. Discarding the regenerable
+lockfile entry restored the branch cleanly; the branch ref itself was never at
+risk, and all work was already committed.)
+
 ### Native OCR editor workflow complete
 
 `native-ocr-ui-r2` passed the full production journey in the running Tauri app
