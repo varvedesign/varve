@@ -1193,6 +1193,62 @@ every attempt re-pays ~1.5 hours of upstream lanes before reaching a shard. The
 pre-existing a11y finding stands on its own evidence and is not excused by the
 deferral.
 
+### Post-merge verification: CPU starvation, then a broken-then-fixed master
+
+Merging master into this branch was clean (no conflicts), but the resulting
+verification surfaced two independent problems.
+
+**(a) Architecture lane defeated by CPU starvation, not by architecture.** The
+machine ran three to four concurrent `verify:full`/`verify:affected` gates from
+other sessions plus Playwright and `tsc` on **8 cores at load 37**. Three
+consecutive attempts each died on a *different* hardcoded subprocess bound:
+`ts-prune`'s 180s (`runUnusedExportCommand`), then `runMadge`'s 120s inside
+`checkInstability`, then `runMadge` again inside `checkCycles`. Both bounds are
+hardcoded with no environment override, so there is no legitimate way to widen
+them — and widening them would be editing a gate to make it pass. The arithmetic
+explains it: at load 37 on 8 cores each runnable process gets ~21% of a core, so
+a job needing more than ~25s of CPU cannot fit a 120s wall bound, while `madge`
+over `packages/editor` (1249 files) needs far more. No architecture metric ever
+failed — reported cycles stayed at 14 against a 17 ceiling with 0 layer
+violations; the audit simply never reached a complete pass.
+
+A watcher then waited for two consecutive load readings below 12 and resumed the
+gate. Under load ~10 the same lanes cost **33.4s / 6.0s / 0.2s** for
+format/emoji/health against **366.8s / 80.2s / 1.6s** at load 37 — an ~11×
+difference that quantifies the contention — and **Architecture passed in
+572.3s**.
+
+**(b) Typecheck failed for a reason already fixed upstream.** The lane stopped
+at:
+
+```
+src/context/usePersistence.ts(26,59): error TS2307:
+Cannot find module '../persistence/saveTruthfulness'
+```
+
+The import was committed in HEAD while the module was absent from HEAD — so
+*any* clean checkout (CI, fresh clone, this worktree) failed. Provenance:
+`792aa2260 chore: preserve main checkout work-in-progress before integration
+merge` (2026-10-24) introduced the import into `usePersistence.ts` without
+adding `persistence/saveTruthfulness.ts`, which existed only as untracked WIP in
+the main checkout. This branch's merge had captured master exactly at that
+broken commit; master then advanced by one commit, `e6a7f154b fix(editor):
+commit the save-truthfulness module usePersistence imports`, which adds the
+module (104 lines) and its test (114 lines). Merging that single commit put the
+module in HEAD, after which `@varve/editor` typecheck passed (196s). This was a
+master-side defect, not a regression from this work — nothing in this change set
+touches `usePersistence.ts` or `persistence/`.
+
+**Receipt economics worth remembering.** Lane receipts are keyed by an identity
+that includes `environmentHash`, and `runtimeHash` stayed byte-identical across
+runs (`52bb0115…`) while `environmentHash` tracked the `VARVE_FULL_GATE_REASON`
+text (`b92dac5d…` → `69fd2c40…`). So a differently worded reason legitimately
+inherits no receipts — which is why `--resume` re-ran green lanes. One fixed
+reason string across attempts keeps identity stable and lets a retry reuse every
+lane that already passed. Receipts are also invalidated by any new commit, so
+committing an audit update *before* a gate run is the right ordering: the gate
+then certifies the final SHA.
+
 ### Native OCR editor workflow complete
 
 `native-ocr-ui-r2` passed the full production journey in the running Tauri app
