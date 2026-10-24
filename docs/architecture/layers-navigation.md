@@ -57,6 +57,13 @@ active constraint appears under the field as a removable token; a pressed
 workspace quick filter is not repeated as a token. The menu button's name and
 badge carry the active count.
 
+The bar is one row that re-flows with the panel's own width (a container query
+on the bar, not a window breakpoint): the search field grows to fill, the
+Filter button shows its label from 20rem, and the workspace quick-filter chips
+sit beside the search from 24rem instead of on a second line. Narrower than
+that the chips wrap under the search. The search field is a single box; it used
+to sit inside a second bordered box.
+
 ## Search keyboard contract
 
 - Ctrl/Command+F anywhere inside the Layers panel focuses the search and

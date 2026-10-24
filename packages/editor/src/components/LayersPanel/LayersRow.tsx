@@ -581,7 +581,15 @@ export const LayersRow = memo(function LayersRow({
 
         {/* Thumbnail preview (frames and images) */}
         {showThumbnail && (
-          <img src={thumbnailDataUrl!} alt="" aria-hidden className="layers-row__thumbnail" />
+          // Double-clicking the preview zooms to the layer, like the type icon
+          // beside it. It used to fall through to the row and start a rename.
+          <img
+            src={thumbnailDataUrl!}
+            alt=""
+            aria-hidden
+            className="layers-row__thumbnail"
+            onDoubleClick={handleIconDoubleClick}
+          />
         )}
 
         {/* Type icon — drag to reorder (the row body is the drag-to-select

@@ -2,6 +2,18 @@
 
 /* ─── Container — density-aware ──────────────────────────────── */
 .layers-panel {
+  /* Panel chrome runs on the 12 / 13 / 14px text scale. Rows, tabs and inputs
+   * were 15px beside 13px menus and 12px labels; remapping the token here moves
+   * every var(--font-size-sm) in the panel (and the shared components it hosts)
+   * to 13px at once. Titles opt back up to --font-size-smd explicitly. */
+  --font-size-sm: var(--font-size-xs);
+  /* The interface type roles resolve their size at :root, so remapping
+   * --font-size-sm alone does not reach them: controls were 15px and body copy
+   * 17px inside a panel whose labels are 12px. */
+  --type-interface-control-size: var(--font-size-xs);
+  --type-interface-body-size: var(--font-size-xs);
+  --type-interface-readout-size: var(--font-size-xs);
+  --type-interface-subheading-size: var(--font-size-smd);
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
@@ -43,7 +55,7 @@
  * allotted space and visually overlaps the icon buttons beside it. */
 .layers-panel__title {
   margin: 0;
-  font-size: inherit;
+  font-size: var(--font-size-smd);
   font-weight: var(--font-weight-semibold);
   letter-spacing: normal;
   overflow: hidden;
@@ -1416,48 +1428,54 @@
   color: var(--color-text-on-accent);
 }
 
-/* ─── Filter bar — multi-faceted layer filter ─────── */
+/* ─── Filter bar — multi-faceted layer filter ───────
+ * One row that re-flows with the panel's own width (a container query, not the
+ * window's): search grows to fill, the workspace chips sit beside it once there
+ * is room, and the Filter button keeps its label. The search used to sit in a
+ * bordered box that wrapped the field's own bordered input (two nested boxes),
+ * and the chips always took a second row, so a wide panel wasted most of it. */
 .layers-filter-bar {
+  container: layers-filter / inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   margin: 0;
-  padding: var(--space-2) var(--space-2) var(--space-1);
+  padding: var(--space-2);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-surface-raised);
 }
 
-.layers-filter-bar__search-row {
+.layers-filter-bar__controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
-  min-height: var(--component-default-height);
-  padding: 0 var(--space-1) 0 var(--space-2);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  transition: border-color var(--duration-quick) var(--ease-standard);
 }
-.layers-filter-bar__search-row:focus-within {
-  border-color: var(--color-border-focus);
-}
-[data-theme="high-contrast"] .layers-filter-bar__search-row {
-  border-color: var(--color-border-subtle);
+
+.layers-filter-bar__search {
+  flex: 1 1 9rem;
+  /* Never wider than the bar: at 200% root text 9rem is wider than the rail,
+     and a fixed minimum made the whole panel scroll sideways. */
+  min-inline-size: min(9rem, 100%);
+  order: 0;
 }
 
 .layers-filter-bar__toggle-advanced {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--target-min-compact);
-  min-height: var(--target-min-compact);
-  width: var(--component-compact-height);
-  height: var(--component-compact-height);
-  border: 1px solid transparent;
-  background: none;
-  color: var(--color-text-muted);
+  gap: var(--space-1);
+  order: 1;
+  box-sizing: border-box;
+  min-inline-size: var(--component-compact-height);
+  block-size: var(--component-compact-height);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
   cursor: pointer;
-  padding: 0;
   border-radius: var(--radius-control-compact);
   flex-shrink: 0;
 }
@@ -1475,17 +1493,15 @@
 }
 
 .layers-filter-bar__toggle-advanced--active {
-  color: var(--color-interactive-default);
-  border-color: color-mix(in oklab, var(--color-interactive-default) 30%, transparent);
+  color: var(--color-accent-on-subtle);
+  border-color: color-mix(in oklab, var(--color-interactive-default) 40%, transparent);
   background: var(--color-accent-subtle);
 }
 
-/* The Filter button carries the active-constraint count, so a collapsed
-   filter is never silent about narrowing the tree. */
-.layers-filter-bar__toggle-advanced:has(.layers-filter-bar__badge) {
-  width: auto;
-  gap: var(--space-05);
-  padding: 0 var(--space-1);
+/* The label appears once the bar is wide enough for it; narrow bars keep the
+   icon (its name stays in aria-label either way). */
+.layers-filter-bar__toggle-label {
+  display: none;
 }
 .layers-filter-bar__badge {
   font-size: var(--font-size-2xs);
@@ -1494,7 +1510,37 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Workspace chips: a second line in a narrow bar, inline beside the search once
+   the bar is wide. */
+.layers-filter-bar__quick {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  order: 3;
+}
+
+@container layers-filter (min-width: 20rem) {
+  .layers-filter-bar__toggle-label {
+    display: inline;
+  }
+}
+
+@container layers-filter (min-width: 24rem) {
+  .layers-filter-bar__quick {
+    flex: 0 1 auto;
+    order: 1;
+  }
+  .layers-filter-bar__toggle-advanced {
+    order: 2;
+  }
+  .layers-filter-bar__clear-all {
+    order: 3;
+  }
+}
+
 .layers-filter-bar__clear-all {
+  order: 2;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   background: none;
@@ -2301,15 +2347,6 @@
     overscroll-behavior: contain;
   }
 }
-.layers-filter-bar__quick {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  /* Chips start on the search field's edge; the bar already supplies the
-     rail inset (F-23). */
-  padding: 0 0 var(--space-1);
-}
-
 .layers-filter-bar__chip--quick {
   min-height: var(--target-min-compact);
 }

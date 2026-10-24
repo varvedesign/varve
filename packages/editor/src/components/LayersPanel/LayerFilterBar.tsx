@@ -174,9 +174,10 @@ export const LayerFilterBar = forwardRef<HTMLInputElement, LayerFilterBarProps>(
 
     return (
       <search className="layers-filter-bar" aria-label="Filter layers">
-        <div className="layers-filter-bar__search-row">
+        <div className="layers-filter-bar__controls">
           <SearchField
             ref={filterRef}
+            className="layers-filter-bar__search"
             value={filter.search}
             onChange={(v) => onChange({ ...filter, search: v })}
             onKeyDown={handleSearchKeyDown}
@@ -185,6 +186,26 @@ export const LayerFilterBar = forwardRef<HTMLInputElement, LayerFilterBarProps>(
             aria-keyshortcuts="Control+F Meta+F"
             resultCount={matchCount}
           />
+          {quickFilters.length > 0 && (
+            // biome-ignore lint/a11y/useSemanticElements: named workspace filter toggles are buttons, not form fields.
+            <div className="layers-filter-bar__quick" role="group" aria-label="Workspace filters">
+              {quickFilters.map((preset) => {
+                const key = QUICK_FILTER_TARGET[preset];
+                const active = filter.attributes[key] === true;
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    aria-pressed={active}
+                    className={`layers-filter-bar__chip layers-filter-bar__chip--quick${active ? ' layers-filter-bar__chip--active' : ''}`}
+                    onClick={() => toggleQuickFilter(preset)}
+                  >
+                    {QUICK_FILTER_LABELS[preset]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <button
             ref={menuTriggerRef}
             type="button"
@@ -197,7 +218,8 @@ export const LayerFilterBar = forwardRef<HTMLInputElement, LayerFilterBarProps>(
             }
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <SolidIcon name={SOLID_CHROME_ICONS.filter} size="0.85em" />
+            <SolidIcon name={SOLID_CHROME_ICONS.filter} size="sm" />
+            <span className="layers-filter-bar__toggle-label">Filter</span>
             {activeCount > 0 && (
               <span className="layers-filter-bar__badge" aria-hidden="true">
                 {activeCount}
@@ -242,27 +264,6 @@ export const LayerFilterBar = forwardRef<HTMLInputElement, LayerFilterBarProps>(
               </li>
             ))}
           </ul>
-        )}
-
-        {quickFilters.length > 0 && (
-          // biome-ignore lint/a11y/useSemanticElements: named workspace filter toggles are buttons, not form fields.
-          <div className="layers-filter-bar__quick" role="group" aria-label="Workspace filters">
-            {quickFilters.map((preset) => {
-              const key = QUICK_FILTER_TARGET[preset];
-              const active = filter.attributes[key] === true;
-              return (
-                <button
-                  key={preset}
-                  type="button"
-                  aria-pressed={active}
-                  className={`layers-filter-bar__chip layers-filter-bar__chip--quick${active ? ' layers-filter-bar__chip--active' : ''}`}
-                  onClick={() => toggleQuickFilter(preset)}
-                >
-                  {QUICK_FILTER_LABELS[preset]}
-                </button>
-              );
-            })}
-          </div>
         )}
 
         {hasActiveFilter && (
