@@ -183,6 +183,8 @@ test.describe('drag precision', () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await navigateToEditor(page);
+    // The minimap starts collapsed (F-05); it is this test's camera reference.
+    await page.getByRole('button', { name: 'Show minimap', exact: true }).click();
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const canvasBox = await canvas.boundingBox();
     if (!canvasBox) throw new Error('content canvas not found');

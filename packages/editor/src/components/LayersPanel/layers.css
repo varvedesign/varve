@@ -2,6 +2,18 @@
 
 /* ─── Container — density-aware ──────────────────────────────── */
 .layers-panel {
+  /* Panel chrome runs on the 12 / 13 / 14px text scale. Rows, tabs and inputs
+   * were 15px beside 13px menus and 12px labels; remapping the token here moves
+   * every var(--font-size-sm) in the panel (and the shared components it hosts)
+   * to 13px at once. Titles opt back up to --font-size-smd explicitly. */
+  --font-size-sm: var(--font-size-xs);
+  /* The interface type roles resolve their size at :root, so remapping
+   * --font-size-sm alone does not reach them: controls were 15px and body copy
+   * 17px inside a panel whose labels are 12px. */
+  --type-interface-control-size: var(--font-size-xs);
+  --type-interface-body-size: var(--font-size-xs);
+  --type-interface-readout-size: var(--font-size-xs);
+  --type-interface-subheading-size: var(--font-size-smd);
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
@@ -16,9 +28,10 @@
 /* Panel header: a quiet title row with a compact document count. */
 .layers-panel__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-05) var(--space-2);
   min-height: calc(var(--space-7) + var(--space-1));
   padding: var(--space-1) var(--space-2);
   font-size: var(--density-font-size, var(--font-size-sm));
@@ -42,7 +55,7 @@
  * allotted space and visually overlaps the icon buttons beside it. */
 .layers-panel__title {
   margin: 0;
-  font-size: inherit;
+  font-size: var(--font-size-smd);
   font-weight: var(--font-weight-semibold);
   letter-spacing: normal;
   overflow: hidden;
@@ -79,31 +92,25 @@
   letter-spacing: 0.02em;
 }
 
-.layers-panel__header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex-shrink: 0;
-}
-
 /* Narrow rail: header-actions (settings, auto-reveal, collapse-all, the
  * conditional Exit Solo text button, detach) can alone exceed the panel's
  * minimum width once Exit Solo is present. Neither side shrinks or wraps by
  * default, so the heading and the trailing actions overlapped instead of
  * cleanly reflowing. Wrapping onto its own row keeps every action reachable
- * instead of overlapping the title or being clipped past the panel's edge. */
-@container layers (max-width: 340px) {
-  .layers-panel__header {
-    flex-wrap: wrap;
-    row-gap: var(--space-05);
-  }
-
-  .layers-panel__header-actions {
-    flex: 1 1 100%;
-    min-width: 0;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
+ * instead of overlapping the title or being clipped past the panel's edge.
+ *
+ * The header wraps only when its content does not fit. It used to wrap at any
+ * rail of 340px or less, which is every default width, so the title and five
+ * icon buttons always took two rows (63px) and pushed the tree down (F-05).
+ * The header itself sets `flex-wrap: wrap`. */
+.layers-panel__header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  min-width: 0;
+  margin-inline-start: auto;
 }
 
 /* Unified header icon button — one size, one transition, one focus ring. */
@@ -245,8 +252,6 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   outline: none;
   padding: var(--space-1) var(--space-1) var(--space-2);
   background: var(--color-surface-app);
@@ -585,7 +590,11 @@
   width: var(--target-min-compact);
   height: var(--target-min-compact);
   flex-shrink: 0;
-  cursor: pointer;
+  /* The icon is the reorder handle (the row body drag-selects, so it cannot
+     be). It needs touch-action none so a touch drag reorders instead of
+     scrolling the list, which also gives coarse pointers a visible target. */
+  cursor: grab;
+  touch-action: none;
   /* Explicit reset: this is a real <button>. Without these the browser's UA
      buttonface background and chiseled border render as an unstyled gray box
      that looks broken against the design system. */
@@ -600,6 +609,9 @@
 .layers-row__icon-area:hover {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
+}
+.layers-row__icon-area:active {
+  cursor: grabbing;
 }
 .layers-row--selected .layers-row__icon-area {
   background: color-mix(in oklch, var(--color-interactive-default) 12%, transparent);
@@ -1415,48 +1427,54 @@
   color: var(--color-text-on-accent);
 }
 
-/* ─── Filter bar — multi-faceted layer filter ─────── */
+/* ─── Filter bar — multi-faceted layer filter ───────
+ * One row that re-flows with the panel's own width (a container query, not the
+ * window's): search grows to fill, the workspace chips sit beside it once there
+ * is room, and the Filter button keeps its label. The search used to sit in a
+ * bordered box that wrapped the field's own bordered input (two nested boxes),
+ * and the chips always took a second row, so a wide panel wasted most of it. */
 .layers-filter-bar {
+  container: layers-filter / inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   margin: 0;
-  padding: var(--space-2) var(--space-2) var(--space-1);
+  padding: var(--space-2);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-surface-raised);
 }
 
-.layers-filter-bar__search-row {
+.layers-filter-bar__controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
-  min-height: var(--component-default-height);
-  padding: 0 var(--space-1) 0 var(--space-2);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  transition: border-color var(--duration-quick) var(--ease-standard);
 }
-.layers-filter-bar__search-row:focus-within {
-  border-color: var(--color-border-focus);
-}
-[data-theme="high-contrast"] .layers-filter-bar__search-row {
-  border-color: var(--color-border-subtle);
+
+.layers-filter-bar__search {
+  flex: 1 1 9rem;
+  /* Never wider than the bar: at 200% root text 9rem is wider than the rail,
+     and a fixed minimum made the whole panel scroll sideways. */
+  min-inline-size: min(9rem, 100%);
+  order: 0;
 }
 
 .layers-filter-bar__toggle-advanced {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--target-min-compact);
-  min-height: var(--target-min-compact);
-  width: var(--component-compact-height);
-  height: var(--component-compact-height);
-  border: 1px solid transparent;
-  background: none;
-  color: var(--color-text-muted);
+  gap: var(--space-1);
+  order: 1;
+  box-sizing: border-box;
+  min-inline-size: var(--component-compact-height);
+  block-size: var(--component-compact-height);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
   cursor: pointer;
-  padding: 0;
   border-radius: var(--radius-control-compact);
   flex-shrink: 0;
 }
@@ -1467,18 +1485,61 @@
 .layers-filter-bar__toggle-advanced:focus-visible,
 .layers-filter-bar__clear-all:focus-visible,
 .layers-filter-bar__chip:focus-visible,
-.layers-filter-bar__clear-tag:focus-visible {
+.layers-filter-bar__token:focus-visible,
+.layers-filter-bar__step-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
 }
 
 .layers-filter-bar__toggle-advanced--active {
-  color: var(--color-interactive-default);
-  border-color: color-mix(in oklab, var(--color-interactive-default) 30%, transparent);
+  color: var(--color-accent-on-subtle);
+  border-color: color-mix(in oklab, var(--color-interactive-default) 40%, transparent);
   background: var(--color-accent-subtle);
 }
 
+/* The label appears once the bar is wide enough for it; narrow bars keep the
+   icon (its name stays in aria-label either way). */
+.layers-filter-bar__toggle-label {
+  display: none;
+}
+.layers-filter-bar__badge {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent-on-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Workspace chips: a second line in a narrow bar, inline beside the search once
+   the bar is wide. */
+.layers-filter-bar__quick {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  order: 3;
+}
+
+@container layers-filter (min-width: 20rem) {
+  .layers-filter-bar__toggle-label {
+    display: inline;
+  }
+}
+
+@container layers-filter (min-width: 24rem) {
+  .layers-filter-bar__quick {
+    flex: 0 1 auto;
+    order: 1;
+  }
+  .layers-filter-bar__toggle-advanced {
+    order: 2;
+  }
+  .layers-filter-bar__clear-all {
+    order: 3;
+  }
+}
+
 .layers-filter-bar__clear-all {
+  order: 2;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   background: none;
@@ -1495,31 +1556,32 @@
   border-color: var(--color-text-muted);
 }
 
-.layers-filter-bar__advanced {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-1);
-  background: var(--color-surface-sunken);
-  border-radius: var(--radius-control-compact);
-}
-
-.layers-filter-bar__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-05);
-}
-.layers-filter-bar__section-label {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.05em;
-}
-
-.layers-filter-bar__chips {
+/* Active constraints from the Filter menu, one removable token each. */
+.layers-filter-bar__tokens {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-05);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.layers-filter-bar__token {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-05);
+  min-height: var(--target-min-compact);
+  padding: 0 var(--space-1);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--color-accent-on-subtle);
+  background: var(--color-accent-subtle);
+  border: 1px solid color-mix(in oklab, var(--color-accent-primary) 55%, transparent);
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.layers-filter-bar__token:hover {
+  border-color: var(--color-accent-primary);
 }
 
 .layers-filter-bar__chip {
@@ -1555,15 +1617,6 @@
   color: var(--color-accent-on-subtle);
   border-color: var(--color-accent-primary);
 }
-.layers-filter-bar__chip--inverse {
-  border-color: var(--color-feedback-warning);
-  color: var(--color-feedback-warning);
-  background: var(--color-surface-app);
-}
-.layers-filter-bar__chip--inverse:hover {
-  background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
-}
-
 .layers-filter-bar__count {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
@@ -1665,25 +1718,6 @@
   white-space: nowrap;
 }
 
-.layers-filter-bar__clear-tag {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  background: none;
-  border: 0;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: var(--font-size-2xs);
-  padding: 0;
-  min-height: var(--target-min-compact);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.layers-filter-bar__clear-tag:hover {
-  color: var(--color-text-primary);
-}
-
 /* ─── Empty state ────────────────────────────────────────────── */
 .layers-panel__empty {
   padding: var(--space-1);
@@ -1761,7 +1795,6 @@
   box-shadow: 0 0 0 1px var(--color-tree-row);
   pointer-events: none;
 }
-
 /* ─── Drop zone indicators (DnD) ────────────────────────────── */
 /* Drop lines are drawn as pseudo-elements, never as borders. A border on the
    virtualizer's row wrapper changes that wrapper's measured height (28px to
@@ -2171,8 +2204,8 @@
    while `--solo-off` kept `pointer-events: none`, so an unpinned solo star
    looked clickable on the selected row and was not. Pinning it for a
    workspace (Photo) makes it visible without hover; the context menu and bulk
-   bar always offer the action. No layout shift: the 24px slot is reserved in
-   every state. */
+   bar always offer the action. An unpinned slot takes no width until it is
+   revealed (see "Name room" below). */
 .layers-row [data-row-action="solo"][data-row-action-pinned="false"] {
   opacity: 0;
   pointer-events: none;
@@ -2204,6 +2237,26 @@
   .layers-row__toggle--solo-off {
     opacity: 0.75;
     pointer-events: auto;
+  }
+}
+
+/* Name room (D-3, F-20). Toggles in their default state (visible, unlocked,
+   unpinned solo) and the details button take no width until the row is
+   hovered or focused, and eye and lock also on a selected row, so an idle row
+   gives its name the width those 24px slots used to reserve. A hidden, locked, mixed or soloed state
+   always shows, so state never has to be hovered to be read. The buttons stay
+   in the accessibility tree (no display or visibility change), and hover-less
+   or coarse pointers keep every toggle showing. */
+@media (hover: hover) and (pointer: fine) {
+  .layers-row:not(:hover, :focus-within, .layers-row--selected)
+    .layers-row__toggle[data-default-state="true"],
+  .layers-row:not(:hover, :focus-within) [data-row-action="solo"][data-row-action-pinned="false"],
+  .layers-row:not(:hover, :focus-within) .layers-row__details-trigger {
+    flex-basis: 0;
+    min-inline-size: 0;
+    inline-size: 0;
+    overflow: hidden;
+    opacity: 0;
   }
 }
 
@@ -2338,17 +2391,8 @@
   :root[data-layout-mode="tablet"] .editor__layers-panel .layers-panel__content {
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-color: var(--color-border-strong) transparent;
-    scrollbar-width: thin;
   }
 }
-.layers-filter-bar__quick {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  padding: 0 var(--space-2) var(--space-1);
-}
-
 .layers-filter-bar__chip--quick {
   min-height: var(--target-min-compact);
 }
@@ -2357,6 +2401,29 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.layers-filter-bar__step {
+  display: inline-flex;
+  gap: var(--space-05);
+  margin-inline-start: auto;
+}
+.layers-filter-bar__step-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
+  padding: 0;
+  color: var(--color-text-secondary);
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+}
+.layers-filter-bar__step-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
 }
 
 .layers-filter-bar__select-matches {

@@ -68,6 +68,7 @@ function themedColorBlock(theme: string): string {
   --elevation-shadow-small: ${shadows.small};
   --elevation-shadow-raised: ${shadows.raised};
   --elevation-shadow-overlay: ${shadows.overlay};
+  --elevation-edge-highlight: ${shadows.edge};
 
   /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
   --elevation-scrim: ${alphaCss(scrim)};

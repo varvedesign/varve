@@ -1,6 +1,6 @@
 import type { ConceptArtReferenceMetadata } from '@varve/scene';
 import { normalizeConceptArtReferenceMetadata } from '@varve/scene';
-import { Switch } from '@varve/ui';
+import { InfoHint, Switch } from '@varve/ui';
 import './ConceptArtReferenceControls.css';
 
 export interface ConceptArtReferenceControlsProps {
@@ -42,17 +42,19 @@ export function ConceptArtReferenceControls({
 
   return (
     <fieldset className="concept-reference-options">
-      <legend>Concept-art reference</legend>
-      <Switch
-        label="Use as concept reference"
-        aria-label="Use as concept reference"
-        checked={isReference}
-        onChange={(event) => toggleReference(event.currentTarget.checked)}
-      />
-      <p className="concept-reference-options__description">
-        A reference stays visible on the canvas; sampling and artwork exports stay off until
-        enabled.
-      </p>
+      <legend className="sr-only">Concept-art reference</legend>
+      <div className="concept-reference-options__row">
+        <Switch
+          label="Use as concept reference"
+          aria-label="Use as concept reference"
+          checked={isReference}
+          onChange={(event) => toggleReference(event.currentTarget.checked)}
+        />
+        <InfoHint topic="concept-art references">
+          A reference stays visible on the canvas; sampling and artwork exports stay off until
+          enabled.
+        </InfoHint>
+      </div>
       {metadata && (
         <div className="concept-reference-options__details">
           {metadata.sourceFileName && (

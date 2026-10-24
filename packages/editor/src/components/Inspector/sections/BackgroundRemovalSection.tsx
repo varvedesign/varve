@@ -1415,7 +1415,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 <p className="insp-hint">
                   {info.quality} &middot; {info.diskSizeDisplay} on disk &middot;{' '}
                   {info.nativePeakRamDisplay
-                    ? `${info.nativePeakRamDisplay}, ${info.peakRamDisplay} during inference`
+                    ? `${info.nativePeakRamDisplay} during inference; ${info.peakRamDisplay}`
                     : `${info.peakRamDisplay} during inference`}
                 </p>
                 <p className="insp-model-info__desc">{info.description}</p>

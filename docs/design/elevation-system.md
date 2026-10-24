@@ -31,6 +31,33 @@ Shadows are paired to elevation level and adapt to dark mode:
 
 Dark mode shadows are more opaque (30% vs 14%) to remain visible on near-black backgrounds.
 
+`--elevation-edge-highlight` is the lit top edge of a floating surface (light
+from above): `inset 0 1px 0 oklch(1 0 0 / 0.06)` in dark, a no-op inset shadow in
+light and High Contrast. It is always a shadow, never `none`, so it can lead a
+list: `box-shadow: var(--elevation-edge-highlight), var(--elevation-shadow-overlay)`.
+
+## Shell planes
+
+The editor shell uses the tiers as planes, so structure reads from tone before
+any border (2026-10-22, F-01 in the shell audit; before that every docked region
+sat on `default`):
+
+| Plane | Tier | Regions |
+|-------|------|---------|
+| Canvas | sunken | pasteboard behind the artwork |
+| App frame | default | menubar, context row, document tabs, status bar, panel header bands |
+| Work panels | raised | docked Layers and Inspector |
+| Floating | raised fill + edge highlight + overlay shadow | tool palette, menus |
+| Modal / popover | overlay | dialogs, popovers |
+
+Docked panels are not floating: hairline edge, no drop shadow. Inside
+`.editor__layers-panel` / `.editor__inspector-panel` the base-tier names
+(`--color-surface-app`, `-base`, `-default`, `--elevation-surface-default`)
+resolve to raised, because content written against the default tier meant
+"same as my panel". The tool palette and menus keep the raised fill because the
+hover tokens are calibrated one step above it (`surface-hover` and
+`interactive-hover-surface` share N(11) in dark).
+
 ## Micro-Borders
 
 1px interior strokes provide secondary depth cues and state feedback:

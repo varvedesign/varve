@@ -15,7 +15,7 @@
  * uses the same quiet, sentence-case treatment rather than the all-caps
  * eyebrow style the panel header moved away from. */
 .selection-sets__title {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-smd);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   letter-spacing: normal;

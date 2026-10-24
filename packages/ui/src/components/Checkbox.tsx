@@ -1,12 +1,13 @@
 /**
  * Varve `<Checkbox>` — accessible checkbox (design system refresh).
  *
- * Uses filled icons via SolidIcon for the checkmark. Follows APG Checkbox pattern
- * with proper ARIA attributes and keyboard navigation. Supports indeterminate state.
+ * The tick and the dash are drawn as plain strokes on the box itself. They used to be
+ * the filled check-square icon, which put a second square inside the box. Follows APG
+ * Checkbox pattern with proper ARIA attributes and keyboard navigation. Supports
+ * indeterminate state.
  */
 
 import { forwardRef, useId } from 'react';
-import { SolidIcon } from '../icons/SolidIcon';
 
 export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: string;
@@ -53,8 +54,22 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
         }
       />
       <span className="varve-checkbox__box">
-        <SolidIcon name="Check" className="varve-checkbox__check" />
-        <SolidIcon name="Minus" className="varve-checkbox__indeterminate" />
+        <svg
+          className="varve-checkbox__check"
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M3.75 8.5 6.75 11.5 12.25 4.75" />
+        </svg>
+        <svg
+          className="varve-checkbox__indeterminate"
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M4.25 8h7.5" />
+        </svg>
       </span>
       {label && <span className="varve-checkbox__label">{label}</span>}
       {description && (

@@ -59,6 +59,7 @@ import {
 } from '../tools/snapping';
 import { applyWarpToSelection } from '../warp/warpActions';
 import { resolveLayoutGuideGeometry } from './layoutGridGeometry';
+import { newTextInk } from './newTextInk';
 import {
   beginInteractionSpan,
   cancelCanvasFrame,
@@ -353,7 +354,13 @@ export function buildToolContext(
     sliceWithKnife: (line) => e.sliceWithKnife?.(line),
     createTextNodeAt: (world, size, parentId, text) => {
       deps.pendingAutoTextEditRef.current = true;
-      e.createTextNodeAt(world, size, parentId, text);
+      e.createTextNodeAt(
+        world,
+        size,
+        parentId,
+        text,
+        newTextInk(s.document, parentId, s.workspaceMode),
+      );
     },
     setSelection: (id) => e.setSelection(id),
     toggleSelection: (id, additive) => e.toggleSelection(id, additive),

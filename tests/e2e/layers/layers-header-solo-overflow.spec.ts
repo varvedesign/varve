@@ -11,10 +11,11 @@
  * icon button instead of being clipped or reflowed — a real, user-visible
  * defect, not just a hairline clipping case.
  *
- * Fix: `.layers-panel__title` now truncates with ellipsis, and a container
- * query mirroring the existing bulk-bar pattern wraps `.layers-panel__header`
- * so the action row gets its own line under the title once the container
- * narrows past 340px.
+ * Fix: `.layers-panel__title` now truncates with ellipsis, and
+ * `.layers-panel__header` wraps, so the action row moves to its own line
+ * under the title (and wraps itself) once the two no longer fit side by side.
+ * It used to wrap at every container of 340px or less, which kept the header
+ * at two rows on default-width rails as well.
  */
 import { expect, test } from '@playwright/test';
 import { panelResizeHandle } from '../helpers/panel-resize';

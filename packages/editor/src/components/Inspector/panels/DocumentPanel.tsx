@@ -22,8 +22,8 @@ import {
   managedColorToCss,
   resolveBlendEvaluationSpace,
 } from '@varve/shared';
-import { SegmentedControl, Select, Switch, SwitchField } from '@varve/ui';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { Checkbox, InfoHint, SegmentedControl, Select, Switch, SwitchField } from '@varve/ui';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
   BLACK_INK_SIMULATION_SUPPORTED,
@@ -93,6 +93,7 @@ export function DocumentPanel() {
   const [snapPreferences, setSnapPreferences] = useState<ViewportSettingsStore>(
     () => loadSettings().viewport,
   );
+  const snapTargetsId = useId();
   const updateSnapPreferences = useCallback((patch: Partial<ViewportSettingsStore>) => {
     const next = updateSettings({ viewport: patch });
     setSnapPreferences(next.viewport);
@@ -147,28 +148,48 @@ export function DocumentPanel() {
               >
                 Reset
               </button>
+              <InfoHint topic="canvas background">
+                When no custom background is set the canvas uses the theme surface color.
+              </InfoHint>
             </div>
           </div>
-          <p className="insp-panel__color-mode-note" role="note">
-            When no custom background is set the canvas uses the theme surface color.
-          </p>
         </div>
       </DisclosureSection>
       <DisclosureSection title="Snapping" sectionId="snapping">
+        {/* One switch for snapping itself, one group for what it snaps to
+            (F-25): the same four preferences, without a second label
+            restating each switch. */}
         <fieldset className="insp-canvas-props" aria-label="Pointer snapping settings">
-          <div className="insp-field">
-            <span className="insp-field__label">Global snap</span>
-            <div className="insp-field__control insp-field__control--inline">
-              <Switch
-                label="Enable magnetic pointer snapping"
-                checked={state.snapEnabled}
-                onChange={(event) => setSnapEnabled(event.target.checked)}
-              />
-            </div>
+          <SwitchField
+            label="Magnetic snapping"
+            checked={state.snapEnabled}
+            onChange={(event) => setSnapEnabled(event.target.checked)}
+            className="insp-snap__master"
+          />
+          {/* biome-ignore lint/a11y/useSemanticElements: a nested fieldset inside the section's fieldset would announce two groups for one set of choices. */}
+          <div className="insp-snap__targets" role="group" aria-labelledby={snapTargetsId}>
+            <span className="insp-field__label" id={snapTargetsId}>
+              Snap to
+            </span>
+            <Checkbox
+              label="Object edges and centers"
+              checked={snapPreferences.snapToObjects}
+              onChange={(event) => updateSnapPreferences({ snapToObjects: event.target.checked })}
+            />
+            <Checkbox
+              label="Page and frame bounds"
+              checked={snapPreferences.snapToPages}
+              onChange={(event) => updateSnapPreferences({ snapToPages: event.target.checked })}
+            />
+            <Checkbox
+              label="Ruler and layout guides"
+              checked={snapPreferences.snapToGuides}
+              onChange={(event) => updateSnapPreferences({ snapToGuides: event.target.checked })}
+            />
           </div>
           <div className="insp-field">
             <span className="insp-field__label">Tolerance</span>
-            <div className="insp-field__control">
+            <div className="insp-field__control insp-field__control--inline">
               <input
                 type="number"
                 min={SNAP_TOLERANCE_MIN}
@@ -179,54 +200,29 @@ export function DocumentPanel() {
                   const value = Number(event.target.value);
                   if (Number.isFinite(value)) updateSnapPreferences({ snapTolerancePx: value });
                 }}
-                className="insp-num__input"
+                className="insp-num__input insp-snap__tolerance"
                 aria-label={`Snap tolerance ${snapPreferences.snapTolerancePx} CSS pixels`}
               />
               <span className="insp-num__unit" aria-hidden="true">
                 CSS px
               </span>
+              <InfoHint topic="snapping">
+                Tolerance is measured in CSS pixels, so zoom does not change how far the pointer
+                must travel. Ctrl/Cmd temporarily bypasses magnetic snapping during a drag. Keyboard
+                nudges, grid snap, and pixel snap remain separate operations.
+              </InfoHint>
             </div>
           </div>
-          <div className="insp-field">
-            <span className="insp-field__label insp-field__label--wrap">Object geometry</span>
-            <div className="insp-field__control insp-field__control--inline">
-              <Switch
-                label="Edges and centers"
-                checked={snapPreferences.snapToObjects}
-                onChange={(event) => updateSnapPreferences({ snapToObjects: event.target.checked })}
-              />
-            </div>
-          </div>
-          <div className="insp-field">
-            <span className="insp-field__label insp-field__label--wrap">Pages and frames</span>
-            <div className="insp-field__control insp-field__control--inline">
-              <Switch
-                label="Page and frame bounds"
-                checked={snapPreferences.snapToPages}
-                onChange={(event) => updateSnapPreferences({ snapToPages: event.target.checked })}
-              />
-            </div>
-          </div>
-          <div className="insp-field">
-            <span className="insp-field__label">Guides</span>
-            <div className="insp-field__control insp-field__control--inline">
-              <Switch
-                label="Ruler and layout guides"
-                checked={snapPreferences.snapToGuides}
-                onChange={(event) => updateSnapPreferences({ snapToGuides: event.target.checked })}
-              />
-            </div>
-          </div>
-          <p className="insp-panel__color-mode-note" role="note">
-            Tolerance is measured in CSS pixels, so zoom does not change how far the pointer must
-            travel. Ctrl/Cmd temporarily bypasses magnetic snapping during a drag. Keyboard nudges,
-            grid snap, and pixel snap remain separate operations.
-          </p>
           <div className="insp-field">
             <span className="insp-field__label">Defaults</span>
             <div className="insp-field__control insp-field__control--inline">
-              <button type="button" className="insp-btn" onClick={resetSnapPreferences}>
-                Reset snapping
+              <button
+                type="button"
+                className="insp-btn"
+                onClick={resetSnapPreferences}
+                aria-label="Reset snapping settings"
+              >
+                Reset
               </button>
             </div>
           </div>
@@ -234,7 +230,13 @@ export function DocumentPanel() {
       </DisclosureSection>
       <DisclosureSection title="Document Color" sectionId="document-color">
         <div className="insp-panel__color-mode">
-          <span className="insp-panel__color-mode-label">Mode</span>
+          <span className="insp-panel__color-mode-label">
+            Mode
+            <InfoHint topic="document color mode">
+              Assigning a mode changes document intent only — existing colors keep their values and
+              are converted at export. Use Convert to rewrite document colors now.
+            </InfoHint>
+          </span>
           <SegmentedControl
             label="Document color mode"
             value={documentColorMode}
@@ -253,13 +255,16 @@ export function DocumentPanel() {
               commitTransaction();
             }}
           />
-          <p className="insp-panel__color-mode-note" role="note">
-            Assigning a mode changes document intent only — existing colors keep their values and
-            are converted at export. Use Convert to rewrite document colors now.
-          </p>
         </div>
         <div className="insp-panel__color-mode">
-          <span className="insp-panel__color-mode-label">Precision</span>
+          <span className="insp-panel__color-mode-label">
+            Precision
+            <InfoHint topic="document precision">
+              Precision sets the storage depth for newly authored colors. Existing values are never
+              rewritten by this setting. uint16/float colors keep their full channel range through
+              save/reopen; display and 8-bit exports quantize only at their explicit boundaries.
+            </InfoHint>
+          </span>
           <SegmentedControl
             label="Document precision"
             value={documentBitDepth}
@@ -277,14 +282,15 @@ export function DocumentPanel() {
               commitTransaction();
             }}
           />
-          <p className="insp-panel__color-mode-note" role="note">
-            Precision sets the storage depth for newly authored colors. Existing values are never
-            rewritten by this setting. uint16/float colors keep their full channel range through
-            save/reopen; display and 8-bit exports quantize only at their explicit boundaries.
-          </p>
         </div>
         <div className="insp-panel__color-mode">
-          <span className="insp-panel__color-mode-label">Working RGB</span>
+          <span className="insp-panel__color-mode-label">
+            Working RGB
+            <InfoHint topic="working RGB">
+              Working RGB describes the document's authored encoding. It is separate from gradient
+              interpolation and artistic blend evaluation.
+            </InfoHint>
+          </span>
           <SegmentedControl
             label="Working RGB"
             value={workingSpace}
@@ -300,13 +306,15 @@ export function DocumentPanel() {
               commitTransaction();
             }}
           />
-          <p className="insp-panel__color-mode-note" role="note">
-            Working RGB describes the document's authored encoding. It is separate from gradient
-            interpolation and artistic blend evaluation.
-          </p>
         </div>
         <div className="insp-panel__color-mode">
-          <span className="insp-panel__color-mode-label">Blend evaluation</span>
+          <span className="insp-panel__color-mode-label">
+            Blend evaluation
+            <InfoHint topic="blend evaluation">
+              Controls the values received by separable artistic blend formulas. Alpha coverage and
+              non-separable W3C modes keep their defined semantics.
+            </InfoHint>
+          </span>
           <SegmentedControl
             label="Blend evaluation space"
             value={blendEvaluationSpace}
@@ -322,13 +330,15 @@ export function DocumentPanel() {
               commitTransaction();
             }}
           />
-          <p className="insp-panel__color-mode-note" role="note">
-            Controls the values received by separable artistic blend formulas. Alpha coverage and
-            non-separable W3C modes keep their defined semantics.
-          </p>
         </div>
         <div className="insp-panel__color-mode">
-          <span className="insp-panel__color-mode-label">Gradient default</span>
+          <span className="insp-panel__color-mode-label">
+            Gradient default
+            <InfoHint topic="gradient default">
+              New gradients inherit this default. An individual gradient can pin another
+              interpolation space; legacy gradients with no metadata remain sRGB.
+            </InfoHint>
+          </span>
           <SegmentedControl
             label="Gradient interpolation default"
             value={gradientInterpolation}
@@ -347,10 +357,6 @@ export function DocumentPanel() {
               commitTransaction();
             }}
           />
-          <p className="insp-panel__color-mode-note" role="note">
-            New gradients inherit this default. An individual gradient can pin another interpolation
-            space; legacy gradients with no metadata remain sRGB.
-          </p>
         </div>
       </DisclosureSection>
       <DisclosureSection title="Soft Proof" sectionId="document-proof">
@@ -363,6 +369,11 @@ export function DocumentPanel() {
                 checked={proofEnabled}
                 onChange={(e) => setProofEnabled(e.target.checked)}
               />
+              <InfoHint topic="proof preview">
+                Soft proofing is a display-only preview: document colors are never modified and
+                export stays authoritative. Accurate proofing requires a profile-aware runtime; the
+                browser shows the source color and reports when proofing is unavailable.
+              </InfoHint>
             </div>
           </div>
           <div className="insp-field">
@@ -450,18 +461,13 @@ export function DocumentPanel() {
                 checked={viewProof.mirror}
                 onChange={(event) => setViewProofState({ mirror: event.target.checked })}
               />
+              <InfoHint topic="canvas review">
+                Grayscale and mirror checks are session-only views. They do not change saved artwork
+                or exports; mirror view disables canvas pointer input to prevent drawing against
+                reflected coordinates.
+              </InfoHint>
             </div>
           </div>
-          <p className="insp-panel__color-mode-note" role="note">
-            Soft proofing is a display-only preview: document colors are never modified and export
-            stays authoritative. Accurate proofing requires a profile-aware runtime; the browser
-            shows the source color and reports when proofing is unavailable.
-          </p>
-          <p className="insp-panel__color-mode-note" role="note">
-            Grayscale and mirror checks are session-only views. They do not change saved artwork or
-            exports; mirror view disables canvas pointer input to prevent drawing against reflected
-            coordinates.
-          </p>
         </div>
       </DisclosureSection>
       <DisclosureSection title="Document Grid" sectionId="document-grid">
@@ -630,12 +636,13 @@ export function DocumentPanel() {
                 checked={state.layoutGridVisible}
                 onChange={(e) => setLayoutGridVisible(e.target.checked)}
               />
+              <InfoHint topic="grid and layout guides">
+                Document-grid visibility and snapping are independent. Layout guides are authored on
+                frames and never change child arrangement; Auto layout below is the arrangement
+                system.
+              </InfoHint>
             </div>
           </div>
-          <p className="insp-panel__color-mode-note" role="note">
-            Document-grid visibility and snapping are independent. Layout guides are authored on
-            frames and never change child arrangement; Auto layout below is the arrangement system.
-          </p>
           <div className="insp-field">
             <span className="insp-field__label">Grid Origin</span>
             <div className="insp-field__control insp-field__control--inline">

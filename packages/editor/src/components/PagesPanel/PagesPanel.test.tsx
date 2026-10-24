@@ -217,6 +217,8 @@ describe('PagesPanel', () => {
     render(<PagesPanel />);
     expect(screen.getByRole('heading', { name: /Publishing pages/ })).toBeTruthy();
     expect(screen.getByText('No publishing pages — click + to add one.')).toBeTruthy();
+    // The explanation lives behind an info button, not in the resting layout (F-24).
+    expect(screen.getByRole('button', { name: 'About publishing pages' })).toBeTruthy();
     expect(screen.getByText(/Publishing pages define trim/)).toBeTruthy();
   });
 

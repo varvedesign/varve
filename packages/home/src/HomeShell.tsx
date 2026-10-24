@@ -14,6 +14,7 @@ import {
   type Preset,
 } from '@varve/shared';
 import {
+  CloseButton,
   ContentSkeleton,
   Dialog,
   Icon,
@@ -78,6 +79,12 @@ export interface HomeShellProps {
    * consumers can omit it and keep lookup-only behavior.
    */
   onGenerateThumbnail?: ThumbnailGenerator;
+  /**
+   * Show the files / render-time / results readout. A diagnostic, so hosts
+   * pass their Diagnostics preference; it was always on in development
+   * builds and read as product chrome on Home (shell audit 2026-10-21, F-06).
+   */
+  showPerformanceProfile?: boolean;
 }
 
 export function HomeShell(props: HomeShellProps) {
@@ -97,6 +104,7 @@ function HomeShellContent({
   active = true,
   onOpenSettings,
   onGenerateThumbnail,
+  showPerformanceProfile = false,
 }: HomeShellProps) {
   const view = useHomeView(platform);
   const { finishHomeDrop, notifyImportComplete, startHomeDrop } = useHomeImportNotifications();
@@ -1009,14 +1017,13 @@ function HomeShellContent({
         {storageError && (
           <div className="varve-home__storage-error" role="alert">
             <span>{storageError}</span>
-            <button
+            <CloseButton
+              size="sm"
               type="button"
               className="varve-home__storage-error-dismiss"
               onClick={() => setStorageError(null)}
               aria-label="Dismiss storage error"
-            >
-              <Icon name="X" label={undefined} size="1em" />
-            </button>
+            />
           </div>
         )}
         {sidebarOpen && (
@@ -1207,11 +1214,13 @@ function HomeShellContent({
         )}
         <main id="home-main" tabIndex={-1} className="varve-home__content">
           {renderContent()}
-          <PerfProfile
-            fileCount={view.files.length}
-            renderStartTime={renderStartRef.current}
-            searchResultCount={view.visibleFiles.length}
-          />
+          {showPerformanceProfile && (
+            <PerfProfile
+              fileCount={view.files.length}
+              renderStartTime={renderStartRef.current}
+              searchResultCount={view.visibleFiles.length}
+            />
+          )}
         </main>
 
         <NewDesignDialog

@@ -29,6 +29,11 @@ vi.mock('./context', () => ({
 
 vi.mock('./components/Shell', () => ({ DocumentInfoDialog: () => null }));
 vi.mock('./components/PreflightWarnings', () => ({ PreflightWarnings: () => null }));
+// The selection segment has its own tests (SelectionInfoBar.test.tsx); here
+// it only has to occupy its slot.
+vi.mock('./components/SelectionInfoBar', () => ({
+  SelectionInfoBar: () => <section aria-label="Selection information" />,
+}));
 vi.mock('./components/StatusBar/DocumentHealthBadge', () => ({
   DocumentHealthBadge: () => null,
 }));
@@ -256,10 +261,17 @@ describe('StatusBar section gating', () => {
     expect(screen.queryByLabelText('Toggle pixel grid')).toBeNull();
   });
 
+  it('leads the row with the selection segment, so the bottom bar is one row', () => {
+    useEditorMock.mockReturnValue(baseEditor());
+    render(<StatusBar />);
+    const bar = document.querySelector('.editor-status') as HTMLElement;
+    expect(bar.firstElementChild).toHaveAccessibleName('Selection information');
+  });
+
   it('leaves selection identity to SelectionInfoBar rather than repeating it', () => {
     // The status bar used to render the selected node's name (or "N selected")
-    // two rows below the SelectionInfoBar, from a different layer count. One
-    // surface owns the fact now.
+    // beside the SelectionInfoBar, from a different layer count. One segment
+    // owns the fact now; the other sections must not repeat it.
     const editor = baseEditor();
     editor.selectedNodes = (() => [namedShapeNode]) as unknown as typeof editor.selectedNodes;
     useEditorMock.mockReturnValue(editor);

@@ -60,8 +60,13 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* The application is interface chrome first: anything that does not name a
+ * role (menus, popovers, panel titles, tabs, status text) renders in the
+ * interface face. Reading text opts in below. Before 2026-10-22 the default was
+ * the reading face, so chrome mixed two faces inside one row
+ * (tests/unit/typeface-roles.test.ts). */
 body {
-  font-family: var(--font-body);
+  font-family: var(--font-interface);
   font-size: var(--font-size-md);
   line-height: var(--font-line-normal);
   color: var(--color-text-primary);
@@ -72,6 +77,13 @@ body {
   font-feature-settings:
     "kern" 1,
     "liga" 1;
+}
+
+/* Reading text (paragraphs, quotes, tooltip copy) keeps the reading face.
+ * `:where()` adds no specificity, so any component that names its own role
+ * still wins. */
+:where(p, blockquote, .varve-tooltip__body) {
+  font-family: var(--type-content-body-family);
 }
 
 #root {

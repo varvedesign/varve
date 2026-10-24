@@ -61,7 +61,16 @@ import {
   runLinterScan,
   type SuppressionEntry,
 } from '@varve/scene';
-import { Button, Dialog, Icon, Menu, type MenuEntry, Switch, Tooltip } from '@varve/ui';
+import {
+  Button,
+  CloseButton,
+  Dialog,
+  Icon,
+  Menu,
+  type MenuEntry,
+  Switch,
+  Tooltip,
+} from '@varve/ui';
 import {
   type KeyboardEvent,
   useCallback,
@@ -139,6 +148,28 @@ function humanizeToken(value: string): string {
   const tail = value.includes('/') ? value.slice(value.lastIndexOf('/') + 1) : value;
   const spaced = tail.replace(/[-_]/g, ' ');
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/**
+ * Severity as shape and text, not hue alone (WCAG 1.4.1, F-30): the issue
+ * lists are grouped by category, so a coloured dot was the only severity
+ * cue. Icons follow the Preflight panel's mapping.
+ */
+const SEVERITY_MARKS = {
+  error: { icon: 'TriangleAlert', label: 'Error' },
+  warning: { icon: 'CircleAlert', label: 'Warning' },
+  info: { icon: 'Info', label: 'Info' },
+} as const;
+
+function SeverityMark({ severity }: { severity: string }) {
+  const mark =
+    severity === 'error' || severity === 'warning' ? SEVERITY_MARKS[severity] : SEVERITY_MARKS.info;
+  return (
+    <span className="intelligence-severity-mark">
+      <Icon name={mark.icon} size={12} label={undefined} />
+      <span className="varve-visually-hidden">{mark.label}: </span>
+    </span>
+  );
 }
 
 /** Plural, human labels for the severity filter chips (never raw ids). */
@@ -569,7 +600,7 @@ function LinterTab() {
                       }}
                       disabled={issue.nodeIds.length === 0}
                     >
-                      <span className="intelligence-severity-dot" />
+                      <SeverityMark severity={sev} />
                       <span className="intelligence-issue__type">{issue.ruleId}</span>
                     </button>
                   </Tooltip>
@@ -602,14 +633,12 @@ function LinterTab() {
                     ))}
                     {issue.dismissable && (
                       <Tooltip label="Dismiss this issue">
-                        <button
+                        <CloseButton
+                          size="sm"
                           type="button"
-                          className="intelligence-action-btn"
                           onClick={() => setDismissed((prev) => new Set(prev).add(key))}
                           aria-label="Dismiss this issue"
-                        >
-                          <Icon name="X" label={undefined} size="0.85em" />
-                        </button>
+                        />
                       </Tooltip>
                     )}
                   </div>
@@ -1175,7 +1204,7 @@ function ReviewTab() {
                       onClick={() => finding.nodeId && setSelection(finding.nodeId)}
                       disabled={!finding.nodeId}
                     >
-                      <span className="intelligence-severity-dot" />
+                      <SeverityMark severity={finding.severity} />
                       <span className="intelligence-issue__type" title={finding.ruleId}>
                         {humanizeToken(finding.ruleId)}
                       </span>
@@ -1220,14 +1249,12 @@ function ReviewTab() {
                       </span>
                     )}
                     <Tooltip label="Dismiss this finding">
-                      <button
+                      <CloseButton
+                        size="sm"
                         type="button"
-                        className="intelligence-action-btn"
                         onClick={() => handleSuppress(finding)}
                         aria-label="Dismiss this finding"
-                      >
-                        <Icon name="X" label={undefined} size="0.85em" />
-                      </button>
+                      />
                     </Tooltip>
                   </div>
                 </div>
@@ -1282,7 +1309,7 @@ function AuditTab() {
               className="intelligence-issue__target"
               onClick={() => setSelection(issue.nodeId)}
             >
-              <span className="intelligence-severity-dot" />
+              <SeverityMark severity={issue.severity} />
               <span className="intelligence-issue__type">{issue.type}</span>
             </button>
           </Tooltip>
@@ -1699,7 +1726,7 @@ function GovernanceTab() {
                     onClick={() => issue.nodeId && setSelection(issue.nodeId)}
                     disabled={!issue.nodeId}
                   >
-                    <span className="intelligence-severity-dot" />
+                    <SeverityMark severity={issue.severity} />
                     <span className="intelligence-issue__type">{issue.ruleId}</span>
                   </button>
                 </Tooltip>
@@ -1853,7 +1880,7 @@ function DebtTab() {
                         onClick={() => issue.nodeId && setSelection(issue.nodeId)}
                         disabled={!issue.nodeId}
                       >
-                        <span className="intelligence-severity-dot" />
+                        <SeverityMark severity={issue.severity} />
                         <span className="intelligence-issue__type">{issue.checkId}</span>
                       </button>
                     </Tooltip>
@@ -1917,7 +1944,7 @@ function PrototypeTab() {
               onClick={() => issue.nodeId && setSelection(issue.nodeId)}
               disabled={!issue.nodeId}
             >
-              <span className="intelligence-severity-dot" />
+              <SeverityMark severity={issue.severity} />
               <span className="intelligence-issue__type">{issue.code}</span>
             </button>
           </Tooltip>
@@ -2557,7 +2584,7 @@ function ComponentsTab() {
                         className="intelligence-issue__target"
                         onClick={() => setSelection(nid)}
                       >
-                        <span className="intelligence-severity-dot" />
+                        <SeverityMark severity="info" />
                         <span className="intelligence-issue__type">{nid}</span>
                       </button>
                     </Tooltip>

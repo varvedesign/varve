@@ -10,7 +10,15 @@ import {
 } from '@varve/engine';
 import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@varve/scene';
 import { cryptoId, makeAdjustment } from '@varve/scene';
-import { Menu, type MenuItem, Select, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
+import {
+  CloseButton,
+  Menu,
+  type MenuItem,
+  Select,
+  SOLID_CHROME_ICONS,
+  SolidIcon,
+  Tooltip,
+} from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeAdjustmentSourceSample } from '../../canvas/adjustmentHistogramSource';
 import { useEditor } from '../../context';
@@ -471,7 +479,8 @@ export function AdjustmentPanel() {
               )}
             </button>
 
-            <button
+            <CloseButton
+              size="sm"
               type="button"
               className="adj-panel__item-remove"
               onClick={(e) => {
@@ -479,9 +488,7 @@ export function AdjustmentPanel() {
                 handleRemoveAdjustment(adj.id);
               }}
               aria-label={`Remove ${adj.kind}`}
-            >
-              <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.7em" />
-            </button>
+            />
           </div>
         ))}
 

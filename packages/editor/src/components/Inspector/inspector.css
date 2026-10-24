@@ -41,8 +41,6 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   scrollbar-gutter: stable;
 }
 
@@ -137,7 +135,7 @@
 }
 .insp-panel__tab {
   flex: 1 0 auto;
-  min-block-size: var(--component-large-height);
+  min-block-size: var(--component-default-height);
   padding: var(--space-1) var(--space-2);
   background: none;
   border: none;
@@ -302,7 +300,7 @@
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-smd);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   text-overflow: ellipsis;
@@ -545,13 +543,6 @@
   margin-bottom: var(--insp-section-gap, var(--space-2));
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
-.insp-disclosure:hover {
-  border-bottom-color: color-mix(
-    in srgb,
-    var(--color-border-strong) 40%,
-    var(--color-border-subtle)
-  );
-}
 .insp-disclosure:last-child {
   margin-bottom: 0;
 }
@@ -577,7 +568,10 @@
   margin-inline: 0;
   padding: var(--space-1) 0;
   background: var(--color-surface-base);
-  box-shadow: 0 1px 0 var(--color-border-subtle);
+  /* No underline here: the section already ends in one hairline (its
+   * border-bottom). A header underline as well drew two lines per expanded
+   * section and a doubled line on collapsed ones, and the divider darkening on
+   * hover made the separators flicker as the pointer crossed the panel. */
   border-radius: 0;
 }
 
@@ -1766,25 +1760,6 @@
   color: var(--color-text-primary);
 }
 
-.insp-picker-dialog__close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  padding: 0;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  background: var(--color-surface-sunken);
-  color: var(--color-text-primary);
-  cursor: pointer;
-}
-
-.insp-picker-dialog__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
-}
-
 .insp-picker-done {
   margin-top: var(--space-1);
   width: 100%;
@@ -2916,6 +2891,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The summary and the copy button share one line: the summary takes what is
+ * left and truncates, instead of the button dropping onto a line of its own. */
+.insp-image-fill__src-summary {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.insp-field__control:has(> .insp-image-fill__src-summary),
+.insp-field__control:has(> [class*="Tooltip"] > .insp-image-fill__src) {
+  flex-wrap: nowrap;
+}
 .insp-image-fill__preview-img {
   display: block;
   width: 100%;
@@ -2955,32 +2942,20 @@
 
 /* Image transform controls (rotation, flip, crop). */
 .insp-image-fill__fit-transform-group {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(9rem, 1.1fr);
-  gap: var(--space-2);
-  min-inline-size: 0;
-}
-
-.insp-image-fill__fit-transform-group > .insp-field {
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-1);
-  min-inline-size: 0;
-}
-
-.insp-image-fill__fit-transform-group > .insp-field > .insp-field__label {
-  min-block-size: 0;
-}
-
-.insp-image-fill__fit-transform-group > .insp-field > .insp-field__control {
-  inline-size: 100%;
-  max-inline-size: 100%;
+  /* Fit and Rotation are ordinary label-left rows, like every other inspector
+   * row. They were a two-column grid with the label above each control, so the
+   * labels sat at different heights and the flip buttons wrapped under the
+   * angle field. */
+  display: flex;
+  flex-direction: column;
+  gap: var(--insp-field-group-gap, var(--space-2));
   min-inline-size: 0;
 }
 
 .insp-image-fill__transform-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   flex-wrap: wrap;
   gap: var(--space-1);
   min-inline-size: 0;
@@ -3028,11 +3003,6 @@
   background: var(--color-surface-hover);
 }
 
-@container inspector (max-width: 18rem) {
-  .insp-image-fill__fit-transform-group {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 .insp-image-fill__crop-info {
   display: flex;
   align-items: center;
@@ -3048,7 +3018,9 @@
   font-size: var(--font-size-sm);
 }
 
-/* Shared inspector checkboxes (token-styled). */
+/* Shared inspector checkboxes (token-styled). Same box, border, radius and tick
+ * as the @varve/ui Checkbox, so a native input and the component read as one
+ * control. The tick is two borders rotated, which takes the on-accent token. */
 .insp-checkbox,
 .insp-panel
   input[type="checkbox"]:not(
@@ -3059,15 +3031,27 @@
   ) {
   appearance: none;
   -webkit-appearance: none;
-  width: 1rem;
-  height: 1rem;
+  position: relative;
+  box-sizing: border-box;
+  inline-size: var(--icon-size-sm);
+  block-size: var(--icon-size-sm);
   margin: 0;
   flex-shrink: 0;
-  border: 1.5px solid var(--color-border-strong);
-  border-radius: var(--radius-control-compact);
+  border: 1px solid var(--color-border-strong);
+  border-radius: calc(var(--radius-control-compact) / 2);
   background: var(--color-surface-default);
   cursor: pointer;
   vertical-align: middle;
+}
+.insp-checkbox:hover:not(:checked, :disabled),
+.insp-panel
+  input[type="checkbox"]:not(
+    .insp-checkbox--icon-only,
+    .insp-proportion-lock__input,
+    .varve-switch__input,
+    .varve-checkbox__input
+  ):hover:not(:checked, :disabled) {
+  border-color: var(--color-text-subtle);
 }
 .insp-checkbox:checked,
 .insp-panel
@@ -3079,9 +3063,35 @@
   ):checked {
   background-color: var(--color-interactive-default);
   border-color: var(--color-interactive-default);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E");
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
+}
+.insp-checkbox:checked::after,
+.insp-panel
+  input[type="checkbox"]:not(
+    .insp-checkbox--icon-only,
+    .insp-proportion-lock__input,
+    .varve-switch__input,
+    .varve-checkbox__input
+  ):checked::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 31%;
+  inset-block-start: 13%;
+  inline-size: 24%;
+  block-size: 48%;
+  border: solid var(--color-text-on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.insp-checkbox:disabled,
+.insp-panel
+  input[type="checkbox"]:not(
+    .insp-checkbox--icon-only,
+    .insp-proportion-lock__input,
+    .varve-switch__input,
+    .varve-checkbox__input
+  ):disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .insp-checkbox:focus-visible,
 .insp-panel
@@ -3132,8 +3142,17 @@
   gap: var(--space-2);
 }
 .insp-panel__color-mode-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+}
+/* A note keeps its one-line state visible and offers the full explanation
+   behind an info button at its end (F-24). */
+.insp-panel__color-mode-note .varve-info-hint {
+  margin-inline-start: var(--space-1);
+  vertical-align: middle;
 }
 /* ---------- Paint Library ---------- */
 .insp-paint-library {
@@ -3394,6 +3413,20 @@ fieldset.insp-canvas-props,
   white-space: normal;
   overflow-wrap: anywhere;
   min-width: 0;
+}
+
+/* Snapping (F-25): one master switch row, then the targets as a stacked
+   checkbox group at full width, so each target stays on one line at the
+   narrowest Inspector width. */
+.insp-snap__targets {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.insp-snap__tolerance {
+  inline-size: 4.5em;
 }
 
 .insp-layout-guide-card {
@@ -4032,20 +4065,16 @@ fieldset.insp-canvas-props,
 .intelligence-section__title {
   font-size: var(--font-size-sm);
 }
-.intelligence-severity-dot {
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: 50%;
+.intelligence-severity-mark {
+  display: inline-flex;
   flex-shrink: 0;
+  color: var(--color-feedback-info);
 }
-.intelligence-issue--error .intelligence-severity-dot {
-  background: var(--color-feedback-danger);
+.intelligence-issue--error .intelligence-severity-mark {
+  color: var(--color-feedback-danger);
 }
-.intelligence-issue--warning .intelligence-severity-dot {
-  background: var(--color-feedback-warning);
-}
-.intelligence-issue--info .intelligence-severity-dot {
-  background: var(--color-feedback-info);
+.intelligence-issue--warning .intelligence-severity-mark {
+  color: var(--color-feedback-warning);
 }
 .intelligence-issue__type {
   font-size: var(--font-size-xs);
@@ -6062,6 +6091,20 @@ fieldset.insp-canvas-props,
   align-items: flex-start;
 }
 
+/* Two related numeric fields (X / Y) in one control column: equal halves, the
+ * axis label sitting just before its input. They were nested field rows that
+ * each took 38% of a half-width cell for the label, so the Offset inputs came
+ * out narrow and unlike the full-width Scale input above them. */
+.insp-field__control--pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.insp-field__control--pair > .insp-field {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1);
+}
+
 .insp-field__control > .insp-field {
   min-width: 0;
   width: auto;
@@ -6785,21 +6828,6 @@ fieldset.insp-canvas-props,
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   outline: none;
-}
-
-.insp-preset-popover__clear {
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.insp-preset-popover__clear:hover {
-  color: var(--color-text-primary);
 }
 
 /* Category filter chips */

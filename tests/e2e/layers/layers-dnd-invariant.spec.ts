@@ -318,12 +318,14 @@ test.describe('Layers DnD — preview matches commit', () => {
     const target = rows[rows.length - 1]!;
 
     // The test needs the source and destination to be physically reachable in
-    // one uninterrupted gesture. At the default height, the minimap and Design
-    // Canvases section leave the last of these six rows outside the tree's
-    // clipped viewport; a pointer move there cannot produce a drop preview.
-    // Collapse unrelated Layers chrome so all six rows remain reachable.
+    // one uninterrupted gesture. The minimap starts collapsed (F-05); the Design
+    // Canvases section can still push the last of these six rows outside the
+    // tree's clipped viewport, where a pointer move cannot produce a drop
+    // preview, so collapse it too.
     const layersPanel = page.getByTestId('layers-panel');
-    await layersPanel.getByRole('button', { name: 'Hide minimap', exact: true }).click();
+    await expect(
+      layersPanel.getByRole('button', { name: 'Show minimap', exact: true }),
+    ).toBeVisible();
     await layersPanel
       .getByRole('button', { name: 'Hide Design Canvases section', exact: true })
       .click();

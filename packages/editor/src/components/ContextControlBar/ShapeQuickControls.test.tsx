@@ -32,15 +32,18 @@ vi.mock('../Inspector/controls/InspectorColorPopover', () => ({
     disabled,
     tooltipDisabledReason,
     swatchStyle,
+    className,
   }: {
     label: string;
     onChange: (color: { space: 'rgb'; r: number; g: number; b: number; a: number }) => void;
     disabled?: boolean;
     tooltipDisabledReason?: string;
     swatchStyle?: CSSProperties;
+    className?: string;
   }) => (
     <button
       type="button"
+      className={className}
       aria-label={label}
       title={tooltipDisabledReason}
       disabled={disabled}
@@ -90,6 +93,23 @@ describe('ShapeQuickControls actions', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
+  });
+
+  it('renders fill and stroke as the shared 24px swatch, not a bare strip (F-16)', () => {
+    const shape = {
+      ...makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+      fills: [solidFill(originalColor)],
+    };
+    makeHarness(shape);
+    render(
+      <ShapeQuickControls node={shape} setSelectedFlipH={vi.fn()} setSelectedFlipV={vi.fn()} />,
+    );
+    // `insp-swatch` carries the 24px target; `ccb__swatch` alone collapsed the
+    // empty button to its padding and border.
+    expect(screen.getByRole('button', { name: 'Fill colour' })).toHaveClass(
+      'insp-swatch',
+      'ccb__swatch',
+    );
   });
 
   it('updates the visible first inline fill instead of the ignored legacy fill field', () => {

@@ -130,7 +130,7 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
         {showOffsetAndScale && (
           <div className="insp-field">
             <span className="insp-field__label">Offset</span>
-            <div className="insp-field__control">
+            <div className="insp-field__control insp-field__control--pair">
               <NumberField
                 label="Offset X"
                 displayLabel="X"

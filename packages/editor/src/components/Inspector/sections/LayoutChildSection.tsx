@@ -1,7 +1,7 @@
 import { checkLayoutCycle } from '@varve/layout';
 import type { LayoutAlign, LayoutPosition, LayoutSizing, SceneNode } from '@varve/scene';
 import { getParent } from '@varve/scene';
-import { Select } from '@varve/ui';
+import { InfoHint, Select } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -195,8 +195,11 @@ export function LayoutChildSection({ nodes }: { nodes: SceneNode[] }) {
           />
           {((!isMixed(width) && width === 'fixed') || (!isMixed(height) && height === 'fixed')) && (
             <p className="insp-panel__color-mode-note" role="note">
-              Fixed axes keep bounds for later mode changes; bounds are inactive until the axis
-              becomes flexible.
+              Bounds are inactive while an axis is Fixed.
+              <InfoHint topic="fixed sizing">
+                Fixed axes keep bounds for later mode changes; bounds are inactive until the axis
+                becomes flexible.
+              </InfoHint>
             </p>
           )}
         </>

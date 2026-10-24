@@ -20,6 +20,7 @@ import {
   setEffectMask,
 } from '@varve/scene';
 import {
+  CloseButton,
   Disclosure,
   DisclosureContent,
   DisclosureTrigger,
@@ -606,15 +607,14 @@ export function EffectRow({
           size="compact"
         />
 
-        <button
+        <CloseButton
+          size="sm"
           type="button"
-          className="insp-inline-btn insp-effect-row__remove"
+          className="insp-effect-row__remove"
           onClick={onRemove}
           aria-label="Remove effect"
           title="Remove effect"
-        >
-          <Icon name="X" label={undefined} size="0.75em" />
-        </button>
+        />
       </div>
 
       {type && expanded && (

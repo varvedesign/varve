@@ -125,7 +125,10 @@ test.describe('Comic workflow over a real photograph', () => {
     // on open canvas beside the grid so the render is not panel-clipped.
     await createTextAt(page, box.x + 460, box.y + 360, 'The signal is coming from the ridge.');
     await page.keyboard.press('v');
-    await page.getByRole('treeitem', { name: /text:/i }).first().click();
+    await page
+      .getByRole('treeitem', { name: /, Text(,|$)/ })
+      .first()
+      .click();
     await page.getByRole('button', { name: 'Add speech balloon', exact: true }).click();
     const balloonLayer = page.getByRole('treeitem', { name: /speech balloon/i }).first();
     await expect(balloonLayer).toBeVisible({ timeout: 10000 });
@@ -162,7 +165,10 @@ test.describe('Comic workflow over a real photograph', () => {
 
     await createTextAt(page, box.x + 420, box.y + 320, 'We leave at dawn.');
     await page.keyboard.press('v');
-    await page.getByRole('treeitem', { name: /text:/i }).first().click();
+    await page
+      .getByRole('treeitem', { name: /, Text(,|$)/ })
+      .first()
+      .click();
     await page.getByRole('button', { name: 'Add speech balloon', exact: true }).click();
     await expect(page.getByRole('treeitem', { name: /speech balloon/i }).first()).toBeVisible({
       timeout: 10000,

@@ -305,6 +305,9 @@ export const LayersRow = memo(function LayersRow({
     });
     return vals.some((v) => v !== vals[0]);
   }, [hasMultiSelection, selectedIds, doc]);
+  // Default-state toggles (visible, unlocked) take no width until the row is
+  // hovered, focused or selected; any other state always shows (D-3, F-20).
+  const visibilityAtDefault = !isMixedVisibility && !isEffectivelyHidden;
   const isMixedLocked = useMemo(() => {
     if (!hasMultiSelection || !selectedIds) return false;
     const vals = [...selectedIds].map((id) => {
@@ -313,6 +316,7 @@ export const LayersRow = memo(function LayersRow({
     });
     return vals.some((v) => v !== vals[0]);
   }, [hasMultiSelection, selectedIds, doc]);
+  const lockAtDefault = !isMixedLocked && !isEffectivelyLocked;
 
   // Blend mode / opacity badge
   const blendModeLabel =
@@ -1117,6 +1121,7 @@ export const LayersRow = memo(function LayersRow({
                   ? 'layers-row__toggle--visibility-inherited'
                   : 'layers-row__toggle--visibility-on'
           }`}
+          data-default-state={visibilityAtDefault ? 'true' : 'false'}
           tabIndex={-1}
           onPointerDown={stopDragActivation}
           onClick={(e) => {
@@ -1160,6 +1165,7 @@ export const LayersRow = memo(function LayersRow({
                 ? 'layers-row__toggle--locked-on'
                 : 'layers-row__toggle--locked-off'
           }`}
+          data-default-state={lockAtDefault ? 'true' : 'false'}
           tabIndex={-1}
           onPointerDown={stopDragActivation}
           onClick={(e) => {

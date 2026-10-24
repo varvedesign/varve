@@ -1,3 +1,4 @@
+import { Icon } from '@varve/ui';
 import type { CSSProperties, ReactNode } from 'react';
 import type {
   DockPanelDropPreview,
@@ -262,7 +263,7 @@ export function WorkspaceBottomPanels({
             onBlur={handle.onBlur}
             onKeyDown={handle.onKeyDown}
           >
-            Move
+            <Icon name="GripVertical" />
           </button>
         ) : (
           <div
@@ -287,7 +288,7 @@ export function WorkspaceBottomPanels({
               onBlur={handle.onBlur}
               onKeyDown={handle.onKeyDown}
             >
-              Move
+              <Icon name="GripVertical" />
             </button>
           </div>
         ),

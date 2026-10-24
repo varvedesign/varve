@@ -32,6 +32,8 @@ test.describe('Canvas name labels', () => {
   }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page);
+    // The minimap starts collapsed (F-05); this test checks its surface scope.
+    await page.getByRole('button', { name: 'Show minimap', exact: true }).click();
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const box = await canvas.boundingBox();

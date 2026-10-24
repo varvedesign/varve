@@ -69,7 +69,7 @@ test.describe('Selection Colors inspector', () => {
     const picker = page.getByRole('dialog', { name: /pick rgb/i });
     await expect(picker).toBeVisible();
     await picker.getByRole('button', { name: /^done$/i }).click();
-    await expect(colors.getByRole('button', { name: /rgb #39d0c6/i })).toBeVisible();
+    await expect(colors.getByRole('button', { name: /rgb #9e9e9e/i })).toBeVisible();
   });
 
   test('keeps the compact panel legible across themes', async ({ page }) => {

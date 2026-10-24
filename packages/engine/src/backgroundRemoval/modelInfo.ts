@@ -68,15 +68,16 @@ export const AI_QUALITY_MODEL_INFO: ModelInfo = {
   label: 'High quality',
   description: 'BiRefNet Lite for hair, fur, and complex edges.',
   diskSizeBytes: 224_000_000,
-  // Browser/WASM working set. Deliberately conservative: the webview path is
-  // the one that aborts at the wasm32 ceiling, and no measured WASM peak has
-  // replaced this figure yet.
-  estimatedPeakRamBytes: 6_800_000_000,
-  peakRamDisplay: '~7 GB RAM in a browser',
+  // Browser/WASM boundary, not a working set: bare WASM deterministically
+  // aborts at the wasm32 4 GiB address-space ceiling during session.run()
+  // (~4027-4145 MB RSS; docs/audits/
+  // background-removal-wasm-memory-hardening-2026-07-18.md). The static
+  // 1024x1024 input cannot be downscaled to fit, so the gate must refuse it.
+  estimatedPeakRamBytes: 4_100_000_000,
+  peakRamDisplay: 'browser WASM needs ~4.1 GB (over its limit)',
   // Native measured peak: bgremove_bench on the bundled ORT CPU build with the
   // arena disabled reported 432 MiB peak RSS across a 12-image corpus
-  // (2026-10-22). The 2026-08-13 figure that produced 6.8 GB is not
-  // reproducible on this path.
+  // (2026-10-22).
   nativeEstimatedPeakRamBytes: 450_000_000,
   nativePeakRamDisplay: '~450 MB RAM on desktop',
   diskSizeDisplay: '224 MB',

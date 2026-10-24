@@ -44,7 +44,7 @@ The design system establishes a high-density, pro-tool precision environment eng
 - **Dark Strata Architecture:** The visual space is layered in deep geological tiers, eschewing flat single-tone gray in favor of stepped tonal depth that provides physical separation between the boundless artwork abyss and dense floating chrome.
 - **Surgical Precision:** Every control is calibrated for rapid manipulation—dense numeric property grids, scrubbable axis labels, and hairline 1px micro-borders that hold panel boundaries without visual bulk.
 - **Focused Chromatic Hierarchy:** A luminous Teal primary accent (`#39D0C6` / `oklch(0.779 0.1229 188.31)`) acts as an active laser anchor for selections, transform bounds, active tools, and primary executions. Warm sandstone and terracotta accents serve as structural anchors for vector paths, geometry nodes, and layer state markers.
-- **Restrained Glassmorphism:** Translucent floating toolbars and context flyouts leverage backdrop blur combined with dark neutral washes to allow work under the canvas to show through subtly without sacrificing legibility.
+- **Opaque Planes, No Glass:** Every surface is 100% opaque (`docs/design/elevation-system.md`). Depth comes from the shell planes (sunken canvas, default frame, raised work panels), a lit top edge and an overlay shadow on floating toolbars and menus. No backdrop blur: it costs legibility over live artwork and repaints over the canvas.
 
 ## Themes
 
@@ -137,7 +137,7 @@ Semantic tokens map to concrete OKLCH values per theme. CSS custom properties us
 | `surface-raised` | `oklch(0.22 ...)` | `oklch(1.0 ...)` | `oklch(0.097 0 0)` |
 | `surface-sunken` | `oklch(0.12 ...)` | `oklch(0.945 ...)` | `oklch(0 0 0)` |
 | `surface-overlay` | `oklch(0.27 ...)` | `oklch(1.0 ...)` | `oklch(0 0 0)` |
-| `surface-hover` | `oklch(0.22 ...)` | `oklch(0.88 ...)` | `oklch(0.25 0 0)` |
+| `surface-hover` | neutral step 11 (`oklch(0.26 ...)`, one step above raised) | `oklch(0.88 ...)` | `oklch(0.25 0 0)` |
 
 **Text tokens:**
 | Token            | Dark       | Light             | HC                 |
@@ -299,6 +299,11 @@ Visual hierarchy is communicated through structural strata surfaces, delicate mi
 |-------|------|-------|-----|
 | Raised | `0 4px 12px oklch(0 0 0 / 0.3)` | `0 4px 12px oklch(0 0 0 / 0.14)` | `0 0 0 2px white` (outline) |
 | Overlay | `0 12px 32px oklch(0 0 0 / 0.45)` | `0 12px 32px oklch(0 0 0 / 0.2)` | `0 0 0 3px white` (outline) |
+| Edge highlight | `inset 0 1px 0 oklch(1 0 0 / 0.06)` | none (no-op inset) | none (no-op inset) |
+
+Shell plane mapping (canvas sunken, frame default, docked panels raised,
+floating surfaces raised + edge highlight + overlay shadow) is defined in
+`docs/design/elevation-system.md` § Shell planes.
 
 ### Border Discipline
 

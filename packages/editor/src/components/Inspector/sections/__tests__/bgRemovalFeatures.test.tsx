@@ -94,7 +94,7 @@ vi.mock('@varve/engine', async (importOriginal) => {
           description: 'BiRefNet Lite',
           diskSizeBytes: 224_000_000,
           estimatedPeakRamBytes: 900_000_000,
-          peakRamDisplay: '~900 MB RAM in a browser',
+          peakRamDisplay: 'browser WASM needs ~900 MB (over its limit)',
           nativeEstimatedPeakRamBytes: 450_000_000,
           nativePeakRamDisplay: '~450 MB RAM on desktop',
           diskSizeDisplay: '224 MB',
@@ -1059,7 +1059,7 @@ describe('BackgroundRemovalSection - model memory disclosure', () => {
     render(<BackgroundRemovalSection nodes={[node]} />);
     const info = await screen.findByText(/during inference/i);
     expect(info.textContent).toMatch(/on desktop/);
-    expect(info.textContent).toMatch(/in a browser/);
+    expect(info.textContent).toMatch(/browser WASM/);
     expect(info.textContent).not.toMatch(/RAM RAM/i);
   });
 });

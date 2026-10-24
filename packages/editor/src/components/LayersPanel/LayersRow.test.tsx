@@ -335,6 +335,31 @@ describe('LayersRow Object Filter badge', () => {
     expect(container.querySelectorAll('[role="treeitem"]')).toHaveLength(1);
   });
 
+  it('keeps the type icon for zoom and the row as the reorder surface', () => {
+    const onPointerDown = vi.fn();
+    const dragHandleRef = vi.fn();
+    const onSelectionPointerDown = vi.fn();
+    const { container, getByRole } = renderRow({
+      dragHandleRef,
+      dragHandleListeners: { onPointerDown },
+      onSelectionPointerDown,
+    });
+
+    expect(container.querySelector('.layers-row__drag-handle')).toBeNull();
+    const row = container.querySelector('[role="treeitem"]') as HTMLElement;
+    const icon = getByRole('button', { name: /^Zoom to Layer 1/ });
+    // The row itself owns the sortable activator (row-first drag model); the
+    // type icon stays a zoom button and never starts structure changes.
+    expect(dragHandleRef).toHaveBeenCalledWith(row);
+
+    fireEvent.pointerDown(icon);
+    expect(onPointerDown).not.toHaveBeenCalled();
+    expect(onSelectionPointerDown).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(row);
+    expect(onPointerDown).toHaveBeenCalledTimes(1);
+  });
+
   it('offers a keyboard-accessible copy alternative to dragging a filter stack', () => {
     const onCopyEffectStack = vi.fn();
     const { getByRole } = renderRow({

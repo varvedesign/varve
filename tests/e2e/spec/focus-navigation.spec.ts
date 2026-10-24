@@ -397,6 +397,30 @@ test.describe('Focus Navigation', () => {
       expect(hasRingAfterKeyboard).toBe(true);
     });
 
+    test('a tool shortcut followed by a drag never frames the canvas', async ({ page }) => {
+      // F-08 (shell audit 2026-10-21): the tool key moved focus to the canvas
+      // as keyboard focus, so drawing with the mouse showed the canvas-wide
+      // ring. Only sequential navigation (Tab) may show it.
+      await navigateToEditor(page);
+      await page.waitForTimeout(500);
+      const canvas = await getCanvas(page);
+      const box = await canvas.boundingBox();
+      if (!box) throw new Error('canvas not laid out');
+
+      await page.keyboard.press('r');
+      await page.mouse.move(box.x + 120, box.y + 120);
+      await page.mouse.down();
+      await page.mouse.move(box.x + 220, box.y + 200, { steps: 4 });
+      await page.mouse.up();
+      await page.waitForTimeout(200);
+      const ringAfterDraw = await page.evaluate(
+        () =>
+          document.querySelector('.editor-canvas')?.getAttribute('data-canvas-focus-visible') ===
+          'true',
+      );
+      expect(ringAfterDraw).toBe(false);
+    });
+
     test('canvas has aria-describedby pointing to announcer', async ({ page }) => {
       await navigateToEditor(page);
       await page.waitForTimeout(500);

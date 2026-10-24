@@ -1,4 +1,4 @@
-import { Icon } from '@varve/ui';
+import { CloseButton } from '@varve/ui';
 import type { ShortcutRecommendation } from './shortcutRecommender';
 
 interface ShortcutTipChipProps {
@@ -18,14 +18,13 @@ export function ShortcutTipChip({ tip, onDismiss, onOpenPalette }: ShortcutTipCh
       >
         {tip.message}
       </button>
-      <button
+      <CloseButton
+        size="sm"
         type="button"
         className="editor-status__tip-dismiss"
         onClick={onDismiss}
         aria-label="Dismiss tip"
-      >
-        <Icon name="X" size={10} />
-      </button>
+      />
     </span>
   );
 }

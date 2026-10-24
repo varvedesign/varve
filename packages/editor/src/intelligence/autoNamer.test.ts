@@ -335,7 +335,7 @@ describe('suggestName', () => {
       fontWeight: 400,
     });
     const result = suggestName(text, doc, 7);
-    expect(result.name).toBe('Text: regular text');
+    expect(result.name).toBe('regular text');
     expect(result.confidence).toBe('medium');
     expect(result.matchedRule).toBe('5-text');
   });
@@ -368,16 +368,16 @@ describe('autoName', () => {
     let doc = createTestDoc();
     const text = makeTextNode('t1', 'Submit', { name: 'Text 1' });
     doc = addNode(doc, text);
-    expect(autoName(doc, doc.nodes.t1!)).toBe('Text: Submit');
+    expect(autoName(doc, doc.nodes.t1!)).toBe('Submit');
   });
 
   it('appends counter for duplicate suggestion names', () => {
     let doc = createTestDoc();
-    const text1 = makeTextNode('t1', 'Submit', { name: 'Text: Submit' });
+    const text1 = makeTextNode('t1', 'Submit', { name: 'Submit' });
     const text2 = makeTextNode('t2', 'Submit', { name: 'Text 2' });
     doc = addNode(doc, text1);
     doc = addNode(doc, text2);
-    expect(autoName(doc, doc.nodes.t2!)).toBe('Text: Submit 2');
+    expect(autoName(doc, doc.nodes.t2!)).toBe('Submit 2');
   });
 
   it('names from canonical rich text and does not infer a semantic role', () => {
@@ -387,14 +387,14 @@ describe('autoName', () => {
       },
       fontSize: 48,
     });
-    expect(automaticTextName(text)).toBe('Text: Welcome');
-    expect(autoName(createTestDoc(), text)).toBe('Text: Welcome');
+    expect(automaticTextName(text)).toBe('Welcome');
+    expect(autoName(createTestDoc(), text)).toBe('Welcome');
   });
 
   it('truncates automatic names at grapheme boundaries', () => {
     const mark = '\u{1f642}';
     const text = makeTextNode('t1', `${mark.repeat(31)}!`);
-    expect(automaticTextName(text)).toBe(`Text: ${mark.repeat(30)}…`);
+    expect(automaticTextName(text)).toBe(`${mark.repeat(30)}…`);
   });
 
   it('finds next sequential number for default fallback', () => {

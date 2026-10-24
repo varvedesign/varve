@@ -12,6 +12,7 @@ import { updateSearchIndexIncremental } from './LayersTree';
 import {
   createSearchIndex,
   matchesLayerSearch,
+  nodeMatchesSearch,
   removeFromIndex,
   searchIndex,
   updateIndex,
@@ -521,5 +522,24 @@ describe('updateSearchIndexIncremental', () => {
     const index = createSearchIndex(doc);
     const result = updateSearchIndexIncremental(doc, doc, index);
     expect(result).toBe(index);
+  });
+});
+
+describe('nodeMatchesSearch', () => {
+  it('agrees with the index for every node and query (count and tree parity)', () => {
+    let doc = createDocument();
+    for (const name of ['Card 3', 'Card 36 button', 'Card 3 button', 'cardHeader', 'Avatar']) {
+      const { id, doc: next } = nextNodeId(doc);
+      doc = addNode(next, makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 1, h: 1 }, { name }));
+    }
+    const index = createSearchIndex(doc);
+    for (const query of ['card 3 button', 'ard', 'card', 'header', 'kind:shape', 'av', ' ']) {
+      const fromIndex = new Set(searchIndex(index, query));
+      for (const node of Object.values(doc.nodes)) {
+        expect(nodeMatchesSearch(node, query), `${query} / ${node.name}`).toBe(
+          fromIndex.has(node.id),
+        );
+      }
+    }
   });
 });

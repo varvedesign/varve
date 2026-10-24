@@ -98,6 +98,10 @@ describe('IntelligencePanel — Contrast tab', () => {
     switchToContrastTab();
     expect(screen.queryByText('No issues detected')).not.toBeInTheDocument();
     expect(screen.getByText(/WCAG AA minimum/i)).toBeInTheDocument();
+    // Severity is stated by an icon and text, not by a coloured dot alone.
+    const mark = document.querySelector('.intelligence-severity-mark');
+    expect(mark?.querySelector('svg')).not.toBeNull();
+    expect(mark?.textContent).toMatch(/^(Error|Warning|Info): $/);
 
     const autoFix = screen.getByRole('button', { name: /auto-fix/i });
     fireEvent.click(autoFix);
@@ -148,7 +152,7 @@ describe('IntelligencePanel — Naming tab', () => {
     // The async image-classification pre-pass should resolve immediately
     // (no image nodes in the selection) without ever showing a download or
     // classifying state, landing straight on the suggestion list.
-    await waitFor(() => expect(screen.getByText('Text: Hello')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Hello')).toBeInTheDocument());
     expect(screen.queryByText(/identifying photo content/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/downloading photo-identification model/i)).not.toBeInTheDocument();
   });

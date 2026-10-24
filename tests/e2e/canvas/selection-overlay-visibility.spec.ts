@@ -84,7 +84,7 @@ test.describe('Selection overlay visibility', () => {
       const at = (x: number, y: number) => Array.from(ctx.getImageData(x, y, 1, 1).data);
       return {
         // Top edge of the outline stroke (should differ from both the plain
-        // background and the shape's flat teal fill if the stroke paints).
+        // background and the shape's flat fill if the stroke paints).
         topEdge: at(400, 300),
         justAboveTopEdge: at(400, 296),
         // The dimension-label pill, entirely outside the shape, over empty

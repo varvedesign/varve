@@ -8,7 +8,7 @@
  * SettingsDialog, and RecoveryDialog.
  */
 
-import { Dialog, FileDropZone, Icon, Select, Spinner, SwitchField } from '@varve/ui';
+import { CloseButton, Dialog, FileDropZone, Icon, Select, Spinner, SwitchField } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ArchiveBuildResult,
@@ -860,14 +860,13 @@ export function ArchiveDialog({
               ({formatBytes(restoreFile.size)})
             </span>
             {restorePhase === 'idle' && (
-              <button
+              <CloseButton
+                size="sm"
                 type="button"
                 className="archive-dialog__file-remove"
                 aria-label="Remove file"
                 onClick={handleRemoveFile}
-              >
-                <Icon name="X" label={undefined} />
-              </button>
+              />
             )}
           </div>
         )}

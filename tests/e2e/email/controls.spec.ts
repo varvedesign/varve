@@ -83,7 +83,7 @@ test('workspace switching preserves the document and orphaned authored source st
   ).toBeVisible();
   await outputPanel.getByRole('button', { name: /Create source block for selected node/i }).click();
   const sourceBlock = sourceBlocks.getByRole('listitem').first();
-  await sourceBlock.getByText('Text: Email source anchor', { exact: true }).click();
+  await sourceBlock.getByText('Email source anchor', { exact: true }).click();
   const authoredSource = outputPanel.getByRole('textbox', { name: /Authored HTML source for/ });
   await expect(authoredSource).toBeVisible();
   await authoredSource.fill('<div>Preserved after its visual node is removed</div>');

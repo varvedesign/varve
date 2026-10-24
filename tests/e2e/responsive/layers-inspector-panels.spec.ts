@@ -69,7 +69,7 @@ test.describe('layers rail geometry', () => {
     const aside = page.locator('#editor-layers-panel');
     const content = page.locator('.editor-layers.layers-panel__content');
     const bar = page.locator('.layers-filter-bar');
-    // Matches both states: the label flips to "Hide filter options" when open.
+    // The Filter menu trigger; its name gains an active count when filtering.
     const toggle = page.getByRole('button', { name: /filter options/i });
 
     await expect(content).toBeVisible();
@@ -94,8 +94,9 @@ test.describe('layers rail geometry', () => {
     expect(hitOk).toBe(true);
     await toggle.click({ trial: true });
     await toggle.click();
-    await expect(page.getByRole('group', { name: /filter by type and attributes/i })).toBeVisible();
-    await toggle.click();
+    await expect(page.getByRole('menu', { name: 'Filter layers' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu', { name: 'Filter layers' })).toBeHidden();
 
     // No part of the rail content extends past the rail itself.
     const asideBox = await aside.evaluate((el) => ({
@@ -277,7 +278,7 @@ test.describe('compact drawer (<=899px)', () => {
       .evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
     expect(nameBox.scroll).toBeLessThanOrEqual(nameBox.client + 1);
 
-    const toggle = page.getByRole('button', { name: /show filter options/i });
+    const toggle = page.getByRole('button', { name: /^filter options/i });
     await toggle.click({ trial: true });
 
     const contentBox = await page
@@ -296,7 +297,10 @@ test.describe('compact drawer (<=899px)', () => {
 });
 
 test.describe('short desktop window', () => {
-  test.use({ viewport: { width: 1024, height: 600 } });
+  // Tall enough for the shell, short enough that the rail must scroll. The
+  // compacted Layers header (F-05) fits the whole rail at 1024x600 (393px of
+  // content in 393px), so the scrolling case starts below about 580px.
+  test.use({ viewport: { width: 1024, height: 540 } });
 
   test('layer rows stay operable with the rail scrolling', async ({ page }) => {
     await navigateToEditor(page);

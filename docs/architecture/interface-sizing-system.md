@@ -119,9 +119,11 @@ move neighboring content.
 
 ### Close affordance
 
-Every dismiss control is `CloseButton` (`.varve-close`), in one of three
-sizes: `sm` (24px) for tabs, toasts, and dense rows; `md` (32px) for panels
-and popovers; `lg` (44px) for modal dialogs. The glyph is always the same X,
+Every dismiss, clear and remove control is `CloseButton` (`.varve-close`), in
+one of three sizes: `sm` (24px) for tabs, toasts, dense rows and field clears;
+`md` (32px) for panels and popovers; `lg` (44px) for modal dialogs. The glyph
+is 16px in `sm` and `md` and 20px in `lg` (it was 12px in `sm`, which is what
+made the X hard to identify), always the same X,
 the colour always rises from `--color-text-secondary` to
 `--color-text-primary` on hover, and the focus ring never moves the glyph.
 Reveal-on-hover is allowed (the editor tab strip uses it to keep tabs quiet),
@@ -134,6 +136,54 @@ hand-rolled its dismiss button — a literal "x" in a 13.4x13px box, below the
 and the focus/hover states come from one place. Overlay surfaces that are
 pointer-transparent (the hint must never eat a canvas gesture) opt the control
 back in with `pointer-events: auto` rather than re-styling it.
+
+### Icon scale
+
+Every icon family (`Icon` Lucide, `SolidIcon` Phosphor, `TablerIcon`, and
+`SemanticIcon` over all three) resolves `size` through `resolveIconSize`
+(`packages/ui/src/icons/iconSize.ts`) onto one scale that matches the
+`--icon-size-*` CSS tokens:
+
+| Token | Size | Use |
+| --- | ---: | --- |
+| `xs` | 12px | badges and inline status marks |
+| `sm` | 16px | the default: buttons, menu rows, list rows, close glyphs |
+| `md` | 20px | primary actions, sidebar navigation |
+| `lg` | 24px | section headers, feature icons |
+| `xl` | 32px | empty states, onboarding |
+
+A token name maps to its size. A legacy raw size snaps to the nearest step
+(numbers: <=11 xs, <=16 sm, <=20 md, <=28 lg, <=36 xl; em sizes: <=0.7 xs,
+<=1.15 sm, <=1.4 md, <=2 lg, <=2.75 xl), and a size above the scale passes
+through unchanged. Call sites used to pass about 35 different sizes, and an
+`em` size is a different pixel size in every font size, so one glyph rendered
+anywhere from 10px to 17px. New code passes a token. The `SemanticIcon` size
+names used to run one step below the CSS tokens (`sm` was 14px); they are now
+the same names at the same sizes.
+
+### Scrollbars
+
+One skin, defined once in `packages/ui/src/components/scrollbar.css`: an 8px
+`::-webkit-scrollbar` for WebKit and Chromium, and `scrollbar-width: thin` /
+`scrollbar-color` for Firefox only (gated on `@supports selector(:-moz-focusring)`;
+`-moz-appearance` is also understood by Chromium and WebKit, so it cannot be
+the test).
+
+**Do not add `scrollbar-width` or `scrollbar-color` to a component rule.** In
+WebKit (WebKitGTK on Linux, WKWebView on macOS) and in Chromium, either property
+switches the element to the platform's native scrollbar and ignores
+`::-webkit-scrollbar`. On Linux and macOS that native scrollbar is an overlay:
+it takes no layout space, so it floats over the last ~10px of content and
+`scrollbar-gutter: stable` has nothing to reserve. Measured in WebKitGTK:
+`offsetWidth - clientWidth` is 0 with either standard property and 8 with only
+`::-webkit-scrollbar`. The earlier gutter fix
+(`docs/audits/inspector-redesign-scrollbar-overlap-2026-09-19.md`) held in
+Chromium, which is why it was verified there, but not in the engine the desktop
+app embeds. `scrollbar-width: none` (hiding a toolbar's bar) is the only
+standard property a component may set. Playwright's headless Chromium also hides
+scrollbars by default; launch with `ignoreDefaultArgs: ['--hide-scrollbars']`
+when measuring them, and use the opt-in `pnpm e2e:webkit-gtk` lane (or
+`webkit.launch({ headless: false })` under `xvfb-run`) for the engine itself.
 
 ### Density behavior
 

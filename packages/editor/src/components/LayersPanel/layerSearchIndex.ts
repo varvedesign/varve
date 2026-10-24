@@ -121,6 +121,16 @@ export function matchesLayerSearch(name: string, query: string, kind?: SceneNode
   );
 }
 
+/**
+ * Node-level entry point for callers that hold the node itself (the count
+ * predicate, find-as-you-type). Delegates to `matchesLayerSearch`, so the
+ * index-backed tree, the "n of m" count, and Select matches share exactly one
+ * rule (the F-51 parity requirement) instead of drifting back into two.
+ */
+export function nodeMatchesSearch(node: SceneNode, query: string): boolean {
+  return matchesLayerSearch(node.name, query, node.kind);
+}
+
 /** Search the index — returns matching node IDs ordered by relevance */
 export function searchIndex(index: LayerSearchIndex, query: string): NodeId[] {
   const terms = layerSearchTerms(query);

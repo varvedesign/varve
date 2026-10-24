@@ -1,5 +1,6 @@
 import { forwardRef, type InputHTMLAttributes, useCallback, useId, useRef } from 'react';
 import { Icon } from '../icons/Icon';
+import { CloseButton } from './CloseButton';
 
 export interface SearchFieldProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
@@ -45,14 +46,13 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
         {...rest}
       />
       {value && (
-        <button
+        <CloseButton
+          size="sm"
           type="button"
           className="varve-search__clear"
           aria-label="Clear search"
           onClick={clear}
-        >
-          <Icon name="X" />
-        </button>
+        />
       )}
       <div
         id={statusId}

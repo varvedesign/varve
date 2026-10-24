@@ -35,20 +35,6 @@
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  min-width: 44px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-control-compact);
-}
-
-.fs-dialog__close:hover {
-  background: var(--color-surface-sunken);
 }
 
 .fs-dialog__close:focus-visible,

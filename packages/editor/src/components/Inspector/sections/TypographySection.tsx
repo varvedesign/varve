@@ -760,120 +760,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           setFontBrowserOpen(false);
         }}
       />
-      {canCreateBalloon && (
-        <FieldRow label="Comic lettering">
-          <Button variant="ghost" size="sm" onClick={createBalloon}>
-            Add speech balloon
-          </Button>
-        </FieldRow>
-      )}
-      {textNodes.length > 0 && (
-        <FieldRow label="Text effects">
-          <div className="insp-field-group">
-            <Select
-              value=""
-              label="Text effect preset"
-              placeholder="Apply effect…"
-              onChange={applySoundEffectStyle}
-              options={TEXT_EFFECT_PRESETS.map((preset) => ({
-                value: preset.id,
-                label: preset.label,
-                description: preset.description,
-              }))}
-            />
-            <Button variant="ghost" size="sm" onClick={clearSoundEffectStyle}>
-              Clear outline
-            </Button>
-          </div>
-        </FieldRow>
-      )}
-      {rubyRange && (
-        <FieldRow label="Ruby / furigana">
-          <div className="insp-field-group">
-            <input
-              className="typography__text-input"
-              value={rubyReading}
-              onChange={(event) => setRubyReading(event.target.value)}
-              placeholder="Reading for selected text"
-              aria-label="Ruby reading"
-            />
-            <div className="insp-field-group insp-field-group--row">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={addRubyAnnotation}
-                disabled={!rubyReading.trim()}
-              >
-                Add ruby
-              </Button>
-              <Button variant="ghost" size="sm" onClick={clearRubyAnnotation}>
-                Clear ruby
-              </Button>
-            </div>
-          </div>
-        </FieldRow>
-      )}
-      {rubyAnnotationCount > 0 && (
-        <p className="insp-hint insp-hint--warn" role="status">
-          {rubyAnnotationCount === 1
-            ? '1 ruby reading is stored with this text but not drawn'
-            : `${rubyAnnotationCount} ruby readings are stored with this text but not drawn`}
-          : no layout or export path consumes ruby yet, so the annotation is preserved in the
-          document and never rendered. It will appear once ruby rendering ships.
-        </p>
-      )}
       <div ref={bindingTriggerRef} className="insp-field-group typography-controls">
-        {textContent !== null && (
-          <>
-            <FieldRow label="Content">
-              {richTextEnabled && textNodes.length === 1 ? (
-                <RichTextSpanEditor
-                  vertical={isVerticalWritingMode(textNodes[0]!.writingMode)}
-                  richText={
-                    textNodes[0]!.richText ?? {
-                      paragraphs: [{ runs: [{ text: textNodes[0]!.text }] }],
-                    }
-                  }
-                  onChange={(rich) =>
-                    updateNode(textNodes[0]!.id, (n) =>
-                      n.kind === 'text' ? { ...n, richText: rich } : n,
-                    )
-                  }
-                />
-              ) : (
-                <textarea
-                  className="typography__text-input"
-                  value={textContent === '(Mixed)' ? '' : textContent}
-                  onChange={(e) => handleTextChange(e.target.value)}
-                  rows={3}
-                  aria-label="Text content"
-                />
-              )}
-            </FieldRow>
-            {textNodes.length === 1 && (
-              <FieldRow label="Rich text">
-                <Switch
-                  aria-label="Enable rich text editing"
-                  className="insp-switch"
-                  checked={richTextEnabled}
-                  onChange={(event) => setRichTextEnabled(event.target.checked)}
-                />
-              </FieldRow>
-            )}
-            {textNodes.length === 1 && (
-              <FieldRow label="Layer name">
-                <button
-                  type="button"
-                  className="insp-btn-sm"
-                  onClick={() => editor.restoreAutomaticTextName(textNodes[0]!.id)}
-                  aria-label="Use text content as layer name"
-                >
-                  {textNodes[0]!.nameMode === 'automatic' ? 'Following text' : 'Use text as name'}
-                </button>
-              </FieldRow>
-            )}
-          </>
-        )}
         <div className="typography__family-field">
           <FontSelector
             value={isMixed(familyRaw) ? '' : familyRaw}
@@ -1036,6 +923,63 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             onChange={(v) => batchUpdate((n) => ({ ...n, textAlign: v }))}
           />
         </FieldRow>
+        {/* Content and naming follow the type and colour controls (F-35). */}
+        {textContent !== null && (
+          <>
+            <FieldRow label="Content">
+              {richTextEnabled && textNodes.length === 1 ? (
+                <RichTextSpanEditor
+                  vertical={isVerticalWritingMode(textNodes[0]!.writingMode)}
+                  richText={
+                    textNodes[0]!.richText ?? {
+                      paragraphs: [{ runs: [{ text: textNodes[0]!.text }] }],
+                    }
+                  }
+                  onChange={(rich) =>
+                    updateNode(textNodes[0]!.id, (n) =>
+                      n.kind === 'text' ? { ...n, richText: rich } : n,
+                    )
+                  }
+                />
+              ) : (
+                <textarea
+                  className="typography__text-input"
+                  value={textContent === '(Mixed)' ? '' : textContent}
+                  onChange={(e) => handleTextChange(e.target.value)}
+                  rows={3}
+                  aria-label="Text content"
+                />
+              )}
+            </FieldRow>
+            {textNodes.length === 1 && (
+              <FieldRow label="Rich text">
+                <Switch
+                  aria-label="Enable rich text editing"
+                  className="insp-switch"
+                  checked={richTextEnabled}
+                  onChange={(event) => setRichTextEnabled(event.target.checked)}
+                />
+              </FieldRow>
+            )}
+            {textNodes.length === 1 && (
+              <FieldRow label="Layer name">
+                {/* An on/off mode, so a switch (F-35): on follows the text,
+                    off keeps the current name as a custom one. */}
+                <Switch
+                  label="Follows text"
+                  aria-label="Layer name follows text"
+                  className="insp-switch"
+                  checked={textNodes[0]!.nameMode === 'automatic'}
+                  onChange={(event) => {
+                    const node = textNodes[0]!;
+                    if (event.target.checked) editor.restoreAutomaticTextName(node.id);
+                    else editor.renameNodeById(node.id, node.name);
+                  }}
+                />
+              </FieldRow>
+            )}
+          </>
+        )}
         <DisclosureSection
           title="Advanced typography"
           sectionId="typography"
@@ -1247,6 +1191,69 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             />
           </DisclosureSection>
         </div>
+      )}
+      {/* Occasional actions come last: speech balloon, text effects, ruby (F-35). */}
+      {canCreateBalloon && (
+        <FieldRow label="Comic lettering">
+          <Button variant="ghost" size="sm" onClick={createBalloon}>
+            Add speech balloon
+          </Button>
+        </FieldRow>
+      )}
+      {textNodes.length > 0 && (
+        <FieldRow label="Text effects">
+          <div className="insp-field-group">
+            <Select
+              value=""
+              label="Text effect preset"
+              placeholder="Apply effect…"
+              onChange={applySoundEffectStyle}
+              options={TEXT_EFFECT_PRESETS.map((preset) => ({
+                value: preset.id,
+                label: preset.label,
+                description: preset.description,
+              }))}
+            />
+            <Button variant="ghost" size="sm" onClick={clearSoundEffectStyle}>
+              Clear outline
+            </Button>
+          </div>
+        </FieldRow>
+      )}
+      {rubyRange && (
+        <FieldRow label="Ruby / furigana">
+          <div className="insp-field-group">
+            <input
+              className="typography__text-input"
+              value={rubyReading}
+              onChange={(event) => setRubyReading(event.target.value)}
+              placeholder="Reading for selected text"
+              aria-label="Ruby reading"
+            />
+            <div className="insp-field-group insp-field-group--row">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={addRubyAnnotation}
+                disabled={!rubyReading.trim()}
+              >
+                Add ruby
+              </Button>
+              <Button variant="ghost" size="sm" onClick={clearRubyAnnotation}>
+                Clear ruby
+              </Button>
+            </div>
+          </div>
+        </FieldRow>
+      )}
+      {rubyAnnotationCount > 0 && (
+        <p className="insp-hint insp-hint--warn" role="status">
+          {rubyAnnotationCount === 1
+            ? '1 ruby reading is stored with this text but not drawn'
+            : `${rubyAnnotationCount} ruby readings are stored with this text but not drawn`}
+          : no layout or export path consumes ruby yet, so the annotation is preserved in the
+          document and never rendered. It will appear once ruby rendering ships.
+        </p>
       )}
     </DisclosureSection>
   );

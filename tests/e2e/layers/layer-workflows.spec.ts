@@ -582,6 +582,8 @@ test.describe('layer states (Varve-native, not Photoshop Layer Comps)', () => {
     // selected), then apply the state from the empty-selection Inspector to
     // prove the "apply" action works too, not just visibility.
     const firstRow = rows.nth(0);
+    // An unselected row reveals its default-state toggles on hover (D-3).
+    await firstRow.hover();
     await firstRow.locator('.layers-row__toggle--visibility-on').click();
     await page.waitForTimeout(200);
     await expect(firstRow).toHaveClass(/layers-row--hidden/);

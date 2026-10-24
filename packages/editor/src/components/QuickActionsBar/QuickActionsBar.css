@@ -65,25 +65,6 @@
   color: var(--color-text-muted);
 }
 
-.quick-actions-bar__close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-control-compact);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.quick-actions-bar__close-btn:hover {
-  background: var(--color-surface-sunken);
-  color: var(--color-text-primary);
-}
-
 .quick-actions-bar__results {
   flex: 1;
   overflow-y: auto;

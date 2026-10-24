@@ -33,26 +33,6 @@
   letter-spacing: 0.05em;
 }
 
-.variant-box__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: var(--color-text-muted);
-  border-radius: var(--radius-control-compact);
-}
-
-.variant-box__close:hover {
-  background: var(--color-surface-sunken);
-  color: var(--color-text-primary);
-}
-
 .variant-box__empty {
   padding: var(--space-3) 0;
   text-align: center;

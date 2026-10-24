@@ -124,6 +124,14 @@ describe('nodeMatchesFilter', () => {
 
     const arabic = makeTestShape({ name: 'زر رئيسي' });
     expect(nodeMatchesFilter(arabic, { ...DEFAULT_FILTER, search: 'رئيسي' })).toBe(true);
+
+    // F-51 parity, on the substring contract the panel now documents: a
+    // mid-word fragment counts, and every term must match in any order —
+    // exactly what the index-backed tree returns (`nodeMatchesSearch` parity
+    // is asserted directly in layerSearchIndex.test.ts).
+    const fragment = makeTestShape({ name: 'Card 36 button' });
+    expect(nodeMatchesFilter(fragment, { ...DEFAULT_FILTER, search: 'ard' })).toBe(true);
+    expect(nodeMatchesFilter(fragment, { ...DEFAULT_FILTER, search: 'butt card 3' })).toBe(true);
   });
 
   it('filters by node kind', () => {
