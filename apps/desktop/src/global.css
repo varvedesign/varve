@@ -102,3 +102,12 @@ body {
   font-size: var(--font-size-sm);
   text-align: center;
 }
+
+.varve-policy-banner {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-feedback-warning);
+  color: var(--color-text-on-warning);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}

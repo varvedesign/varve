@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://varve.studio/schemas/policy.schema.json",
+  "title": "Varve machine-wide policy",
+  "type": "object",
+  "required": ["schemaVersion", "policies"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "policies": { "$ref": "#/$defs/settings" },
+    "recommended": { "$ref": "#/$defs/settings" },
+    "x-varve-security": { "$ref": "#/$defs/security" },
+    "_comment": { "type": "string" }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "settings": {
+      "type": "object",
+      "properties": {
+        "updates": { "type": "object", "properties": { "check": { "type": "boolean" } }, "additionalProperties": true },
+        "ai": { "type": "object", "properties": { "enabled": { "enum": ["on", "off", "user"] }, "modelDownloads": { "type": "boolean" }, "localModelDir": { "type": "string", "minLength": 1 } }, "additionalProperties": true },
+        "network": { "type": "object", "properties": { "allowedHosts": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "^[^:/\\s]+$" }, "uniqueItems": true }, "offline": { "type": "boolean" } }, "additionalProperties": true },
+        "crashReports": { "type": "object", "properties": { "localOnly": { "const": true } }, "additionalProperties": true },
+        "ui": { "type": "object", "properties": { "lockedSettings": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true } }, "additionalProperties": true },
+        "x-varve-security": { "$ref": "#/$defs/security" },
+        "_comment": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "offlineMode": { "type": "boolean" },
+        "modelDownloads": { "type": "boolean" },
+        "updates": { "type": "boolean" },
+        "crashUpload": { "type": "boolean" },
+        "telemetry": { "type": "boolean" },
+        "allowedHosts": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "_comment": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

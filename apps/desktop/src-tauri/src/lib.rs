@@ -10,6 +10,7 @@ mod lifecycle;
 mod logs;
 mod menu;
 mod print;
+pub mod policy;
 mod renderer;
 mod updates;
 
@@ -1100,8 +1101,60 @@ fn require_ai_features_flag(enabled: bool) -> Result<(), String> {
     }
 }
 
+fn require_policy_model_downloads() -> Result<(), String> {
+    if policy::POLICY.permits_model_downloads() { Ok(()) }
+    else { Err("Model downloads are disabled by your organisation's policy".into()) }
+}
+
 fn require_ai_features_enabled(store: &varve_sync::DocumentStore) -> Result<(), String> {
-    require_ai_features_flag(ai_features_enabled_from_store(store))
+    if matches!(&policy::POLICY.policy.ai.enabled, Some(policy::AiMode::Off)) {
+        return Err("AI features are disabled by your organisation's policy".into());
+    }
+    let enabled = match &policy::POLICY.policy.ai.enabled {
+        Some(policy::AiMode::On) => true,
+        _ => ai_features_enabled_from_store(store),
+    };
+    require_ai_features_flag(enabled)
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PolicyStatus {
+    present: bool,
+    restricted: bool,
+    error: Option<String>,
+    locked_settings: Vec<String>,
+    ai_enabled: Option<&'static str>,
+    update_checks: Option<bool>,
+    recommended: Option<serde_json::Value>,
+}
+
+#[tauri::command]
+fn policy_status() -> PolicyStatus {
+    PolicyStatus {
+        present: policy::POLICY.present,
+        restricted: policy::POLICY.restricted,
+        error: policy::POLICY.error.clone(),
+        locked_settings: policy::POLICY.policy.ui.locked_settings.clone().unwrap_or_default(),
+        ai_enabled: policy::POLICY.policy.ai.enabled.as_ref().map(|mode| match mode {
+            policy::AiMode::On => "on",
+            policy::AiMode::Off => "off",
+            policy::AiMode::User => "user",
+        }),
+        update_checks: policy::POLICY.policy.updates.check,
+        recommended: policy::POLICY.policy.recommended.clone(),
+    }
+}
+
+#[tauri::command]
+fn policy_can_check_updates() -> bool {
+    policy::POLICY.permits_updates()
+}
+
+#[tauri::command]
+fn policy_authorize_network_request(url: String) -> Result<(), String> {
+    if policy::POLICY.permits_network_url(&url) { Ok(()) }
+    else { Err("Network access is disabled by your organisation's policy".into()) }
 }
 
 fn is_allowed_model_download_url(url: &str) -> bool {
@@ -1109,6 +1162,9 @@ fn is_allowed_model_download_url(url: &str) -> bool {
 }
 
 fn require_allowed_model_download_url(url: &str, model_id: &str) -> Result<(), String> {
+    if !policy::POLICY.permits_network_url(url) {
+        return Err(format!("Network access to this model host is blocked by policy for {model_id}"));
+    }
     if is_allowed_model_download_url(url) {
         Ok(())
     } else {
@@ -1128,7 +1184,9 @@ fn follow_allowed_model_download_redirect(
     if model_download_redirect_hop_limit_reached(attempt.previous().len()) {
         return attempt.error("too many redirects");
     }
-    if is_allowed_model_download_url(attempt.url().as_str()) {
+    if is_allowed_model_download_url(attempt.url().as_str())
+        && policy::POLICY.permits_network_url(attempt.url().as_str())
+    {
         attempt.follow()
     } else {
         let refused = attempt.url().clone();
@@ -1173,6 +1231,7 @@ async fn download_background_removal_model(
     request_id: String,
     model_id: String,
 ) -> Result<u64, String> {
+    require_policy_model_downloads()?;
     require_ai_features_enabled(&store)?;
     if !valid_download_request_id(&request_id) {
         return Err("Invalid model-download request id".into());
@@ -1436,6 +1495,7 @@ async fn download_inference_model(
     sha256: String,
     size_bytes: Option<u64>,
 ) -> Result<String, String> {
+    require_policy_model_downloads()?;
     require_ai_features_enabled(&store)?;
     let destination = inference_model_destination(&model_id)?;
     validate_inference_sha256(&sha256)?;
@@ -2597,6 +2657,7 @@ async fn download_generative_model_attempt_inner(
         return Err("Download cancelled".into());
     }
 
+    require_allowed_model_download_url(GENERATIVE_MODEL_DOWNLOAD_URL, "generative-edit")?;
     let mut request = client.get(GENERATIVE_MODEL_DOWNLOAD_URL);
     if loaded > 0 {
         request = request.header(reqwest::header::RANGE, format!("bytes={loaded}-"));
@@ -2730,6 +2791,7 @@ async fn download_generative_edit_model(
     store: tauri::State<'_, varve_sync::DocumentStore>,
     request_id: String,
 ) -> Result<GenerativeModelStatus, String> {
+    require_policy_model_downloads()?;
     require_ai_features_enabled(&store)?;
     if !valid_download_request_id(&request_id) {
         return Err("Invalid model-download request id".into());
@@ -5114,6 +5176,7 @@ fn app_set_setting(
     key: String,
     value: String,
 ) -> Result<(), String> {
+    require_setting_policy(&key, &value)?;
     store
         .set_view_state(&format!("app-setting:{key}"), &value)
         .map_err(|e| e.to_string())
@@ -5126,6 +5189,7 @@ fn app_compare_and_set_setting(
     expected_value: Option<String>,
     next_value: String,
 ) -> Result<bool, String> {
+    require_setting_policy(&key, &next_value)?;
     store
         .compare_and_set_view_state(
             &format!("app-setting:{key}"),
@@ -5133,6 +5197,10 @@ fn app_compare_and_set_setting(
             &next_value,
         )
         .map_err(|e| e.to_string())
+}
+
+fn require_setting_policy(key: &str, value: &str) -> Result<(), String> {
+    policy::POLICY.allows_setting_write(key, value)
 }
 
 // ── Thumbnails ──────────────────────────────────────────────────────
@@ -5331,9 +5399,12 @@ fn home_write_text_file_approved(path: String, contents: String) -> Result<(), S
 }
 
 fn model_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    let dir = filesystem::AppDirectories::resolve(app)
-        .map_err(|error| error.message)?
-        .models;
+    let dir = match policy::model_directory() {
+        Some(dir) => dir,
+        None => filesystem::AppDirectories::resolve(app)
+            .map_err(|error| error.message)?
+            .models,
+    };
     std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create models dir: {e}"))?;
     Ok(dir)
 }
@@ -5538,6 +5609,7 @@ fn resolve_onnxruntime_plugin(app: &tauri::AppHandle) -> Option<std::path::PathB
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    policy::initialize();
     // On Wayland (especially KDE Plasma), the window icon is resolved via the
     // FreeDesktop desktop file whose *filename stem* matches the process
     // program name / Wayland app_id. Force that id to our Tauri identifier so
@@ -5563,8 +5635,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build());
+        .plugin(tauri_plugin_process::init());
+    let builder = if policy::POLICY.permits_updates() {
+        builder.plugin(tauri_plugin_updater::Builder::new().build())
+    } else {
+        builder
+    };
 
     // WDIO testing plugins (debug-only, excluded from release builds)
     #[cfg(feature = "wdio")]
@@ -5600,8 +5676,9 @@ pub fn run() {
             // The standalone inference crates use a platform-neutral fallback
             // for non-Tauri callers, but the desktop process always injects
             // the authoritative Tauri-resolved model root.
-            varve_bgremove::model::configure_models_dir(directories.models.clone());
-            varve_upscale::configure_model_directory(directories.models.clone());
+            let model_dir = policy::model_directory().unwrap_or_else(|| directories.models.clone());
+            varve_bgremove::model::configure_models_dir(model_dir.clone());
+            varve_upscale::configure_model_directory(model_dir);
             let model_migration = varve_bgremove::model::migrate_legacy_models();
             let data_dir = directories.data.clone();
             logs::init(&directories.logs);
@@ -5980,6 +6057,9 @@ pub fn run() {
             report,
             done,
             updates::update_packaging_context,
+            policy_status,
+            policy_can_check_updates,
+            policy_authorize_network_request,
             // Home commands
             home_list_files,
             home_list_trashed,
@@ -6105,6 +6185,43 @@ pub fn run() {
             // only place Tauri 2 exposes the exit veto (ADR-0216 D5).
             lifecycle::handle_run_event(app_handle, event);
         });
+}
+
+/// Handle the standalone policy validation command before Tauri, AI, or
+/// network initialization. Returns `None` for normal application startup.
+pub fn validate_policy_cli() -> Option<i32> {
+    let args: Vec<String> = std::env::args().collect();
+    validate_policy_args(&args)
+}
+
+fn validate_policy_args(args: &[String]) -> Option<i32> {
+    if args.len() >= 2 && args[1] == "--validate-policy" {
+        if args.len() != 3 {
+            eprintln!("Usage: varve --validate-policy <path>");
+            return Some(2);
+        }
+        return match policy::validate_file(std::path::Path::new(&args[2])) {
+            Ok(()) => { println!("Policy is valid"); Some(0) },
+            Err(error) => { eprintln!("{error}"); Some(1) }
+        };
+    }
+    None
+}
+
+#[cfg(test)]
+mod policy_cli_tests {
+    use super::validate_policy_args;
+
+    #[test]
+    fn validate_policy_cli_returns_success_for_a_valid_file_and_failure_for_bad_json() {
+        let path = std::env::temp_dir().join(format!("policy-cli-{}.json", std::process::id()));
+        std::fs::write(&path, r#"{"schemaVersion":1,"policies":{},"recommended":{}}"#).unwrap();
+        let valid = vec!["varve".to_string(), "--validate-policy".to_string(), path.display().to_string()];
+        assert_eq!(validate_policy_args(&valid), Some(0));
+        std::fs::write(&path, "{").unwrap();
+        assert_eq!(validate_policy_args(&valid), Some(1));
+        let _ = std::fs::remove_file(path);
+    }
 }
 
 fn appimage_dmabuf_default(is_appimage: bool, has_user_override: bool) -> Option<&'static str> {

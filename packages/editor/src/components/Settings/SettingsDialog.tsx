@@ -33,6 +33,11 @@ import { PluginManager } from '../../plugins/PluginManager';
 import { PluginRuntimeBridge } from '../../plugins/PluginRuntimeBridge';
 import type { ThemeMode, UnitType } from '../../settings';
 import { DEFAULT_NUDGE_SETTINGS, NUDGE_MAX, NUDGE_MIN } from '../../settings';
+import {
+  isOrganizationLocked,
+  loadOrganizationPolicy,
+  type OrganizationPolicyStatus,
+} from '../../settings/organizationPolicy';
 import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
 import { useOptionalUpdateCoordinator } from '../../updates';
@@ -793,6 +798,17 @@ function OfflineModelsSection() {
 
 function AISection() {
   const { settings, updateSection } = useSettings();
+  const [organizationPolicy, setOrganizationPolicy] = useState<OrganizationPolicyStatus>({
+    restricted: false,
+    lockedSettings: [],
+  });
+  useEffect(() => {
+    void loadOrganizationPolicy().then(setOrganizationPolicy);
+  }, []);
+  const aiLocked =
+    organizationPolicy.aiEnabled === 'on' ||
+    organizationPolicy.aiEnabled === 'off' ||
+    isOrganizationLocked(organizationPolicy, 'ai.enabled');
 
   return (
     <div className="settings-section">
@@ -805,12 +821,29 @@ function AISection() {
       </p>
       <SettingsFieldRow label="AI features">
         <SwitchField
-          label={settings.ai.enabled ? 'On' : 'Off'}
-          checked={settings.ai.enabled}
+          label={
+            organizationPolicy.aiEnabled === 'on'
+              ? 'On'
+              : organizationPolicy.aiEnabled === 'off'
+                ? 'Off'
+                : settings.ai.enabled
+                  ? 'On'
+                  : 'Off'
+          }
+          checked={
+            organizationPolicy.aiEnabled === 'on'
+              ? true
+              : organizationPolicy.aiEnabled === 'off'
+                ? false
+                : settings.ai.enabled
+          }
           onChange={(e) => updateSection('ai', { enabled: e.target.checked })}
           id="ai-features-toggle"
+          disabled={aiLocked}
+          disabledReason={aiLocked ? 'Managed by your organisation' : undefined}
         />
       </SettingsFieldRow>
+      {aiLocked && <p className="settings-section__hint">Managed by your organisation</p>}
       <p className="settings-section__hint">
         When off, Varve will not download or run any on-device AI model. That includes generative
         edit, background removal, upscale, object selection, denoise, colorize, depth, OCR, font
@@ -886,6 +919,16 @@ function AboutSection() {
 
 function UpdatesSection() {
   const updates = useOptionalUpdateCoordinator();
+  const [organizationPolicy, setOrganizationPolicy] = useState<OrganizationPolicyStatus>({
+    restricted: false,
+    lockedSettings: [],
+  });
+  useEffect(() => {
+    void loadOrganizationPolicy().then(setOrganizationPolicy);
+  }, []);
+  const updateLocked =
+    organizationPolicy.updateChecks === false ||
+    isOrganizationLocked(organizationPolicy, 'updates.check');
   if (!updates) {
     return (
       <div className="settings-section">
@@ -942,7 +985,7 @@ function UpdatesSection() {
               value={value}
               checked={preferences.consent === value}
               onChange={() => updates.setPreferences({ consent: value })}
-              disabled={!canUseUpdater}
+              disabled={!canUseUpdater || updateLocked}
             />
             <span>{label}</span>
           </label>
@@ -977,10 +1020,11 @@ function UpdatesSection() {
         variant="secondary"
         size="sm"
         onClick={() => void updates.check()}
-        disabled={!canUseUpdater || state.kind === 'checking'}
+        disabled={!canUseUpdater || updateLocked || state.kind === 'checking'}
       >
         {state.kind === 'checking' ? 'Checking…' : 'Check for Updates'}
       </Button>
+      {updateLocked && <p className="settings-hint">Managed by your organisation</p>}
       {state.kind === 'update-available' && (
         <>
           {state.update.notes && <p className="settings-release-notes">{state.update.notes}</p>}
