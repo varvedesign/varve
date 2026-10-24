@@ -74,6 +74,9 @@ const PACKAGES = {
   help: { path: 'packages/help', entry: 'src/index.ts', layer: 3 },
   ai: { path: 'packages/ai', entry: 'src/index.ts', layer: 4 },
   collab: { path: 'packages/collab', entry: 'src/index.ts', layer: 4 },
+  // Command contracts, executor and headless authority: above the scene/shared
+  // foundations, consumed by the editor bridge (layer 5) and the CLI.
+  automation: { path: 'packages/automation', entry: 'src/index.ts', layer: 4 },
   print: { path: 'packages/print', entry: 'src/index.ts', layer: 3 },
   home: { path: 'packages/home', entry: 'src/index.ts', layer: 5 },
   editor: { path: 'packages/editor', entry: 'src/index.ts', layer: 5 },

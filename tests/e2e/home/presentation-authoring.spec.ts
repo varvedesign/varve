@@ -80,7 +80,9 @@ test.describe('presentation authoring foundation', () => {
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     const audience = page.getByRole('dialog', { name: /audience preview/ });
     await expect(audience).toBeVisible();
-    await expect(audience.locator('.presentation-audience__image')).toBeVisible({ timeout: 30000 });
+    await expect(audience.locator('.presentation-audience__canvas')).toBeVisible({
+      timeout: 30000,
+    });
     const stageBounds = await audience.evaluate((element) => {
       const bounds = element.getBoundingClientRect();
       return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
@@ -234,7 +236,9 @@ test.describe('presentation authoring foundation', () => {
     await expect(slideList.locator(':scope > li')).toHaveCount(3);
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     const audience = page.getByRole('dialog', { name: /audience preview/ });
-    await expect(audience.locator('.presentation-audience__image')).toBeVisible({ timeout: 30000 });
+    await expect(audience.locator('.presentation-audience__canvas')).toBeVisible({
+      timeout: 30000,
+    });
     await page.screenshot({
       path: testInfo.outputPath('presentation-populated-audience-preview.png'),
       animations: 'disabled',
@@ -290,7 +294,9 @@ test.describe('presentation authoring foundation', () => {
     await lastSlide.getByRole('button', { name: /Select slide 100:/ }).click();
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     const audience = page.getByRole('dialog', { name: /audience preview/ });
-    await expect(audience.locator('.presentation-audience__image')).toBeVisible({ timeout: 30000 });
+    await expect(audience.locator('.presentation-audience__canvas')).toBeVisible({
+      timeout: 30000,
+    });
     const navigationMs = Date.now() - navigationStartedAt;
     const captureState = await page.evaluate(() => ({
       loadedSlideImages: Array.from(
