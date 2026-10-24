@@ -5,7 +5,7 @@
  */
 
 import type { InferenceSession, Tensor } from 'onnxruntime-web';
-import { assertAiFeaturesEnabled } from '../inference/aiFeaturesGate';
+import { applyWorkerAiGate, assertAiFeaturesEnabled } from '../inference/aiFeaturesGate';
 import {
   computeMaskConfidence,
   decontaminateMask,
@@ -44,6 +44,8 @@ interface WorkerCommand {
   previewMaxDimension?: number;
   /** Monotonic revision for stale-result rejection. */
   requestRevision?: number;
+  /** Main-thread snapshot of the AI master switch. Omitted means refuse. */
+  aiEnabled?: boolean;
 }
 
 interface WorkerResponse {
@@ -193,9 +195,11 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
     decontaminate,
     previewMaxDimension,
     requestRevision,
+    aiEnabled,
   } = data as WorkerCommand;
 
   try {
+    applyWorkerAiGate(aiEnabled);
     const start = performance.now();
     const hadSession = cachedSession !== null && cachedModelPath === modelPath;
     const { session, executionProvider } =

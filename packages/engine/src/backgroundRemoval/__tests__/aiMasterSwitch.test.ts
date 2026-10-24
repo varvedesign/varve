@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { notifyAiFeaturesSettingsChanged } from '../../inference/aiFeaturesGate';
 
 const { mockDispatch } = vi.hoisted(() => ({
   mockDispatch: vi.fn(),
@@ -27,16 +29,19 @@ const dispatched = {
 describe('removeBackground AI master switch', () => {
   beforeEach(() => {
     localStorage.clear();
+    notifyAiFeaturesSettingsChanged();
     mockDispatch.mockReset();
     mockDispatch.mockResolvedValue(dispatched);
   });
 
   afterEach(() => {
     localStorage.clear();
+    notifyAiFeaturesSettingsChanged();
   });
 
   it('refuses AI methods before dispatch when the user switch is off', async () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
     await expect(removeBackground(makeImageData(), { method: 'ai-balanced' })).rejects.toThrow(
       'AI features are disabled',
     );
@@ -45,6 +50,7 @@ describe('removeBackground AI master switch', () => {
 
   it('still dispatches the non-AI quick path when the switch is off', async () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
     mockDispatch.mockResolvedValue({ ...dispatched, method: 'quick' });
     const result = await removeBackground(makeImageData(), { method: 'quick' });
     expect(mockDispatch).toHaveBeenCalledOnce();
@@ -53,6 +59,7 @@ describe('removeBackground AI master switch', () => {
 
   it('dispatches AI methods when the switch is on', async () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: true } }));
+    notifyAiFeaturesSettingsChanged();
     await removeBackground(makeImageData(), { method: 'ai-balanced' });
     expect(mockDispatch).toHaveBeenCalledOnce();
   });

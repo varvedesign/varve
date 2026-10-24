@@ -1725,6 +1725,7 @@
           "remoteUrl": "https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_small.decoder.onnx",
           "role": "decoder",
           "sha256": "e07f799d2afe8640ef21f47096ad154d9289bb53041191499ebbea8933ef047b",
+          "checksum": "e07f799d2afe8640ef21f47096ad154d9289bb53041191499ebbea8933ef047b",
           "sizeBytes": 20640886
         }
       ]
@@ -1756,6 +1757,7 @@
           "remoteUrl": "https://huggingface.co/Xenova/trocr-base-printed/resolve/main/onnx/encoder_model.onnx",
           "role": "encoder",
           "sha256": "31e9b9a2950c4b0d5d884665414ec3dec36186237955463c07a30e5f3fcd8ea0",
+          "checksum": "31e9b9a2950c4b0d5d884665414ec3dec36186237955463c07a30e5f3fcd8ea0",
           "sizeBytes": 344487712
         },
         {
@@ -1765,6 +1767,7 @@
           "remoteUrl": "https://huggingface.co/Xenova/trocr-base-printed/resolve/main/onnx/decoder_model_merged_quantized.onnx",
           "role": "decoder",
           "sha256": "b5f7d6080d4b73256e3364a56e6fe2b558ffc389cb7f0b9166747b126b25a0cd",
+          "checksum": "b5f7d6080d4b73256e3364a56e6fe2b558ffc389cb7f0b9166747b126b25a0cd",
           "sizeBytes": 249597124
         }
       ]

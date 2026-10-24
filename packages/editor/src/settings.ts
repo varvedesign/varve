@@ -9,6 +9,7 @@
  * React context.
  */
 
+import { notifyAiFeaturesSettingsChanged } from '@varve/engine';
 import type { ExportFormat, ExportScale, RenderingIntent } from '@varve/scene';
 import type { AnalyticsConsentState } from '@varve/shared';
 import { normalizeThemePreference, type ThemePreference } from '@varve/ui/tokens';
@@ -387,7 +388,8 @@ export const DEFAULT_COLLAB_SETTINGS: CollabSettingsStore = {
 };
 
 export const DEFAULT_AI_SETTINGS: AiSettingsStore = {
-  enabled: true, // Default true to not break existing AI feature users
+  // Fresh install: AI starts on, on-device, and can be turned off in Settings.
+  enabled: true,
   model: 'varve-default',
   shareUsageData: false,
 };
@@ -750,7 +752,9 @@ export function loadSettings(): EditorSettings {
       nudge: { ...DEFAULT_NUDGE_SETTINGS },
       drawingInput: { ...DEFAULT_DRAWING_INPUT_SETTINGS },
       collab: { ...DEFAULT_COLLAB_SETTINGS },
-      ai: { ...DEFAULT_AI_SETTINGS },
+      // Unreadable blob: keep other defaults, but treat AI as off until the
+      // user writes a valid setting. Missing keys still use DEFAULT_AI_SETTINGS.
+      ai: { ...DEFAULT_AI_SETTINGS, enabled: false },
       privacy: { ...DEFAULT_PRIVACY_SETTINGS },
       icons: { ...DEFAULT_ICONS_SETTINGS },
       learning: { ...DEFAULT_LEARNING_SETTINGS },
@@ -873,6 +877,7 @@ function normalizeRenderSettings(
 
 export function saveSettings(settings: EditorSettings): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  notifyAiFeaturesSettingsChanged();
 }
 
 export interface EditorSettingsPatch {

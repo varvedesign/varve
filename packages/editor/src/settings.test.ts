@@ -416,6 +416,7 @@ describe('settings quarantine', () => {
     localStorage.setItem('varve-editor-settings', '{"appearance":{"theme":');
     const settings = loadSettings();
     expect(settings.appearance.theme).toBe('system');
+    expect(settings.ai.enabled).toBe(false);
     const quarantined = readQuarantinedSettings();
     expect(quarantined?.payload).toBe('{"appearance":{"theme":');
     expect(quarantined?.source).toBe('varve-editor-settings');

@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { defaultStroke, makeShapeNode, makeTextNode } from '@varve/scene';
+import { notifyAiFeaturesSettingsChanged } from '@varve/engine';
+import { defaultStroke, makeImageShapeNode, makeShapeNode, makeTextNode } from '@varve/scene';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
@@ -390,5 +391,70 @@ describe('ContextControlBar shape controls', () => {
     render(<ContextControlBar />);
     expect(screen.getByRole('button', { name: 'Flip horizontal' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Flip vertical' })).toBeInTheDocument();
+  });
+});
+
+describe('ContextControlBar image background removal', () => {
+  const image = makeImageShapeNode('image-1', {
+    name: 'Photo',
+    src: 'data:image/png;base64,AA',
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    notifyAiFeaturesSettingsChanged();
+  });
+
+  function mockImageEditor(removeBackground: ReturnType<typeof vi.fn>) {
+    vi.mocked(useEditor).mockReturnValue({
+      state: {
+        selection: [image.id],
+        document: { nodes: { [image.id]: image } },
+        selectionRange: null,
+        pendingFormat: null,
+      },
+      setTool: vi.fn(),
+      groupSelected: vi.fn(),
+      setSelectedFlipH: vi.fn(),
+      setSelectedFlipV: vi.fn(),
+      applyFramePreset: vi.fn(),
+      setNodeClipContent: vi.fn(),
+      removeBackground,
+      openVectorizeDialog: vi.fn(),
+      alignSelected: vi.fn(),
+      booleanOp: vi.fn(),
+    } as never);
+  }
+
+  it('uses Quick and does not mention on-device ML when AI is off', () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
+    const fetchSpy = vi.fn(() => {
+      throw new Error('model fetch must not run while AI is off');
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+    const removeBackground = vi.fn().mockResolvedValue(undefined);
+    mockImageEditor(removeBackground);
+
+    render(<ContextControlBar />);
+    const button = screen.getByRole('button', { name: 'Remove background' });
+    expect(button).toBeInTheDocument();
+    fireEvent.click(button);
+
+    expect(removeBackground).toHaveBeenCalledWith('quick');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText(/on-device ML/i)).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it('uses AI Balanced when AI is on', () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: true } }));
+    notifyAiFeaturesSettingsChanged();
+    const removeBackground = vi.fn().mockResolvedValue(undefined);
+    mockImageEditor(removeBackground);
+
+    render(<ContextControlBar />);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove background' }));
+    expect(removeBackground).toHaveBeenCalledWith('ai-balanced');
   });
 });

@@ -110,7 +110,15 @@ export {
   InferenceAdmissionError,
   resetInferenceAdmission,
 } from './admission';
-export { assertAiFeaturesEnabled, getAiFeaturesEnabled } from './aiFeaturesGate';
+export {
+  AI_DISABLED_HINT,
+  AI_FEATURES_CHANGED_EVENT,
+  applyWorkerAiGate,
+  assertAiFeaturesEnabled,
+  getAiFeaturesEnabled,
+  notifyAiFeaturesSettingsChanged,
+  subscribeAiFeaturesEnabled,
+} from './aiFeaturesGate';
 export { DownloadManager } from './core/DownloadManager';
 export type { InferenceErrorCode, InferenceErrorDetails } from './core/InferenceError';
 export { InferenceError, isInferenceError, toUserMessage } from './core/InferenceError';
@@ -158,6 +166,7 @@ export {
   getInferenceWorkerHost,
   InferenceWorkerHost,
 } from './inferenceWorkerHost';
+export { resolvedIntegrityHash } from './integrityHash';
 export { ModelRegistry } from './ModelRegistry';
 export { getModelById, listAllModels } from './modelCatalog';
 export type {

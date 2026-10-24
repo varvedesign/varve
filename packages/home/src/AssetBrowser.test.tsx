@@ -1,8 +1,9 @@
 /** @vitest-environment jsdom */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { notifyAiFeaturesSettingsChanged } from '@varve/engine';
 import type { Asset, Platform } from '@varve/platform';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AssetBrowser } from './AssetBrowser';
 
 const MOCK_ASSETS: Asset[] = [
@@ -57,6 +58,11 @@ function createMockPlatform(assets: Asset[] = MOCK_ASSETS): Platform {
 }
 
 describe('AssetBrowser', () => {
+  afterEach(() => {
+    localStorage.clear();
+    notifyAiFeaturesSettingsChanged();
+  });
+
   it('renders assets in a grid', async () => {
     const platform = createMockPlatform();
     const { container } = render(<AssetBrowser platform={platform} workspaceId="ws-1" />);
@@ -198,6 +204,38 @@ describe('AssetBrowser', () => {
     expect(screen.getByText('scan.png')).toBeDefined();
     expect(screen.getByText('Recognized text match')).toBeDefined();
     expect(screen.queryByText('icon.svg')).toBeNull();
+  });
+
+  it('hides visual-search download when AI features are off', async () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
+    const platform = createMockPlatform();
+    render(<AssetBrowser platform={platform} workspaceId="ws-1" />);
+    await waitFor(() => {
+      expect(screen.getByText('logo.png')).toBeDefined();
+    });
+    expect(screen.getByText('Turn on AI features in Settings to use this')).toBeDefined();
+    expect(screen.queryByText(/Download visual search model/i)).toBeNull();
+    expect(screen.queryByText(/Download natural-language search model/i)).toBeNull();
+  });
+
+  it('updates the hint when the AI toggle changes after mount', async () => {
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: true } }));
+    notifyAiFeaturesSettingsChanged();
+    const platform = createMockPlatform();
+    render(<AssetBrowser platform={platform} workspaceId="ws-1" />);
+    await waitFor(() => {
+      expect(screen.getByText('logo.png')).toBeDefined();
+    });
+    expect(screen.queryByText('Turn on AI features in Settings to use this')).toBeNull();
+
+    localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
+    await waitFor(() => {
+      expect(screen.getByText('Turn on AI features in Settings to use this')).toBeDefined();
+    });
+    expect(screen.queryByText(/Download visual search model/i)).toBeNull();
+    expect(screen.queryByText(/Download natural-language search model/i)).toBeNull();
   });
 
   it('shows empty state when no assets', async () => {

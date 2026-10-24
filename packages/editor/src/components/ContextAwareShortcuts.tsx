@@ -13,6 +13,7 @@ import { isExportRegion, isImageShape } from '@varve/scene';
 import { Tooltip } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../context';
+import { resolveBackgroundRemovalMethod } from '../features/useAiFeaturesEnabled';
 import './ContextAwareShortcuts.css';
 
 interface ContextShortcut {
@@ -75,9 +76,9 @@ export function ContextAwareShortcuts() {
             id: 'remove-bg',
             label: 'Remove BG',
             key: 'B',
-            tooltip: 'Remove background using on-device ML (B)',
+            tooltip: 'Remove background (B)',
             action: () => {
-              void removeBackground('ai-balanced');
+              void removeBackground(resolveBackgroundRemovalMethod());
             },
           },
           {
@@ -193,7 +194,14 @@ export function ContextAwareShortcuts() {
         action: () => {},
       },
     ];
-  }, [selectedNodes, setTool, groupSelected, ungroupSelected]);
+  }, [
+    selectedNodes,
+    setTool,
+    groupSelected,
+    ungroupSelected,
+    removeBackground,
+    openVectorizeDialog,
+  ]);
 
   return (
     <nav

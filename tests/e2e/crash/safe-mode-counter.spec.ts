@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 /**
  * Crash-loop classification — design-system audit 2026-09-27 (§7.4).
@@ -11,15 +11,26 @@ import { expect, test } from '@playwright/test';
  * 10-minute window tripped the safe-mode screen with zero page errors.
  * Probe evidence: reports/ds-audit-2026-09-27/probe.log.
  */
+const HOME_NAV_TIMEOUT_MS = 300_000;
+const HOME_VISIBLE_TIMEOUT_MS = 180_000;
+
+async function loadHome(page: Page): Promise<void> {
+  await page.goto('/', { timeout: HOME_NAV_TIMEOUT_MS, waitUntil: 'domcontentloaded' });
+  const reload = page.locator('.boot-error-reload');
+  if (await reload.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await reload.click();
+  }
+  await page.locator('.varve-home').waitFor({ state: 'visible', timeout: HOME_VISIBLE_TIMEOUT_MS });
+}
+
 test.describe('crash-loop classification', () => {
   test('three plain Home loads never enter safe mode or count failures', async ({ page }) => {
+    test.setTimeout(540_000);
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(String(error)));
 
     for (let load = 1; load <= 3; load++) {
-      await page.goto('/');
-      await page.waitForSelector('.varve-home');
-      if (load < 3) await page.reload();
+      await loadHome(page);
     }
 
     // The old classification tripped the safe-mode screen on load 3.

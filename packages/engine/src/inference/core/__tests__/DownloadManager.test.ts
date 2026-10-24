@@ -406,6 +406,33 @@ describe('DownloadManager', () => {
     vi.unstubAllGlobals();
     await expect(manager.getInstalledBytes(componentId)).resolves.toBeNull();
   });
+
+  it('verifies a component that stores its digest only under sha256', async () => {
+    const bytes = new Uint8Array([9, 8, 7, 6]);
+    const digest = sha256(bytes);
+    manager.registerModel(
+      makeEntry('sha256-only', {
+        components: [
+          {
+            id: 'sha256-only-decoder',
+            role: 'decoder',
+            filename: 'decoder.onnx',
+            sizeBytes: bytes.byteLength,
+            remoteUrl: 'https://example.com/decoder.onnx',
+            sha256: digest,
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => makeResponse(bytes, 200, { 'Content-Length': String(bytes.byteLength) })),
+    );
+
+    await manager.startDownload('sha256-only');
+    vi.unstubAllGlobals();
+    await expect(manager.getInstalledBytes('sha256-only-decoder')).resolves.toEqual(bytes);
+  });
 });
 
 describe('component downloads without the multiComponent flag', () => {

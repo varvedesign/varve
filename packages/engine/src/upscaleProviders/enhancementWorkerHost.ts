@@ -4,7 +4,7 @@
  */
 
 import type { UpscaleOptions } from '../imageEnhancement';
-import { assertAiFeaturesEnabled } from '../inference/aiFeaturesGate';
+import { assertAiFeaturesEnabled, getAiFeaturesEnabled } from '../inference/aiFeaturesGate';
 import type { RasterTraceOptions, RasterTraceResult } from '../rasterTrace';
 
 export type EnhancementWorkerRequest =
@@ -16,6 +16,7 @@ export type EnhancementWorkerRequest =
       buffer: ArrayBuffer;
       options: UpscaleOptions;
       modelPath?: string;
+      aiEnabled?: boolean;
     }
   | {
       type: 'trace';
@@ -131,8 +132,8 @@ export async function runUpscaleInWorkerWithMetadata(
   if (signal?.aborted) throw new Error('cancelled');
   let modelPath: string | undefined;
   if (options.method === 'ai') {
-    // Workers have no localStorage, so the worker-side assert is a no-op.
-    // Refuse AI upscale here, on the main thread, before postMessage.
+    // Refuse on the main thread before postMessage. The worker also applies
+    // the snapshot from this job and refuses if the flag is missing or off.
     assertAiFeaturesEnabled();
     const { getModelLoader } = await import('../backgroundRemoval/modelLoader');
     const modelId = options.modelId ?? 'upscale-realesr-general';
@@ -172,6 +173,7 @@ export async function runUpscaleInWorkerWithMetadata(
         buffer,
         options: cloneableOptions(options),
         modelPath,
+        aiEnabled: getAiFeaturesEnabled(),
       } satisfies EnhancementWorkerRequest,
       [buffer],
     );

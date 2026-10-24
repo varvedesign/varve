@@ -1083,13 +1083,36 @@ fn cancel_background_removal_model_download(request_id: String) -> Result<(), St
     Ok(())
 }
 
+fn ai_features_enabled_from_read(result: Result<Option<String>, String>) -> bool {
+    match result {
+        // Missing key: fresh install stays on (on by default, on-device, can
+        // be turned off in Settings).
+        Ok(None) => true,
+        Ok(Some(value)) => {
+            if value == "true" {
+                true
+            } else {
+                if value != "false" {
+                    eprintln!("[ai-gate] AI setting unreadable; treating as off: {value}");
+                }
+                false
+            }
+        }
+        // Unreadable store: fail closed and log. Do not treat a read error
+        // as a missing key.
+        Err(err) => {
+            eprintln!("[ai-gate] AI setting unreadable; treating as off: {err}");
+            false
+        }
+    }
+}
+
 fn ai_features_enabled_from_store(store: &varve_sync::DocumentStore) -> bool {
-    store
-        .get_view_state("app-setting:ai.enabled")
-        .ok()
-        .flatten()
-        .map(|value| value != "false")
-        .unwrap_or(true)
+    ai_features_enabled_from_read(
+        store
+            .get_view_state("app-setting:ai.enabled")
+            .map_err(|err| err.to_string()),
+    )
 }
 
 fn require_ai_features_flag(enabled: bool) -> Result<(), String> {
@@ -6308,6 +6331,21 @@ mod tests {
             .set_view_state("app-setting:ai.enabled", "true")
             .expect("persist enabled");
         assert!(require_ai_features_enabled(&store).is_ok());
+        assert!(
+            ai_features_enabled_from_read(Ok(None)),
+            "missing setting stays on"
+        );
+        assert!(!ai_features_enabled_from_read(
+            Err("disk i/o failed".into())
+        ));
+        assert!(
+            !ai_features_enabled_from_read(Ok(Some("garbage".into()))),
+            "a corrupt store value must fail closed"
+        );
+        assert!(!ai_features_enabled_from_read(Ok(Some("TRUE".into()))));
+        assert!(!ai_features_enabled_from_read(Ok(Some("1".into()))));
+        assert!(ai_features_enabled_from_read(Ok(Some("true".into()))));
+        assert!(!ai_features_enabled_from_read(Ok(Some("false".into()))));
         let _ = std::fs::remove_file(&path);
     }
 

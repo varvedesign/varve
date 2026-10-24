@@ -40,7 +40,11 @@ import {
   type ObjectSelectionPreviewMode,
   objectSelectionCandidateReviewKey,
 } from '../../../context/objectSelectionTypes';
-import { AI_DISABLED_HINT, getAiFeaturesEnabled } from '../../../features/useAiFeaturesEnabled';
+import {
+  AI_DISABLED_HINT,
+  getAiFeaturesEnabled,
+  useAiFeaturesEnabled,
+} from '../../../features/useAiFeaturesEnabled';
 import { prepareImageMaskMapper } from '../../../tools/imageMaskCoordinates';
 import type {
   Sam2PromptMode,
@@ -264,6 +268,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     setTrimapEditOptions,
     getTrimapData,
   } = useEditor();
+  const aiEnabled = useAiFeaturesEnabled();
   const selectedNode = nodes[0] as ShapeNode | undefined;
   const node = selectedNode?.paintRefs?.length
     ? {
@@ -308,8 +313,11 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     objectSelection?.reviewedCandidateKey === objectSelectionReviewKey;
 
   const [method, setMethod] = useState<RemovalMethod>(
-    (maskProvenance as { method?: RemovalMethod })?.method ?? 'quick',
+    aiEnabled ? ((maskProvenance as { method?: RemovalMethod })?.method ?? 'quick') : 'quick',
   );
+  useEffect(() => {
+    if (!aiEnabled && method !== 'quick') setMethod('quick');
+  }, [aiEnabled, method]);
   const [localPending, setPending] = useState(false);
   const operation =
     state.backgroundRemovalOperation?.nodeId === node?.id ? state.backgroundRemovalOperation : null;
@@ -463,7 +471,13 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const requiredModelId = workerModelIdForMethod(method);
   const imageMaxDim = node?.shape?.kind === 'rect' ? Math.max(node.shape.w, node.shape.h) : 0;
   const previewDownscaleActive = method !== 'quick' && imageMaxDim > DEFAULT_PREVIEW_MAX_DIMENSION;
-  const methodGuidance = METHOD_GUIDANCE[method];
+  const methodGuidance = {
+    ...METHOD_GUIDANCE[method],
+    tradeoff:
+      !aiEnabled && method === 'quick'
+        ? 'Natural scenes may need a short brush cleanup.'
+        : METHOD_GUIDANCE[method].tradeoff,
+  };
 
   const startObjectSelection = useCallback(() => {
     if (!node) return;
@@ -945,7 +959,8 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <>
-      {eligible && (
+      {eligible && !aiEnabled && <p className="insp-hint">{AI_DISABLED_HINT}</p>}
+      {eligible && aiEnabled && (
         <DisclosureSection title="Object Selection" defaultExpanded={Boolean(objectSelection)}>
           <div className="insp-field-group">
             <p className="insp-field__hint">
@@ -1344,28 +1359,33 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             <Select
               label="Background removal method"
               value={method}
-              options={[
-                { value: 'quick', label: 'Fast — instant, simple backgrounds' },
-                {
-                  value: 'ai-balanced',
-                  label: `Auto — general photos (AI Balanced)${!aiAvailable ? ' (download required)' : ''}`,
-                },
-                {
-                  value: 'ai-quality',
-                  label: `High quality — fine details (AI High Quality)${
-                    !aiAvailable ? ' (download required)' : ''
-                  }${!wasmModelSafe && !hasGpuAccel && !aiAvailable ? ' — may need GPU' : ''}`,
-                },
-                {
-                  value: 'portrait',
-                  label: `Portrait matting — people photos (MODNet)${
-                    !aiAvailable ? ' (download required)' : ''
-                  }`,
-                },
-              ]}
+              options={
+                aiEnabled
+                  ? [
+                      { value: 'quick', label: 'Fast — instant, simple backgrounds' },
+                      {
+                        value: 'ai-balanced',
+                        label: `Auto — general photos (AI Balanced)${!aiAvailable ? ' (download required)' : ''}`,
+                      },
+                      {
+                        value: 'ai-quality',
+                        label: `High quality — fine details (AI High Quality)${
+                          !aiAvailable ? ' (download required)' : ''
+                        }${!wasmModelSafe && !hasGpuAccel && !aiAvailable ? ' — may need GPU' : ''}`,
+                      },
+                      {
+                        value: 'portrait',
+                        label: `Portrait matting — people photos (MODNet)${
+                          !aiAvailable ? ' (download required)' : ''
+                        }`,
+                      },
+                    ]
+                  : [{ value: 'quick', label: 'Fast — instant, simple backgrounds' }]
+              }
               onChange={(v) => setMethod(v as RemovalMethod)}
             />
           </FieldRow>
+          {!aiEnabled && <p className="insp-hint">{AI_DISABLED_HINT}</p>}
           <span id="bg-method-desc" className="sr-only">
             Fast uses a local heuristic. Auto uses IS-Net General Use when installed and falls back
             to bundled U²-Net Light. High quality uses BiRefNet Lite where the available provider is

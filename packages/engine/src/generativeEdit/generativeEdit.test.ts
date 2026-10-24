@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
+
 import { describe, expect, it } from 'vitest';
+import { notifyAiFeaturesSettingsChanged } from '../inference/aiFeaturesGate';
 import {
   assessGenerativeEditResources,
   chooseExpandGenerationStrategy,
@@ -39,11 +41,13 @@ function request(overrides: Partial<Parameters<typeof runGenerativeEdit>[0]> = {
 describe('AI master switch', () => {
   it('refuses runGenerativeEdit when ai.enabled is false', async () => {
     localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+    notifyAiFeaturesSettingsChanged();
     const { InferenceError } = await import('../inference/core/InferenceError');
     await expect(runGenerativeEdit(request())).rejects.toSatisfy(
       (error: unknown) => error instanceof InferenceError && error.code === 'ai_disabled',
     );
     localStorage.clear();
+    notifyAiFeaturesSettingsChanged();
   });
 });
 

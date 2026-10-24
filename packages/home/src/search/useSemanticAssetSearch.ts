@@ -6,9 +6,15 @@
  * pause/resume on document visibility (background indexing must never
  * compete with foreground work).
  */
-import { getModelLoader, SIGLIP_IMAGE_MODEL, SIGLIP_TEXT_MODEL_ID } from '@varve/engine';
+import {
+  getAiFeaturesEnabled,
+  getModelLoader,
+  SIGLIP_IMAGE_MODEL,
+  SIGLIP_TEXT_MODEL_ID,
+  subscribeAiFeaturesEnabled,
+} from '@varve/engine';
 import { type Asset, IndexedDbSemanticEmbeddingStore, type Platform } from '@varve/platform';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   createSemanticAssetSearchService,
   type SemanticAssetSearchService,
@@ -49,8 +55,13 @@ export function useSemanticAssetSearch(
   const [downloadingModelId, setDownloadingModelId] = useState<string | null>(null);
   const assetsRef = useRef<readonly Asset[]>([]);
   assetsRef.current = assets;
+  const aiEnabled = useSyncExternalStore(
+    subscribeAiFeaturesEnabled,
+    getAiFeaturesEnabled,
+    getAiFeaturesEnabled,
+  );
   const service = useMemo(() => {
-    if (typeof indexedDB === 'undefined') return null;
+    if (!aiEnabled || typeof indexedDB === 'undefined') return null;
     return createSemanticAssetSearchService({
       store: new IndexedDbSemanticEmbeddingStore(),
       getAssetBytes: (id) => platform.getAssetBytes(id),
@@ -60,7 +71,7 @@ export function useSemanticAssetSearch(
       getTextModelPath: (signal) => getModelLoader().getModelPath(SIGLIP_TEXT_MODEL_ID, signal),
       onStatus: setStatus,
     });
-  }, [platform]);
+  }, [aiEnabled, platform]);
   serviceRef.current = service;
 
   useEffect(() => {
@@ -119,6 +130,7 @@ export function useSemanticAssetSearch(
   }, [service, query]);
 
   const downloadImageModel = useCallback(async () => {
+    if (!getAiFeaturesEnabled()) return;
     const loader = getModelLoader();
     setDownloadingModelId(SIGLIP_IMAGE_MODEL.id);
     setDownloadProgress(0);
@@ -138,6 +150,7 @@ export function useSemanticAssetSearch(
   }, []);
 
   const downloadTextModel = useCallback(async () => {
+    if (!getAiFeaturesEnabled()) return;
     const loader = getModelLoader();
     setDownloadingModelId(SIGLIP_TEXT_MODEL_ID);
     setDownloadProgress(0);
