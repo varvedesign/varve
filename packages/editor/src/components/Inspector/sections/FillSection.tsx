@@ -1236,6 +1236,32 @@ function FillRow({
         />
       </div>
 
+      {/* Fill type and opacity are the repeat-use properties. Blend mode is a
+          low-frequency per-paint override: it remains in the colour editor or
+          the row actions menu instead of repeating a long select in every row. */}
+      {showPropertiesLine && (
+        <div className="insp-fill-row__properties">
+          <div className="insp-paint-property insp-paint-property--type">
+            <span className="insp-paint-property__label">Fill type</span>
+            <Select
+              className="insp-paint-type-select"
+              label={`${label} type`}
+              value={typeIsMixed ? '' : fillType}
+              options={
+                typeIsMixed
+                  ? [{ value: '', label: 'Mixed', disabled: true }, ...fillTypeOptions]
+                  : fillTypeOptions
+              }
+              onChange={(value) => {
+                if (value) setFillType(value as FillType);
+              }}
+              placeholder="Mixed"
+            />
+          </div>
+          {opacityOnPropertiesLine && opacityField}
+        </div>
+      )}
+
       {fill.type === 'image' && fill.image && (
         <ImageFillControls
           image={fill.image}
@@ -1324,32 +1350,6 @@ function FillRow({
             onImportTile={importPatternTile}
           />
         ))}
-
-      {/* Fill type and opacity are the repeat-use properties. Blend mode is a
-          low-frequency per-paint override: it remains in the colour editor or
-          the row actions menu instead of repeating a long select in every row. */}
-      {showPropertiesLine && (
-        <div className="insp-fill-row__properties">
-          <div className="insp-paint-property insp-paint-property--type">
-            <span className="insp-paint-property__label">Fill type</span>
-            <Select
-              className="insp-paint-type-select"
-              label={`${label} type`}
-              value={typeIsMixed ? '' : fillType}
-              options={
-                typeIsMixed
-                  ? [{ value: '', label: 'Mixed', disabled: true }, ...fillTypeOptions]
-                  : fillTypeOptions
-              }
-              onChange={(value) => {
-                if (value) setFillType(value as FillType);
-              }}
-              placeholder="Mixed"
-            />
-          </div>
-          {opacityOnPropertiesLine && opacityField}
-        </div>
-      )}
     </div>
   );
 }

@@ -2,16 +2,20 @@
   display: grid;
   gap: var(--space-2);
   min-inline-size: 0;
-  margin: var(--space-3) 0 0;
-  padding: var(--space-2);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
+  margin: var(--space-1) 0 0;
+  /* No frame: this sat as a bordered box inside the already-bordered fill card,
+   * under its own legend and a paragraph. The switch row is the whole control
+   * until it is on; the explanation lives behind the info hint. */
+  padding: 0;
+  border: 0;
 }
 
-.concept-reference-options legend {
-  padding-inline: var(--space-1);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+.concept-reference-options__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-inline-size: 0;
 }
 
 .concept-reference-options__description,

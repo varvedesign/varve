@@ -135,7 +135,7 @@
 }
 .insp-panel__tab {
   flex: 1 0 auto;
-  min-block-size: var(--component-large-height);
+  min-block-size: var(--component-default-height);
   padding: var(--space-1) var(--space-2);
   background: none;
   border: none;
@@ -300,7 +300,7 @@
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-smd);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   text-overflow: ellipsis;
@@ -543,13 +543,6 @@
   margin-bottom: var(--insp-section-gap, var(--space-2));
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
-.insp-disclosure:hover {
-  border-bottom-color: color-mix(
-    in srgb,
-    var(--color-border-strong) 40%,
-    var(--color-border-subtle)
-  );
-}
 .insp-disclosure:last-child {
   margin-bottom: 0;
 }
@@ -575,7 +568,10 @@
   margin-inline: 0;
   padding: var(--space-1) 0;
   background: var(--color-surface-base);
-  box-shadow: 0 1px 0 var(--color-border-subtle);
+  /* No underline here: the section already ends in one hairline (its
+   * border-bottom). A header underline as well drew two lines per expanded
+   * section and a doubled line on collapsed ones, and the divider darkening on
+   * hover made the separators flicker as the pointer crossed the panel. */
   border-radius: 0;
 }
 
@@ -2895,6 +2891,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The summary and the copy button share one line: the summary takes what is
+ * left and truncates, instead of the button dropping onto a line of its own. */
+.insp-image-fill__src-summary {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.insp-field__control:has(> .insp-image-fill__src-summary),
+.insp-field__control:has(> [class*="Tooltip"] > .insp-image-fill__src) {
+  flex-wrap: nowrap;
+}
 .insp-image-fill__preview-img {
   display: block;
   width: 100%;
@@ -2934,32 +2942,20 @@
 
 /* Image transform controls (rotation, flip, crop). */
 .insp-image-fill__fit-transform-group {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(9rem, 1.1fr);
-  gap: var(--space-2);
-  min-inline-size: 0;
-}
-
-.insp-image-fill__fit-transform-group > .insp-field {
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-1);
-  min-inline-size: 0;
-}
-
-.insp-image-fill__fit-transform-group > .insp-field > .insp-field__label {
-  min-block-size: 0;
-}
-
-.insp-image-fill__fit-transform-group > .insp-field > .insp-field__control {
-  inline-size: 100%;
-  max-inline-size: 100%;
+  /* Fit and Rotation are ordinary label-left rows, like every other inspector
+   * row. They were a two-column grid with the label above each control, so the
+   * labels sat at different heights and the flip buttons wrapped under the
+   * angle field. */
+  display: flex;
+  flex-direction: column;
+  gap: var(--insp-field-group-gap, var(--space-2));
   min-inline-size: 0;
 }
 
 .insp-image-fill__transform-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   flex-wrap: wrap;
   gap: var(--space-1);
   min-inline-size: 0;
@@ -3007,11 +3003,6 @@
   background: var(--color-surface-hover);
 }
 
-@container inspector (max-width: 18rem) {
-  .insp-image-fill__fit-transform-group {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 .insp-image-fill__crop-info {
   display: flex;
   align-items: center;
@@ -6098,6 +6089,20 @@ fieldset.insp-canvas-props,
 .insp-field__control--column {
   flex-direction: column;
   align-items: flex-start;
+}
+
+/* Two related numeric fields (X / Y) in one control column: equal halves, the
+ * axis label sitting just before its input. They were nested field rows that
+ * each took 38% of a half-width cell for the label, so the Offset inputs came
+ * out narrow and unlike the full-width Scale input above them. */
+.insp-field__control--pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.insp-field__control--pair > .insp-field {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1);
 }
 
 .insp-field__control > .insp-field {

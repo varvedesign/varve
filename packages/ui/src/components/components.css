@@ -284,6 +284,10 @@
 .varve-btn--sm {
   min-block-size: var(--component-compact-height);
   min-inline-size: var(--component-compact-height);
+  /* The base button's vertical padding stacked on the line height and made
+   * this "28px" size render 31px; the minimum block size already centres the
+   * label (inline-flex, align-items: center). */
+  padding-block: 0;
   padding-inline: var(--component-compact-padding-inline);
   font-size: var(--type-interface-caption-size);
 }
@@ -1022,17 +1026,22 @@
 }
 .varve-search__icon {
   position: absolute;
-  left: var(--space-2);
+  inset-inline-start: var(--space-2);
   color: var(--color-text-muted);
   pointer-events: none;
-  width: 1em;
-  height: 1em;
+  inline-size: var(--icon-size-sm);
+  block-size: var(--icon-size-sm);
 }
 .varve-search__input {
   width: 100%;
   min-block-size: var(--component-compact-height);
   box-sizing: border-box;
-  padding: 0 var(--space-2) 0 var(--space-7);
+  /* Start inset + icon + one gap: it was a fixed --space-7 (32-42px), which left
+     a wide dead gap between the icon and the text. The end inset clears the
+     24px clear button. */
+  padding-block: 0;
+  padding-inline-start: calc(var(--space-2) + var(--icon-size-sm) + var(--space-2));
+  padding-inline-end: calc(var(--target-min-compact) + var(--space-1));
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);

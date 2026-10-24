@@ -235,7 +235,7 @@ function RegistryDisclosure({
               name="ChevronRight"
               label={undefined}
               className="insp-disclosure__chevron"
-              size="0.9em"
+              size="sm"
             />
             <span>{title}</span>
           </button>
@@ -299,7 +299,24 @@ function LegacyDisclosure({
     <Disclosure open={expanded} onOpenChange={handleOpenChange} className="insp-disclosure">
       <div className="insp-disclosure__header">
         <h3 className="insp-disclosure__heading">
-          <DisclosureTrigger className="insp-disclosure__trigger">{title}</DisclosureTrigger>
+          {/* Same leading, rotating chevron as the registry sections. The
+              primitive's default is a trailing indicator, which made every
+              legacy section (Effect Studio, State Machine, ...) look like a
+              different component from its neighbours. */}
+          <DisclosureTrigger
+            className="insp-disclosure__trigger"
+            hideIndicator
+            leadingIcon={
+              <Icon
+                name="ChevronRight"
+                label={undefined}
+                className="insp-disclosure__chevron"
+                size="sm"
+              />
+            }
+          >
+            {title}
+          </DisclosureTrigger>
         </h3>
         {action && <div className="insp-disclosure__action">{action}</div>}
       </div>

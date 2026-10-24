@@ -494,6 +494,9 @@ input[type="number"] {
   gap: var(--space-2);
   min-width: 0;
   min-height: 0;
+  /* The context bar carries its own start inset; the Share control sat flush
+   * against the window edge because nothing gave the row an end inset. */
+  padding-inline-end: var(--space-3);
 }
 
 .editor-shell__header-row > .collab-header-control,
@@ -1054,6 +1057,16 @@ input[type="number"] {
 }
 
 .editor-inspector {
+  /* Same panel text scale as the Layers panel (12 / 13 / 14px): inputs, rows
+   * and labels were 15px beside 12px field labels. */
+  --font-size-sm: var(--font-size-xs);
+  /* The interface type roles resolve their size at :root, so remapping
+   * --font-size-sm alone does not reach them: controls were 15px and body copy
+   * 17px inside a panel whose labels are 12px. */
+  --type-interface-control-size: var(--font-size-xs);
+  --type-interface-body-size: var(--font-size-xs);
+  --type-interface-readout-size: var(--font-size-xs);
+  --type-interface-subheading-size: var(--font-size-smd);
   display: flex;
   flex-direction: column;
   flex: 1;
