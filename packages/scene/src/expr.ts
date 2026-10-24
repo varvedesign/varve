@@ -231,5 +231,12 @@ export function evaluate(input: string, aliases: Record<string, number>): number
     throw new Error('Unexpected trailing tokens');
   }
 
+  // A non-finite result is not a number the document model can store: the
+  // canonicalizer rejects it at save time, which used to leave the document
+  // permanently unsaveable. Refuse it where the user can still correct it.
+  if (!Number.isFinite(result)) {
+    throw new Error('Expression result is not a finite number');
+  }
+
   return result;
 }
