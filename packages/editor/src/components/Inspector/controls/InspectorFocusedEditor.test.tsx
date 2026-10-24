@@ -39,6 +39,39 @@ function Fixture({ onClose }: { onClose: (reason?: string) => void }) {
   );
 }
 
+/**
+ * A host that unmounts its editor on close, the way EffectRow renders it
+ * (`{type && expanded && <InspectorFocusedEditor open={expanded} …>}`). Focus
+ * restoration must survive the component itself going away, not only an
+ * `open` prop transition on a still-mounted instance.
+ */
+function UnmountingFixture({ onClose }: { onClose: (reason?: string) => void }) {
+  const [open, setOpen] = useState(true);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <button type="button" ref={anchorRef}>
+        Shadow parameters
+      </button>
+      <button type="button">After anchor</button>
+      {open && (
+        <InspectorFocusedEditor
+          anchorRef={anchorRef}
+          open={open}
+          title="Shadow parameters"
+          ownerKey="row:1"
+          onClose={(reason) => {
+            setOpen(false);
+            onClose(reason);
+          }}
+        >
+          <button type="button">Apply</button>
+        </InspectorFocusedEditor>
+      )}
+    </>
+  );
+}
+
 describe('InspectorFocusedEditor', () => {
   it('declares a non-modal dialog and moves focus into it on open', async () => {
     render(<Fixture onClose={() => {}} />);
@@ -118,6 +151,29 @@ describe('InspectorFocusedEditor', () => {
     await vi.waitFor(
       () => {
         expect(onClose).toHaveBeenCalledWith('action');
+        expect(screen.getByRole('button', { name: 'Shadow parameters' })).toHaveFocus();
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  it('hands focus back when the host unmounts the editor on close', async () => {
+    const onClose = vi.fn();
+    render(<UnmountingFixture onClose={onClose} />);
+    const dialog = await screen.findByRole('dialog', { name: 'Shadow parameters' });
+    await vi.waitFor(
+      () => {
+        expect(dialog.contains(document.activeElement)).toBe(true);
+      },
+      { timeout: 2000 },
+    );
+
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+
+    await vi.waitFor(
+      () => {
+        expect(onClose).toHaveBeenCalled();
+        expect(screen.queryByRole('dialog', { name: 'Shadow parameters' })).toBeNull();
         expect(screen.getByRole('button', { name: 'Shadow parameters' })).toHaveFocus();
       },
       { timeout: 2000 },

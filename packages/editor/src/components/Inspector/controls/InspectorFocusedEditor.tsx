@@ -67,33 +67,37 @@ export function InspectorFocusedEditor({
   children,
 }: InspectorFocusedEditorProps) {
   const editorRef = useRef<HTMLElement | null>(null);
-  const wasOpenRef = useRef(false);
 
   useEffect(() => {
-    const wasOpen = wasOpenRef.current;
-    wasOpenRef.current = open;
-    if (open || !wasOpen) return;
-
-    const anchor = anchorRef.current;
-    if (!anchor) return;
+    if (!open) return undefined;
 
     // Hand focus back only when this surface still owned it, or when closing
     // dropped focus to the document (the editor node is already detached by
-    // the time this effect runs). A deliberate destination — the Tab handoff
+    // the time this cleanup runs). A deliberate destination — the Tab handoff
     // that `yieldTabToAnchor` just performed, another overlay that took focus,
     // a click into the canvas — is never stolen.
-    const active = document.activeElement;
-    const stranded =
-      !active ||
-      active === document.body ||
-      Boolean(editorRef.current?.contains(active)) ||
-      anchor.contains(active);
-    if (!stranded) return;
+    //
+    // This lives in the effect *cleanup*, not in an effect body watching
+    // `open`: hosts such as EffectRow render this component only while it is
+    // open (`{type && expanded && ...}`), so closing unmounts the component
+    // and an open-prop-transition body would never run. Cleanup runs for both
+    // that unmount and a host that keeps the component mounted.
+    return () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      const active = document.activeElement;
+      const stranded =
+        !active ||
+        active === document.body ||
+        Boolean(editorRef.current?.contains(active)) ||
+        anchor.contains(active);
+      if (!stranded) return;
 
-    const target = anchor.matches(FOCUSABLE_SELECTOR)
-      ? anchor
-      : anchor.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
-    (target ?? anchor).focus({ preventScroll: true });
+      const target = anchor.matches(FOCUSABLE_SELECTOR)
+        ? anchor
+        : anchor.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+      (target ?? anchor).focus({ preventScroll: true });
+    };
   }, [anchorRef, open]);
 
   if (!open) return null;

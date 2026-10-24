@@ -37,7 +37,12 @@ async function openDropShadowEditor(page: Page) {
 
   const row = page.locator('.insp-effect-row').first();
   const trigger = row.locator('.insp-disclosure__trigger');
-  await trigger.click();
+  // A freshly added effect auto-expands its parameter editor (lastAddedIndex),
+  // so a blind click here toggles it shut. Open only when it is collapsed;
+  // the same helper then works whether or not the auto-expand happened.
+  if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
+    await trigger.click();
+  }
 
   const dialog = page.locator('.insp-focused-editor');
   await expect(dialog).toBeVisible();
