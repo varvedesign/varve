@@ -55,6 +55,7 @@ const EXTENDED_MODEL_META: Record<
       'https://huggingface.co/deepghs/paddleocr/resolve/main/rec/ch_PP-OCRv4_rec/model.onnx',
     name: 'PaddleOCR v4 Recognition',
     size: 10_826_336,
+    checksum: '1c7cf60de2afd728d512f4190cf37455092b45f06175365c6fc58d8cd7e2a68b',
   },
   'depth-anything-v2-small': {
     // Verified: onnx-community/depth-anything-v2-small on Hugging Face
@@ -344,17 +345,18 @@ class ModelLoader {
       return bundled;
     }
 
-    // Desktop: prefer a hash-verified native download over browser storage.
-    // The native command verified the catalog SHA-256 at install time, and the
-    // asset-protocol URL is fetchable by the ONNX worker without CORS.
+    // Desktop: a non-bundled graph is served only by the native store, which
+    // verified the catalog SHA-256 at install time. Its asset-protocol URL is
+    // fetchable by the ONNX worker without CORS. This check is authoritative:
+    // a desktop run must never fall through to the dev-server HEAD probe or
+    // IndexedDB, which would advertise a path the native executor cannot open.
     const { isTauriRuntime } = await import('@varve/platform');
     if (isTauriRuntime()) {
       const { nativeInferenceModelPath } = await import('./nativeInferenceModels');
       const nativePath = await nativeInferenceModelPath(modelId);
-      if (nativePath) {
-        const { convertFileSrc } = await import('@tauri-apps/api/core');
-        return convertFileSrc(nativePath);
-      }
+      if (!nativePath) return null;
+      const { convertFileSrc } = await import('@tauri-apps/api/core');
+      return convertFileSrc(nativePath);
     }
 
     try {
@@ -454,6 +456,15 @@ class ModelLoader {
    * model-path resolution that covers all model types (scunet, depth, sam2, …).
    */
   async isModelAvailable(modelId: string, signal?: AbortSignal): Promise<boolean> {
+    const { getModelEntry } = await import('../inference/manifest');
+    const catalogEntry = await getModelEntry(modelId, signal);
+    signal?.throwIfAborted();
+    if (catalogEntry?.multiComponent && catalogEntry.components?.length) {
+      for (const component of catalogEntry.components) {
+        if (!(await this.isModelAvailable(component.id, signal))) return false;
+      }
+      return true;
+    }
     if (usesNativeBackgroundModelStore(modelId)) {
       const { getNativeBackgroundRemovalModelStatus } = await import('./providers/tauriProvider');
       const native = await getNativeBackgroundRemovalModelStatus(modelId);
@@ -474,6 +485,13 @@ class ModelLoader {
     // session creation instead.
     const entry = await getManifestEntry(modelId, signal);
     if (entry?.remoteDataUrl && isBrowserEnv()) {
+      const { isTauriRuntime } = await import('@varve/platform');
+      if (isTauriRuntime()) {
+        // Native readiness validates the graph and every required sidecar as
+        // one installation. Browser storage is not the desktop authority.
+        const { nativeInferenceModelPath } = await import('./nativeInferenceModels');
+        return (await nativeInferenceModelPath(modelId)) !== null;
+      }
       return this.hasDownloadedBlob(this.externalDataId(modelId));
     }
     return true;
@@ -859,6 +877,11 @@ class ModelLoader {
     if (!dataUrl) return null;
     const path = dataUrl.split('/').pop();
     if (!path) return null;
+    const { isTauriRuntime } = await import('@varve/platform');
+    if (isTauriRuntime()) {
+      const { nativeInferenceModelExternalData } = await import('./nativeInferenceModels');
+      return nativeInferenceModelExternalData(modelId);
+    }
     if (!isBrowserEnv()) return null;
     const externalDataId = this.externalDataId(modelId);
     const blob = await loadModelBlob(externalDataId).catch(() => null);
@@ -996,8 +1019,6 @@ class ModelLoader {
         await nativeDownloadInferenceModel({
           requestId,
           modelId,
-          url: remoteUrl,
-          sha256: manifestEntry.sha256,
           signal,
           onProgress,
         });

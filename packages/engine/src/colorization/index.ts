@@ -41,7 +41,7 @@ export {
 // Worker provider (auto-registered)
 export { workerColorizationProvider } from './providers/workerProvider';
 export { selectiveRecolor } from './recolor';
-export { resolveRuntime } from './runtimeResolver';
+export { getDdColorModelCandidates, resolveRuntime } from './runtimeResolver';
 export type {
   Sam2MaskResult,
   SelectiveRecolorParams,

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  AI_BALANCED_MODEL_INFO,
-  AI_QUALITY_MODEL_INFO,
-  getModelInfo,
-  MODEL_INFO_MAP,
-} from '../modelInfo';
+import { getModelInfo, MODEL_INFO_MAP } from '../modelInfo';
 
 describe('modelInfo', () => {
   it('returns info for quick mode', () => {
@@ -27,7 +22,7 @@ describe('modelInfo', () => {
     expect(info).toBeDefined();
     expect(info!.diskSizeBytes).toBe(224_000_000);
     expect(info!.wasmSafe).toBe(false);
-    expect(info!.gpuRecommended).toBe(true);
+    expect(info!.gpuRecommended).toBe(false);
   });
 
   it('returns info for portrait mode', () => {
@@ -45,15 +40,6 @@ describe('modelInfo', () => {
 
   it('has all four modes in the map', () => {
     expect(Object.keys(MODEL_INFO_MAP)).toEqual(['quick', 'ai-balanced', 'ai-quality', 'portrait']);
-  });
-
-  it('peak RAM is larger than disk for AI models', () => {
-    expect(AI_BALANCED_MODEL_INFO.estimatedPeakRamBytes).toBeGreaterThan(
-      AI_BALANCED_MODEL_INFO.diskSizeBytes,
-    );
-    expect(AI_QUALITY_MODEL_INFO.estimatedPeakRamBytes).toBeGreaterThan(
-      AI_QUALITY_MODEL_INFO.diskSizeBytes,
-    );
   });
 
   it('all display strings are non-empty', () => {

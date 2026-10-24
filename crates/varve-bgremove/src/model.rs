@@ -95,6 +95,20 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         external_data: None,
     },
     ModelInfo {
+        id: "u2netp-int8".to_owned(),
+        name: "U^2-Net Light (INT8)".to_owned(),
+        description: "Bundled quantized U^2-Net Light segmentation".to_owned(),
+        size_bytes: 1_376_269,
+        // Conservative U2-Net family reservation; quantized weights alone do
+        // not measure activation memory. Qualification is tracked in the audit.
+        peak_memory_bytes: Some(330_000_000),
+        remote_url: String::new(),
+        checksum_sha256: Some(
+            "9759400e77755569631f27656e205417d6d6b926bd161dce33f94c700f55c0be".into(),
+        ),
+        external_data: None,
+    },
+    ModelInfo {
         id: "isnet-general-use".to_owned(),
         name: "IS-Net General Use".to_owned(),
         description: "179 MB — enhanced balanced quality for varied subjects".to_owned(),
@@ -104,6 +118,17 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         checksum_sha256: Some(
             "60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a".into(),
         ),
+        external_data: None,
+    },
+    ModelInfo {
+        id: "modnet-portrait".to_owned(),
+        name: "MODNet Portrait".to_owned(),
+        description: "Portrait-specific soft-alpha matting".to_owned(),
+        size_bytes: 25_888_640,
+        // Catalog reservation, not a qualified native peak measurement.
+        peak_memory_bytes: Some(400_000_000),
+        remote_url: "https://huggingface.co/Xenova/modnet/resolve/fa2fa546052fba4c08921230a26cc69a333fca12/onnx/model.onnx".to_owned(),
+        checksum_sha256: Some("07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9".into()),
         external_data: None,
     },
     ModelInfo {
@@ -199,7 +224,7 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         peak_memory_bytes: Some(850_000_000),
         remote_url: "https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx".to_owned(),
         checksum_sha256: Some(
-            "1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d".into(),
+            "1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6".into(),
         ),
         external_data: None,
     },
@@ -462,6 +487,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn native_download_digests_match_the_canonical_manifest() {
+        let manifest: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../apps/desktop/public/models/manifest.json"
+        ))
+        .expect("canonical model manifest");
+        let entries = manifest["models"].as_array().unwrap();
+        for model in AVAILABLE_MODELS.iter() {
+            let checksum = model.checksum_sha256.as_deref().expect("verified model");
+            assert_eq!(checksum.len(), 64, "{} SHA-256 length", model.id);
+            assert!(checksum.bytes().all(|byte| byte.is_ascii_hexdigit()));
+            // The native OCR recognizer predates its optional browser catalog
+            // entry. Compare every graph that both runtimes advertise.
+            if let Some(entry) = entries.iter().find(|entry| entry["id"] == model.id) {
+                assert_eq!(entry["sha256"].as_str(), Some(checksum), "{}", model.id);
+            }
+        }
+    }
+
+    #[test]
     fn available_models_match_ts_manifest_urls() {
         let lite = model_info("birefnet-general-lite").expect("lite model");
         assert!(lite.remote_url.contains("rembg"));
@@ -525,7 +569,7 @@ mod tests {
         assert_eq!(lama.size_bytes, 208_044_816);
         assert_eq!(
             lama.checksum_sha256.as_deref(),
-            Some("1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d")
+            Some("1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6")
         );
         assert_eq!(lama.peak_memory_bytes, Some(850_000_000));
     }
@@ -562,13 +606,50 @@ mod tests {
 
     #[test]
     fn every_downloadable_model_uses_https() {
+        let manifest: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../apps/desktop/public/models/manifest.json"
+        ))
+        .expect("canonical model manifest");
         for model in AVAILABLE_MODELS.iter() {
-            assert!(
-                model.remote_url.starts_with("https://"),
-                "insecure model URL for {}: {}",
-                model.id,
-                model.remote_url
-            );
+            if model.remote_url.is_empty() {
+                // A bundled-only graph has no download endpoint. Absence is
+                // valid only when the shipped catalog supplies its local asset.
+                let entry = manifest["models"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|entry| entry["id"] == model.id)
+                    .expect("catalog model");
+                assert_eq!(
+                    entry["bundled"], true,
+                    "{} has no artifact source",
+                    model.id
+                );
+                let local_path = entry["localPath"].as_str().expect("bundled path");
+                assert!(local_path.starts_with("/models/"));
+                let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../apps/desktop/public")
+                    .join(local_path.trim_start_matches('/'));
+                assert!(valid_artifact(
+                    &path,
+                    model.primary_size_bytes(),
+                    model.checksum_sha256.as_deref()
+                ));
+            } else {
+                assert!(
+                    model.remote_url.starts_with("https://"),
+                    "insecure model URL for {}: {}",
+                    model.id,
+                    model.remote_url
+                );
+            }
+            if let Some(sidecar) = &model.external_data {
+                assert!(
+                    sidecar.remote_url.starts_with("https://"),
+                    "insecure sidecar URL for {}",
+                    model.id
+                );
+            }
         }
     }
 

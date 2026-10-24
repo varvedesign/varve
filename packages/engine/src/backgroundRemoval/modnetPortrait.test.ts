@@ -9,7 +9,7 @@ import {
 
 describe('modnetInputDimensions', () => {
   it('matches upstream get_scale_factor for landscape sources', () => {
-    // 1920x1080: longer edge -> 512, shorter edge -> int(1920/1080*512)=910, floored to 896.
+    // 1920x1080: shorter edge -> 512, longer edge -> int(1920/1080*512)=910, floored to 896.
     expect(modnetInputDimensions(1920, 1080)).toEqual({ width: 896, height: 512 });
     expect(modnetInputDimensions(800, 600)).toEqual({ width: 672, height: 512 });
   });
@@ -32,6 +32,10 @@ describe('modnetInputDimensions', () => {
   it('rejects invalid dimensions', () => {
     expect(() => modnetInputDimensions(0, 100)).toThrow();
     expect(() => modnetInputDimensions(100.5, 100)).toThrow();
+  });
+
+  it('bounds dynamic tensors for extreme aspect ratios before allocating', () => {
+    expect(() => modnetInputDimensions(1, 511)).toThrow(/oversized tensor/);
   });
 });
 
@@ -99,12 +103,11 @@ describe('decodeModnetAlpha', () => {
     expect(Array.from(decoded.alpha)).toEqual([0, 0.5, 1, 1]);
   });
 
-  it('applies exactly one sigmoid when the graph emits raw logits', () => {
-    const decoded = decodeModnetAlpha(new Float32Array([-10, 0, 10, 0.25]), [1, 1, 2, 2]);
-    expect(decoded.activationApplied).toBe(true);
-    expect(decoded.alpha[0]).toBeCloseTo(1 / (1 + Math.exp(10)), 6);
-    expect(decoded.alpha[1]).toBeCloseTo(0.5, 6);
-    expect(decoded.alpha[2]).toBeCloseTo(1 - 1 / (1 + Math.exp(10)), 6);
+  it('rejects non-probability output from the pinned sigmoid export', () => {
+    expect(() => decodeModnetAlpha(new Float32Array([-10, 0, 10, 0.25]), [1, 1, 2, 2])).toThrow(
+      /probabilit/,
+    );
+    expect(() => decodeModnetAlpha(new Float32Array([-10, Number.NaN]), [1, 2])).toThrow();
   });
 
   it('accepts relaxed shapes and rejects malformed output', () => {

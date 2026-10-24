@@ -81,11 +81,17 @@ describe('ctcDecode', () => {
     expect(result.confidence).toBe(0);
   });
 
-  it('handles out-of-range class index gracefully', () => {
+  it('rejects a class missing from the dictionary instead of silently dropping text', () => {
     const dict = ['a']; // only class 1 valid
     const logits = makeLogits([{ cls: 99, prob: 0.9 }], 1);
-    // class 99 -> dict[98] = undefined -> empty char appended (no crash).
-    expect(() => ctcDecode(logits, 1, dict)).not.toThrow();
+    expect(() => ctcDecode(logits, 1, dict)).toThrow(/dictionary/);
+  });
+
+  it('rejects truncated and non-finite recognition outputs', () => {
+    expect(() => ctcDecode(new Float32Array(4), 1, ['a'])).toThrow(/shape/);
+    expect(() =>
+      ctcDecode(new Float32Array(PADDLE_REC_NUM_CLASSES).fill(Number.NaN), 1, ['a']),
+    ).toThrow(/probability/);
   });
 
   it('computes mean confidence over kept characters only', () => {
@@ -119,8 +125,6 @@ describe('preprocessPaddleRec', () => {
   });
 
   it('normalizes to [-1, 1] range (mean/std=0.5) via pure pack', () => {
-    // packRecTensor is the pure path (jsdom's OffscreenCanvas mock returns
-    // zero-filled bitmaps, so we test the packing math directly).
     const img = new ImageData(new Uint8ClampedArray(8 * 48 * 4).fill(255), 8, 48);
     const tensor = packRecTensor(img.data, 8, 48);
     // white: (255/255 - 0.5)/0.5 = 1
@@ -129,9 +133,20 @@ describe('preprocessPaddleRec', () => {
   });
 
   it('black normalizes to -1', () => {
-    const data = new Uint8ClampedArray(8 * 48 * 4); // all 0
+    const data = new Uint8ClampedArray(8 * 48 * 4);
+    for (let i = 3; i < data.length; i += 4) data[i] = 255;
     const tensor = packRecTensor(data, 8, 48);
     expect(tensor[0]).toBeCloseTo(-1, 5);
+  });
+
+  it('reads actual crop pixels and mattes transparency white before resizing', () => {
+    const image = new ImageData(Uint8ClampedArray.of(255, 0, 0, 255, 0, 0, 0, 0), 2, 1);
+    const result = preprocessPaddleRec(image);
+    const plane = result.width * result.height;
+    expect(result.tensor[0]).toBe(1);
+    expect(result.tensor[plane]).toBe(-1);
+    expect(result.tensor[2 * plane]).toBe(-1);
+    expect(result.tensor[plane + result.width - 1]).toBe(1);
   });
 
   it('produces tensor of correct length (w*h*3)', () => {

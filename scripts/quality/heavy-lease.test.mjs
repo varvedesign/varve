@@ -18,6 +18,15 @@ import { observeValidationChild, runValidationCommand } from './heavy-lease.mjs'
 
 const SCRIPT = fileURLToPath(new URL('./heavy-lease.mjs', import.meta.url));
 
+// This suite owns the lease cadence it exercises. Ambient values exported by a
+// caller (verify:full passes VARVE_LEASE_POLL_MS/TIMEOUT for its own browser
+// lanes) otherwise leak into every black-box child: a 15s poll matches the
+// race block's 15s acquisition timeout, so the waiting owner's wake-up lands
+// exactly on its deadline and the block fails. Each block below sets its own
+// timeout explicitly; scrub the cadence so callers cannot change it.
+delete process.env.VARVE_LEASE_POLL_MS;
+delete process.env.VARVE_LEASE_TIMEOUT;
+
 /** Combined stdout+stderr: the wait/deadline messages are console.warn/error
  * (stderr, correct CLI convention) while the wrapped command's own output is
  * stdout — assertions below need both in one stream. */

@@ -489,8 +489,10 @@ describe('removeBackground dispatch', () => {
     } as unknown as HTMLCanvasElement);
 
     const { removeBackground } = await import('../index');
+    // A native result claiming method 'quick' must never satisfy an ai-quality
+    // request: dispatch refuses rather than relabelling a heuristic mask.
     await expect(removeBackground(makeImage(), { method: 'ai-quality' })).rejects.toThrow(
-      /AI background removal failed/i,
+      /High-quality background removal could not run/i,
     );
     vi.restoreAllMocks();
   });

@@ -12,7 +12,7 @@
  *     1. RGB, channels unified to 3, no padding.
  *     2. `(pixel - 127.5) / 127.5` (pixel in 0..255) — [-1, 1].
  *     3. `get_scale_factor`: if `max(h,w) < 512` or `min(h,w) > 512`, scale so
- *        the longer edge is exactly 512 while preserving aspect; otherwise keep
+ *        the shorter edge is exactly 512 while preserving aspect; otherwise keep
  *        the original size. Then floor both dimensions to a multiple of 32.
  *     4. `cv2.resize(..., INTER_AREA)`.
  *   The matte is `squeeze(output)`, already in [0,1] (the exported module owns
@@ -23,9 +23,8 @@
  * two deliberate extensions Varve needs:
  *
  *   - `decodeModnetAlpha` accepts the raw graph output, validates finiteness,
- *     and applies a sigmoid only when the tensor is outside [0,1]. That
- *     defensive branch exists for exports whose graph omits the activation;
- *     a normal export must not be sigmoid-ed twice.
+ *     and checks the pinned export's probability contract. Invalid values
+ *     fail instead of silently changing activation semantics.
  *   - `constrainPortraitAlpha` fuses a reviewed coarse constraint mask with the
  *     portrait matte without multiplying two soft estimates: outside the
  *     constraint's support the matte is forced to background, inside it the
@@ -48,8 +47,8 @@ export interface ModnetDimensions {
  * Upstream `get_scale_factor` + the multiple-of-32 constraint.
  *
  * The result is the exact model input geometry. It is allowed to be larger
- * than the source (a 300x200 portrait is upscaled to 512x320) and smaller
- * (a 4000x3000 photo is downscaled to 512x384), matching upstream.
+ * than the source (a 300x200 portrait is upscaled to 768x512) and smaller
+ * (a 4000x3000 photo is downscaled to 672x512), matching upstream.
  */
 export function modnetInputDimensions(sourceWidth: number, sourceHeight: number): ModnetDimensions {
   if (
@@ -75,10 +74,15 @@ export function modnetInputDimensions(sourceWidth: number, sourceHeight: number)
   }
   width -= width % MODNET_SIZE_DIVISIBILITY;
   height -= height % MODNET_SIZE_DIVISIBILITY;
-  return {
-    width: Math.max(MODNET_SIZE_DIVISIBILITY, width),
-    height: Math.max(MODNET_SIZE_DIVISIBILITY, height),
-  };
+  width = Math.max(MODNET_SIZE_DIVISIBILITY, width);
+  height = Math.max(MODNET_SIZE_DIVISIBILITY, height);
+  // Same allocation bound as the native portrait path, not a measured peak.
+  if (width * height > 8 * 1024 * 1024) {
+    throw new Error(
+      'MODNet input aspect ratio requires an oversized tensor; crop the portrait region first',
+    );
+  }
+  return { width, height };
 }
 
 interface AreaWeights {
@@ -276,7 +280,7 @@ export type ModnetAlphaDecode = {
   alpha: Float32Array;
   width: number;
   height: number;
-  /** True when the graph output was outside [0,1] and a sigmoid was applied. */
+  /** The pinned export includes sigmoid; its valid output needs no activation. */
   activationApplied: boolean;
 };
 
@@ -284,9 +288,8 @@ export type ModnetAlphaDecode = {
  * Decode the graph output `[1,1,H,W]` (or relaxed `[1,H,W]` / `[H,W]`).
  *
  * The official export applies its own sigmoid, so the normal path is a clamp.
- * A tensor with values outside [0,1] is treated as raw logits and sigmoid-ed
- * once, with `activationApplied` reported so diagnostics can distinguish the
- * two contracts instead of silently double-activating.
+ * A tensor with values outside [0,1] violates the pinned graph contract and
+ * is rejected, matching the native decoder.
  */
 export function decodeModnetAlpha(data: Float32Array, dims: readonly number[]): ModnetAlphaDecode {
   if (!(data instanceof Float32Array)) {
@@ -316,29 +319,20 @@ export function decodeModnetAlpha(data: Float32Array, dims: readonly number[]): 
     throw new Error('MODNet output dimensions do not match the data length');
   }
   const epsilon = 1e-4;
-  let needsActivation = false;
   for (let i = 0; i < data.length; i += 1) {
     const value = data[i]!;
     if (!Number.isFinite(value)) {
       throw new Error('MODNet output contains a non-finite value');
     }
     if (value < -epsilon || value > 1 + epsilon) {
-      needsActivation = true;
-      break;
+      throw new Error('MODNet returned invalid alpha probabilities');
     }
   }
   const alpha = new Float32Array(data.length);
-  if (needsActivation) {
-    for (let i = 0; i < data.length; i += 1) {
-      const value = data[i]!;
-      alpha[i] = 1 / (1 + Math.exp(-Math.max(-60, Math.min(60, value))));
-    }
-  } else {
-    for (let i = 0; i < data.length; i += 1) {
-      alpha[i] = Math.max(0, Math.min(1, data[i]!));
-    }
+  for (let i = 0; i < data.length; i += 1) {
+    alpha[i] = Math.max(0, Math.min(1, data[i]!));
   }
-  return { alpha, width, height, activationApplied: needsActivation };
+  return { alpha, width, height, activationApplied: false };
 }
 
 export interface PortraitConstraintOptions {

@@ -11,11 +11,8 @@
  * a later fallback. Timeouts abort provider work rather than merely rejecting
  * the caller.
  *
- * Memory-aware fallback: if ai-quality (BiRefNet) fails through every provider,
- * the dispatch automatically retries with ai-balanced (u2netp) instead of
- * crashing or showing a cryptic error. The caller receives the fallback result
- * with method set to 'ai-balanced' and can check whether the quality was
- * reduced.
+ * Provider fallback preserves the requested quality. A different model or
+ * quality level requires a new user choice, including after a capacity refusal.
  */
 
 import {
@@ -157,6 +154,7 @@ async function tryProviderChain(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
   deadline: number,
+  executions: Set<Promise<void>>,
   signal?: AbortSignal,
 ): Promise<BackgroundRemovalResult | null> {
   const providerTimeout =
@@ -191,7 +189,18 @@ async function tryProviderChain(
     try {
       const clonedImage = cloneImageData(imageData);
       return await withTimeout(
-        (attemptSignal) => provider.remove(clonedImage, options, attemptSignal),
+        (attemptSignal) => {
+          const execution = provider.remove(clonedImage, options, attemptSignal);
+          // A cancelled caller is not proof that native/main-thread work has
+          // stopped. Keep its lease until the provider confirms completion.
+          const settled = execution.then(
+            () => {},
+            () => {},
+          );
+          executions.add(settled);
+          void settled.then(() => executions.delete(settled));
+          return execution;
+        },
         Math.min(providerTimeout, remaining()),
         signal,
       );
@@ -301,74 +310,29 @@ export async function dispatchBackgroundRemoval(
     return removeBackgroundHeuristic(imageData, options);
   }
 
-  let lease: InferenceLease;
+  const lease = await acquireRemovalLease(imageData, options, signal);
+  const executions = new Set<Promise<void>>();
   try {
-    lease = await acquireRemovalLease(imageData, options, signal);
-  } catch (error) {
-    // A capacity refusal happens before any provider runs, so the same
-    // reduced-quality fallback that handles provider failure applies here too.
-    // An explicit model request is honoured exactly and never substituted.
-    if (error instanceof BackgroundRemovalCapacityError && !options.modelId) {
-      if (options.method === 'ai-quality') {
-        console.warn(
-          '[bg-removal] shared memory budget refused ai-quality; falling back to ai-balanced (u2netp)',
-        );
-        const reduced = await dispatchBackgroundRemoval(
-          imageData,
-          { ...options, method: 'ai-balanced' },
-          signal,
-        );
-        return { ...reduced, method: 'ai-balanced' };
-      }
-    }
-    throw error;
-  }
-  try {
-    return await dispatchBackgroundRemovalAdmitted(imageData, options, signal);
+    return await dispatchBackgroundRemovalAdmitted(imageData, options, executions, signal);
   } finally {
-    lease.release();
+    if (executions.size === 0) lease.release();
+    else void Promise.all(executions).then(() => lease.release());
   }
 }
 
 async function dispatchBackgroundRemovalAdmitted(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
+  executions: Set<Promise<void>>,
   signal?: AbortSignal,
 ): Promise<BackgroundRemovalResult> {
-  // Every availability check, provider, and reduced-quality fallback shares
+  // Every availability check and provider attempt shares
   // one budget. A stalled runtime cannot multiply the wait by chain length.
   const deadline =
     performance.now() +
     (options.method === 'ai-quality' ? QUALITY_PROVIDER_TIMEOUT : BALANCED_PROVIDER_TIMEOUT);
-  const result = await tryProviderChain(imageData, options, deadline, signal);
+  const result = await tryProviderChain(imageData, options, deadline, executions, signal);
   if (result) return result;
-
-  // Failed at the requested quality. If this was ai-quality, automatically
-  // fall back to ai-balanced (u2netp) — the bundled model is always safe
-  // and doesn't risk crashing on WASM memory limits. An explicit model
-  // request must never be silently substituted, so it skips this fallback.
-  if (options.method === 'ai-quality' && !options.modelId) {
-    console.warn(
-      '[bg-removal] ai-quality failed through all providers; falling back to ai-balanced (u2netp)',
-    );
-
-    const fallbackOptions: BackgroundRemovalOptions = {
-      ...options,
-      method: 'ai-balanced',
-    };
-
-    const fallbackResult = await tryProviderChain(imageData, fallbackOptions, deadline, signal);
-    if (fallbackResult) {
-      return {
-        ...fallbackResult,
-        method: 'ai-balanced',
-      };
-    }
-
-    throw new Error(
-      'AI background removal failed in all quality modes. Switch to Quick mode or try again later.',
-    );
-  }
 
   if (options.modelId) {
     throw new Error(
@@ -381,6 +345,12 @@ async function dispatchBackgroundRemovalAdmitted(
     throw new Error(
       'Portrait matting (MODNet) could not run in this browser session. Install the 26 MB ' +
         'MODNet model from this panel, or use Auto/High quality segmentation with manual edge refinement.',
+    );
+  }
+
+  if (options.method === 'ai-quality') {
+    throw new Error(
+      'High-quality background removal could not run. Check the selected model in Settings, Offline Models, or choose Auto cutout explicitly.',
     );
   }
 

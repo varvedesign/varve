@@ -21,6 +21,7 @@ export interface RawManifestEntry {
   sha256: string | null;
   bundled: boolean;
   remoteUrl: string;
+  sizeBytes?: number;
   /**
    * Sibling `.onnx.data` holding weights stored outside the graph. Dropping it
    * here would download a graph that cannot initialize a session.
@@ -178,7 +179,7 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
   const isBundled = raw.bundled;
   const category = inferCategory(raw.id) as ModelManifestEntry['category'];
 
-  const sizeBytes = computeSizeBytes(raw.id, isBundled);
+  const sizeBytes = raw.sizeBytes ?? computeSizeBytes(raw.id, isBundled);
   // Prefer the manifest's recorded peak (measured on hardware) over the
   // size-derived heuristic: the heuristic underestimates segmentation
   // models by 3-17x. These are *browser/WASM* working sets, kept deliberately
@@ -395,7 +396,29 @@ export async function getModelEntry(
   signal?: AbortSignal,
 ): Promise<ModelManifestEntry | null> {
   const catalog = await loadModelCatalog(signal);
-  return catalog?.find((m) => m.id === modelId) ?? null;
+  const direct = catalog?.find((model) => model.id === modelId);
+  if (direct) return direct;
+  const component = catalog
+    ?.flatMap((model) => model.components ?? [])
+    .find((entry) => entry.id === modelId);
+  if (!component) return null;
+  return modelEntryForComponent(component);
+}
+
+/** Shared sync/async identity for nested-only physical artifacts. */
+export function modelEntryForComponent(component: ModelComponentEntry): ModelManifestEntry {
+  return normalizeEntry({
+    id: component.id,
+    filename: component.filename,
+    localPath: component.localPath ?? `/models/${component.filename}`,
+    sizeBytes: component.sizeBytes,
+    remoteUrl: component.remoteUrl ?? '',
+    sha256: component.checksum ?? component.sha256 ?? null,
+    upstreamChecksum: component.upstreamChecksum,
+    repair: component.repair,
+    precision: component.precision,
+    bundled: false,
+  });
 }
 
 /** Get all models in a category. */

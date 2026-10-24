@@ -82,8 +82,11 @@ describe('dispatchBackgroundRemoval', () => {
     const err = await dispatch(makeImageData(100, 100), { method: 'ai-quality' }).catch((e) => e);
     // Should NOT throw a memory-related error (we try and fall back instead)
     expect(err.message).not.toMatch(/exceeds the safe WASM memory limit/i);
-    // Should give a clear message about all modes failing
-    expect(err.message).toMatch(/AI background removal/i);
+    // Should give a clear, actionable message that names the selected method
+    // and the recovery paths (Settings / Offline Models / Auto) rather than a
+    // generic "all modes failed" string.
+    expect(err.message).toMatch(/High-quality background removal could not run/i);
+    expect(err.message).toMatch(/Offline Models/);
   });
 
   it('allows ai-balanced (u2netp) in all environments', async () => {

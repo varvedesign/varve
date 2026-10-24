@@ -12,6 +12,7 @@ interface TauriBgRemoveResponse {
   maskBase64: string;
   confidence: number;
   method: string;
+  modelId?: string;
   processingTimeMs: number;
   width: number;
   height: number;
@@ -22,6 +23,7 @@ interface TauriBgRemoveResponse {
 interface TauriBgRemoveMetadata {
   confidence: number;
   method: string;
+  modelId?: string;
   processingTimeMs: number;
   width: number;
   height: number;
@@ -79,6 +81,7 @@ function parseNativeResponse(value: unknown): {
       metadata: {
         confidence: Number(legacy.confidence),
         method: String(legacy.method),
+        modelId: legacy.modelId,
         processingTimeMs: Number(legacy.processingTimeMs),
         width: Number(legacy.width),
         height: Number(legacy.height),
@@ -163,12 +166,13 @@ export async function getNativeBackgroundRemovalModelStatus(
   modelId: string,
 ): Promise<NativeModelStatus | null> {
   if (!isTauriRuntime()) return null;
-  try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke<NativeModelStatus>('native_background_removal_model_status', { modelId });
-  } catch {
-    return null;
-  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  // A rejected status check must propagate, not collapse to `null`. `null` means
+  // "the native store authoritatively has no copy of this model"; an IPC or
+  // verification failure is a transient fault that the readiness UI reports as
+  // retryable. Collapsing the two would offer a pointless download for a model
+  // that may already be installed and verified on disk.
+  return await invoke<NativeModelStatus>('native_background_removal_model_status', { modelId });
 }
 
 /**
@@ -205,10 +209,11 @@ export async function downloadNativeBackgroundRemovalModel(
     },
   );
   const cancel = () => {
-    void invoke('cancel_background_removal_model_download', { requestId });
+    void invoke('cancel_background_removal_model_download', { requestId }).catch(() => {});
   };
-  signal?.addEventListener('abort', cancel, { once: true });
   try {
+    if (signal?.aborted) throw new Error('Download cancelled');
+    signal?.addEventListener('abort', cancel, { once: true });
     await invoke<number>('download_background_removal_model', { requestId, modelId });
     if (signal?.aborted) throw new Error('Download cancelled');
   } finally {
@@ -233,6 +238,9 @@ async function invokeTauriRemoveBackground(
   }
 
   const modelId = nativeModelIdForOptions(options);
+  if (options.method !== 'quick' && !modelId) {
+    throw new Error('The requested background-removal model is not supported by native inference');
+  }
   if (modelId) {
     await preflightNativeBackgroundRemoval(modelId, imageData.width, imageData.height);
     if (signal?.aborted) {
@@ -253,24 +261,46 @@ async function invokeTauriRemoveBackground(
   }
 
   const { invoke } = await import('@tauri-apps/api/core');
-  const raw = await invoke<unknown>('remove_background_binary', arrayBufferForBytes(bytes), {
-    headers: {
-      'x-varve-bg-remove-options': JSON.stringify({
-        method: options.method,
-        tolerance: options.tolerance,
-        featherRadius: options.feather,
-        // Default must match the worker/direct providers: decontamination is
-        // an explicit opt-in mask operation, not an implicit native default.
-        // The UI always passes the checkbox value explicitly.
-        decontaminate: options.decontaminate ?? false,
-        clickX: options.clickPoint?.x,
-        clickY: options.clickPoint?.y,
-        previewMaxDimension: options.previewMaxDimension,
-      }),
-    },
-  });
+  if (signal?.aborted) throw new Error('cancelled');
+  const requestId = crypto.randomUUID();
+  const cancel = () => {
+    // The invoke promise below remains the execution acknowledgement even if
+    // an older desktop binary cannot accept this cancellation command.
+    void invoke('cancel_background_removal', { requestId }).catch(() => {});
+  };
+  signal?.addEventListener('abort', cancel, { once: true });
+  let raw: unknown;
+  try {
+    raw = await invoke<unknown>('remove_background_binary', arrayBufferForBytes(bytes), {
+      headers: {
+        'x-varve-bg-remove-options': JSON.stringify({
+          requestId,
+          method: options.method,
+          modelId: modelId ?? undefined,
+          tolerance: options.tolerance,
+          featherRadius: options.feather,
+          // Match worker/direct providers: decontamination is an explicit opt-in.
+          decontaminate: options.decontaminate ?? false,
+          clickX: options.clickPoint?.x,
+          clickY: options.clickPoint?.y,
+          previewMaxDimension: options.previewMaxDimension,
+        }),
+      },
+    });
+  } finally {
+    signal?.removeEventListener('abort', cancel);
+  }
+  if (signal?.aborted) throw new Error('cancelled');
 
   const parsed = parseNativeResponse(raw);
+  // Old binaries did not report model identity. Their method default remains
+  // compatible, but an explicit choice requires positive provenance.
+  if (
+    (options.modelId || parsed.metadata.modelId !== undefined) &&
+    parsed.metadata.modelId !== modelId
+  ) {
+    throw new Error('Native background removal did not confirm the requested model');
+  }
   if (parsed.metadata.method !== options.method) {
     throw new Error(
       `Native background removal returned '${parsed.metadata.method}' for '${options.method}' request`,
@@ -280,6 +310,7 @@ async function invokeTauriRemoveBackground(
   const decoded = parsed.maskBytes
     ? await decodeMaskBytes(parsed.maskBytes)
     : await decodeMaskDataUrl(maskDataUrl);
+  if (signal?.aborted) throw new Error('cancelled');
   if (decoded.width !== parsed.metadata.width || decoded.height !== parsed.metadata.height) {
     throw new Error(
       `Native mask dimensions ${decoded.width}x${decoded.height} do not match response ${parsed.metadata.width}x${parsed.metadata.height}`,
@@ -302,6 +333,7 @@ async function invokeTauriRemoveBackground(
           ? 'native-cpu'
           : 'native',
     modelId: modelId ?? undefined,
+    modelPrecision: modelId ? (modelId.endsWith('-int8') ? 'int8' : 'fp32') : undefined,
     rawMask: decoded.mask,
   };
 }

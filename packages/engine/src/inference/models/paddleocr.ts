@@ -3,12 +3,8 @@
  * standalone for redaction/accessibility workflows, and as the
  * foundation for full OCR).
  *
- * Scoped to DETECTION ONLY for this pass. Full OCR needs two more
- * models (angle classification + text recognition) plus a per-language
- * character-dictionary asset (rec_keys_path / dict.txt) that isn't
- * wired up yet — recognition without the matching dictionary silently
- * produces garbage output, so it's a documented follow-up rather than a
- * half-verified 3-stage pipeline.
+ * Shared by standalone text detection and the OCR recognition pipeline.
+ * Recognition owns its separately acquired graph and matching dictionary.
  *
  * Model: PP-OCRv4 detection (Apache-2.0, PaddlePaddle/PaddleOCR, Baidu).
  * ONNX export: deepghs/paddleocr (det/ch_PP-OCRv4_det/model.onnx).
@@ -24,9 +20,8 @@
  *     (expanding the shrunk region back to the real text boundary) —
  *     implemented below as an axis-aligned bounding-box approximation
  *     (real DBNet postprocessing uses minimum-area rotated rectangles;
- *     axis-aligned is simpler and sufficient for "highlight text
- *     regions," not precise enough for feeding into a recognition model
- *     expecting a tightly-cropped, deskewed line).
+ *     axis-aligned boxes support upright lines; rotated/perspective text
+ *     still requires a separate deskewing contract).
  * Opset 11, ImageNet-style normalization (standard PaddleOCR preprocessing).
  */
 import type { TensorSpec } from '../imageTensor';
@@ -47,6 +42,20 @@ export function padToStride(dimension: number, stride = STRIDE): number {
   return Math.ceil(dimension / stride) * stride;
 }
 
+/** Preserve source pixels at the origin; padding is not an image resize. */
+export function padTextDetectionImage(source: ImageData): ImageData {
+  const width = padToStride(source.width);
+  const height = padToStride(source.height);
+  const padded = new ImageData(width, height);
+  for (let row = 0; row < source.height; row++) {
+    padded.data.set(
+      source.data.subarray(row * source.width * 4, (row + 1) * source.width * 4),
+      row * width * 4,
+    );
+  }
+  return padded;
+}
+
 export interface TextRegion {
   x: number;
   y: number;
@@ -56,9 +65,53 @@ export interface TextRegion {
   confidence: number;
 }
 
+/** Convert a stride-padded detector map to source coordinates by clipping,
+ * never by squeezing the padded extent back into the smaller source image. */
+export function decodePaddedTextRegions(
+  data: Float32Array,
+  mapWidth: number,
+  mapHeight: number,
+  sourceWidth: number,
+  sourceHeight: number,
+  probThreshold = 0.3,
+): TextRegion[] {
+  return decodeTextRegions(
+    data,
+    mapWidth,
+    mapHeight,
+    padToStride(sourceWidth),
+    padToStride(sourceHeight),
+    probThreshold,
+    16,
+    { width: sourceWidth, height: sourceHeight },
+  );
+}
+
+/** DBPostProcess expands its shrink polygon by area * ratio / perimeter.
+ * Our axis-aligned rectangle uses the same distance with the upstream default
+ * ratio 2.0. Expand in map space before scaling and clipping to source pixels.
+ * https://github.com/PaddlePaddle/PaddleOCR/blob/main/ppocr/postprocess/db_postprocess.py
+ */
+function unclipTextBox(
+  minX: number,
+  minY: number,
+  width: number,
+  height: number,
+  scaleX: number,
+  scaleY: number,
+  source: { width: number; height: number },
+): Omit<TextRegion, 'confidence'> {
+  const distance = (width * height * 2) / (2 * (width + height));
+  const x = Math.max(0, Math.floor((minX - distance) * scaleX));
+  const y = Math.max(0, Math.floor((minY - distance) * scaleY));
+  const right = Math.min(source.width, Math.ceil((minX + width + distance) * scaleX));
+  const bottom = Math.min(source.height, Math.ceil((minY + height + distance) * scaleY));
+  return { x, y, width: right - x, height: bottom - y };
+}
+
 /**
  * Decode the detector's per-pixel probability map into axis-aligned
- * text-region boxes via thresholding + flood-fill connected components.
+ * text-region boxes via thresholding, flood-fill and DB boundary expansion.
  * `probThreshold` follows PaddleOCR's default (0.3 on the shrink map);
  * `minRegionArea` filters out single-pixel noise.
  */
@@ -70,6 +123,7 @@ export function decodeTextRegions(
   targetHeight: number,
   probThreshold = 0.3,
   minRegionArea = 16,
+  sourceExtent: { width: number; height: number } = { width: targetWidth, height: targetHeight },
 ): TextRegion[] {
   const visited = new Uint8Array(width * height);
   const regions: TextRegion[] = [];
@@ -116,12 +170,12 @@ export function decodeTextRegions(
     }
 
     if (count < minRegionArea) continue;
+    // Exclude pure stride-padding components before expansion; otherwise a
+    // padding false positive could grow back into the actual image.
+    if (minX * scaleX >= sourceExtent.width || minY * scaleY >= sourceExtent.height) continue;
 
     regions.push({
-      x: minX * scaleX,
-      y: minY * scaleY,
-      width: (maxX - minX + 1) * scaleX,
-      height: (maxY - minY + 1) * scaleY,
+      ...unclipTextBox(minX, minY, maxX - minX + 1, maxY - minY + 1, scaleX, scaleY, sourceExtent),
       confidence: sum / count,
     });
   }

@@ -11,9 +11,8 @@
  * These tests pin both halves of the fix:
  *
  * 1. A measured host budget admits the reservation that used to be refused.
- * 2. When the budget really is too small, `ai-quality` retries the bundled
- *    `ai-balanced` model instead of failing, and an explicit model request is
- *    still honoured rather than silently substituted.
+ * 2. When the budget really is too small, the selected quality remains the
+ *    user's choice. Recovery is explicit, never a silent Balanced substitution.
  *
  * Everything is imported dynamically after `vi.resetModules()`: `@varve/platform`
  * holds the admission singleton, so a statically imported copy would be a
@@ -138,19 +137,20 @@ describe('background removal admission capacity', () => {
     expect(Math.max(128 * MIB, weights * 2)).toBeLessThan(512 * MIB);
   });
 
-  it('retries ai-balanced when the budget cannot fit ai-quality', async () => {
+  it('preserves High quality when the budget cannot fit it', async () => {
     await installBudget(200 * MIB);
     const seenMethods: string[] = [];
     mockProviders(seenMethods);
 
-    const { dispatchBackgroundRemoval } = await import('../providers/dispatch');
-    const result = await dispatchBackgroundRemoval(makeImageData(480, 640), {
-      method: 'ai-quality',
-    });
-
-    // Nothing ran at ai-quality: the refusal happens before any provider.
-    expect(seenMethods).toEqual(['ai-balanced']);
-    expect(result.method).toBe('ai-balanced');
+    const { dispatchBackgroundRemoval, BackgroundRemovalCapacityError } = await import(
+      '../providers/dispatch'
+    );
+    await expect(
+      dispatchBackgroundRemoval(makeImageData(480, 640), {
+        method: 'ai-quality',
+      }),
+    ).rejects.toBeInstanceOf(BackgroundRemovalCapacityError);
+    expect(seenMethods).toEqual([]);
   });
 
   it('honours an explicit model instead of substituting ai-balanced', async () => {

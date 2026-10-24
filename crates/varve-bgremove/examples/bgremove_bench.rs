@@ -1,7 +1,7 @@
 //! Native background-removal benchmark harness.
 //!
 //! Runs every installed segmentation model over a corpus directory, records
-//! cold/warm inference latency, RSS samples, mask artifacts, and (when
+//! first/repeated inference latency, process high-water RSS, mask artifacts, and (when
 //! reference masks are present) quality metrics, then writes a machine
 //! readable `results.json` and a human-readable `report.md`.
 //!
@@ -58,14 +58,35 @@ fn percentile(mut values: Vec<f64>, p: f64) -> Option<f64> {
     Some(values[index])
 }
 
-/// Current RSS in bytes via `/proc/self/status` (Linux only).
-fn rss_bytes() -> Option<u64> {
-    let contents = std::fs::read_to_string("/proc/self/status").ok()?;
+/// Linux procfs reports KiB. VmHWM is a process-lifetime high-water mark,
+/// whereas VmRSS sampled after inference misses freed activation buffers.
+/// Both are approximate kernel counters; use a fresh process per model and
+/// corroborate with an external process monitor before changing admission.
+fn status_memory_bytes(contents: &str, field: &str) -> Option<u64> {
     contents.lines().find_map(|line| {
-        let value = line.strip_prefix("VmRSS:")?.trim();
-        let kilobytes = value.strip_suffix(" kB")?.trim().parse::<u64>().ok()?;
-        Some(kilobytes * 1024)
+        let value = line.strip_prefix(field)?.trim();
+        let kibibytes = value.strip_suffix(" kB")?.trim().parse::<u64>().ok()?;
+        kibibytes.checked_mul(1024)
     })
+}
+
+fn process_memory_bytes(field: &str) -> Option<u64> {
+    let contents = std::fs::read_to_string("/proc/self/status").ok()?;
+    status_memory_bytes(&contents, field)
+}
+
+fn validate_run(iterations: usize, models: Option<&[String]>) -> Result<(), String> {
+    if iterations == 0 {
+        return Err("--iterations must be at least 1; an unexecuted case is not evidence".into());
+    }
+    if let Some(models) = models {
+        for model in models {
+            if !MODELS.contains(&model.as_str()) {
+                return Err(format!("unknown --models entry: {model}"));
+            }
+        }
+    }
+    Ok(())
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -134,6 +155,7 @@ fn main() -> Result<(), String> {
     let images_dir = PathBuf::from(images_dir.ok_or("missing --images-dir")?);
     let output_dir = PathBuf::from(output_dir.ok_or("missing --output-dir")?);
     let reference_dir = reference_dir.map(PathBuf::from);
+    validate_run(iterations, models_filter.as_deref())?;
 
     varve_bgremove::runtime::init_native_runtime(Path::new(&dylib))?;
     varve_bgremove::model::configure_models_dir(models_dir.clone());
@@ -172,6 +194,9 @@ fn main() -> Result<(), String> {
     if results_path.is_file() {
         if let Ok(existing) = std::fs::read_to_string(&results_path) {
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&existing) {
+                if parsed["schemaVersion"] != 3 {
+                    return Err("cannot merge legacy RSS samples as peak evidence; use a new output directory".into());
+                }
                 if let Some(prior) = parsed["results"].as_array() {
                     for entry in prior {
                         if entry.get("case_id").and_then(|v| v.as_str()).is_some() {
@@ -193,12 +218,14 @@ fn main() -> Result<(), String> {
             .collect(),
         None => MODELS.to_vec(),
     };
+    let mut failures = Vec::new();
     for model_id in models_to_run {
         let Some(model_path) = find_model(&models_dir, model_id) else {
             eprintln!(
                 "[bgremove-bench] model {model_id} not found in {}; skipping",
                 models_dir.display()
             );
+            failures.push(format!("{model_id}: model not installed"));
             continue;
         };
         if let Some(info) = varve_bgremove::model::model_info(model_id) {
@@ -255,8 +282,8 @@ fn main() -> Result<(), String> {
                     &token,
                 );
                 let elapsed = started.elapsed().as_secs_f64() * 1000.0;
-                if let Some(current) = rss_bytes() {
-                    rss_peak = rss_peak.max(current);
+                if let Some(high_water) = process_memory_bytes("VmHWM:") {
+                    rss_peak = rss_peak.max(high_water);
                 }
                 match result {
                     Ok(result) => {
@@ -277,12 +304,15 @@ fn main() -> Result<(), String> {
                     }
                     Err(e) => {
                         eprintln!("[bgremove-bench] {case_id} failed: {e}");
+                        failures.push(format!("{case_id}: {e}"));
                         error = Some(e);
                         break;
                     }
                 }
             }
-            let steady = last_mask.as_ref().and_then(|_| rss_bytes());
+            let steady = last_mask
+                .as_ref()
+                .and_then(|_| process_memory_bytes("VmRSS:"));
 
             let mut metrics = None;
             let mut foreground_ratio = None;
@@ -420,6 +450,9 @@ fn main() -> Result<(), String> {
         "[bgremove-bench] done; artifacts in {}",
         output_dir.display()
     );
+    if !failures.is_empty() {
+        return Err(format!("benchmark incomplete: {}", failures.join("; ")));
+    }
     Ok(())
 }
 
@@ -452,7 +485,7 @@ fn report_json(
     results: &[CaseResult],
 ) -> serde_json::Value {
     serde_json::json!({
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "generatedAt": chrono_utc(),
         "gitCommit": git_commit,
         "runtime": "ort-native",
@@ -463,6 +496,12 @@ fn report_json(
         "cpu": cpu,
         "iterations": iterations,
         "previewMaxDimension": preview_max,
+        "memoryMeasurement": {
+            "peak": "Linux /proc/self/status VmHWM, approximate process-lifetime high-water RSS; not per-case allocation",
+            "steady": "Linux /proc/self/status VmRSS after inference",
+            "isolation": "Run each model in a fresh process. Later cases include earlier process peaks."
+        },
+        "timingMeasurement": "cold_load_ms is the first iteration per case; only the first case per model loads its session",
         "results": results,
     })
 }
@@ -528,13 +567,15 @@ fn write_summary(output_dir: &Path, report: &serde_json::Value) {
     let _ = writeln!(out, "- Hardware: {}", report["cpu"]);
     let _ = writeln!(
         out,
-        "- Iterations: {} (first = cold load, rest warm)",
+        "- Iterations: {} (first per case; only the first case loads the model, rest warm)",
         report["iterations"]
     );
     let _ = writeln!(out);
+    let _ = writeln!(out, "- RSS peak: approximate Linux process-lifetime VmHWM, including prior cases. Run each model in a fresh process; corroborate externally before setting admission limits.");
+    let _ = writeln!(out);
     let _ = writeln!(
         out,
-        "| Case | Model | Cold ms | Warm p50 ms | Warm p95 ms | RSS peak | IoU | Dice | Boundary F | Mask MAE |"
+        "| Case | Model | First ms | Warm p50 ms | Warm p95 ms | Process peak RSS | IoU | Dice | Boundary F | Mask MAE |"
     );
     let _ = writeln!(out, "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|");
     if let Some(results) = report["results"].as_array() {
@@ -553,7 +594,7 @@ fn write_summary(output_dir: &Path, report: &serde_json::Value) {
                 f("warm_p95_ms"),
                 case["rss_peak_bytes"]
                     .as_u64()
-                    .map(|b| format!("{} MB", b / 1024 / 1024))
+                    .map(|b| format!("{} MiB", b / 1024 / 1024))
                     .unwrap_or_else(|| "—".into()),
                 f("iou"),
                 f("dice"),
@@ -578,4 +619,35 @@ fn decode_png_mask(png: &[u8], width: u32, height: u32) -> Result<Vec<u8>, Strin
         ));
     }
     Ok(rgba.into_raw().chunks_exact(4).map(|p| p[0]).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{status_memory_bytes, validate_run};
+
+    #[test]
+    fn freed_activation_buffers_do_not_disappear_from_the_peak() {
+        let status = "VmPeak: 12000000 kB\nVmHWM: 6800000 kB\nVmRSS: 442368 kB\n";
+        assert_eq!(status_memory_bytes(status, "VmHWM:"), Some(6_963_200_000));
+        assert_eq!(status_memory_bytes(status, "VmRSS:"), Some(452_984_832));
+    }
+
+    #[test]
+    fn absent_malformed_or_overflowing_counters_are_not_measurements() {
+        for status in [
+            "",
+            "VmHWM: -1 kB",
+            "VmHWM: 123 MB",
+            "VmHWM: 18446744073709551615 kB",
+        ] {
+            assert_eq!(status_memory_bytes(status, "VmHWM:"), None);
+        }
+    }
+
+    #[test]
+    fn empty_or_misspelled_runs_cannot_claim_success() {
+        assert!(validate_run(0, None).is_err());
+        assert!(validate_run(1, Some(&["birefnet-typo".into()])).is_err());
+        assert!(validate_run(1, Some(&["birefnet-general-lite".into()])).is_ok());
+    }
 }

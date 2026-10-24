@@ -56,6 +56,14 @@ import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/s
 import { SCUNET_INPUT_SIZE, SCUNET_TENSOR_SPEC } from './models/scunet';
 import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC, siglipConstantFeeds } from './models/siglip';
 import { TROCR_INPUT_SIZE, TROCR_TENSOR_SPEC } from './models/trocr';
+import {
+  acceptNativeReply,
+  type NativeWorkerCall,
+  type NativeWorkerReply,
+  type NativeWorkerSession,
+  NativeWorkerTensor,
+  openNativeWorkerSession,
+} from './nativeWorkerRuntime';
 import type { WorkerSessionIdentity } from './sessionKeys';
 import { workerSessionKey } from './sessionKeys';
 import {
@@ -63,6 +71,7 @@ import {
   type SessionRegistrySnapshot,
   type SessionReleaseReport,
 } from './sessionRegistry';
+import type { WorkerTensor } from './workerTensor';
 
 export type WorkerModelType =
   | 'sam2'
@@ -91,12 +100,10 @@ export type WorkerModelType =
   | 'dinov2-image'
   | 'font-classify';
 
-export interface WorkerTensor {
-  data: Float32Array | BigInt64Array;
-  /** Defaults to float32; text/embedding models may feed int64 token ids. */
-  dtype?: 'float32' | 'int64';
-  dims: number[];
-}
+// Re-exported from a leaf module: `nativeWorkerRuntime` imports this type, and
+// an interface declared here would close a dependency cycle that the
+// architecture audit rejects (inferenceWorker → nativeWorkerRuntime → back).
+export type { WorkerTensor };
 
 export interface WorkerLetterbox {
   offsetX: number;
@@ -123,6 +130,8 @@ export interface WorkerInferRequest {
   modelType: WorkerModelType;
   modelPath: string;
   modelId: string;
+  /** Selected by the host's runtime, never inferred from a model URL. */
+  runtime?: 'web' | 'native';
   /** Set for models whose weights live in a sibling `.onnx.data`. */
   externalData?: ExternalDataSpec;
   imageData?: ImageData;
@@ -209,14 +218,15 @@ export interface WorkerReleaseResponse extends SessionReleaseReport {
   snapshot: SessionRegistrySnapshot;
 }
 
-export type WorkerRequest = WorkerInferRequest | WorkerReleaseRequest;
+export type WorkerRequest = WorkerInferRequest | WorkerReleaseRequest | NativeWorkerReply;
 export type WorkerResponse =
   | WorkerInferResult
   | WorkerInferError
   | WorkerFatal
   | WorkerReady
   | WorkerSessionReady
-  | WorkerReleaseResponse;
+  | WorkerReleaseResponse
+  | NativeWorkerCall;
 
 /** Describes a second image input fed alongside the primary image. */
 interface AuxImageSpec {
@@ -492,6 +502,7 @@ registerModelType('paddleocr-rec', {
 registerModelType('trocr', {
   tensorSpec: TROCR_TENSOR_SPEC,
   getInputSize: () => TROCR_INPUT_SIZE,
+  stretchInput: true,
   hasImageInput: false,
 });
 
@@ -651,14 +662,9 @@ interface ResolvedSession {
   evictedKeys: string[];
 }
 
-async function getSession(
-  modelPath: string,
-  modelId: string,
-  modelType: WorkerModelType,
-  externalData: ExternalDataSpec | undefined,
-  sessionPeakBytes: number | undefined,
-  sessionIdentity: WorkerSessionIdentity | undefined,
-): Promise<ResolvedSession> {
+async function getSession(request: WorkerInferRequest): Promise<ResolvedSession> {
+  const { modelPath, modelId, modelType, externalData, sessionPeakBytes, sessionIdentity } =
+    request;
   const cacheKey = workerSessionKey(modelType, modelPath, {
     ...sessionIdentity,
     modelId,
@@ -667,6 +673,15 @@ async function getSession(
       sessionIdentity?.externalDataRevision ?? externalData?.checksum ?? externalData?.url,
   });
   const creation = await sessionRegistry.getOrCreate(cacheKey, async () => {
+    if (request.runtime === 'native') {
+      const session = await openNativeWorkerSession(modelId, request.requestId);
+      return {
+        session,
+        executionProvider: session.executionProvider,
+        modelType,
+        estimateBytes: sessionPeakBytes ?? 0,
+      };
+    }
     const ort = await loadOrt();
     const providers = await getPreferredProviders(modelId);
     // Weights kept outside the graph must be handed to the runtime under the
@@ -822,9 +837,11 @@ function preprocessImage(
         contentHeight: height,
       };
     }
+    // The packers already rescale bytes by 1/255. Dynamic dimensions do not
+    // change a model's mean/std contract (notably PaddleOCR's ImageNet input).
     const tensor = options.channelsLast
-      ? packNhwcTensor(imageData, { ...spec, mean: [0, 0, 0], std: [255, 255, 255] })
-      : packNchwTensor(imageData, { ...spec, mean: [0, 0, 0], std: [255, 255, 255] });
+      ? packNhwcTensor(imageData, spec)
+      : packNchwTensor(imageData, spec);
     return {
       tensor,
       width,
@@ -912,6 +929,10 @@ function preprocessImage(
  */
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   const data = e.data;
+  if (data?.type === 'native-reply') {
+    acceptNativeReply(data);
+    return;
+  }
   if (data?.type === 'release') {
     try {
       await handleRelease(data);
@@ -944,7 +965,6 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     targetWidth,
     targetHeight,
     externalData,
-    sessionPeakBytes,
     sessionIdentity,
   } = data;
 
@@ -956,7 +976,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       throw new Error(`Unknown model type: ${modelType}`);
     }
 
-    const ort = await loadOrt();
+    const ort = data.runtime === 'native' ? { Tensor: NativeWorkerTensor } : await loadOrt();
     const cacheKey = workerSessionKey(modelType, modelPath, {
       ...sessionIdentity,
       modelId,
@@ -976,14 +996,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
             sessionMs: 0,
             evictedKeys: [],
           }
-        : await getSession(
-            modelPath,
-            modelId,
-            modelType,
-            externalData,
-            sessionPeakBytes,
-            sessionIdentity,
-          );
+        : await getSession(data);
     const { session, executionProvider } = resolved;
 
     if (resolved.created) {
@@ -1125,16 +1138,28 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
 
     const preprocessMs = performance.now() - preprocessStarted;
     const inferStarted = performance.now();
-    const results = await (session as OrtSession).run(feeds);
+    const results =
+      data.runtime === 'native'
+        ? await (session as NativeWorkerSession).run(feeds, requestId)
+        : await (session as OrtSession).run(feeds);
     const inferMs = performance.now() - inferStarted;
     const postprocessStarted = performance.now();
     const outputNames = (session as OrtSession).outputNames;
     const outputs: Record<string, unknown> = { executionProvider };
 
     for (const name of outputNames) {
-      const tensor = results[name] as { data: Float32Array; dims: number[] } | undefined;
+      const tensor = results[name] as WorkerTensor | undefined;
       if (tensor) {
-        outputs[name] = { data: tensor.data, dims: tensor.dims };
+        outputs[name] = {
+          data: tensor.data,
+          dims: tensor.dims,
+          dtype:
+            tensor.data instanceof BigInt64Array
+              ? 'int64'
+              : tensor.data instanceof Uint8Array
+                ? 'bool'
+                : 'float32',
+        };
       }
     }
 

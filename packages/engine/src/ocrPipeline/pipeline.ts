@@ -14,11 +14,11 @@
  *   - 'paddleocr-rec-v4' expects the full ppocr_keys_v1.txt (6624 chars).
  *     The 64-char en_dict.txt is NOT compatible — using it would produce
  *     garbage. For English-only recognition, use 'tr-ocr-base-printed'.
- *   - 'tr-ocr-base-printed' has a built-in charset; no dict needed.
+ *   - 'tr-ocr-base-printed' requires its installed ByteLevel BPE tokenizer.
  *
  * Coordinate flow:
  *   1. Detector runs on padded image (stride-32 alignment).
- *   2. decodeTextRegions() rescales boxes back to unpadded image space.
+ *   2. decodePaddedTextRegions() clips boxes to the unpadded image extent.
  *   3. If orientation was corrected, words' coordinates are mapped back
  *      through the rotation to the original image space.
  *   4. The pipeline consumer (UI / layer generator) applies the ImageNode's
@@ -35,9 +35,9 @@
  */
 
 import { getInferenceWorkerHost } from '../inference/inferenceWorkerHost';
-import { decodeTextRegions, padToStride } from '../inference/models/paddleocr';
+import { decodePaddedTextRegions, padTextDetectionImage } from '../inference/models/paddleocr';
 import { ctcDecode, preprocessPaddleRec } from '../inference/models/paddlerec';
-import { postprocessTrOcr, preprocessTrOcr } from '../inference/models/trocr';
+import { loadTrOcrTokenizer } from '../inference/models/trocrTokenizer';
 import { loadOcrDictionary } from '../inference/ocrDictionary';
 import { getOcrModelConfig, validateDictionary } from './modelMetadata';
 import {
@@ -45,6 +45,7 @@ import {
   detectOrientationFromRegions,
   mapCoordsThroughRotation,
 } from './orientation';
+import { recognizeTrOcrLine } from './trocrRecognition';
 import type { OcrOptions, OcrResult, OcrWord, OrientationResult } from './types';
 
 const DET_MODEL_ID = 'paddleocr-det-v4';
@@ -88,6 +89,16 @@ export async function runOcrPipeline(
 
   if (signal?.aborted) throw new Error('cancelled');
 
+  const recModelConfig = getOcrModelConfig(recognitionModelId);
+  if (!detectOnly) {
+    if (!recModelConfig) throw new Error(`Unknown OCR recognition model '${recognitionModelId}'`);
+    if (!recModelConfig.supportedLanguages.includes(options.language ?? 'en')) {
+      throw new Error(
+        `OCR model '${recognitionModelId}' does not support language '${options.language}'`,
+      );
+    }
+  }
+
   // ── 0. Orientation detection ──────────────────────────────────────────
   let orientation: OrientationResult = { angle: 0, confidence: 0 };
   let correctedSource = source;
@@ -121,13 +132,7 @@ export async function runOcrPipeline(
 
   // ── 1. Detection ──────────────────────────────────────────────────
   onProgress?.('detecting', 0, 1);
-  const paddedW = padToStride(correctedSource.width);
-  const paddedH = padToStride(correctedSource.height);
-  const padCanvas = document.createElement('canvas');
-  padCanvas.width = paddedW;
-  padCanvas.height = paddedH;
-  const padCtx = padCanvas.getContext('2d')!;
-  padCtx.putImageData(correctedSource, 0, 0);
+  const paddedData = padTextDetectionImage(correctedSource);
 
   const host = getInferenceWorkerHost();
   const detPath = await modelPath(DET_MODEL_ID, signal);
@@ -137,7 +142,7 @@ export async function runOcrPipeline(
       modelType: 'paddleocr-det',
       modelPath: detPath,
       modelId: DET_MODEL_ID,
-      imageData: padCtx.getImageData(0, 0, paddedW, paddedH),
+      imageData: paddedData,
       reuseSession: true,
     },
     { signal, timeoutMs: 45_000 },
@@ -157,7 +162,7 @@ export async function runOcrPipeline(
   const mapH = detOutput.dims[2] as number;
   const mapW = detOutput.dims[3] as number;
 
-  const regions = decodeTextRegions(
+  const regions = decodePaddedTextRegions(
     detOutput.data,
     mapW,
     mapH,
@@ -185,6 +190,7 @@ export async function runOcrPipeline(
 
   // Early-out: detection-only mode (fast preview with boxes, no text).
   if (detectOnly || mappedRegions.length === 0) {
+    onProgress?.('done', mappedRegions.length, mappedRegions.length);
     const elapsed = performance.now() - start;
     return {
       words: mappedRegions.map((r) => ({
@@ -209,17 +215,24 @@ export async function runOcrPipeline(
   }
 
   // Cap work for dense pages.
-  const capped = mappedRegions.slice(0, maxRegions);
+  // Recognition crops belong to the corrected image; map only the resulting
+  // geometry back to the original source, never use inverse-rotated crop boxes.
+  const capped = regions.slice(0, maxRegions);
 
   // ── 2. Recognition ─────────────────────────────────────────────────
   // Route recognition based on model choice:
   //   'paddleocr-rec-v4' -> Paddle CRNN + dictionary
-  //   'tr-ocr-base-printed' -> TrOCR (built-in charset, no dict)
-  const recModelConfig = getOcrModelConfig(recognitionModelId);
-
+  //   'tr-ocr-base-printed' -> vision encoder + cached decoder + tokenizer
   if (recognitionModelId === 'tr-ocr-base-printed') {
-    // TrOCR: no dictionary needed, built-in charset
-    const words = await runTrOcrRecognition(correctedSource, capped, signal, host);
+    const recognized = await runTrOcrRecognition(correctedSource, capped, signal, host, onProgress);
+    const words = recognized.map((word, index) => ({
+      ...word,
+      ...mappedRegions[index]!,
+      // The mapped region's confidence is detection confidence, not recognition.
+      confidence: word.confidence,
+      orientationCorrected: orientationCorrected ? orientation.angle : undefined,
+    }));
+    onProgress?.('done', capped.length, capped.length);
 
     const elapsed = performance.now() - start;
     return {
@@ -234,44 +247,25 @@ export async function runOcrPipeline(
     };
   }
 
-  // PaddleOCR recognition with dictionary
-  const lang = options.language ?? 'en';
-
-  if (lang !== 'zh' && lang !== 'en') {
-    // Fall back to detection-only for unsupported languages
-    const elapsed = performance.now() - start;
-    return {
-      words: mappedRegions.map((r) => ({
-        x: r.x,
-        y: r.y,
-        width: r.width,
-        height: r.height,
-        detectionConfidence: r.confidence ?? 1,
-        text: '',
-        confidence: 0,
-        charConfidences: [],
-      })),
-      executionProvider: (detResult.outputs.executionProvider as string) ?? 'wasm',
-      processingTimeMs: elapsed,
-      dictionaryAvailable: false,
-      detectedOrientation: orientationCorrected ? orientation.angle : undefined,
-      orientationCorrected,
-      recognitionModelId: recognitionModelId,
-    };
-  }
-
-  // For English-only with PaddleOCR: warn that the full dict is needed
-  const dictUrl = recModelConfig?.dictionaryUrl;
-
-  if (!dictUrl) {
-    throw new Error(`No dictionary configured for recognition model '${recognitionModelId}'`);
+  // Read the explicitly acquired dictionary, never the network during inference.
+  if (!recModelConfig?.dictionaryModelId) {
+    throw new Error(
+      `No installed dictionary configured for recognition model '${recognitionModelId}'`,
+    );
   }
 
   let dict: readonly string[];
   try {
-    dict = await loadOcrDictionary(dictUrl, 0, signal);
+    const dictPath = await modelPath(recModelConfig.dictionaryModelId, signal);
+    const raw = await loadOcrDictionary(
+      dictPath,
+      recModelConfig.expectedDictionarySize - (recModelConfig.appendSpace ? 1 : 0),
+      signal,
+    );
+    dict = recModelConfig.appendSpace ? [...raw, ' '] : raw;
     validateDictionary(recognitionModelId, dict);
   } catch (err) {
+    if (signal?.aborted) throw new Error('cancelled');
     throw new Error(
       `OCR dictionary for model '${recognitionModelId}' is not available. ` +
         `Download it first. (${err instanceof Error ? err.message : String(err)})`,
@@ -293,10 +287,10 @@ export async function runOcrPipeline(
     const recOut = await recognizeWithPaddle(crop, recPath, recognitionModelId, dict, host, signal);
 
     words.push({
-      x: region.x,
-      y: region.y,
-      width: region.width,
-      height: region.height,
+      x: mappedRegions[i]!.x,
+      y: mappedRegions[i]!.y,
+      width: mappedRegions[i]!.width,
+      height: mappedRegions[i]!.height,
       detectionConfidence: region.confidence ?? 1,
       text: recOut.text,
       confidence: recOut.confidence,
@@ -329,13 +323,7 @@ async function runDetectionOnly(
   signal: AbortSignal | undefined,
   probThreshold: number,
 ): Promise<Array<{ x: number; y: number; width: number; height: number; confidence: number }>> {
-  const paddedW = padToStride(source.width);
-  const paddedH = padToStride(source.height);
-  const padCanvas = document.createElement('canvas');
-  padCanvas.width = paddedW;
-  padCanvas.height = paddedH;
-  const padCtx = padCanvas.getContext('2d')!;
-  padCtx.putImageData(source, 0, 0);
+  const paddedData = padTextDetectionImage(source);
 
   const host = getInferenceWorkerHost();
   const detPath = await modelPath(DET_MODEL_ID, signal);
@@ -345,7 +333,7 @@ async function runDetectionOnly(
       modelType: 'paddleocr-det',
       modelPath: detPath,
       modelId: DET_MODEL_ID,
-      imageData: padCtx.getImageData(0, 0, paddedW, paddedH),
+      imageData: paddedData,
       reuseSession: true,
     },
     { signal, timeoutMs: 45_000 },
@@ -364,74 +352,56 @@ async function runDetectionOnly(
   const mapH = detOutput.dims[2] as number;
   const mapW = detOutput.dims[3] as number;
 
-  return decodeTextRegions(detOutput.data, mapW, mapH, source.width, source.height, probThreshold);
+  return decodePaddedTextRegions(
+    detOutput.data,
+    mapW,
+    mapH,
+    source.width,
+    source.height,
+    probThreshold,
+  );
 }
 
 /**
- * Route recognition through TrOCR model (built-in charset, no dictionary).
+ * Load the installed components once, then recognize each detected text line.
  */
 async function runTrOcrRecognition(
   source: ImageData,
-  regions: ReadonlyArray<{ x: number; y: number; width: number; height: number }>,
+  regions: ReadonlyArray<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    confidence: number;
+  }>,
   signal: AbortSignal | undefined,
   host: ReturnType<typeof getInferenceWorkerHost>,
+  onProgress: OcrOptions['onProgress'],
 ): Promise<OcrWord[]> {
-  const recPath = await modelPath('tr-ocr-base-printed', signal);
+  const encoderPath = await modelPath('trocr-encoder', signal);
+  const decoderPath = await modelPath('trocr-decoder', signal);
+  const tokenizer = await loadTrOcrTokenizer(await modelPath('trocr-tokenizer', signal), signal);
   const words: OcrWord[] = [];
 
   for (let i = 0; i < regions.length; i++) {
     if (signal?.aborted) throw new Error('cancelled');
     const region = regions[i]!;
-
+    onProgress?.('recognizing', i, regions.length);
     const crop = cropRegion(source, region);
-    const pre = preprocessTrOcr(crop);
-
-    const recResult = await host.infer(
-      {
-        type: 'infer',
-        modelType: 'trocr',
-        modelPath: recPath,
-        modelId: 'tr-ocr-base-printed',
-        tensors: {
-          pixel_values: {
-            data: pre.tensor,
-            dims: [1, 3, 384, 384],
-          },
-        },
-        reuseSession: true,
-      },
-      { signal, timeoutMs: 60_000 },
+    const decoded = await recognizeTrOcrLine(
+      crop,
+      { encoderPath, decoderPath, tokenizer },
+      host,
+      signal,
     );
-
     if (signal?.aborted) throw new Error('cancelled');
-
-    const logitsKey = Object.keys(recResult.outputs).find(
-      (k) => k !== 'executionProvider' && !k.startsWith('original'),
-    );
-    if (!logitsKey) {
-      words.push({
-        x: region.x,
-        y: region.y,
-        width: region.width,
-        height: region.height,
-        detectionConfidence: 1,
-        text: '',
-        confidence: 0,
-        charConfidences: [],
-      });
-      continue;
-    }
-
-    const logits = recResult.outputs[logitsKey] as { data: Float32Array; dims: number[] };
-    const sequenceLength = logits.dims[1] as number;
-    const decoded = postprocessTrOcr(logits.data, sequenceLength);
 
     words.push({
       x: region.x,
       y: region.y,
       width: region.width,
       height: region.height,
-      detectionConfidence: 1,
+      detectionConfidence: region.confidence,
       text: decoded.text,
       confidence: decoded.confidence,
       charConfidences: decoded.charConfidences,
@@ -497,6 +467,14 @@ async function recognizeWithPaddle(
   );
   if (!recOutputKey) throw new Error('OCR recognition produced no output');
   const recOutput = recResult.outputs[recOutputKey] as { data: Float32Array; dims: number[] };
+  if (
+    !(recOutput.data instanceof Float32Array) ||
+    recOutput.dims.length !== 3 ||
+    recOutput.dims[0] !== 1 ||
+    recOutput.dims[2] !== getOcrModelConfig(recModelId)?.numClasses
+  ) {
+    throw new Error('Invalid PaddleOCR recognition output shape');
+  }
   const T = recOutput.dims[1] as number;
 
   return ctcDecode(recOutput.data, T, dict);

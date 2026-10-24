@@ -57,6 +57,16 @@ describe('cloudRemovalProvider', () => {
   });
 
   describe('isAvailable', () => {
+    it('declines explicit local model selections even when cloud is configured', async () => {
+      mockLoadCloudConfig.mockReturnValue(MOCK_CONFIG);
+      const { cloudRemovalProvider } = await import('../providers/cloudProvider');
+      await expect(
+        cloudRemovalProvider.isAvailable({
+          method: 'ai-quality',
+          modelId: 'birefnet-general',
+        }),
+      ).resolves.toBe(false);
+    });
     it('returns false when no config saved (loadCloudConfig returns null)', async () => {
       mockLoadCloudConfig.mockReturnValue(null);
       const { cloudRemovalProvider } = await import('../providers/cloudProvider');
@@ -110,6 +120,19 @@ describe('cloudRemovalProvider', () => {
 
     afterEach(() => {
       vi.useRealTimers();
+    });
+
+    it('never uploads an explicitly selected local model request', async () => {
+      const mockFetch = vi.fn().mockRejectedValue(new Error('unexpected upload'));
+      vi.stubGlobal('fetch', mockFetch);
+      const { cloudRemovalProvider } = await import('../providers/cloudProvider');
+      await expect(
+        cloudRemovalProvider.remove(makeImageData(), {
+          method: 'ai-quality',
+          modelId: 'birefnet-general',
+        }),
+      ).rejects.toThrow(/local model/i);
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('throws when config is not available', async () => {

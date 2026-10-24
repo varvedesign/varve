@@ -52,20 +52,52 @@ pub struct SessionPoolMetrics {
     pub cached_bytes: u64,
 }
 
-/// Cooperative cancellation used at safe boundaries around native inference.
+/// Cancellation checked at processing boundaries and bound to the active ORT
+/// run. A cancellation request does not itself acknowledge stopped execution.
 #[derive(Clone, Default)]
 pub struct InferenceCancellationToken {
     cancelled: Arc<std::sync::atomic::AtomicBool>,
+    #[cfg(feature = "ai")]
+    run_options: Arc<Mutex<Option<Arc<ort::session::RunOptions>>>>,
 }
 
 impl InferenceCancellationToken {
     pub fn cancel(&self) {
         self.cancelled
             .store(true, std::sync::atomic::Ordering::Release);
+        #[cfg(feature = "ai")]
+        if let Ok(options) = self.run_options.lock() {
+            if let Some(options) = options.as_ref() {
+                // If the runtime cannot interrupt a kernel, the caller still
+                // waits for run completion and suppresses the late result.
+                let _ = options.terminate();
+            }
+        }
     }
 
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    #[cfg(feature = "ai")]
+    pub(crate) fn bind_run_options(&self) -> Result<Arc<ort::session::RunOptions>, String> {
+        // Never reuse another job's options: a late cancel must not terminate
+        // the next job using the same pooled session.
+        let options = Arc::new(
+            ort::session::RunOptions::new()
+                .map_err(|error| format!("Failed to create inference run options: {error}"))?,
+        );
+        let mut active = self
+            .run_options
+            .lock()
+            .map_err(|_| "Inference cancellation state is unavailable".to_owned())?;
+        *active = Some(Arc::clone(&options));
+        if self.is_cancelled() {
+            options
+                .terminate()
+                .map_err(|error| format!("Failed to cancel inference: {error}"))?;
+        }
+        Ok(options)
     }
 }
 

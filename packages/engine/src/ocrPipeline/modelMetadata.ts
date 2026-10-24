@@ -12,35 +12,35 @@ import type { OcrModelConfig } from './types';
 /**
  * PP-OCRv4 recognition model metadata.
  * Output: 6625 classes = 6624 chars + CTC blank at index 0.
- * The full dictionary is ppocr_keys_v1.txt (6623 chars + 1 extra
- * for the model's specific training set = 6624).
+ * The full dictionary has 6623 entries; use_space_char appends the space class.
  */
 export const PADDLE_REC_V4_CONFIG: OcrModelConfig = {
   modelId: 'paddleocr-rec-v4',
   numClasses: 6625,
   ctcBlankIndex: 0,
   dictionaryUrl:
-    'https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/release/2.7/ppocr/utils/ppocr_keys_v1.txt',
+    'https://huggingface.co/deepghs/paddleocr/resolve/main/rec/ch_PP-OCRv4_rec/dict.txt',
+  dictionaryModelId: 'paddleocr-keys-v1',
+  appendSpace: true,
   expectedDictionarySize: 6624,
-  supportedLanguages: ['zh', 'en', 'ja', 'ko'],
+  supportedLanguages: ['zh', 'en'],
   inputHeight: 48,
   normalization: { mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5] },
 };
 
 /**
  * TrOCR base printed model metadata.
- * Uses a hardcoded charset (no external dictionary needed).
+ * Uses the installed Roberta ByteLevel BPE tokenizer, not a CTC dictionary.
  */
 export const TROCR_CONFIG: OcrModelConfig = {
   modelId: 'tr-ocr-base-printed',
-  numClasses: 95,
+  numClasses: 50_265,
   ctcBlankIndex: -1,
   dictionaryUrl: '',
   expectedDictionarySize: 0,
   supportedLanguages: ['en'],
   inputHeight: 384,
   normalization: { mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5] },
-  usesBuiltInCharset: true,
 };
 
 /**

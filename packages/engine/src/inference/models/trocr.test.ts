@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { postprocessTrOcr, preprocessTrOcr, TROCR_INPUT_SIZE, validateTrOcrInput } from './trocr';
+import { TrOcrTokenizer } from './trocrTokenizer';
 
-const CHARSET =
-  ' abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,!?;:\'"-()[]{}@#$%^&*_+=/\\|~`<>';
+const tokenizer = new TrOcrTokenizer({
+  model: {
+    type: 'BPE',
+    vocab: { '<s>': 0, '<pad>': 1, '</s>': 2, Hello: 31414, Ġworld: 232, Ã: 100, '\u00a9': 101 },
+  },
+  decoder: { type: 'ByteLevel' },
+  added_tokens: [
+    { id: 0, special: true },
+    { id: 1, special: true },
+    { id: 2, special: true },
+  ],
+});
 
 describe('preprocessTrOcr', () => {
   it('returns tensor of correct shape', () => {
@@ -25,50 +36,51 @@ describe('preprocessTrOcr', () => {
     const result = preprocessTrOcr(imageData);
     expect(result.tensor.length).toBe(3 * TROCR_INPUT_SIZE * TROCR_INPUT_SIZE);
   });
+
+  it('stretches a rectangular crop without adding letterbox pixels and normalizes RGB', () => {
+    const pixels = new Uint8ClampedArray(20 * 10 * 4);
+    for (let i = 0; i < pixels.length; i += 4) pixels.set([255, 0, 128, 255], i);
+    const { tensor } = preprocessTrOcr(new ImageData(pixels, 20, 10));
+    const area = TROCR_INPUT_SIZE ** 2;
+    expect(tensor[0]).toBe(1);
+    expect(tensor[area]).toBe(-1);
+    expect(tensor[area * 2]).toBeCloseTo(128 / 127.5 - 1);
+    expect(tensor[area - 1]).toBe(1);
+    expect(tensor[area * 2 - 1]).toBe(-1);
+  });
+
+  it('mattes transparent pixels white and rejects malformed images', () => {
+    expect(preprocessTrOcr(new ImageData(20, 10)).tensor.every((value) => value === 1)).toBe(true);
+    expect(() =>
+      preprocessTrOcr({ width: 20, height: 10, data: new Uint8ClampedArray(1) } as ImageData),
+    ).toThrow(/pixels/);
+  });
 });
 
 describe('postprocessTrOcr', () => {
-  const CHARSET_LEN = 95;
-
-  it('decodes a simple word from logits', () => {
-    const seqLen = 10;
-    const logits = new Float32Array(seqLen * CHARSET_LEN);
-    const word = 'hello';
-    for (let i = 0; i < word.length; i++) {
-      const ch = word[i]!;
-      const idx = CHARSET.indexOf(ch);
-      if (idx >= 0) {
-        logits[i * CHARSET_LEN + idx] = 10;
-      }
-    }
-    // Add high EOS logit at end (EOS = last character in charset)
-    logits[word.length * CHARSET_LEN + CHARSET_LEN - 1] = 10;
-
-    const result = postprocessTrOcr(logits, seqLen);
-    expect(result.text.toLowerCase()).toBe('hello');
-    expect(result.confidence).toBeGreaterThan(0);
-    expect(result.charConfidences.length).toBeGreaterThan(0);
+  it('decodes vocabulary ids with ByteLevel spacing and calibrated token probabilities', () => {
+    const result = postprocessTrOcr([31414, 232, 2], [0.5, 0.75, 1], tokenizer);
+    expect(result.text).toBe('Hello world');
+    expect(result.charConfidences).toEqual([...Array(5).fill(0.5), ...Array(6).fill(0.75)]);
+    expect(result.confidence).toBeCloseTo(7 / 11);
   });
 
-  it('handles empty sequence', () => {
-    const logits = new Float32Array(1 * CHARSET_LEN);
-    logits[CHARSET_LEN - 1] = 10;
-    const result = postprocessTrOcr(logits, 1);
-    expect(result.text).toBe('');
-    expect(result.confidence).toBe(0);
+  it('joins UTF-8 bytes split across tokens before decoding characters', () => {
+    expect(postprocessTrOcr([100, 101], [0.8, 0.6], tokenizer)).toEqual({
+      text: 'é',
+      confidence: 0.6,
+      charConfidences: [0.6],
+    });
   });
 
-  it('returns confidence scores between 0 and 1', () => {
-    const seqLen = 5;
-    const logits = new Float32Array(seqLen * CHARSET_LEN);
-    logits[0 * CHARSET_LEN + 1] = 5;
-    logits[1 * CHARSET_LEN + 2] = 3;
-
-    const result = postprocessTrOcr(logits, seqLen);
-    for (const conf of result.charConfidences) {
-      expect(conf).toBeGreaterThanOrEqual(0);
-      expect(conf).toBeLessThanOrEqual(1);
-    }
+  it('handles immediate EOS and rejects missing tokens and invalid probabilities', () => {
+    expect(postprocessTrOcr([2], [1], tokenizer)).toEqual({
+      text: '',
+      confidence: 0,
+      charConfidences: [],
+    });
+    expect(() => postprocessTrOcr([999], [1], tokenizer)).toThrow(/no token/);
+    expect(() => postprocessTrOcr([31414], [Number.NaN], tokenizer)).toThrow(/confidence/);
   });
 });
 

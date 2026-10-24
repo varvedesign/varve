@@ -1,11 +1,27 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearDictionaryCache, getCachedDictionary, loadOcrDictionary } from './ocrDictionary';
 
 beforeEach(() => {
   clearDictionaryCache();
 });
+afterEach(() => vi.unstubAllGlobals());
 
 describe('loadOcrDictionary', () => {
+  it('preserves whitespace vocabulary entries and removes only CRLF delimiters', async () => {
+    vi.stubGlobal('fetch', async () => new Response('a\r\n \r\nb\r\n'));
+    expect(await loadOcrDictionary('asset://dict', 3)).toEqual(['a', ' ', 'b']);
+  });
+
+  it('does not bypass a changed vocabulary contract or cancellation on a cache hit', async () => {
+    vi.stubGlobal('fetch', async () => new Response('a\nb\n'));
+    await loadOcrDictionary('asset://cached', 2);
+    await expect(loadOcrDictionary('asset://cached', 3)).rejects.toThrow(/expected 3/);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(loadOcrDictionary('asset://cached', 2, controller.signal)).rejects.toThrow(
+      /cancelled/,
+    );
+  });
   it('parses a one-char-per-line dictionary', async () => {
     // Mock fetch with a tiny inline dictionary.
     const originalFetch = globalThis.fetch;
