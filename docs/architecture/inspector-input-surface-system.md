@@ -44,6 +44,21 @@ band. User order still applies within bands and to secondary/advanced content.
 This prevents a previous reorder from making the most relevant section
 unfindable while preserving customization.
 
+Two tiers of contextual priority exist, and the difference is deliberate:
+
+- **Protected primary band** — promotions that sit *before* Position & Size
+  (Typography/Text on Path, table context, component/mockup context, active
+  mask). `isContextualPrimarySection` shields these from a saved custom order:
+  they are the selection's main task, and burying them would make the object
+  uneditable at a glance.
+- **Soft contextual promotion** — the image band (Fill → Image Placement →
+  Crop & Bounds). It promotes *after* the Position & Size anchor, because
+  geometry is the stable entry point for an image while Fit lives on each
+  paint (Fill leads the promoted band). It deliberately does not override a
+  saved custom order: a user who explicitly reordered image sections keeps
+  that preference. This is a promotion, not the protected band — the asymmetry
+  with text/table/component is the two-tier rule, not an omission.
+
 ## Field anatomy
 
 Every property row follows one of these forms:

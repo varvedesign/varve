@@ -1163,6 +1163,14 @@ function hasActiveMask(ctx: SectionAvailabilityContext): boolean {
  * band. The value is deliberately separate from `resolveSectionOrder`: the
  * composition can protect only the primary band while preserving the user's
  * saved order for secondary and advanced sections.
+ *
+ * The image band (Fill → Image Placement → Crop & Bounds) is deliberately NOT
+ * here: it is a *soft promotion* that sits after the Position & Size anchor,
+ * not a protected primary-band member. Text/table/component/mask promote
+ * before the anchor and are protected; images keep geometry as the entry
+ * point and respect a saved custom order. Documented as the two-tier rule in
+ * docs/architecture/inspector-input-surface-system.md; sectionRegistry.test.ts
+ * asserts both halves deliberately.
  */
 export function isContextualPrimarySection(
   id: SectionId,
