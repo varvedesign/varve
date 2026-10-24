@@ -44,11 +44,6 @@ ignoreUntil = 2027-01-21
 reason = "zvariant_derive 5.14.0 has no published fix. Same zbus/zvariant desktop stack."
 
 [[IgnoredVulns]]
-id = "GHSA-vfj7-8cjw-p6xm"
-ignoreUntil = 2027-01-21
-reason = "braces 3.0.3 has no published fix. Website build graph; documented local mitigation in SECURITY.md and docs/CI_CD_RESILIENCE.md."
-
-[[IgnoredVulns]]
 id = "GHSA-7pqw-9j4j-h8q3"
 ignoreUntil = 2027-01-21
 reason = "extract-zip 2.0.1 has no patched npm release. Dev-only; contained by patches/extract-zip@2.0.1.patch. See SECURITY.md."

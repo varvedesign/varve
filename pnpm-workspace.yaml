@@ -23,10 +23,11 @@ overrides:
   "fast-uri": 3.1.9
   # qs advisories affect typed-rest-client in the Stryker tool chain.
   "qs": 6.16.0
-  # GHSA-5c6j-r48x-rmvq / GHSA-qj8w-gfj5-8c6v: serialize-javascript RCE/DoS
-  # in mocha (wdio) worker-pool serializer. 7.x output remains valid for
-  # mocha's eval-based deserialization of options objects.
-  "serialize-javascript": 7.1.0
+  # GHSA-5c6j-r48x-rmvq / GHSA-qj8w-gfj5-8c6v / GHSA-m5mm-p8h7-m29v:
+  # serialize-javascript RCE/DoS/XSS in mocha (wdio) worker-pool serializer.
+  # 7.x output remains valid for mocha's eval-based deserialization of options
+  # objects.
+  "serialize-javascript": 7.1.3
   # brace-expansion DoS advisories affect the WDIO/Stryker minimatch chains.
   "brace-expansion@1": 1.1.21
   "brace-expansion@2": 2.1.7
@@ -61,11 +62,12 @@ overrides:
   "ip-address": 10.7.4
   # GHSA-qxg6-89mg-rqv8 / GHSA-xp26-3454-mjgp: vitest mocker 4.1.11.
   "@vitest/mocker": 4.1.12
-  # The upstream parents resolve three supported undici majors. Keep each on
-  # its own patched line instead of forcing one major across all consumers.
-  "undici@6": 6.29.0
-  "undici@7": 7.30.0
-  "undici@8": 8.11.2
+  # GHSA-xjj6-f33q-929c / GHSA-4qv8-2p9j-2685 / GHSA-f72v-6w45-q472:
+  # The upstream parents resolve three supported undici majors (webdriver 6.x,
+  # cheerio 7.x, jsdom/unifont 8.x). Keep each on its own patched line.
+  "undici@6": 6.29.1
+  "undici@7": 7.30.1
+  "undici@8": 8.12.2
   # basic-ftp only enters through the local WDIO/Puppeteer tooling graph; the
   # vulnerable 5.x line has no patched release, so use the fixed 6.x line.
   "basic-ftp": 6.2.1
