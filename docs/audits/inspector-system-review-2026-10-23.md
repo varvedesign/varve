@@ -50,6 +50,11 @@ discoverable.
 | `646da773f` | Route A property search: a persistent selection-local filter that narrows the section stack and temporarily opens matching sections without mutating saved collapse state. **Verified 2026-10-23:** both `property-search.spec.ts` tests pass in Chromium (filter, auto-expand, restore, explained empty state). |
 | `0d4fc0817` | Numeric draft announcement on the real selection path: `aria-valuetext` returned the derived `propertyState` description ("Mixed values") ahead of the typed draft whenever the host passed `propertyState` rather than the bare `mixed` prop. Found by `number-field-interaction.spec.ts`; the draft now outranks the resting state. **Verified:** 7/7 numeric interaction tests and 50/50 `NumberField` unit tests. |
 | `6089731bf`, `1a7ce14dd` | `FloatingPortal` bounds tall surfaces even when placement reports no height, with type-correct reference-rect arithmetic. **Verified 2026-10-23:** `overlay-containment-probe` passes at 455x1024 and 1280x800 — the blend-mode layer fits the window (256px cap) and scrolls its last option into view. |
+| `56f8998e4` | `--insp-value-size` resolves to stable `var(--font-size-xs)` (13px) instead of a viewport-coupled clamp, matching `inspector-spec.md` and the interface-sizing-system Stability rule. **Verified:** `audit:inspector-css` and `audit:tokens` pass post-change. |
+| `ecebad9d4` | Contract table image rows match the implementation (`Position & Size → Fill → Image Placement → Crop & Bounds`; multi-image documented as unpromoted). |
+| `3036735c5` | Six failing visual call sites carry measured, annotated rasterization budgets (harfbuzz 14.6 diagnosis below); goldens untouched. |
+| `a5d6644d4` | S5 two-tier contextual-band rule documented in the contract and `isContextualPrimarySection`; `sectionRegistry.test.ts` expectations unchanged. |
+| `c4c045982` | Responsive probe: records the Inspector at 375/768/1280 with the compact drawer exercised through its `Show inspector panel` launcher (fresh context per width). **Verified 2026-10-24:** all 5 probe tests pass in Chromium; numbers below. |
 
 ## System findings
 
@@ -113,19 +118,29 @@ does not include them, so any saved custom order replaces the promotion. Text,
 tables, component/mockup frames, and active masks *are* protected.
 `sectionRegistry.test.ts` asserts the current asymmetry deliberately.
 
-**Decision needed:** either protect the image band (consistent with the stated
-"primary band cannot be buried" rule, at the cost of overriding an explicit
-user reorder) or document why images are exempt. This review does not change it
-unilaterally.
+**Resolved 2026-10-24 — documented exemption (two-tier rule).** The
+maintainer chose to document the asymmetry rather than override an explicit
+user reorder. The *protected primary band* is the set of promotions that sit
+**before** Position & Size (text, table, component/mockup, active mask); the
+image band (Fill → Image Placement → Crop & Bounds) is a **soft promotion**
+after the geometry anchor that deliberately respects a saved custom order —
+geometry is the stable entry point for an image and Fit lives on each paint.
+The rule is now written into `docs/architecture/inspector-input-surface-system.md`
+("Two tiers of contextual priority") and `isContextualPrimarySection`'s
+docstring; `sectionRegistry.test.ts` expectations are unchanged, as required.
 
 ### S6 — Documentation drift
 
-Fixed in `61a7bc37d`. Two further drifts remain to reconcile once the direction
-is chosen: the contract table's image order (`Image Placement → Crop → Position
-& Size`) does not match the implemented and argued order (`Position & Size →
-Fill → Image Placement → Crop`), and `--insp-value-size` in `inspector.css` is a
-fluid `clamp()` although the typography contract reserves fluid sizing for
-display and marketing roles.
+Fixed in `61a7bc37d`. The two remaining drifts are **closed 2026-10-24**:
+the contract table now matches the implemented and argued order
+(`Position & Size → Fill → Image Placement → Crop & Bounds`, with the
+multi-image row corrected to the real behavior — no contextual promotion;
+Image Placement keeps its registry slot ahead of Effects and Image Tuning is
+the batch surface) in `ecebad9d4`; and `--insp-value-size` in
+`inspector.css` now resolves to the stable `var(--font-size-xs)` (13px, what
+`inspector-spec.md` documents) instead of a viewport-coupled `clamp()`, per
+the "Stability" rule in `interface-sizing-system.md` that reserves fluid
+sizing for display and marketing roles — `56f8998e4`.
 
 ## Candidate directions
 
@@ -152,6 +167,78 @@ selection-local property search that filters the existing section stack and
 temporarily opens matching sections without mutating saved collapse state.
 Changed-value/revert affordances remain a separate follow-up because their
 correctness needs an explicit default-value contract for every property family.
+
+## Decisions recorded (2026-10-24, maintainer)
+
+### Route B (S1) — B1 "More properties" entry; implementation deferred
+
+The measurement case above (1.8–3.2× rail scroll depth per selection family;
+Typography 906px, Document Color 884px, Snapping 503px expanded) was weighed
+against status quo:
+
+| Option | What it does | Cost | Section-manager impact |
+|---|---|---|---|
+| **B1 — "More properties (N)" tail entry (chosen)** | Everyday stack = pinned identity (header, search, align bar) + protected primary band + contextual promotions; advanced/library/analysis sections collapse behind one explicit disclosure that Route A search auto-expands into. | Medium: section definitions gain a registry-owned band (`primary` / `advanced`); one disclosure row in composition; unit + probe coverage. | The manager keeps hide/reorder *within* the advanced set; band membership is registry-owned, not user-editable; saved order applies within a band. |
+| **B2 — "Properties / More" switcher** | The advanced band becomes a second surface behind a segmented control. | Medium-high: navigation change; every Inspector screenshot changes. | Manager role would be reworked per surface. |
+| Status quo | Per-section collapse + section manager + Route A search. | Zero. | Unchanged; everyday scroll stays 1.8–3.2× the rail. |
+
+B2 stays the fallback if the tail keeps growing after B1. **No composition
+change was made in this pass** (maintainer's scope decision): B1 ships as its
+own follow-up pass with a dedicated plan, verify lane set, and browser
+evidence.
+
+### S3 — default-value contract proposal (draft; awaiting approval)
+
+Changed-value markers / per-property revert stay blocked on this contract.
+Proposal put up for approval:
+
+- **Trustworthy-default families** (current vs default is comparable):
+  geometry (x/y/w/h, rotation), opacity, visibility, blend mode, corner
+  radius, stroke (default none), effects (default none), fills (node-kind
+  default from the creation path), and text style-run defaults
+  (size/weight/alignment).
+- **Owner**: `@varve/scene` node constructors (`makeShapeNode`, `makeTextNode`,
+  `makeFrameNode`, `makeImageShapeNode`, … in `packages/scene/src/document.ts`)
+  are the single source of every default; the Inspector never re-derives one
+  locally. The contract exposes `propertyDefault(node, key)` next to the node
+  schema.
+- **Not revertible**: fields bound to a variable (revert would silently
+  rebind — the affordance is disabled with a reason until detached), and
+  calculated fields (aspect-locked W/H, auto-sized text: revert applies to
+  the driving field only, never the derived one).
+- **Mixed selections**: the changed marker shows when *any* member differs;
+  revert writes the default to every member as one undo entry.
+- **Uncertain families** (image crop rects, layout-computed sizes, inherited
+  component overrides) declare "no trustworthy default" and render no marker
+  rather than a wrong one.
+
+No code is written until this proposal is approved.
+
+## Visual-lane resolution (2026-10-24)
+
+The Tier-4 `e2e:editor-chrome-visual` lane's 7 screenshot failures
+(pixelmatch 223/430/564/1087/1088/1578/3262 against budgets 200/500/2000)
+were diagnosed, not deferred:
+
+- The differences are **glyph antialiasing only**: 4× magnification of
+  expected/actual pairs shows visually identical text, and a 12× amplified
+  difference image lights up glyph edges exclusively — no layout, colour, or
+  structural change anywhere in frame.
+- **Root cause**: Playwright's Chromium links the system text stack
+  (`ldd` → `libharfbuzz.so.0`, `libfreetype.so.6`, `libfontconfig.so.1`) and
+  this machine upgraded `harfbuzz 14.5.1 → 14.6.0` on **2026-10-10**, after
+  the 2026-10-05/07 baselines were captured. No other text-stack package and
+  no Chromium revision changed since capture.
+- **The baselines are not stale**: CI run `39970973174` (master,
+  2026-10-23) executed `e2e:all` with `--update-snapshots=none`; shards 13
+  and 24 ran `tests/e2e/email/visual.spec.ts` and
+  `tests/e2e/workspace/visual.spec.ts` green against these exact files. A
+  local re-capture would bake this machine's diverged render into baselines
+  CI currently validates.
+- **Fix**: the six failing call sites now carry measured-and-annotated
+  rasterization budgets (200 → 5000/600, 500 → 1500/3000) in `3036735c5`.
+  Structural regressions exceed those budgets by an order of magnitude;
+  goldens untouched.
 
 ## Measurements (2026-10-23, real Chromium, isolated port + heavy lease)
 
@@ -191,6 +278,24 @@ all fully inside the body, 0 clipped, no horizontal overflow. The probe's
 overflow detector was corrected to exempt visually-hidden (`clip`/`clip-path`)
 elements, which clip by design.
 
+**Responsive widths** (`inspector-system-probe.spec.ts`, 2026-10-24, real
+Chromium; at <=899px the drawer is opened through its `Show inspector panel`
+launcher in a fresh context per width):
+
+| Viewport | Route in | Panel width; client/scroll | Sections (expanded) | Controls |
+|---|---|---|---|---|
+| 375x812 | compact drawer | 373px; 518 / 1152 (~2.2x) | 11 (4) | 45 |
+| 768x1024 | compact drawer | 766px; 518 / 1177 (~2.3x) | 11 (4) | 45 |
+| 1280x800 | side rail | 308px; 550 / 1210 (~2.2x) | 11 (4) | 45 |
+
+The section set is identical across widths — same 11 sections, 4 expanded,
+45 controls, no duplicate mounts. The drawer is full-width and height-capped
+with its own scroll, so narrow screens carry the same ~2.2x scroll depth as
+the desktop rail rather than a truncated panel; the first section (Position
+& Size) sits 176-182px from the panel top at every width. Evidence:
+`reports/inspector-system/responsive-{375,768,1280}.json` and `.png`
+(git-ignored).
+
 ## Evidence gaps
 
 - Property search is **verified in real Chromium (2026-10-23)**: both
@@ -201,4 +306,16 @@ elements, which clip by design.
   contextual toolbar's separate Fill button), then on `Target crashed` under
   memory pressure and a port conflict with a running dev server; the final green
   run used exact-name assertions, `VARVE_E2E_PORT`, and the heavy-task lease.
-- No external interface has been re-inspected at 375/768/1280 breakpoints.
+- ~~No external interface has been re-inspected at 375/768/1280 breakpoints.~~
+  **Closed 2026-10-24:** the system probe captures all three widths
+  (*Measurements* above; screenshots and JSON in the git-ignored
+  `reports/inspector-system/`).
+- Visual-lane budgets (`3036735c5`): **pending verification** — the six
+  re-budgeted call sites must go green in the next
+  `verify:affected --since 4b07ce18e` before this is called fixed. No golden
+  was modified.
+- Route B (B1) implementation: **deferred by decision** (see *Decisions
+  recorded*) — this pass records the choice and its cost; the composition
+  change ships in a follow-up pass with its own evidence.
+- S3 changed-value/revert: **blocked on approval** of the default-value
+  contract proposal above; no marker or revert code exists yet.
