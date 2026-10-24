@@ -17,10 +17,7 @@ import {
   combineAreaSelections,
   DEFAULT_PREVIEW_MAX_DIMENSION,
   EFFICIENT_SAM_PROVIDER_ID,
-  getEnvironmentCapabilities,
-  getModelInfo,
   getModelLoaderReady,
-  isWasmModelSafe,
   MOBILE_SAM_DECODER_ID,
   MOBILE_SAM_ENCODER_ID,
   MOBILE_SAM_PROVIDER_ID,
@@ -48,7 +45,10 @@ import type {
 } from '../../../tools/Sam2SegmentationTool';
 import { mapSourceSam2PromptsToWorld } from '../../../tools/sam2PromptCoordinates';
 import { areaSelectionFromMaskCoverage } from '../../../tools/selectionMask';
+import { BackgroundModelReadiness } from '../../BackgroundRemoval/BackgroundModelReadiness';
 import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog';
+import { useBackgroundModelReadiness } from '../../BackgroundRemoval/useBackgroundModelReadiness';
+import { useBackgroundRemovalAction } from '../../BackgroundRemoval/useBackgroundRemovalAction';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { RangeValueControl } from '../controls/RangeValueControl';
@@ -65,7 +65,7 @@ const OBJECT_SELECTION_PREVIEW_OPTIONS: Array<{
 ];
 
 function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
-  const message = e instanceof Error ? e.message : String(e);
+  const message = (e instanceof Error ? e.message : String(e)) || defaultMessage;
   if (message === 'cancelled' || message === 'AbortError' || message.includes('aborted')) {
     return 'Cancelled';
   }
@@ -87,7 +87,7 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
     return 'Image too large for this AI model.';
   }
   if (message.includes('exceeds the safe WASM memory limit')) {
-    return 'AI Quality model exceeds available memory without GPU acceleration. Switch to AI Balanced, or use Quick mode and manually refine the mask with the brush and trimap tools.';
+    return 'This model exceeds this browser session’s configured memory budget. Use the desktop app for this model, or choose Fast and refine its mask.';
   }
   if (message.includes('AI background removal failed in all quality modes')) {
     return 'AI background removal failed in every mode on this device. Use Quick mode, then manually refine the mask with the brush and trimap tools below.';
@@ -101,9 +101,8 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   if (message.includes('shared local-AI budget') || message.includes('shared local-work budget')) {
     return message.length > 180 ? `${message.slice(0, 180)}...` : message;
   }
-  if (message.includes('Model') || message.includes('model')) {
-    return `Model failed to load: ${defaultMessage}`;
-  }
+  // Preserve the actual model/runtime/storage failure; "model" can occur in
+  // inference errors and is not evidence that loading was the failing stage.
   return message.length > 180 ? `${message.slice(0, 180)}...` : message;
 }
 
@@ -326,16 +325,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const [method, setMethod] = useState<RemovalMethod>(
     (maskProvenance as { method?: RemovalMethod })?.method ?? 'quick',
   );
-  const [localPending, setPending] = useState(false);
   const operation =
     state.backgroundRemovalOperation?.nodeId === node?.id ? state.backgroundRemovalOperation : null;
-  const pending = localPending || Boolean(operation);
   const [elapsedMs, setElapsedMs] = useState(0);
   const elapsedRef = useRef<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [downloadModelId, setDownloadModelId] = useState<string | null>(null);
-  const [enhancedBalancedAvailable, setEnhancedBalancedAvailable] = useState(false);
   const [maskEditorOpen, setMaskEditorOpen] = useState(
     () =>
       state.selection[0] === node?.id &&
@@ -349,12 +344,26 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     setMethod(maskProvenance?.method ?? 'quick');
     setFeather(maskProvenance?.feather ?? 0.5);
     setDecontaminate(maskProvenance?.decontaminate ?? false);
-    setError(null);
   }, [node?.id, maskProvenance]);
 
-  const [modelState, setModelState] = useState<'unavailable' | 'downloading' | 'ready' | 'error'>(
-    'unavailable',
-  );
+  const modelStatus = useBackgroundModelReadiness(method, eligible);
+  const action = useBackgroundRemovalAction({
+    sourceKey: `${state.document?.id ?? ''}:${node?.id ?? ''}:${previewSource}`,
+    method,
+    feather,
+    decontaminate,
+    run: removeBackgroundWithOptions,
+    cancel: cancelBackgroundRemoval,
+    refresh: modelStatus.refresh,
+    download: (modelId) => {
+      setDownloadModelId(modelId);
+      setShowDownloadDialog(true);
+    },
+    announce,
+    normalizeError: normalizeErrorMessage,
+  });
+  const pending = action.pending || Boolean(operation);
+  const error = action.error;
   const [objectSelectionModelState, setObjectSelectionModelState] =
     useState<PromptedModelState>('checking');
   const [promptedModelStates, setPromptedModelStates] = useState<
@@ -367,6 +376,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const [objectSelectionDownloadProvider, setObjectSelectionDownloadProvider] =
     useState<PromptedModelOption | null>(null);
   const objectSelectionDownloadAbortRef = useRef<AbortController | null>(null);
+  const objectSelectionStatusRef = useRef({ mounted: false, generation: 0 });
   const [objectSelectionPromptMode, setObjectSelectionPromptMode] =
     useState<Sam2PromptMode>('point');
   const [objectSelectionPromptPolarity, setObjectSelectionPromptPolarity] =
@@ -382,9 +392,6 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     // A combination chosen against one image's mask means nothing on another.
     setObjectSelectionMaskCombination('replace');
   }, [node?.id]);
-  const [aiAvailable, setAiAvailable] = useState(false);
-  const [hasGpuAccel, setHasGpuAccel] = useState(false);
-  const [wasmModelSafe, setWasmModelSafe] = useState(true);
 
   const showingOriginal = Boolean(node && state.showOriginalBgNodeId === node.id);
   const refiningMask = Boolean(
@@ -697,87 +704,68 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     });
   }, [applySam2Segmentation, node, objectSelection]);
 
-  const refreshModelStatus = useCallback(async () => {
-    const loader = await getModelLoaderReady();
-    setModelState(loader.getState());
-    if (method === 'quick' || !requiredModelId) {
-      setAiAvailable(true);
-      setEnhancedBalancedAvailable(await loader.isModelAvailable('isnet-general-use'));
-      return;
-    }
-    setAiAvailable(await loader.isModelAvailable(requiredModelId));
-    setEnhancedBalancedAvailable(await loader.isModelAvailable('isnet-general-use'));
-  }, [method, requiredModelId]);
-
   const refreshObjectSelectionModelStatus = useCallback(async () => {
-    const loader = await getModelLoaderReady();
-    const entries = await Promise.all(
-      (Object.keys(PROMPTED_MODEL_OPTIONS) as PromptedModelOption[]).map(async (providerId) => {
-        const availability = await Promise.all(
-          PROMPTED_MODEL_OPTIONS[providerId].ids.map((modelId) => loader.isModelAvailable(modelId)),
-        );
-        return {
-          providerId,
-          state: availability.every(Boolean)
-            ? ('ready' as const)
-            : availability.some(Boolean)
-              ? ('partial' as const)
-              : ('missing' as const),
-        };
-      }),
-    );
-    for (const entry of entries) {
-      setPromptedModelStates((previous) => ({ ...previous, [entry.providerId]: entry.state }));
+    const status = objectSelectionStatusRef.current;
+    const generation = ++status.generation;
+    const current = () => status.mounted && generation === status.generation;
+    try {
+      const loader = await getModelLoaderReady();
+      if (!current()) return;
+      const entries = await Promise.all(
+        (Object.keys(PROMPTED_MODEL_OPTIONS) as PromptedModelOption[]).map(async (providerId) => {
+          const availability = await Promise.all(
+            PROMPTED_MODEL_OPTIONS[providerId].ids.map((modelId) =>
+              loader.isModelAvailable(modelId),
+            ),
+          );
+          return {
+            providerId,
+            state: availability.every(Boolean)
+              ? ('ready' as const)
+              : availability.some(Boolean)
+                ? ('partial' as const)
+                : ('missing' as const),
+          };
+        }),
+      );
+      if (!current()) return;
+      for (const entry of entries) {
+        setPromptedModelStates((previous) => ({ ...previous, [entry.providerId]: entry.state }));
+      }
+      const hasReady = entries.some((entry) => entry.state === 'ready');
+      const hasPartial = entries.some((entry) => entry.state === 'partial');
+      setObjectSelectionModelState(hasReady ? 'ready' : hasPartial ? 'partial' : 'missing');
+    } catch (failure) {
+      if (!current()) return;
+      setObjectSelectionModelState('error');
+      setObjectSelectionError(normalizeObjectSelectionDownloadError(failure));
     }
-    const hasReady = entries.some((entry) => entry.state === 'ready');
-    const hasPartial = entries.some((entry) => entry.state === 'partial');
-    setObjectSelectionModelState(hasReady ? 'ready' : hasPartial ? 'partial' : 'missing');
   }, []);
 
   useEffect(() => {
     if (!eligible) return;
-    void refreshModelStatus();
-    let unsub: (() => void) | undefined;
-    void getModelLoaderReady().then((loader) => {
-      unsub = loader.subscribe(() => {
-        void refreshModelStatus();
-      });
-    });
-    return () => unsub?.();
-  }, [refreshModelStatus, eligible]);
-
-  useEffect(() => {
-    if (!eligible) return;
+    let disposed = false;
+    objectSelectionStatusRef.current.mounted = true;
     void refreshObjectSelectionModelStatus();
     let unsub: (() => void) | undefined;
-    void getModelLoaderReady().then((loader) => {
-      unsub = loader.subscribe(() => {
-        void refreshObjectSelectionModelStatus();
+    void getModelLoaderReady()
+      .then((loader) => {
+        if (disposed) return;
+        unsub = loader.subscribe(() => {
+          void refreshObjectSelectionModelStatus();
+        });
+      })
+      .catch(() => {
+        /* refresh owns the visible status failure */
       });
-    });
     return () => {
+      disposed = true;
+      objectSelectionStatusRef.current.mounted = false;
+      objectSelectionStatusRef.current.generation++;
       unsub?.();
       objectSelectionDownloadAbortRef.current?.abort();
     };
   }, [eligible, refreshObjectSelectionModelStatus]);
-
-  useEffect(() => {
-    getEnvironmentCapabilities().then((caps) => {
-      // Browser-only GPU signal. Native ONNX inference in the desktop app
-      // runs on the CPU, and a native GPU is not used by these preview
-      // kernels; `aiAvailable` separately suppresses WASM warnings when the
-      // native provider can run the model.
-      setHasGpuAccel(caps.hasWebGPU || caps.hasWebGL);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (method !== 'quick' && requiredModelId) {
-      isWasmModelSafe(requiredModelId).then(setWasmModelSafe);
-    } else {
-      setWasmModelSafe(true);
-    }
-  }, [method, requiredModelId]);
 
   useEffect(() => {
     if (pending) {
@@ -798,68 +786,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     };
   }, [pending, operation?.startedAt]);
 
-  if (isCapabilityRestricted('inference')) return null;
-  if (!eligible || !node) return null;
-
-  const handleApply = async () => {
-    // Re-check freshly rather than trusting `aiAvailable` state: it's set
-    // asynchronously by the model-status effect keyed on `method`, so
-    // switching the dropdown and clicking Apply before that effect resolves
-    // could otherwise let a stale "available" reading from a previously
-    // selected method through, silently attempting removal with no model.
-    if (method !== 'quick' && requiredModelId) {
-      const loader = await getModelLoaderReady();
-      const stillAvailable = await loader.isModelAvailable(requiredModelId);
-      setAiAvailable(stillAvailable);
-      if (!stillAvailable) {
-        announce('Download the AI model first, or switch to Quick mode.');
-        setDownloadModelId(requiredModelId);
-        setShowDownloadDialog(true);
-        return;
-      }
-    }
-    setError(null);
-    setPending(true);
-    try {
-      await removeBackgroundWithOptions(method, feather, decontaminate);
-    } catch (e) {
-      const message = normalizeErrorMessage(e, 'Background removal failed');
-      setError(message);
-      if (message !== 'Cancelled') {
-        announce(message);
-      }
-    } finally {
-      setPending(false);
-    }
-  };
-
-  const handleCancel = () => {
-    cancelBackgroundRemoval();
-    setPending(false);
-    setError('Cancelled');
-  };
-
-  const handleReset = () => {
-    updateDoc((document) => {
-      const withoutNativeMask = removeRasterMaskFromNode(document, node.id);
-      const current = withoutNativeMask.nodes[node.id] as ShapeNode | undefined;
-      if (!current?.backgroundRemoval) return withoutNativeMask;
-      const { backgroundRemoval: _, ...rest } = current;
-      return {
-        ...withoutNativeMask,
-        nodes: { ...withoutNativeMask.nodes, [node.id]: rest as ShapeNode },
-      };
-    });
-    announce('Background removal reset');
-  };
-
-  const handleDownload = (modelId = requiredModelId) => {
-    // Show a warning before downloading AI Quality on environments without GPU
-    if (method === 'ai-quality' && !hasGpuAccel && !aiAvailable) {
-      announce(
-        'This model requires significant memory. Download it now, but inference may fail without GPU acceleration on this device.',
-      );
-    }
+  const handleDownload = (modelId: string | null = requiredModelId) => {
     setDownloadModelId(modelId);
     setShowDownloadDialog(true);
   };
@@ -918,6 +845,23 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     setObjectSelectionDownloadProgress(null);
     void refreshObjectSelectionModelStatus();
   }, [refreshObjectSelectionModelStatus]);
+
+  if (isCapabilityRestricted('inference')) return null;
+  if (!eligible || !node) return null;
+
+  const handleReset = () => {
+    updateDoc((document) => {
+      const withoutNativeMask = removeRasterMaskFromNode(document, node.id);
+      const current = withoutNativeMask.nodes[node.id] as ShapeNode | undefined;
+      if (!current?.backgroundRemoval) return withoutNativeMask;
+      const { backgroundRemoval: _, ...rest } = current;
+      return {
+        ...withoutNativeMask,
+        nodes: { ...withoutNativeMask.nodes, [node.id]: rest as ShapeNode },
+      };
+    });
+    announce('Background removal reset');
+  };
 
   const handleTogglePreview = () => {
     setShowOriginalBg(showingOriginal ? null : node.id);
@@ -1364,19 +1308,15 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 { value: 'quick', label: 'Fast — instant, simple backgrounds' },
                 {
                   value: 'ai-balanced',
-                  label: `Auto — general photos (AI Balanced)${!aiAvailable ? ' (download required)' : ''}`,
+                  label: 'Auto — general photos (AI Balanced)',
                 },
                 {
                   value: 'ai-quality',
-                  label: `High quality — fine details (AI High Quality)${
-                    !aiAvailable ? ' (download required)' : ''
-                  }${!wasmModelSafe && !hasGpuAccel && !aiAvailable ? ' — may need GPU' : ''}`,
+                  label: 'High quality — fine details (AI High Quality)',
                 },
                 {
                   value: 'portrait',
-                  label: `Portrait matting — people photos (MODNet)${
-                    !aiAvailable ? ' (download required)' : ''
-                  }`,
+                  label: 'Portrait matting — people photos (MODNet)',
                 },
               ]}
               onChange={(v) => setMethod(v as RemovalMethod)}
@@ -1405,40 +1345,11 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             )}
           </section>
 
-          {(() => {
-            const info = getModelInfo(method);
-            if (!info) return null;
-            const needsGpuWarn =
-              info.gpuRecommended && method === 'ai-quality' && !hasGpuAccel && !aiAvailable;
-            return (
-              <div className="insp-model-info">
-                <p className="insp-hint">
-                  {info.quality} &middot; {info.diskSizeDisplay} on disk &middot;{' '}
-                  {info.nativePeakRamDisplay
-                    ? `${info.nativePeakRamDisplay} during inference; ${info.peakRamDisplay}`
-                    : `${info.peakRamDisplay} during inference`}
-                </p>
-                <p className="insp-model-info__desc">{info.description}</p>
-                {needsGpuWarn && (
-                  <p className="insp-hint insp-hint--warn" role="status">
-                    GPU acceleration recommended for this model. Without it, inference may be slow
-                    or fail on some systems.
-                  </p>
-                )}
-                {method === 'ai-quality' &&
-                  !wasmModelSafe &&
-                  !hasGpuAccel &&
-                  !aiAvailable &&
-                  !needsGpuWarn && (
-                    <p className="insp-hint insp-hint--warn" role="status">
-                      This model exceeds the safe WASM memory limit without GPU acceleration. The AI
-                      Balanced model will be used as fallback if AI Quality fails. Consider
-                      switching to AI Balanced for reliable results.
-                    </p>
-                  )}
-              </div>
-            );
-          })()}
+          <BackgroundModelReadiness
+            method={method}
+            status={modelStatus}
+            onDownload={handleDownload}
+          />
 
           {previewDownscaleActive && (
             <p className="insp-hint" aria-live="polite">
@@ -1446,46 +1357,25 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             </p>
           )}
 
-          {method !== 'quick' && !aiAvailable && modelState !== 'downloading' && (
-            <div className="insp-actions">
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={() => handleDownload()}
-                aria-label="Download AI model for background removal"
-              >
-                Download AI Model
-              </Button>
-              <p className="insp-hint">
-                Requires a one-time download stored on this device. Manage models in Settings,
-                Offline Models.
-              </p>
-            </div>
-          )}
-
-          {method === 'ai-balanced' && aiAvailable && !enhancedBalancedAvailable && (
-            <div className="insp-actions">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => handleDownload('isnet-general-use')}
-                aria-label="Download enhanced Balanced model"
-              >
-                Upgrade Balanced
-              </Button>
-              <p className="insp-hint">
-                Optional 179 MB IS-Net model improves varied people, animals, vehicles, and objects.
-                The bundled low-memory model remains available as fallback.
-              </p>
-            </div>
-          )}
-          {method !== 'quick' && modelState === 'downloading' && (
-            <p className="insp-hint" aria-live="polite">
-              Downloading model... Please wait.
-            </p>
-          )}
+          {method === 'ai-balanced' &&
+            modelStatus.readiness?.installed &&
+            !modelStatus.readiness.enhancedInstalled && (
+              <div className="insp-actions">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleDownload('isnet-general-use')}
+                  aria-label="Download enhanced Balanced model"
+                >
+                  Upgrade Balanced
+                </Button>
+                <p className="insp-hint">
+                  Optional 179 MB IS-Net model improves varied people, animals, vehicles, and
+                  objects. The bundled low-memory model remains available as fallback.
+                </p>
+              </div>
+            )}
 
           {maskProvenance && (
             <p className="insp-meta-row">
@@ -1577,7 +1467,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={handleCancel}
+                  onClick={action.cancel}
                   aria-label="Cancel background removal"
                 >
                   Cancel
@@ -1588,7 +1478,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 type="button"
                 variant="default"
                 size="sm"
-                onClick={() => void handleApply()}
+                onClick={() => void action.apply()}
                 aria-label={
                   maskProvenance ? 'Re-apply background removal' : 'Remove background from image'
                 }
@@ -1936,7 +1826,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             onComplete={() => {
               setShowDownloadDialog(false);
               setDownloadModelId(null);
-              void refreshModelStatus();
+              modelStatus.refresh();
             }}
           />
         )}

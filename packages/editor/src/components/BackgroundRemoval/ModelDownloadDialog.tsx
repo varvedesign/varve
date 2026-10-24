@@ -7,7 +7,7 @@ import {
   UPSCALE_MODELS,
 } from '@varve/engine';
 import { Button, Dialog } from '@varve/ui';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type NormalizedModelDownloadError,
   normalizeModelDownloadError,
@@ -74,6 +74,24 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
   const [error, setError] = useState<NormalizedModelDownloadError | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(false);
+  const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    statusRef.current = 'confirm';
+    setStatus('confirm');
+    setError(null);
+    setProgress(0);
+    return () => {
+      mountedRef.current = false;
+      abortRef.current?.abort();
+      abortRef.current = null;
+      if (completeTimerRef.current !== null) clearTimeout(completeTimerRef.current);
+    };
+  }, [modelId]);
 
   const updateStatus = useCallback((next: DownloadStatus) => {
     statusRef.current = next;
@@ -81,6 +99,7 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
   }, []);
 
   const handleDownload = useCallback(async () => {
+    if (abortRef.current) return;
     // Block download if AI features are disabled
     if (!aiEnabled) {
       const error: NormalizedModelDownloadError = {
@@ -99,7 +118,6 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
     setProgress(0);
     setError(null);
     setDetailsOpen(false);
-    abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     try {
@@ -107,14 +125,29 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
       await loader.downloadModel(
         modelId,
         (loaded, total) => {
-          setProgress(Math.round((loaded / total) * 100));
+          if (mountedRef.current && !controller.signal.aborted) {
+            setProgress(
+              total > 0 ? Math.min(100, Math.max(0, Math.round((loaded / total) * 100))) : 0,
+            );
+          }
         },
         controller.signal,
-        (stage) => updateStatus(stage),
+        (stage) => {
+          if (mountedRef.current && !controller.signal.aborted) updateStatus(stage);
+        },
       );
+      if (!mountedRef.current || abortRef.current !== controller) return;
+      if (controller.signal.aborted) {
+        updateStatus('cancelled');
+        setProgress(0);
+        return;
+      }
       updateStatus('ready');
-      setTimeout(onComplete, 1000);
+      completeTimerRef.current = setTimeout(() => {
+        if (mountedRef.current && !controller.signal.aborted) onCompleteRef.current();
+      }, 1000);
     } catch (e) {
+      if (!mountedRef.current || abortRef.current !== controller) return;
       if (controller.signal.aborted) {
         updateStatus('cancelled');
         setProgress(0);
@@ -124,9 +157,9 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
       setError(normalized);
       updateStatus('error');
     } finally {
-      abortRef.current = null;
+      if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [modelId, onComplete, updateStatus]);
+  }, [aiEnabled, modelId, updateStatus]);
 
   const handleCancel = useCallback(() => {
     const currentStatus = statusRef.current;
@@ -144,6 +177,7 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
     ) {
       return;
     }
+    if (completeTimerRef.current !== null) clearTimeout(completeTimerRef.current);
     onClose();
   }, [onClose, updateStatus]);
 
@@ -151,9 +185,11 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
   const sourceHost = model ? sourceHostname(model.remoteUrl) : 'a remote server';
   const purpose = removalModel
     ? 'background removal'
-    : catalogEntry?.category === 'denoising'
-      ? 'image denoising'
-      : 'image upscaling';
+    : modelId === 'ddcolor' || modelId === 'ddcolor-tiny'
+      ? 'colorization'
+      : catalogEntry?.category === 'denoising'
+        ? 'image denoising'
+        : 'image upscaling';
   return (
     <Dialog
       open

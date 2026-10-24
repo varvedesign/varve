@@ -22,6 +22,8 @@ import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { commitColorizationResult, planColorizeApply } from '../../../colorizationCommit';
 import { useEditor } from '../../../context';
+import { ColorizeModelReadiness } from '../../Colorization/ColorizeModelReadiness';
+import { useColorizeModelReadiness } from '../../Colorization/useColorizeModelReadiness';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { RangeValueControl } from '../controls/RangeValueControl';
@@ -56,7 +58,20 @@ interface ColorizeState {
   previewSignature: string | null;
   previewSourceSrc: string | null;
   previewSourceId: string | null;
+  /** Execution provider and model that actually produced the approved preview. */
+  previewProvenance: string | null;
   elapsedMs: number;
+}
+
+/** User-facing provenance naming the runtime/model that executed a preview. */
+function previewProvenanceLabel(
+  provider: string | null | undefined,
+  modelUsed: string | null | undefined,
+): string | null {
+  if (!provider) return null;
+  const runtime =
+    provider === 'native-cpu' ? 'native CPU' : provider === 'wasm' ? 'WebAssembly' : provider;
+  return modelUsed ? `${runtime} (${modelUsed})` : runtime;
 }
 
 /**
@@ -231,7 +246,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   const [lineThreshold, setLineThreshold] = useState(0.5);
   const [gapClose, setGapClose] = useState(1);
   const [mask, setMask] = useState<MaskSelection | null>(null);
-  const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
   const [colorize, setColorize] = useState<ColorizeState>({
     status: 'idle',
     phase: null,
@@ -244,6 +258,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     previewSignature: null,
     previewSourceSrc: null,
     previewSourceId: null,
+    previewProvenance: null,
     elapsedMs: 0,
   });
 
@@ -251,6 +266,10 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   const isImage = Boolean(node && isImageShape(node));
   const typedNode = isImage ? (node as ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
+  const modelStatus = useColorizeModelReadiness(
+    qualityMode,
+    workflow === 'photo' && Boolean(imageSrc),
+  );
   const sourceId = typedNode?.id ?? '';
   const documentSwatches = state.document.swatches ?? [];
 
@@ -336,41 +355,10 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       previewSignature: null,
       previewSourceSrc: null,
       previewSourceId: null,
+      previewProvenance: null,
       elapsedMs: 0,
     }));
   }, []);
-
-  useEffect(() => {
-    if (workflow !== 'photo') {
-      setModelAvailable(null);
-      return;
-    }
-    let active = true;
-    let unsubscribe: (() => void) | null = null;
-    setModelAvailable(null);
-    void import('@varve/engine')
-      .then(async ({ getModelLoaderReady }) => {
-        const loader = await getModelLoaderReady();
-        const check = async () => {
-          const available =
-            (await loader.isModelAvailable('ddcolor-tiny')) ||
-            (await loader.isModelAvailable('ddcolor'));
-          if (active) setModelAvailable(available);
-        };
-        await check();
-        // Model installation/removal happens in Settings while this panel may
-        // stay open; keep the gated lane's readiness live instead of requiring
-        // a mode toggle.
-        if (active) unsubscribe = loader.subscribe(() => void check());
-      })
-      .catch(() => {
-        if (active) setModelAvailable(false);
-      });
-    return () => {
-      active = false;
-      unsubscribe?.();
-    };
-  }, [workflow]);
 
   useEffect(() => {
     return () => {
@@ -577,10 +565,15 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     ],
   );
 
+  // A readiness check clears its snapshot before it runs, so modelId is null
+  // while the new mode is still being verified. That is neither "not installed"
+  // nor a confirmed miss: it must be reported as its own state, or Preview looks
+  // merely unmet and the click is swallowed without an explanation.
+  const modelChecking = workflow === 'photo' && modelStatus.checking;
   const canRun =
     Boolean(imageSrc) &&
     (workflow === 'photo'
-      ? modelAvailable === true
+      ? modelStatus.modelId !== null
       : workflow === 'palette'
         ? selectedPalette.length > 0
         : workflow === 'transfer' || workflow === 'harmonize'
@@ -615,6 +608,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       previewSignature: null,
       previewSourceSrc: null,
       previewSourceId: null,
+      previewProvenance: null,
       elapsedMs: 0,
     }));
 
@@ -635,6 +629,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         previewSignature: expectedSignature,
         previewSourceSrc: imageSrc,
         previewSourceId: sourceId,
+        previewProvenance: previewProvenanceLabel(result.provider, result.modelUsed),
         elapsedMs: 0,
       }));
       announce('Colorize preview ready');
@@ -883,26 +878,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
             ]}
           />
         </FieldRow>
-
-        {workflow === 'photo' && (
-          <div className="colorize-section__model-status" aria-live="polite">
-            <p className="insp-hint">
-              DDColor runs locally when a verified model is installed. The model proposes chroma
-              while the original detail, lightness, and alpha are retained.
-            </p>
-            {modelAvailable === null && (
-              <span className="colorize-section__model-badge">Checking model readiness…</span>
-            )}
-            {modelAvailable === true && (
-              <span className="colorize-section__model-badge">Verified DDColor model ready</span>
-            )}
-            {modelAvailable === false && (
-              <span className="colorize-section__model-badge colorize-section__model-badge--warning">
-                No verified DDColor model installed. Open Settings &gt; Models to install one.
-              </span>
-            )}
-          </div>
-        )}
 
         {workflow === 'recolor' && (
           <>
@@ -1336,6 +1311,13 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 original; source detail and alpha are retained.
               </p>
             )}
+            {workflow === 'photo' &&
+              colorize.previewSourceSrc === imageSrc &&
+              colorize.previewProvenance && (
+                <p className="insp-hint" role="note" aria-label="Colorize preview provenance">
+                  Preview ran on {colorize.previewProvenance}.
+                </p>
+              )}
             {workflow === 'photo' && colorize.previewSourceKind === 'already-colored' && (
               <p className="insp-hint">
                 This image already contains strong color. Photo colorization replaces its chroma
@@ -1375,6 +1357,8 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
           </section>
         )}
 
+        {workflow === 'photo' && <ColorizeModelReadiness key={qualityMode} status={modelStatus} />}
+
         <div className="insp-actions">
           {isProcessing ? (
             <>
@@ -1401,6 +1385,11 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 size="sm"
                 onClick={handlePreview}
                 disabled={!canRun}
+                disabledReason={
+                  modelChecking
+                    ? 'Checking whether this quality mode’s model is installed…'
+                    : 'Complete the model or input requirements shown above.'
+                }
                 aria-label="Generate colorize preview"
               >
                 Preview
@@ -1410,6 +1399,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 variant="default"
                 size="sm"
                 disabled={!canApply}
+                disabledReason="Generate a preview for the current image and settings first."
                 onClick={handleApply}
                 aria-label="Apply colorization at full resolution"
               >

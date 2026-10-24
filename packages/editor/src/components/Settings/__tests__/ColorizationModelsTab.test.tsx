@@ -1,13 +1,16 @@
 // @ts-nocheck
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   mockIsModelAvailable: vi.fn().mockResolvedValue(false),
   mockHasDownloadedBlob: vi.fn().mockResolvedValue(false),
   mockSubscribe: vi.fn(() => () => {}),
+  ready: vi.fn(),
+  unsubscribe: vi.fn(),
+  remove: vi.fn(),
 }));
 
 vi.mock('@varve/engine', () => ({
@@ -38,12 +41,7 @@ vi.mock('@varve/engine', () => ({
       detail: 'No download source available',
     };
   },
-  getModelLoaderReady: vi.fn().mockResolvedValue({
-    isModelAvailable: mocks.mockIsModelAvailable,
-    hasDownloadedBlob: mocks.mockHasDownloadedBlob,
-    subscribe: mocks.mockSubscribe,
-    deleteModel: vi.fn(),
-  }),
+  getModelLoaderReady: mocks.ready,
   listAllModels: vi.fn(() => [
     {
       id: 'ddcolor',
@@ -69,8 +67,14 @@ vi.mock('@varve/engine', () => ({
 }));
 
 vi.mock('@varve/ui', () => ({
-  Button: ({ children, onClick, disabled, variant }) => (
-    <button type="button" onClick={onClick} disabled={disabled} data-variant={variant}>
+  Button: ({ children, onClick, disabled, variant, 'aria-label': label }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      data-variant={variant}
+      aria-label={label}
+    >
       {children}
     </button>
   ),
@@ -100,8 +104,17 @@ afterEach(cleanup);
 
 describe('ColorizationModelsTab', () => {
   beforeEach(() => {
-    mocks.mockIsModelAvailable.mockResolvedValue(false);
-    mocks.mockHasDownloadedBlob.mockResolvedValue(false);
+    vi.clearAllMocks();
+    mocks.mockIsModelAvailable.mockReset().mockResolvedValue(false);
+    mocks.mockHasDownloadedBlob.mockReset().mockResolvedValue(false);
+    mocks.mockSubscribe.mockReturnValue(mocks.unsubscribe);
+    mocks.ready.mockReset().mockResolvedValue({
+      isModelAvailable: mocks.mockIsModelAvailable,
+      hasDownloadedBlob: mocks.mockHasDownloadedBlob,
+      subscribe: mocks.mockSubscribe,
+      deleteModel: mocks.remove,
+    });
+    mocks.remove.mockReset().mockResolvedValue(undefined);
   });
 
   it('renders section title', async () => {
@@ -138,5 +151,84 @@ describe('ColorizationModelsTab', () => {
     render(<ColorizationModelsTab />);
     expect(await screen.findByText(/156 MB/)).toBeTruthy();
     expect(await screen.findByText(/50 MB/)).toBeTruthy();
+  });
+
+  it('unsubscribes the live model-list listener on unmount', async () => {
+    const view = render(<ColorizationModelsTab />);
+    await screen.findByText('DDColor Tiny');
+    view.unmount();
+    expect(mocks.unsubscribe).toHaveBeenCalledOnce();
+  });
+
+  it('does not subscribe after late initialization of an unmounted list', async () => {
+    let finish!: (value: object) => void;
+    mocks.ready.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const view = render(<ColorizationModelsTab />);
+    view.unmount();
+    await act(async () =>
+      finish({ isModelAvailable: mocks.mockIsModelAvailable, subscribe: mocks.mockSubscribe }),
+    );
+    expect(mocks.mockSubscribe).not.toHaveBeenCalled();
+  });
+
+  it('retains a failed removal and allows retry instead of losing the error', async () => {
+    mocks.mockIsModelAvailable.mockResolvedValue(true);
+    mocks.mockHasDownloadedBlob.mockResolvedValue(true);
+    mocks.remove.mockRejectedValueOnce(new Error('Model file is in use.'));
+    render(<ColorizationModelsTab />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove DDColor model' }));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('file is in use'));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove DDColor model' }));
+    await waitFor(() => expect(mocks.remove).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
+  it('retains other models and distinguishes a status error from a missing artifact', async () => {
+    mocks.mockIsModelAvailable.mockImplementation(async (id: string) => {
+      if (id === 'ddcolor') throw new Error('Cannot read DDColor storage.');
+      return false;
+    });
+    render(<ColorizationModelsTab />);
+    await screen.findByText('DDColor Tiny');
+    expect(screen.getByRole('alert').textContent).toContain('Cannot read DDColor storage');
+    expect(screen.queryByRole('button', { name: 'Download DDColor model' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Download DDColor Tiny model' })).toBeTruthy();
+    mocks.mockIsModelAvailable.mockResolvedValue(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading models' }));
+    await screen.findByRole('button', { name: 'Download DDColor model' });
+  });
+
+  it('ignores a stale installed result overtaken by a removal notification', async () => {
+    render(<ColorizationModelsTab />);
+    await screen.findByRole('button', { name: 'Download DDColor model' });
+    const notify = mocks.mockSubscribe.mock.calls[0][0];
+    let finish!: (value: boolean) => void;
+    mocks.mockIsModelAvailable.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    act(() => notify());
+    await waitFor(() => expect(finish).toBeTypeOf('function'));
+    await act(async () => notify());
+    await act(async () => finish(true));
+    expect(screen.getByRole('button', { name: 'Download DDColor model' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove DDColor model' })).toBeNull();
+  });
+
+  it('retries failed initialization and installs a live subscription after recovery', async () => {
+    mocks.ready.mockRejectedValueOnce(new Error('Model service unavailable.'));
+    render(<ColorizationModelsTab />);
+    expect((await screen.findByRole('alert')).textContent).toContain('Model service unavailable');
+    expect(screen.queryByText('No colorization models found in the catalog.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading models' }));
+    await screen.findByRole('button', { name: 'Download DDColor model' });
+    expect(mocks.mockSubscribe).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

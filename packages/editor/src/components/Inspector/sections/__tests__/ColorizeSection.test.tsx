@@ -1,8 +1,15 @@
 // @ts-nocheck
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const models = vi.hoisted(() => ({
+  available: vi.fn(),
+  ready: vi.fn(),
+  subscribe: vi.fn(),
+  unsubscribe: vi.fn(),
+}));
 
 vi.mock('../../controls/FieldRow', () => ({
   FieldRow: ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -31,7 +38,12 @@ vi.mock('../../../../context', () => ({
   }),
 }));
 
-vi.mock('@varve/engine', () => ({
+vi.mock('@varve/engine', async (importOriginal) => ({
+  // Reuse the real candidate resolver without a source-path import: importing
+  // engine sources directly pulls them into the editor tsconfig rootDir.
+  getDdColorModelCandidates: (await importOriginal<typeof import('@varve/engine')>())
+    .getDdColorModelCandidates,
+  getModelById: () => undefined,
   colorizationPipeline: {
     resolveRuntime: vi.fn(),
     execute: vi.fn().mockRejectedValue(new Error('not mocked')),
@@ -51,10 +63,7 @@ vi.mock('@varve/engine', () => ({
     confidence: 0.9,
   })),
   listAllModels: vi.fn(() => []),
-  getModelLoaderReady: vi.fn(async () => ({
-    isModelAvailable: vi.fn().mockResolvedValue(false),
-    subscribe: vi.fn(() => vi.fn()),
-  })),
+  getModelLoaderReady: models.ready,
 }));
 
 vi.mock('@varve/scene', () => ({
@@ -62,12 +71,29 @@ vi.mock('@varve/scene', () => ({
   isImageShape: vi.fn(() => true),
 }));
 
-vi.mock('@varve/ui', () => ({
-  Button: ({ children, onClick, disabled, variant }) => (
-    <button type="button" onClick={onClick} disabled={disabled} data-variant={variant}>
-      {children}
-    </button>
-  ),
+vi.mock('@varve/ui', async () => ({
+  ...(await vi.importActual('@varve/ui')),
+  // Mirrors the real Button's availability contract: a disabledReason makes the
+  // control aria-disabled (still focusable and clickable, but a no-op) rather
+  // than HTML-disabled. Tests that only saw a plain `disabled` prop could not
+  // distinguish "not yet ready" from "ready", which hid the checking stall.
+  Button: ({ children, onClick, disabled, softDisabled, loading, disabledReason, variant }) => {
+    const reasonActive = disabledReason !== undefined && (disabled || softDisabled) && !loading;
+    const htmlDisabled = !loading && !softDisabled && !reasonActive && disabled;
+    const ariaDisabled = loading || softDisabled || reasonActive || undefined;
+    return (
+      <button
+        type="button"
+        onClick={ariaDisabled ? undefined : onClick}
+        disabled={htmlDisabled || undefined}
+        aria-disabled={ariaDisabled}
+        title={reasonActive ? disabledReason : undefined}
+        data-variant={variant}
+      >
+        {children}
+      </button>
+    );
+  },
   // Mirrors the real Select: labelled via aria-label, native <option> children,
   // and onChange handed the option value rather than the event.
   Select: ({ label, value, options, onChange, disabled }) => (
@@ -118,9 +144,25 @@ vi.mock('@varve/ui', () => ({
   ),
 }));
 
+vi.mock('../../../BackgroundRemoval/ModelDownloadDialog', () => ({
+  ModelDownloadDialog: ({ modelId }: { modelId: string }) => (
+    <div role="dialog" aria-label={`Install ${modelId}`} />
+  ),
+}));
+
 import { ColorizeSection } from '../ColorizeSection';
 
 afterEach(cleanup);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  models.available.mockReset().mockResolvedValue(false);
+  models.subscribe.mockReturnValue(models.unsubscribe);
+  models.ready.mockReset().mockResolvedValue({
+    isModelAvailable: models.available,
+    subscribe: models.subscribe,
+  });
+});
 
 const makeImageNode = (overrides = {}) => ({
   id: 'node-1',
@@ -130,6 +172,14 @@ const makeImageNode = (overrides = {}) => ({
   fills: [{ type: 'image', src: 'data:image/png;base64,dummy', fit: 'fill' }],
   ...overrides,
 });
+
+// The real Button reports "not yet" via aria-disabled (still clickable, but a
+// no-op that surfaces disabledReason) rather than the disabled attribute, so
+// availability has to be read from both. Reading only `.disabled` cannot tell
+// "not installed" from "still checking", which is what hid the stall.
+const previewButton = () => screen.getByRole('button', { name: /preview/i });
+const previewUnavailable = () =>
+  previewButton().disabled || previewButton().getAttribute('aria-disabled') === 'true';
 
 describe('ColorizeSection', () => {
   it('renders workflow selector', () => {
@@ -238,5 +288,137 @@ describe('ColorizeSection', () => {
   it('returns null when no node provided', () => {
     const { container } = render(<ColorizeSection nodes={[]} />);
     expect(container.innerHTML).toBe('');
+  });
+
+  it('requires the large model for Balanced even when Tiny is installed', async () => {
+    models.available.mockImplementation(async (id: string) => id === 'ddcolor-tiny');
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    fireEvent.change(screen.getByLabelText('Colorization workflow'), {
+      target: { value: 'photo' },
+    });
+    await waitFor(() => expect(models.subscribe).toHaveBeenCalled());
+    expect(previewUnavailable()).toBe(true);
+    fireEvent.click(screen.getByRole('radio', { name: 'Fast' }));
+    await waitFor(() => expect(previewUnavailable()).toBe(false));
+    fireEvent.click(screen.getByRole('radio', { name: 'Quality' }));
+    expect(previewUnavailable()).toBe(true);
+  });
+
+  it('requires Tiny for Fast even when the large model is installed', async () => {
+    models.available.mockImplementation(async (id: string) => id === 'ddcolor');
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    fireEvent.change(screen.getByLabelText('Colorization workflow'), {
+      target: { value: 'photo' },
+    });
+    await waitFor(() => expect(previewUnavailable()).toBe(false));
+    fireEvent.click(screen.getByRole('radio', { name: 'Fast' }));
+    await waitFor(() => expect(previewUnavailable()).toBe(true));
+    fireEvent.click(screen.getByRole('radio', { name: 'Automatic' }));
+    await waitFor(() => expect(previewUnavailable()).toBe(false));
+  });
+
+  it('shows a retryable status failure instead of claiming an artifact is missing', async () => {
+    models.available.mockRejectedValue(new Error('Model storage could not be read.'));
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    fireEvent.change(screen.getByLabelText('Colorization workflow'), {
+      target: { value: 'photo' },
+    });
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('storage'));
+    expect(screen.queryByText(/No verified DDColor model installed/i)).toBeNull();
+    models.available.mockResolvedValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry model check' }));
+    await waitFor(() => expect(previewUnavailable()).toBe(false));
+  });
+
+  it('discards an earlier readiness check when a removal notification overtakes it', async () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    fireEvent.change(screen.getByLabelText('Colorization workflow'), {
+      target: { value: 'photo' },
+    });
+    await waitFor(() => expect(models.subscribe).toHaveBeenCalled());
+    const notify = models.subscribe.mock.calls[0][0];
+    let finish!: (value: boolean) => void;
+    models.available.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    act(() => notify());
+    await waitFor(() => expect(finish).toBeTypeOf('function'));
+    await act(async () => notify());
+    await act(async () => finish(true));
+    expect(previewUnavailable()).toBe(true);
+  });
+
+  it('does not subscribe after the panel unmounts during loader initialization', async () => {
+    let finish!: (value: object) => void;
+    models.ready.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const view = render(<ColorizeSection nodes={[makeImageNode()]} />);
+    fireEvent.change(screen.getByLabelText('Colorization workflow'), {
+      target: { value: 'photo' },
+    });
+    await waitFor(() => expect(models.ready).toHaveBeenCalled());
+    view.unmount();
+    await act(async () =>
+      finish({ isModelAvailable: models.available, subscribe: models.subscribe }),
+    );
+    expect(models.subscribe).not.toHaveBeenCalled();
+  });
+
+  it('opens acquisition for the exact missing model selected by the quality mode', async () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    fireEvent.change(screen.getByLabelText('Colorization workflow'), {
+      target: { value: 'photo' },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Download DDColor' }));
+    expect(screen.getByRole('dialog', { name: 'Install ddcolor' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Fast' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Download DDColor Tiny' }));
+    expect(screen.getByRole('dialog', { name: 'Install ddcolor-tiny' })).toBeTruthy();
+  });
+
+  it('keeps Preview inert while the quality mode is still checking installation', async () => {
+    // Regression: a mode switch clears the readiness snapshot while the new
+    // check runs. Ignoring that window left the button aria-disabled-but-clickable
+    // with no explanation, so a real click stalled silently instead of reporting
+    // that installation was still being verified.
+    // Both models report installed so the mode change is a pure re-check, not a
+    // genuine miss: the button must be available before, inert during, and
+    // available again after.
+    models.available.mockResolvedValue(true);
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    fireEvent.change(screen.getByLabelText('Colorization workflow'), {
+      target: { value: 'photo' },
+    });
+    await waitFor(() => expect(models.subscribe).toHaveBeenCalled());
+    await waitFor(() => expect(previewUnavailable()).toBe(false));
+
+    let finishCheck!: () => void;
+    models.available.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishCheck = () => resolve(true);
+        }),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'Quality' }));
+    });
+    await waitFor(() => expect(finishCheck).toBeTypeOf('function'));
+
+    const preview = previewButton();
+    expect(previewUnavailable()).toBe(true);
+    expect(screen.getByRole('status').textContent).toMatch(/Checking model installation/i);
+    // The inert control must explain itself rather than swallow the click.
+    expect(preview.title).toMatch(/Checking whether this quality mode/i);
+
+    await act(async () => finishCheck());
+    await waitFor(() => expect(previewUnavailable()).toBe(false));
+    // No reason is active once the mode is ready, so no explanation is shown.
+    expect(preview.getAttribute('title')).toBeNull();
   });
 });

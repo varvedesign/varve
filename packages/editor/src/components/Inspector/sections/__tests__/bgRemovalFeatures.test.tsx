@@ -1,7 +1,7 @@
 // @ts-nocheck
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../context', () => {
@@ -17,13 +17,23 @@ afterEach(cleanup);
 
 const mockedUseEditor = vi.mocked(useEditor);
 
-const { mockExportRemoveBg, mockExportImageCache, mockExportIsModelAvailable } = vi.hoisted(() => ({
+const {
+  mockExportRemoveBg,
+  mockExportImageCache,
+  mockExportIsModelAvailable,
+  mockReadiness,
+  mockModelLoaderReady,
+  mockModelSubscribe,
+} = vi.hoisted(() => ({
   mockExportRemoveBg: vi.fn(),
   mockExportImageCache: {
     load: vi.fn(),
     loadAtSize: vi.fn().mockResolvedValue({ width: 200, height: 160 }),
   },
   mockExportIsModelAvailable: vi.fn().mockResolvedValue(true),
+  mockReadiness: vi.fn(),
+  mockModelLoaderReady: vi.fn(),
+  mockModelSubscribe: vi.fn(),
 }));
 
 vi.mock('@varve/engine', async (importOriginal) => {
@@ -34,11 +44,8 @@ vi.mock('@varve/engine', async (importOriginal) => {
     checkGifExportSupport: () => ({ supported: false, reason: 'test' }),
     checkVideoExportSupport: () => ({ supported: false, reason: 'test' }),
     isWasmModelSafe: vi.fn().mockResolvedValue(true),
-    getModelLoaderReady: vi.fn().mockResolvedValue({
-      getState: () => 'unavailable',
-      isModelAvailable: mockExportIsModelAvailable,
-      subscribe: () => () => {},
-    }),
+    getModelLoaderReady: mockModelLoaderReady,
+    getBackgroundRemovalReadiness: mockReadiness,
     workerModelIdForMethod: (method: string) =>
       method === 'ai-quality'
         ? 'birefnet-general-lite'
@@ -47,65 +54,6 @@ vi.mock('@varve/engine', async (importOriginal) => {
           : null,
     removeBackground: mockExportRemoveBg,
     getImageCache: () => mockExportImageCache,
-    getModelInfo: (method: string) => {
-      const info: Record<
-        string,
-        {
-          label: string;
-          description: string;
-          diskSizeBytes: number;
-          estimatedPeakRamBytes: number;
-          peakRamDisplay: string;
-          nativeEstimatedPeakRamBytes?: number;
-          nativePeakRamDisplay?: string;
-          diskSizeDisplay: string;
-          quality: string;
-          requiresDownload: boolean;
-          gpuRecommended: boolean;
-          wasmSafe: boolean;
-        }
-      > = {
-        quick: {
-          label: 'Quick',
-          description: 'Fast CPU heuristic',
-          diskSizeBytes: 0,
-          estimatedPeakRamBytes: 16_000_000,
-          peakRamDisplay: '~16 MB',
-          diskSizeDisplay: '0 B',
-          quality: 'Basic',
-          requiresDownload: false,
-          gpuRecommended: false,
-          wasmSafe: true,
-        },
-        'ai-balanced': {
-          label: 'AI Balanced',
-          description: 'Bundled u2netp',
-          diskSizeBytes: 4_700_000,
-          estimatedPeakRamBytes: 50_000_000,
-          peakRamDisplay: '~50 MB',
-          diskSizeDisplay: '4.7 MB',
-          quality: 'Good',
-          requiresDownload: false,
-          gpuRecommended: false,
-          wasmSafe: true,
-        },
-        'ai-quality': {
-          label: 'AI High Quality',
-          description: 'BiRefNet Lite',
-          diskSizeBytes: 224_000_000,
-          estimatedPeakRamBytes: 900_000_000,
-          peakRamDisplay: 'browser WASM needs ~900 MB (over its limit)',
-          nativeEstimatedPeakRamBytes: 450_000_000,
-          nativePeakRamDisplay: '~450 MB RAM on desktop',
-          diskSizeDisplay: '224 MB',
-          quality: 'Best',
-          requiresDownload: true,
-          gpuRecommended: true,
-          wasmSafe: false,
-        },
-      };
-      return info[method] ?? null;
-    },
     getEnvironmentCapabilities: vi.fn().mockResolvedValue({
       crossOriginIsolated: false,
       isWebKitGTK: false,
@@ -227,6 +175,88 @@ function createMockEditorContext(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   mockedUseEditor.mockReturnValue(createMockEditorContext());
+  mockExportIsModelAvailable.mockResolvedValue(true);
+  mockModelSubscribe.mockReset().mockReturnValue(() => {});
+  mockModelLoaderReady.mockReset().mockResolvedValue({
+    getState: () => 'unavailable',
+    getCurrentModelId: () => 'u2netp',
+    isModelAvailable: mockExportIsModelAvailable,
+    subscribe: mockModelSubscribe,
+  });
+  mockReadiness.mockReset().mockImplementation(async (method: string) => ({
+    modelId:
+      method === 'ai-quality' ? 'birefnet-general-lite' : method === 'quick' ? null : 'u2netp',
+    installed: true,
+    canAttempt: true,
+    runtime: 'Browser CPU',
+    summary: 'Installed',
+    recovery: null,
+    enhancedInstalled: false,
+  }));
+});
+
+describe('BackgroundRemovalSection - pending readiness ownership', () => {
+  it('preserves hook order when an image selection is cleared and restored', async () => {
+    const view = render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    await waitFor(() => expect(mockReadiness).toHaveBeenCalled());
+    view.rerender(<BackgroundRemovalSection nodes={[]} />);
+    expect(screen.queryByRole('region', { name: 'Background removal readiness' })).toBeNull();
+    view.rerender(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    expect(
+      await screen.findByRole('region', { name: 'Background removal readiness' }),
+    ).toBeVisible();
+  });
+
+  it('does not start processing when Cancel is pressed during the action readiness check', async () => {
+    const context = createMockEditorContext();
+    mockedUseEditor.mockReturnValue(context);
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    await waitFor(() => expect(mockReadiness).toHaveBeenCalled());
+    const ready = await mockReadiness('quick');
+    let resolveCheck!: (value: typeof ready) => void;
+    mockReadiness.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove background from image' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel background removal' }));
+    await act(async () => resolveCheck(ready));
+    expect(context.cancelBackgroundRemoval).toHaveBeenCalledOnce();
+    expect(context.removeBackgroundWithOptions).not.toHaveBeenCalled();
+  });
+
+  it('does not start a previous image action after the selection changes', async () => {
+    const context = createMockEditorContext();
+    mockedUseEditor.mockReturnValue(context);
+    const view = render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    await waitFor(() => expect(mockReadiness).toHaveBeenCalled());
+    const ready = await mockReadiness('quick');
+    let resolveCheck!: (value: typeof ready) => void;
+    mockReadiness.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove background from image' }));
+    view.rerender(<BackgroundRemovalSection nodes={[makeImageNode({ id: 'n2' })]} />);
+    await act(async () => resolveCheck(ready));
+    expect(context.removeBackgroundWithOptions).not.toHaveBeenCalled();
+  });
+
+  it('does not subscribe to model changes after a late loader resolves on unmount', async () => {
+    const loader = await mockModelLoaderReady();
+    let resolveLoader!: (value: typeof loader) => void;
+    mockModelLoaderReady.mockReturnValue(
+      new Promise((resolve) => {
+        resolveLoader = resolve;
+      }),
+    );
+    const view = render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    view.unmount();
+    await act(async () => resolveLoader(loader));
+    expect(mockModelSubscribe).not.toHaveBeenCalled();
+  });
 });
 
 describe('BackgroundRemovalSection - Preview toggle', () => {
@@ -1044,9 +1074,7 @@ describe('BackgroundRemovalSection - Error normalization', () => {
 });
 
 describe('BackgroundRemovalSection - model memory disclosure', () => {
-  it('states the desktop and browser working sets separately', async () => {
-    // One figure for two very different runtimes was the defect: the desktop
-    // path needs ~450 MB while the browser stays conservatively gated at ~7 GB.
+  it('discloses unvalidated peak memory without promoting residency to a requirement', async () => {
     mockedUseEditor.mockReturnValue(createMockEditorContext());
     const node = makeImageNode({
       backgroundRemoval: {
@@ -1057,9 +1085,8 @@ describe('BackgroundRemovalSection - model memory disclosure', () => {
       },
     });
     render(<BackgroundRemovalSection nodes={[node]} />);
-    const info = await screen.findByText(/during inference/i);
-    expect(info.textContent).toMatch(/on desktop/);
-    expect(info.textContent).toMatch(/browser WASM/);
-    expect(info.textContent).not.toMatch(/RAM RAM/i);
+    fireEvent.click(screen.getByRole('button', { name: 'Model details' }));
+    expect(await screen.findByText(/Peak working memory has not yet been validated/)).toBeVisible();
+    expect(screen.queryByText(/450 MB|4\.1 GB|7 GB|over its limit/)).toBeNull();
   });
 });
