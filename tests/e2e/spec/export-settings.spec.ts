@@ -97,6 +97,6 @@ test.describe('Inspector export settings — per-node configurations', () => {
     await selectExportTab(page);
 
     await page.getByRole('button', { name: /Open export workspace/ }).click();
-    await expect(page.getByRole('dialog', { name: 'Export' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Export Batch' })).toBeVisible();
   });
 });

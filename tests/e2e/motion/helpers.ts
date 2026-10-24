@@ -30,5 +30,5 @@ export async function createTimelineInEditor(page: Page): Promise<void> {
 export async function openExportDialog(page: Page): Promise<void> {
   await page.getByRole('menuitem', { name: 'File' }).click();
   await page.getByRole('menuitem', { name: /^Export/i }).click();
-  await page.getByRole('dialog', { name: 'Export' }).waitFor({ state: 'visible' });
+  await page.getByRole('dialog', { name: 'Export Batch' }).waitFor({ state: 'visible' });
 }

@@ -179,7 +179,7 @@ test.describe('Export Region', () => {
     await expect(page.getByRole('treeitem').first()).toBeVisible({ timeout: 10000 });
 
     await page.keyboard.press('Control+e');
-    const dialog = page.getByRole('dialog', { name: 'Export' });
+    const dialog = page.getByRole('dialog', { name: 'Export Batch' });
     await expect(dialog).toBeVisible({ timeout: 10000 });
     await expect(dialog).toContainText(/export region/i);
   });

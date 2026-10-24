@@ -583,14 +583,16 @@ input[type="number"] {
   outline-offset: -2px;
 }
 
-/* Home button — Strata brand mark */
+/* Home remains a labelled route back to the mounted document's start surface. */
 .editor-menubar__home {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-6);
+  width: auto;
+  flex-shrink: 0;
+  gap: var(--space-1);
   height: var(--component-compact-height);
-  padding: 0;
+  padding: 0 var(--space-2);
   background: none;
   border: none;
   border-radius: var(--radius-control-compact);
@@ -1169,21 +1171,24 @@ input[type="number"] {
   flex-shrink: 1;
 }
 
-/* Priority tiers. The bar's intrinsic width is ~1020px at the default
- * viewport; when space runs out, low-priority instrumentation is removed
- * before any control is clipped and before any label is allowed to wrap.
- * Thresholds are chosen with headroom over the measured overflow so a tier
- * always buys back more than the width it gives up. Research basis: Figma
- * users reporting panels crowding small screens, Blender's "the UI shrinks
- * removing pieces of label text" feedback, and Krita's request that docks
- * rearrange rather than fragment. */
+/* Instrumentation yields before view recovery. Secondary tuning lives in
+ * View options; Fit remains available at narrow desktop widths. */
 @media (max-width: 1180px) {
   .editor-status .editor-status__diagnostic {
     display: none;
   }
 }
 @media (max-width: 980px) {
-  .editor-status .editor-status__fit-group {
+  .editor-status .editor-status__cursor {
+    display: none;
+  }
+  /* Selection identity leads the row; its numeric bounds are echoed in the
+   * Inspector and yield at this tier so the zoom and Fit controls keep their
+   * full, un-clipped targets as the window narrows. The `:has` selector hides
+   * only the separator that introduces the bounds, not the breadcrumb one. */
+  .editor-status .selection-info-bar__separator:has(+ .selection-info-bar__dimensions),
+  .editor-status .selection-info-bar__dimensions,
+  .editor-status .selection-info-bar__position {
     display: none;
   }
 }
@@ -1191,15 +1196,9 @@ input[type="number"] {
   .editor-status .ai-status-indicator__label {
     display: none;
   }
-  .editor-status .editor-status__snap-grid {
-    display: none;
-  }
 }
 @media (max-width: 700px) {
   .editor-status .varve-select {
-    display: none;
-  }
-  .editor-status .editor-status__cursor {
     display: none;
   }
 }
@@ -1210,8 +1209,7 @@ input[type="number"] {
   flex-shrink: 0;
 }
 
-/* Fit commands travel as one cluster so a narrow window drops the group
- * rather than splitting it across the bar. */
+/* Fit commands stay together and never disappear because the window narrows. */
 .editor-status__fit-group {
   display: inline-flex;
   align-items: center;
@@ -1362,12 +1360,15 @@ input[type="number"] {
   border-radius: var(--radius-control-compact);
 }
 
-.editor-status__toggle {
+.editor-status .editor-status__toggle {
   display: flex;
   align-items: center;
   justify-content: center;
   /* The status bar's control tier; a spacing token here made the target
-   * 22.4px at a narrow window (WCAG 2.2 SC 2.5.8 failure). */
+   * 22.4px at a narrow window (WCAG 2.2 SC 2.5.8 failure). The doubled
+   * selector outranks the shared toggle's sm-tier min-block-size (28px):
+   * combined with this row's definite height that minimum grew the control
+   * past the 26.8px strip and the no-clip contract caught it vertically. */
   min-width: var(--component-compact-height);
   min-height: var(--statusbar-control-height);
   height: var(--statusbar-control-height);
@@ -1519,39 +1520,43 @@ input[type="number"] {
 }
 
 /* ── View-control cluster (StatusBar) ───────────────── */
-/* Pixel grid, snapping, spacing, ruler origin, baseline grid, clear guides.
- * One group so the row drops it as a unit rather than leaving a stray toggle
- * with no group to belong to. */
+/* Pixel grid and snapping stay direct; secondary view tuning is disclosed. */
 .editor-status__view-group {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
 }
 
-.editor-status__snap-grid {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-.editor-status__snap-grid-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  user-select: none;
-}
-/* The grid-spacing field is the one control in the row that comes from
- * @varve/ui, so it arrives carrying that package's field contract:
- * `min-height: var(--component-compact-height)` (28px) and `font-size: -sm`.
- * In a 26.8px row that overflows the content box by ~1.1px on each side and
- * reads as a bigger, off-centre box among 24px controls — the "improper
- * centering" a review spotted. Re-scope it to the bar's own tier, and fix the
- * selector while here: `.number-input` never matched `varve-number-input`, so
- * the intended width cap was dead. */
-.editor-status__snap-grid .varve-number-input {
-  min-width: 3rem;
+.editor-status__view-options-trigger {
   min-height: var(--statusbar-control-height);
   height: var(--statusbar-control-height);
-  padding: 0 var(--space-1);
+  padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
+}
+
+.editor-status-view-options {
+  --status-view-options-width: 18rem;
+  --status-grid-field-width: 6ch;
+  display: grid;
+  gap: var(--space-3);
+  inline-size: var(--status-view-options-width);
+  max-inline-size: calc(100vw - var(--space-8));
+  padding: var(--space-2);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.editor-status-view-options__title {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.editor-status-view-options__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--status-grid-field-width);
+  align-items: center;
+  gap: var(--space-3);
 }
 
 /* ── View rotation chip (StatusBar) ─────────────────── */
@@ -2469,7 +2474,7 @@ input[type="number"] {
     --dock-item-size: var(--touch-target-min);
   }
 
-  .editor-status__toggle,
+  .editor-status .editor-status__toggle,
   .editor-status__zoom-chip .editor-status__toggle {
     width: 24px;
     min-width: 24px;
@@ -2495,7 +2500,7 @@ html[data-layout-mode="tablet"] .workspace-dock__more {
 }
 
 html[data-layout-mode="tablet"] .editor-menubar .editor-menubar__home {
-  inline-size: var(--touch-target-min);
+  inline-size: auto;
   block-size: var(--touch-target-min);
 }
 
@@ -3284,9 +3289,9 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
   }
 
   .editor-menubar__home {
-    width: var(--touch-target-min);
+    width: auto;
     height: var(--touch-target-min);
-    flex: 0 0 var(--touch-target-min);
+    flex: 0 0 auto;
   }
 
   .editor-menubar__left {

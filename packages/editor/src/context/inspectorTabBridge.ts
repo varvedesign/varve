@@ -1,6 +1,6 @@
-import type { InspectorTab, IntelligenceTab } from './types';
+import type { InspectorTab, InspectorTabOptions, IntelligenceTab } from './types';
 
-interface InspectorTabRequest {
+interface InspectorTabRequest extends InspectorTabOptions {
   tab: InspectorTab;
   subTab?: IntelligenceTab;
 }
@@ -13,6 +13,10 @@ export function setInspectorTabHandler(
   inspectorTabHandler = handler;
 }
 
-export function requestInspectorTab(tab: InspectorTab, subTab?: IntelligenceTab): void {
-  inspectorTabHandler?.({ tab, subTab });
+export function requestInspectorTab(
+  tab: InspectorTab,
+  subTab?: IntelligenceTab,
+  options?: InspectorTabOptions,
+): void {
+  inspectorTabHandler?.({ tab, subTab, ...options });
 }

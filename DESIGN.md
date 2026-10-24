@@ -383,6 +383,25 @@ Interactive tokens encode every state a control can occupy:
 
 Focus rings use `interactive-focus-ring` at 2px offset. The ring color is theme-adaptive: teal in dark/light, yellow-green in HC.
 
+### Clear workbench continuity
+
+The Home route is a labelled shared `Button` (`ghost`, `xs`), beside the mark.
+Returning Home keeps documents mounted; Continue editing resumes their state.
+File and the command palette distinguish **Set Up Export** (Inspector settings)
+from **Export Batch…** (run saved export settings). A menu action gives a modal
+a surviving top-level invoker; deliberate panel-opening actions explicitly
+request destination focus after overlays close. Background tab changes never
+request focus, and subsequent user input cancels a delayed handoff.
+
+The single bottom row retains save state, zoom and Fit at narrow widths.
+Pixel-grid and snap toggles stay direct; **View options** discloses grid spacing,
+ruler origin, baseline grid and guide clearing through the shared non-modal
+`Popover`. Its local `--status-view-options-width` is 18rem, viewport-bounded;
+`--status-grid-field-width` is 6ch. Spacing uses `--space-2` / `--space-3`, type
+uses `--font-size-xs`, and the trigger uses `--statusbar-control-height`.
+Shared switches, numeric fields, buttons and the popover own their states and
+theme skin. Research and approval: [Clear workbench review](docs/audits/clear-workbench-review-2026-10-23.md).
+
 ## Feedback
 
 Status colors for success, warning, danger, and info states:

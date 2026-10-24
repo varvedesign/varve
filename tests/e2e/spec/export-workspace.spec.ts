@@ -61,7 +61,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
   async function openAdvancedExport(page: import('@playwright/test').Page) {
     await selectExportTab(page);
     await page.getByRole('button', { name: /Open export workspace/ }).click();
-    await expect(page.getByRole('dialog', { name: 'Export' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Export Batch' })).toBeVisible();
   }
 
   test('preflight findings are surfaced in the batch dialog', async ({ page }) => {
@@ -73,7 +73,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await page.getByRole('button', { name: 'Add configuration' }).click();
     await openAdvancedExport(page);
 
-    const dialog = page.getByRole('dialog', { name: 'Export' });
+    const dialog = page.getByRole('dialog', { name: 'Export Batch' });
     await expect(dialog.getByText(/Preflight:/i)).toBeVisible();
     await expect(dialog.locator('.preflight-panel')).toBeVisible();
   });
@@ -100,7 +100,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await page.getByRole('button', { name: 'Add configuration' }).click();
     await openAdvancedExport(page);
 
-    const dialog = page.getByRole('dialog', { name: 'Export' });
+    const dialog = page.getByRole('dialog', { name: 'Export Batch' });
     await expect(dialog.locator('.output-resolution')).toBeVisible();
     await dialog.getByLabel('Override raster outputs').check();
 

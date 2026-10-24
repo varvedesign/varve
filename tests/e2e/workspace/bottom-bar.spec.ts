@@ -1,9 +1,8 @@
 /**
  * Bottom bar contract — `SelectionInfoBar` + `StatusBar`.
  *
- * The row is a stack of two strips, and the whole point of this spec is that
- * each fact appears in exactly one of them: selection identity/geometry above,
- * instrumentation and view controls below. The component tests cover section
+ * One row owns selection identity, instrumentation and view recovery, with
+ * secondary tuning in View options. The component tests cover section
  * gating and ordering in jsdom; this drives the real shell, real preference
  * persistence, and real geometry, which is where the previous duplicates
  * actually lived (docs/audits/bottom-bar-review-2026-09-29.md).
@@ -72,14 +71,20 @@ test.describe('bottom bar', () => {
     // 4. Save state is always present — clamped by ESSENTIAL_STATUS_SECTION_IDS.
     await expect(page.getByRole('button', { name: /open Document Info/i })).toBeVisible();
 
-    // 5. The grid-spacing field is labelled and only present while it can do
-    //    something. Snapping is on by default, so it shows now; turning snapping
-    //    off removes it instead of leaving a number that changes nothing.
-    await expect(page.getByLabel('Grid spacing in pixels')).toBeVisible();
+    // 5. View options owns secondary tuning. Grid spacing is present only while
+    //    snapping or the pixel grid is active; reopening retains live settings.
+    const viewOptions = status.getByRole('button', { name: 'View options' });
+    await viewOptions.click();
+    await expect(page.getByLabel('Grid spacing (px)')).toBeVisible();
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Disable snapping' }).click();
-    await expect(page.getByLabel('Grid spacing in pixels')).toHaveCount(0);
+    await viewOptions.click();
+    await expect(page.getByLabel('Grid spacing (px)')).toHaveCount(0);
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Enable snapping' }).click();
-    await expect(page.getByLabel('Grid spacing in pixels')).toBeVisible();
+    await viewOptions.click();
+    await expect(page.getByLabel('Grid spacing (px)')).toBeVisible();
+    await page.keyboard.press('Escape');
 
     // 6. Selection identity: SelectionInfoBar only.
     await seedLayers(page, 3);

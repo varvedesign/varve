@@ -252,7 +252,7 @@ test('mesh mockup workflow: apply folded fabric, edit a vertex, persist, export'
   });
   const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
   await page.keyboard.press('Control+e');
-  const exportDialog = page.getByRole('dialog', { name: 'Export' });
+  const exportDialog = page.getByRole('dialog', { name: 'Export Batch' });
   const exportButton = exportDialog.getByRole('button', { name: /^Export \(/ });
   await expect(exportButton).toBeVisible();
   await exportButton.click();

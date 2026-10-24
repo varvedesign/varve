@@ -143,6 +143,13 @@ export type InspectorTab =
   | 'fonts'
   | 'email';
 
+export interface InspectorTabOptions {
+  /** Explicit task handoffs opt into focus; background tab changes omit it. */
+  focus?: boolean;
+  /** Setup and code inspection have distinct destinations within Export. */
+  exportSubTab?: 'format' | 'code';
+}
+
 /**
  * The editor context identity must survive edits to `context.tsx` during
  * development. Keeping the singleton in this stable module prevents React
@@ -1762,7 +1769,12 @@ export interface EditorContextValue {
   ) => import('../intelligence/cognitiveLoad').CognitiveLoadReport;
 
   // Inspector panel navigation (status-bar badges -> inspector tabs)
-  setInspectorTab: (tab: InspectorTab, subTab?: IntelligenceTab) => void;
+  /** Explicit task handoffs opt into focus; background tab changes never do. */
+  setInspectorTab: (
+    tab: InspectorTab,
+    subTab?: IntelligenceTab,
+    options?: InspectorTabOptions,
+  ) => void;
 
   // Content-Aware Fill dialog
   openCafDialog: (nodeId: NodeId) => void;

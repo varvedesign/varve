@@ -142,12 +142,12 @@ row are sections of it. The row and the inner scroll box are layout only.
 
 The status bar is tiered instrumentation, not a toolbar: `StatusBar.tsx`
 renders sections chosen by `getVisibleStatusSections`, and `editor.css` drops
-low-priority segments at narrow widths (diagnostic < 1180px, fit cluster <
-980px, AI label and snap grid < 860px, unit select and cursor readout < 700px).
+low-priority segments at narrow widths (diagnostic <= 1180px, cursor and the
+selection bar's echoed dimension/position readouts <= 980px, AI label <= 860px,
+unit select <= 700px). Fit commands remain available.
 
-**One owner per fact.** The bottom bar is two strips sharing one row —
-`SelectionInfoBar` (`grid-area: selinfo`) above `StatusBar` (`grid-area: status`)
-— and a fact lives in exactly one of them:
+**One owner per fact.** `SelectionInfoBar` leads the single `StatusBar`
+(`grid-area: status`) row. Selection identity is not repeated in instrumentation:
 
 | Fact | Owner |
 |---|---|
@@ -193,10 +193,36 @@ Photoshop stale-measurement bug, Illustrator's one-and-done zoom field) live in
   bar scrolls horizontally instead of silently clipping a control.
   Informational text ellipsizes first.
 - **Labels are words, and an inert control is not rendered.** `Fit selection`
-  appears only with a selection; the grid-spacing field carries a visible
-  `Grid` label and only appears while snapping or the pixel grid can use it;
+  appears only with a selection; the grid-spacing field in **View options**
+  carries a visible `Grid spacing (px)` label and only appears while snapping
+  or the pixel grid can use it;
   view rotation is one control showing the angle and resetting it, not a bare
   number plus a `Reset rot` button.
+- `components/StatusBar/StatusViewControls.tsx` owns direct pixel-grid/snap
+  toggles and the shared non-modal `Popover` for grid spacing, artboard ruler
+  origin, baseline grid and guide clearing. The workspace's `viewToggles`
+  section still gates the whole group. Keyboard opening enters its first
+  control, pointer opening retains focus, and Escape returns to the trigger
+  according to the [popover contract](popover-system.md).
+
+## Home and output handoffs
+
+The menubar exposes a labelled **Home** route. Going Home preserves mounted
+editor sessions; Continue editing resumes the current session. **Set Up Export**
+is the `openExportPanel` Inspector command; **Export Batch…** is the existing
+`export` execution command and keeps its effective shortcut. The custom menu,
+native menu definitions, palette and batch dialog use these distinct labels.
+
+`menu/menubarFocus.ts#prepareMenubarActionFocus` focuses the surviving top-level
+menu trigger before dispatch, so native dialog cancellation can return there.
+`setInspectorTab(..., { focus: true })` is an explicit task handoff, carried by
+the existing Inspector bridge; background callers omit that option. The
+`exportSubTab` option gives setup an explicit Format destination, overriding a
+previous Code choice without relying on the parent Export tab's remembered state.
+Inspection commands explicitly request Code. The
+Inspector waits for a visible destination and closed modal, verifies focus,
+and cancels retries on later keyboard/pointer input or unmount. No new document,
+workspace or lifecycle authority is introduced.
 
 ## Responsive overflow
 

@@ -55,7 +55,7 @@ export const SHORTCUT_DEFS = {
   },
   export: {
     binding: { key: 'e', ctrl: true },
-    label: 'Export\u2026',
+    label: 'Export Batch\u2026',
     category: 'File',
   },
   zoomReset: { binding: { key: '0', ctrl: true }, label: 'Zoom to 100%', category: 'View' },

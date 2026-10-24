@@ -1,6 +1,6 @@
 import { getActiveDesignCanvas, getImageFill, isImageShape } from '@varve/scene';
 import { MAX_ZOOM, MIN_ZOOM } from '@varve/shared';
-import { Icon, NumberInput, Select, Tooltip, TooltipProvider } from '@varve/ui';
+import { Icon, Select, Tooltip, TooltipProvider } from '@varve/ui';
 import { Fragment, type ReactNode, useRef, useState, useSyncExternalStore } from 'react';
 import { useDocumentAccent } from './appearance/useDocumentAccent';
 import { AIStatusIndicator } from './components/AIStatusIndicator/AIStatusIndicator';
@@ -10,6 +10,7 @@ import { DocumentInfoDialog } from './components/Shell';
 import { CursorPositionReadout } from './components/StatusBar/CursorPositionReadout';
 import { DocumentHealthBadge } from './components/StatusBar/DocumentHealthBadge';
 import { SaveStatusIndicator } from './components/StatusBar/SaveStatusIndicator';
+import { StatusViewControls } from './components/StatusBar/StatusViewControls';
 import { useEditor } from './context';
 import { ShortcutTipChip } from './intelligence/ShortcutTipChip';
 import { useShortcutTips } from './intelligence/useShortcutTips';
@@ -122,11 +123,6 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
     state,
     setZoom,
     setUnitType,
-    setPixelGridEnabled,
-    setSnapEnabled,
-    setSnapGrid,
-    setRulerMode,
-    setGridOverlayMode,
     revealSelection,
     zoomIn,
     zoomOut,
@@ -134,7 +130,6 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
     fitActivePage,
     resetViewRotation,
     selectedNodes,
-    clearAllGuides,
   } = useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
   const fitsPage = isPublishingPageFitTarget(state.document, state.workspaceMode);
@@ -191,8 +186,6 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
 
   const rotated = state.cameraRotation !== 0;
   const rotationDegrees = Math.round((state.cameraRotation * 180) / Math.PI);
-  const guides = state.document.guides ?? [];
-  const showGridSpacing = state.snapEnabled || state.pixelGridEnabled;
 
   const sections: Partial<Record<StatusSectionId, ReactNode>> = {
     renderer: rendererStatus ? (
@@ -248,95 +241,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
       />
     ),
 
-    // The bar's view controls. They duplicate View-menu commands *deliberately*
-    // — a toggle you flip while looking at the artwork should not require
-    // three menu levels — but they are one configurable section, so a user who
-    // works from shortcuts can remove the whole cluster from the row.
-    viewToggles: (
-      <span className="editor-status__view-group">
-        <Tooltip label="Toggle pixel grid" shortcut={sc('togglePixelGrid')}>
-          <button
-            type="button"
-            aria-pressed={state.pixelGridEnabled}
-            onClick={() => setPixelGridEnabled(!state.pixelGridEnabled)}
-            aria-label="Toggle pixel grid"
-            className="editor-status__toggle"
-          >
-            <Icon name="Grid3x3" size={12} />
-          </button>
-        </Tooltip>
-        <Tooltip
-          label={state.snapEnabled ? 'Disable snapping' : 'Enable snapping'}
-          shortcut={sc('toggleSnap')}
-        >
-          <button
-            type="button"
-            aria-pressed={state.snapEnabled}
-            onClick={() => setSnapEnabled(!state.snapEnabled)}
-            aria-label={state.snapEnabled ? 'Disable snapping' : 'Enable snapping'}
-            className="editor-status__toggle"
-          >
-            <Icon name="Magnet" size={12} />
-          </button>
-        </Tooltip>
-        {/* Labelled, and present only while it can affect something. The field
-            used to be a bare number whose only name was an aria-label and whose
-            value did nothing while snapping was off. */}
-        {showGridSpacing && (
-          <span className="editor-status__snap-grid">
-            <span className="editor-status__snap-grid-label" aria-hidden="true">
-              Grid
-            </span>
-            <NumberInput
-              value={state.snapGrid}
-              min={1}
-              max={256}
-              step={1}
-              onChange={setSnapGrid}
-              label="Grid spacing in pixels"
-            />
-          </span>
-        )}
-        <Tooltip label="Artboard ruler" shortcut={sc('toggleRulerMode')}>
-          <button
-            type="button"
-            aria-pressed={state.rulerMode === 'artboard'}
-            onClick={() => setRulerMode(state.rulerMode === 'artboard' ? 'global' : 'artboard')}
-            aria-label="Toggle artboard ruler origin"
-            className="editor-status__toggle"
-          >
-            {/* The old literal "AB" text was not guessable and sat out of
-             * alignment with the icon toggles beside it. */}
-            <Icon name="Ruler" size={12} />
-          </button>
-        </Tooltip>
-        <Tooltip label="Baseline grid" shortcut={sc('gridOverlayBaseline')}>
-          <button
-            type="button"
-            aria-pressed={state.gridOverlayMode === 'baseline'}
-            onClick={() =>
-              setGridOverlayMode(state.gridOverlayMode === 'baseline' ? 'none' : 'baseline')
-            }
-            aria-label="Toggle baseline grid overlay"
-            className="editor-status__toggle"
-          >
-            <Icon name="AlignVerticalSpaceAround" size={12} />
-          </button>
-        </Tooltip>
-        {guides.length > 0 && (
-          <Tooltip label="Clear all guides">
-            <button
-              type="button"
-              onClick={() => clearAllGuides()}
-              aria-label="Clear all guides"
-              className="editor-status__toggle"
-            >
-              <Icon name="RemoveFormatting" size={12} />
-            </button>
-          </Tooltip>
-        )}
-      </span>
-    ),
+    viewToggles: <StatusViewControls />,
 
     zoom: (
       <div className="editor-status__zoom-chip">

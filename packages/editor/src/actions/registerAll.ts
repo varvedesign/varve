@@ -297,7 +297,7 @@ export function registerEditorActions(
     ['openPrototypePanel', 'Open Prototype', ['interaction', 'flow', 'trigger']],
     ['openFontsPanel', 'Open Fonts Panel', ['font', 'typography', 'typeface']],
     ['openDocumentPanel', 'Open Document Settings', ['canvas', 'color mode', 'document']],
-    ['openExportPanel', 'Open Export', ['asset', 'png', 'svg', 'pdf']],
+    ['openExportPanel', 'Set Up Export', ['asset', 'png', 'svg', 'pdf', 'format', 'settings']],
     ['openInspectPanel', 'Open Inspect', ['spec', 'handoff', 'measure', 'code']],
     ['openAuditPanel', 'Open Audit', ['accessibility', 'quality', 'score']],
   ] as const;

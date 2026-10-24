@@ -117,7 +117,7 @@ describe('ExportDialog', () => {
       />,
     );
     expect(container.querySelector('dialog.export-dialog')).toBeTruthy();
-    expect(screen.getByText('Export')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Export Batch', exact: true })).toBeTruthy();
   });
 
   it('does not mount its body when isOpen is false', () => {
@@ -158,7 +158,7 @@ describe('ExportDialog', () => {
         onExport={async () => {}}
       />,
     );
-    expect(screen.getByRole('dialog', { name: 'Export' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Export Batch' })).toBeTruthy();
   });
 
   it('explains how jobs appear and offers the Export tab when nothing is configured', () => {
@@ -172,8 +172,8 @@ describe('ExportDialog', () => {
         onOpenExportTab={onOpenExportTab}
       />,
     );
-    expect(screen.getByText('No saved export configurations yet.')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Open the Export tab' }));
+    expect(screen.getByText('Set up exports in the Inspector')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Set Up Export' }));
     expect(onOpenExportTab).toHaveBeenCalledOnce();
   });
 

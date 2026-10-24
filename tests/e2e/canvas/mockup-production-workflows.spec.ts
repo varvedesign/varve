@@ -83,7 +83,7 @@ async function exportPng(page: import('@playwright/test').Page): Promise<Buffer>
   });
   const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
   await page.keyboard.press('Control+e');
-  const dialog = page.getByRole('dialog', { name: 'Export' });
+  const dialog = page.getByRole('dialog', { name: 'Export Batch' });
   await dialog.waitFor({ timeout: 8000 });
   await dialog.getByRole('button', { name: /^Export \(/ }).click({ timeout: 8000 });
   const download = await downloadPromise;

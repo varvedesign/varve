@@ -260,6 +260,13 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
     },
     // ── Export ──
     {
+      id: 'openExportPanel',
+      labelKey: 'menu.file.exportSetup',
+      kind: 'command',
+      group: 'export',
+      run: () => runAction('openExportPanel'),
+    },
+    {
       id: 'exportSvg',
       labelKey: 'menu.file.exportSvg',
       accelerator: a('e', true, true),

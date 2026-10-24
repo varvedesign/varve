@@ -22,6 +22,14 @@ import { useEffect, useRef } from 'react';
 
 const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]';
 
+/** Give native dialogs a surviving invoker before the menu item disappears. */
+export function prepareMenubarActionFocus(
+  triggers: readonly (HTMLButtonElement | null)[],
+  index: number,
+): void {
+  triggers[index]?.focus({ preventScroll: true });
+}
+
 export interface MenubarFocusDeps {
   openMenu: string | null;
   openSubmenu: number | null;

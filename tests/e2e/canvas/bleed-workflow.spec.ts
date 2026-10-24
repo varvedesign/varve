@@ -419,12 +419,12 @@ test.describe('Bleed print workflow', () => {
       .getByRole('menubar')
       .getByRole('menuitem', { name: /^File$/ })
       .click();
-    await page.getByRole('menuitem', { name: /^Export… Ctrl\+E$/ }).click();
+    await page.getByRole('menuitem', { name: /^Export Batch… Ctrl\+E$/ }).click();
     // The Export dialog renders without the native [open] attribute; its
     // heading is the reliable open-state signal.
     await page
       .getByRole('dialog')
-      .getByRole('heading', { name: /^Export$/ })
+      .getByRole('heading', { name: /^Export Batch$/ })
       .waitFor({ timeout: 10000 });
   });
 });

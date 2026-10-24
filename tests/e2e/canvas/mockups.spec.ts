@@ -172,7 +172,7 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   });
   const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
   await page.keyboard.press('Control+e');
-  const exportDialog = page.getByRole('dialog', { name: 'Export' });
+  const exportDialog = page.getByRole('dialog', { name: 'Export Batch' });
   await exportDialog.waitFor({ timeout: 8000 });
   const exportBtn = exportDialog.getByRole('button', { name: /^Export \(/ });
   await exportBtn.click({ timeout: 8000 });
@@ -322,7 +322,7 @@ async function exportPng(page: import('@playwright/test').Page): Promise<Buffer>
   });
   const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
   await page.keyboard.press('Control+e');
-  const exportDialog = page.getByRole('dialog', { name: 'Export' });
+  const exportDialog = page.getByRole('dialog', { name: 'Export Batch' });
   await exportDialog.waitFor({ timeout: 8000 });
   await exportDialog.getByRole('button', { name: /^Export \(/ }).click({ timeout: 8000 });
   const download = await downloadPromise;
@@ -392,7 +392,7 @@ test('SVG export composes the mockup through a rasterized boundary, not a bare f
   });
   const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
   await page.keyboard.press('Control+e');
-  const exportDialog = page.getByRole('dialog', { name: 'Export' });
+  const exportDialog = page.getByRole('dialog', { name: 'Export Batch' });
   await exportDialog.waitFor({ timeout: 8000 });
   await exportDialog.getByRole('button', { name: /^Export \(/ }).click({ timeout: 8000 });
   const download = await downloadPromise;

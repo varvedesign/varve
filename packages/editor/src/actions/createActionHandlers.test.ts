@@ -707,12 +707,20 @@ describe('createActionHandlers — intelligence menu actions', () => {
     ['openAdjustmentsPanel', 'adjustments'],
     ['openPrototypePanel', 'prototype'],
     ['openFontsPanel', 'fonts'],
-    ['openExportPanel', 'export'],
     ['openAuditPanel', 'audit'],
-  ] as const)('%s deep-links to its inspector workflow', (action, tab) => {
+  ] as const)('%s requests focus in its inspector workflow', (action, tab) => {
     const editor = makeEditorMock();
     createActionHandlers(editor)[action]?.();
-    expect(editor.setInspectorTab).toHaveBeenCalledWith(tab);
+    expect(editor.setInspectorTab).toHaveBeenCalledWith(tab, undefined, { focus: true });
+  });
+
+  it('routes export setup to the format settings, regardless of the remembered subtab', () => {
+    const editor = makeEditorMock();
+    createActionHandlers(editor).openExportPanel?.();
+    expect(editor.setInspectorTab).toHaveBeenCalledWith('export', undefined, {
+      focus: true,
+      exportSubTab: 'format',
+    });
   });
 
   it('opens the controlled Effect Studio dialog instead of routing to Appearance', () => {
@@ -734,14 +742,17 @@ describe('createActionHandlers — intelligence menu actions', () => {
     const editor = makeEditorMock({ setSelection: vi.fn() });
     createActionHandlers(editor).openDocumentPanel?.();
     expect(editor.setSelection).toHaveBeenCalledWith(null);
-    expect(editor.setInspectorTab).toHaveBeenCalledWith('properties');
+    expect(editor.setInspectorTab).toHaveBeenCalledWith('properties', undefined, { focus: true });
   });
 
   it('opens inspection through the real inspect tool and Export surface', () => {
     const editor = makeEditorMock();
     createActionHandlers(editor).openInspectPanel?.();
     expect(editor.setTool).toHaveBeenCalledWith('inspect');
-    expect(editor.setInspectorTab).toHaveBeenCalledWith('export');
+    expect(editor.setInspectorTab).toHaveBeenCalledWith('export', undefined, {
+      focus: true,
+      exportSubTab: 'code',
+    });
   });
 });
 

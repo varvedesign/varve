@@ -464,7 +464,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
         onSaveVideoFile={handleSaveVideoFile}
         onApplyBackgroundRemoval={applyPreparedCutout}
         onOpenExportTab={() => {
-          editor.setInspectorTab('export');
+          editor.setInspectorTab('export', undefined, { focus: true, exportSubTab: 'format' });
           editor.setShowExportDialog(false);
         }}
       />

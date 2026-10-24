@@ -477,6 +477,7 @@ import type {
   EditorState,
   GridOverlayMode,
   InspectorTab,
+  InspectorTabOptions,
   IntelligenceTab,
   LoadDocumentMeta,
   OpenFileBinding,
@@ -2105,7 +2106,11 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   ) => import('./intelligence/cognitiveLoad').CognitiveLoadReport;
 
   /** Switch the inspector panel to a tab, optionally selecting an IntelligencePanel sub-tab. */
-  setInspectorTab: (tab: InspectorTab, subTab?: IntelligenceTab) => void;
+  setInspectorTab: (
+    tab: InspectorTab,
+    subTab?: IntelligenceTab,
+    options?: InspectorTabOptions,
+  ) => void;
 
   /** Turn a componentDetector.ts duplicate-structure group into a real component:
    *  the first node becomes the master definition, the rest are replaced in
@@ -7211,12 +7216,16 @@ export function EditorProvider({
         return computeCognitiveLoad(state.document, nodeId);
       },
 
-      setInspectorTab: (tab: InspectorTab, subTab?: IntelligenceTab) => {
+      setInspectorTab: (
+        tab: InspectorTab,
+        subTab?: IntelligenceTab,
+        options?: InspectorTabOptions,
+      ) => {
         if (!state.rightPanelVisible) {
           patch({ rightPanelVisible: true });
           updateSettings({ panel: { rightPanelVisible: true } });
         }
-        sessionGlobals.requestInspectorTab(tab, subTab);
+        sessionGlobals.requestInspectorTab(tab, subTab, options);
       },
 
       openCafDialog: (nodeId) => {

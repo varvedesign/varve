@@ -50,7 +50,7 @@ import {
   type PlatformKind,
 } from '@varve/scene/export';
 import { formatFileSize } from '@varve/shared';
-import { Dialog, Select, SwitchField } from '@varve/ui';
+import { Button, Dialog, Select, SwitchField } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PreparedBackgroundRemoval } from '../../backgroundRemoval/commitRasterMask';
 import { prepareExportCutouts } from '../../backgroundRemoval/prepareExportCutouts';
@@ -932,7 +932,7 @@ export function ExportDialog({
       <Dialog
         open={isOpen}
         onClose={onClose}
-        title="Export"
+        title="Export Batch"
         size="lg"
         className="export-dialog"
         // While a batch/video export or a package build is running, the
@@ -1005,20 +1005,15 @@ export function ExportDialog({
                   emptyState={
                     jobs.length === 0 ? (
                       <div className="batch-job-list__empty">
-                        <p>No saved export configurations yet.</p>
+                        <p>Set up exports in the Inspector</p>
                         <p>
-                          Each enabled export configuration on a layer adds one file to this batch.
-                          Add PNG, SVG, or PDF configurations in the Inspector&apos;s Export tab,
-                          then return here to export them together.
+                          Select a layer and add PNG, SVG, or PDF settings in the Inspector. Each
+                          enabled setting becomes one file in this batch.
                         </p>
                         {onOpenExportTab && (
-                          <button
-                            type="button"
-                            className="batch-job-list__clear-filter-btn"
-                            onClick={onOpenExportTab}
-                          >
-                            Open the Export tab
-                          </button>
+                          <Button variant="secondary" size="sm" onClick={onOpenExportTab}>
+                            Set Up Export
+                          </Button>
                         )}
                       </div>
                     ) : undefined

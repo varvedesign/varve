@@ -4,6 +4,7 @@ import { adoptBrowserFileHandle, contentHash } from '@varve/platform';
 import { VARVE_URLS } from '@varve/shared';
 import {
   AlertDialog,
+  Button,
   elementAnchor,
   FloatingPortal,
   Icon,
@@ -28,7 +29,11 @@ import { RasterizeDialog } from './components/Rasterize/RasterizeDialog';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
 import { useEditor } from './context';
 import { computeCapabilities, getNudgeCapability, useNativeMenu } from './menu';
-import { useMenubarContextEffects, useMenubarFocusEffects } from './menu/menubarFocus';
+import {
+  prepareMenubarActionFocus,
+  useMenubarContextEffects,
+  useMenubarFocusEffects,
+} from './menu/menubarFocus';
 import { handleMenubarKey } from './menu/menubarKeynav';
 import { MenubarSubmenu, menubarItemAriaChecked, menubarItemRole } from './menu/menubarSubmenu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
@@ -505,13 +510,17 @@ function buildMenus(
         { label: '---' },
         // ── Export ──
         {
+          label: 'Set Up Export',
+          action: 'openExportPanel',
+        },
+        {
           label: 'Export SVG\u2026',
           shortcut: shortcutText('exportSvg'),
           ariaKeyshortcut: ks('exportSvg'),
           action: 'exportSvg',
         },
         {
-          label: 'Export\u2026',
+          label: 'Export Batch\u2026',
           shortcut: shortcutText('export'),
           ariaKeyshortcut: ks('export'),
           action: 'export',
@@ -2267,6 +2276,7 @@ export function Menubar({
 
   const handleAction = useCallback(
     (action: string) => {
+      prepareMenubarActionFocus(topLevelRefs.current, openMenuIndex);
       setOpenMenu(null);
       recordAction(`menu:${action}`);
 
@@ -2420,6 +2430,7 @@ export function Menubar({
       rasterizeSelected,
       setRasterizeDialogOpen,
       openRecentFile,
+      openMenuIndex,
       clearRecent,
     ],
   );
@@ -2512,14 +2523,16 @@ export function Menubar({
       <div className="editor-menubar" data-testid="menubar">
         <div className="editor-menubar__side">
           <Tooltip label="Home" shortcut={formatShortcut(getEffectiveBinding('home'))}>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="xs"
               className="editor-menubar__home"
               aria-label="Home"
               onClick={() => onBackToHome?.()}
             >
               <VarveLogo size={16} />
-            </button>
+              Home
+            </Button>
           </Tooltip>
           <div
             className="editor-menubar__left"

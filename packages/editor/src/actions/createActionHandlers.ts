@@ -1339,24 +1339,25 @@ export function createActionHandlers(
     },
     newAdjustmentLayer: () => e.createAdjustmentLayer(),
     smartFilterInvert: () => e.addSmartFilterToSelected('invert'),
-    openInspectorProperties: () => e.setInspectorTab('properties'),
+    openInspectorProperties: () => e.setInspectorTab('properties', undefined, { focus: true }),
     openAppearancePanel: () => {
       e.openEffectStudioDialog();
       e.announce?.('Effect Studio opened.');
     },
-    openAdjustmentsPanel: () => e.setInspectorTab('adjustments'),
-    openPrototypePanel: () => e.setInspectorTab('prototype'),
-    openFontsPanel: () => e.setInspectorTab('fonts'),
+    openAdjustmentsPanel: () => e.setInspectorTab('adjustments', undefined, { focus: true }),
+    openPrototypePanel: () => e.setInspectorTab('prototype', undefined, { focus: true }),
+    openFontsPanel: () => e.setInspectorTab('fonts', undefined, { focus: true }),
     openDocumentPanel: () => {
       e.setSelection(null);
-      e.setInspectorTab('properties');
+      e.setInspectorTab('properties', undefined, { focus: true });
     },
-    openExportPanel: () => e.setInspectorTab('export'),
+    openExportPanel: () =>
+      e.setInspectorTab('export', undefined, { focus: true, exportSubTab: 'format' }),
     openInspectPanel: () => {
       e.setTool('inspect');
-      e.setInspectorTab('export');
+      e.setInspectorTab('export', undefined, { focus: true, exportSubTab: 'code' });
     },
-    openAuditPanel: () => e.setInspectorTab('audit'),
+    openAuditPanel: () => e.setInspectorTab('audit', undefined, { focus: true }),
     runAudit: () => e.setInspectorTab('audit', 'audit'),
     auditSelection: () => e.setInspectorTab('audit', 'audit'),
     auditPage: () => e.setInspectorTab('audit', 'audit'),

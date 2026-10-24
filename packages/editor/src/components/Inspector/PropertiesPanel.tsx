@@ -69,6 +69,7 @@ import {
 import { hasCustomSectionOrder, isSectionVisible } from './sectionState';
 import { type SelectionSummary, summarize } from './selection/selectionState';
 import { toolContextSurface } from './toolContext';
+import { useInspectorFocus } from './useInspectorFocus';
 
 import './inspector.css';
 
@@ -345,14 +346,17 @@ export function PropertiesPanel({
     [exportSubTab],
   );
 
+  const { inspectorRef, requestFocus } = useInspectorFocus(tab);
   useEffect(() => {
-    setInspectorTabHandler(({ tab: nextTab, subTab }) => {
+    setInspectorTabHandler(({ tab: nextTab, subTab, focus, exportSubTab: nextExportSubTab }) => {
       setRequestedTab(nextTab);
       setTab(nextTab);
       setIntelRequest((r) => ({ subTab, seq: r.seq + 1 }));
+      if (nextTab === 'export' && nextExportSubTab) setExportSubTab(nextExportSubTab);
+      requestFocus(nextTab, focus);
     });
     return () => setInspectorTabHandler(null);
-  }, [setTab]);
+  }, [setTab, requestFocus, setExportSubTab]);
 
   useEffect(() => {
     if (!visibleTabConfigs.some((tabConfig) => tabConfig.id === tab)) {
@@ -424,6 +428,7 @@ export function PropertiesPanel({
   // (2026-09-19). The provider covers every tab and legacy panel.
   const panel = (
     <section
+      ref={inspectorRef}
       className="editor-inspector"
       data-panel-root="inspector"
       data-inspector-context={inspectorContext.scope}
