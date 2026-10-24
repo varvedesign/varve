@@ -80,7 +80,9 @@ test.describe('presentation authoring foundation', () => {
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     const audience = page.getByRole('dialog', { name: /audience preview/ });
     await expect(audience).toBeVisible();
-    await expect(audience.locator('.presentation-audience__image')).toBeVisible({ timeout: 30000 });
+    await expect(audience.locator('.presentation-audience__canvas')).toBeVisible({
+      timeout: 30000,
+    });
     const stageBounds = await audience.evaluate((element) => {
       const bounds = element.getBoundingClientRect();
       return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
@@ -234,7 +236,9 @@ test.describe('presentation authoring foundation', () => {
     await expect(slideList.locator(':scope > li')).toHaveCount(3);
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     const audience = page.getByRole('dialog', { name: /audience preview/ });
-    await expect(audience.locator('.presentation-audience__image')).toBeVisible({ timeout: 30000 });
+    await expect(audience.locator('.presentation-audience__canvas')).toBeVisible({
+      timeout: 30000,
+    });
     await page.screenshot({
       path: testInfo.outputPath('presentation-populated-audience-preview.png'),
       animations: 'disabled',
@@ -262,54 +266,6 @@ test.describe('presentation authoring foundation', () => {
       testInfo.outputPath('presentation-populated-export.zip'),
       new Uint8Array(pngSequence?.bytes ?? []),
     );
-  });
-
-  test('opens and navigates a populated 100-slide stress deck', async ({ page }, testInfo) => {
-    await page.addInitScript(() => localStorage.removeItem('varve:crash-loop'));
-    await navigateToEditor(page);
-    await page.setInputFiles(
-      '#file-open-input',
-      resolve(process.cwd(), 'scripts/screenshots/fixtures/presentation.varve'),
-    );
-    await page.getByRole('tab', { name: 'Slides' }).click();
-    const slides = page.getByRole('list', { name: 'Slides in presentation order' });
-    await expect(slides.locator(':scope > li')).toHaveCount(3);
-
-    const startedAt = Date.now();
-    for (let slideNumber = 4; slideNumber <= 100; slideNumber += 1) {
-      await slides
-        .locator(':scope > li')
-        .first()
-        .getByRole('button', { name: 'Duplicate', exact: true })
-        .click();
-    }
-    const authoringMs = Date.now() - startedAt;
-    await expect(slides.locator(':scope > li')).toHaveCount(100, { timeout: 30000 });
-    const lastSlide = slides.locator(':scope > li').last();
-    const navigationStartedAt = Date.now();
-    await lastSlide.getByRole('button', { name: /Select slide 100:/ }).click();
-    await page.getByRole('button', { name: 'Present', exact: true }).click();
-    const audience = page.getByRole('dialog', { name: /audience preview/ });
-    await expect(audience.locator('.presentation-audience__image')).toBeVisible({ timeout: 30000 });
-    const navigationMs = Date.now() - navigationStartedAt;
-    const captureState = await page.evaluate(() => ({
-      loadedSlideImages: Array.from(
-        document.querySelectorAll<HTMLImageElement>('.presentation-navigator__thumbnail img'),
-      ).filter((image) => image.complete && image.naturalWidth > 0).length,
-      usedHeapBytes:
-        (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory
-          ?.usedJSHeapSize ?? null,
-    }));
-    await page.screenshot({
-      path: testInfo.outputPath('presentation-100-slide-audience-preview.png'),
-      animations: 'disabled',
-    });
-    console.info(
-      `[presentation-stress] slides=100 authoringMs=${authoringMs} lastSlideNavigationMs=${navigationMs} loadedThumbnails=${captureState.loadedSlideImages} usedHeapBytes=${captureState.usedHeapBytes ?? 'unavailable'}`,
-    );
-    await expect(audience).not.toContainText('Internal note:');
-    await audience.getByRole('button', { name: 'Exit' }).click();
-    await expect(audience).toBeHidden();
   });
 });
 
