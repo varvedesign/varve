@@ -46,6 +46,7 @@ export {
   orientedBBox,
 } from './align';
 export {
+  campaignCountQuery,
   pathWithCampaign,
   safeGoatCounterDomain,
   VARVE_GOATCOUNTER_DOMAIN,

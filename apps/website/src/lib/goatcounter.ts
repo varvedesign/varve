@@ -2,11 +2,13 @@ import {
   type AnalyticsEvent,
   type AnalyticsEventMap,
   type AnalyticsProvider,
+  campaignCountQuery,
   pathWithCampaign,
   safeGoatCounterDomain,
 } from '@varve/shared';
 
 export {
+  campaignCountQuery,
   pathWithCampaign,
   safeGoatCounterDomain,
   VARVE_GOATCOUNTER_DOMAIN,
@@ -27,7 +29,9 @@ interface GoatCounterOptions {
 /**
  * Aggregate website-only transport. No remote script, browser fingerprint, session,
  * screen dimensions, page title, persistent ID or design content. The only query
- * forwarded is an allowlisted first-party `ref` campaign tag, as `path?ref=`.
+ * forwarded is an allowlisted first-party `ref` campaign tag: pageviews send it
+ * as GoatCounter `q` (`?ref=tag`), which becomes a Campaign-scheme referrer.
+ * Events keep the tag on the event path because GoatCounter ignores `q` there.
  * The account MUST have Sessions and Individual pageviews disabled before activation.
  * GoatCounter's documented /count transport is only used from the visitor's browser.
  */
@@ -68,18 +72,25 @@ export class GoatCounterProvider implements AnalyticsProvider {
       if (!this.options.canSend()) return;
       const pageview = event.name === 'website_page_viewed';
       const demoLaunch = event.name === 'browser_demo_launched';
-      const path = pathWithCampaign(
-        pageview
-          ? (event.payload as AnalyticsEventMap['website_page_viewed']).route
-          : demoLaunch
-            ? this.demoLaunchPath(event.payload as AnalyticsEventMap['browser_demo_launched'])
-            : this.downloadPath(event.payload as AnalyticsEventMap['website_download_started']),
-        this.options.search?.() ?? '',
-      );
+      const search = this.options.search?.() ?? '';
+      const path = pageview
+        ? (event.payload as AnalyticsEventMap['website_page_viewed']).route
+        : pathWithCampaign(
+            demoLaunch
+              ? this.demoLaunchPath(event.payload as AnalyticsEventMap['browser_demo_launched'])
+              : this.downloadPath(event.payload as AnalyticsEventMap['website_download_started']),
+            search,
+          );
       const url = new URL(this.endpoint);
       url.searchParams.set('p', path);
       url.searchParams.set('ns', 'true');
-      if (!pageview) url.searchParams.set('e', 'true');
+      if (!pageview) {
+        url.searchParams.set('e', 'true');
+      } else {
+        // Hit.Defaults overwrites r when q has ref/utm_source/src/source.
+        const query = campaignCountQuery(search);
+        if (query) url.searchParams.set('q', query);
+      }
       const referrer = pageview ? this.options.referrer() : '';
       if (referrer) url.searchParams.set('r', referrer);
       const controller = new AbortController();
