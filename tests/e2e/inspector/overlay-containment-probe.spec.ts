@@ -32,16 +32,37 @@ interface OverlayMetrics {
 }
 
 async function measure(overlay: Locator): Promise<OverlayMetrics> {
-  return overlay.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
+  return overlay.evaluate((content) => {
+    // Containment is a contract of the floating layer — the fixed,
+    // height-capped element that owns scrolling — not of the content div
+    // inside it. The inner listbox keeps its full content height by design,
+    // so measuring that div reports overflow the user cannot see.
+    let layer = content.parentElement as HTMLElement | null;
+    while (layer && getComputedStyle(layer).position !== 'fixed') {
+      layer = layer.parentElement;
+    }
+    if (!layer) throw new Error('listbox is not inside a fixed floating layer');
+    const floating = layer;
+
     const options = Array.from(
-      element.querySelectorAll<HTMLElement>(
+      content.querySelectorAll<HTMLElement>(
         '[role="option"], [role="menuitem"], [role="menuitemradio"]',
       ),
     );
     const last = options.at(-1);
-    const lastRect = last?.getBoundingClientRect();
+    // Reachability: scrolling the layer must be able to bring the final
+    // option into the window. scrollIntoView with block:nearest scrolls the
+    // layer's own overflow first and does not move the fixed layer itself.
+    let lastOptionVisible = false;
+    if (last) {
+      last.scrollIntoView({ block: 'nearest' });
+      const lastRect = last.getBoundingClientRect();
+      lastOptionVisible =
+        lastRect.height > 0 && lastRect.bottom <= window.innerHeight + 1 && lastRect.top >= -1;
+    }
+
+    const rect = floating.getBoundingClientRect();
+    const style = getComputedStyle(floating);
     return {
       viewport: { width: window.innerWidth, height: window.innerHeight },
       box: {
@@ -55,14 +76,14 @@ async function measure(overlay: Locator): Promise<OverlayMetrics> {
       fitsHorizontally: rect.left >= -1 && rect.right <= window.innerWidth + 1,
       scroll: {
         overflowY: style.overflowY,
-        scrollHeight: element.scrollHeight,
-        clientHeight: element.clientHeight,
-        scrollable: element.scrollHeight > element.clientHeight + 1 && style.overflowY === 'auto',
+        scrollHeight: floating.scrollHeight,
+        clientHeight: floating.clientHeight,
+        scrollable:
+          floating.scrollHeight > floating.clientHeight + 1 &&
+          (style.overflowY === 'auto' || style.overflowY === 'scroll'),
       },
       optionCount: options.length,
-      lastOptionVisible: lastRect
-        ? lastRect.bottom <= window.innerHeight + 1 && lastRect.top >= -1
-        : false,
+      lastOptionVisible,
     };
   });
 }
@@ -81,19 +102,36 @@ async function drawShape(page: Page) {
 }
 
 async function openBlendListbox(page: Page) {
-  await page.getByRole('tab', { name: 'Design' }).click();
+  // At compact widths the Inspector lives in a modal drawer; its launcher is
+  // the only route in.
+  const showInspector = page.getByRole('button', { name: 'Show inspector panel' });
+  if (await showInspector.isVisible().catch(() => false)) {
+    await showInspector.click();
+  }
 
-  const appearance = page.getByRole('button', { name: 'Appearance' });
+  const inspector = page.getByRole('region', { name: 'Inspector' });
+  await inspector.getByRole('tab', { name: 'Design' }).click();
+
+  const appearance = inspector.getByRole('button', { name: 'Appearance' });
   await appearance.scrollIntoViewIfNeeded();
   if ((await appearance.getAttribute('aria-expanded')) === 'false') {
     await appearance.click();
   }
 
-  const trigger = page.locator('button[aria-haspopup="listbox"]').first();
+  // The blend-mode Select lives inside the expanded Appearance panel. A
+  // global haspopup locator matches hidden controls elsewhere in the shell.
+  const panelId = await appearance.getAttribute('aria-controls');
+  if (!panelId) throw new Error('Appearance section did not expand');
+  const trigger = page.locator(`[id="${panelId}"]`).getByRole('combobox').first();
   await trigger.scrollIntoViewIfNeeded();
   await expect(trigger).toBeVisible({ timeout: 10000 });
   await trigger.click();
-  const listbox = page.locator('[role="listbox"]').first();
+  // The combobox exposes aria-controls only while open, which pins the exact
+  // listbox; a global locator also matches hidden leftovers (the Home
+  // workspace filter keeps its listbox in the DOM).
+  const listboxId = await trigger.getAttribute('aria-controls');
+  if (!listboxId) throw new Error('blend-mode listbox did not open');
+  const listbox = page.locator(`[id="${listboxId}"]`);
   await expect(listbox).toBeVisible({ timeout: 10000 });
   return { trigger, listbox };
 }

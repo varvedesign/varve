@@ -68,8 +68,11 @@ function readMetrics(page: Page): Promise<DialogMetrics> {
         });
       }
       // Hidden overflow with content wider than the box silently loses
-      // content (the classic clipped last swatch).
+      // content (the classic clipped last swatch). A visually-hidden element
+      // (sr-only: clip/clip-path) clips by design — that is not lost content.
+      const visuallyHidden = style.clip !== 'auto' || style.clipPath !== 'none';
       if (
+        !visuallyHidden &&
         (style.overflowX === 'hidden' || style.overflowX === 'clip') &&
         element.scrollWidth > element.clientWidth + 1
       ) {

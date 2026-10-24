@@ -147,16 +147,52 @@ temporarily opens matching sections without mutating saved collapse state.
 Changed-value/revert affordances remain a separate follow-up because their
 correctness needs an explicit default-value contract for every property family.
 
+## Measurements (2026-10-23, real Chromium, isolated port + heavy lease)
+
+Recorded by the probe specs into the git-ignored `reports/inspector-system/`.
+
+**Design tab shape** (`inspector-system-probe.spec.ts`), 1440x900, rail ~318px:
+
+| Selection | Sections (expanded) | Controls | Scroll (content/rail) |
+|---|---|---|---|
+| Empty / document | 7 (3) | 31 | 1901 / 616 (~3.1x) |
+| Single shape | 11 (4) | 45 | 1220 / 649 (~1.9x) |
+| Text | 15 (5) | 69 | 2088 / 649 (~3.2x) |
+| Multi (3 shapes) | 10 (4) | 49 | 1168 / 649 (~1.8x) |
+
+No duplicate sections in any family. The first common control (Position & Size)
+sits at ~184-197px from the panel top, below the context header, search field and
+align bar. At a 240px rail the single-shape stack measures 1246 / 644. These
+numbers are the quantitative case for the Route B banding follow-up: the default
+stack demands 1.8-3.2x the rail height of scrolling, dominated by expanded
+Typography (906px), Document Color (884px) and Snapping (503px) sections.
+
+**Blend-mode listbox containment** (`overlay-containment-probe.spec.ts`):
+
+- Desktop 1280x800: floating layer 444-700 (256px tall), inside the window;
+  content 696px scrolls in the layer; the last of 16 options scrolls into view.
+- Narrow 455x1024 (Inspector in its compact drawer): layer 733-989 (256px),
+  inside the window; content 686px scrolls; last option reachable.
+- The probe initially failed by measuring the inner content div (full content
+  height by design) instead of the fixed, height-capped scroll layer, and by
+  using global locators that matched hidden controls; corrected to measure the
+  floating layer and verify reachability by scrolling.
+
+**Colour dialog** (`color-dialog-probe.spec.ts`): one vertical scroller —
+`div.insp-picker-dialog__body` (558/470) — with the portal itself not a
+scroller, confirming the single-scroll-owner contract. 15 swatches in 2 rows,
+all fully inside the body, 0 clipped, no horizontal overflow. The probe's
+overflow detector was corrected to exempt visually-hidden (`clip`/`clip-path`)
+elements, which clip by design.
+
 ## Evidence gaps
 
-- Property search ran once in real Chromium (2026-10-23): the zero-result
-  explanation passed, and a captured 1440x900 frame confirmed `opacity` filters
-  the stack to an auto-expanded Appearance section. That run's other test failed
-  on an over-broad assertion (it matched the contextual toolbar's separate Fill
-  button); the assertion is now scoped to the Inspector region, and the scoped
-  spec has not yet produced a green run — subsequent lease-wrapped retries died
-  with `keyboard.press: Target crashed` before any assertion, so the browser
-  gate remains open, not passed.
-- The colour dialog and overlay probes exist and are typechecked but have not
-  produced a green run in this worktree.
+- Property search is **verified in real Chromium (2026-10-23)**: both
+  `property-search.spec.ts` tests pass on an isolated dev-server port —
+  `opacity` filters the stack to an auto-expanded Appearance section, clearing
+  restores the full stack, and a zero-result query shows an explained empty
+  state. Earlier attempts failed first on an over-broad assertion (the
+  contextual toolbar's separate Fill button), then on `Target crashed` under
+  memory pressure and a port conflict with a running dev server; the final green
+  run used exact-name assertions, `VARVE_E2E_PORT`, and the heavy-task lease.
 - No external interface has been re-inspected at 375/768/1280 breakpoints.
