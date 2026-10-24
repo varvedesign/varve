@@ -253,15 +253,6 @@ importers:
         specifier: workspace:*
         version: link:../scene
 
-  packages/automation:
-    dependencies:
-      '@varve/scene':
-        specifier: workspace:*
-        version: link:../scene
-      '@varve/shared':
-        specifier: workspace:*
-        version: link:../shared
-
   packages/cli:
     dependencies:
       '@varve/history':
