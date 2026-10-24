@@ -74,7 +74,7 @@ export function LabColorFields({ value, onChange, outOfGamut = false }: LabColor
       />
       {outOfGamut && (
         <p className="color-picker__gamut-note" role="note">
-          Outside the display gamut — preview is clipped; the Lab value is retained unchanged.
+          Outside the display gamut. The preview is clipped; the Lab value is retained unchanged.
         </p>
       )}
     </div>

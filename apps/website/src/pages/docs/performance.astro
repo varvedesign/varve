@@ -5,7 +5,7 @@ import '../../styles/docs-prose.css';
 ---
 
 <Layout
-  title="Performance on lower-memory devices — Varve Docs"
+  title="Performance on lower-memory devices | Varve Docs"
   description="How Varve adapts on Chromebooks and 4–8 GB devices: what the adaptive profile changes, what it never changes, practical workload guidance, and the honest limits of current evidence."
 >
   <div class="container-custom">
@@ -99,11 +99,11 @@ import '../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Practical workload guidance</h2>
         <ul>
-          <li><strong>Comfortable without special care:</strong> a few hundred nodes of shapes and text, a handful of images at screen resolution, and normal layer structures — the same scale as the built-in sample document.</li>
+          <li><strong>Comfortable without special care:</strong> a few hundred nodes of shapes and text, a handful of images at screen resolution, and normal layer structures, the same scale as the built-in sample document.</li>
           <li><strong>Expect adaptation:</strong> documents around a thousand mixed nodes, several large images, or concentrated effects can push the profile toward performance tiers. Responsiveness still depends on scene complexity, asset readiness, backend, and available device time; a preview may miss its refinement target.</li>
           <li><strong>Treat as stress, one at a time:</strong> dozens of 4096×4096 images, tens of thousands of path points, or long effect stacks. These are deliberate worst cases, not everyday documents, and combining them multiplies cost.</li>
           <li><strong>Browser-local limits:</strong> the public demo at varve.studio is served from GitHub Pages, which cannot configure the cross-origin isolation headers required for shared-memory WASM. Multi-threaded WASM is unavailable in that deployment. This is a limit of the current public host, not every possible browser deployment; WASM and graphics capabilities also depend on the browser runtime. Use Settings → Performance → Platform capability report to inspect the current session. No general speed comparison with desktop is published without a matched device and workload.</li>
-          <li><strong>Background work yields:</strong> thumbnails, raster pyramids, and semantic indexing are bounded, cancellable, and paused while the page is hidden or frozen. Chrome can discard a tab — including an installed web app on ChromeOS — without firing an unload event, so recovery points are written while you edit and an explicit save remains the durable copy.</li>
+          <li><strong>Background work yields:</strong> thumbnails, raster pyramids, and semantic indexing are bounded, cancellable, and paused while the page is hidden or frozen. Chrome can discard a tab (including an installed web app on ChromeOS) without firing an unload event, so recovery points are written while you edit and an explicit save remains the durable copy.</li>
         </ul>
       </section>
 

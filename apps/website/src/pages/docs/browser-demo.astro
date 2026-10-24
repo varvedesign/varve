@@ -4,7 +4,7 @@ import { sitePath } from '../../lib/siteUrl';
 import '../../styles/docs-prose.css';
 ---
 
-<Layout title="Browser Demo & Offline — Varve Docs" description="Use the Varve browser demo, install it as an app, work offline, and understand exactly what is saved and where.">
+<Layout title="Browser Demo & Offline | Varve Docs" description="Use the Varve browser demo, install it as an app, work offline, and understand exactly what is saved and where.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -120,7 +120,7 @@ import '../../styles/docs-prose.css';
         </p>
         <p>
           If install is unavailable (policy, an unsupported browser, or a private window), keep
-          using the demo in a normal tab — every feature behaves identically. Uninstalling the app
+          using the demo in a normal tab. Every feature behaves identically. Uninstalling the app
           with "delete data" removes documents and recovery copies; export what you need first.
         </p>
       </section>
@@ -156,7 +156,7 @@ import '../../styles/docs-prose.css';
         <p>
           Browser storage estimates are approximate and shared with everything else this site
           stores. Plan for roughly twice a document's size while a save is in progress. If the
-          device runs low on space, the browser may evict best-effort site data — another reason to
+          device runs low on space, the browser may evict best-effort site data; another reason to
           save important work to a real file or to the desktop app.
         </p>
       </section>
@@ -169,7 +169,7 @@ import '../../styles/docs-prose.css';
           save asks again and your edits stay put until the write succeeds.
         </p>
         <ul>
-          <li><strong>My Files and removable media</strong> work like any other folder. If an SD card or USB drive is removed while a document is open, the next save reports the destination is unavailable — reconnect it and save again, or use Save As.</li>
+          <li><strong>My Files and removable media</strong> work like any other folder. If an SD card or USB drive is removed while a document is open, the next save reports the destination is unavailable. Reconnect it and save again, or use Save As.</li>
           <li><strong>Google Drive files</strong> can be opened and saved through the Files app, but Drive sync is handled by ChromeOS, not Varve. If a newer copy was synced from another device, Varve refuses to overwrite it and points you at Save As, so both versions survive.</li>
           <li><strong>Offline Drive copies</strong> are your Files app's "available offline" setting. Varve does not manage which Drive files stay offline.</li>
           <li><strong>Read-only or shared files</strong> cannot be overwritten; the save reports a permission failure and Save As creates your own copy.</li>
@@ -185,7 +185,7 @@ import '../../styles/docs-prose.css';
           A new build is never forced onto an open document. When an update is ready the demo shows
           a notice with <strong>Update and reload</strong> and <strong>Dismiss</strong>; the reload
           happens only when you choose it. If an old page references build files that a deploy has
-          replaced, the same notice recovers the session with a reload — your documents are in
+          replaced, the same notice recovers the session with a reload. Your documents are in
           browser storage, not in those files.
         </p>
       </section>
@@ -212,7 +212,7 @@ import '../../styles/docs-prose.css';
         <ul>
           <li><strong>One finger</strong> draws or selects with the active tool by default. Settings &gt; Drawing input can switch one-finger touch to viewport navigation.</li>
           <li><strong>Two fingers</strong> cancel only a provisional first-pointer action, then pan and pinch-zoom the canvas around the gesture; page zoom is not affected. Lift both fingers and start a new contact before drawing again.</li>
-          <li><strong>Long-press</strong> a stack of overlapping layers for the deep-selection menu — the touch equivalent of right-click.</li>
+          <li><strong>Long-press</strong> a stack of overlapping layers for the deep-selection menu, the touch equivalent of right-click.</li>
           <li><strong>Without a keyboard</strong>, use the toolbar's Editing controls for latched shape modifiers, deep selection, Duplicate, alignment, and layer-order actions. Touch multi-select stays on the toolbar.</li>
           <li><strong>Pen</strong> input is treated as a precision pointer: pressure, tilt, and twist are used when the browser and device report useful values, and strokes fall back to a stable constant response when they do not. Eraser-tip input is preserved where the platform exposes it, but real pressure, palm rejection, hover, and USI button behavior are not certified by browser emulation.</li>
         </ul>
@@ -256,10 +256,10 @@ import '../../styles/docs-prose.css';
       <section class="docs-section">
         <h2>Troubleshooting</h2>
         <ul>
-          <li><strong>"Varve is not available offline yet"</strong> — the browser has no complete offline copy. Reconnect, load the demo once, and let the page settle for a few seconds.</li>
-          <li><strong>The demo asks for file access again</strong> — browsers do not always remember file permissions between sessions. Choose the same file again, or use <strong>Save As</strong>.</li>
-          <li><strong>Save failed with a permission or quota message</strong> — the document stays modified and its recovery copy remains. Free up space or grant access, then save again; nothing was overwritten by the failed attempt.</li>
-          <li><strong>An update notice will not go away after updating</strong> — close every demo tab and window (including the installed app) and reopen; one old client can keep an update "waiting".</li>
+          <li><strong>"Varve is not available offline yet"</strong>: the browser has no complete offline copy. Reconnect, load the demo once, and let the page settle for a few seconds.</li>
+          <li><strong>The demo asks for file access again</strong>: browsers do not always remember file permissions between sessions. Choose the same file again, or use <strong>Save As</strong>.</li>
+          <li><strong>Save failed with a permission or quota message</strong>: the document stays modified and its recovery copy remains. Free up space or grant access, then save again; nothing was overwritten by the failed attempt.</li>
+          <li><strong>An update notice will not go away after updating</strong>: close every demo tab and window (including the installed app) and reopen; one old client can keep an update "waiting".</li>
         </ul>
       </section>
     </div>

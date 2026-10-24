@@ -26,7 +26,7 @@ const faqSchema = {
       name: 'Is Varve free?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. The Varve Community Edition is free to download and use, and it stays free — no subscriptions, no feature lockouts, and no cloud requirements. The source code is available on GitHub under FSL-1.1-MIT. A separate Pro edition may exist one day, but it would be a different product; this one remains free.',
+        text: 'Yes. The Varve Community Edition is free to download and use, and it stays free (no subscriptions, no feature lockouts, and no cloud requirements). The source code is available on GitHub under FSL-1.1-MIT. A separate Pro edition may exist one day, but it would be a different product; this one remains free.',
       },
     },
     {
@@ -34,7 +34,7 @@ const faqSchema = {
       name: 'Does Varve work offline?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. Core editing works fully offline with no account required. Optional network features include model downloads, online font/icon search, consented update checks, and user-configured cloud providers — each is explicit and user-controlled. In the browser demo, offline operation requires one complete online visit first, after which the demo opens from the browser’s saved copy.',
+        text: 'Yes. Core editing works fully offline with no account required. Optional network features include model downloads, online font/icon search, consented update checks, and user-configured cloud providers. Each is explicit and user-controlled. In the browser demo, offline operation requires one complete online visit first, after which the demo opens from the browser’s saved copy.',
       },
     },
     {
@@ -42,7 +42,7 @@ const faqSchema = {
       name: 'Can I use Varve in a browser?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes — a bounded browser demo runs the real editor on the WASM engine at varve.studio/try/, with everything processing locally and no account. It exposes Design, Draw, and Photo; Logo tools are part of Design and Code export is a shared panel, not another workspace. Print production, on-device model features, and Motion and Email authoring are outside this demo. See the Browser Demo & Offline guide for saving, storage, and offline details, and Varve on Chromebook for the browser, installed-app, and optional Linux routes.',
+        text: 'Yes, a bounded browser demo runs the real editor on the WASM engine at varve.studio/try/, with everything processing locally and no account. It exposes Design, Draw, and Photo; Logo tools are part of Design and Code export is a shared panel, not another workspace. Print production, on-device model features, and Motion and Email authoring are outside this demo. See the Browser Demo & Offline guide for saving, storage, and offline details, and Varve on Chromebook for the browser, installed-app, and optional Linux routes.',
       },
     },
     {
@@ -50,7 +50,7 @@ const faqSchema = {
       name: 'What platforms does Varve support?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve publishes Linux x86_64 and ARM64 (aarch64) packages (AppImage, deb, rpm), Apple Silicon macOS builds, and Windows x86_64 and ARM64 installers. There is no Intel macOS build: Varve\'s on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.',
+        text: 'Varve publishes Linux x86_64 and ARM64 (aarch64) packages (AppImage, deb, rpm), Apple Silicon macOS builds, and Windows x86_64 and ARM64 installers. There is no Intel macOS build: Varve\'s on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support (a deliberate dependency constraint, not an oversight).',
       },
     },
     {
@@ -66,7 +66,7 @@ const faqSchema = {
       name: 'What does FSL-1.1-MIT mean?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose — anything other than a Competing Use, such as offering a substitute product or hosted service. After two years, each release converts to the MIT license.',
+        text: 'FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose (anything other than a Competing Use, such as offering a substitute product or hosted service). After two years, each release converts to the MIT license.',
       },
     },
     {
@@ -90,7 +90,7 @@ const faqSchema = {
       name: 'Can I use Varve for professional print work?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta — test thoroughly before using it for critical print production.',
+        text: 'Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta. Test thoroughly before using it for critical print production.',
       },
     },
     {
@@ -98,7 +98,7 @@ const faqSchema = {
       name: 'Does Varve support ARM processors?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. Apple Silicon (ARM64) on macOS, Linux ARM64, and Windows ARM64 are all published as native builds. Use the architecture-labeled download on the download page — do not install an x86_64 build by assumption on ARM hardware.',
+        text: 'Yes. Apple Silicon (ARM64) on macOS, Linux ARM64, and Windows ARM64 are all published as native builds. Use the architecture-labeled download on the download page. Do not install an x86_64 build by assumption on ARM hardware.',
       },
     },
     {
@@ -115,7 +115,7 @@ const faqSchema = {
       acceptedAnswer: {
         '@type': 'Answer',
         text: release.updater
-          ? `Varve updates are consent-first and cryptographically verified. The current release (v${releaseVersion}) includes an in-app updater. On first launch you can choose to allow automatic update checks. Updates are verified before installation and never overwrite unsaved work. Package-specific limitations apply — see the Updates guide.`
+          ? `Varve updates are consent-first and cryptographically verified. The current release (v${releaseVersion}) includes an in-app updater. On first launch you can choose to allow automatic update checks. Updates are verified before installation and never overwrite unsaved work. Package-specific limitations apply. See the Updates guide.`
           : `Varve updates are designed to be consent-first. The current release (v${releaseVersion}) does not include an in-app updater, so manual updates through the download page or GitHub Releases are the dependable path. Future feed-enabled builds can offer automatic checks, notifications, or verified downloads in Settings > Updates.`,
       },
     },
@@ -197,7 +197,7 @@ const breadcrumbSchema = {
             <h3 class="faq-item__question-text">Is Varve free?</h3>
           </summary>
           <div class="faq-item__answer">
-            <p>Yes, the Varve Community Edition is free to download and use, and it stays free. There are no subscriptions, no feature lockouts, and no cloud requirements. The source code is available on <a href="https://github.com/varvedesign/varve">GitHub</a>. If a paid Pro edition ever exists, it will be a separate product — it will never be this one.</p>
+            <p>Yes, the Varve Community Edition is free to download and use, and it stays free. There are no subscriptions, no feature lockouts, and no cloud requirements. The source code is available on <a href="https://github.com/varvedesign/varve">GitHub</a>. If a paid Pro edition ever exists, it will be a separate product. It will never be this one.</p>
           </div>
         </details>
 
@@ -209,7 +209,7 @@ const breadcrumbSchema = {
             <h3 class="faq-item__question-text">Does Varve work offline?</h3>
           </summary>
           <div class="faq-item__answer">
-            <p>Yes. Core editing works fully offline with no account required. Optional network features — model downloads, additional font downloads, update checks, and user-configured cloud providers — are each explicit and user-controlled. See the <a href={sitePath('/about/privacy')}>privacy policy</a> for details. In the browser demo, offline operation requires one complete online visit first.</p>
+            <p>Yes. Core editing works fully offline with no account required. Optional network features (model downloads, additional font downloads, update checks, and user-configured cloud providers) are each explicit and user-controlled. See the <a href={sitePath('/about/privacy')}>privacy policy</a> for details. In the browser demo, offline operation requires one complete online visit first.</p>
           </div>
         </details>
 
@@ -222,7 +222,7 @@ const breadcrumbSchema = {
           </summary>
           <div class="faq-item__answer">
             <p>
-              Yes — a bounded browser demo runs the real editor on the WASM engine at{' '}
+              Yes, a bounded browser demo runs the real editor on the WASM engine at{' '}
               <a href={sitePath('/try/')}>varve.studio/try/</a>, with everything processing locally
               and no account. It exposes Design, Draw, and Photo and can be installed as an app in
               Chrome or Edge. Logo tools live in Design, and Code export is a shared panel. Print
@@ -278,7 +278,7 @@ const breadcrumbSchema = {
             <h3 class="faq-item__question-text">What platforms does Varve support?</h3>
           </summary>
           <div class="faq-item__answer">
-            <p>Varve publishes Linux x86_64 and ARM64 (aarch64) packages (AppImage, deb, rpm), Apple Silicon macOS builds, and Windows x86_64 and ARM64 installers. There is no Intel macOS build: Varve's on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.</p>
+            <p>Varve publishes Linux x86_64 and ARM64 (aarch64) packages (AppImage, deb, rpm), Apple Silicon macOS builds, and Windows x86_64 and ARM64 installers. There is no Intel macOS build: Varve's on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support, a deliberate dependency constraint, not an oversight.</p>
           </div>
         </details>
 
@@ -303,7 +303,7 @@ const breadcrumbSchema = {
             <h3 class="faq-item__question-text">What does FSL-1.1-MIT mean?</h3>
           </summary>
           <div class="faq-item__answer">
-            <p>FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose — anything other than a Competing Use, such as offering a substitute product or hosted service. After two years, each release converts to the MIT license. See the <a href={sitePath('/about/license')}>license page</a> for details.</p>
+            <p>FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose (anything other than a Competing Use, such as offering a substitute product or hosted service). After two years, each release converts to the MIT license. See the <a href={sitePath('/about/license')}>license page</a> for details.</p>
           </div>
         </details>
 
@@ -343,7 +343,7 @@ const breadcrumbSchema = {
             <h3 class="faq-item__question-text">Can I use Varve for professional print work?</h3>
           </summary>
           <div class="faq-item__answer">
-            <p>Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta — test thoroughly before using for critical print production. See the <a href={sitePath('/features/color-effects')}>Color & Effects</a> page for current status.</p>
+            <p>Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta. Test thoroughly before using for critical print production. See the <a href={sitePath('/features/color-effects')}>Color & Effects</a> page for current status.</p>
           </div>
         </details>
 
@@ -355,7 +355,7 @@ const breadcrumbSchema = {
             <h3 class="faq-item__question-text">Does Varve support ARM processors?</h3>
           </summary>
           <div class="faq-item__answer">
-            <p>Yes. Apple Silicon (ARM64) on macOS, Linux ARM64, and Windows ARM64 are all published as native builds. Use the architecture-labeled download on the <a href={sitePath('/download')}>download page</a> — do not install an x86_64 build by assumption on ARM hardware.</p>
+            <p>Yes. Apple Silicon (ARM64) on macOS, Linux ARM64, and Windows ARM64 are all published as native builds. Use the architecture-labeled download on the <a href={sitePath('/download')}>download page</a>: do not install an x86_64 build by assumption on ARM hardware.</p>
           </div>
         </details>
 

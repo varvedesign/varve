@@ -16,7 +16,7 @@
  *   node scripts/release/release-notes.mjs \
  *     --version 0.1.0 --manifest dist/release/release-manifest.json --out RELEASE_NOTES.md
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { documentExtension, productSlug } from './product.mjs';
@@ -61,7 +61,7 @@ function changelogSection(version) {
   if (start === -1) {
     throw new Error(
       `CHANGELOG.md has no '## [${version}]' section. ` +
-        'A commented-out template does not count — write a real one.',
+        'A commented-out template does not count: write a real one.',
     );
   }
   const rest = lines.slice(start + 1);
@@ -74,7 +74,7 @@ function changelogSection(version) {
   const hasProse = cleaned.split('\n').some((l) => l.trim() !== '' && !/^#{2,6}\s/.test(l.trim()));
   if (!cleaned || !hasProse) {
     throw new Error(
-      `CHANGELOG.md section '## [${version}]' has no content. Release notes need real prose — ` +
+      `CHANGELOG.md section '## [${version}]' has no content. Release notes need real prose: ` +
         'describe what changed for someone deciding whether to install this update.',
     );
   }
@@ -94,6 +94,25 @@ const INSTALL_HINT = {
   nsis: 'Per-user install, no admin needed.',
   msi: 'System-wide install.',
   dmg: 'Open, drag to Applications.',
+};
+
+/** Published release-note fragments. Tests assert these stay free of em dashes. */
+export const RELEASE_NOTES_PUBLISHED = {
+  windowsSigned: (publisher) =>
+    `- **Windows**: Authenticode signature verified: ${publisher ?? '(publisher)'}. ` +
+    'SmartScreen may still warn until the publisher builds reputation.',
+  macosSigned: '- **macOS**: Developer ID signed, notarized by Apple, ticket stapled.',
+  linuxChecksums:
+    '- **Linux**: SHA-256 checksums, SBOM and GitHub build provenance are attached to this release.',
+  windowsNote:
+    '- **Windows note**: the installer is signed; the executable it installs is not ' +
+    '(NSIS payloads are not signed). Windows does not require it to run.',
+  unsignedIntro:
+    'These builds are **not code-signed**. That is a statement about this project’s ' +
+    'budget, not the files. Your operating system cannot tell the ' +
+    'difference, and neither can you without checking. Verify the SHA-256 checksum ' +
+    'below against your download before running it.',
+  unknownInstallHint: 'None',
 };
 
 function main() {
@@ -136,38 +155,25 @@ function main() {
     out.push('### Release verification');
     out.push('');
     if (signing.windows?.signed) {
-      out.push(
-        `- **Windows** — Authenticode signature verified: ${signing.windows.publisher ?? '(publisher)'}. ` +
-          'SmartScreen may still warn until the publisher builds reputation.',
-      );
+      out.push(RELEASE_NOTES_PUBLISHED.windowsSigned(signing.windows.publisher));
     }
     if (signing.macos?.signed) {
-      out.push('- **macOS** — Developer ID signed, notarized by Apple, ticket stapled.');
+      out.push(RELEASE_NOTES_PUBLISHED.macosSigned);
     }
-    out.push(
-      '- **Linux** — SHA-256 checksums, SBOM and GitHub build provenance are attached to this release.',
-    );
+    out.push(RELEASE_NOTES_PUBLISHED.linuxChecksums);
     if (signing.windows && !signing.windows.innerExecutableSigned) {
-      out.push(
-        '- **Windows note** — the installer is signed; the executable it installs is not ' +
-          '(NSIS payloads are not signed). Windows does not require it to run.',
-      );
+      out.push(RELEASE_NOTES_PUBLISHED.windowsNote);
     }
     out.push('');
   } else {
     out.push('### Before you install');
     out.push('');
-    out.push(
-      'These builds are **not code-signed**. That is a statement about this project’s ' +
-        'budget, not about the files — but your operating system cannot tell the ' +
-        'difference, and neither can you without checking. Verify the SHA-256 checksum ' +
-        'below against your download before running it.',
-    );
+    out.push(RELEASE_NOTES_PUBLISHED.unsignedIntro);
     out.push('');
     if (platforms.includes('windows')) {
       out.push(
         '- **Windows** shows "Windows protected your PC". Choose **More info → Run anyway**. ' +
-          'Windows 11 Smart App Control can block unsigned apps with no override — use the ' +
+          'Windows 11 Smart App Control can block unsigned apps with no override. Use the ' +
           'browser version at https://varve.studio/try.',
       );
     }
@@ -176,7 +182,7 @@ function main() {
         out.push(
           '- **macOS (0.5.0)** shows "Varve is damaged and can\'t be opened" with no Open Anyway ' +
             'option. After dragging Varve to Applications, run ' +
-            '`xattr -dr com.apple.quarantine /Applications/Varve.app` — that removes the ' +
+            '`xattr -dr com.apple.quarantine /Applications/Varve.app`, which removes the ' +
             'download quarantine flag so macOS will open the app. Do not disable Gatekeeper.',
         );
       } else {
@@ -202,7 +208,7 @@ function main() {
   for (const a of manifest.artifacts) {
     const os = OS_LABEL[a.os] ?? a.os;
     out.push(
-      `| ${os} ${a.arch} | \`${a.filename}\` | ${a.size} | ${INSTALL_HINT[a.format] ?? '—'} |`,
+      `| ${os} ${a.arch} | \`${a.filename}\` | ${a.size} | ${INSTALL_HINT[a.format] ?? RELEASE_NOTES_PUBLISHED.unknownInstallHint} |`,
     );
   }
   out.push('');
@@ -241,7 +247,7 @@ function main() {
         'See the [Updates guide](https://varve.studio/docs/updates).',
     );
   } else {
-    out.push('- Updates are manual — there is no in-app updater for this release.');
+    out.push('- Updates are manual. There is no in-app updater for this release.');
   }
   if (!platforms.includes('macos')) {
     out.push('- No macOS build in this release.');
@@ -259,9 +265,14 @@ function main() {
   process.stdout.write(`Release notes written to ${outPath}\n`);
 }
 
-try {
-  main();
-} catch (err) {
-  process.stderr.write(`${err.message}\n`);
-  process.exit(1);
+const invokedAsCli =
+  process.argv[1] !== undefined &&
+  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+if (invokedAsCli) {
+  try {
+    main();
+  } catch (err) {
+    process.stderr.write(`${err.message}\n`);
+    process.exit(1);
+  }
 }

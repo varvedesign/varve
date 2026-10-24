@@ -103,8 +103,8 @@ const tonalCurvesShot = scenes['tonal-curves']?.status === 'captured' ? scenes['
         </p>
         <p>
           The redesigned Object Filters panel organizes the available filters into five categorized
-          families—Color &amp; Tone, Blur &amp; Detail, Texture &amp; Finishing, Atmosphere &amp; Optics,
-          and Color Grading—with instant keyboard search, live blend mode and opacity badges,
+          families, Color &amp; Tone, Blur &amp; Detail, Texture &amp; Finishing, Atmosphere &amp; Optics,
+          and Color Grading, with instant keyboard search, live blend mode and opacity badges,
           and one-click whole-stack bypass. Object Filters also provide directional Motion Blur,
           block-based Mosaic, edge-aware Surface Smooth, and paper-or-transparent Edge Ink. They remain
           editable stack members on images, vectors, and text, with deterministic raster export.
@@ -192,7 +192,7 @@ const tonalCurvesShot = scenes['tonal-curves']?.status === 'captured' ? scenes['
         <p>
           LUT imports preserve their source-space metadata, but the current browser
           compositor executes against sRGB values. The optional Linearize control is a
-          tested sRGB transfer—not an ACES, Display-P3, or camera-log conversion—so
+          tested sRGB transfer (not an ACES, Display-P3, or camera-log conversion) so
           those labels are not advertised as equivalent color-managed transforms.
         </p>
         <p>
@@ -260,7 +260,7 @@ const tonalCurvesShot = scenes['tonal-curves']?.status === 'captured' ? scenes['
         </p>
         <ul>
           <li><strong>Useful roles:</strong> dominant, primary, secondary, accent, and neutral candidates with coverage information</li>
-          <li><strong>Generated harmonies:</strong> complementary, analogous, triadic, split-complementary, and monochromatic suggestions clearly labelled as derived—not sampled</li>
+          <li><strong>Generated harmonies:</strong> complementary, analogous, triadic, split-complementary, and monochromatic suggestions clearly labelled as derived, not sampled</li>
           <li><strong>Accessibility review:</strong> WCAG 2.1 body-text and large-text contrast thresholds with foreground/background previews</li>
           <li><strong>Reusable output:</strong> copy HEX values, apply a sampled colour as a fill, or save extracted colours as document swatches and variables</li>
         </ul>
@@ -288,14 +288,14 @@ const tonalCurvesShot = scenes['tonal-curves']?.status === 'captured' ? scenes['
           <li><strong>Picker views:</strong> RGB with RGB/HSL/HSB formats, CMYK, grayscale, Lab, LCH, and Spot, with canonical values preserved during edits</li>
           <li><strong>Native document color:</strong> CMYK channels stay tagged as CMYK in the document model, ready for print-oriented editing and export</li>
           <li><strong>Precision-aware working:</strong> 16-bit integer and floating-point channel values stay distinct through supported conversions, gradients, effects, and proof transforms; quantization is explicit at a display or codec boundary</li>
-          <li><strong>Document color settings:</strong> Inspector controls for precision (8-bit, 16-bit, 16f, 32f) and blend space (sRGB or linear-light), plus an explicit Assign vs Convert dialog for mode changes — assign keeps values, convert rewrites them in one undoable step</li>
-          <li><strong>Precision-preserving editing:</strong> bit-depth-aware numeric fields (0-255 / 0-65535 / 0-1), float HSV drafts, and swatches that carry the full canonical color — editing one channel never quantizes the others, and 16-bit values survive save/reopen exactly</li>
-          <li><strong>Native CMYK in PDF export:</strong> authored CMYK channels are emitted directly with pure-K preserved — no CMYK→RGB→CMYK round trip turning black into a four-color build</li>
+          <li><strong>Document color settings:</strong> Inspector controls for precision (8-bit, 16-bit, 16f, 32f) and blend space (sRGB or linear-light), plus an explicit Assign vs Convert dialog for mode changes: assign keeps values; convert rewrites them in one undoable step</li>
+          <li><strong>Precision-preserving editing:</strong> bit-depth-aware numeric fields (0-255 / 0-65535 / 0-1), float HSV drafts, and swatches that carry the full canonical color. Editing one channel never quantizes the others, and 16-bit values survive save/reopen exactly</li>
+          <li><strong>Native CMYK in PDF export:</strong> authored CMYK channels are emitted directly with pure-K preserved: no CMYK→RGB→CMYK round trip turning black into a four-color build</li>
           <li><strong>ICC profiles:</strong> Bundled RGB and CMYK profiles (sRGB, Fogra39, GRACoL, SWOP) with rendering intents</li>
           <li><strong>Blend modes:</strong> 18 CSS blend modes plus 4 non-separable modes (hue, saturation, color, luminosity)</li>
           <li><strong>Effects:</strong> Alpha-aware drop/inner shadows, canonical Gaussian and Layer Blur, Field/Iris/Tilt-Shift/Path/Spin spatial blur, background blur, Depth Blur, solid or gradient outer/inner glow, glass material, RGB/custom chromatic split, and glitch</li>
           <li><strong>Image Treatments:</strong> Fine Texture, Local Contrast, Atmospheric Depth, Dehaze, Vignette, Grain, and Highlight Glow with source-preserving Object Filters and Adjustment Layers</li>
-          <li><strong>Adjustment layers:</strong> Curves (Catmull-Rom spline), levels, selective color (9 targets), HSL, exposure — with per-target scoping</li>
+          <li><strong>Adjustment layers:</strong> Curves (Catmull-Rom spline), levels, selective color (9 targets), HSL, exposure, with per-target scoping</li>
           <li><strong>Halftone screening:</strong> AM clustered dots (7 shapes) and FM stochastic (blue-noise, Bayer, or full-frame error diffusion); document-anchored ruling in LPI, mono ink/paper with an alpha-screening mode, and CMYK process preview with per-ink angles, GCR/UCR black generation, ink limits, and plate preview</li>
           <li><strong>Soft proofing:</strong> qualified CMYK simulation and gamut status when a profile converter is registered; browser display remains an sRGB preview</li>
           <li><strong>Background removal:</strong> Fast, Auto, and High quality local cutouts with optional IS-Net/BiRefNet models, hair-edge refinement, subject picker, and an undoable mask workflow</li>
@@ -305,16 +305,16 @@ const tonalCurvesShot = scenes['tonal-curves']?.status === 'captured' ? scenes['
 
       <FeatureVisual
         scene="effects"
-        caption="Effects stay non-destructive and precise — each stack member keeps its own offset, blur, spread, opacity, blend mode, and editable value controls."
+        caption="Effects stay non-destructive and precise. Each stack member keeps its own offset, blur, spread, opacity, blend mode, and editable value controls."
       />
 
       <section class="feature-section">
         <h2>Print Preview, Honestly</h2>
         <p>
-          Native desktop export is the print authority: it can apply the selected document profile, rendering intent, bleed, marks, and PDF/X settings. Browser previews use the browser's sRGB display path and current RGBA8 canvas surfaces, so they are useful for layout and directional proofing—not a substitute for a calibrated monitor or an exported contract proof.
+          Native desktop export is the print authority: it can apply the selected document profile, rendering intent, bleed, marks, and PDF/X settings. Browser previews use the browser's sRGB display path and current RGBA8 canvas surfaces, so they are useful for layout and directional proofing, not a substitute for a calibrated monitor or an exported contract proof.
         </p>
         <p>
-          Authoring precision — 16-bit and floating-point vector colors, precision-aware picker fields, and high-precision persistence through save/reopen — is shipped. High-precision raster decode (16-bit PNG/TIFF pixels), CMYK raster planes, and high-precision GPU preview targets remain active integration areas. The document model and typed working-buffer boundaries are designed so those paths can be added without silently rewriting stored color values.
+          Authoring precision (16-bit and floating-point vector colors, precision-aware picker fields, and high-precision persistence through save/reopen) is shipped. High-precision raster decode (16-bit PNG/TIFF pixels), CMYK raster planes, and high-precision GPU preview targets remain active integration areas. The document model and typed working-buffer boundaries are designed so those paths can be added without silently rewriting stored color values.
         </p>
       </section>
 

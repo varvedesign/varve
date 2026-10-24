@@ -1283,7 +1283,7 @@ ${shapeInner}`
       })();
       const missingPath = textNode.textMode === 'path' && textNode.pathTextSettings && !pathText;
       const missingComment = missingPath
-        ? `${indent}<!-- varve: path text — referenced path ${textNode.pathTextSettings!.pathNodeId} not found, exported as flat text -->\n`
+        ? `${indent}<!-- varve: path text: referenced path ${textNode.pathTextSettings!.pathNodeId} not found, exported as flat text -->\n`
         : '';
       const textMarkup = textNodeSvgMarkup({
         node: textNode,
@@ -1582,7 +1582,7 @@ export function svgTargetGaps(
       feature: `${gradType} gradient fill`,
       severity: flattened ? 'info' : 'warning',
       fallback: flattened
-        ? 'Rasterized at export resolution — gradient preserved as pixel-accurate image'
+        ? 'Rasterized at export resolution. Gradient preserved as pixel-accurate image'
         : 'Flatten to a raster bitmap for correct export, or use a linear/radial gradient',
     });
   }
@@ -1597,7 +1597,7 @@ export function svgTargetGaps(
         feature: 'multiple visible strokes',
         severity: flattened ? 'info' : 'warning',
         fallback: flattened
-          ? 'Rasterized at export resolution — all stroke layers preserved'
+          ? 'Rasterized at export resolution. All stroke layers preserved'
           : 'Rasterize this shape for exact SVG output; SVG emission keeps one stroke per shape',
       });
     }
@@ -1617,7 +1617,7 @@ export function svgTargetGaps(
         feature: `${gradType} gradient stroke`,
         severity: flattened ? 'info' : 'warning',
         fallback: flattened
-          ? 'Rasterized at export resolution — gradient stroke preserved as pixel-accurate image'
+          ? 'Rasterized at export resolution. Gradient stroke preserved as pixel-accurate image'
           : 'Flatten to a raster bitmap for correct export, or use a linear/radial gradient stroke',
       });
     }
@@ -1645,8 +1645,8 @@ export function svgTargetGaps(
       severity: 'warning',
       fallback:
         unbakeable === 'text'
-          ? 'SVG <text> cannot carry a nonlinear warp — outline the text (Expand Appearance) or rasterize before export; it currently exports undeformed'
-          : 'Container warps are not baked per child — Expand Appearance on the leaves, or rasterize the group; it currently exports undeformed',
+          ? 'SVG <text> cannot carry a nonlinear warp. Outline the text (Expand Appearance) or rasterize before export; it currently exports undeformed'
+          : 'Container warps are not baked per child. Expand Appearance on the leaves, or rasterize the group; it currently exports undeformed',
     });
   }
 
@@ -1660,7 +1660,7 @@ export function svgTargetGaps(
       feature: 'rich text on path',
       severity: 'info',
       fallback:
-        'SVG <textPath> uses a single font — rich text formatting (mixed families, weights, colours) is exported as plain text; the canvas renderer already flattens it',
+        'SVG <textPath> uses a single font. Rich text formatting (mixed families, weights, colours) is exported as plain text; the canvas renderer already flattens it',
     });
   }
 

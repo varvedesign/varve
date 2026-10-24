@@ -133,7 +133,7 @@ test('runs the bundled Real-ESRGAN model for an AI preview and final output', as
   await expect(previewButton).toBeEnabled({ timeout: 30000 });
   await previewButton.click();
   await expect(
-    page.getByAltText('Enhanced preview — same crop and output size as original'),
+    page.getByAltText('Enhanced preview: same crop and output size as original'),
   ).toBeVisible({ timeout: 120000 });
   await expect(page.locator('.upscale-preview__image--upscaled')).toHaveAttribute(
     'src',

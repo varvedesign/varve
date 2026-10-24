@@ -48,8 +48,8 @@ import { sitePath } from '../../lib/siteUrl';
           patches; drag the grid vertices on the canvas and the source is resampled through the
           envelope, with the folds kept exactly where you put them. Moves that would fold a cell
           inside out are refused rather than rendered wrong, and undo returns the pre-drag grid
-          in one step. It is a bounded envelope for folds and drape — not a 3D model, with no
-          lighting solve and no hidden backside — and composed exports include it like any other
+          in one step. It is a bounded envelope for folds and drape, not a 3D model, with no
+          lighting solve and no hidden backside, and composed exports include it like any other
           surface.
         </p>
       </section>
@@ -81,7 +81,7 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Every export route tells the truth</h2>
         <p>
           PNG, JPEG, WebP, SVG, and screen PDF exports compose the mockup through the same
-          pipeline the canvas uses — an SVG export embeds the composed surface rendered at
+          pipeline the canvas uses. An SVG export embeds the composed surface rendered at
           export scale, not a bare frame. Formats that cannot compose a mockup say so instead
           of guessing: press PDF/X export stops with a clear message (flatten the mockup
           first), and React, Flutter, and SwiftUI code exports carry a warning that mockups are
@@ -97,7 +97,7 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
         <ol>
           <li>
-            Select your artwork and choose <strong>Apply Mockup…</strong> — from the Object
+            Select your artwork and choose <strong>Apply Mockup…</strong>: from the Object
             menu, the canvas context menu, the command palette, or Resources&nbsp;→&nbsp;Mockups.
             The mockup lands beside the source as a normal editable object.
           </li>
@@ -110,14 +110,14 @@ import { sitePath } from '../../lib/siteUrl';
           </li>
           <li>
             Refine the surface on the canvas: select the mockup, click a surface chip, drag its
-            corner or edge handles — or, on a mesh surface, its grid vertices — (Escape aborts,
-            Reset clears), and use
+            corner or edge handles (or, on a mesh surface, its grid vertices). Escape aborts;
+            Reset clears. Then use
             <strong>Clip from selection</strong> / <strong>Occluder from selection</strong> to
             keep bezels, hands, or folds in front of the artwork.
           </li>
           <li>
             For your own photo template: select the photo and run
-            <strong>Create Mockup Template from Selection…</strong> — the photo becomes an
+            <strong>Create Mockup Template from Selection…</strong>: the photo becomes an
             untouched base plate; add surfaces, save, and reuse it with unrelated artwork.
           </li>
           <li>

@@ -41,7 +41,7 @@ import { sitePath } from '../../lib/siteUrl';
             Linux development environment and match your architecture
             (<code>uname -m</code>). ChromeOS does not expose GPU acceleration to Linux
             apps, printing needs CUPS inside the container, and files kept only in the
-            container are deleted if the Linux environment is removed — keep projects in a
+            container are deleted if the Linux environment is removed. Keep projects in a
             shared My files/Drive folder. The full walkthrough is in{' '}
             <a href={sitePath('/docs/chromeos-linux')}>Varve on ChromeOS</a>.
           </p>
@@ -69,7 +69,7 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="troubleshoot-item">
           <h3>Windows SmartScreen or Smart App Control blocks the installer</h3>
           <p>
-            <strong>SmartScreen:</strong> choose More info, then Run anyway — after verifying
+            <strong>SmartScreen:</strong> choose More info, then Run anyway, after verifying
             the SHA-256 checksum on the <a href={sitePath('/download')}>download page</a>.
           </p>
           <p>
@@ -110,10 +110,10 @@ import { sitePath } from '../../lib/siteUrl';
           <h3>Heavy operations are slow, stall, or fail</h3>
           <p><strong>Symptom:</strong> background removal, upscaling, image tracing, large imports, or long pans take a long time or end in an error.</p>
           <p><strong>Likely causes:</strong> memory pressure from several large images at once, browser WASM running single-threaded on the demo host, a very large source image, or a model operation competing with foreground editing. The browser may also be about to discard the tab.</p>
-          <p><strong>Safe checks:</strong> watch the Storage &amp; Offline estimate and the capability report; confirm the document is saved; check Chrome Task Manager for the tab's memory. Save first — recovery copies are a safety net, not a destination.</p>
+          <p><strong>Safe checks:</strong> watch the Storage &amp; Offline estimate and the capability report; confirm the document is saved; check Chrome Task Manager for the tab's memory. Save first. Recovery copies are a safety net, not a destination.</p>
           <p><strong>Bounded action:</strong> run one heavy operation at a time, close unused tabs, and prefer smaller source images. Wait for an operation to finish or cancel it from its dialog before starting another.</p>
           <p><strong>Expected result:</strong> the operation completes or reports a bounded error; the document stays editable and the last save is untouched.</p>
-          <p><strong>If it still fails:</strong> note the operation, source image size in pixels, and the capability report; report it. Attach no private design content — describe the document instead.</p>
+          <p><strong>If it still fails:</strong> note the operation, source image size in pixels, and the capability report; report it. Attach no private design content. Describe the document instead.</p>
         </div>
 
         <div class="troubleshoot-item">
@@ -123,7 +123,7 @@ import { sitePath } from '../../lib/siteUrl';
           <p><strong>Safe checks:</strong> open <strong>Settings &rarr; Storage &amp; Offline</strong>; note the estimate and how many recovery copies exist. Make sure any unsaved document is exported through <strong>Save As</strong> first.</p>
           <p><strong>Bounded action:</strong> clear <strong>offline app copies</strong> only (the control is labeled and prefix-gated); remove downloads you no longer need through Chrome's download manager. Never delete recovery copies while a document has unsaved edits, and never delete browser-wide site data to "clean up" without exporting first.</p>
           <p><strong>Expected result:</strong> new writes succeed; saved documents, recovery copies, and installed-app state are preserved except the disposable offline copy you chose to clear.</p>
-          <p><strong>If it still fails:</strong> report the estimate, the exact error text, and free disk space. If the device itself is full, free space in ChromeOS Files or remove unused Android/Linux content — with a backup first.</p>
+          <p><strong>If it still fails:</strong> report the estimate, the exact error text, and free disk space. If the device itself is full, free space in ChromeOS Files or remove unused Android/Linux content, with a backup first.</p>
         </div>
 
         <div class="troubleshoot-item">
@@ -141,7 +141,7 @@ import { sitePath } from '../../lib/siteUrl';
           <p><strong>Symptom:</strong> an AI feature reports that its model could not be downloaded, or the download stalls.</p>
           <p><strong>Likely causes:</strong> network restrictions, a proxy or captive portal, insufficient free space, or an interrupted large download. Models are large (hundreds of megabytes to roughly a gigabyte) and are never bundled with core editing.</p>
           <p><strong>Safe checks:</strong> confirm normal web browsing works in the same tab, check Storage &amp; Offline, and read the model dialog's byte figures for download versus estimated working memory.</p>
-          <p><strong>Bounded action:</strong> retry on an unmetered connection with enough free space; download one model at a time. Core editing does not need any model — continue without it.</p>
+          <p><strong>Bounded action:</strong> retry on an unmetered connection with enough free space; download one model at a time. Core editing does not need any model. Continue without it.</p>
           <p><strong>Expected result:</strong> the feature reports a clear unavailable state and editing continues unaffected.</p>
           <p><strong>If it still fails:</strong> report the model name, the error, and available space. Do not disable browser security controls or add untrusted certificate exceptions to make a download work.</p>
         </div>
@@ -153,7 +153,7 @@ import { sitePath } from '../../lib/siteUrl';
           <p><strong>Safe checks:</strong> confirm the Settings path <strong>About ChromeOS &rarr; Developers</strong>; on a managed device, check the organization's policy summary if your administrator provides one.</p>
           <p><strong>Bounded action:</strong> use the browser route at <a href={sitePath('/try/')}>varve.studio/try/</a>, which needs no Linux. If you need Linux for other reasons, contact your administrator.</p>
           <p><strong>Expected result:</strong> the browser route remains fully available; the Linux route stays unavailable by design.</p>
-          <p><strong>If it still fails:</strong> ask the administrator. Do not attempt Developer Mode, firmware changes, or policy bypasses — this project neither documents nor supports them.</p>
+          <p><strong>If it still fails:</strong> ask the administrator. Do not attempt Developer Mode, firmware changes, or policy bypasses. This project neither documents nor supports them.</p>
         </div>
 
         <div class="troubleshoot-item">
@@ -201,7 +201,7 @@ import { sitePath } from '../../lib/siteUrl';
           <p><strong>Symptom:</strong> no install option appears, the app opens as a tab, an update notice does not apply, or uninstalling removed data unexpectedly.</p>
           <p><strong>Likely causes:</strong> install criteria not met (unsupported browser, private window, or policy), the page not being reloaded after an update, or choosing "delete data" during uninstall (or clearing browsing data) which removes documents and recovery copies.</p>
           <p><strong>Safe checks:</strong> confirm the address bar shows the Varve origin over HTTPS; check <code>chrome://apps</code> for the installed entry; export any unsaved work before removing anything.</p>
-          <p><strong>Bounded action:</strong> reload once to pick up a waiting update. If an administrator blocks installation, use the tab instead — the behavior is identical; the browser guide covers the exact menus.</p>
+          <p><strong>Bounded action:</strong> reload once to pick up a waiting update. If an administrator blocks installation, use the tab instead. The behavior is identical; the browser guide covers the exact menus.</p>
           <p><strong>Expected result:</strong> the app opens in its own window, updates only after you accept, and uninstall without deleting data leaves documents intact.</p>
           <p><strong>If it still fails:</strong> report the browser version, ChromeOS version, and whether the device is managed. Never clear all browser data as a first response.</p>
         </div>
@@ -267,7 +267,7 @@ import { sitePath } from '../../lib/siteUrl';
             a stroke. If the wrong tool is active, pick one from the palette or press its shortcut.
             Long-press a stack of overlapping layers for the deep-selection menu (the touch
             equivalent of right-click). On a touchscreen laptop both the touchscreen and the
-            trackpad stay active — a trackpad two-finger scroll pans the canvas, and a trackpad
+            trackpad stay active. A trackpad two-finger scroll pans the canvas, and a trackpad
             pinch zooms it.
           </p>
         </div>

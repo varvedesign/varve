@@ -1546,7 +1546,7 @@ const SCENES = [
       await dialog.getByRole('combobox', { name: 'Enhancement operation' }).click();
       await page.getByRole('option', { name: 'Upscale', exact: true }).click();
       await dialog
-        .getByAltText('Enhanced preview — same crop and output size as original')
+        .getByAltText('Enhanced preview: same crop and output size as original')
         .waitFor({ state: 'visible', timeout: 20000 });
     },
   },
@@ -1585,7 +1585,7 @@ const SCENES = [
     feature: 'vector-tools',
     alt: 'The Varve Vectorize dialog tracing an imported photograph into editable vector paths, with the overlay preview, path/point/hole diagnostics, and source-versus-vector view tabs',
     caption:
-      'Trace an imported image into editable paths — entirely on-device, with prepare/overlay/vector previews before anything is committed.',
+      'Trace an imported image into editable paths: entirely on-device, with prepare/overlay/vector previews before anything is committed.',
     async run(page) {
       await openCleanEditor(page);
       // The default Dialog caps at 42rem even in a taller viewport. This
@@ -1663,7 +1663,7 @@ const SCENES = [
     // at 85% and the shadow sits at 0.3 opacity, so the alt text describes
     // the controls rather than claiming a visible effect on the artwork.
     alt: 'The Varve Effects inspector with a drop shadow added to the selected shape on a poster, showing offset, blur, spread, opacity and blend-mode controls',
-    caption: 'Stackable, non-destructive effects — drop shadow, blurs, glows, glitch and more.',
+    caption: 'Stackable, non-destructive effects: drop shadow, blurs, glows, glitch and more.',
     async run(page) {
       await openCleanEditor(page);
       await openDemoDocument(page, 'poster');
@@ -1858,7 +1858,7 @@ const SCENES = [
     feature: 'workspaces',
     alt: 'The Varve menubar workspace switcher with the Print workspace selected, showing the panel and toolbar layout that workspace applies',
     caption:
-      'Six task workspaces in keyboard order — Print selected with its own panels, toolbar, and inspector.',
+      'Six task workspaces in keyboard order: Print selected with its own panels, toolbar, and inspector.',
     async run(page) {
       await openCleanEditor(page);
       await openDemoDocument(page, 'poster');

@@ -426,7 +426,7 @@ export function App() {
 
   // Keep the title honest in the demo.
   useEffect(() => {
-    if (demo.config.active) document.title = 'Varve — Try in browser';
+    if (demo.config.active) document.title = 'Varve | Try in browser';
   }, [demo.config.active]);
 
   const handleResumeEditing = useCallback(() => {
