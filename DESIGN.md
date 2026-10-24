@@ -38,6 +38,16 @@ layout:
 
 ## Brand & Style
 
+### Local-model readiness (approved 2026-10-23)
+
+Use action-adjacent installation and runtime status with text, existing semantic
+hint/status classes, and an applicable download or retry action. Model details
+use the shared compact Disclosure. Installation never implies successful model
+execution; memory evidence must distinguish estimates, peak and retained memory.
+Offline Models rows and the Inspector consume the same readiness facts. Preserve
+the existing typography, density and theme tokens. Research and approval:
+`docs/audits/ai-model-reliability-2026-10-23.md`.
+
 The design system establishes a high-density, pro-tool precision environment engineered for vector manipulation, multi-layered canvas workflows, and interface construction. Built with native desktop ergonomics (GTK and Tauri caliber), it synthesizes clinical technical utility with the tactile depth of physical sedimentary strata.
 
 ### Visual Style & Aesthetic Philosophy

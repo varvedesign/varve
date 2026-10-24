@@ -8,7 +8,7 @@ Desktop native inference and native GPU effect/resampling are separate from the
 webview's presentation backend. A native GPU or an OS-advertised NPU is not
 evidence that a particular model used that device.
 
-The system is organized into four layers:
+The system is organized into five layers:
 
 1. **Core Infrastructure** (`packages/engine/src/inference/core/`)
 2. **Model Registry & Catalog** (`packages/engine/src/inference/`)
@@ -39,7 +39,27 @@ Model metadata is centralized in two locations:
    Schema version 1.0.0, manifest version 3.
 
 2. **`packages/engine/src/inference/modelCatalog.ts`** — TypeScript-side fallback entries
-   used when the manifest cannot be fetched. Mirrors manifest.json with 26 hardcoded entries.
+   used when the manifest cannot be fetched. Includes physical graphs, composite
+   groups and tokenizer resources; catalog row count is not a graph count.
+
+### Native worker tensor execution
+
+On desktop, `inferenceWorkerHost` connects the shared preprocessing/postprocessing
+worker to `nativeWorkerBridge` and Rust `native_tensors`. `TensorSession` creates
+and runs real CPU ORT sessions and supports named float32, int64 and bool tensors;
+the browser's ORT WASM session is not used for this route. The catalog owns model
+identity, acquisition URLs and hashes. Native acquisition verifies graph repairs
+and external sidecars before publishing a graph. Cancellation/retirement retains
+ownership until actual execution and session cleanup settle.
+
+TrOCR uses its encoder, cached autoregressive decoder and separately acquired BPE
+tokenizer. Paddle recognition acquires its graph and offline dictionary, including
+the trained space class. The detector expands shrunken DB regions before cropping.
+Actual native PaddleOCR now recognizes the case-preserving audit fixture; the
+printed TrOCR checkpoint uppercases it, a documented trained limitation. See the
+[active reliability audit](../audits/ai-model-reliability-2026-10-23.md) for exact
+evidence and outstanding per-consumer application/quality checks. The existence
+of the shared native boundary does not qualify every catalog workflow.
 
 ### Error Handling
 
@@ -407,12 +427,14 @@ INT8 models are NOT automatically selected. The policy engine considers:
 
 ## Known Limitations
 
-1. **5 of 20+ manifest models have null SHA-256** — cannot be securely downloaded (mostly legacy/stub entries)
+1. **Artifact verification is not workflow qualification.** The active reliability
+   audit checks physical files separately from each consumer's execution and apply path.
 2. **Native runtime artifacts** are optional by target. The fetcher verifies
    archive and extracted-file digests and logs a CPU fallback when a target has
    no published optional provider artifact; a configured core-runtime failure is
    not treated as a valid accelerated installation
-3. **Rust session pool** limits are hardcoded (max 2 sessions, 2 concurrent, 1.5 GB)
+3. **Background-removal Rust pool** defaults to 2 idle entries, 1 active checkout,
+   and 1.5 GiB estimated idle retention; those estimates are not measured peaks
 4. **ORT threads** hardcoded to 2 intra + 1 inter in `varve-upscale/src/ai.rs`
 5. **Embedded webviews differ by platform.** Linux WebKitGTK in the supported
    desktop route does not currently provide the browser WebGPU contract used by
@@ -427,23 +449,23 @@ The model catalog distinguishes a catalog entry, a reachable URL, a stored
 artifact, checksum verification, and a successful runtime smoke test. A row
 must not be presented as ready based on its filename or release URL alone.
 
-The DDColor entries are intended to be runtime-downloaded once a verified
-release asset is published; they are not shipped inside the app installer:
+The DDColor entries are optional downloads from published `models-v1` assets;
+they are not shipped inside the app installer:
 
 | Model | Size | License | SHA-256 |
 |-------|------|---------|---------|
-| `ddcolor-tiny` | expected ~220 MB | Apache-2.0 | listed, not verified in this checkout |
-| `ddcolor` | expected ~980 MB | Apache-2.0 | listed, not verified in this checkout |
+| `ddcolor-tiny` | 223,650,419 bytes | Apache-2.0 | `1410b455...`, actual bytes verified 2026-10-23 |
+| `ddcolor` | 915,477,115 bytes | Apache-2.0 | `9c881551...`, actual bytes verified 2026-10-23 |
 | `upscale-realesr-general` | 5 MB | BSD-3-Clause | `856e1f4d...` |
 | `upscale-realesr-general-int8` | 1.3 MB | BSD-3-Clause | `357ebd67...` |
 | `u2netp` | 4.7 MB | MIT | `309c8469...` |
 | `u2netp-int8` | 1.2 MB | MIT | `7b3355af...` |
 
 The DDColor code and model terms are Apache-2.0 upstream. The official
-PyTorch repository and export script are the provenance; the ONNX bytes still
-need to be generated or acquired, hash-verified, and smoke-tested before the
-photo workflow is called available. See `models-source/README.md` and the
-Colorize architecture record for the current evidence.
+PyTorch repository and export script are the provenance. Both acquired ONNX
+exports passed native CPU prediction/reconstruction and a limited portrait
+visual review. Editor application, broad quality and other platforms still need
+current qualification. See the Colorize architecture record and active audit.
 
 ## Development
 
@@ -467,7 +489,7 @@ Each model declares how it is obtained via the `acquisition` field:
 |------|---------|---------|
 | `bundled` | Ships with the app after release validation | `u2netp`, `realesr-general-x4v3` |
 | `remote` | Downloadable from URL at runtime | `scunet`, `font-classify` |
-| `generated` | Produced from upstream weights via recipe | DDColor conversion route (artifact pending verification) |
+| `generated` | Produced from upstream weights via recipe | Local conversion recipes; published DDColor uses `remote` |
 | `manual-import` | User supplies the file | — |
 | `unavailable` | Cannot be acquired (reason in `detail`) | Legacy stubs |
 
