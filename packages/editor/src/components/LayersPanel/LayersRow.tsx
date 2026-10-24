@@ -431,14 +431,32 @@ export const LayersRow = memo(function LayersRow({
   // cost every row a permanent 20px slot.
   const handleRowPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.button !== 0) return;
+      if (
+        editing ||
+        event.button !== 0 ||
+        (event.target as Element).closest('button, input, [contenteditable="true"]')
+      )
+        return;
       if (event.shiftKey) {
         onSelectionPointerDown?.(event);
         return;
       }
       dragHandleListeners?.onPointerDown?.(event);
     },
-    [dragHandleListeners, onSelectionPointerDown],
+    [editing, dragHandleListeners, onSelectionPointerDown],
+  );
+
+  const handleRowTouchStart = useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      if (
+        editing ||
+        event.shiftKey ||
+        (event.target as Element).closest('button, input, [contenteditable="true"]')
+      )
+        return;
+      dragHandleListeners?.onTouchStart?.(event);
+    },
+    [editing, dragHandleListeners],
   );
 
   // Row double-click owns disclosure only. Rename starts on the name itself
@@ -569,6 +587,7 @@ export const LayersRow = memo(function LayersRow({
         {...dragHandleListeners}
         onClick={handleClick}
         onPointerDown={handleRowPointerDown}
+        onTouchStart={handleRowTouchStart}
         onDoubleClick={handleDoubleClick}
         style={
           {
@@ -626,6 +645,9 @@ export const LayersRow = memo(function LayersRow({
               type="button"
               className="layers-row__thumbnail-button"
               onDoubleClick={handleIconDoubleClick}
+              onClick={(event) => {
+                if (event.detail === 0) handleIconDoubleClick(event);
+              }}
               onPointerDown={stopDragActivation}
               aria-label={`Zoom to ${node.name} (${layerPresentation.label})`}
               tabIndex={-1}
@@ -637,6 +659,9 @@ export const LayersRow = memo(function LayersRow({
               type="button"
               className="layers-row__icon-area"
               onDoubleClick={handleIconDoubleClick}
+              onClick={(event) => {
+                if (event.detail === 0) handleIconDoubleClick(event);
+              }}
               onPointerDown={stopDragActivation}
               aria-label={`Zoom to ${node.name} (${layerPresentation.label})`}
               tabIndex={-1}

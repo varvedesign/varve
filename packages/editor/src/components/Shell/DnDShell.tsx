@@ -4,10 +4,6 @@ import {
   type DragMoveEvent,
   DragOverlay,
   type DragStartEvent,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
 } from '@dnd-kit/core';
 import type { NodeId } from '@varve/scene';
 import { computeFloatingOrigin, screenToWorld } from '@varve/shared';
@@ -16,6 +12,8 @@ import type { EditorContextValue } from '../../context';
 import type { DragData, DragEffectStackData } from '../../dnd-types';
 import { isNodeEffectivelyLocked } from '../../scene/world';
 import type { LayersDnDHandle } from '../LayersPanel/LayersTree';
+import { dragClientPoint } from './dragInput';
+import { useEditorDragSensors } from './dragSensors';
 import { EffectStackDragContext } from './effectStackDragContext';
 import {
   computeCanvasDropPositions,
@@ -73,10 +71,7 @@ export function DnDShell({ children, editor, layersDndRef, canvasRef }: DnDShell
   // unscrollable. Mouse keeps the 5px threshold; touch requires a short hold,
   // so a normal swipe scrolls and a held row drags. TouchEvent preventDefault
   // stops the scroll once the hold succeeds.
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
-  );
+  const sensors = useEditorDragSensors();
   const lastPointerPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const layerMoveIdsRef = useRef<NodeId[]>([]);
   const [activeDragNode, setActiveDragNode] = useState<{
@@ -169,10 +164,11 @@ export function DnDShell({ children, editor, layersDndRef, canvasRef }: DnDShell
   const handleDragMove = useCallback(
     (event: DragMoveEvent) => {
       const ev = event.activatorEvent;
-      if (ev instanceof MouseEvent || ev instanceof PointerEvent) {
+      const point = dragClientPoint(ev);
+      if (point) {
         lastPointerPos.current = {
-          x: ev.clientX + event.delta.x,
-          y: ev.clientY + event.delta.y,
+          x: point.x + event.delta.x,
+          y: point.y + event.delta.y,
         };
       }
       const data = event.active.data.current as DragData | undefined;
@@ -189,16 +185,22 @@ export function DnDShell({ children, editor, layersDndRef, canvasRef }: DnDShell
   // above drifts once a scrollable ancestor moves. The canvas-drop hit test
   // needs the true cursor, so track it directly for the life of the drag.
   useEffect(() => {
-    const onPointerMove = (e: PointerEvent) => {
-      lastPointerPos.current = { x: e.clientX, y: e.clientY };
+    const onPointerMove = (e: PointerEvent | TouchEvent) => {
+      const point = dragClientPoint(e);
+      if (!point) return;
+      lastPointerPos.current = point;
       const activeStack = activeEffectStackRef.current;
       if (activeStack) {
         updateEffectStackTransferMode(e.altKey ? 'append' : 'replace');
-        updateEffectStackTarget(activeStack.sourceId, e.clientX, e.clientY);
+        updateEffectStackTarget(activeStack.sourceId, point.x, point.y);
       }
     };
     window.addEventListener('pointermove', onPointerMove, { passive: true });
-    return () => window.removeEventListener('pointermove', onPointerMove);
+    window.addEventListener('touchmove', onPointerMove, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('touchmove', onPointerMove);
+    };
   }, [updateEffectStackTarget, updateEffectStackTransferMode]);
 
   useEffect(() => {
