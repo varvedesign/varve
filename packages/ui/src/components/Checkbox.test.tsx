@@ -9,6 +9,21 @@ describe('Checkbox', () => {
     expect(screen.getByRole('checkbox', { name: 'Accept' })).toBeInTheDocument();
   });
 
+  it('draws the tick and the dash as plain strokes on the box, not an icon inside it', () => {
+    // The glyph used to be the filled check-square icon, which put a second
+    // square inside the box.
+    const { container } = render(<Checkbox label="Accept" checked onChange={() => {}} />);
+    const box = container.querySelector('.varve-checkbox__box');
+    const glyphs = box?.querySelectorAll('svg') ?? [];
+    expect(glyphs).toHaveLength(2);
+    expect(box?.querySelector('.varve-checkbox__check path')).not.toBeNull();
+    expect(box?.querySelector('.varve-checkbox__indeterminate path')).not.toBeNull();
+    for (const glyph of glyphs) {
+      expect(glyph.querySelectorAll('rect, polygon')).toHaveLength(0);
+      expect(glyph).toHaveAttribute('aria-hidden', 'true');
+    }
+  });
+
   it('sets aria-checked="mixed" for indeterminate', () => {
     render(<Checkbox label="Select all" indeterminate checked={false} onChange={() => {}} />);
     expect(screen.getByRole('checkbox')).toHaveAttribute('aria-checked', 'mixed');
