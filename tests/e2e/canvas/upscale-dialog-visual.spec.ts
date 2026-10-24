@@ -40,6 +40,40 @@ async function setEditorTheme(
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 }
 
+/**
+ * Screenshot only after the comparison preview has settled: the upscaled
+ * image exists, has decoded, and both halves share one measured box. Without
+ * this, a capture can land mid-layout and reproduce one of two stable-looking
+ * but different dialog geometries (the pixel-art baseline flapped between a
+ * 1088px glyph-only diff and a 174048px structural diff on identical code).
+ */
+async function waitForSettledPreview(page: import('@playwright/test').Page) {
+  await expect(page.locator('.upscale-preview__image--upscaled')).toHaveCount(1);
+  await expect
+    .poll(() =>
+      page.locator('.upscale-preview__image--upscaled').evaluate((image) => {
+        return (image as HTMLImageElement).naturalWidth;
+      }),
+    )
+    .toBeGreaterThan(0);
+  await expect
+    .poll(async () => {
+      const boxes = await page.locator('.upscale-preview__image').evaluateAll((images) =>
+        images.map((image) => {
+          const rect = image.getBoundingClientRect();
+          return { width: rect.width, height: rect.height };
+        }),
+      );
+      if (boxes.length !== 2) return false;
+      const [first, second] = boxes;
+      if (!first || !second) return false;
+      const equal =
+        Math.abs(first.width - second.width) < 1 && Math.abs(first.height - second.height) < 1;
+      return equal && first.width > 100 && first.height > 100;
+    })
+    .toBe(true);
+}
+
 test('Enhance dialog default (Auto) state', async ({ page }) => {
   await importTestImage(page);
   await openDialog(page);
@@ -50,14 +84,7 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
   await expect(
     page.getByAltText('Enhanced preview — same crop and output size as original'),
   ).toBeVisible({ timeout: 15000 });
-  await expect(page.locator('.upscale-preview__image--upscaled')).toHaveCount(1);
-  await expect
-    .poll(() =>
-      page.locator('.upscale-preview__image--upscaled').evaluate((image) => {
-        return (image as HTMLImageElement).naturalWidth;
-      }),
-    )
-    .toBeGreaterThan(0);
+  await waitForSettledPreview(page);
   const comparisonSources = await page.locator('.upscale-preview__image').evaluateAll((images) =>
     images.map((image) => {
       const element = image as HTMLImageElement;
@@ -68,16 +95,6 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
   expect(comparisonSources[1]?.naturalWidth).toBeGreaterThan(
     comparisonSources[0]?.naturalWidth ?? 0,
   );
-  const previewBoxes = await page.locator('.upscale-preview__image').evaluateAll((images) =>
-    images.map((image) => {
-      const rect = image.getBoundingClientRect();
-      return { width: rect.width, height: rect.height };
-    }),
-  );
-  expect(previewBoxes).toHaveLength(2);
-  expect(previewBoxes.every(({ width, height }) => width > 100 && height > 100)).toBe(true);
-  expect(Math.abs(previewBoxes[0]!.width - previewBoxes[1]!.width)).toBeLessThan(1);
-  expect(Math.abs(previewBoxes[0]!.height - previewBoxes[1]!.height)).toBeLessThan(1);
   const recommendationColumns = await page
     .locator('.upscale-auto > .insp-hint')
     .evaluateAll((items) => items.map((item) => item.getBoundingClientRect().width));
@@ -111,6 +128,7 @@ for (const theme of ['dark', 'high-contrast'] as const) {
     await expect(
       page.getByAltText('Enhanced preview — same crop and output size as original'),
     ).toBeVisible({ timeout: 15000 });
+    await waitForSettledPreview(page);
     await expect(page).toHaveScreenshot(`enhance-dialog-${theme}.png`, {
       maxDiffPixels: RASTER_DRIFT_BUDGET,
     });
@@ -130,6 +148,7 @@ test('Enhance dialog pixel-art mode', async ({ page }) => {
   await expect(
     page.getByAltText('Enhanced preview — same crop and output size as original'),
   ).toBeVisible({ timeout: 15000 });
+  await waitForSettledPreview(page);
 
   await expect(page).toHaveScreenshot('enhance-dialog-pixel-art.png', {
     maxDiffPixels: RASTER_DRIFT_BUDGET,
