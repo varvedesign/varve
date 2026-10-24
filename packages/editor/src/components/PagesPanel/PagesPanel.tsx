@@ -16,7 +16,7 @@
 
 import type { NodeId } from '@varve/scene';
 import { computePageNumbering } from '@varve/scene';
-import { Icon, InfoHint } from '@varve/ui';
+import { CloseButton, Icon, InfoHint } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -386,17 +386,15 @@ function PageRow({
         >
           <Icon name="Copy" size={12} aria-hidden />
         </button>
-        <button
+        <CloseButton
+          size="sm"
           type="button"
-          className="pages-panel__icon-btn pages-panel__icon-btn--danger"
           aria-label={`Delete ${row.name}`}
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
           }}
-        >
-          <Icon name="X" size={12} aria-hidden />
-        </button>
+        />
       </span>
     </li>
   );

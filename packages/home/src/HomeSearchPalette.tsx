@@ -6,7 +6,7 @@ import type {
   TemplateLibrary,
 } from '@varve/platform';
 import { formatRelativeTime, fuzzySearch } from '@varve/platform';
-import { SemanticIcon, Tooltip } from '@varve/ui';
+import { CloseButton, SemanticIcon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface ResultItem {
@@ -391,14 +391,13 @@ export function HomeSearchPalette({
           />
           {query && (
             <Tooltip label="Clear search">
-              <button
+              <CloseButton
+                size="sm"
                 type="button"
                 className="search-palette__clear"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-              >
-                <SemanticIcon name="Close" size="xs" />
-              </button>
+              />
             </Tooltip>
           )}
         </div>

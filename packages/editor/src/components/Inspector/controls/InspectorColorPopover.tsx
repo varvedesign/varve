@@ -8,7 +8,7 @@
  */
 import type { BlendMode, ColorMode, Document, GradientFill, ManagedColor } from '@varve/scene';
 import { managedColorKey, managedColorToRgba } from '@varve/shared';
-import { FloatingPortal, FocusTrap, Icon, Select, Tooltip } from '@varve/ui';
+import { CloseButton, FloatingPortal, FocusTrap, Select, Tooltip } from '@varve/ui';
 import type { Color } from '@varve/ui/components/ColorPicker';
 import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -294,14 +294,13 @@ export function InspectorColorPopover({
               <h2 id={titleId} className="insp-picker-dialog__title">
                 Pick {label}
               </h2>
-              <button
+              <CloseButton
+                size="md"
                 type="button"
                 className="insp-picker-dialog__close"
                 aria-label="Dismiss colour picker"
                 onClick={close}
-              >
-                <Icon name="X" label={undefined} size="0.85em" />
-              </button>
+              />
             </div>
             <div className="insp-picker-dialog__body">
               {gradient ? (

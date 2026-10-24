@@ -31,6 +31,7 @@ import {
   type TablerIcon as TablerIconComponent,
 } from '@tabler/icons-react';
 import { forwardRef, type SVGProps } from 'react';
+import { type IconSizeInput, resolveIconSize } from './iconSize';
 
 export type TablerIconName =
   | 'ArrowLeft'
@@ -99,16 +100,18 @@ const TABLER_ICONS: Record<TablerIconName, TablerIconComponent> = {
 
 export interface TablerIconProps extends Omit<SVGProps<SVGSVGElement>, 'name' | 'size'> {
   name: TablerIconName;
-  size?: number | string;
+  /** Icon size token or a raw size that snaps to one (see `iconSize.ts`); default `sm`. */
+  size?: IconSizeInput;
   label?: string;
   strokeWidth?: number | string;
 }
 
 /** Tabler's rounded 2px outline family with Varve's accessible icon contract. */
 export const TablerIcon = forwardRef<SVGSVGElement, TablerIconProps>(function TablerIcon(
-  { name, size = 16, label, strokeWidth = 2, className, ...rest },
+  { name, size: sizeInput, label, strokeWidth = 2, className, ...rest },
   ref,
 ) {
+  const size = resolveIconSize(sizeInput);
   const Component = TABLER_ICONS[name];
   return (
     <Component

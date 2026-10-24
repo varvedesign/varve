@@ -135,23 +135,6 @@ input[type="number"] {
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  min-width: 44px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-control-compact);
-}
-.recovery-dialog__close:hover {
-  background: var(--color-surface-sunken);
-}
-.recovery-dialog__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
 }
 .recovery-dialog__empty {
   padding: var(--space-6) var(--space-5);
@@ -270,27 +253,6 @@ input[type="number"] {
 .editor-offline-banner__text {
   flex: 1;
   min-width: 0;
-}
-.editor-offline-banner__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  padding: 0;
-  border-radius: var(--radius-control-compact);
-  flex-shrink: 0;
-}
-.editor-offline-banner__close:hover {
-  background: var(--color-surface-sunken);
-}
-.editor-offline-banner__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
 }
 @media (max-width: 640px) {
   /* Keep the essential local-first status brief at small heights. The
@@ -1144,7 +1106,6 @@ input[type="number"] {
    * clipping it (the failure mode Photoshop's options bar shipped with). */
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   /* A status bar is a single line of instrumentation. Segments truncate or
@@ -1635,31 +1596,6 @@ input[type="number"] {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
   border-radius: var(--radius-control-compact);
-}
-
-.editor-status__tip-dismiss {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: var(--component-xs-height);
-  height: var(--component-xs-height);
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: var(--radius-control-compact);
-  color: var(--color-text-muted);
-  cursor: pointer;
-}
-
-.editor-status__tip-dismiss:hover {
-  background: color-mix(in oklch, var(--color-text-primary) 12%, transparent);
-  color: var(--color-text-primary);
-}
-
-.editor-status__tip-dismiss:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
 }
 
 /* ── Contrast indicator dot ─────────────────────────── */
@@ -2184,8 +2120,6 @@ input[type="number"] {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   background: var(--color-surface-raised);
   border-right: 1px solid var(--color-border-subtle);
   z-index: var(--elevation-z-raised);
@@ -2198,8 +2132,6 @@ input[type="number"] {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   background: var(--color-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
   z-index: var(--elevation-z-raised);
@@ -2215,8 +2147,6 @@ input[type="number"] {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   background: var(--color-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
   z-index: var(--z-sticky);
@@ -2631,8 +2561,6 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 
 .history-panel__search {
@@ -3896,8 +3824,6 @@ dialog.varve-dialog--settings[open] {
   /* Reserve gutter space so the scrollbar doesn't overlap content or cause
      reflow when it appears/disappears. */
   scrollbar-gutter: stable;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   padding-right: var(--space-1);
 }
 .settings-dialog__footer {
@@ -4604,8 +4530,6 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 .ai-panel__suggestions {
   display: flex;
@@ -5346,8 +5270,6 @@ dialog.varve-dialog--settings[open] {
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 
 .timeline-playback-controls {

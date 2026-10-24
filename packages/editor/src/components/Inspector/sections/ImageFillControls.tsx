@@ -13,7 +13,7 @@ import {
   rasterEncodingLabel,
   rasterProvenanceLabel,
 } from '@varve/shared';
-import { Icon, Select, Tooltip, TooltipProvider } from '@varve/ui';
+import { CloseButton, Icon, Select, Tooltip, TooltipProvider } from '@varve/ui';
 import {
   type ChangeEvent,
   type CSSProperties,
@@ -403,14 +403,7 @@ export function ImageFillControls({
           <span>{hasImageReference ? 'Replace image' : 'Choose image'}</span>
         </button>
         {hasImageReference && (
-          <button
-            type="button"
-            className="insp-inline-btn"
-            onClick={clearImage}
-            aria-label="Clear image"
-          >
-            <Icon name="X" label={undefined} size="0.85em" />
-          </button>
+          <CloseButton size="sm" type="button" onClick={clearImage} aria-label="Clear image" />
         )}
       </div>
 

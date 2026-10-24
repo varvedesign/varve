@@ -10,6 +10,7 @@
 
 import * as PhosphorIcons from '@phosphor-icons/react';
 import { forwardRef, type SVGProps } from 'react';
+import { type IconSizeInput, resolveIconSize } from './iconSize';
 
 /** Curated set of Phosphor icon names for Strata. */
 export type SolidIconName =
@@ -355,16 +356,17 @@ export interface SolidIconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
    * MUST be accompanied by a visible text label in the surrounding UI.
    */
   label?: string;
-  /** Pixel size; defaults to 1em (inherits font-size). */
-  size?: number | string;
+  /** Icon size token or a raw size that snaps to one (see `iconSize.ts`); default `sm`. */
+  size?: IconSizeInput;
   /** Icon weight. Default is 'fill' for filled style. */
   weight?: 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
 }
 
 export const SolidIcon = forwardRef<SVGSVGElement, SolidIconProps>(function SolidIcon(
-  { name, label, size = '1em', weight = 'fill', ...rest },
+  { name, label, size: sizeInput, weight = 'fill', ...rest },
   ref,
 ) {
+  const size = resolveIconSize(sizeInput);
   const IconComponent = (PhosphorIcons as unknown as Record<string, React.ElementType | undefined>)[
     name
   ];

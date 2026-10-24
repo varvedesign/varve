@@ -240,8 +240,6 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   outline: none;
   padding: var(--space-1) var(--space-1) var(--space-2);
   background: var(--color-surface-app);
@@ -2301,8 +2299,6 @@
   :root[data-layout-mode="tablet"] .editor__layers-panel .layers-panel__content {
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-color: var(--color-border-strong) transparent;
-    scrollbar-width: thin;
   }
 }
 .layers-filter-bar__quick {

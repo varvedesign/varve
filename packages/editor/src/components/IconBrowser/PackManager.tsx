@@ -13,7 +13,7 @@ import {
   type SanitizeWarning,
   sanitizeSvg,
 } from '@varve/engine';
-import { Button, FilePickerButton, Icon } from '@varve/ui';
+import { Button, CloseButton, FilePickerButton, Icon } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { downloadPack, type PackDownloadProgress } from './iconAcquisition';
 import {
@@ -324,14 +324,13 @@ export function IconPackManager({
               )
             }
           />
-          <button
+          <CloseButton
+            size="md"
             type="button"
             className="icon-pack-manager__close"
             onClick={onClose}
             aria-label="Close pack manager"
-          >
-            <Icon name="X" size={16} />
-          </button>
+          />
         </div>
       </div>
 

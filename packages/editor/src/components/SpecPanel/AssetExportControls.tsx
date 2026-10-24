@@ -25,6 +25,7 @@ import {
   type PlatformKind,
 } from '@varve/scene/export';
 import {
+  CloseButton,
   CopyButton,
   Icon,
   type IconName,
@@ -1101,14 +1102,13 @@ function PresetRow({
           />
         </div>
       </div>
-      <button
+      <CloseButton
+        size="sm"
         type="button"
         className="spec-export__preset-remove"
         aria-label={`Remove ${committedFileName} export`}
         onClick={() => onRemovePreset?.(preset.id)}
-      >
-        <Icon name="X" size={12} label={undefined} />
-      </button>
+      />
     </div>
   );
 }

@@ -33,7 +33,7 @@ import {
   PATTERN_ARRANGEMENTS,
   type PatternArrangement,
 } from '@varve/shared';
-import { Checkbox, Icon, Select } from '@varve/ui';
+import { Checkbox, CloseButton, Icon, Select } from '@varve/ui';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { PatternNumericField } from '../../../patterns/patternSelectionFields';
 import { FieldRow } from '../controls/FieldRow';
@@ -375,14 +375,7 @@ export function PatternFillControls({
             <span>{hasSrc ? 'Replace tile' : 'Choose tile'}</span>
           </button>
           {hasSrc && (
-            <button
-              type="button"
-              className="insp-inline-btn"
-              onClick={clearTile}
-              aria-label="Clear tile"
-            >
-              <Icon name="X" label={undefined} size="0.85em" />
-            </button>
+            <CloseButton size="sm" type="button" onClick={clearTile} aria-label="Clear tile" />
           )}
         </div>
       )}

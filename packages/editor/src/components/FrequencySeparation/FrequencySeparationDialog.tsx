@@ -26,7 +26,7 @@ import {
   resolveFrequencySeparation,
   TILE_SIZE,
 } from '@varve/scene';
-import { Icon, Select } from '@varve/ui';
+import { CloseButton, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import './frequencySeparation.css';
@@ -372,9 +372,13 @@ export function FrequencySeparationDialog({
         <h2 ref={titleRef} className="fs-dialog__title" tabIndex={-1}>
           {title}
         </h2>
-        <button type="button" className="fs-dialog__close" aria-label="Close" onClick={handleClose}>
-          <Icon name="X" size={14} />
-        </button>
+        <CloseButton
+          size="md"
+          type="button"
+          className="fs-dialog__close"
+          aria-label="Close"
+          onClick={handleClose}
+        />
       </div>
 
       {!view ? (

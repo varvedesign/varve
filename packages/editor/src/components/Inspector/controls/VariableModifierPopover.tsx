@@ -15,9 +15,9 @@
 import type { AlphaModifier, AlphaModifierOperation, ManagedColor } from '@varve/scene';
 import { alphaModifierLabel, normalizedAlpha } from '@varve/scene';
 import {
+  CloseButton,
   FloatingPortal,
   FocusTrap,
-  Icon,
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
@@ -104,9 +104,7 @@ export function VariableModifierPopover({
         <div role="dialog" aria-label="Alpha modifier" className="varve-modifier-popover__panel">
           <div className="varve-modifier-popover__header">
             <strong className="varve-modifier-popover__title">Alpha modifier</strong>
-            <button type="button" className="insp-inline-btn" aria-label="Close" onClick={onClose}>
-              <Icon name="X" label={undefined} size="0.9em" />
-            </button>
+            <CloseButton size="md" type="button" aria-label="Close" onClick={onClose} />
           </div>
 
           <fieldset className="varve-modifier-popover__ops">

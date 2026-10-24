@@ -23,6 +23,7 @@ import type {
 import { createStrokeId, defaultStroke } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
 import {
+  CloseButton,
   Icon,
   SegmentedControl,
   type SegmentedOption,
@@ -701,15 +702,14 @@ function StrokeRow({
             </button>
           </div>
         )}
-        <button
+        <CloseButton
+          size="sm"
           type="button"
-          className="insp-inline-btn paint-stack__remove"
+          className="paint-stack__remove"
           onClick={onRemove}
           aria-label={`Remove ${label.toLowerCase()}`}
           title={`Remove ${label.toLowerCase()}`}
-        >
-          <Icon name="X" label={undefined} size="0.75em" />
-        </button>
+        />
       </div>
       <button
         type="button"

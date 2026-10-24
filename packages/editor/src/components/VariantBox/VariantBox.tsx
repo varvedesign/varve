@@ -9,7 +9,7 @@
  */
 import type { ComponentProperty, Document, NodeId, Variant } from '@varve/scene';
 import { getComponentProperties, resolveVariantProperties } from '@varve/scene';
-import { SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
+import { CloseButton, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import './VariantBox.css';
 
@@ -112,14 +112,13 @@ export function VariantBox({
     >
       <div className="variant-box__header">
         <span className="variant-box__title">Variants</span>
-        <button
+        <CloseButton
+          size="md"
           type="button"
           className="variant-box__close"
           aria-label="Close variant panel"
           onClick={onClose}
-        >
-          <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.85em" />
-        </button>
+        />
       </div>
 
       {variants.length === 0 && !showCreateForm ? (

@@ -428,7 +428,9 @@
 .varve-close--sm {
   inline-size: var(--component-xs-height);
   block-size: var(--component-xs-height);
-  --varve-close-glyph: var(--icon-size-xs);
+  /* 16px glyph in the 24px target. The old 12px glyph was the "X is too small
+     to identify" report; the target already has the room. */
+  --varve-close-glyph: var(--icon-size-sm);
 }
 .varve-close--md {
   inline-size: var(--component-default-height);
@@ -439,7 +441,7 @@
   min-inline-size: var(--touch-target-min);
   min-block-size: var(--touch-target-min);
   border-radius: var(--radius-control);
-  --varve-close-glyph: var(--icon-size-sm);
+  --varve-close-glyph: var(--icon-size-md);
 }
 .varve-close__glyph {
   inline-size: var(--varve-close-glyph, var(--icon-size-sm));
@@ -683,8 +685,6 @@
   padding: var(--space-dialog);
   min-height: 0;
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 .varve-dialog__footer {
   display: flex;
@@ -1052,25 +1052,6 @@
 .varve-search__clear {
   position: absolute;
   right: var(--space-1);
-  /* WCAG 2.2 SC 2.5.8: the glyph stays small, the activation area is 24x24.
-   * The button is absolutely positioned, so this does not affect the field's
-   * layout height. */
-  width: var(--target-min-compact);
-  height: var(--target-min-compact);
-  min-width: var(--target-min-compact);
-  min-height: var(--target-min-compact);
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-text-muted);
-  padding: 0;
-  border-radius: var(--radius-control-compact);
-  display: flex;
-}
-.varve-search__clear:hover {
-  color: var(--color-text-primary);
 }
 /* U18 (2026-08-10): themed focus ring for the search clear button. */
 .varve-search__clear:focus-visible {
@@ -1506,6 +1487,9 @@
   position: relative;
   align-items: center;
   gap: var(--space-2);
+  /* The box is drawn at icon size; the label row is the pointer target, so it
+     keeps the 24px minimum even though the visible box is smaller. */
+  min-block-size: var(--target-min-compact);
   cursor: pointer;
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
@@ -1527,24 +1511,32 @@
 .varve-checkbox__box {
   position: relative;
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: var(--color-surface-raised);
+  box-sizing: border-box;
+  inline-size: var(--icon-size-sm);
+  block-size: var(--icon-size-sm);
+  background: var(--color-surface-default);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-control-compact);
   transition:
     background var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
 }
-.varve-checkbox__input:checked + .varve-checkbox__box {
-  background: var(--color-interactive-default);
-  border-color: var(--color-interactive-default);
+.varve-checkbox:hover .varve-checkbox__input:not(:disabled, :checked) + .varve-checkbox__box {
+  border-color: var(--color-text-subtle);
 }
+.varve-checkbox__input:checked + .varve-checkbox__box,
 .varve-checkbox__input[data-indeterminate="true"] + .varve-checkbox__box {
   background: var(--color-interactive-default);
   border-color: var(--color-interactive-default);
+}
+.varve-checkbox:hover .varve-checkbox__input:checked:not(:disabled) + .varve-checkbox__box,
+.varve-checkbox:hover
+  .varve-checkbox__input[data-indeterminate="true"]:not(:disabled)
+  + .varve-checkbox__box {
+  background: var(--color-interactive-hover);
+  border-color: var(--color-interactive-hover);
 }
 .varve-checkbox__input:focus-visible + .varve-checkbox__box {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -1557,7 +1549,14 @@
 .varve-checkbox__check,
 .varve-checkbox__indeterminate {
   position: absolute;
-  color: var(--color-text-on-accent);
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  fill: none;
+  stroke: var(--color-text-on-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   opacity: 0;
   transform: scale(0.8);
   transition:
@@ -1574,6 +1573,20 @@
   opacity: 1;
   transform: scale(1);
 }
+@media (forced-colors: active) {
+  .varve-checkbox__box {
+    border-color: ButtonText;
+  }
+  .varve-checkbox__input:checked + .varve-checkbox__box,
+  .varve-checkbox__input[data-indeterminate="true"] + .varve-checkbox__box {
+    background: Highlight;
+    border-color: Highlight;
+  }
+  .varve-checkbox__check,
+  .varve-checkbox__indeterminate {
+    stroke: HighlightText;
+  }
+}
 .varve-checkbox__label {
   user-select: none;
 }
@@ -1582,14 +1595,14 @@
   font-size: var(--font-size-xs);
   line-height: var(--font-line-label);
   color: var(--color-text-muted);
-  margin-left: calc(var(--component-compact-height) + var(--space-1));
+  margin-left: calc(var(--icon-size-sm) + var(--space-2));
 }
 .varve-checkbox__error {
   display: block;
   font-size: var(--font-size-xs);
   line-height: var(--font-line-label);
   color: var(--color-feedback-danger);
-  margin-left: calc(var(--component-compact-height) + var(--space-1));
+  margin-left: calc(var(--icon-size-sm) + var(--space-2));
 }
 
 .varve-tabs {
@@ -1602,7 +1615,6 @@
   display: flex;
   min-inline-size: 0;
   overflow-x: auto;
-  scrollbar-width: thin;
   border-bottom: 1px solid var(--color-border-subtle);
 }
 .varve-tab {
@@ -2056,36 +2068,7 @@
 }
 
 .varve-toast__close {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  background: none;
-  border: none;
-  border-radius: var(--radius-control-compact);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: var(--font-size-lg);
-  line-height: 1;
-  padding: 0;
   margin: -4px -4px 0 0;
-  transition:
-    background var(--duration-quick) var(--ease-standard),
-    color var(--duration-quick) var(--ease-standard);
-}
-
-.varve-toast__close:hover {
-  background: var(--color-surface-sunken);
-  color: var(--color-text-primary);
-}
-
-.varve-toast__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
 }
 
 .varve-toast--exiting {

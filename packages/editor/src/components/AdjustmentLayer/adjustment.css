@@ -270,16 +270,7 @@
 }
 
 .adj-panel__item-remove {
-  background: none;
-  border: none;
-  padding: 2px;
-  cursor: pointer;
-  color: var(--color-text-muted);
-  border-radius: var(--radius-control-compact);
-  display: flex;
-  align-items: center;
   opacity: 0;
-  transition: opacity 0.1s;
 }
 
 .adj-panel__item:hover .adj-panel__item-remove,
@@ -292,11 +283,6 @@
   .adj-panel__item-remove {
     opacity: 1;
   }
-}
-
-.adj-panel__item-remove:hover {
-  color: var(--color-feedback-danger);
-  background-color: var(--color-interactive-hover);
 }
 
 /* Positioning context for the Add adjustment trigger (kept as a class so the

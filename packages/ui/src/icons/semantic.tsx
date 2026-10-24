@@ -7,6 +7,7 @@
  */
 
 import { forwardRef, type SVGProps } from 'react';
+import { ICON_SIZES } from '../tokens/iconTokens';
 import { Icon, type IconName } from './Icon';
 import { SolidIcon, type SolidIconName } from './SolidIcon';
 import { TablerIcon, type TablerIconName } from './TablerIcon';
@@ -129,13 +130,13 @@ export type SemanticIconName =
 export type IconFamily = 'outline' | 'filled';
 export type IconSizeToken = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
-export const ICON_SIZE_TOKENS: Record<IconSizeToken, number> = {
-  xs: 12,
-  sm: 14,
-  md: 16,
-  lg: 20,
-  xl: 24,
-};
+/**
+ * The semantic size names are the canonical ones (`ICON_SIZES`): `sm` is 16px,
+ * `md` 20px. They used to run one step small (`sm` 14, `md` 16, `lg` 20,
+ * `xl` 24), which made the same name a different size from the `--icon-size-*`
+ * CSS tokens.
+ */
+export const ICON_SIZE_TOKENS: Record<IconSizeToken, number> = ICON_SIZES;
 
 export interface SemanticIconEntry {
   outline: IconName;
@@ -348,15 +349,14 @@ export interface SemanticIconProps extends Omit<SVGProps<SVGSVGElement>, 'name' 
   mirror?: boolean;
 }
 
+/** Names pass through so the primitive resolves them; raw sizes snap there too. */
 function sizeToValue(size: number | string | IconSizeToken): number | string {
-  return typeof size === 'string' && size in ICON_SIZE_TOKENS
-    ? ICON_SIZE_TOKENS[size as IconSizeToken]
-    : size;
+  return size;
 }
 
 /** Semantic icon primitive backed by Tabler outline icons by default. */
 export const SemanticIcon = forwardRef<SVGSVGElement, SemanticIconProps>(function SemanticIcon(
-  { name, family = 'outline', size = 'md', label, mirror, className, strokeWidth, style, ...rest },
+  { name, family = 'outline', size = 'sm', label, mirror, className, strokeWidth, style, ...rest },
   ref,
 ) {
   const entry = SEMANTIC_ICONS[name] ?? SEMANTIC_ICONS.Add;

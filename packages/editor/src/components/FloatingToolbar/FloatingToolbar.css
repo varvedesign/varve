@@ -120,7 +120,6 @@
   pointer-events: auto;
   max-width: 100%;
   overflow-x: auto;
-  scrollbar-width: thin;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
 }

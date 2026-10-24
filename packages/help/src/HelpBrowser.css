@@ -104,8 +104,6 @@
   flex-direction: column;
   gap: var(--space-1);
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   background: var(--color-surface-sunken);
 }
 
@@ -161,8 +159,6 @@
 .help-browser__content {
   flex: 1;
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   padding: var(--space-4);
 }
 

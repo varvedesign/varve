@@ -14,6 +14,7 @@ import {
   type Preset,
 } from '@varve/shared';
 import {
+  CloseButton,
   ContentSkeleton,
   Dialog,
   Icon,
@@ -1016,14 +1017,13 @@ function HomeShellContent({
         {storageError && (
           <div className="varve-home__storage-error" role="alert">
             <span>{storageError}</span>
-            <button
+            <CloseButton
+              size="sm"
               type="button"
               className="varve-home__storage-error-dismiss"
               onClick={() => setStorageError(null)}
               aria-label="Dismiss storage error"
-            >
-              <Icon name="X" label={undefined} size="1em" />
-            </button>
+            />
           </div>
         )}
         {sidebarOpen && (

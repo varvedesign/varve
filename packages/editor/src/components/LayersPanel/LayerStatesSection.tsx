@@ -6,7 +6,7 @@
  * properties on still-valid nodes only; deleted nodes are skipped silently.
  */
 
-import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
+import { CloseButton, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { isSectionCollapsed } from '../Inspector/sectionState';
@@ -193,14 +193,13 @@ export function LayerStatesSection() {
         <p className="layer-states__conflict" role="status" aria-live="polite">
           Applied, but {lastSkipped.count} node
           {lastSkipped.count === 1 ? '' : 's'} in this state no longer exist
-          <button
+          <CloseButton
+            size="sm"
             type="button"
             className="layer-states__conflict-dismiss"
             onClick={() => setLastSkipped(null)}
             aria-label="Dismiss conflict notice"
-          >
-            <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.7em" />
-          </button>
+          />
         </p>
       )}
     </div>

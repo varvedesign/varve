@@ -27,7 +27,6 @@
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-2) 0;
 }

@@ -1,4 +1,4 @@
-import { Icon, Select, Tooltip } from '@varve/ui';
+import { CloseButton, Icon, Select, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FindReplaceAPI } from '../../findReplace/useFindReplace';
 import { FindResultsList } from './FindResultsList';
@@ -171,14 +171,12 @@ export function FindReplaceBar({
               </button>
             </Tooltip>
             <Tooltip label="Close find and replace">
-              <button
+              <CloseButton
+                size="sm"
                 type="button"
-                className="find-replace-bar__nav-btn"
                 onClick={requestClose}
                 aria-label="Close find and replace"
-              >
-                <Icon name="X" label="" />
-              </button>
+              />
             </Tooltip>
           </div>
         </div>

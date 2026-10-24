@@ -173,20 +173,5 @@
 }
 
 .layer-states__conflict-dismiss {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   margin-left: auto;
-  min-width: var(--target-min-compact);
-  min-height: var(--target-min-compact);
-  padding: 0;
-  color: var(--color-text-muted);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-control-compact);
-  cursor: pointer;
-}
-
-.layer-states__conflict-dismiss:hover {
-  color: var(--color-text-primary);
 }

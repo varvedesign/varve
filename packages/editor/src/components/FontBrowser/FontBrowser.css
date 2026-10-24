@@ -96,7 +96,6 @@
   flex: 1 1 auto;
   min-width: 0;
   overflow-x: auto;
-  scrollbar-width: thin;
 }
 
 .font-browser__filter-btn {
@@ -280,8 +279,6 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 
 .font-browser__virtual-content {
@@ -536,8 +533,6 @@
   overflow-y: auto;
   padding: var(--space-3);
   background: var(--color-surface-sunken);
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 
 .font-browser__details-header {

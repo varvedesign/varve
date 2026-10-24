@@ -58,22 +58,6 @@
   color: var(--color-text-on-danger);
   font-size: var(--font-size-sm);
 }
-.varve-home__storage-error-dismiss {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: inherit;
-  cursor: pointer;
-  flex-shrink: 0;
-}
 .varve-home--drag-over {
   outline: 3px dashed var(--color-interactive-default);
   outline-offset: -3px;
@@ -132,8 +116,6 @@
   background: var(--color-surface-raised);
   border-right: 1px solid var(--color-border-subtle);
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   transition: width var(--duration-base) var(--ease-standard);
   box-shadow: 1px 0 3px rgb(0 0 0 / 0.04);
   /* Per-surface muted text for raised backgrounds (a11y WCAG AA fix). */
@@ -2029,9 +2011,6 @@
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
-}
-.search-palette__clear:hover {
-  background: var(--color-surface-sunken);
 }
 .search-palette__results {
   overflow-y: auto;

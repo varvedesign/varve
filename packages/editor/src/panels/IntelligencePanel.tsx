@@ -61,7 +61,16 @@ import {
   runLinterScan,
   type SuppressionEntry,
 } from '@varve/scene';
-import { Button, Dialog, Icon, Menu, type MenuEntry, Switch, Tooltip } from '@varve/ui';
+import {
+  Button,
+  CloseButton,
+  Dialog,
+  Icon,
+  Menu,
+  type MenuEntry,
+  Switch,
+  Tooltip,
+} from '@varve/ui';
 import {
   type KeyboardEvent,
   useCallback,
@@ -624,14 +633,12 @@ function LinterTab() {
                     ))}
                     {issue.dismissable && (
                       <Tooltip label="Dismiss this issue">
-                        <button
+                        <CloseButton
+                          size="sm"
                           type="button"
-                          className="intelligence-action-btn"
                           onClick={() => setDismissed((prev) => new Set(prev).add(key))}
                           aria-label="Dismiss this issue"
-                        >
-                          <Icon name="X" label={undefined} size="0.85em" />
-                        </button>
+                        />
                       </Tooltip>
                     )}
                   </div>
@@ -1242,14 +1249,12 @@ function ReviewTab() {
                       </span>
                     )}
                     <Tooltip label="Dismiss this finding">
-                      <button
+                      <CloseButton
+                        size="sm"
                         type="button"
-                        className="intelligence-action-btn"
                         onClick={() => handleSuppress(finding)}
                         aria-label="Dismiss this finding"
-                      >
-                        <Icon name="X" label={undefined} size="0.85em" />
-                      </button>
+                      />
                     </Tooltip>
                   </div>
                 </div>

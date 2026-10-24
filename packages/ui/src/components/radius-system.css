@@ -95,12 +95,17 @@
 
 /* Other shared primitives use the same ownership rules even when they are
  * rendered outside a toolbar. */
-.varve-checkbox__box,
 .varve-number-input,
 .varve-slider__input,
 .varve-slider__reset,
 .varve-select__search-input {
   border-radius: var(--radius-control-compact);
+}
+
+/* A 16px box at the 6px control radius reads as a rounded blob; half the
+ * control radius keeps it a square with softened corners. */
+.varve-checkbox__box {
+  border-radius: calc(var(--radius-control-compact) / 2);
 }
 
 .varve-native-range::-webkit-slider-runnable-track,

@@ -41,8 +41,6 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   scrollbar-gutter: stable;
 }
 
@@ -1766,25 +1764,6 @@
   color: var(--color-text-primary);
 }
 
-.insp-picker-dialog__close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  padding: 0;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  background: var(--color-surface-sunken);
-  color: var(--color-text-primary);
-  cursor: pointer;
-}
-
-.insp-picker-dialog__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
-}
-
 .insp-picker-done {
   margin-top: var(--space-1);
   width: 100%;
@@ -3048,7 +3027,9 @@
   font-size: var(--font-size-sm);
 }
 
-/* Shared inspector checkboxes (token-styled). */
+/* Shared inspector checkboxes (token-styled). Same box, border, radius and tick
+ * as the @varve/ui Checkbox, so a native input and the component read as one
+ * control. The tick is two borders rotated, which takes the on-accent token. */
 .insp-checkbox,
 .insp-panel
   input[type="checkbox"]:not(
@@ -3059,15 +3040,27 @@
   ) {
   appearance: none;
   -webkit-appearance: none;
-  width: 1rem;
-  height: 1rem;
+  position: relative;
+  box-sizing: border-box;
+  inline-size: var(--icon-size-sm);
+  block-size: var(--icon-size-sm);
   margin: 0;
   flex-shrink: 0;
-  border: 1.5px solid var(--color-border-strong);
-  border-radius: var(--radius-control-compact);
+  border: 1px solid var(--color-border-strong);
+  border-radius: calc(var(--radius-control-compact) / 2);
   background: var(--color-surface-default);
   cursor: pointer;
   vertical-align: middle;
+}
+.insp-checkbox:hover:not(:checked, :disabled),
+.insp-panel
+  input[type="checkbox"]:not(
+    .insp-checkbox--icon-only,
+    .insp-proportion-lock__input,
+    .varve-switch__input,
+    .varve-checkbox__input
+  ):hover:not(:checked, :disabled) {
+  border-color: var(--color-text-subtle);
 }
 .insp-checkbox:checked,
 .insp-panel
@@ -3079,9 +3072,35 @@
   ):checked {
   background-color: var(--color-interactive-default);
   border-color: var(--color-interactive-default);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5 6.5 11.5 12.5 4.5'/%3E%3C/svg%3E");
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
+}
+.insp-checkbox:checked::after,
+.insp-panel
+  input[type="checkbox"]:not(
+    .insp-checkbox--icon-only,
+    .insp-proportion-lock__input,
+    .varve-switch__input,
+    .varve-checkbox__input
+  ):checked::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 31%;
+  inset-block-start: 13%;
+  inline-size: 24%;
+  block-size: 48%;
+  border: solid var(--color-text-on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.insp-checkbox:disabled,
+.insp-panel
+  input[type="checkbox"]:not(
+    .insp-checkbox--icon-only,
+    .insp-proportion-lock__input,
+    .varve-switch__input,
+    .varve-checkbox__input
+  ):disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .insp-checkbox:focus-visible,
 .insp-panel
@@ -6804,21 +6823,6 @@ fieldset.insp-canvas-props,
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   outline: none;
-}
-
-.insp-preset-popover__clear {
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.insp-preset-popover__clear:hover {
-  color: var(--color-text-primary);
 }
 
 /* Category filter chips */

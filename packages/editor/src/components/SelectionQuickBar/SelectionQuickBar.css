@@ -40,7 +40,6 @@
   box-shadow: var(--elevation-shadow-raised);
   pointer-events: auto;
   overflow-x: auto;
-  scrollbar-width: thin;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   white-space: nowrap;

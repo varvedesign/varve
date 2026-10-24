@@ -650,27 +650,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.spec-export__preset-remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-control-compact);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-}
-.spec-export__preset-remove:hover {
-  background: var(--color-surface-sunken);
-  color: var(--color-text-primary);
-}
-.spec-export__preset-remove:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
-}
 .spec-export__preset-actions {
   display: flex;
   flex-wrap: wrap;

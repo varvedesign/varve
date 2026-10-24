@@ -2,6 +2,7 @@ import { useDroppable } from '@dnd-kit/core';
 import type { SavedSearch } from '@varve/platform';
 import type { SolidIconName } from '@varve/ui';
 import {
+  CloseButton,
   Disclosure,
   DisclosureContent,
   DisclosureTrigger,
@@ -362,14 +363,13 @@ export function SidebarNav({
                 <span className="sidebar-item__label">{search.name}</span>
               </button>
               {onDeleteSavedSearch && (
-                <button
+                <CloseButton
+                  size="sm"
                   type="button"
                   className="sidebar-item-row__action"
                   aria-label={`Delete saved search "${search.name}"`}
                   onClick={() => onDeleteSavedSearch(search.id)}
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.close} label={undefined} size="0.85em" />
-                </button>
+                />
               )}
             </div>
           ))}

@@ -375,10 +375,6 @@
   color: var(--color-text-primary);
 }
 
-.smart-filters__remove:hover {
-  color: var(--color-feedback-danger);
-}
-
 .smart-filters__name {
   align-items: center;
   background: transparent;

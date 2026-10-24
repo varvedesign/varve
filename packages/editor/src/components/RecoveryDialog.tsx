@@ -5,7 +5,7 @@
  * controls and bulk actions. Keyboard accessible with aria-live region.
  */
 
-import { Icon } from '@varve/ui';
+import { CloseButton } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RecoverySession } from '../recovery';
 
@@ -89,14 +89,13 @@ export function RecoveryDialog({
         <p className="recovery-dialog__subtitle">
           We found auto-saved versions of documents that were open when the editor was last closed.
         </p>
-        <button
+        <CloseButton
+          size="lg"
           type="button"
           className="recovery-dialog__close"
           aria-label="Close"
           onClick={onClose}
-        >
-          <Icon name="X" size={14} />
-        </button>
+        />
       </div>
 
       <div role="status" aria-live="polite" className="sr-only">

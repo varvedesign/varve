@@ -8,7 +8,7 @@
  */
 
 import type { AuditFinding, AuditSeverity } from '@varve/shared';
-import { Icon } from '@varve/ui';
+import { CloseButton, Icon } from '@varve/ui';
 import { useState } from 'react';
 import './audit.css';
 
@@ -88,14 +88,12 @@ export function AuditUtilityPanel({
           >
             <Icon name={collapsed ? 'ChevronRight' : 'ChevronDown'} size="1em" />
           </button>
-          <button
+          <CloseButton
+            size="md"
             type="button"
-            className="audit-panel-button"
             onClick={onToggleVisibility}
             aria-label="Close panel"
-          >
-            <Icon name="X" size="1em" />
-          </button>
+          />
         </div>
       </div>
 
