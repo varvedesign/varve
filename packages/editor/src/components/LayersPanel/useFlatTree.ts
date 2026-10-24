@@ -18,6 +18,7 @@ import type { Document, NodeId, Page, SceneNode } from '@varve/scene';
 import { isContainer } from '@varve/scene';
 import { useMemo, useRef } from 'react';
 import {
+  collectAnimatedLayerIds,
   collectEffectivelyHiddenIds,
   DEFAULT_FILTER,
   isFiltering,
@@ -245,13 +246,90 @@ function documentScopedFilterInputsChanged(
     return true;
   }
   if (
-    (attr.isComponent !== undefined || attr.isInstance !== undefined) &&
+    (attr.isComponent !== undefined ||
+      attr.isInstance !== undefined ||
+      filterSpec.kinds.includes('component')) &&
     prevDoc.components !== doc.components
   ) {
     return true;
   }
   if (attr.threadedText !== undefined && prevDoc.stories !== doc.stories) return true;
+  if (
+    attr.animated !== undefined &&
+    (prevDoc.timelines !== doc.timelines || prevDoc.assets !== doc.assets)
+  )
+    return true;
   return false;
+}
+
+// ── Projection roots ────────────────────────────────────────────────────────
+
+/**
+ * The inputs that decide which nodes the Layers projection shows as rows.
+ *
+ * Both `flattenTree` and the filter-bar counts resolve their roots through
+ * this scope. They used to disagree: the count walked the whole canvas/page
+ * while an isolation or master-edit view showed a narrowed subtree, so the
+ * header could report "0 of 40 layers" for a tree with visible matches and
+ * Select matches could enable against rows that were not there.
+ */
+export interface LayerTreeScope {
+  activePageId?: NodeId;
+  designCanvasId?: NodeId;
+  isolatedNodeId?: NodeId;
+  masterEditId?: NodeId;
+}
+
+/**
+ * Resolve the root ids the projection walks, in precedence order:
+ * isolation > master edit > design canvas > active page > document root.
+ *
+ * Single source of truth for the tree and the counts. Isolation pins its own
+ * node as a row (handled by `flattenTree`, which also needs it as the pinned
+ * id); every other branch contributes its direct children — a surface's own
+ * content root is internal plumbing and never appears as a layer.
+ */
+export function resolveTreeRootIds(doc: Document, scope: LayerTreeScope): NodeId[] {
+  const { activePageId, designCanvasId, isolatedNodeId, masterEditId } = scope;
+
+  // Isolation/focus view takes precedence over everything else: show only the
+  // isolated node and its subtree, as a single top-level entry so it stays
+  // visible (and collapsible) at the top of the tree.
+  if (isolatedNodeId && doc.nodes[isolatedNodeId]) return [isolatedNodeId];
+
+  if (masterEditId && doc.masters?.[masterEditId]) {
+    const masterRoot = doc.nodes[doc.masters[masterEditId].contentRoot];
+    return masterRoot && isContainer(masterRoot) ? masterRoot.children : [];
+  }
+
+  if (designCanvasId) {
+    const canvas = doc.designCanvases?.find((candidate) => candidate.id === designCanvasId);
+    const canvasRoot = canvas ? doc.nodes[canvas.contentRoot] : undefined;
+    return canvasRoot && isContainer(canvasRoot) ? canvasRoot.children : [];
+  }
+
+  // When a page content root is active, show that page's direct children as
+  // top-level entries (transparent root). Also surface any nodes that sit
+  // directly in rootChildren but aren't page content roots — these are
+  // "orphans" created by the pre-fix addNode path and must remain visible
+  // for backward compatibility with existing documents.
+  if (activePageId) {
+    const page: Page | undefined = doc.pages?.find((p) => p.id === activePageId);
+    const contentRootId: string | undefined = page?.contentRoot;
+    const pageRoot = contentRootId ? doc.nodes[contentRootId] : undefined;
+    const pageChildren: NodeId[] = pageRoot && isContainer(pageRoot) ? pageRoot.children : [];
+
+    // GroupNodes in rootChildren are page content roots (for other pages).
+    // Non-group rootChildren items are orphaned shapes — show them too.
+    const orphans = doc.rootChildren.filter((id) => {
+      if (id === contentRootId) return false;
+      const n = doc.nodes[id];
+      return n && n.kind !== 'group';
+    });
+    return [...pageChildren, ...orphans];
+  }
+
+  return doc.rootChildren;
 }
 
 // ── Flatten ─────────────────────────────────────────────────────────────────
@@ -293,10 +371,15 @@ export function flattenTree(
   // keyframe map). Both resolve to the same "restrict to these ids" contract.
   const hasSearchIndex =
     matchedIds !== undefined &&
-    (filterSpec.search !== '' || filterSpec.attributes.animated != null);
+    (filterSpec.search !== '' || filterSpec.attributes.animated === true);
   const filterContext = {
     doc,
-    animatedIds: filterSpec.attributes.animated != null ? matchedIds : undefined,
+    animatedIds:
+      filterSpec.attributes.animated !== undefined
+        ? filterSpec.attributes.animated === false || !matchedIds
+          ? collectAnimatedLayerIds(doc)
+          : matchedIds
+        : undefined,
     hiddenIds:
       filterSpec.attributes.visible !== undefined ? collectEffectivelyHiddenIds(doc) : undefined,
   };
@@ -361,50 +444,17 @@ export function flattenTree(
     return entries;
   }
 
-  // Isolation/focus view takes precedence over the active-page filter: show
-  // only the isolated node and its subtree, as a single top-level entry so
-  // it stays visible (and collapsible) at the top of the tree.
-  if (isolatedNodeId && doc.nodes[isolatedNodeId]) {
-    return annotateSiblingMetadata(walk(null, [isolatedNodeId], 0, isolatedNodeId));
-  }
-
-  if (masterEditId && doc.masters?.[masterEditId]) {
-    const masterRoot = doc.nodes[doc.masters[masterEditId].contentRoot];
-    const sourceChildren = masterRoot && isContainer(masterRoot) ? masterRoot.children : [];
-    return annotateSiblingMetadata(walk(null, sourceChildren, 0));
-  }
-
-  if (designCanvasId) {
-    const canvas = doc.designCanvases?.find((candidate) => candidate.id === designCanvasId);
-    const canvasRoot = canvas ? doc.nodes[canvas.contentRoot] : undefined;
-    const canvasChildren = canvasRoot && isContainer(canvasRoot) ? canvasRoot.children : [];
-    return annotateSiblingMetadata(walk(null, canvasChildren, 0));
-  }
-
-  // When a page content root is active, show that page's direct children as
-  // top-level entries (transparent root). Also surface any nodes that sit
-  // directly in rootChildren but aren't page content roots — these are
-  // "orphans" created by the pre-fix addNode path and must remain visible
-  // for backward compatibility with existing documents.
-  if (activePageId) {
-    // Resolve activePageId (Page.id) to the contentRoot (GroupNode.id)
-    const page: Page | undefined = doc.pages?.find((p) => p.id === activePageId);
-    const contentRootId: string | undefined = page?.contentRoot;
-    const pageRoot = contentRootId ? doc.nodes[contentRootId] : undefined;
-    const pageChildren: NodeId[] = pageRoot && isContainer(pageRoot) ? pageRoot.children : [];
-
-    // GroupNodes in rootChildren are page content roots (for other pages).
-    // Non-group rootChildren items are orphaned shapes — show them too.
-    const orphans = doc.rootChildren.filter((id) => {
-      if (id === contentRootId) return false;
-      const n = doc.nodes[id];
-      return n && n.kind !== 'group';
-    });
-
-    return annotateSiblingMetadata(walk(null, [...pageChildren, ...orphans], 0));
-  }
-
-  return annotateSiblingMetadata(walk(null, doc.rootChildren, 0));
+  // One root-resolution contract for every projection mode; the counts read
+  // the same function, so "N layers" can never describe a different surface
+  // than the rows on screen.
+  const rootIds = resolveTreeRootIds(doc, {
+    activePageId,
+    designCanvasId,
+    isolatedNodeId,
+    masterEditId,
+  });
+  const pinnedId = isolatedNodeId && doc.nodes[isolatedNodeId] ? isolatedNodeId : undefined;
+  return annotateSiblingMetadata(walk(null, rootIds, 0, pinnedId));
 }
 
 // ── Hook ────────────────────────────────────────────────────────────────────
@@ -478,7 +528,8 @@ export function useFlatTree(
         prevActivePageIdRef.current === activePageId &&
         prevIsolatedNodeIdRef.current === isolatedNodeId &&
         prevMasterEditIdRef.current === masterEditId &&
-        prevDesignCanvasIdRef.current === designCanvasId;
+        prevDesignCanvasIdRef.current === designCanvasId &&
+        prevExpanded === expanded;
 
       if (
         !diff.structureChanged &&

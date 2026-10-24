@@ -26,6 +26,7 @@ import {
   isDescendantFast,
   type ParentIndexCache,
 } from '../../scene/parentIndexCache';
+import { dragClientPoint } from '../Shell/dragInput';
 import { type LayerDropTarget, resolveLayerDropTarget, siblingsOf } from './layerDropResolver';
 import { computeMultiMoveSteps, isNoOpMove } from './layerMovePlan';
 import type { FlatEntry } from './useFlatTree';
@@ -127,6 +128,13 @@ export interface UseLayersDnDArgs {
   doc: Document;
   /** Design Canvas whose top-level children are the layer-tree root. */
   designCanvasId?: NodeId;
+  /**
+   * Structural parent of the projection's top-level rows when the projection
+   * is re-rooted at a real container (master editing). Empty space below the
+   * last row lands here instead of the page/canvas root a null parent would
+   * resolve to at commit time.
+   */
+  rootParentId?: NodeId;
   selection: NodeId[];
   /** The tree's scroll container (the clip viewport). */
   treeRef: React.RefObject<HTMLDivElement | null>;
@@ -164,6 +172,7 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
   const {
     doc,
     designCanvasId,
+    rootParentId,
     treeRef,
     treeContentRef,
     virtualizer,
@@ -197,7 +206,7 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
   const moveIdsRef = useRef<NodeId[]>([]);
   const autoScrollRafRef = useRef<number | null>(null);
   const autoScrollLastTsRef = useRef<number>(0);
-  const pointerListenerRef = useRef<((e: PointerEvent) => void) | null>(null);
+  const pointerListenerRef = useRef<((e: PointerEvent | TouchEvent) => void) | null>(null);
   const swallowClickRef = useRef<((e: MouseEvent) => void) | null>(null);
 
   const docRef = useRef(doc);
@@ -308,6 +317,7 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     let target = resolveLayerDropTarget({
       doc: currentDoc,
       designCanvasId,
+      rootParentId,
       entries: entriesRef.current ?? [],
       // Virtualizer measurements already have the resolver's {start, end}
       // shape. Passing the stable array avoids an O(N) copy on every sample.
@@ -361,6 +371,7 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     cancelAutoExpand,
     startAutoExpand,
     designCanvasId,
+    rootParentId,
   ]);
 
   const refreshDropTargetRef = useRef(refreshDropTarget);
@@ -428,14 +439,17 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
   const detachPointerTracking = useCallback(() => {
     if (pointerListenerRef.current) {
       window.removeEventListener('pointermove', pointerListenerRef.current);
+      window.removeEventListener('touchmove', pointerListenerRef.current);
       pointerListenerRef.current = null;
     }
   }, []);
 
   // The real cursor, straight from the document, for as long as a drag runs.
   const trackPointer = useCallback(
-    (event: PointerEvent) => {
-      lastPointerRef.current = { x: event.clientX, y: event.clientY };
+    (event: PointerEvent | TouchEvent) => {
+      const point = dragClientPoint(event);
+      if (!point) return;
+      lastPointerRef.current = point;
       refreshDropTargetRef.current();
       runAutoScroll();
     },
@@ -459,12 +473,12 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
       dragAutoExpandedRef.current = new Set();
 
       const activator = event.activatorEvent;
-      if (activator instanceof MouseEvent || activator instanceof PointerEvent) {
-        lastPointerRef.current = { x: activator.clientX, y: activator.clientY };
-      }
-      const listener = (e: PointerEvent) => trackPointerRef.current(e);
+      const point = dragClientPoint(activator);
+      if (point) lastPointerRef.current = point;
+      const listener = (e: PointerEvent | TouchEvent) => trackPointerRef.current(e);
       pointerListenerRef.current = listener;
       window.addEventListener('pointermove', listener, { passive: true });
+      window.addEventListener('touchmove', listener, { passive: true });
       refreshDropTargetRef.current();
     },
     [cancelAutoScroll, resolveMoveIds],

@@ -48,7 +48,12 @@ export function useLayersKeyboardArrange({
     const pending = pendingFocusIdRef.current;
     if (!pending) return;
     const idx = entries.findIndex((entry) => entry.node.id === pending);
-    if (idx < 0) return;
+    if (idx < 0) {
+      // The row left the projection (filter change, delete, collapse). Do not
+      // leave the request armed to fire on some later, unrelated edit.
+      pendingFocusIdRef.current = null;
+      return;
+    }
     pendingFocusIdRef.current = null;
     setFocusIdx(idx);
     virtualizer.scrollToIndex(idx, { align: 'auto' });

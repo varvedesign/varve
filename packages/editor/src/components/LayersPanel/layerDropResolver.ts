@@ -188,6 +188,14 @@ export interface ResolveLayerDropTargetArgs {
   doc: Document;
   /** Design Canvas whose top-level children are the layer-tree root. */
   designCanvasId?: NodeId;
+  /**
+   * Structural parent for the projection's root level when the projection is
+   * itself re-rooted at a real container (master editing). Empty space below
+   * the last row must land there; without it a master edit would publish a
+   * null parent, which the editor resolves to the page/canvas root and the
+   * layer would silently leave the master.
+   */
+  rootParentId?: NodeId;
   /** The flattened, currently-visible tree rows, in panel order. */
   entries: FlatEntry[];
   /** Row extents from the virtualizer, indexed identically to `entries`. */
@@ -224,6 +232,7 @@ export function resolveLayerDropTarget(args: ResolveLayerDropTargetArgs): LayerD
   const {
     doc,
     designCanvasId,
+    rootParentId,
     entries,
     geometry,
     pointerY,
@@ -251,14 +260,14 @@ export function resolveLayerDropTarget(args: ResolveLayerDropTargetArgs): LayerD
   const offset = pointerY - contentTop;
   const rowIndex = findRowIndexAtOffset(geometry, offset);
 
-  // Empty space below the last row drops at the active page's root level,
+  // Empty space below the last row drops at the projection's root level,
   // visually at the bottom of the list. Without this the only way out of a
   // container was to find a root-level row to aim at, which does not exist
   // when the container holds everything.
   if (rowIndex === -1) {
     const last = geometry[geometry.length - 1]!;
     if (offset < last.end) return null;
-    return rootEndTarget(isLocked);
+    return rootEndTarget(rootParentId ?? null, isLocked);
   }
 
   const entry = entries[rowIndex];
@@ -375,15 +384,20 @@ export function resolveLayerDropTarget(args: ResolveLayerDropTargetArgs): LayerD
 }
 
 /**
- * Empty space below the last row: the active page's root level, at the visual
- * bottom of the list — which is index 0 of the raw children array.
+ * Empty space below the last row: the projection's root level at the visual
+ * bottom of the list — index 0 of the raw children array. That root is the
+ * active page/canvas by default, or `parentId` when the projection is
+ * re-rooted at a real container (master editing).
  */
-function rootEndTarget(isLocked?: (nodeId: NodeId) => boolean): LayerDropTarget {
+function rootEndTarget(
+  parentId: NodeId | null,
+  isLocked?: (nodeId: NodeId) => boolean,
+): LayerDropTarget {
   return withLockValidation(
     {
       targetId: null,
       zone: 'after',
-      targetParentId: null,
+      targetParentId: parentId,
       insertionIndex: 0,
       clipInto: false,
       valid: true,

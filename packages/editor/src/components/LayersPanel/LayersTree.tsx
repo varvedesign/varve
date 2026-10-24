@@ -34,7 +34,7 @@ import type { DragEndEvent, DragMoveEvent, DragOverEvent, DragStartEvent } from 
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { Document, NodeId } from '@varve/scene';
-import { getKeyframeCount, getNodesInTimeline, isContainer } from '@varve/scene';
+import { getKeyframeCount, isContainer } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import type React from 'react';
 import {
@@ -48,7 +48,6 @@ import {
 } from 'react';
 import { setInvalidateThumbnailHandler, useEditor } from '../../context';
 import { automaticNavigationForLayerActivation } from '../../navigation/layerNavigationPolicy';
-import { isPublishingPageSurface } from '../../scene/activeWorkspace';
 import {
   getOrCreateParentCache,
   getParentFast,
@@ -66,6 +65,7 @@ import {
   type LayersPanelWorkspaceConfig,
 } from '../../workspace/workspaceTypes';
 import { getEffectStackInspectorTarget } from './effectStackNavigation';
+import { resolveLayerTreeScope } from './layerCounts';
 import { type LayerDropTarget, siblingsOf } from './layerDropResolver';
 import {
   addedIdsBetween,
@@ -75,7 +75,7 @@ import {
   type LayerExpansionTransfer,
 } from './layerExpansionState';
 import type { LayerFilterSpec } from './layerFilterTypes';
-import { DEFAULT_FILTER } from './layerFilterTypes';
+import { collectAnimatedLayerIds, DEFAULT_FILTER } from './layerFilterTypes';
 import { selectMatchingEntryIds } from './layerMatchSelection';
 import { canonicalizeMoveIds } from './layerMovePlan';
 import {
@@ -510,7 +510,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   // Pre-compute animated nodes for motion indicators (one pass per document
   // revision) and reuse the same set for the animated filter preset.
-  const animatedNodes = useMemo(() => getNodesInTimeline(state.document), [state.document]);
+  const animatedNodes = useMemo(() => collectAnimatedLayerIds(state.document), [state.document]);
   const keyframeCounts = useMemo(
     () => computeKeyframeCounts(state.document, animatedNodes),
     [state.document, animatedNodes],
@@ -524,7 +524,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     if (!filterSpec.search) return undefined;
     const ids = searchIndex(searchIdx, filterSpec.search);
     return new Set(ids);
-  }, [searchIdx, filterSpec.search]);
+  }, [searchIdx, filterSpec.search, state.document]);
 
   const filterMatchedIds = useMemo<Set<NodeId> | undefined>(() => {
     const animatedActive = filterSpec.attributes.animated === true;
@@ -586,17 +586,24 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     () => resolvePrimarySelectionId(state.document, state.selection, state.primaryId),
     [state.document, state.selection, state.primaryId],
   );
-  const pageSurface = isPublishingPageSurface(state.document, state.workspaceMode);
+  // Same derivation the panel's counts and batch-rename list use — one scope
+  // for rows, numbers, and DnD so they cannot drift apart.
+  const layerScope = resolveLayerTreeScope(
+    state.document,
+    state.workspaceMode,
+    state.isolatedNodeId,
+    state.masterEditId,
+  );
 
   const entries = useFlatTree(
     state.document,
     expanded,
     filterSpec,
     filterMatchedIds,
-    pageSurface ? (state.document.activePageId ?? undefined) : undefined,
-    state.isolatedNodeId ?? undefined,
-    state.masterEditId ?? undefined,
-    pageSurface ? undefined : state.document.activeDesignCanvasId,
+    layerScope.activePageId,
+    layerScope.isolatedNodeId,
+    layerScope.masterEditId,
+    layerScope.designCanvasId,
     docDiff,
   );
 
@@ -640,6 +647,13 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   useEffect(() => {
     if (!treeHadFocusRef.current) return;
     if (!focusedNodeId) return;
+    // The inline rename editor owns focus while it is open. Child focus effects
+    // run before this one, so on Tab-cycled rename the input is already focused
+    // when focusIdx moves onto the editing row; stealing focus back fires the
+    // input's onBlur commit and silently closes the editor that just opened.
+    const renameOwnsFocus = () =>
+      document.activeElement?.classList.contains('layers-row__name-input') === true;
+    if (renameOwnsFocus()) return;
     // Only move focus when the tree owns it, or the focused row was removed
     // and focus fell to body (delete/filter/collapse retarget).
     const active = document.activeElement;
@@ -652,6 +666,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     let raf = 0;
     let tries = 0;
     const focusWhenMounted = () => {
+      if (renameOwnsFocus()) return;
       const row = rowRefs.current.get(focusedNodeId);
       if (row) {
         const current = document.activeElement;
@@ -916,7 +931,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       const clickIdx = entries.findIndex((entry) => entry.node.id === id);
       if (clickIdx < 0) return;
       if (shift) {
-        const anchorId = anchorIdRef.current ?? id;
+        const anchorId = anchorIdRef.current ?? primarySelectionId ?? id;
         const range = selectionRangeBetween(
           entries.map((entry) => entry.node),
           anchorId,
@@ -938,7 +953,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       }
       activateLayer(id);
     },
-    [activateLayer, entries, setFocusIdx, setSelectionRefs, state.selection],
+    [activateLayer, entries, setFocusIdx, setSelectionRefs, state.selection, primarySelectionId],
   );
 
   const handleRenameStart = useCallback(
@@ -1165,8 +1180,16 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     handleDragCancel,
   } = useLayersDnD({
     doc: state.document,
-    designCanvasId:
-      state.workspaceMode !== 'print' ? state.document.activeDesignCanvasId : undefined,
+    // The projection scope, not a second workspace rule: a drop resolved
+    // against a different surface than the visible rows would preview one
+    // destination and commit another.
+    designCanvasId: layerScope.designCanvasId,
+    // Master editing re-roots the projection at a real container; empty space
+    // below the last row must land at that container's visual bottom, not
+    // escape to the page/canvas root the editor resolves for a null parent.
+    rootParentId: layerScope.masterEditId
+      ? state.document.masters?.[layerScope.masterEditId]?.contentRoot
+      : undefined,
     selection: state.selection,
     treeRef,
     treeContentRef,

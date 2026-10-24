@@ -229,6 +229,57 @@ describe('resolveLayerDropTarget — projected roots', () => {
     expect(siblingsOf(doc, rootId)).toContain(over);
     expect(siblingsOf(doc, null)).not.toContain(over);
   });
+
+  it('keeps an empty-space drop below the rows inside the master', () => {
+    let doc = createDocument('master', true);
+    doc = createMaster(doc, { name: 'Master', width: 100, height: 100 });
+    const masterId = Object.keys(doc.masters ?? {})[0] as NodeId;
+    const rootId = doc.masters![masterId]!.contentRoot;
+    const ids: NodeId[] = [];
+    for (const name of ['A', 'B']) {
+      const { id, doc: next } = nextNodeId(doc);
+      doc = addNode(next, makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name }));
+      doc = reparentNode(doc, id, rootId, 0);
+      ids.push(id);
+    }
+
+    const expanded = new Set<NodeId>(Object.keys(doc.nodes) as NodeId[]);
+    const entries = flattenTree(
+      doc,
+      expanded,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      masterId,
+    );
+    const base = {
+      doc,
+      entries,
+      geometry: geometryFor(entries.length),
+      // Below both rows: the projection's root level.
+      pointerY: entries.length * ROW + 40,
+      viewport: { top: 0, bottom: 400 },
+      contentTop: 0,
+      activeIds: [ids[0]!],
+      isDescendant: () => false,
+    };
+
+    // A null parent here would resolve at commit time to the page/canvas
+    // root and silently move the layer out of the master. The projection's
+    // own root is published instead, so preview and commit agree.
+    const target = resolveLayerDropTarget({ ...base, rootParentId: rootId });
+    expect(target?.targetId).toBeNull();
+    expect(target?.zone).toBe('after');
+    expect(target?.targetParentId).toBe(rootId);
+    expect(target?.insertionIndex).toBe(0);
+    expect(siblingsOf(doc, rootId)).toEqual([...ids].reverse());
+
+    // Without a re-rooted projection the historical page-root contract stands.
+    const pageRootTarget = resolveLayerDropTarget(base);
+    expect(pageRootTarget?.targetId).toBeNull();
+    expect(pageRootTarget?.targetParentId).toBeNull();
+  });
 });
 
 describe('resolveLayerDropTarget — reorder index mapping', () => {

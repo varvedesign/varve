@@ -14,7 +14,6 @@ import {
   documentHasSolo,
   type EffectStackKind,
   type EffectStackPayload,
-  getNodesInTimeline,
   isContainer,
   isVisualMaskTarget,
   LAYER_COLOR_LABELS,
@@ -60,9 +59,14 @@ export type { LayersDnDHandle } from './LayersTree';
 
 import type { LayersDnDHandle } from './LayersTree';
 import { LayersTree } from './LayersTree';
-import { computeActiveSurfaceLayerCount, countActiveSurfaceNodesMatching } from './layerCounts';
+import {
+  computeActiveSurfaceLayerCount,
+  countActiveSurfaceNodesMatching,
+  resolveLayerTreeScope,
+} from './layerCounts';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import {
+  collectAnimatedLayerIds,
   collectEffectivelyHiddenIds,
   DEFAULT_FILTER,
   isFiltering,
@@ -176,19 +180,30 @@ function LayersPanelContent({
   const parentCacheRef = useRef<ParentIndexCache | null>(null);
   parentCacheRef.current = getOrCreateParentCache(state.document, parentCacheRef.current);
 
-  // Compute match count for the filter bar — scoped to the active surface only
-  // (document.nodes spans every canvas/page plus each surface's contentRoot,
-  // neither of which the tree ever shows as a row).
-  const designCanvasId =
-    state.workspaceMode !== 'print' ? state.document.activeDesignCanvasId : undefined;
+  // One projection scope for every number the panel reports. It is derived by
+  // the same helper the tree uses, so isolation and master editing narrow the
+  // counts exactly as they narrow the rows: "N layers" and "M of N layers"
+  // always describe the surface the user is actually looking at.
+  const layerScope = useMemo(
+    () =>
+      resolveLayerTreeScope(
+        state.document,
+        state.workspaceMode,
+        state.isolatedNodeId,
+        state.masterEditId,
+      ),
+    [state.document, state.workspaceMode, state.isolatedNodeId, state.masterEditId],
+  );
   const totalCount = useMemo(
-    () => computeActiveSurfaceLayerCount(state.document, designCanvasId),
-    [state.document, designCanvasId],
+    () => computeActiveSurfaceLayerCount(state.document, layerScope),
+    [state.document, layerScope],
   );
   const matchCount = useMemo(() => {
     if (!isFiltering(filterSpec)) return totalCount;
     const animatedIds =
-      filterSpec.attributes.animated === true ? getNodesInTimeline(state.document) : undefined;
+      filterSpec.attributes.animated !== undefined
+        ? collectAnimatedLayerIds(state.document)
+        : undefined;
     // Precompute inherited hidden state once; the predicate runs per node and
     // must not fall back to the O(n) parent scan.
     const hiddenIds =
@@ -199,9 +214,9 @@ function LayersPanelContent({
       state.document,
       (node) =>
         nodeMatchesFilter(node, filterSpec, { doc: state.document, animatedIds, hiddenIds }),
-      designCanvasId,
+      layerScope,
     );
-  }, [state.document, filterSpec, totalCount, designCanvasId]);
+  }, [state.document, filterSpec, totalCount, layerScope]);
   const selectedLayerColor = useMemo<LayerColorPickerValue>(() => {
     if (state.selection.length < 2) return undefined;
     const colors = state.selection.map((id) => state.document.nodes[id]?.layerColor ?? null);
@@ -313,12 +328,12 @@ function LayersPanelContent({
       expanded,
       DEFAULT_FILTER,
       undefined,
-      state.document.activePageId,
-      undefined,
-      undefined,
-      designCanvasId,
+      layerScope.activePageId,
+      layerScope.isolatedNodeId,
+      layerScope.masterEditId,
+      layerScope.designCanvasId,
     ).map((entry) => ({ nodeId: entry.node.id, name: entry.node.name }));
-  }, [batchRenameOpen, state.document, designCanvasId]);
+  }, [batchRenameOpen, state.document, layerScope]);
 
   const handleDeleteFromMenu = useCallback(() => {
     const selection = contextMenu?.selection ?? state.selection;
