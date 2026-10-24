@@ -7,12 +7,17 @@ mod font;
 mod font_storage;
 mod generative_qualification;
 mod generative_resources;
+mod inference_models;
 mod lifecycle;
 mod logs;
 mod menu;
+mod model_artifacts;
+mod model_graph_repair;
+mod native_jobs;
 #[cfg(target_os = "linux")]
 mod native_presenter;
 mod native_raster;
+mod native_tensors;
 mod print;
 mod renderer;
 mod updates;
@@ -886,10 +891,9 @@ fn sync_load(
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct BgRemoveOptions {
-    // Only read when built with the `ai` feature (see the match below);
-    // without it, every request is unconditionally routed to `Quick`.
-    #[cfg_attr(not(feature = "ai"), allow(dead_code))]
+    request_id: Option<String>,
     method: String,
+    model_id: Option<String>,
     tolerance: Option<u8>,
     feather_radius: Option<f32>,
     decontaminate: Option<bool>,
@@ -907,6 +911,8 @@ struct BgRemoveResult {
     mask_base64: String,
     confidence: f32,
     method: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    model_id: Option<String>,
     processing_time_ms: u64,
     width: u32,
     height: u32,
@@ -918,6 +924,8 @@ struct BgRemoveResult {
 struct BgRemoveBinaryMetadata {
     confidence: f32,
     method: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    model_id: Option<String>,
     processing_time_ms: u64,
     width: u32,
     height: u32,
@@ -941,6 +949,7 @@ fn encode_bg_remove_binary(result: BgRemoveResult) -> Result<Response, String> {
     let metadata = serde_json::to_vec(&BgRemoveBinaryMetadata {
         confidence: result.confidence,
         method: result.method,
+        model_id: result.model_id,
         processing_time_ms: result.processing_time_ms,
         width: result.width,
         height: result.height,
@@ -1005,9 +1014,6 @@ struct NativeBgModelProgress {
     total: u64,
 }
 
-static CANCELLED_BG_MODEL_DOWNLOADS: LazyLock<Mutex<HashSet<String>>> =
-    LazyLock::new(|| Mutex::new(HashSet::new()));
-
 fn valid_download_request_id(request_id: &str) -> bool {
     !request_id.is_empty()
         && request_id.len() <= 80
@@ -1023,11 +1029,22 @@ fn background_removal_model_info(
         .ok_or_else(|| format!("Unknown background-removal model: {model_id}"))
 }
 
-fn native_background_model_id(method: &str) -> Option<&'static str> {
-    match method {
-        "ai-balanced" => Some("isnet-general-use"),
-        "ai-quality" => Some("birefnet-general-lite"),
-        _ => None,
+fn native_background_model_id(options: &BgRemoveOptions) -> Result<Option<&'static str>, String> {
+    // Do not use the generic native model catalog as this allowlist: it also
+    // contains denoisers/OCR/inpainting graphs with incompatible tensor contracts.
+    match (options.method.as_str(), options.model_id.as_deref()) {
+        ("quick", None) => Ok(None),
+        ("ai-balanced", None | Some("isnet-general-use")) => Ok(Some("isnet-general-use")),
+        ("ai-balanced", Some("u2netp")) => Ok(Some("u2netp")),
+        ("ai-balanced", Some("u2netp-int8")) => Ok(Some("u2netp-int8")),
+        ("portrait", None | Some("modnet-portrait")) => Ok(Some("modnet-portrait")),
+        ("ai-quality", None | Some("birefnet-general-lite")) => Ok(Some("birefnet-general-lite")),
+        ("ai-quality", Some("birefnet-general")) => Ok(Some("birefnet-general")),
+        _ => Err(format!(
+            "Unsupported native background-removal method/model pair: '{}' / '{}'",
+            options.method,
+            options.model_id.as_deref().unwrap_or("default")
+        )),
     }
 }
 
@@ -1061,17 +1078,25 @@ async fn native_background_removal_model_status(
     model_id: String,
 ) -> Result<NativeBgModelStatus, String> {
     let model = background_removal_model_info(&model_id)?;
-    let size_bytes = varve_bgremove::model::downloaded_model_size(&model_id);
     // Loading the native ONNX Runtime and registering its optional provider
     // can enter a platform loader and create runtime threads. Keep that work
     // off the Tauri/GTK event thread even though this command only returns a
     // small status object.
-    let runtime_ready = tauri::async_runtime::spawn_blocking(move || ensure_native_ai(&app))
+    let (runtime_ready, installed, size_bytes) = tauri::async_runtime::spawn_blocking(move || {
+        // Bundled graphs are already shipped, but ORT requires a verified disk
+        // path. Materialize them before reporting a spurious download requirement.
+        let installed = inference_models::prepare_path(&app, &model_id)?.is_some();
+        Ok::<_, String>((
+            ensure_native_ai(&app),
+            installed,
+            varve_bgremove::model::downloaded_model_size(&model_id),
+        ))
+    })
         .await
-        .map_err(|error| format!("Native AI status task failed: {error}"))?;
+        .map_err(|error| format!("Native AI status task failed: {error}"))??;
     Ok(NativeBgModelStatus {
         runtime_ready,
-        installed: varve_bgremove::model::is_model_downloaded(&model_id),
+        installed,
         size_bytes,
         peak_memory_bytes: model.peak_memory_bytes,
     })
@@ -1102,20 +1127,14 @@ fn preflight_native_background_removal(
 
 #[tauri::command]
 fn cancel_background_removal_model_download(request_id: String) -> Result<(), String> {
-    if !valid_download_request_id(&request_id) {
-        return Err("Invalid model-download request id".into());
-    }
-    CANCELLED_BG_MODEL_DOWNLOADS
-        .lock()
-        .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
-        .insert(request_id);
-    Ok(())
+    INFERENCE_MODEL_DOWNLOADS.cancel(&request_id)
 }
 
 #[tauri::command]
 fn delete_background_removal_model(model_id: String) -> Result<(), String> {
     background_removal_model_info(&model_id)?;
-    varve_bgremove::model::delete_model(&model_id)
+    inference_models::delete_at(&varve_bgremove::model::models_dir(), &model_id)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1124,9 +1143,8 @@ async fn download_background_removal_model(
     request_id: String,
     model_id: String,
 ) -> Result<u64, String> {
-    if !valid_download_request_id(&request_id) {
-        return Err("Invalid model-download request id".into());
-    }
+    let model = background_removal_model_info(&model_id)?;
+    let job = INFERENCE_MODEL_DOWNLOADS.start(Some(&request_id))?;
     // Runtime/provider loading is lazy, but it is not UI-thread safe. Do it
     // before the network future starts so model download progress remains
     // responsive and a loader failure becomes a normal command error.
@@ -1138,171 +1156,33 @@ async fn download_background_removal_model(
     if !runtime_ready {
         return Err("Native ONNX Runtime is unavailable on this desktop build".into());
     }
-    let model = background_removal_model_info(&model_id)?.clone();
-    let artifacts = model.artifacts();
-    for artifact in &artifacts {
-        if !artifact.remote_url.starts_with("https://") {
-            return Err(format!(
-                "Refusing insecure model URL for {} ({})",
-                model.id, artifact.filename
-            ));
-        }
-        if artifact.checksum_sha256.is_none() {
-            return Err(format!(
-                "Model {} artifact {} has no SHA-256 checksum and cannot be securely installed",
-                model.id, artifact.filename
-            ));
-        }
-    }
-    if varve_bgremove::model::is_model_downloaded(&model_id) {
-        return Ok(model.size_bytes);
-    }
-    let model_dir = varve_bgremove::model::models_dir();
-    std::fs::create_dir_all(&model_dir)
-        .map_err(|error| format!("Failed to create native model directory: {error}"))?;
-    let result = async {
-        let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if attempt.url().scheme() == "https" {
-                    attempt.follow()
-                } else {
-                    attempt.stop()
-                }
-            }))
-            .build()
-            .map_err(|error| format!("Failed to create model downloader: {error}"))?;
-        let mut loaded = 0u64;
-        for artifact in artifacts {
-            let destination = model_dir.join(&artifact.filename);
-            let expected_checksum = artifact.checksum_sha256.as_deref().ok_or_else(|| {
-                format!(
-                    "Model {} artifact {} has no checksum",
-                    model.id, artifact.filename
-                )
-            })?;
-            if destination.is_file() {
-                if let Ok((bytes, checksum)) = sha256_file(&destination) {
-                    if bytes == artifact.size_bytes && checksum == expected_checksum {
-                        loaded = loaded.saturating_add(bytes);
-                        let _ = app.emit(
-                            "background-removal-model-progress",
-                            NativeBgModelProgress {
-                                request_id: request_id.clone(),
-                                model_id: model_id.clone(),
-                                loaded,
-                                total: model.size_bytes,
-                            },
-                        );
-                        continue;
-                    }
-                }
-            }
-            let temporary = destination.with_extension(format!("download-{request_id}"));
-            let artifact_result: Result<(), String> = async {
-                let mut response = client
-                    .get(&artifact.remote_url)
-                    .send()
-                    .await
-                    .map_err(|error| format!("Model download failed: {error}"))?
-                    .error_for_status()
-                    .map_err(|error| format!("Model download failed: {error}"))?;
-                let mut file = std::fs::File::create(&temporary)
-                    .map_err(|error| format!("Failed to create model file: {error}"))?;
-                let mut digest = Sha256::new();
-                let mut artifact_loaded = 0u64;
-                while let Some(chunk) = response
-                    .chunk()
-                    .await
-                    .map_err(|error| format!("Model download interrupted: {error}"))?
-                {
-                    let cancelled = CANCELLED_BG_MODEL_DOWNLOADS
-                        .lock()
-                        .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
-                        .remove(&request_id);
-                    if cancelled {
-                        return Err("Download cancelled".into());
-                    }
-                    file.write_all(&chunk)
-                        .map_err(|error| format!("Failed to write model file: {error}"))?;
-                    digest.update(&chunk);
-                    artifact_loaded = artifact_loaded.saturating_add(chunk.len() as u64);
-                    loaded = loaded.saturating_add(chunk.len() as u64);
-                    let _ = app.emit(
-                        "background-removal-model-progress",
-                        NativeBgModelProgress {
-                            request_id: request_id.clone(),
-                            model_id: model_id.clone(),
-                            loaded,
-                            total: model.size_bytes,
-                        },
-                    );
-                }
-                file.sync_all()
-                    .map_err(|error| format!("Failed to flush model file: {error}"))?;
-                if artifact_loaded != artifact.size_bytes {
-                    return Err(format!(
-                        "Model artifact {} size mismatch: expected {}, received {}",
-                        artifact.filename, artifact.size_bytes, artifact_loaded
-                    ));
-                }
-                let actual = digest
-                    .finalize()
-                    .iter()
-                    .map(|b| format!("{:02x}", b))
-                    .collect::<String>();
-                if actual != expected_checksum {
-                    return Err(format!(
-                        "Model artifact {} SHA-256 mismatch: expected {expected_checksum}, received {actual}",
-                        artifact.filename
-                    ));
-                }
-                let cancelled = CANCELLED_BG_MODEL_DOWNLOADS
-                    .lock()
-                    .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
-                    .remove(&request_id);
-                if cancelled {
-                    return Err("Download cancelled".into());
-                }
-                // On Unix, rename replaces the destination atomically. Windows
-                // does not allow replacing an existing file, so retain a narrow
-                // fallback rather than deleting a good file before verification.
-                if let Err(rename_error) = std::fs::rename(&temporary, &destination) {
-                    if destination.exists() {
-                        std::fs::remove_file(&destination).map_err(|error| {
-                            format!("Failed to replace native model artifact: {error}")
-                        })?;
-                        std::fs::rename(&temporary, &destination).map_err(|error| {
-                            format!("Failed to install native model artifact after replacement: {error}")
-                        })?;
-                    } else {
-                        return Err(format!(
-                            "Failed to install native model artifact: {rename_error}"
-                        ));
-                    }
-                }
-                Ok(())
-            }
-            .await;
-            if let Err(error) = artifact_result {
-                let _ = std::fs::remove_file(&temporary);
-                return Err(error);
-            }
-        }
-        Ok(loaded)
-    }
-    .await;
-    let _ = CANCELLED_BG_MODEL_DOWNLOADS
-        .lock()
-        .map(|mut cancelled| cancelled.remove(&request_id));
-    result
+    inference_models::download_at(
+        &varve_bgremove::model::models_dir(),
+        &model_id,
+        &request_id,
+        &job.cancellation,
+        |loaded, total| {
+            let _ = app.emit(
+                "background-removal-model-progress",
+                NativeBgModelProgress {
+                    request_id: request_id.clone(),
+                    model_id: model_id.clone(),
+                    loaded,
+                    total,
+                },
+            );
+        },
+    )
+    .await?;
+    Ok(model.size_bytes)
 }
 
 // ---------------------------------------------------------------------------
 // Generic inference-model downloads (native, CORS-free)
 // ---------------------------------------------------------------------------
 
-static CANCELLED_INFERENCE_MODEL_DOWNLOADS: LazyLock<Mutex<HashSet<String>>> =
-    LazyLock::new(|| Mutex::new(HashSet::new()));
+static INFERENCE_MODEL_DOWNLOADS: LazyLock<native_jobs::NativeJobs> =
+    LazyLock::new(native_jobs::NativeJobs::default);
 
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1339,42 +1219,47 @@ fn validate_inference_sha256(sha256: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn inference_model_destination(model_id: &str) -> Result<std::path::PathBuf, String> {
-    validate_inference_model_id(model_id)?;
-    let dir = varve_bgremove::model::models_dir();
-    std::fs::create_dir_all(&dir)
-        .map_err(|error| format!("Failed to create native model directory: {error}"))?;
-    Ok(dir.join(format!("{model_id}.onnx")))
-}
-
 /// Absolute path of an installed generic inference model, if present.
 #[tauri::command]
-fn inference_model_path(model_id: String) -> Result<Option<String>, String> {
-    let destination = inference_model_destination(&model_id)?;
-    if destination.is_file() {
-        return Ok(Some(destination.to_string_lossy().to_string()));
-    }
-    Ok(None)
+async fn inference_model_path(
+    app: tauri::AppHandle,
+    model_id: String,
+) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        Ok(inference_models::prepare_path(&app, &model_id)?
+            .map(|path| path.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|error| format!("Native model verification failed: {error}"))?
+}
+
+fn inference_model_path_at(
+    directory: &std::path::Path,
+    model_id: &str,
+) -> Result<Option<String>, String> {
+    Ok(model_artifacts::verified_path(directory, model_id)?
+        .map(|path| path.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+async fn inference_model_external_data(
+    model_id: String,
+) -> Result<Option<model_artifacts::ExternalData>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        model_artifacts::external_data(&varve_bgremove::model::models_dir(), &model_id)
+    })
+    .await
+    .map_err(|error| format!("Native model verification failed: {error}"))?
 }
 
 #[tauri::command]
 fn delete_inference_model(model_id: String) -> Result<bool, String> {
-    let destination = inference_model_destination(&model_id)?;
-    if !destination.is_file() {
-        return Ok(false);
-    }
-    std::fs::remove_file(&destination)
-        .map_err(|error| format!("Failed to remove native model: {error}"))?;
-    Ok(true)
+    inference_models::delete_at(&varve_bgremove::model::models_dir(), &model_id)
 }
 
 #[tauri::command]
 fn cancel_inference_model_download(request_id: String) -> Result<(), String> {
-    CANCELLED_INFERENCE_MODEL_DOWNLOADS
-        .lock()
-        .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
-        .insert(request_id);
-    Ok(())
+    INFERENCE_MODEL_DOWNLOADS.cancel(&request_id)
 }
 
 /// Download a generic inference model to the native model directory and verify
@@ -1386,69 +1271,14 @@ async fn download_inference_model(
     app: tauri::AppHandle,
     request_id: String,
     model_id: String,
-    url: String,
-    sha256: String,
-    size_bytes: Option<u64>,
 ) -> Result<String, String> {
-    let destination = inference_model_destination(&model_id)?;
-    validate_inference_sha256(&sha256)?;
-    if !url.starts_with("https://") {
-        return Err(format!("Refusing insecure model URL for {model_id}"));
-    }
-    if destination.is_file() {
-        let _ = app.emit(
-            "inference-model-progress",
-            InferenceModelProgress {
-                request_id: request_id.clone(),
-                model_id: model_id.clone(),
-                loaded: size_bytes.unwrap_or(0),
-                total: size_bytes.unwrap_or(0),
-            },
-        );
-        return Ok(destination.to_string_lossy().to_string());
-    }
-    let result = async {
-        let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if attempt.url().scheme() == "https" {
-                    attempt.follow()
-                } else {
-                    attempt.stop()
-                }
-            }))
-            .build()
-            .map_err(|error| format!("Failed to create model downloader: {error}"))?;
-        let temporary = destination.with_extension(format!("download-{request_id}"));
-        let mut response = client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|error| format!("Model download failed: {error}"))?
-            .error_for_status()
-            .map_err(|error| format!("Model download failed: {error}"))?;
-        let total = size_bytes
-            .or_else(|| response.content_length())
-            .unwrap_or(0);
-        let mut file = std::fs::File::create(&temporary)
-            .map_err(|error| format!("Failed to create model file: {error}"))?;
-        let mut digest = Sha256::new();
-        let mut loaded = 0u64;
-        while let Some(chunk) = response
-            .chunk()
-            .await
-            .map_err(|error| format!("Model download interrupted: {error}"))?
-        {
-            let cancelled = CANCELLED_INFERENCE_MODEL_DOWNLOADS
-                .lock()
-                .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
-                .remove(&request_id);
-            if cancelled {
-                return Err("Download cancelled".into());
-            }
-            file.write_all(&chunk)
-                .map_err(|error| format!("Failed to write model file: {error}"))?;
-            digest.update(&chunk);
-            loaded = loaded.saturating_add(chunk.len() as u64);
+    let job = INFERENCE_MODEL_DOWNLOADS.start(Some(&request_id))?;
+    let path = inference_models::download_at(
+        &varve_bgremove::model::models_dir(),
+        &model_id,
+        &request_id,
+        &job.cancellation,
+        |loaded, total| {
             let _ = app.emit(
                 "inference-model-progress",
                 InferenceModelProgress {
@@ -1458,49 +1288,10 @@ async fn download_inference_model(
                     total,
                 },
             );
-        }
-        file.sync_all()
-            .map_err(|error| format!("Failed to flush model file: {error}"))?;
-        if let Some(expected_size) = size_bytes {
-            if loaded != expected_size {
-                return Err(format!(
-                    "Model size mismatch: expected {expected_size}, received {loaded}"
-                ));
-            }
-        }
-        let actual = digest
-            .finalize()
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect::<String>();
-        if actual != sha256 {
-            return Err(format!(
-                "Model SHA-256 mismatch: expected {sha256}, received {actual}"
-            ));
-        }
-        if let Err(rename_error) = std::fs::rename(&temporary, &destination) {
-            if destination.exists() {
-                std::fs::remove_file(&destination)
-                    .map_err(|error| format!("Failed to replace native model artifact: {error}"))?;
-                std::fs::rename(&temporary, &destination).map_err(|error| {
-                    format!("Failed to install native model artifact after replacement: {error}")
-                })?;
-            } else {
-                return Err(format!(
-                    "Failed to install native model artifact: {rename_error}"
-                ));
-            }
-        }
-        Ok(())
-    }
-    .await;
-    if result.is_err() {
-        let _ = std::fs::remove_file(destination.with_extension(format!("download-{request_id}")));
-    }
-    let _ = CANCELLED_INFERENCE_MODEL_DOWNLOADS
-        .lock()
-        .map(|mut cancelled| cancelled.remove(&request_id));
-    result.map(|_| destination.to_string_lossy().to_string())
+        },
+    )
+    .await?;
+    Ok(path.to_string_lossy().into_owned())
 }
 
 /// Remove background from an image via the native `varve-bgremove` crate.
@@ -1510,7 +1301,7 @@ async fn download_inference_model(
 /// built with the `ai` Cargo feature (opt-in, requires a downloaded model).
 /// Builds without that feature reject AI requests instead of mislabelling a
 /// heuristic result as AI output.
-/// Async command wrapper around [`remove_background_impl`].
+/// Async command wrapper around [`remove_background_cancellable`].
 ///
 /// Two hard requirements drive this shape:
 ///
@@ -1568,13 +1359,22 @@ async fn remove_background_binary(
     encode_bg_remove_binary(result)
 }
 
+static BACKGROUND_REMOVAL_JOBS: LazyLock<native_jobs::NativeJobs> =
+    LazyLock::new(native_jobs::NativeJobs::default);
+
+#[tauri::command]
+fn cancel_background_removal(request_id: String) -> Result<(), String> {
+    BACKGROUND_REMOVAL_JOBS.cancel(&request_id)
+}
+
 async fn remove_background_command(
     app: tauri::AppHandle,
     image_data: Vec<u8>,
     options: BgRemoveOptions,
 ) -> Result<BgRemoveResult, String> {
+    let job = BACKGROUND_REMOVAL_JOBS.start(options.request_id.as_deref())?;
     #[cfg(feature = "ai")]
-    if let Some(model_id) = native_background_model_id(&options.method) {
+    if let Some(model_id) = native_background_model_id(&options)? {
         let (width, height) = encoded_image_dimensions(&image_data)?;
         validate_bounded_image_dimensions(width, height, "background-removal image")?;
         // This check happens before ONNX Runtime initialization and is
@@ -1587,8 +1387,13 @@ async fn remove_background_command(
     let _ = &app;
 
     tauri::async_runtime::spawn_blocking(move || {
+        // Keep the whole guard in the blocking task, not just a cloned token.
+        let job = job;
         #[cfg(feature = "ai")]
-        if let Some(model_id) = native_background_model_id(&options.method) {
+        if let Some(model_id) = native_background_model_id(&options)? {
+            if job.cancellation.is_cancelled() {
+                return Err("Inference cancelled".into());
+            }
             if !ensure_native_ai(&app) {
                 return Err(
                     "Native AI runtime is unavailable on this system; use the in-app (WASM) model instead"
@@ -1599,16 +1404,33 @@ async fn remove_background_command(
             validate_bounded_image_dimensions(width, height, "background-removal image")?;
             preflight_native_model("Native background removal", model_id, width, height)?;
         }
-        remove_background_impl(image_data, options)
+        remove_background_cancellable(image_data, options, &job.cancellation)
     })
         .await
         .map_err(|e| format!("Background removal task failed: {e}"))?
 }
 
+#[cfg(test)]
 fn remove_background_impl(
     image_data: Vec<u8>,
     options: BgRemoveOptions,
 ) -> Result<BgRemoveResult, String> {
+    remove_background_cancellable(
+        image_data,
+        options,
+        &varve_bgremove::InferenceCancellationToken::default(),
+    )
+}
+
+fn remove_background_cancellable(
+    image_data: Vec<u8>,
+    options: BgRemoveOptions,
+    cancellation: &varve_bgremove::InferenceCancellationToken,
+) -> Result<BgRemoveResult, String> {
+    if cancellation.is_cancelled() {
+        return Err("Inference cancelled".into());
+    }
+    let model_id = native_background_model_id(&options)?;
     let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
 
     #[cfg(feature = "ai")]
@@ -1616,6 +1438,7 @@ fn remove_background_impl(
         "quick" => varve_bgremove::RemovalMethod::Quick,
         "ai-balanced" => varve_bgremove::RemovalMethod::AiBalanced,
         "ai-quality" => varve_bgremove::RemovalMethod::AiQuality,
+        "portrait" => varve_bgremove::RemovalMethod::Portrait,
         method => return Err(format!("Unsupported background removal method '{method}'")),
     };
     #[cfg(not(feature = "ai"))]
@@ -1634,12 +1457,27 @@ fn remove_background_impl(
         preview_max_dimension: options.preview_max_dimension,
     };
 
+    #[cfg(feature = "ai")]
+    let result = match model_id {
+        Some(model_id) => varve_bgremove::inference::remove_ai_cancellable(
+            &img,
+            &remove_opts,
+            model_id,
+            cancellation,
+        )?,
+        None => varve_bgremove::remove_background(&img, &remove_opts)?,
+    };
+    #[cfg(not(feature = "ai"))]
     let result = varve_bgremove::remove_background(&img, &remove_opts)?;
 
+    if cancellation.is_cancelled() {
+        return Err("Inference cancelled".into());
+    }
     Ok(BgRemoveResult {
         mask_base64: result.mask_base64,
         confidence: result.confidence,
         method: result.method,
+        model_id: model_id.map(str::to_owned),
         processing_time_ms: result.processing_time_ms,
         width: result.width,
         height: result.height,
@@ -5990,6 +5828,7 @@ pub fn run() {
             cancel_clipboard_operation,
             remove_background,
             remove_background_binary,
+            cancel_background_removal,
             native_ai_status,
             native_background_removal_model_status,
             host_memory_status,
@@ -6001,6 +5840,11 @@ pub fn run() {
             cancel_inference_model_download,
             delete_inference_model,
             inference_model_path,
+            native_tensors::open_native_tensor_session,
+            native_tensors::run_native_tensor_session,
+            native_tensors::release_native_tensor_session,
+            native_tensors::cancel_native_tensor_inference,
+            inference_model_external_data,
             denoise_image,
             content_aware_fill,
             cancel_content_aware_fill,
@@ -6206,6 +6050,20 @@ mod tests {
         assert!(validate_inference_sha256(&"A".repeat(64)).is_err());
         assert!(validate_inference_sha256(&"g".repeat(64)).is_err());
         assert!(validate_inference_sha256(&"a".repeat(63)).is_err());
+    }
+
+    #[test]
+    fn inference_model_readiness_rejects_an_existing_corrupt_graph() {
+        let directory = std::env::temp_dir().join(format!("varve-model-readiness-{}", uuid()));
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(directory.join("u2netp.onnx"), b"truncated model").unwrap();
+        let result = inference_model_path_at(&directory, "u2netp");
+        std::fs::remove_dir_all(directory).unwrap();
+        assert_eq!(
+            result.unwrap(),
+            None,
+            "existence is not installation integrity"
+        );
     }
 
     #[test]
@@ -7207,11 +7065,54 @@ mod tests {
     }
 
     #[test]
+    fn bg_remove_native_routing_honours_explicit_model_identity() {
+        for (method, requested, expected) in [
+            (
+                "ai-quality",
+                Some("birefnet-general"),
+                Some("birefnet-general"),
+            ),
+            ("ai-quality", None, Some("birefnet-general-lite")),
+            ("ai-balanced", Some("u2netp"), Some("u2netp")),
+            ("ai-balanced", Some("u2netp-int8"), Some("u2netp-int8")),
+            ("portrait", None, Some("modnet-portrait")),
+            ("portrait", Some("modnet-portrait"), Some("modnet-portrait")),
+            ("ai-balanced", None, Some("isnet-general-use")),
+            ("quick", None, None),
+        ] {
+            let options: BgRemoveOptions = serde_json::from_value(serde_json::json!({
+                "method": method, "modelId": requested,
+            }))
+            .expect("wire options");
+            assert_eq!(native_background_model_id(&options).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn bg_remove_rejects_incompatible_graphs_before_decoding_or_inference() {
+        for (method, model) in [
+            ("quick", "birefnet-general"),
+            ("ai-quality", "scunet"),
+            ("ai-quality", "../birefnet-general"),
+            ("ai-balanced", "birefnet-general-lite"),
+            ("portrait", "modnet-portrait"),
+        ] {
+            let options: BgRemoveOptions = serde_json::from_value(serde_json::json!({
+                "method": method, "modelId": model,
+            }))
+            .expect("wire options");
+            let error = remove_background_impl(vec![], options).unwrap_err();
+            assert!(error.contains("Unsupported native background-removal method/model pair"));
+        }
+    }
+
+    #[test]
     fn bg_remove_result_serializes_camel_case_wire_format() {
         let result = BgRemoveResult {
             mask_base64: "abc123".to_string(),
             confidence: 0.75,
             method: "quick".to_string(),
+            model_id: None,
             processing_time_ms: 42,
             width: 10,
             height: 20,
@@ -7236,7 +7137,8 @@ mod tests {
         let result = BgRemoveResult {
             mask_base64: base64::engine::general_purpose::STANDARD.encode(mask),
             confidence: 0.75,
-            method: "quick".to_string(),
+            method: "ai-quality".to_string(),
+            model_id: Some("birefnet-general".into()),
             processing_time_ms: 42,
             width: 10,
             height: 20,
@@ -7253,7 +7155,8 @@ mod tests {
         let metadata_len = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
         let metadata: serde_json::Value =
             serde_json::from_slice(&bytes[8..8 + metadata_len]).expect("metadata JSON");
-        assert_eq!(metadata["method"], "quick");
+        assert_eq!(metadata["method"], "ai-quality");
+        assert_eq!(metadata["modelId"], "birefnet-general");
         assert_eq!(&bytes[8 + metadata_len..], mask);
     }
 
