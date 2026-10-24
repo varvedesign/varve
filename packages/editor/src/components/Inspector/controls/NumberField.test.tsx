@@ -601,6 +601,27 @@ describe('NumberField', () => {
     expect(input.getAttribute('aria-valuetext')).toBe('65%');
   });
 
+  it('announces a draft ahead of a derived mixed property state', () => {
+    // The real selection path passes `propertyState` (kind: 'mixed'), not the
+    // bare `mixed` prop: the resting state description must not mask a draft
+    // that is visible in the field.
+    render(
+      <NumberField
+        label="X"
+        value={0}
+        unit="px"
+        propertyState={{ kind: 'mixed', representative: 0, applicableCount: 2, distinctCount: 2 }}
+        onChange={() => {}}
+      />,
+    );
+    const input = screen.getByLabelText('X (px)') as HTMLInputElement;
+    expect(input.getAttribute('aria-valuetext')).toBe('Mixed values');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '150' } });
+    expect(input.value).toBe('150');
+    expect(input.getAttribute('aria-valuetext')).toBe('150px');
+  });
+
   it('cancels a draft when its target scope changes', () => {
     const view = render(<NumberField label="X" value={10} draftKey="doc:a" onChange={() => {}} />);
     const input = screen.getByLabelText('X') as HTMLInputElement;

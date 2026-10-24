@@ -719,15 +719,16 @@ export function NumberField({
     .filter((item): item is string => Boolean(item))
     .join(' ');
   const ariaText = (() => {
-    if (stateText) return stateText;
     // While a draft is being typed the visible string is the draft, so the
     // spoken value must be the draft too — announcing "Mixed values" beside
-    // visible "42" is a contradiction. Unparseable intermediate strings
-    // ("1.", "-") keep the resting announcement instead of spelling out a
-    // half-typed token.
+    // visible "42" is a contradiction. This outranks the resting state
+    // description: `propertyState` describes the stored selection, not the
+    // in-progress edit. Unparseable intermediate strings ("1.", "-") keep the
+    // resting announcement instead of spelling out a half-typed token.
     if (dirty !== null && parseField(dirty, aliases) !== null) {
       return unit ? `${dirty}${unit}` : dirty;
     }
+    if (stateText) return stateText;
     if (visualMixed) return 'Mixed values';
     return unit ? `${value}${unit}` : String(value);
   })();
