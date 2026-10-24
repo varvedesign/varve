@@ -23,24 +23,50 @@ import { expect, test } from '@playwright/test';
 import { worldToScreen } from '@varve/shared';
 import { navigateToEditor } from '../shared';
 
+/**
+ * Auto-reveal lives in the Layers navigation settings menu as a checkbox
+ * ("Reveal canvas selection in Layers panel"); the duplicate header toggle it
+ * replaced was removed from the Layers header.
+ */
+async function isAutoRevealEnabled(page: import('@playwright/test').Page): Promise<boolean> {
+  await page.getByRole('button', { name: 'Layer navigation settings' }).click();
+  const item = page.getByRole('menuitemcheckbox', {
+    name: 'Reveal canvas selection in Layers panel',
+  });
+  const checked = (await item.getAttribute('aria-checked')) === 'true';
+  await page.keyboard.press('Escape');
+  return checked;
+}
+
+async function setAutoReveal(
+  page: import('@playwright/test').Page,
+  enabled: boolean,
+): Promise<void> {
+  if ((await isAutoRevealEnabled(page)) === enabled) return;
+  await page.getByRole('button', { name: 'Layer navigation settings' }).click();
+  const item = page.getByRole('menuitemcheckbox', {
+    name: 'Reveal canvas selection in Layers panel',
+  });
+  // Checkbox menu items keep the menu open so several can be toggled; assert
+  // the new state in place, then close the menu so the canvas keeps its
+  // pointer target.
+  if ((await item.getAttribute('aria-checked')) !== String(enabled)) await item.click();
+  await expect(item).toHaveAttribute('aria-checked', String(enabled));
+  await page.keyboard.press('Escape');
+}
+
 test.describe('Artboard-local coordinates', () => {
   test.describe.configure({ mode: 'serial' });
   let autoRevealWasEnabled = false;
 
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page, '/?perf=1');
-    const autoReveal = page.getByRole('button', {
-      name: 'Auto-reveal canvas selection',
-    });
-    autoRevealWasEnabled = (await autoReveal.getAttribute('aria-pressed')) === 'true';
+    autoRevealWasEnabled = await isAutoRevealEnabled(page);
   });
 
   test.afterEach(async ({ page }) => {
     if (!autoRevealWasEnabled) return;
-    const autoReveal = page.getByRole('button', {
-      name: 'Auto-reveal canvas selection',
-    });
-    if ((await autoReveal.getAttribute('aria-pressed')) === 'false') await autoReveal.click();
+    await setAutoReveal(page, true);
   });
 
   async function projectWorldPoints(
@@ -231,11 +257,8 @@ test.describe('Artboard-local coordinates', () => {
     // Use real screen geometry for setup. Artboard creation can change the
     // camera, so fixed canvas-origin coordinates can put a shape into a
     // different artboard even when the pointer gesture itself is valid.
-    const autoReveal = page.getByRole('button', {
-      name: 'Auto-reveal canvas selection',
-    });
-    if (autoRevealWasEnabled) await autoReveal.click();
-    await expect(autoReveal).toHaveAttribute('aria-pressed', 'false');
+    if (autoRevealWasEnabled) await setAutoReveal(page, false);
+    expect(await isAutoRevealEnabled(page)).toBe(false);
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await page.keyboard.press('f');

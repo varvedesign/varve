@@ -1,6 +1,24 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { navigateToEditor, seedLayers } from '../shared';
 
+/**
+ * Read or set the Layers "Reveal canvas selection" preference. It lives in the
+ * Layer navigation settings menu (TC-18); the header toggle was removed.
+ * Returns the previous value.
+ */
+async function setLayersAutoReveal(page: Page, enabled: boolean): Promise<boolean> {
+  await page.getByRole('button', { name: 'Layer navigation settings' }).click();
+  const item = page.getByRole('menuitemcheckbox', {
+    name: /Reveal canvas selection in Layers panel/,
+  });
+  const was = (await item.getAttribute('aria-checked')) === 'true';
+  if (was !== enabled) await item.click();
+  await expect(item).toHaveAttribute('aria-checked', String(enabled));
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu', { name: 'Layer navigation settings' })).toBeHidden();
+  return was;
+}
+
 async function layerOrder(page: import('@playwright/test').Page): Promise<string[]> {
   return page
     .getByRole('treeitem')
@@ -192,9 +210,7 @@ test.describe('Alignment and arrangement workflow', () => {
     // Compare the rendered bounds in the browser. The canvas target and the
     // single root frame share their left edge in this document, so the child
     // overlay must line up with the frame while staying at tree depth two.
-    const autoReveal = page.getByRole('button', { name: 'Auto-reveal canvas selection' });
-    const autoRevealWasEnabled = (await autoReveal.getAttribute('aria-pressed')) === 'true';
-    if (autoRevealWasEnabled) await autoReveal.click();
+    const autoRevealWasEnabled = await setLayersAutoReveal(page, false);
     try {
       await frame.click();
       await expect(frame).toHaveAttribute('aria-selected', 'true');
@@ -204,9 +220,7 @@ test.describe('Alignment and arrangement workflow', () => {
       const rectangleBounds = await selectedObjectBounds(page);
       expect(Math.abs(rectangleBounds.x - frameBounds.x)).toBeLessThan(2);
     } finally {
-      if (autoRevealWasEnabled && (await autoReveal.getAttribute('aria-pressed')) === 'false') {
-        await autoReveal.click();
-      }
+      if (autoRevealWasEnabled) await setLayersAutoReveal(page, true);
     }
 
     const dismissHint = page.getByRole('button', { name: 'Dismiss hint' });

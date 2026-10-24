@@ -179,7 +179,10 @@ test.describe('responsive panel drawers', () => {
     const launcher = page.locator('.editor__fab--inspector');
     const panel = page.locator('.editor__inspector-panel');
     await launcher.click();
-    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    // While a drawer is open the responsive launchers yield (Shell.tsx
+    // unmounts them under the scrim), so the open state is the drawer's own —
+    // the launcher only re-asserts its toggle state once it remounts.
+    await expect(launcher).toHaveCount(0);
     await expect(panel).toHaveAttribute('data-visible', 'true');
     const mobileControls = panel.locator(focusableSelector);
     await expect(mobileControls.first()).toBeFocused();
@@ -213,10 +216,10 @@ test.describe('responsive panel drawers', () => {
     });
     await page.screenshot({ path: testInfo.outputPath('open-inspector-resized-desktop.png') });
     await expect.soft(desktopControls.first()).not.toBeFocused();
-    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    await expect(launcher).toHaveCount(0);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    await expect(launcher).toHaveCount(0);
     await expect(mobileControls.first()).toBeFocused();
     await mobileControls.last().focus();
     await page.keyboard.press('Tab');
@@ -239,7 +242,9 @@ test.describe('responsive panel drawers', () => {
     await target.focus();
     await expect(target).toBeFocused();
     await page.keyboard.press('Escape');
-    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    // Desktop Escape must not close the drawer: the launcher stays yielded
+    // while the drawer holds the surface, and the drawer keeps its state.
+    await expect(launcher).toHaveCount(0);
     await expect(panel).toHaveAttribute('data-visible', 'true');
   });
 
@@ -264,9 +269,11 @@ test.describe('responsive panel drawers', () => {
 
     for (const { button, panel } of cases) {
       await button.click();
-      await expect(button).toHaveAttribute('aria-expanded', 'true');
+      // The launchers unmount for as long as a drawer is open, so `aria-expanded`
+      // only ever reads `false` from a mounted trigger; the drawer itself owns
+      // the open state.
+      await expect(button).toHaveCount(0);
       await expect(panel).toHaveAttribute('data-visible', 'true');
-      await expect(button).toHaveAttribute('aria-controls');
       await expect(panel).toHaveAttribute('role', 'dialog');
 
       const focusable = panel.locator(
@@ -282,6 +289,9 @@ test.describe('responsive panel drawers', () => {
 
       await page.keyboard.press('Escape');
       await expect(button).toHaveAttribute('aria-expanded', 'false');
+      // The remounted trigger still owns the drawer it just released: its
+      // `aria-controls` must point at the panel it toggles.
+      await expect(button).toHaveAttribute('aria-controls');
       await expect(button).toBeFocused();
       if ((await panel.count()) > 0) {
         await expect(panel).not.toHaveAttribute('data-visible');
