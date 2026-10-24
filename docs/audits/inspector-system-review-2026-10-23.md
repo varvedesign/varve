@@ -149,8 +149,14 @@ correctness needs an explicit default-value contract for every property family.
 
 ## Evidence gaps
 
-- No current-browser measurement has been recorded yet; the heavy-task lease was
-  held by another session for the whole attempt window.
+- Property search ran once in real Chromium (2026-10-23): the zero-result
+  explanation passed, and a captured 1440x900 frame confirmed `opacity` filters
+  the stack to an auto-expanded Appearance section. That run's other test failed
+  on an over-broad assertion (it matched the contextual toolbar's separate Fill
+  button); the assertion is now scoped to the Inspector region, and the scoped
+  spec has not yet produced a green run — subsequent lease-wrapped retries died
+  with `keyboard.press: Target crashed` before any assertion, so the browser
+  gate remains open, not passed.
 - The colour dialog and overlay probes exist and are typechecked but have not
   produced a green run in this worktree.
 - No external interface has been re-inspected at 375/768/1280 breakpoints.
