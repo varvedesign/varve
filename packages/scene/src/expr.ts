@@ -131,7 +131,9 @@ export function tokenize(input: string): Token[] {
 /**
  * Evaluate an arithmetic expression string with alias resolution.
  * `aliases` provides resolved numeric values for `{name}` references.
- * Throws on syntax errors, unknown aliases, or division by zero.
+ * Throws on syntax errors, unknown aliases, division by zero, and any result
+ * that is not a finite number (a non-finite value cannot be stored in a
+ * document, so it must be refused here rather than at save time).
  */
 export function evaluate(input: string, aliases: Record<string, number>): number {
   const tokens = tokenize(input);
@@ -229,6 +231,18 @@ export function evaluate(input: string, aliases: Record<string, number>): number
   // Ensure no trailing tokens
   if (peek() !== null) {
     throw new Error('Unexpected trailing tokens');
+  }
+
+  // Finiteness is part of this function's contract. The document codec rejects
+  // non-finite numbers at save time (canonical.ts `normalizeNumber`), so letting
+  // an overflowing expression through here would put a value in the document
+  // that no later save can encode — the document becomes permanently
+  // unsaveable. Overflow is reachable through ordinary arithmetic even though
+  // the tokenizer has no exponent syntax (1e308 * 10, or a reciprocal of a very
+  // small literal), so the result is checked once, at the boundary, exactly
+  // like division by zero above.
+  if (!Number.isFinite(result)) {
+    throw new Error('Result is not a finite number');
   }
 
   return result;

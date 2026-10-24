@@ -2,6 +2,16 @@
 
 Date: 2026-08-13
 
+> **Superseded on memory figures (2026-10-22).** The retained-RSS numbers in
+> this audit (BiRefNet Lite ~6.8 GB, Full ~8.3 GB) could not be reproduced on the
+> current session builder: a fresh `bgremove_bench` run with the bundled ORT CPU
+> build and the arena disabled measured **432 MiB** peak RSS for Lite and
+> 1.36-1.40 GB for IS-Net. The native model table now uses the measured Lite
+> figure, and the browser figure is the measured wasm32 boundary rather than an
+> estimate. See `docs/audits/derived-work-admission-defect-2026-10-22.md`. The
+> parity, quality, and arena findings below still stand; only the memory
+> magnitudes are superseded.
+
 Supersedes the plan recorded earlier the same day
 (`docs/audits/background-removal-birefnet-benchmark-2026-08-13.md` is kept as
 the plan; this file records what was actually measured).

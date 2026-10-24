@@ -23,6 +23,12 @@ test.describe('browser demo docs', () => {
     expect(body).toMatch(/documents and recovery copies are untouched/i);
     expect(body).toMatch(/Motion and Email authoring remain outside this bounded demo/i);
     expect(body).toMatch(/Logo tools are part of Design and Code export is a shared panel/i);
+    // The saving contract for browsers without the File System Access API:
+    // a download hand-off must never be described as a finished save, because
+    // the page cannot confirm the download landed (the editor keeps the
+    // document Modified; see tests/e2e/save/save-flow.spec.ts).
+    expect(body).toMatch(/stays marked Modified until it reaches a destination/i);
+    expect(body).toMatch(/a download the browser took over is not reported as saved/i);
   });
 
   test('FAQ answers the browser question with a pointer to the guide', async ({ page }) => {
