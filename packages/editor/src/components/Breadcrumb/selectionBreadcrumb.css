@@ -93,7 +93,7 @@
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   text-transform: lowercase;
-  font-size: 0.85em;
+  font-size: var(--font-size-2xs);
   /* The kind is a short fixed word; it must not be squeezed to "f…" while the
    * name next to it still has room to ellipsize. */
   flex: 0 0 auto;
