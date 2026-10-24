@@ -279,6 +279,7 @@ describe('recommendationCopy', () => {
     expect(copy).toMatch(/recommend/);
     expect(copy).toMatch(/best guess/);
     expect(copy).toMatch(/x86_64/);
+    expect(copy).not.toMatch(/\u2014|&mdash;/);
   });
 
   it('mentions Apple Silicon only, with the Rosetta caveat for x64 hints', () => {
@@ -289,6 +290,7 @@ describe('recommendationCopy', () => {
     expect(copy).toMatch(/Apple Silicon only/);
     // The Intel hint is explained as ambiguous (Intel vs Rosetta), never claimed.
     expect(copy).toMatch(/can\u2019t tell an Intel Mac from Apple Silicon under Rosetta/);
+    expect(copy).not.toMatch(/\u2014|&mdash;/);
   });
 
   it('still warns Apple-Silicon-only when macOS reports no architecture at all', () => {
@@ -296,6 +298,7 @@ describe('recommendationCopy', () => {
     expect(copy).toMatch(/Apple Silicon only/);
     expect(copy).toMatch(/About This Mac/);
     expect(copy).not.toMatch(/ARM64|ARM 64/);
+    expect(copy).not.toMatch(/\u2014|&mdash;/);
   });
 
   it('returns null for unknown/reduced/bot/mobile cases', () => {

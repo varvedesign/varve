@@ -7,7 +7,7 @@
 <p align="center">
   <img src="docs/brand/github-repository-icon.png" alt="" width="88">
 </p>
-<p align="center"><strong>Local-first design software for vector, layout, typography, motion, prototyping, and print — one application, no subscription, no cloud account.</strong></p>
+<p align="center"><strong>Local-first design software for vector, layout, typography, motion, prototyping, and print: one application, no subscription, no cloud account.</strong></p>
 
 <p align="center">
   <a href="https://github.com/varvedesign/varve/actions/workflows/ci.yml"><img src="https://github.com/varvedesign/varve/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
@@ -44,7 +44,7 @@
   -->
 </p>
 
-**Design, illustrate, and publish — locally, without subscriptions.** Vector graphics, typography, layout, motion, and print production in one application. Free under FSL-1.1-MIT (converts to MIT after 2 years), runs on Linux, macOS, and Windows, with an experimental browser build.
+**Design, illustrate, and publish locally, without subscriptions.** Vector graphics, typography, layout, motion, and print production in one application. Free under FSL-1.1-MIT (converts to MIT after 2 years), runs on Linux, macOS, and Windows, with an experimental browser build.
 
 <p align="center">
   <a href="https://varve.studio/product?ref=gh-readme-hero">
@@ -52,36 +52,36 @@
     <img src="docs/screenshots/product/workspace-dark.png#gh-dark-mode-only" alt="The same Varve poster document with the application in dark theme" width="820">
   </a>
 </p>
-<p align="center"><sub><a href="https://varve.studio/product?ref=gh-readme-video">Watch the 15-second deterministic editing workflow</a> — select a headline, edit a Bézier path, and open export.</sub></p>
+<p align="center"><sub><a href="https://varve.studio/product?ref=gh-readme-video">Watch the 15-second deterministic editing workflow</a>: select a headline, edit a Bézier path, and open export.</sub></p>
 
 ## What works today
 
-- **Six task workspaces** — Design, Print, Draw, Photo, Motion, and Email share
+- **Six task workspaces:** Design, Print, Draw, Photo, Motion, and Email share
   one document. Panels can be docked, split, floated, and restored; Logo tools
   stay in Design and Code export is available from every workspace.
-- **Vector and layout** — paths, Boolean operations, Shape Builder, node editing,
+- **Vector and layout:** paths, Boolean operations, Shape Builder, node editing,
   multi-page documents, flex/grid layout, reusable components, and pattern
   definitions with bounded editing and export support.
-- **Typography** — paragraph and character styling, supported OpenType features,
+- **Typography:** paragraph and character styling, supported OpenType features,
   variable-font axes, text-on-path, and shaped-glyph outlines.
-- **Illustration and comics** — brush opacity/flow, stylus controls, separable
+- **Illustration and comics:** brush opacity/flow, stylus controls, separable
   flats and shading, panel layouts, editable captions and balloons, and
   localization-aware lettering.
-- **Photo work** — adjustments, retouching, tracing, masks, and colorization;
+- **Photo work:** adjustments, retouching, tracing, masks, and colorization;
   supported RAW input and model-assisted workflows have documented limits.
-- **Motion and prototyping** — a timeline with keyframes, easing, and interactive
+- **Motion and prototyping:** a timeline with keyframes, easing, and interactive
   prototypes. Motion is still in public beta.
-- **Presentation decks** — ordered editable frames with preview and raster PDF or
+- **Presentation decks:** ordered editable frames with preview and raster PDF or
   PNG delivery. The PDF is not editable or searchable and has no tagged reading
   order.
-- **Print production** (desktop) — CMYK via ICC profiles, PDF/X export, and
+- **Print production** (desktop): CMYK via ICC profiles, PDF/X export, and
   printer marks. Export support varies by format and document content.
-- **Tokens and local plugins** — manual token import/re-import and bounded local
+- **Tokens and local plugins:** manual token import/re-import and bounded local
   WebAssembly plugins for selected-layer analysis and batch renaming; there is
   no automatic token write-back or plugin marketplace.
-- **Export** — SVG, PDF, React, Svelte, Vue, Flutter, SwiftUI, email HTML,
+- **Export:** SVG, PDF, React, Svelte, Vue, Flutter, SwiftUI, email HTML,
   Web Components, Tailwind, and Lottie/CSS/SVG animation, computed locally.
-- **Images and local intelligence** — adjustments, effects, background removal,
+- **Images and local intelligence:** adjustments, effects, background removal,
   palette extraction, object selection, depth blur, on-device enhancement, and
   Generative Edit (mask-guided Fill, Remove, and Expand on one selected image;
   Replace and prompt-conditioned modes stay gated until a qualified local model
@@ -98,7 +98,7 @@ installed-web-app, and ChromeOS Linux routes.
 
 Screenshots are generated by the deterministic capture pipeline
 (`pnpm screenshots:product`) from the running application against seeded
-demo documents — never hand-edited. See
+demo documents, never hand-edited. See
 [scripts/screenshots/README.md](scripts/screenshots/README.md).
 A short deterministic workflow recording (select, node-edit, export) plays
 on [varve.studio/product](https://varve.studio/product); GitHub renders the
@@ -175,14 +175,14 @@ Optional AI models are published as separate releases.
 
 | Platform | Package | Status | Signing |
 |---|---|---|---|
-| Linux x86_64 | AppImage · `.deb` · `.rpm` | Tier 1 on tested Arch/CachyOS; best effort on other distributions | Unsigned — SHA-256 checksums, SBOM, and build provenance published |
-| Linux ARM64 | AppImage · `.deb` · `.rpm` | Best effort — native ARM64 release qualification passed | Unsigned — SHA-256 checksums, SBOM, and build provenance published |
-| macOS 13+ Apple Silicon (arm64) | `.dmg` | Best effort — release qualification passed; ongoing Mac hardware coverage is limited | Unsigned, not notarized |
-| Windows 10 (1809+) / 11 x86_64 | NSIS `.exe` | Best effort — native release qualification passed | Unsigned |
-| Windows 10 (1809+) / 11 ARM64 | NSIS `.exe` | Best effort — native ARM64 release qualification passed | Unsigned |
-| macOS Intel (x86_64) | — | Not published | — |
+| Linux x86_64 | AppImage · `.deb` · `.rpm` | Tier 1 on tested Arch/CachyOS; best effort on other distributions | Unsigned. SHA-256 checksums, SBOM, and build provenance published |
+| Linux ARM64 | AppImage · `.deb` · `.rpm` | Best effort: native ARM64 release qualification passed | Unsigned. SHA-256 checksums, SBOM, and build provenance published |
+| macOS 13+ Apple Silicon (arm64) | `.dmg` | Best effort: release qualification passed; ongoing Mac hardware coverage is limited | Unsigned, not notarized |
+| Windows 10 (1809+) / 11 x86_64 | NSIS `.exe` | Best effort: native release qualification passed | Unsigned |
+| Windows 10 (1809+) / 11 ARM64 | NSIS `.exe` | Best effort: native ARM64 release qualification passed | Unsigned |
+| macOS Intel (x86_64) | n/a | Not published | n/a |
 
-Minimum 4 GB RAM (8 GB recommended), 500 MB storage. Full detail and the
+8 GB RAM recommended; 4 GB machines are not yet tested. 500 MB storage. Full detail and the
 policy behind each tier:
 [docs/release/platform-support-matrix.md](docs/release/platform-support-matrix.md).
 
@@ -200,7 +200,7 @@ and may be used for:
   on both x86_64 and ARM64, plus Apple Silicon macOS app updates. Installed
   Debian/RPM packages and unsupported or non-writable copies update manually.
   Tauri update signatures are separate from platform code signing. Update
-  checks send only your current version, platform, architecture, and release channel — no
+  checks send only your current version, platform, architecture, and release channel, no
   document data or device identifiers.
 - **Optional cloud providers**, only when you configure and invoke one (for
   example, a user-supplied background-removal endpoint).
@@ -230,7 +230,7 @@ pnpm dev                    # web build via Vite → http://localhost:1420
 ```
 
 `pnpm --filter @varve/ui storybook` runs Storybook, the UI **component**
-development environment — it is not the application.
+development environment; it is not the application.
 
 Test and validate:
 
@@ -259,7 +259,7 @@ Desktop shell (Tauri)
         ↓
 Editor / scene model  (@varve/editor, @varve/scene)
         ↓
-Engine abstraction     (@varve/engine — Tauri / WASM / in-memory)
+Engine abstraction     (@varve/engine: Tauri / WASM / in-memory)
         ↓
 Rust native ⇄ WASM     (crates/varve-core, varve-layout, varve-effects, …)
         ↓
@@ -332,7 +332,7 @@ plain MIT license two years after it ships. See <a href="LICENSE">LICENSE</a>.
 
 Several engine crates (<code>varve-core</code>, <code>varve-colour</code>,
 <code>varve-trace</code>, and others) are licensed separately under
-<strong>MIT OR Apache-2.0</strong> — genuine OSI-approved open source. See
+<strong>MIT OR Apache-2.0</strong>, genuine OSI-approved open source. See
 <a href="docs/licensing/mixed-license-model.md">docs/licensing/mixed-license-model.md</a>.
 </details>
 
@@ -341,7 +341,7 @@ Several engine crates (<code>varve-core</code>, <code>varve-colour</code>,
 <br>
 No account is required, and core editing works fully offline. Optional
 network features include model downloads, online font/icon search, consented
-update checks, user-configured cloud providers, and aggregate analytics — see
+update checks, user-configured cloud providers, and aggregate analytics. See
 <a href="#privacy-and-local-first-operation">Privacy and local-first operation</a>.
 </details>
 
@@ -399,7 +399,7 @@ protocol is implemented today.
 <summary><strong>Is Varve production ready?</strong></summary>
 <br>
 It's public beta software. Core workflows are usable, but interfaces and
-the document format can still change — see
+the document format can still change. See
 <a href="#project-status">Project status</a>.
 </details>
 
@@ -407,7 +407,7 @@ the document format can still change — see
 <summary><strong>Does Varve work in a browser?</strong></summary>
 <br>
 An experimental browser build is available at
-<a href="https://varve.studio/try/?ref=gh-readme-faq">varve.studio/try</a> — no download
+<a href="https://varve.studio/try/?ref=gh-readme-faq">varve.studio/try</a>, no download
 required. It runs the editor on the WASM engine with honest capability messaging
 about what the browser build can and cannot do; it can also be installed as a
 web app. The full product experience is the native desktop application. On a
@@ -419,8 +419,8 @@ Chromebook</a> for the browser, installed-web-app, and ChromeOS Linux routes.
 <summary><strong>How do I report a bug or a security vulnerability?</strong></summary>
 <br>
 Bugs and feature feedback: <a href="https://github.com/varvedesign/varve/issues">GitHub Issues</a>.
-Security vulnerabilities: report privately per <a href="SECURITY.md">SECURITY.md</a>
-— do not open a public issue.
+Security vulnerabilities: report privately per <a href="SECURITY.md">SECURITY.md</a>.
+Do not open a public issue.
 </details>
 
 ## Contributing
@@ -436,8 +436,8 @@ documentation, and design feedback are welcome now via
 ## Security
 
 Report vulnerabilities privately through
-[GitHub Security Advisories](https://github.com/varvedesign/varve/security/advisories) —
-see [SECURITY.md](SECURITY.md) for scope and process. Do not file a public
+[GitHub Security Advisories](https://github.com/varvedesign/varve/security/advisories).
+See [SECURITY.md](SECURITY.md) for scope and process. Do not file a public
 issue for a security report.
 
 ## Support
@@ -458,7 +458,7 @@ availability and response times vary.
 ## License
 
 Varve Community Edition is licensed under the **Functional Source License,
-Version 1.1, MIT Future License** (FSL-1.1-MIT) — source-available, not
+Version 1.1, MIT Future License** (FSL-1.1-MIT): source-available, not
 OSI-approved open source, with an automatic conversion to the **MIT
 License** two years after each release. See [LICENSE](LICENSE) for full
 terms.

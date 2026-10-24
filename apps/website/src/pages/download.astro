@@ -205,10 +205,10 @@ const REQUIREMENTS: Record<string, string[]> = {
   linux: [
     'OS: any distribution with glibc 2.35 or newer (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS)',
     appImageBundlesWebKit
-      ? 'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (.deb/.rpm/AUR pull these in automatically; the AppImage bundles WebKitGTK and GTK)'
-      : 'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (.deb/.rpm/AUR/AppImage all need these on the host)',
+      ? 'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (.deb/.rpm/PKGBUILD pull these in automatically; the AppImage bundles WebKitGTK and GTK)'
+      : 'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (.deb/.rpm/PKGBUILD/AppImage all need these on the host)',
     'CPU: choose the download labeled x86_64 or ARM64 to match your Linux machine',
-    'RAM: 4 GB minimum, 8 GB recommended',
+    'RAM: 8 GB recommended; 4 GB machines are not yet tested',
     'Display: Wayland or X11',
     'Storage: 500 MB minimum free disk',
     'ChromeOS: use the .deb inside the Linux development environment; GPU acceleration is unavailable to Linux apps and support is experimental (see the ChromeOS guide)',
@@ -216,13 +216,13 @@ const REQUIREMENTS: Record<string, string[]> = {
   macos: [
     'OS: macOS 13 Ventura or later',
     'CPU: Apple Silicon only. There is no Intel macOS build. On-device image tools such as background removal depend on ONNX Runtime, whose upstream discontinued macOS Intel binaries; see the FAQ for details.',
-    'RAM: 4 GB minimum, 8 GB recommended',
+    'RAM: 8 GB recommended; 4 GB machines are not yet tested',
     'Storage: 500 MB minimum free disk',
   ],
   windows: [
     'OS: Windows 10 (version 1809) or Windows 11',
     'CPU: choose the download labeled x86_64 or ARM64 to match your Windows device',
-    'RAM: 4 GB minimum, 8 GB recommended',
+    'RAM: 8 GB recommended; 4 GB machines are not yet tested',
     'Storage: 500 MB minimum free disk',
   ],
 };
@@ -643,7 +643,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   <h3>Which package should I choose?</h3>
                   <p class="format-tradeoffs-intro">
                     Choose a package for your distro. Every Linux build requires glibc 2.35 or newer.
-                    Debian/RPM/AUR packages need the system WebKitGTK libraries{appImageBundlesWebKit
+                    Debian/RPM/PKGBUILD packages need the system WebKitGTK libraries{appImageBundlesWebKit
                       ? '; the AppImage bundles WebKitGTK.'
                       : '. The current AppImage needs those same host libraries.'}
                   </p>
@@ -718,7 +718,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     <p>
                       <strong>Arch/CachyOS PKGBUILD:</strong> the{' '}
                       <code>varve-desktop-bin</code> PKGBUILD in the{' '}
-                      <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">
+                      <a href="https://github.com/varvedesign/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">
                         repository
                       </a>{' '}
                       is fixed and fine to use. It builds from the released AppImage (extracts it
@@ -994,7 +994,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               <li>
                 <strong>Arch/CachyOS: the repository PKGBUILD is fine to use:</strong> the{' '}
                 <code>varve-desktop-bin</code> PKGBUILD in the{' '}
-                <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">repository</a>{' '}
+                <a href="https://github.com/varvedesign/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">repository</a>{' '}
                 is fixed. It builds from the AppImage. Run{' '}
                 <code>makepkg -si</code> from the PKGBUILD directory, and it installs desktop
                 integration without FUSE. The AppImage also works:{' '}
