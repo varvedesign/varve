@@ -31,7 +31,7 @@ async function enterTableEditMode(page: Page): Promise<void> {
 
 /** Use rendered selection geometry so the same cell is reachable after fitting/reopening. */
 async function openFirstCellText(page: Page) {
-  const handle = page.locator('[aria-label="Top-left resize handle"]');
+  const handle = page.locator('[data-testid=\"Top-left resize handle\"]');
   await expect(handle).toBeVisible();
   const box = await handle.boundingBox();
   if (!box) throw new Error('Selected table has no top-left handle');

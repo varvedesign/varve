@@ -56,7 +56,7 @@ const CUTOUT_DOCUMENT = {
 };
 
 async function handleBox(page: import('@playwright/test').Page, name: string) {
-  const box = await page.getByLabel(name, { exact: true }).boundingBox();
+  const box = await page.getByTestId(name).boundingBox();
   if (!box) throw new Error(`${name} has no rendered bounds`);
   return box;
 }

@@ -4,8 +4,8 @@ import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 async function selectedCanvasBounds(page: import('@playwright/test').Page) {
-  const topLeft = page.getByLabel('Top-left resize handle');
-  const bottomRight = page.getByLabel('Bottom-right resize handle');
+  const topLeft = page.getByTestId('Top-left resize handle');
+  const bottomRight = page.getByTestId('Bottom-right resize handle');
   await expect(topLeft).toBeAttached();
   await expect(bottomRight).toBeAttached();
   const [tl, br] = await Promise.all([topLeft.boundingBox(), bottomRight.boundingBox()]);
@@ -100,7 +100,7 @@ test('selected child drag keeps the child target and artwork synchronized', asyn
   await expect(lockButton).toBeVisible();
   await lockButton.click();
   await capture('selected-child-locked');
-  await expect(page.locator('[aria-label="Top-left resize handle"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid=\"Top-left resize handle\"]')).toHaveCount(0);
 
   await page.mouse.move(childBounds.center.x + 70, childBounds.center.y + 50);
   await page.mouse.down();

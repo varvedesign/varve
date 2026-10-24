@@ -114,9 +114,9 @@ test('real SVG/photo workflow keeps input and pixels authoritative', async ({ pa
   await page.mouse.move(center.x - 10, center.y - 10, { steps: 4 });
   await page.mouse.up();
   await page.keyboard.press('v');
-  await expect(page.getByLabel('Bottom-right resize handle')).toBeVisible();
+  await expect(page.getByTestId('Bottom-right resize handle')).toBeVisible();
 
-  const resizeHandle = page.getByLabel('Bottom-right resize handle');
+  const resizeHandle = page.getByTestId('Bottom-right resize handle');
   await expect(resizeHandle, 'imported content must expose a real resize handle').toBeVisible();
   const beforeResize = await resizeHandle.boundingBox();
   if (!beforeResize) throw new Error('resize handle bounds unavailable');

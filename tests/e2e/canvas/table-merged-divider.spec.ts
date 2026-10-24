@@ -15,7 +15,7 @@ test.use({ viewport: { width: 1440, height: 1000 } });
 
 async function tableCellCenter(page: Page, row: number, column: number) {
   const handleCenter = async (label: string) => {
-    const box = await page.locator(`[aria-label="${label}"]`).boundingBox();
+    const box = await page.locator(`[data-testid="${label}"]`).boundingBox();
     if (!box) throw new Error(`Table selection handle is missing: ${label}`);
     return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   };

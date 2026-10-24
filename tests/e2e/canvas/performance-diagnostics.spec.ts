@@ -54,7 +54,7 @@ test.describe('Canvas performance diagnostics', () => {
     await expect(firstLayer).toHaveAttribute('aria-selected', 'true');
     // Derive the gesture origin from the real selection overlay instead of
     // assuming that canvas/world coordinates map to a fixed screen offset.
-    const transformOrigin = page.getByLabel('Transform origin');
+    const transformOrigin = page.getByTestId('Transform origin');
     await expect(transformOrigin).toBeVisible();
     const origin = await transformOrigin.boundingBox();
     if (!origin) throw new Error('selected object transform origin not found');
