@@ -55,6 +55,7 @@ discoverable.
 | `3036735c5` | Six failing visual call sites carry measured, annotated rasterization budgets (harfbuzz 14.6 diagnosis below); goldens untouched. |
 | `a5d6644d4` | S5 two-tier contextual-band rule documented in the contract and `isContextualPrimarySection`; `sectionRegistry.test.ts` expectations unchanged. |
 | `c4c045982` | Responsive probe: records the Inspector at 375/768/1280 with the compact drawer exercised through its `Show inspector panel` launcher (fresh context per width). **Verified 2026-10-24:** all 5 probe tests pass in Chromium; numbers below. |
+| `9697ba5fa` | `waitForSettledPreview` pins the Enhance preview's settled geometry before every screenshot, closing the pixel-art baseline flap. **Verified 2026-10-24:** full `upscale-dialog-visual.spec.ts` lane 7/7 green. |
 
 ## System findings
 
@@ -239,6 +240,16 @@ were diagnosed, not deferred:
   rasterization budgets (200 → 5000/600, 500 → 1500/3000) in `3036735c5`.
   Structural regressions exceed those budgets by an order of magnitude;
   goldens untouched.
+- **Second defect found by the gate re-run (2026-10-24)**: the pixel-art
+  baseline flapped between two dialog geometries on identical code — four
+  runs (golden era, CI run 39970973174 shard 11, two local runs) rendered
+  the 1088px glyph-only diff, one locally-loaded run captured mid-layout for
+  a 174048px structural diff (Preset row in view, preview scaled
+  differently, footer offset by 35px). The default test already pinned the
+  settled state with count/`naturalWidth`/box polls; the theme loop and
+  pixel-art tests waited only for alt text. `waitForSettledPreview` now
+  requires that settle at all three screenshot sites (`9697ba5fa`);
+  the full spec lane passes 7/7.
 
 ## Measurements (2026-10-23, real Chromium, isolated port + heavy lease)
 
