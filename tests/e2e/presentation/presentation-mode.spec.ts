@@ -50,7 +50,9 @@ test.describe('presentation mode routing', () => {
     await page.keyboard.press('Control+Shift+P');
     const audience = page.getByRole('dialog', { name: /audience preview/ });
     await expect(audience).toBeVisible();
-    await expect(audience.locator('.presentation-audience__image')).toBeVisible({ timeout: 30000 });
+    await expect(audience.locator('.presentation-audience__canvas')).toBeVisible({
+      timeout: 30000,
+    });
     await expect(audience).toContainText('Slide 1 of 3');
     await page.screenshot({
       path: 'reports/presentation-audit/mode-present-deck.png',
@@ -75,7 +77,9 @@ test.describe('presentation mode routing', () => {
 
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     const audience = page.getByRole('dialog', { name: /audience preview/ });
-    await expect(audience.locator('.presentation-audience__image')).toBeVisible({ timeout: 30000 });
+    await expect(audience.locator('.presentation-audience__canvas')).toBeVisible({
+      timeout: 30000,
+    });
     await expect(audience).toContainText('Slide 1 of 2');
 
     const stage = audience.locator('.presentation-audience__stage');

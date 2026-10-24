@@ -53,12 +53,19 @@ pub enum EffectKind {
     Caustics,
 }
 
-/// Output-byte compatibility revision shared by native and WASM callers.
-/// Bump only when the same request and input can produce different bytes.
+/// ABI revision of the kernel set below. Bump when a kernel's *output bytes*
+/// change for the same input and parameters, so a caller that cached results
+/// (or paired a stale JS bundle with a fresh artifact) can reject them instead
+/// of presenting pixels this crate would no longer produce.
+///
+/// History:
+/// - 1 — initial: the ten kernels as ported from the TypeScript reference.
 pub const EFFECT_KERNEL_ABI_VERSION: u32 = 1;
 
-/// Every effect kind in the stable wire order exposed by the WASM capability
-/// report. Keep this in sync with `LiveEffectKind` in the TypeScript engine.
+/// Every effect kind this build implements, in a stable wire order shared
+/// with the TypeScript engine. The WASM boundary publishes this so a caller
+/// can check support before routing pixels rather than discovering it from a
+/// failed call.
 pub const IMPLEMENTED_EFFECTS: [EffectKind; 10] = [
     EffectKind::Dither,
     EffectKind::PaletteSnap,
@@ -73,19 +80,20 @@ pub const IMPLEMENTED_EFFECTS: [EffectKind; 10] = [
 ];
 
 impl EffectKind {
-    /// Stable camelCase name used by the TS request contract.
+    /// Stable camelCase wire name matching the TS request contract and
+    /// `LiveEffectKind` union.
     pub const fn wire_name(self) -> &'static str {
         match self {
-            Self::Dither => "dither",
-            Self::PaletteSnap => "paletteSnap",
-            Self::Bloom => "bloom",
-            Self::RgbSplit => "rgbSplit",
-            Self::Crt => "crt",
-            Self::Vhs => "vhs",
-            Self::LightShafts => "lightShafts",
-            Self::LensFlare => "lensFlare",
-            Self::LightLeak => "lightLeak",
-            Self::Caustics => "caustics",
+            EffectKind::Dither => "dither",
+            EffectKind::PaletteSnap => "paletteSnap",
+            EffectKind::Bloom => "bloom",
+            EffectKind::RgbSplit => "rgbSplit",
+            EffectKind::Crt => "crt",
+            EffectKind::Vhs => "vhs",
+            EffectKind::LightShafts => "lightShafts",
+            EffectKind::LensFlare => "lensFlare",
+            EffectKind::LightLeak => "lightLeak",
+            EffectKind::Caustics => "caustics",
         }
     }
 }
