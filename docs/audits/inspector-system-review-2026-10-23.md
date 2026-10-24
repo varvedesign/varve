@@ -1,8 +1,9 @@
 # Inspector system review — 2026-10-23
 
-**Status:** in progress. Verified fixes are marked; anything not measured in a
-real browser is marked **pending verification** and must not be described as
-fixed.
+**Status:** Route A (property search) implemented and browser-verified
+2026-10-23; the fixes and probes above carry their own evidence. Anything
+without real-browser evidence is still marked **pending verification** and must
+not be described as fixed.
 
 Scope: the whole Inspector surface — every tab, section, control, and hosted
 editor across the six workspace modes — evaluated as a system rather than as a
@@ -44,8 +45,11 @@ discoverable.
 |---|---|
 | `96bb37b1c` | Numeric fields show the typed draft over the `Mixed` state label; `pointerup`/`pointercancel` respect pointer ownership; the label scrub acquires pointer capture; a parseable draft is announced through `aria-valuetext`. |
 | `61a7bc37d` | `F6`/`Ctrl+L` shortcut references and the layers-panel side corrected in the website docs; `DESIGN.md` typography roles reconciled with `typography.ts`. |
-| pending | `InspectorFocusedEditor` no longer traps focus inside a surface that declares `aria-modal="false"`; Tab leaves via the anchor, dismissal returns focus to the owning row. |
-| pending | Colour dialog has one scroll owner: the body scrolls under a fixed header and paint row, instead of two nested scrollers. |
+| `eb4a14e6d`, `a9590f3d7` | `InspectorFocusedEditor` no longer traps focus inside a surface that declares `aria-modal="false"`; Tab leaves via the anchor, dismissal returns focus to the owning row. **Verified 2026-10-23:** all 4 tests in `focused-editor-focus.spec.ts` pass in Chromium. `a9590f3d7` moved restoration into effect cleanup because hosts such as `EffectRow` unmount the component on close, which left focus stranded on body. |
+| `d7e2c3977` | Colour dialog has one scroll owner: the body scrolls under a fixed header and paint row, instead of two nested scrollers. **Verified 2026-10-23:** `color-dialog-probe` records only `div.insp-picker-dialog__body` (558/470) as a scroller, the portal as non-scrolling, 15/15 swatches inside the body and 0 clipped. |
+| `646da773f` | Route A property search: a persistent selection-local filter that narrows the section stack and temporarily opens matching sections without mutating saved collapse state. **Verified 2026-10-23:** both `property-search.spec.ts` tests pass in Chromium (filter, auto-expand, restore, explained empty state). |
+| `0d4fc0817` | Numeric draft announcement on the real selection path: `aria-valuetext` returned the derived `propertyState` description ("Mixed values") ahead of the typed draft whenever the host passed `propertyState` rather than the bare `mixed` prop. Found by `number-field-interaction.spec.ts`; the draft now outranks the resting state. **Verified:** 7/7 numeric interaction tests and 50/50 `NumberField` unit tests. |
+| `6089731bf`, `1a7ce14dd` | `FloatingPortal` bounds tall surfaces even when placement reports no height, with type-correct reference-rect arithmetic. **Verified 2026-10-23:** `overlay-containment-probe` passes at 455x1024 and 1280x800 — the blend-mode layer fits the window (256px cap) and scrolls its last option into view. |
 
 ## System findings
 
@@ -63,9 +67,11 @@ per-control polish can make it scannable. Both reference products resolve this
 by policy — Godot separates class properties from collapsible sections; Blender
 keeps every non-active panel collapsed.
 
-**Measure:** `inspector-system-probe.spec.ts` records section count, expanded
-count, control count, scroll depth, and duplicate mounts per selection family.
-*Pending verification — the browser lane was occupied by another session.*
+**Measured 2026-10-23** — `inspector-system-probe.spec.ts` records section
+count, expanded count, control count, scroll depth, and duplicate mounts per
+selection family; the numbers are in *Measurements* above (7-15 sections,
+1168-2088px of content against a ~649px rail, no duplicate mounts in any
+family).
 
 ### S2 — Discovery is scroll-only
 
@@ -89,15 +95,15 @@ Verified and fixed: the colour dialog nested two vertical scroll owners
 scrollbars and letting the outer one scroll the title and paint row away. The
 dialog shell now owns the cap and the body owns the scroll.
 
-**Pending verification / suspected:** `FloatingPortal` applies a height cap only
-when the measured available height is positive (`constrainedHeight > 0`). When a
-placement measurement returns zero — a just-mounted hidden anchor, a submenu
-mounting inside another portal — no cap is applied at all and the surface can
-grow past the window with no way to reach its last rows. A reported
-paint-row blend submenu rendering past the bottom of a 455×1024 window matches
-that path. `overlay-containment-probe.spec.ts` encodes the contract: an overlay
-must either fit the visual viewport or expose an internal scrollable region that
-reaches its last option.
+**Verified 2026-10-23:** the zero-measurement cap guard is implemented
+(`6089731bf`, with the reference-rect arithmetic type-corrected in `1a7ce14dd`),
+and `overlay-containment-probe.spec.ts` now measures the *floating layer* (the
+fixed, height-capped scroll owner) rather than the inner content div: at both
+455x1024 and 1280x800 the blend-mode layer sits inside the window at 256px
+tall, exposes `overflow-y: auto` over 686-696px of content, and scrolling brings
+the last of 16 options into view. The earlier probe failure at these viewports
+was the probe measuring the wrong element and matching hidden controls, not a
+containment defect.
 
 ### S5 — Image contextual order is promoted but not protected
 
