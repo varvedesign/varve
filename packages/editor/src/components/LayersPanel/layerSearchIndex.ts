@@ -7,6 +7,15 @@ import type { Document, NodeId, SceneNode } from '@varve/scene';
 export interface LayerSearchIndex {
   /** Map of lowercase word -> matching node IDs */
   wordIndex: Map<string, Set<NodeId>>;
+  /**
+   * Map of node ID -> the NFC-lowercased full authored name.
+   *
+   * The word split removes punctuation (`icon/24px` → `icon`, `24px`), so a
+   * query containing punctuation has to match the raw name. Keeping it out of
+   * `wordIndex` is deliberate: a layer literally named `kind:text` must never
+   * satisfy the reserved `kind:` metadata query for its own name.
+   */
+  fullNames: Map<NodeId, string>;
   /** Map of node ID -> all words in the node's name */
   nodeWords: Map<NodeId, string[]>;
   /** Map of node ID -> node kind */
@@ -15,26 +24,29 @@ export interface LayerSearchIndex {
 
 export function createSearchIndex(doc: Document): LayerSearchIndex {
   const wordIndex = new Map<string, Set<NodeId>>();
+  const fullNames = new Map<NodeId, string>();
   const nodeWords = new Map<NodeId, string[]>();
   const nodeKinds = new Map<NodeId, SceneNode['kind']>();
 
   for (const [id, node] of Object.entries(doc.nodes)) {
-    indexNode(id as NodeId, node, wordIndex, nodeWords, nodeKinds);
+    indexNode(id as NodeId, node, wordIndex, fullNames, nodeWords, nodeKinds);
   }
 
-  return { wordIndex, nodeWords, nodeKinds };
+  return { wordIndex, fullNames, nodeWords, nodeKinds };
 }
 
 function indexNode(
   id: NodeId,
   node: SceneNode,
   wordIndex: Map<string, Set<NodeId>>,
+  fullNames: Map<NodeId, string>,
   nodeWords: Map<NodeId, string[]>,
   nodeKinds: Map<NodeId, SceneNode['kind']>,
 ): void {
   const words = extractWords(node.name);
   nodeWords.set(id, words);
   nodeKinds.set(id, node.kind);
+  fullNames.set(id, node.name.normalize('NFC').toLowerCase());
 
   for (const word of words) {
     if (!wordIndex.has(word)) wordIndex.set(word, new Set());
@@ -56,9 +68,14 @@ function indexNode(
  *
  * CJK runs stay together as one word. Substring matching (below) is what lets
  * a query like `按钮` find `设计按钮` without inventing a dictionary.
+ *
+ * Punctuation-bearing names (`icon/24px`) are matched against the full name
+ * in `LayerSearchIndex.fullNames`, not through this split — the words here
+ * must stay colon-free so they can never collide with reserved `kind:` keys.
  */
 function extractWords(name: string): string[] {
-  const words = name.split(/[^\p{L}\p{N}]+/u);
+  const normalized = name.normalize('NFC');
+  const words = normalized.split(/[^\p{L}\p{N}\p{M}]+/u);
   const result = new Set<string>();
 
   for (const word of words) {
@@ -83,17 +100,25 @@ function extractWords(name: string): string[] {
  * the count ran `name.toLowerCase().includes(query)`. Searching
  * `primary button` therefore rendered `Primary Large Button` in the tree and
  * simultaneously reported `0 of N layers`, disabling Select matches. Every
- * term must now appear as a substring of some word in the name.
+ * term must now appear as a substring of some word in the name — or, for a
+ * term containing punctuation the word split removes, of the full name.
  */
 export function layerSearchTerms(query: string): string[] {
-  return query.toLowerCase().split(/\s+/u).filter(Boolean);
+  return query.normalize('NFC').toLowerCase().split(/\s+/u).filter(Boolean);
 }
 
-export function matchesLayerSearch(name: string, query: string): boolean {
+export function matchesLayerSearch(name: string, query: string, kind?: SceneNode['kind']): boolean {
   const terms = layerSearchTerms(query);
   if (terms.length === 0) return false;
   const words = extractWords(name);
-  return terms.every((term) => words.some((word) => word.includes(term)));
+  const fullName = name.normalize('NFC').toLowerCase();
+  return terms.every((term) =>
+    term.startsWith('kind:')
+      ? // Reserved metadata syntax: compare the real node kind, never the
+        // authored name, so a layer named `kind:text` cannot impersonate it.
+        term === `kind:${kind}`
+      : words.some((word) => word.includes(term)) || fullName.includes(term),
+  );
 }
 
 /** Search the index — returns matching node IDs ordered by relevance */
@@ -127,6 +152,12 @@ export function searchIndex(index: LayerSearchIndex, query: string): NodeId[] {
     for (const [word, ids] of index.wordIndex) {
       if (word.startsWith('kind:') || !word.includes(term)) continue;
       for (const id of ids) combined.add(id);
+    }
+    // Punctuation-bearing terms (`icon/24`) survive only in the full name;
+    // the word split removed the separators. Checked separately so authored
+    // names can never satisfy the reserved `kind:` namespace.
+    for (const [id, fullName] of index.fullNames) {
+      if (fullName.includes(term)) combined.add(id);
     }
 
     if (resultSet === null) {
@@ -162,6 +193,8 @@ export function searchIndex(index: LayerSearchIndex, query: string): NodeId[] {
 
 /** Incrementally update index when a node changes */
 export function updateIndex(index: LayerSearchIndex, id: NodeId, node: SceneNode): void {
+  const previousKind = index.nodeKinds.get(id);
+  if (previousKind) index.wordIndex.get(`kind:${previousKind}`)?.delete(id);
   const oldWords = index.nodeWords.get(id);
   if (oldWords) {
     for (const word of oldWords) {
@@ -175,11 +208,14 @@ export function updateIndex(index: LayerSearchIndex, id: NodeId, node: SceneNode
 
   index.nodeWords.delete(id);
   index.nodeKinds.delete(id);
-  indexNode(id, node, index.wordIndex, index.nodeWords, index.nodeKinds);
+  index.fullNames.delete(id);
+  indexNode(id, node, index.wordIndex, index.fullNames, index.nodeWords, index.nodeKinds);
 }
 
 /** Remove node from index */
 export function removeFromIndex(index: LayerSearchIndex, id: NodeId): void {
+  const previousKind = index.nodeKinds.get(id);
+  if (previousKind) index.wordIndex.get(`kind:${previousKind}`)?.delete(id);
   const oldWords = index.nodeWords.get(id);
   if (oldWords) {
     for (const word of oldWords) {
@@ -192,4 +228,5 @@ export function removeFromIndex(index: LayerSearchIndex, id: NodeId): void {
   }
   index.nodeWords.delete(id);
   index.nodeKinds.delete(id);
+  index.fullNames.delete(id);
 }

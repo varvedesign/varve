@@ -1,6 +1,6 @@
 import type { Document, NodeId } from '@varve/scene';
 import type { LayerFilterSpec } from './layerFilterTypes';
-import { isFiltering, nodeMatchesNonSearch } from './layerFilterTypes';
+import { collectEffectivelyHiddenIds, isFiltering, nodeMatchesNonSearch } from './layerFilterTypes';
 import type { FlatEntry } from './useFlatTree';
 
 /**
@@ -21,11 +21,13 @@ export function selectMatchingEntryIds(
 ): NodeId[] {
   if (!isFiltering(filterSpec)) return entries.map((entry) => entry.node.id);
 
-  const animatedIds = filterSpec.attributes.animated === true ? animatedNodes : undefined;
+  const animatedIds = filterSpec.attributes.animated !== undefined ? animatedNodes : undefined;
+  const hiddenIds =
+    filterSpec.attributes.visible !== undefined ? collectEffectivelyHiddenIds(doc) : undefined;
   const ids: NodeId[] = [];
   for (const entry of entries) {
     if (filterSpec.search && searchMatchedIds?.has(entry.node.id) !== true) continue;
-    if (!nodeMatchesNonSearch(entry.node, filterSpec, { doc, animatedIds })) continue;
+    if (!nodeMatchesNonSearch(entry.node, filterSpec, { doc, animatedIds, hiddenIds })) continue;
     ids.push(entry.node.id);
   }
   return ids;

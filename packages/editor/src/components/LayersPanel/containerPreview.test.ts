@@ -64,6 +64,32 @@ function docOf(nodes: Record<string, SceneNode>, rootChildren: string[]): Docume
 }
 
 describe('collectContainerPreview', () => {
+  it('does not enumerate a wide child array before applying the visit budget', () => {
+    let reads = 0;
+    const children = new Proxy(['r1', ...Array<string>(10000).fill('missing')], {
+      get(target, key, receiver) {
+        if (typeof key === 'string' && /^\d+$/.test(key)) reads++;
+        return Reflect.get(target, key, receiver);
+      },
+    });
+    const nodes = { f1: frame('f1', children), r1: rect('r1', [1, 0, 0, 1, 0, 0]) };
+    const doc = docOf(nodes, ['f1']);
+    const preview = collectContainerPreview(doc, 'f1', {
+      maxVisited: 4,
+      parentCache: {
+        docRef: doc,
+        parentMap: new Map([
+          ['r1', 'f1'],
+          ['f1', null],
+        ]),
+      },
+    });
+    expect(preview?.primitives).toHaveLength(1);
+    expect(preview?.truncated).toBe(true);
+    // One bounded lookahead establishes whether the traversal was truncated.
+    expect(reads).toBeLessThanOrEqual(5);
+  });
+
   it('collects leaf bounds into a normalized, aspect-preserving unit box', () => {
     const nodes = {
       f1: frame('f1', ['r1', 'r2']),
@@ -179,6 +205,19 @@ describe('collectContainerPreview', () => {
 });
 
 describe('containerHasContent', () => {
+  it('does not copy the remaining siblings when the first child already draws', () => {
+    let reads = 0;
+    const children = new Proxy(['r1', ...Array<string>(10000).fill('missing')], {
+      get(target, key, receiver) {
+        if (typeof key === 'string' && /^\d+$/.test(key)) reads++;
+        return Reflect.get(target, key, receiver);
+      },
+    });
+    const nodes = { f1: frame('f1', children), r1: rect('r1', [1, 0, 0, 1, 0, 0]) };
+    expect(containerHasContent(docOf(nodes, ['f1']), nodes.f1)).toBe(true);
+    expect(reads).toBe(1);
+  });
+
   it('is true when a drawable leaf exists anywhere in the subtree', () => {
     const nodes = {
       f1: frame('f1', ['g1']),

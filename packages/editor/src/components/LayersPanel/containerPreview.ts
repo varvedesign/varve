@@ -119,6 +119,28 @@ function isPreviewLeaf(node: SceneNode): boolean {
   return !isContainer(node) && node.kind !== 'adjustment';
 }
 
+/** Lazy DFS: never copy or enqueue an unbounded child array on the render path. */
+function* previewDescendants(doc: Pick<Document, 'nodes'>, children: NodeId[]): Generator<NodeId> {
+  const stack = [{ children, index: 0 }];
+  const seen = new Set<NodeId>();
+  while (stack.length > 0) {
+    const frame = stack[stack.length - 1]!;
+    if (frame.index >= frame.children.length) {
+      stack.pop();
+      continue;
+    }
+    const id = frame.children[frame.index++]!;
+    // Repeated/corrupt links still consume the caller's visit budget.
+    yield id;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const node = doc.nodes[id];
+    if (node && node.visible !== false && isContainer(node)) {
+      stack.push({ children: node.children, index: 0 });
+    }
+  }
+}
+
 /**
  * Cheap "would a preview draw anything?" probe for the row: early-exits on the
  * first visible leaf, bounded so an empty container with a huge hidden
@@ -130,21 +152,15 @@ export function containerHasContent(
   scanLimit = CONTENT_SCAN_LIMIT,
 ): boolean {
   if (!isContainer(container)) return false;
-  const stack: NodeId[] = [...container.children].reverse();
+  const descendants = previewDescendants(doc, container.children);
   let scanned = 0;
-  while (stack.length > 0 && scanned < scanLimit) {
-    const id = stack.pop();
-    if (id === undefined) break;
+  while (scanned < scanLimit) {
+    const next = descendants.next();
+    if (next.done) break;
+    const id = next.value;
     scanned += 1;
     const node = doc.nodes[id];
     if (!node || node.visible === false) continue;
-    if (isContainer(node)) {
-      for (let i = node.children.length - 1; i >= 0; i -= 1) {
-        const child = node.children[i];
-        if (child !== undefined) stack.push(child);
-      }
-      continue;
-    }
     if (isPreviewLeaf(node) && nodeLocalBounds(node)) return true;
   }
   return false;
@@ -189,27 +205,18 @@ export function collectContainerPreview(
   if (!inverse) return null;
 
   const raw: Array<{ x: number; y: number; w: number; h: number; fill: string }> = [];
-  const stack: NodeId[] = [...container.children].reverse();
+  const descendants = previewDescendants(doc, container.children);
   let truncated = false;
   let visited = 0;
 
-  while (stack.length > 0) {
+  for (const id of descendants) {
     if (raw.length >= maxNodes || visited >= maxVisited) {
       truncated = true;
       break;
     }
-    const id = stack.pop();
-    if (id === undefined) break;
     visited += 1;
     const node = doc.nodes[id];
     if (!node || node.visible === false) continue;
-    if (isContainer(node)) {
-      for (let i = node.children.length - 1; i >= 0; i -= 1) {
-        const child = node.children[i];
-        if (child !== undefined) stack.push(child);
-      }
-      continue;
-    }
     if (!isPreviewLeaf(node)) continue;
     const local = nodeLocalBounds(node);
     if (!local || local.w <= 0 || local.h <= 0) continue;

@@ -1,5 +1,5 @@
 import type { BlendMode, Document, LayerColor, NodeId, SceneNode } from '@varve/scene';
-import { isContainer } from '@varve/scene';
+import { getNodesInTimeline, isAnimatedMediaNode, isContainer } from '@varve/scene';
 import { isNodeEffectivelyHidden } from '../../scene/world';
 import { isComponentInstance, isComponentNode } from './layerPresentation';
 import { matchesLayerSearch } from './layerSearchIndex';
@@ -49,6 +49,15 @@ export interface NodeFilterContext {
    * into O(n²) on large documents.
    */
   hiddenIds?: ReadonlySet<NodeId>;
+}
+
+/** Timeline animation and animated assets are the same filter capability. */
+export function collectAnimatedLayerIds(doc: Document): Set<NodeId> {
+  const ids = getNodesInTimeline(doc);
+  for (const node of Object.values(doc.nodes)) {
+    if (isAnimatedMediaNode(node, doc)) ids.add(node.id);
+  }
+  return ids;
 }
 
 /**
@@ -213,6 +222,6 @@ export function nodeMatchesFilter(
   filter: LayerFilterSpec,
   ctx: NodeFilterContext = {},
 ): boolean {
-  if (filter.search && !matchesLayerSearch(node.name, filter.search)) return false;
+  if (filter.search && !matchesLayerSearch(node.name, filter.search, node.kind)) return false;
   return nodeMatchesNonSearch(node, filter, ctx);
 }

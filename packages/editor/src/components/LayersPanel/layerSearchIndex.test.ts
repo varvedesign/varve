@@ -18,6 +18,49 @@ import {
 } from './layerSearchIndex';
 
 describe('layerSearchIndex', () => {
+  it.each([
+    ['Cafe\u0301 / header', 'café'],
+    ['Café / header', 'cafe\u0301'],
+    ['icon/24px', 'icon/24'],
+    ['标题·按钮', '标题·按'],
+  ])('keeps index and count search aligned for %s → %s', (name, query) => {
+    const node = makeShapeNode('named', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name });
+    const doc = { ...createDocument(), nodes: { named: node } };
+    expect(searchIndex(createSearchIndex(doc), query)).toEqual(['named']);
+    expect(matchesLayerSearch(name, query, 'shape')).toBe(true);
+  });
+
+  it('removes old kind membership on replacement and deletion', () => {
+    const shape = makeShapeNode('node', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    const index = createSearchIndex({ ...createDocument(), nodes: { node: shape } });
+    updateIndex(index, 'node', makeTextNode('node', 'Label'));
+    expect(searchIndex(index, 'kind:shape')).toEqual([]);
+    expect(searchIndex(index, 'kind:text')).toEqual(['node']);
+    removeFromIndex(index, 'node');
+    expect(searchIndex(index, 'kind:text')).toEqual([]);
+  });
+
+  it('keeps authored names out of the reserved kind namespace', () => {
+    // A layer literally named `kind:text` must not answer the metadata query
+    // `kind:text` — the tree, the count and Select matches all read this.
+    const impersonator = makeShapeNode(
+      'impersonator',
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { name: 'kind:text' },
+    );
+    const genuine = makeTextNode('genuine', 'Hi', { name: 'Label' });
+    const index = createSearchIndex({
+      ...createDocument(),
+      nodes: { impersonator, genuine },
+    });
+
+    expect(searchIndex(index, 'kind:text')).toEqual(['genuine']);
+    expect(matchesLayerSearch('kind:text', 'kind:text', 'shape')).toBe(false);
+    expect(matchesLayerSearch('kind:text', 'kind:text', 'text')).toBe(true);
+    // The ordinary (non-syntax) query still finds the authored name itself.
+    expect(searchIndex(index, 'text')).toContain('impersonator');
+  });
+
   it('creates index from document', () => {
     let doc = createDocument();
     const { id: n1, doc: d2 } = nextNodeId(doc);
