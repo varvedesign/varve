@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "note": "GENERATED FILE — reviewed mixed-source assembly; no new capture. Top-level identity records the assembly revision and input digest. Per-scene producer provenance remains authoritative for the pixels.",
-  "generatedAt": "2026-10-14T23:19:49.907Z",
+  "generatedAt": "2026-10-24T14:56:48.653Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -484,15 +484,15 @@
       "feature": "canvas",
       "theme": "light",
       "status": "captured",
-      "width": 317,
+      "width": 288,
       "height": 539,
-      "lastValidatedAgainst": "d584eed7df23a2a9cd0014f1e853409adf87706f",
-      "sha256": "977652f96cbe4a9bd25b8d4375d644429c4c41684b0863a641a0bc6d780d1a7b",
+      "lastValidatedAgainst": "6f5ff78e1bdc4cb39fcf07e599db710b477349b2",
+      "sha256": "bb96dd0b4118a7bf6826ac4f82a6879fbaedddc692363b725426d479ff094947",
       "kind": "panel",
       "crop": {
         "x": 0,
         "y": 569,
-        "width": 317,
+        "width": 288,
         "height": 539
       },
       "scale": 1,
@@ -500,12 +500,12 @@
         "width": 1440,
         "height": 1200
       },
-      "capturedAt": "2026-10-05T01:44:58.552Z",
+      "capturedAt": "2026-10-24T14:55:46.614Z",
       "provenance": {
-        "sourceRevision": "d584eed7df23a2a9cd0014f1e853409adf87706f",
-        "sourceDirty": false,
-        "sourceDigest": "1ccf91d373b5e9b9c08a24aa9b7a915de41c4690dedacbcc48c31ffa33953cff",
-        "runId": "2026-10-05T01-44-03-574Z-3180173",
+        "sourceRevision": "6f5ff78e1bdc4cb39fcf07e599db710b477349b2",
+        "sourceDirty": true,
+        "sourceDigest": "5d5b477f203dc2794dfbebd1417c2cdbd823f89c26b18882d80534281c60bd59",
+        "runId": "2026-10-24T14-55-21-522Z-1191379",
         "runtime": "chromium-headless (web)",
         "captureTool": "Playwright 1.62.1 / Chromium 151.0.7922.34",
         "viewport": {
@@ -514,22 +514,22 @@
         },
         "deviceScaleFactor": 1,
         "theme": "light",
-        "promotedFrom": "2026-10-05T01-44-03-574Z-3180173",
-        "promotedAt": "2026-10-05T01:49:52.872Z"
+        "promotedFrom": "2026-10-24T14-55-21-522Z-1191379",
+        "promotedAt": "2026-10-24T14:56:48.652Z"
       },
       "provenanceUnknown": false,
       "variants": [
         {
-          "file": "layers-light-317.webp",
-          "width": 317,
+          "file": "layers-light-288.webp",
+          "width": 288,
           "height": 539,
-          "sha256": "574cdd26feecdc36f2a4675649234033c9a1033a649c550137607fd5fe660ef9"
+          "sha256": "93aacc7710d85eab5ecba7d2be8ddd7f8b0bc303d544263a52deec515c4eec58"
         },
         {
-          "file": "layers-light-317.avif",
-          "width": 317,
+          "file": "layers-light-288.avif",
+          "width": 288,
           "height": 539,
-          "sha256": "c82f347d1a4baca9d0268144af416200029097f410b39fa4bab7350717adb573"
+          "sha256": "bbe39f8056bfa945bb4a292be0038c1653bf5450a60d9a9a0ba599c178895f3d"
         }
       ]
     },
@@ -2870,20 +2870,22 @@
   },
   "provenance": {
     "kind": "reviewed-mixed-source-assembly",
-    "runtime": "reviewed external archive import",
-    "assemblyRevision": "4f8af5b095667142c112b08e75f8a97019401d72",
-    "assemblySourceDigest": "e079f01cc4c786060d19036da9dde9277ea874256ce7d787b7c476959d911d5a",
-    "assemblySourceDirty": false,
-    "assembledAt": "2026-10-05T02:14:35.171Z",
-    "reviewManifestSha256": "c5c64540bbd742112b14063562d2ca135e4084fd38127b472a8c8685e50946ae",
-    "reviewedAgainst": "eb4a21fac750962f3b9985637211819f4f3fae3ca8d61bec970cf2df7e62d207",
-    "promotedSceneIDs": ["comic-lettering", "patterns"],
+    "runtime": "metadata-only reviewed assembly; no new capture",
+    "assemblyRevision": "6f5ff78e1bdc4cb39fcf07e599db710b477349b2",
+    "assemblySourceDigest": "5d5b477f203dc2794dfbebd1417c2cdbd823f89c26b18882d80534281c60bd59",
+    "assemblySourceDirty": true,
+    "assembledAt": "2026-10-24T14:56:48.653Z",
+    "reviewManifestSha256": "c8086f4fa97c660d1982f31e668905e34cf1199642394e80299e059b1faf0460",
+    "reviewedAgainst": "10deed2194f333d3054a746b6c35d91809aded5146e0509784e7392d69daa705",
+    "promotedSceneIDs": ["layers"],
     "capturedSourceRevisions": [
       "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
       "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
       "4f8af5b095667142c112b08e75f8a97019401d72",
+      "6f5ff78e1bdc4cb39fcf07e599db710b477349b2",
       "7599fcc198910b86ba477fa2ed102d4137bf941b",
       "af30bc2b48acb88baf01616a849b8130088433bf",
+      "bc9adfc71e781d9b4eb83dc114469f4867416635",
       "d584eed7df23a2a9cd0014f1e853409adf87706f",
       "d9fff30e56cc4686cb9e5e0cfa3dd504ea000057",
       "f28b3f175ad3c2b92dd77cb59d6b23ccbaca2767"
@@ -2893,10 +2895,9 @@
       "Playwright 1.62.1 / chromium 151.0.7922.34"
     ],
     "provenanceUnknownSceneIDs": [],
-    "sceneIdentitySha256": "faf08c031fba432b3cf804a9c1c565ecc43a8a2b7dfd3f158dccd10d5152f5f6",
-    "importedFromCommit": "bc9adfc71e781d9b4eb83dc114469f4867416635"
+    "sceneIdentitySha256": "458bb87d822a7cfa40acaa3bfaca276e41c3ce442e863e8721673a225baac26b"
   },
-  "sourceRevision": "4f8af5b095667142c112b08e75f8a97019401d72",
-  "sourceDigest": "e079f01cc4c786060d19036da9dde9277ea874256ce7d787b7c476959d911d5a",
+  "sourceRevision": "6f5ff78e1bdc4cb39fcf07e599db710b477349b2",
+  "sourceDigest": "5d5b477f203dc2794dfbebd1417c2cdbd823f89c26b18882d80534281c60bd59",
   "captureTool": "reviewed assembly; original capture and browser versions are recorded per scene"
 }
