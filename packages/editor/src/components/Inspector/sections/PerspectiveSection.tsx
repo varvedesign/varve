@@ -109,7 +109,7 @@ export function PerspectiveSection({ nodes, sectionId }: PerspectiveSectionProps
                 <span className="insp-field__label" style={{ cursor: 'default' }}>
                   {label}
                 </span>
-                <div className="insp-field__control">
+                <div className="insp-field__control insp-field__control--pair">
                   <NumberField
                     label={`${label} X`}
                     value={perspective.quad[index]![0]}

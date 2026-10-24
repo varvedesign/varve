@@ -135,23 +135,6 @@ input[type="number"] {
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  min-width: 44px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-control-compact);
-}
-.recovery-dialog__close:hover {
-  background: var(--color-surface-sunken);
-}
-.recovery-dialog__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
 }
 .recovery-dialog__empty {
   padding: var(--space-6) var(--space-5);
@@ -271,27 +254,6 @@ input[type="number"] {
   flex: 1;
   min-width: 0;
 }
-.editor-offline-banner__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  padding: 0;
-  border-radius: var(--radius-control-compact);
-  flex-shrink: 0;
-}
-.editor-offline-banner__close:hover {
-  background: var(--color-surface-sunken);
-}
-.editor-offline-banner__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
-}
 @media (max-width: 640px) {
   /* Keep the essential local-first status brief at small heights. The
    * online convenience boundary remains available to screen readers. */
@@ -316,7 +278,7 @@ input[type="number"] {
    * itself establishes a containing block (i.e. is not position:static).
    * Without this, such children fall back to the initial containing block
    * (the document), silently ignoring the grid entirely and overlapping
-   * whatever real content sits below the "canvas" row (pagenav/selinfo/
+   * whatever real content sits below the "canvas" row (pagenav/
    * status) instead of being confined to it. */
   position: relative;
   /* The status bar's own controls are 24px targets (WCAG 2.2 SC 2.5.8) plus
@@ -350,7 +312,6 @@ input[type="number"] {
     "timeline timeline  timeline  logoarea"
     "history  history   history   logoarea"
     "pagenav  pagenav   pagenav   logoarea"
-    "selinfo  selinfo   selinfo   logoarea"
     "status   status    status    logoarea";
   /* Fourth column is the Logo panel: a reserved 0-width track unless the
    * panel is open, so the logo panel can never overlay or block canvas
@@ -361,8 +322,7 @@ input[type="number"] {
    * tracks their sum is fixed, so at an enlarged root text size (WCAG 1.4.4
    * text-only enlargement — Firefox "Zoom text only", a user stylesheet, an
    * OS text-size preference) the three tracks exceeded the viewport, the
-   * full-width chrome rows (menubar, tab strip, context bar, selection info,
-   * status) resolved 45px wider than a 1280px window at 200% text, and
+   * full-width chrome rows (menubar, tab strip, context bar, status) resolved 45px wider than a 1280px window at 200% text, and
    * `.editor-shell { overflow: hidden }` clipped their right ends. A 0
    * minimum lets each panel track yield to the container while still sizing
    * up to its token when there is room; the canvas floor (320px) is
@@ -372,13 +332,14 @@ input[type="number"] {
       0,
       var(--inspector-width)
     ) var(--logo-panel-width, 0px);
-  grid-template-rows: auto 32px minmax(120px, 1fr) auto auto auto auto var(--statusbar-height);
+  grid-template-rows: auto 32px minmax(120px, 1fr) auto auto auto var(--statusbar-height);
   flex: 1;
   min-height: 0;
   overflow: hidden;
   background: var(--color-surface-app);
   color: var(--color-text-primary);
-  font-family: var(--font-body);
+  /* Interface chrome; reading text opts in to the content role (global.css). */
+  font-family: var(--font-interface);
   font-size: var(--font-size-sm);
   transition: grid-template-columns var(--duration-base) var(--ease-out);
 }
@@ -533,6 +494,9 @@ input[type="number"] {
   gap: var(--space-2);
   min-width: 0;
   min-height: 0;
+  /* The context bar carries its own start inset; the Share control sat flush
+   * against the window edge because nothing gave the row an end inset. */
+  padding-inline-end: var(--space-3);
 }
 
 .editor-shell__header-row > .collab-header-control,
@@ -663,7 +627,7 @@ input[type="number"] {
   border: var(--border-micro);
   border-radius: var(--radius-surface);
   box-shadow: var(--elevation-shadow-overlay);
-  font-family: var(--font-body);
+  font-family: var(--font-interface);
 }
 
 .editor-menubar__menu-sep {
@@ -772,7 +736,7 @@ input[type="number"] {
   border: var(--border-micro);
   border-radius: var(--radius-surface);
   box-shadow: var(--elevation-shadow-overlay);
-  font-family: var(--font-body);
+  font-family: var(--font-interface);
   z-index: auto;
 }
 
@@ -1093,6 +1057,16 @@ input[type="number"] {
 }
 
 .editor-inspector {
+  /* Same panel text scale as the Layers panel (12 / 13 / 14px): inputs, rows
+   * and labels were 15px beside 12px field labels. */
+  --font-size-sm: var(--font-size-xs);
+  /* The interface type roles resolve their size at :root, so remapping
+   * --font-size-sm alone does not reach them: controls were 15px and body copy
+   * 17px inside a panel whose labels are 12px. */
+  --type-interface-control-size: var(--font-size-xs);
+  --type-interface-body-size: var(--font-size-xs);
+  --type-interface-readout-size: var(--font-size-xs);
+  --type-interface-subheading-size: var(--font-size-smd);
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -1100,7 +1074,7 @@ input[type="number"] {
   overflow: hidden;
   padding: 0;
   gap: 0;
-  background: var(--elevation-surface-default);
+  background: var(--elevation-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
 }
 
@@ -1135,7 +1109,9 @@ input[type="number"] {
   /* Same token as the shell row — never a taller literal, or the shell's
    * overflow:hidden clips the bottom of the bar (and its focus rings). */
   height: var(--statusbar-height);
-  background: var(--elevation-surface-sunken);
+  /* App frame tier (same as the menubar), so the bar frames the sunken
+   * canvas instead of reading as part of it. */
+  background: var(--elevation-surface-default);
   border-top: var(--border-micro);
   /* Informational text ellipsizes and priority tiers drop segments first;
    * if enlarged text or an unusually narrow window still exceeds the row,
@@ -1143,7 +1119,6 @@ input[type="number"] {
    * clipping it (the failure mode Photoshop's options bar shipped with). */
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   /* A status bar is a single line of instrumentation. Segments truncate or
@@ -1634,31 +1609,6 @@ input[type="number"] {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
   border-radius: var(--radius-control-compact);
-}
-
-.editor-status__tip-dismiss {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: var(--component-xs-height);
-  height: var(--component-xs-height);
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: var(--radius-control-compact);
-  color: var(--color-text-muted);
-  cursor: pointer;
-}
-
-.editor-status__tip-dismiss:hover {
-  background: color-mix(in oklch, var(--color-text-primary) 12%, transparent);
-  color: var(--color-text-primary);
-}
-
-.editor-status__tip-dismiss:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
 }
 
 /* ── Contrast indicator dot ─────────────────────────── */
@@ -2183,8 +2133,6 @@ input[type="number"] {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   background: var(--color-surface-raised);
   border-right: 1px solid var(--color-border-subtle);
   z-index: var(--elevation-z-raised);
@@ -2197,8 +2145,6 @@ input[type="number"] {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   background: var(--color-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
   z-index: var(--elevation-z-raised);
@@ -2214,8 +2160,6 @@ input[type="number"] {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   background: var(--color-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
   z-index: var(--z-sticky);
@@ -2550,9 +2494,15 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
    * width; the vertical "do not squeeze the tree" intent lives on the outer
    * wrapper, which is a COLUMN flex child where this flex value only affects
    * height. Verified by tests/e2e/responsive/layers-inspector-panels.spec.ts
-   * ("layers rail contains its filter bar"). */
+   * ("layers rail contains its filter bar").
+   *
+   * Grow, never shrink: the 15rem floor stops the tree being squeezed, and
+   * flex-grow hands it whatever height the rail has left. With `0 0 auto` the
+   * wrapper was pinned at the floor on every window <= 900px tall, so a
+   * 24-layer document showed three rows above ~300px of empty rail at
+   * 1440x900 (shell audit 2026-10-21, F-05). */
   .editor__layers-panel .layers-panel-workspace {
-    flex: 0 0 auto;
+    flex: 1 0 auto;
     min-height: 15rem;
   }
 }
@@ -2624,8 +2574,6 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 
 .history-panel__search {
@@ -3394,27 +3342,41 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
   }
 }
 
-/* ── Elevated container panel treatment ─────────────────
- * 100% opaque, instrument-grade elevated surface.
- * Retains .editor__panel--glass class for compatibility.
+/* ── Docked work panels ─────────────────────────────────
+ * Shell planes (docs/design/elevation-system.md § Shell planes): canvas on
+ * sunken, app frame (menubar, tabs, status) on default, docked Layers and
+ * Inspector one tier up on raised. Docked panels do not float, so they carry
+ * a hairline edge and no drop shadow. 100% opaque; the .editor__panel--glass
+ * class name is kept for compatibility only.
  */
 .editor__panel--glass {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+/* Inside a docked panel the base tier *is* the panel: sections, headers and
+ * rows written against the default tier meant "same as my panel", so the
+ * base-tier names resolve to raised here instead of painting frame-tier bands
+ * inside it. Each name is restated because custom properties resolve where
+ * they are declared (the root aliases are already computed). Wells keep
+ * sunken; floating children keep overlay. */
+.editor__layers-panel,
+.editor__inspector-panel {
+  --color-surface-app: var(--color-surface-raised);
+  --color-surface-base: var(--color-surface-raised);
+  --color-surface-default: var(--color-surface-raised);
+  --elevation-surface-default: var(--color-surface-raised);
+}
 .editor__layers-panel.editor__panel--glass {
-  background: var(--elevation-surface-default);
+  background: var(--elevation-surface-raised);
   border-right: var(--border-micro);
-  box-shadow: var(--elevation-shadow-raised);
 }
 .editor__inspector-panel.editor__panel--glass {
-  background: var(--elevation-surface-default);
+  background: var(--elevation-surface-raised);
   border-left: var(--border-micro);
-  box-shadow: var(--elevation-shadow-raised);
 }
 .editor__panel--glass .editor-layers,
 .editor__panel--glass .editor-inspector {
-  background: var(--elevation-surface-default);
+  background: var(--elevation-surface-raised);
 }
 
 @media (prefers-reduced-transparency) {
@@ -3423,16 +3385,16 @@ html[data-layout-mode="tablet"] .editor-menubar .workspace-dock {
     -webkit-backdrop-filter: none;
   }
   .editor__layers-panel.editor__panel--glass {
-    background: var(--elevation-surface-default);
+    background: var(--elevation-surface-raised);
   }
   .editor__inspector-panel.editor__panel--glass {
-    background: var(--elevation-surface-default);
+    background: var(--elevation-surface-raised);
   }
   .editor__panel--glass .editor-layers {
-    background: var(--elevation-surface-default);
+    background: var(--elevation-surface-raised);
   }
   .editor__panel--glass .editor-inspector {
-    background: var(--elevation-surface-default);
+    background: var(--elevation-surface-raised);
   }
 }
 
@@ -3875,8 +3837,6 @@ dialog.varve-dialog--settings[open] {
   /* Reserve gutter space so the scrollbar doesn't overlap content or cause
      reflow when it appears/disappears. */
   scrollbar-gutter: stable;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
   padding-right: var(--space-1);
 }
 .settings-dialog__footer {
@@ -4583,8 +4543,6 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 .ai-panel__suggestions {
   display: flex;
@@ -5325,8 +5283,6 @@ dialog.varve-dialog--settings[open] {
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 
 .timeline-playback-controls {
@@ -7202,12 +7158,12 @@ dialog.varve-dialog--workspace-customize[open] {
  * native `dl` margins are reset below so labels and values cannot overlap. */
 .editor-inspector .insp-image-fill__color {
   display: flex;
-  align-items: flex-start;
+  /* Centre the summary on the row's label line (F-42). */
+  align-items: center;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-2);
   width: 100%;
   min-width: 0;
-  margin-top: var(--space-1);
 }
 
 .editor-inspector .insp-image-fill__color-summary {

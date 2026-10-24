@@ -127,7 +127,6 @@ function SortableVirtualRowImpl({
   const effectStackDrag = useEffectStackDrag();
   const presences = usePresence(node.id);
   const {
-    attributes,
     listeners,
     setActivatorNodeRef,
     setNodeRef: setSortableRef,
@@ -237,7 +236,6 @@ function SortableVirtualRowImpl({
         siblingCount={siblingCount}
         dragHandleRef={setActivatorNodeRef}
         dragHandleListeners={isDragging ? undefined : listeners}
-        dragHandleAttributes={isDragging ? undefined : attributes}
         variantName={variantName}
         hasMotion={hasMotion}
         keyframeCount={keyframeCount}

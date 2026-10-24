@@ -107,9 +107,17 @@ describe('SemanticIcon component', () => {
     expect(markup).toContain(`height="${ICON_SIZE_TOKENS.lg}"`);
   });
 
-  it('passes through explicit pixel sizes', () => {
+  it('snaps an explicit pixel size to the icon scale', () => {
+    // 13px is not a step on the scale; it renders at the nearest one (16).
     const markup = renderToStaticMarkup(<SemanticIcon name="Close" size={13} />);
-    expect(markup).toContain('width="13"');
+    expect(markup).toContain('width="16"');
+    expect(markup).not.toContain('width="13"');
+  });
+
+  it('keeps the semantic size names on the canonical scale', () => {
+    expect(ICON_SIZE_TOKENS).toEqual({ xs: 12, sm: 16, md: 20, lg: 24, xl: 32 });
+    const markup = renderToStaticMarkup(<SemanticIcon name="Close" size="xs" />);
+    expect(markup).toContain('width="12"');
   });
 
   it('mirrors directional icons with scaleX(-1)', () => {

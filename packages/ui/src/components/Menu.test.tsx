@@ -128,6 +128,40 @@ function TestMenuWithCheckbox({
   );
 }
 
+/** A submenu of checkboxes whose toggles rebuild the item arrays (F-50). */
+function TestMenuWithCheckboxSubmenu({ onClose }: { onClose: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [checked, setChecked] = useState<string[]>([]);
+  const toggle = (id: string) =>
+    setChecked((current) =>
+      current.includes(id) ? current.filter((c) => c !== id) : [...current, id],
+    );
+  const items: MenuEntry[] = [
+    {
+      id: 'type',
+      label: 'Type',
+      type: 'submenu',
+      badge: checked.length > 0 ? String(checked.length) : undefined,
+      submenu: ['Shape', 'Text', 'Frame'].map((label) => ({
+        id: label,
+        label,
+        type: 'checkbox' as const,
+        checked: checked.includes(label),
+        onToggle: () => toggle(label),
+      })),
+    } satisfies SubmenuItem,
+    { id: 'other', label: 'Other', onAction: vi.fn() },
+  ];
+  return (
+    <>
+      <button type="button" ref={ref}>
+        trigger
+      </button>
+      <Menu items={items} triggerRef={ref} open onClose={onClose} label="test" />
+    </>
+  );
+}
+
 function TestMenuWithRadios({ open, onClose }: { open: boolean; onClose: () => void }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [alignment, setAlignment] = useState('left');
@@ -188,6 +222,44 @@ describe('Menu', () => {
     const menu = document.body.querySelector('[role="menu"]');
     expect(menu).toBeTruthy();
     expect(menu?.parentElement?.parentElement).toBe(document.body);
+  });
+
+  it('stays open when the pointer leaves a root menu', () => {
+    // F-49: every menu scheduled its own close 150ms after pointerleave, so a
+    // context menu vanished when the pointer overshot its edge.
+    vi.useFakeTimers();
+    try {
+      const onClose = vi.fn();
+      render(<TestMenu open onClose={onClose} />);
+      const menu = document.body.querySelector('[role="menu"]') as HTMLElement;
+      fireEvent.pointerEnter(menu);
+      fireEvent.pointerLeave(menu);
+      vi.advanceTimersByTime(500);
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('opens pointer-driven after a pointer press and turns keyboard-driven on a key', () => {
+    // F-46: keyboard focus styling belongs to keyboard use; a menu opened by
+    // pointer must not inherit the browser's keyboard modality from an
+    // earlier shortcut.
+    fireEvent.keyDown(window, { key: 'r' });
+    fireEvent.pointerDown(document.body);
+    render(<TestMenu open onClose={vi.fn()} />);
+    const menu = document.body.querySelector('[role="menu"]') as HTMLElement;
+    expect(menu).toHaveAttribute('data-input-modality', 'pointer');
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(menu).toHaveAttribute('data-input-modality', 'keyboard');
+  });
+
+  it('opens keyboard-driven after a key press', () => {
+    fireEvent.pointerDown(document.body);
+    fireEvent.keyDown(window, { key: 'Enter' });
+    render(<TestMenu open onClose={vi.fn()} />);
+    const menu = document.body.querySelector('[role="menu"]') as HTMLElement;
+    expect(menu).toHaveAttribute('data-input-modality', 'keyboard');
   });
 
   it('does not render items when closed', () => {
@@ -507,6 +579,24 @@ describe('Menu checkbox items', () => {
     render(<TestMenuWithCheckbox open onClose={onClose} checked={false} />);
     const cb = document.body.querySelector('[role="menuitemcheckbox"]') as HTMLElement;
     await user.click(cb);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('keeps a submenu open and its item focused when a toggle rebuilds the items', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<TestMenuWithCheckboxSubmenu onClose={onClose} />);
+    (document.body.querySelector('[role="menuitem"]') as HTMLElement).focus();
+    await user.keyboard('{ArrowRight}');
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toHaveTextContent('Text');
+
+    await user.keyboard('{Enter}');
+    // The open setup must not re-run because the items changed: the submenu
+    // stays open, focus stays on the toggled item, and nothing closed.
+    expect(document.body.querySelectorAll('[role="menu"]')).toHaveLength(2);
+    expect(document.activeElement).toHaveTextContent('Text');
+    expect(document.activeElement).toHaveAttribute('aria-checked', 'true');
     expect(onClose).not.toHaveBeenCalled();
   });
 

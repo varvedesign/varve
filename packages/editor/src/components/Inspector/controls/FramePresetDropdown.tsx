@@ -17,7 +17,7 @@ import {
   type PresetGroup,
   physicalToPx,
 } from '@varve/shared';
-import { FloatingPortal, Icon, type IconName, Tooltip } from '@varve/ui';
+import { CloseButton, FloatingPortal, Icon, type IconName, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { usePresetLibrary } from '../../../presetLibrary';
@@ -433,14 +433,13 @@ export function FramePresetDropdown({ frame, frames }: FramePresetDropdownProps)
                 aria-label="Filter presets"
               />
               {query && (
-                <button
+                <CloseButton
+                  size="sm"
                   type="button"
                   className="insp-preset-popover__clear"
                   onClick={() => setQuery('')}
                   aria-label="Clear search"
-                >
-                  <Icon name="X" size={12} />
-                </button>
+                />
               )}
             </div>
 

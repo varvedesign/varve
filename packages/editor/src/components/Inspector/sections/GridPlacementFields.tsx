@@ -1,5 +1,6 @@
 import type { SceneNode } from '@varve/scene';
 import { getParent } from '@varve/scene';
+import { InfoHint } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { InspectorFieldGroup } from '../controls/FieldRow';
@@ -123,7 +124,10 @@ export function GridPlacementFields({ nodes }: { nodes: SceneNode[] }) {
       <div className="insp-grid-placement__title">Grid placement</div>
       {!hasGridParent && hasAuthoredPlacement && (
         <p className="insp-panel__color-mode-note" role="note">
-          This placement is stored on the layer and will apply when it is inside a grid frame.
+          Applies when the layer is inside a grid frame.
+          <InfoHint topic="grid placement">
+            This placement is stored on the layer and will apply when it is inside a grid frame.
+          </InfoHint>
         </p>
       )}
       <InspectorFieldGroup columns={2} className="insp-grid-placement__fields">

@@ -20,6 +20,7 @@ import {
   makeSmartFilter,
 } from '@varve/scene';
 import {
+  CloseButton,
   Select,
   SOLID_CHROME_ICONS,
   SolidIcon,
@@ -483,15 +484,14 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                       )}
                     </span>
                   </button>
-                  <button
+                  <CloseButton
+                    size="sm"
                     type="button"
                     className="smart-filters__remove"
                     onClick={() => removeFilter(filter.id)}
                     aria-label={`Remove ${filterName(filter)}`}
                     title="Remove filter"
-                  >
-                    <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.7em" />
-                  </button>
+                  />
                 </SortableItem>
               ))}
             </Sortable>

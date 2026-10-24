@@ -5,7 +5,7 @@
 
 import type { ExportJob } from '@varve/scene';
 import { formatFileSize } from '@varve/shared';
-import { Icon } from '@varve/ui';
+import { CloseButton, Icon } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { FormatBadge, formatLabel } from './FormatBadge';
 
@@ -133,14 +133,13 @@ export function BatchJobList({
               aria-label="Filter files"
             />
             {searchQuery && (
-              <button
+              <CloseButton
+                size="sm"
                 type="button"
                 className="batch-job-list__clear-search"
                 onClick={() => setSearchQuery('')}
                 aria-label="Clear search"
-              >
-                <Icon name="X" size={12} />
-              </button>
+              />
             )}
           </div>
           {formatCounts.length > 1 && (

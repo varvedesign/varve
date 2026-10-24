@@ -50,7 +50,6 @@ import { ConfirmDialog, PromptDialog, promptDialog } from './components/PromptDi
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
 import { IconBrowserDialog, ResourcesPanel } from './components/ResourcesPanel/ResourcesPanel';
-import { SelectionInfoBar } from './components/SelectionInfoBar';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
 import {
@@ -67,6 +66,7 @@ import {
   ImportResults,
   OnboardingLayer,
   type OnboardingLayerHandle,
+  PanelRestoreButtons,
   ThumbnailPickerHost,
   TimelinePanel,
   VectorizeDialogHost,
@@ -982,16 +982,17 @@ function ShellInner({
               </ErrorBoundary>
             </section>
           )}
+          {/* Outside the statusBar gate for the same reason as the drawer
+            launchers below: a hidden panel must stay recoverable by pointer
+            in a workspace with the status bar turned off. */}
+          {!distractionFreeMode && <PanelRestoreButtons />}
           {!distractionFreeMode && effectiveConfig.statusBar && (
-            <>
-              <SelectionInfoBar />
-              <StatusBar
-                onOpenPalette={(shortcutId) => {
-                  setPaletteFocusShortcutId(shortcutId);
-                  openPalette();
-                }}
-              />
-            </>
+            <StatusBar
+              onOpenPalette={(shortcutId) => {
+                setPaletteFocusShortcutId(shortcutId);
+                openPalette();
+              }}
+            />
           )}
           {/* The scrim exists precisely while a drawer does: it is what makes the
             drawer modal, and it is a dismissal route. It must NOT be gated

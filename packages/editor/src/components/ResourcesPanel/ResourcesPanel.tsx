@@ -7,7 +7,7 @@
  */
 
 import type { Document, Library } from '@varve/scene';
-import { Icon, Tooltip } from '@varve/ui';
+import { CloseButton, Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef } from 'react';
 import { useEditor } from '../../context';
 import { getMockupsTabRequest, subscribeMockupsTab } from '../../mockup/mockupTabStore';
@@ -176,14 +176,12 @@ export function ResourcesPanel({
           <PanelDetachButton />
           {responsiveDrawer && onCloseResponsivePanel && (
             <Tooltip label="Close Resources panel">
-              <button
+              <CloseButton
+                size="md"
                 type="button"
-                className="editor__collapse-btn resources-panel__close-btn"
                 onClick={onCloseResponsivePanel}
                 aria-label="Close Resources panel"
-              >
-                <Icon name="X" size={16} />
-              </button>
+              />
             </Tooltip>
           )}
         </div>

@@ -8,6 +8,7 @@
  * Research basis: Figma ⌘/ palette, VS Code Ctrl+Shift+P, Penpot shortcuts.
  */
 import {
+  CloseButton,
   FloatingPortal,
   FocusTrap,
   Icon,
@@ -249,14 +250,13 @@ export function QuickActionsBar({
               placeholder="Search actions..."
               aria-label="Search actions"
             />
-            <button
+            <CloseButton
+              size="sm"
               type="button"
               className="quick-actions-bar__close-btn"
               onClick={onClose}
               aria-label="Close quick actions"
-            >
-              <Icon name="X" size={16} />
-            </button>
+            />
           </div>
 
           <div

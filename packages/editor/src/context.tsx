@@ -182,6 +182,7 @@ import {
   cryptoId,
   type Document,
   DocumentCodec,
+  DRAWN_SHAPE_FILL,
   deepCloneSubtree,
   defaultConstraints,
   defaultProofConfig,
@@ -1078,12 +1079,17 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
     pathPoints?: PathPoint[],
     pathClosed?: boolean,
   ) => void;
-  /** Create a text node at the given world-space point. */
+  /**
+   * Create a text node at the given world-space point. `fill` is the ink the
+   * caller chose for the surface (the Text tool passes one that reads against
+   * it); omitting it keeps the scene default.
+   */
   createTextNodeAt: (
     world: { x: number; y: number },
     size?: { w: number; h: number },
     parentId?: NodeId | null,
     text?: string,
+    fill?: ManagedColor,
   ) => void;
   /**
    * Apply a frame size preset. If a single frame is selected, resizes it.
@@ -4899,7 +4905,7 @@ export function EditorProvider({
                 closed: pathClosed ?? false,
                 tolerance: 3,
               };
-              node = makeShapeNode(id, shape, { name: 'Node', transform });
+              node = makeShapeNode(id, shape, { name: 'Node', transform, fill: DRAWN_SHAPE_FILL });
             } else {
               const shape: Shape = size
                 ? buildShapeWithSize(activeTool, size)
@@ -4939,7 +4945,12 @@ export function EditorProvider({
                         ],
                       }
                     : {};
-              node = makeShapeNode(id, shape, { name: 'Node', transform, ...strokeOpts });
+              node = makeShapeNode(id, shape, {
+                name: 'Node',
+                transform,
+                fill: DRAWN_SHAPE_FILL,
+                ...strokeOpts,
+              });
             }
 
             const effectiveParentId =
@@ -5101,7 +5112,7 @@ export function EditorProvider({
         );
       },
 
-      createTextNodeAt: (world, size, parentId, text = '') => {
+      createTextNodeAt: (world, size, parentId, text = '', fill) => {
         // Open the creation transaction and LEAVE IT OPEN so the auto-entered
         // text edit extends the same step: its `beginTransaction` only nests
         // the depth, so one Undo removes the layer together with the text
@@ -5135,6 +5146,7 @@ export function EditorProvider({
             h: size?.h,
             textMode: size ? 'area' : 'point',
             textResizing: size ? 'fixed' : 'autoWidth',
+            fill,
             ...s.textCreationSettings,
           });
 
@@ -6414,18 +6426,20 @@ export function EditorProvider({
       setSelectedConstraint: (constraint: import('@varve/scene').Constraints) => {
         const sel = stateRef.current.selection;
         if (sel.length === 0) return;
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
-          for (const id of sel) {
-            const node = nodes[id];
-            if (!node) continue;
-            const parentId = getParent(doc, id);
-            if (!parentId) continue;
-            const parent = nodes[parentId];
-            if (parent?.kind !== 'frame') continue;
-            nodes[id] = { ...node, constraints: constraint } as SceneNode;
-          }
-          return { ...doc, nodes };
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => {
+            const nodes = { ...doc.nodes };
+            for (const id of sel) {
+              const node = nodes[id];
+              if (!node) continue;
+              const parentId = getParent(doc, id);
+              if (!parentId) continue;
+              const parent = nodes[parentId];
+              if (parent?.kind !== 'frame') continue;
+              nodes[id] = { ...node, constraints: constraint } as SceneNode;
+            }
+            return { ...doc, nodes };
+          });
         });
       },
 

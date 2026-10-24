@@ -1,4 +1,4 @@
-import { Icon } from '@varve/ui';
+import { CloseButton, Icon } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
@@ -98,14 +98,13 @@ export function OfflineBanner() {
           Online font and icon search is unavailable.
         </span>
       </span>
-      <button
+      <CloseButton
+        size="md"
         type="button"
         className="editor-offline-banner__close"
         aria-label="Dismiss offline notice"
         onClick={() => setDismissed(true)}
-      >
-        <Icon name="X" size={14} />
-      </button>
+      />
     </div>
   );
 }

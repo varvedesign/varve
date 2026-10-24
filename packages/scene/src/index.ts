@@ -173,6 +173,7 @@ export * from './text/glyphAdjustments';
 export * from './text/grapheme';
 export * from './textBounds';
 export * from './textFlow';
+export * from './textInk';
 export * from './textToOutlines';
 export * from './textWarp';
 export * from './thumbnail/resolve';

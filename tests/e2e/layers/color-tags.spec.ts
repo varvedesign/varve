@@ -25,18 +25,30 @@ test.describe('Layers Panel - Color Tags', () => {
   }) => {
     await setFirstTag(page, 'Red');
 
-    await page.getByRole('button', { name: 'Show filter options' }).click();
-    const colorFilter = page.getByRole('group', { name: 'Filter by color tag' });
-    await colorFilter.getByRole('button', { name: 'Red' }).click();
+    // The color tag is one dimension of the Filter menu (F-48).
+    const chooseTagFilter = async (label: string) => {
+      await page.getByRole('button', { name: /^Filter options/ }).click();
+      const filterMenu = page.getByRole('menu', { name: 'Filter layers' });
+      await filterMenu.getByRole('menuitem', { name: /^Color tag/ }).click();
+      await page.getByRole('menuitemradio', { name: label, exact: true }).click();
+      // Choosing keeps the menu open; Escape closes the submenu, then the menu.
+      for (let i = 0; i < 2 && (await filterMenu.isVisible()); i++) {
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(50);
+      }
+      await expect(filterMenu).toBeHidden();
+    };
+    await chooseTagFilter('Red');
 
     const filteredRows = page.getByRole('treeitem');
     await expect(filteredRows).toHaveCount(1);
     await expect(filteredRows.first()).toHaveAttribute('data-layer-color', 'red');
 
-    await page.getByRole('button', { name: 'Clear color tag filter' }).click();
+    // Each active constraint is a removable token.
+    await page.getByRole('button', { name: 'Remove filter: Red tag' }).click();
     await expect(filteredRows).toHaveCount(3);
 
-    await colorFilter.getByRole('button', { name: 'No color tag' }).click();
+    await chooseTagFilter('No color tag');
     await expect(filteredRows).toHaveCount(2);
     await expect
       .poll(() => filteredRows.evaluateAll((rows) => rows.every((row) => !row.dataset.layerColor)))
@@ -44,6 +56,22 @@ test.describe('Layers Panel - Color Tags', () => {
 
     await page.getByRole('button', { name: 'Clear all filters' }).click();
     await expect(filteredRows).toHaveCount(3);
+  });
+
+  test('names the tag in text, not only in colour', async ({ page }) => {
+    await setFirstTag(page, 'Red');
+    const firstItem = page.getByRole('treeitem').first();
+    // Screen readers get it in the row name; sighted users in the details.
+    await expect(firstItem).toHaveAccessibleName(/Red color tag/);
+    await firstItem.click();
+    await firstItem.hover();
+    await firstItem.locator('[data-row-action="details"]').click();
+    // The header and the row each own a details popover; read the open one.
+    const details = page.locator('[data-layer-details]').filter({ visible: true });
+    await expect(details).toBeVisible();
+    await expect(
+      details.locator('.layers-details__row').filter({ hasText: 'Color tag' }),
+    ).toContainText('Red');
   });
 
   test('assignment is restored by undo and redo', async ({ page }) => {

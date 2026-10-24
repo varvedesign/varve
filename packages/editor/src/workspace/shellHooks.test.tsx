@@ -60,6 +60,22 @@ describe('responsive panel close controls', () => {
     expect(document.activeElement).toBe(controls.trigger);
   });
 
+  it('returns focus to the launcher that replaced an unmounted trigger', () => {
+    // The shell unmounts its launchers while a drawer is open; focusing the
+    // detached original dropped focus to <body> (F-39).
+    const controls = setupClosers();
+    controls.trigger.className = 'editor__fab editor__fab--layers';
+    controls.trigger.setAttribute('aria-controls', 'editor-layers-panel');
+    const other = document.createElement('button');
+    other.setAttribute('aria-controls', 'editor-layers-panel');
+    const remounted = controls.trigger.cloneNode() as HTMLButtonElement;
+    controls.trigger.remove();
+    document.body.append(other, remounted);
+    act(() => controls.result.current.closeResponsiveLayers());
+    controls.frames[0]!(0);
+    expect(document.activeElement).toBe(remounted);
+  });
+
   it('closes only the Inspector and returns focus to its drawer trigger', () => {
     const controls = setupClosers();
     act(() => controls.result.current.closeResponsiveInspector());

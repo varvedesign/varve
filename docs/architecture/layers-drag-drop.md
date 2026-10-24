@@ -234,21 +234,27 @@ somewhere else permanently changed the user's disclosure.
 
 ## Gesture disambiguation
 
-Structural DnD is activated by the dedicated grip only. The row body belongs
+Structural DnD is activated by the row's type icon only. The row body belongs
 to the Layers selection gesture: a press that crosses the small CSS-pixel
 threshold previews and then commits a contiguous visible range. This keeps
 selection and hierarchy mutation from competing for the same pointerdown.
 Nested controls (disclosure triangle, selection checkbox, type icon,
 visibility/lock/solo toggles, effect badges, and the rename input) are excluded
-from row selection scrub as well as structural DnD.
+from row selection scrub; of those, only the type icon activates structural DnD.
 
 The row body intentionally does not receive dnd-kit's sortable activator. The
-grip owns the activator ref/listeners/attributes and carries the accessible
-"Drag to reorder" affordance, while the treeitem remains the keyboard
-selection target. A row-body drag therefore cannot reorder text by accident;
-it selects the visible range and never changes structural order.
+type icon owns the activator ref and pointer listener (a separate grip glyph
+used to, and cost every row about 22px of name room at every width). It shows a
+grab cursor and sets `touch-action: none` so a touch drag reorders instead of
+scrolling the list; a double-click on it still zooms to the layer, which a
+press-and-drag never starts because dnd-kit waits for 5px of travel. The
+treeitem remains the keyboard selection target and the sortable `attributes`
+(role, `aria-roledescription`) are deliberately not spread onto the icon, since
+it is a Zoom button and no keyboard sensor is mounted. A row-body drag
+therefore cannot reorder text by accident; it selects the visible range and
+never changes structural order.
 
-Grip dragging is never the only way to change order (WCAG 2.5.7). The layer
+Icon dragging is never the only way to change order (WCAG 2.5.7). The layer
 context menu's Arrange group exposes Bring to Front, Bring Forward, Send
 Backward, and Send to Back; all four call the same `arrangeSelected`
 transaction as the Ctrl+[ / Ctrl+] / Ctrl+Shift+[ / Ctrl+Shift+] shortcuts,

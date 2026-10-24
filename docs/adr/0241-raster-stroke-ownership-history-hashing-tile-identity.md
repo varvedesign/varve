@@ -1,6 +1,6 @@
 # ADR-0241: Raster stroke ownership, history hashing cost, and tile content identity
 
-- **Status:** Accepted and implemented (D1-D5). D4 was approved by the maintainer on 2026-10-16.
+- **Status:** Accepted and implemented (D1-D8). D4 was approved by the maintainer on 2026-10-16.
 - **Date:** 2026-10-16
 - **Related:** ADR-0198, ADR-0203, ADR-0214, `docs/architecture/persistent-history.md`,
   `docs/architecture/render-pipeline.md`,
@@ -187,6 +187,55 @@ rows can run on different threads without changing a byte.
   acceleration. The WASM engine route stays blocked as described under Open
   items.
 
+**D7 - Capability probes are validated modules, and artifact selection is
+evidence-based (implemented).** The editor already had two probe modules for
+"WASM SIMD" and "threads", but both were structurally invalid: the SIMD module
+applied `i8x16.splat` to a `v128` and the threads module declared a five-byte
+memory section with four bytes of payload. `WebAssembly.validate` therefore
+returned `false` on every engine, and the capability report answered "no SIMD /
+threads unavailable" even on hardware that supports both. They now live in
+`@varve/engine` as `WASM_SIMD_PROBE` / `WASM_THREADS_PROBE`, are pinned by a
+test that validates them against the real engine, and are the single source of
+truth used by the capability report, the render-path diagnostics and the loader.
+
+`wasmArtifactCandidates()` returns `['simd','baseline']` only when the engine
+validated a `v128` module; otherwise the loader never fetches, instantiates or
+reports the SIMD artifact. `getWasmEngineAttribution()` records the artifact
+that actually loaded, its self-reported version, the candidate that was skipped
+and the bounded stage/reason of every failed attempt (`head`, `glue`,
+`instantiate`). A `setWasmArtifactPreference('baseline')` seam exists for A/B.
+`threadsUsable` requires all three of: the engine accepts shared memory + an
+atomic instruction, a `SharedArrayBuffer` can actually be constructed, and
+`crossOriginIsolated` is true - because a threaded build needs all three and
+WebKitGTK 2.52 has no shared buffer even with correct COOP/COEP headers.
+
+**D8 - The SIMD artifact is verified, measured, and not claimed as an
+acceleration (implemented).** `just wasm-build-*` labels one artifact
+`varve_wasm_simd`, which is a build flag, not evidence. `just verify-wasm-simd`
+disassembles the shipped binaries and fails if a claimed SIMD artifact contains
+no `v128` instructions (or if a baseline artifact contains any); it exits
+`UNVERIFIED` when `llvm-objdump` is missing rather than passing. Measured on a
+local build (engine 0.5.0): baseline 1,136,808 bytes / 0 vector instructions,
+SIMD 1,146,397 bytes / 6,126 vector instructions, colour 526,600 bytes / 0.
+So the SIMD artifact is genuinely vectorized and the colour artifact is
+correctly baseline-only.
+
+`just bench-wasm` then runs both artifacts on their exported work with
+interleaved A/B and asserts byte equality. IR JSON is identical at 200, 600 and
+2000 nodes, hit-test indices agree, and contour-trace output is identical at
+768x768. The measured latency is indistinguishable: IR build p50 4.68 vs
+4.49 ms (200 nodes), 6.98 vs 7.07 ms (600), 24.91 vs 23.09 ms (2000) - 0.99x to
+1.08x, i.e. inside the noise of a loaded shared machine - and trace is ~1.0x.
+The exported path is dominated by the serde JSON boundary, so no SIMD
+acceleration is claimed for canvas rendering, and no SIMD colour artifact is
+added (it would be a label with no vector work behind it). The native
+row-band kernels from D6 are the measured parallel path: re-run at 1024x1024 on
+the same machine, bounded execution is 1.13x-2.51x faster than scalar across
+the ten effects (Bloom 2.01x, LightShafts 2.51x, RGB split 2.30x at export
+quality) with byte-identical output.
+
+
+
 ## Alternatives considered
 
 - **Faster SHA only.** An 8-round unrolled core measured ~1.4x under load;
@@ -264,16 +313,20 @@ that). `strictlyIdentical` is one-sided: `true` implies equal canonical bytes,
   tile store verifies each blob it is given. Persisting the digests with the
   document would remove the hash pass; it is a file-format change and is not
   proposed here.
-- Threaded/SIMD raster kernel in the **web/WASM** engine: requires a built
-  engine WASM artifact, `wasm-opt`, and a COOP/COEP determination for the Tauri
-  webview; a candidate is the TypeScript separable blur for radius > 32 px.
-  (The native desktop kernels are threaded, D6; SIMD is unclaimed everywhere.) Verified
-  2026-10-16: no engine artifact is present in `apps/desktop/public/wasm/`
-  (only the colour engine), the WASM surface contains no raster pixel kernel, a
-  threaded `wasm32-unknown-unknown` build needs a nightly `-Z build-std`, and
-  adding artifacts to that shared directory changes runtime selection for every
-  session, so it is a coordinated change. See
-  `docs/research/perf-cow-history-cache-ledger-2026-10-16.md` -> "Not done".
+- Threaded/SIMD **raster kernel** in the web/WASM engine: still absent, and
+  now precisely scoped. The WASM surface exports IR build, hit-test, contour
+  trace and media probe only; there is no pixel kernel to vectorize
+  (D8 measures the first three). A threaded `wasm32-unknown-unknown` build
+  needs nightly `-Z build-std`, and WebKitGTK 2.52 has no `SharedArrayBuffer`
+  even with correct COOP/COEP (WebKit GLib ports only started setting
+  `JSC_useSharedArrayBuffer` for isolated origins in September 2026, after
+  2.52), so the shipping web fallback must stay single-threaded regardless.
+  The engine artifacts are generated by `just wasm-build` and gitignored, not
+  committed; the local build inspected here is from the same source tree.
+  The measured candidate remains the TypeScript separable blur for radius > 32
+  px (`packages/engine/src/blur.ts`), which would need a new WASM pixel crate
+  with bit-exact parity tests against the TS reference before it could be
+  wired. See `docs/perf/2026-10-16-wasm-simd-capability.md`.
 - `Engine.hitTest` was **not** behind `withStubFallback`'s
   `requiresRasterFallback` guard. Closed: raster-bearing scenes now route to the
   stub for hit testing too (`engine.ts`, with a positive and a negative

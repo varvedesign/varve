@@ -225,7 +225,10 @@ mod tests {
 
         write_clean_shutdown_state(&store, true).expect("commit clean exit");
         let clean_restart = NativeShutdownState::begin(&store).expect("clean restart");
-        assert_eq!(clean_restart.previous_clean_for_session("clean-page"), Some(true));
+        assert_eq!(
+            clean_restart.previous_clean_for_session("clean-page"),
+            Some(true)
+        );
         assert!(
             clean_restart.previous_clean_for_session("clean-page") == Some(true),
             "React remounts in one webview retain the same startup result"

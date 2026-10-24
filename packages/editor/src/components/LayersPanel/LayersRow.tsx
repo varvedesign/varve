@@ -7,7 +7,7 @@
  * Research basis: APG Tree View (role=treeitem), type icons per Lucide icon maps.
  */
 
-import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
+import type { DraggableSyntheticListeners } from '@dnd-kit/core';
 import type {
   AdjustmentNode,
   Document,
@@ -86,7 +86,6 @@ export interface LayersRowProps {
   style?: React.CSSProperties;
   dragHandleRef?: (element: HTMLElement | null) => void;
   dragHandleListeners?: DraggableSyntheticListeners;
-  dragHandleAttributes?: DraggableAttributes;
   onSelectionPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
   onSelectionClick?: () => boolean;
   /** Optional resolved variant name for component instances. */
@@ -176,7 +175,6 @@ export const LayersRow = memo(function LayersRow({
   style,
   dragHandleRef,
   dragHandleListeners,
-  dragHandleAttributes,
   onSelectionPointerDown,
   onSelectionClick,
   variantName,
@@ -295,6 +293,9 @@ export const LayersRow = memo(function LayersRow({
     });
     return vals.some((v) => v !== vals[0]);
   }, [hasMultiSelection, selectedIds, doc]);
+  // Default-state toggles (visible, unlocked) take no width until the row is
+  // hovered, focused or selected; any other state always shows (D-3, F-20).
+  const visibilityAtDefault = !isMixedVisibility && !isEffectivelyHidden;
   const isMixedLocked = useMemo(() => {
     if (!hasMultiSelection || !selectedIds) return false;
     const vals = [...selectedIds].map((id) => {
@@ -303,6 +304,7 @@ export const LayersRow = memo(function LayersRow({
     });
     return vals.some((v) => v !== vals[0]);
   }, [hasMultiSelection, selectedIds, doc]);
+  const lockAtDefault = !isMixedLocked && !isEffectivelyLocked;
 
   // Blend mode / opacity badge
   const blendModeLabel =
@@ -547,21 +549,6 @@ export const LayersRow = memo(function LayersRow({
             readable cue of their (flattened) nesting lane. */}
         {indentGuides}
 
-        {/* Drag handle */}
-        <button
-          {...dragHandleAttributes}
-          ref={dragHandleRef}
-          {...dragHandleListeners}
-          type="button"
-          className="layers-row__drag-handle"
-          aria-label="Drag to reorder"
-          aria-hidden="true"
-          tabIndex={-1}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.75em" />
-        </button>
-
         {/* Disclosure triangle */}
         {container ? (
           <button
@@ -594,15 +581,29 @@ export const LayersRow = memo(function LayersRow({
 
         {/* Thumbnail preview (frames and images) */}
         {showThumbnail && (
-          <img src={thumbnailDataUrl!} alt="" aria-hidden className="layers-row__thumbnail" />
+          // Double-clicking the preview zooms to the layer, like the type icon
+          // beside it. It used to fall through to the row and start a rename.
+          <img
+            src={thumbnailDataUrl!}
+            alt=""
+            aria-hidden
+            className="layers-row__thumbnail"
+            onDoubleClick={handleIconDoubleClick}
+          />
         )}
 
-        {/* Type icon — double-click zooms to layer */}
+        {/* Type icon — drag to reorder (the row body is the drag-to-select
+            surface, so reorder needs its own activator), double-click zooms to
+            the layer. */}
         <button
           type="button"
+          ref={dragHandleRef}
           className="layers-row__icon-area"
           onDoubleClick={handleIconDoubleClick}
-          onPointerDown={stopDragActivation}
+          onPointerDown={(e) => {
+            dragHandleListeners?.onPointerDown?.(e);
+            stopDragActivation(e);
+          }}
           aria-label={`Zoom to ${node.name} (${layerPresentation.label})`}
           tabIndex={-1}
           onKeyDown={(e) => {
@@ -1047,6 +1048,7 @@ export const LayersRow = memo(function LayersRow({
                   ? 'layers-row__toggle--visibility-inherited'
                   : 'layers-row__toggle--visibility-on'
           }`}
+          data-default-state={visibilityAtDefault ? 'true' : 'false'}
           tabIndex={-1}
           onPointerDown={stopDragActivation}
           onClick={(e) => {
@@ -1090,6 +1092,7 @@ export const LayersRow = memo(function LayersRow({
                 ? 'layers-row__toggle--locked-on'
                 : 'layers-row__toggle--locked-off'
           }`}
+          data-default-state={lockAtDefault ? 'true' : 'false'}
           tabIndex={-1}
           onPointerDown={stopDragActivation}
           onClick={(e) => {

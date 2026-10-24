@@ -11,6 +11,7 @@
 
 import { icons, type LucideIcon } from 'lucide-react';
 import { forwardRef, type SVGProps } from 'react';
+import { type IconSizeInput, resolveIconSize } from './iconSize';
 
 /** Every Lucide icon name (PascalCase). Compile-time-checked `name` prop. */
 export type IconName = keyof typeof icons;
@@ -24,14 +25,19 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
    * MUST be accompanied by a visible text label in the surrounding UI.
    */
   label?: string;
-  /** Pixel size; defaults to 1em (inherits font-size). Stroke uses currentColor. */
-  size?: number | string;
+  /**
+   * An icon size token (`xs` 12, `sm` 16, `md` 20, `lg` 24, `xl` 32). A raw number or
+   * em/rem/px string snaps to the nearest token (see `iconSize.ts`); the default is
+   * `sm`. Stroke uses currentColor.
+   */
+  size?: IconSizeInput;
 }
 
 export const Icon = forwardRef<SVGSVGElement, IconProps>(function Icon(
-  { name, label, size = '1em', ...rest },
+  { name, label, size: sizeInput, ...rest },
   ref,
 ) {
+  const size = resolveIconSize(sizeInput);
   const Cmp = icons[name] as LucideIcon | undefined;
   if (!Cmp) {
     console.warn(`[Icon] Unknown icon: "${name}"`);

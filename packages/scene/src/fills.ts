@@ -199,6 +199,18 @@ export function patternRepeatParams(
   };
 }
 
+/**
+ * Fill for shapes drawn with the shape and pen tools: a neutral mid grey.
+ * The scene default (`makeShapeNode`, `defaultShapeFills`) stays teal for
+ * stored documents and goldens, but on the canvas that teal is the accent, so
+ * selection bounds and smart guides vanished against every freshly drawn
+ * shape (shell audit 2026-10-22, F-28: selection dE 0.014, guides 0.000).
+ * #9E9E9E sits OKLab dE 0.147 from the accent (simulated protanopia 0.123,
+ * deuteranopia 0.080, tritanopia 0.163) and reads 7.2:1 on the dark board and
+ * 2.3:1 on the light one, where the teal managed 1.6:1.
+ */
+export const DRAWN_SHAPE_FILL: ManagedColor = { space: 'rgb', r: 158, g: 158, b: 158, a: 255 };
+
 /** Default fill stack for a shape node (single solid teal). */
 export function defaultShapeFills(): Fill[] {
   return [solidFill({ space: 'rgb', r: 57, g: 208, b: 198, a: 255 })];

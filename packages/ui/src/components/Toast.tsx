@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 import { SemanticIcon, type SemanticIconName } from '../icons';
+import { CloseButton } from './CloseButton';
 import { Spinner } from './Spinner';
 
 export type ToastVariant = 'default' | 'info' | 'success' | 'warning' | 'error' | 'loading';
@@ -240,14 +241,13 @@ export function Toast({ toast, onDismiss }: ToastProps) {
         </div>
       )}
       {toast.dismissible !== false && (
-        <button
+        <CloseButton
+          size="sm"
           className="varve-toast__close"
           aria-label="Dismiss notification"
           onClick={dismiss}
           type="button"
-        >
-          <SemanticIcon name="Close" size="sm" />
-        </button>
+        />
       )}
     </div>
   );

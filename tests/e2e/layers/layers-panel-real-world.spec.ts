@@ -278,24 +278,23 @@ test.describe('Layers Panel — real-world document', () => {
     record('visibility-toggle.json', { before, after });
     expect(after).not.toBe(before);
 
-    // Mount every interactive family before measuring: open the advanced
-    // filter (chips) and build a multi-selection (bulk bar).
-    await page.getByRole('button', { name: 'Show filter options' }).click();
-    await page.waitForTimeout(200);
+    // Mount every interactive family before measuring: build a
+    // multi-selection (bulk bar). Filter options are a menu now (F-48); its
+    // tokens are measured by layers-search.spec.ts.
     const rows = page.getByRole('treeitem');
     await rows.nth(0).click();
     await rows.nth(2).click({ modifiers: ['Shift'] });
     await page.waitForTimeout(200);
 
     // Phase 1 target-size probe: no search text, so the bulk bar (hidden
-    // while filtering) and the advanced chips are both mounted at once.
+    // while filtering) is mounted.
     const sizes = await page.evaluate(() => {
       const sels = [
         '.layers-row__toggle',
         '.layers-row__disclosure',
         '.layers-row__icon-area',
         '.layers-panel__header-btn',
-        '.layers-filter-bar__chip',
+        '.layers-filter-bar__toggle-advanced',
         '.layer-color-tag-picker__button',
         '.layers-bulk-bar__btn',
       ];
@@ -311,12 +310,16 @@ test.describe('Layers Panel — real-world document', () => {
     record('target-sizes.json', sizes);
     await capture(page, '31-advanced-filter-and-bulk');
 
-    // Phase 2 target-size probe: an active search mounts the Clear button and
-    // the search field's own clear affordance.
+    // Phase 2 target-size probe: an active search mounts the Clear button,
+    // the search field's own clear affordance, and the match steppers.
     await page.getByLabel('Filter layers by name').fill('Card');
     await page.waitForTimeout(300);
     const clearSizes = await page.evaluate(() => {
-      const sels = ['.layers-filter-bar__clear-all', '.varve-search__clear'];
+      const sels = [
+        '.layers-filter-bar__clear-all',
+        '.varve-search__clear',
+        '.layers-filter-bar__step-btn',
+      ];
       const out: Record<string, Array<{ w: number; h: number }>> = {};
       for (const sel of sels) {
         out[sel] = [...document.querySelectorAll(sel)].map((el) => {
@@ -438,19 +441,19 @@ test.describe('Layers Panel — real-world document', () => {
     await expect(page.locator('.layers-row__name').first()).toHaveText('Renamed Layer');
   });
 
-  test('drag reorder via the grip changes document order once', async ({ page }) => {
+  test('drag reorder via the type icon changes document order once', async ({ page }) => {
     await buildRealisticDocument(page);
 
     const rows = page.getByRole('treeitem');
     const namesBefore = await rows.locator('.layers-row__name').allTextContents();
     record('reorder-before.json', { namesBefore: namesBefore.slice(0, 6) });
 
-    // Drag the second row's grip below the fourth row.
+    // Drag the second row's type icon below the fourth row.
     const source = rows.nth(1);
     const target = rows.nth(4);
     await source.hover();
-    const grip = source.locator('.layers-row__drag-handle');
-    const sourceBox = await grip.boundingBox();
+    const handle = source.locator('.layers-row__icon-area');
+    const sourceBox = await handle.boundingBox();
     const targetBox = await target.boundingBox();
     if (!sourceBox || !targetBox) throw new Error('rows not measurable');
 

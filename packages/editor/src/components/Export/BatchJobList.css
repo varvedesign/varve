@@ -53,20 +53,6 @@
 .batch-job-list__clear-search {
   position: absolute;
   right: 2px;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  border-radius: var(--radius-control-compact);
-}
-
-.batch-job-list__clear-search:hover {
-  color: var(--color-text-primary);
 }
 
 .batch-job-list__format-filters {

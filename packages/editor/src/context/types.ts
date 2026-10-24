@@ -876,6 +876,7 @@ export interface EditorContextValue {
     size?: { w: number; h: number },
     parentId?: NodeId | null,
     text?: string,
+    fill?: import('@varve/scene').ManagedColor,
   ) => void;
   applyFramePreset: (preset: { name: string; w: number; h: number }) => void;
   /**

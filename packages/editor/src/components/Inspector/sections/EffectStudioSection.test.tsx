@@ -196,7 +196,7 @@ describe('EffectStudioSection', () => {
 
   afterEach(cleanup);
 
-  it('searches curated treatments and applies their full editable stack', () => {
+  it('searches curated treatments and keeps a chosen one as its full editable stack', () => {
     render(<EffectStudioSection nodes={[effectNode()]} />);
 
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search treatments' }), {
@@ -205,11 +205,15 @@ describe('EffectStudioSection', () => {
     expect(screen.getByText('Crosshatch')).toBeInTheDocument();
     expect(screen.queryByText('Brightness')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Crosshatch' }));
-    expect(updatedBatchNode(effectNode()).smartFilters?.map((filter) => filter.kind)).toEqual([
+    // Choosing a tile previews it (F-43: one choice per card, actions in the
+    // settings column).
+    fireEvent.click(screen.getByRole('button', { name: 'Crosshatch' }));
+    expect(beginTransaction).toHaveBeenCalledWith('preview');
+    expect(updatedNode(effectNode()).smartFilters?.map((filter) => filter.kind)).toEqual([
       'blackAndWhite',
       'halftone',
     ]);
+    fireEvent.click(screen.getByRole('button', { name: 'Keep treatment' }));
     expect(beginTransaction).toHaveBeenCalledTimes(1);
     expect(commitTransaction).toHaveBeenCalledTimes(1);
   });
@@ -226,7 +230,7 @@ describe('EffectStudioSection', () => {
     const node = effectNode();
     render(<EffectStudioSection nodes={[node]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Preview Chromatic Bloom' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Chromatic Bloom' }));
     expect(beginTransaction).toHaveBeenCalledWith('preview');
     expect(updatedNode(node).smartFilters?.map((filter) => filter.kind)).toEqual([
       'bloom',
@@ -234,39 +238,56 @@ describe('EffectStudioSection', () => {
     ]);
     expect(screen.getByRole('status')).toHaveTextContent(/Chromatic Bloom/);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Keep Chromatic Bloom' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep treatment' }));
     expect(commitTransaction).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Preview Aperture Star' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aperture Star' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel preview' }));
     expect(abortTransaction).toHaveBeenCalledTimes(1);
     expect(announce).toHaveBeenLastCalledWith('Preview cancelled');
   });
 
-  it('commits an active preview before appending a different applied treatment', () => {
+  it('replaces the preview when another treatment is chosen', () => {
     const node = effectNode();
     render(<EffectStudioSection nodes={[node]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Preview Chromatic Bloom' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Aperture Star' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Chromatic Bloom' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aperture Star' }));
 
-    expect(commitTransaction).toHaveBeenCalledTimes(2);
+    // Browsing tries treatments one at a time: the earlier preview is dropped,
+    // never kept by accident.
+    expect(abortTransaction).toHaveBeenCalledTimes(1);
     expect(beginTransaction).toHaveBeenCalledTimes(2);
-    const previewed = updatedNode(node);
-    expect(updatedBatchNode(previewed).smartFilters?.map((filter) => filter.kind)).toEqual([
-      'bloom',
-      'rgbSplit',
+    expect(commitTransaction).not.toHaveBeenCalled();
+    expect(updatedNode(node).smartFilters?.map((filter) => filter.kind)).toEqual([
       'lensFlare',
       'bloom',
     ]);
+  });
+
+  it('keeps a previewed treatment on every selected object as one edit', () => {
+    render(<EffectStudioSection nodes={[effectNode('shape-a'), effectNode('shape-b')]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Palette Cut' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep treatment' }));
+
+    // The preview stood in for the first object only; keeping it reaches both.
+    expect(abortTransaction).toHaveBeenCalledTimes(1);
+    expect(updateNodes).toHaveBeenCalledTimes(1);
+    const batch = updateNodes.mock.calls[0]?.[0] as Array<{ id: string }>;
+    expect(batch.map((entry) => entry.id)).toEqual(['shape-a', 'shape-b']);
+    expect(
+      updatedBatchNode(effectNode('shape-a')).smartFilters?.map((filter) => filter.kind),
+    ).toEqual(['posterize', 'paletteSnap']);
   });
 
   it('keeps low-level primitives separate from the curated gallery', () => {
     const node = effectNode();
     render(<EffectStudioSection nodes={[node]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Palette Cut' }));
-    expect(updatedBatchNode(node).smartFilters?.map((filter) => filter.kind)).toEqual([
+    fireEvent.click(screen.getByRole('button', { name: 'Palette Cut' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep treatment' }));
+    expect(updatedNode(node).smartFilters?.map((filter) => filter.kind)).toEqual([
       'posterize',
       'paletteSnap',
     ]);
@@ -332,7 +353,7 @@ describe('EffectStudioSection', () => {
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search treatments' }), {
       target: { value: 'halftone pattern' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Adjust Halftone Pattern recipe' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Halftone Pattern' }));
 
     expect(screen.getByRole('spinbutton', { name: /Halftone Pattern Dot size value/ })).toHaveValue(
       '2',
@@ -343,8 +364,8 @@ describe('EffectStudioSection', () => {
     expect(screen.getByText('Pattern type')).toBeInTheDocument();
     expect(screen.getByText('AM · Round dots · Black (K)')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Halftone Pattern' }));
-    expect(updatedBatchNode(node).smartFilters?.map((filter) => filter.kind)).toEqual([
+    fireEvent.click(screen.getByRole('button', { name: 'Keep treatment' }));
+    expect(updatedNode(node).smartFilters?.map((filter) => filter.kind)).toEqual([
       'blackAndWhite',
       'halftone',
     ]);

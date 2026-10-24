@@ -74,6 +74,7 @@ import {
   expandAddedContainers,
   type LayerExpansionTransfer,
 } from './layerExpansionState';
+import { ownFilterMatchIds, stepMatchId } from './layerFilterMatches';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
 import { canonicalizeMoveIds } from './layerMovePlan';
@@ -365,11 +366,20 @@ export interface LayersDnDHandle {
   /** Non-drag reparenting: move the anchored selection out of its container. */
   outdentSelection: (nodeId?: NodeId) => void;
   /**
-   * Select every row in the current filtered projection (the "Select matches"
-   * action). One editor selection change, announced; selection is not artwork
-   * history, so this creates no undo entry.
+   * Select every match in the current filtered projection (the "Select
+   * matches" action) — not the ancestors shown as context. One editor
+   * selection change, announced; selection is not artwork history, so this
+   * creates no undo entry.
    */
   selectMatches: () => void;
+  /**
+   * Select the next (1) or previous (-1) match after the primary selection,
+   * wrapping like find-in-page. Focus stays where it is, so the search field
+   * can keep stepping.
+   */
+  stepMatch: (direction: 1 | -1) => void;
+  /** Move keyboard focus from the filter into the tree, at the first match. */
+  focusResults: () => void;
 }
 
 export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function LayersTree(
@@ -878,15 +888,24 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
    * Photoshop "Not Visible" workflow has no Varve equivalent). Selection is
    * editor state, not artwork, so this is deliberately not an undo entry.
    */
+  const ownMatchIds = useMemo(
+    () =>
+      ownFilterMatchIds(entries, filterSpec, filterMatchedIds, {
+        doc: state.document,
+        animatedIds: animatedNodes,
+      }),
+    [entries, filterSpec, filterMatchedIds, state.document, animatedNodes],
+  );
+
   const handleSelectMatches = useCallback(() => {
-    if (entries.length === 0) return;
-    const ids = entries.map((entry) => entry.node.id);
-    const primary = ids[0]!;
+    const ids = ownMatchIds ?? entries.map((entry) => entry.node.id);
+    const primary = ids[0];
+    if (!primary) return;
     setSelectionRefs(ids, { primary, origin: 'layers' });
     anchorIdRef.current = primary;
-    setAnchorIdx(0);
+    setAnchorIdx(entries.findIndex((entry) => entry.node.id === primary));
     announce(`${ids.length} layer${ids.length === 1 ? '' : 's'} selected`);
-  }, [entries, setSelectionRefs, announce, setAnchorIdx]);
+  }, [ownMatchIds, entries, setSelectionRefs, announce, setAnchorIdx]);
 
   const activateLayer = useCallback(
     (id: NodeId) => {
@@ -901,6 +920,42 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     },
     [entries, setAnchorIdx, revealSelection, setSelectionRefs],
   );
+
+  const handleStepMatch = useCallback(
+    (direction: 1 | -1) => {
+      if (!ownMatchIds) return;
+      const rowOrder = entries.map((entry) => entry.node.id);
+      const id = stepMatchId(ownMatchIds, rowOrder, primarySelectionId, direction);
+      if (!id) {
+        announce('No matching layers');
+        return;
+      }
+      activateLayer(id);
+      const idx = rowOrder.indexOf(id);
+      setFocusIdx(idx);
+      virtualizer.scrollToIndex(idx, { align: 'auto' });
+      const name = entries[idx]?.node.name ?? '';
+      announce(`${name}, match ${ownMatchIds.indexOf(id) + 1} of ${ownMatchIds.length}`);
+    },
+    [ownMatchIds, entries, primarySelectionId, activateLayer, setFocusIdx, virtualizer, announce],
+  );
+
+  const handleFocusResults = useCallback(() => {
+    const id = ownMatchIds?.[0] ?? entries[0]?.node.id;
+    if (!id) return;
+    const idx = entries.findIndex((entry) => entry.node.id === id);
+    setFocusIdx(idx);
+    virtualizer.scrollToIndex(idx, { align: 'auto' });
+    // The row may mount a frame after the scroll; retry briefly, as the
+    // roving-focus effect does.
+    let tries = 0;
+    const focusWhenMounted = () => {
+      const row = rowRefs.current.get(id);
+      if (row) row.focus({ preventScroll: true });
+      else if (tries++ < FOCUS_RETRY_FRAMES) requestAnimationFrame(focusWhenMounted);
+    };
+    requestAnimationFrame(focusWhenMounted);
+  }, [ownMatchIds, entries, setFocusIdx, virtualizer]);
 
   const handleSelect = useCallback(
     (id: NodeId, shift: boolean, ctrl: boolean) => {
@@ -1178,6 +1233,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       indentSelection: handleIndentSelection,
       outdentSelection: handleOutdentSelection,
       selectMatches: handleSelectMatches,
+      stepMatch: handleStepMatch,
+      focusResults: handleFocusResults,
       expandAncestors: (nodeId: NodeId) => {
         setExpanded((prev) => {
           const next = new Set(prev);
@@ -1211,6 +1268,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       handleCollapseAll,
       handleCollapseOthers,
       handleRenameStart,
+      handleSelectMatches,
+      handleStepMatch,
+      handleFocusResults,
       state.document,
       entries,
       virtualizer,

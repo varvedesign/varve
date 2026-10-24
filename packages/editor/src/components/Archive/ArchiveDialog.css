@@ -527,16 +527,6 @@
 
 .archive-dialog__file-remove {
   margin-left: auto;
-  padding: var(--space-1);
-  background: none;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  border-radius: var(--radius-control-compact);
-}
-.archive-dialog__file-remove:hover {
-  background: var(--color-surface-sunken);
-  color: var(--color-text-primary);
 }
 
 /* ── Actions footer ───────────────────────────────────────────────── */

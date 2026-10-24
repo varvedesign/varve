@@ -21,14 +21,18 @@
   block-size: 100%;
   min-width: 0;
   min-height: 0;
-  scrollbar-width: thin;
   scrollbar-gutter: stable;
   overscroll-behavior: auto;
-  /* Firefox: thumb is transparent until data-overflow is set */
-  scrollbar-color: transparent transparent;
 }
-.varve-scroll-area[data-overflow] > .varve-scroll-area__viewport {
-  scrollbar-color: var(--color-border-strong) transparent;
+/* Firefox only (see scrollbar.css): thumb is transparent until data-overflow
+ * is set. WebKit/Chromium use the global ::-webkit-scrollbar skin. */
+@supports selector(:-moz-focusring) {
+  .varve-scroll-area__viewport {
+    scrollbar-color: transparent transparent;
+  }
+  .varve-scroll-area[data-overflow] > .varve-scroll-area__viewport {
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
 }
 
 /* ── Orientation overflow axes ───────────────────────────── */

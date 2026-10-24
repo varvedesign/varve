@@ -12,6 +12,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../../context';
+import { loadSettings } from '../../../settings';
 import { getViewProofState, resetViewProofState } from '../../viewProofState';
 import { DocumentPanel } from './DocumentPanel';
 
@@ -140,5 +141,42 @@ describe('DocumentPanel canvas view checks', () => {
     expect(getViewProofState()).toEqual({ grayscale: true, mirror: true });
     fireEvent.click(mirror);
     expect(getViewProofState()).toEqual({ grayscale: true, mirror: false });
+  });
+});
+
+describe('DocumentPanel snapping (F-25)', () => {
+  beforeEach(() => localStorage.clear());
+
+  function SnapProbe() {
+    const { state } = useEditor();
+    return <span data-testid="snap-state">{state.snapEnabled ? 'on' : 'off'}</span>;
+  }
+
+  it('offers one master switch and one "Snap to" group, and round-trips each setting', () => {
+    render(
+      <EditorProvider>
+        <DocumentPanel />
+        <SnapProbe />
+      </EditorProvider>,
+    );
+    const master = screen.getByRole('switch', { name: 'Magnetic snapping' });
+    const targets = screen.getByRole('group', { name: 'Snap to' });
+    const boxes = targets.querySelectorAll('input[type="checkbox"]');
+    expect(boxes).toHaveLength(3);
+    expect(screen.queryByRole('switch', { name: /Edges and centers|Page and frame/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Page and frame bounds' }));
+    expect(loadSettings().viewport.snapToPages).toBe(false);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Ruler and layout guides' }));
+    expect(loadSettings().viewport.snapToGuides).toBe(false);
+
+    const before = screen.getByTestId('snap-state').textContent;
+    fireEvent.click(master);
+    expect(screen.getByTestId('snap-state').textContent).not.toBe(before);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset snapping settings' }));
+    expect(loadSettings().viewport.snapToPages).toBe(true);
+    expect(loadSettings().viewport.snapToGuides).toBe(true);
+    expect(screen.getByRole('checkbox', { name: 'Page and frame bounds' })).toBeChecked();
   });
 });

@@ -1,11 +1,21 @@
-/* scrollbar.css — Token-styled scrollbars for native overflow regions.
+/* scrollbar.css — The one scrollbar skin.
  *
- * Apply .varve-scrollbar to any element with overflow: auto/scroll to get
- * consistent scrollbar appearance matching ScrollArea without changing the
- * element's role as a scroll root. This is for surfaces where wrapping in
- * ScrollArea would change the DOM structure (dialogs, panels, lists).
+ * Why this is split by engine: in WebKit (the WebKitGTK engine Tauri embeds on
+ * Linux, and WKWebView on macOS) and in Chromium, setting ANY standard
+ * scrollbar property (scrollbar-width, scrollbar-color) switches the element to
+ * the platform's native scrollbar and ignores ::-webkit-scrollbar. On Linux and
+ * macOS that native scrollbar is an overlay: it takes no layout space, so it
+ * floats over the last ~10px of content and scrollbar-gutter has nothing to
+ * reserve. Styling only ::-webkit-scrollbar gives a real 8px scrollbar that
+ * occupies its own track in every WebKit/Chromium build (measured in
+ * WebKitGTK: 8px vs 0px), which is what lets scrollbar-gutter and the panels'
+ * padding do their job. Firefox has no ::-webkit-scrollbar and its native
+ * scrollbars already take space, so it gets the standard properties.
  *
- * Usage: <div className="varve-scrollbar" style={{ overflowY: 'auto' }}>
+ * Do not add scrollbar-width or scrollbar-color to a component rule: the
+ * global rules below skin every scroll container, and one stray declaration
+ * turns that container back into an overlay scrollbar. `scrollbar-width: none`
+ * (hiding a toolbar's bar) is the only standard property components may set.
  *
  * Scrollbar states:
  *   - Firefox: thin scrollbar-color via CSS properties
@@ -13,23 +23,24 @@
  *   - forced-colors: system scrollbar colors
  */
 
-.varve-scrollbar {
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
-  scrollbar-gutter: stable;
+@supports selector(:-moz-focusring) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
 }
 
 /* WebKit / Chromium / legacy Edge */
-.varve-scrollbar::-webkit-scrollbar {
+::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.varve-scrollbar::-webkit-scrollbar-track {
+::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.varve-scrollbar::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb {
   min-height: 24px;
   min-width: 24px;
   background: var(--color-border-strong);
@@ -38,18 +49,23 @@
   background-clip: padding-box;
 }
 
-.varve-scrollbar::-webkit-scrollbar-thumb:hover {
+::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-subtle);
   background-clip: padding-box;
 }
 
-.varve-scrollbar::-webkit-scrollbar-thumb:active {
+::-webkit-scrollbar-thumb:active {
   background: var(--color-text-secondary);
   background-clip: padding-box;
 }
 
-.varve-scrollbar::-webkit-scrollbar-corner {
+::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* Kept as the opt-in for a region that needs the gutter reserved explicitly. */
+.varve-scrollbar {
+  scrollbar-gutter: stable;
 }
 
 /* Horizontal-only scrollbar regions get a thinner track */

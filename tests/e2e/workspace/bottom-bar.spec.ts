@@ -38,13 +38,16 @@ async function openCustomize(page: Page) {
 test.describe('bottom bar', () => {
   test.setTimeout(240_000);
 
-  test('every fact has exactly one owner across the two strips', async ({ page }) => {
+  test('one bottom row, and every fact in it has exactly one owner', async ({ page }) => {
     await navigateToEditor(page);
 
     const status = page.locator('.editor-status');
-    const selectionStrip = page.locator('.selection-info-bar');
+    // Selection identity leads the status row; it used to be a second strip
+    // stacked on it (shell audit 2026-10-21, F-04).
+    const selectionStrip = status.locator('.selection-info-bar');
     await expect(status).toBeVisible();
     await expect(selectionStrip).toBeVisible();
+    await expect(page.locator('.selection-info-bar')).toHaveCount(1);
 
     // 1. Nothing selected yet, so the fit cluster must not offer an action
     //    that cannot do anything.
@@ -85,10 +88,16 @@ test.describe('bottom bar', () => {
     expect(nodeName.trim().length).toBeGreaterThan(0);
     await expect(selectionStrip).toContainText(nodeName);
     // The status bar used to repeat the node name, a selection count, and a
-    // layer count derived differently from the strip above it.
-    await expect(status).not.toContainText(nodeName);
-    await expect(status).not.toContainText('selected');
-    await expect(status).not.toContainText('layers');
+    // layer count derived differently from the selection strip. No segment
+    // other than the selection one may carry them.
+    const outsideSelection = await status.evaluate((bar) => {
+      const copy = bar.cloneNode(true) as HTMLElement;
+      copy.querySelector('.selection-info-bar')?.remove();
+      return copy.textContent ?? '';
+    });
+    expect(outsideSelection).not.toContain(nodeName);
+    expect(outsideSelection).not.toContain('selected');
+    expect(outsideSelection).not.toContain('layers');
 
     // 7. …and with a selection, "Fit selection" appears.
     await expect(

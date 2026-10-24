@@ -163,11 +163,13 @@ test.describe('Shared multipage canvas (M5)', () => {
     // for the settled frame before sampling the backing canvas.
     await page.waitForTimeout(1200);
 
-    // The rect's fill must appear at the placed position on screen…
+    // The rect's fill (not white paper) must appear at the placed position on
+    // screen… Drawn shapes start neutral grey (F-28), so "not paper" means no
+    // channel near paper white rather than one channel far below it.
     const center = toScreen(250, 180 + 1224, cam);
     const pixel = await pixelAtCanvasRel(page, center.x, center.y);
     expect(
-      pixel && (pixel.r < 130 || pixel.g < 130 || pixel.b < 130),
+      pixel && Math.max(pixel.r, pixel.g, pixel.b) < 200,
       `page 2 fill at ${JSON.stringify(center)}: ${JSON.stringify(pixel)}`,
     ).toBe(true);
 

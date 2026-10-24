@@ -40,6 +40,7 @@ import {
 } from '@varve/scene';
 import { managedColorKey, managedColorToRgba } from '@varve/shared';
 import {
+  CloseButton,
   Icon,
   Menu,
   type MenuEntry,
@@ -1205,15 +1206,14 @@ function FillRow({
           </div>
         )}
         {canRemove && (
-          <button
+          <CloseButton
+            size="sm"
             type="button"
-            className="insp-inline-btn paint-stack__remove"
+            className="paint-stack__remove"
             onClick={onRemove}
             aria-label={`Remove ${label.toLowerCase()}`}
             title={`Remove ${label.toLowerCase()}`}
-          >
-            <Icon name="X" label={undefined} size="0.75em" />
-          </button>
+          />
         )}
         <button
           type="button"
@@ -1235,6 +1235,32 @@ function FillRow({
           size="compact"
         />
       </div>
+
+      {/* Fill type and opacity are the repeat-use properties. Blend mode is a
+          low-frequency per-paint override: it remains in the colour editor or
+          the row actions menu instead of repeating a long select in every row. */}
+      {showPropertiesLine && (
+        <div className="insp-fill-row__properties">
+          <div className="insp-paint-property insp-paint-property--type">
+            <span className="insp-paint-property__label">Fill type</span>
+            <Select
+              className="insp-paint-type-select"
+              label={`${label} type`}
+              value={typeIsMixed ? '' : fillType}
+              options={
+                typeIsMixed
+                  ? [{ value: '', label: 'Mixed', disabled: true }, ...fillTypeOptions]
+                  : fillTypeOptions
+              }
+              onChange={(value) => {
+                if (value) setFillType(value as FillType);
+              }}
+              placeholder="Mixed"
+            />
+          </div>
+          {opacityOnPropertiesLine && opacityField}
+        </div>
+      )}
 
       {fill.type === 'image' && fill.image && (
         <ImageFillControls
@@ -1324,32 +1350,6 @@ function FillRow({
             onImportTile={importPatternTile}
           />
         ))}
-
-      {/* Fill type and opacity are the repeat-use properties. Blend mode is a
-          low-frequency per-paint override: it remains in the colour editor or
-          the row actions menu instead of repeating a long select in every row. */}
-      {showPropertiesLine && (
-        <div className="insp-fill-row__properties">
-          <div className="insp-paint-property insp-paint-property--type">
-            <span className="insp-paint-property__label">Fill type</span>
-            <Select
-              className="insp-paint-type-select"
-              label={`${label} type`}
-              value={typeIsMixed ? '' : fillType}
-              options={
-                typeIsMixed
-                  ? [{ value: '', label: 'Mixed', disabled: true }, ...fillTypeOptions]
-                  : fillTypeOptions
-              }
-              onChange={(value) => {
-                if (value) setFillType(value as FillType);
-              }}
-              placeholder="Mixed"
-            />
-          </div>
-          {opacityOnPropertiesLine && opacityField}
-        </div>
-      )}
     </div>
   );
 }

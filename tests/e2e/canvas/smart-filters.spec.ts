@@ -859,7 +859,9 @@ test.describe('Object Filters — redesigned surface behaviour', () => {
     const studio = page.getByTestId('effect-studio-dialog');
     await expect(studio).toBeVisible({ timeout: 30000 });
     await studio.getByRole('searchbox', { name: 'Search treatments' }).fill('halftone pattern');
-    await studio.getByRole('button', { name: 'Apply Halftone Pattern' }).click();
+    // Choosing a tile previews it; Keep lands it (F-43).
+    await studio.getByRole('button', { name: 'Halftone Pattern', exact: true }).click();
+    await studio.getByRole('button', { name: 'Keep treatment', exact: true }).click();
     await studio.getByRole('button', { name: 'Close dialog' }).click();
     // The dialog element may stay mounted for state reuse; it must not remain
     // visible or interactive.
@@ -881,7 +883,9 @@ test.describe('Object Filters — redesigned surface behaviour', () => {
     const memberLine = page.locator('.smart-filters__treatment-member').first();
     await expect(memberLine).toContainText('recipe member');
     const before = await canvasFingerprint(page);
-    await page.locator('button.smart-filters__visibility').first().click();
+    // Toggle the Halftone member (second). Drawn shapes start neutral grey
+    // (F-28), and the first member, Black & White, leaves grey unchanged.
+    await page.locator('button.smart-filters__visibility').nth(1).click();
     await forceFullRedraw(page);
     await expect.poll(() => canvasFingerprint(page), { timeout: 15000 }).not.toBe(before);
     await expect(memberLine).toContainText('customized recipe');

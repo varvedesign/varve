@@ -65,6 +65,28 @@ function extractWords(name: string): string[] {
   return [...result];
 }
 
+const wordsByNode = new WeakMap<SceneNode, readonly string[]>();
+
+/**
+ * Whether one node matches a query by the index's own rule: every
+ * whitespace-separated term is a prefix of one of the node's name words or of
+ * its `kind:` word. The tree asks the index; the "n of m" count asks this, per
+ * node, so the two can no longer disagree (the count used a plain substring
+ * test: "ard" counted every "Card" while the tree showed nothing, F-51).
+ * Words are cached per node object, which the document replaces on change.
+ */
+export function nodeMatchesSearch(node: SceneNode, query: string): boolean {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return false;
+  let words = wordsByNode.get(node);
+  if (!words) {
+    words = [...extractWords(node.name), `kind:${node.kind}`];
+    wordsByNode.set(node, words);
+  }
+  const nodeWords = words;
+  return terms.every((term) => nodeWords.some((word) => word.startsWith(term)));
+}
+
 /** Search the index — returns matching node IDs ordered by relevance */
 export function searchIndex(index: LayerSearchIndex, query: string): NodeId[] {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);

@@ -53,7 +53,7 @@ import { PresentationNavigator } from '../Presentation/PresentationNavigator';
 import { CREATE_PRESENTATION_FROM_SELECTION_EVENT } from '../Presentation/presentationCommands';
 import { LayerBulkBar } from './LayerBulkBar';
 import { LayerDetailsPopover } from './LayerDetailsPopover';
-import { LayerFilterBar } from './LayerFilterBar';
+import { focusLayerSearchOnFind, LayerFilterBar } from './LayerFilterBar';
 import { buildLayerContextMenuItems } from './layerContextMenu';
 
 export type { LayersDnDHandle } from './LayersTree';
@@ -137,6 +137,7 @@ function LayersPanelContent({
     'filterSpec',
     DEFAULT_FILTER,
   );
+  const filterSearchRef = useRef<HTMLInputElement | null>(null);
   const [thumbnailPreference, setThumbnailPreference] = usePanelLocalState<'images' | 'off'>(
     'layers',
     'thumbnailPreference',
@@ -744,7 +745,12 @@ function LayersPanelContent({
     state.selection.length === 1 && detailsTargetId === state.selection[0];
 
   return (
-    <div ref={panelRootRef} className="editor-layers layers-panel__content">
+    // biome-ignore lint/a11y/noStaticElementInteractions: delegated Ctrl/Cmd+F from the panel's own controls; the container is not itself interactive.
+    <div
+      ref={panelRootRef}
+      className="editor-layers layers-panel__content"
+      onKeyDown={(event) => focusLayerSearchOnFind(event, filterSearchRef.current)}
+    >
       <PanelDragHandle
         panelTypeId="layers"
         panelInstanceId="layers-primary"
@@ -814,23 +820,9 @@ function LayersPanelContent({
                   size="rich"
                 />
               )}
-              <Tooltip
-                label={
-                  layerSettings.autoReveal
-                    ? 'Disable auto-reveal in Layers panel'
-                    : 'Enable auto-reveal in Layers panel'
-                }
-              >
-                <button
-                  type="button"
-                  className={`layers-panel__header-btn ${layerSettings.autoReveal ? 'layers-panel__header-btn--active' : ''}`}
-                  onClick={() => updateLayerSettings({ autoReveal: !layerSettings.autoReveal })}
-                  aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
-                  aria-pressed={layerSettings.autoReveal}
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
-                </button>
-              </Tooltip>
+              {/* Auto-reveal is the "Reveal canvas selection in Layers panel"
+                  item of the settings menu above; the header no longer
+                  repeats it as a second eye-shaped toggle (TC-18, F-27). */}
               <Tooltip label="Collapse all layers">
                 <button
                   type="button"
@@ -870,6 +862,7 @@ function LayersPanelContent({
       )}
 
       <LayerFilterBar
+        ref={filterSearchRef}
         filter={filterSpec}
         onChange={setFilterSpec}
         matchCount={matchCount}
@@ -877,6 +870,8 @@ function LayersPanelContent({
         quickFilters={layersPanelConfig.quickFilters}
         searchPlaceholder={layersPanelConfig.searchPlaceholder}
         onSelectMatches={() => dndRef?.current?.selectMatches()}
+        onStepMatch={(direction) => dndRef?.current?.stepMatch(direction)}
+        onFocusResults={() => dndRef?.current?.focusResults()}
       />
 
       <LayersTree

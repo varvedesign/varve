@@ -18,13 +18,13 @@ test.describe('Layers Panel - Drag & Drop', () => {
     expect(count).toBeGreaterThanOrEqual(0);
   });
 
-  test('drag handle is present on tree rows', async ({ page }) => {
+  test('the type icon is the reorder handle and the row has no separate grip', async ({ page }) => {
     await seedLayers(page, 1);
-    const items = page.getByRole('treeitem');
-    const count = await items.count();
-    if (count >= 1) {
-      await expect(items.first().locator('[class*="drag-handle"]')).toBeVisible();
-    }
+    const row = page.getByRole('treeitem').first();
+    const icon = row.locator('.layers-row__icon-area');
+    await expect(icon).toBeVisible();
+    await expect(icon).toHaveCSS('cursor', 'grab');
+    await expect(row.locator('.layers-row__drag-handle')).toHaveCount(0);
   });
 
   test('keyboard reorder moves selected row (Ctrl+[ / Ctrl+])', async ({ page }) => {
@@ -69,7 +69,7 @@ test.describe('Layers Panel - Drag & Drop', () => {
     const before = await rows.allTextContents();
     const source = rows.nth(1);
     const target = rows.nth(0);
-    const sourceHandle = source.locator('.layers-row__drag-handle');
+    const sourceHandle = source.locator('.layers-row__icon-area');
     const sourceId = await source.getAttribute('data-node-id');
     const targetId = await target.getAttribute('data-node-id');
     expect(sourceId).toBeTruthy();

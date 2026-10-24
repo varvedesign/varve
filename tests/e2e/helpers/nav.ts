@@ -19,14 +19,12 @@ export async function dismissFirstRunOverlayIfPresent(
     FIRST_RUN_OVERLAY_FORCE_KEY,
   );
   if (forced) return 'forced';
-  const close = overlay.getByRole('button', { name: 'Close' });
+  // The start panel is a modal Dialog: its header Close button, or Escape.
+  const close = overlay.getByRole('button', { name: 'Close dialog' });
   if (await close.isVisible({ timeout: 1000 }).catch(() => false)) {
     await close.click({ timeout: 5000 });
   } else {
-    await overlay
-      .locator('.first-run-backdrop')
-      .click({ timeout: 5000 })
-      .catch(() => undefined);
+    await page.keyboard.press('Escape');
   }
   await overlay.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined);
   return 'dismissed';

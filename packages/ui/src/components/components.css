@@ -284,6 +284,10 @@
 .varve-btn--sm {
   min-block-size: var(--component-compact-height);
   min-inline-size: var(--component-compact-height);
+  /* The base button's vertical padding stacked on the line height and made
+   * this "28px" size render 31px; the minimum block size already centres the
+   * label (inline-flex, align-items: center). */
+  padding-block: 0;
   padding-inline: var(--component-compact-padding-inline);
   font-size: var(--type-interface-caption-size);
 }
@@ -428,7 +432,9 @@
 .varve-close--sm {
   inline-size: var(--component-xs-height);
   block-size: var(--component-xs-height);
-  --varve-close-glyph: var(--icon-size-xs);
+  /* 16px glyph in the 24px target. The old 12px glyph was the "X is too small
+     to identify" report; the target already has the room. */
+  --varve-close-glyph: var(--icon-size-sm);
 }
 .varve-close--md {
   inline-size: var(--component-default-height);
@@ -439,7 +445,7 @@
   min-inline-size: var(--touch-target-min);
   min-block-size: var(--touch-target-min);
   border-radius: var(--radius-control);
-  --varve-close-glyph: var(--icon-size-sm);
+  --varve-close-glyph: var(--icon-size-md);
 }
 .varve-close__glyph {
   inline-size: var(--varve-close-glyph, var(--icon-size-sm));
@@ -683,8 +689,6 @@
   padding: var(--space-dialog);
   min-height: 0;
   overflow-y: auto;
-  scrollbar-color: var(--color-border-strong) transparent;
-  scrollbar-width: thin;
 }
 .varve-dialog__footer {
   display: flex;
@@ -756,11 +760,19 @@
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-surface);
-  box-shadow: var(--elevation-shadow-overlay);
+  /* Opens over raised panels of the same fill; the lit top edge and overlay
+   * shadow carry the separation. */
+  box-shadow: var(--elevation-edge-highlight), var(--elevation-shadow-overlay);
   color: var(--color-text-primary);
 }
+/* Default menus fit their longest command on one line, from the default
+ * width up to --menu-max-width; past that, or the viewport, labels wrap as a
+ * last resort. A fixed 15rem wrapped six of seventeen canvas context-menu
+ * commands onto two or three lines (shell audit 2026-10-21, F-07). */
 .varve-menu--default {
-  width: var(--menu-default-width);
+  width: max-content;
+  min-width: min(var(--menu-default-width), calc(100vw - (var(--menu-viewport-gutter) * 2)));
+  max-width: min(var(--menu-max-width), calc(100vw - (var(--menu-viewport-gutter) * 2)));
 }
 .varve-menu--rich {
   width: var(--menu-rich-width);
@@ -795,13 +807,22 @@
   background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
 }
-.varve-menu__item:focus-visible {
+/* Keyboard focus carries the fill and the ring. A menu driven by the pointer
+ * moves focus with the pointer, so there the hover tint is the indicator;
+ * otherwise a right-click after any shortcut drew the keyboard ring on the
+ * row under the pointer (F-46; the menu sets data-input-modality). */
+.varve-menu:not([data-input-modality="pointer"]) .varve-menu__item:focus-visible {
   background: var(--color-interactive-selected-surface);
   color: var(--color-interactive-selected-foreground);
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
-.varve-menu__item--current {
+/* The roving current item follows keyboard focus and the pointer, and a menu
+ * opened by pointer also starts with its first item current. Filling that
+ * item made it read as a choice already made (shell audit 2026-10-22, F-46),
+ * so the fill comes from keyboard focus (above), hover, checked state, or an
+ * open submenu, which keeps the trail back to its parent row. */
+.varve-menu__item[aria-expanded="true"] {
   background: var(--color-interactive-selected-surface);
   color: var(--color-interactive-selected-foreground);
 }
@@ -813,14 +834,16 @@
   background: var(--color-interactive-selected-surface-hover);
   color: var(--color-interactive-selected-foreground);
 }
+/* Destructive labels are text, so they take the text-safe danger token (AA on
+ * every surface tier). `feedback-danger` is a graphic token guarded at 3:1 and
+ * measured 3.63:1 here (tests/unit/menu-text-contrast.test.ts). */
 .varve-menu__item--destructive {
-  color: var(--color-feedback-danger);
+  color: var(--color-text-danger);
 }
 .varve-menu__item--destructive:hover,
-.varve-menu__item--destructive:focus-visible,
-.varve-menu__item--destructive.varve-menu__item--current {
+.varve-menu:not([data-input-modality="pointer"]) .varve-menu__item--destructive:focus-visible {
   background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
-  color: var(--color-feedback-danger);
+  color: var(--color-text-danger);
 }
 .varve-menu__item:disabled,
 .varve-menu__item[aria-disabled="true"] {
@@ -943,6 +966,21 @@
   justify-content: center;
 }
 
+/* On a selected row the muted ink measured 4.33:1; secondary text takes the
+ * row's selected foreground instead, whose pair is guarded at AA. */
+.varve-menu__item[aria-expanded="true"] .varve-menu__shortcut,
+.varve-menu__item[aria-expanded="true"] .varve-menu__submenu-arrow,
+.varve-menu:not([data-input-modality="pointer"])
+  .varve-menu__item:focus-visible
+  .varve-menu__shortcut,
+.varve-menu:not([data-input-modality="pointer"])
+  .varve-menu__item:focus-visible
+  .varve-menu__submenu-arrow,
+.varve-menu__item[aria-checked="true"] .varve-menu__shortcut,
+.varve-menu__item[aria-checked="true"] .varve-menu__submenu-arrow {
+  color: inherit;
+}
+
 .varve-menu__label {
   padding: var(--space-2) var(--space-3) var(--space-1);
   color: var(--color-text-secondary);
@@ -988,17 +1026,22 @@
 }
 .varve-search__icon {
   position: absolute;
-  left: var(--space-2);
+  inset-inline-start: var(--space-2);
   color: var(--color-text-muted);
   pointer-events: none;
-  width: 1em;
-  height: 1em;
+  inline-size: var(--icon-size-sm);
+  block-size: var(--icon-size-sm);
 }
 .varve-search__input {
   width: 100%;
   min-block-size: var(--component-compact-height);
   box-sizing: border-box;
-  padding: 0 var(--space-2) 0 var(--space-7);
+  /* Start inset + icon + one gap: it was a fixed --space-7 (32-42px), which left
+     a wide dead gap between the icon and the text. The end inset clears the
+     24px clear button. */
+  padding-block: 0;
+  padding-inline-start: calc(var(--space-2) + var(--icon-size-sm) + var(--space-2));
+  padding-inline-end: calc(var(--target-min-compact) + var(--space-1));
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
@@ -1018,25 +1061,6 @@
 .varve-search__clear {
   position: absolute;
   right: var(--space-1);
-  /* WCAG 2.2 SC 2.5.8: the glyph stays small, the activation area is 24x24.
-   * The button is absolutely positioned, so this does not affect the field's
-   * layout height. */
-  width: var(--target-min-compact);
-  height: var(--target-min-compact);
-  min-width: var(--target-min-compact);
-  min-height: var(--target-min-compact);
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-text-muted);
-  padding: 0;
-  border-radius: var(--radius-control-compact);
-  display: flex;
-}
-.varve-search__clear:hover {
-  color: var(--color-text-primary);
 }
 /* U18 (2026-08-10): themed focus ring for the search clear button. */
 .varve-search__clear:focus-visible {
@@ -1236,6 +1260,20 @@
   display: flex;
   gap: var(--space-2);
   margin-top: var(--space-2);
+}
+
+/* InfoHint: an (i) trigger beside a label, explanation in a popover. The
+ * body is reading text at a comfortable measure. */
+.varve-info-hint {
+  color: var(--color-text-muted);
+  flex: 0 0 auto;
+}
+.varve-info-hint__body {
+  max-inline-size: 32ch;
+  font-family: var(--type-content-body-family);
+  font-size: var(--type-interface-caption-size);
+  line-height: var(--font-line-normal);
+  color: var(--color-text-secondary);
 }
 
 .varve-popover {
@@ -1458,6 +1496,9 @@
   position: relative;
   align-items: center;
   gap: var(--space-2);
+  /* The box is drawn at icon size; the label row is the pointer target, so it
+     keeps the 24px minimum even though the visible box is smaller. */
+  min-block-size: var(--target-min-compact);
   cursor: pointer;
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
@@ -1479,24 +1520,32 @@
 .varve-checkbox__box {
   position: relative;
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: var(--color-surface-raised);
+  box-sizing: border-box;
+  inline-size: var(--icon-size-sm);
+  block-size: var(--icon-size-sm);
+  background: var(--color-surface-default);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-control-compact);
   transition:
     background var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
 }
-.varve-checkbox__input:checked + .varve-checkbox__box {
-  background: var(--color-interactive-default);
-  border-color: var(--color-interactive-default);
+.varve-checkbox:hover .varve-checkbox__input:not(:disabled, :checked) + .varve-checkbox__box {
+  border-color: var(--color-text-subtle);
 }
+.varve-checkbox__input:checked + .varve-checkbox__box,
 .varve-checkbox__input[data-indeterminate="true"] + .varve-checkbox__box {
   background: var(--color-interactive-default);
   border-color: var(--color-interactive-default);
+}
+.varve-checkbox:hover .varve-checkbox__input:checked:not(:disabled) + .varve-checkbox__box,
+.varve-checkbox:hover
+  .varve-checkbox__input[data-indeterminate="true"]:not(:disabled)
+  + .varve-checkbox__box {
+  background: var(--color-interactive-hover);
+  border-color: var(--color-interactive-hover);
 }
 .varve-checkbox__input:focus-visible + .varve-checkbox__box {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -1509,7 +1558,14 @@
 .varve-checkbox__check,
 .varve-checkbox__indeterminate {
   position: absolute;
-  color: var(--color-text-on-accent);
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  fill: none;
+  stroke: var(--color-text-on-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   opacity: 0;
   transform: scale(0.8);
   transition:
@@ -1526,6 +1582,20 @@
   opacity: 1;
   transform: scale(1);
 }
+@media (forced-colors: active) {
+  .varve-checkbox__box {
+    border-color: ButtonText;
+  }
+  .varve-checkbox__input:checked + .varve-checkbox__box,
+  .varve-checkbox__input[data-indeterminate="true"] + .varve-checkbox__box {
+    background: Highlight;
+    border-color: Highlight;
+  }
+  .varve-checkbox__check,
+  .varve-checkbox__indeterminate {
+    stroke: HighlightText;
+  }
+}
 .varve-checkbox__label {
   user-select: none;
 }
@@ -1534,14 +1604,14 @@
   font-size: var(--font-size-xs);
   line-height: var(--font-line-label);
   color: var(--color-text-muted);
-  margin-left: calc(var(--component-compact-height) + var(--space-1));
+  margin-left: calc(var(--icon-size-sm) + var(--space-2));
 }
 .varve-checkbox__error {
   display: block;
   font-size: var(--font-size-xs);
   line-height: var(--font-line-label);
   color: var(--color-feedback-danger);
-  margin-left: calc(var(--component-compact-height) + var(--space-1));
+  margin-left: calc(var(--icon-size-sm) + var(--space-2));
 }
 
 .varve-tabs {
@@ -1554,7 +1624,6 @@
   display: flex;
   min-inline-size: 0;
   overflow-x: auto;
-  scrollbar-width: thin;
   border-bottom: 1px solid var(--color-border-subtle);
 }
 .varve-tab {
@@ -2008,36 +2077,7 @@
 }
 
 .varve-toast__close {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  background: none;
-  border: none;
-  border-radius: var(--radius-control-compact);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: var(--font-size-lg);
-  line-height: 1;
-  padding: 0;
   margin: -4px -4px 0 0;
-  transition:
-    background var(--duration-quick) var(--ease-standard),
-    color var(--duration-quick) var(--ease-standard);
-}
-
-.varve-toast__close:hover {
-  background: var(--color-surface-sunken);
-  color: var(--color-text-primary);
-}
-
-.varve-toast__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
 }
 
 .varve-toast--exiting {
