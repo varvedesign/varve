@@ -200,9 +200,106 @@ test/CSS/feature commits were never exercised by a complete E2E pass because
 CI has been unavailable. Evidence: `master-check.*`, `classify-repair.*`,
 `drag-probe.*`, `fixed-pair.*` receipts.
 
-**Running:** the complete `tests/e2e/layers` browser pass (28 files) on the
-final tree — `all-layers-e2e.*` — covering the repaired lane end-to-end plus
-every master-owned Layers spec against the merged behavior.
+Full-directory result (`all-layers-e2e.*`): **28 passed / 3 failed** —
+including the repaired real-world lane (all 14 green) and this branch's whole
+new suite; the three failures are all in master-owned, never-fully-run specs:
+
+- `context-menu.spec` scrollbar `'thin'` assertion — stale against master's
+  own `570ffa383` (retired `scrollbar-width` on WebKit/Chromium). Fixed to
+  measure the real ::-webkit-scrollbar track; committed in `74ae1913c`.
+- `effect-stack-transfer.spec` ×2 — **resolved after root-cause** (below);
+  verified green.
+
+**Classification receipts:** `verify-contextmenu.*` (my scrollbar fix, exit 0),
+`effect-classify-repair.*` and `master-check-effect.*` (both trees failed
+identically at activation → pre-existing shared defect, not branch-introduced).
+
+### Effect-stack transfer — root cause and fix (pre-existing on master)
+
+The badge drag never activated: probes (`effect-probe*.log`) showed the press
+point resolved to the **visibility toggle**, not the badge, so the badge's
+dnd-kit handler and `handleDragStart` never ran (`badgeProbe: null`,
+`dragStartProbe: null`, no overlay, no page errors). The wiring itself was
+sound — `Tooltip`'s `composeHandlers` runs the badge handler first and its
+`stopPropagation` cleanly suppresses Tooltip's own handler; `DesktopPointerSensor`
+declines only touch.
+
+The cause is master's **name-room design** (`8e27ed4a9`): an idle fine-pointer
+row collapses its default-state toggles, and they expand to 24px on hover,
+shifting the badge ~57px left (geometry: badge `x=137`, press point landed on
+toggle `x=194`; `hovered: true`). The spec measured `badge.boundingBox()` while
+idle, then `mouse.move` to that point triggered the reveal, moving the badge
+out from under the stale coordinate. Master's own change broke this older spec,
+and it never failed visibly before because the tests failed at activation
+earlier (CI unavailable), so the later snapshot line was never reached.
+
+Fixed in `dragEffectStack`: hover the badge and settle first, then measure;
+additionally re-verify via `elementFromPoint` that the measured center is the
+badge before pressing. This is the same measure-after-hover-settle guard that
+fixed the touch suite. The drag then activates fully — overlay shows
+`Copy`/`Append`, the target gets `layers-row--effect-stack-drop`, and the
+`Replace/Append <Stack>` label appears.
+
+That advance exposed **stale `toHaveScreenshot` baselines** (expected 592px, got
+620px): master's intentional tree-height (`0cb323090`) + 13px text scale
+(`4bdd70eb6`) grew the panel, and since activation was always broken the
+snapshot line never regenerated. Regenerated 3 baselines at 620px and
+**inspected them**: correct mid-drag state (source selected with hover-revealed
+toggles + badge, target with orange drop indicator, `Copy 1 Object Filter`
+overlay). `effect-stack-transfer.spec` now **6/6 green** (`effect-regen.*`,
+`effect-verify.*`, exit 0).
+
+### Full-directory run surfaced three more pre-existing/master-owned failures
+
+An unfiltered full-directory pass (`all-layers-e2e-2.*`) ran **160 passed /
+3 failed** (earlier `--max-failures=3` runs had stopped at the context-menu/
+effect-stack failures, so `layer-workflows` and `layers-search` never ran).
+All three were classified against the master-check worktree — **all pass on
+master** — then diagnosed and fixed:
+
+1. **`layer-workflows` reorder (`Control+[` expected forward)** — the Layers
+   tree intercepts `Ctrl+[`/`Ctrl+]`. Master's tree had the two **reversed**
+   (`[` → front-most), contradicting its own global registry
+   (`bringForward: Ctrl+]`, `sendBackward: Ctrl+[` — `ShortcutManager.ts:192-193`)
+   and the Arrange menu. This branch **aligned the tree to the registry**
+   (recorded earlier as a fix: "the previous branch had the two keys
+   reversed"). `layers-dnd.spec` + `layers.spec` (both green) already encode
+   `]`=forward / `[`=backward; `layer-workflows` was the lone stale spec
+   using `[` for forward. **Fixed the test to `Control+]`** (the real Bring
+   Forward binding). Verified green (`fix3-verify.log` #4).
+2. **`layer-workflows` inherited-lock name** — this branch added ancestor
+   naming (`lockingAncestorName` → "locked by Group"), an a11y improvement
+   mirroring inherited-visibility naming; master only ever said the generic
+   "locked by an ancestor". **Test regex widened to
+   `/locked by (an ancestor|Group)/i`.** Verified green (#6).
+3. **`layers-search` `'ard'` fragment** — master's `96b28bc5c` test hardcodes
+   the **prefix** rule (mid-word fragment → 0 rows, F-51); this branch's
+   approved **substring** contract makes `'ard'` match every "Card" name (the
+   fixture is all `Card N …`, so all 320 match — count `320 of 320`). Same
+   prefix-vs-substring conflict already resolved in `layerFilterTypes.test.ts`
+   at the unit level. **Test rewritten to assert substring** (parse leading
+   count > 0 for `'ard'`, `^0 of` for an absent fragment — the old
+   `.not.toContain('0 of')` false-positived on `"320 of"`). Verified green
+   (`search-fix.*`, exit 0).
+
+The `layers-search` latency test (~320 layers, median < 100 ms) failed once at
+118 ms under load but is **green in both the full run and the isolated re-run**
+(`search-fix.*` #4) — load-dependent flakiness, not a regression.
+
+**Remaining:** merge latest master (advanced again to `6eca219c8`, an
+Inspector-pass merge whose overlap with this branch is compatible polish:
+`getByLabel`→`getByTestId` in `layers-drag-drop.spec`, `layers.css`
+text-scale/padding/overscroll, `DESIGN.md` additions — no icon-handle
+collision), run **one** full-directory pass on that final tree, recapture
+product imagery on the merged UI (master's 13px text scale and responsive
+filter bar changed the captured surface since the first promotion), commit,
+integrate (FF master in the shared checkout — its dirty set is now
+untracked-only with empty overlap), and remove integrated worktrees.
+
+Also restored `pnpm-lock.yaml` after an environment-driven rewrite: another
+agent's untracked `packages/automation` exists only in the shared checkout, so
+a pnpm run in this worktree dropped its importer entry — committing that would
+have damaged their work.
 
 ### Product imagery — captured, inspected, promoted
 

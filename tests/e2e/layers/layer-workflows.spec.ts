@@ -246,10 +246,10 @@ test.describe('layer workflows', () => {
     expect(firstName).toBeTruthy();
     expect(secondName).toBeTruthy();
 
-    // Select the second item and move it up (in front of the first).
+    // Select the second item and move it forward (in front of the first).
     await items.nth(1).click();
     await page.waitForTimeout(100);
-    await page.keyboard.press('Control+['); // Bring forward
+    await page.keyboard.press('Control+]'); // Bring Forward (the Arrange/global binding)
 
     await page.waitForTimeout(300);
 
@@ -365,7 +365,12 @@ test.describe('layer workflows', () => {
       .filter({ hasText: /Rectangle/ })
       .first();
     await expect(child).toHaveClass(/layers-row--locked/);
-    await expect(child.getByRole('button', { name: /locked by an ancestor/i })).toBeVisible();
+    // The child's lock control names the inherited lock: it reports the
+    // locking ancestor ("Group") when known, falling back to the generic
+    // "an ancestor" — either way it reads as inherited, not the child's own.
+    await expect(
+      child.getByRole('button', { name: /locked by (an ancestor|Group)/i }),
+    ).toBeVisible();
     await expect(group.getByRole('button', { name: /unlock group/i })).toBeVisible();
     await page.getByTestId('layers-panel').screenshot({ path: SHOT('inherited-lock-state') });
 

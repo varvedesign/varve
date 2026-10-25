@@ -73,13 +73,20 @@ async function dragEffectStack(
 ): Promise<void> {
   const badge = source.locator(`[data-effect-stack-kind="${kind}"]`);
   await expect(badge).toBeVisible();
+  // Name-room (D-3): an idle fine-pointer row collapses its default-state
+  // toggles, and they expand to full size on hover — shifting the badge left
+  // (~57px observed). Measuring while idle and then moving to that point
+  // triggers the reveal, so the press lands on the toggle that expanded into
+  // it and the badge's drag never activates. Hover first, let the reveal
+  // settle, then measure the badge where it actually lives.
+  await badge.hover();
+  await page.waitForTimeout(250);
   // At this fixed viewport, the target can be partly clipped by the Layers
   // rail. scrollIntoViewIfNeeded scrolls the whole rail and changes the
   // canonical hover screenshot, so verify the actual drop point is hit-testable
   // instead of moving the panel just to satisfy a full-visibility assertion.
-  const sourceBox = await badge.boundingBox();
   const targetBox = await target.boundingBox();
-  if (!sourceBox || !targetBox) throw new Error('effect stack drag geometry is unavailable');
+  if (!targetBox) throw new Error('effect stack drag geometry is unavailable');
   const targetCenterHit = await target.evaluate((row) => {
     const rect = row.getBoundingClientRect();
     const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
@@ -87,10 +94,27 @@ async function dragEffectStack(
   });
   expect(targetCenterHit, 'target row center must be a reachable drop point').toBe(true);
 
+  // Measure only once hovering is settled, and confirm the measured center is
+  // genuinely the badge (not a toggle or neighbour that hover revealed).
+  const sourceBox = await badge.boundingBox();
+  if (!sourceBox) throw new Error('effect stack drag geometry is unavailable');
+  const startX = sourceBox.x + sourceBox.width / 2;
+  const startY = sourceBox.y + sourceBox.height / 2;
+  await badge.hover();
+  await page.waitForTimeout(120);
+  const badgeIsPressTarget = await badge.evaluate(
+    (el, { x, y }) => {
+      const hit = document.elementFromPoint(x, y);
+      return !!hit && (hit === el || el.contains(hit));
+    },
+    { x: startX, y: startY },
+  );
+  expect(badgeIsPressTarget, 'badge center must be the press target after hover settles').toBe(
+    true,
+  );
+
   if (mode === 'append' && modifierTiming === 'before-pickup') await page.keyboard.down('Alt');
   try {
-    const startX = sourceBox.x + sourceBox.width / 2;
-    const startY = sourceBox.y + sourceBox.height / 2;
     const targetX = targetBox.x + targetBox.width / 2;
     const targetY = targetBox.y + targetBox.height / 2;
     await page.mouse.move(startX, startY);

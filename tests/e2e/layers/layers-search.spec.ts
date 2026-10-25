@@ -124,11 +124,24 @@ test.describe('Layers search and filter', () => {
     await page.getByRole('button', { name: 'Select matches' }).click();
     await expect.poll(() => selectedRowNames(page)).toEqual(['Card 40 button']);
 
-    // The count follows the tree's matching rule (word prefixes): a mid-word
-    // fragment shows no rows and must not count hundreds of matches (F-51).
+    // The count follows the tree's matching rule (substrings): a mid-word
+    // fragment like 'ard' sits inside every "Card" name, so it matches all of
+    // them and the count reports a non-zero total — where the old prefix rule
+    // matched nothing. The tree and the count agree rather than diverging
+    // (F-51's parity goal: previously the tree prefix-matched while the count
+    // substring-matched). Parse the leading number rather than substring-
+    // matching '0 of', which "320 of" would false-positive on.
     await searchField(page).fill('ard');
+    const count = page.locator('.layers-filter-bar__count');
+    await expect
+      .poll(async () => Number.parseInt((await count.textContent()) ?? '', 10))
+      .toBeGreaterThan(0);
+    expect(await rows.count(), "'ard' matches Card rows under substring").toBeGreaterThan(0);
+
+    // A fragment in no name yields nothing, and the count agrees there too.
+    await searchField(page).fill('zzqjx');
     await expect(rows).toHaveCount(0);
-    await expect(page.locator('.layers-filter-bar__count')).toContainText('0 of');
+    await expect(count).toHaveText(/^0 of/);
   });
 
   test('filter options are one floating menu and active filters are removable tokens', async ({
