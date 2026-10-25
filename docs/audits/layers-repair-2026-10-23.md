@@ -286,15 +286,43 @@ The `layers-search` latency test (~320 layers, median < 100 ms) failed once at
 118 ms under load but is **green in both the full run and the isolated re-run**
 (`search-fix.*` #4) — load-dependent flakiness, not a regression.
 
-**Remaining:** merge latest master (advanced again to `6eca219c8`, an
-Inspector-pass merge whose overlap with this branch is compatible polish:
-`getByLabel`→`getByTestId` in `layers-drag-drop.spec`, `layers.css`
-text-scale/padding/overscroll, `DESIGN.md` additions — no icon-handle
-collision), run **one** full-directory pass on that final tree, recapture
-product imagery on the merged UI (master's 13px text scale and responsive
-filter bar changed the captured surface since the first promotion), commit,
-integrate (FF master in the shared checkout — its dirty set is now
-untracked-only with empty overlap), and remove integrated worktrees.
+**Validation of the final merged tree — green.** Master advanced again to
+`6eca219c8` (an Inspector-pass merge); merged in as `dede4b943` (single
+conflict in `getting-started.astro`, resolved by keeping this branch's
+"Layers panel (left rail)" wording and master's inspector shortcut line; the
+other overlaps — `layers.css` text-scale, `layers-drag-drop.spec`
+`getByLabel`→`getByTestId`, `DESIGN.md` — auto-merged as compatible polish,
+no icon-handle collision). Post-merge:
+
+- **`pnpm verify:affected` → exit 0** (`affected-post-cache.*`): Tier 0
+  audits, typecheck:e2e/editor/desktop, `layerFilterTypes` +
+  `layerSearchIndex` units, full `js-unit:@varve/editor` + desktop, and the
+  effect-stack browser lane.
+- **Full-directory Layers pass → 164 passed / 0 failed, exit 0**
+  (`all-layers-definitive.*`) — all 28 spec files green together on the tree
+  that will be integrated.
+
+Two post-merge issues were found and fixed:
+
+1. **effect-stack snapshots stale again (×4)** — master's `layers.css`
+   text-scale/padding changes altered the panel after the first regeneration.
+   Regenerated on the merged tree and verified 6/6 (`effect-regen-merged.*`,
+   `effect-verify-merged.*`).
+2. **Search typing latency — a real regression this branch introduced.**
+   The merge unified the predicate on `matchesLayerSearch`, which recomputed
+   `extractWords` for *every* node on *every* keystroke — losing master's
+   WeakMap word cache. Classified against master under the same load (master
+   median **93**/pass vs this branch **139**/fail, `master-latency.*` vs
+   `latency-iso.*`), then fixed: `nodeMatchesSearch` now WeakMap-caches words
+   + normalized name per node (the scene model is immutable, so renames
+   recompute automatically) and both entry points share one `matchTerms` rule
+   so substring and prefix paths cannot drift. Latency dropped to **86**
+   (`latency-fixed.*`), matching master; 63 search/parity unit tests green.
+
+**Remaining:** product imagery recapture on the merged UI (running), commit
+(cache fix + regenerated snapshots + this checkpoint), integrate (FF master in
+the shared checkout — branch contains master; its dirty set is untracked-only
+with empty overlap), and remove integrated worktrees.
 
 Also restored `pnpm-lock.yaml` after an environment-driven rewrite: another
 agent's untracked `packages/automation` exists only in the shared checkout, so
