@@ -15,10 +15,16 @@ pub mod inference;
 #[cfg(feature = "ai")]
 pub mod model;
 #[cfg(feature = "ai")]
+mod modnet;
+#[cfg(feature = "ai")]
 pub mod runtime;
 
 #[cfg(feature = "ai")]
 pub mod session_pool;
+#[cfg(feature = "ai")]
+pub mod tensor_runtime;
+#[cfg(feature = "ai")]
+pub mod tensor_wire;
 #[cfg(feature = "ai")]
 pub mod webgpu_ep;
 
@@ -35,6 +41,9 @@ pub enum RemovalMethod {
     /// AI-powered removal using BiRefNet Lite (high quality).
     #[cfg(feature = "ai")]
     AiQuality,
+    /// Portrait-specific soft-alpha matting using MODNet.
+    #[cfg(feature = "ai")]
+    Portrait,
 }
 
 /// Options for background removal processing.
@@ -95,6 +104,8 @@ pub fn remove_background(
         RemovalMethod::AiBalanced => inference::remove_ai(img, opts, "isnet-general-use"),
         #[cfg(feature = "ai")]
         RemovalMethod::AiQuality => inference::remove_ai(img, opts, "birefnet-general-lite"),
+        #[cfg(feature = "ai")]
+        RemovalMethod::Portrait => inference::remove_ai(img, opts, "modnet-portrait"),
     }
 }
 

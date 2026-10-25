@@ -25,6 +25,7 @@ import {
 import type { ReactNode } from 'react';
 import { useCallback, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { useInspectorSectionSearch } from '../InspectorSectionSearch';
 import type { SectionId } from '../sectionRegistry';
 import { getSectionDefinition } from '../sectionRegistry';
 import { isSectionCollapsed, isSectionVisible, isSubSectionCollapsed } from '../sectionState';
@@ -160,13 +161,14 @@ function RegistryDisclosure({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const rootRef = useRef<HTMLElement>(null);
   const def = getSectionDefinition(sectionId);
+  const search = useInspectorSectionSearch(sectionId);
   const focusRestore = useDisclosureFocusRestore({
-    open: expanded,
+    open: search.forceExpanded || expanded,
     rootRef,
     triggerRef,
   });
 
-  if (!visible) return null;
+  if (!visible || !search.visible) return null;
 
   const summaryId = `${panelId}-summary`;
 
@@ -218,15 +220,17 @@ function RegistryDisclosure({
             ref={triggerRef}
             type="button"
             className="insp-disclosure__trigger"
-            aria-expanded={expanded}
+            aria-expanded={search.forceExpanded || expanded}
             /* The panel is unmounted while collapsed, so aria-controls only
                points at something that actually exists. */
-            aria-controls={expanded ? panelId : undefined}
+            aria-controls={search.forceExpanded || expanded ? panelId : undefined}
             aria-haspopup={def?.canHide ? 'menu' : undefined}
             /* The collapsed summary is the trigger's accessible description:
                announced after the name by screen readers without widening the
                name itself or leaking into text-content-based consumers. */
-            aria-describedby={!expanded && summary != null ? summaryId : undefined}
+            aria-describedby={
+              !search.forceExpanded && !expanded && summary != null ? summaryId : undefined
+            }
             onClick={handleToggle}
             onContextMenu={handleTriggerContextMenu}
             onKeyDown={handleTriggerKeyDown}
@@ -240,14 +244,14 @@ function RegistryDisclosure({
             <span>{title}</span>
           </button>
         </h3>
-        {!expanded && summary != null && (
+        {!search.forceExpanded && !expanded && summary != null && (
           <span id={summaryId} className="insp-disclosure__summary">
             {summary}
           </span>
         )}
         {action && <div className="insp-disclosure__action">{action}</div>}
       </div>
-      {expanded && (
+      {(search.forceExpanded || expanded) && (
         <fieldset className="insp-disclosure__content" id={panelId}>
           <legend className="sr-only">{title}</legend>
           {children}

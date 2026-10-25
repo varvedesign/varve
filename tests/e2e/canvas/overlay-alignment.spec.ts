@@ -103,12 +103,12 @@ test.describe('overlay alignment', () => {
     await page.waitForTimeout(200);
 
     // Verify resize handles are visible
-    const handles = page.locator('[aria-label*="resize handle"]');
+    const handles = page.locator('[data-testid*=\"resize handle\"]');
     const handleCount = await handles.count();
     expect(handleCount).toBeGreaterThanOrEqual(4); // at least 4 corner handles
 
     // Verify rotation handle is visible
-    const rotateHandle = page.locator('[aria-label="Rotate"]');
+    const rotateHandle = page.locator('[data-testid=\"Rotate\"]');
     await expect(rotateHandle).toBeVisible();
   });
 });

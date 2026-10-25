@@ -882,12 +882,14 @@ function IsometricGridSection() {
                 setActiveIsometricPlane(value === 'none' ? 'none' : (value as IsometricPlaneId))
               }
             />
+            <InfoHint topic="construction planes">
+              New shapes follow this plane; existing artwork is not transformed.
+            </InfoHint>
           </div>
         </div>
         <p className="insp-panel__color-mode-note" role="note">
           {ISOMETRIC_PLANES.find((plane) => plane.id === (grid.activePlaneId ?? 'top'))
-            ?.description ?? ''}{' '}
-          New shapes follow this plane; existing artwork is not transformed.
+            ?.description ?? ''}
         </p>
 
         <div className="insp-field">
@@ -1076,17 +1078,19 @@ function IsometricGridSection() {
           </>
         )}
 
-        <NumberField
-          label="Spacing (axis step)"
-          labelWrap
-          value={grid.spacing}
-          min={0.01}
-          max={100_000}
-          onChange={(v) => updateGrid({ spacing: v })}
-        />
-        <p className="insp-panel__color-mode-note" role="note">
-          Projected length of one step along each grid axis; line separations are derived from it.
-        </p>
+        <div className="insp-field-with-hint">
+          <NumberField
+            label="Spacing (axis step)"
+            labelWrap
+            value={grid.spacing}
+            min={0.01}
+            max={100_000}
+            onChange={(v) => updateGrid({ spacing: v })}
+          />
+          <InfoHint topic="axis step spacing">
+            Projected length of one step along each grid axis; line separations are derived from it.
+          </InfoHint>
+        </div>
         <NumberField
           label="Major line every"
           labelWrap
@@ -1117,11 +1121,11 @@ function IsometricGridSection() {
             >
               Reset origin
             </button>
+            <InfoHint topic="grid origin">
+              Grid origin only; rulers and artwork are unaffected.
+            </InfoHint>
           </div>
         </div>
-        <p className="insp-panel__color-mode-note" role="note">
-          Grid origin only; rulers and artwork are unaffected.
-        </p>
         <div className="insp-field">
           <span className="insp-field__label insp-field__label--wrap">Snap targets</span>
           <div className="insp-field__control insp-field__control--column">

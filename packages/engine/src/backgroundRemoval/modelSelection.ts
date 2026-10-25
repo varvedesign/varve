@@ -137,18 +137,31 @@ export async function resolveWebModelForOptions(
 /**
  * Native model for a request, or null when the native path must decline.
  *
- * The Rust bridge resolves its model from the *method*, so an explicit model
- * request may only use native execution when the requested model is exactly
- * the native model for that method. This keeps the no-substitution contract
- * without changing the native wire protocol.
+ * Keep this allowlist in step with the native IPC resolver. The bridge takes
+ * modelId and reports the model actually executed; selecting Full must not
+ * decline native execution or silently execute the method's Lite default.
  */
 export function nativeModelIdForOptions(options: {
   method: RemovalMethod;
   modelId?: WorkerModelId;
 }): WorkerModelId | null {
-  const native = preferredWorkerModelIdForMethod(options.method);
-  if (!options.modelId) return native;
-  return options.modelId === native ? native : null;
+  const requested = options.modelId ?? preferredWorkerModelIdForMethod(options.method);
+  if (options.method === 'ai-balanced') {
+    return requested === 'u2netp' ||
+      requested === 'u2netp-int8' ||
+      requested === 'isnet-general-use'
+      ? requested
+      : null;
+  }
+  if (options.method === 'ai-quality') {
+    return requested === 'birefnet-general-lite' || requested === 'birefnet-general'
+      ? requested
+      : null;
+  }
+  if (options.method === 'portrait') {
+    return requested === 'modnet-portrait' ? requested : null;
+  }
+  return null;
 }
 
 /**

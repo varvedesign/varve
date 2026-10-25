@@ -1018,7 +1018,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
             stroke="var(--color-canvas-selection)"
             strokeWidth={1.5}
             rx={1}
-            aria-label={HANDLE_LABELS[i]}
+            data-testid={HANDLE_LABELS[i]}
             pointerEvents="none"
           />
         </Fragment>
@@ -1092,7 +1092,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
                 fill="var(--color-canvas-handle-fill)"
                 stroke="var(--color-canvas-selection)"
                 strokeWidth={1.5}
-                aria-label="Rotate"
+                data-testid="Rotate"
                 pointerEvents="none"
               />
             </>
@@ -1121,7 +1121,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
             fill="var(--color-canvas-handle-fill)"
             stroke="var(--color-canvas-selection)"
             strokeWidth={1.5}
-            aria-label="Transform origin"
+            data-testid="Transform origin"
             pointerEvents="none"
           />
         </>
@@ -1198,7 +1198,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
                   stroke="var(--color-canvas-handle-fill)"
                   strokeWidth={1.5}
                   transform={`rotate(45, ${sx}, ${sy})`}
-                  aria-label={label}
+                  data-testid={label}
                   pointerEvents="none"
                 />
               </Fragment>
@@ -1236,7 +1236,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
                 stroke="var(--color-canvas-selection)"
                 strokeWidth={1.5}
                 transform={`rotate(45, ${sx}, ${sy})`}
-                aria-label="Corner radius handle"
+                data-testid="Corner radius handle"
                 pointerEvents="none"
               />
             </Fragment>
@@ -1265,7 +1265,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
                   fill="var(--color-canvas-handle-fill)"
                   stroke="var(--color-canvas-selection)"
                   strokeWidth={2}
-                  aria-label="Line start point"
+                  data-testid="Line start point"
                   pointerEvents="none"
                 />
               </Fragment>
@@ -1291,7 +1291,7 @@ export function SelectionOverlay({ canvasRef, transformPreviewStore }: Selection
                   fill="var(--color-canvas-selection)"
                   stroke="var(--color-canvas-handle-fill)"
                   strokeWidth={2}
-                  aria-label="Line end point"
+                  data-testid="Line end point"
                   pointerEvents="none"
                 />
               </Fragment>

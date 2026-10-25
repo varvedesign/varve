@@ -157,6 +157,11 @@ export {
   trimapFromMask,
   workerModelIdForMethod,
 } from './backgroundRemoval';
+export {
+  type BackgroundRemovalReadiness,
+  getBackgroundRemovalReadiness,
+} from './backgroundRemoval/modelReadiness';
+export type { WorkerModelId } from './backgroundRemoval/types';
 export * from './backup';
 export { cubicBezierPoint } from './bezier';
 export { applyBlackAndWhite, type BlackAndWhiteParams } from './blackAndWhite';
@@ -245,7 +250,11 @@ export { lineArtColorize } from './colorization/lineArt';
 export { colorizationPipeline, paletteColorize, validatePalette } from './colorization/pipeline';
 export { dispatchColorization, validateColorizationRequest } from './colorization/pipelineDispatch';
 export { selectiveRecolor } from './colorization/recolor';
-export { DD_COLOR_MODELS, resolveRuntime } from './colorization/runtimeResolver';
+export {
+  DD_COLOR_MODELS,
+  getDdColorModelCandidates,
+  resolveRuntime,
+} from './colorization/runtimeResolver';
 export { analyzeImageData, classifyTask } from './colorization/taskClassifier';
 export { colorTransferLab } from './colorization/transfer';
 export type {
@@ -975,7 +984,12 @@ export {
   validateMobileSamPrompts,
 } from './inference/models/mobileSam';
 export type { TextRegion } from './inference/models/paddleocr';
-export { decodeTextRegions, padToStride } from './inference/models/paddleocr';
+export {
+  decodePaddedTextRegions,
+  decodeTextRegions,
+  padTextDetectionImage,
+  padToStride,
+} from './inference/models/paddleocr';
 export type { PaddleRecInput, PaddleRecResult } from './inference/models/paddlerec';
 export { ctcDecode, packRecTensor } from './inference/models/paddlerec';
 export { decodeRifeOutput, RIFE_INPUT_SIZE } from './inference/models/rife';

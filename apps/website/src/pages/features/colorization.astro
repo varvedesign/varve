@@ -86,9 +86,11 @@ import { sitePath } from '../../lib/siteUrl';
           tint and recolor still work and no source image is uploaded as a fallback.
         </p>
         <p class="photo-note__small">
-          Varve records the official acquisition route, but the configured release assets are not
-          currently published. DDColor ONNX bytes still require independent integrity and visual
-          verification before this lane is advertised as ready. <a href={sitePath('/docs/tools/colorization')}>Read the readiness notes.</a>
+          The published Tiny and full artifacts have passed SHA-256 verification and native CPU
+          inference/reconstruction checks. A portrait review produced plausible colors with retained
+          detail. This is limited output evidence, not broad image-quality or cross-platform
+          qualification. Fast requires Tiny; Balanced and Quality require the full model.
+          <a href={sitePath('/docs/tools/colorization')}>Read the readiness notes.</a>
         </p>
       </section>
 

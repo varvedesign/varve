@@ -90,7 +90,9 @@ async function removeBackgroundViaCloud(
 export const cloudRemovalProvider: RemovalProvider = {
   id: 'cloud',
 
-  isAvailable: async (_options: BackgroundRemovalOptions): Promise<boolean> => {
+  isAvailable: async (options: BackgroundRemovalOptions): Promise<boolean> => {
+    // The cloud contract cannot select or attest a particular local artifact.
+    if (options.modelId) return false;
     // AI gating: Check if AI features are globally enabled before checking cloud config
     if (!getAiFeaturesEnabled()) return false;
     const config = loadCloudConfig();
@@ -103,6 +105,9 @@ export const cloudRemovalProvider: RemovalProvider = {
     options: BackgroundRemovalOptions,
     signal?: AbortSignal,
   ): Promise<BackgroundRemovalResult> {
+    if (options.modelId) {
+      throw new Error('Cloud inference cannot execute an explicitly selected local model');
+    }
     if (!getAiFeaturesEnabled()) {
       throw new Error('AI features are disabled');
     }

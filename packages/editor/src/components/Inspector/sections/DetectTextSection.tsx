@@ -4,10 +4,10 @@
  * as a first stage toward full OCR. Detection only — no text recognition.
  */
 import {
-  decodeTextRegions,
+  decodePaddedTextRegions,
   getInferenceWorkerHost,
   getModelLoader,
-  padToStride,
+  padTextDetectionImage,
 } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
@@ -125,13 +125,7 @@ export function DetectTextSection({ nodes }: { nodes: SceneNode[] }) {
       // The detector is fully convolutional (dynamic H/W) but its stride-32
       // downsampling needs input dimensions padded to a multiple of 32 for
       // correct upsampling back to full resolution (see paddleocr.ts).
-      const paddedW = padToStride(fullData.width);
-      const paddedH = padToStride(fullData.height);
-      const padCanvas = new OffscreenCanvas(paddedW, paddedH);
-      const padCtx = padCanvas.getContext('2d');
-      if (!padCtx) throw new Error('Canvas unavailable');
-      padCtx.putImageData(fullData, 0, 0);
-      const paddedData = padCtx.getImageData(0, 0, paddedW, paddedH);
+      const paddedData = padTextDetectionImage(fullData);
 
       const loader = getModelLoader();
       const modelPath = await loader.getModelPath(MODEL_ID, controller.signal);
@@ -157,7 +151,13 @@ export function DetectTextSection({ nodes }: { nodes: SceneNode[] }) {
       const mapH = output.dims[2] as number;
       const mapW = output.dims[3] as number;
 
-      const regions = decodeTextRegions(output.data, mapW, mapH, fullData.width, fullData.height);
+      const regions = decodePaddedTextRegions(
+        output.data,
+        mapW,
+        mapH,
+        fullData.width,
+        fullData.height,
+      );
 
       const canvas = document.createElement('canvas');
       canvas.width = fullData.width;

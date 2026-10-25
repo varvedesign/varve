@@ -1532,7 +1532,7 @@
     background var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
 }
-.varve-checkbox:hover .varve-checkbox__input:not(:disabled, :checked) + .varve-checkbox__box {
+.varve-checkbox:hover .varve-checkbox__input:not(:disabled):not(:checked) + .varve-checkbox__box {
   border-color: var(--color-text-subtle);
 }
 .varve-checkbox__input:checked + .varve-checkbox__box,

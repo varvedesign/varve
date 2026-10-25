@@ -4,15 +4,19 @@
  * resolution, on which provider, with what tiling strategy.
  *
  * The resolver stores user *intent* (quality mode), not a hardware-bound
- * model ID. The same document reopens correctly on a machine without the
- * specific model — the resolver picks the best available alternative and
- * the UI surfaces a clear message.
+ * model ID. Explicit modes require their matching installed model; only
+ * Automatic may select an alternative. A missing artifact names its recovery.
  *
  * Quality modes map to verified runtime differences:
- *   - fast:        tiny model, 256px max dim, CPU/WASM, no tiling
- *   - balanced:    default model, 512px max dim, any available provider
- *   - quality:     default model, 1024px max dim, GPU if available, tiled
- *   - automatic:   picks balanced or quality based on image size + hardware
+ *   - fast:        tiny model, 256px working image
+ *   - balanced:    default model, 512px working image
+ *   - quality:     default model, up to 1024px working image
+ *   - automatic:   prefers default, otherwise tiny
+ *
+ * Both graphs use their fixed square input. The dispatcher reconstructs chroma
+ * at the original source size with source luminance; it does not run tiles.
+ * Native/browser execution is owned by the shared inference host and returned
+ * provenance, not inferred from this resolution preference.
  */
 
 import type { ColorizationModelConfig, ImageStats, QualityMode, RuntimeResolution } from './types';
@@ -32,6 +36,14 @@ export const DD_COLOR_MODELS: Record<string, ColorizationModelConfig> = {
   },
 };
 
+/** Ordered candidates shared by installation checks and execution. Only
+ * Automatic accepts a different variant from the mode's explicit model. */
+export function getDdColorModelCandidates(qualityMode: QualityMode): readonly string[] {
+  if (qualityMode === 'fast') return ['ddcolor-tiny'];
+  if (qualityMode === 'automatic') return ['ddcolor', 'ddcolor-tiny'];
+  return ['ddcolor'];
+}
+
 export function resolveRuntime(
   workflow: string,
   qualityMode: QualityMode,
@@ -43,36 +55,31 @@ export function resolveRuntime(
   }
   const longest = Math.max(stats.width, stats.height);
   const hasDefault = installedModels.includes('ddcolor');
-  const hasTiny = installedModels.includes('ddcolor-tiny');
-  if (!hasDefault && !hasTiny) {
+  if (installedModels.length === 0) {
     throw new Error('No verified DDColor model is installed');
   }
 
-  let modelId: string;
+  const modelId = getDdColorModelCandidates(qualityMode).find((id) => installedModels.includes(id));
+  if (!modelId) {
+    throw new Error(
+      qualityMode === 'fast'
+        ? 'Fast requires DDColor Tiny. Download it in Settings > Offline Models, then retry.'
+        : 'This mode requires DDColor. Download it in Settings > Offline Models, then retry, or choose Fast for DDColor Tiny.',
+    );
+  }
   let maxDimension: number;
-  let tiled: boolean;
 
   switch (qualityMode) {
     case 'fast':
-      modelId = hasTiny ? 'ddcolor-tiny' : hasDefault ? 'ddcolor' : 'ddcolor';
       maxDimension = 256;
-      tiled = false;
       break;
     case 'quality':
-      modelId = hasDefault || !hasTiny ? 'ddcolor' : 'ddcolor-tiny';
-      maxDimension = 1024;
-      tiled = longest > 1024;
-      break;
     case 'balanced':
-      modelId = hasDefault || !hasTiny ? 'ddcolor' : 'ddcolor-tiny';
-      maxDimension = 512;
-      tiled = longest > 1536;
+      maxDimension = qualityMode === 'quality' ? 1024 : 512;
       break;
     default: {
       const preferQuality = longest <= 2048 && hasDefault;
-      modelId = hasDefault || !hasTiny ? 'ddcolor' : 'ddcolor-tiny';
       maxDimension = preferQuality ? 1024 : 512;
-      tiled = preferQuality && longest > 1024;
       break;
     }
   }
@@ -81,7 +88,7 @@ export function resolveRuntime(
     modelId,
     maxDimension,
     provider: selectProvider(modelId, qualityMode),
-    tiled,
+    tiled: false,
     tileSize: 512,
     tileOverlap: 64,
   };

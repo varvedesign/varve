@@ -133,6 +133,7 @@ export function TextDiscoveryPanel({
     });
     let unsubscribe: (() => void) | undefined;
     void getModelLoaderReady().then((loader) => {
+      if (cancelled) return;
       unsubscribe = loader.subscribe(() => {
         if (!cancelled) void refreshModelState();
       });

@@ -157,7 +157,11 @@ apps/desktop/public/ort-wasm/
 apps/desktop/public/wasm/
 
 # --- Fetched native ONNX Runtime shared libraries (scripts/fetch-onnxruntime.mjs) ---
-apps/desktop/src-tauri/onnxruntime-libs/
+# Written without a trailing slash so it also covers a worktree that points the
+# path at a symlink to the main checkout's fetched libs. Git never treats a
+# symlink as a directory, so a trailing-slash pattern alone leaves such a link
+# untracked, where it lands in `git status` and in the capture-source identity.
+apps/desktop/src-tauri/onnxruntime-libs
 
 # --- Render-perf raw run output (regenerated every run; .render-perf-baseline.json is the
 # committed, deliberately-updated artifact — see scripts/audit-render-perf.mjs) ---

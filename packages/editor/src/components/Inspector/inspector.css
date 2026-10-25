@@ -33,6 +33,25 @@
   letter-spacing: var(--tracking-wide);
 }
 
+/* Persistent local navigation for a long property stack. It deliberately
+ * follows the selected-node header so the user's current target remains the
+ * first thing they encounter, while filtering only the stack below. */
+.insp-section-search {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.insp-section-search__empty {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--type-interface-body-line-height);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+}
+
 /* Only the direct-child content pane scrolls; nested .insp-panel instances
  * (e.g. EmptySelectionState) are plain flex columns without scroll. */
 .editor-inspector > .insp-panel {
@@ -101,7 +120,7 @@
   align-items: center;
   gap: var(--space-1);
   padding-inline-start: var(--space-1);
-  padding-inline-end: var(--space-2);
+  padding-inline-end: var(--space-3);
   border-inline-start: 1px solid var(--color-border-subtle);
   align-self: stretch;
   flex-shrink: 0;
@@ -161,7 +180,9 @@
 }
 .insp-panel__tab-overflow {
   flex: 0 0 auto;
-  min-block-size: var(--component-large-height);
+  /* Same height as the tabs beside it: this one was 40px, so it set the whole
+     tab row's height while the tabs themselves were 32px. */
+  min-block-size: var(--component-default-height);
   padding: var(--space-1) var(--space-2);
   background: var(--elevation-surface-raised);
   border: 0;
@@ -1727,12 +1748,20 @@
   flex-direction: column;
   box-sizing: border-box;
   min-height: 0;
+  /* The dialog shell is height-capped, never scrolled: the header and the
+   * per-paint row must stay visible while the body scrolls. The cap comes
+   * from FloatingPortal's measured available height (`scrollOwner="content"`),
+   * falling back to the historical 560px when the portal is not measuring. */
+  max-height: var(--varve-floating-max-height, min(560px, 100vh - 1rem));
   gap: var(--space-2);
   padding: var(--space-3);
 }
 .insp-picker-dialog__body {
   min-height: 0;
-  max-height: calc(min(560px, 100vh - 1rem) - 5.5rem);
+  /* Sole scroll owner. A second scroller on the portal produced two
+   * scrollbars, and the outer one could scroll the title and blend row out of
+   * view. Flex sizing lets the body take exactly the height the shell has
+   * left instead of a magic subtraction. */
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
@@ -6105,6 +6134,16 @@ fieldset.insp-canvas-props,
   gap: var(--space-1);
 }
 
+.insp-field-with-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.insp-field-with-hint > .insp-field {
+  flex: 1 1 0;
+}
+
 .insp-field__control > .insp-field {
   min-width: 0;
   width: auto;
@@ -7229,7 +7268,11 @@ fieldset.insp-canvas-props,
    * a design decision with its own visual review, tracked separately.
    * See docs/architecture/interface-sizing-system.md -> "Typography roles". */
   --insp-label-size: var(--font-size-2xs);
-  --insp-value-size: clamp(0.75rem, calc(0.7255rem + 0.1087vw), 0.8125rem);
+  /* Stable rem per interface-sizing-system.md -> "Typography roles": interface
+   * chrome never changes text size because the window was resized; only
+   * display/marketing steps are fluid. This was a viewport-coupled clamp
+   * (12px-13px) although inspector-spec.md documents the value role as 13px. */
+  --insp-value-size: var(--font-size-xs);
   --insp-numeric-rail: 9ch;
   --insp-preview-max-inline-size: 20rem;
 }

@@ -12,7 +12,7 @@
 
 import { varveHostedReleaseUrl } from './hostedReleaseUrl';
 import { ModelRegistry } from './ModelRegistry';
-import { getInt8Variant, loadModelCatalog } from './manifest';
+import { getInt8Variant, loadModelCatalog, modelEntryForComponent } from './manifest';
 import type { ModelManifestEntry, ModelState } from './types';
 
 const FALLBACK_ENTRIES: ModelManifestEntry[] = [
@@ -708,8 +708,8 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'tr-ocr-base-printed',
     name: 'TrOCR (Printed Text)',
     description:
-      'Microsoft TrOCR-base-printed — OCR for printed Latin text in images, screenshots, and scanned documents. Two-component: vision encoder (344MB) + text decoder (INT8, 250MB). SHA-256 pinned from verified download via Xenova.',
-    sizeBytes: 594_000_000,
+      'Microsoft TrOCR-base-printed — OCR for printed Latin text. Requires the vision encoder, merged INT8 text decoder, and matching ByteLevel BPE tokenizer. SHA-256 pinned from verified downloads via Xenova.',
+    sizeBytes: 596_193_450,
     remoteUrl: '',
     checksum: '',
     bundled: false,
@@ -740,6 +740,15 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
         remoteUrl:
           'https://huggingface.co/Xenova/trocr-base-printed/resolve/main/onnx/decoder_model_merged_quantized.onnx',
         checksum: 'b5f7d6080d4b73256e3364a56e6fe2b558ffc389cb7f0b9166747b126b25a0cd',
+        precision: 'int8',
+      },
+      {
+        id: 'trocr-tokenizer',
+        role: 'tokenizer',
+        filename: 'trocr-tokenizer.json',
+        sizeBytes: 2_108_614,
+        remoteUrl: 'https://huggingface.co/Xenova/trocr-base-printed/resolve/main/tokenizer.json',
+        checksum: '2f1a555a1ee93656b4e6f67aa75d492a843c225e5ef754bae24c36bd85851cd7',
       },
     ],
   },
@@ -1048,6 +1057,48 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     gpuRecommended: false,
   },
   {
+    id: 'paddleocr-rec-v4',
+    name: 'PaddleOCR v4 Recognition',
+    description:
+      'Recognizes printed Chinese and English text from detected line crops. Requires the matching PaddleOCR character dictionary. Graph and dictionary hashes verified from deepghs/paddleocr.',
+    sizeBytes: 10_826_336,
+    remoteUrl:
+      'https://huggingface.co/deepghs/paddleocr/resolve/main/rec/ch_PP-OCRv4_rec/model.onnx',
+    checksum: '1c7cf60de2afd728d512f4190cf37455092b45f06175365c6fc58d8cd7e2a68b',
+    bundled: false,
+    inputSpec: null,
+    quality: 3.5,
+    precision: 'fp32',
+    category: 'ocr',
+    peakMemoryBytes: 128_000_000,
+    gpuRecommended: false,
+    source: 'deepghs/paddleocr (PaddlePaddle/PaddleOCR)',
+    sourceLicense: 'Apache-2.0',
+    tensorContract: {
+      version: 1,
+      inputs: [{ name: 'x', dims: [1, 3, 48, -1], dtype: 'float32' }],
+      outputs: [{ name: 'softmax_11.tmp_0', dims: [1, -1, 6625], dtype: 'float32' }],
+      normalization: { mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5], channelOrder: 'rgb' },
+      outputActivation: 'softmax',
+    },
+  },
+  {
+    id: 'paddleocr-keys-v1',
+    name: 'PaddleOCR Character Dictionary',
+    description:
+      'Pinned 6,623-entry vocabulary for PP-OCRv4 Chinese/English recognition. The decoder appends the trained space class; CTC blank is not a dictionary entry.',
+    sizeBytes: 26_249,
+    remoteUrl: 'https://huggingface.co/deepghs/paddleocr/resolve/main/rec/ch_PP-OCRv4_rec/dict.txt',
+    checksum: '28b2362ad4ab2dc38769aa72feb535e3a9ddb3fd2a7585a05920e6393b1dc7f7',
+    bundled: false,
+    inputSpec: null,
+    quality: 3.5,
+    category: 'ocr',
+    gpuRecommended: false,
+    source: 'PaddlePaddle/PaddleOCR',
+    sourceLicense: 'Apache-2.0',
+  },
+  {
     id: 'ddcolor-tiny',
     name: 'DDColor Tiny (AI Colorize)',
     description:
@@ -1223,7 +1274,12 @@ export function isModelReady(modelId: string): boolean {
 
 export function getModelById(modelId: string): ModelManifestEntry | undefined {
   const reg = getModelRegistry();
-  return reg.getEntry(modelId) ?? FALLBACK_ENTRIES.find((e) => e.id === modelId);
+  const direct = reg.getEntry(modelId) ?? FALLBACK_ENTRIES.find((e) => e.id === modelId);
+  if (direct) return direct;
+  const component = [...reg.listEntries(), ...FALLBACK_ENTRIES]
+    .flatMap((entry) => entry.components ?? [])
+    .find((entry) => entry.id === modelId);
+  return component ? modelEntryForComponent(component) : undefined;
 }
 
 /**

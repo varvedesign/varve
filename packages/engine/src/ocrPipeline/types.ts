@@ -46,7 +46,7 @@ export interface OcrResult {
 }
 
 export interface OcrOptions {
-  /** Language/dictionary to use (currently only 'en' ships). */
+  /** Language supported by the chosen recognition model (default 'en'). */
   language?: string;
   /** Whether to attempt orientation detection and correction. */
   autoRotate?: boolean;
@@ -71,6 +71,10 @@ export interface OcrModelConfig {
   ctcBlankIndex: number;
   /** URL to download the character dictionary. */
   dictionaryUrl: string;
+  /** Catalog artifact acquired explicitly and read offline during recognition. */
+  dictionaryModelId?: string;
+  /** The graph's final class is a space appended to the upstream dictionary. */
+  appendSpace?: boolean;
   /** Expected number of dictionary entries (0 = no check). */
   expectedDictionarySize: number;
   /** Languages this model supports. */

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { lstatSync, readFileSync, readlinkSync, renameSync, writeFileSync } from 'node:fs';
 import { basename, relative, resolve } from 'node:path';
 import { analyseImage } from './lib/image-analysis.mjs';
 
@@ -19,6 +19,21 @@ const SOURCE_PATHS = [
 ];
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
+/** Untracked entries are not always regular files: a developer tree may hold a
+ * symlink (e.g. a worktree linking its fetched native libs at the main
+ * checkout's copies) or a directory. Hash regular bytes; record a symlink's
+ * target — a real identity signal, since the destination changes what the
+ * producer would load — and mark any other entry type, so an unusual tree
+ * records itself instead of failing the capture. */
+const untrackedEntry = (root, path) => {
+  const entry = resolve(root, path);
+  const stats = lstatSync(entry);
+  if (stats.isSymbolicLink()) return `${path}:symlink:${readlinkSync(entry)}`;
+  if (stats.isFile()) return `${path}:${digest(readFileSync(entry))}`;
+  if (stats.isDirectory()) return `${path}:directory`;
+  return `${path}:special:${stats.mode}`;
+};
+
 export function captureSourceIdentity(root = ROOT) {
   const git = (args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
   const sourceRevision = git(['rev-parse', 'HEAD']);
@@ -27,7 +42,7 @@ export function captureSourceIdentity(root = ROOT) {
   const untracked = git(['ls-files', '--others', '--exclude-standard', '-z', '--', ...SOURCE_PATHS])
     .split('\0')
     .filter(Boolean)
-    .map((path) => `${path}:${digest(readFileSync(resolve(root, path)))}`);
+    .map((path) => untrackedEntry(root, path));
   return {
     sourceRevision,
     sourceDirty: status.length > 0,

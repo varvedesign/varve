@@ -119,14 +119,28 @@ function countByType(nodes: SceneNode[]): Record<string, number> {
 }
 
 /**
+ * The name the bar leads with when nothing is selected: the active page's name,
+ * or the document's own name when the page has none. It used to fall back to
+ * the literal "Untitled", which contradicted the document title and tab when
+ * the document was named.
+ */
+export function activeContextName(doc: Document): string {
+  const page = doc.pages?.find((p) => p.id === doc.activePageId);
+  return page?.name?.trim() || doc.name?.trim() || 'Untitled';
+}
+
+function layerCountLabel(count: number): string {
+  return `${count} ${count === 1 ? 'layer' : 'layers'}`;
+}
+
+/**
  * Keep the live announcement focused on selection identity, not geometry.
  * Bounds and position change during pointer drags and would make a status
  * region noisy for assistive-technology users.
  */
 export function getSelectionAnnouncement(doc: Document, nodes: readonly SceneNode[]): string {
   if (nodes.length === 0) {
-    const page = doc.pages?.find((p) => p.id === doc.activePageId);
-    return `No selection. ${page?.name || 'Untitled'}. ${countActivePageLayers(doc)} layers.`;
+    return `No selection. ${activeContextName(doc)}. ${layerCountLabel(countActivePageLayers(doc))}.`;
   }
   if (nodes.length === 1) {
     const node = nodes[0];
@@ -164,13 +178,12 @@ export function SelectionInfoBar() {
 
   const content = useMemo(() => {
     if (sel.length === 0) {
-      const page = state.document.pages?.find((p) => p.id === state.document.activePageId);
       const totalLayers = countActivePageLayers(state.document);
       return (
         <div className="selection-info-bar__empty">
-          <span className="selection-info-bar__page-name">{page?.name || 'Untitled'}</span>
+          <span className="selection-info-bar__page-name">{activeContextName(state.document)}</span>
           <span className="selection-info-bar__separator">—</span>
-          <span className="selection-info-bar__layer-count">{totalLayers} layers</span>
+          <span className="selection-info-bar__layer-count">{layerCountLabel(totalLayers)}</span>
         </div>
       );
     }

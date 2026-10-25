@@ -25,6 +25,7 @@
  */
 
 import type { TensorSpec } from '../imageTensor';
+import { ocrImageTensor } from './ocrImageTensor';
 
 export const PADDLE_REC_INPUT_HEIGHT = 48;
 export const PADDLE_REC_TENSOR_SPEC: TensorSpec = {
@@ -76,16 +77,7 @@ export function preprocessPaddleRec(
   if (w > maxWidth) w = maxWidth;
   const h = PADDLE_REC_INPUT_HEIGHT;
 
-  // Resize crop to [h, w] preserving aspect ratio. OffscreenCanvas
-  // (and its drawImage) is available in browsers and node canvas; jsdom's
-  // mock returns a zero-filled bitmap, so tests call packRecTensor directly
-  // with a pre-sized ImageData to exercise the pure packing path.
-  const resized = new OffscreenCanvas(w, h);
-  const ctx = resized.getContext('2d')!;
-  ctx.drawImage(resizedCanvas(imageData), 0, 0, w, h);
-  const pixels = ctx.getImageData(0, 0, w, h).data;
-
-  const tensor = packRecTensor(pixels, w, h);
+  const tensor = ocrImageTensor(imageData, w, h);
   return { tensor, width: w, height: h, scaleX: imageData.width / w };
 }
 
@@ -102,23 +94,7 @@ export function packRecTensor(
   width: number,
   height: number,
 ): Float32Array {
-  const pixelCount = width * height;
-  const tensor = new Float32Array(pixelCount * 3);
-  for (let i = 0; i < pixelCount; i++) {
-    const idx = i * 4;
-    tensor[i] = (pixels[idx]! / 255 - 0.5) / 0.5; // R
-    tensor[pixelCount + i] = (pixels[idx + 1]! / 255 - 0.5) / 0.5; // G
-    tensor[pixelCount * 2 + i] = (pixels[idx + 2]! / 255 - 0.5) / 0.5; // B
-  }
-  return tensor;
-}
-
-/** OffscreenCanvas from an existing ImageData (helper to avoid reasserting). */
-function resizedCanvas(imageData: ImageData): OffscreenCanvas {
-  const c = new OffscreenCanvas(imageData.width, imageData.height);
-  const ctx = c.getContext('2d')!;
-  ctx.putImageData(imageData, 0, 0);
-  return c;
+  return ocrImageTensor({ width, height, data: pixels }, width, height);
 }
 
 /**
@@ -135,6 +111,9 @@ export function ctcDecode(
   T: number,
   dict: readonly string[],
 ): { text: string; confidence: number; charConfidences: number[] } {
+  if (!Number.isInteger(T) || T < 1 || output.length !== T * PADDLE_REC_NUM_CLASSES) {
+    throw new Error('Invalid PaddleOCR recognition output shape');
+  }
   const charConfidences: number[] = [];
   const indices: number[] = [];
 
@@ -148,6 +127,9 @@ export function ctcDecode(
         maxVal = v;
         maxIdx = c;
       }
+    }
+    if (!Number.isFinite(maxVal) || maxVal < 0 || maxVal > 1) {
+      throw new Error('Invalid PaddleOCR recognition probability');
     }
     indices.push(maxIdx);
     charConfidences.push(maxVal);
@@ -165,7 +147,8 @@ export function ctcDecode(
     }
     if (idx === prev) continue;
     // dict is 0-indexed for class 1..N (class 0 is blank).
-    const ch = idx >= 1 && idx - 1 < dict.length ? dict[idx - 1]! : '';
+    const ch = dict[idx - 1];
+    if (!ch) throw new Error(`PaddleOCR class ${idx} is absent from its dictionary`);
     text += ch;
     keptConfidences.push(charConfidences[t]!);
     prev = idx;

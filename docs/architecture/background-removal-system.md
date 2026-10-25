@@ -124,29 +124,31 @@ low-end constant.
 
 Two different questions are answered in two different places, deliberately:
 
-1. **Can this model run here?** `preflightBrowserSourceMemory` (WASM runtime
-   budget vs. the model's measured peak) or the native OS/cgroup preflight
-   immediately before session checkout.
+1. **Can this model run here?** Browser capability/admission checks or native
+   OS/cgroup preflight immediately before session checkout. Unqualified catalog
+   estimates are planning inputs, not proof that a run will fit.
 2. **May this process start another tracked job now?** The ledger, which also
    serialises inference, effects, thumbnails, and exports.
 
-Peak figures are per execution family, not per model: `peakMemoryBytes` is the
-browser/WASM boundary, `nativePeakMemoryBytes` the measured native working set.
-BiRefNet is the case that matters. Natively it peaks at **432 MiB**
-(`bgremove_bench`, bundled ORT CPU, arena disabled, 2026-10-22). In bare WASM it
-cannot run at all: the export has a static 1024x1024 input and fails
-deterministically with `std::bad_alloc` at the wasm32 4 GiB address-space
-ceiling (~4027-4145 MB RSS across three runs; wasm-memory-hardening audit
-2026-07-18), so the catalog records 4.1 GB as its browser boundary and the gate
-refuses it there. Reading a browser figure in the native preflight refused High
-quality on hosts with gigabytes free, so native gates and desktop labels must
-resolve through `resolveModelPeakMemoryBytes(entry, { native })`.
+**Retraction (2026-10-23):** the 432 MiB / 450 MB BiRefNet Lite native figure
+was post-inference RSS, not a measured peak. The corrected probe exceeded
+6.1 GB RSS before a global OOM kill; this incomplete result is only a lower
+bound. Historical browser process RSS (~4.1 GB) neither measures WASM linear
+memory nor establishes BiRefNet Full's requirements, and 4.1 GB is below 4 GiB.
+Known failing browser Lite execution remains gated. Complete corrected native
+peak measurements and Full workflow qualification are outstanding. See the
+[active reliability audit](../audits/ai-model-reliability-2026-10-23.md) for raw
+evidence and the still-unqualified catalog estimates. Runtime-specific lookup
+via `resolveModelPeakMemoryBytes(entry, { native })` prevents mixing estimates
+across execution families; it does not validate those estimates.
 
-A ledger refusal is a capacity outcome, not a model failure. `ai-quality`
-retries the bundled `ai-balanced` model when the budget cannot fit it, so the
-user still gets a cutout; an explicit `modelId` request is never substituted.
-When even the reduced mode does not fit, the panel reports the shared-budget
-refusal in user terms instead of a raw byte count.
+A ledger refusal is a capacity outcome, not a model failure. `ai-quality` and
+explicit `modelId` requests retain their model identity and never silently
+downgrade or fall through to cloud. The user can choose a smaller mode explicitly.
+Readiness and result provenance distinguish installation, runtime support,
+status-check errors and the model that actually executed. Cancellation keeps
+the execution lease until native work/session destruction settles; cleanup
+failure retains ownership for retry.
 
 ## Reference parity and benchmarking
 
@@ -154,7 +156,8 @@ refusal in user terms instead of a raw byte count.
 pipeline (rembg-faithful ONNX inference for the pinned checkpoints), the
 synthetic ground-truth fixture generator, the divergence decomposer, and the
 contact-sheet renderer. `crates/varve-bgremove/examples/bgremove_bench.rs`
-measures the native path (cold/warm latency, RSS, quality vs reference masks)
+measures the native path (cold/warm latency, Linux VmHWM peak separately from
+post-run VmRSS, quality vs reference masks)
 and writes machine-readable JSON with git commit and hardware metadata.
 `crates/varve-bgremove/src/metrics.rs` mirrors `qualityMetrics.ts` so native
 and browser reports are directly comparable.
@@ -169,8 +172,8 @@ parity (same checkpoint, same preprocessing) before placing it ahead of ONNX.
 
 Reference parity is measured, not assumed: `docs/audits/background-removal-parity-audit-2026-08-13.md`
 records the same-checkpoint rembg-faithful reference runs (u2netp and IS-Net
-verified; BiRefNet Lite/Full completed on a host with memory headroom — see the
-audit for the current status), the native-vs-reference noise floor, and the
+verified; older BiRefNet completion statements are superseded by the active
+reliability audit), the native-vs-reference noise floor, and the
 decomposition of the letterbox-vs-stretch and clamp-vs-min-max divergences.
 The output normalisation now follows the reference (sigmoid where required,
 then clamp — no min-max stretch), and a gated golden test pins native u2netp

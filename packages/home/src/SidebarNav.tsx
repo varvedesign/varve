@@ -288,7 +288,22 @@ export function SidebarNav({
         <div className="sidebar-group">
           <Disclosure defaultOpen>
             <div className="sidebar-group__header">
-              <DisclosureTrigger className="sidebar-section__header" hideIndicator={false}>
+              {/* Leading, rotating chevron in the same column as the item icons,
+                  and the count straight after the label. The trailing chevron
+                  left "Projects  0 v" floating mid-row, off the column the
+                  other counts sit in. */}
+              <DisclosureTrigger
+                className="sidebar-section__header"
+                hideIndicator
+                leadingIcon={
+                  <SolidIcon
+                    name={SOLID_CHROME_ICONS.chevronRight}
+                    label={undefined}
+                    size="sm"
+                    className="sidebar-section__chevron"
+                  />
+                }
+              >
                 <span>Projects</span>
                 <span className="sidebar-section__count">
                   {getCount('projects') > 0 ? getCount('projects') : projectEntries.length}

@@ -47,6 +47,7 @@ import { DisclosureSection } from './controls/DisclosureSection';
 import { FieldSizingContext } from './controls/NumberField';
 import { InspectorContextHeader } from './InspectorContextHeader';
 import { PluginSections } from './InspectorPluginSections';
+import { InspectorSectionSearch } from './InspectorSectionSearch';
 import { InspectorTabBar } from './InspectorTabBar';
 import { deriveInspectorContext, type InspectorContext } from './inspectorContext';
 import { VariablesPanelDialog } from './panels/VariablesPanelDialog';
@@ -959,9 +960,13 @@ function SingleSelectionPanel({
       {/* A keyed Fragment, not a keyed <div>: the wrapper made every section
           the last child of its own parent, so the section's :last-child rule
           matched all of them and zeroed the section-to-section gap. */}
-      {sectionEntries.map((entry) => (
-        <Fragment key={entry.id}>{entry.el}</Fragment>
-      ))}
+      <InspectorSectionSearch
+        sections={sectionEntries.map((entry) => ({
+          id: entry.id,
+          title: getSectionDefinition(entry.id)?.title ?? entry.id,
+          content: <Fragment key={entry.id}>{entry.el}</Fragment>,
+        }))}
+      />
     </>
   );
 }
@@ -1009,9 +1014,13 @@ function MultiSelectionPanel({
       {/* A keyed Fragment, not a keyed <div>: the wrapper made every section
           the last child of its own parent, so the section's :last-child rule
           matched all of them and zeroed the section-to-section gap. */}
-      {sectionEntries.map((entry) => (
-        <Fragment key={entry.id}>{entry.el}</Fragment>
-      ))}
+      <InspectorSectionSearch
+        sections={sectionEntries.map((entry) => ({
+          id: entry.id,
+          title: getSectionDefinition(entry.id)?.title ?? entry.id,
+          content: <Fragment key={entry.id}>{entry.el}</Fragment>,
+        }))}
+      />
     </>
   );
 }

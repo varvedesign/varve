@@ -1,6 +1,6 @@
 # Colorization System
 
-Status: current implementation record, 2026-09-13
+Status: implementation record updated 2026-10-23; workflow qualification in progress
 
 This document describes the production Colorize surface in Varve. It is the
 current contract for the Inspector, engine dispatcher, persisted result asset,
@@ -16,7 +16,7 @@ is available.
 | Palette colorize | Document swatches, shaded tonal influence, or strict sRGB palette mapping | Implemented and unit-verified |
 | Reference transfer | Alpha-weighted global Reinhard-style CIELAB statistics; optional source mask and strength | Implemented and unit-verified |
 | Harmonize | Global chroma-distribution adjustment using a separate reference image; no object correspondence claim | Implemented and unit-verified |
-| Photo colorization | DDColor ONNX adapter, bounded preview, chroma-only reconstruction, integrity-aware loader gate | Adapter implemented; model artifact and real inference blocked pending verification |
+| Photo colorization | DDColor ONNX adapter, bounded preview, chroma-only reconstruction, exact-variant installation gate, real native tensor path | Published bytes verified; native Tiny/full prediction and reconstruction passed; editor application and broader quality qualification pending |
 | Line-art colorization | Deterministic hint-guided fills: linework barriers with bounded gap closing, geodesic nearest-hint assignment, preserved strokes, transparent unfilled regions | Implemented and unit-verified |
 | Semantic reference matching | Not provided by global statistics | Deferred; never labelled as available |
 
@@ -283,13 +283,29 @@ Inspector and marketing page; the deterministic workflow passes in Chromium
 and Firefox. Playwright WebKit on this Linux host is blocked by missing system
 libraries (`libicu74`, `libxml2`, `libflite1`) that require a package-manager
 install, and browser WebKit is not treated as Tauri WebKitGTK verification
-either way. Native/Tauri provider coverage and cross-browser model benchmarks
-remain open.
+either way. Those are historical checks, not qualification of the current tree.
+
+The [2026-10-23 reliability audit](../audits/ai-model-reliability-2026-10-23.md)
+records SHA-verified published Tiny/full artifacts (223,650,419 / 915,477,115
+bytes), genuine native CPU predictions and shared Lab reconstruction (**2/2**),
+and visual inspection of the portrait outputs. These tests retain source alpha
+and bound lightness error. They do not establish editor IPC/application,
+save/reopen, broad image quality, Windows/macOS, or GPU execution. Native editor
+journeys and cross-browser model benchmarks remain open.
+
+Readiness and runtime resolution share `getDdColorModelCandidates`: Fast requires
+Tiny; Balanced/Quality require full; Automatic prefers full, then Tiny. Both
+graphs have fixed square inputs (256/512); Quality's larger working image does
+not change the graph input or imply tiling. Action-adjacent readiness opens
+acquisition for the exact missing variant and distinguishes storage-check errors
+from missing artifacts. Late checks cannot overwrite newer installation state.
+The generic inference worker transports tensors to Rust under Tauri; the unused
+throwing `nativeTauriProvider` facade has been removed.
 
 ## Deferred work
 
-1. Publish the verified DDColor ONNX artifacts to the `models-v1` release and
-   keep the catalog hashes in sync with the uploaded bytes.
+1. Complete current native editor application and image-corpus qualification;
+   keep the already-published `models-v1` hashes synchronized with verified bytes.
 2. Add a versioned, source-preserving Colorize operation schema for masks,
    swatch IDs, references, authored parameters, model identity, preprocessing,
    and corrections. Materialized output must remain the offline fallback.

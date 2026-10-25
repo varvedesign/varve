@@ -6,6 +6,17 @@ import { navigateToEditor } from '../shared';
 // rest of the visual suite (a serial gate hid later baselines from triage).
 test.describe.configure({ mode: 'default' });
 
+/**
+ * Glyph-rasterization drift budget, measured 2026-10-24: Playwright's Chromium
+ * links the system libharfbuzz, and the harfbuzz 14.5.1 -> 14.6.0 upgrade
+ * (2026-10-10, after these baselines were captured) shifted glyph antialiasing
+ * by 430-3262px per capture against baselines that still pass on the CI
+ * ubuntu-latest runner. 5000 absorbs that measured drift (~0.5% of the frame);
+ * structural changes — layout, colour, missing controls — exceed it by an
+ * order of magnitude. See docs/audits/inspector-system-review-2026-10-23.md.
+ */
+const RASTER_DRIFT_BUDGET = 5000;
+
 async function importTestImage(page: import('@playwright/test').Page) {
   await navigateToEditor(page);
   await page
@@ -29,6 +40,40 @@ async function setEditorTheme(
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 }
 
+/**
+ * Screenshot only after the comparison preview has settled: the upscaled
+ * image exists, has decoded, and both halves share one measured box. Without
+ * this, a capture can land mid-layout and reproduce one of two stable-looking
+ * but different dialog geometries (the pixel-art baseline flapped between a
+ * 1088px glyph-only diff and a 174048px structural diff on identical code).
+ */
+async function waitForSettledPreview(page: import('@playwright/test').Page) {
+  await expect(page.locator('.upscale-preview__image--upscaled')).toHaveCount(1);
+  await expect
+    .poll(() =>
+      page.locator('.upscale-preview__image--upscaled').evaluate((image) => {
+        return (image as HTMLImageElement).naturalWidth;
+      }),
+    )
+    .toBeGreaterThan(0);
+  await expect
+    .poll(async () => {
+      const boxes = await page.locator('.upscale-preview__image').evaluateAll((images) =>
+        images.map((image) => {
+          const rect = image.getBoundingClientRect();
+          return { width: rect.width, height: rect.height };
+        }),
+      );
+      if (boxes.length !== 2) return false;
+      const [first, second] = boxes;
+      if (!first || !second) return false;
+      const equal =
+        Math.abs(first.width - second.width) < 1 && Math.abs(first.height - second.height) < 1;
+      return equal && first.width > 100 && first.height > 100;
+    })
+    .toBe(true);
+}
+
 test('Enhance dialog default (Auto) state', async ({ page }) => {
   await importTestImage(page);
   await openDialog(page);
@@ -39,14 +84,7 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
   await expect(
     page.getByAltText('Enhanced preview — same crop and output size as original'),
   ).toBeVisible({ timeout: 15000 });
-  await expect(page.locator('.upscale-preview__image--upscaled')).toHaveCount(1);
-  await expect
-    .poll(() =>
-      page.locator('.upscale-preview__image--upscaled').evaluate((image) => {
-        return (image as HTMLImageElement).naturalWidth;
-      }),
-    )
-    .toBeGreaterThan(0);
+  await waitForSettledPreview(page);
   const comparisonSources = await page.locator('.upscale-preview__image').evaluateAll((images) =>
     images.map((image) => {
       const element = image as HTMLImageElement;
@@ -57,16 +95,6 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
   expect(comparisonSources[1]?.naturalWidth).toBeGreaterThan(
     comparisonSources[0]?.naturalWidth ?? 0,
   );
-  const previewBoxes = await page.locator('.upscale-preview__image').evaluateAll((images) =>
-    images.map((image) => {
-      const rect = image.getBoundingClientRect();
-      return { width: rect.width, height: rect.height };
-    }),
-  );
-  expect(previewBoxes).toHaveLength(2);
-  expect(previewBoxes.every(({ width, height }) => width > 100 && height > 100)).toBe(true);
-  expect(Math.abs(previewBoxes[0]!.width - previewBoxes[1]!.width)).toBeLessThan(1);
-  expect(Math.abs(previewBoxes[0]!.height - previewBoxes[1]!.height)).toBeLessThan(1);
   const recommendationColumns = await page
     .locator('.upscale-auto > .insp-hint')
     .evaluateAll((items) => items.map((item) => item.getBoundingClientRect().width));
@@ -86,7 +114,7 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
   expect(switcherWidths.quality).toBeLessThan(switcherWidths.settings);
 
   await expect(page).toHaveScreenshot('enhance-dialog-default.png', {
-    maxDiffPixels: 200,
+    maxDiffPixels: RASTER_DRIFT_BUDGET,
   });
 });
 
@@ -100,8 +128,9 @@ for (const theme of ['dark', 'high-contrast'] as const) {
     await expect(
       page.getByAltText('Enhanced preview — same crop and output size as original'),
     ).toBeVisible({ timeout: 15000 });
+    await waitForSettledPreview(page);
     await expect(page).toHaveScreenshot(`enhance-dialog-${theme}.png`, {
-      maxDiffPixels: 200,
+      maxDiffPixels: RASTER_DRIFT_BUDGET,
     });
   });
 }
@@ -109,6 +138,14 @@ for (const theme of ['dark', 'high-contrast'] as const) {
 test('Enhance dialog pixel-art mode', async ({ page }) => {
   await importTestImage(page);
   await openDialog(page);
+
+  // Pin the async analysis to its settled state before interacting — the
+  // same precondition the default and theme-loop tests already use. Without
+  // it, an analysis completing after the manual selection re-inserts content
+  // and scrolls the dialog, and the capture lands in one of two byte-stable
+  // geometries (this baseline was captured in the raced one).
+  await expect(page.getByText(/Low source resolution/i)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(/Output:\s*32x32px/i)).toBeVisible();
 
   await page.getByRole('combobox', { name: 'Enhancement operation' }).click();
   await page.getByRole('option', { name: 'Upscale', exact: true }).click();
@@ -119,9 +156,10 @@ test('Enhance dialog pixel-art mode', async ({ page }) => {
   await expect(
     page.getByAltText('Enhanced preview — same crop and output size as original'),
   ).toBeVisible({ timeout: 15000 });
+  await waitForSettledPreview(page);
 
   await expect(page).toHaveScreenshot('enhance-dialog-pixel-art.png', {
-    maxDiffPixels: 200,
+    maxDiffPixels: RASTER_DRIFT_BUDGET,
   });
 });
 

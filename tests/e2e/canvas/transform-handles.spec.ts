@@ -51,7 +51,7 @@ test.describe('Selection overlay transform handles', () => {
 
     // Start from the actual rendered handle. Canvas-local coordinates drift
     // when the viewport camera is centered/panned, even at 100% zoom.
-    const seHandle = page.getByLabel('Bottom-right resize handle');
+    const seHandle = page.getByTestId('Bottom-right resize handle');
     const handleBox = await seHandle.boundingBox();
     if (!handleBox) throw new Error('bottom-right resize handle not found');
     const seX = handleBox.x + handleBox.width / 2;

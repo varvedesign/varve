@@ -274,6 +274,11 @@ export function InspectorColorPopover({
         onClose={close}
         placement="left-start"
         maxHeight={560}
+        // The dialog shell owns the height cap and its body owns the scroll
+        // (`.insp-picker-dialog__body`). Leaving the portal as the scroll
+        // owner nested two scrollers, so the dialog showed two scrollbars and
+        // the outer one could scroll the title and blend row away.
+        scrollOwner="content"
         id={dialogId}
         kind="dialog"
         dismissOnEscape

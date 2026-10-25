@@ -189,8 +189,8 @@ test.describe('Combined table + variable modifier workflow', () => {
     // Imported geometry starts at the document origin; reveal it for review.
     await page.locator('canvas.editor-canvas__content-layer').focus();
     await page.keyboard.press('Shift+2');
-    await expect(page.getByLabel('Top-left resize handle')).toBeVisible();
-    await expect(page.getByLabel('Bottom-right resize handle')).toBeVisible();
+    await expect(page.getByTestId('Top-left resize handle')).toBeVisible();
+    await expect(page.getByTestId('Bottom-right resize handle')).toBeVisible();
     await page.screenshot({
       path: 'test-results/combined/11-after-import.png',
       fullPage: false,

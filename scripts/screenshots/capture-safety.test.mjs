@@ -4,9 +4,11 @@ import { createHash } from 'node:crypto';
 import {
   copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -447,7 +449,17 @@ test('reviewed promotion CLI replaces dirty normalize aggregate metadata without
       const source = join(root, file);
       const destination = join(fixture, file);
       mkdirSync(dirname(destination), { recursive: true });
-      copyFileSync(source, destination);
+      // Untracked entries may be symlinks or directories (e.g. a worktree's
+      // link to the fetched native libs). Mirror each by its own type — the
+      // fixture only needs the tree shape so the identity hash can read it.
+      const stats = lstatSync(source);
+      if (stats.isSymbolicLink()) {
+        symlinkSync(readlinkSync(source), destination);
+      } else if (stats.isDirectory()) {
+        mkdirSync(destination, { recursive: true });
+      } else {
+        copyFileSync(source, destination);
+      }
     }
     symlinkSync(join(root, 'node_modules'), join(fixture, 'node_modules'), 'junction');
     const canonicalManifest = join(fixture, 'apps/website/src/data/screenshot-manifest.json');

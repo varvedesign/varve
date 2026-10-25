@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -43,6 +43,7 @@ describe('ModelDownloadDialog — consent gate', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   it('does not start downloading on mount — requires explicit user confirmation', () => {
@@ -246,5 +247,66 @@ describe('ModelDownloadDialog — consent gate', () => {
     fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
     await screen.findByText(/integrity verification/i);
     expect(screen.queryByRole('button', { name: /^retry$/i })).not.toBeInTheDocument();
+  });
+
+  it('cancels an owned download on unmount and ignores its late completion', async () => {
+    let finish!: () => void;
+    mockDownloadModel.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const onComplete = vi.fn();
+    const view = renderDialog(
+      <ModelDownloadDialog modelId="ddcolor-tiny" onClose={() => {}} onComplete={onComplete} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
+    const signal = mockDownloadModel.mock.calls[0]![2] as AbortSignal;
+    view.unmount();
+    expect(signal.aborted).toBe(true);
+    vi.useFakeTimers();
+    await act(async () => finish());
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('does not report success when a cancelled download resolves late', async () => {
+    let finish!: () => void;
+    mockDownloadModel.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const onComplete = vi.fn();
+    renderDialog(
+      <ModelDownloadDialog modelId="ddcolor-tiny" onClose={() => {}} onComplete={onComplete} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    vi.useFakeTimers();
+    await act(async () => finish());
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(screen.queryByText(/model ready/i)).not.toBeInTheDocument();
+  });
+
+  it('clears the completion callback if the ready dialog is unmounted', async () => {
+    const onComplete = vi.fn();
+    const view = renderDialog(
+      <ModelDownloadDialog modelId="ddcolor-tiny" onClose={() => {}} onComplete={onComplete} />,
+    );
+    vi.useFakeTimers();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: /^download$/i })));
+    view.unmount();
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('names colorization as the purpose of a DDColor download', () => {
+    renderDialog(
+      <ModelDownloadDialog modelId="ddcolor-tiny" onClose={() => {}} onComplete={() => {}} />,
+    );
+    expect(screen.getByText(/offline local colorization/i)).toBeInTheDocument();
+    expect(screen.queryByText(/offline local image upscaling/i)).not.toBeInTheDocument();
   });
 });

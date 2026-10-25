@@ -225,8 +225,8 @@ export function mapCoordsThroughRotation(
       return { x, y, width, height };
     case 90:
       return {
-        x: origWidth - y - height,
-        y: x,
+        x: y,
+        y: origHeight - x - width,
         width: height,
         height: width,
       };
@@ -239,8 +239,8 @@ export function mapCoordsThroughRotation(
       };
     case 270:
       return {
-        x: y,
-        y: origHeight - x - width,
+        x: origWidth - y - height,
+        y: x,
         width: height,
         height: width,
       };

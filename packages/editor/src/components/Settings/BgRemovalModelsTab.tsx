@@ -6,17 +6,21 @@
  */
 
 import {
+  type BackgroundRemovalReadiness,
   deriveAcquisition,
+  getBackgroundRemovalReadiness,
+  getModelInfo,
   getModelLoaderReady,
   getRuntimeCapabilitiesSync,
   listAllModels,
   type RemovalMethod,
   resolveModelPeakMemoryBytes,
+  type WorkerModelId,
   workerModelIdForMethod,
 } from '@varve/engine';
 import { Button, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { modelRequirementLabel } from '../../modelRequirements';
+import { formatModelBytes, modelRequirementLabel } from '../../modelRequirements';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
 interface InstalledModelRow {
@@ -34,9 +38,47 @@ interface InstalledModelRow {
    * graphs) — download/delete acts on every id in this list as one unit
    * instead of showing each part as its own row. */
   componentIds?: string[];
+  componentSizes?: Record<string, number>;
+  readiness?: BackgroundRemovalReadiness;
+  readinessError?: string;
+  memoryDisclosure?: string;
+}
+
+const REMOVAL_METHODS: Record<string, RemovalMethod> = {
+  u2netp: 'ai-balanced',
+  'u2netp-int8': 'ai-balanced',
+  'isnet-general-use': 'ai-balanced',
+  'birefnet-general-lite': 'ai-quality',
+  'birefnet-general': 'ai-quality',
+  'modnet-portrait': 'portrait',
+};
+
+async function removalReadiness(
+  modelId: string,
+): Promise<Pick<InstalledModelRow, 'readiness' | 'readinessError' | 'memoryDisclosure'>> {
+  const method = REMOVAL_METHODS[modelId];
+  if (!method) return {};
+  const memoryDisclosure = getModelInfo(method)?.peakRamDisplay;
+  try {
+    return {
+      memoryDisclosure,
+      readiness: await getBackgroundRemovalReadiness(method, modelId as WorkerModelId),
+    };
+  } catch (failure) {
+    return {
+      memoryDisclosure,
+      readinessError:
+        failure instanceof Error
+          ? failure.message
+          : 'Could not check this model. Retry the model check.',
+    };
+  }
 }
 
 function storageLabel(): string {
+  if (getRuntimeCapabilitiesSync().isTauri) {
+    return 'the app model folder or this webview’s IndexedDB, depending on the model';
+  }
   if (typeof indexedDB !== 'undefined') {
     return 'IndexedDB on this device (browser / desktop webview)';
   }
@@ -77,11 +119,13 @@ async function buildRows(
         precision: model.precision as 'fp32' | 'int8' | undefined,
         isQuantized: model.precision === 'int8',
         componentIds: model.components.map((c) => c.id),
+        componentSizes: Object.fromEntries(model.components.map((c) => [c.id, c.sizeBytes])),
       });
       continue;
     }
 
-    const installed = await loader.isModelAvailable(model.id);
+    const status = await removalReadiness(model.id);
+    const installed = status.readiness?.installed ?? (await loader.isModelAvailable(model.id));
     results.push({
       id: model.id,
       name: model.name,
@@ -99,6 +143,7 @@ async function buildRows(
       description: model.description,
       precision: model.precision as 'fp32' | 'int8' | undefined,
       isQuantized: model.precision === 'int8',
+      ...status,
     });
   }
 
@@ -125,84 +170,140 @@ export function BgRemovalModelsTab() {
     id: string;
     progress: number;
   } | null>(null);
-  const [compositeError, setCompositeError] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const mountedRef = useRef(false);
+  const refreshIdRef = useRef(0);
+  const operationRef = useRef<string | null>(null);
   const compositeAbortRef = useRef<AbortController | null>(null);
   const [bundleStatus, setBundleStatus] = useState<'unknown' | 'verified' | 'corrupt' | 'skipped'>(
     'unknown',
   );
 
   const refresh = useCallback(async () => {
+    if (!mountedRef.current) return;
+    const refreshId = ++refreshIdRef.current;
+    const current = () => mountedRef.current && refreshId === refreshIdRef.current;
     setLoading(true);
+    setLoadError(null);
     try {
       const loader = await getModelLoaderReady();
+      if (!current()) return;
       const verify = await loader.verifyBundledModel('u2netp');
-      setBundleStatus(verify);
       const rows = await buildRows(loader);
+      if (!current()) return;
+      setBundleStatus(verify);
       setAllRows(rows);
+    } catch (error) {
+      if (current()) {
+        setLoadError(error instanceof Error ? error.message : 'Could not read model status.');
+      }
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
+    let disposed = false;
+    let unsubscribe: (() => void) | undefined;
     void refresh();
-    const loader = getModelLoaderReady();
-    void loader.then((l) =>
-      l.subscribe(() => {
-        void refresh();
-      }),
-    );
+    void getModelLoaderReady()
+      .then((loader) => {
+        if (!disposed) {
+          unsubscribe = loader.subscribe(() => {
+            void refresh();
+          });
+        }
+      })
+      .catch(() => {
+        /* refresh owns the visible initialization error */
+      });
+    return () => {
+      disposed = true;
+      mountedRef.current = false;
+      refreshIdRef.current++;
+      unsubscribe?.();
+      compositeAbortRef.current?.abort();
+    };
   }, [refresh]);
 
   const handleDelete = async (row: InstalledModelRow) => {
+    if (operationRef.current) return;
+    operationRef.current = row.id;
+    setRowError(null);
     setBusyId(row.id);
     try {
       const loader = await getModelLoaderReady();
       for (const id of row.componentIds ?? [row.id]) {
+        if (!mountedRef.current) return;
         await loader.deleteModel(id);
       }
       await refresh();
+    } catch (error) {
+      if (mountedRef.current) {
+        setRowError({
+          id: row.id,
+          message: error instanceof Error ? error.message : 'Could not remove this model.',
+        });
+        await refresh();
+      }
     } finally {
-      setBusyId(null);
+      operationRef.current = null;
+      if (mountedRef.current) setBusyId(null);
     }
   };
 
   const handleCompositeDownload = useCallback(
     async (row: InstalledModelRow) => {
       const componentIds = row.componentIds;
-      if (!componentIds || componentIds.length === 0) return;
-      setCompositeError(null);
+      if (!componentIds || componentIds.length === 0 || operationRef.current) return;
+      operationRef.current = row.id;
+      setRowError(null);
       setCompositeDownload({ id: row.id, progress: 0 });
       const controller = new AbortController();
       compositeAbortRef.current = controller;
       const loaded = new Map<string, number>();
-      const totals = new Map<string, number>();
+      const totals = new Map(componentIds.map((id) => [id, row.componentSizes?.[id] ?? 0]));
       try {
         const loader = await getModelLoaderReady();
         for (const id of componentIds) {
+          if (controller.signal.aborted) return;
           await loader.downloadModel(
             id,
             (partLoaded, partTotal) => {
+              if (controller.signal.aborted || !mountedRef.current) return;
               loaded.set(id, partLoaded);
-              totals.set(id, partTotal);
+              if (partTotal > 0) totals.set(id, partTotal);
               const sumLoaded = [...loaded.values()].reduce((a, b) => a + b, 0);
               const sumTotal = [...totals.values()].reduce((a, b) => a + b, 0);
               setCompositeDownload({
                 id: row.id,
-                progress: sumTotal > 0 ? Math.round((sumLoaded / sumTotal) * 100) : 0,
+                progress:
+                  sumTotal > 0 ? Math.min(100, Math.round((sumLoaded / sumTotal) * 100)) : 0,
               });
             },
             controller.signal,
           );
         }
-        await refresh();
       } catch (err) {
-        if (!controller.signal.aborted) {
-          setCompositeError(err instanceof Error ? err.message : 'Download failed');
+        if (!controller.signal.aborted && mountedRef.current) {
+          setRowError({
+            id: row.id,
+            message:
+              err instanceof Error
+                ? err.message
+                : 'Download failed. Check your connection and retry.',
+          });
         }
       } finally {
-        setCompositeDownload(null);
+        operationRef.current = null;
         compositeAbortRef.current = null;
+        if (mountedRef.current) {
+          setCompositeDownload(null);
+          // A failed or cancelled multi-part download can still have completed parts.
+          await refresh();
+        }
       }
     },
     [refresh],
@@ -223,8 +324,9 @@ export function BgRemovalModelsTab() {
   return (
     <div className="settings-section">
       <p className="settings-section__hint">
-        All AI models run locally on your device. Downloads require explicit consent and are stored
-        in {storageLabel()}. Bundled models ship with the app and need no download.
+        These models are stored locally. Downloads require explicit consent and are stored in{' '}
+        {storageLabel()}. Bundled models ship with the app and need no download. Installation and
+        runtime readiness are separate; model compatibility and available memory are checked on use.
       </p>
 
       {bundleStatus === 'corrupt' && (
@@ -232,6 +334,17 @@ export function BgRemovalModelsTab() {
           Bundled starter model (U&sup2;-Net Light) failed integrity check. Reinstall the app or
           download models manually below.
         </p>
+      )}
+
+      {loadError && (
+        <div>
+          <p className="settings-section__hint" role="alert">
+            Could not read model status. {loadError}
+          </p>
+          <Button variant="ghost" onClick={() => void refresh()}>
+            Retry loading models
+          </Button>
+        </div>
       )}
 
       <RegionLoader label="Loading model status" loading={loading}>
@@ -247,7 +360,9 @@ export function BgRemovalModelsTab() {
                       {row.isQuantized && <span className="bg-models-list__badge">INT8</span>}
                     </span>
                     <span className="bg-models-list__meta">
-                      {modelRequirementLabel(row.size, row.peakMemoryBytes)}
+                      {row.memoryDisclosure
+                        ? `Download/storage ~${formatModelBytes(row.size)}`
+                        : modelRequirementLabel(row.size, row.peakMemoryBytes)}
                       {row.installed
                         ? row.source === 'bundled'
                           ? ' — bundled'
@@ -255,6 +370,20 @@ export function BgRemovalModelsTab() {
                         : ' — not installed'}
                       {row.precision === 'int8' && ' (quantized)'}
                     </span>
+                    {row.readiness && (
+                      <span className="bg-models-list__meta">
+                        {row.readiness.runtime}.{' '}
+                        {row.readiness.recovery ?? 'Execution is checked when the model is used.'}
+                      </span>
+                    )}
+                    {row.readinessError && (
+                      <span className="bg-models-list__meta" role="alert">
+                        Model status unavailable. {row.readinessError}
+                      </span>
+                    )}
+                    {row.memoryDisclosure && (
+                      <span className="bg-models-list__desc">{row.memoryDisclosure}</span>
+                    )}
                     {row.description && (
                       <span className="bg-models-list__desc">{row.description}</span>
                     )}
@@ -262,6 +391,7 @@ export function BgRemovalModelsTab() {
                       <div
                         className="insp-progress-bar"
                         role="progressbar"
+                        aria-label={`Downloading ${row.name}`}
                         aria-valuenow={compositeDownload.progress}
                         aria-valuemin={0}
                         aria-valuemax={100}
@@ -272,18 +402,32 @@ export function BgRemovalModelsTab() {
                         />
                       </div>
                     )}
-                    {compositeError && row.id === compositeDownload?.id && (
+                    {rowError?.id === row.id && (
                       <span className="bg-models-list__meta" role="alert">
-                        {compositeError}
+                        {rowError.message}
                       </span>
                     )}
                   </div>
                   <div className="bg-models-list__actions">
-                    {row.installed && row.source === 'downloaded' && (
+                    {row.readinessError && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => void refresh()}
+                        aria-label={`Retry ${row.name} model check`}
+                      >
+                        Retry model check
+                      </Button>
+                    )}
+                    {row.source === 'downloaded' && (
                       <Button
                         variant="ghost"
                         onClick={() => void handleDelete(row)}
-                        disabled={busyId === row.id}
+                        disabled={busyId !== null || compositeDownload !== null}
+                        disabledReason={
+                          busyId !== null || compositeDownload !== null
+                            ? 'Wait for the current model operation to finish.'
+                            : undefined
+                        }
                         aria-label={`Remove ${row.name} model`}
                       >
                         {busyId === row.id ? 'Removing...' : 'Remove'}
@@ -301,10 +445,16 @@ export function BgRemovalModelsTab() {
                       ) : (
                         <Button
                           variant="default"
+                          disabled={busyId !== null || compositeDownload !== null}
+                          disabledReason={
+                            busyId !== null || compositeDownload !== null
+                              ? 'Wait for the current model operation to finish.'
+                              : undefined
+                          }
                           onClick={() => void handleCompositeDownload(row)}
-                          aria-label={`Download ${row.name} model (${row.componentIds.length} parts)`}
+                          aria-label={`${rowError?.id === row.id ? 'Retry' : 'Download'} ${row.name} model (${row.componentIds.length} parts)`}
                         >
-                          Download
+                          {rowError?.id === row.id ? 'Retry download' : 'Download'}
                         </Button>
                       )
                     ) : (
@@ -312,6 +462,12 @@ export function BgRemovalModelsTab() {
                       row.downloadable && (
                         <Button
                           variant="default"
+                          disabled={busyId !== null || compositeDownload !== null}
+                          disabledReason={
+                            busyId !== null || compositeDownload !== null
+                              ? 'Wait for the current model operation to finish.'
+                              : undefined
+                          }
                           onClick={() => setDownloadModelId(row.id)}
                           aria-label={`Download ${row.name} model`}
                         >

@@ -1,10 +1,68 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
+import { evidencePath } from '../helpers/evidence-output';
 import { selectInspectorTab } from '../helpers/inspector-tabs';
 import { navigateToEditor } from '../shared';
 
 test.describe('Colorize production workflow', () => {
+  test('quality modes name and acquire their exact model', async ({ page }) => {
+    test.setTimeout(120000);
+    await navigateToEditor(page);
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30000 });
+    await selectInspectorTab(page, 'Adjustments');
+    const inspector = page.locator('.editor__inspector-panel');
+    const trigger = inspector.getByRole('button', { name: 'Colorize', exact: true });
+    if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
+    await inspector.getByRole('combobox', { name: 'Colorization workflow' }).click();
+    await page.getByRole('option', { name: 'Photo Colorization (AI)', exact: true }).click();
+    const status = inspector.getByRole('region', { name: 'Colorization model readiness' });
+    await expect(
+      status.getByRole('button', { name: 'Download DDColor', exact: true }),
+    ).toBeVisible();
+    await expect(
+      inspector.getByRole('button', { name: 'Generate colorize preview' }),
+    ).toBeDisabled();
+    await inspector.getByRole('radio', { name: 'Fast', exact: true }).click();
+    await status.getByRole('button', { name: 'Download DDColor Tiny', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Download AI Model' });
+    await expect(dialog).toContainText('DDColor Tiny');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await status.getByRole('button', { name: 'Model details' }).click();
+    for (const width of [1440, 1024]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const theme of ['dark', 'light', 'high-contrast']) {
+        await page.evaluate(
+          (value) => document.documentElement.setAttribute('data-theme', value),
+          theme,
+        );
+        await status.scrollIntoViewIfNeeded();
+        expect(
+          await status.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+        ).toBe(true);
+        await status.screenshot({ path: evidencePath(`colorize-readiness-${width}-${theme}.png`) });
+      }
+    }
+    await inspector.getByRole('radio', { name: 'Quality', exact: true }).click();
+    await expect(
+      status.getByRole('button', { name: 'Download DDColor', exact: true }),
+    ).toBeVisible();
+    await expect(
+      status.getByRole('button', { name: 'Download DDColor Tiny', exact: true }),
+    ).toHaveCount(0);
+    await inspector.getByRole('radio', { name: 'Automatic', exact: true }).click();
+    await expect(
+      status.getByRole('button', { name: 'Download DDColor', exact: true }),
+    ).toBeVisible();
+    await expect(
+      status.getByRole('button', { name: 'Download DDColor Tiny', exact: true }),
+    ).toBeVisible();
+  });
+
   test('previews, commits, and exports a deterministic recolor without a model', async ({
     page,
   }, testInfo) => {

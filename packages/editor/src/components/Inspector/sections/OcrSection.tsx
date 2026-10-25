@@ -15,29 +15,25 @@
  *      position in a single undoable transaction.
  */
 import type { OcrResult, OcrWord } from '@varve/engine';
-import {
-  computeImagePlacement,
-  getModelLoader,
-  getOcrModelConfig,
-  runOcrPipeline,
-  sourcePixelToLocal,
-} from '@varve/engine';
+import { getModelLoader, getOcrModelConfig, runOcrPipeline } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
-import {
-  addNode,
-  imageShapeSrc,
-  isImageShape,
-  makeTextNode,
-  nextNodeId,
-  nodeWorldTransform,
-} from '@varve/scene';
+import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { createOcrTextLayers } from '../../../ocr/createOcrTextLayers';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 
 const DET_MODEL_ID = 'paddleocr-det-v4';
+
+/** User-facing suffix naming the runtime that actually executed recognition. */
+function executionProviderSuffix(provider: string | undefined): string {
+  if (!provider) return '';
+  if (provider === 'native-cpu') return ' · ran on native CPU';
+  if (provider === 'wasm') return ' · ran on WebAssembly';
+  return ` · ran on ${provider}`;
+}
 
 type Status = 'idle' | 'downloading' | 'recognizing' | 'error';
 
@@ -46,6 +42,7 @@ interface OcrState {
   errorMessage: string | null;
   result: OcrResult | null;
   editedWords: OcrWord[];
+  sourceSize: { width: number; height: number } | null;
   detModelAvailable: boolean;
   recModelAvailable: boolean;
 }
@@ -59,6 +56,7 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
     errorMessage: null,
     result: null,
     editedWords: [],
+    sourceSize: null,
     detModelAvailable: false,
     recModelAvailable: false,
   });
@@ -66,6 +64,22 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
   const isImage = Boolean(node && isImageShape(node));
   const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
+
+  // Results belong to the source that was read, never the next selected image.
+  useEffect(() => {
+    setState((p) => ({
+      ...p,
+      status: 'idle',
+      errorMessage: null,
+      result: null,
+      editedWords: [],
+      sourceSize: null,
+    }));
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, [node?.id, imageSrc]);
 
   useEffect(() => {
     if (!isImage) return;
@@ -75,7 +89,10 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
         const loader = getModelLoader();
         const detOk = await loader.isModelAvailable(DET_MODEL_ID);
         const recConfig = getOcrModelConfig('paddleocr-rec-v4');
-        const recOk = recConfig ? await loader.isModelAvailable(recConfig.modelId) : false;
+        const recOk = recConfig?.dictionaryModelId
+          ? (await loader.isModelAvailable(recConfig.modelId)) &&
+            (await loader.isModelAvailable(recConfig.dictionaryModelId))
+          : false;
         if (!cancelled)
           setState((p) => ({ ...p, detModelAvailable: detOk, recModelAvailable: recOk }));
       } catch {
@@ -108,16 +125,18 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
     setState((p) => ({ ...p, status: 'downloading', errorMessage: null }));
     try {
       const loader = getModelLoader(controller.signal);
-      await loader.downloadModel(DET_MODEL_ID, () => {}, controller.signal);
       const recConfig = getOcrModelConfig('paddleocr-rec-v4');
-      if (recConfig) {
-        await loader.downloadModel(recConfig.modelId, () => {}, controller.signal);
+      if (!recConfig?.dictionaryModelId)
+        throw new Error('OCR recognition resources are not configured');
+      for (const id of [DET_MODEL_ID, recConfig.modelId, recConfig.dictionaryModelId]) {
+        controller.signal.throwIfAborted();
+        await loader.downloadModel(id, () => {}, controller.signal);
       }
+      controller.signal.throwIfAborted();
       setState((p) => ({ ...p, status: 'idle', detModelAvailable: true, recModelAvailable: true }));
-      announce('OCR models downloaded (detection + recognition)');
+      announce('OCR models and character dictionary downloaded');
     } catch (err) {
       if (controller.signal.aborted) {
-        setState((p) => ({ ...p, status: 'idle' }));
         return;
       }
       setState((p) => ({
@@ -139,6 +158,7 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
       errorMessage: null,
       result: null,
       editedWords: [],
+      sourceSize: null,
     }));
 
     try {
@@ -164,6 +184,7 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
         status: 'idle',
         result,
         editedWords: words,
+        sourceSize: { width: fullData.width, height: fullData.height },
       }));
       announce(
         result.words.length === 1
@@ -189,79 +210,24 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
   }, []);
 
   const handleCreateLayers = useCallback(async () => {
-    if (!state_.editedWords.length || !typedNode) return;
-
-    const nonEmptyWords = state_.editedWords.filter((w) => w.text.trim());
-    if (nonEmptyWords.length === 0) {
-      announce('No non-empty text to create layers from');
+    const sourceSize = state_.sourceSize;
+    if (!state_.editedWords.length || !typedNode || !sourceSize) return;
+    const result = createOcrTextLayers(
+      state.document,
+      typedNode.id,
+      state_.editedWords,
+      sourceSize,
+    );
+    if (!result.created) {
+      announce('No visible, non-empty text regions to create layers from');
       return;
     }
-
-    const doc = state.document;
-    const fill = typedNode.fills?.find((f) => f.type === 'image')?.image;
-    if (!fill) return;
-
-    const sourceW = fill.imageWidth ?? 100;
-    const sourceH = fill.imageHeight ?? 100;
-    const nodeBounds = { x: 0, y: 0, w: 1, h: 1 };
-
-    if (typedNode.shape.kind === 'rect') {
-      nodeBounds.w = typedNode.shape.w;
-      nodeBounds.h = typedNode.shape.h;
-    } else {
-      const bounds = typedNode.shape as unknown as { w?: number; h?: number };
-      nodeBounds.w = bounds.w ?? 200;
-      nodeBounds.h = bounds.h ?? 160;
-    }
-
-    const placement = computeImagePlacement({
-      fit: fill.fit ?? 'crop',
-      sourceWidth: sourceW,
-      sourceHeight: sourceH,
-      bounds: nodeBounds,
-      x: fill.x ?? 0,
-      y: fill.y ?? 0,
-      scale: fill.scale ?? 1,
-    });
-
-    if (!placement) {
-      announce('Could not compute image placement — crop/fit configuration may be incompatible');
-      return;
-    }
-
-    const worldTx = nodeWorldTransform(doc, typedNode.id);
-    const fontSize = Math.max(8, Math.min(nodeBounds.h * 0.08, 48));
-
-    updateDoc((s) => {
-      let workingDoc = s;
-
-      for (const word of nonEmptyWords) {
-        const localPt = sourcePixelToLocal(placement, { x: word.x, y: word.y });
-        if (!localPt) continue;
-
-        const worldX = worldTx[0] * localPt.x + worldTx[2] * localPt.y + worldTx[4];
-        const worldY = worldTx[1] * localPt.x + worldTx[3] * localPt.y + worldTx[5];
-
-        const wordW = (word.width / sourceW) * nodeBounds.w;
-        const wordH = (word.height / sourceH) * nodeBounds.h;
-        const estimatedFontSize = Math.max(8, Math.min(wordH, fontSize));
-
-        const { id, doc: afterAlloc } = nextNodeId(workingDoc);
-        const textNode = makeTextNode(id, word.text, {
-          name: `OCR: ${word.text.slice(0, 20)}`,
-          transform: [1, 0, 0, 1, worldX, worldY],
-          fontSize: estimatedFontSize,
-          w: Math.max(wordW, 10),
-          h: Math.max(wordH, estimatedFontSize * 1.4),
-        });
-        workingDoc = addNode(afterAlloc, textNode);
-      }
-
-      return workingDoc;
-    });
-
-    announce(`Created ${nonEmptyWords.length} text layer(s) from OCR`);
-  }, [state_.editedWords, typedNode, state.document, announce, updateDoc]);
+    updateDoc(
+      (document) =>
+        createOcrTextLayers(document, typedNode.id, state_.editedWords, sourceSize).document,
+    );
+    announce(`Created ${result.created} text layer(s) from OCR`);
+  }, [state_.editedWords, state_.sourceSize, typedNode, state.document, announce, updateDoc]);
 
   const handleCopyAll = useCallback(async () => {
     const text = state_.editedWords
@@ -284,7 +250,8 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
   if (!isImage || !typedNode) return null;
 
   const isProcessing = state_.status === 'recognizing' || state_.status === 'downloading';
-  const needsDownload = !state_.detModelAvailable && state_.status !== 'downloading';
+  const needsDownload =
+    (!state_.detModelAvailable || !state_.recModelAvailable) && state_.status !== 'downloading';
   const hasResults = state_.editedWords.length > 0;
   const hasOrientation = state_.result?.orientationCorrected;
   const orientationAngle = state_.result?.detectedOrientation;
@@ -349,9 +316,10 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
         )}
 
         {state_.result?.recognitionModelId && (
-          <p className="insp-hint">
+          <p className="insp-hint" role="note" aria-label="OCR recognition provenance">
             Recognition model: {state_.result.recognitionModelId}
             {state_.result.orientationCorrected && ' (orientation corrected)'}
+            {executionProviderSuffix(state_.result.executionProvider)}
           </p>
         )}
 

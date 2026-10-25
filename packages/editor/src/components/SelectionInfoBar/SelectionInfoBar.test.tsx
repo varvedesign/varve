@@ -7,6 +7,7 @@ import { addChild, createDesignCanvas, createDocument, makeShapeNode } from '@va
 import { describe, expect, it } from 'vitest';
 import { EditorProvider } from '../../context';
 import {
+  activeContextName,
   countActivePageLayers,
   getDisplayAncestorChain,
   getSelectionAnnouncement,
@@ -27,6 +28,27 @@ describe('SelectionInfoBar', () => {
     const region = screen.getByRole('region', { name: 'Selection information' });
     expect(region).toBeInTheDocument();
     expect(within(region).getByRole('status')).toHaveTextContent('No selection.');
+  });
+
+  it('leads with the document name when the active page has none, never a false "Untitled"', () => {
+    const created = createDocument('NewDesign1');
+    // Imported and restored documents can carry pages with no name.
+    const named = {
+      ...created,
+      pages: created.pages?.map((page) => ({ ...page, name: '' })),
+    };
+    expect(activeContextName(named)).toBe('NewDesign1');
+    expect(getSelectionAnnouncement(named, [])).toContain('No selection. NewDesign1.');
+    // A page that has a name still wins.
+    expect(activeContextName(created)).toBe(created.pages?.[0]?.name);
+
+    const unnamed = { ...named, name: '' };
+    expect(activeContextName(unnamed)).toBe('Untitled');
+  });
+
+  it('says "1 layer", not "1 layers", in the no-selection announcement', () => {
+    const document = createDocument('One');
+    expect(getSelectionAnnouncement(document, [])).toMatch(/\d+ layers?\.$/);
   });
 
   it('announces selection identity without pointer-move geometry', () => {

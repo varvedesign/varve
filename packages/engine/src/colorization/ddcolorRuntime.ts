@@ -1,5 +1,5 @@
 import { getModelLoaderReady } from '../backgroundRemoval/modelLoader';
-import { resolveRuntime } from './runtimeResolver';
+import { getDdColorModelCandidates, resolveRuntime } from './runtimeResolver';
 import type { ImageStats, QualityMode, RuntimeResolution } from './types';
 
 export interface ResolvedDdColorRuntime extends RuntimeResolution {
@@ -21,21 +21,28 @@ export async function resolveDdColorRuntime(
 ): Promise<ResolvedDdColorRuntime> {
   const loader = await getModelLoaderReady(signal);
   const installedModels: string[] = [];
-  for (const modelId of ['ddcolor-tiny', 'ddcolor']) {
-    if (await loader.isModelAvailable(modelId, signal)) installedModels.push(modelId);
+  const candidates = getDdColorModelCandidates(qualityMode);
+  for (const modelId of candidates) {
+    const available = await loader.isModelAvailable(modelId, signal);
+    signal?.throwIfAborted();
+    if (available) {
+      installedModels.push(modelId);
+      break;
+    }
   }
 
   if (installedModels.length === 0) {
     throw new Error(
-      'No verified DDColor model is installed. Download DDColor Tiny or DDColor in Settings > Models, then retry.',
+      `No verified model for this quality mode is installed. Download ${candidates.map((id) => (id === 'ddcolor-tiny' ? 'DDColor Tiny' : 'DDColor')).join(' or ')} in Settings > Offline Models, then retry.`,
     );
   }
 
   const resolution = resolveRuntime('photo-colorize', qualityMode, stats, installedModels);
   const modelPath = await loader.getModelPath(resolution.modelId, signal);
+  signal?.throwIfAborted();
   if (!modelPath) {
     throw new Error(
-      `DDColor model ${resolution.modelId} is unavailable or failed integrity verification. Re-download it in Settings > Models.`,
+      `DDColor model ${resolution.modelId} is unavailable or failed integrity verification. Re-download it in Settings > Offline Models.`,
     );
   }
 

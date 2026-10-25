@@ -47,11 +47,32 @@ describe('explicit model routing', () => {
 });
 
 describe('native model routing', () => {
-  it('declines native execution when the requested model is not the native model', () => {
-    expect(nativeModelIdForOptions({ method: 'ai-balanced', modelId: 'u2netp' })).toBeNull();
+  it('declines unsupported models and incompatible operation/model pairs', () => {
+    expect(nativeModelIdForOptions({ method: 'quick', modelId: 'u2netp' })).toBeNull();
+    expect(nativeModelIdForOptions({ method: 'portrait', modelId: 'u2netp' })).toBeNull();
     expect(
       nativeModelIdForOptions({ method: 'ai-balanced', modelId: 'birefnet-general-lite' }),
     ).toBeNull();
+  });
+
+  it('routes explicit Full and U2-NetP to their own native artifacts', () => {
+    expect(nativeModelIdForOptions({ method: 'ai-quality', modelId: 'birefnet-general' })).toBe(
+      'birefnet-general',
+    );
+    expect(nativeModelIdForOptions({ method: 'ai-balanced', modelId: 'u2netp' })).toBe('u2netp');
+  });
+
+  it('preserves an explicit bundled INT8 choice on the native route', () => {
+    expect(nativeModelIdForOptions({ method: 'ai-balanced', modelId: 'u2netp-int8' })).toBe(
+      'u2netp-int8',
+    );
+  });
+
+  it('routes portrait matting to the exact native MODNet artifact', () => {
+    expect(nativeModelIdForOptions({ method: 'portrait' })).toBe('modnet-portrait');
+    expect(nativeModelIdForOptions({ method: 'portrait', modelId: 'modnet-portrait' })).toBe(
+      'modnet-portrait',
+    );
   });
 
   it('accepts the request when it matches the native model for the method', () => {

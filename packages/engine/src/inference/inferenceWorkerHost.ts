@@ -5,7 +5,7 @@
  * and stale-result rejection via generation tracking.
  */
 
-import type { DerivedResidentLease } from '@varve/platform';
+import { type DerivedResidentLease, isTauriRuntime } from '@varve/platform';
 import {
   estimateInferenceReservation,
   getInferenceAdmission,
@@ -23,6 +23,8 @@ import type {
   WorkerTensor,
 } from './inferenceWorker';
 import { estimateModelMemory, getModelById, getRecommendedProvider } from './modelCatalog';
+import { NativeWorkerBridge } from './nativeWorkerBridge';
+import type { NativeWorkerCall } from './nativeWorkerRuntime';
 import type { WorkerSessionIdentity } from './sessionKeys';
 import { workerSessionKey } from './sessionKeys';
 
@@ -40,6 +42,7 @@ interface PendingJob {
   admissionLease: InferenceLease;
   sessionKey: string;
   sessionEstimateBytes: number;
+  modelId: string;
   /** Release admission only when this worker request is actually finished. */
   finishExecution: () => void;
   callerSettled: boolean;
@@ -50,6 +53,13 @@ interface TrackedSessionResident {
   estimateBytes: number;
   legacyKey: string;
   lease: DerivedResidentLease | null;
+}
+
+interface RetiredNativeWorker {
+  bridge: NativeWorkerBridge;
+  jobs: PendingJob[];
+  pending?: Promise<void>;
+  error?: Error;
 }
 
 // The host deadline covers session creation plus execution. Encoder graphs are
@@ -67,6 +77,9 @@ const RELEASE_TIMEOUT_MS = 30_000;
 
 export class InferenceWorkerHost {
   private worker: Worker | null = null;
+  private nativeBridge: NativeWorkerBridge | null = null;
+  private retiredNativeWorker: RetiredNativeWorker | null = null;
+  private readonly hostId = crypto.randomUUID();
   private workerGeneration = 0;
   private sessionResidents = new Map<string, TrackedSessionResident>();
   private legacySessionKeys = new Map<string, Set<string>>();
@@ -97,6 +110,7 @@ export class InferenceWorkerHost {
 
   private ensureWorker(): Worker {
     if (this.worker) return this.worker;
+    if (this.retiredNativeWorker) throw new Error('Native inference cleanup is still pending');
 
     this.workerGeneration += 1;
 
@@ -116,14 +130,26 @@ export class InferenceWorkerHost {
     // A single permanent handler for module readiness, correlated session
     // creation, inference results, and release confirmations. A readiness-only
     // probe would discard failures and resident-session accounting messages.
-    this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => this.handleMessage(e.data);
-    this.worker.onerror = (e) => this.handleWorkerError(e);
-    this.worker.onmessageerror = () => this.handleWorkerMessageError();
+    const worker = this.worker;
+    this.nativeBridge = isTauriRuntime() ? new NativeWorkerBridge() : null;
+    worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+      if (this.worker === worker) this.handleMessage(e.data);
+    };
+    worker.onerror = (e) => {
+      if (this.worker === worker) this.handleWorkerError(e);
+    };
+    worker.onmessageerror = () => {
+      if (this.worker === worker) this.handleWorkerMessageError();
+    };
 
     return this.worker;
   }
 
   private handleMessage(msg: WorkerResponse): void {
+    if (msg.type === 'native-call') {
+      this.handleNativeCall(msg);
+      return;
+    }
     if (msg.type === 'ready') {
       this.workerReady = true;
       return;
@@ -167,6 +193,10 @@ export class InferenceWorkerHost {
 
     const job = this.pendingJobs.get(msg.requestId);
     if (!job) return;
+    if (this.nativeBridge?.isExecuting(msg.requestId)) {
+      this.restartWorker(new Error('Worker completed before its native execution settled'));
+      return;
+    }
 
     clearTimeout(job.timer);
     job.abortCleanup?.();
@@ -181,6 +211,31 @@ export class InferenceWorkerHost {
       }
     }
     job.finishExecution();
+  }
+
+  private handleNativeCall(message: NativeWorkerCall): void {
+    const worker = this.worker;
+    const bridge = this.nativeBridge;
+    if (!worker || !bridge) {
+      this.restartWorker(new Error('Native inference was requested outside the desktop runtime'));
+      return;
+    }
+    bridge.handle(
+      message,
+      (reply) => {
+        if (this.worker !== worker) return;
+        try {
+          worker.postMessage(reply);
+        } catch {
+          this.restartWorker(new Error('Native inference reply could not reach its worker'));
+        }
+      },
+      () => {
+        if (this.worker !== worker || message.operation === 'release') return false;
+        const job = this.pendingJobs.get(message.requestId);
+        return !!job && !job.callerSettled && job.modelId === message.modelId;
+      },
+    );
   }
 
   private acceptSessionReady(message: WorkerSessionReady): void {
@@ -287,10 +342,17 @@ export class InferenceWorkerHost {
   }
 
   private restartWorker(reason: Error): void {
+    if (this.retiredNativeWorker) {
+      void this.finishNativeRetirement().catch(() => {});
+      return;
+    }
     const worker = this.worker;
+    const nativeBridge = this.nativeBridge;
     this.worker = null;
+    this.nativeBridge = null;
     this.workerReady = false;
     worker?.terminate();
+    const jobs = [...this.pendingJobs.values()];
     for (const [id, job] of this.pendingJobs) {
       clearTimeout(job.timer);
       job.abortCleanup?.();
@@ -299,18 +361,48 @@ export class InferenceWorkerHost {
         job.callerSettled = true;
         job.reject(reason);
       }
-      job.finishExecution();
+      if (!nativeBridge) job.finishExecution();
     }
     for (const [id, pending] of this.pendingReleases) {
       clearTimeout(pending.timer);
       this.pendingReleases.delete(id);
       pending.reject(reason);
     }
-    // The worker process is gone, so its wasm heap and GPU resources are
-    // reclaimed by the platform. This is the one case where accounting may
-    // return to zero without a successful release call.
+    if (nativeBridge) {
+      // Rust execution and session memory outlive the JavaScript worker. Keep
+      // both active and resident leases until native teardown is confirmed.
+      this.retiredNativeWorker = { bridge: nativeBridge, jobs };
+      void this.finishNativeRetirement().catch(() => {});
+      return;
+    }
+    // Browser resources belong to the terminated worker. Native resources
+    // instead require the asynchronous confirmation above.
     this.clearAllSessionResidents();
     this.residency.unresolvedBytes = 0;
+  }
+
+  private finishNativeRetirement(): Promise<void> {
+    const retired = this.retiredNativeWorker;
+    if (!retired) return Promise.resolve();
+    if (retired.pending) return retired.pending;
+    retired.pending = retired.bridge
+      .retire()
+      .then(
+        () => {
+          this.clearAllSessionResidents();
+          this.residency.unresolvedBytes = 0;
+          this.retiredNativeWorker = null;
+          for (const job of retired.jobs) job.finishExecution();
+        },
+        (error: unknown) => {
+          retired.error = error instanceof Error ? error : new Error(String(error));
+          throw retired.error;
+        },
+      )
+      .finally(() => {
+        retired.pending = undefined;
+      });
+    return retired.pending;
   }
 
   /**
@@ -327,6 +419,7 @@ export class InferenceWorkerHost {
     if (!job || job.callerSettled) return false;
     job.abortCleanup?.();
     job.callerSettled = true;
+    this.nativeBridge?.cancel(requestId);
     job.reject(
       new InferenceError('inference_cancelled', undefined, {
         message: 'Inference result discarded after cancellation.',
@@ -343,6 +436,10 @@ export class InferenceWorkerHost {
     request: Omit<WorkerInferRequest, 'requestId'>,
     options: InferenceJobOptions = {},
   ): Promise<WorkerInferResult> {
+    if (this.retiredNativeWorker) {
+      await waitForNativeCleanup(this.finishNativeRetirement(), options.signal);
+    }
+    const runtime = isTauriRuntime() ? 'native' : 'web';
     const model = getModelById(request.modelId);
     const sessionEstimateBytes = request.sessionPeakBytes ?? estimateModelMemory(request.modelId);
     if (!Number.isSafeInteger(sessionEstimateBytes) || sessionEstimateBytes < 0) {
@@ -357,14 +454,18 @@ export class InferenceWorkerHost {
         request.sessionIdentity?.artifactRevision ?? model?.checksum ?? request.modelPath,
       precision: request.sessionIdentity?.precision ?? model?.precision ?? 'unknown',
       providerConfiguration:
-        request.sessionIdentity?.providerConfiguration ??
-        (recommendedProvider === 'cpu'
-          ? 'wasm-only'
-          : recommendedProvider === 'gpu'
-            ? 'accelerator-with-wasm-fallback'
-            : 'runtime-auto'),
+        runtime === 'native'
+          ? 'native-cpu'
+          : (request.sessionIdentity?.providerConfiguration ??
+            (recommendedProvider === 'cpu'
+              ? 'wasm-only'
+              : recommendedProvider === 'gpu'
+                ? 'accelerator-with-wasm-fallback'
+                : 'runtime-auto')),
       runtimeConfiguration:
-        request.sessionIdentity?.runtimeConfiguration ?? 'ort-worker:threads=1:proxy=off',
+        runtime === 'native'
+          ? 'ort-native:cpu-arena=off'
+          : (request.sessionIdentity?.runtimeConfiguration ?? 'ort-worker:threads=1:proxy=off'),
       externalDataRevision:
         request.sessionIdentity?.externalDataRevision ??
         request.externalData?.checksum ??
@@ -414,7 +515,7 @@ export class InferenceWorkerHost {
     let executionOwned = false;
     try {
       const worker = this.ensureWorker();
-      const requestId = `inf_${++this.nextRequestId}_${Date.now().toString(36)}`;
+      const requestId = `inf_${this.hostId}_${++this.nextRequestId}`;
       const timeout =
         options.timeoutMs ?? MODEL_TIMEOUT_MS[request.modelType] ?? DEFAULT_TIMEOUT_MS;
 
@@ -427,7 +528,6 @@ export class InferenceWorkerHost {
         const timer = setTimeout(() => {
           const job = this.pendingJobs.get(requestId);
           if (!job) return;
-          this.pendingJobs.delete(requestId);
           job.abortCleanup?.();
           if (!job.callerSettled) {
             job.callerSettled = true;
@@ -438,16 +538,15 @@ export class InferenceWorkerHost {
               }),
             );
           }
-          // ONNX Runtime does not expose cooperative cancellation for every
-          // graph. Terminating the worker is the only way to prevent a timed-out
-          // request from occupying the shared worker and poisoning the retry.
+          // Retire the owner. Native teardown keeps the lease until the actual
+          // run and session destruction settle, even after worker termination.
           this.restartWorker(
             new InferenceError('worker_crash', undefined, {
               message: 'Inference worker restarted after a timeout.',
-              technical: 'The worker was terminated to stop a non-cancellable graph.',
+              technical:
+                'The worker was retired; native execution remains owned until cleanup completes.',
             }),
           );
-          job.finishExecution();
         }, timeout);
 
         let finished = false;
@@ -458,6 +557,7 @@ export class InferenceWorkerHost {
           admissionLease: lease,
           sessionKey,
           sessionEstimateBytes,
+          modelId: request.modelId,
           callerSettled: false,
           finishExecution: () => {
             if (finished) return;
@@ -470,6 +570,7 @@ export class InferenceWorkerHost {
 
         const fullRequest: WorkerInferRequest = {
           ...request,
+          runtime,
           sessionPeakBytes: sessionEstimateBytes,
           sessionIdentity,
           requestId,
@@ -510,8 +611,9 @@ export class InferenceWorkerHost {
     keys?: readonly string[],
     options: { timeoutMs?: number } = {},
   ): Promise<WorkerReleaseResponse> {
+    if (this.retiredNativeWorker) await this.finishNativeRetirement();
     const worker = this.ensureWorker();
-    const requestId = `rel_${++this.nextRequestId}_${Date.now().toString(36)}`;
+    const requestId = `rel_${this.hostId}_${++this.nextRequestId}`;
     const resolvedKeys = keys?.flatMap((key) => {
       const aliases = this.legacySessionKeys.get(key);
       return aliases?.size ? [...aliases] : [key];
@@ -560,6 +662,8 @@ export class InferenceWorkerHost {
     trackedResidentBytes: number;
     pendingReleases: number;
     lastReport: WorkerReleaseResponse | null;
+    nativeCleanupPending: boolean;
+    nativeCleanupError: string | null;
   } {
     return {
       releasedSessions: this.residency.releasedSessions,
@@ -572,6 +676,8 @@ export class InferenceWorkerHost {
       ),
       pendingReleases: this.pendingReleases.size,
       lastReport: this.residency.lastReport,
+      nativeCleanupPending: this.retiredNativeWorker !== null,
+      nativeCleanupError: this.retiredNativeWorker?.error?.message ?? null,
     };
   }
 
@@ -583,6 +689,10 @@ export class InferenceWorkerHost {
    */
   recycleWorkerIfIdle(): boolean {
     if (this.pendingJobs.size > 0 || this.pendingReleases.size > 0) return false;
+    if (this.nativeBridge || this.retiredNativeWorker) {
+      this.restartWorker(new Error('Idle native inference worker recycled'));
+      return false;
+    }
     if (!this.worker) return true;
     this.worker.terminate();
     this.worker = null;
@@ -642,8 +752,20 @@ export function getInferenceWorkerHost(): InferenceWorkerHost {
 export function disposeInferenceWorkerHost(): void {
   if (sharedHost) {
     sharedHost.dispose();
-    sharedHost = null;
+    // Retain the cleanup owner so a later request can retry an unconfirmed
+    // native release instead of orphaning the session and its reservation.
+    if (!sharedHost.getResidencyDiagnostics().nativeCleanupPending) sharedHost = null;
   }
+}
+
+function waitForNativeCleanup(cleanup: Promise<void>, signal?: AbortSignal): Promise<void> {
+  if (!signal) return cleanup;
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = () => reject(new InferenceError('inference_cancelled'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) onAbort();
+    void cleanup.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
 }
 
 function inferenceErrorFromMessage(message: string): Error {

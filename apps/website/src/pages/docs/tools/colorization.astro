@@ -86,16 +86,25 @@ import '../../../styles/docs-prose.css';
       <section class="docs-section docs-section--note" aria-labelledby="photo-title">
         <h2 id="photo-title">Photo colorization readiness</h2>
         <p>
-          Photo Colorization is disabled until Settings → Models reports a verified DDColor model.
-          The current release includes the adapter, quality-mapped preview, tensor validation,
-          and the official upstream input contract (grayscale-derived RGB, square model input)
-          plus full-resolution reconstruction that combines predicted chroma with the original
-          source detail and alpha. It does not ship an unverified checkpoint.
+          Photo Colorization checks the model required by the chosen quality mode beside Preview.
+          Fast requires DDColor Tiny (224 MB); Balanced and Quality require DDColor (915 MB).
+          Automatic prefers an installed DDColor, otherwise Tiny. Download the missing variant
+          there or in Settings → Offline Models; a status error offers a retry rather than claiming
+          the model is missing. Installation and runtime/memory admission are separate checks.
+          Both models use grayscale-derived RGB and fixed square inputs (256 or 512 pixels), then
+          reconstruct predicted chroma with original source lightness and alpha. Quality permits a
+          larger working image but does not change the full model's 512-pixel graph input or run tiles.
         </p>
         <p>
           If the model is unavailable, use Tint / Selective Recolor for deterministic work. Varve
           does not silently substitute a tint and label it photo AI, and it does not upload the
           source image as a fallback.
+        </p>
+        <p>
+          Published artifacts have passed integrity checks and real native CPU prediction and
+          reconstruction. Initial portrait output was visually reviewed; broader quality, complete
+          editor workflows, and other platforms remain under qualification. No measured peak-memory
+          guarantee follows from the model's download size.
         </p>
       </section>
 

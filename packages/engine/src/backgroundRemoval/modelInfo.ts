@@ -13,8 +13,8 @@ export interface ModelInfo {
   readonly description: string;
   /** Model file size on disk (bytes). */
   readonly diskSizeBytes: number;
-  /** Estimated peak WASM heap + tensor memory during inference (bytes). */
-  readonly estimatedPeakRamBytes: number;
+  /** Optional working-memory estimate; absent when the evidence is unqualified. */
+  readonly estimatedPeakRamBytes?: number;
   /** Human-readable peak memory string. */
   readonly peakRamDisplay: string;
   /**
@@ -23,7 +23,7 @@ export interface ModelInfo {
    * honest number.
    */
   readonly nativeEstimatedPeakRamBytes?: number;
-  /** Human-readable native peak memory string, e.g. "~450 MB". */
+  /** Human-readable native peak memory string, with measurement provenance. */
   readonly nativePeakRamDisplay?: string;
   /** Human-readable disk size string. */
   readonly diskSizeDisplay: string;
@@ -39,10 +39,10 @@ export interface ModelInfo {
 
 export const QUICK_MODEL_INFO: ModelInfo = {
   label: 'Fast',
-  description: 'Fast CPU heuristic — no AI model, works offline on every image.',
+  description: 'Local CPU heuristic for simple backgrounds; review and refine the mask.',
   diskSizeBytes: 0,
   estimatedPeakRamBytes: 16_000_000,
-  peakRamDisplay: '~16 MB',
+  peakRamDisplay: 'Working memory depends on image size; no model is loaded.',
   diskSizeDisplay: '0 B (no model)',
   quality: 'Basic',
   requiresDownload: false,
@@ -52,11 +52,10 @@ export const QUICK_MODEL_INFO: ModelInfo = {
 
 export const AI_BALANCED_MODEL_INFO: ModelInfo = {
   label: 'Auto',
-  description: 'General-purpose local AI with automatic low-memory fallback.',
+  description: 'Auto uses IS-Net when installed, with bundled U²-Net Light as its fallback.',
   diskSizeBytes: 178_648_008,
-  // Measured retained RSS (native CPU, 2026-08-13 parity audit): ~1.3 GB.
-  estimatedPeakRamBytes: 1_300_000_000,
-  peakRamDisplay: '~1.3 GB RAM',
+  // The previous 1.3 GB sample measured retained RSS, not peak allocation.
+  peakRamDisplay: 'Peak working memory has not yet been validated for this runtime.',
   diskSizeDisplay: '179 MB optional',
   quality: 'Very good',
   requiresDownload: true,
@@ -68,22 +67,15 @@ export const AI_QUALITY_MODEL_INFO: ModelInfo = {
   label: 'High quality',
   description: 'BiRefNet Lite for hair, fur, and complex edges.',
   diskSizeBytes: 224_000_000,
-  // Browser/WASM boundary, not a working set: bare WASM deterministically
-  // aborts at the wasm32 4 GiB address-space ceiling during session.run()
-  // (~4027-4145 MB RSS; docs/audits/
-  // background-removal-wasm-memory-hardening-2026-07-18.md). The static
-  // 1024x1024 input cannot be downscaled to fit, so the gate must refuse it.
-  estimatedPeakRamBytes: 4_100_000_000,
-  peakRamDisplay: 'browser WASM needs ~4.1 GB (over its limit)',
-  // Native measured peak: bgremove_bench on the bundled ORT CPU build with the
-  // arena disabled reported 432 MiB peak RSS across a 12-image corpus
-  // (2026-10-22).
-  nativeEstimatedPeakRamBytes: 450_000_000,
-  nativePeakRamDisplay: '~450 MB RAM on desktop',
+  // The retracted 450 MB native sample was post-inference RSS. Historical
+  // browser process RSS neither measures linear memory nor establishes Full's
+  // requirements. Keep these out of the disclosure until qualified peak runs.
+  peakRamDisplay:
+    'Peak working memory has not yet been validated. Earlier desktop residency and browser process-memory samples were not peak requirements.',
   diskSizeDisplay: '224 MB',
   quality: 'Best',
   requiresDownload: true,
-  gpuRecommended: true,
+  gpuRecommended: false,
   wasmSafe: false,
 };
 

@@ -15,9 +15,13 @@ for (const theme of ['light', 'dark', 'high-contrast'] as const) {
       const left = (selector: string) =>
         sidebar.querySelector(selector)!.getBoundingClientRect().left;
       return {
-        projects: left('.sidebar-section__header .varve-disclosure__label'),
+        // The header's leading glyph is the chevron, in the same icon column as
+        // the nav items' icons; its label starts where the nav labels do.
+        projects: left('.sidebar-section__header .sidebar-section__chevron'),
+        projectsLabel: left('.sidebar-section__header .varve-disclosure__label'),
         search: left('.sidebar-search input'),
         navigation: left('.sidebar-item__icon'),
+        navigationLabel: left('.sidebar-item > span'),
         empty: left('.sidebar-projects-empty p'),
         create: left('.sidebar-item--new-project'),
       };
@@ -30,6 +34,8 @@ for (const theme of ['light', 'dark', 'high-contrast'] as const) {
     ]) {
       expect(Math.abs(alignment.projects - inset)).toBeLessThanOrEqual(1);
     }
+    // One label column: "Projects" lines up with Recent, Templates, Trash.
+    expect(Math.abs(alignment.projectsLabel - alignment.navigationLabel)).toBeLessThanOrEqual(1);
     await page.locator('.varve-home__sidebar').screenshot({
       path: testInfo.outputPath(`project-sidebar-${theme}.png`),
     });

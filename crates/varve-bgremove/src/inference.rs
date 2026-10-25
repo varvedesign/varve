@@ -12,7 +12,7 @@ use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba, RgbaImage};
 use ort::session::Session;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::session_pool::{
     InferenceCancellationToken, SessionLease, SessionPool, SessionPoolLimits, SessionPoolMetrics,
@@ -52,6 +52,12 @@ pub struct TensorOutput {
 
 /// A single loaded ONNX inference session.
 pub trait InferenceSession: Send {
+    /// Attach request-scoped cancellation before a run. Alternate runtimes
+    /// without an interrupt API still honor the surrounding boundary checks.
+    fn set_cancellation(&mut self, _token: &InferenceCancellationToken) -> Result<(), String> {
+        Ok(())
+    }
+
     /// Run inference on preprocessed float32 input in CHW layout.
     /// Returns the raw output tensor data.
     ///
@@ -120,34 +126,33 @@ pub trait InferenceSession: Send {
 pub struct OrtInferenceRuntime;
 
 /// A session created by [`OrtInferenceRuntime`].
-struct OrtSession {
-    inner: Session,
+pub(crate) struct OrtSession {
+    pub(crate) inner: Session,
+    run_options: Arc<ort::session::RunOptions>,
     output_name: String,
     output_names: Vec<String>,
     provider: &'static str,
 }
 
 impl OrtInferenceRuntime {
-    fn create_session_with_policy(
+    pub(crate) fn create_session_with_policy(
         &self,
         model_path: &Path,
         policy: crate::webgpu_ep::InferenceProviderPolicy,
-    ) -> Result<Box<dyn InferenceSession>, String> {
+    ) -> Result<OrtSession, String> {
         use crate::webgpu_ep::InferenceProviderPolicy;
 
-        // Bounded-memory session options. The ONNX Runtime CPU memory arena
-        // retains its high-water allocation after inference; measured peak
-        // RSS for BiRefNet Lite at 1024×1024 with the arena enabled was
-        // ~11.2 GB on an 8-core x86_64 host (see docs/audits/
-        // background-removal-parity-audit-2026-08-13.md), which defeats the
-        // 4 GB support tier and the bounded session pool. Disabling the
-        // arena and the memory pattern trades a small allocation-speed
-        // constant for a much lower retained footprint; inference math is
-        // identical (the golden parity test runs with these options).
+        // Disable the actual CPU arena, not an arbitrary configuration entry.
+        // ORT accepted "session.enable_cpu_mem_arena=0" while still reporting
+        // enable_cpu_mem_arena:1 and allocating a BFCArena. The CPU EP builder
+        // calls DisableCpuMemArena; native_memory_policy checks the real options.
+        // This controls retained allocations, not the graph's required peak.
         let base_builder = || -> Result<ort::session::builder::SessionBuilder, String> {
             Session::builder()
                 .map_err(|e| format!("Failed to create ONNX session: {e}"))?
-                .with_config_entry("session.enable_cpu_mem_arena", "0")
+                .with_execution_providers([ort::ep::CPU::default()
+                    .with_arena_allocator(false)
+                    .build()])
                 .map_err(|e| format!("Failed to disable CPU memory arena: {e}"))?
                 .with_memory_pattern(false)
                 .map_err(|e| format!("Failed to disable memory pattern: {e}"))
@@ -218,26 +223,37 @@ impl OrtInferenceRuntime {
             .ok_or("No output found in model")?
             .clone();
 
-        Ok(Box::new(OrtSession {
+        Ok(OrtSession {
             inner: session,
+            run_options: Arc::new(
+                ort::session::RunOptions::new()
+                    .map_err(|error| format!("Failed to create inference run options: {error}"))?,
+            ),
             output_name,
             output_names,
             provider,
-        }))
+        })
     }
 }
 
 impl InferenceRuntime for OrtInferenceRuntime {
     fn create_session(&self, model_path: &Path) -> Result<Box<dyn InferenceSession>, String> {
         self.create_session_with_policy(model_path, crate::webgpu_ep::inference_provider_policy())
+            .map(|session| Box::new(session) as Box<dyn InferenceSession>)
     }
 
     fn create_cpu_session(&self, model_path: &Path) -> Result<Box<dyn InferenceSession>, String> {
         self.create_session_with_policy(model_path, crate::webgpu_ep::InferenceProviderPolicy::Cpu)
+            .map(|session| Box::new(session) as Box<dyn InferenceSession>)
     }
 }
 
 impl InferenceSession for OrtSession {
+    fn set_cancellation(&mut self, token: &InferenceCancellationToken) -> Result<(), String> {
+        self.run_options = token.bind_run_options()?;
+        Ok(())
+    }
+
     fn execution_provider(&self) -> &'static str {
         self.provider
     }
@@ -259,7 +275,10 @@ impl InferenceSession for OrtSession {
 
         let outputs = self
             .inner
-            .run(ort::inputs! { input_name.as_str() => tensor })
+            .run_with_options(
+                ort::inputs! { input_name.as_str() => tensor },
+                &self.run_options,
+            )
             .map_err(|e| format!("ONNX inference failed: {e}"))?;
 
         let output = outputs
@@ -294,7 +313,10 @@ impl InferenceSession for OrtSession {
 
         let outputs = self
             .inner
-            .run(ort::inputs! { input_name.as_str() => tensor })
+            .run_with_options(
+                ort::inputs! { input_name.as_str() => tensor },
+                &self.run_options,
+            )
             .map_err(|e| format!("ONNX inference failed: {e}"))?;
 
         let output = outputs
@@ -339,7 +361,7 @@ impl InferenceSession for OrtSession {
 
         let outputs = self
             .inner
-            .run(ort_inputs)
+            .run_with_options(ort_inputs, &self.run_options)
             .map_err(|e| format!("ONNX multi-input inference failed: {e}"))?;
 
         let output = outputs
@@ -487,6 +509,7 @@ fn execution_provider_fallback<T, F>(
 where
     F: FnMut(&mut dyn InferenceSession) -> Result<T, String>,
 {
+    session.set_cancellation(cancellation)?;
     let provider = session.execution_provider();
     match run(&mut **session) {
         Ok(value) => Ok((value, provider.to_owned())),
@@ -506,6 +529,7 @@ where
                 format!("{reason}; CPU fallback session could not be created: {error}")
             })?;
             let cpu_provider = cpu_session.execution_provider().to_owned();
+            cpu_session.set_cancellation(cancellation)?;
             let cpu_result = run(&mut **cpu_session);
             match cpu_result {
                 Ok(value) => Ok((value, cpu_provider)),
@@ -531,7 +555,7 @@ fn checkout_session(
     let policy = crate::webgpu_ep::inference_provider_policy();
     let use_cpu = matches!(policy, crate::webgpu_ep::InferenceProviderPolicy::Cpu)
         || (matches!(policy, crate::webgpu_ep::InferenceProviderPolicy::Auto)
-            && auto_gpu_model_is_quarantined(model_path));
+            && (!crate::webgpu_ep::device_usable() || auto_gpu_model_is_quarantined(model_path)));
     let expected_provider = if use_cpu {
         "native-cpu"
     } else {
@@ -600,15 +624,16 @@ struct LetterboxTransform {
 }
 
 fn model_spec(model_id: &str) -> ModelSpec {
+    let u2net = matches!(model_id, "u2netp" | "u2netp-int8");
     if model_id == "isnet-general-use" {
         (1024, [0.5; 3], [1.0; 3], [128; 3], false)
     } else {
         (
-            if model_id == "u2netp" { 320 } else { 1024 },
+            if u2net { 320 } else { 1024 },
             [0.485, 0.456, 0.406],
             [0.229, 0.224, 0.225],
             [124, 116, 104],
-            model_id != "u2netp",
+            !u2net,
         )
     }
 }
@@ -1312,8 +1337,72 @@ pub fn remove_ai_cancellable(
         img.clone()
     };
 
-    let (input_size, mean, std, padding, apply_sigmoid) = model_spec(model_id);
     let (source_w, source_h) = source.dimensions();
+    let (source_mask, confidence, execution_provider) = if model_id == "modnet-portrait" {
+        let input = crate::modnet::preprocess(&source)?;
+        if cancellation.is_cancelled() {
+            return Err("Inference cancelled".to_owned());
+        }
+        let (output, provider) = execution_provider_fallback(
+            &model_path,
+            cancellation,
+            session,
+            |session| session.run_nd(&input.data, &input.shape.0),
+            checkout_cpu_session,
+        )?;
+        let mask = crate::modnet::decode(output, source_w, source_h)?;
+        let confidence = mask_confidence(&mask);
+        (mask, confidence, provider)
+    } else {
+        infer_segmentation_mask(&source, model_id, &model_path, cancellation, session)?
+    };
+    if cancellation.is_cancelled() {
+        return Err("Inference cancelled".to_owned());
+    }
+    let mut resized_mask = resize_mask(&source_mask, source_w, source_h, orig_w, orig_h);
+
+    if opts.decontaminate.unwrap_or(false) {
+        resized_mask = heuristic::apply_decontaminate(&resized_mask, orig_w, orig_h);
+    }
+
+    let final_mask = if opts.feather_radius.unwrap_or(0.0) > 0.0 {
+        heuristic::apply_feather(
+            &resized_mask,
+            orig_w,
+            orig_h,
+            opts.feather_radius.unwrap_or(0.0),
+        )
+    } else {
+        resized_mask
+    };
+
+    let method = match model_id {
+        "birefnet-general" | "birefnet-general-lite" => "ai-quality",
+        "u2netp" | "u2netp-int8" | "isnet-general-use" => "ai-balanced",
+        "modnet-portrait" => "portrait",
+        _ => model_id,
+    };
+    let mask_base64 = mask_to_base64(&final_mask, orig_w, orig_h)?;
+    Ok(RemovalResult {
+        mask_base64,
+        confidence,
+        method: method.to_string(),
+        processing_time_ms: start.elapsed().as_millis() as u64,
+        width: orig_w,
+        height: orig_h,
+        execution_provider,
+    })
+}
+
+fn infer_segmentation_mask(
+    source: &DynamicImage,
+    model_id: &str,
+    model_path: &Path,
+    cancellation: &InferenceCancellationToken,
+    session: SessionLease<Box<dyn InferenceSession>>,
+) -> Result<(Vec<u8>, f32, String), String> {
+    let (source_w, source_h) = source.dimensions();
+    let (input_size, mean, std, padding, apply_sigmoid) = model_spec(model_id);
     let scale = (input_size as f32 / source_w as f32).min(input_size as f32 / source_h as f32);
     let content_w = ((source_w as f32 * scale).round() as u32).max(1);
     let content_h = ((source_h as f32 * scale).round() as u32).max(1);
@@ -1350,7 +1439,7 @@ pub fn remove_ai_cancellable(
         return Err("Inference cancelled".to_owned());
     }
     let (output_data, execution_provider) = execution_provider_fallback(
-        &model_path,
+        model_path,
         cancellation,
         session,
         |session| session.run(&tensor_data, input_size),
@@ -1363,15 +1452,7 @@ pub fn remove_ai_cancellable(
     let mask_size = output_data.len();
     let mask_dim = (mask_size as f64).sqrt() as u32;
     let mask = normalize_segmentation_output(&output_data, apply_sigmoid);
-    let mut confidence_sum = 0.0f32;
-    for value in &mask {
-        confidence_sum += (*value as f32 / 255.0 - 0.5).abs();
-    }
-    let confidence = if mask_size > 0 {
-        ((confidence_sum / mask_size as f32) * 2.0).min(1.0)
-    } else {
-        0.0
-    };
+    let confidence = mask_confidence(&mask);
 
     let source_mask = reconstruct_letterbox_mask(
         &mask,
@@ -1385,43 +1466,18 @@ pub fn remove_ai_cancellable(
             scale: scale * mask_dim as f32 / input_size as f32,
         },
     );
-    let mut resized_mask = resize_mask(&source_mask, source_w, source_h, orig_w, orig_h);
+    Ok((source_mask, confidence, execution_provider))
+}
 
-    if opts.decontaminate.unwrap_or(false) {
-        resized_mask = heuristic::apply_decontaminate(&resized_mask, orig_w, orig_h);
+fn mask_confidence(mask: &[u8]) -> f32 {
+    if mask.is_empty() {
+        return 0.0;
     }
-
-    let final_mask = if opts.feather_radius.unwrap_or(0.0) > 0.0 {
-        heuristic::apply_feather(
-            &resized_mask,
-            orig_w,
-            orig_h,
-            opts.feather_radius.unwrap_or(0.0),
-        )
-    } else {
-        resized_mask
-    };
-
-    let method = match model_id {
-        "birefnet-general" => "ai-quality",
-        "birefnet-general-lite" => "ai-quality",
-        "u2netp" => "ai-balanced",
-        "isnet-general-use" => "ai-balanced",
-        _ => model_id,
-    };
-
-    let mask_base64 = mask_to_base64(&final_mask, orig_w, orig_h)?;
-    let elapsed = start.elapsed();
-
-    Ok(RemovalResult {
-        mask_base64,
-        confidence,
-        method: method.to_string(),
-        processing_time_ms: elapsed.as_millis() as u64,
-        width: orig_w,
-        height: orig_h,
-        execution_provider,
-    })
+    let total: f32 = mask
+        .iter()
+        .map(|v| (f32::from(*v) / 255.0 - 0.5).abs())
+        .sum();
+    (total * 2.0 / mask.len() as f32).min(1.0)
 }
 
 /// Default preview downscale cap (matches TS `DEFAULT_PREVIEW_MAX_DIMENSION`).
@@ -1629,6 +1685,11 @@ mod tests {
         assert_eq!(mean, [0.5; 3]);
         assert_eq!(std, [1.0; 3]);
         assert!(!sigmoid);
+    }
+
+    #[test]
+    fn int8_uses_u2net_geometry_and_probability_output() {
+        assert_eq!(model_spec("u2netp-int8"), model_spec("u2netp"));
     }
 
     #[test]

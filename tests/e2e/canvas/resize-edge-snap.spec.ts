@@ -94,7 +94,7 @@ async function navigateToStableEditor(page: import('@playwright/test').Page): Pr
 }
 
 async function handleCenter(page: import('@playwright/test').Page, name: string) {
-  const box = await page.getByLabel(name, { exact: true }).boundingBox();
+  const box = await page.getByTestId(name).boundingBox();
   if (!box) throw new Error(`${name} has no rendered bounds`);
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }

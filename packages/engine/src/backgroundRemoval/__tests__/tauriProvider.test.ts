@@ -34,6 +34,34 @@ describe('Tauri background-removal provider', () => {
     } as unknown as HTMLCanvasElement);
   });
 
+  it('does not start a native background-model download cancelled during listener setup', async () => {
+    let ready!: (unlisten: () => void) => void;
+    mockListen.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          ready = resolve;
+        }),
+    );
+    const { downloadNativeBackgroundRemovalModel } = await import('../providers/tauriProvider');
+    const controller = new AbortController();
+    const unlisten = vi.fn();
+    const pending = downloadNativeBackgroundRemovalModel(
+      'birefnet-general-lite',
+      undefined,
+      controller.signal,
+    );
+    const rejected = expect(pending).rejects.toThrow('cancelled');
+    await vi.waitFor(() => expect(ready).toBeTypeOf('function'));
+    controller.abort();
+    ready(unlisten);
+    await rejected;
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      'download_background_removal_model',
+      expect.anything(),
+    );
+    expect(unlisten).toHaveBeenCalledOnce();
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     Reflect.deleteProperty(window, '__TAURI__');
@@ -48,6 +76,90 @@ describe('Tauri background-removal provider', () => {
     mockInvoke.mockResolvedValue({ runtimeReady: true, installed: true, sizeBytes: 224_005_088 });
     await expect(tauriRemovalProvider.isAvailable({ method: 'ai-quality' })).resolves.toBe(true);
   });
+
+  it('checks the installed Full artifact instead of declining native execution', async () => {
+    mockInvoke.mockResolvedValue({ runtimeReady: true, installed: true, sizeBytes: 972_666_916 });
+    const { tauriRemovalProvider } = await import('../providers/tauriProvider');
+    await expect(
+      tauriRemovalProvider.isAvailable({ method: 'ai-quality', modelId: 'birefnet-general' }),
+    ).resolves.toBe(true);
+    expect(mockInvoke).toHaveBeenCalledWith('native_background_removal_model_status', {
+      modelId: 'birefnet-general',
+    });
+  });
+
+  it('executes and reports the requested INT8 artifact and precision', async () => {
+    mockInvoke.mockResolvedValue({
+      maskBase64: 'test',
+      confidence: 0.9,
+      method: 'ai-balanced',
+      modelId: 'u2netp-int8',
+      processingTimeMs: 1,
+      width: 1,
+      height: 1,
+      executionProvider: 'native-cpu',
+    });
+    const { tauriRemovalProvider } = await import('../providers/tauriProvider');
+    const result = await tauriRemovalProvider.remove(new ImageData(1, 1), {
+      method: 'ai-balanced',
+      modelId: 'u2netp-int8',
+    });
+    expect(result).toMatchObject({
+      modelId: 'u2netp-int8',
+      modelPrecision: 'int8',
+      executionProvider: 'native-cpu',
+    });
+  });
+
+  it('sends and reports the exact native model used for an explicit Full request', async () => {
+    mockInvoke.mockResolvedValue({
+      maskBase64: 'test',
+      confidence: 0.98,
+      method: 'ai-quality',
+      modelId: 'birefnet-general',
+      processingTimeMs: 123,
+      width: 1,
+      height: 1,
+    });
+    const { tauriRemovalProvider } = await import('../providers/tauriProvider');
+    const result = await tauriRemovalProvider.remove(
+      new ImageData(new Uint8ClampedArray([1, 2, 3, 255]), 1, 1),
+      { method: 'ai-quality', modelId: 'birefnet-general' },
+    );
+    expect(mockInvoke).toHaveBeenCalledWith('preflight_native_background_removal', {
+      modelId: 'birefnet-general',
+      width: 1,
+      height: 1,
+    });
+    const args = mockInvoke.mock.calls.find(
+      ([command]) => command === 'remove_background_binary',
+    )?.[2] as { headers: { 'x-varve-bg-remove-options': string } };
+    expect(JSON.parse(args.headers['x-varve-bg-remove-options']).modelId).toBe('birefnet-general');
+    expect(result.modelId).toBe('birefnet-general');
+  });
+
+  it.each(['birefnet-general-lite', undefined])(
+    'rejects an explicit Full result with mismatched or missing model provenance (%s)',
+    async (modelId) => {
+      mockInvoke.mockResolvedValue({
+        maskBase64: 'test',
+        confidence: 0.9,
+        method: 'ai-quality',
+        modelId,
+        processingTimeMs: 10,
+        width: 1,
+        height: 1,
+      });
+      const { tauriRemovalProvider } = await import('../providers/tauriProvider');
+      await expect(
+        tauriRemovalProvider.remove(new ImageData(new Uint8ClampedArray([1, 2, 3, 255]), 1, 1), {
+          method: 'ai-quality',
+          modelId: 'birefnet-general',
+        }),
+      ).rejects.toThrow(/model/i);
+      expect(mockDecode).not.toHaveBeenCalled();
+    },
+  );
 
   it('preflights native memory before encoding the source canvas', async () => {
     const commands: string[] = [];
@@ -75,6 +187,40 @@ describe('Tauri background-removal provider', () => {
       width: 1,
       height: 1,
     });
+  });
+
+  it('cancels the native request by identity and discards its late result after execution settles', async () => {
+    let finish!: (result: unknown) => void;
+    mockInvoke.mockImplementation((command: string) => {
+      if (command === 'remove_background_binary') {
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      }
+      return Promise.resolve();
+    });
+    const { tauriRemovalProvider } = await import('../providers/tauriProvider');
+    const controller = new AbortController();
+    const result = tauriRemovalProvider.remove(
+      new ImageData(1, 1),
+      { method: 'ai-quality' },
+      controller.signal,
+    );
+    const rejected = expect(result).rejects.toThrow('cancelled');
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+    const args = mockInvoke.mock.calls.find(
+      ([command]) => command === 'remove_background_binary',
+    )?.[2] as { headers: { 'x-varve-bg-remove-options': string } };
+    const { requestId } = JSON.parse(args.headers['x-varve-bg-remove-options']);
+    controller.abort();
+    const cancellation = mockInvoke.mock.calls.find(
+      ([command]) => command === 'cancel_background_removal',
+    );
+    finish({ maskBase64: 'test', method: 'ai-quality', width: 1, height: 1 });
+    await rejected;
+    expect(requestId).toEqual(expect.any(String));
+    expect(cancellation).toEqual(['cancel_background_removal', { requestId }]);
+    expect(mockDecode).not.toHaveBeenCalled();
   });
 
   it('returns a source-reconstructable raw mask and native backend telemetry', async () => {

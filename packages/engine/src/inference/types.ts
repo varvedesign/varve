@@ -218,6 +218,10 @@ export interface ModelComponentEntry {
   sizeBytes: number;
   remoteUrl?: string;
   checksum?: string;
+  /** Canonical manifest spelling, also used by nested-only components. */
+  sha256?: string;
+  localPath?: string;
+  precision?: ModelPrecision;
   /** SHA-256 of the file exactly as served upstream (pre-repair). */
   upstreamChecksum?: string;
   /** Optional post-download transform; see ModelManifestEntry.repair. */

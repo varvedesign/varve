@@ -455,7 +455,9 @@ input[type="number"] {
   min-height: calc(var(--topbar-height) + var(--space-2));
   height: 100%;
   box-sizing: border-box;
-  padding: 0 var(--space-2);
+  /* One edge inset for every shell region (header, context bar, panel headers,
+   * status bar): it was 6, 10 and 14px depending on the region. */
+  padding: 0 var(--space-3);
   background: var(--elevation-surface-default);
   border-bottom: var(--border-micro);
 }
@@ -834,8 +836,11 @@ input[type="number"] {
 }
 
 .editor-tabs__dirty-dot {
-  width: var(--space-1);
-  height: var(--space-1);
+  /* 6px, was ~3px: a speck beside a 13px name. The tab's tooltip and its
+   * screen-reader text both say "unsaved", so the dot is a cue, not the only
+   * statement of the state (F-37). */
+  width: calc(var(--icon-size-xs) / 2);
+  height: calc(var(--icon-size-xs) / 2);
   border-radius: 50%;
   background: var(--color-interactive-default);
   flex-shrink: 0;
@@ -1057,6 +1062,9 @@ input[type="number"] {
 }
 
 .editor-inspector {
+  /* Elements that use `font: inherit` (tabs, bare buttons) follow the panel
+   * scale instead of the 15px page default. */
+  font-size: var(--font-size-xs);
   /* Same panel text scale as the Layers panel (12 / 13 / 14px): inputs, rows
    * and labels were 15px beside 12px field labels. */
   --font-size-sm: var(--font-size-xs);
@@ -1105,7 +1113,7 @@ input[type="number"] {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-3);
   /* Same token as the shell row — never a taller literal, or the shell's
    * overflow:hidden clips the bottom of the bar (and its focus rings). */
   height: var(--statusbar-height);

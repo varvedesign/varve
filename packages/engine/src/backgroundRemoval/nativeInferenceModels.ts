@@ -14,9 +14,6 @@ import { isTauriRuntime } from '@varve/platform';
 export interface NativeInferenceModelDownloadOptions {
   requestId: string;
   modelId: string;
-  url: string;
-  sha256: string;
-  sizeBytes?: number;
   signal?: AbortSignal;
   onProgress?: (loaded: number, total: number) => void;
 }
@@ -28,16 +25,34 @@ interface NativeInferenceProgress {
   total: number;
 }
 
-/** Absolute path of an installed native inference model, if any. */
+/**
+ * Absolute path of an installed native inference model, if any.
+ *
+ * `null` means the native store authoritatively has no verified copy. A failed
+ * status check REJECTS instead of returning `null`: collapsing an IPC or
+ * verification error into "not installed" makes readiness offer a download
+ * for a model that may already be on disk, and hides the retryable fault. The
+ * Rust command distinguishes these itself — `Ok(None)` is absent, `Err` is a
+ * failed verification.
+ */
 export async function nativeInferenceModelPath(modelId: string): Promise<string | null> {
   if (!isTauriRuntime()) return null;
-  try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    const path = await invoke<string | null>('inference_model_path', { modelId });
-    return path ?? null;
-  } catch {
-    return null;
-  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  const path = await invoke<string | null>('inference_model_path', { modelId });
+  return path ?? null;
+}
+
+/** A sidecar is exposed only after the native store verifies the whole model. */
+export async function nativeInferenceModelExternalData(
+  modelId: string,
+): Promise<{ path: string; url: string } | null> {
+  if (!isTauriRuntime()) return null;
+  const { invoke, convertFileSrc } = await import('@tauri-apps/api/core');
+  const artifact = await invoke<{ filename: string; path: string } | null>(
+    'inference_model_external_data',
+    { modelId },
+  );
+  return artifact ? { path: artifact.filename, url: convertFileSrc(artifact.path) } : null;
 }
 
 /**
@@ -58,11 +73,7 @@ export async function nativeDownloadInferenceModel(
       requestId: options.requestId,
     }).catch(() => undefined);
   };
-  // Register before awaiting the listener so an abort that lands during setup
-  // is still forwarded to the native command.
-  options.signal?.addEventListener('abort', cancel);
   if (options.signal?.aborted) {
-    options.signal.removeEventListener('abort', cancel);
     throw new Error('Download cancelled');
   }
   const unlisten = await listen<NativeInferenceProgress>('inference-model-progress', (event) => {
@@ -70,13 +81,16 @@ export async function nativeDownloadInferenceModel(
     options.onProgress?.(event.payload.loaded, event.payload.total);
   });
   try {
-    return await invoke<string>('download_inference_model', {
+    // Nothing native has started while listener setup is pending. Recheck
+    // first, then own the abort listener only for the actual command lifetime.
+    if (options.signal?.aborted) throw new Error('Download cancelled');
+    options.signal?.addEventListener('abort', cancel, { once: true });
+    const path = await invoke<string>('download_inference_model', {
       requestId: options.requestId,
       modelId: options.modelId,
-      url: options.url,
-      sha256: options.sha256,
-      sizeBytes: options.sizeBytes ?? null,
     });
+    if (options.signal?.aborted) throw new Error('Download cancelled');
+    return path;
   } finally {
     options.signal?.removeEventListener('abort', cancel);
     unlisten();
@@ -85,10 +99,6 @@ export async function nativeDownloadInferenceModel(
 
 export async function nativeDeleteInferenceModel(modelId: string): Promise<boolean> {
   if (!isTauriRuntime()) return false;
-  try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke<boolean>('delete_inference_model', { modelId });
-  } catch {
-    return false;
-  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<boolean>('delete_inference_model', { modelId });
 }

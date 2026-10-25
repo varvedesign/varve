@@ -18,9 +18,20 @@ const nativeFluidityTimeout =
   Number.isInteger(nativeFluidityCycles) && nativeFluidityCycles > 0
     ? Math.max(120_000, nativeFluidityCycles * 45_000)
     : 120_000;
-const timeout = specs.some((spec) => spec.includes('native-fluidity-cycle'))
+// The OCR and colorize journeys drive real native models end to end (session
+// open, inference, preview, apply, undo/redo) and declare their budget with
+// this.timeout(); Mocha's config value clamps that per-spec call, so it must be
+// at least as large as the largest native spec. Fluidity stays separately
+// scalable because VARVE_NATIVE_FLUIDITY_CYCLES adds cycles to a single run.
+const nativeModelTimeout = 480_000;
+const nativeModelSpecs = ['./tests/wdio/colorize-native.e2e.ts', './tests/wdio/ocr-native.e2e.ts'];
+const runsFluidityCycle = specs.some((spec) => spec.includes('native-fluidity-cycle'));
+const runsNativeModelJourney = specs.some((spec) => nativeModelSpecs.includes(spec.trim()));
+const timeout = runsFluidityCycle
   ? nativeFluidityTimeout
-  : 90_000;
+  : runsNativeModelJourney
+    ? nativeModelTimeout
+    : 90_000;
 
 export const config: Options.Testrunner = {
   runner: 'local',

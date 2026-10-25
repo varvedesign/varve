@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { resetManifestCache } from './manifest';
 import {
@@ -58,6 +59,30 @@ describe('modelCatalog', () => {
   });
 
   describe('getModelById', () => {
+    it('publishes the default OCR recognizer and matching offline dictionary in both catalogs', () => {
+      const manifest = JSON.parse(
+        readFileSync('apps/desktop/public/models/manifest.json', 'utf8'),
+      ) as {
+        models: Array<{ id: string; sha256: string }>;
+      };
+      for (const [id, checksum] of [
+        ['paddleocr-rec-v4', '1c7cf60de2afd728d512f4190cf37455092b45f06175365c6fc58d8cd7e2a68b'],
+        ['paddleocr-keys-v1', '28b2362ad4ab2dc38769aa72feb535e3a9ddb3fd2a7585a05920e6393b1dc7f7'],
+      ]) {
+        expect(getModelById(id!)?.checksum).toBe(checksum);
+        expect(manifest.models.find((entry) => entry.id === id)?.sha256).toBe(checksum);
+      }
+    });
+    it('resolves nested graphs with nonzero memory accounting and the exact artifact revision', () => {
+      expect(getModelById('trocr-encoder')?.checksum).toBe(
+        '31e9b9a2950c4b0d5d884665414ec3dec36186237955463c07a30e5f3fcd8ea0',
+      );
+      expect(estimateModelMemory('trocr-encoder')).toBeGreaterThan(344_487_712);
+      expect(getModelById('trocr-decoder')?.precision).toBe('int8');
+      expect(
+        getModelById('tr-ocr-base-printed')?.components?.map((component) => component.id),
+      ).toContain('trocr-tokenizer');
+    });
     it('finds a known model', () => {
       const entry = getModelById('u2netp');
       expect(entry).not.toBeUndefined();

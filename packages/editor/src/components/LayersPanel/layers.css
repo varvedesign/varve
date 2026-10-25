@@ -2,6 +2,9 @@
 
 /* ─── Container — density-aware ──────────────────────────────── */
 .layers-panel {
+  /* Elements that use `font: inherit` (tabs, bare buttons) follow the panel
+   * scale instead of the 15px page default. */
+  font-size: var(--font-size-xs);
   /* Panel chrome runs on the 12 / 13 / 14px text scale. Rows, tabs and inputs
    * were 15px beside 13px menus and 12px labels; remapping the token here moves
    * every var(--font-size-sm) in the panel (and the shared components it hosts)
@@ -33,7 +36,7 @@
   justify-content: space-between;
   gap: var(--space-05) var(--space-2);
   min-height: calc(var(--space-7) + var(--space-1));
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-3);
   font-size: var(--density-font-size, var(--font-size-sm));
   color: var(--color-text-primary);
   border-bottom: 1px solid var(--color-border-subtle);
@@ -251,7 +254,13 @@
   min-height: clamp(96px, 18vh, 160px);
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior: contain;
+  /* Chain to the rail. At window heights up to 900px the rail is the outer
+   * scroller (editor.css), holding the minimap and canvas list above this
+   * tree. With `contain` the wheel over the list stopped dead at the list's
+   * end and could never reach the rail, so the sections above were only
+   * reachable by moving the pointer onto the rail's own thin scrollbar. Where
+   * the rail does not scroll there is nothing to chain to, so this is a no-op. */
+  overscroll-behavior-y: auto;
   outline: none;
   padding: var(--space-1) var(--space-1) var(--space-2);
   background: var(--color-surface-app);
@@ -1439,7 +1448,7 @@
   flex-direction: column;
   gap: var(--space-1);
   margin: 0;
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-surface-raised);
 }
