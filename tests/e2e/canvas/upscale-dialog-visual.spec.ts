@@ -139,6 +139,14 @@ test('Enhance dialog pixel-art mode', async ({ page }) => {
   await importTestImage(page);
   await openDialog(page);
 
+  // Pin the async analysis to its settled state before interacting — the
+  // same precondition the default and theme-loop tests already use. Without
+  // it, an analysis completing after the manual selection re-inserts content
+  // and scrolls the dialog, and the capture lands in one of two byte-stable
+  // geometries (this baseline was captured in the raced one).
+  await expect(page.getByText(/Low source resolution/i)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(/Output:\s*32x32px/i)).toBeVisible();
+
   await page.getByRole('combobox', { name: 'Enhancement operation' }).click();
   await page.getByRole('option', { name: 'Upscale', exact: true }).click();
   await page.getByRole('combobox', { name: 'Upscale quality' }).click();
