@@ -132,41 +132,47 @@ test.describe('layers rail geometry', () => {
       );
     }
 
-    // At rest the hover-revealed actions must not exist in layout at all:
-    // clicking the row's empty middle reaches the select, never a hidden
-    // action (the old `opacity: 0` reveal still hit-tested).
+    // The row's management commands share one stable, labelled menu target
+    // that is visible at rest: five hover-revealed text actions became this
+    // menu (5865103b4), so the canvas name is never crowded and nothing
+    // hidden can hit-test. Clicking the row's empty middle still reaches the
+    // select, never an action.
     const row = page.locator('.design-canvas-panel__row').first();
+    const actions = row.locator('.design-canvas-panel__actions');
+    const trigger = row.getByRole('button', { name: 'Actions for Canvas 1' });
+    await expect(actions).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
     const middleHit = await row.evaluate((el) => {
       const r = el.getBoundingClientRect();
       const t = document.elementFromPoint(r.x + r.width * 0.75, r.y + r.height / 2);
       return t ? `${t.tagName}.${String(t.className)}` : 'none';
     });
     expect(middleHit).not.toContain('pages-panel__icon-btn');
-    await expect(row.locator('.design-canvas-panel__actions')).toHaveCSS('display', 'none');
-
-    // Hover reveals them and they are really clickable; the select keeps its
-    // own hit test while they are revealed (they wrap to their own line
-    // rather than covering it).
-    await row.hover();
-    await expect(row.locator('.design-canvas-panel__actions')).toHaveCSS('display', 'flex');
-    const rename = row.getByRole('button', { name: /rename canvas/i });
-    await rename.click({ trial: true });
     const selectStillHit = await row.locator('.design-canvas-panel__select').evaluate((el) => {
       const r = el.getBoundingClientRect();
       const t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
       return !!t && (t === el || el.contains(t));
     });
     expect(selectStillHit).toBe(true);
+
+    // The stable target carries the whole command set.
+    await trigger.click();
+    const menu = page.getByRole('menu', { name: 'Actions for Canvas 1' });
+    // Dialog-launching items carry a trailing ellipsis in their accessible name.
+    for (const name of ['Rename …', 'Duplicate', 'Move up', 'Move down', 'Remove canvas …']) {
+      await expect(menu.getByRole('menuitem', { name, exact: true })).toBeVisible();
+    }
     await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
 
     // WCAG 2.2 AA SC 2.5.8: the add button holds the 24px floor.
-    const addBox = await page
-      .locator('.pages-panel__add-btn')
-      .first()
-      .evaluate((el) => {
-        const r = el.getBoundingClientRect();
-        return { w: r.width, h: r.height };
-      });
+    // The Canvases section's add control (the old .pages-panel__add-btn class
+    // now belongs to Publishing pages, which the Design workspace does not
+    // render); SC 2.5.8 applies to the control that actually adds here.
+    const addBox = await page.getByRole('button', { name: 'Add Design Canvas' }).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { w: r.width, h: r.height };
+    });
     expect(addBox.w).toBeGreaterThanOrEqual(24);
     expect(addBox.h).toBeGreaterThanOrEqual(24);
   });
@@ -301,14 +307,17 @@ test.describe('short desktop window', () => {
   // content in 393px), so the scrolling case starts below about 580px.
   test.use({ viewport: { width: 1024, height: 540 } });
 
-  test('layer rows stay operable with the rail scrolling', async ({ page }) => {
+  test('layer rows stay operable with the tree scrolling', async ({ page }) => {
     await navigateToEditor(page);
-    await seedLayers(page, 2);
-    const aside = page.locator('#editor-layers-panel');
-    // The short-height tier makes the rail the outer scroller.
-    const scrollable = await aside.evaluate((el) => el.scrollHeight > el.clientHeight);
+    // The slimmed navigation header lets the rail fit at this height, so the
+    // scroller that carries the rows is the tree itself (its own box with a
+    // floor, per layers.css) — the guarantee under test is that a row control
+    // keeps its hit test at the bottom of whichever scroller owns the rows.
+    await seedLayers(page, 30);
+    const tree = page.locator('.layers-panel__tree');
+    const scrollable = await tree.evaluate((el) => el.scrollHeight > el.clientHeight);
     expect(scrollable).toBe(true);
-    await aside.evaluate((el) => {
+    await tree.evaluate((el) => {
       el.scrollTop = el.scrollHeight;
     });
 

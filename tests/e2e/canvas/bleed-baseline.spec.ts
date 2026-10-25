@@ -140,13 +140,27 @@ test.describe('Bleed canvas behavior', () => {
     expect(trimMarkCount).toBe(0);
 
     // Content beyond trim must be visible (page content is not clipped).
+    // Compare against the canvas backdrop rather than a colour threshold:
+    // drawn shapes became neutral grey in ad6ba0c0d (they used to be the
+    // accent), which broke every "not uniformly dark" style check. Sample the
+    // same beyond-trim column above the rectangle (its top is world y=300).
     const vp = await canvasSize(page);
     const cam = fitCamera({ x: 0, y: 0, w: 1920, h: 1080 }, vp);
     const beyondTrim = toScreen(2010, 900, cam); // right of trim x=1920
+    const backdropPoint = toScreen(2010, 150, cam); // right of trim, above the rect
     const pixel = await pixelAtCanvasRel(page, beyondTrim.x, beyondTrim.y);
+    const backdrop = await pixelAtCanvasRel(page, backdropPoint.x, backdropPoint.y);
+    const delta =
+      pixel && backdrop
+        ? Math.max(
+            Math.abs(pixel.r - backdrop.r),
+            Math.abs(pixel.g - backdrop.g),
+            Math.abs(pixel.b - backdrop.b),
+          )
+        : -1;
     expect(
-      pixel && !(pixel.r < 200 && pixel.g < 200 && pixel.b < 200),
-      `content beyond trim must be visible (pixel ${JSON.stringify(beyondTrim)}: ${JSON.stringify(pixel)})`,
+      delta > 24,
+      `content beyond trim must be visible (pixel ${JSON.stringify(beyondTrim)}: ${JSON.stringify(pixel)} vs backdrop ${JSON.stringify(backdrop)})`,
     ).toBeTruthy();
 
     // Activate Page tool, click the page centre (clear of nothing — the

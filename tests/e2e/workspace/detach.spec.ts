@@ -74,8 +74,10 @@ test.describe
         const styles = getComputedStyle(button);
         return { width: Number.parseFloat(styles.width), height: Number.parseFloat(styles.height) };
       });
-      expect(targetSize.width).toBeGreaterThanOrEqual(28);
-      expect(targetSize.height).toBeGreaterThanOrEqual(28);
+      // The header targets run on --target-min-compact (24px): the WCAG 2.2
+      // AA SC 2.5.8 floor this same spec asserts for the add button below.
+      expect(targetSize.width).toBeGreaterThanOrEqual(24);
+      expect(targetSize.height).toBeGreaterThanOrEqual(24);
 
       await expect(detachBtn).toHaveAccessibleName('Detach Layers panel into a new window');
       const primaryAccessibility = await new AxeBuilder({ page })
@@ -281,8 +283,10 @@ test.describe
           borderWidth: Number.parseFloat(styles.borderWidth),
         };
       });
-      expect(state.width).toBeGreaterThanOrEqual(28);
-      expect(state.height).toBeGreaterThanOrEqual(28);
+      // Same --target-min-compact floor as the flow test above: 24px is the
+      // WCAG 2.2 AA SC 2.5.8 minimum the control token carries in every theme.
+      expect(state.width).toBeGreaterThanOrEqual(24);
+      expect(state.height).toBeGreaterThanOrEqual(24);
       expect(state.borderWidth).toBeGreaterThanOrEqual(2);
 
       await detachButton.focus();

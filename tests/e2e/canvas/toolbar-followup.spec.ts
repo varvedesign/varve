@@ -152,6 +152,7 @@ test.describe('Toolbar follow-up — status bar', () => {
           undersized,
           scrollWidth: bar.scrollWidth,
           clientWidth: bar.clientWidth,
+          overflowX: getComputedStyle(bar).overflowX,
         };
       });
       expect(report, `status bar report at ${width}px`).not.toBeNull();
@@ -160,7 +161,36 @@ test.describe('Toolbar follow-up — status bar', () => {
         `row height at ${width}px`,
       ).toBeLessThan(1.5);
       expect(report!.undersized, `undersized targets at ${width}px`).toEqual([]);
-      expect(report!.clipped, `clipped controls at ${width}px`).toEqual([]);
+      if (report!.scrollWidth > report!.clientWidth + 0.5) {
+        // Below the widths the priority tiers fit to the row, .editor-status
+        // falls back to horizontal scrolling so nothing is silently clipped
+        // (editor.css .editor-status; toolbar-system.md status-bar tiers).
+        // Assert that the fallback exists AND that every control past the
+        // visible edge actually lands fully inside the bar when scrolled to.
+        expect(['auto', 'scroll'], `scroll fallback at ${width}px`).toContain(report!.overflowX);
+        const unreachable = await page.evaluate((labels) => {
+          const bar = document.querySelector('.editor-status');
+          if (!bar) return ['<status bar missing>'];
+          const bad: string[] = [];
+          for (const label of labels) {
+            const target = Array.from(bar.querySelectorAll('button')).find(
+              (b) => (b.getAttribute('aria-label') ?? b.textContent?.trim() ?? '') === label,
+            );
+            if (!target) continue;
+            target.scrollIntoView({ block: 'nearest', inline: 'center' });
+            const r = target.getBoundingClientRect();
+            const br = bar.getBoundingClientRect();
+            if (r.width === 0 || r.left < br.left - 0.5 || r.right > br.right + 0.5) {
+              bad.push(label);
+            }
+          }
+          bar.scrollTo({ left: 0 });
+          return bad;
+        }, report!.clipped);
+        expect(unreachable, `scroll-unreachable controls at ${width}px`).toEqual([]);
+      } else {
+        expect(report!.clipped, `clipped controls at ${width}px`).toEqual([]);
+      }
     }
   });
 });

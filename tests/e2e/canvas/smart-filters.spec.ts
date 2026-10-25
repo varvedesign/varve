@@ -843,7 +843,14 @@ test.describe('Object Filters — redesigned surface behaviour', () => {
     await moveInvertDown.focus();
     await expect(moveInvertDown).toHaveCSS('opacity', '1');
 
-    // The revealed control still reorders the stack.
+    // The revealed control still reorders the stack. Adding Blur left its
+    // focused parameter editor over the rows; that editor only yields to
+    // Escape while focus is inside it, so close it through its own control.
+    const focusedEditor = page.locator('.insp-focused-editor');
+    if (await focusedEditor.isVisible().catch(() => false)) {
+      await focusedEditor.getByRole('button', { name: /^Close/ }).click();
+      await expect(focusedEditor).toBeHidden();
+    }
     await moveBlurUp.click();
     await expect(rows.nth(0).locator('.smart-filters__name-title')).toContainText('Blur');
     await expect(rows.nth(1).locator('.smart-filters__name-title')).toContainText('Invert');
@@ -881,7 +888,10 @@ test.describe('Object Filters — redesigned surface behaviour', () => {
     const memberLine = page.locator('.smart-filters__treatment-member').first();
     await expect(memberLine).toContainText('recipe member');
     const before = await canvasFingerprint(page);
-    await page.locator('button.smart-filters__visibility').first().click();
+    // Toggle the Halftone member (second). Drawn shapes start neutral grey
+    // (F-28), and the first member, Black & White, leaves grey unchanged —
+    // toggling it produces no pixel delta to assert against.
+    await page.locator('button.smart-filters__visibility').nth(1).click();
     await forceFullRedraw(page);
     await expect.poll(() => canvasFingerprint(page), { timeout: 15000 }).not.toBe(before);
     await expect(memberLine).toContainText('customized recipe');

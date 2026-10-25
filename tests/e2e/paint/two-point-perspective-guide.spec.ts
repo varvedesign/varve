@@ -26,6 +26,62 @@ async function contentHash(page: import('@playwright/test').Page): Promise<strin
   });
 }
 
+/**
+ * Right-click the guide itself. An SVG <line> with x1 === x2 has a zero-width
+ * bounding box, which Playwright reads as "not visible" and refuses to click —
+ * and the old "canvas origin + x1" arithmetic only lands on the line while the
+ * viewBox maps 1:1 to CSS pixels (true at the original size, false after a
+ * resize). Read the line's real screen rect, then scan it for a point whose
+ * hit test is the guide itself (at narrow sizes the guide can sit under the
+ * left ruler canvas, which covers part of the overlay's x range).
+ */
+async function rightClickGuideLine(
+  page: import('@playwright/test').Page,
+  guideLine: import('@playwright/test').Locator,
+) {
+  const probe = await guideLine.evaluate((element) => {
+    const line = element as SVGLineElement;
+    const rect = line.getBoundingClientRect();
+    const ruler = document.querySelector('.ruler-canvas--left')?.getBoundingClientRect() ?? null;
+    const surface =
+      document.querySelector('canvas.editor-canvas__content-layer')?.getBoundingClientRect() ??
+      null;
+    const describe = (el: Element | null) =>
+      el ? `${el.tagName}.${String(el.getAttribute('class') ?? '')}` : 'none';
+    const samples: string[] = [];
+    let pick: { x: number; y: number; probe: string } | null = null;
+    const yStart = Math.max(rect.top, 1);
+    const yEnd = Math.min(rect.bottom, window.innerHeight - 1);
+    for (let y = yStart + 4; y < yEnd - 4 && !pick; y += 14) {
+      for (const dx of [0, -1, 1, -2, 2]) {
+        const hit = document.elementFromPoint(rect.x + dx, y);
+        const tag = describe(hit);
+        if (tag.includes('guide-overlay')) {
+          pick = { x: rect.x + dx, y, probe: tag };
+          break;
+        }
+      }
+      samples.push(`${Math.round(y)}:${describe(document.elementFromPoint(rect.x, y))}`);
+    }
+    return {
+      x: pick?.x ?? rect.x,
+      y: pick?.y ?? (yStart + yEnd) / 2,
+      probe: pick?.probe ?? `NOT-FOUND samples=${samples.join(' ')}`,
+      rect: { x: rect.x, y: rect.y, w: rect.width, h: rect.height },
+      ruler: ruler ? { x: ruler.x, w: ruler.width } : null,
+      surface: surface ? { x: surface.x, w: surface.width } : null,
+      x1: Number(line.getAttribute('x1')),
+    };
+  });
+  console.info(
+    `[two-point] pick=(${probe.x.toFixed(1)},${probe.y.toFixed(1)}) probe=${probe.probe} lineRect=${JSON.stringify(probe.rect)} ruler=${JSON.stringify(probe.ruler)} surface=${JSON.stringify(probe.surface)} x1=${probe.x1}`,
+  );
+  if (probe.probe.startsWith('NOT-FOUND')) {
+    throw new Error(`no hittable point on the guide line: ${probe.probe}`);
+  }
+  await page.mouse.click(probe.x, probe.y, { button: 'right' });
+}
+
 test('two-point perspective assistance stays a draggable view overlay', async ({
   page,
 }, testInfo) => {
@@ -34,15 +90,11 @@ test('two-point perspective assistance stays a draggable view overlay', async ({
   await createRulerGuide(page);
   const guideLine = page.locator('.guide-overlay__line').first();
   await expect(page.locator('.guide-overlay__line')).toHaveCount(1);
-  const guideX = Number(await guideLine.getAttribute('x1'));
   const canvas = page.locator('.editor-canvas');
-  const canvasBounds = await canvas.boundingBox();
-  if (!canvasBounds) throw new Error('canvas was not found');
+  if (!(await canvas.boundingBox())) throw new Error('canvas was not found');
 
   const before = await contentHash(page);
-  await page.mouse.click(canvasBounds.x + guideX, canvasBounds.y + canvasBounds.height / 2, {
-    button: 'right',
-  });
+  await rightClickGuideLine(page, guideLine);
   const menu = page.getByRole('menu', { name: 'Guide context menu' });
   await expect(menu).toBeVisible();
   await menu.getByRole('menuitem', { name: 'Show two-point perspective guide' }).click();
@@ -109,14 +161,7 @@ test('two-point perspective assistance stays a draggable view overlay', async ({
   await canvas.screenshot({ path: testInfo.outputPath('perspective-guide-narrow-closeup.png') });
   const narrowContentBeforeHide = await contentHash(page);
 
-  const narrowCanvasBounds = await canvas.boundingBox();
-  const narrowGuideX = Number(await guideLine.getAttribute('x1'));
-  if (!narrowCanvasBounds) throw new Error('narrow canvas was not found');
-  await page.mouse.click(
-    narrowCanvasBounds.x + narrowGuideX,
-    narrowCanvasBounds.y + narrowCanvasBounds.height / 2,
-    { button: 'right' },
-  );
+  await rightClickGuideLine(page, guideLine);
   const hideMenu = page.getByRole('menu', { name: 'Guide context menu' });
   await hideMenu.getByRole('menuitem', { name: 'Hide two-point perspective guide' }).click();
   await expect(overlay).toHaveCount(0);

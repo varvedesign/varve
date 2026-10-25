@@ -297,10 +297,12 @@ test.describe('Live effects', () => {
       await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).not.toBe(afterAdd);
       const afterSlider = await settledCanvasRegionHash(page);
       expect(afterSlider).not.toBe(afterAdd);
-      // Blur the slider so the app-level undo shortcut is not eaten by the
-      // native input undo behaviour.
-      await intensity.evaluate((el) => (el as HTMLInputElement).blur());
+      // Escape while the slider still owns focus dismisses the focused
+      // parameter editor (its Escape path only runs while focus is inside).
+      // Closing it unmounts the slider, so the app-level undo shortcut below
+      // cannot be eaten by native input undo.
       await page.keyboard.press('Escape');
+      await expect(page.locator('.insp-focused-editor')).toBeHidden({ timeout: 5000 });
 
       // Undo: one step restores the pre-drag parameter value.
       await page.keyboard.press('Control+z');
@@ -329,6 +331,14 @@ test.describe('Live effects', () => {
       await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).not.toBe(afterSlider);
       const stacked = await settledCanvasRegionHash(page);
       expect(stacked).not.toBe(afterSlider);
+      // Adding CRT opened its focused parameter editor over the stack rows;
+      // its Escape path only runs while focus is inside, so close it through
+      // its own control before reaching for the reorder button.
+      const crtEditor = page.locator('.insp-focused-editor');
+      if (await crtEditor.isVisible().catch(() => false)) {
+        await crtEditor.getByRole('button', { name: /^Close/ }).click();
+        await expect(crtEditor).toBeHidden();
+      }
       const moveUp = page.getByRole('button', { name: 'Move CRT up' });
       await moveUp.click();
       await expect.poll(() => canvasRegionHash(page), { timeout: 10_000 }).not.toBe(stacked);

@@ -244,18 +244,35 @@ test.describe('Bleed print workflow', () => {
         // the page on the infinite canvas, so that shortcut misses the band.
         // getBoundingClientRect is viewport-relative — normalize to the
         // canvas element before scaling to device pixels.
-        const sx = guide.right - canvasRect.left - bleedPx / 2;
+        const sampleAt = (canvasRelX: number, canvasRelY: number) => {
+          const x = Math.round(canvasRelX * scaleX);
+          const y = Math.round(canvasRelY * scaleY);
+          if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return null;
+          const d = ctx.getImageData(x, y, 1, 1).data;
+          return { r: d[0]!, g: d[1]!, b: d[2]! };
+        };
         const sy = guide.top - canvasRect.top + guide.height / 2;
-        const x = Math.round(sx * scaleX);
-        const y = Math.round(sy * scaleY);
-        if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return null;
-        const d = ctx.getImageData(x, y, 1, 1).data;
-        return { r: d[0]!, g: d[1]!, b: d[2]! };
+        // Right band: the artwork crossing into the bleed. Left band at the
+        // same height: backdrop only (the rectangle starts at world x=300), so
+        // the pair compares content against the canvas instead of guessing a
+        // colour — drawn shapes became neutral grey in ad6ba0c0d.
+        const content = sampleAt(guide.right - canvasRect.left - bleedPx / 2, sy);
+        const backdrop = sampleAt(guide.left - canvasRect.left + bleedPx / 2, sy);
+        if (!content || !backdrop) return null;
+        return {
+          content,
+          backdrop,
+          delta: Math.max(
+            Math.abs(content.r - backdrop.r),
+            Math.abs(content.g - backdrop.g),
+            Math.abs(content.b - backdrop.b),
+          ),
+        };
       },
       [20 * z] as const,
     );
     expect(
-      beyond && !(beyond.r < 200 && beyond.g < 200 && beyond.b < 200),
+      beyond !== null && beyond.delta > 24,
       `artwork must be visible inside the bleed band (got ${JSON.stringify(beyond)})`,
     ).toBeTruthy();
 

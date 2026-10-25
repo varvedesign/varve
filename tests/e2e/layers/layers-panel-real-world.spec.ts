@@ -466,9 +466,14 @@ test.describe('Layers Panel — real-world document', () => {
     const namesBefore = await rows.locator('.layers-row__name').allTextContents();
     record('reorder-before.json', { namesBefore: namesBefore.slice(0, 6) });
 
-    // Drag the second row's grip below the fourth row.
-    const source = rows.nth(1);
-    const target = rows.nth(4);
+    // Drag the fourth row's grip above the second row. With this fixture rows
+    // 2-4 are the second row's own children (the mobile-app Tab Bar), so the
+    // original gesture — dropping the second row below the fourth — resolved
+    // as a cycle at every pointer sample and the product correctly refused
+    // every one of them (see the resolver's `reason: 'cycle'`). A leaf row
+    // dropped at root level before an unrelated root row is a plain reorder.
+    const source = rows.nth(4);
+    const target = rows.nth(1);
     await source.hover();
     const grip = source.locator('.layers-row__drag-handle');
     const sourceBox = await grip.boundingBox();
@@ -477,7 +482,8 @@ test.describe('Layers Panel — real-world document', () => {
 
     await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
     await page.mouse.down();
-    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height * 0.8, {
+    // The top quarter resolves the target's `before` zone (root-level insert).
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height * 0.2, {
       steps: 8,
     });
     await page.mouse.up();
