@@ -152,7 +152,17 @@ const sceneHasWorkerPixelParityRisk = memoizeLastDocument((doc: Document): boole
     // Fractional-scale Liquify verification found 730 edge pixels differing
     // by up to two channel levels after the transparent worker bitmap is
     // composited onto the board. Decoded separation bands use the same path.
-    if (node.kind === 'rasterLayer' && (node.liquify || node.frequencySeparationRole)) return true;
+    // Plain painted rasters belong here too: a soft brush stroke transferred
+    // through the worker's transparent surface comes back off by one channel
+    // on its antialiased edges (341 px on a single stroke, diff evidence in
+    // `reports/silent-stroke-diag/`), which fails the byte-exact full-redraw
+    // oracle, and the worker-reply present has also surfaced the stroke-less
+    // bitmap race documented in stroke-undo-responsiveness.spec.ts. This is
+    // the third iteration of this gate (6ab3df3cb effects, 8c13ae418
+    // retouch); the transparent-worker-surface roundtrip cannot match the
+    // board composite for any raster payload until the worker gets the same
+    // backdrop.
+    if (node.kind === 'rasterLayer') return true;
     if ('effects' in node && node.effects?.some((effect) => effect.visible !== false)) return true;
   }
   return false;

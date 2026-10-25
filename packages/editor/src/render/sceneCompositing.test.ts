@@ -261,17 +261,23 @@ describe('sceneCanUseWorkerRenderer', () => {
     expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(false);
   });
 
-  it('preserves worker eligibility for ordinary rasters and hidden retouch nodes', () => {
+  it('keeps visible plain rasters on the reference path but lets hidden ones stay eligible', () => {
+    // Ordinary painted rasters used to be worker-eligible until brush-edge
+    // verification showed the transparent worker surface differs from the
+    // board composite by one channel on antialiased stroke edges (and can
+    // present a stroke-less bitmap), failing the byte-exact oracle.
     const plain = makeRasterLayerNode('plain', { width: 64, height: 64 });
     const doc = addNode(createDocument('ordinary raster'), plain);
-    const hidden = addNode(doc, {
+    expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(false);
+
+    // A document whose only raster is invisible carries no parity risk:
+    // hidden nodes never reach the compositor.
+    const hiddenOnly = addNode(createDocument('hidden retouch'), {
       ...makeRasterLayerNode('hidden', { width: 64, height: 64 }),
       visible: false,
       liquify: createLiquifyField(64, 64),
     });
-
-    expect(sceneCanUseWorkerRenderer(doc, () => true)).toBe(true);
-    expect(sceneCanUseWorkerRenderer(hidden, () => true)).toBe(true);
+    expect(sceneCanUseWorkerRenderer(hiddenOnly, () => true)).toBe(true);
   });
 
   function shapeWithFills(id: string, fills: unknown[]) {
