@@ -1,9 +1,13 @@
 # Inspector system review — 2026-10-23
 
-**Status:** Route A (property search) implemented and browser-verified
-2026-10-23; the fixes and probes above carry their own evidence. Anything
-without real-browser evidence is still marked **pending verification** and must
-not be described as fixed.
+**Status (2026-10-25):** Route A (property search) and this pass's fixes are
+browser-verified; S5 (two-tier rule) and S6 (documentation drift) are closed;
+the responsive 375/768/1280 evidence is captured; the visual lane is
+diagnosed and green — `verify:affected --since 4b07ce18e` passed **35/35
+lanes** (2026-10-25), including Tier-4 `e2e:editor-chrome-visual`. Decisions
+recorded below: Route B (B1) ships as a follow-up pass; S3 awaits approval of
+its default-value contract proposal. Anything without real-browser evidence is
+still marked **pending verification** and must not be described as fixed.
 
 Scope: the whole Inspector surface — every tab, section, control, and hosted
 editor across the six workspace modes — evaluated as a system rather than as a
@@ -332,10 +336,11 @@ the desktop rail rather than a truncated panel; the first section (Position
   **Closed 2026-10-24:** the system probe captures all three widths
   (*Measurements* above; screenshots and JSON in the git-ignored
   `reports/inspector-system/`).
-- Visual-lane budgets (`3036735c5`): **pending verification** — the six
-  re-budgeted call sites must go green in the next
-  `verify:affected --since 4b07ce18e` before this is called fixed. No golden
-  was modified.
+- Visual-lane budgets (`3036735c5`) and the pixel-art baseline fixes
+  (`9697ba5fa`, `7842accbe`, `1d4e6070d`): **verified 2026-10-25** —
+  `verify:affected --since 4b07ce18e` passed **35/35 lanes** (EXIT 0; the
+  only golden touched anywhere in this range is the reviewed pixel-art
+  re-capture, `1d4e6070d`).
 - Route B (B1) implementation: **deferred by decision** (see *Decisions
   recorded*) — this pass records the choice and its cost; the composition
   change ships in a follow-up pass with its own evidence.
