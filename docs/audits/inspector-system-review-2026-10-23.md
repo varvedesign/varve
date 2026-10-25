@@ -322,6 +322,47 @@ the desktop rail rather than a truncated panel; the first section (Position
 `reports/inspector-system/responsive-{375,768,1280}.json` and `.png`
 (git-ignored).
 
+## Post-merge verification (2026-10-25)
+
+Merged as `1e5019ca7` into local master — `merge-tree` preview clean, zero
+conflicts, zero dirty tracked files. The protocol verification
+`verify:affected --since e29424078` (39 lanes) passed 22/23 before its
+fail-fast, and the remaining 16 lanes were completed lane-by-lane with the
+planner's exact commands: **32/39 green**. All 7 failures are classified
+pre-existing; none is attributable to this pass or its merge:
+
+- **`js-unit:@varve/website` + `website-unit` — untracked WIP, not the
+  merge.** The website token test scans `apps/website/src/test/…` over the
+  pages directory with `fs.readdirSync`, so it reads an **untracked,
+  never-committed** file sitting in the main worktree
+  (`apps/website/src/pages/features/realtime-collaboration.astro`;
+  `git log --all` has no commit for it anywhere; 324/325 tests pass and the
+  sole offender is that file). Both lanes pass in the branch gate (35/35)
+  where the WIP does not exist.
+- **`e2e:file:upscale-dialog-visual`, `e2e:file:email/visual`,
+  `e2e:file:workspace/visual`, `e2e:editor-chrome-visual`,
+  `website-e2e` — local master's own stale baselines.** Every one of them
+  reproduces at **pre-merge master `e29424078`** (checked out detached in a
+  throwaway run): signature-identical mismatches — `Expected 310x592,
+  received 310x620` (12902 post-merge vs 12898 pre-merge) and
+  `Expected 282x512, received 282x540` at a byte-identical **4768**
+  mismatched pixels. The post-cut local-master chrome commits
+  (`bf528e40c` shell spacing/text scale, `1c0cd32ea` shell edge inset /
+  panel text scale / tab height, `570ffa383` icon and scrollbar scale)
+  moved panel geometry — inspector and layers panels grew 28px, tabs 1px —
+  without refreshing these whole-editor baselines; none of those commits
+  is in this branch's ancestry (`merge-base --is-ancestor` verified
+  post-cut). The environment was ruled out (zero `pacman` changes
+  Oct 24–25, `chromium-1234` untouched since Oct 23, fontconfig cache
+  since Oct 10).
+
+The branch gate remains this pass's authority: `verify:affected --since
+4b07ce18e` is **35/35 green** (2026-10-25), including Tier-4
+`e2e:editor-chrome-visual`, on the tree where master's unvalidated chrome
+drift is absent. The seven classified failures above are this line's
+standing golden/WIP debt for whoever owns those commits, recorded here so
+they are not misattributed to the Inspector pass merge.
+
 ## Evidence gaps
 
 - Property search is **verified in real Chromium (2026-10-23)**: both
