@@ -319,10 +319,39 @@ Two post-merge issues were found and fixed:
    so substring and prefix paths cannot drift. Latency dropped to **86**
    (`latency-fixed.*`), matching master; 63 search/parity unit tests green.
 
-**Remaining:** product imagery recapture on the merged UI (running), commit
-(cache fix + regenerated snapshots + this checkpoint), integrate (FF master in
-the shared checkout — branch contains master; its dirty set is untracked-only
-with empty overlap), and remove integrated worktrees.
+### Integration — complete
+
+- **Product imagery**: recaptured on the merged UI (`product-capture-merged.*`,
+  exit 0; panel grew 539px → 831px with master's text-scale/tree-height
+  changes), inspected (row-first model intact: check overlay, single identity
+  slot, no grip, Multiply blend badge, opacity badges, responsive filter bar),
+  promoted via `--sync-reviewed` + fresh 288-wide variants copied to both
+  published dirs; `screenshots/validate.mjs` → **49/49 verified, zero
+  layers-scoped violations**.
+- **Three progressive commits landed**: `afb7aae3f` (search word cache),
+  `7d7183c04` (regenerated effect-stack baselines + this checkpoint), and
+  `3918d66ba` (product imagery), after `4d81e73dc` (four spec alignments) and
+  merge `dede4b943`.
+- **Integrated** into the shared checkout: `git merge --ff-only
+  fix/layers-panel-repair` moved master `6eca219c8` → `3918d66ba` (= branch
+  tip), exit 0, `HEAD == fix/layers-panel-repair`. Pre-checks: no in-progress
+  git operation, index clean, shared dirty set **untracked-only** with **empty
+  overlap** against the merge-touched files, and this branch does not change
+  `pnpm-lock.yaml` vs master (so the shared checkout's `+9` automation-entry
+  churn could not block the FF).
+- **Integrated-SHA validation** `pnpm verify:affected --since 6eca219c8`
+  (47 lanes): **46 green** — Tier 0 audits, all six typechecks, all 16
+  unit-file lanes — failing only `js-unit:@varve/website` on
+  `pages/features/realtime-collaboration.astro`, which is the **other agent's
+  untracked WIP** (confirmed: never committed by this branch, absent from the
+  integration diff, `??` in shared status) and is tripped only because the
+  token scan reads files on disk in the shared checkout. Proven not ours by
+  running the exact `tokens.test.ts` in this worktree (my committed code,
+  their WIP absent): **119/119 pass, exit 0**. So the committed integration is
+  green end-to-end.
+
+**Next:** remove the three integrated task worktrees (`layers-repair`,
+`layers-repair-baseline`, `layers-master-check`).
 
 Also restored `pnpm-lock.yaml` after an environment-driven rewrite: another
 agent's untracked `packages/automation` exists only in the shared checkout, so
