@@ -319,9 +319,18 @@ test.describe('Layers Panel — real-world document', () => {
     await rows.nth(2).click({ modifiers: ['Shift'] });
     await page.waitForTimeout(200);
 
+    // Name-room (D-3, F-20): on fine-pointer devices an idle row collapses
+    // its default-state toggles to zero width and reveals them at full size
+    // on hover — the state a pointer user actually reaches. Measure the row
+    // toggles inside a hovered, unselected row so the probe checks the
+    // revealed target size rather than the intentional collapsed state.
+    await rows.nth(3).hover();
+    await page.waitForTimeout(150);
+
     // Phase 1 target-size probe: no search text, so the bulk bar (hidden
     // while filtering) is mounted.
     const sizes = await page.evaluate(() => {
+      const hoveredRow = document.querySelector('[role="treeitem"]:hover');
       const sels = [
         '.layers-row__toggle',
         '.layers-row__disclosure',
@@ -333,7 +342,9 @@ test.describe('Layers Panel — real-world document', () => {
       ];
       const out: Record<string, Array<{ w: number; h: number }>> = {};
       for (const sel of sels) {
-        out[sel] = [...document.querySelectorAll(sel)].map((el) => {
+        const scope: ParentNode =
+          sel === '.layers-row__toggle' && hoveredRow ? hoveredRow : document;
+        out[sel] = [...scope.querySelectorAll(sel)].map((el) => {
           const r = el.getBoundingClientRect();
           return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10 };
         });
@@ -386,6 +397,8 @@ test.describe('Layers Panel — real-world document', () => {
       const s = getComputedStyle(el);
       return {
         ariaLabel: el.getAttribute('aria-label'),
+        text: (el.textContent ?? '').trim().slice(0, 40),
+        inFilterBar: !!el.closest('.layers-filter-bar'),
         className: el.className,
         outlineStyle: s.outlineStyle,
         outlineWidth: s.outlineWidth,
@@ -393,7 +406,12 @@ test.describe('Layers Panel — real-world document', () => {
       };
     });
     record('focus-visible-probe.json', focusProbe);
-    expect(focusProbe?.ariaLabel).toMatch(/filter options/i);
+    // The responsive bar puts the workspace chip row directly after the
+    // search field, so the next Tab stop is a filter-bar control with either
+    // an accessible name or visible text; keyboard focus must stay inside the
+    // bar and be visibly ringed either way.
+    expect(focusProbe?.inFilterBar).toBe(true);
+    expect(`${focusProbe?.ariaLabel ?? ''}${focusProbe?.text ?? ''}`).toMatch(/filter|components/i);
     expect(focusProbe?.outlineStyle).toBe('solid');
     expect(focusProbe?.outlineWidth).toBe('2px');
   });
@@ -474,32 +492,47 @@ test.describe('Layers Panel — real-world document', () => {
     await expect(page.locator('.layers-row__name').first()).toHaveText('Renamed Layer');
   });
 
-  test('drag reorder via the type icon changes document order once', async ({ page }) => {
+  test('drag reorder via the row changes document order once', async ({ page }) => {
     await buildRealisticDocument(page);
 
     const rows = page.getByRole('treeitem');
     const namesBefore = await rows.locator('.layers-row__name').allTextContents();
     record('reorder-before.json', { namesBefore: namesBefore.slice(0, 6) });
 
-    // Drag the second row below the fourth row.
+    // Drag the second row (Tab Bar, a container) above the first row (the
+    // photo). The previous target — the fourth row — sits inside Tab Bar's
+    // own subtree, so that drop was a cycle the resolver correctly refuses
+    // (product contract, asserted in layers-drag-drop; not a defect). A
+    // root-sibling reorder keeps this test's intent: one drag changes
+    // document order exactly once.
     const source = rows.nth(1);
-    const target = rows.nth(4);
+    const target = rows.nth(0);
     await source.hover();
-    const grip = source;
-    const sourceBox = await grip.boundingBox();
+    const sourceBox = await source.boundingBox();
     const targetBox = await target.boundingBox();
     if (!sourceBox || !targetBox) throw new Error('rows not measurable');
 
     await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
     await page.mouse.down();
-    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height * 0.8, {
-      steps: 8,
-    });
+    await page.mouse.move(
+      targetBox.x + targetBox.width / 2,
+      targetBox.y + targetBox.height * 0.15,
+      {
+        steps: 8,
+      },
+    );
     await page.mouse.up();
     await page.waitForTimeout(400);
 
     const namesAfter = await rows.locator('.layers-row__name').allTextContents();
     record('reorder-after.json', { namesAfter: namesAfter.slice(0, 6) });
+    // Exact expectation: Tab Bar lands directly above the photo, with its
+    // whole subtree intact between them (the photo follows the last child).
+    expect(namesAfter[0]).toBe('Tab Bar');
+    expect(namesAfter.slice(1, 4)).toEqual(['Profile Tab', 'Profile Label', 'Profile Icon']);
+    expect(namesAfter.indexOf('real-life-still-life.jpg')).toBeGreaterThan(
+      namesAfter.indexOf('Saved Label'),
+    );
     expect(namesAfter.join('|')).not.toBe(namesBefore.join('|'));
 
     await capture(page, '50-after-reorder');

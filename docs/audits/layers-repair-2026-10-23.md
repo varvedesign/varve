@@ -144,6 +144,66 @@ Active commands:
 inspected, promoted (below); (3) remaining: commits → integration →
 integrated-SHA validation → cleanup.
 
+### Master merge — parallel Layers work and the approved resolution
+
+While this task ran, master received a parallel Layers overhaul (10-22→10-23:
+`0cb323090` tree height of the rail, `96b28bc5c` keyboard-find search with one
+filter menu, `8e27ed4a9` name-room row toggles, `416da8059` auto-reveal
+duplicate removal, `bba8a84a7` **type icon as the reorder handle**, plus
+colour-vision, rail-alignment, scrollbar, responsive filter bar, preview zoom
+and 13px text scale). A user decision was sought rather than silently picking
+a side: **the approved Row-first model stands**; master's compatible polish is
+kept.
+
+Merge `106add5b7` resolved 16 conflicts: row-first everywhere the models
+collided (row drag, Shift-range, selection check, identity slot, docs and
+specs), master's polish kept (responsive filter bar, preview dblclick zoom,
+text scale, colours, tree height, rail alignment, auto-reveal duplicate
+removed — superseding the crosshair icon change), and one search contract:
+`nodeMatchesSearch` now delegates to `matchesLayerSearch`, with `ownMatchIds`
+aliased to the tested `selectMatchingEntryIds` list so master's find-stepping
+reads the same matches. Master advanced again during validation (`e6a7f154b`,
+zero overlap); merge `32e5ba369` brought it in cleanly. An intermediate run was
+deliberately superseded (not failed) so a single validation would certify the
+final tree.
+
+### Final-tree validation and the two pre-existing test defects
+
+`pnpm verify:affected --since e6a7f154b` (`final-affected.log`) passed every
+lane — Tier 0 audits, all five typechecks, all 14 unit-file lanes,
+`js-unit:@varve/editor/help/desktop/website`, `website-unit`, and the
+`layers-dnd-demo`, `layers-dnd-invariant`, `layers-dnd`, `layers-drag-drop`
+browser files — before failing only on `layers-panel-real-world.spec.ts`.
+
+That file's two failures were diagnosed with a master-check worktree
+(`.worktrees/layers-master-check` at `e6a7f154b`) and a drag probe, and both
+are **pre-existing test defects, not product defects**:
+
+1. **Row toggles (target size)** — master's name-room CSS collapses idle
+   fine-pointer toggles to zero width *by design* (revealed on hover), while
+   master's own probe measured idle rows and demanded 24px. The probe now
+   hovers an idle row first and measures the revealed state (the state a
+   pointer user reaches). The follow-on focus probe was likewise stale against
+   master's own filter-bar refactor (chips now precede the options toggle) and
+   now asserts focus stays inside the filter bar with a visible 2px ring.
+2. **Drag reorder** — the drag probe proved the product correct:
+   `elementAtDown: layers-row__label`, overlay activates, resolver returns
+   `drop-after + invalid` because the old target (fourth row) is a
+   *descendant* of the dragged container — a cycle refusal exactly as
+   documented. The test now reorders two root siblings and asserts the exact
+   result *including subtree interleaving* (Tab Bar first, its Profile/Saved
+   children intact, photo following the subtree).
+
+Both master and repair reproduced these reds (master additionally behind the
+Missing Fonts overlay that this branch's spec already dismisses); their shared
+test/CSS/feature commits were never exercised by a complete E2E pass because
+CI has been unavailable. Evidence: `master-check.*`, `classify-repair.*`,
+`drag-probe.*`, `fixed-pair.*` receipts.
+
+**Running:** the complete `tests/e2e/layers` browser pass (28 files) on the
+final tree — `all-layers-e2e.*` — covering the repaired lane end-to-end plus
+every master-owned Layers spec against the merged behavior.
+
 ### Product imagery — captured, inspected, promoted
 
 `pnpm screenshots:product -- --scenes layers --review-dir

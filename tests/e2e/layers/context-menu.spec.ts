@@ -129,12 +129,19 @@ test.describe('Layers Panel - Context Menu', () => {
           menu: element.getBoundingClientRect().toJSON(),
           innerScrolls: element.scrollHeight > element.clientHeight,
           parentScrolls: parent.scrollHeight > parent.clientHeight + 1,
-          scrollbarWidth: getComputedStyle(element).scrollbarWidth,
+          // Since 570ffa383 the standard scrollbar-width property is
+          // Firefox-only (in WebKit/Chromium it forces the spaceless native
+          // overlay); Chromium/WebKit get the shared ::-webkit-scrollbar skin,
+          // whose whole point is a real track that occupies layout. Measure
+          // that track instead of the retired property string.
+          scrollbarTrack:
+            element instanceof HTMLElement ? element.offsetWidth - element.clientWidth : 0,
         };
       });
       expect(geometry.innerScrolls).toBe(true);
       expect(geometry.parentScrolls).toBe(false);
-      expect(geometry.scrollbarWidth).toBe('thin');
+      expect(geometry.scrollbarTrack).toBeGreaterThan(0);
+      expect(geometry.scrollbarTrack).toBeLessThanOrEqual(16);
       expect(geometry.menu.y).toBeGreaterThanOrEqual(0);
       expect(geometry.menu.bottom).toBeLessThanOrEqual(viewport.height);
       await menu.press('End');
