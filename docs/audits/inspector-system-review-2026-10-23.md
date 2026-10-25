@@ -55,7 +55,9 @@ discoverable.
 | `3036735c5` | Six failing visual call sites carry measured, annotated rasterization budgets (harfbuzz 14.6 diagnosis below); goldens untouched. |
 | `a5d6644d4` | S5 two-tier contextual-band rule documented in the contract and `isContextualPrimarySection`; `sectionRegistry.test.ts` expectations unchanged. |
 | `c4c045982` | Responsive probe: records the Inspector at 375/768/1280 with the compact drawer exercised through its `Show inspector panel` launcher (fresh context per width). **Verified 2026-10-24:** all 5 probe tests pass in Chromium; numbers below. |
-| `9697ba5fa` | `waitForSettledPreview` pins the Enhance preview's settled geometry before every screenshot, closing the pixel-art baseline flap. **Verified 2026-10-24:** full `upscale-dialog-visual.spec.ts` lane 7/7 green. |
+| `9697ba5fa` | `waitForSettledPreview` pins the Enhance preview's settled geometry before every screenshot, closing half the pixel-art baseline flap. **Verified 2026-10-24:** full `upscale-dialog-visual.spec.ts` lane 7/7 green. |
+| `7842accbe` | Pixel-art capture now waits for the async analysis to settle before interacting — the precondition its sibling tests already had. **Verified 2026-10-24:** three consecutive captures byte-identical (AE 0 between repeats). |
+| `1d4e6070d` | Reviewed single-file re-capture of the raced pixel-art baseline, isolated in its own commit. **Verified 2026-10-24:** full spec lane 7/7 green against the refreshed baseline. |
 
 ## System findings
 
@@ -241,15 +243,24 @@ were diagnosed, not deferred:
   Structural regressions exceed those budgets by an order of magnitude;
   goldens untouched.
 - **Second defect found by the gate re-run (2026-10-24)**: the pixel-art
-  baseline flapped between two dialog geometries on identical code — four
-  runs (golden era, CI run 39970973174 shard 11, two local runs) rendered
-  the 1088px glyph-only diff, one locally-loaded run captured mid-layout for
-  a 174048px structural diff (Preset row in view, preview scaled
-  differently, footer offset by 35px). The default test already pinned the
-  settled state with count/`naturalWidth`/box polls; the theme loop and
-  pixel-art tests waited only for alt text. `waitForSettledPreview` now
-  requires that settle at all three screenshot sites (`9697ba5fa`);
-  the full spec lane passes 7/7.
+  baseline flapped between two dialog geometries on identical code. Final
+  diagnosis: the capture raced the async analysis flow — a recommendation
+  completing *after* the manual Upscale/Pixel-art selection re-inserted the
+  recommendation content (~170px) and scrolled the dialog (~203px), hiding
+  the title header and shifting everything; the clean state (header
+  visible, scroll 0) is what the sibling tests' analysis-settled waits
+  already pin. Evidence: two byte-stable outcomes (Playwright pixelmatch
+  1088 vs 174048 against the old file; ImageMagick AE 92193, three
+  consecutive pinned captures byte-identical to each other), CI
+  deterministic in the raced state (run 39970973174 shard 11), local
+  bimodal under load. Three fixes landed in order:
+  `9697ba5fa` pinned preview settle (count/`naturalWidth`/box polls at all
+  three screenshot sites), `7842accbe` added the analysis-settled
+  precondition the default and theme-loop tests already had (the decisive
+  one — 3/3 byte-identical after), and `1d4e6070d` re-captured the one
+  raced baseline in a dedicated, reviewed refresh commit (single file; the
+  5000px budget absorbs local-vs-CI glyph variance, so the locally
+  captured baseline stays CI-valid). Full spec lane: 7/7 green.
 
 ## Measurements (2026-10-23, real Chromium, isolated port + heavy lease)
 
