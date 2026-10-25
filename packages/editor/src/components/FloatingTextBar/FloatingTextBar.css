@@ -17,11 +17,15 @@
 }
 
 /* The placement layer scrolls at viewport limits. It owns the shadow so the
- * scroll box does not clip it into a square behind the rounded surface. */
+ * scroll box does not clip it into a square behind the rounded surface. The
+ * shadow pair is the main palette's (FloatingToolbar.css
+ * #.floating-toolbar__card): the tonal-planes elevation moved the palette to
+ * the edge highlight plus overlay shadow, and every floating command surface
+ * follows it — border-box geometry, background and radius already match. */
 .floating-text-bar__layer,
 .floating-text-bar__more-layer {
   border-radius: var(--radius-floating);
-  box-shadow: var(--elevation-shadow-raised);
+  box-shadow: var(--elevation-edge-highlight), var(--elevation-shadow-overlay);
 }
 
 .floating-text-bar {
