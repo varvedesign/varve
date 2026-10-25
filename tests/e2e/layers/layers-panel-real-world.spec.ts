@@ -49,6 +49,24 @@ async function importFixture(page: Page, filePath: string, expected: number, tim
   await page.waitForTimeout(300);
 }
 
+/**
+ * The authored SVGs reference Inter, which is not installed on every device;
+ * the product answers with its Missing Fonts dialog (substitutes stay active
+ * after dismissal, and the same missing set is not re-shown in this session).
+ * The controller detects on a font-stable debounce that restarts with every
+ * document change, so this must run AFTER the document stops changing — not
+ * after each import. Act as a user would and dismiss it so the panel
+ * interactions own the pointer. On a device with the fonts the dialog never
+ * appears and this only costs the wait.
+ */
+async function dismissMissingFonts(page: Page, timeout = 8_000) {
+  const dialog = page.getByRole('dialog', { name: 'Missing Fonts' });
+  await dialog.waitFor({ state: 'visible', timeout }).catch(() => undefined);
+  if (!(await dialog.isVisible().catch(() => false))) return;
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toBeHidden();
+}
+
 /** Dump the visible tree structure (name/level/kind) for evidence. */
 async function treeStructure(page: Page, limit = 80) {
   return page.evaluate((max) => {
@@ -82,6 +100,7 @@ async function buildRealisticDocument(page: Page) {
   await importFixture(page, PHOTO, before + 1);
   // Wait for the tree to settle after import.
   await page.waitForTimeout(500);
+  await dismissMissingFonts(page);
 }
 
 test.describe('Layers Panel — real-world document', () => {
@@ -141,6 +160,7 @@ test.describe('Layers Panel — real-world document', () => {
   test('container rows with content render a bounded content preview', async ({ page }) => {
     await navigateToEditor(page);
     await importFixture(page, SVG_APP, 35);
+    await dismissMissingFonts(page);
 
     // A group with drawable descendants shows the 28×28 content preview…
     const row = page
@@ -167,6 +187,7 @@ test.describe('Layers Panel — real-world document', () => {
   }) => {
     await buildRealisticDocument(page);
     await importFixture(page, SVG_STRESS, 280);
+    await dismissMissingFonts(page);
 
     const rows = page.getByRole('treeitem');
     const totalLogical = await layerCount(page);
@@ -625,6 +646,7 @@ test.describe('Layers Panel — real-world document', () => {
   }) => {
     await navigateToEditor(page);
     await importFixture(page, SVG_APP, 30);
+    await dismissMissingFonts(page);
 
     const panel = page.locator('[data-panel-root="layers"]');
     const handle = page.locator('.panel-resize-handle').first();

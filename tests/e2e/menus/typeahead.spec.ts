@@ -37,7 +37,7 @@ test.describe('Menu type-ahead', () => {
     await expect(focused).toContainText('Export SVG');
   });
 
-  test('buffer accumulation: "ex" matches Export... not Export SVG', async ({ page }) => {
+  test('buffer accumulation: "ex" matches Export Batch… not Export SVG', async ({ page }) => {
     const fileButton = page.locator('[role="menubar"] [role="menuitem"]', { hasText: 'File' });
     await fileButton.click();
     await page.waitForTimeout(200);
@@ -51,7 +51,7 @@ test.describe('Menu type-ahead', () => {
     await page.waitForTimeout(100);
 
     const focused = page.locator('[role="menu"] [role="menuitem"]:focus');
-    await expect(focused).toContainText('Export\u2026');
+    await expect(focused).toContainText('Export Batch\u2026');
   });
 
   test('cycling: pressing "s" twice cycles through Save items', async ({ page }) => {

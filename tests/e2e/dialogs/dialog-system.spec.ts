@@ -22,7 +22,7 @@ test.describe('Escape layers', () => {
 
     await page.getByRole('menuitem', { name: 'File', exact: true }).click();
     await page
-      .getByRole('menuitem', { name: /^Export\u2026/ })
+      .getByRole('menuitem', { name: /^Export Batch/ })
       .first()
       .click();
 
@@ -132,7 +132,7 @@ test.describe('Export dialog at a short viewport', () => {
 
     await page.getByRole('menuitem', { name: 'File', exact: true }).click();
     await page
-      .getByRole('menuitem', { name: /^Export\u2026/ })
+      .getByRole('menuitem', { name: /^Export Batch/ })
       .first()
       .click();
 
@@ -363,7 +363,7 @@ test.describe('visual evidence', () => {
 
     await page.getByRole('menuitem', { name: 'File', exact: true }).click();
     await page
-      .getByRole('menuitem', { name: /^Export\u2026/ })
+      .getByRole('menuitem', { name: /^Export Batch/ })
       .first()
       .click();
     const exportDialog = page.locator('dialog.export-dialog');

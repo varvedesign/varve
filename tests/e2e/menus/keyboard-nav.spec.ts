@@ -274,7 +274,7 @@ test.describe('Menu keyboard navigation', () => {
     await pressTypeAheadKey(page, 'e');
     await pressTypeAheadKey(page, 'x');
     const focused = await getFocusedMenuItem(page);
-    await expect(focused).toContainText('Export\u2026');
+    await expect(focused).toContainText('Export Batch\u2026');
   });
 
   test('type-ahead: repeated same char cycles through matches', async ({ page }) => {
