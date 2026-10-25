@@ -1286,6 +1286,56 @@ own `.gitignore` fix, which master does not have yet. Discarding the regenerable
 lockfile entry restored the branch cleanly; the branch ref itself was never at
 risk, and all work was already committed.)
 
+### Bounded merge verification and integration
+
+Per the approved plan, the second master merge (`b86cd5bd3`, five conflict-free
+upstream commits) was verified with the impact-proportionate Tier-0 set rather
+than a third full 482-lane gate: the full non-browser gate had already gone
+green on `7da03bcd4`, the browser lanes are deferred to CI by decision, and a
+~3h gate risked certifying a SHA master had already outgrown (master advanced
+twice that day). Results at `b86cd5bd3`:
+
+| Check | Result |
+|---|---|
+| format+lint (biome, 6189 files) | PASS 37s |
+| audit:emoji / audit:docs / audit:tokens | PASS 5s / 2s / 11s |
+| audit:radius / audit:spacing / audit:sizing / audit:inspector-css | PASS 2s / 6s / 3s / 3s |
+| lint:css | FAIL → fixed → PASS |
+| **typecheck (all 20 packages + e2e)** | **PASS 138s** |
+| **architecture audit --ci** | **PASS 300s** |
+
+`lint:css` failed on one upstream selector: `:not(:disabled, :checked)` in
+`packages/ui/src/components/components.css:1535` violates
+`selector-not-notation: "simple"`. Git blame attributes it to `570ffa383
+"refactor(ui): one checkbox, one scrollbar, one icon scale and one close
+button"`, and master's copy carries the identical line, so it is upstream and
+not introduced here. `stylelint --fix` produced a single-line change to
+`:not(:disabled):not(:checked)` — the same elements are selected, only the
+notation differs — with no other selector or declaration moved. This lane is a
+planner Tier-0 lane and *not* a full-gate lane (the gate's Format lane is biome
+only), which is why earlier green gates never exercised it.
+
+Integration into master then **fast-forwarded cleanly**: master's tip was
+already an ancestor of this branch, so `git merge fix/ai-model-reliability`
+advanced master to `7b33aee1b` with **0 conflicts**, leaving
+`master..fix/ai-model-reliability` at 0. Assertions taken on master itself: the
+phantom `packages/automation` lockfile block is gone (0 occurrences),
+`persistence/saveTruthfulness.ts` is present, and the `.gitignore` rule for the
+worktree `onnxruntime-libs` symlink is in place. The main checkout's 12
+untracked WIP paths were left untouched.
+
+Two caveats carried forward rather than papered over:
+
+1. **Post-integration checks in the main checkout are not trustworthy.** Its
+   untracked WIP (`packages/automation/`, research ledgers, additional e2e
+   specs) is swept into any local run, so a failure there cannot be attributed
+   to this change set. The integration evidence base is this worktree's runs.
+2. The bounded set ran at `b86cd5bd3`; commits after it are docs-only plus the
+   single verified CSS notation fix. CI remains responsible for browser E2E,
+   visual regression, native desktop matrices, full Vitest/Cargo, benchmarks,
+   model-quality, packaging, signing and release checks — the same deferral
+   every commit checkpoint reports.
+
 ### Native OCR editor workflow complete
 
 `native-ocr-ui-r2` passed the full production journey in the running Tauri app
