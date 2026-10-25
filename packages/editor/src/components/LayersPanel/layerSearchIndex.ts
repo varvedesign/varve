@@ -107,11 +107,13 @@ export function layerSearchTerms(query: string): string[] {
   return query.normalize('NFC').toLowerCase().split(/\s+/u).filter(Boolean);
 }
 
-export function matchesLayerSearch(name: string, query: string, kind?: SceneNode['kind']): boolean {
-  const terms = layerSearchTerms(query);
-  if (terms.length === 0) return false;
-  const words = extractWords(name);
-  const fullName = name.normalize('NFC').toLowerCase();
+/** The one matching rule shared by the name-based and node-based entry points. */
+function matchTerms(
+  words: readonly string[],
+  fullName: string,
+  kind: SceneNode['kind'] | undefined,
+  terms: readonly string[],
+): boolean {
   return terms.every((term) =>
     term.startsWith('kind:')
       ? // Reserved metadata syntax: compare the real node kind, never the
@@ -121,14 +123,44 @@ export function matchesLayerSearch(name: string, query: string, kind?: SceneNode
   );
 }
 
+export function matchesLayerSearch(name: string, query: string, kind?: SceneNode['kind']): boolean {
+  const terms = layerSearchTerms(query);
+  if (terms.length === 0) return false;
+  return matchTerms(extractWords(name), name.normalize('NFC').toLowerCase(), kind, terms);
+}
+
+// Word and normalized-name caches keyed by node object. The scene model is
+// immutable, so a rename replaces the node object and these recompute for it
+// automatically (the WeakMap entry goes with the old object). Without them the
+// predicate re-ran `extractWords` for every node on every keystroke: the tree
+// filter, the "n of m" count and Select matches all evaluate it per row, which
+// pushed typing latency past the responsive budget on a ~320-layer document
+// (master's own search cache, dropped when this contract unified here).
+const wordsByNode = new WeakMap<SceneNode, readonly string[]>();
+const fullNameByNode = new WeakMap<SceneNode, string>();
+
 /**
  * Node-level entry point for callers that hold the node itself (the count
- * predicate, find-as-you-type). Delegates to `matchesLayerSearch`, so the
- * index-backed tree, the "n of m" count, and Select matches share exactly one
- * rule (the F-51 parity requirement) instead of drifting back into two.
+ * predicate, find-as-you-type). Uses the same `matchTerms` rule as
+ * `matchesLayerSearch`, so the index-backed tree, the "n of m" count, and
+ * Select matches share exactly one contract (the F-51 parity requirement)
+ * instead of drifting back into two — but reads words from the WeakMap cache
+ * rather than re-splitting the name per keystroke.
  */
 export function nodeMatchesSearch(node: SceneNode, query: string): boolean {
-  return matchesLayerSearch(node.name, query, node.kind);
+  const terms = layerSearchTerms(query);
+  if (terms.length === 0) return false;
+  let words = wordsByNode.get(node);
+  if (!words) {
+    words = extractWords(node.name);
+    wordsByNode.set(node, words);
+  }
+  let fullName = fullNameByNode.get(node);
+  if (!fullName) {
+    fullName = node.name.normalize('NFC').toLowerCase();
+    fullNameByNode.set(node, fullName);
+  }
+  return matchTerms(words, fullName, node.kind, terms);
 }
 
 /** Search the index — returns matching node IDs ordered by relevance */

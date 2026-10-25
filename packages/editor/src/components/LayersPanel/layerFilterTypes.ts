@@ -2,7 +2,7 @@ import type { BlendMode, Document, LayerColor, NodeId, SceneNode } from '@varve/
 import { getNodesInTimeline, isAnimatedMediaNode, isContainer } from '@varve/scene';
 import { isNodeEffectivelyHidden } from '../../scene/world';
 import { isComponentInstance, isComponentNode } from './layerPresentation';
-import { matchesLayerSearch } from './layerSearchIndex';
+import { nodeMatchesSearch } from './layerSearchIndex';
 
 /** Filter by node kind (e.g., 'shape', 'text', 'frame', etc.) */
 export type NodeKindFilter = Array<SceneNode['kind'] | 'component'>;
@@ -222,6 +222,8 @@ export function nodeMatchesFilter(
   filter: LayerFilterSpec,
   ctx: NodeFilterContext = {},
 ): boolean {
-  if (filter.search && !matchesLayerSearch(node.name, filter.search, node.kind)) return false;
+  // `nodeMatchesSearch` reads words from a per-node cache — this predicate
+  // runs for every row on every keystroke (tree filter, count, Select matches).
+  if (filter.search && !nodeMatchesSearch(node, filter.search)) return false;
   return nodeMatchesNonSearch(node, filter, ctx);
 }
