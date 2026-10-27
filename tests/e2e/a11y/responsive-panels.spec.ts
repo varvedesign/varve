@@ -179,7 +179,10 @@ test.describe('responsive panel drawers', () => {
     const launcher = page.locator('.editor__fab--inspector');
     const panel = page.locator('.editor__inspector-panel');
     await launcher.click();
-    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    // The launcher FAB unmounts while its drawer is open (the documented
+    // launcher/scrim contract in responsive-workspace.md: the FABs sit below
+    // the scrim, so they hide while a drawer owns the surface). The drawer
+    // state itself is the contract here, not aria-expanded on a hidden trigger.
     await expect(panel).toHaveAttribute('data-visible', 'true');
     const mobileControls = panel.locator(focusableSelector);
     await expect(mobileControls.first()).toBeFocused();
@@ -213,10 +216,12 @@ test.describe('responsive panel drawers', () => {
     });
     await page.screenshot({ path: testInfo.outputPath('open-inspector-resized-desktop.png') });
     await expect.soft(desktopControls.first()).not.toBeFocused();
-    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    // The drawer stays open at desktop width; the trigger stays unmounted
+    // while any drawer is open, so the panel state carries the assertion.
+    await expect(panel).toHaveAttribute('data-visible', 'true');
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    await expect(panel).toHaveAttribute('data-visible', 'true');
     await expect(mobileControls.first()).toBeFocused();
     await mobileControls.last().focus();
     await page.keyboard.press('Tab');
@@ -239,7 +244,8 @@ test.describe('responsive panel drawers', () => {
     await target.focus();
     await expect(target).toBeFocused();
     await page.keyboard.press('Escape');
-    await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+    // Desktop Escape must not dismiss the drawer: with the launcher
+    // unmounted while a drawer is open, the panel state is the assertion.
     await expect(panel).toHaveAttribute('data-visible', 'true');
   });
 
@@ -263,10 +269,11 @@ test.describe('responsive panel drawers', () => {
     ];
 
     for (const { button, panel } of cases) {
-      await button.click();
-      await expect(button).toHaveAttribute('aria-expanded', 'true');
-      await expect(panel).toHaveAttribute('data-visible', 'true');
+      // aria-controls is part of the launcher contract while the launcher
+      // exists (closed state); it unmounts while the drawer is open.
       await expect(button).toHaveAttribute('aria-controls');
+      await button.click();
+      await expect(panel).toHaveAttribute('data-visible', 'true');
       await expect(panel).toHaveAttribute('role', 'dialog');
 
       const focusable = panel.locator(
