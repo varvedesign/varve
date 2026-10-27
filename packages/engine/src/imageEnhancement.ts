@@ -329,30 +329,6 @@ export function upscaleImageData(source: ImageData, options: UpscaleOptions = {}
   }
 }
 
-/** A centred region of `source` at most `maxWidth`x`maxHeight`, copied 1:1. */
-function centreCrop(source: ImageData, maxWidth: number, maxHeight: number): ImageData {
-  const cropW = Math.max(1, Math.min(source.width, Math.round(maxWidth)));
-  const cropH = Math.max(1, Math.min(source.height, Math.round(maxHeight)));
-  if (cropW === source.width && cropH === source.height) return source;
-
-  const originX = Math.floor((source.width - cropW) / 2);
-  const originY = Math.floor((source.height - cropH) / 2);
-  const out = new ImageData(cropW, cropH);
-  for (let y = 0; y < cropH; y += 1) {
-    const srcRow = (originY + y) * source.width;
-    const dstRow = y * cropW;
-    for (let x = 0; x < cropW; x += 1) {
-      const srcOffset = (srcRow + originX + x) * 4;
-      const dstOffset = (dstRow + x) * 4;
-      out.data[dstOffset] = source.data[srcOffset] as number;
-      out.data[dstOffset + 1] = source.data[srcOffset + 1] as number;
-      out.data[dstOffset + 2] = source.data[srcOffset + 2] as number;
-      out.data[dstOffset + 3] = source.data[srcOffset + 3] as number;
-    }
-  }
-  return out;
-}
-
 /**
  * Compute a preview ImageData for upscale operations.
  *
@@ -369,7 +345,6 @@ function centreCrop(source: ImageData, maxWidth: number, maxHeight: number): Ima
  * AI mode is handled by the worker/native provider instead.
  */
 export function computeUpscalePreview(source: ImageData, options: UpscaleOptions = {}): ImageData {
-  const maxDim = options.previewMaxDimension ?? 512;
   const isAi = options.method === 'ai';
 
   if (isAi) {
@@ -380,8 +355,8 @@ export function computeUpscalePreview(source: ImageData, options: UpscaleOptions
   }
 
   const scale = options.scale ?? 2;
-  const cropLimit = Math.max(1, maxDim / Math.max(scale, 0.001));
-  const previewSource = centreCrop(source, cropLimit, cropLimit);
+  const region = upscalePreviewRegion(source, options);
+  const previewSource = cropRegion(source, region);
   return upscaleImageData(previewSource, { ...options, scale });
 }
 
@@ -393,6 +368,13 @@ export function computeUpscalePreview(source: ImageData, options: UpscaleOptions
  * the default center — a defect at an edge or corner is otherwise
  * invisible to preview. The region is clamped so it always lies fully
  * inside the source.
+ *
+ * The crop is fitted inside the size budget **preserving the source aspect
+ * ratio**: clamping width and height independently to the budget produced a
+ * square window whenever the source exceeded it on both axes, so a portrait
+ * photo previewed as a centred square that matched neither the source framing
+ * nor the aspect of the requested output. Both the region and the rendered
+ * preview derive from this one function, so they cannot drift apart.
  */
 export function upscalePreviewRegion(
   source: ImageData | { width: number; height: number },
@@ -401,8 +383,10 @@ export function upscalePreviewRegion(
   const maxDim = options.previewMaxDimension ?? 512;
   const scale = options.scale ?? 2;
   const cropLimit = Math.max(1, maxDim / Math.max(scale, 0.001));
-  const width = Math.max(1, Math.min(source.width, Math.round(cropLimit)));
-  const height = Math.max(1, Math.min(source.height, Math.round(cropLimit)));
+  const longEdge = Math.max(1, source.width, source.height);
+  const fit = Math.min(1, cropLimit / longEdge);
+  const width = Math.max(1, Math.min(source.width, Math.round(source.width * fit)));
+  const height = Math.max(1, Math.min(source.height, Math.round(source.height * fit)));
   const focus = options.previewFocus;
   const centerX =
     focus && Number.isFinite(focus.x)
@@ -418,4 +402,33 @@ export function upscalePreviewRegion(
     width,
     height,
   };
+}
+
+/** Copy one rectangular region out of a source bitmap. */
+function cropRegion(
+  source: ImageData,
+  region: { x: number; y: number; width: number; height: number },
+): ImageData {
+  if (
+    region.x === 0 &&
+    region.y === 0 &&
+    region.width === source.width &&
+    region.height === source.height
+  ) {
+    return source;
+  }
+  const out = new ImageData(region.width, region.height);
+  for (let y = 0; y < region.height; y += 1) {
+    const srcRow = (region.y + y) * source.width + region.x;
+    const dstRow = y * region.width;
+    for (let x = 0; x < region.width; x += 1) {
+      const srcOffset = (srcRow + x) * 4;
+      const dstOffset = (dstRow + x) * 4;
+      out.data[dstOffset] = source.data[srcOffset] as number;
+      out.data[dstOffset + 1] = source.data[srcOffset + 1] as number;
+      out.data[dstOffset + 2] = source.data[srcOffset + 2] as number;
+      out.data[dstOffset + 3] = source.data[srcOffset + 3] as number;
+    }
+  }
+  return out;
 }

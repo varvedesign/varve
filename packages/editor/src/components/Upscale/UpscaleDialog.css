@@ -9,7 +9,12 @@
   align-items: stretch;
   gap: var(--space-5);
   min-height: 0;
-  overflow: hidden;
+  /* Safety net only: this grid is auto-height, so it grows with its content
+     and the SCROLL actually happens on the shared .varve-dialog__body that
+     wraps it — that is the element to assert on when testing "nothing
+     scrolls". Kept auto so a future constraint on this box could not clip
+     content without a scrollbar. */
+  overflow-y: auto;
 }
 
 .upscale-dialog__footer {
@@ -77,42 +82,72 @@
   gap: var(--space-1);
 }
 
+/* Sentence case: an uppercased, letter-spaced label wraps to two lines inside
+ * a control row and makes the whole group look broken. */
 .upscale-preview__control-label {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
-.upscale-preview__focus-picker {
-  display: grid;
-  grid-template-columns: repeat(3, 18px);
-  gap: 2px;
-  margin: 0;
-  padding: 2px;
+/* ── Hint, navigator, inspect region ───────────────────────────────────────
+ * The hint and the control that changes what the preview computes share the
+ * line under the stage. The navigator beside them is the point: every bounded
+ * crop shares the source aspect, so at Fit a crop is otherwise
+ * indistinguishable from the full image. Showing the whole source with the
+ * computed window over it is what says "this is a sub-rectangle", and the
+ * window moving is what says the control works. */
+.upscale-preview__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.upscale-preview__region-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 0 0 auto;
+}
+
+.upscale-preview__navigator {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
 }
 
-.upscale-preview__focus-cell {
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  background: var(--elevation-surface-sunken);
-  cursor: pointer;
+.upscale-preview__navigator > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
 }
 
-.upscale-preview__focus-cell--active {
-  border-color: var(--color-interactive-default);
-  background: var(--color-interactive-default);
+/* The window dims everything outside itself, so the eye reads the crop as a
+ * region of the whole rather than as the whole. */
+.upscale-preview__navigator-window {
+  position: absolute;
+  box-shadow:
+    0 0 0 999px oklch(0 0 0 / 0.5),
+    inset 0 0 0 2px var(--color-interactive-default);
+  background: color-mix(in srgb, var(--color-interactive-default) 20%, transparent);
+  pointer-events: none;
 }
 
-.upscale-preview__focus-cell:focus-visible {
-  outline: 2px solid var(--color-interactive-default);
-  outline-offset: 1px;
+.upscale-preview__control-group--region {
+  align-items: flex-start;
+  flex: 0 0 auto;
+}
+
+.upscale-preview__region-select {
+  min-width: 12rem;
 }
 
 .upscale-preview__zoom-toggle {
@@ -145,35 +180,60 @@
 }
 
 .upscale-preview__viewport {
-  align-self: center;
+  align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   max-width: 100%;
-  max-height: min(58vh, 560px);
+  /* Definite height in Fit: the stage is what gets measured to size the
+     bitmap, so it must not depend on the bitmap it is sizing. Deriving it
+     from the content made the fit self-referential, and the old
+     max-height-only clamp then shortened one axis without the other —
+     squashing every source that was not already square.
+
+     `flex: 1 1 0` keeps that property while letting the stage use the space
+     the settings column leaves behind: the height still resolves from the
+     column, which is stretched by the grid row that the sibling settings
+     determine — never from the bitmap. The min-height is the floor the fit
+     was previously measured against, so no configuration gets a smaller
+     stage than before; it only grows when there is surplus to give. */
+  flex: 1 1 0;
+  min-height: min(58vh, 560px);
   overflow: hidden;
+  /* A recessed well, so letterboxing around an aspect that does not fill the
+     stage reads as a viewport rather than as unused dialog. */
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
 }
 
-.upscale-preview__viewport--zoom100 {
+/* At 100%/200% the stage grows with the bitmap and pans by scrolling (pointer
+ * drag stays reserved for the before/after split). Center recentres it.
+ * Content-sized again here: flex-basis 0 would pin it to the column and take
+ * the "grows with the bitmap" half of the contract away. */
+.upscale-preview__viewport--zoomed {
   display: block;
-  width: 100%;
+  flex: 0 0 auto;
+  height: auto;
+  min-height: min(58vh, 560px);
   overflow: auto;
-  cursor: ew-resize;
+  cursor: grab;
+}
+
+.upscale-preview__viewport--zoomed:active {
+  cursor: grabbing;
 }
 
 .upscale-preview__image-container {
   position: relative;
-  display: inline-block;
-  flex: 0 1 auto;
-  max-width: 100%;
-  max-height: min(58vh, 560px);
+  display: block;
+  flex: 0 0 auto;
   border-radius: var(--radius-control);
   overflow: hidden;
   /* An outline keeps the comparison halves exactly the same size. A border
      would make the absolutely-positioned after image two pixels narrower. */
   box-shadow: inset 0 0 0 1px var(--color-border-subtle);
-  cursor: ew-resize;
-  touch-action: none;
   user-select: none;
   background-image:
     linear-gradient(45deg, var(--color-border-subtle) 25%, transparent 25%),
@@ -188,11 +248,55 @@
     -8px 0;
 }
 
-.upscale-preview__image-container--zoom100 {
-  flex: none;
-  max-width: none;
-  max-height: none;
+/* Drag moves the split only when there is a real processed half to reveal;
+ * otherwise the container is a plain inspection surface. */
+.upscale-preview__image-container--comparable {
   cursor: ew-resize;
+  touch-action: none;
+}
+
+/* At zoom the bitmap sets its own pixel size and the viewport scrolls, so the
+ * container must not be constrained by the flex stage. */
+.upscale-preview__image-container--zoomed {
+  flex: none;
+  display: inline-block;
+}
+
+/* Honest empty state for a side that has no processed pixels yet. Never
+ * rendered as an <img> carrying an "Enhanced" label. */
+.upscale-preview__pending {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-sunken);
+}
+
+.upscale-preview__pending-error {
+  color: var(--color-feedback-danger);
+}
+
+.upscale-preview__status-row {
+  align-self: stretch;
+  margin-top: var(--space-2);
+}
+
+.upscale-preview__error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-feedback-danger);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-feedback-danger);
+  font-size: var(--font-size-xs);
 }
 
 .upscale-preview__generating {
@@ -337,12 +441,13 @@
 }
 
 .upscale-preview__hint {
-  align-self: stretch;
-  margin: var(--space-2) 0 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
   font-size: var(--font-size-xs);
   line-height: var(--font-line-label);
   color: var(--color-text-muted);
-  text-align: center;
+  text-align: left;
 }
 
 /* ── Settings ────────────────────────────────────────────────────────────── */
@@ -352,10 +457,18 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  gap: var(--space-3);
+  /* Denser than the general inspector: eight groups, the analysis block, the
+     output summary and up to two warnings have to clear the fold in Auto —
+     the tallest configuration, and the one a real photo produces. Measured at
+     1919x1014: the column wanted 889px against 874px available, so every gap
+     here is spent against that 44px, not chosen for looks. */
+  gap: var(--space-1);
   padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+  /* Never its own scroller. An inner scrollbar is what makes settings read as
+     content that has been cut off: the column now sizes to its content, and
+     the dialog grows with it — or the body above scrolls as one unit when the
+     window is too short to allow that. */
+  overflow: visible;
 }
 
 .upscale-settings__group {
@@ -364,8 +477,10 @@
   gap: var(--space-1);
 }
 
+/* The border line does the visual separation between groups, so the padding
+   either side of it can be halved without the groups reading as merged. */
 .upscale-settings__group + .upscale-settings__group {
-  padding-top: var(--space-3);
+  padding-top: var(--space-1);
   border-top: 1px solid var(--color-border-subtle);
 }
 
@@ -482,9 +597,21 @@
 
 .upscale-model-missing {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  /* Row, not column: the notice and its Download action share one line so the
+     block costs ~21px less of a column that has none to spare. The text
+     flexes and wraps; the action keeps its intrinsic width. */
+  flex-direction: row;
+  align-items: center;
   gap: var(--space-2);
+}
+
+.upscale-model-missing .insp-hint {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.upscale-model-missing > button {
+  flex: 0 0 auto;
 }
 
 .upscale-progress {
@@ -530,10 +657,43 @@
 /* ── Workspace size override ────────────────────────────────────────────────
    The enhance workspace is deliberately much wider/taller than the shared
    lg dialog. `dialog.` elevates specificity above the base .varve-dialog
-   rule; placed last so no lower-specificity selector follows it. */
+   rule; placed last so no lower-specificity selector follows it.
+
+   Height is a definite window-derived box, not content-derived: a
+   content-derived height clamped by max-height makes <dialog>'s UA
+   `overflow: auto` the scroll owner, which carries the title and footer out
+   of view. A definite height lets flex shrink the body properly instead, and
+   `overflow: hidden` here keeps that UA scroll from ever activating — so the
+   body below owns the single scroll, and only when the window genuinely
+   cannot hold the content (measured: settings + chrome + margins need about
+   953px, so nothing scrolls at a full-HD 1014px browser height).
+
+   Auto is the tallest configuration (analysis block plus a denoise/deblur
+   row, a model notice, or the memory warning a real photo triggers: 889px of
+   settings measured against 874px available before this round's density
+   fixes), which is why the settings column must never be its own scroller:
+   it is sized to content and the body owns the scroll. */
 dialog.upscale-dialog {
   width: min(1120px, 92vw);
   max-width: min(1120px, 92vw);
-  height: min(900px, calc(var(--visual-viewport-height, 100dvh) - 2rem));
-  max-height: min(calc(var(--visual-viewport-height, 100dvh) - 2rem), 56rem);
+  height: min(calc(var(--visual-viewport-height, 100dvh) - 1.5rem), 62rem);
+  max-height: min(calc(var(--visual-viewport-height, 100dvh) - 1.5rem), 62rem);
+  overflow: hidden;
+}
+
+/* Trim the shared body padding for this dialog only (the Effect Studio does
+   the same): the dialog runs edge-to-edge on content that has to clear the
+   fold, and the default --space-dialog top/bottom cost 29px of the 44px the
+   settings column was over.
+
+   `flex: 1 1 auto` is what keeps the footer flush with the dialog's bottom
+   edge: with a definite dialog height, a content-sized body would stop short
+   whenever the content is shorter than the window and leave the footer
+   floating above a strip of empty background. It grows into the surplus and
+   still shrinks (min-height: 0 comes from the base rule) when the window
+   clamps the dialog, which is when its overflow-y takes over as the single
+   scroll. */
+.upscale-dialog .varve-dialog__body {
+  flex: 1 1 auto;
+  padding: var(--space-3) var(--space-4);
 }

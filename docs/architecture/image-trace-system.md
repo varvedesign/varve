@@ -35,14 +35,45 @@ select image → open dialog → prepare (bounded) → preview (≤1024 px)
   handles using the renderer's offset semantics. Artwork paint never follows
   the UI theme; theme colors are chrome only.
 
-## Preview modes and diagnostics
+## Preview modes, viewport, and diagnostics
 
 The dialog exposes Source / Prepared / Overlay / Vector views plus an anchor
-overlay and a 1:1 zoom, all rendered from the existing preview payload (no
-re-trace). Diagnostics report paths, points, holes, omitted holes, complexity,
-the provider that actually produced the result, and the effective trace and
-source dimensions. Downsampled previews are labeled; detail lost to
-downsampling is never claimed to be recovered by matching a tolerance.
+overlay and Fit / 100% / 200% zoom with a Center action, all rendered from the
+existing preview payload (no re-trace). Diagnostics report paths, points, holes,
+omitted holes, complexity, the provider that actually produced the result, and
+the effective trace and source dimensions. Downsampled previews are labeled;
+detail lost to downsampling is never claimed to be recovered by matching a
+tolerance.
+
+`previewDisplayScale()` resolves the display scale and must respect **both**
+axes. The previous width-only fit let a portrait source overflow the stage
+vertically (and vice versa); the overflow was clipped out of view, which is
+what made the preview read as broken. A `ResizeObserver` measures the stage and
+feeds that box to every draw, so a reflowed or rotated dialog redraws at the
+correct fit instead of keeping a stale one. Non-fit zooms are literal pixel
+ratios and size the canvas to the pixels, leaving the stage to scroll and pan.
+
+In the modal the workflow uses a preview-first two-column grid: a wide preview
+column that stays put while the settings column scrolls independently. The grid
+is scoped to `.varve-dialog` so the Logo panel keeps its single-column stack,
+each grid area names exactly one child (two elements assigned one area occupy
+the same cell and overlap), and the dialog is given an explicit workbench width
+so the columns have room rather than overflowing a narrow modal.
+
+**Sized to its content, clamped only by the window.** The dialog uses
+`height: min-content` with `max-height: calc(100dvh - 3rem)`, so the modal grows
+to hold every control and nothing scrolls at all when the window has room.
+That is the case it shipped broken in: a `46rem` cap left the settings column
+32px short on a 1014px window while 139px of window sat unused below it, so the
+last controls looked cut off even though the content fit. The settings column is
+`overflow: visible` and never owns a scrollbar — an inner column scroller is
+what makes content read as severed rather than as a panel. When a window is
+genuinely too short for the workbench, the dialog's body is the single scroller
+(`overflow-y: auto`) and moves as a whole.
+
+`tests/e2e/canvas/image-modal-aspect.spec.ts` holds this across five source
+aspects at two window sizes; `tests/e2e/canvas/image-trace.spec.ts` asserts that
+nothing scrolls at a window large enough to hold the workbench.
 
 ## Source preparation
 
@@ -245,3 +276,5 @@ pollute the palette.
   modes.
 - `docs/audits/image-trace-preview-fidelity-2026-09-14.md` — verified
   root causes and validation evidence.
+- `docs/audits/image-modals-preview-review-2026-10-26.md` — two-axis fit,
+  resize redraw, dialog composition, and the preview-controls overlap fix.

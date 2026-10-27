@@ -84,6 +84,12 @@ const PREVIEW_VIEW_OPTIONS = [
   { value: 'vector', label: 'Vector' },
 ] as const;
 
+const PREVIEW_ZOOM_OPTIONS = [
+  { value: 'fit', label: 'Fit' },
+  { value: '1', label: '100%' },
+  { value: '2', label: '200%' },
+] as const;
+
 type PreviewStatus = 'idle' | 'running' | 'ready' | 'error';
 
 /** Complexity tiers used for the pre-commit estimate (paths x points). */
@@ -183,6 +189,8 @@ export function VectorizeWorkflow({
   const [traceProgress, setTraceProgress] = useState<number | null>(null);
   const sessionRef = useRef<VectorizationSession | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const stageRef = useRef<HTMLElement | null>(null);
+  const [fitBox, setFitBox] = useState<{ width: number; height: number } | undefined>(undefined);
 
   const nodeId = node?.id ?? null;
   const settingsHash = hashVectorizationSettings(settings);
@@ -233,12 +241,33 @@ export function VectorizeWorkflow({
     };
   }, [node, settingsHash, settings]);
 
+  // Measure the stage box so Fit can letterbox on both axes, and redraw on
+  // resize. Without this the canvas keeps a stale fit and a rotated or
+  // reflowed dialog shows a clipped preview.
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      if (width <= 0 || height <= 0) return;
+      setFitBox((prev) =>
+        prev && Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1
+          ? prev
+          : { width, height },
+      );
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
+
   // Draw the ready preview into the panel canvas.
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || preview.status !== 'ready' || !preview.payload) return;
-    drawPreview(canvas, preview.payload, previewOptions);
-  }, [preview, previewOptions]);
+    drawPreview(canvas, preview.payload, { ...previewOptions, fitBox });
+  }, [preview, previewOptions, fitBox]);
 
   const apply = useCallback(async () => {
     if (!node || !sessionRef.current) return;
@@ -424,8 +453,26 @@ export function VectorizeWorkflow({
   }, []);
   const centerlineUnavailable = centerlineCapability !== null && !centerlineCapability.available;
 
+  const centerStage = useCallback(() => {
+    const stage = stageRef.current;
+    // `scrollTo` is missing in some test DOM shims; a real browser always has it.
+    if (!stage || typeof stage.scrollTo !== 'function') return;
+    stage.scrollTo({
+      left: Math.max(0, (stage.scrollWidth - stage.clientWidth) / 2),
+      top: Math.max(0, (stage.scrollHeight - stage.clientHeight) / 2),
+    });
+  }, []);
+
+  // Changing zoom resets the preview-only pan so a zoomed view always opens
+  // on the same inspection origin.
+  useEffect(() => {
+    centerStage();
+  }, [previewOptions.zoom, centerStage]);
+
+  const zoomIsFit = previewOptions.zoom === 'fit';
+
   const controlPanel = (
-    <div className="vectorize__body">
+    <div className="vectorize__settings">
       <div className="vectorize__field">
         <span className="vectorize__field-label">Preset</span>
         <Select
@@ -624,44 +671,11 @@ export function VectorizeWorkflow({
     <div className="vectorize__body">
       <SegmentedControl
         label="Trace type"
+        className="vectorize__modes"
         value={settings.mode}
         options={MODE_OPTIONS}
         onChange={(mode) => patch({ mode })}
       />
-
-      {controlPanel}
-
-      {validation.warnings.length > 0 && (
-        <div className="vectorize__warning" role="alert">
-          {validation.warnings.join(' ')}
-        </div>
-      )}
-
-      {settings.mode === 'pixel-art' && (
-        <p className="vectorize__muted" role="note">
-          Pixel art keeps hard pixel boundaries: no anti-alias smoothing, no curve fitting.
-          Contiguous regions of the same color become single polygons.
-        </p>
-      )}
-
-      {sourceChangedWarning && (
-        <div className="vectorize__warning" role="alert">
-          {sourceChangedWarning}
-        </div>
-      )}
-
-      {hasAppearanceOverrides && (
-        <p className="vectorize__muted" role="note">
-          Traces the source pixels only. Masks, crops, adjustments, and effects are not composited
-          into the trace input.
-        </p>
-      )}
-
-      {complexityWarning && (
-        <div className="vectorize__warning" role="alert">
-          {complexityWarning}
-        </div>
-      )}
 
       <div className="vectorize__preview-controls">
         <SegmentedControl
@@ -677,22 +691,28 @@ export function VectorizeWorkflow({
             setPreviewOptions((prev) => ({ ...prev, showAnchors: e.target.checked }))
           }
         />
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() =>
-            setPreviewOptions((prev) => ({ ...prev, zoom: prev.zoom === 1 ? 'fit' : 1 }))
-          }
-          aria-pressed={previewOptions.zoom === 1}
-        >
-          {previewOptions.zoom === 1 ? 'Fit' : '1:1'}
-        </Button>
+        <div className="vectorize__preview-zoom">
+          <SegmentedControl
+            label="Preview zoom"
+            value={previewOptions.zoom === 'fit' ? 'fit' : String(previewOptions.zoom)}
+            options={PREVIEW_ZOOM_OPTIONS}
+            onChange={(value) =>
+              setPreviewOptions((prev) => ({
+                ...prev,
+                zoom: value === 'fit' ? 'fit' : (Number(value) as 1 | 2),
+              }))
+            }
+          />
+          <Button size="sm" variant="ghost" onClick={centerStage} disabled={zoomIsFit}>
+            Center
+          </Button>
+        </div>
       </div>
 
-      <div
+      <section
+        ref={stageRef}
         className="vectorize__preview"
-        data-zoom={previewOptions.zoom === 1 ? '1' : 'fit'}
-        role="img"
+        data-zoom={zoomIsFit ? 'fit' : String(previewOptions.zoom)}
         aria-label={
           preview.status === 'ready' && diagnostics
             ? `Vectorization preview: ${diagnostics.pathCount} path${diagnostics.pathCount === 1 ? '' : 's'}, ${diagnostics.pointCount} points`
@@ -715,56 +735,96 @@ export function VectorizeWorkflow({
         {preview.status === 'idle' && (
           <span className="vectorize__preview-badge">Preview appears here</span>
         )}
+      </section>
+
+      {controlPanel}
+
+      {/* One wrapper for every preview/diagnostic notice: each grid area must
+          hold a single element, or siblings silently stack in one cell. */}
+      <div className="vectorize__feedback">
+        {validation.warnings.length > 0 && (
+          <div className="vectorize__warning" role="alert">
+            {validation.warnings.join(' ')}
+          </div>
+        )}
+
+        {settings.mode === 'pixel-art' && (
+          <p className="vectorize__muted" role="note">
+            Pixel art keeps hard pixel boundaries: no anti-alias smoothing, no curve fitting.
+            Contiguous regions of the same color become single polygons.
+          </p>
+        )}
+
+        {sourceChangedWarning && (
+          <div className="vectorize__warning" role="alert">
+            {sourceChangedWarning}
+          </div>
+        )}
+
+        {hasAppearanceOverrides && (
+          <p className="vectorize__muted" role="note">
+            Traces the source pixels only. Masks, crops, adjustments, and effects are not composited
+            into the trace input.
+          </p>
+        )}
+
+        {complexityWarning && (
+          <div className="vectorize__warning" role="alert">
+            {complexityWarning}
+          </div>
+        )}
+
+        {previewIsDownsampled && preview.status !== 'idle' && (
+          <p className="vectorize__muted">
+            Preview is downsampled for responsiveness; Apply traces at up to {MAX_FINAL_DIM} px long
+            edge. Settings are scaled to each resolution; detail lost to downsampling is not
+            recovered by matching a tolerance.
+          </p>
+        )}
+
+        {diagnostics && (
+          <dl className="vectorize__diagnostics">
+            <div>
+              <dt>Paths</dt>
+              <dd>{diagnostics.pathCount}</dd>
+            </div>
+            <div>
+              <dt>Points</dt>
+              <dd>{diagnostics.pointCount}</dd>
+            </div>
+            <div>
+              <dt>Holes</dt>
+              <dd>{diagnostics.holeCount}</dd>
+            </div>
+            <div>
+              <dt>Omitted</dt>
+              <dd>{diagnostics.omittedHoles}</dd>
+            </div>
+            <div>
+              <dt>Complexity</dt>
+              <dd>{complexity}</dd>
+            </div>
+            <div>
+              <dt>Provider</dt>
+              <dd>{preview.payload?.providerId ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>Traced at</dt>
+              <dd>
+                {preview.payload ? `${preview.payload.width}x${preview.payload.height}` : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt>Source</dt>
+              <dd>
+                {preview.payload
+                  ? `${preview.payload.sourceWidth}x${preview.payload.sourceHeight}`
+                  : '—'}
+              </dd>
+            </div>
+          </dl>
+        )}
       </div>
-
-      {previewIsDownsampled && preview.status !== 'idle' && (
-        <p className="vectorize__muted">
-          Preview is downsampled for responsiveness; Apply traces at up to {MAX_FINAL_DIM} px long
-          edge. Settings are scaled to each resolution; detail lost to downsampling is not recovered
-          by matching a tolerance.
-        </p>
-      )}
-
-      {diagnostics && (
-        <dl className="vectorize__diagnostics">
-          <div>
-            <dt>Paths</dt>
-            <dd>{diagnostics.pathCount}</dd>
-          </div>
-          <div>
-            <dt>Points</dt>
-            <dd>{diagnostics.pointCount}</dd>
-          </div>
-          <div>
-            <dt>Holes</dt>
-            <dd>{diagnostics.holeCount}</dd>
-          </div>
-          <div>
-            <dt>Omitted</dt>
-            <dd>{diagnostics.omittedHoles}</dd>
-          </div>
-          <div>
-            <dt>Complexity</dt>
-            <dd>{complexity}</dd>
-          </div>
-          <div>
-            <dt>Provider</dt>
-            <dd>{preview.payload?.providerId ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Traced at</dt>
-            <dd>{preview.payload ? `${preview.payload.width}x${preview.payload.height}` : '—'}</dd>
-          </div>
-          <div>
-            <dt>Source</dt>
-            <dd>
-              {preview.payload
-                ? `${preview.payload.sourceWidth}x${preview.payload.sourceHeight}`
-                : '—'}
-            </dd>
-          </div>
-        </dl>
-      )}
 
       <div className="vectorize__button-row">
         <Tooltip
@@ -802,7 +862,7 @@ export function VectorizeWorkflow({
           Cancel
         </Button>
       </div>
-      <p className="vectorize__muted">
+      <p className="vectorize__muted vectorize__source-note">
         {sourceIsLarge
           ? 'Large source — final trace may take a moment.'
           : 'The source image is preserved; only the new paths are inserted.'}

@@ -46,19 +46,36 @@
   padding: var(--space-1);
 }
 
+/* The stage is the preview's viewport: Fit letterboxes the bitmap inside it,
+ * 100%/200% overflow and pan by scrolling. A bounded height keeps the stage
+ * from pushing Apply and diagnostics off-screen. */
 .vectorize__preview {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  min-height: 96px;
+  min-height: 220px;
+  height: min(46vh, 420px);
+  overflow: auto;
+  overscroll-behavior: contain;
   background: repeating-conic-gradient(var(--color-surface-checker-a) 0% 25%, transparent 0% 50%);
   background-size: 12px 12px;
-  overflow: hidden;
 }
 
-/* 1:1 inspection mode scrolls instead of shrinking the artwork. */
-.vectorize__preview[data-zoom="1"] {
-  overflow: auto;
+/* 100%/200% inspection scrolls instead of shrinking the artwork, and the
+ * stage hands the grab cursor to the pan gesture. */
+.vectorize__preview[data-zoom="1"],
+.vectorize__preview[data-zoom="2"] {
+  cursor: grab;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.vectorize__preview[data-zoom="1"]:active,
+.vectorize__preview[data-zoom="2"]:active {
+  cursor: grabbing;
 }
 
 /* The checkerboard is a theme-aware diagnostic surface, not artwork paint.
@@ -72,18 +89,25 @@
 .vectorize__preview-controls {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+.vectorize__preview-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .vectorize__preview-canvas {
   display: block;
+  flex: 0 0 auto;
   width: 100%;
-  height: auto;
-}
-
-.vectorize__preview[data-zoom="1"] .vectorize__preview-canvas {
-  max-width: none;
+  height: 100%;
+  /* drawPreview sets explicit style width/height per zoom; these are the
+   * fallbacks before the first draw lands. */
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .vectorize__preview-badge {
@@ -113,9 +137,12 @@
 
 .vectorize__diagnostics {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* auto-fit + minmax(0,…) lets the readout reflow to fewer columns instead of
+   * forcing a min-content track wider than the column it lives in. */
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
   gap: var(--space-2);
   margin: 0;
+  min-width: 0;
 }
 
 .vectorize__diagnostics dt {
@@ -127,10 +154,146 @@
   margin: 0;
   font-size: var(--font-size-sm);
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .vectorize__button-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* ── Dialog layout (preview-first workbench) ───────────────────────────────
+ * The modal is the primary vectorize surface, so the preview is the anchor:
+ * it takes the largest column and stays visible while the settings column
+ * scrolls on its own. On wide dialogs a two-column grid; below that the same
+ * DOM order collapses to a single scroll flow so the preview still leads.
+ * Scoped to .varve-dialog so the Logo panel keeps its single-column stack.
+ * Every area names exactly ONE child: two elements assigned the same area
+ * occupy the same cell and overlap, which covered the zoom controls. */
+.varve-dialog.vectorize-dialog {
+  width: min(96vw, 40rem);
+  max-width: min(96vw, 40rem);
+}
+
+.varve-dialog .vectorize__body {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+  grid-template-areas:
+    "modes"
+    "controls"
+    "preview"
+    "settings"
+    "feedback"
+    "actions"
+    "note";
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.varve-dialog .vectorize__modes {
+  grid-area: modes;
+}
+
+.varve-dialog .vectorize__preview-controls {
+  grid-area: controls;
+}
+
+.varve-dialog .vectorize__preview {
+  grid-area: preview;
+}
+
+.varve-dialog .vectorize__settings {
+  grid-area: settings;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.varve-dialog .vectorize__feedback {
+  grid-area: feedback;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.varve-dialog .vectorize__button-row {
+  grid-area: actions;
+  justify-content: flex-end;
+}
+
+.varve-dialog .vectorize__source-note {
+  grid-area: note;
+}
+
+@media (min-width: 64.01rem) {
+  /* The viewport is wide enough for a workbench, so give the modal the size
+   * the two-column grid below actually needs. Keying only the grid off the
+   * viewport while leaving the dialog at its default ~32rem forced both
+   * columns to overflow their tracks. */
+  .varve-dialog.vectorize-dialog {
+    width: min(96vw, 60rem);
+    max-width: min(96vw, 60rem);
+    /* Size to the workbench instead of clamping it. Every setting already
+     * fits in the content the modal renders; capping the height at 46rem while
+     * the window had 139px of spare room is what left the settings column
+     * 32px short. Only a window genuinely too short for the content clamps
+     * this, and then the body below owns the one scroll. */
+    height: min-content;
+    max-height: calc(100dvh - 3rem);
+  }
+
+  /* Scrolls only when the max-height above has clamped the dialog; on any
+   * window that can hold the workbench, nothing here scrolls. */
+  .varve-dialog.vectorize-dialog .varve-dialog__body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: var(--space-3) var(--space-4) var(--space-4);
+  }
+
+  .varve-dialog .vectorize__body {
+    flex: 1 1 auto;
+    grid-template-areas:
+      "modes modes"
+      "controls settings"
+      "preview settings"
+      "feedback settings"
+      "actions settings"
+      "note settings";
+    grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.85fr);
+    grid-template-rows: auto auto minmax(160px, 1fr) auto auto auto;
+    min-height: 0;
+  }
+
+  /* Grid items default to min-content, which lets a wide readout (the
+   * diagnostics table) push past its track and collide with the settings
+   * column. Opt every child into shrinking. */
+  .varve-dialog .vectorize__body > * {
+    min-width: 0;
+  }
+
+  .varve-dialog .vectorize__preview {
+    height: auto;
+    min-height: 160px;
+    /* Fill the preview column's height so the stage is the visual anchor. */
+    align-self: stretch;
+    max-height: none;
+  }
+
+  /* One scroll owner: the body, and only when the window clamps the dialog.
+   * An inner scroller here is what made the last settings look cut off — the
+   * column now sizes to its content, which is why the modal grew instead. */
+  .varve-dialog .vectorize__settings {
+    align-self: stretch;
+    min-height: 0;
+    overflow: visible;
+    border-inline-end: 1px solid var(--color-border-subtle);
+    padding-block: var(--space-1) var(--space-3);
+    padding-inline-end: var(--space-3);
+  }
 }

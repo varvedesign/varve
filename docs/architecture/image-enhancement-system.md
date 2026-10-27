@@ -103,16 +103,32 @@ tiles complete instead of retaining every padded tile buffer. Model-specific
 adapters still apply their own graph alignment (SCUNet 64, NAFNet 16) after
 any bounded dimension reduction.
 
-Preview is honest: a focused crop (up to 512 px) is enhanced with the *same*
-preprocessing, model, and postprocessing as the final job. The left side is the
-untouched source crop and the right side is the actual requested output; the
+Preview is honest: a focused crop of up to 512 px on the long edge is enhanced
+with the *same* preprocessing, model, and postprocessing as the final job. The
+crop **keeps the source aspect ratio** — it is fitted inside the budget rather
+than clamped to it on each axis, which used to turn any oversized source into a
+square window that matched neither the photo's framing nor the requested output.
+The left side is the untouched source crop and the right side is the actual
+requested output; the
 source is not independently upscaled with a classical filter, which previously
 made CPU previews look identical on some images. The split slider clips the
 enhanced output from the right, is keyboard-accessible (← →, Shift+← →,
-Home/End), and offers Fit / 100% pixel view. Fit uses the output dimensions so
-the review area stays large enough to inspect; 100% preserves output pixel size.
-A 3×3 region picker lets the user choose which part of the image to inspect
-(center by default). The dialog defaults CPU upscale to Lanczos-3 “Quality” so
+Home/End), and the divider sits on exactly the clip boundary it reveals — the
+clip inset and the handle are both derived from one split value, so they cannot
+drift apart away from 50%.
+An **Inspect region** control chooses which part of the image to preview
+(centre by default): a compact `Select` on the hint line under the stage, with
+a **navigator** beside it showing the whole source and the computed window
+drawn over it. The control's description names the region and the source pixels
+it covers (for example *Center · 144 x 256 px of 476 x 848 px*, or *Whole
+image* when the source already fits the budget).
+
+The navigator is why the control reads at all. A bounded crop keeps the source
+aspect ratio, so at Fit every region is the same size and shape as the whole —
+without a picture of the source and a window on it, a crop is indistinguishable
+from the full image and moving the region looks like nothing happened.
+Re-cropping the comparison is a visible choice, not a silent one. The dialog
+defaults CPU upscale to Lanczos-3 “Quality” so
 edge contrast remains inspectable; Catmull–Rom “Balanced” remains available
 when smoother photographic resampling is preferred. Pixel-art previews use
 nearest-style display treatment.
@@ -120,6 +136,48 @@ AI preview generation is explicit because model work is expensive and can
 otherwise compete with an apply job. Changing preview inputs cancels and
 invalidates the previous request, so stale output cannot overwrite the current
 settings. No browser-bilinear comparison is used.
+
+### Preview viewport contract
+
+`UpscalePreviewPanel` owns the comparison viewport with the same contract
+Effect Studio uses, so the two surfaces read identically:
+
+- **Before / After / Compare** are explicit view modes rather than a single
+  always-on split. Selecting After reveals the processed half across the whole
+  stage and drops the divider; Compare restores it.
+- The view selection is the *user's intent* and is deliberately kept separate
+  from what currently has pixels. After and Compare stay selectable while a
+  preview is generating or has failed, so the pending, generating, or failed
+  notice is reachable instead of being hidden behind a disabled control. Only
+  a missing source image disables Before.
+- Before a processed result exists the panel renders a text notice — never an
+  `<img>` carrying the "Enhanced" label. A dimmed placeholder presented as
+  processed output is the specific failure this rule prevents.
+- **Fit / 100% / 200%** are explicit zoom modes plus a **Center** action. Fit
+  is the bounded review area and never touches the document or canvas camera;
+  100% is one CSS pixel per encoded preview pixel and 200% doubles it. Zoom is
+  display-only and never changes the pixels the pipeline produced.
+- **Fit is measured against the stage, not assumed.** The stage has a definite
+  height and a `ResizeObserver` reports its box, so Fit scales on both axes
+  from what is actually available and the bitmap keeps its true aspect at every
+  window size. Nothing clamps one axis after the fact — a height-only clamp is
+  what used to squash any source on a window shorter than about 966 px.
+  The stage is drawn as a recessed well so an aspect that does not fill it
+  reads as letterboxing rather than as unused dialog. The height resolves from
+  the preview column (`flex: 1 1 0`), which the grid stretches to the row the
+  settings column determines — never from the bitmap, so the fit measurement
+  keeps its definite box — with `min(58vh, 560px)` as the floor, so the stage
+  only ever grows past what it used to be (560 px to 691 px at 1919×1014 when
+  the settings leave room), never shrinks.
+- **Inspect region** sits on the hint line under the stage, beside a navigator
+  of the whole source with the computed window over it, rather than occupying
+  its own row above the stage — where it read as an unexplained keypad and cost
+  a screen-line of modal height.
+- At 100% and 200% the stage pans by scrolling (pointer, wheel, or arrow keys
+  once focused) and Center restores the origin. Pointer drag stays reserved for
+  the before/after split, which is the established Enhance gesture.
+- A failed preview sets a visible error with **Retry preview** rather than
+  logging to the console and leaving a stale frame.
 
 An explicit `Denoise → None` is a no-op. It is different from an omitted
 strength (legacy callers keep the medium default) and from a selected light,
@@ -214,3 +272,6 @@ See also:
 - [`docs/architecture/onnx-inference-architecture.md`](onnx-inference-architecture.md)
 - [`docs/testing/real-image-validation-corpus.md`](../testing/real-image-validation-corpus.md)
 - [`docs/quality/validation-strategy.md`](../quality/validation-strategy.md)
+- [`docs/audits/image-modals-preview-review-2026-10-26.md`](../audits/image-modals-preview-review-2026-10-26.md)
+  — preview reliability defects fixed in the Enhance/Vectorize modals and the
+  research record behind the preview-first composition.

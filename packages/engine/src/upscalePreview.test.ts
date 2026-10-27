@@ -71,10 +71,37 @@ describe('computeUpscalePreview', () => {
     }
     expect(max - min).toBeGreaterThan(200);
   });
+});
 
+describe('upscalePreviewRegion', () => {
   it('returns the centre of the source as the previewed region', () => {
     const region = upscalePreviewRegion({ width: 1000, height: 600 }, { scale: 2 });
     expect(region.x).toBe(Math.floor((1000 - region.width) / 2));
     expect(region.y).toBe(Math.floor((600 - region.height) / 2));
+  });
+
+  // Regression: width and height used to be clamped to the budget
+  // independently, so any source larger than the budget on both axes previewed
+  // as a square crop — a portrait photo showed neither its own framing nor the
+  // aspect of the output the user asked for.
+  it.each([
+    ['portrait', 476, 848],
+    ['landscape', 848, 476],
+    ['square', 640, 640],
+    ['ultrawide', 1600, 400],
+  ])('preserves the %s source aspect inside the preview budget', (_name, width, height) => {
+    const region = upscalePreviewRegion({ width, height }, { scale: 2, previewMaxDimension: 512 });
+
+    expect(Math.abs(region.width / region.height - width / height)).toBeLessThan(0.02);
+    // Still bounded: the long edge never exceeds the budget divided by scale.
+    expect(Math.max(region.width, region.height)).toBeLessThanOrEqual(256);
+    expect(region.width).toBeGreaterThan(0);
+    expect(region.height).toBeGreaterThan(0);
+  });
+
+  it('crops the whole source when it already fits the budget', () => {
+    // Budget is previewMaxDimension / scale = 256 source pixels on the long edge.
+    const region = upscalePreviewRegion({ width: 100, height: 200 }, { scale: 2 });
+    expect(region).toEqual({ x: 0, y: 0, width: 100, height: 200 });
   });
 });

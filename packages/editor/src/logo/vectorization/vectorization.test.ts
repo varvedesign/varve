@@ -12,7 +12,7 @@ import {
   prepareImageData,
   threshold,
 } from './prepareSource';
-import { scaleSourcePixelTraceOptions } from './preview';
+import { previewDisplayScale, scaleSourcePixelTraceOptions } from './preview';
 import { traceDiagnostics, VectorizationSession } from './session';
 import {
   applyPreset,
@@ -276,5 +276,49 @@ describe('pixel-art vectorization settings', () => {
       presetId: 'pixel-art-sprite',
     };
     expect(validateVectorizationSettings(settings).ok).toBe(true);
+  });
+});
+
+describe('previewDisplayScale', () => {
+  // Regression: Fit used to scale by width alone, so a portrait source
+  // overflowed the stage vertically and the overflow was clipped out of
+  // view — the preview read as broken. Fit must be constrained by the
+  // tighter axis.
+  it('fits a portrait source against the height axis, not width', () => {
+    const scale = previewDisplayScale(
+      { width: 400, height: 1600 },
+      { zoom: 'fit', fitBox: { width: 800, height: 400 } },
+    );
+    // Height-limited: 400/1600 = 0.25. Width would have allowed 2x.
+    expect(scale).toBeCloseTo(0.25, 5);
+  });
+
+  it('fits a landscape source against the width axis', () => {
+    const scale = previewDisplayScale(
+      { width: 1600, height: 400 },
+      { zoom: 'fit', fitBox: { width: 800, height: 400 } },
+    );
+    // Width-limited: 800/1600 = 0.5. Height would have allowed 1x.
+    expect(scale).toBeCloseTo(0.5, 5);
+  });
+
+  it('falls back to the canvas box, then the payload size', () => {
+    const payload = { width: 800, height: 400 };
+    expect(previewDisplayScale(payload, { zoom: 'fit' }, { width: 400, height: 400 })).toBeCloseTo(
+      0.5,
+      5,
+    );
+    expect(previewDisplayScale(payload, { zoom: 'fit' })).toBeCloseTo(1, 5);
+  });
+
+  it('returns the literal ratio for 100% and 200% regardless of stage size', () => {
+    const payload = { width: 800, height: 400 };
+    const fitBox = { width: 100, height: 100 };
+    expect(previewDisplayScale(payload, { zoom: 1, fitBox })).toBe(1);
+    expect(previewDisplayScale(payload, { zoom: 2, fitBox })).toBe(2);
+  });
+
+  it('never returns a zero or negative scale for degenerate input', () => {
+    expect(previewDisplayScale({ width: 0, height: 0 }, { zoom: 'fit' })).toBeGreaterThan(0);
   });
 });

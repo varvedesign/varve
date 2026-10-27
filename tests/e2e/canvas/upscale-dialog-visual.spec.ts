@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
@@ -28,6 +29,42 @@ async function importTestImage(page: import('@playwright/test').Page) {
 async function openDialog(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Enhance', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Enhance image' })).toBeVisible();
+}
+
+/**
+ * Import a generated image of a chosen size.
+ *
+ * Aspect-ratio regressions only appear once the source is neither square nor
+ * tiny, and the bundled favicon is both — so the fixture itself has to carry
+ * the aspect under test.
+ */
+async function importGeneratedImage(
+  page: import('@playwright/test').Page,
+  width: number,
+  height: number,
+) {
+  await navigateToEditor(page);
+  const dataUrl = await page.evaluate(
+    ({ w, h }) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return '';
+      const gradient = ctx.createLinearGradient(0, 0, w, h);
+      gradient.addColorStop(0, '#39d0c6');
+      gradient.addColorStop(0.5, '#e28c3c');
+      gradient.addColorStop(1, '#c54b3a');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, w, h);
+      return canvas.toDataURL('image/png');
+    },
+    { w: width, h: height },
+  );
+  const file = path.join('/tmp', `enhance-e2e-${width}x${height}-${Date.now()}.png`);
+  fs.writeFileSync(file, Buffer.from(dataUrl.split(',')[1]!, 'base64'));
+  await page.locator('#file-import-input').setInputFiles(file);
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 }
 
 async function setEditorTheme(
@@ -104,6 +141,16 @@ test('Enhance dialog default (Auto) state', async ({ page }) => {
     'style',
     /clip-path: inset\(0px 0px 0px 50%\)/,
   );
+
+  // Selecting After must reveal the processed half across the full stage and
+  // drop the comparison slider: there is nothing left to compare against.
+  const viewGroup = page.getByRole('radiogroup', { name: 'Preview view' });
+  await viewGroup.getByRole('radio', { name: 'After', exact: true }).click();
+  await expect(page.locator('.upscale-preview__overlay')).not.toHaveAttribute('style', /clip-path/);
+  await expect(page.getByRole('slider', { name: 'Before / after comparison' })).toHaveCount(0);
+  await viewGroup.getByRole('radio', { name: 'Compare' }).click();
+  await expect(page.getByRole('slider', { name: 'Before / after comparison' })).toBeVisible();
+
   const switcherWidths = await page.evaluate(() => {
     const settings = document.querySelector('.upscale-settings')?.getBoundingClientRect();
     const quality = document
@@ -187,6 +234,43 @@ test('preview crop and zoom controls update the comparison view', async ({ page 
   await importTestImage(page);
   await openDialog(page);
 
+  const viewGroup = page.getByRole('radiogroup', { name: 'Preview view' });
+  const zoomGroup = page.getByRole('radiogroup', { name: 'Preview zoom' });
+
+  // After and Compare stay selectable while their pixels are pending, so the
+  // "no processed preview" notice stays reachable instead of being hidden
+  // behind a disabled control. Only a missing source image disables Before.
+  // The pending/failed copy itself is covered by the panel unit tests, since
+  // the CPU preview lands too fast to assert here reliably.
+  await expect(viewGroup.getByRole('radio', { name: 'After' })).toBeEnabled();
+  await expect(viewGroup.getByRole('radio', { name: 'Compare' })).toBeEnabled();
+  await expect(viewGroup.getByRole('radio', { name: 'Before' })).toBeChecked();
+
+  // Fit is the default zoom.
+  await expect(zoomGroup.getByRole('radio', { name: 'Fit' })).toBeChecked();
+
+  const regionSelect = page.getByRole('combobox', { name: 'Inspect region' });
+  await regionSelect.click();
+  await page.getByRole('option', { name: 'Top left' }).click();
+  // The 16x16 icon fits the whole preview budget, so the caption says the
+  // region choice is doing nothing rather than inventing a crop size.
+  await expect(page.getByText(/^Whole image · 16 x 16 px$/)).toBeVisible();
+
+  // The 3x3 picker regenerates the preview crop; wait for the new Before side.
+  await expect
+    .poll(async () => {
+      return page
+        .locator('.upscale-preview__image--original')
+        .evaluate((image) => (image as HTMLImageElement).naturalWidth);
+    })
+    .toBeGreaterThan(0);
+
+  // Wait for the real processed preview before comparing and inspecting pixels.
+  await waitForSettledPreview(page);
+
+  await expect(viewGroup.getByRole('radio', { name: 'After' })).toBeEnabled();
+  await viewGroup.getByRole('radio', { name: 'Compare' }).click();
+
   const slider = page.getByRole('slider', { name: 'Before / after comparison' });
   await slider.focus();
   await expect(slider).toHaveAttribute('aria-valuenow', '50');
@@ -204,22 +288,42 @@ test('preview crop and zoom controls update the comparison view', async ({ page 
   await page.mouse.up();
   await expect(slider).toHaveAttribute('aria-valuenow', /^(7[5-9]|8[0-5])$/);
 
+  // The divider must sit exactly on the clip boundary it reveals: the image
+  // left of the split stays original, the image right of it stays processed.
+  // This is the regression guard for the inset/position mismatch.
+  const alignment = await page.evaluate(() => {
+    const overlay = document.querySelector('.upscale-preview__overlay') as HTMLElement;
+    const line = document.querySelector('.upscale-preview__slider-line') as HTMLElement;
+    const container = document.querySelector('.upscale-preview__image-container') as HTMLElement;
+    const containerWidth = container.getBoundingClientRect().width;
+    const linePct =
+      (Number.parseFloat(getComputedStyle(line).left.replace('px', '')) / containerWidth) * 100;
+
+    // The overlay is clipped with `inset(0 0 0 N%)`; the fourth box edge is
+    // the left inset, i.e. the boundary the divider is supposed to sit on.
+    const clip = getComputedStyle(overlay).clipPath;
+    const edges = clip
+      .slice(clip.indexOf('(') + 1, clip.lastIndexOf(')'))
+      .trim()
+      .split(/\s+/);
+    const leftEdge = edges.length >= 4 ? (edges[3] ?? '0') : '0';
+    const leftValue = Number.parseFloat(leftEdge);
+    const clipPct = leftEdge.endsWith('%') ? leftValue : (leftValue / containerWidth) * 100;
+
+    return { linePct, clipPct };
+  });
+  const sliderValue = Number(await slider.getAttribute('aria-valuenow'));
+  expect(Math.abs(alignment.linePct - sliderValue)).toBeLessThan(1);
+  expect(Math.abs(alignment.clipPct - sliderValue)).toBeLessThan(1);
+
   await slider.focus();
   await page.keyboard.press('End');
   await expect(slider).toHaveAttribute('aria-valuenow', '100');
   await expect(page.locator('.upscale-preview__slider-handle')).toHaveClass(/--end/);
 
-  const focusPicker = page.getByRole('group', {
-    name: 'Preview region (pick the area to inspect)',
-  });
-  const topLeft = focusPicker.getByRole('button', { name: 'Preview top left' });
-  await topLeft.click();
-  await expect(topLeft).toHaveAttribute('aria-pressed', 'true');
-
   const previewContainer = page.locator('.upscale-preview__image-container');
-  const zoom100 = page.getByRole('button', { name: '100%' });
-  await zoom100.click();
-  await expect(previewContainer).toHaveClass(/upscale-preview__image-container--zoom100/);
+  await zoomGroup.getByRole('radio', { name: '100%' }).click();
+  await expect(previewContainer).toHaveClass(/upscale-preview__image-container--zoomed/);
   const pixelView = await previewContainer.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     const images = Array.from(element.querySelectorAll('img')) as HTMLImageElement[];
@@ -231,8 +335,14 @@ test('preview crop and zoom controls update the comparison view', async ({ page 
   expect(pixelView.surface.width).toBe(pixelView.natural[1]?.naturalWidth);
   expect(pixelView.surface.height).toBe(pixelView.natural[1]?.naturalHeight);
 
-  await page.getByRole('button', { name: 'Fit', exact: true }).click();
-  await expect(previewContainer).not.toHaveClass(/upscale-preview__image-container--zoom100/);
+  // Center is enabled while zoomed and recentres the panned stage.
+  const centerButton = page.getByRole('button', { name: 'Center', exact: true });
+  await expect(centerButton).toBeEnabled();
+  await centerButton.click();
+
+  await zoomGroup.getByRole('radio', { name: 'Fit' }).click();
+  await expect(previewContainer).not.toHaveClass(/upscale-preview__image-container--zoomed/);
+  await expect(centerButton).toBeDisabled();
 });
 
 test('Enhance dialog reflows to a usable narrow layout', async ({ page }) => {
@@ -258,4 +368,63 @@ test('Enhance dialog reflows to a usable narrow layout', async ({ page }) => {
   expect(layout.width).toBeLessThanOrEqual(640);
   await expect(dialog.locator('.upscale-preview__image-container')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Apply recommended' })).toBeVisible();
+});
+
+test('preview keeps a portrait source aspect and reports its inspect region', async ({ page }) => {
+  await importGeneratedImage(page, 476, 848);
+  await openDialog(page);
+
+  // Pin a CPU-only operation. A smooth gradient analyses as "heavy blur", so
+  // Auto picks Deblur + Upscale, which is honest but makes the preview wait on
+  // a model that is not installed — the thing under test here is the crop and
+  // the stage geometry, not model availability.
+  await page.getByRole('combobox', { name: 'Enhancement operation' }).click();
+  await page.getByRole('option', { name: 'Upscale', exact: true }).click();
+  await waitForSettledPreview(page);
+
+  // The dialog states the output it is promising; that ratio is what the stage
+  // has to reproduce, whatever scale the auto analysis chose.
+  const hint = await page.locator('.upscale-preview__hint').innerText();
+  const output = hint.match(/Output:\s*(\d+)x(\d+)/i);
+  expect(output, `hint read: ${hint}`).not.toBeNull();
+  const outputAspect = Number(output?.[1]) / Number(output?.[2]);
+
+  const box = await page.locator('.upscale-preview__image-container').evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  });
+  const stageAspect = box.width / box.height;
+  expect(
+    Math.abs(stageAspect - outputAspect),
+    `stage ${Math.round(box.width)}x${Math.round(box.height)} (ratio ${stageAspect.toFixed(3)}) vs output ratio ${outputAspect.toFixed(3)}`,
+  ).toBeLessThan(0.02);
+
+  // The inspect caption names the region and the source pixels it covers. The
+  // regression this guards: width and height used to be clamped to the preview
+  // budget independently, so any oversized source previewed as a square crop
+  // that matched neither the source nor the output.
+  const caption = page.getByText(/^Center · \d+ x \d+ px of 476 x 848 px$/);
+  await expect(caption).toBeVisible();
+  const region = (await caption.innerText()).match(/^Center · (\d+) x (\d+) px/);
+  expect(region).not.toBeNull();
+  const regionAspect = Number(region?.[1]) / Number(region?.[2]);
+  expect(
+    Math.abs(regionAspect - 476 / 848),
+    `region ${region?.[1]}x${region?.[2]} (ratio ${regionAspect.toFixed(3)}) vs source ratio ${(476 / 848).toFixed(3)}`,
+  ).toBeLessThan(0.02);
+
+  await page.getByRole('combobox', { name: 'Inspect region' }).click();
+  await page.getByRole('option', { name: 'Top left' }).click();
+  await expect(page.getByText(/^Top left · \d+ x \d+ px of 476 x 848 px$/)).toBeVisible();
+
+  // The dialog is a fixed workbench: the body must not scroll independently of
+  // the settings column, or controls are cut off at both ends.
+  const scroll = await page
+    .getByRole('dialog', { name: 'Enhance image' })
+    .locator('.upscale-dialog__body')
+    .evaluate((element) => ({
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    }));
+  expect(scroll.scrollHeight).toBeLessThanOrEqual(scroll.clientHeight + 1);
 });

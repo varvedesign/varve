@@ -62,8 +62,14 @@ export interface PreviewDrawOptions {
   view: PreviewView;
   /** Draw anchors and cubic handles as a diagnostic overlay. */
   showAnchors: boolean;
-  /** 'fit' scales to the container width; `1` renders at source-pixel scale. */
-  zoom: 'fit' | 1;
+  /** 'fit' scales to the available stage; `1` is 1:1 and `2` is 2x pixels. */
+  zoom: 'fit' | 1 | 2;
+  /**
+   * Available stage box in CSS pixels for `fit`. When omitted the canvas's
+   * own client box is used, so the host must give the canvas a real size
+   * before the first draw or Fit falls back to width-only scaling.
+   */
+  fitBox?: { width: number; height: number };
 }
 
 export const DEFAULT_PREVIEW_DRAW_OPTIONS: PreviewDrawOptions = {
@@ -256,6 +262,35 @@ function drawAnchors(
 }
 
 /**
+ * Resolve the display scale for a preview stage.
+ *
+ * `fit` must respect both axes. The old width-only scaling let a portrait
+ * source overflow the stage vertically (and vice versa); the overflow was
+ * clipped out of view, which is what made the dialog read as "preview not
+ * working". Non-fit zooms are literal pixel ratios (1 = 1:1, 2 = 2x) and are
+ * left to the stage to scroll/pan.
+ */
+export function previewDisplayScale(
+  payload: Pick<PreviewPayload, 'width' | 'height'>,
+  options: Pick<PreviewDrawOptions, 'zoom' | 'fitBox'>,
+  fallbackBox?: { width: number; height: number },
+): number {
+  if (options.zoom !== 'fit') return options.zoom;
+  const availableWidth = Math.max(1, options.fitBox?.width ?? fallbackBox?.width ?? payload.width);
+  const availableHeight = Math.max(
+    1,
+    options.fitBox?.height ?? fallbackBox?.height ?? payload.height,
+  );
+  return Math.max(
+    0.01,
+    Math.min(
+      availableWidth / Math.max(1, payload.width),
+      availableHeight / Math.max(1, payload.height),
+    ),
+  );
+}
+
+/**
  * Draw the prepared/source raster and traced geometry into the preview canvas.
  *
  * The canvas is intentionally left transparent outside painted regions so the
@@ -270,15 +305,28 @@ export function drawPreview(
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   const dpr = Math.min(2, Math.max(1, globalThis.devicePixelRatio || 1));
-  const fitWidth = Math.max(1, (canvas.clientWidth || payload.width) - 8);
-  const scale = options.zoom === 1 ? 1 : Math.max(0.01, fitWidth / payload.width);
+  const scale = previewDisplayScale(payload, options, {
+    width: canvas.clientWidth,
+    height: canvas.clientHeight,
+  });
   const pixelWidth = Math.max(1, Math.round(payload.width * scale));
   const pixelHeight = Math.max(1, Math.round(payload.height * scale));
   canvas.width = Math.max(1, Math.round(pixelWidth * dpr));
   canvas.height = Math.max(1, Math.round(pixelHeight * dpr));
-  canvas.style.width = options.zoom === 1 ? `${payload.width}px` : '100%';
-  canvas.style.height = 'auto';
-  canvas.style.imageRendering = options.zoom === 1 ? 'pixelated' : 'auto';
+  // Fit letterboxes the bitmap inside the stage; 1:1 and 2x size the canvas to
+  // the pixels and let the stage scroll, so the user can pan.
+  if (options.zoom === 'fit') {
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.maxWidth = `${pixelWidth}px`;
+    canvas.style.maxHeight = `${pixelHeight}px`;
+  } else {
+    canvas.style.width = `${pixelWidth}px`;
+    canvas.style.height = `${pixelHeight}px`;
+    canvas.style.maxWidth = 'none';
+    canvas.style.maxHeight = 'none';
+  }
+  canvas.style.imageRendering = options.zoom === 'fit' ? 'auto' : 'pixelated';
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);

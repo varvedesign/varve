@@ -216,8 +216,11 @@ test.describe('Image Trace', () => {
         .getByRole('radio', { name: label, exact: true })
         .check();
 
-    // 1:1 zoom makes canvas device pixels correspond to prepared-source pixels.
-    await page.getByRole('dialog').getByRole('button', { name: '1:1' }).click();
+    // 100% zoom makes canvas device pixels correspond to prepared-source pixels.
+    await page
+      .getByRole('radiogroup', { name: 'Preview zoom' })
+      .getByRole('radio', { name: '100%', exact: true })
+      .check();
     await choosePreviewView('Vector');
 
     const sample = () =>
@@ -370,5 +373,52 @@ test.describe('Image Trace', () => {
 
     // Keep the evidence path in the HTML report.
     await testInfo.attach('trace-preview-dir', { body: dir, contentType: 'text/plain' });
+  });
+
+  test('dialog fits its content: nothing scrolls when the window can hold it', async ({ page }) => {
+    // The workbench is sized to its content and clamped only by the window.
+    // Playwright's default 720px height is under that clamp, where the body
+    // scrolls legitimately, so assert the design where it actually applies:
+    // a window with room. That is the state that regressed — focusing the
+    // first control used to scroll the trace-type row off the top and leave
+    // settings cut off at both ends.
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await importTestImage(page);
+    await openMenu(page, 'Object');
+    await page.getByRole('menuitem', { name: /Vectorize Image/i }).click();
+    await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
+
+    const dialog = page.getByRole('dialog').first();
+    const body = dialog.locator('.varve-dialog__body');
+    const modes = page.getByRole('radiogroup', { name: 'Trace type' });
+
+    await expect(modes).toBeVisible();
+    const geometry = await body.evaluate((element) => ({
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+      top: element.getBoundingClientRect().top,
+    }));
+    const modesTop = (await modes.boundingBox())?.y ?? Number.POSITIVE_INFINITY;
+    expect(geometry.scrollHeight).toBeLessThanOrEqual(geometry.clientHeight + 1);
+    expect(modesTop).toBeGreaterThanOrEqual(geometry.top - 1);
+
+    // The settings column must never own a scrollbar: an inner scroller is
+    // what made the last controls read as content that had been cut off.
+    const settings = dialog.locator('.vectorize__settings');
+    const settingsScroll = await settings.evaluate((element) => ({
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    }));
+    expect(settingsScroll.scrollHeight).toBeLessThanOrEqual(settingsScroll.clientHeight + 1);
+
+    // Every control is reachable without scrolling anything.
+    await expect(page.locator('summary').filter({ hasText: 'Source preparation' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Apply trace' })).toBeVisible();
+    await expect(page.locator('.vectorize__preview')).toBeVisible();
+
+    // And the modal still sits inside the window.
+    const box = await dialog.boundingBox();
+    expect(box!.y).toBeGreaterThanOrEqual(-1);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(1001);
   });
 });
