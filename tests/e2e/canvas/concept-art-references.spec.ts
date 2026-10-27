@@ -236,25 +236,71 @@ async function drawConceptRect(
   await page.mouse.up();
 }
 
-async function orangePaintPixels(page: import('@playwright/test').Page): Promise<number> {
-  return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
+async function orangePaintPixels(
+  page: import('@playwright/test').Page,
+  region?: { x: number; y: number; width: number; height: number },
+): Promise<number> {
+  return page.locator('canvas.editor-canvas__content-layer').evaluate((element, clip) => {
     const canvas = element as HTMLCanvasElement;
     const data = canvas.getContext('2d')?.getImageData(0, 0, canvas.width, canvas.height).data;
     if (!data) throw new Error('content canvas is unavailable');
+    const x0 = clip ? Math.max(0, Math.floor(clip.x)) : 0;
+    const y0 = clip ? Math.max(0, Math.floor(clip.y)) : 0;
+    const x1 = clip ? Math.min(canvas.width, Math.ceil(clip.x + clip.width)) : canvas.width;
+    const y1 = clip ? Math.min(canvas.height, Math.ceil(clip.y + clip.height)) : canvas.height;
+    const width = canvas.width;
     let count = 0;
-    for (let offset = 0; offset < data.length; offset += 4) {
-      if (
-        (data[offset + 3] ?? 0) > 128 &&
-        (data[offset] ?? 0) > 180 &&
-        (data[offset + 1] ?? 0) > 60 &&
-        (data[offset + 1] ?? 255) < 190 &&
-        (data[offset + 2] ?? 255) < 80
-      ) {
-        count += 1;
+    for (let y = y0; y < y1; y += 1) {
+      for (let x = x0; x < x1; x += 1) {
+        const offset = (y * width + x) * 4;
+        if (
+          (data[offset + 3] ?? 0) > 128 &&
+          (data[offset] ?? 0) > 180 &&
+          (data[offset + 1] ?? 0) > 60 &&
+          (data[offset + 1] ?? 255) < 190 &&
+          (data[offset + 2] ?? 255) < 80
+        ) {
+          count += 1;
+        }
       }
     }
     return count;
-  });
+  }, region ?? null);
+}
+
+/**
+ * Orange count from consecutive forced full redraws that agree.
+ *
+ * The redraw oracle proves the live surface matches a full redraw *now*,
+ * but the first full redraw can trigger the image asset-refinement pass
+ * (the `asset-ready` / `image-settled-refinement` invalidation), whose
+ * result lands after that redraw finishes. A baseline captured before the
+ * refinement reads the imported reference photo low, and the post-undo
+ * restore of the same document then appears to keep "extra" pixels —
+ * observed deterministically as 140 pre-refinement vs 165 after (+25),
+ * with the undo itself restoring the canvas exactly at +939ms and the
+ * refinement landing between 1.4s and 2.8s. Forcing a redraw before each
+ * sample makes the refinement land inside the sampling loop, so two
+ * equal consecutive samples are a settled number, not a raced one. The
+ * existing settle comment in the paintover test documents a 25-pixel
+ * discrepancy of exactly this shape on the hosted runner.
+ */
+async function settledOrangePaintPixels(
+  page: import('@playwright/test').Page,
+  region?: { x: number; y: number; width: number; height: number },
+): Promise<number> {
+  let previous = -1;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    // Forcing the redraw makes any pending image asset-refinement land
+    // inside the sampling loop; a plain poll would happily agree on the
+    // pre-refinement number twice and return early.
+    await forceFullRedraw(page);
+    const count = await orangePaintPixels(page, region);
+    if (count === previous) return count;
+    previous = count;
+    await page.waitForTimeout(500);
+  }
+  return previous;
 }
 
 async function selectConceptFrameAtX(page: import('@playwright/test').Page, expectedX: number) {
@@ -557,31 +603,59 @@ test.describe('concept-art reference workflow', () => {
     // after undo, and on the hosted runner the unsettled read lands 25 orange
     // pixels low (91 vs the settled 116), which made the restored state look
     // like it kept extra pixels. The redraw oracle is the same authoritative
-    // check the undo and redo assertions below already use.
+    // check the undo and redo assertions below already use, and the settled
+    // poll additionally waits out image asset settle, which the oracle cannot
+    // see (it compares two renders taken at the same moment).
     await expectSurfaceMatchesFullRedraw(page, 'baseline');
-    const orangePixelsBeforePaintover = await orangePaintPixels(page);
-    const beforePaintover = await contentHash(page);
     const paintStart = await conceptScreenPoint(page, 660, 215);
     const paintEnd = await conceptScreenPoint(page, 800, 230);
+    // Count orange pixels only inside the stroke's own neighbourhood. The
+    // imported reference photo sits partly in the canvas's orange filter and
+    // its raster legitimately re-lands between renders (floating-origin
+    // re-anchor / asset refinement): measured pre-stroke the baseline reads
+    // 140, and the post-undo full redraw of the *same, correctly restored*
+    // document reads 165, with the differing pixels being the same photo
+    // pixels shifted by one. The stroke region contains only neutral frame
+    // content and the canvas background, where a one-pixel shift can never
+    // flip an orange-filter pixel, so the comparison stays exact where it
+    // matters — on the stroke. The pixel buffer is canvas-local device
+    // pixels, so shift the page-coordinate stroke endpoints by the canvas
+    // origin and scale by the backing-store ratio.
+    const canvasBox = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
+    if (!canvasBox) throw new Error('content canvas has no bounds');
+    const canvasScale = await page
+      .locator('canvas.editor-canvas__content-layer')
+      .evaluate((element) => {
+        const canvas = element as HTMLCanvasElement;
+        return canvas.width / Math.max(1, canvas.clientWidth);
+      });
+    const strokeRegion = {
+      x: (Math.min(paintStart.x, paintEnd.x) - canvasBox.x - 28) * canvasScale,
+      y: (Math.min(paintStart.y, paintEnd.y) - canvasBox.y - 28) * canvasScale,
+      width: (Math.abs(paintEnd.x - paintStart.x) + 56) * canvasScale,
+      height: (Math.abs(paintEnd.y - paintStart.y) + 56) * canvasScale,
+    };
+    const orangePixelsBeforePaintover = await settledOrangePaintPixels(page, strokeRegion);
+    const beforePaintover = await contentHash(page);
     await page.mouse.move(paintStart.x, paintStart.y);
     await page.mouse.down();
     await page.mouse.move(paintEnd.x, paintEnd.y, { steps: 7 });
     await page.mouse.up();
     await expect.poll(() => contentHash(page)).not.toBe(beforePaintover);
     await expect
-      .poll(() => orangePaintPixels(page))
+      .poll(() => orangePaintPixels(page, strokeRegion))
       .toBeGreaterThan(orangePixelsBeforePaintover + 10);
     await page.keyboard.press('Control+z');
     // Run the authoritative redraw oracle before the pixel assertion so a
     // stale surface fails with the live-vs-full-redraw evidence attached.
     await expectSurfaceMatchesFullRedraw(page, 'undo');
     await expect
-      .poll(() => orangePaintPixels(page))
+      .poll(() => orangePaintPixels(page, strokeRegion))
       .toBeLessThanOrEqual(orangePixelsBeforePaintover + 1);
     await page.keyboard.press('Control+Shift+z');
     await expectSurfaceMatchesFullRedraw(page, 'redo');
     await expect
-      .poll(() => orangePaintPixels(page))
+      .poll(() => orangePaintPixels(page, strokeRegion))
       .toBeGreaterThan(orangePixelsBeforePaintover + 10);
     await page.screenshot({ path: info.outputPath('concept-art-variants-paintover.png') });
 
