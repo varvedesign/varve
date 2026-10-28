@@ -52,10 +52,16 @@ the next run.** Refresh only the evidence the unfinished work needs.
   tests, biome/docs/emoji/health/secret/import-boundary audits), the ledger
   commit containing this file, and an integration-record commit that follows the
   local master merge.
-- Merge state: **not merged at the time of the ledger commit.** The local master
-  merge is performed after this ledger is committed and its result (merge commit
-  + revalidation) is recorded in the integration-record commit. Until that commit
-  exists, treat this branch as integrated-at-branch only.
+- Merge state: **merged into local master** as merge commit bcff6aed4
+  (parents 1301951a7 + 0e3bcb942; --no-ff, no conflicts, other owners' dirty
+  files untouched). Integrated candidate revalidated on the merged tree:
+  focused conflict/adapter suites 20/20 passed and editor typecheck returned 0.
+  The branch Tier-2 full package unit lanes (vitest packages/scene packages/editor)
+  were started twice and had not completed after ~30 minutes under heavy host
+  load; they were stopped, so package-wide unit coverage is deferred to CI or a
+  quieter host. This is a reported limitation, not a silent skip: the focused
+  Tier-1 files, adjacent export suites, the pre-commit checkpoint (which re-ran
+  the new tests) and the integrated candidate all passed.
 - Remote: **not pushed**. origin/master (varvedesign/varve, a771499b9) and local
   master diverged (local 486 ahead / 149 behind at baseline). Publishing would
   require reconciling history that belongs to other sessions; that decision is
@@ -83,13 +89,14 @@ the next run.** Refresh only the evidence the unfinished work needs.
 
 ## Last verified state and exact next operation
 
-- Last verified: worktree HEAD 2c05a46f7 (code) plus this ledger commit; changed
+- Last verified: local master HEAD bcff6aed4 (merge of the slice branch); changed
   files typecheck editor:0, scene:0, apps/desktop:0; focused conflict suites 70
   passed; pre-commit checkpoint passed (20 direct tests + staged biome, docs,
   emoji, health, contact, secret-scan and import-boundary checks); negative
   control 3 of 4 failed pre-fix; radius audit clean; verify:plan = 38 lanes, no
-  escalation. The Tier-2 package unit lanes (vitest packages/scene packages/editor)
-  were started; their final result is recorded in the integration-record commit.
+  escalation. Integrated candidate (merged master bcff6aed4): focused suites
+  20/20 passed; editor typecheck 0. Tier-2 full package unit lanes did not
+  complete under host load (stopped; see merge-state row) — deferred to CI.
   apps/website typecheck was not run through its package script (astro check); a
   direct tsc invocation is not equivalent and only surfaced pre-existing
   Astro-generated-type errors in untouched website files.

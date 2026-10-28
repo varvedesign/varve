@@ -66,7 +66,8 @@ VARVE_VALIDATION_QUEUE=0 equivalent = direct node invocations):
 | Import gate | node scripts/audit-committed-imports.mjs | clean (12,805 imports) |
 | Radius audit | node scripts/quality/audit-radius.mjs | clean |
 | Verify plan | node scripts/quality/verify.mjs plan | Tier 2/3, 38 lanes, full-suite escalation NO |
-| Affected Tier-2 unit lanes | vitest run packages/scene packages/editor | result recorded in continuation (long-running under host load) |
+| Affected Tier-2 unit lanes | vitest run packages/scene packages/editor | did **not** complete after ~30 min under host load (started twice, stopped); deferred to CI — focused/adjacent suites and the pre-commit checkpoint passed |
+| Integrated candidate revalidation | merged master bcff6aed4: focused vitest 20/20 + editor tsc | passed |
 
 **Not run / outstanding:**
 - Native Tauri desktop execution of the real folder write (would need a cargo
@@ -103,7 +104,7 @@ VARVE_VALIDATION_QUEUE=0 equivalent = direct node invocations):
 
 ### Integration state
 
-- Commit/worktree/merge refs: recorded in continuation.md (the authoritative
+- Commit/worktree/merge refs: 2c05a46f7 (code), 0e3bcb942 (ledger), bcff6aed4 (local master merge; parents 1301951a7 + 0e3bcb942). Remote not pushed; continuation.md is the authoritative state file. (The authoritative-state sentence continues below.)
   state file) because this batch record is committed with them.
 - Remote: not pushed. Local master and origin/master have diverged (486 local /
   149 remote commits at baseline); publishing this slice as a remote PR requires
