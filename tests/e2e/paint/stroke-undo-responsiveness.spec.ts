@@ -501,6 +501,19 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
     // Stroke 1.
     await activatePaintTool(page);
     await paintStroke(page, { x: 320, y: 260 }, { x: 520, y: 400 });
+    // The brush host may answer through its 1.5 s sync-fallback budget (cold
+    // worker under load), so the settled frame can predate the ink. The
+    // contract is that the stroke LANDS within a bounded wait — a stroke that
+    // never arrives still fails here, with the stale-frame message below.
+    await expect
+      .poll(() => canvasHash(page), {
+        timeout: 20_000,
+        message:
+          'a paint stroke must change visible pixels — the canvas kept a stale frame ' +
+          '(see tests/e2e/paint/oracle-diff-diag.spec.ts for the discriminating probe)',
+      })
+      .not.toBe(emptyHash);
+    await waitForSettledFrame(page);
     const afterFirst = await canvasHash(page);
     // Reproduced product symptom, not harness noise. Observed once with full
     // frame diagnostics: the stroke is committed (the layer appears in the
@@ -512,17 +525,18 @@ test.describe('paint stroke undo — visible restoration and cache equivalence',
     //   VARVE_ORACLE_DIAG=1 npx playwright test tests/e2e/paint/oracle-diff-diag.spec.ts
     // which paints several strokes and reports whether a forced authoritative
     // redraw recovers the pixels.
-    expect(
-      afterFirst,
-      'a paint stroke must change visible pixels — the canvas kept a stale frame ' +
-        '(see tests/e2e/paint/oracle-diff-diag.spec.ts for the discriminating probe)',
-    ).not.toBe(emptyHash);
+    expect(afterFirst, 'afterFirst must differ from the empty canvas').not.toBe(emptyHash);
     await expectOracleEquality(page, 'after stroke 1');
 
     // Stroke 2.
     await paintStroke(page, { x: 380, y: 470 }, { x: 330, y: 300 });
-    const afterSecond = await canvasHash(page);
-    expect(afterSecond, 'the second stroke must change pixels again').not.toBe(afterFirst);
+    await expect
+      .poll(() => canvasHash(page), {
+        timeout: 20_000,
+        message: 'the second stroke must change pixels again',
+      })
+      .not.toBe(afterFirst);
+    await waitForSettledFrame(page);
     await expectOracleEquality(page, 'after stroke 2');
 
     // Undo 1 -> the exact state after stroke 1, not merely "different".

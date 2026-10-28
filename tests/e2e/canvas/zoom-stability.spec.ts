@@ -23,54 +23,109 @@ async function selectionRect(page: Page): Promise<SelectionRect> {
   });
 }
 
-async function expectSelectionPainted(canvas: Locator, selection: SelectionRect): Promise<void> {
-  const samples = await canvas.evaluate((element, box) => {
-    const surface = element as HTMLCanvasElement;
-    const context = surface.getContext('2d');
-    if (!context) throw new Error('Canvas 2D context unavailable');
-    const scaleX = surface.width / surface.clientWidth;
-    const scaleY = surface.height / surface.clientHeight;
-    const background = context.getImageData(0, 0, 1, 1).data;
-    const visibleLeft = Math.max(0, box.x);
-    const visibleTop = Math.max(0, box.y);
-    const visibleRight = Math.min(surface.clientWidth, box.x + box.width);
-    const visibleBottom = Math.min(surface.clientHeight, box.y + box.height);
-    return [0.25, 0.5, 0.75].map((fraction) => {
-      const pixel = context.getImageData(
-        Math.max(
-          0,
-          Math.min(
-            surface.width - 1,
-            Math.round((visibleLeft + (visibleRight - visibleLeft) * fraction) * scaleX),
-          ),
-        ),
-        Math.max(
-          0,
-          Math.min(
-            surface.height - 1,
-            Math.round((visibleTop + (visibleBottom - visibleTop) / 2) * scaleY),
-          ),
-        ),
-        1,
-        1,
-      ).data;
-      const backgroundDifference = Array.from(pixel).reduce(
-        (difference, channel, index) => difference + Math.abs(channel - (background[index] ?? 0)),
-        0,
+const PIXEL_ORACLE_CSS_SIZE = { width: 640, height: 480 };
+
+async function rawContentHash(page: Page): Promise<string> {
+  return page.locator('canvas.editor-canvas__content-layer').evaluate((element, oracleSize) => {
+    const canvas = element as HTMLCanvasElement;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('content canvas context unavailable');
+    const bounds = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / bounds.width;
+    const scaleY = canvas.height / bounds.height;
+    const oracle = document.createElement('canvas');
+    oracle.width = oracleSize.width;
+    oracle.height = oracleSize.height;
+    const oracleContext = oracle.getContext('2d');
+    if (!oracleContext) throw new Error('pixel oracle context unavailable');
+    oracleContext.drawImage(
+      canvas,
+      0,
+      0,
+      oracleSize.width * scaleX,
+      oracleSize.height * scaleY,
+      0,
+      0,
+      oracleSize.width,
+      oracleSize.height,
+    );
+    return crypto.subtle
+      .digest('SHA-256', oracleContext.getImageData(0, 0, oracleSize.width, oracleSize.height).data)
+      .then((digest) =>
+        Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''),
       );
-      const chroma =
-        Math.max(pixel[0] ?? 0, pixel[1] ?? 0, pixel[2] ?? 0) -
-        Math.min(pixel[0] ?? 0, pixel[1] ?? 0, pixel[2] ?? 0);
-      return Math.max(backgroundDifference, chroma);
-    });
-  }, selection);
-  for (const sample of samples) expect(sample).toBeGreaterThan(12);
+  }, PIXEL_ORACLE_CSS_SIZE);
+}
+
+async function contentHash(page: Page): Promise<string> {
+  let previous = '';
+  let unchanged = 0;
+  // Fit Selection and zoom keys can animate; compare settled pixels so a
+  // camera animation frame is not mistaken for a stale render.
+  await expect
+    .poll(
+      async () => {
+        const current = await rawContentHash(page);
+        unchanged = current === previous ? unchanged + 1 : 0;
+        previous = current;
+        return unchanged;
+      },
+      { timeout: 15_000, intervals: [100] },
+    )
+    .toBeGreaterThanOrEqual(3);
+  return previous;
+}
+
+// The selected object's default fill is the same #9e9e9e as the page, so a
+// colour-difference sample cannot see it once the page fills the viewport at
+// high zoom. The regression this test guards is a leaked clip / stale camera
+// redraw, so compare the live surface with a same-camera authoritative full
+// redraw: a partial-redraw bug shows different pixels, and a correct render
+// matches exactly (including an object that happens to match the page).
+async function expectSurfaceMatchesFullRedraw(canvas: Locator, label: string): Promise<void> {
+  const page = canvas.page();
+  const cameraBefore = await page.evaluate(() =>
+    JSON.stringify(
+      (
+        window as unknown as {
+          __varvePerf?: { getLast?: () => { camera?: unknown } | null };
+        }
+      ).__varvePerf?.getLast?.()?.camera ?? null,
+    ),
+  );
+  const live = await contentHash(page);
+  const result = (await page.evaluate(async () => {
+    return (
+      window as unknown as {
+        __varvePerf?: {
+          forceFullRedraw?: () => Promise<{ authoritative: boolean; renderPath: string }>;
+        };
+      }
+    ).__varvePerf?.forceFullRedraw?.();
+  })) as { authoritative: boolean; renderPath: string } | undefined;
+  expect(result, `${label}: full-redraw pixel oracle must be installed`).toBeTruthy();
+  expect(result?.authoritative, `${label}: oracle must commit a fresh full frame`).toBe(true);
+  const cameraAfter = await page.evaluate(() =>
+    JSON.stringify(
+      (
+        window as unknown as {
+          __varvePerf?: { getLast?: () => { camera?: unknown } | null };
+        }
+      ).__varvePerf?.getLast?.()?.camera ?? null,
+    ),
+  );
+  expect(cameraAfter, `${label}: redraw must keep the camera fixed`).toBe(cameraBefore);
+  const authoritative = await contentHash(page);
+  console.info(`[zoom paint oracle] ${label} live=${live} authoritative=${authoritative}`);
+  expect(live, `${label}: live pixels must match a same-camera full redraw`).toBe(authoritative);
 }
 
 test.describe('Zoom camera stability', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
-    await navigateToEditor(page);
+    // The full-redraw oracle and camera probe live on the perf handle, which
+    // is only installed with ?perf=1 (same opt-in concept-art uses).
+    await navigateToEditor(page, '/?perf=1');
   });
 
   test('fit-selection and subsequent zooms keep the selected object centered and painted', async ({
@@ -114,21 +169,21 @@ test.describe('Zoom camera stability', () => {
     const fitted = await selectionRect(page);
     expect(fitted.x + fitted.width / 2).toBeCloseTo(canvasBox.width / 2, 0);
     expect(fitted.y + fitted.height / 2).toBeCloseTo(canvasBox.height / 2, 0);
-    await expectSelectionPainted(canvas, fitted);
+    await expectSurfaceMatchesFullRedraw(canvas, 'fit');
 
     await page.keyboard.press('+');
     await page.waitForTimeout(100);
     const zoomedIn = await selectionRect(page);
     expect(zoomedIn.x + zoomedIn.width / 2).toBeCloseTo(canvasBox.width / 2, 0);
     expect(zoomedIn.y + zoomedIn.height / 2).toBeCloseTo(canvasBox.height / 2, 0);
-    await expectSelectionPainted(canvas, zoomedIn);
+    await expectSurfaceMatchesFullRedraw(canvas, 'zoom-in');
 
     await page.keyboard.press('-');
     await page.waitForTimeout(100);
     const zoomedOut = await selectionRect(page);
     expect(zoomedOut.x + zoomedOut.width / 2).toBeCloseTo(canvasBox.width / 2, 0);
     expect(zoomedOut.y + zoomedOut.height / 2).toBeCloseTo(canvasBox.height / 2, 0);
-    await expectSelectionPainted(canvas, zoomedOut);
+    await expectSurfaceMatchesFullRedraw(canvas, 'zoom-out');
   });
 
   test('a trackpad wheel burst accumulates every zoom delta around the selected object', async ({
@@ -174,7 +229,7 @@ test.describe('Zoom camera stability', () => {
     expect(
       Math.abs(after.y + after.height / 2 - (before.y + before.height / 2)),
     ).toBeLessThanOrEqual(3);
-    await expectSelectionPainted(canvas, after);
+    await expectSurfaceMatchesFullRedraw(canvas, 'wheel');
   });
 
   test('zoom keeps an overflowing child painted when its unclipped frame is offscreen', async ({
@@ -237,7 +292,7 @@ test.describe('Zoom camera stability', () => {
     const beforeZoom = await selectionRect(page);
     expect(beforeZoom.x).toBeGreaterThan(0);
     expect(beforeZoom.x + beforeZoom.width).toBeLessThan(canvasBox.width);
-    await expectSelectionPainted(canvas, beforeZoom);
+    await expectSurfaceMatchesFullRedraw(canvas, 'overflow-before');
 
     await canvas.focus();
     await page.keyboard.press('+');
@@ -248,6 +303,6 @@ test.describe('Zoom camera stability', () => {
     expect(afterZoom.x).toBeLessThan(canvasBox.width);
     expect(afterZoom.y + afterZoom.height).toBeGreaterThan(0);
     expect(afterZoom.y).toBeLessThan(canvasBox.height);
-    await expectSelectionPainted(canvas, afterZoom);
+    await expectSurfaceMatchesFullRedraw(canvas, 'overflow-after');
   });
 });

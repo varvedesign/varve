@@ -114,10 +114,41 @@ test('real SVG/photo workflow keeps input and pixels authoritative', async ({ pa
   await page.mouse.move(center.x - 10, center.y - 10, { steps: 4 });
   await page.mouse.up();
   await page.keyboard.press('v');
+  // The stress-board SVG references Inter, which this device does not have;
+  // the product answers with its Missing Fonts dialog on a font-stable
+  // debounce after the document stops changing — which here lands between the
+  // setup drags and the resize, and the modal overlay swallows the resize
+  // gesture (the failure screenshot shows it open over the canvas). Dismiss it
+  // as a user would after the last document change of the setup.
+  const missingFonts = page.getByRole('dialog', { name: 'Missing Fonts' });
+  await missingFonts.waitFor({ state: 'visible', timeout: 8000 }).catch(() => undefined);
+  if (await missingFonts.isVisible().catch(() => false)) {
+    await missingFonts.getByRole('button', { name: 'Close' }).click();
+    await expect(missingFonts).toBeHidden();
+  }
   await expect(page.getByLabel('Bottom-right resize handle')).toBeVisible();
 
   const resizeHandle = page.getByLabel('Bottom-right resize handle');
   await expect(resizeHandle, 'imported content must expose a real resize handle').toBeVisible();
+  // Fit the selection before grabbing its handle: the imported content spans
+  // most of the board, and at this viewport the bottom-right handle sits below
+  // the fold (boundingBox y ~1025 in a 900px viewport), where a mouse gesture
+  // never lands — the measured failure was a drag dispatched entirely
+  // off-screen. Fitting keeps every later step camera-relative (canvas center,
+  // relative drags), so nothing downstream changes.
+  // Keyboard path with explicit canvas focus (toolbar-layout.spec.ts does the
+  // same): the status-bar button never settled (45s of visible/stable
+  // retries), and an app shortcut pressed while the layers button still holds
+  // focus does not run. The poll makes a failed fit fail here, loudly, rather
+  // than as a silently dead drag below.
+  await canvas.focus();
+  await page.keyboard.press('Shift+2');
+  await expect
+    .poll(async () => (await resizeHandle.boundingBox())?.y ?? Number.POSITIVE_INFINITY, {
+      timeout: 5000,
+      message: 'fit selection must bring the handle into the viewport',
+    })
+    .toBeLessThan(800);
   const beforeResize = await resizeHandle.boundingBox();
   if (!beforeResize) throw new Error('resize handle bounds unavailable');
   await page.mouse.move(

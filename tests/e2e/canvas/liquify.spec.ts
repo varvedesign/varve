@@ -77,6 +77,24 @@ async function installPixelProbe(page: Page) {
   });
 }
 
+const CAMERA_EPSILON = 1e-6;
+
+// The camera is a product of accumulated transforms, so an undo that restores
+// the same view can land one float ulp away (measured: panY 83 vs
+// 83.00000000000006). Exact deep equality made the 15s poll wait for a frame
+// that could never arrive even though the frame was already painted. Compare
+// the view semantically: same backing size, same camera within float noise.
+function sameView(actual: PixelView, expected: PixelView): boolean {
+  return (
+    actual.width === expected.width &&
+    actual.height === expected.height &&
+    Math.abs(actual.camera.zoom - expected.camera.zoom) < CAMERA_EPSILON &&
+    Math.abs(actual.camera.panX - expected.camera.panX) < CAMERA_EPSILON &&
+    Math.abs(actual.camera.panY - expected.camera.panY) < CAMERA_EPSILON &&
+    Math.abs(actual.camera.rotation - expected.camera.rotation) < CAMERA_EPSILON
+  );
+}
+
 async function capture(page: Page, key: string, expected?: PixelView): Promise<PixelView> {
   let shot: PixelView | null = null;
   // Undo temporarily changes the contextual bar's geometry. Compare only
@@ -92,11 +110,11 @@ async function capture(page: Page, key: string, expected?: PixelView): Promise<P
             .__liquifyPixelProbe;
           return probe.capture(name);
         }, key);
-        return expected ? shot : shot !== null;
+        return shot !== null && (!expected || sameView(shot, expected));
       },
       { timeout: 15_000, message: 'Wait for a painted frame at the comparison view' },
     )
-    .toEqual(expected ?? true);
+    .toBe(true);
   return shot!;
 }
 

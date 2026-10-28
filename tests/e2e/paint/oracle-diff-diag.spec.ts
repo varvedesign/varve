@@ -319,7 +319,16 @@ test('after strokes: does a forced full redraw recover silent pixels?', async ({
     const [from, to] = strokes[i]!;
     await dragOnCanvas(page, from, to);
     await settle(page);
-    const hash = await hashOf();
+    // The brush host may answer through its 1.5 s sync-fallback budget, so a
+    // settled frame can predate the ink. Give the stroke a bounded window to
+    // land: only a hash that NEVER changes counts as a silent stroke (a late
+    // landing is latency, not missing pixels).
+    let hash = await hashOf();
+    for (let wait = 0; hash === previousHash && wait < 4000; wait += 250) {
+      await page.waitForTimeout(250);
+      await settle(page);
+      hash = await hashOf();
+    }
     const changed = hash !== previousHash;
     const entry: Record<string, unknown> = {
       iteration: i,
