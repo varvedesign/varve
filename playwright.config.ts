@@ -54,7 +54,18 @@ export default defineConfig({
   // Assertion/action timeouts (expect 10s, per-step 15-45s) still bound real
   // hangs; this only extends the navigation/compile budget.
   timeout: 180000,
-  expect: { timeout: 10000 },
+  expect: {
+    timeout: 10000,
+    // Determinism defaults for every visual assertion. Design-surface
+    // snapshots previously relied on each spec remembering these; forgetting
+    // one produced intermittent diffs from finite animations and the text
+    // caret. Per-call options can still override (the replay harness sets only
+    // pixel budgets). See docs/quality/visual-validation.md.
+    toHaveScreenshot: {
+      animations: 'disabled',
+      caret: 'hide',
+    },
+  },
   use: {
     baseURL: e2eBaseUrl,
     // A missing UI control must not consume the entire 180s test budget on
@@ -183,6 +194,15 @@ export default defineConfig({
             use: { ...devices['Desktop Firefox'] },
             testMatch: /visual\/replay\.spec\.ts/,
           },
+        ]
+      : []),
+    // WebKit replay baselines are intentionally opt-in on a prepared host:
+    // the lane has no committed baselines until someone generates and reviews
+    // them with pnpm e2e:visual:webkit -- --update-snapshots=changed. Gating the
+    // project keeps the default cross-runtime lane from failing on a missing
+    // baseline that does not exist yet.
+    ...(process.env.VARVE_VISUAL_WEBKIT
+      ? [
           {
             name: 'webkit-visual',
             use: { ...devices['Desktop Safari'] },

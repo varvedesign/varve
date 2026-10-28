@@ -6,7 +6,10 @@ use std::time::Duration;
 
 use rusqlite::{Connection, Transaction};
 
-const SCHEMA_VERSION: i64 = 2;
+mod tags;
+pub use tags::TagRow;
+
+const SCHEMA_VERSION: i64 = 3;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Persistent storage for Strata documents.
@@ -87,7 +90,7 @@ impl DocumentStore {
     /// call — for the remainder of the process — panicked too, permanently
     /// losing persistence for an open editing session. Recovering the guard
     /// here is the standard, safe idiom for that failure mode.
-    fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
+    pub(crate) fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
         self.conn
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -191,6 +194,8 @@ impl DocumentStore {
             END;
             INSERT INTO files_fts(files_fts) VALUES('rebuild');",
         )?;
+        tags::migrate(&transaction)?;
+
         transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         transaction.commit()
     }
@@ -251,7 +256,7 @@ impl DocumentStore {
 
     // ── Files ──────────────────────────────────────────────────────────────
 
-    fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileRow> {
+    pub(crate) fn row_to_file(row: &rusqlite::Row) -> rusqlite::Result<FileRow> {
         Ok(FileRow {
             id: row.get(0)?,
             name: row.get(1)?,

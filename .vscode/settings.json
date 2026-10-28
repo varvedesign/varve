@@ -4,5 +4,15 @@
     "overrides": {}
   },
   "markdown.extension.completion.enabled": false,
-  "markdown.extension.tableFormatter.enabled": false
+  "markdown.extension.tableFormatter.enabled": false,
+  "git.detectSubmodules": false,
+  "search.followSymlinks": false,
+  "files.watcherExclude": {
+    "**/.worktrees/**": true,
+    "**/node_modules/**": true,
+    "**/apps/desktop/src-tauri/target/**": true,
+    "**/playwright-report/**": true,
+    "**/test-results/**": true,
+    "**/docs/screenshots/**": true
+  }
 }

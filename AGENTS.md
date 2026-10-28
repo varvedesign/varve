@@ -1,1176 +1,137 @@
 # AGENTS.md — Varve
 
-Local-first, cross-platform design suite. Native Rust engine on desktop
-(Tauri 2), WASM behind the same facade on web. Linux (CachyOS/Arch) is the
-primary dev OS.
+Varve is a local-first, cross-platform design suite: a native Rust engine on
+desktop (Tauri 2) and WASM behind the same facade on web. Linux (CachyOS/Arch)
+is the primary dev OS. This file is the always-loaded index and stays small;
+detail lives in `docs/agents/` and is loaded on demand (pointer table at the end).
 
-## Toolchain (confirmed working, 2026-06-29)
-- Rust: `~/.cargo/bin` (rustc 1.97 / cargo 1.97). Source with `. "$HOME/.cargo/env"`.
-- pnpm 11.9: `~/.local/share/pnpm/bin`. Export `PNPM_HOME="$HOME/.local/share/pnpm"` and add `$PNPM_HOME/bin` to PATH.
-- just 1.58: `~/.local/bin`.
-- Node 26, npm 11.16.
-- wasm32 target installed.
-- WebKitGTK 2.52.4 / GTK 3.24.52 / librsvg / openssl / fontconfig / fuse2 confirmed via pkg-config.
-- Optional: `cmake`, `xdotool` (not needed for core build).
+## Directory map (exact)
 
-## Validation economy — mandatory
+- Rust IPC: `apps/desktop/src-tauri/src/*.rs` — `#[tauri::command]` fns by
+  domain, registered in `lib.rs` (`generate_handler!`); TS `invoke` call sites
+  live in `packages/platform/` and feature packages.
+- React shell/state/hubs: `packages/editor/src/` — `Shell.tsx`, `CanvasArea.tsx`,
+  `Menubar.tsx`, `context.tsx` (`EditorProvider`); sub-contexts and
+  `EditorState` types in `context/`, hooks in `hooks/`, commands in `actions/` +
+  `shortcuts/`, canvas/tools in `canvas/` + `tools/` + `hitTest/`.
+- Compositor/GPU: `packages/compositor/src/` (`canvas2d/`, `webgpu/`, `webgl2/`);
+  WGSL shaders in `crates/varve-accel/src/shaders/` + `render/shaders/`.
+- Render worker: `packages/editor/src/render/` (`renderWorker.ts`, `workerHost.ts`).
+- Engine IR: `packages/engine/src/types.ts` (`RenderItem`), `engine.ts` facade;
+  Rust producer `crates/varve-engine/src/lib.rs` (`build_render_ir`).
+- Crates: core, engine, bridge (scene/IR seam); sync (SQLite); trace; print;
+  upscale; bgremove; media; effects; colour; accel (GPU); wasm; room (collab
+  host); layout (unwired); generative-helper.
+- Packages: engine, scene, shared, layout (document model + pure layout);
+  editor (UI/state); ui (tokens/components); compositor; platform; import;
+  print; codegen; prototype; collab; crash; help; home; tokens; history; cli; ai.
+- Apps: `desktop` (Tauri 2 + Vite/React); `website` (Astro static site); `web`
+  (scaffold, removed from the workspace — not shippable).
+- Docs: `architecture/` current contracts; `quality/` validation policy +
+  evidence; `agents/` agent playbooks; `adr/` decisions; `release/`, `security/`,
+  `development/` operations; `plans/`, `audits/`, `research/`, `historical/`
+  dated records. Full index: `docs/README.md`.
 
-**Validate according to impact, not repository size.** The full suite is an
-explicit escalation/final-gate operation, not the default inner loop. Canonical
-policy: `docs/quality/validation-strategy.md`. Executable planner:
-`scripts/quality/affected-plan.mjs`.
+## Quiet verification — default inner loop
 
-1. Inspect `git status` / diff first.
-2. Run `pnpm verify:plan` — the planner explains exactly what it selects
-   and why, and what it deliberately skips.
-3. Run `pnpm verify:affected` (Tiers 0–4, dependency-aware; `pnpm verify:quick`
-   for trivial edits).
-4. Add feature-specific E2E/visual/perf validation when the plan indicates.
-5. Do NOT run `pnpm test`, `just gate`, full Playwright, or
-   `cargo test --workspace` by default.
-6. Full validation (`pnpm verify:full`) is reserved for explicit escalation
-   conditions — workspace/toolchain changes, test-runner configuration,
-   serialization/schema migrations, cross-package foundational API changes,
-   release checkpoints, explicit request — and requires a stated reason.
-7. Record exactly what was run, what passed, and what was skipped as
-   unrelated (the Agent Validation Report template, below).
-
-### Failure-resolution and release candidates
-
-For a large integration or release candidate, do not restart a broad E2E
-gate after every individual repair. Run `pnpm verify:triage` once to collect
-a bounded failure set. Triage still runs the affected closure when the
-planner requires a final full gate, exposing downstream compile failures
-before that expensive checkpoint. Classify and repair each failure, and run its affected
-compiler check, exact spec, and direct unit checks after each repair. Changes
-under `tests/e2e/` automatically select `pnpm typecheck:e2e` before
-Playwright. For a release candidate, freeze one exact `master` SHA and run
-`release-candidate.yml` in triage/final mode; keep already-green lanes when a
-targeted rerun is sufficient. Shared E2E
-infrastructure (`tests/e2e/shared.ts`,
-`tests/e2e/helpers/**`, and fixtures), runner configuration, renderer, and
-other integration surfaces deliberately retain broad validation scope.
-
-Before restarting a failed release lane, review its complete affected
-workflow and adjacent boundaries. Add missing regressions for relevant
-cancellation, invalid-input, permission, timing, persistence and platform
-cases; an observed defect's regression must fail against the previous behavior.
-Assert actual outcomes and use production contracts/configuration in mocks.
-See `docs/quality/validation-strategy.md` → user workflow coverage.
-
-Skipping affected tests is prohibited. Running unrelated tests is
-discouraged — it consumes shared developer resources and delays feedback.
-
-### Agent Validation Report (before claiming completion)
-
-```text
-Changed scope: <files / packages / crates>
-Validation plan: <summary of pnpm verify:plan output>
-Commands actually run: <exact commands>
-Passed: <list>
-Skipped as unrelated: <list + why>
-Escalations: <list>
-Full suite run: yes/no
-If yes, reason: <stated reason>
-```
-
-## Regression protocol (mandatory after every architecture/system change)
-
-After ANY change that touches:
-- type definitions, interfaces, or generics
-- imports, re-exports, or module boundaries
-- function signatures or overloads
-- state shape or context values
-- test files or test infrastructure
-
-Run in order:
-```bash
-pnpm verify:plan        # understand the impact first — never skip this
-pnpm verify:affected    # Tiers 0-4. Tier 0 already covers format+lint on the
-                        # touched files — no whole-repo format/lint runs per
-                        # change; those belong to the full gate only.
-pnpm bench              # benchmark mode for .bench.ts files (optional, perf-sensitive)
-pnpm audit:docs         # docs naming/index/link drift — zero violations
-pnpm audit:imports      # every committed relative import has a committed target
-pnpm audit:emoji        # zero violations
-pnpm audit:tokens       # WCAG-AA pairs (3 themes) + undefined-token / literal-fallback scan
-```
-
-The audits above are also auto-selected by the planner when the change
-touches their domain (docs/emoji/tokens) — running them directly is a
-belt-and-braces recheck, not a substitute for `verify:affected`.
-
-Failure at any step means the change introduced a regression. Fix before committing.
-Do NOT skip the affected checks — but do NOT run the full suite unless the
-planner escalated (`FULL-SUITE ESCALATION: YES`) or a full-gate checkpoint
-applies. When the planner escalates, run:
+Run from the repo root; failures-only output.
 
 ```bash
-pnpm verify:full    # requires VARVE_FULL_GATE_REASON (see docs/quality/validation-strategy.md)
+. "$HOME/.cargo/env"
+pnpm check:agent        # queued recursive tsc --noEmit --pretty false
+pnpm check:rust         # queued cargo check, --quiet --message-format=short
+pnpm test:agent packages/editor/src/foo.test.ts      # queued vitest, dot reporter (no "--": pnpm keeps it and vitest drops the filter)
+pnpm verify:agent       # check:agent + agent-surface + agent-map + constitution + visual-baselines + file-size + IPC audits
+pnpm queue:status       # machine-wide admission holders/waiters
+pnpm worktree:status    # all worktrees: dirty/merged/stale + queue holder
+pnpm audit:docs         # docs naming/link/ADR-index drift
+pnpm audit:emoji        # zero-emoji gate
 ```
 
-### Code-health check (triage gate)
-
-After any system-level change (new context provider, new hub file, new tool system,
-or any change to `context.tsx` / `CanvasArea.tsx` / `Shell.tsx`), run the
-architecture audit to verify architectural metrics haven't regressed:
-
-```bash
-node scripts/audit-architecture.mjs --ci
-```
-
-These numbers drift with everyday merges — treat the recorded values as
-orientation and inspect the audit output plus the committed baselines.
-`audit-architecture.mjs --ci` enforces cycle identities and the global
-`max_cycles` and `max_layer_violations` ceilings. The stored instability and
-unused-export thresholds are currently reported only, as documented in the
-[August 25 baseline commit](https://github.com/K-Arthur/varve/commit/1266f7fc3647c9e03ac142516e5d6c07f2b2d1d5).
-
-| Metric | Recorded (2026-08-22) | Current CI treatment |
-|--------|----------------------|----------------------|
-| Dependency cycles (madge, total distinct) | 15 | Enforced: cycle identities and 17 (`max_cycles`) |
-| Unstable modules (I > 0.9, all packages) | 49 | Reported only; stored ceiling 55 (`max_unstable`) |
-| Layer violations | 0 | Enforced: 0 (`max_layer_violations`) |
-| Unused exports | 0 | Reported only; stored ceiling 10 (`max_unused_exports`) |
-
-The [0.5.0 architecture comparison](docs/quality/validation-strategy.md#architecture-audit-finding)
-records 75 unstable modules at committed SHA `dde0141d1` and in the pending
-interface repairs, with identical module identities. This existing excess
-remains architecture debt; a passing audit does not establish compliance with
-the stored instability ceiling. Keep the ceilings unchanged, add regression
-coverage for the omitted checks, and reduce the excess before enabling their
-enforcement. This finding grants no release-certification exemption.
-
-Also reported but not enforced by `--ci`: per-package average/max cyclomatic
-complexity and per-hub import budgets — Shell (56), Menubar (18), and context
-(76) print OVER BUDGET warnings against the script's hardcoded budgets. Hub
-line/import *enforcement* lives in the
-pre-commit health gate (`.health-baseline.json` via
-`scripts/audit-health.mjs --staged`). Function-level complexity ceilings for
-over-ceiling files (context.tsx 847, CanvasArea 630, …) live in
-`scripts/audit-health.mjs` and are guarded by each file's first-line
-`// COMPLEXITY:` comment.
-
-See `docs/audits/architecture-health-baseline-2026-07-25.md` for the original
-measurement methodology. If an enforced threshold is breached, stop and
-investigate.
-Use `node scripts/audit-architecture.mjs --update` to reset the baseline after
-intentional improvements.
-
-## Architecture constraints (do not violate)
-
-Every rule below was discovered through root-cause investigation of real regressions.
-Adding new violations will silently break tests and block CI.
-
-### No circular `workspace:*` dependency chains
-
-A package must never import from another package that transitively imports back to it.
-TypeScript + Vite module resolution will either fail outright or produce non-deterministic
-builds depending on evaluation order. To break a cycle, move the shared code into the
-dependent package itself (or into `@varve/shared` if it belongs to no single owner).
-
-### Sub-context `onReady` pattern (Session 44+)
-
-`EditorProvider` in `context.tsx` composes sub-contexts (`MotionProvider`, `PrototypeProvider`,
-`ViewportProvider`) as nested JSX children. A sub-context's hooks MUST NOT be called at the
-`EditorProvider` function body level because the provider wrappers haven't mounted yet.
-Instead, the sub-context accepts an `onReady` callback prop that reports its value back to
-`EditorProvider` via `useState`. **New sub-contexts MUST follow this pattern** — see
-`MotionProvider.onReady` in `MotionContext.tsx` and its usage inside `EditorProvider`
-in `context.tsx`.
-
-### ActionRegistry overwrite order
-
-`Shell.tsx` calls `registerEditorActions(editor, callbacks)` BEFORE
-`registerAllShortcuts(() => null)`. This ordering is required because `registerAllShortcuts`
-pre-populates the registry with no-op stubs — if it runs first, the `r.has(id)` guard in
-`registerEditorActions` silently skips registering real handlers. Any new registration path
-must respect this priority: real handlers first, no-op stubs second.
-
-### Module instability ceiling (Session 48+)
-
-Hub files (Shell, CanvasArea) are inherently unstable. Every new import added to
-them drags the whole module graph. Follow these rules:
-
-1. **Hub files must not import leaf modules directly.** Before adding another import,
-   ask: can the integration live in a thin adapter module?
-2. **Prefer dependency injection over direct imports in hub files.**
-3. **New hub files must target I < 0.85.**
-
-| File | Imports (baseline / live 2026-08-22) | Instability (I) | Status |
-|------|--------------------------------------|-----------------|--------|
-| `CanvasArea.tsx` | 34 / 35 | ~0.90 | **Improved (was 82)** — drawContent/buildToolCtx/tool-sync extracted; must not increase |
-| `Shell.tsx` | 56 / 56 | ~0.89 | **Over budget** — must not increase |
-| `Menubar.tsx` | 17 / 18 | ~1.0 | At risk |
-| `context.tsx` | 73 / 76 | ~0.48 | Healthy instability, but live count is exactly at `max_imports` (76) — one more import fails the pre-commit health gate |
-
-Import counts are measured by `scripts/audit-health.mjs` against
-`.health-baseline.json` (snapshot 2026-07-27; the "baseline" column above
-mirrors it). Instability values come from madge via
-`scripts/audit-architecture.mjs` at run time and are never persisted
-(refresh with `--update` after intentional changes). Live import counts move
-with everyday merges — when this table and the baseline disagree with a fresh
-`node scripts/audit-health.mjs` run, believe the audit.
-
-**No new import may be added to CanvasArea.tsx or Shell.tsx without first removing
-an existing import of equal or greater weight.** Enforced by `scripts/audit-health.mjs`.
-
-### Cyclomatic complexity ceiling — ENFORCED
-
-| Context | Ceiling | Warning at | Block at |
-|---------|---------|------------|----------|
-| React component body | **200** | 160 (80%) | 200 |
-| Non-component function | **50** | 40 (80%) | 50 |
-| Tool handler (onPointerDown, etc.) | **30** | 24 (80%) | 30 |
-| Test assertion body | **15** | 12 (80%) | 15 |
-
-**70% rule:** When a function reaches 70% of its ceiling, any new
-functionality MUST be extracted into a new function/module — not added
-to the existing function. This is checked in pre-commit.
-
-**Ceiling is a hard block, not a suggestion.** Pre-commit rejects
-commits that increase complexity of any function already at or over its
-ceiling. The only allowed operation on over-ceiling functions is
-extraction (reducing their complexity).
-
-**Over-ceiling files must have a `// COMPLEXITY:` comment** at the top
-of the file with current complexity and a plan to reduce it. Without it,
-pre-commit blocks any change to that file.
-
-### Hook ordering invariance
-
-React hooks must be called in the same order on every render. When extracting code
-from `EditorProvider`:
-1. Identify all hook dependencies
-2. Create the hook function in `context/useX.ts`
-3. Place the hook call AFTER all hooks it depends on and BEFORE the `value` useMemo
-4. Add hook return values to the `value` useMemo dependency array
-5. **Never split a hook call across conditionals, loops, or early returns**
-
-See `context/usePersistence.ts` and `context/useBackgroundRemoval.ts` for the pattern.
-
-### Never show pixels no fresh frame will replace
-
-Partial (dirty-rect) redraw, the camera-only worker-bitmap fast path, and
-`paintedSurfaceRef` all put previously-painted pixels on screen. Each is a
-**loan against an authoritative frame that is on its way**. The moment the
-pipeline knows no fresh frame is coming for the current state, it must fall
-back to the main-thread replay (`compositorRef.current.drawVectorItems(ir)`),
-which is always correct.
-
-Concretely, every reason the render worker might decline a frame must be
-decidable **synchronously**, before the frame picks its branch — that is what
-`admitWorkerImagePayload` exists for. An async refusal (a `.then()` that
-returns early) lands after the surface has already been painted, so the frame
-composites the previous bitmap and, with nothing new ever posted, the canvas
-freezes on it and merely reprojects it on every camera move. That is what made
-a 13-image document render one image after fit-all and smear during scroll
-(fixed 2026-08-11).
-
-Do not treat partial redraw as the general answer to "the canvas is slow", and
-do not assume it is the only thing that can put wrong pixels on screen — its
-own guards (`surfaceMatchesBackingStore`, byte-exact camera equality) were
-sound and were not the cause.
-
-When touching any pixel-reuse logic, run the oracle instead of eyeballing it:
-hash the surface after the interaction, call `window.__varvePerf.forceFullRedraw()`
-at the same camera, hash again. Equal hashes mean the screen matches what a
-full redraw would have produced. Frame-rate and handler-time metrics cannot
-detect this class of bug. Background: `docs/architecture/render-pipeline.md`
-→ "Reuse of already-painted pixels".
-
-### Screen-space vs world-space thresholds
-
-Anything compared against `clientX/Y` deltas is in CSS pixels and must not be
-scaled by zoom — it models the user's hand, which does not rescale with the
-camera. `BaseTool`'s drag threshold was `3 / zoom`, which demanded 50 CSS px of
-travel at 6% zoom and fired on 0.19 px of jitter at 1600% (fixed 2026-08-11).
-Use `worldDistanceForCssPixels` only where the result is compared against a
-world-space delta.
-
-Likewise, any overlay that draws over the artwork (SelectionOverlay, guides,
-warp handles) must use the same camera transform as the renderer —
-`screenToWorld` / `worldToScreen`, not the rotation-blind `simpleScreenToWorld`
-/ `simpleWorldToScreen`. Those agree at rotation 0, so a mismatch stays
-invisible until the view is rotated.
-
-### The clean version is not always the fast version (render/replay hot path)
-
-Varve is a design app — frame time beats complexity score. `renderPipeline.ts`'s
-`replaySubtreeToCtx` (moved out of `CanvasArea.tsx` in the 2026-08-10 extraction;
-and any function like it: a big `switch` over node/primitive
-kind, called once per node per frame) is a classic case where the "obvious"
-refactor — replacing the switch with a dispatch table or visitor pattern keyed by
-`node.kind` — can make the hot path **slower**, not faster. A monomorphic
-`switch` on a small closed set of string/enum kinds gets good branch prediction
-and is a strong inlining candidate for the JIT; a table of closures
-(`{ rect: fn, ellipse: fn, ... }[kind]()`) produces a megamorphic call site the
-JIT can't specialize, which can cost more than the readability win is worth in a
-loop that runs per-node-per-frame.
-
-**Rule:** any structural change to `replaySubtreeToCtx`, `replayIr`, or an
-equivalent per-node/per-frame dispatch function must be benchmarked before merge
-(see the performance harness under `docs/quality/` — benchmark at 100 / 1k / 10k
-/ 50k nodes, full-frame and incremental-frame). If a change regresses frame time,
-**the readability improvement does not justify it in this specific function** —
-revert or find a version that's both faster and clearer, don't ship the
-regression on the strength of the diff looking nicer. This applies whether the
-change comes from a manual refactor or an automated one (e.g. Stryker-adjacent
-cleanup tooling, codemods).
-
-## Commands (run from repo root)
-- `pnpm install` — install JS deps
-- `just check-env` — verify toolchain on PATH
-- `pnpm verify:plan` — print the impact-aware validation plan for current changes (dry run; never skips silently — it explains what it selects and why)
-- `pnpm verify:quick` — Tier 0 + Tier 1: format/lint on touched files + directly related tests
-- `pnpm verify:affected` — Tiers 0–4, dependency-aware affected validation. **Default inner loop — use this instead of `pnpm test`.**
-- `pnpm verify:push` — exact outgoing-ref bounded push checkpoint; reports CI deferrals and never invokes the full suite automatically
-- `pnpm workflow:status` / `pnpm workflow:doctor` — inspect synchronization, worktree, hook, and in-progress-operation state without mutating Git
-- `pnpm workflow:history` / `pnpm workflow:report` — inspect or export durable local workflow attempts and sanitized evidence
-- `pnpm verify:full` — exact-SHA hosted full-gate verification (Tier 5), the default release path. Requires `VARVE_FULL_GATE_REASON` or `VARVE_FULL_GATE=1`; absent remote evidence remains incomplete, never a local fallback.
-- `pnpm verify:full --local` — deliberate local full gate; policy-sized browser shards have separate resumable receipts. Use `--local --resume` only at unchanged inputs. Do not duplicate this with a complete hosted gate during routine release work.
-- `just check-plan` / `just check-quick` / `just check-affected` — just wrappers for the verify commands
-- `just gate-full` — human-facing full gate (requires `VARVE_FULL_GATE_REASON`)
-- `just test` — Rust (`cargo test --workspace`) + JS (`pnpm test` = Vitest). **Full-suite operation — not the default inner loop**
-- `just lint` — `cargo clippy -D warnings` + `pnpm lint` (Biome)
-- `just format` — `cargo fmt` + `pnpm format`
-- `pnpm typecheck` — `tsc --noEmit` across packages/* (full workspace — `pnpm verify:affected` runs only the affected closure)
-- `pnpm audit:tokens` — WCAG 2.2 AA token gate (315 pairs across 3 themes) plus
-  `scripts/quality/audit-token-usage.mjs`, which fails on `var()` references to
-  undefined custom properties and on literal fallbacks attached to defined
-  tokens. Override hooks that are undefined by design are listed in that script
-  with a reason.
-- `pnpm audit:emoji` — zero-emoji gate
-- `pnpm audit:imports` — `scripts/quality/audit-committed-imports.mjs` reads
-  the committed tree and fails when a relative import has no committed target.
-  It exists because `packages/scene/src/index.ts` once barrelled
-  `./nodeResize` and `packages/codegen` imported `./bundle-assets` while
-  neither module was tracked: the working tree that produced the commits
-  resolved them, a fresh clone did not, and nothing noticed until typecheck
-  ran. Reading `HEAD` rather than the working tree keeps it from failing on
-  in-flight edits.
-- `pnpm webkit:prepare` — one-time, userland provisioning so Playwright's
-  bundled WebKit can launch on a distribution newer than its build. Playwright's
-  headless WebKit is the WPE build and needs a WPE stack that rolling
-  distributions do not ship; the GTK build is the engine the Tauri app embeds
-  and runs headed. The archive is linked against ICU 74 (symbol-versioned, so a
-  symlink to ICU 78 fails at symbol lookup) and several CMU flite voices, so the
-  script downloads an ICU 74 build into `~/.cache/varve`, builds stand-ins for
-  the unused TTS voices, and links them into the bundle's own `sys/lib`. No root,
-  no package manager.
-- `pnpm e2e:webkit-gtk` — the opt-in WebKit GTK lane (`VARVE_WEBKIT_GTK=1`,
-  headed under `xvfb-run`). Use it for engine-family questions the Chromium lane
-  cannot answer, such as font availability, because WebKitGTK is what the
-  desktop app actually runs.
-- `pnpm audit:docs` — docs drift gate (stale "Strata"/dead-path references in current-state docs, ADR index coverage, broken internal links). Historical docs (dated audits/plans/perf/session history/ADRs/CLA/licensing, and files under `docs/implementation-memory/`) may reference the old name; current-state docs must not.
-- `pnpm --filter @varve/ui tokens:generate` — regenerate `tokens.css` from `color.ts`
-- `just gate` — full Cascade Review gate (format-check + lint + test + audits) — **full-suite operation, kept as the compatibility alias**
-- `pnpm e2e:visual` — visual regression projects only
-- `pnpm e2e:all` — full Playwright suite
-- Environment overrides: `VARVE_TEST_WORKERS` (vitest), `VARVE_E2E_WORKERS` (playwright), `VARVE_HEAVY_TASK_PARALLELISM=0` (opt out of heavy-task lease), `VARVE_E2E_PORT` (isolated dev-server port)
-
-Release lifecycle: `pnpm release:prepare <version>`, `pnpm release:status`,
-`pnpm release:certify`, and `pnpm release:resume`. These helpers never create
-tags, publish releases, change GitHub settings, or deploy production.
-
-### CI/CD Commands
-- `just install-ci-tooling` — install GitHub CLI, act, and Docker for local CI/CD
-- `just install-ci-tooling` (with `bash scripts/install-ci-tooling.sh --check`) — verify act/container-engine parity for local runs
-- `just pin-actions` — check for unpinned GitHub Actions (supply chain security)
-- `just pin-actions-fix` — pin all GitHub Actions to commit SHAs
-- `just validate-workflows` — validate all workflow YAML files
-- `just validate-workflows-staged` — validate only staged workflow files
-- `just act-list` — list available GitHub Actions jobs for local testing (no container engine needed)
-- `just act-dry <workflow>` — dry-run a workflow to check execution plan (no container engine needed)
-- `just act-run <job>` — run a specific GitHub Actions job locally (requires docker/podman running)
-- `just ci-debug <run-id>` — generate the automated failure-debug report for a run
-- `just ci-health` — classify recent run failures (billing-block / never-started / real-failure)
-- `just ci-tools-test` — regression tests for the CI tooling itself
-
-### Remote CI health (billing blocks and runner outages)
-
-GitHub can block job startup for account-level reasons (failed payments,
-spending limits) — every run fails in ~3s with zero steps recorded and
-*"The job was not started because recent account payments have failed..."*.
-This is NOT a code failure; no workflow edit fixes it. Diagnose with
-`just ci-health` (prints `BILLING` per run) and resolve at
-https://github.com/settings/billing. `ci-debug.mjs` classifies such jobs as
-`billing-block` / `never-started` / `real-failure` (see `docs/CI_CD_RESILIENCE.md`).
-
-## Automated UI/canvas testing
-
-**If a bug involves the canvas, pointer/drag interaction, or "something doesn't
-render/respond" — write and run a Playwright E2E test before declaring a fix verified.**
-Vitest/RTL unit tests never dispatch real `PointerEvent`s through the real DOM and
-never hit real browser APIs. A whole class of real bugs — broken CSS layout, overlays
-eating pointer events, browser API throwing — is invisible to unit tests.
-
-### Running E2E tests
-```bash
-npx playwright install chromium
-npx playwright test tests/e2e --project=chromium --reporter=list
-npx playwright test tests/e2e/canvas/tools.spec.ts --project=chromium --reporter=list
-```
-
-### Running E2E under memory pressure — use the lease, not raw `npx playwright`
-
-This is a shared, frequently-oversubscribed machine: other agent sessions,
-other worktrees, and the operator's own browser all compete for RAM at once.
-Running `npx playwright test` directly, unwrapped, has repeatedly hit two
-concrete failure modes here — the kernel OOM-killer taking the Chromium
-process outright (confirmed via `journalctl | grep -i oom`), and a "Page
-crashed" error on the very first `page.goto()` in `global-setup.ts` — both
-observed with the heavy-task lease free, because the pressure came from
-processes (another session's raw Playwright call, a browser with many tabs)
-that never touched the lease at all.
-
-**Always wrap Playwright runs through the lease**, which now also gates on
-actual `MemAvailable` (not just serializing against other lease users):
-
-```bash
-node scripts/quality/heavy-lease.mjs "e2e: <what you're testing>" -- \
-  npx playwright test tests/e2e/inspector/some.spec.ts --project=chromium --workers=1 --reporter=list
-```
-
-If available memory is under the floor (default 1536MB, `VARVE_LEASE_MIN_MEM_MB`
-to change it), the wrapper waits and polls rather than launching straight into
-a likely crash — this is strictly better than eyeballing `free -h` yourself
-before every run. It still respects `VARVE_HEAVY_TASK_PARALLELISM=0` as a full
-opt-out (lease and memory gate both) for a deliberate override.
-
-Prefer `--workers=1` for Playwright regardless — one Chromium instance at a
-time keeps the peak memory footprint predictable and matches how the lease
-serializes everything else. If a run is going to cover many spec files,
-split it into a few smaller lease-wrapped invocations rather than one very
-long one: a mid-run crash on file 3 of 6 then costs re-running only that
-slice, not starting over, and each invocation gets its own fresh memory
-check at start.
-
-Active leases are never reclaimed by age. A large build can legitimately run
-for more than 30 minutes; reclaim only after its recorded owner PID exits. Do
-not delete a live lease to make room for another validation task.
-
-### Standard nav helper for canvas specs
-```ts
-async function navigateToEditor(page: import('@playwright/test').Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
-  await page.getByRole('button', { name: /^new$/i }).click();
-  await page.locator('dialog').getByRole('button', { name: /create/i }).waitFor({ timeout: 5000 });
-  await page.locator('dialog').getByRole('button', { name: /create/i }).click();
-  await page.locator('.layers-panel').waitFor({ timeout: 10000 });
-  const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
-  if (await welcomeClose.first().isVisible({ timeout: 1000 }).catch(() => false)) {
-    await welcomeClose.first().click();
-  }
-}
-```
-
-### Debugging recipe: collapsed or zero-size elements
-Use `page.evaluate()` to pull real computed layout:
-```ts
-const info = await page.evaluate(() => {
-  const el = document.querySelector('.some-element') as HTMLElement;
-  const cs = getComputedStyle(el);
-  return {
-    rect: el.getBoundingClientRect().toJSON(),
-    display: cs.display, height: cs.height, contain: cs.contain,
-    parentClass: el.parentElement?.className,
-  };
-});
-```
-
-**Known trap — `<ErrorBoundary>` breaks CSS Grid/Flex placement.** Wrapping
-something in `<ErrorBoundary>` that relies on being a direct grid/flex item
-(such as `.editor-canvas`) collapses it to 0 height. Fixed by `display: contents`
-on the ErrorBoundary wrapper.
-
-### For future sessions
-If the user reports "X doesn't work when I click/drag/interact," and X touches
-CanvasArea, pointer events, or CSS layout:
-1. Write a Playwright spec that drives the actual interaction
-2. Run it. If it fails, use `page.evaluate()` to find the real DOM/CSS state
-3. Only report a fix as done once the E2E test passes
-
-## Ephemeral tree recovery
-
-Recover with:
-
-```bash
-git checkout master
-git log --oneline -3
-```
-
-| Artifact | Location |
-|---|---|
-| Working branch | `master` |
-| Canvas responsiveness work | `perf/canvas-responsiveness` (6 commits ahead of master, merged 2026-07-27) |
-| Deferred plan | `docs/plans/layers-panel-deferred.md` |
-| Export deferred | `docs/plans/archived/export-system-deferred.md` |
-| Home/Workspace System | `docs/plans/archived/projects-home-workspace-completed.md` |
-| Packaging (0.11) | `docs/plans/archived/session-04-packaging.md` (historical; current release pipeline lives in `docs/release/` and `scripts/release/`) |
-| Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit-2026-07-08.md` |
-| Marketing Website | `apps/website/` - Astro 7 static site, 116 routes at the 2026-10-02 build, GitHub Pages deploy. See `docs/release/website.md` |
-| CI/CD pipeline memory (local, gitignored) | `GITHUB_PIPELINE_MEMORY.md` — session-survivable tracker for billing blocks, run classifications, and tooling state |
-
-## Application Icon (cross-platform)
-
-| Asset | Source | Generator | Location |
-|---|---|---|---|
-| Master art (1024x1024) | `packages/ui/src/icons/varve-app-icon.svg` | — | `apps/desktop/build-icons.sh` (source) |
-| Mark-only (no background) | `packages/ui/src/icons/varve-icon.svg` | — | `apps/desktop/public/icons/favicon.svg` |
-| Tauri PNGs + .icns + .ico | `varve-app-icon.svg` | `just generate-icons` | `apps/desktop/src-tauri/icons/` |
-| Linux hicolor ladder (11 sizes) | `varve-app-icon.svg` | `just generate-icons` | `apps/desktop/src-tauri/icons/hicolor/` (as `dev.varve.desktop.*`) |
-| Web/PWA favicons | `varve-icon.svg` + `varve-app-icon.svg` | `just generate-icons` | `apps/desktop/public/icons/` |
-
-### Wayland icon fix
-On Wayland, `tauri dev` does not install desktop entries — the compositor
-shows a generic fallback icon. The `pretauri:dev` hook runs
-`apps/desktop/scripts/install-dev-icons.sh` automatically on Linux:
-```bash
-just install-dev-icons
-```
-
-## Architecture decisions
-- **ADR-0001** — native engine renders by IR-replay (not pixel-push). Rust computes
-  scene, emits compact IR (~42 KB/frame for 600 shapes); webview replays to canvas2D.
-- **ADR-0002** — teal accent, 12-step neutral+teal ramps, Light/Dark/High-Contrast themes.
-- **ADR-0003** — Canvas2D default, WebGPU opt-in with fallback.
-- **ADR-0004** — varve-bridge + varve-wasm for shared IPC/WASM IR.
-- **ADR-0005** — Offline-first ONNX: bundled models manifest, remote download explicit only.
-- **ADR-0237** — Native `wgpu` compute (effects/resampling) with truthful accelerator capability stages (discovered → runtime-loadable → device-usable → execution-verified); inference stays CPU until a provider artifact ships; no NPU claims.
-
-## WebGPU + WASM program
-
-| Area | Location |
-|---|---|
-| Baseline bench + goldens | `packages/engine/src/bench/`, `packages/engine/src/__goldens__/` |
-| Compositor | `packages/compositor/` — Canvas2D default; opt-in experimental WebGPU and WebGL2 paths with Canvas2D fallback |
-| Render worker | `packages/editor/src/render/` — OffscreenCanvas |
-| WASM build | `just wasm-build` → baseline + preferred SIMD artifacts in `apps/desktop/public/wasm/` |
-| Architecture docs | `docs/architecture/render-pipeline.md`, `docs/architecture/wasm-backends.md` |
-
-## Canvas System
-
-| Area | Location |
-|---|---|
-| Camera + floating origin | `packages/shared/src/viewport.ts`, `packages/editor/src/canvas/cameraState.ts` |
-| Sticky snap | `packages/editor/src/tools/snapping.ts` |
-| Draw hub | `CanvasArea.tsx` |
-| Minimap | `components/Minimap/` |
-| Collab (stub) | `PresenceIndicator`, `CollabCursorOverlay`, `useCollabPresence` |
-| Perf | `canvas10k.bench.test.ts`, `SubtreeReplayCache` |
-
-## Image Trace System
-
-Native raster-to-vector with honest web fallbacks. Canonical docs:
-`docs/architecture/image-trace-system.md`, ADR-0170.
-
-| Area | Location |
-|---|---|
-| Rust engine | `crates/varve-trace/` (contours, pixel_art, centerline, bezier_fit, quantize, hierarchy) |
-| Native IPC | `trace_image` / `trace_image_binary` / `begin_trace_job` / `cancel_trace` + `trace:progress` (apps/desktop/src-tauri/src/lib.rs) |
-| Provider chain + gating | `packages/engine/src/upscaleProviders/traceDispatch.ts` (native-first under Tauri), `rasterTrace.ts` fallback |
-| Dialog/workflow | `packages/editor/src/components/Vectorize/` (presets, preview, complexity estimate, Edit Trace) |
-| Insert/re-trace ops | `packages/editor/src/imageOperations.ts` (`insertTraceGroup`, `replaceTraceGroup`) |
-| Provenance | `GroupNode.traceMetadata` (schema 2.16) + `packages/editor/src/logo/vectorization/metadata.ts` |
-| E2E | `tests/e2e/canvas/image-trace.spec.ts` |
-
-Key rules:
-1. Desktop traces MUST prefer the native provider (chain is native-first under
-   Tauri); never reorder it behind the TS fallbacks.
-2. The wire options contract is camelCase (`rename_all = "camelCase"` in
-   `TraceImageOptions`); snake_case keys are silently dropped.
-3. Centerline is native-only: TS providers declare it unavailable instead of
-   emitting filled silhouettes.
-4. Traces are bounded: 128 MB bytes, 64 MPixels, 100 k paths; decode is
-   dimension-pre-checked (bomb guard).
-5. Trace insertion is one undo entry; re-traces replace the old group in
-   place; metadata stores no raster bytes.
-
-## Motion System
-
-Complete timeline-based animation workspace. Canonical doc: `docs/architecture/motion-system.md`.
-
-| Phase | What | Key files |
-|---|---|---|
-| **P0** | MotionFacade playback, TimelinePanel, prototype renderer | `motion/MotionFacade.ts`, `interactions.ts` |
-| **P2** | SM bridge, variable bridge, InteractionSection, Smart Animate | `stateMachineBridge.ts`, `smartAnimate.ts` |
-| **P3** | Oklab colors, path morph, composite ops, markers, presets | `interpolation.ts`, `TimelineSampler.ts`, `motion.ts` |
-| **P4** | Export CSS/Lottie, videoExport stub, sampler cache | `ExportDialog.tsx`, `videoExport.ts` |
-| **P5** | Extension types only (skeleton/IK/audio deferred) | `motion-types.ts` |
-
-## Workspace Mode System
-
-Six task-focused modes over the same document/scene/rendering/command/history
-systems. Canonical contract, configuration resolution, persistence, and known
-gaps: `docs/architecture/workspace-system.md`.
-
-| Mode | Shortcut | Default Tool | Focus |
-|---|---|---|---|
-| **Design** | `Ctrl+Shift+1` | select | UI/UX, components, prototyping |
-| **Print** | `Ctrl+Shift+2` | select | Multi-page, typography, preflight, colour management |
-| **Draw** | `Ctrl+Shift+3` | paint | Raster painting, vector freehand, brushes |
-| **Photo** | `Ctrl+Shift+4` | select | Nondestructive photo editing, adjustments |
-| **Motion** | `Ctrl+Shift+5` | select | Timeline animation, keyframes, easing |
-| **Email** | `Ctrl+Shift+6` | select | Email template design, semantics, preview, export |
-
-Logo is a Design workflow (`Ctrl+Shift+7` opens Design and shows Logo Tools).
-Code export is shared across modes (`Ctrl+Shift+8` shows the Code panel in the
-current workspace, and `Ctrl+Shift+J` toggles that same panel); neither is a
-workspace tab.
-On macOS, use Command+Shift with the same numbers; Command+Shift+J toggles
-the shared Code panel.
-
-Logo workflow docs: `docs/architecture/logo-system.md`,
-`docs/plans/archived/logo-system-progress.md`. New commands must register in
-`ShortcutManager` + `createActionHandlers` + both menus; project state
-lives in `Document.logoProject` (scene `logo/logoProject.ts`).
-
-The bindings above come from the shortcut registry (`workspaceDesign` … in
-`packages/editor/src/shortcuts/ShortcutManager.ts`). Older docs may show
-`Ctrl+Shift+D/P/R/I/M` — those keys are now taken by Repeat Duplicate,
-Present, Invert Selection, and Preview Mode, and do **not** switch
-workspaces. Always resolve workspace shortcuts for display via
-`workspaceShortcutLabel(mode)` (see `packages/editor/src/workspace/workspaceShortcutLabel.ts`),
-never hard-code them.
-
-### Invariants (do not violate)
-1. Single document model — mode never forks the scene.
-2. State preservation — switching modes preserves document, selection, viewport, undo history.
-3. No remounting — mode switching patches `EditorState` only.
-4. Safe interaction resolution — in-progress interactions committed before switch.
-5. All tools accessible via keyboard shortcuts or command palette.
-6. Shared commands — selection, transform, colour, layers, undo/redo, copy/paste identical.
-7. One resolver — every consumer reads `getEffectiveWorkspaceConfig(mode)` (or
-   the `useEffectiveWorkspaceConfig` hook), never `WORKSPACE_CONFIGS[mode]`
-   directly. The raw map has no entry for an unknown mode; the resolver falls
-   back to Design and merges the user's per-workspace overrides.
-8. One switch path — `requestWorkspaceSwitch` on the editor context. It owns
-   re-entrancy guarding, interaction resolution, and the announcement. Do not
-   add a second entry point that patches workspace state directly.
-9. No decorative config — every `WorkspaceConfig` field must have a runtime
-   consumer. Key bindings and renderer policy are deliberately *not* workspace
-   configuration; see the doc above for why.
-
-## Text Pipeline
-
-Multilingual text rendering, shaping, BiDi layout, and export. M1–M8 complete.
-See `docs/architecture/text-pipeline.md`.
-
-## Disclosure / Accordion System
-
-Canonical contract: `docs/architecture/disclosure-system.md`. Review evidence:
-`docs/audits/disclosure-review-2026-09-15.md`.
-
-Shared primitives for collapsible sections:
-`packages/ui/src/components/Disclosure.tsx`, `Accordion.tsx`.
-
-| Component | Purpose | Key Features |
-|---|---|---|
-| `Disclosure` | Standalone show/hide | Controlled/uncontrolled, compact/standard variants, keepMounted |
-| `DisclosureTrigger` | Toggle button | Chevron indicator (right collapsed → down open), leading icon, custom indicator support |
-| `DisclosureContent` | Collapsible panel | Mount/unmount or hidden state, `section` element for a11y |
-| `Accordion` | Coordinated group | Single/multiple modes, collapsible single-selection, value-based state |
-| `AccordionItem` | Individual section | Wraps trigger + content, disabled state |
-| `AccordionTrigger` | Group toggle | Same API as DisclosureTrigger, wired to Accordion state |
-| `AccordionContent` | Group panel | Same API as DisclosureContent, wired to Accordion state |
-| `useDisclosureFocusRestore` | Focus handoff | Returns focus to the trigger when a close strands it; never steals focus |
-
-**Hosts:**
-- `DisclosureSection` (`Inspector/controls/DisclosureSection.tsx`) — Inspector
-  sections. **Registry mode** (`sectionId`): state in
-  `EditorState.sectionVisibility`, persisted in `varve-editor-settings`,
-  hide/reorder via the section manager. **Legacy mode** (no `sectionId`):
-  shared `Disclosure` + sessionStorage, migrated once into the registry.
-  New sections must use `sectionId`.
-- `SectionCollapseToggle` (`components/SectionCollapseToggle.tsx`) — left
-  sidebar section headers; collapse state persists via
-  `usePersistedDisclosure` (localStorage).
-- Website FAQ/compare/changelog, the demo banner, and most editor detail
-  panes use **native `<details>/<summary>`** with an `h3` per question and a
-  print reveal — deliberately, not as an unmigrated state.
-
-**Consumer surfaces:** NewDesignDialog advanced settings, PreflightFindingsPanel
-findings list, GradientEditor options, ImportResults details, MinimapPanel,
-SidebarNav Projects section, DisclosureSection legacy mode, and the four
-sidebar sections listed above. (`FormatMigration.tsx` in `@varve/home` was
-deleted — it had no importer and duplicated the editor's import report.)
-
-**Contract highlights:** Enter/Space are never re-implemented (native buttons);
-`aria-controls` only references panels that exist; collapsed content leaves the
-accessibility tree; toggling must not scroll the page; Space must not be
-captured by editor shortcuts while a Space-activatable control has focus
-(`isNativeActivationKeyTarget`).
-
-## Layout — what each package/crate now contains
-
-### crates/ (Rust)
-| Crate | Status | Contents |
-|---|---|---|
-| `varve-core` | **Built** | Geometry primitives, `Shape` enum, `SceneNode`, `hit_test()` |
-| `varve-engine` | **Built** | `build_render_ir()` — scene → `Vec<RenderItem>` |
-| `varve-layout` | Implemented, unwired | Taffy-backed flex/grid/container-query layout with unit tests; no crate depends on it yet — the wired implementation is `@varve/layout` (TS) |
-| `varve-sync` | **Built** | SQLite DocumentStore + Tauri IPC |
-| `varve-trace` | **Built** | Raster-to-vector tracing: silhouette/centerline/pixel-art modes, Oklab quantization, Bézier fitting, hole pairing, cancellation (`docs/architecture/image-trace-system.md`) |
-| `varve-print` | **Built** | lopdf-based PDF export, CMYK/PDF-X, font outlining, ICC profiles, print backends |
-| `varve-upscale` | **Built** | Native image upscaling — bicubic CPU + optional ONNX super-resolution |
-| `varve-bgremove` | **Built** | Background removal: heuristic non-AI methods + optional ONNX matting |
-| `varve-media` | **Built** | Animated-image frame decoding (GIF/APNG/WebP) under allocation bounds; consumed by the desktop app and `varve-wasm` (`docs/architecture/animated-image-media-system.md`) |
-| `varve-effects` | **Built** | Native live-effects kernels — deterministic RGBA ports of `packages/engine/src/liveEffects/`; consumed by the desktop `apply_effect` IPC and `varve-wasm` |
-| `varve-colour` | **Built** | Colour science: ICC transforms (tintbox), analytical conversion, WASM bindings |
-| `varve-bridge` | **Built** | TS wire-format → `varve-core` `SceneNode` conversion (Tauri IPC + WASM) |
-| `varve-accel` | **Built** | Native acceleration: capability model, `wgpu` device discovery + bounded self-test, offscreen GPU effect/resample kernels (ADR-0237) |
-| `varve-wasm` | **Built** | wasm-bindgen glue for `varve-engine` (web IR build + hit test) |
-
-### packages/ (TypeScript)
-| Package | Status | Contents |
-|---|---|---|
-| `@varve/engine` | **Built** | Engine facade (stub/native/wasm), IR types, `replayIr`, geometry helpers |
-| `@varve/scene` | **Built** | Immutable Document model, nodes, ops, master pages, spreads |
-| `@varve/ui` | **Built** | Design tokens, icons (Lucide/Phosphor), APG components |
-| `@varve/editor` | **Built** | Shell (CSS Grid), EditorProvider, CanvasArea, LayersPanel, InspectorPanel, shortcuts |
-| `@varve/codegen` | **Built** | SVG, React, Flutter, SwiftUI code export |
-| `@varve/prototype` | **Built** | Prototype engine: triggers, actions, animation, transitions, navigation |
-| `@varve/shared` | **Built** | Ordering, debounce, easing, units |
-| `@varve/import` | **Built** | SVG/Figma REST JSON/PDF/PSD/AI/EPS/Sketch import parsers |
-| `@varve/platform` | **Built** | Platform abstraction (Tauri/web/memory) |
-| `@varve/ai` | **Built** | Auto-trace controller and assist orchestrator (on-device + cloud) |
-| `@varve/collab` | **Built** | CRDT awareness and reconnect over the varve-sync SQLite core |
-| `@varve/compositor` | **Built** | Pluggable render compositor: Canvas2D default; opt-in experimental WebGPU and WebGL2 paths with Canvas2D fallback |
-| `@varve/crash` | **Built** | Privacy-first crash reporting and recovery core |
-| `@varve/help` | **Built** | Help system documentation and browser |
-| `@varve/home` | **Built** | Home/Start surface: recent files, projects, templates, file management |
-| `@varve/layout` | **Built** | CSS-native flex/grid layout IR: `computeFlexLayout`, `computeGridLayout`, `reflowLayoutChildren`, `resizeNodeGeometry`, `checkLayoutCycle` (pure, DOM-free; mirroring the `varve-layout` crate) |
-| `@varve/print` | **Built** | TS facade for the `varve-print` crate: font outlining, CMYK, PDF/X |
-| `@varve/tokens` | **Built** | DTCG design-token engine: parsing, validation, serialization, semantic diff, merge |
-| `@varve/history` | **Built** | Persistent revision history: operation log, revision DAG, snapshots, recovery |
-| `@varve/cli` | **Built** | Headless tooling: canonicalize, validate, semantic diff, merge driver, review bundles |
-
-### apps/
-| App | Status | Contents |
-|---|---|---|
-| `apps/desktop` | **Built** | Tauri 2 app with Vite+React frontend; `build:try` produces the public browser demo at `/try/` |
-| `apps/website` | **Built** | Astro 7 static marketing site, GitHub Pages deploy (see `docs/release/website.md`) |
-| `apps/web` | **Scaffold (removed from workspace)** | `@varve/web` — Next.js 15 editor scaffold behind the WASM engine. Removed from `pnpm-workspace.yaml` on 2026-07-12; task 0.9 deferred indefinitely. Only a placeholder `package.json` remains — not a shippable application. |
-
-## Release signing (code-signing pipeline)
-
-Varve's release pipeline verifies signing when configured. Platform signing is
-optional unless `RELEASE_EXPECT_SIGNED=true`; unsigned installers may be
-published when the policy allows them, and the manifest and download page must
-label them truthfully. Canonical docs: `docs/release/README.md` and
-`docs/release/signing-decision-record.md`
-(strategy + current prices), `docs/release/code-signing-setup.md` (human
-acquisition checklist), `docs/release/signing-rotation-runbook.md` and
-`docs/release/signing-incident-runbook.md` (procedures).
-
-Rules that must not be violated:
-- Signedness in `release-manifest.json` derives ONLY from post-build
-  verification reports (`verify-windows-signature.ps1` /
-  `verify-macos-signature.sh`), never from secret presence. `signing-policy.mjs`
-  encodes the fail-closed policy; `verify-release-trust.mjs` enforces it before
-  checksums/attestation/draft.
-- When `RELEASE_EXPECT_SIGNED=true`, missing or invalid Windows Authenticode
-  and macOS Developer ID/notarization/stapling evidence fail in
-  `signing-preflight` BEFORE the platform build starts. With that expectation
-  unset, an unsigned release is permitted only when its artifacts and website
-  labels say they are unsigned. Updater-feed signatures are a separate trust
-  layer and do not mean an installer is platform-signed.
-- Windows signing uses Azure Artifact Signing via Tauri `signCommand`
-  (artifact-signing-cli 0.11.0). The auth chain is a client secret — OIDC is
-  not supported by that tool; do not invent a replacement wrapper without
-  re-checking official docs.
-- macOS uses Developer ID Application (never Apple Development/Distribution);
-  the identity string is matched exactly.
-- Tauri updater keys are separate from all platform-signing material; updater
-  signatures never imply Authenticode or Apple notarization.
-
-## Trust boundaries (do not violate)
-
-Source sharing is not trust sharing. Canonical doc:
-`docs/security/trust-boundaries.md`. Machine-enforced by
-`scripts/security/validate-client-env.mjs` (client builds fail closed on
-private credential classes), `scripts/secret-scan.mjs --dir/--canary` (built
-artifacts are scanned, canary asserts no env leakage), the
-`scripts/security/workflow-policy.mjs` deny-lists (backend/DNS credentials in
-NO workflow; signing secrets only in release.yml gated on signed mode;
-`VARVE_SIGNING_STEP_ALLOWED` only in release.yml), and
-`scripts/security/import-boundaries.mjs` (apps never import each other;
-packages never import apps; the future `apps/api` is unreachable from
-clients). Run them with `pnpm audit:secrets`, `pnpm audit:clientenv`,
-`pnpm audit:artifacts`, `pnpm audit:boundaries`; the regression tests run in
-`pnpm test:ci:tools` and in ci.yml `pipeline-validate`.
-
-Rules that must not be violated:
-- Website and desktop builds consume only the documented client-safe
-  allowlist (see trust-boundaries.md §5); never add a private credential
-  class to a client build's environment.
-- Never reference signing, backend, DNS, or updater-private credentials from
-  any workflow other than the release pipeline paths the policy allowlists.
-- No client app may import another app or the future backend; shared code
-  lives in `packages/` only.
-- GitHub Secrets never enter client artifacts; if a value must reach the
-  artifact, it is public configuration by definition.
-
-## Quality gates — selected by impact and profile
-
-Every task starts with `pnpm verify:plan` and runs the affected checks required
-by that plan. The commit and push checkpoints remain bounded. Browser visual,
-native multi-OS, benchmark, model-quality, packaging, and release checks belong
-to the selected integration/candidate profile; they are not an automatic
-requirement for every localized edit. A full local gate requires an explicit
-`VARVE_FULL_GATE_REASON` and is never a substitute for exact-SHA remote
-certification.
-
-## Multi-agent coordination
-
-| Scenario | Strategy |
-|---|---|
-| Different crates/packages | Safe in parallel |
-| Same package, different files | Safe in parallel if independent |
-| Same file | **Must be sequential** — use `git worktree add` |
-| Hub files intersect | After parallel agents, coordinator runs `pnpm verify:plan` and `pnpm verify:affected`; use an explicitly justified full gate only when the plan escalates |
-
-**Heavy tasks (full vitest, Playwright, cargo workspace, desktop/WASM
-builds) acquire a cross-worktree lease** before starting
-(`scripts/quality/heavy-lease.mjs`) so concurrent agents do not saturate
-the machine. Opt out deliberately with `VARVE_HEAVY_TASK_PARALLELISM=0`.
-
-**Worktree protocol:** `git worktree add .worktrees/<feature> -b <feature>`, work, commit,
-merge sequentially. Verify each merge with `pnpm verify:plan` followed by
-`pnpm verify:affected`; use `pnpm verify:push` for the exact refs leaving the
-machine, and reserve `pnpm verify:full` for explicit escalations.
-
-## Hard rules
-- No emoji anywhere. SVG icons via Lucide `<Icon>` or Phosphor `<SolidIcon>` only.
-- No hardcoded color/space/type values — trace to CSS custom properties.
-- TS strict, no `any` (Biome enforces `noExplicitAny: error`).
-- Rust `unsafe_code = deny` workspace-wide.
-- Cross-platform: if it works on macOS but not Linux, it's not done.
-- **No native `<select>` elements** — use `@varve/ui`'s custom `Select` component.
-- **No raw `varve-btn` markup.** Actions go through `@varve/ui` `Button` /
-  `IconButton` / `ToggleButton`; the variant/size vocabulary is closed
-  (`ButtonVariantParity.test.ts`) and `tests/unit/button-system.test.ts` fails
-  on hand-rolled `varve-btn` markup or undeclared modifiers. Website CTAs use
-  `apps/website/src/components/Button.astro`, never raw anchors with `.btn-*`.
-  Unavailable actions whose blocker is not obvious from the label use
-  `disabledReason`. See `docs/architecture/button-action-system.md`.
-- **No AI tool attribution in commit messages or author metadata.** Do not add
-  `Co-authored-by:` trailers for Claude, Devin, Copilot, Codex, ChatGPT,
-  Gemini, Cursor, Windsurf, or any other AI tool. Do not add "Generated with
-  [Devin]", "Generated by Claude", or similar attribution signatures. All
-  commits are authored by the maintainer. AI tool output is reviewed and
-  committed as the maintainer's work — it is not a separate legal
-  contribution. A commit-msg hook (`.githooks/commit-msg`) enforces this.
-  Do not disable it.
-
-## Session history
-
-Detailed per-session development records have been moved to
-[docs/agents/session-history.md](docs/agents/session-history.md).
-
-For new contributors and maintainers, see:
-- [docs/development/setup.md](docs/development/setup.md) — development setup
-- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution guidelines
-- [README.md](README.md) — project overview and architecture
-- [docs/agents/README.md](docs/agents/README.md) — AI-assisted development practices
-
-## Lifecycle System
-
-Canonical doc: `docs/architecture/lifecycle-system.md`, ADR-0216.
-
-- **One coordinator**: every graceful termination request converges on
-  `TerminationCoordinator` (`packages/editor/src/lifecycle/`). No
-  presentation component, native menu item, shortcut, OS event, or browser
-  lifecycle event may independently decide that user data can be destroyed.
-- **Intents are explicit**: `close-document` / `close-window` /
-  `quit-application` / `reload` / `restart`. Back-to-Home never closes
-  documents (Resume Editing keeps them mounted); quitting inspects ALL
-  sessions, hidden or Home-hidden.
-- **Native interception is authoritative on desktop**: Rust prevents
-  `CloseRequested`/`ExitRequested` (main window only), asks the webview;
-  one-shot per-window tokens in `LifecycleGuard` prevent recursion.
-  Auxiliary windows close freely (ADR-0211 D1). macOS close-window keeps
-  the app running; Linux/Windows last-window close exits.
-- **Do NOT call `getCurrentWindow().close()` from UI code** for
-  user-visible close operations — use `requestCloseWindow()`
-  (`apps/desktop/src/lifecycle/requestCloseWindow.ts`) or the coordinator.
-- **Dirty authority**: `state.sessions[]` per-session `dirty`. The save
-  plan is revision-safe (a stale save never marks newer edits clean) and
-  Save-As cancellation aborts the transaction — never "discard".
-- **Clean marker** (`strata-clean-shutdown`) is written ONLY after
-  finalization; a crash mid-quit stays unclean. Intentional discard deletes
-  the tab's recovery points at commit (`deleteRecoveryForTab`).
-- **Web**: beforeunload warns only when genuinely unsaved; pagehide/
-  visibilitychange flush best-effort; never `await save()` in unload.
-- **New termination entry points must flow through the coordinator**
-  (request → guard → resolve → commit → native/browser terminate).
-
-## Thumbnail System
-
-Canonical doc: `docs/architecture/thumbnail-system.md`, ADR-0218.
-
-One source of truth for every thumbnail/preview surface (Home cards, page
-nav, pages panel, version history, picker). Thumbnails are a **platform
-capability**: an explicit subject + source + revision + render profile +
-privacy policy + deterministic cache identity.
-
-- Contracts (`ThumbnailSourceSpec`, `ThumbnailVariant` + `THUMBNAIL_VARIANTS`,
-  `ThumbnailStatus`, `ThumbnailPolicy`, `computeThumbnailIdentity`,
-  `ENCRYPTED_PROJECT_PLACEHOLDER`) live in `packages/shared/src/thumbnail/`.
-- Source resolution + automatic heuristic live in
-  `packages/scene/src/thumbnail/resolve.ts` (pure, doc-domain).
-- Rendering MUST go through `flattenSceneToEngine` (canonical canvas
-  conversion) + engine `generateThumbnail`; never hand-roll a mini-renderer
-  for covers. Page previews pass `localTransforms: true`.
-- Cache keys are identity strings (`thumb:v2:...`), NEVER bare node/page
-  ids or bare content hashes. Legacy bare-hash entries are disposable
-  warm-migration fallbacks only.
-- Scheduling: `ThumbnailScheduler` (concurrency 1, priority, dedupe by key,
-  cancellation, stale-job guards). Background thumbnail work must never
-  compete with canvas interaction.
-- Persistence: `Platform.setThumbnailPreference` (FileEntry metadata, not
-  document JSON) + `get/put/delete/evictThumbnail` keyed by identity.
-- Generation is editor-owned (save path); Home only loads/displays.
-- Encrypted projects: only the content-free placeholder may be stored;
-  `clearProjectPreviewData` on the save path; Home forces the placeholder
-  for encrypted records.
-- UX entry points: File menu "Set File Thumbnail…", canvas context menu
-  (Use Selection/Frame as File Thumbnail), page context menu (Use Page as
-  File Thumbnail), command palette, `ThumbnailPickerDialog`.
-- Legacy `renderThumbnail` (engine `thumbnail.ts`) is deprecated; do not
-  add callers.
-- Layers 28×28 node previews are a documented simplified node profile (not
-  document covers).
-
-## Toolbar System
-
-Canonical doc: `docs/architecture/toolbar-system.md`. Review evidence:
-`docs/audits/toolbar-review-2026-09-15.md`.
-
-Command surfaces: menubar, context bar (selection-following), floating tool
-palette, text quick bar, selection quick bar, status bar. Each has one job —
-the palette carries tools and tool options, the context bar carries
-selection properties, the Inspector remains the complete editor.
-
-- **Composition** is single-sourced: `WorkspaceConfig.toolbar` →
-  `workspace/toolbarComposition.ts#composeToolbar` → slots. Never hard-code a
-  label, icon, order, or shortcut in the palette; go through
-  `tools/toolRegistry.ts` and `shortcuts/toolShortcutLabel.ts`.
-- **Responsive overflow** follows `workspace/toolbarRetention.ts`: essential
-  recovery tools and the active tool never collapse; everything else yields in
-  ascending retention order (creation > editing > measurement > commands/AI).
-  Collapse is per *slot*, not per declared group, and the More control is
-  trailing + sticky with a hidden-count accessible name. Do not reintroduce
-  group-level pinning: it dragged four measurement tools into the pinned set
-  and pushed Rect/Text/Frame behind three interactions.
-- **Keyboard** is the APG toolbar contract: exactly one tab stop (re-applied on
-  every commit *and* via a subtree MutationObserver — children can arrive after
-  the first commit), arrows + Home/End, focus never stolen, tool buttons expose
-  `aria-keyshortcuts` from the effective binding.
-- **Capability gating**: touch-only affordances render only when the device
-  reports touch input and carry a visible label (no hover on touch).
-
-## Popover System
-
-Canonical doc: `docs/architecture/popover-system.md`. Review evidence:
-`docs/audits/popover-review-2026-09-15.md`.
-
-A popover is a transient, anchored, non-modal rich surface — not a menu, a
-select, or a dialog. Shared primitive: `@varve/ui` `Popover` (native Popover
-API + Floating UI) on top of `FloatingPortal`/`OverlayRegistry`.
-
-- **Escape always closes an open popover**, including when focus is still on
-  the trigger; the overlay registry owns this because native `popover=auto`
-  only handles Escape with focus inside the panel.
-- **Pointer opens never move focus; keyboard opens move it into the panel**
-  (first control, or the listbox option). Never make an implicit open (a tool
-  change, a background update) steal focus from the canvas.
-- **Tab past the last control closes and continues around the trigger.**
-  `FloatingPortal` offers `initialFocus` and `yieldTabToAnchor`; do not
-  reimplement them per consumer.
-- **Respect the trigger's declared `aria-haspopup`** (a listbox trigger must
-  not announce dialog) and drive listboxes with arrows, Home/End, type-ahead,
-  and a roving tabIndex.
-- A control inside a not-yet-visible floating layer cannot take focus: focus
-  handoffs must verify the focused element, not just that a control exists.
-- Nested rich surfaces inside a native popover must be registered
-  `FloatingPortal` descendants; a raw portal child can be light-dismissed by
-  the browser as "outside".
-
-## Slider System
-
-Canonical doc: `docs/architecture/slider-system.md`. Audit + research:
-`docs/audits/slider-canonicalization-2026-09-19.md`.
-
-- **One primitive, one skin**: every `<input type="range">` uses
-  `.varve-native-range` (`packages/ui/src/components/components.css`). No other
-  stylesheet may declare range pseudo-element styling (only
-  `radius-system.css` may set `border-radius`). Enforced by
-  `tests/unit/slider-system.test.ts`.
-- **Two compositions**: `RangeValueControl` (editor inspector: range +
-  `NumberField`) and `Slider` (`@varve/ui`: legend, value or inline number,
-  optional reset). `rangeClassName` is a layout modifier only — the canonical
-  skin is applied by the component.
-- **The browser owns the interaction**: arrows, Home/End, PageUp/PageDown,
-  click-to-set (WCAG 2.5.7), touch, and AT exposure come from the native
-  range. Do not add a `div[role="slider"]`; `ColorSlider` is the one
-  documented exception (gradient track, full key set implemented).
-- **Precision has a path**: a slider whose exact value matters is paired with
-  a numeric field that edits the same value.
-- **`aria-valuetext`** whenever `unit`/`displayScale` makes the raw number
-  misleading ("65%" not "0.65").
-- **Forced colors**: the skin switches to system colors under
-  `forced-colors: active`; do not remove that block.
-
-## Masking System
-
-Canonical doc: `docs/architecture/masking-system.md` — model, invariants,
-compositing order, renderer parity, export semantics, effect targeting.
-
-- Clipping relationship = a `GroupNode`/`FrameNode` whose `mask.type === 'clip'`
-  points at one of its own children; every other child is clipped content.
-- Invariants: source must be a direct child (frames/groups); masks are
-  released when the matte leaves the container (`reparentNode`); mask/scope
-  graphs are acyclic (`addMask` + `setMaskSourceNode` both run
-  `detectMaskCycles`); adjustment nodes can never be mask sources.
-- Copy/paste remaps mask sources and scope targets through the clone idMap;
-  cross-document paste drops foreign references (`dropForeignReferences`)
-  instead of leaking source-document ids.
-- Adjustment spatial masks (clip/alpha/luminance on the adjustment node)
-  compose with `scope`: scope = input set, mask = output region.
-- Clip masks with invert/feather/density render through the alpha path;
-  plain hard clips use `ctx.clip()`. Mask surfaces come from a bounded pool
-  (`acquireMaskSurface`/`releaseMaskSurface`).
-- E2E corpus: `tests/e2e/canvas/clipping-masks.spec.ts` (screenshots to
-  `reports/masking-review/`).
-
-## Comic Lettering System
-
-Canonical doc: `docs/architecture/comic-workflow.md`. Admission matrix and
-slice ledger: `docs/plans/comic-lettering-system.md`. Research and competitor
-failures: `docs/research/comic-lettering-research-2026-09-19.md`. Evidence:
-`docs/audits/comic-lettering-capability-audit-2026-09-19.md`.
-
-- **Dialogue stays editable text.** A balloon is a group recipe over ordinary
-  nodes (`GroupNode.callout`); there is no BalloonNode, no copied text, and no
-  comic-specific renderer.
-- **One contour derivation.** `ellipseLineWidthProfile` in
-  `packages/shared/src/balloonTextLayout.ts` turns a box width and a **line
-  count** into per-line widths. Both `resolveTextGeometry` and the engine
-  `layoutText` iterate it to a stable count; parity is enforced by
-  `packages/engine/src/balloonWrapParity.test.ts`. Do not add a third wrapper
-  or derive the profile from the container height.
-- **Fit never shrinks type.** Overflow is a derived status, not a clip;
-  `fitCalloutToText` is a bounded fixpoint with a union pass.
-- **Tails are logical groups of ordinary nodes** (pointed path or thought
-  circle chain); the authored tip survives body fits, and curve/width/flip/
-  remove never change body or text identities.
-- **Guards**: `pnpm bench:lettering` for the derivation;
-  `tests/e2e/canvas/comic-lettering.spec.ts` (heavy-lease wrapped) for the real
-  workflow, capturing to `docs/screenshots/comic-lettering/`.
-- **Known defect**: the live canvas renders shape corner radii square although
-  the IR carries `cornerRadius` and `replayIr` calls `roundRect`. Do not
-  "fix" it by removing radius from balloon recipes; fix the editor frame path.
-
-## Presentation system
-
-Canonical doc: `docs/architecture/presentation-system.md`. ADR-0240.
-Research ledger: `docs/research/presentation-workflow-2026-09-29.md` (plus the
-follow-up ledger of the same date). Defect matrix:
-`docs/audits/presentation-workflow-defects-2026-09-29.md`.
-
-Presentations are **ordered views over ordinary editable frames**. There is no
-second scene graph, renderer, or history stack: slides reference existing
-`FrameNode`s, and deck membership never changes frame ownership, page
-placement, paint order, or canvas coordinates.
-
-- `Document.presentation` is optional, versioned (schema 1, additive 2.30→2.31
-  migration), and holds decks, reusable layout sources, and themes.
-- **Slide sequence is the array order — nothing else.** Never derive order from
-  z-order, canvas position, viewport, or incidental traversal.
-- `resolvePresentationSlides(document, deckId)` is the single inclusion and
-  ordering contract for the navigator, preflight, audience preview, and
-  export. It reports skipped, hidden, broken, and shared references.
-- Removing a slide reference never deletes artwork; deleting artwork leaves the
-  entry recoverable with its title and notes.
-- Thumbnails, audience preview, and export share **one** frame-local capture
-  (`capturePresentationFrame`). Do not add a second renderer for presentation.
-- One `present` decision point (`presentationMode.ts`): a deck document presents
-  the deck, a document without one still presents the prototype. Deck commands
-  are registered in the ActionRegistry so the palette and menubar agree.
-- Audience preview is a modal, keyboard-owned surface: Space/Enter advance,
-  arrows move, Home/End jump, Escape exits, and **each end stops with an
-  announced boundary** instead of wrapping. Focus returns to the opener.
-- **Slide-size conversion** (`presentation.deck.resize`) is previewed and lands
-  in one undo step. Fit and Fill keep proportions; Stretch is the only mode that
-  changes them and it must be chosen explicitly. It scales content through each
-  frame's direct children in their own local space, so descendants, text, and
-  vector geometry follow; canvas positions never change.
-- **Colour themes** point roles at real document colour variables and bind slide
-  objects to them, so editing a variable in the Variables panel recolours every
-  bound slide. Deliberately recoloured objects are skipped on later applies.
-  Detach bakes the visible colour and drops the binding. `PresentationSlideThemeBinding`
-  persists the role mapping. Typography theming (`theme.textStyles`) is not
-  applied yet.
-
-Invariants:
-1. Presentation features must not force every frame into a deck, convert the
-   infinite canvas into one slide, or flatten existing artwork.
-2. Slides, previews, and navigation never mutate the document or create history
-   steps; only `presentation.*` operations do, inside the existing transaction.
-3. Stating that a layout was detached means the appearance is preserved — true
-   here because layout application materializes values and keeps no live link.
-4. Raster PDF/PNG output is disclosed as appearance-only: not editable, not
-   searchable, not tagged. Do not claim accessibility that the inspected file
-   does not have.
-5. PPTX interoperability stays deferred until its own feasibility and fidelity
-   assessment.
-
-Open work: formatting (non-geometry) inheritance and reset, cross-document
-layout/theme clipboard mapping, image/mask/effect export fidelity cases, a
-separate OS presenter window, and vector slide PDF via `varve-print`.
-Typography theming exists as an explicit `applyFonts` opt-in over built-in
-theme presets. Authored slide transitions and builds (presentation metadata
-schema 2) play in delivery through a deterministic show director
-(`packages/editor/src/components/Presentation/show/`); morph matches only
-unique same-kind names and fades unmatched objects in place. Handout export
-imposes raster slides via `packages/scene/src/presentation/handouts.ts`.
-PPTX: the blanket deferral is replaced by the phased assessment in
-`docs/research/pptx-fidelity-assessment-2026-10-16.md`; Varve still does not
-read or write `.pptx`, and must not claim to until those phases verify.
-
-## Collaboration System
-
-Canonical docs: `docs/architecture/collaboration-system.md`, ADR-0243.
-Behavioral decisions: ADR-0200 (D1–D5 stand); undo semantics: ADR-0019
-hybrid (Model B compensating reverts for shared sessions).
-
-- **Authoritative semantic-operation rooms** — the room host owns the order;
-  the sync unit is the validated `document.transaction-capture` payload.
-  Clients validate on receive and resynchronize on failure. No CRDT
-  (rationale and rejected alternatives in ADR-0243).
-- **One host implementation, two shapes**: `crates/varve-room` serves the
-  `varve-room-server` binary (self-hosted; loopback by default, `--expose`
-  requires an explicit admin token) and the embedded app-hosted host
-  (`collab_host_*` Tauri commands, loopback only).
-- **Shared-session undo is compensating**: the provider intercepts
-  undo/redo via the ActionRegistry while a session is active; compensations
-  broadcast with `revertsClientOpId` provenance. Never restore snapshots in
-  a shared session.
-- **Remote edits are not local history**: they apply through
-  `applyCollabTransaction` (no undo step, no persistent revision); the skip
-  flag prevents re-broadcast loops.
-- **Presence never mutates the document**: cursors/selections/viewports
-  (spotlight)/chat are ephemeral, TTL-filtered, protocol-rate-limited.
-  Spotlight follow is opt-in and cancelled by local camera interaction.
-- **Protocol conformance fixtures** are shared with the Rust host
-  (`packages/collab/src/__fixtures__/protocol-v1.json`); change both sides
-  plus fixtures together.
-- Security invariants: invite tokens only in URL fragments, SHA-256-hashed
-  at rest, constant-time verification; viewer mutations rejected at the
-  host; revocation closes live sockets; frame ceilings and rate limits
-  before parsing; no E2EE claims.
-- E2E journey: `tests/e2e/collab/realtime-collaboration.spec.ts` (two
-  browser contexts against a real `varve-room-server`).
+Gate scripts self-queue machine-wide and reuse a passed receipt on a clean
+tree; receipts are local cache, never CI evidence. See
+`docs/quality/local-validation-queue.md`. `CI`,
+`VARVE_VALIDATION_QUEUE=0`, and `VARVE_HEAVY_TASK_PARALLELISM=0` bypass.
+
+Parallel work: one task per worktree (never two writers in one worktree), `pnpm
+worktree:status` before starting, single-writer generated surfaces, and merge
+after `pnpm verify:plan` + `pnpm verify:affected`. Full contract:
+`docs/quality/concurrent-agents.md`; reclaim merged worktrees with
+`pnpm worktree:prune` then `--apply`.
+
+Never run by default: `pnpm build`, full `cargo build`, `cargo test --workspace`,
+`pnpm test`, full Playwright, `just gate`. Escalate by impact: `pnpm verify:plan`
+then `pnpm verify:affected` — affected-first validation (Tiers 0-4). `pnpm check:rust:workspace` only when
+the Tauri-crate check is insufficient. A full gate needs a stated reason:
+`VARVE_FULL_GATE_REASON=... pnpm verify:full`. Playwright runs are heavy-lease
+wrapped:
+`node scripts/quality/heavy-lease.mjs "e2e: <what>" -- npx playwright test <spec> --project=chromium --workers=1 --reporter=list`.
+
+## Hard architectural rules
+
+- No circular `workspace:*` dependencies.
+- Hub files: no new import in `CanvasArea.tsx`/`Shell.tsx` without removing one of
+  equal weight; new hubs target instability I < 0.85.
+- 400-line source budget: over-cap files are frozen at baseline (shrink-only) via
+  `pnpm audit:filesize` + `.file-size-baseline.json`; split at 350-400 lines.
+  Policy: `docs/quality/file-size-policy.md`.
+- Complexity ceilings: component 200, function 50, tool handler 30, test body 15;
+  extract at 70%. Over-ceiling files need a first-line `// COMPLEXITY:` comment.
+- Hooks: same order every render; sub-contexts report via `onReady`; extracted
+  hooks go in `context/useX.ts` before the `value` memo.
+- Never show pixels no fresh frame will replace; worker refusals must be
+  synchronous. Screen-space thresholds stay in CSS pixels; overlays use
+  `screenToWorld`/`worldToScreen`. Benchmark per-node render/replay dispatch
+  changes before merge.
+- IPC seam: every `invoke` names a real `#[tauri::command]` (`pnpm audit:ipc`);
+  Rust<->TS payloads and LLM-tool seams use one strict shared schema. Rules and
+  the tauri-specta plan: `docs/architecture/ipc-type-contract.md`.
+- Trust boundaries: no private credential classes in client builds; no app-to-app
+  imports; secrets never enter client artifacts.
+- No emoji; no hardcoded color/space/type values; TS strict, no `any`; Rust
+  `unsafe_code = deny`; cross-platform (works on Linux); no native `<select>`;
+  no raw `varve-btn`; no AI-tool attribution in commits.
+
+## Agent task discipline
+
+- **3-File / 1-Seam**: one task touches at most three files plus one cross-cutting
+  seam; split bigger work into separate tasks.
+- Name exact paths in the first prompt (`@path/to/file.ts:120-180`), not
+  directories. Read files in line ranges, never a whole file over 500 lines.
+- Never read lockfiles, build output (`target/`, `dist/`,
+  `apps/desktop/dist-try/`, `apps/desktop/public/wasm/`), generated bundles,
+  `node_modules/`, `vendor/`, or stale `.worktrees/` checkouts.
+- Root `.ignore`/`.dshignore`/`.opencodeignore` exclude those trees from search;
+  ripgrep honors `.ignore`, but this DSH build's `glob` tool does not apply
+  ignore files — do not glob them either.
+- Fresh session after each completed task; keep sessions under ~120K tokens.
+  Run checks silently, report only failures.
+- Do not modify: `vendor/**`, the generated data tables listed in
+  `docs/quality/file-size-policy.md`, lockfiles, `docs` screenshots/artifacts,
+  `.worktrees/**`, or another session's uncommitted files. Repository map:
+  `docs/agents/repo-map.generated.md`; reusable playbooks: `.ai/skills/README.md`.
+- Never revert others' uncommitted work; never commit unless asked. Keep
+  `docs/README.md` in sync when a doc is added or removed (`pnpm audit:docs`
+  enforces the ADR index and internal links).
+
+## Read next (progressive disclosure)
+
+| File | Load it for |
+|------|-------------|
+| `docs/agents/validation-and-workflow.md` | validation economy, regression protocol, all commands, CI, Playwright lease, recovery |
+| `docs/agents/architecture-invariants.md` | architecture constraints, hard rules, trust boundaries, lifecycle, ADRs |
+| `docs/agents/systems-render-and-platform.md` | WebGPU/WASM, canvas, crate/package map, trace, text, thumbnails, icons, signing |
+| `docs/agents/systems-editing-and-ui.md` | motion, workspaces, disclosure, toolbar, popover, slider, masking, comic, presentation, collab |
+| `docs/agents/agent-context-economy.md` | the five context defects, session hygiene, file-size/ignore/IPC policy |
+| `docs/agents/repo-map.generated.md` | compact structure-only map (packages, crates, baseline, entry points) |
+| `.ai/skills/README.md` | reusable task playbooks (add IPC command, split file, run validation, review a11y, canvas bug, concurrent worktrees, design visuals) |
+| `.ai/roles/README.md` | task personas for render-pipeline, Rust IPC, and editor-UI work |
+| `.ai/constitution.json` | machine-validated rule registry: every hard rule maps to real enforcement |
+| `docs/quality/concurrent-agents.md` | worktree isolation, single-writer surfaces, staged validators, merge protocol, prune tooling |
+| `docs/quality/visual-validation.md` | visual baseline policy: design change vs regression, budgets, `visual:update`, audit, concurrency |
+| `docs/agents/session-history.md` | dated per-session development records |
+| `docs/README.md` | complete documentation index |
+| `docs/quality/local-validation-queue.md` | machine-wide validation admission, queued gates, receipt reuse |
+| `docs/quality/file-size-policy.md` | 400-line budget, baseline lifecycle, split guidance |
+| `docs/architecture/ipc-type-contract.md` | IPC seam inventory, payload rules, tauri-specta plan |
+| `docs/quality/agent-context-remediation-2026-10-28.md` | five-defect status matrix and god-file split backlog |

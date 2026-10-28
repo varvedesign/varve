@@ -123,6 +123,8 @@ export function selectCommitCommands(stagedFiles) {
       '--no-errors-on-unmatched',
     ]),
     command('audit:emoji', ['pnpm', 'audit:emoji']),
+    command('audit:agent-map', ['node', 'scripts/quality/generate-agent-map.mjs', '--staged']),
+    command('audit:filesize:staged', ['node', 'scripts/quality/audit-file-size.mjs', '--staged']),
     command('audit:health:staged', ['node', 'scripts/audit-health.mjs', '--staged']),
     command('audit:impact-config', ['node', 'scripts/quality/audit-impact-config.mjs']),
     command('audit:e2e-interactions', ['node', 'scripts/quality/audit-e2e-interactions.mjs']),
@@ -132,6 +134,19 @@ export function selectCommitCommands(stagedFiles) {
 
   if (hasPath(files, /(?:^|\/)docs\//) || hasPath(files, /\.md$/)) {
     commands.push(command('audit:docs', ['pnpm', 'audit:docs']));
+  }
+
+  // Snapshot commits are binary and easy to get wrong (orphan dir after a spec
+  // rename, wrong project suffix, incomplete DPR/GPU coverage, stale WebKit
+  // namespace). The audit is a cheap header/coverage scan over ~160 PNGs.
+  if (
+    hasPath(files, /-snapshots\//) ||
+    hasPath(files, /^tests\/e2e\/visual\//) ||
+    hasPath(files, /^playwright\.config\.ts$/)
+  ) {
+    commands.push(
+      command('audit:visual-baselines', ['node', 'scripts/quality/audit-visual-baselines.mjs']),
+    );
   }
 
   /**

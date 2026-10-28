@@ -1,0 +1,87 @@
+# Varve search-ignore policy (repository context hygiene).
+#
+# .ignore is the enforced ignore file for ripgrep and fd. This repository is
+# large: the local Tauri build tree reaches ~9.9 GB, node_modules ~1.5 GB, and
+# generated review captures add hundreds of MB. Search tools that walk those
+# trees waste agent tokens and time on content that is not source.
+#
+# .dshignore and .opencodeignore contain the same rules for agent harnesses
+# that look for their own convention filename. Keep all three files identical.
+#
+# Rules are gitignore-style: one pattern per line, "#" starts a comment,
+# "dir/" matches a directory at any depth, "!" re-includes a later pattern.
+# These files affect SEARCH only. .gitignore still governs commits; lockfiles
+# and the bundled ONNX models below remain tracked for reproducibility.
+
+# --- Package installs ---
+node_modules/
+**/node_modules/
+
+# --- Rust build output (native engine / Tauri) ---
+# apps/desktop/src-tauri/target is ~9.9 GB after a release build.
+apps/desktop/src-tauri/target/
+**/target/
+
+# --- JS/TS build, cache and coverage output ---
+dist/
+build/
+.next/
+.astro/
+coverage/
+.vitest-cache/
+.turbo/
+*.tsbuildinfo
+
+# --- Test and review artifacts ---
+playwright-report/
+test-results/
+test-results-*/
+reports/
+artifacts/
+.flatpak-builder/
+
+# --- Desktop build output copied into source trees ---
+apps/desktop/dist-try/
+apps/desktop/public/wasm/
+apps/desktop/public/ort-wasm/
+apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/onnxruntime-libs
+
+# --- Local git worktrees (parallel-agent checkouts) ---
+# .worktrees/ holds independent checkouts used for parallel work; a single
+# stale checkout duplicates source and carries its own build output. .gitignore
+# also excludes it, but this rule keeps search behavior independent of VCS
+# configuration and of hidden-directory handling.
+.worktrees/
+
+# --- Local agent pipeline state (generated, untracked) ---
+# Coordination plans/research/evidence written by agent sessions, not source.
+.pipeline/
+
+# --- Lockfiles (tracked intentionally for reproducible installs; never search them) ---
+Cargo.lock
+pnpm-lock.yaml
+package-lock.json
+*.lock
+uv.lock
+
+# --- Binary / generated media ---
+*.wasm
+*.onnx
+*.zip
+
+# --- Generated review captures and evidence ---
+docs/screenshots/
+docs/**/artifacts/
+
+# --- Vendored third-party source (486 MB, 151 tracked files) ---
+# Not Varve source. Search only when patching a vendored crate: pass the exact
+# path or use --no-ignore for a deliberate vendor-wide search.
+vendor/
+
+# --- SVG assets ---
+# Generated artwork and reference fixtures, not searchable source. The shared
+# brand/icon sources under packages/ui/src/icons stay searchable because
+# components reference them by name.
+*.svg
+!packages/ui/src/icons/*.svg

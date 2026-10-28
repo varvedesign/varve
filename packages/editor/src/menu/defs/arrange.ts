@@ -1,0 +1,98 @@
+import type { MenuItemDef } from '../types';
+import { getAlignSubmenuItems } from './align';
+import { a, enabledWithMultiSelection, enabledWithNudge, enabledWithSelection } from './helpers';
+
+export function getArrangeMenu(runAction: (id: string) => void): MenuItemDef[] {
+  return [
+    {
+      id: 'bringFront',
+      labelKey: 'menu.arrange.bringFront',
+      accelerator: a(']', true),
+      kind: 'command',
+      group: 'order',
+      enabled: enabledWithSelection,
+      run: () => runAction('bringFront'),
+    },
+    {
+      id: 'bringForward',
+      labelKey: 'menu.arrange.bringForward',
+      accelerator: a(']', true, true),
+      kind: 'command',
+      group: 'order',
+      enabled: enabledWithSelection,
+      run: () => runAction('bringForward'),
+    },
+    {
+      id: 'sendBackward',
+      labelKey: 'menu.arrange.sendBackward',
+      accelerator: a('[', true, true),
+      kind: 'command',
+      group: 'order',
+      enabled: enabledWithSelection,
+      run: () => runAction('sendBackward'),
+    },
+    {
+      id: 'sendBack',
+      labelKey: 'menu.arrange.sendBack',
+      accelerator: a('[', true),
+      kind: 'command',
+      group: 'order',
+      enabled: enabledWithSelection,
+      run: () => runAction('sendBack'),
+    },
+    {
+      id: 'align',
+      labelKey: 'menu.arrange.align',
+      kind: 'submenu',
+      group: 'align-group',
+      items: getAlignSubmenuItems(runAction),
+      enabled: enabledWithMultiSelection,
+      run: () => {},
+    },
+    {
+      id: 'harmonizeSpacing',
+      labelKey: 'menu.arrange.harmonizeSpacing',
+      accelerator: a('h', true, true),
+      kind: 'command',
+      group: 'spacing',
+      enabled: enabledWithSelection,
+      run: () => runAction('harmonizeSpacing'),
+    },
+    {
+      id: 'nudgeLeft',
+      labelKey: 'menu.arrange.nudgeLeft',
+      accelerator: a('ArrowLeft'),
+      kind: 'command',
+      group: 'nudge',
+      enabled: enabledWithNudge,
+      run: () => runAction('nudgeLeft'),
+    },
+    {
+      id: 'nudgeRight',
+      labelKey: 'menu.arrange.nudgeRight',
+      accelerator: a('ArrowRight'),
+      kind: 'command',
+      group: 'nudge',
+      enabled: enabledWithNudge,
+      run: () => runAction('nudgeRight'),
+    },
+    {
+      id: 'nudgeUp',
+      labelKey: 'menu.arrange.nudgeUp',
+      accelerator: a('ArrowUp'),
+      kind: 'command',
+      group: 'nudge',
+      enabled: enabledWithNudge,
+      run: () => runAction('nudgeUp'),
+    },
+    {
+      id: 'nudgeDown',
+      labelKey: 'menu.arrange.nudgeDown',
+      accelerator: a('ArrowDown'),
+      kind: 'command',
+      group: 'nudge',
+      enabled: enabledWithNudge,
+      run: () => runAction('nudgeDown'),
+    },
+  ];
+}

@@ -59,12 +59,16 @@ mask editing, feather/density/invert, persistence, and adjustment targeting.
 
 **Runtime coverage**: Chromium 1x/2x/3x is the default gate. A GPU-backed
 Chromium visual project has a separate snapshot namespace and is available via
-`pnpm e2e:visual:gpu`; Firefox and WebKit replay projects have separate
-snapshot namespaces via `pnpm e2e:visual:cross-runtime`. Playwright snapshot
-names include the runtime and host platform, so Linux, macOS, and Windows
-baselines cannot overwrite one another. New platform baselines must be
-generated and reviewed on that platform before enabling that platform as a
-required gate.
+`pnpm e2e:visual:gpu`. The Firefox replay project runs via
+`pnpm e2e:visual:cross-runtime` and its baselines are complete and enforced by
+`pnpm audit:visual-baselines`. WebKit is **opt-in on a prepared host**
+(`pnpm e2e:visual:webkit`, requires `VARVE_VISUAL_WEBKIT=1` and
+`pnpm webkit:prepare`) and has no committed baselines yet; the project is gated
+so the default cross-runtime lane cannot fail on a missing WebKit baseline.
+Playwright snapshot names include the runtime and host platform, so Linux,
+macOS, and Windows baselines cannot overwrite one another. New platform
+baselines must be generated and reviewed on that platform before enabling that
+platform as a required gate.
 
 ## Font determinism
 
@@ -81,12 +85,25 @@ platform projects keep separate baselines rather than hiding font changes behind
 ```bash
 pnpm e2e:visual
 pnpm e2e:visual:gpu                 # separate GPU/driver snapshot namespace
-pnpm e2e:visual:cross-runtime        # Firefox + WebKit replay projects
+pnpm e2e:visual:cross-runtime        # Firefox replay project (complete baselines)
+pnpm e2e:visual:webkit               # opt-in WebKit project (prepared host; generate baselines first)
 node scripts/build-visual-diff-manifest.mjs   # only needed after a failure, to build the review report
 # then open tests/e2e/visual/review.html directly in a browser and point it at visual-diff-report/manifest.json
 ```
 
-To accept new baselines after an intentional rendering change:
+To update baselines after an **intended** rendering change, use the scoped,
+reviewed wrapper instead of a broad `--update-snapshots` run:
 ```bash
-pnpm exec playwright test tests/e2e/visual/replay.spec.ts --project=chromium-visual-1x --project=chromium-visual-2x --project=chromium-visual-3x --update-snapshots
+pnpm visual:update --spec tests/e2e/visual/replay.spec.ts --project chromium-visual-1x --reason "renderer change: <what and why>"
+pnpm visual:update --spec tests/e2e/canvas/upscale-dialog-visual.spec.ts --project chromium --reason "Enhance dialog spacing per design review"
 ```
+The wrapper runs one spec/project through the heavy-task lease with
+`--update-snapshots=changed`, records a local review artifact under
+`reports/visual-baseline-updates/`, and prints the exact baseline diff to
+review. Global screenshot defaults disable animations and hide the caret.
+
+Design-surface baselines are review artifacts, not exact-render contracts: a
+real design change *must* update them, and a text-raster-only delta inside a
+documented budget is environment drift, not a design change. The full decision
+tree, tolerance and concurrency rules are in
+[`docs/quality/visual-validation.md`](../../../docs/quality/visual-validation.md).

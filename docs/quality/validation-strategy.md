@@ -127,7 +127,11 @@ The frozen candidate check is the extended release evidence for one SHA.
 | `pnpm verify:plan --since <ref>` | Plan the committed changes in `<ref>...HEAD`; excludes staged, unstaged, and untracked files | CI/branch work |
 | `pnpm verify:quick` | Tier 0 + Tier 1 (touched + direct tests) | Trivial/localized edits |
 | `pnpm verify:triage` | Tiers 0–4; every selected Playwright invocation stops after five failures by default with zero retries; still runs when a final full gate is required | First discovery pass after a large integration or merge batch |
-| `pnpm verify:affected` | Tiers 0–4, risk-aware | **Default inner loop for agents** |
+| `pnpm verify:affected` | Tiers 0–4, risk-aware; self-queues machine-wide | **Default inner loop for agents** |
+| `pnpm check:agent` | Queued recursive tsc gate (exclusive lane, reusable receipt) | Fast compiler check before finishing |
+| `pnpm check:rust` | Queued `cargo check` gate (exclusive lane, memory floor) | Rust changes |
+| `pnpm test:agent <paths>` | Queued focused Vitest (shared lane); no `--` before paths | Focused test run |
+| `pnpm queue:status` / `pnpm queue:history` | Live admission holders/waiters and recent receipts | Diagnose waits or receipt reuse |
 | `pnpm verify:push` | Exact outgoing-ref push checkpoint; accepts `--pre-push`, `--since <ref>`, `--strict`, `--json`, and `--dry-run` | Normal pre-push hook |
 | `pnpm workflow:status` | Read-only branch/upstream state, hook diagnosis, and recent operation summary | Before synchronization |
 | `pnpm workflow:doctor` | Read-only repository workflow and hook diagnostics | Setup/troubleshooting |
@@ -214,7 +218,9 @@ Environment overrides:
 - `VARVE_TEST_WORKERS` — vitest `--maxWorkers` bound
 - `VARVE_E2E_WORKERS` — playwright `--workers` bound
 - `VARVE_E2E_MAX_FAILURES` — override Playwright's bounded failure count in `verify:triage`
-- `VARVE_HEAVY_TASK_PARALLELISM=0` — opt out of the heavy-task lease
+- `VARVE_HEAVY_TASK_PARALLELISM=0` — opt out of the heavy-task lease and the local validation queue
+- `VARVE_VALIDATION_QUEUE=0` — bypass the local validation queue for this invocation
+- `VARVE_VALIDATION_QUEUE_TIMEOUT_MS` / `VARVE_VALIDATION_QUEUE_SHARED_SLOTS` / `VARVE_VALIDATION_QUEUE_TTL_MS` — queue admission deadline, light-lane concurrency, and receipt-reuse TTL
 - `VARVE_FULL_GATE=1` / `VARVE_FULL_GATE_REASON` — permit/justify full gate
 - `VARVE_PUSH_OVERRIDE_REASON="<specific reason>"` — deliberate push override;
   history/security checks still run and the reason is recorded under the common
@@ -401,16 +407,33 @@ unchanged.
 
 ## Multi-agent coordination
 
-Heavy tasks (full vitest, Playwright, cargo workspace tests, desktop
-builds, WASM builds, visual suites) acquire an exclusive **heavy-task
-lease** keyed by the repository's common git directory, so separate
-worktrees coordinate on the same lock. The lease lives under
+Local agents share one workstation, so validation admission is explicit.
+Agent gate scripts self-queue through the **local validation queue**
+(`scripts/quality/validation-queue.mjs`): `check:agent`, `check:rust`,
+`test:agent`, and `verify:affected` take a machine-wide `exclusive` slot
+(memory floor included for compilers) or a `shared` slot, and leave a receipt
+under `$XDG_CACHE_HOME|~/.cache/varve/validation-queue/`. A passed receipt is
+reused only for the same clean tree, HEAD, command, class, and tool versions
+within six hours; dirty trees always run. Decide before changing this design —
+the rejected alternatives and failure modes are in
+[local-validation-queue.md](local-validation-queue.md). `CI` bypasses the
+queue; `VARVE_VALIDATION_QUEUE=0` and `VARVE_HEAVY_TASK_PARALLELISM=0` are
+deliberate local opt-outs.
+
+Heavy tasks outside those scripts (full Vitest, Playwright, cargo workspace
+tests, desktop/WASM builds, visual suites) acquire an exclusive **heavy-task
+lease** keyed by the repository's common git directory, so separate worktrees
+coordinate on the same lock. The lease lives under
 `$XDG_RUNTIME_DIR|/tmp/varve-leases/`, carries owner PID/timestamp, waits
 bounded time (default 10 min), reclaims a lease only after its owner PID
-exits, and never kills unrelated processes. Elapsed time alone does not make
-a live build's lease stale. Each lease has an owner ID so a
-reclaimed task cannot remove its successor's lock when it eventually exits.
-Opt out deliberately with `VARVE_HEAVY_TASK_PARALLELISM=0`.
+exits, and never kills unrelated processes. Elapsed time alone does not make a
+live build's lease stale. Each lease has an owner ID so a reclaimed task
+cannot remove its successor's lock when it eventually exits. Browser/Playwright
+runs stay on this lease because it owns the memory floor and browser-crash
+evidence; do not wrap a queue-exclusive run around a direct heavy-lease
+invocation (queue first, then lease would hold the machine queue while waiting
+on the repository lock). A queued `verify:affected` may still launch browser
+lanes internally, since it is already the only queued gate on the machine.
 Black-box tests for the lease give child processes a private
 `XDG_RUNTIME_DIR`; otherwise a child launched from a leased full gate would
 wait on the parent process's repository lock.

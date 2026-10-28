@@ -300,6 +300,7 @@ TLS, limits, troubleshooting). The decision record is
 | Doc | Purpose |
 |-----|---------|
 | `architecture/overview.md` | Current repository topology, runtime boundaries, data flow, and change-routing guide |
+| `architecture/ipc-type-contract.md` | Rust<->TS IPC seam inventory, enforced command-name parity, payload-shape gap, and phased tauri-specta plan |
 | `architecture/render-pipeline.md` | Canvas rendering pipeline |
 | `architecture/gpu-acceleration.md` | GPU layers, WebGPU scene path admission, device-loss recovery, capability matrix, and truthful status contract |
 | `architecture/adaptive-render-residency.md` | Adaptive visibility, residency, raster representation, fidelity, and budget policy |
@@ -559,6 +560,12 @@ The following dated files were moved from `docs/architecture/` to
 | `quality/tauri-command-audit.md` | Tauri command surface audit |
 | `quality/editorprovider-surface.md` | EditorProvider surface |
 | `quality/validation-strategy.md` | **Canonical validation policy** — impact-aware planning, tiers, escalation rules |
+| `quality/file-size-policy.md` | 400-line source-file budget, shrink-only baseline lifecycle, split guidance, and relation to hub/complexity ceilings |
+| `quality/local-validation-queue.md` | Local validation queue decision (shared admission vs. dedicated runner), exclusive/shared classes, clean-tree receipt reuse, bypasses, and failure modes |
+| `quality/concurrent-agents.md` | Concurrent-agent operating model: worktree isolation, single-writer generated surfaces, staged-only validation, merge protocol, storage/performance, rejected alternatives |
+| `quality/path-claims.md` | Advisory-only path-claim ledger: TTL task leases, repo-scoped overlap visibility, release/prune, and explicit non-goals |
+| `quality/visual-validation.md` | Visual baseline policy: engine replay contract vs design-surface snapshots, determinism/tolerance rules, scoped `visual:update`, baseline audit, concurrent/single-writer rules |
+| `quality/agent-context-remediation-2026-10-28.md` | Five-defect repository-context status matrix and ranked god-file split backlog |
 | `quality/pre-existing-test-failure-investigation-2026-09-21.md` | Baseline, triage, repairs, test-weakening disclosure, and validation report for the 2026-09-21 failure investigation |
 | `audits/validation-release-system-audit-2026-08-31.md` | Measured validation/CI/release baseline, root causes, and exact-SHA redesign evidence |
 | `quality/render-path-verification.md` | Render-path verification contract |
@@ -625,6 +632,7 @@ The following dated files were moved from `docs/architecture/` to
 | `plans/macos-intel-feasibility.md` | Decision record: macOS Intel support rejected (2026-08-18); grounds a row of `release/platform-support-matrix.md` |
 | `plans/comic-lettering-system.md` | Comic lettering architecture decision, feature admission matrix, slice ledger, and known defects |
 | `plans/document-workflows-plan-2026-10-15.md` | Connected document-workflow plan: audit baseline, slice ledger with status, and per-slice validation requirements |
+| `plans/agent-infrastructure-campaign-2026-10-28.md` | Sequenced campaign for advisory path claims, CI remote cache, god-file batches, Home IPC groups, tauri-specta, and Hutch queue adoption |
 | Other `plans/*.md` | Per-session implementation plans and deferred-work records |
 | `plans/archived/*.md` | Completed/superseded plans, archived per the convention in `plans/archived/session-04-packaging.md` |
 
@@ -707,6 +715,12 @@ records; check the current code before acting on their findings.
 |-----|---------|
 | `how-varve-is-built.md` | Public AI-assistance and on-device model disclosure |
 | `agents/README.md` | Why and how AI tooling is used in this project |
+| `agents/validation-and-workflow.md` | Validation economy, regression protocol, full command reference, CI, Playwright lease, recovery |
+| `agents/architecture-invariants.md` | Architecture constraints, hard rules, trust boundaries, lifecycle, ADRs |
+| `agents/systems-render-and-platform.md` | WebGPU/WASM, canvas, crate/package map, image trace, text, thumbnails, icons, release signing |
+| `agents/systems-editing-and-ui.md` | Motion, workspaces, disclosure, toolbar, popover, slider, masking, comic lettering, presentation, collaboration |
+| `agents/agent-context-economy.md` | The five repository-context defects and their fixes; 3-File / 1-Seam task hygiene; MCP/compact-map evaluation; companion remediation matrix in `quality/agent-context-remediation-2026-10-28.md` |
+| `agents/repo-map.generated.md` | Generated structure-only workspace map (packages, crates, frozen file-size baseline, agent entry points); drift-checked by `pnpm audit:agent-map` and pre-commit; regenerate with `pnpm agent:map` |
 | `agents/continuation.md` | Historical session-5 continuation context (see file header) |
 | `agents/session-history.md` | Detailed per-session development records |
 

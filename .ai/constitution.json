@@ -1,0 +1,304 @@
+{
+  "schema": "agent-constitution-v1",
+  "version": 1,
+  "repo": "varve",
+  "description": "Machine-validated registry of the repository's hard rules. This file is NOT auto-loaded by agent harnesses; AGENTS.md is the always-loaded system prompt. The constitution exists so every recurring rule is tied to real enforcement, cannot silently rot into documentation, and can be validated by scripts/quality/audit-constitution.mjs. Roles in .ai/roles/ are on-demand task personas; load AGENTS.md -> canonical doc -> one role -> at most one skill.",
+  "roles": [
+    {
+      "id": "render-pipeline",
+      "file": ".ai/roles/render-pipeline-engineer.md",
+      "applies_to": [
+        "packages/compositor",
+        "packages/editor/src/render",
+        "packages/editor/src/canvas",
+        "crates/varve-accel"
+      ],
+      "required_checks": ["check:agent", "test:agent", "audit:filesize"]
+    },
+    {
+      "id": "rust-ipc",
+      "file": ".ai/roles/rust-ipc-engineer.md",
+      "applies_to": ["apps/desktop/src-tauri", "crates/varve-bridge", "crates/varve-engine"],
+      "required_checks": ["check:rust", "audit:ipc", "check:agent"]
+    },
+    {
+      "id": "editor-ui",
+      "file": ".ai/roles/editor-ui-engineer.md",
+      "applies_to": ["packages/editor/src", "packages/ui/src", "packages/home/src"],
+      "required_checks": ["check:agent", "test:agent", "audit:tokens"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "CON-001",
+      "title": "No emoji anywhere",
+      "statement": "Source, docs, UI strings, commit messages and generated artifacts contain no emoji. Use Lucide/Phosphor icons instead.",
+      "severity": "blocking",
+      "source": "AGENTS.md#hard-architectural-rules",
+      "enforcement": {
+        "kind": "command",
+        "value": "audit:emoji"
+      }
+    },
+    {
+      "id": "CON-002",
+      "title": "400-line source budget, shrink-only baseline",
+      "statement": "Hand-maintained source files are capped at 400 lines. Frozen over-cap files may shrink but never grow; split before extending. Untracked WIP is reported, never frozen.",
+      "severity": "blocking",
+      "source": "docs/quality/file-size-policy.md",
+      "enforcement": {
+        "kind": "command",
+        "value": "audit:filesize"
+      }
+    },
+    {
+      "id": "CON-003",
+      "title": "IPC seam is typed and name-checked",
+      "statement": "Every TypeScript invoke names a real registered Tauri command, payloads cross the seam through varve-bridge/serde structs, and new commands do not use serde_json::Value. Adopt the phased tauri-specta plan.",
+      "severity": "blocking",
+      "source": "docs/architecture/ipc-type-contract.md",
+      "enforcement": {
+        "kind": "command",
+        "value": "audit:ipc"
+      }
+    },
+    {
+      "id": "CON-004",
+      "title": "Agent surface stays fixed",
+      "statement": "AGENTS.md stays within 150 lines / 9000 bytes, the three ignore files stay byte-identical and keep their required patterns, and every Read-next pointer resolves.",
+      "severity": "blocking",
+      "source": "docs/agents/agent-context-economy.md",
+      "enforcement": {
+        "kind": "command",
+        "value": "audit:agent-surface"
+      }
+    },
+    {
+      "id": "CON-005",
+      "title": "Compact repo map cannot drift",
+      "statement": "docs/agents/repo-map.generated.md is generated from the committed tree and must be regenerated with pnpm agent:map in the same change as a structural move; never hand-edit it.",
+      "severity": "blocking",
+      "source": "docs/agents/agent-context-economy.md#compact-repository-representation-mcp-evaluation",
+      "enforcement": {
+        "kind": "command",
+        "value": "audit:agent-map"
+      }
+    },
+    {
+      "id": "CON-006",
+      "title": "Documentation index, links and current naming",
+      "statement": "Current-state docs do not reference dead names or paths, every relative markdown link resolves, and the ADR index is complete.",
+      "severity": "blocking",
+      "source": "docs/quality/validation-strategy.md",
+      "enforcement": {
+        "kind": "command",
+        "value": "audit:docs"
+      }
+    },
+    {
+      "id": "CON-007",
+      "title": "TypeScript strict and lint-clean",
+      "statement": "No explicit any, strict TypeScript, and Biome lint/format rules hold across the workspace.",
+      "severity": "blocking",
+      "source": "AGENTS.md#hard-architectural-rules",
+      "enforcement": {
+        "kind": "command",
+        "value": "lint"
+      }
+    },
+    {
+      "id": "CON-008",
+      "title": "Client trust boundaries",
+      "statement": "Client builds consume only the documented client-safe env allowlist; no private credential class, signing or backend secret enters a client build.",
+      "severity": "blocking",
+      "source": "docs/security/trust-boundaries.md",
+      "enforcement": {
+        "kind": "command",
+        "value": "audit:clientenv"
+      }
+    },
+    {
+      "id": "CON-009",
+      "title": "No secrets in source or artifacts",
+      "statement": "Credentials, tokens, keys and account material never enter the repository or shipped artifacts; secret scanning fails closed.",
+      "severity": "blocking",
+      "source": "docs/security/trust-boundaries.md",
+      "enforcement": {
+        "kind": "command",
+        "value": "audit:secrets"
+      }
+    },
+    {
+      "id": "CON-010",
+      "title": "Import boundaries between apps and packages",
+      "statement": "Apps never import other apps or the future backend; packages never import apps; shared code lives in packages/.",
+      "severity": "blocking",
+      "source": "docs/security/trust-boundaries.md",
+      "enforcement": {
+        "kind": "command",
+        "value": "audit:boundaries"
+      }
+    },
+    {
+      "id": "CON-011",
+      "title": "Hub import budgets and complexity ceilings",
+      "statement": "Hub files (Shell, CanvasArea, Menubar, context, HomeShell) may not gain imports without removing equal weight; complexity ceilings block growth, and over-ceiling files carry a first-line COMPLEXITY comment.",
+      "severity": "blocking",
+      "source": "docs/agents/architecture-invariants.md",
+      "enforcement": {
+        "kind": "script",
+        "value": "scripts/audit-health.mjs"
+      }
+    },
+    {
+      "id": "CON-012",
+      "title": "No dependency cycles or layer violations",
+      "statement": "Workspace dependency cycles keep their known identities, the global cycle ceiling holds, and cross-layer imports are rejected.",
+      "severity": "blocking",
+      "source": "docs/agents/architecture-invariants.md",
+      "enforcement": {
+        "kind": "script",
+        "value": "scripts/audit-architecture.mjs"
+      }
+    },
+    {
+      "id": "CON-013",
+      "title": "No AI-tool attribution in commits",
+      "statement": "Commit messages and author metadata carry no AI-tool trailers, signatures or generated-by lines; the maintainer authors all commits.",
+      "severity": "blocking",
+      "source": "docs/agents/architecture-invariants.md",
+      "enforcement": {
+        "kind": "script",
+        "value": ".githooks/commit-msg"
+      }
+    },
+    {
+      "id": "CON-014",
+      "title": "Never show pixels no fresh frame will replace",
+      "statement": "Any partial/dirty-rect/camera-fast-path reuse is a loan against an authoritative frame. Worker refusals must be synchronously decidable; when no fresh frame is coming, fall back to the full replay. Prove pixel-reuse changes with the forceFullRedraw hash oracle.",
+      "severity": "blocking",
+      "source": "docs/architecture/render-pipeline.md",
+      "enforcement": {
+        "kind": "manual",
+        "checklist": [
+          "Read docs/architecture/render-pipeline.md -> 'Reuse of already-painted pixels'.",
+          "Every worker-refusal path is decidable synchronously before the branch paints.",
+          "Hash the surface after the interaction, call window.__varvePerf.forceFullRedraw() at the same camera, hash again; unequal hashes fail review."
+        ],
+        "review_doc": "docs/architecture/render-pipeline.md"
+      }
+    },
+    {
+      "id": "CON-015",
+      "title": "Operator-owned state stays out of the repository",
+      "statement": "Never commit or overwrite runtime state, credentials, docs evidence/screenshots, lockfiles, generated data tables, vendored sources, or another session's uncommitted work. Read them only through exact paths when a task requires it.",
+      "severity": "blocking",
+      "source": "docs/agents/agent-context-economy.md",
+      "enforcement": {
+        "kind": "manual",
+        "checklist": [
+          "git status/diff reviewed: no unrelated or other-session files staged.",
+          "No lockfile, vendor/, generated data table, docs artifacts/screenshots or runtime state staged.",
+          "Any intentional --force baseline re-adoption is justified in the same change."
+        ],
+        "review_doc": "docs/agents/agent-context-economy.md"
+      }
+    },
+    {
+      "id": "CON-016",
+      "title": "Validation runs through the shared queue",
+      "statement": "Local agents do not each run independent gates on the workstation. Use the queued scripts (check:agent, check:rust, test:agent, verify:affected, verify:agent); the queue serializes exclusive lanes and hands back clean-tree receipts.",
+      "severity": "advisory",
+      "source": "docs/quality/local-validation-queue.md",
+      "enforcement": {
+        "kind": "manual",
+        "checklist": [
+          "Gate commands were the queued package scripts, not raw tsc/cargo/vitest runs.",
+          "Receipt output (pass/duration/path) was recorded in the validation report.",
+          "Any bypass (CI, VARVE_VALIDATION_QUEUE=0) was deliberate and stated."
+        ],
+        "review_doc": "docs/quality/local-validation-queue.md"
+      }
+    },
+    {
+      "id": "CON-017",
+      "title": "Button and control vocabulary is closed",
+      "statement": "Actions use @varve/ui Button/IconButton/ToggleButton; hand-rolled varve-btn markup, undeclared modifiers, native <select>, and invented variants fail the system tests.",
+      "severity": "blocking",
+      "source": "docs/agents/architecture-invariants.md",
+      "enforcement": {
+        "kind": "test",
+        "paths": [
+          "tests/unit/button-system.test.ts",
+          "packages/ui/src/components/ButtonVariantParity.test.ts"
+        ]
+      }
+    },
+    {
+      "id": "CON-018",
+      "title": "Regressions fail against previous behavior",
+      "statement": "Every observed defect gets a regression test that fails before the fix, asserts real outcomes, and uses production contracts; cancellation, invalid-input, permission, timing, persistence and platform cases are covered where relevant.",
+      "severity": "advisory",
+      "source": "docs/quality/validation-strategy.md",
+      "enforcement": {
+        "kind": "manual",
+        "checklist": [
+          "Regression test written first and observed failing on the previous behavior.",
+          "Test asserts outcome/contract, not implementation details or weakened mocks.",
+          "Affected closure rerun and results recorded in the Agent Validation Report."
+        ],
+        "review_doc": "docs/quality/validation-strategy.md"
+      }
+    },
+    {
+      "id": "CON-019",
+      "title": "External agent tooling is pinned, sandboxed and verified",
+      "statement": "Code-graph/MCP servers and other external agent tooling are not default dependencies. Adoption requires a pinned version, sandboxed execution, and output verified against the generated repository map; it never replaces exact file/line reads for edits.",
+      "severity": "advisory",
+      "source": "docs/agents/agent-context-economy.md#compact-repository-representation-mcp-evaluation",
+      "enforcement": {
+        "kind": "manual",
+        "checklist": [
+          "Any adopted tool is version-pinned and recorded in the dependency/config review.",
+          "The tool runs with the repository (not the host) as its trust boundary and without credentials.",
+          "Its structural output agrees with docs/agents/repo-map.generated.md; differences are explained or the tool is rejected.",
+          "Exact file/line reads remain the source of truth for edits."
+        ],
+        "review_doc": "docs/agents/agent-context-economy.md"
+      }
+    },
+    {
+      "id": "CON-020",
+      "title": "Concurrent work uses worktrees, single-writer surfaces and staged validation",
+      "statement": "Parallel agents isolate with one worktree per task, never share a worktree writer, serialize generated surfaces (AGENTS/indexes, lockfiles, baselines, generated map/CSS, ignore trios), and judge commits on staged content. Merges are sequential and validated before and after.",
+      "severity": "advisory",
+      "source": "docs/quality/concurrent-agents.md",
+      "enforcement": {
+        "kind": "manual",
+        "checklist": [
+          "This task writes files in its own worktree; no second writer shares the checkout.",
+          "Any generated surface touched by two sides was regenerated after the merge, not hand-merged.",
+          "The commit used staged-only validators (agent map --staged, file-size --staged, health --staged) rather than attributing another session's dirty tree.",
+          "Merges ran pnpm verify:plan and pnpm verify:affected; stale worktrees were pruned only with worktree:prune after being clean and merged."
+        ],
+        "review_doc": "docs/quality/concurrent-agents.md"
+      }
+    },
+    {
+      "id": "CON-021",
+      "title": "Visual baselines are reviewed, scoped and single-writer",
+      "statement": "An intended design change updates visual baselines only through the scoped pnpm visual:update wrapper for one spec/project with a stated reason; regressions are fixed instead of accepted; text-raster drift inside a documented budget is not a design change; baselines are never hand-merged or updated by broad --update-snapshots runs.",
+      "severity": "advisory",
+      "source": "docs/quality/visual-validation.md",
+      "enforcement": {
+        "kind": "manual",
+        "checklist": [
+          "The failing spec/project was reproduced read-only under the heavy-task lease and classified as intended change vs regression vs environment drift.",
+          "If updated, only the intended spec/project baselines changed, a reason was recorded in reports/visual-baseline-updates/ and the commit message, and pnpm audit:visual-baselines passes.",
+          "No broad --update-snapshots run, no hand-merged PNG, and no tolerance raised without a measured explanation."
+        ],
+        "review_doc": "docs/quality/visual-validation.md"
+      }
+    }
+  ]
+}

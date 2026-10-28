@@ -7,6 +7,7 @@ mod font;
 mod font_storage;
 mod generative_qualification;
 mod generative_resources;
+mod home_store;
 mod inference_models;
 mod lifecycle;
 mod logs;
@@ -198,7 +199,7 @@ fn user_home_dir() -> Option<std::path::PathBuf> {
 ///   naively re-joining them (which would otherwise let
 ///   `existing_dir/../../etc/passwd` slip through as an "existing ancestor"
 ///   plus a traversal suffix).
-fn resolve_user_path(raw: &str) -> Result<std::path::PathBuf, String> {
+pub(crate) fn resolve_user_path(raw: &str) -> Result<std::path::PathBuf, String> {
     if raw.is_empty() {
         return Err("Path must not be empty".into());
     }
@@ -277,7 +278,7 @@ fn resolve_user_path(raw: &str) -> Result<std::path::PathBuf, String> {
 /// (cleaned up by the OS or next successful write).
 ///
 /// Pattern already proven for ONNX model download (line ~279-354).
-fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
+pub(crate) fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
     let Some(parent) = path.parent() else {
         return Err("Invalid path: no parent directory".to_string());
     };
@@ -333,7 +334,7 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
 /// The same canonicalization (symlink resolution via the nearest existing
 /// ancestor) and the same lexical traversal rejection still apply, so a
 /// webview bug can never escape a real directory via `..` tricks.
-fn resolve_user_path_approved(raw: &str) -> Result<std::path::PathBuf, String> {
+pub(crate) fn resolve_user_path_approved(raw: &str) -> Result<std::path::PathBuf, String> {
     if raw.is_empty() {
         return Err("Path must not be empty".into());
     }
@@ -1092,8 +1093,8 @@ async fn native_background_removal_model_status(
             varve_bgremove::model::downloaded_model_size(&model_id),
         ))
     })
-        .await
-        .map_err(|error| format!("Native AI status task failed: {error}"))??;
+    .await
+    .map_err(|error| format!("Native AI status task failed: {error}"))??;
     Ok(NativeBgModelStatus {
         runtime_ready,
         installed,
@@ -4447,671 +4448,6 @@ fn export_pdf_with_options(
     }
 }
 
-// ── Home IPC Commands ────────────────────────────────────────────────────
-
-#[derive(Debug, Serialize)]
-struct HomeFile {
-    id: String,
-    name: String,
-    kind: String,
-    project_id: Option<String>,
-    #[serde(rename = "createdAt")]
-    created_at: i64,
-    #[serde(rename = "updatedAt")]
-    updated_at: i64,
-    #[serde(rename = "openedAt")]
-    opened_at: i64,
-    size: i64,
-    pinned: bool,
-    #[serde(rename = "trashedAt")]
-    trashed_at: Option<i64>,
-    #[serde(rename = "filePath")]
-    file_path: Option<String>,
-    ordering: String,
-    #[serde(rename = "contentHash")]
-    content_hash: String,
-    #[serde(rename = "favoritedAt", skip_serializing_if = "Option::is_none")]
-    favorited_at: Option<i64>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct HomeFileInput {
-    id: String,
-    name: String,
-    kind: String,
-    #[serde(default)]
-    project_id: Option<String>,
-    created_at: i64,
-    updated_at: i64,
-    opened_at: i64,
-    size: i64,
-    pinned: bool,
-    #[serde(default)]
-    trashed_at: Option<i64>,
-    #[serde(default)]
-    file_path: Option<String>,
-    #[serde(default)]
-    ordering: String,
-    content_hash: String,
-    #[serde(default)]
-    favorited_at: Option<i64>,
-}
-
-#[derive(Debug, Serialize)]
-struct HomeProject {
-    id: String,
-    name: String,
-    color: Option<String>,
-    #[serde(rename = "createdAt")]
-    created_at: i64,
-    #[serde(rename = "updatedAt")]
-    updated_at: i64,
-    pinned: bool,
-    #[serde(rename = "trashedAt")]
-    trashed_at: Option<i64>,
-}
-
-fn file_to_home(f: varve_sync::FileRow) -> HomeFile {
-    HomeFile {
-        id: f.id,
-        name: f.name,
-        kind: f.kind,
-        project_id: f.project_id,
-        created_at: rfc3339_to_epoch_ms(&f.created_at),
-        updated_at: rfc3339_to_epoch_ms(&f.updated_at),
-        opened_at: rfc3339_to_epoch_ms(&f.opened_at),
-        size: f.size,
-        pinned: f.pinned,
-        trashed_at: f.trashed_at.as_ref().map(|s| rfc3339_to_epoch_ms(s)),
-        file_path: f.file_path,
-        ordering: f.ordering,
-        content_hash: f.content_hash,
-        favorited_at: f.favorited_at.filter(|&t| t > 0),
-    }
-}
-
-fn project_to_home(p: varve_sync::ProjectRow) -> HomeProject {
-    HomeProject {
-        id: p.id,
-        name: p.name,
-        color: p.color,
-        created_at: rfc3339_to_epoch_ms(&p.created_at),
-        updated_at: rfc3339_to_epoch_ms(&p.updated_at),
-        pinned: p.pinned,
-        trashed_at: p.trashed_at.as_ref().map(|s| rfc3339_to_epoch_ms(s)),
-    }
-}
-
-/// Recent-file record, mirroring the TS `RecentFileRecord` shape.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RecentFileRecord {
-    id: String,
-    name: String,
-    last_opened_at: i64,
-    opened_count: i64,
-    pinned: bool,
-    hidden: bool,
-    workspace_relevance: Vec<String>,
-    user_workspace_tag: Option<String>,
-    encrypted: bool,
-    missing: bool,
-    version: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    source_workspace_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    content_hash: Option<String>,
-}
-
-fn recent_to_home(r: varve_sync::RecentRow) -> RecentFileRecord {
-    let workspace_relevance = serde_json::from_str(&r.workspace_relevance).unwrap_or_default();
-    RecentFileRecord {
-        id: r.id,
-        name: r.name,
-        last_opened_at: r.last_opened_at,
-        opened_count: r.opened_count,
-        pinned: r.pinned,
-        hidden: r.hidden,
-        workspace_relevance,
-        user_workspace_tag: r.user_workspace_tag,
-        encrypted: r.encrypted,
-        missing: r.missing,
-        version: r.version,
-        source_workspace_id: r.source_workspace_id,
-        content_hash: r.content_hash,
-    }
-}
-
-/// Frontend-editable recent-file fields. Identity and counters are owned by
-/// the store and are never accepted from the frontend.
-#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-struct RecentFilePatch {
-    pinned: Option<bool>,
-    hidden: Option<bool>,
-    user_workspace_tag: Option<Option<String>>,
-    name: Option<String>,
-    missing: Option<bool>,
-}
-
-fn now_rfc3339() -> String {
-    chrono::Utc::now().to_rfc3339()
-}
-
-fn rfc3339_to_epoch_ms(s: &str) -> i64 {
-    chrono::DateTime::parse_from_rfc3339(s)
-        .map(|dt| dt.timestamp_millis())
-        .unwrap_or(0)
-}
-
-fn epoch_ms_to_rfc3339(ms: i64) -> String {
-    let secs = ms / 1000;
-    let nanos = ((ms % 1000) * 1_000_000) as u32;
-    match chrono::DateTime::from_timestamp(secs, nanos) {
-        Some(dt) => dt.to_rfc3339(),
-        None => now_rfc3339(),
-    }
-}
-
-// Files
-#[tauri::command]
-fn home_list_files(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-) -> Result<Vec<HomeFile>, String> {
-    store
-        .list_files()
-        .map(|v| v.into_iter().map(file_to_home).collect())
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_list_trashed(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-) -> Result<Vec<HomeFile>, String> {
-    store
-        .list_trashed_files()
-        .map(|v| v.into_iter().map(file_to_home).collect())
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_get_file(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-) -> Result<Option<HomeFile>, String> {
-    store
-        .get_file(&id)
-        .map(|opt| opt.map(file_to_home))
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_read_file(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-) -> Result<Option<String>, String> {
-    store.load_document(&id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_file_exists(path: String) -> bool {
-    is_probeable_absolute_path(&path).is_some() && std::path::Path::new(&path).exists()
-}
-
-/// Batch existence probe for Home's missing-file sweep. One IPC round-trip
-/// instead of one per file row. Per-path validation failures report `false`
-/// (never-found), which is the conservative reading for an invalid input.
-#[tauri::command]
-fn home_check_files_exist(paths: Vec<String>) -> Vec<bool> {
-    paths
-        .into_iter()
-        .map(|path| match is_probeable_absolute_path(&path) {
-            Some(validated) => validated.exists(),
-            None => false,
-        })
-        .collect()
-}
-
-/// An existence probe must never accept relative or NUL-containing input, so
-/// a compromised renderer cannot turn this command into a path oracle for
-/// arbitrary strings. Only absolute OS paths (the shape native dialogs and
-/// drag/drop produce) are probed.
-fn is_probeable_absolute_path(path: &str) -> Option<&std::path::Path> {
-    if path.is_empty() || path.contains('\0') {
-        return None;
-    }
-    let parsed = std::path::Path::new(path);
-    if !parsed.is_absolute() {
-        return None;
-    }
-    Some(parsed)
-}
-
-#[tauri::command]
-fn home_upsert_file(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    entry: HomeFileInput,
-    json: String,
-) -> Result<(), String> {
-    // Single transaction: the document JSON and its file row are committed
-    // together — a crash between the two statements must not leave a row
-    // pointing at missing content (save_document_with_file).
-    let row = varve_sync::FileRow {
-        id: entry.id,
-        name: entry.name,
-        kind: entry.kind,
-        project_id: entry.project_id,
-        created_at: epoch_ms_to_rfc3339(entry.created_at),
-        updated_at: epoch_ms_to_rfc3339(entry.updated_at),
-        opened_at: epoch_ms_to_rfc3339(entry.opened_at),
-        size: entry.size,
-        pinned: entry.pinned,
-        trashed_at: entry.trashed_at.map(epoch_ms_to_rfc3339),
-        file_path: entry.file_path,
-        ordering: entry.ordering,
-        content_hash: entry.content_hash,
-        favorited_at: entry.favorited_at.filter(|&t| t > 0),
-    };
-    store
-        .save_document_with_file(&json, &row)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_touch_file(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-    opened_at: Option<i64>,
-) -> Result<(), String> {
-    let ts = opened_at
-        .map(epoch_ms_to_rfc3339)
-        .unwrap_or_else(now_rfc3339);
-    store.touch_file(&id, &ts).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_rename_file(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-    name: String,
-) -> Result<(), String> {
-    store.rename_file(&id, &name).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_set_pinned(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-    pinned: bool,
-) -> Result<(), String> {
-    store
-        .set_file_pinned(&id, pinned)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_set_favorited(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-    favorited_at: Option<i64>,
-) -> Result<(), String> {
-    let at = favorited_at.filter(|&t| t > 0);
-    store.set_file_favorited(&id, at).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_move_project(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-    project_id: Option<String>,
-) -> Result<(), String> {
-    store
-        .move_file_to_project(&id, project_id.as_deref())
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_trash(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-) -> Result<(), String> {
-    store
-        .trash_file(&id, &now_rfc3339())
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_restore(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-) -> Result<(), String> {
-    store.restore_file(&id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_purge(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-) -> Result<(), String> {
-    store.purge_file(&id).map_err(|e| e.to_string())
-}
-
-// Projects
-#[tauri::command]
-fn home_list_projects(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-) -> Result<Vec<HomeProject>, String> {
-    store
-        .list_projects()
-        .map(|v| v.into_iter().map(project_to_home).collect())
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_create_project(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    name: String,
-) -> Result<HomeProject, String> {
-    let id = uuid();
-    let now_rfc = now_rfc3339();
-    let now_ms = chrono::Utc::now().timestamp_millis();
-    store
-        .create_project(&id, &name, None, &now_rfc)
-        .map_err(|e| e.to_string())?;
-    Ok(HomeProject {
-        id,
-        name: name.clone(),
-        color: None,
-        created_at: now_ms,
-        updated_at: now_ms,
-        pinned: false,
-        trashed_at: None,
-    })
-}
-
-#[tauri::command]
-fn home_rename_project(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-    name: String,
-) -> Result<(), String> {
-    store.rename_project(&id, &name).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_delete_project(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-) -> Result<(), String> {
-    store.delete_project(&id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_set_project_pinned(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-    pinned: bool,
-) -> Result<(), String> {
-    store
-        .set_project_pinned(&id, pinned)
-        .map_err(|e| e.to_string())
-}
-
-// View State
-#[tauri::command]
-fn home_get_view_state(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-) -> Result<Option<String>, String> {
-    store.get_view_state("home").map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_set_view_state(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    value: String,
-) -> Result<(), String> {
-    store
-        .set_view_state("home", &value)
-        .map_err(|e| e.to_string())
-}
-
-// Generic small app settings (e.g. onboarding-complete) — persisted in the
-// same native SQLite store as documents, rather than WebView localStorage,
-// which is not guaranteed to survive between separate app launches on every
-// platform/WebView engine.
-#[tauri::command]
-fn app_get_setting(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    key: String,
-) -> Result<Option<String>, String> {
-    store
-        .get_view_state(&format!("app-setting:{key}"))
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn app_set_setting(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    key: String,
-    value: String,
-) -> Result<(), String> {
-    store
-        .set_view_state(&format!("app-setting:{key}"), &value)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn app_compare_and_set_setting(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    key: String,
-    expected_value: Option<String>,
-    next_value: String,
-) -> Result<bool, String> {
-    store
-        .compare_and_set_view_state(
-            &format!("app-setting:{key}"),
-            expected_value.as_deref(),
-            &next_value,
-        )
-        .map_err(|e| e.to_string())
-}
-
-// ── Thumbnails ──────────────────────────────────────────────────────
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ThumbnailInput {
-    hash: String,
-    data_url: String,
-    width: i64,
-    height: i64,
-    created_at: i64,
-}
-
-#[tauri::command]
-fn home_get_thumbnail(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    hash: String,
-) -> Result<Option<String>, String> {
-    store.get_thumbnail(&hash).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_put_thumbnail(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    input: ThumbnailInput,
-) -> Result<(), String> {
-    store
-        .put_thumbnail(
-            &input.hash,
-            &input.data_url,
-            input.width,
-            input.height,
-            &epoch_ms_to_rfc3339(input.created_at),
-        )
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_evict_thumbnails(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    keep_count: i64,
-) -> Result<i64, String> {
-    store
-        .evict_thumbnails(keep_count)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_delete_thumbnail(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    hash: String,
-) -> Result<(), String> {
-    store.delete_thumbnail(&hash).map_err(|e| e.to_string())
-}
-
-// ── Search ───────────────────────────────────────────────────────────
-
-#[tauri::command]
-fn home_search_files(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    query: String,
-) -> Result<Vec<HomeFile>, String> {
-    store
-        .search_files(&query)
-        .map(|v| v.into_iter().map(file_to_home).collect())
-        .map_err(|e| e.to_string())
-}
-
-// ── Reorder ──────────────────────────────────────────────────────────
-
-#[tauri::command]
-fn home_reorder_file(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-    ordering: String,
-) -> Result<(), String> {
-    store
-        .reorder_file(&id, &ordering)
-        .map_err(|e| e.to_string())
-}
-
-// ── Recent files ─────────────────────────────────────────────────────────
-//
-// The recent list lives in the same SQLite store as the Home index, so it
-// survives restarts and stays consistent with file rows. Records keep
-// `missing` and `hidden` state instead of being deleted when a path is
-// temporarily unavailable (network/removable volumes), so a reconnect does
-// not lose history.
-
-#[tauri::command]
-fn home_list_recent_files(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    limit: Option<i64>,
-) -> Result<Vec<RecentFileRecord>, String> {
-    let limit = limit.unwrap_or(50).clamp(1, 200);
-    store
-        .list_recent_files(limit)
-        .map(|rows| rows.into_iter().map(recent_to_home).collect())
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_touch_recent_file(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-    name: String,
-    source_workspace_id: Option<String>,
-    content_hash: Option<String>,
-) -> Result<RecentFileRecord, String> {
-    store
-        .touch_recent_file(
-            &id,
-            &name,
-            source_workspace_id.as_deref(),
-            content_hash.as_deref(),
-        )
-        .map(recent_to_home)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_patch_recent_file(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-    patch: RecentFilePatch,
-) -> Result<(), String> {
-    store
-        .patch_recent_file(
-            &id,
-            patch.pinned,
-            patch.hidden,
-            patch.user_workspace_tag,
-            patch.name,
-            patch.missing,
-        )
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_remove_recent_file(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-    id: String,
-) -> Result<(), String> {
-    store.remove_recent_file(&id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_clear_recent_history(
-    store: tauri::State<'_, varve_sync::DocumentStore>,
-) -> Result<(), String> {
-    store.clear_recent_history().map_err(|e| e.to_string())
-}
-
-// ── File-system read/write (for open/save from disk) ─────────────────────
-
-#[tauri::command]
-fn home_read_text_file(path: String) -> Result<String, String> {
-    let resolved = resolve_user_path(&path)?;
-    std::fs::read_to_string(&resolved).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn home_write_text_file(path: String, contents: String) -> Result<(), String> {
-    let resolved = resolve_user_path(&path)?;
-    write_file_atomic(&resolved, contents.as_bytes())
-}
-
-// Dialog-approved variants: paths chosen through the native open/save
-// dialogs (see resolve_user_path_approved). Documents may legitimately live
-// outside $HOME (other drives, removable media, network mounts); the strict
-// home-scope variants above remain for anything whose path did not come
-// from a user dialog.
-
-#[tauri::command]
-fn home_read_text_file_approved(path: String) -> Result<String, filesystem::FsError> {
-    let resolved = resolve_user_path_approved(&path).map_err(|message| {
-        // The only resolver rejection that means "the file and its parent
-        // chain are gone" is the no-existing-ancestor case; every other
-        // rejection is an invalid or traversing path.
-        let kind = if message.contains("does not resolve to any existing ancestor") {
-            filesystem::FsErrorKind::NotFound
-        } else {
-            filesystem::FsErrorKind::InvalidPath
-        };
-        filesystem::FsError::new(kind, message)
-    })?;
-    std::fs::read_to_string(&resolved)
-        .map_err(|error| filesystem::FsError::from_io("read", &resolved, &error))
-}
-
-#[tauri::command]
-fn home_write_text_file_approved(path: String, contents: String) -> Result<(), String> {
-    let resolved = resolve_user_path_approved(&path)?;
-    write_file_atomic(&resolved, contents.as_bytes())
-}
-
 fn model_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     let dir = filesystem::AppDirectories::resolve(app)
         .map_err(|error| error.message)?
@@ -5163,7 +4499,7 @@ fn list_model_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
     Ok(ids)
 }
 
-fn uuid() -> String {
+pub(crate) fn uuid() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let t = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -5779,46 +5115,55 @@ pub fn run() {
             done,
             updates::update_packaging_context,
             // Home commands
-            home_list_files,
-            home_list_trashed,
-            home_get_file,
-            home_read_file,
-            home_file_exists,
-            home_check_files_exist,
-            home_upsert_file,
-            home_touch_file,
-            home_rename_file,
-            home_set_pinned,
-            home_set_favorited,
-            home_move_project,
-            home_trash,
-            home_restore,
-            home_purge,
-            home_list_projects,
-            home_create_project,
-            home_rename_project,
-            home_delete_project,
-            home_set_project_pinned,
-            home_get_view_state,
-            home_set_view_state,
-            app_get_setting,
-            app_set_setting,
-            app_compare_and_set_setting,
-            home_get_thumbnail,
-            home_put_thumbnail,
-            home_evict_thumbnails,
-            home_delete_thumbnail,
-            home_search_files,
-            home_reorder_file,
-            home_list_recent_files,
-            home_touch_recent_file,
-            home_patch_recent_file,
-            home_remove_recent_file,
-            home_clear_recent_history,
-            home_read_text_file,
-            home_write_text_file,
-            home_read_text_file_approved,
-            home_write_text_file_approved,
+            home_store::home_list_files,
+            home_store::home_list_trashed,
+            home_store::home_get_file,
+            home_store::home_read_file,
+            home_store::home_file_exists,
+            home_store::home_check_files_exist,
+            home_store::home_upsert_file,
+            home_store::home_touch_file,
+            home_store::home_rename_file,
+            home_store::home_set_pinned,
+            home_store::home_set_favorited,
+            home_store::home_move_project,
+            home_store::home_trash,
+            home_store::home_restore,
+            home_store::home_purge,
+            home_store::home_list_projects,
+            home_store::home_create_project,
+            home_store::home_rename_project,
+            home_store::home_delete_project,
+            home_store::home_set_project_pinned,
+            home_store::home_get_view_state,
+            home_store::home_set_view_state,
+            home_store::app_get_setting,
+            home_store::app_set_setting,
+            home_store::app_compare_and_set_setting,
+            home_store::home_get_thumbnail,
+            home_store::home_put_thumbnail,
+            home_store::home_evict_thumbnails,
+            home_store::home_delete_thumbnail,
+            home_store::home_search_files,
+            home_store::home_reorder_file,
+            home_store::home_list_recent_files,
+            home_store::home_touch_recent_file,
+            home_store::home_patch_recent_file,
+            home_store::home_remove_recent_file,
+            home_store::home_clear_recent_history,
+            home_store::home_read_text_file,
+            home_store::home_write_text_file,
+            home_store::home_read_text_file_approved,
+            home_store::home_write_text_file_approved,
+            // Home tags (varve-sync schema v3)
+            home_store::home_list_tags,
+            home_store::home_create_tag,
+            home_store::home_rename_tag,
+            home_store::home_delete_tag,
+            home_store::home_list_file_tags,
+            home_store::home_add_file_tag,
+            home_store::home_remove_file_tag,
+            home_store::home_list_files_by_tag,
             write_binary_file,
             write_binary_file_to_folder,
             read_dropped_file,
